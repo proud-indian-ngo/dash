@@ -1,4 +1,5 @@
 import {
+  CORPUS_FUND_ID,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -14,6 +15,7 @@ import { user } from "../schema/auth";
 import {
   accountHead,
   fiscalYear,
+  fund,
   orgAccount,
   programme,
 } from "../schema/finance-dimensions";
@@ -91,6 +93,7 @@ const HEADS = [
   ["fdInterest", "income"],
   ["inKindConsumed", "expense"],
   ["gatewayCharges", "expense"],
+  ["corpusDonations", "fund"],
 ] as const;
 
 async function foundation(tx: LedgerTx) {
@@ -139,6 +142,17 @@ async function foundation(tx: LedgerTx) {
         updatedAt: NOW,
       }))
     )
+    .onConflictDoNothing();
+  await tx
+    .insert(fund)
+    .values({
+      code: "CORPUS",
+      createdAt: NOW,
+      id: CORPUS_FUND_ID,
+      name: "Corpus Fund",
+      restriction: "restricted",
+      updatedAt: NOW,
+    })
     .onConflictDoNothing();
   await tx.insert(party).values({
     createdAt: NOW,
@@ -1026,6 +1040,102 @@ it.skipIf(!localDatabase)(
         .set({ updatedAt: new Date(NOW.getTime() + 60_000) })
         .where(eq(contribution.id, id));
       expect(await listed()).toBe(true);
+    });
+  }
+);
+
+/** Net of a source's standing entries by head and fund. */
+async function netByHeadAndFund(tx: LedgerTx, sourceId: string) {
+  const rows = await tx
+    .select({
+      amountPaise: ledgerEntry.amountPaise,
+      effect: ledgerEntry.effect,
+      fundId: ledgerEntry.fundId,
+      head: ledgerEntry.accountHeadId,
+    })
+    .from(ledgerEntry)
+    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+    .where(eq(posting.sourceId, sourceId));
+  const net = new Map<string, number>();
+  for (const e of rows) {
+    const key = `${e.head}:${e.fundId}`;
+    net.set(
+      key,
+      (net.get(key) ?? 0) +
+        (e.effect === "increase" ? e.amountPaise : -e.amountPaise)
+    );
+  }
+  return new Map([...net].filter(([, paise]) => paise !== 0));
+}
+
+it.skipIf(!localDatabase)(
+  "reposts a corpus gift posted as income under the Corpus Fund rule, recognition only, once; a closed year keeps its books",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      // Gifts posted before the rule: income of the Corpus Fund, fee too.
+      const razorpayCorpus = {
+        channel: "razorpay" as const,
+        fundId: CORPUS_FUND_ID,
+        gatewayFeePaise: 2000,
+        gatewayTaxPaise: 360,
+        orgAccountId: ids.razorpay,
+        programmeId: null,
+      };
+      const id = await addGift(tx, ids, razorpayCorpus);
+      const closed = await addGift(tx, ids, {
+        ...razorpayCorpus,
+        receivedOn: "2026-06-10",
+      });
+      await run(tx, gift(id));
+      await run(tx, gift(closed));
+      // Now corpus-typed (the record's own timestamp unchanged, as when
+      // only the rule changed).
+      await tx
+        .update(contribution)
+        .set({ donationType: "corpus" })
+        .where(inArray(contribution.id, [id, closed]));
+      const incremental = await listIncomeSources(tx, { incremental: true });
+      expect(incremental.some((s) => s.sourceId === id)).toBe(false);
+      const everything = await listIncomeSources(tx);
+      expect(everything.some((s) => s.sourceId === id)).toBe(true);
+
+      expect(await run(tx, gift(id))).toMatchObject({
+        posted: 1,
+        reversed: 1,
+        status: "posted",
+      });
+      // The recognition moved; the money did not.
+      expect(
+        (await postingsOf(tx, id)).map((p) => [p.action, p.sourceRevision])
+      ).toEqual([
+        ["recognise", 1],
+        ["cash", 1],
+        ["reverse:recognise", 1],
+        ["recognise", 2],
+      ]);
+      expect(await netByHeadAndFund(tx, id)).toEqual(
+        new Map([
+          [`${H.corpusDonations}:${CORPUS_FUND_ID}`, 100_000],
+          [`${H.gatewayCharges}:${GENERAL_FUND_ID}`, 2360],
+        ])
+      );
+      expect(await run(tx, gift(id))).toMatchObject({ posted: 0, reversed: 0 });
+
+      // A closed year is left alone: the gift waits and its books stand.
+      await tx
+        .update(fiscalYear)
+        .set({ closedAt: NOW })
+        .where(eq(fiscalYear.id, ids.yearId));
+      const before = await netByHeadAndFund(tx, closed);
+      expect(await run(tx, gift(closed))).toMatchObject({
+        reason: "year_closed",
+        status: "waiting",
+      });
+      expect(await netByHeadAndFund(tx, closed)).toEqual(before);
+      expect(before.get(`${H.donationsReceived}:${CORPUS_FUND_ID}`)).toBe(
+        100_000
+      );
     });
   }
 );

@@ -188,6 +188,7 @@ async function contributionFacts(
   return {
     amountPaise: row.amountPaise,
     channel: row.channel,
+    donationType: row.donationType,
     fundId: row.fundId,
     gatewayFeePaise: row.gatewayFeePaise,
     gatewayTaxPaise: row.gatewayTaxPaise,
@@ -211,6 +212,7 @@ async function refundFacts(
     .select({
       amountPaise: contributionRefund.amountPaise,
       channel: contribution.channel,
+      donationType: contribution.donationType,
       fundId: contribution.fundId,
       id: contributionRefund.id,
       orgAccountId: contribution.orgAccountId,
@@ -234,6 +236,7 @@ async function refundFacts(
     amountPaise: row.amountPaise,
     gift: {
       channel: row.channel,
+      donationType: row.donationType,
       fundId: row.fundId,
       orgAccountId: row.orgAccountId,
       partyId: row.partyId,
@@ -324,6 +327,7 @@ async function settlementFacts(
     .select({
       contributionId: gatewaySettlementItem.contributionId,
       contributionRefundId: gatewaySettlementItem.contributionRefundId,
+      donationType: contribution.donationType,
       feePaise: gatewaySettlementItem.feePaise,
       fundId: contribution.fundId,
       giftFeePaise: contribution.gatewayFeePaise,
@@ -352,8 +356,9 @@ async function settlementFacts(
       feePaise: item.feePaise,
       giftChargesPaise: (item.giftFeePaise ?? 0) + (item.giftTaxPaise ?? 0),
       gift:
-        item.contributionId && item.fundId && item.partyId
+        item.contributionId && item.donationType && item.fundId && item.partyId
           ? {
+              donationType: item.donationType,
               fundId: item.fundId,
               partyId: item.partyId,
               programmeId: item.programmeId,

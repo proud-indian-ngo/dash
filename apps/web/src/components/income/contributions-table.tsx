@@ -11,6 +11,7 @@ import type {
   ContributionSource,
   DonationType,
 } from "@pi-dash/shared/constants";
+import { donationTypeFundIssue } from "@pi-dash/shared/contribution-programme";
 import {
   CONTRIBUTION_CHANNEL_LABELS,
   CONTRIBUTION_SOURCE_LABELS,
@@ -267,10 +268,27 @@ export function ContributionsTable({
     },
     {
       accessorFn: (row) => row.donationType,
-      cell: ({ row }) =>
-        DONATION_TYPE_LABELS[
-          (row.original.donationType ?? "voluntary") as DonationType
-        ],
+      cell: ({ row }) => {
+        const donationType = (row.original.donationType ??
+          "voluntary") as DonationType;
+        // Recorded before the corpus type decided the fund.
+        const fundIssue = donationTypeFundIssue({
+          donationType,
+          fundId: row.original.fundId,
+        });
+        return fundIssue ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate">
+              {DONATION_TYPE_LABELS[donationType]}
+            </span>
+            <Tag data-testid="contribution-fund-mismatch" title={fundIssue}>
+              Check fund
+            </Tag>
+          </span>
+        ) : (
+          DONATION_TYPE_LABELS[donationType]
+        );
+      },
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}

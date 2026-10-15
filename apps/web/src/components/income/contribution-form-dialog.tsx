@@ -7,6 +7,7 @@ import {
   type ContributionChannel,
   contributionChannelValues,
   type ContributionReportingMode,
+  CORPUS_FUND_ID,
   type DeductionEligible,
   type DonationType,
   donationTypeValues,
@@ -23,7 +24,10 @@ import {
   isReportingModeFixed,
   RAZORPAY_CLEARING_ACCOUNT_CONFIG_KEY,
 } from "@pi-dash/shared/contribution-channel";
-import { DONATION_TYPE_PROGRAMME } from "@pi-dash/shared/contribution-programme";
+import {
+  DONATION_TYPE_PROGRAMME,
+  fundForDonationType,
+} from "@pi-dash/shared/contribution-programme";
 import {
   ELIGIBILITY_REASON_PRESETS,
   TAX_CERTIFICATE_LABELS,
@@ -213,7 +217,9 @@ function valuesFor(row: ContributionRow): FormValues {
     ...reasonParts(
       row.deductionEligible === "no" ? row.eligibilityReason : null
     ),
-    fundId: row.fundId,
+    // The type decides a corpus gift's fund: one recorded against another
+    // before the rule moves to the Corpus Fund when saved.
+    fundId: fundForDonationType(row.donationType as DonationType) ?? row.fundId,
     inKindDescription: row.inKindDescription ?? "",
     inKindValuationBasis: row.inKindValuationBasis ?? "",
     notes: row.notes ?? "",
@@ -451,6 +457,22 @@ function ContributionForm({
             );
           }
         }
+        // The corpus type decides the fund: the Corpus Fund, and only for it.
+        if (fieldApi.name === "donationType") {
+          const fundId = fundForDonationType(
+            formApi.getFieldValue("donationType")
+          );
+          if (fundId) {
+            formApi.setFieldValue("fundId", fundId);
+          } else if (formApi.getFieldValue("fundId") === CORPUS_FUND_ID) {
+            formApi.setFieldValue(
+              "fundId",
+              contribution && contribution.fundId !== CORPUS_FUND_ID
+                ? contribution.fundId
+                : defaultFundId
+            );
+          }
+        }
         // A corpus gift has no programme or project.
         if (
           fieldApi.name === "donationType" &&
@@ -638,6 +660,7 @@ function ContributionForm({
             orgAccountId: state.values.orgAccountId,
             deductionEligible: state.values.deductionEligible,
             donationType: state.values.donationType,
+            fundId: state.values.fundId,
             programmeId: state.values.programmeId,
             reasonChoice: state.values.eligibilityReasonChoice,
             projectId: state.values.projectId,
@@ -648,12 +671,26 @@ function ContributionForm({
             channel,
             deductionEligible,
             donationType,
+            fundId,
             orgAccountId,
             programmeId,
             projectId,
             reasonChoice,
             reportingMode,
           }) => {
+            const corpus = fundForDonationType(donationType) !== null;
+            // Only a corpus gift goes to the Corpus Fund; a gift that holds
+            // it without the type keeps it listed so the error shows.
+            const fundOptions = corpus
+              ? picker.fundOptions.filter((o) => o.value === CORPUS_FUND_ID)
+              : picker.fundOptions.filter(
+                  (o) => o.value !== CORPUS_FUND_ID || o.value === fundId
+                );
+            const movedToCorpus =
+              corpus &&
+              contribution !== null &&
+              contribution.fundId !== CORPUS_FUND_ID &&
+              contribution.donationType === "corpus";
             const programmeNeed = DONATION_TYPE_PROGRAMME[donationType];
             // A corpus gift has no programme; one it still holds stays
             // visible so it can be cleared.
@@ -750,12 +787,20 @@ function ContributionForm({
                     name="eligibilityReasonOther"
                   />
                 ) : null}
-                {picker.fundOptions.length > 1 ? (
+                {corpus || fundOptions.length > 1 ? (
                   <SelectField
+                    description={
+                      corpus
+                        ? movedToCorpus
+                          ? `Recorded against ${contribution?.fund?.name ?? "another fund"}; saving moves it to the Corpus Fund. A corpus gift is credited to the Corpus Fund, not income.`
+                          : "A corpus gift goes to the Corpus Fund, not income."
+                        : undefined
+                    }
+                    disabled={corpus}
                     isRequired
                     label="Fund"
                     name="fundId"
-                    options={picker.fundOptions}
+                    options={fundOptions}
                   />
                 ) : null}
                 {showProgramme ? (

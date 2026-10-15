@@ -72,6 +72,16 @@ export const LEDGER_REFERENCE_HEADS = [
     type: "income" as const,
   },
   {
+    code: "CORPUS_DONATIONS",
+    description:
+      "Gifts the donor directed to form part of the corpus: capital receipts credited straight to the Corpus Fund, outside income and expenditure; refunds reduce it.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.corpusDonations,
+    name: "Corpus donations",
+    sortOrder: 310,
+    tallyLedgerName: "Corpus Fund",
+    type: "fund" as const,
+  },
+  {
     code: "IN_KIND_DONATIONS",
     description: "Gifts in kind at their fair value.",
     id: LEDGER_ACCOUNT_HEAD_IDS.inKindDonations,

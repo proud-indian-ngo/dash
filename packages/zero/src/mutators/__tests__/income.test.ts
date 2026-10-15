@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { GIVE_INDIA_PARTY_ID, PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import {
+  CORPUS_FUND_ID,
+  GIVE_INDIA_PARTY_ID,
+  PROGRAMME_IDS,
+} from "@pi-dash/shared/constants";
 
 import {
   matchesScope,
@@ -24,7 +28,10 @@ function createDb(
     appConfig: [{ key: "razorpay_clearing_account_id", value: "acc-rzp" }],
     contribution: [],
     contributionRefund: [],
-    fund: [{ active: true, id: "fund-1" }],
+    fund: [
+      { active: true, id: "fund-1" },
+      { active: true, id: CORPUS_FUND_ID },
+    ],
     gatewaySettlement: [],
     gatewaySettlementItem: [],
     orgAccount: [
@@ -442,11 +449,19 @@ describe("contribution mutators", () => {
       ],
       [{ donationType: "csr" }, "A CSR gift needs the programme it's for"],
       [
-        { donationType: "corpus", programmeId: "prog-edu" },
+        {
+          donationType: "corpus",
+          fundId: CORPUS_FUND_ID,
+          programmeId: "prog-edu",
+        },
         "A corpus gift has no programme",
       ],
       [
-        { donationType: "corpus", projectId: "proj-k3" },
+        {
+          donationType: "corpus",
+          fundId: CORPUS_FUND_ID,
+          projectId: "proj-k3",
+        },
         "A corpus gift has no programme",
       ],
     ] as const) {
@@ -472,13 +487,85 @@ describe("contribution mutators", () => {
       contributionMutators.create,
       db,
       donorsCtx,
-      contribution({ donationType: "corpus", id: "c-3" })
+      contribution({
+        donationType: "corpus",
+        fundId: CORPUS_FUND_ID,
+        id: "c-3",
+      })
     );
     expect(db.tables.contribution?.map((c) => c.programmeId)).toEqual([
       "prog-edu",
       "prog-arts",
       null,
     ]);
+  });
+
+  it("books a corpus gift to the Corpus Fund, and only a corpus gift", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ donationType: "corpus" })
+      )
+    ).rejects.toThrow("A corpus gift goes to the Corpus Fund");
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        donorsCtx,
+        contribution({ fundId: CORPUS_FUND_ID })
+      )
+    ).rejects.toThrow("Only a corpus gift goes to the Corpus Fund");
+    expect(db.writes).toEqual([]);
+    await run(
+      contributionMutators.create,
+      db,
+      donorsCtx,
+      contribution({ donationType: "corpus", fundId: CORPUS_FUND_ID })
+    );
+    expect(db.tables.contribution?.[0]?.fundId).toBe(CORPUS_FUND_ID);
+    // Its fund can't be changed while it is a corpus gift.
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ donationType: "corpus", fundId: "fund-1" })
+      )
+    ).rejects.toThrow("A corpus gift goes to the Corpus Fund");
+  });
+
+  it("holds a corpus gift recorded against another fund to the rule when edited", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          donationType: "corpus",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+    });
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ donationType: "corpus", notes: "Edited" })
+      )
+    ).rejects.toThrow("A corpus gift goes to the Corpus Fund");
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ donationType: "corpus", fundId: CORPUS_FUND_ID })
+    );
+    expect(db.tables.contribution?.[0]?.fundId).toBe(CORPUS_FUND_ID);
   });
 
   it("holds an edited legacy grant to the rule until it names a programme", async () => {
