@@ -26,6 +26,7 @@ import {
 } from "@react-pdf/renderer";
 import type { ReactNode } from "react";
 
+import { kalakritiIdCardAssets } from "./kalakriti-id-card-assets";
 import { ProudIndianLockup } from "./proud-indian-lockup";
 import { receiptAssets } from "./receipt-assets";
 
@@ -58,7 +59,7 @@ export interface DonationReceiptProps {
 }
 
 // The product language's fonts: Geist to read, Bricolage 600 for the title,
-// Paper Mono for the amount, numbers and dates.
+// Paper Mono for the amount, numbers and dates (Bricolage has no ₹).
 Font.register({
   family: "ReceiptSans",
   fonts: [
@@ -78,6 +79,21 @@ Font.register({
     { fontWeight: 500, src: receiptAssets.monoMedium },
   ],
 });
+// Per-glyph fallback: Geist and Paper Mono lack the dotted IAST letters
+// (ṭ ḍ ṇ ṣ ṛ ḥ ṃ ṅ) common in Indian names and places, which Plus Jakarta Sans
+// (already bundled for the Kalakriti cards) has. Without it react-pdf would
+// substitute a non-embedded Helvetica and print garbage.
+Font.register({
+  family: "ReceiptFallback",
+  fonts: [
+    { fontWeight: 400, src: kalakritiIdCardAssets.regularFont },
+    { fontWeight: 600, src: kalakritiIdCardAssets.boldFont },
+  ],
+});
+
+const SANS = ["ReceiptSans", "ReceiptFallback"];
+const DISPLAY = ["ReceiptDisplay", "ReceiptSans", "ReceiptFallback"];
+const MONO = ["ReceiptMono", "ReceiptFallback"];
 
 // Product tokens (light theme), as in `packages/email/src/templates/theme.ts`.
 const INK = "#0F1B24";
@@ -90,7 +106,7 @@ const DANGER_WASH = "#FBEAE9";
 const HAIRLINE = `0.75pt solid ${LINE}`;
 
 const styles = StyleSheet.create({
-  amount: { fontFamily: "ReceiptMono", fontSize: 24, fontWeight: 500 },
+  amount: { fontFamily: MONO, fontSize: 24, fontWeight: 500 },
   amountCard: {
     backgroundColor: FIELD,
     border: HAIRLINE,
@@ -128,15 +144,15 @@ const styles = StyleSheet.create({
   issuerName: { fontWeight: 600, textAlign: "right" },
   label: { color: MUTED, fontSize: 8.5, fontWeight: 600, marginBottom: 4 },
   meta: { flexDirection: "row", gap: 24 },
-  metaValue: { fontFamily: "ReceiptMono", fontSize: 10 },
-  mono: { fontFamily: "ReceiptMono" },
+  metaValue: { fontFamily: MONO, fontSize: 10 },
+  mono: { fontFamily: MONO },
   name: { fontSize: 13, fontWeight: 600 },
   note: { fontSize: 9, lineHeight: 1.5 },
   closing: { flexDirection: "row", gap: 28, marginTop: 24 },
   notes: { flex: 1 },
   page: {
     color: INK,
-    fontFamily: "ReceiptSans",
+    fontFamily: SANS,
     fontSize: 9.5,
     paddingBottom: 72,
     paddingHorizontal: 48,
@@ -159,7 +175,7 @@ const styles = StyleSheet.create({
   // style (18 when inherited), so every style with one sets both.
   text: { fontSize: 9.5, lineHeight: 1.45 },
   title: {
-    fontFamily: "ReceiptDisplay",
+    fontFamily: DISPLAY,
     fontSize: 22,
     fontWeight: 600,
     letterSpacing: -0.2,
@@ -171,6 +187,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
     paddingTop: 16,
+  },
+  voidMarker: {
+    border: `1.25pt solid ${DANGER}`,
+    borderRadius: 4,
+    color: DANGER,
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    position: "absolute",
+    right: 48,
+    top: 16,
   },
   voidBanner: {
     backgroundColor: DANGER_WASH,
@@ -186,11 +215,17 @@ const styles = StyleSheet.create({
   },
 });
 
-/** Names, numbers and legal lines wrap between words, never hyphenated. */
-function wholeWords(word: string): string[] {
-  // A run with no spaces (a long reference) may still break anywhere rather
-  // than run off the page.
-  return word.length > 28 ? Array.from(word) : [word];
+/** Longest run without spaces kept whole: it fits every column but the signature's. */
+const LONGEST_WHOLE_WORD = 40;
+
+/**
+ * Names, numbers and legal lines wrap between words, never hyphenated. A
+ * longer run with no spaces (a pasted reference) may break between any two
+ * characters rather than run off the page; react-pdf draws a hyphen at every
+ * such break and has no way to break without one.
+ */
+export function wholeWords(word: string): string[] {
+  return word.length > LONGEST_WHOLE_WORD ? Array.from(word) : [word];
 }
 
 function Line({
@@ -359,6 +394,13 @@ export function DonationReceipt(props: DonationReceiptProps) {
             </View>
           </View>
         </View>
+
+        {props.voided ? (
+          // On every page, so a page that spills over can't pass as valid.
+          <Text fixed style={styles.voidMarker}>
+            VOID
+          </Text>
+        ) : null}
 
         <Text fixed style={styles.footer}>
           Receipt {props.number} · {org.name} · PAN {org.pan}. Please keep this
