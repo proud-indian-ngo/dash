@@ -41,7 +41,11 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
-import { planVoucherFields, type VoucherPlan } from "./voucher-fields";
+import {
+  expenseDay,
+  planVoucherFields,
+  type VoucherPlan,
+} from "./voucher-fields";
 
 const reimbursementAttachmentKeyPrefixes = (id: string) => [
   `attachments/reimbursements/${id}/`,
@@ -55,10 +59,12 @@ const reimbursementApprovalKeyPrefixes = (id: string) => [
 
 /** A reimbursement line item: the shared fields plus the voucher payee. */
 const reimbursementLineItemSchema = lineItemSchema.extend({
+  // Stored in NFC, so the same name always compares and prints the same.
   payeeName: z
     .string()
     .trim()
     .max(PAYEE_NAME_MAX)
+    .transform((v) => v.normalize("NFC"))
     .refine((v) => v === "" || isLatinName(v), PAYEE_NAME_SCRIPT_MESSAGE)
     .nullable()
     .optional(),
@@ -681,7 +687,9 @@ export const reimbursementMutators = {
         type: attachment.type,
       })),
       attachmentsBefore,
-      expenseDateChanged: entity.expenseDate !== args.expenseDate,
+      // Re-picking the same day isn't a change, whatever the time part.
+      expenseDateChanged:
+        expenseDay(entity.expenseDate) !== expenseDay(args.expenseDate),
       items: args.lineItems,
       itemsBefore,
       limitPaise: await readCashVoucherLimit(tx),

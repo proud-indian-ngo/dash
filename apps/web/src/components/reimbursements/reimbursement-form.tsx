@@ -155,7 +155,8 @@ function ReimbursementFormInner({
         value,
         id,
         existingId,
-        bankAccountList
+        bankAccountList,
+        voucherLimitPaise
       );
 
       const mutatorNameMap = {

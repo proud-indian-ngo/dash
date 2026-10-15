@@ -96,13 +96,16 @@ export const PAYEE_NAME_REQUIRED_MESSAGE = "Name who was paid";
 
 /**
  * Latin letters, including the accented and dotted IAST letters (ṭ ḍ ṇ ṣ ṛ
- * ḥ ṃ ṅ ā ī ū) the voucher fonts carry, with spaces and . ' -. Devanagari and
- * other Indian scripts don't render in the PDF yet.
+ * ḥ ṃ ṅ ā ī ū) the voucher fonts carry, with digits, spaces and
+ * . ' - & / , ( ) for names like "M/s Sharma & Sons" or "Ramesh (driver)".
+ * Only other scripts are refused: Devanagari and other Indian scripts don't
+ * render in the PDF yet. Checked in NFC, so a decomposed "ṛ" passes.
  */
-const LATIN_NAME = /^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ .'-]+$/;
+const LATIN_NAME =
+  /^[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F\u1E00-\u1EFF .'\-&/,()]+$/;
 
 export const PAYEE_NAME_SCRIPT_MESSAGE = "Write the name in English letters";
 
 export function isLatinName(value: string): boolean {
-  return LATIN_NAME.test(value);
+  return LATIN_NAME.test(value.normalize("NFC"));
 }

@@ -131,9 +131,12 @@ export const computeRunningTotalPaise = (lineItems: LineItem[]): number =>
   sumPaise(lineItems.map((item) => tryRupeesToPaise(item.amount) ?? 0));
 
 /**
- * Validated form line items to mutator line items: rupee text becomes paise,
- * order becomes sortOrder, and the payee is sent only with a voucher opt-in
- * (null otherwise).
+ * Validated form line items to mutator line items: rupee text becomes paise
+ * and order becomes sortOrder. The voucher tick and payee go out only for
+ * items that will get a voucher (ticked and within `voucherLimitPaise`);
+ * hidden fields keep their values in the form, so retyping an amount brings
+ * them back filled, but never reach the server. Without a limit (vendor
+ * payments) no item is eligible.
  */
 export const toLineItemsPayload = <
   T extends {
@@ -143,17 +146,29 @@ export const toLineItemsPayload = <
     payeePhone?: string;
   },
 >(
-  lineItems: readonly T[]
-): (Omit<T, "amount" | "payeeName" | "payeePhone"> & {
+  lineItems: readonly T[],
+  voucherLimitPaise?: number
+): (Omit<T, "amount" | "generateVoucher" | "payeeName" | "payeePhone"> & {
   amountPaise: number;
+  generateVoucher: boolean;
   payeeName: string | null;
   payeePhone: string | null;
   sortOrder: number;
 })[] =>
-  lineItems.map(({ amount, payeeName, payeePhone, ...item }, index) => ({
-    ...item,
-    amountPaise: rupeesToPaise(amount),
-    payeeName: (item.generateVoucher && payeeName?.trim()) || null,
-    payeePhone: (item.generateVoucher && payeePhone) || null,
-    sortOrder: index,
-  }));
+  lineItems.map(
+    ({ amount, generateVoucher, payeeName, payeePhone, ...item }, index) => {
+      const amountPaise = rupeesToPaise(amount);
+      const voucher =
+        Boolean(generateVoucher) &&
+        voucherLimitPaise !== undefined &&
+        qualifiesForCashVoucher(amountPaise, voucherLimitPaise);
+      return {
+        ...item,
+        amountPaise,
+        generateVoucher: voucher,
+        payeeName: (voucher && payeeName?.trim().normalize("NFC")) || null,
+        payeePhone: (voucher && payeePhone) || null,
+        sortOrder: index,
+      };
+    }
+  );

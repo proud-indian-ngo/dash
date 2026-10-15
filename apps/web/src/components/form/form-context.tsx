@@ -48,8 +48,6 @@ export interface FormWithField {
   Field: (...args: any[]) => any;
   // biome-ignore lint/suspicious/noExplicitAny: same rationale — concrete form types have narrower signatures
   getFieldValue: (...args: any[]) => any;
-  // biome-ignore lint/suspicious/noExplicitAny: same rationale — concrete form types have narrower signatures
-  setFieldValue: (...args: any[]) => any;
 }
 
 export interface FormWithState {

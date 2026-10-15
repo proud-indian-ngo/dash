@@ -80,20 +80,25 @@ describe("isIndianMobile", () => {
 });
 
 describe("isLatinName", () => {
-  it("accepts English and IAST letters with . ' -", () => {
+  it("accepts English and IAST letters, digits and . ' - & / , ( )", () => {
     for (const name of [
       "Ramesh Kumar",
       "Kṛṣṇa Veṅkaṭeśa",
       "D'Souza",
       "A. R. Rahman",
       "Mary-Ann",
+      "M/s Sharma & Sons",
+      "Ramesh (driver)",
+      "Shop 12, MG Road",
+      // Decomposed: K r + U+0323 ṣ…, as some keyboards type it.
+      "Kr\u0323s\u0323n\u0323a",
     ]) {
       expect(isLatinName(name)).toBe(true);
     }
   });
 
-  it("refuses other scripts, digits and symbols", () => {
-    for (const name of ["रमेश", "ரமேஷ்", "Ramesh 2", "Ramesh@", "×"]) {
+  it("refuses other scripts and stray symbols", () => {
+    for (const name of ["रमेश", "ரமேஷ்", "Ramesh@", "×", "Ramesh #2"]) {
       expect(isLatinName(name)).toBe(false);
     }
   });

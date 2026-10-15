@@ -19,9 +19,14 @@ export function buildMutation(
   value: RequestFormValues,
   entityId: string,
   existingId: string | undefined,
-  bankAccountList: BankAccount[]
+  bankAccountList: BankAccount[],
+  voucherLimitPaise: number
 ) {
-  const lineItems = toLineItemsPayload(value.lineItems);
+  // Only reimbursements carry cash vouchers.
+  const lineItems = toLineItemsPayload(
+    value.lineItems,
+    value.type === "reimbursement" ? voucherLimitPaise : undefined
+  );
   const { attachments } = value;
   const id = existingId ?? entityId;
 

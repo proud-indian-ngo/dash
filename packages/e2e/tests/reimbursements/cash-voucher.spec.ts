@@ -1,6 +1,7 @@
 import type { Locator } from "@playwright/test";
 
 import { expect, test } from "../../fixtures/test";
+import { chargeRequestTo } from "../../helpers/request-event";
 import { openSettingsPage } from "../../helpers/settings";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
@@ -153,6 +154,41 @@ test.describe("Cash voucher", () => {
     await reimbursements.form.submit();
 
     await expect(page.getByText("Name who was paid")).toBeVisible();
+  });
+
+  test("keeps the payee while the amount is retyped", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+
+    const title = `E2E Voucher Retype ${Date.now()}`;
+    await reimbursements.navigateToNew();
+    await reimbursements.form.selectBankAccount();
+    await reimbursements.form.fillTitle(title);
+    await reimbursements.form.selectCity("Bangalore");
+    await chargeRequestTo(page, "Organisation (admin)");
+    await reimbursements.selectExpenseDate();
+    await reimbursements.form.fillLineItem({
+      amount: "800",
+      description: "Daily-wage labour",
+    });
+    await reimbursements.form.toggleCashVoucher(0);
+    await reimbursements.form.fillPayeeName(0, "Retyped Payee");
+
+    const amount = reimbursements.form.getAmountInputs().last();
+    await amount.fill("");
+    await expect(reimbursements.form.getPayeeNameInput(0)).toBeHidden();
+    await amount.fill("900");
+    await expect(reimbursements.form.getPayeeNameInput(0)).toHaveValue(
+      "Retyped Payee"
+    );
+
+    await reimbursements.form.submit();
+    await reimbursements.waitForDetail(title);
+    await expect(page.getByText("Paid to Retyped Payee")).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("an admin's edit of an approved request keeps its voucher", async ({

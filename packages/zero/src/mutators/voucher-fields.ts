@@ -2,6 +2,7 @@ import {
   PAYEE_NAME_REQUIRED_MESSAGE,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
+import { todayInKolkata } from "@pi-dash/shared/income";
 
 /** A line item as the client submits it. */
 export interface SubmittedVoucherItem {
@@ -96,13 +97,14 @@ function sameAttachment(
  * expense date, and the payee when the item is still a ticked, eligible
  * voucher item) and its file is still attached under the same id and key;
  * then the stored opt-in and payee are kept as they are, whatever the
- * current limit. Otherwise the voucher is stale: links are dropped (the
+ * current limit, except that an explicit untick is stored. Otherwise the voucher is stale: links are dropped (the
  * files stay among the attachments) and the item is treated as new, so an
  * approved request queues a fresh voucher, as approval would.
  */
 export function planVoucherFields(input: {
   attachmentsAfter: readonly AttachmentIdentity[];
   attachmentsBefore: readonly AttachmentIdentity[];
+  /** Whether the request's expense date moved to another calendar day. */
   expenseDateChanged: boolean;
   items: readonly SubmittedVoucherItem[];
   itemsBefore: readonly StoredVoucherItem[];
@@ -138,9 +140,15 @@ export function planVoucherFields(input: {
         sameAttachment(voucherId, attachmentsBefore, attachmentsAfter)
       ) {
         const signedId = old.signedVoucherAttachmentId;
+        // The box shows on an eligible item, so an untick there is the
+        // user's choice: store it, keeping the voucher as evidence. An item
+        // over the limit can't show the box; its stored opt-in stands.
+        const unticked =
+          !item.generateVoucher &&
+          qualifiesForCashVoucher(item.amountPaise, input.limitPaise);
         plans.set(item.id, {
           fields: {
-            generateVoucher: Boolean(old.generateVoucher),
+            generateVoucher: unticked ? false : Boolean(old.generateVoucher),
             payeeName: old.payeeName ?? null,
             payeePhone: old.payeePhone ?? null,
           },
@@ -161,4 +169,11 @@ export function planVoucherFields(input: {
     plans.set(item.id, { fields, links: null, queue: fields.generateVoucher });
   }
   return plans;
+}
+
+/** The calendar day of an expense date in India, where expenses are dated. */
+export function expenseDay(epochMs: number | null | undefined): string {
+  return typeof epochMs === "number" && Number.isFinite(epochMs)
+    ? todayInKolkata(new Date(epochMs))
+    : "";
 }

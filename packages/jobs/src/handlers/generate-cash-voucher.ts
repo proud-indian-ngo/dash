@@ -20,16 +20,7 @@ import { uuidv7 } from "uuidv7";
 import type { GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 import { getR2Client } from "./r2";
-
-/** What the voucher printed from the line item and its request. */
-interface RenderedFrom {
-  amountPaise: number;
-  categoryId: string;
-  description: string | null;
-  expenseDate: string;
-  payeeName: string | null;
-  payeePhone: string | null;
-}
+import { type RenderedFrom, stillAsRendered } from "./voucher-render-check";
 
 /**
  * Atomically insert the new attachment, point the line item FK at it, and
@@ -66,16 +57,7 @@ async function commitVoucherAttachment(opts: {
       .select({ expenseDate: reimbursement.expenseDate })
       .from(reimbursement)
       .where(eq(reimbursement.id, opts.attachment.reimbursementId));
-    const { rendered } = opts;
-    if (
-      !(current && request) ||
-      current.amountPaise !== rendered.amountPaise ||
-      current.categoryId !== rendered.categoryId ||
-      current.description !== rendered.description ||
-      current.payeeName !== rendered.payeeName ||
-      current.payeePhone !== rendered.payeePhone ||
-      request.expenseDate !== rendered.expenseDate
-    ) {
+    if (!(current && stillAsRendered(current, request, opts.rendered))) {
       return { linked: false };
     }
 

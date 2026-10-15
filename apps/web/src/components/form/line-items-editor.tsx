@@ -26,7 +26,7 @@ import {
 } from "@pi-dash/shared/cash-voucher";
 import { formatPaise, tryRupeesToPaise } from "@pi-dash/shared/money";
 import type { ExpenseCategory } from "@pi-dash/zero/schema";
-import { type ChangeEvent, useEffect } from "react";
+import type { ChangeEvent } from "react";
 
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import {
@@ -239,31 +239,6 @@ function VoucherCheckbox({
   );
 }
 
-/**
- * Rendered while an item can't get a voucher (over the limit, or not a
- * reimbursement): clears a tick and payee left behind, so hidden fields
- * never block the form or reach the server.
- */
-function ClearVoucherFields({
-  form,
-  index,
-  name,
-}: {
-  form: FormInstance;
-  index: number;
-  name: string;
-}) {
-  useEffect(() => {
-    const prefix = `${name}[${index}]`;
-    if (form.getFieldValue(`${prefix}.generateVoucher`)) {
-      form.setFieldValue(`${prefix}.generateVoucher`, false);
-      form.setFieldValue(`${prefix}.payeeName`, "");
-      form.setFieldValue(`${prefix}.payeePhone`, "");
-    }
-  }, [form, index, name]);
-  return null;
-}
-
 function AddLineItemButton({
   pushValue,
 }: {
@@ -425,9 +400,7 @@ function LineItemRow({
                 );
               }}
             </form.Field>
-          ) : (
-            <ClearVoucherFields form={form} index={index} name={name} />
-          )
+          ) : null
         }
       </form.Subscribe>
     </div>

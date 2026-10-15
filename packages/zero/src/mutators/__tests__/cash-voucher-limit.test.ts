@@ -501,6 +501,29 @@ describe("reimbursement.update and existing vouchers", () => {
     expect(links).toEqual([]);
   });
 
+  it("keeps the voucher when the same day is picked again", async () => {
+    // The form sends local midnight in India; the stored date reads back
+    // as midnight UTC. Same calendar day, so the voucher stands.
+    const { links } = await edit(
+      createDb("client", seed()),
+      args({}, { expenseDate: EXPENSE_DATE - 5.5 * 60 * 60 * 1000 })
+    );
+    expect(links).toEqual(relinked);
+  });
+
+  it("stores an explicit untick and keeps the voucher", async () => {
+    const { inserted, links } = await edit(
+      createDb("client", seed()),
+      args({ generateVoucher: false, payeeName: null, payeePhone: null })
+    );
+    expect(inserted).toMatchObject({
+      generateVoucher: false,
+      payeeName: "Test Payee",
+      payeePhone: "+919876543210",
+    });
+    expect(links).toEqual(relinked);
+  });
+
   it("drops the link when the voucher file was removed", async () => {
     const { links } = await edit(
       createDb("client", seed()),
