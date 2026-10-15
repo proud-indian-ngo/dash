@@ -19,7 +19,6 @@ All paths are relative to project root.
 | `bun run zero:analyze` | Analyze named Zero queries; `ZERO_ANALYZE_PROFILE=events` (default) or `kalakriti` with required `ZERO_ANALYZE_EDITION_ID`; authenticate via environment |
 | `bun run whatsapp:start` | Start WhatsApp gateway container |
 | `bun run whatsapp:stop` | Stop WhatsApp gateway container |
-| `bun run dev:webhook-proxy` | Start WhatsApp webhook proxy (required for local webhook testing — Vite dev server can't handle chunked POST from Go) |
 | `cd packages/e2e && bash run-e2e.sh` | Run E2E tests (full stack) |
 | `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files |
 | `cd packages/e2e && E2E_SERVER=dev bash run-e2e.sh tests/foo.spec.ts` | Run E2E against Vite dev instead of the default production build |

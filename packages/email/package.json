@@ -20,11 +20,11 @@
   "dependencies": {
     "@pi-dash/env": "workspace:*",
     "@pi-dash/shared": "workspace:*",
-    "@react-email/ui": "^6.11.1",
+    "@react-email/ui": "^6.11.2",
     "evlog": "catalog:",
     "react": "catalog:",
-    "react-email": "^6.11.1",
-    "resend": "^6.32.1",
+    "react-email": "^6.11.2",
+    "resend": "^6.33.0",
     "standardwebhooks": "1.1.1"
   },
   "devDependencies": {

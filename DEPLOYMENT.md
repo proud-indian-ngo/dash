@@ -284,6 +284,22 @@ bun run whatsapp:start
 
 Starts `go-whatsapp-web-multidevice` container on port 3100. Pair via QR code at `http://localhost:3100`.
 
+Local and production Compose configurations use the official `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0` image. `pull_policy: always` checks the registry for that pinned version on `docker compose up`; version upgrades require changing the tag.
+
+#### Dashboard
+
+Since GoWA v9, the dashboard is released separately as [gowa-ui](https://github.com/aldinokemal/gowa-ui), but GoWA downloads and serves it itself. Both Compose files explicitly set `APP_UI_ENABLED=true` and `APP_UI_AUTO_UPDATE=true`; no separate UI container is required. Open `http://localhost:3100` locally or the existing GoWA Tailscale URL in production and use `WHATSAPP_AUTH_USER` / `WHATSAPP_AUTH_PASS`.
+
+The first startup needs outbound access to GitHub's API and release downloads. GoWA verifies the release digest and caches the HTML under `/app/storages/ui/`, inside the existing persistent WhatsApp volume. It checks for UI updates every three hours, independently of the pinned GoWA server version. A failed download with no cache displays a fallback page instead of the dashboard.
+
+For a fixed or offline UI build, follow [upstream's dashboard instructions](https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/v9.6.0/readme.md#web-dashboard-gowa-ui): place the chosen release's `gowa-ui.html` at `/app/storages/ui/index.html` and set `APP_UI_AUTO_UPDATE=false`. `APP_UI_ASSET_SHA256` can additionally enforce an exact asset digest; setting it while tracking latest can reject future releases.
+
+#### Local webhooks and upgrades
+
+GoWA v9.6.0 sends webhook requests with `Content-Length`, so the old buffering proxy is no longer needed. Local Compose sends callbacks directly to `http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook`. For local webhook testing, run the web dev server with `bun run --cwd apps/web dev --host 0.0.0.0` so Docker can reach it. If using a different `DEV_WEB_PORT`, supply the same value to the web process and Compose. The Vite configuration already allows the `host.docker.internal` hostname.
+
+Deploy the app's upstream poll parser and gateway image together. Both Compose configurations subscribe to `WHATSAPP_WEBHOOK_EVENTS=message`; change any device-specific webhook event override from `message.poll_vote` to `message` too. The app reads votes from `payload.poll` and ignores other messages and failed vote decryption. Keep the existing WhatsApp storage volume and `WHATSAPP_WEBHOOK_SECRET` when replacing the fork container.
+
 ## Production Checklist
 
 - [ ] PostgreSQL running with `wal_level=logical`

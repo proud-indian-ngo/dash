@@ -14,7 +14,7 @@ Chapters intentionally sharded so loading stays cheap.
 | Authorization | `authorization.md` | permissions, `assertHasPermission`, `can`, `hasPermission`, roles, `team_lead`, `volunteer`, `resolvePermissions` |
 | Recurring Events | `recurring-events.md` | RRULE, `teamEvent`, `seriesId`, `originalDate`, materialize, exdate, expandSeries, edit/cancel scope |
 | Vendor Payments | `vendor-payments.md` | vendor payment, VP, status state machine, invoice approval, `recalculateParentStatus`, `quotation`, `invoice` purposes |
-| Notifications | `notifications.md` | `enqueue`, in-app inbox, email, WhatsApp RSVP poll, notification topic preferences, `notify-*` handlers, webhook proxy |
+| Notifications | `notifications.md` | `enqueue`, in-app inbox, email, WhatsApp RSVP poll, notification topic preferences, `notify-*` handlers, GoWA gateway |
 | Social API | `social-api.md` | `/api/social/v1`, social-artifacts pipeline, bearer tokens, `social:token`, `event_partner`, `social_post`, signed photo links, social digest, post-event social fields |
 | File Uploads | `file-uploads.md` | R2, presigned URL, attachments, Immich sync, event photos, `immichAssetId` |
 | Cash Vouchers | `cash-vouchers.md` | cash voucher, cash-voucher limit, payee phone, PDF generation, `generate-cash-voucher`, `@react-pdf/renderer`, `VOUCHER_ORG_*` |
