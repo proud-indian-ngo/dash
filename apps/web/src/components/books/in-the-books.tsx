@@ -1,7 +1,7 @@
 import { epochDayToIso } from "@pi-dash/shared/income";
 import {
   BOOKS_VIEW_PERMISSIONS,
-  type IncomeSourceType,
+  type PostedSourceType,
   ledgerReasonLabel,
 } from "@pi-dash/shared/ledger";
 import { queries } from "@pi-dash/zero/queries";
@@ -22,7 +22,7 @@ export function InTheBooks({
   sourceType,
 }: {
   sourceId: string;
-  sourceType: IncomeSourceType;
+  sourceType: PostedSourceType;
 }) {
   const { hasPermission } = useApp();
   const canSee =

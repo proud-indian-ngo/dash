@@ -31,8 +31,10 @@ import {
   chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
+  POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -140,6 +142,20 @@ export const changeClaimantSchema = z.object({
 });
 
 const fk = (id: string) => ({ reimbursementId: id });
+
+/** Its posting in the books (finance layer 3-3a). */
+const ledgerSource = (id: string) => ({
+  sourceId: id,
+  sourceType: "reimbursement" as const,
+});
+
+/** After a change, the books follow: post, repost or reverse it. */
+const queuePosting = (
+  ctx: Parameters<typeof queueLedgerPosting>[0],
+  tx: Parameters<typeof queueLedgerPosting>[1],
+  id: string,
+  mutator: string
+) => queueLedgerPosting(ctx, tx, [ledgerSource(id)], mutator);
 
 /** Inserts each line item with its planned voucher fields and empty links. */
 function withPlannedVoucherFields<T extends { id: string }>(
@@ -252,6 +268,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "approved", now, args.note),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.approve");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -673,6 +690,7 @@ export const reimbursementMutators = {
       });
 
       await tx.mutate.reimbursement.delete({ id: args.id });
+      queuePosting(ctx, tx, args.id, "reimbursement.delete");
     }
   ),
 
@@ -753,6 +771,7 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "rejected", now, args.reason),
         reimbursementId: args.id,
       });
+      queuePosting(ctx, tx, args.id, "reimbursement.reject");
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -819,18 +838,23 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         reimbursementId: args.id,
       });
+      // Un-approving a posted request reverses it in the books.
+      queuePosting(ctx, tx, args.id, "reimbursement.resetToPending");
     }
   ),
 
   /**
-   * Finance changes what the request is charged to, at approval or later.
-   * Expenses are not posted to the books yet; once they are, a posted
-   * request will refuse this.
+   * Finance changes what the request is charged to, at approval or later,
+   * until it is posted to the books: a posted request refuses this
+   * (founder decision, finance layer 3-3a).
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
     assertCanChangeCharge(ctx, entity);
+    if (await isPostedInBooks(tx, ledgerSource(args.id))) {
+      throw new Error(POSTED_CHARGE_MESSAGE);
+    }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
@@ -843,6 +867,7 @@ export const reimbursementMutators = {
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       reimbursementId: args.id,
     });
+    queuePosting(ctx, tx, args.id, "reimbursement.setChargedTo");
   }),
 
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
@@ -942,5 +967,7 @@ export const reimbursementMutators = {
         "reimbursement.update:queueVouchers"
       );
     }
+    // An edit after posting reverses and reposts it in the books.
+    queuePosting(ctx, tx, args.id, "reimbursement.update");
   }),
 };

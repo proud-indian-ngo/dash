@@ -2,6 +2,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import { EXPENSE_CHARGED_TO_LABELS } from "@pi-dash/shared/expense-charge";
+import { BOOKS_VIEW_PERMISSIONS } from "@pi-dash/shared/ledger";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -11,6 +12,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import z from "zod";
 
+import { InTheBooks } from "@/components/books/in-the-books";
 import {
   ChargedToFields,
   type CurrentChargeProgramme,
@@ -161,6 +163,16 @@ export function ChargedToCard({
     request.status !== "rejected" &&
     request.userId !== session?.user?.id;
   const { hasPermission } = useApp();
+  const sourceType =
+    kind === "reimbursement" ? "reimbursement" : "vendor_payment";
+  // A request in the books keeps its charge (finance layer 3-3a); book
+  // readers see that here, and the server refuses it for everyone.
+  const canSeeBooks = BOOKS_VIEW_PERMISSIONS.some((p) => hasPermission(p));
+  const [bookState] = useQuery(
+    queries.ledger.sourceState({ sourceId: request.id, sourceType }),
+    { enabled: canSeeBooks }
+  );
+  const isPosted = bookState?.status === "posted";
   const [open, setOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   // Project rows carry sponsor terms, so only finance.view syncs them.
@@ -198,7 +210,8 @@ export function ChargedToCard({
         <DetailsRow label="Programme">{programmeName || "—"}</DetailsRow>
       )}
       {project ? <DetailsRow label="Project">{project.name}</DetailsRow> : null}
-      {canChange ? (
+      <InTheBooks sourceId={request.id} sourceType={sourceType} />
+      {canChange && !isPosted ? (
         <div>
           <Button
             onClick={handleChange}

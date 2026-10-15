@@ -48,8 +48,9 @@ export type FiscalYearEventAction =
   (typeof fiscalYearEventActionValues)[number];
 
 /**
- * Source documents that post. Layer 3-3 adds the expense side
- * (reimbursement, vendor payment, adjustment).
+ * Source documents that post. Layer 3-3a adds the expense side
+ * (reimbursements, vendor payments and their payments); the adjustment
+ * document comes with layer 3-3c.
  */
 export const LEDGER_SOURCE_TYPES = {
   contribution: "contribution",
@@ -57,8 +58,14 @@ export const LEDGER_SOURCE_TYPES = {
   gatewaySettlement: "gateway_settlement",
   openingBalance: "opening_balance",
   otherIncome: "other_income",
+  /** An approved (already paid) reimbursement: expense per line and the payment. */
+  reimbursement: "reimbursement",
   /** A bank statement line marked as a transfer between the trust's own accounts. */
   statementTransfer: "statement_transfer",
+  /** A vendor payment request: expense per line once its invoice is accepted. */
+  vendorPayment: "vendor_payment",
+  /** One approved payment of a vendor payment request: money out of the bank. */
+  vendorPaymentTransaction: "vendor_payment_transaction",
 } as const;
 export type LedgerSourceType =
   (typeof LEDGER_SOURCE_TYPES)[keyof typeof LEDGER_SOURCE_TYPES];
@@ -76,13 +83,39 @@ export type IncomeSourceType = (typeof INCOME_SOURCE_TYPES)[number];
 export const isIncomeSourceType = (value: string): value is IncomeSourceType =>
   (INCOME_SOURCE_TYPES as readonly string[]).includes(value);
 
+/** The sources expense posting handles (layer 3-3a), posted by the server only. */
+export const EXPENSE_SOURCE_TYPES = [
+  LEDGER_SOURCE_TYPES.reimbursement,
+  LEDGER_SOURCE_TYPES.vendorPayment,
+  LEDGER_SOURCE_TYPES.vendorPaymentTransaction,
+] as const;
+export type ExpenseSourceType = (typeof EXPENSE_SOURCE_TYPES)[number];
+
+export const isExpenseSourceType = (
+  value: string
+): value is ExpenseSourceType =>
+  (EXPENSE_SOURCE_TYPES as readonly string[]).includes(value);
+
+/**
+ * Every source the automatic posting runs look at (income and expenses);
+ * opening balances are posted by hand and never swept.
+ */
+export const POSTED_SOURCE_TYPES = [
+  ...INCOME_SOURCE_TYPES,
+  ...EXPENSE_SOURCE_TYPES,
+] as const;
+export type PostedSourceType = (typeof POSTED_SOURCE_TYPES)[number];
+
 export const LEDGER_SOURCE_LABELS: Record<LedgerSourceType, string> = {
   contribution: "Contribution",
   contribution_refund: "Refund",
   gateway_settlement: "Settlement",
   opening_balance: "Opening balances",
   other_income: "Other income",
+  reimbursement: "Reimbursement",
   statement_transfer: "Transfer",
+  vendor_payment: "Vendor payment",
+  vendor_payment_transaction: "Vendor payment made",
 };
 
 export const POSTING_ACTIONS = {
@@ -110,6 +143,17 @@ export const LEDGER_WAIT_REASONS = {
   noBankAccount: "pick_bank_account",
   noClearingAccount: "no_clearing_account",
   noOtherAccount: "pick_other_account",
+  /**
+   * An expense paid from "the main bank account" (cutover doc section 3)
+   * when the trust has no active bank account, or several and none marked
+   * as the main one.
+   */
+  noPayingAccount: "pick_paying_account",
+  /**
+   * An approved reimbursement with no payment screenshot (older records):
+   * the founder supplies the payment (cutover doc section 6).
+   */
+  noPaymentProof: "no_payment_proof",
   referenceDataMissing: "reference_data_missing",
   /** Only in the year-close checklist: a record no posting run has seen. */
   unchecked: "unchecked",
@@ -123,7 +167,11 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
+  no_payment_proof:
+    "No payment screenshot: the founder gives the payment date, account and bank reference",
   pick_other_account: "Pick the other account of the transfer",
+  pick_paying_account:
+    "The bank account it was paid from isn't known: mark the main bank account in Settings → Organisation accounts",
   reference_data_missing: "Books reference data missing",
   year_closed: "Year closed",
 };
@@ -132,6 +180,10 @@ export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
 export const LEDGER_SKIP_REASONS = {
   beforeCutover: "before_cutover",
   deleted: "deleted",
+  /** A vendor payment whose invoice (or no-invoice reason) isn't accepted yet. */
+  invoiceNotAccepted: "invoice_not_accepted",
+  /** A reimbursement, vendor payment or payment that isn't approved. */
+  notApproved: "not_approved",
   notProcessed: "not_processed",
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
@@ -144,6 +196,8 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
   before_cutover:
     "Dated before 1 Apr 2026: the audited opening balances already contain it",
   deleted: "Deleted",
+  invoice_not_accepted: "The invoice isn't approved yet",
+  not_approved: "Not approved",
   not_processed: "Not processed yet",
   not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",

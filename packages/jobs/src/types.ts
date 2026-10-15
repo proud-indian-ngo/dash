@@ -631,7 +631,11 @@ export interface RazorpaySyncSettlementPayload {
   settlementId: string;
 }
 
-/** One income source to bring into the books (finance layer 3-2), keyed by source. */
+/**
+ * One source to bring into the books, keyed by source: income (finance
+ * layer 3-2) or expenses (layer 3-3a: reimbursements, vendor payment
+ * requests and their payments).
+ */
 export interface LedgerPostSourcePayload {
   sourceId: string;
   sourceType:
@@ -639,11 +643,14 @@ export interface LedgerPostSourcePayload {
     | "contribution_refund"
     | "gateway_settlement"
     | "other_income"
-    | "statement_transfer";
+    | "reimbursement"
+    | "statement_transfer"
+    | "vendor_payment"
+    | "vendor_payment_transaction";
 }
 
 /**
- * The income posting sweep: every source not up to date in the books. Run
+ * The posting sweep: every income and expense source not up to date in the books. Run
  * daily, after bulk imports, and by "Post pending" when the page ran out of
  * time; `actorId` is the person who asked, if anyone.
  */

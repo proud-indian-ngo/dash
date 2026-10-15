@@ -26,8 +26,14 @@ import {
   chargeChangeNote,
   expenseChargeArgs,
   resolveExpenseCharge,
+  POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import {
+  isPostedInBooks,
+  type LedgerSourceRef,
+  queueLedgerPosting,
+} from "./ledger-queue";
 import {
   assertCanDelete,
   assertCanModify,
@@ -47,6 +53,12 @@ import {
   recalculateParentStatus,
   transactionAttachmentKeyPrefixes,
 } from "./vendor-payment-transaction";
+
+/** Its expense in the books (finance layer 3-3a); its payments follow it. */
+const ledgerSource = (id: string): LedgerSourceRef => ({
+  sourceId: id,
+  sourceType: "vendor_payment",
+});
 
 const UUID_SEGMENT_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -247,6 +259,13 @@ export const vendorPaymentMutators = {
       // Requests from before payments needed approval can already hold
       // approved payments; move them on to partially_paid or paid.
       const newStatus = await recalculateParentStatus(tx, args.id, now);
+      // Payments already approved on an older request now count.
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.approve"
+      );
 
       if (tx.location === "server") {
         const { title, userId: ownerId } = entity;
@@ -358,6 +377,13 @@ export const vendorPaymentMutators = {
         ...buildHistoryInsert(userId, "invoice_approved", now, args.note),
         vendorPaymentId: args.id,
       });
+      // The accepted invoice is the expense.
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.approveInvoice"
+      );
 
       if (tx.location === "server") {
         const vpId = args.id;
@@ -540,6 +566,19 @@ export const vendorPaymentMutators = {
       }
 
       await tx.mutate.vendorPayment.delete({ id: args.id });
+      // Its expense and payments, if posted, are reversed.
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [
+          ledgerSource(args.id),
+          ...transactions.map((t) => ({
+            sourceId: t.id,
+            sourceType: "vendor_payment_transaction" as const,
+          })),
+        ],
+        "vendorPayment.delete"
+      );
     }
   ),
 
@@ -581,6 +620,12 @@ export const vendorPaymentMutators = {
         ...buildHistoryInsert(userId, "rejected", now, args.reason),
         vendorPaymentId: args.id,
       });
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.reject"
+      );
 
       // Cascade reject all pending transactions
       const pendingTransactions = await tx.run(
@@ -696,6 +741,12 @@ export const vendorPaymentMutators = {
         ...buildHistoryInsert(userId, "invoice_rejected", now, args.reason),
         vendorPaymentId: args.id,
       });
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.rejectInvoice"
+      );
 
       if (tx.location === "server") {
         const vpId = args.id;
@@ -790,6 +841,12 @@ export const vendorPaymentMutators = {
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         vendorPaymentId: args.id,
       });
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.resetToPending"
+      );
     }
   ),
 
@@ -881,6 +938,12 @@ export const vendorPaymentMutators = {
         metadata: history.metadata,
         vendorPaymentId: args.id,
       });
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.submitInvoice"
+      );
 
       if (tx.location === "server") {
         const vpId = args.id;
@@ -914,14 +977,17 @@ export const vendorPaymentMutators = {
   ),
 
   /**
-   * Finance changes what the request is charged to, at approval or later.
-   * Expenses are not posted to the books yet; once they are, a posted
-   * request will refuse this.
+   * Finance changes what the request is charged to, at approval or later,
+   * until its expense is posted to the books: a posted request refuses
+   * this (founder decision, finance layer 3-3a).
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     assertCanChangeCharge(ctx, entity);
+    if (await isPostedInBooks(tx, ledgerSource(args.id))) {
+      throw new Error(POSTED_CHARGE_MESSAGE);
+    }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
     const now = Date.now();
@@ -934,6 +1000,12 @@ export const vendorPaymentMutators = {
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       vendorPaymentId: args.id,
     });
+    queueLedgerPosting(
+      ctx,
+      tx,
+      [ledgerSource(args.id)],
+      "vendorPayment.setChargedTo"
+    );
   }),
 
   update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
@@ -1025,6 +1097,13 @@ export const vendorPaymentMutators = {
     if (hasEditAll && entity.status !== "pending") {
       await recalculateParentStatus(tx, args.id, now);
     }
+    // An edit after posting reverses and reposts the expense.
+    queueLedgerPosting(
+      ctx,
+      tx,
+      [ledgerSource(args.id)],
+      "vendorPayment.update"
+    );
   }),
 
   updateInvoice: defineMutator(
@@ -1135,6 +1214,13 @@ export const vendorPaymentMutators = {
         },
         vendorPaymentId: args.id,
       });
+      // A changed kind reopens review, which reverses a posted expense.
+      queueLedgerPosting(
+        ctx,
+        tx,
+        [ledgerSource(args.id)],
+        "vendorPayment.updateInvoice"
+      );
 
       if (requiresNewApproval && tx.location === "server") {
         const submitter = await tx.run(zql.user.where("id", userId).one());

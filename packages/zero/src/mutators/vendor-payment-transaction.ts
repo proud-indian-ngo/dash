@@ -11,6 +11,7 @@ import {
   INVOICE_LOCKED_STATUSES,
   PAYABLE_STATUSES,
 } from "../vendor-payment-constants";
+import { queueLedgerPosting } from "./ledger-queue";
 import {
   assertCanDelete,
   assertCanModify,
@@ -135,6 +136,28 @@ export async function recalculateParentStatus(
   return null;
 }
 
+/**
+ * After a change, the books follow (finance layer 3-3a): the payment's
+ * money out of the bank, and its request (whose status it may move).
+ */
+function queuePosting(
+  ctx: Parameters<typeof queueLedgerPosting>[0],
+  tx: Parameters<typeof queueLedgerPosting>[1],
+  transactionId: string,
+  vendorPaymentId: string,
+  mutator: string
+) {
+  queueLedgerPosting(
+    ctx,
+    tx,
+    [
+      { sourceId: transactionId, sourceType: "vendor_payment_transaction" },
+      { sourceId: vendorPaymentId, sourceType: "vendor_payment" },
+    ],
+    mutator
+  );
+}
+
 export const vendorPaymentTransactionMutators = {
   approve: defineMutator(
     z.object({
@@ -181,6 +204,7 @@ export const vendorPaymentTransactionMutators = {
 
       // Recalculate parent VP payment status
       const newVpStatus = await recalculateParentStatus(tx, vpId, now);
+      queuePosting(ctx, tx, args.id, vpId, "vendorPaymentTransaction.approve");
 
       if (tx.location === "server") {
         const transactionId = args.id;
@@ -321,6 +345,13 @@ export const vendorPaymentTransactionMutators = {
         args.vendorPaymentId,
         now
       );
+      queuePosting(
+        ctx,
+        tx,
+        args.id,
+        args.vendorPaymentId,
+        "vendorPaymentTransaction.create"
+      );
     }
 
     if (tx.location === "server") {
@@ -439,6 +470,7 @@ export const vendorPaymentTransactionMutators = {
 
       // Recalculate parent VP status after deletion
       await recalculateParentStatus(tx, vpId, Date.now());
+      queuePosting(ctx, tx, args.id, vpId, "vendorPaymentTransaction.delete");
     }
   ),
 
@@ -472,6 +504,7 @@ export const vendorPaymentTransactionMutators = {
 
       // Defensively recalculate parent status in case constraints are loosened later
       await recalculateParentStatus(tx, vpId, now);
+      queuePosting(ctx, tx, args.id, vpId, "vendorPaymentTransaction.reject");
 
       if (tx.location === "server") {
         const vendorPayment = await tx.run(
@@ -617,6 +650,14 @@ export const vendorPaymentTransactionMutators = {
           now
         );
       }
+      // An edit after posting reverses and reposts the payment.
+      queuePosting(
+        ctx,
+        tx,
+        args.id,
+        entity.vendorPaymentId as string,
+        "vendorPaymentTransaction.update"
+      );
     }
   ),
 };

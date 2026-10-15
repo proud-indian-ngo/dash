@@ -173,6 +173,11 @@ describe("approving a request recalculates its payment status", () => {
     } as never);
 
     expect((ctx.asyncTasks as AsyncTask[]).map((task) => task.meta)).toEqual([
+      {
+        mutator: "vendorPayment.approve",
+        sourceId: "vp-1",
+        sourceType: "vendor_payment",
+      },
       expect.objectContaining({
         mutator: "approveVendorPayment",
         vendorPaymentId: "vp-1",

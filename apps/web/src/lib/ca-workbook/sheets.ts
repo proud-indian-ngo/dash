@@ -186,14 +186,15 @@ function standingEntriesBySource(entries: readonly WorkbookEntry[]) {
 }
 
 /**
- * Which recognition a movement belongs with: a fee is an expense; a gift's
- * money in or back out is income, or for a corpus gift a capital receipt
- * credited to the Corpus Fund (a fund head).
+ * Which recognition a movement belongs with: a fee or an expense paid out
+ * (a reimbursement's payment, layer 3-3a) is an expense; a gift's money in
+ * or back out is income, or for a corpus gift a capital receipt credited to
+ * the Corpus Fund (a fund head).
  */
 function headTypesForMovement(
   kind: WorkbookMovement["kind"]
 ): readonly WorkbookEntry["headType"][] {
-  if (kind === "fee" || kind === "tax_remittance") {
+  if (kind === "fee" || kind === "tax_remittance" || kind === "payout") {
     return ["expense"];
   }
   if (kind === "receipt" || kind === "refund") {

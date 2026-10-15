@@ -17,6 +17,7 @@ import {
 } from "../party-save-rules";
 import { user } from "../schema/auth";
 import { project } from "../schema/finance-dimensions";
+import { ledgerEntry } from "../schema/ledger";
 import { party, partyRole } from "../schema/party";
 import {
   partyBankAccount,
@@ -438,6 +439,18 @@ async function assertPartyUnreferenced(tx: Tx, partyId: string) {
   if (projectRef || userRef) {
     throw new Error(
       "This vendor is linked to a project or user; unlink it first"
+    );
+  }
+  // The books keep the vendor as the party of its expenses for good
+  // (finance layer 3-3a), even after the payment request is gone.
+  const [bookRef] = await tx
+    .select({ id: ledgerEntry.id })
+    .from(ledgerEntry)
+    .where(eq(ledgerEntry.partyId, partyId))
+    .limit(1);
+  if (bookRef) {
+    throw new Error(
+      "The books hold expenses for this vendor, so it can't be deleted"
     );
   }
 }
