@@ -3,6 +3,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "closeFiscalYearFn",
+  "postOpeningBalancesFn",
+  "reopenFiscalYearFn",
+  "reverseOpeningBalancesFn",
   "createBankStatementImport",
   "createContributionImport",
   "createGiveDoPayoutImport",
@@ -60,6 +64,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getRequestUploadUrl",
   "getScheduledMessageUploadUrl",
   "getSettlementSummary",
+  "getYearCloseChecklist",
   "getStatementLinkCandidates",
   "getUserEmailSuppression",
   "getVendorDetails",

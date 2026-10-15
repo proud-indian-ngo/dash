@@ -123,18 +123,29 @@ export const fundRestrictionValues = [
 ] as const;
 export type FundRestriction = (typeof fundRestrictionValues)[number];
 
+/**
+ * `fund` heads carry fund balances (the trust's equity, such as the opening
+ * Corpus and General Fund balances); the fund itself is the entry's fund_id.
+ */
 export const accountHeadTypeValues = [
   "income",
   "expense",
   "asset",
   "liability",
+  "fund",
 ] as const;
 export type AccountHeadType = (typeof accountHeadTypeValues)[number];
 
+/**
+ * `deposit` is a fixed deposit: it gets money only by transfer from or to
+ * the current account, never takes donations or bank statement imports, and
+ * its interest is other income.
+ */
 export const orgAccountKindValues = [
   "bank",
   "cash",
   "gateway_clearing",
+  "deposit",
 ] as const;
 export type OrgAccountKind = (typeof orgAccountKindValues)[number];
 
@@ -167,6 +178,17 @@ export const COST_CENTRE_IDS = {
 } as const;
 
 export const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
+
+/** Restricted corpus fund; created by the ledger reference data. */
+export const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
+
+/** Account heads the books need from day one (ledger reference data). */
+export const LEDGER_ACCOUNT_HEAD_IDS = {
+  auditFeesPayable: "01930000-0000-7000-8000-000000000802",
+  fdInterest: "01930000-0000-7000-8000-000000000804",
+  fixedAssets: "01930000-0000-7000-8000-000000000801",
+  fundBalance: "01930000-0000-7000-8000-000000000803",
+} as const;
 
 /**
  * GiveIndia, which runs give.do and passes its donors' gifts on: recorded as

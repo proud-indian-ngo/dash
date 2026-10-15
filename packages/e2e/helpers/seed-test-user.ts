@@ -259,6 +259,7 @@ const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
 const E2E_RAZORPAY_CLEARING_ID = "01930000-0000-7000-8000-000000000713";
 /** The account a give.do upload defaults to. */
 const E2E_GIVE_DO_ACCOUNT_ID = "01930000-0000-7000-8000-000000000714";
+const E2E_DEPOSIT_ACCOUNT_ID = "01930000-0000-7000-8000-000000000715";
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 const INCOME_SPONSOR_ID = "01930000-0000-7000-8000-000000000723";
 
@@ -295,6 +296,17 @@ async function ensureIncomeFixtures(userId: string): Promise<void> {
       id: E2E_GIVE_DO_ACCOUNT_ID,
       kind: "gateway_clearing",
       name: "E2E give.do clearing",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  // The books' fixed deposit (opening balances E2E).
+  await db
+    .insert(orgAccount)
+    .values({
+      createdAt: now,
+      id: E2E_DEPOSIT_ACCOUNT_ID,
+      kind: "deposit",
+      name: "E2E Fixed deposit",
       updatedAt: now,
     })
     .onConflictDoNothing();

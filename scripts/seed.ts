@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
  *   programme, costCentre, fund, fiscalYear, fiscalPeriod, party, partyRole, partyPrivate,
  *   orgAccount, contribution, contributionRefund, otherIncome,
  *   gatewaySettlement, gatewaySettlementItem,
+ *   accountHead, openingBalance, posting, ledgerEntry, accountMovement (fake opening balances),
  *   importBatch, importRow, externalIdentity, collectionEvent, statementLine,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
@@ -32,6 +33,7 @@ import { createHash } from "node:crypto";
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { importedRowRetention } from "@pi-dash/db/import-retention";
+import { postOpeningBalance } from "@pi-dash/db/ledger/opening-balance";
 import {
   advancePayment,
   advancePaymentAttachment,
@@ -103,6 +105,7 @@ import {
   kalakritiResultScorecard,
   kalakritiResultsState,
 } from "@pi-dash/db/schema/kalakriti-results";
+import { openingBalance } from "@pi-dash/db/schema/ledger";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
@@ -144,6 +147,8 @@ import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
+  CORPUS_FUND_ID,
+  FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   GIVE_INDIA_PARTY_ID,
   GIVE_INDIA_PARTY_NAME,
@@ -713,6 +718,12 @@ const ORG_ACCOUNTS = [
     id: "01930000-0000-7000-8000-000000000603",
     kind: "cash" as const,
     name: "Petty cash",
+  },
+  // Fixed deposit for the books; its opening balance is entered in the UI.
+  {
+    id: "01930000-0000-7000-8000-000000000605",
+    kind: "deposit" as const,
+    name: "Fixed deposit",
   },
 ];
 
@@ -3538,6 +3549,76 @@ async function seedAppConfig(): Promise<void> {
   log(`${configs.length} config entries ready`);
 }
 
+// ── Books ────────────────────────────────────────────────────────────────────
+
+/**
+ * Fake opening balances for FY 2026-27 so the Books page has something to
+ * show in development. Never the trust's real figures: those are entered by
+ * a finance admin from the audited statements. Skipped when the seed's
+ * document exists (posted or reversed) or another one stands for the year.
+ */
+const SEED_OPENING_BALANCE_ID = "01930000-0000-7000-8000-000000000820";
+
+async function seedBooks(adminId: string): Promise<void> {
+  log("Seeding fake opening balances...");
+  const fiscalYearId = FISCAL_YEAR_IDS["2026-27"];
+  const [seeded] = await db
+    .select({ reversalPostingId: openingBalance.reversalPostingId })
+    .from(openingBalance)
+    .where(eq(openingBalance.id, SEED_OPENING_BALANCE_ID))
+    .limit(1);
+  if (seeded) {
+    log(
+      seeded.reversalPostingId
+        ? "Seed opening balances were reversed; leaving the books as they are"
+        : "Seed opening balances already posted"
+    );
+    return;
+  }
+  const [standing] = await db
+    .select({ id: openingBalance.id })
+    .from(openingBalance)
+    .where(
+      and(
+        eq(openingBalance.fiscalYearId, fiscalYearId),
+        isNull(openingBalance.reversalPostingId)
+      )
+    )
+    .limit(1);
+  if (standing) {
+    log("Other opening balances already stand; not seeding fake ones");
+    return;
+  }
+  const bankId = ORG_ACCOUNTS[0]?.id as string;
+  const fdId = ORG_ACCOUNTS.find((a) => a.kind === "deposit")?.id as string;
+  await db.transaction((tx) =>
+    postOpeningBalance(
+      tx,
+      {
+        caConfirmedOn: "2026-10-01",
+        caName: "Seed CA (fake figures)",
+        fiscalYearId,
+        id: SEED_OPENING_BALANCE_ID,
+        lines: [
+          { amountPaise: 50_000_00, kind: "account", orgAccountId: bankId },
+          { amountPaise: 1_00_000_00, kind: "account", orgAccountId: fdId },
+          { amountPaise: 4_000_00, kind: "asset", memo: "Seed sewing machine" },
+          { amountPaise: 500_00, kind: "asset", memo: "Seed speaker" },
+          {
+            amountPaise: 5_000_00,
+            kind: "liability",
+            memo: "Audit fees payable (seed)",
+          },
+          { amountPaise: 1_000_00, fundId: CORPUS_FUND_ID, kind: "fund" },
+          { amountPaise: 1_48_500_00, fundId: GENERAL_FUND_ID, kind: "fund" },
+        ],
+      },
+      { actorId: adminId }
+    )
+  );
+  log("Fake opening balances posted");
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -3552,6 +3633,7 @@ async function main(): Promise<void> {
   await seedFinanceDimensions();
   await seedParties(getUser(userMap, "admin@pi-dash.dev"));
   await seedIncome(getUser(userMap, "admin@pi-dash.dev"));
+  await seedBooks(getUser(userMap, "admin@pi-dash.dev"));
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();
   await seedTeams(userMap);

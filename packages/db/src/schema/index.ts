@@ -20,6 +20,7 @@ export * from "./kalakriti";
 export * from "./kalakriti-awards";
 export * from "./kalakriti-inventory";
 export * from "./kalakriti-results";
+export * from "./ledger";
 export * from "./notification";
 export * from "./party";
 export * from "./permission";

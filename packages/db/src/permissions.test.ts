@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_PERMISSIONS,
   FINANCE_ADMIN_PERMISSIONS,
+  PERMISSION_IDS,
   VOLUNTEER_BASELINE_PERMISSIONS,
 } from "./permissions";
 
@@ -28,5 +29,20 @@ describe("finance permissions by role", () => {
   it("gives volunteers no finance setup permissions", () => {
     expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("finance.view");
     expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("finance.manage");
+  });
+
+  it("gives finance admins, not admins, the book-keeping permissions", () => {
+    const books = [
+      "finance.post_opening",
+      "finance.close_year",
+      "finance.reopen_year",
+      "finance.adjust",
+    ];
+    for (const id of books) {
+      expect(PERMISSION_IDS.has(id)).toBe(true);
+      expect(ADMIN_PERMISSIONS).not.toContain(id);
+      expect(FINANCE_ADMIN_PERMISSIONS).toContain(id);
+      expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain(id);
+    }
   });
 });

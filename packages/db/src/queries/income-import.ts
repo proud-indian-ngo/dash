@@ -97,10 +97,11 @@ export async function resolveImportSettings(input: {
   projectId: string | null;
 }): Promise<{ programmeId: string | null }> {
   const [account] = await db
-    .select({ active: orgAccount.active })
+    .select({ active: orgAccount.active, kind: orgAccount.kind })
     .from(orgAccount)
     .where(eq(orgAccount.id, input.orgAccountId));
-  if (!account?.active) {
+  // A fixed deposit gets money only by transfer, never a donation.
+  if (!account?.active || account.kind === "deposit") {
     throw new Error("Pick an active account the money was deposited into");
   }
   const [fundRow] = await db

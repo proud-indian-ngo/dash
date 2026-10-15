@@ -1,5 +1,6 @@
 import {
   AnalyticsUpIcon,
+  Book02Icon,
   FavouriteIcon,
   Award01Icon,
   Audit01Icon,
@@ -30,6 +31,7 @@ import {
   UserIcon,
 } from "@hugeicons/core-free-icons";
 import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
+import { BOOKS_VIEW_PERMISSIONS } from "@pi-dash/shared/ledger";
 
 import type { NavItem } from "@/components/layout/nav-main";
 import { SETTINGS_SECTIONS } from "@/lib/settings-sections";
@@ -128,6 +130,19 @@ const incomeNavItem: NavItem = {
   icon: MoneyReceive01Icon,
   title: "Income",
   url: "/income",
+};
+
+const booksNavItem: NavItem = {
+  icon: Book02Icon,
+  subItems: [
+    {
+      isHidden: true,
+      title: "Opening balances",
+      url: "/finance/books/opening",
+    },
+  ],
+  title: "Books",
+  url: "/finance/books",
 };
 
 const teamsNavItem: NavItem = {
@@ -401,6 +416,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
     items.push(incomeNavItem);
   }
+  if (hasAny(permissions, ...BOOKS_VIEW_PERMISSIONS)) {
+    items.push(booksNavItem);
+  }
   if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
@@ -454,6 +472,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasAny(permissions, ...INCOME_PERMISSIONS)) {
     financeItems.push(incomeNavItem);
+  }
+  if (hasAny(permissions, ...BOOKS_VIEW_PERMISSIONS)) {
+    financeItems.push(booksNavItem);
   }
   if (financeItems.length > 0) {
     groups.push({ items: financeItems, label: "Finance" });

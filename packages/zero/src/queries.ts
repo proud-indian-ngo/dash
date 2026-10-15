@@ -39,6 +39,7 @@ import { kalakritiGuardianQueries } from "./queries/kalakriti-guardian";
 import { kalakritiInventoryQueries } from "./queries/kalakriti-inventory";
 import { kalakritiStudentQueries } from "./queries/kalakriti-student";
 import { kalakritiTransportQueries } from "./queries/kalakriti-transport";
+import { ledgerQueries } from "./queries/ledger";
 import { notificationQueries } from "./queries/notification";
 import { notificationPreferenceQueries } from "./queries/notification-preference";
 import { partyQueries } from "./queries/party";
@@ -84,6 +85,7 @@ export const queries = defineQueries({
   kalakritiInventory: kalakritiInventoryQueries,
   kalakritiStudent: kalakritiStudentQueries,
   kalakritiTransport: kalakritiTransportQueries,
+  ledger: ledgerQueries,
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   orgAccount: orgAccountQueries,

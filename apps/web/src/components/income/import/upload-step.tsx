@@ -349,7 +349,9 @@ export function UploadStep({
               isRequired
               label="Deposited into"
               name="orgAccountId"
-              options={accounts.map((a) => ({ label: a.name, value: a.id }))}
+              options={accounts
+                .filter((a) => a.kind !== "deposit")
+                .map((a) => ({ label: a.name, value: a.id }))}
               placeholder="Search accounts..."
             />
           )}
