@@ -27,7 +27,9 @@ export function initClientLogger() {
 
   initLogger({
     drain,
-    env: { service: "pi-dash-client" },
+    // evlog reads the environment from process.env.NODE_ENV, which the
+    // browser bundle doesn't have, so every client event said "development".
+    env: { environment: import.meta.env.MODE, service: "pi-dash-client" },
     pretty: import.meta.env.DEV,
   });
 }
