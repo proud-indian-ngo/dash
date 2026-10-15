@@ -7,15 +7,26 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
 import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
+import { VoidDialog } from "@/components/form/void-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
+import {
+  isVoided,
+  usePostedSourceIds,
+  useVoidedFilter,
+} from "@/components/shared/void";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { computeVendorPaymentStats } from "@/components/vendor-payments/vendor-payment-stats";
 import type { VendorPaymentWithRelations } from "@/components/vendor-payments/vendor-payment-types";
 import { VendorPaymentsTable } from "@/components/vendor-payments/vendor-payments-table";
 import { useApp } from "@/context/app-context";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/vendor-payments/")({
@@ -46,6 +57,56 @@ function VendorPaymentsRouteComponent() {
 
   const data = vendorPayments as VendorPaymentWithRelations[];
   const isLoading = data.length === 0 && result.type !== "complete";
+  // In the books: its expense or any of its payments stands there.
+  const postedRequests = usePostedSourceIds("vendor_payment");
+  const postedPayments = usePostedSourceIds("vendor_payment_transaction");
+  const postedIds = useMemo(
+    () =>
+      new Set(
+        data
+          .filter(
+            (vp) =>
+              postedRequests.has(vp.id) ||
+              (vp.transactions ?? []).some((t) => postedPayments.has(t.id))
+          )
+          .map((vp) => vp.id)
+      ),
+    [data, postedRequests, postedPayments]
+  );
+  const voidedFilter = useVoidedFilter(data);
+  const [voidTarget, setVoidTarget] =
+    useState<VendorPaymentWithRelations | null>(null);
+  const [voidLoading, setVoidLoading] = useState(false);
+  const handleVoidOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setVoidTarget(null);
+    }
+  });
+  const handleVoid = useEventCallback(async (reason: string) => {
+    if (!voidTarget) {
+      return;
+    }
+    setVoidLoading(true);
+    try {
+      const res = await zero.mutate(
+        mutators.vendorPayment.void({ id: voidTarget.id, reason })
+      ).server;
+      handleMutationResult(res, {
+        entityId: voidTarget.id,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't void the vendor payment"
+        ),
+        mutation: "vendorPayment.void",
+        successMsg: "Vendor payment voided",
+      });
+      if (res.type !== "error") {
+        setVoidTarget(null);
+      }
+    } finally {
+      setVoidLoading(false);
+    }
+  });
   const stableOnNavigate1 = useEventCallback((id: string) => {
     navigate({ params: { id }, to: "/vendor-payments/$id" });
   });
@@ -81,17 +142,32 @@ function VendorPaymentsRouteComponent() {
       <div className="mt-4 grid gap-6 *:min-w-0">
         <StatsCards
           isLoading={isLoading}
-          items={computeVendorPaymentStats(data)}
+          // A voided request counts in no total.
+          items={computeVendorPaymentStats(data.filter((vp) => !isVoided(vp)))}
         />
         <VendorPaymentsTable
           canDelete={canDelete}
-          data={data}
+          data={voidedFilter.rows}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
-          toolbarActions={<UnallocatedFilterButton rows={data} />}
+          onVoid={setVoidTarget}
+          postedIds={postedIds}
+          toolbarActions={
+            <>
+              <UnallocatedFilterButton rows={data} />
+              {voidedFilter.button}
+            </>
+          }
         />
       </div>
+      <VoidDialog
+        entityLabel="vendor payment and its payments"
+        loading={voidLoading}
+        onConfirm={handleVoid}
+        onOpenChange={handleVoidOpenChange}
+        open={voidTarget !== null}
+      />
     </div>
   );
 }

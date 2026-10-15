@@ -3,6 +3,7 @@ import {
   CheckmarkCircle01Icon,
   Edit02Icon,
   RepeatIcon,
+  UnavailableIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -19,6 +20,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { VoidDialog } from "@/components/form/void-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AttachmentList,
@@ -29,7 +31,17 @@ import {
 } from "@/components/shared/record-detail";
 import { RequesterMeta } from "@/components/shared/requester-meta";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  isVoided,
+  useIsPostedInBooks,
+  usePostedSourceIds,
+  VoidBadge,
+} from "@/components/shared/void";
+import { useApp } from "@/context/app-context";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import {
   requestChargeSummary,
   requestProgrammeHeader,
@@ -117,6 +129,7 @@ function VendorPaymentHeader({
   onEdit,
   onReject,
   onReset,
+  onVoid,
   request,
   showApproveAction,
   showRejectAction,
@@ -128,6 +141,8 @@ function VendorPaymentHeader({
   onEdit?: () => void;
   onReject: () => void;
   onReset: () => void;
+  /** Voids the request and its payments; omitted when it can't be voided. */
+  onVoid?: () => void;
   request: VendorPaymentWithRelations;
   showApproveAction: boolean;
   showRejectAction: boolean;
@@ -182,12 +197,24 @@ function VendorPaymentHeader({
                 label: "Reset to pending",
                 onSelect: onReset,
               },
+              Boolean(onVoid) && {
+                destructive: true,
+                id: "void",
+                icon: UnavailableIcon,
+                label: "Void",
+                onSelect: () => onVoid?.(),
+              },
             ]}
             title={request.title}
           />
         </>
       }
-      badge={<StatusBadge tone={tone}>{label}</StatusBadge>}
+      badge={
+        <>
+          <StatusBadge tone={tone}>{label}</StatusBadge>
+          {isVoided(request) ? <VoidBadge /> : null}
+        </>
+      }
       meta={[
         request.user ? (
           <RequesterMeta key="requester" user={request.user} />
@@ -221,8 +248,18 @@ export function VendorPaymentDetail({
   request,
 }: VendorPaymentDetailProps) {
   const zero = useZero();
+  const { hasPermission } = useApp();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [voidLoading, setVoidLoading] = useState(false);
+  // A voided request and its payments take no further change (Option B).
+  const voided = isVoided(request);
+  const requestPosted = useIsPostedInBooks("vendor_payment", request.id);
+  const postedPayments = usePostedSourceIds("vendor_payment_transaction");
+  const inBooks =
+    requestPosted || request.transactions.some((t) => postedPayments.has(t.id));
+  const canVoid = inBooks && !voided && hasPermission("requests.void");
 
   const status = request.status as string;
   const { label, tone } = getStatusBadge(request.status);
@@ -231,12 +268,13 @@ export function VendorPaymentDetail({
     // Rejected payments stay as history and do not block a reset.
     request.transactions.every((t) => t.status === "rejected") &&
     !(request.invoiceNumber || request.invoiceDate || request.noInvoiceReason);
-  const showApproveAction = canApprove && status === "pending";
+  const showApproveAction = !voided && canApprove && status === "pending";
   // A request paid before approval was required can only be approved.
   const showRejectAction =
     showApproveAction &&
     !request.transactions.some((t) => t.status === "approved");
-  const showResetAction = canApprove && canUpdateAnyStatus && canResetToPending;
+  const showResetAction =
+    !voided && canApprove && canUpdateAnyStatus && canResetToPending;
 
   const total = sumAmounts(request.lineItems);
 
@@ -289,6 +327,29 @@ export function VendorPaymentDetail({
   const quotationAttachments = request.attachments.filter(
     (att) => att.purpose !== "invoice"
   );
+  const handleOpenVoid = useEventCallback(() => setVoidOpen(true));
+  const handleVoid = useEventCallback(async (reason: string) => {
+    setVoidLoading(true);
+    try {
+      const res = await zero.mutate(
+        mutators.vendorPayment.void({ id: request.id, reason })
+      ).server;
+      handleMutationResult(res, {
+        entityId: request.id,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't void the vendor payment"
+        ),
+        mutation: "vendorPayment.void",
+        successMsg: "Vendor payment voided",
+      });
+      if (res.type !== "error") {
+        setVoidOpen(false);
+      }
+    } finally {
+      setVoidLoading(false);
+    }
+  });
   const stableOnApprove0 = useEventCallback(() => setApproveOpen(true));
   const stableOnReject1 = useEventCallback(() => setRejectOpen(true));
 
@@ -298,9 +359,10 @@ export function VendorPaymentDetail({
         <VendorPaymentHeader
           label={label}
           onApprove={stableOnApprove0}
-          onEdit={onEdit}
+          onEdit={voided ? undefined : onEdit}
           onReject={stableOnReject1}
           onReset={handleResetToPending}
+          onVoid={canVoid ? handleOpenVoid : undefined}
           request={request}
           showApproveAction={showApproveAction}
           showRejectAction={showRejectAction}
@@ -325,6 +387,9 @@ export function VendorPaymentDetail({
           {request.status === "rejected" && request.rejectionReason ? (
             <RejectionNote reason={request.rejectionReason} />
           ) : null}
+          {voided && request.voidReason ? (
+            <RejectionNote label="Void" reason={request.voidReason} />
+          ) : null}
 
           <VendorPaymentLineItemsTable
             lineItems={request.lineItems}
@@ -340,12 +405,17 @@ export function VendorPaymentDetail({
             </RecordSection>
           ) : null}
 
-          <VendorPaymentTransactions isOwner={isOwner} request={request} />
+          <VendorPaymentTransactions
+            isOwner={isOwner}
+            postedIds={postedPayments}
+            request={request}
+          />
 
           <VendorPaymentInvoiceSection
-            canApprove={canApprove}
+            // A voided request takes no invoice step.
+            canApprove={canApprove && !voided}
             invoiceAttachments={invoiceAttachments}
-            isOwner={isOwner}
+            isOwner={isOwner && !voided}
             request={request}
             status={status}
           />
@@ -365,6 +435,13 @@ export function VendorPaymentDetail({
           onConfirm={handleReject}
           onOpenChange={setRejectOpen}
           open={rejectOpen}
+        />
+        <VoidDialog
+          entityLabel="vendor payment and its payments"
+          loading={voidLoading}
+          onConfirm={handleVoid}
+          onOpenChange={setVoidOpen}
+          open={voidOpen}
         />
       </div>
     </AppErrorBoundary>

@@ -4,6 +4,7 @@ import {
   Delete02Icon,
   PencilEdit01Icon,
   PlusSignIcon,
+  UnavailableIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -19,12 +20,17 @@ import { format } from "date-fns";
 import { useState } from "react";
 
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { VoidDialog } from "@/components/form/void-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { RecordSection } from "@/components/shared/record-detail";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
+import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import { getStatusBadge } from "@/lib/status-badge";
 import { mapTransactionToFormValues } from "@/lib/submission-mappers";
 
@@ -36,12 +42,15 @@ import type {
 
 interface VendorPaymentTransactionsProps {
   isOwner: boolean;
+  /** Payments standing in the books: Void replaces Delete on them. */
+  postedIds: ReadonlySet<string>;
   request: VendorPaymentWithRelations;
 }
 
 export function VendorPaymentTransactions({
   request,
   isOwner,
+  postedIds,
 }: VendorPaymentTransactionsProps) {
   const zero = useZero();
   const { hasPermission, user } = useApp();
@@ -49,6 +58,10 @@ export function VendorPaymentTransactions({
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [voidingId, setVoidingId] = useState<string | null>(null);
+  const [voidLoading, setVoidLoading] = useState(false);
+  const requestVoided = isVoided(request);
+  const canVoid = hasPermission("requests.void");
   const [editingTransaction, setEditingTransaction] =
     useState<VendorPaymentTransactionWithRelations | null>(null);
 
@@ -59,6 +72,7 @@ export function VendorPaymentTransactions({
   const canDeleteAll = hasPermission("requests.delete_all") && !isInvoiceLocked;
   const isAwaitingApproval = request.status === "pending";
   const showRecordButton =
+    !requestVoided &&
     canRecord &&
     PAYABLE_STATUSES.has(request.status as string) &&
     (isOwner || canApprove);
@@ -71,9 +85,10 @@ export function VendorPaymentTransactions({
   const totalOwed = sumPaise(
     (request.lineItems ?? []).map((li) => li.amountPaise)
   );
+  // A voided payment no longer counts as paid.
   const paidAmount = sumPaise(
     transactions
-      .filter((t) => t.status === "approved")
+      .filter((t) => t.status === "approved" && !isVoided(t))
       .map((t) => t.amountPaise)
   );
   const remaining = totalOwed - paidAmount;
@@ -81,7 +96,7 @@ export function VendorPaymentTransactions({
   // Sum of all non-rejected transactions (approved + pending) for cap enforcement
   const recordableTotal = sumPaise(
     transactions
-      .filter((t) => t.status !== "rejected")
+      .filter((t) => t.status !== "rejected" && !isVoided(t))
       .map((t) => t.amountPaise)
   );
   const remainingForCreate = Math.max(0, totalOwed - recordableTotal);
@@ -136,6 +151,36 @@ export function VendorPaymentTransactions({
       }
     } finally {
       setDeleteLoading(false);
+    }
+  });
+  const handleVoidTransaction = useEventCallback(async (reason: string) => {
+    if (!voidingId) {
+      return;
+    }
+    setVoidLoading(true);
+    try {
+      const res = await zero.mutate(
+        mutators.vendorPaymentTransaction.void({ id: voidingId, reason })
+      ).server;
+      handleMutationResult(res, {
+        entityId: voidingId,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't void the payment"
+        ),
+        mutation: "vendorPaymentTransaction.void",
+        successMsg: "Payment voided",
+      });
+      if (res.type !== "error") {
+        setVoidingId(null);
+      }
+    } finally {
+      setVoidLoading(false);
+    }
+  });
+  const handleVoidOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setVoidingId(null);
     }
   });
   const stableOnClick0 = useEventCallback(() => setFormOpen(true));
@@ -238,24 +283,32 @@ export function VendorPaymentTransactions({
               <tbody>
                 {transactions.map((t) => {
                   const badge = getStatusBadge(t.status);
-                  const isPending = t.status === "pending";
+                  const voided = requestVoided || isVoided(t);
+                  const posted = postedIds.has(t.id);
+                  const isPending = t.status === "pending" && !voided;
                   const isTransactionOwner = isOwner || t.userId === user.id;
                   const ownerCanModify =
                     isPending && isTransactionOwner && !isInvoiceLocked;
-                  const canEditTxn = ownerCanModify || canEditAll;
-                  const canDeleteTxn = ownerCanModify || canDeleteAll;
+                  const canEditTxn = !voided && (ownerCanModify || canEditAll);
+                  // In the books or voided: kept as the record, so voided
+                  // instead of deleted.
+                  const canDeleteTxn =
+                    !(voided || posted) && (ownerCanModify || canDeleteAll);
                   return (
                     <TransactionRow
                       badge={badge}
                       canApprove={canReviewPayments}
                       canDeleteTxn={canDeleteTxn}
                       canEditTxn={canEditTxn}
+                      canVoidTxn={canVoid && posted && !voided}
                       isPending={isPending}
+                      isVoided={voided}
                       key={t.id}
                       onApprove={handleApproveTransaction}
                       onDelete={setDeletingId}
                       onEdit={setEditingTransaction}
                       onReject={setRejectingId}
+                      onVoid={setVoidingId}
                       transaction={t}
                     />
                   );
@@ -326,6 +379,14 @@ export function VendorPaymentTransactions({
         title="Delete transaction?"
         variant="destructive"
       />
+
+      <VoidDialog
+        entityLabel="payment"
+        loading={voidLoading}
+        onConfirm={handleVoidTransaction}
+        onOpenChange={handleVoidOpenChange}
+        open={voidingId !== null}
+      />
     </>
   );
 }
@@ -335,28 +396,35 @@ function TransactionRow({
   canApprove,
   canDeleteTxn,
   canEditTxn,
+  canVoidTxn,
   isPending,
+  isVoided: voided,
   onApprove,
   onDelete,
   onEdit,
   onReject,
+  onVoid,
   transaction,
 }: {
   badge: { label: string; tone: StatusTone };
   canApprove: boolean;
   canDeleteTxn: boolean;
   canEditTxn: boolean;
+  canVoidTxn: boolean;
   isPending: boolean;
+  isVoided: boolean;
   onApprove: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (transaction: VendorPaymentTransactionWithRelations) => void;
   onReject: (id: string) => void;
+  onVoid: (id: string) => void;
   transaction: VendorPaymentTransactionWithRelations;
 }) {
   const handleApprove = useEventCallback(() => onApprove(transaction.id));
   const handleReject = useEventCallback(() => onReject(transaction.id));
   const handleEdit = useEventCallback(() => onEdit(transaction));
   const handleDelete = useEventCallback(() => onDelete(transaction.id));
+  const handleVoid = useEventCallback(() => onVoid(transaction.id));
 
   return (
     <tr className="border-b last:border-0">
@@ -375,7 +443,10 @@ function TransactionRow({
         {transaction.paymentMethod ?? "—"}
       </td>
       <td className="px-3 py-2">
-        <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+        <span className="inline-flex items-center gap-1">
+          <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+          {voided ? <VoidBadge /> : null}
+        </span>
       </td>
       <td className="px-3 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
@@ -423,6 +494,22 @@ function TransactionRow({
               <HugeiconsIcon
                 className="text-muted-foreground size-4"
                 icon={PencilEdit01Icon}
+                strokeWidth={2}
+              />
+            </Button>
+          ) : null}
+          {canVoidTxn ? (
+            <Button
+              aria-label="Void payment"
+              onClick={handleVoid}
+              size="icon"
+              title="Void"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon
+                className="text-destructive size-4"
+                icon={UnavailableIcon}
                 strokeWidth={2}
               />
             </Button>

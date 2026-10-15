@@ -52,6 +52,8 @@ export interface ChargedRequestDetail extends ChargedRequest {
   id: string;
   status: string | null;
   userId: string;
+  /** Voided requests take no further change (finance Option B). */
+  voidedAt?: number | null;
 }
 
 const changeSchema = z.object(chargedToFormFields).superRefine(refineChargedTo);
@@ -161,6 +163,7 @@ export function ChargedToCard({
   const canChange =
     useCanChangeCharge() &&
     request.status !== "rejected" &&
+    !request.voidedAt &&
     request.userId !== session?.user?.id;
   const { hasPermission } = useApp();
   const sourceType =
