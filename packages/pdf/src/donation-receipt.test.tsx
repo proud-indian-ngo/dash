@@ -57,6 +57,57 @@ describe("donation receipt PDF", () => {
     expect(second.equals(first)).toBe(true);
   });
 
+  it("embeds the product fonts", async () => {
+    const text = (await generateDonationReceiptPdf(sampleReceipt)).toString(
+      "latin1"
+    );
+    for (const font of [
+      "Geist-Regular",
+      "Geist-SemiBold",
+      "BricolageGrotesque",
+      "PaperMono-Medium",
+    ]) {
+      expect(text).toMatch(new RegExp(`/BaseFont /[A-Z]{6}\\+${font}`));
+    }
+    expect(text).not.toContain("PlusJakartaSans");
+  });
+
+  it("keeps a voided receipt with long details on one page", async () => {
+    const pdf = await generateDonationReceiptPdf({
+      ...sampleReceipt,
+      donor: {
+        address: `${"Flat 1204, Block C, Synthetic Heights, 14th Cross, ".repeat(3)}Testville, Karnataka, India, 560102`,
+        idNumber: "Z1234567",
+        idType: "passport",
+        name: "Dr. Venkatanarasimharajuvaripeta Subrahmanyam Lakshminarayanan Ramaswamy Iyengar",
+      },
+      gift: {
+        ...sampleReceipt.gift,
+        amountPaise: 9_876_543_210,
+        channel: "cheque",
+        donationType: "other",
+        donationTypeDescription:
+          "Specific grant towards the annual arts festival and student travel",
+        programmeName: "Kalakriti Arts and Culture Programme for Schools",
+        projectName: "Kalakriti 2026 Regional Finals and Travel Support",
+        reference: "CHQ-000123-SYNTHETIC-BANK-OF-TESTVILLE-BRANCH-0042",
+      },
+      org: {
+        ...sampleReceipt.org,
+        address:
+          "Synthetic Trust Office, 3rd Floor, 99 Example Industrial Estate, Old Airport Road, Testville 560017",
+        name: "Example Charitable Trust for Optimists and Volunteers",
+      },
+      voided: {
+        reason:
+          "Issued against the wrong contribution after a duplicated statement import",
+      },
+    });
+    expect([
+      ...pdf.toString("latin1").matchAll(/\/Type \/Page\b/g),
+    ]).toHaveLength(1);
+  });
+
   it("renders a voided receipt without the 80G line", async () => {
     const pdf = await generateDonationReceiptPdf({
       ...sampleReceipt,
