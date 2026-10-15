@@ -5,6 +5,7 @@ import {
   FileDownloadIcon,
   RepeatIcon,
   TickDouble02Icon,
+  UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -22,6 +23,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
+import { ChangeClaimantDialog } from "@/components/reimbursements/change-claimant-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -90,8 +92,14 @@ export function ReimbursementDetail({
   request,
 }: ReimbursementDetailProps) {
   const zero = useZero();
+  const { hasPermission } = useApp();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [changeClaimantOpen, setChangeClaimantOpen] = useState(false);
+  // Finance moves a reimbursement to the right claimant at any status.
+  const showChangeClaimant =
+    request.type === "reimbursement" &&
+    hasPermission("requests.create_for_others");
   const [generatingVoucherId, setGeneratingVoucherId] = useState<string | null>(
     null
   );
@@ -188,6 +196,9 @@ export function ReimbursementDetail({
       successMsg: `${typeLabel} reset to pending`,
     });
   });
+  const handleChangeClaimant = useEventCallback(() =>
+    setChangeClaimantOpen(true)
+  );
   const stableOnClick0 = useEventCallback(() => setApproveOpen(true));
   const stableOnClick1 = useEventCallback(() => setRejectOpen(true));
 
@@ -237,6 +248,12 @@ export function ReimbursementDetail({
               ) : null}
               <PageHeaderMenu
                 actions={[
+                  showChangeClaimant && {
+                    id: "change-claimant",
+                    icon: UserSwitchIcon,
+                    label: "Change claimant",
+                    onSelect: handleChangeClaimant,
+                  },
                   showResetAction && {
                     id: "reset",
                     icon: RepeatIcon,
@@ -257,6 +274,9 @@ export function ReimbursementDetail({
           meta={[
             request.user ? (
               <RequesterMeta key="requester" user={request.user} />
+            ) : null,
+            raisedByOther(request) ? (
+              <span key="raised-by">Raised by {raisedByOther(request)}</span>
             ) : null,
             ...reimbursementHeaderMeta(request),
           ]}
@@ -356,9 +376,28 @@ export function ReimbursementDetail({
           onOpenChange={setRejectOpen}
           open={rejectOpen}
         />
+        {showChangeClaimant ? (
+          <ChangeClaimantDialog
+            onOpenChange={setChangeClaimantOpen}
+            open={changeClaimantOpen}
+            request={request}
+          />
+        ) : null}
       </div>
     </AppErrorBoundary>
   );
+}
+
+/**
+ * The name of whoever raised the request when it isn't the claimant (finance
+ * raising it on their behalf); undefined for the claimant's own.
+ */
+function raisedByOther(request: RequestDetailData): string | undefined {
+  if (!isReimbursement(request)) {
+    return;
+  }
+  const { creator } = request;
+  return creator && creator.id !== request.userId ? creator.name : undefined;
 }
 
 function VoucherCell({

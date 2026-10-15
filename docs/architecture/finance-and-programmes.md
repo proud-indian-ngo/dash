@@ -14,6 +14,15 @@ Every reimbursement and vendor payment says which work it served, in `charged_to
 - **Pickers**: the programme picker never offers the Unallocated holder for a new pick; a request already on it keeps it until changed. Projects sync only with `finance.view`, so claimants pick the programme and finance adds the project.
 - **Backfill** (migrations 0137 to 0141): requests with an event became `event`; requests without one became `programme` on Unallocated (0138), and 0140 then applies the Phase 0 mapping: a request whose submitter is in exactly one team, with a real programme, moves to that team's programme. Finance clears the rest with the "Unallocated · N" button on the reimbursements and vendor payments lists, which applies the "To clear" filter (charged straight to Unallocated). That filter is separate from the Programme filter's Unallocated, which also matches requests charged to an event on Unallocated.
 
+## Claim for others
+
+A reimbursement belongs to its claimant (`reimbursement.user_id`): they see it, are notified and are paid. `reimbursement.created_by` (migration 0144, null on older rows) records who raised it.
+
+- **Permission**: `requests.create_for_others` (finance admins and super admins; excluded from admins). The reimbursement form shows a "Claim for" picker (`claim-for-field.tsx`, `claimant-picker.tsx`, list from `getClaimantsForPicker`: active, non-external users) only to holders, and only when creating a reimbursement.
+- **Bank details**: for someone else the request is paid to one of the claimant's saved accounts, chosen by ID (`claimantBankAccountId`); the server copies its details and refuses another person's account or none when the claimant has accounts. A claimant with no saved account can't be claimed for. `bankAccount.bankAccountsForClaimant` reads another person's accounts only with the permission.
+- **Change claimant**: `reimbursement.changeClaimant` (detail page menu, `change-claimant-dialog.tsx`) moves a request to another claimant at any status with a required reason, guarded by the claimant the client saw. Bank details switch to one of the new claimant's accounts (cleared when they have none), voucher and signed-copy links are cleared and an approved request queues fresh vouchers, since vouchers print the claimant as "Claimed by" (the voucher job also discards a render whose claimant changed meanwhile). History records "Raised by X for Y" or the change and reason; `notify-reimbursement-raised-for-you` and `notify-reimbursement-claimant-changed` tell the people involved. The audit ledger keeps only the user and account IDs and field names, never the reason.
+- **Books**: expenses are not posted yet; once they are, a claimant change on a posted request must reverse and repost.
+
 ## Books (layer 3-1)
 
 Phase 3 layer 1 ships the posting engine and the books. Layer 3-2 (below) posts income: contributions, refunds, other income, gateway settlements and transfers between own accounts. Reimbursements and vendor payments start posting in layer 3-3 (expenses), which adds source handlers on the same engine.

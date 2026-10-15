@@ -24,8 +24,8 @@ import { type RenderedFrom, stillAsRendered } from "./voucher-render-check";
 
 /**
  * Atomically insert the new attachment, point the line item FK at it, and
- * delete the attachment row it replaces. The line item is locked and must
- * still hold what was rendered: if an edit changed it meanwhile, nothing is
+ * delete the attachment row it replaces. The line item is locked and it and
+ * its request (expense date, claimant) must still hold what was rendered: if an edit changed it meanwhile, nothing is
  * linked and the newer job (queued by that edit) wins. Returns whether the
  * voucher was linked, and the replaced object's key for cleanup.
  */
@@ -54,7 +54,10 @@ async function commitVoucherAttachment(opts: {
       .where(eq(reimbursementLineItem.id, opts.lineItemId))
       .for("update");
     const [request] = await tx
-      .select({ expenseDate: reimbursement.expenseDate })
+      .select({
+        claimantId: reimbursement.userId,
+        expenseDate: reimbursement.expenseDate,
+      })
       .from(reimbursement)
       .where(eq(reimbursement.id, opts.attachment.reimbursementId));
     if (!(current && stillAsRendered(current, request, opts.rendered))) {
@@ -206,6 +209,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     rendered: {
       amountPaise,
       categoryId: lineItem.categoryId,
+      claimantId: reimb.userId,
       description: lineItem.description,
       expenseDate: reimb.expenseDate,
       payeeName: lineItem.payeeName,

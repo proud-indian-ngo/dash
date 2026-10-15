@@ -20,7 +20,9 @@ export function buildMutation(
   entityId: string,
   existingId: string | undefined,
   bankAccountList: BankAccount[],
-  voucherLimitPaise: number
+  voucherLimitPaise: number,
+  /** Set when finance raises a new reimbursement for someone else. */
+  claimantUserId?: string
 ) {
   // Only reimbursements carry cash vouchers.
   const lineItems = toLineItemsPayload(
@@ -59,9 +61,21 @@ export function buildMutation(
       expenseDate: requireDate(value.expenseDate, "expenseDate"),
       ...chargedToPayload(value),
     };
-    return existingId
-      ? zero.mutate(mutators.reimbursement.update(reimbPayload))
-      : zero.mutate(mutators.reimbursement.create(reimbPayload));
+    if (existingId) {
+      return zero.mutate(mutators.reimbursement.update(reimbPayload));
+    }
+    // For someone else the server copies the chosen account's details.
+    return zero.mutate(
+      mutators.reimbursement.create(
+        claimantUserId
+          ? {
+              ...reimbPayload,
+              claimantBankAccountId: selectedAccount?.id,
+              claimantUserId,
+            }
+          : reimbPayload
+      )
+    );
   }
 
   return existingId

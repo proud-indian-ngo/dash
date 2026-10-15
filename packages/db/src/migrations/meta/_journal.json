@@ -1009,6 +1009,13 @@
       "when": 1792093377762,
       "tag": "0143_drop_vendor_legacy_details",
       "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1792095430916,
+      "tag": "0144_claim_for_others",
+      "breakpoints": true
     }
   ]
 }
