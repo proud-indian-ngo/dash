@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -48,6 +52,25 @@ async function ensureRegistration(page: Page) {
   await page.keyboard.press("Escape").catch(() => undefined);
   await page.getByRole("button", { name: "Save registration" }).click();
   await expect(page.getByText(/^URN /)).toBeVisible({ timeout: 10_000 });
+}
+
+const execFileAsync = promisify(execFile);
+
+/** Clears the details donor's address, so the test starts from Needs details. */
+async function clearDetailsAddress(): Promise<void> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "clear-details-address",
+    ],
+    { env: process.env }
+  );
+  const { cleared } = JSON.parse(stdout.trim()) as { cleared: number };
+  if (cleared !== 1) {
+    throw new Error("The receipt details donor isn't seeded");
+  }
 }
 
 /** The table row of one of the receipt donor's gifts, by its reference. */
@@ -269,6 +292,8 @@ test.describe("Income: donation receipts (finance)", () => {
     page,
   }) => {
     test.slow();
+    // Self-resetting: a retry finds the address the last attempt added.
+    await clearDetailsAddress();
     const row = await giftRow(
       page,
       DETAILS_REFERENCE,

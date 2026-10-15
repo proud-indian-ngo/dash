@@ -9,13 +9,21 @@ export interface ReadinessLoaderOptions<T> {
   debounceMs: number;
   isHidden: () => boolean;
   load: () => Promise<T>;
-  onError: (error: unknown) => void;
-  onResult: (result: T) => void;
+  /** `seq`: the failed load's start number (see `started`). */
+  onError: (error: unknown, seq: number) => void;
+  /** `seq`: the answering load's start number (see `started`). */
+  onResult: (result: T, seq: number) => void;
 }
 
 export interface ReadinessLoader {
   /** Ask for a load after the debounce (also when the tab is shown again). */
   request: () => void;
+  /**
+   * How many loads have started. A load whose `seq` is above the value read
+   * at some moment started after that moment, so its answer reflects
+   * anything requested then.
+   */
+  started: () => number;
   /** Stop: drop timers and ignore any answer still on its way. */
   dispose: () => void;
 }
@@ -27,6 +35,7 @@ export function createReadinessLoader<T>(
   let inFlight = false;
   let trailing = false;
   let disposed = false;
+  let startedCount = 0;
 
   const fire = () => {
     if (disposed) {
@@ -40,16 +49,18 @@ export function createReadinessLoader<T>(
       return;
     }
     inFlight = true;
+    startedCount += 1;
+    const seq = startedCount;
     options
       .load()
       .then((result) => {
         if (!disposed) {
-          options.onResult(result);
+          options.onResult(result, seq);
         }
       })
       .catch((error: unknown) => {
         if (!disposed) {
-          options.onError(error);
+          options.onError(error, seq);
         }
       })
       .finally(() => {
@@ -83,5 +94,6 @@ export function createReadinessLoader<T>(
       }
     },
     request,
+    started: () => startedCount,
   };
 }

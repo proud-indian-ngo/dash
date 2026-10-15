@@ -54,9 +54,11 @@ export function useReceiptReadiness({
   loadRef.current = load;
   const [readiness, setReadiness] = useState<ReceiptReadinessSets | null>(null);
   const [error, setError] = useState(false);
-  const [loadCount, setLoadCount] = useState(0);
+  // The start number of the load the current answer came from.
+  const [answeredSeq, setAnsweredSeq] = useState(0);
   const [missRefetch, setMissRefetch] = useState<{
-    afterLoad: number;
+    /** Loads started when the refetch was asked for; later ones answer it. */
+    afterStarted: number;
     key: string;
   } | null>(null);
   const loaderRef = useRef<ReadinessLoader | null>(null);
@@ -79,13 +81,16 @@ export function useReceiptReadiness({
         });
         setError(true);
       },
-      onResult: (result) => {
+      onResult: (result, seq) => {
         setReadiness(toReadinessSets(result));
         setError(false);
-        setLoadCount((count) => count + 1);
+        setAnsweredSeq(seq);
       },
     });
     loaderRef.current = loader;
+    // A new loader numbers its loads from 1 again.
+    setAnsweredSeq(0);
+    setMissRefetch(null);
     const onVisibility = () => {
       if (!document.hidden) {
         loader.request();
@@ -117,11 +122,12 @@ export function useReceiptReadiness({
   // A row the answer doesn't cover (such as a gift synced after the server
   // read): refetch once for this refresh key.
   useEffect(() => {
-    if (active && unclassified && missRefetch?.key !== refreshKey) {
-      setMissRefetch({ afterLoad: loadCount, key: refreshKey });
-      loaderRef.current?.request();
+    const loader = loaderRef.current;
+    if (loader && active && unclassified && missRefetch?.key !== refreshKey) {
+      setMissRefetch({ afterStarted: loader.started(), key: refreshKey });
+      loader.request();
     }
-  }, [active, unclassified, missRefetch, refreshKey, loadCount]);
+  }, [active, unclassified, missRefetch, refreshKey]);
 
   const retry = useCallback(() => {
     setError(false);
@@ -132,6 +138,8 @@ export function useReceiptReadiness({
   const gaveUp =
     unclassified &&
     missRefetch?.key === refreshKey &&
-    loadCount > missRefetch.afterLoad;
+    // Only an answer from a load that started after the refetch was asked
+    // for; an older in-flight answer arriving first doesn't count.
+    answeredSeq > missRefetch.afterStarted;
   return { error, gaveUp, readiness, retry };
 }

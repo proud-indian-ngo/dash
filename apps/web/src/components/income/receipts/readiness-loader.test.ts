@@ -17,6 +17,7 @@ function deferred<T>() {
 function harness(options: { hidden?: () => boolean } = {}) {
   const pending: ReturnType<typeof deferred<string>>[] = [];
   const results: string[] = [];
+  const seqs: number[] = [];
   const errors: unknown[] = [];
   const loader = createReadinessLoader({
     debounceMs: 5,
@@ -27,9 +28,12 @@ function harness(options: { hidden?: () => boolean } = {}) {
       return next.promise;
     },
     onError: (error) => errors.push(error),
-    onResult: (result) => results.push(result),
+    onResult: (result, seq) => {
+      results.push(result);
+      seqs.push(seq);
+    },
   });
-  return { errors, loader, pending, results };
+  return { errors, loader, pending, results, seqs };
 }
 
 describe("createReadinessLoader", () => {
@@ -95,5 +99,27 @@ describe("createReadinessLoader", () => {
     await wait(20);
     expect(results).toEqual([]);
     expect(pending).toHaveLength(1);
+  });
+
+  it("numbers loads by start, so an older answer isn't taken for a newer request", async () => {
+    const { loader, pending, seqs } = harness();
+    loader.request();
+    await wait(20);
+    expect(loader.started()).toBe(1);
+    // A refetch asked for while load 1 runs: recorded against started() = 1.
+    const askedAfter = loader.started();
+    loader.request();
+    await wait(20);
+    pending[0]?.resolve("older");
+    await wait(5);
+    // The older answer is not newer than the request.
+    expect(seqs).toEqual([1]);
+    expect((seqs.at(-1) ?? 0) > askedAfter).toBe(false);
+    // The trailing call started after it, and its answer counts.
+    expect(loader.started()).toBe(2);
+    pending[1]?.resolve("newer");
+    await wait(5);
+    expect(seqs).toEqual([1, 2]);
+    expect((seqs.at(-1) ?? 0) > askedAfter).toBe(true);
   });
 });
