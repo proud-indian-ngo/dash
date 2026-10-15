@@ -63,7 +63,11 @@ mock.module("@/lib/receipts/server", () => ({
     eligible: [],
     other: [],
   }),
-  loadReadiness: record("readiness", { blocked: [], ready: [GIFT] }),
+  loadReadiness: record("readiness", {
+    cantIssue: [],
+    needsDetails: [],
+    ready: [GIFT],
+  }),
   queueReceiptEmail: record("email", { contributionId: GIFT }),
   voidReceipt: record("void", { contributionId: GIFT, id: RECEIPT }),
 }));
@@ -151,7 +155,7 @@ describe("receipt server functions", () => {
     granted = ["finance.view"];
     await expect(
       call(fns.getContributionReceiptReadiness, {})
-    ).resolves.toEqual({ blocked: [], ready: [GIFT] });
+    ).resolves.toEqual({ cantIssue: [], needsDetails: [], ready: [GIFT] });
     expect(calls).toEqual(["readiness"]);
     expect(audits).toEqual([]);
   });

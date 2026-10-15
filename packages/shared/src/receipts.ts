@@ -434,21 +434,23 @@ export function receiptAssessmentLabel(assessment: ReceiptAssessment): string {
 
 /**
  * One compact value per gift for the Income table's Receipt column and
- * filter. `issued` shows the receipt number; `none` is a gift whose money
- * isn't (or is no longer) with the trust.
+ * filter, in the column's sort order. `issued` shows the receipt number;
+ * `none` is a gift whose money isn't (or is no longer) with the trust.
  */
 export const receiptColumnValues = [
+  "ready",
+  "needs_details",
+  "cant_issue",
   "issued",
   "razorpay",
   "give_do",
-  "ready",
-  "needs_details",
   "not_needed",
   "none",
 ] as const;
 export type ReceiptColumnValue = (typeof receiptColumnValues)[number];
 
 export const RECEIPT_COLUMN_LABELS: Record<ReceiptColumnValue, string> = {
+  cant_issue: "Can't issue",
   give_do: `By ${RECEIPT_ISSUER_LABELS.give_do}`,
   issued: "Issued",
   needs_details: "Needs details",
@@ -465,6 +467,36 @@ export const RECEIPT_COLUMN_FILTER_LABELS: Record<ReceiptColumnValue, string> =
     issued: "Receipt issued",
     none: "Not received (pending, refunded, reversed)",
   };
+
+/** Blocks the donor's details cause; adding the details clears them. */
+export const DONOR_RECEIPT_BLOCKS: readonly ReceiptBlock[] = [
+  "missing_name",
+  "missing_address",
+  "missing_id",
+  "invalid_id",
+];
+
+/** Blocks on the gift itself, which no donor detail clears. */
+export function giftReceiptBlocks(
+  blocks: readonly ReceiptBlock[]
+): ReceiptBlock[] {
+  return blocks.filter((block) => !DONOR_RECEIPT_BLOCKS.includes(block));
+}
+
+/**
+ * "Needs details" when only the donor's details hold a receipt up; "Can't
+ * issue" when anything about the gift does, since details alone won't help.
+ */
+export function blockedReceiptColumnValue(
+  blocks: readonly ReceiptBlock[]
+): "needs_details" | "cant_issue" {
+  return giftReceiptBlocks(blocks).length > 0 ? "cant_issue" : "needs_details";
+}
+
+/** The reasons a gift can't be receipted, for the cell's tooltip. */
+export function receiptBlocksTitle(blocks: readonly ReceiptBlock[]): string {
+  return blocks.map((block) => RECEIPT_BLOCK_LABELS[block]).join("; ");
+}
 
 /**
  * The column value for an assessment. A live receipt always shows; money
@@ -491,7 +523,7 @@ export function receiptColumnValue(
     case "eligible":
       return "ready";
     case "blocked":
-      return "needs_details";
+      return blockedReceiptColumnValue(assessment.blocks);
     default:
       return "none";
   }
@@ -510,6 +542,21 @@ export function receiptColumnValueWithoutDonor(
     return null;
   }
   return receiptColumnValue(assessment, gift.status);
+}
+
+/**
+ * The Receipt column's sort key: the values in `receiptColumnValues` order,
+ * issued receipts by number within their group.
+ */
+export function receiptColumnSortKey(
+  value: ReceiptColumnValue | null,
+  receiptNumber?: string | null
+): string {
+  const rank =
+    value === null
+      ? receiptColumnValues.length
+      : receiptColumnValues.indexOf(value);
+  return `${String(rank).padStart(2, "0")}|${value === "issued" ? (receiptNumber ?? "") : ""}`;
 }
 
 /** Most gifts one issue may cover. */

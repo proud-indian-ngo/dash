@@ -273,6 +273,7 @@ function ContributionsTab({
         canManage={canManage}
         data={rows}
         isLoading={isLoading}
+        isSynced={result.type === "complete"}
         missingPartyIds={missingIds}
         onDelete={handleDelete}
         onEdit={handleEdit}

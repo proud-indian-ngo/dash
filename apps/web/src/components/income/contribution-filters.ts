@@ -160,6 +160,43 @@ export function getContributionFilterValue(
   };
 }
 
+/**
+ * Status rules saved or linked before receipting moved to its own column
+ * may ask for `receipted`; read them as `received`. Returns the rewritten
+ * query, or null when nothing needed rewriting.
+ */
+export function foldReceiptedStatusFilter(
+  query: FilterQuery
+): FilterQuery | null {
+  let changed = false;
+  const fold = (value: unknown): unknown => {
+    if (value === "receipted") {
+      changed = true;
+      return "received";
+    }
+    if (Array.isArray(value) && value.includes("receipted")) {
+      changed = true;
+      return [
+        ...new Set(
+          value.map((item) => (item === "receipted" ? "received" : item))
+        ),
+      ];
+    }
+    return value;
+  };
+  const visit = (node: FilterNode): FilterNode => {
+    if (isFilterGroup(node)) {
+      return { ...node, rules: node.rules.map(visit) };
+    }
+    if (isFilterRule(node) && node.path[0] === "status") {
+      return { ...node, value: fold(node.value) };
+    }
+    return node;
+  };
+  const next = visit(query) as FilterQuery;
+  return changed ? next : null;
+}
+
 export function hasReachedBankFilter(query: FilterQuery): boolean {
   return flattenFilterRules(query).some(
     (rule) =>

@@ -7,6 +7,8 @@ const RECEIPT_DONOR = "E2E Receipt Donor";
 const UPI_REFERENCE = "E2E-RECEIPT-UPI";
 const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
 const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
+const DETAILS_DONOR = "E2E Receipt Details Donor";
+const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
 
 /** The financial year running now in India, whose series the receipt starts. */
 function currentFinancialYear(): string {
@@ -49,7 +51,12 @@ async function ensureRegistration(page: Page) {
 }
 
 /** The table row of one of the receipt donor's gifts, by its reference. */
-async function giftRow(page: Page, reference: string, receiptFilter?: string) {
+async function giftRow(
+  page: Page,
+  reference: string,
+  receiptFilter?: string,
+  donor = RECEIPT_DONOR
+) {
   const filters = receiptFilter
     ? `&filters=${encodeURIComponent(
         JSON.stringify({
@@ -70,7 +77,7 @@ async function giftRow(page: Page, reference: string, receiptFilter?: string) {
     : "";
   await page.goto(`/income?search=${encodeURIComponent(reference)}${filters}`);
   await waitForZeroReady(page);
-  return page.getByRole("row").filter({ hasText: RECEIPT_DONOR });
+  return page.getByRole("row").filter({ hasText: donor });
 }
 
 async function openGift(page: Page, reference: string) {
@@ -241,6 +248,13 @@ test.describe("Income: donation receipts (finance)", () => {
     await page.keyboard.press("Escape");
     await expect(row.getByTestId("receipt-status")).toHaveText("Voided");
 
+    // The table shows it Ready to issue again.
+    const again = await giftRow(page, UPI_REFERENCE);
+    await expect(again.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue",
+      { timeout: 15_000 }
+    );
+
     // The gift is Received again and can be receipted under a new number.
     const reopened = await openGift(page, UPI_REFERENCE);
     await expect(reopened.getByTestId("contribution-status")).toHaveText(
@@ -249,5 +263,57 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(
       reopened.getByTestId("contribution-issue-receipt")
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("a gift waiting on the donor's address is Ready to issue once it is added", async ({
+    page,
+  }) => {
+    test.slow();
+    const row = await giftRow(
+      page,
+      DETAILS_REFERENCE,
+      undefined,
+      DETAILS_DONOR
+    );
+    await expect(row.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Needs details",
+      { timeout: 15_000 }
+    );
+    await expect(
+      (
+        await giftRow(page, "E2E-RECEIPT", "needs_details", DETAILS_DONOR)
+      ).getByTestId("contribution-receipt-cell")
+    ).toHaveText("Needs details", { timeout: 15_000 });
+
+    // Add the address on the donor.
+    await page.goto("/donors");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search donors...").fill(DETAILS_DONOR);
+    await page
+      .getByRole("row")
+      .filter({ hasText: DETAILS_DONOR })
+      .first()
+      .click();
+    const sheet = page.getByRole("dialog").filter({ hasText: DETAILS_DONOR });
+    await sheet.getByRole("button", { name: "Edit" }).click();
+    const form = page.getByRole("dialog", { name: "Edit donor" });
+    await expect(form).toBeVisible();
+    await form
+      .getByRole("textbox", { name: "Address line 1" })
+      .fill("9, Test Road");
+    await form.getByRole("textbox", { name: "PIN code" }).fill("560002");
+    await clickUntilDialogCloses(form, "Save changes");
+    await page.keyboard.press("Escape");
+
+    const ready = await giftRow(
+      page,
+      DETAILS_REFERENCE,
+      undefined,
+      DETAILS_DONOR
+    );
+    await expect(ready.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Ready to issue",
+      { timeout: 15_000 }
+    );
   });
 });

@@ -210,7 +210,7 @@ const statusOf = async (tx: Db, id: string) =>
   )[0]?.status;
 
 it.skipIf(!localDatabase)(
-  "splits open direct gifts into ready and blocked, by ID only",
+  "splits open direct gifts into ready, needs details and can't issue, by ID only",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const fixture = await foundation(tx);
@@ -218,6 +218,7 @@ it.skipIf(!localDatabase)(
       const noAddress = await donor(tx, fixture, { address: false });
       const ready = await gift(tx, fixture, complete);
       const blocked = await gift(tx, fixture, noAddress);
+      const foreign = await gift(tx, fixture, complete, { currency: "USD" });
       const gateway = await gift(tx, fixture, complete, {
         channel: "razorpay",
       });
@@ -232,12 +233,24 @@ it.skipIf(!localDatabase)(
       );
       const readiness = await loadReceiptReadiness(tx);
       expect(readiness.ready).toContain(ready);
-      expect(readiness.blocked).toContain(blocked);
+      expect(readiness.needsDetails).toContain(blocked);
+      expect(readiness.cantIssue).toContainEqual({
+        blocks: ["foreign_currency"],
+        id: foreign,
+      });
+      const listed = [
+        ...readiness.ready,
+        ...readiness.needsDetails,
+        ...readiness.cantIssue.map((entry) => entry.id),
+      ];
       for (const id of [gateway, early, issued]) {
-        expect(readiness.ready).not.toContain(id);
-        expect(readiness.blocked).not.toContain(id);
+        expect(listed).not.toContain(id);
       }
-      expect(Object.keys(readiness).sort()).toEqual(["blocked", "ready"]);
+      expect(Object.keys(readiness).sort()).toEqual([
+        "cantIssue",
+        "needsDetails",
+        "ready",
+      ]);
     });
   }
 );

@@ -35,6 +35,7 @@ import { formatReceivedOn } from "./contribution-detail-sheet";
 import {
   contributionBankScope,
   createContributionFilterFields,
+  foldReceiptedStatusFilter,
   getContributionFilterValue,
   hasReachedBankFilter,
   searchContribution,
@@ -48,7 +49,10 @@ import {
   programmeLabel,
 } from "./income-types";
 import { ContributionReceiptCell } from "./receipts/contribution-receipt-cell";
-import { contributionReceiptValue } from "./receipts/receipt-column";
+import {
+  contributionReceiptSortKey,
+  hasUnclassifiedRows,
+} from "./receipts/receipt-column";
 import { useReceiptReadiness } from "./receipts/use-receipt-readiness";
 import { useContributionBankEvidence } from "./use-contribution-bank-evidence";
 
@@ -117,6 +121,7 @@ export function ContributionsTable({
   canManage,
   data,
   isLoading,
+  isSynced,
   missingPartyIds,
   onDelete,
   onEdit,
@@ -125,6 +130,8 @@ export function ContributionsTable({
   canManage: boolean;
   data: ContributionRow[];
   isLoading: boolean;
+  /** Whether Zero reports the contributions query complete. */
+  isSynced: boolean;
   missingPartyIds: ReadonlySet<string>;
   onDelete: (row: ContributionRow) => void;
   onEdit: (row: ContributionRow) => void;
@@ -142,6 +149,16 @@ export function ContributionsTable({
       setQuery(removeFilterPath(query, "reachedBank"));
     }
   }, [bankFilterActive, query, seesBankEvidence, setQuery]);
+  // Receipted is shown, and filtered, as Received now.
+  const foldedStatusQuery = useMemo(
+    () => foldReceiptedStatusFilter(query),
+    [query]
+  );
+  useEffect(() => {
+    if (foldedStatusQuery) {
+      setQuery(foldedStatusQuery);
+    }
+  }, [foldedStatusQuery, setQuery]);
   const bankScope = useMemo(
     () => contributionBankScope(data, query, missingPartyIds, searchQuery),
     [data, missingPartyIds, query, searchQuery]
@@ -153,11 +170,19 @@ export function ContributionsTable({
   );
   const canDownloadReceipts = hasPermission("donors.receipt");
   const signature = useMemo(() => contributionsSignature(data), [data]);
-  const readiness = useReceiptReadiness(seesReceipts, signature);
-  // A Receipt filter waits for the server's split rather than match nothing.
+  const receiptState = useReceiptReadiness({
+    enabled: seesReceipts,
+    hasUnclassified: (sets) => hasUnclassifiedRows(data, sets),
+    refreshKey: signature,
+    synced: isSynced,
+  });
+  const { readiness } = receiptState;
+  // A Receipt filter waits for the server's split rather than match
+  // nothing, unless loading it failed.
   const receiptFilterPending =
     seesReceipts &&
     readiness === null &&
+    !receiptState.error &&
     flattenFilterRules(query).some((rule) => rule.path[0] === "receipt");
   const getRowId = useEventCallback((row: ContributionRow) => row.id);
 
@@ -302,11 +327,11 @@ export function ContributionsTable({
       ? [
           {
             accessorFn: (row: ContributionRow) =>
-              contributionReceiptValue(row, readiness) ?? "",
+              contributionReceiptSortKey(row, readiness),
             cell: ({ row }: { row: { original: ContributionRow } }) => (
               <ContributionReceiptCell
                 canDownload={canDownloadReceipts}
-                readiness={readiness}
+                readiness={receiptState}
                 row={row.original}
               />
             ),
@@ -408,6 +433,15 @@ export function ContributionsTable({
             variant="outline"
           >
             Bank status unavailable. Retry
+          </Button>
+        ) : seesReceipts && receiptState.error ? (
+          <Button
+            onClick={receiptState.retry}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            Receipt status unavailable. Retry
           </Button>
         ) : null
       }

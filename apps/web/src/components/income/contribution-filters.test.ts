@@ -9,6 +9,7 @@ import { financialYearOf } from "@pi-dash/shared/income";
 import {
   contributionBankScope,
   createContributionFilterFields,
+  foldReceiptedStatusFilter,
   getContributionFilterValue,
   hasReachedBankFilter,
   isMissingDetailsRow,
@@ -196,7 +197,8 @@ describe("status and receipt filter values", () => {
       ...overrides,
     }) as unknown as ContributionRow;
   const readiness = {
-    blocked: new Set(["blocked"]),
+    cantIssue: new Map([["refunded", ["refund_recorded" as const]]]),
+    needsDetails: new Set(["blocked"]),
     ready: new Set(["ready"]),
   };
   const value = getContributionFilterValue(new Set(), undefined, fy, readiness);
@@ -217,6 +219,7 @@ describe("status and receipt filter values", () => {
   it("derives the receipt value from synced data and the server's readiness", () => {
     expect(value(gift({ id: "ready" }), ["receipt"])).toBe("ready");
     expect(value(gift({ id: "blocked" }), ["receipt"])).toBe("needs_details");
+    expect(value(gift({ id: "refunded" }), ["receipt"])).toBe("cant_issue");
     expect(value(gift({ id: "unknown" }), ["receipt"])).toBeNull();
     expect(value(gift({ channel: "razorpay" }), ["receipt"])).toBe("razorpay");
     expect(
@@ -241,5 +244,38 @@ describe("status and receipt filter values", () => {
       );
     expect(ids(false)).not.toContain("receipt");
     expect(ids(true)).toContain("receipt");
+  });
+});
+
+describe("foldReceiptedStatusFilter", () => {
+  const statusRule = (value: unknown) =>
+    createFilterRule({ id: "s", operator: "is", path: ["status"], value });
+
+  it("reads a saved Receipted status as Received", () => {
+    const folded = foldReceiptedStatusFilter(
+      createFilterQuery([
+        statusRule(["receipted", "received", "pending"]),
+        createFilterRule({
+          id: "c",
+          operator: "is",
+          path: ["channel"],
+          value: "receipted",
+        }),
+      ])
+    );
+    expect(folded?.rules).toMatchObject([
+      { path: ["status"], value: ["received", "pending"] },
+      { path: ["channel"], value: "receipted" },
+    ]);
+    expect(
+      foldReceiptedStatusFilter(createFilterQuery([statusRule("receipted")]))
+        ?.rules
+    ).toMatchObject([{ value: "received" }]);
+  });
+
+  it("leaves other queries alone", () => {
+    expect(
+      foldReceiptedStatusFilter(createFilterQuery([statusRule("received")]))
+    ).toBeNull();
   });
 });

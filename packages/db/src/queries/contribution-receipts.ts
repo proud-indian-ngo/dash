@@ -18,17 +18,28 @@ import {
 import { financialYearOf, todayInKolkata } from "@pi-dash/shared/income";
 import {
   assessReceipt,
+  blockedReceiptColumnValue,
   DIRECT_RECEIPT_CHANNELS,
   formatReceiptNumber,
   parseReceiptSettings,
   RECEIPT_SETTINGS_CONFIG_KEY,
   RECEIPTING_START_DAY,
+  receiptCarries80G,
   type ReceiptAssessment,
   type ReceiptBlock,
   type ReceiptDonorFacts,
   type ReceiptSettings,
 } from "@pi-dash/shared/receipts";
-import { and, asc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  notExists,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -460,39 +471,162 @@ export async function loadReceiptCandidates(
 
 // ── Readiness (the Income table's Receipt column) ───────────────────────────
 
-/** Gift IDs only: no donor names, amounts or reasons. */
+/** Gift IDs and block codes only: no donor names, amounts or details. */
 export interface ReceiptReadiness {
-  blocked: string[];
+  /** Blocked by the gift itself (with any donor blocks), with why. */
+  cantIssue: { blocks: ReceiptBlock[]; id: string }[];
+  /** Blocked only by the donor's details. */
+  needsDetails: string[];
   ready: string[];
 }
 
 /**
- * Direct gifts from the start date that have no live receipt, split into
- * ready to issue and blocked. The Income table works out every other gift's
- * Receipt value from synced data; only these turn on the donor's private
- * details.
+ * Direct gifts from the start date, received, with no live receipt, split
+ * into ready, needs details and can't issue. The Income table works out
+ * every other gift's Receipt value from synced data; only these turn on the
+ * donor's private details. One bounded query for the gifts; refunds and
+ * donor facts only for those; ID numbers decrypted only where the receipt
+ * would carry the 80G line, the one case `assessReceipt` checks them.
  */
 export async function loadReceiptReadiness(
-  tx: ReceiptTx | typeof db = db
+  reader: ReceiptReader = db
 ): Promise<ReceiptReadiness> {
-  const gifts = await loadGifts(tx, null, false);
-  const live = await loadLiveReceipts(
-    tx,
-    gifts.map((gift) => gift.id)
+  const gifts = await reader
+    .select({
+      amountPaise: contribution.amountPaise,
+      channel: contribution.channel,
+      currency: contribution.currency,
+      deductionEligible: contribution.deductionEligible,
+      id: contribution.id,
+      partyId: contribution.partyId,
+      receivedOn: contribution.receivedOn,
+      reportingMode: contribution.reportingMode,
+      status: contribution.status,
+    })
+    .from(contribution)
+    .where(
+      and(
+        inArray(contribution.channel, [...DIRECT_RECEIPT_CHANNELS]),
+        gte(contribution.receivedOn, RECEIPTING_START_DAY),
+        inArray(contribution.status, ["received", "receipted"]),
+        notExists(
+          reader
+            .select({ one: sql`1` })
+            .from(contributionReceipt)
+            .where(
+              and(
+                eq(contributionReceipt.contributionId, contribution.id),
+                isNull(contributionReceipt.voidedAt)
+              )
+            )
+        )
+      )
+    );
+  const result: ReceiptReadiness = {
+    cantIssue: [],
+    needsDetails: [],
+    ready: [],
+  };
+  if (gifts.length === 0) {
+    return result;
+  }
+  const refunds = await reader
+    .select({
+      contributionId: contributionRefund.contributionId,
+      total: sql<string>`coalesce(sum(${contributionRefund.amountPaise}), 0)`,
+    })
+    .from(contributionRefund)
+    .where(
+      inArray(
+        contributionRefund.contributionId,
+        gifts.map((gift) => gift.id)
+      )
+    )
+    .groupBy(contributionRefund.contributionId);
+  const refundById = new Map(
+    refunds.map((row) => [row.contributionId, Number(row.total)])
   );
-  const open = gifts.filter((gift) => !live.has(gift.id));
-  const donors = await loadDonors(
-    tx,
-    [...new Set(open.map((gift) => gift.partyId))],
-    false
-  );
-  const result: ReceiptReadiness = { blocked: [], ready: [] };
-  for (const gift of open) {
-    const assessment = assess(gift, live, donors);
+  const partyIds = [...new Set(gifts.map((gift) => gift.partyId))];
+  const parties = await reader
+    .select({
+      displayName: party.displayName,
+      id: party.id,
+      taxCertificateOptOut: party.taxCertificateOptOut,
+    })
+    .from(party)
+    .where(inArray(party.id, partyIds));
+  const privates = await reader
+    .select({
+      addressLine1: partyPrivate.addressLine1,
+      idNumberEncrypted: partyPrivate.idNumberEncrypted,
+      idType: partyPrivate.idType,
+      partyId: partyPrivate.partyId,
+      pincode: partyPrivate.pincode,
+    })
+    .from(partyPrivate)
+    .where(inArray(partyPrivate.partyId, partyIds));
+  const privateById = new Map(privates.map((row) => [row.partyId, row]));
+  const facts = new Map<string, ReceiptDonorFacts>();
+  for (const row of parties) {
+    const details = privateById.get(row.id);
+    facts.set(row.id, {
+      hasAddress: details ? hasReturnAddress(details) : false,
+      hasIdNumber: (details?.idNumberEncrypted ?? null) !== null,
+      hasName: !blank(row.displayName),
+      idType: details?.idType ?? "none",
+      // Filled in below, only where the 80G line needs the ID.
+      idValid: null,
+      taxCertificateOptOut: row.taxCertificateOptOut,
+    });
+  }
+  const giftFacts = gifts.map((gift) => ({
+    amountPaise: gift.amountPaise,
+    channel: gift.channel as ContributionChannel,
+    currency: gift.currency,
+    deductionEligible: gift.deductionEligible as DeductionEligible,
+    hasActiveReceipt: false,
+    id: gift.id,
+    partyId: gift.partyId,
+    receivedOn: gift.receivedOn,
+    refundedPaise: refundById.get(gift.id) ?? 0,
+    reportingMode: gift.reportingMode as ContributionReportingMode,
+    status: gift.status,
+  }));
+  const canRead = hasEncryptionKey();
+  const checked = new Set<string>();
+  for (const gift of giftFacts) {
+    const donor = facts.get(gift.partyId);
+    const encrypted = privateById.get(gift.partyId)?.idNumberEncrypted;
+    if (
+      !donor ||
+      checked.has(gift.partyId) ||
+      donor.idType === "none" ||
+      !encrypted ||
+      !canRead ||
+      !receiptCarries80G(gift, donor)
+    ) {
+      continue;
+    }
+    checked.add(gift.partyId);
+    try {
+      donor.idValid = idNumberLooksValid(
+        donor.idType,
+        decryptSecret(encrypted, partyIdNumberContext(gift.partyId))
+      );
+    } catch {
+      donor.idValid = false;
+    }
+  }
+  for (const gift of giftFacts) {
+    const assessment = assessReceipt(gift, facts.get(gift.partyId));
     if (assessment.kind === "eligible") {
       result.ready.push(gift.id);
     } else if (assessment.kind === "blocked") {
-      result.blocked.push(gift.id);
+      if (blockedReceiptColumnValue(assessment.blocks) === "cant_issue") {
+        result.cantIssue.push({ blocks: assessment.blocks, id: gift.id });
+      } else {
+        result.needsDetails.push(gift.id);
+      }
     }
   }
   return result;

@@ -1,59 +1,137 @@
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getContributionReceiptReadiness } from "@/functions/contribution-receipts";
 
-import type { ReceiptReadinessSets } from "./receipt-column";
+import {
+  createReadinessLoader,
+  type ReadinessLoader,
+} from "./readiness-loader";
+import { type ReceiptReadinessSets, toReadinessSets } from "./receipt-column";
+
+const DEBOUNCE_MS = 400;
+
+export interface ReceiptReadinessState {
+  /** The last load failed; cells needing it show Unavailable. */
+  error: boolean;
+  /**
+   * Some rows still lack a split after the one refetch for this refresh
+   * key (they show Unavailable until the next change or Retry).
+   */
+  gaveUp: boolean;
+  readiness: ReceiptReadinessSets | null;
+  retry: () => void;
+}
 
 /**
- * Which open direct gifts are ready to issue and which need details, for
- * the Income table's Receipt column. Server-only (it reads donors' private
- * details), so a server function returning gift IDs only. Refetched when
- * the contributions change (`refreshKey`; issuing or voiding changes the
- * gift's status) and when the window regains focus, since donor details
- * are edited elsewhere. Null until loaded, or when not `enabled`.
+ * Which open direct gifts are ready to issue, need details or can't be
+ * issued, for the Income table's Receipt column. Server-only (it reads
+ * donors' private details), so a server function returning gift IDs and
+ * block codes only.
+ *
+ * Loads once the contributions query is complete (`synced`), then again
+ * when the contributions change (`refreshKey`; issuing or voiding changes
+ * the gift's status) and when the tab is shown again, since donor details
+ * are edited elsewhere. Requests are debounced, skipped while the tab is
+ * hidden, and never overlap (see `createReadinessLoader`). When an answer
+ * leaves some row unclassified (`hasUnclassified`), it refetches once per
+ * refresh key.
  */
-export function useReceiptReadiness(
-  enabled: boolean,
-  refreshKey: string
-): ReceiptReadinessSets | null {
+export function useReceiptReadiness({
+  enabled,
+  hasUnclassified,
+  refreshKey,
+  synced,
+}: {
+  enabled: boolean;
+  hasUnclassified: (readiness: ReceiptReadinessSets) => boolean;
+  refreshKey: string;
+  synced: boolean;
+}): ReceiptReadinessState {
   const load = useServerFn(getContributionReceiptReadiness);
-  const [state, setState] = useState<ReceiptReadinessSets | null>(null);
-  const [focusCount, setFocusCount] = useState(0);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const [readiness, setReadiness] = useState<ReceiptReadinessSets | null>(null);
+  const [error, setError] = useState(false);
+  const [loadCount, setLoadCount] = useState(0);
+  const [missRefetch, setMissRefetch] = useState<{
+    afterLoad: number;
+    key: string;
+  } | null>(null);
+  const loaderRef = useRef<ReadinessLoader | null>(null);
+  const active = enabled && synced;
+
   useEffect(() => {
-    if (!enabled) {
+    if (!active) {
       return;
     }
-    const onFocus = () => setFocusCount((n) => n + 1);
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [enabled]);
-  useEffect(() => {
-    if (!enabled) {
-      setState(null);
-      return;
-    }
-    let cancelled = false;
-    load()
-      .then((result) => {
-        if (!cancelled) {
-          setState({
-            blocked: new Set(result.blocked),
-            ready: new Set(result.ready),
-          });
-        }
-      })
-      .catch((error: unknown) => {
+    const loader = createReadinessLoader({
+      debounceMs: DEBOUNCE_MS,
+      isHidden: () => document.hidden,
+      load: () => loadRef.current(),
+      onError: (caught) => {
         log.error({
           action: "income.receiptReadiness",
-          caughtError: error instanceof Error ? error.message : String(error),
+          caughtError:
+            caught instanceof Error ? caught.message : String(caught),
           component: "ContributionsTable",
         });
-      });
-    return () => {
-      cancelled = true;
+        setError(true);
+      },
+      onResult: (result) => {
+        setReadiness(toReadinessSets(result));
+        setError(false);
+        setLoadCount((count) => count + 1);
+      },
+    });
+    loaderRef.current = loader;
+    const onVisibility = () => {
+      if (!document.hidden) {
+        loader.request();
+      }
     };
-  }, [enabled, refreshKey, focusCount, load]);
-  return state;
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      loader.dispose();
+      loaderRef.current = null;
+    };
+  }, [active]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setReadiness(null);
+      setError(false);
+    }
+  }, [enabled]);
+
+  // The first load once synced, and again whenever the contributions change.
+  useEffect(() => {
+    if (active) {
+      loaderRef.current?.request();
+    }
+  }, [active, refreshKey]);
+
+  const unclassified = readiness !== null && hasUnclassified(readiness);
+  // A row the answer doesn't cover (such as a gift synced after the server
+  // read): refetch once for this refresh key.
+  useEffect(() => {
+    if (active && unclassified && missRefetch?.key !== refreshKey) {
+      setMissRefetch({ afterLoad: loadCount, key: refreshKey });
+      loaderRef.current?.request();
+    }
+  }, [active, unclassified, missRefetch, refreshKey, loadCount]);
+
+  const retry = useCallback(() => {
+    setError(false);
+    setMissRefetch(null);
+    loaderRef.current?.request();
+  }, []);
+
+  const gaveUp =
+    unclassified &&
+    missRefetch?.key === refreshKey &&
+    loadCount > missRefetch.afterLoad;
+  return { error, gaveUp, readiness, retry };
 }

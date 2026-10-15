@@ -8,8 +8,12 @@ import {
   parseReceiptSettings,
   type ReceiptDonorFacts,
   type ReceiptGiftFacts,
+  blockedReceiptColumnValue,
+  giftReceiptBlocks,
   RECEIPT_COLUMN_LABELS,
   receiptAssessmentLabel,
+  receiptBlocksTitle,
+  receiptColumnSortKey,
   receiptColumnValue,
   receiptColumnValueWithoutDonor,
   receiptFileName,
@@ -238,7 +242,9 @@ describe("receipt column", () => {
   it("splits direct gifts into ready, needs details and not needed", () => {
     expect(column({})).toBe("ready");
     expect(column({}, donor({ hasAddress: false }))).toBe("needs_details");
-    expect(column({ status: "receipted" })).toBe("needs_details");
+    expect(column({}, donor({ hasIdNumber: false }))).toBe("needs_details");
+    expect(column({}, donor({ idValid: false }))).toBe("needs_details");
+    expect(column({ status: "receipted" })).toBe("cant_issue");
     expect(column({ receivedOn: "2026-03-31" })).toBe("not_needed");
     expect(column({ channel: "in_kind" })).toBe("not_needed");
     expect(column({ channel: "in_kind", status: "pending" })).toBe("none");
@@ -248,6 +254,51 @@ describe("receipt column", () => {
     expect(RECEIPT_COLUMN_LABELS.needs_details).toBe("Needs details");
     expect(RECEIPT_COLUMN_LABELS.not_needed).toBe("Not needed");
     expect(RECEIPT_COLUMN_LABELS.none).toBe("—");
+  });
+
+  it("says Can't issue when the gift itself blocks the receipt", () => {
+    expect(column({ refundedPaise: 100 })).toBe("cant_issue");
+    expect(column({ currency: "USD" })).toBe("cant_issue");
+    expect(column({ partyId: GIVE_INDIA_PARTY_ID })).toBe("cant_issue");
+    // Gift-level and donor-level together: details alone won't help.
+    expect(column({ refundedPaise: 100 }, donor({ hasAddress: false }))).toBe(
+      "cant_issue"
+    );
+    expect(RECEIPT_COLUMN_LABELS.cant_issue).toBe("Can't issue");
+    expect(blockedReceiptColumnValue(["missing_address", "missing_id"])).toBe(
+      "needs_details"
+    );
+    expect(giftReceiptBlocks(["missing_name", "refund_recorded"])).toEqual([
+      "refund_recorded",
+    ]);
+    expect(receiptBlocksTitle(["refund_recorded", "foreign_currency"])).toBe(
+      "A refund is recorded against it; Foreign currency (FCRA is not activated)"
+    );
+  });
+
+  it("sorts ready first, receipts by number, and the dash last", () => {
+    const keys = [
+      receiptColumnSortKey("none"),
+      receiptColumnSortKey("issued", "PI/2026-27/0002"),
+      receiptColumnSortKey("ready"),
+      receiptColumnSortKey("issued", "PI/2026-27/0001"),
+      receiptColumnSortKey("razorpay"),
+      receiptColumnSortKey("needs_details"),
+      receiptColumnSortKey("cant_issue"),
+      receiptColumnSortKey("give_do"),
+      receiptColumnSortKey("not_needed"),
+    ].sort();
+    expect(keys).toEqual([
+      receiptColumnSortKey("ready"),
+      receiptColumnSortKey("needs_details"),
+      receiptColumnSortKey("cant_issue"),
+      receiptColumnSortKey("issued", "PI/2026-27/0001"),
+      receiptColumnSortKey("issued", "PI/2026-27/0002"),
+      receiptColumnSortKey("razorpay"),
+      receiptColumnSortKey("give_do"),
+      receiptColumnSortKey("not_needed"),
+      receiptColumnSortKey("none"),
+    ]);
   });
 
   it("leaves receiptable direct gifts to the server, which reads the donor", () => {
