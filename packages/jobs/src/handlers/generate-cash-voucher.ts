@@ -26,6 +26,7 @@ import {
 import { getR2Client } from "./r2";
 import {
   type RenderedFrom,
+  claimantDeclaration,
   onlySignatureChanged,
   stillAsRendered,
   voucherPayee,
@@ -215,6 +216,16 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     .from(user)
     .where(eq(user.id, reimb.userId));
 
+  // Raised for the claimant by someone else: their name goes on the
+  // claimant's declaration instead.
+  const [creator] =
+    reimb.createdBy && reimb.createdBy !== reimb.userId
+      ? await db
+          .select({ name: user.name })
+          .from(user)
+          .where(eq(user.id, reimb.createdBy))
+      : [];
+
   const [category] = await db
     .select({ name: expenseCategory.name })
     .from(expenseCategory)
@@ -257,6 +268,12 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     claimedBy: submitter?.name ?? "Unknown",
     ...voucherPayee(lineItem, submitter),
+    claimantDeclaration: claimantDeclaration({
+      claimantName: submitter?.name ?? "Unknown",
+      creatorName: creator?.name,
+      item: lineItem,
+      request: reimb,
+    }),
     payeeSignature,
     voucherNumber,
   });

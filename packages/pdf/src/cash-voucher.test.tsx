@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { paiseToWords } from "./amount-to-words";
 import {
   type CashVoucherProps,
+  claimantDeclarationText,
   formatPayeePhone,
   formatSignedAt,
 } from "./cash-voucher";
@@ -202,5 +203,73 @@ describe("formatPayeePhone", () => {
     expect(formatSignedAt(Date.UTC(2026, 9, 11, 19, 0))).toBe(
       "12 Oct 2026, 12:30 am"
     );
+  });
+
+  describe("paid to the claimant", () => {
+    // 12 Oct 2026, 3:40 pm in India.
+    const declaredAt = Date.UTC(2026, 9, 12, 10, 10);
+    const claimantPaid: CashVoucherProps = {
+      ...sampleVoucher,
+      claimantDeclaration: {
+        claimantName: "Test Volunteer",
+        declaredAt,
+        kind: "self",
+      },
+      paidTo: "Test Volunteer",
+    };
+
+    it("declares a self-submitted claim", () => {
+      expect(
+        claimantDeclarationText({
+          claimantName: "Test Volunteer",
+          declaredAt,
+          kind: "self",
+        })
+      ).toBe(
+        "Declared electronically by Test Volunteer (claimant) on 12 Oct 2026, 3:40 pm, when the claim was submitted."
+      );
+    });
+
+    it("says who raised a claim for the claimant", () => {
+      expect(
+        claimantDeclarationText({
+          claimantName: "Test Volunteer",
+          creatorName: "Test Finance",
+          declaredAt,
+          kind: "raised",
+        })
+      ).toBe(
+        "Raised by Test Finance for Test Volunteer on 12 Oct 2026, 3:40 pm; no payee signature needed as the claimant was paid."
+      );
+    });
+
+    it("prints the declaration on one page, unlike the empty box", async () => {
+      const [declared, raised, empty] = await Promise.all([
+        generateCashVoucherPdf(claimantPaid),
+        generateCashVoucherPdf({
+          ...claimantPaid,
+          claimantDeclaration: {
+            claimantName:
+              "Venkatanarasimharajuvaripeta Subrahmanyam Lakshminarayanan Ramaswamy Iyengar",
+            creatorName:
+              "Synthetic Finance Volunteer With A Rather Long Name For Testing",
+            declaredAt,
+            kind: "raised",
+          },
+        }),
+        generateCashVoucherPdf({ ...claimantPaid, claimantDeclaration: null }),
+      ]);
+      expect(pageCount(declared)).toBe(1);
+      expect(pageCount(raised)).toBe(1);
+      expect(declared.equals(empty)).toBe(false);
+    });
+
+    it("keeps a third-party payee's unsigned voucher as before", async () => {
+      const pdf = await generateCashVoucherPdf({
+        ...sampleVoucher,
+        claimantDeclaration: null,
+      });
+      expect(sha256(pdf)).toBe(UNSIGNED_VOUCHER_SHA256);
+    });
   });
 });

@@ -44,12 +44,48 @@ export interface CashVoucherProps {
    */
   payeePhone: string | null;
   /**
+   * When the claimant was the payee: their declaration, printed in the
+   * Received by box instead of a payee signature. Ignored when a payee
+   * signature is given.
+   */
+  claimantDeclaration?: ClaimantDeclaration | null;
+  /**
    * The payee's signature, drawn on the volunteer's phone: a trimmed PNG
    * and when it was signed. Without it the Received by box stays empty for
    * a signature or thumb impression on paper.
    */
   payeeSignature?: PayeeSignature | null;
   voucherNumber: string;
+}
+
+/**
+ * The claimant was paid, so no payee signs. Either they declared it when
+ * they submitted the claim, or someone else raised the claim for them.
+ */
+export type ClaimantDeclaration =
+  | {
+      claimantName: string;
+      /** When the claim was submitted, epoch milliseconds. */
+      declaredAt: number;
+      kind: "self";
+    }
+  | {
+      claimantName: string;
+      /** Who raised the claim for the claimant. */
+      creatorName: string;
+      /** When the claim was raised, epoch milliseconds. */
+      declaredAt: number;
+      kind: "raised";
+    };
+
+/** The sentence the Received by box prints for a claimant-paid voucher. */
+export function claimantDeclarationText(
+  declaration: ClaimantDeclaration
+): string {
+  const when = formatSignedAt(declaration.declaredAt);
+  return declaration.kind === "self"
+    ? `Declared electronically by ${declaration.claimantName} (claimant) on ${when}, when the claim was submitted.`
+    : `Raised by ${declaration.creatorName} for ${declaration.claimantName} on ${when}; no payee signature needed as the claimant was paid.`;
 }
 
 export interface PayeeSignature {
@@ -95,6 +131,15 @@ const styles = {
       height: 78,
     },
     signatureImage: { height: 56, objectFit: "contain", width: 119 },
+    // Grows past the signature box's height for long names.
+    declaredBox: {
+      height: "auto",
+      justifyContent: "center",
+      minHeight: 78,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    declaration: { fontSize: 9, lineHeight: 1.45 },
     signedBox: { justifyContent: "center", paddingHorizontal: 10 },
     signatureRule: {
       borderTop: `0.75pt solid ${INK}`,
@@ -123,12 +168,26 @@ export function formatSignedAt(epochMs: number): string {
 
 /** The Received by box: the drawn signature when there is one, else blank for paper. */
 function ReceivedBy({
+  declaration,
   paidTo,
   signature,
 }: {
+  declaration: ClaimantDeclaration | null | undefined;
   paidTo: string;
   signature: PayeeSignature | null | undefined;
 }) {
+  if (!signature && declaration) {
+    return (
+      <View style={styles.party}>
+        <Text style={styles.label}>Received by</Text>
+        <View style={[styles.receivedBox, styles.declaredBox]}>
+          <Line style={styles.declaration}>
+            {claimantDeclarationText(declaration)}
+          </Line>
+        </View>
+      </View>
+    );
+  }
   if (!signature) {
     return (
       <View style={styles.party}>
@@ -249,7 +308,11 @@ export function CashVoucher(props: CashVoucherProps) {
               <Text style={styles.small}>Treasurer</Text>
             </View>
           </View>
-          <ReceivedBy paidTo={props.paidTo} signature={props.payeeSignature} />
+          <ReceivedBy
+            declaration={props.claimantDeclaration}
+            paidTo={props.paidTo}
+            signature={props.payeeSignature}
+          />
         </View>
 
         <Text fixed style={styles.footer}>

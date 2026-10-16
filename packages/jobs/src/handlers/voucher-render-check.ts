@@ -1,3 +1,4 @@
+import type { ClaimantDeclaration } from "@pi-dash/pdf/cash-voucher.tsx";
 import { isIndianMobile } from "@pi-dash/shared/cash-voucher";
 
 /** What the voucher printed from the line item and its request. */
@@ -79,4 +80,38 @@ export function voucherPayee(
     paidTo: claimant?.name || "Unknown",
     payeePhone: phone && isIndianMobile(phone) ? phone : null,
   };
+}
+
+/**
+ * What a claimant-paid voucher (no named payee) prints in its Received by
+ * box. The claimant declared it when they submitted the claim; when someone
+ * else raised it for them (`createdBy` isn't the claimant), it says so
+ * instead. The time is the submission, else the creation for claims from
+ * before `submittedAt`. A named payee gets none: they sign.
+ */
+export function claimantDeclaration(input: {
+  claimantName: string;
+  creatorName: string | null | undefined;
+  item: { payeeName: string | null };
+  request: {
+    createdAt: Date;
+    createdBy: string | null;
+    submittedAt: Date | null;
+    userId: string;
+  };
+}): ClaimantDeclaration | null {
+  if (input.item.payeeName?.trim()) {
+    return null;
+  }
+  const { request } = input;
+  const declaredAt = (request.submittedAt ?? request.createdAt).getTime();
+  if (request.createdBy && request.createdBy !== request.userId) {
+    return {
+      claimantName: input.claimantName,
+      creatorName: input.creatorName || "someone else",
+      declaredAt,
+      kind: "raised",
+    };
+  }
+  return { claimantName: input.claimantName, declaredAt, kind: "self" };
 }
