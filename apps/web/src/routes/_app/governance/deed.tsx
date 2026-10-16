@@ -15,6 +15,7 @@ import {
   type DocumentOption,
   governanceDocumentHref,
 } from "@/components/governance/evidence";
+import { PlainSelect } from "@/components/governance/plain-select";
 import {
   type DeedVersionView,
   formatIso,
@@ -87,8 +88,8 @@ function LinkDeed({
   const deeds = documents.filter(
     (d) => d.kind === "trust_deed" || d.kind === "deed_amendment"
   );
-  const link = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const documentId = event.target.value || null;
+  const link = async (value: string) => {
+    const documentId = value || null;
     const result = await zero.mutate(
       mutators.deedVersion.linkDocument({ documentId, id: version.id })
     ).server;
@@ -107,22 +108,21 @@ function LinkDeed({
     );
   }
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
+    <div className="flex flex-col gap-1.5 text-sm">
       <span className="text-muted-foreground text-xs">Registered copy</span>
-      <select
-        aria-label={`Registered copy of version ${version.number}`}
-        className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+      <PlainSelect
+        label={`Registered copy of version ${version.number}`}
         onChange={link}
+        options={[
+          { label: "Not linked", value: "" },
+          ...deeds.map((d) => ({
+            label: `${d.title} · ${formatIso(d.datedOn)}`,
+            value: d.id,
+          })),
+        ]}
         value={version.documentId ?? ""}
-      >
-        <option value="">Not linked</option>
-        {deeds.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.title} · {formatIso(d.datedOn)}
-          </option>
-        ))}
-      </select>
-    </label>
+      />
+    </div>
   );
 }
 

@@ -18,6 +18,8 @@ import {
   projectMutators,
 } from "./mutators/finance-dimensions";
 import {
+  complianceItemMutators,
+  complianceTemplateMutators,
   deedVersionMutators,
   governanceDocumentMutators,
   organisationRegistrationMutators,
@@ -58,6 +60,8 @@ export const mutators = defineMutators({
   appConfig: appConfigMutators,
   bankAccount: bankAccountMutators,
   contribution: contributionMutators,
+  complianceItem: complianceItemMutators,
+  complianceTemplate: complianceTemplateMutators,
   costCentre: costCentreMutators,
   deedVersion: deedVersionMutators,
   eventFeedback: eventFeedbackMutators,

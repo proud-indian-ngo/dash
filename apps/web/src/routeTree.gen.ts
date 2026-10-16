@@ -45,6 +45,7 @@ import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppGovernanceIndexRouteImport } from './routes/_app/governance/index'
+import { Route as AppGovernanceComplianceRouteImport } from './routes/_app/governance/compliance'
 import { Route as AppGovernanceDeedRouteImport } from './routes/_app/governance/deed'
 import { Route as AppGovernanceDocumentsRouteImport } from './routes/_app/governance/documents'
 import { Route as AppGovernanceRegistrationsRouteImport } from './routes/_app/governance/registrations'
@@ -337,6 +338,11 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
 const AppGovernanceIndexRoute = AppGovernanceIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernanceComplianceRoute = AppGovernanceComplianceRouteImport.update({
+  id: '/compliance',
+  path: '/compliance',
   getParentRoute: () => AppGovernanceRouteRoute,
 } as any)
 const AppGovernanceDeedRoute = AppGovernanceDeedRouteImport.update({
@@ -985,6 +991,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
+  '/governance/compliance': typeof AppGovernanceComplianceRoute
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
@@ -1124,6 +1131,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
   '/events/$id': typeof AppEventsIdRoute
+  '/governance/compliance': typeof AppGovernanceComplianceRoute
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
@@ -1275,6 +1283,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
+  '/_app/governance/compliance': typeof AppGovernanceComplianceRoute
   '/_app/governance/deed': typeof AppGovernanceDeedRoute
   '/_app/governance/documents': typeof AppGovernanceDocumentsRoute
   '/_app/governance/registrations': typeof AppGovernanceRegistrationsRoute
@@ -1428,6 +1437,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year'
     | '/settings/roles'
     | '/events/$id'
+    | '/governance/compliance'
     | '/governance/deed'
     | '/governance/documents'
     | '/governance/registrations'
@@ -1567,6 +1577,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/version'
     | '/events/$id'
+    | '/governance/compliance'
     | '/governance/deed'
     | '/governance/documents'
     | '/governance/registrations'
@@ -1717,6 +1728,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year'
     | '/_app/settings/roles'
     | '/_app/events/$id'
+    | '/_app/governance/compliance'
     | '/_app/governance/deed'
     | '/_app/governance/documents'
     | '/_app/governance/registrations'
@@ -2134,6 +2146,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/governance/'
       preLoaderRoute: typeof AppGovernanceIndexRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/compliance': {
+      id: '/_app/governance/compliance'
+      path: '/compliance'
+      fullPath: '/governance/compliance'
+      preLoaderRoute: typeof AppGovernanceComplianceRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/governance/deed': {
@@ -2971,6 +2990,7 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 )
 
 interface AppGovernanceRouteRouteChildren {
+  AppGovernanceComplianceRoute: typeof AppGovernanceComplianceRoute
   AppGovernanceDeedRoute: typeof AppGovernanceDeedRoute
   AppGovernanceDocumentsRoute: typeof AppGovernanceDocumentsRoute
   AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
@@ -2981,6 +3001,7 @@ interface AppGovernanceRouteRouteChildren {
 }
 
 const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
+  AppGovernanceComplianceRoute: AppGovernanceComplianceRoute,
   AppGovernanceDeedRoute: AppGovernanceDeedRoute,
   AppGovernanceDocumentsRoute: AppGovernanceDocumentsRoute,
   AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,

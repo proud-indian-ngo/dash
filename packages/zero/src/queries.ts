@@ -22,6 +22,7 @@ import {
 } from "./queries/finance-dimensions";
 import { gatewaySettlementQueries } from "./queries/gateway-settlement";
 import {
+  complianceQueries,
   deedVersionQueries,
   governanceDocumentQueries,
   organisationRegistrationQueries,
@@ -70,6 +71,7 @@ export const queries = defineQueries({
   bankAccount: bankAccountQueries,
   contribution: contributionQueries,
   contributionReceipt: contributionReceiptQueries,
+  compliance: complianceQueries,
   costCentre: costCentreQueries,
   deedVersion: deedVersionQueries,
   eventFeedback: eventFeedbackQueries,

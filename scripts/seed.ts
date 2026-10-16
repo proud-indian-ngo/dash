@@ -148,7 +148,10 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
-import { ensureGovernanceFixtures } from "@pi-dash/db/seed-governance";
+import {
+  ensureComplianceFixtures,
+  ensureGovernanceFixtures,
+} from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
@@ -3809,7 +3812,10 @@ async function seedGovernance(userMap: Map<string, string>): Promise<void> {
     jointManagingTrusteeUserId: null,
     managingTrusteeUserId: getUser(userMap, "admin@pi-dash.dev"),
   });
-  log("Deed version 1 and a fictional board of 4 trustees ready");
+  await ensureComplianceFixtures();
+  log(
+    "Deed version 1, a fictional board of 4 trustees and the compliance calendar ready"
+  );
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────

@@ -178,3 +178,46 @@ export async function notifyResolutionDecided(
     )
   );
 }
+
+// ── Compliance calendar ─────────────────────────────────────────────────────
+
+/** A compliance item is due in 30, 7 or 1 days. */
+export async function notifyComplianceDue(options: {
+  daysLeft: number;
+  dueOn: string;
+  itemId: string;
+  title: string;
+  userId: string;
+}): Promise<void> {
+  const when =
+    options.daysLeft === 1 ? "tomorrow" : `in ${options.daysLeft} days`;
+  const paragraphs = [
+    `"${options.title}" is due ${when}, on ${formatDay(options.dueOn)}.`,
+    "Close it in pi-dash with the filing or record that proves it was done.",
+  ];
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the calendar",
+    ctaUrl: `${env.APP_URL}/governance/compliance`,
+    heading: `Due ${when}: ${options.title}`,
+    paragraphs,
+  });
+  await sendMessage({
+    body: paragraphs.join(" "),
+    clickAction: "/governance/compliance",
+    digest: {
+      actionLabel: "Open",
+      meta: `Due ${formatDay(options.dueOn)}`,
+      name: options.title,
+      status: {
+        label: options.daysLeft <= 7 ? "Due soon" : "Coming up",
+        tone: options.daysLeft <= 7 ? "warning" : "info",
+      },
+    },
+    emailHtml,
+    idempotencyKey: `compliance-due-${options.itemId}-${options.daysLeft}-${options.userId}`,
+    title: `Due ${when}: ${options.title}`,
+    to: options.userId,
+    topic: TOPICS.GOVERNANCE,
+    whatsappTemplate: null,
+  });
+}

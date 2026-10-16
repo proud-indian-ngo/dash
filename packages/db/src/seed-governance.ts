@@ -1,4 +1,10 @@
+import { todayInKolkata } from "@pi-dash/shared/income";
+
 import { db } from ".";
+import {
+  ensureComplianceTemplates,
+  generateComplianceItems,
+} from "./queries/compliance";
 import { ensureGovernanceReferenceData } from "./queries/governance";
 import { trustee, trusteeOffice, trusteeTerm } from "./schema/governance";
 
@@ -162,4 +168,10 @@ export async function ensureGovernanceFixtures(options: {
       },
     ])
     .onConflictDoNothing();
+}
+
+/** The default compliance calendar and its items from today. */
+export async function ensureComplianceFixtures(): Promise<void> {
+  await ensureComplianceTemplates();
+  await generateComplianceItems(todayInKolkata());
 }
