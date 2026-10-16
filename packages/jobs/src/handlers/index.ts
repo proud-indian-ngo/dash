@@ -108,6 +108,7 @@ import { handleProcessPostEventReminders } from "./process-post-event-reminders"
 import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
 import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
+import { handleRemindTrusteeTerms } from "./remind-trustee-terms";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendContributionReceipt } from "./send-contribution-receipt";
@@ -558,6 +559,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "flush-held-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleFlushHeldNotifications)
+  );
+  await boss.work(
+    "remind-trustee-terms",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRemindTrusteeTerms(jobs))
   );
   await boss.work(
     "expire-import-rows",

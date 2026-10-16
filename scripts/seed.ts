@@ -149,6 +149,7 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
+import { ensureGovernanceFixtures } from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
@@ -3842,6 +3843,14 @@ async function seedBudgets(): Promise<void> {
   log("Budgets ready");
 }
 
+// ── Governance ───────────────────────────────────────────────────────────────
+
+async function seedGovernance(adminId: string): Promise<void> {
+  log("Seeding governance register...");
+  await ensureGovernanceFixtures({ linkedUserId: adminId });
+  log("Deed version 1 and a fictional board of 4 trustees ready");
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -3875,6 +3884,7 @@ async function main(): Promise<void> {
   await seedEmailSuppressions();
   await seedNotifications(userMap);
   await seedAppConfig();
+  await seedGovernance(getUser(userMap, "admin@pi-dash.dev"));
 
   process.stdout.write("\n=== Dev data seeded successfully! ===\n");
   process.exit(0);

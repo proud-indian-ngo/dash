@@ -23,6 +23,12 @@ import {
 } from "./queries/finance-dimensions";
 import { gatewaySettlementQueries } from "./queries/gateway-settlement";
 import {
+  deedVersionQueries,
+  governanceDocumentQueries,
+  organisationRegistrationQueries,
+  trusteeQueries,
+} from "./queries/governance";
+import {
   contributionQueries,
   contributionReceiptQueries,
   importBatchQueries,
@@ -66,6 +72,7 @@ export const queries = defineQueries({
   contribution: contributionQueries,
   contributionReceipt: contributionReceiptQueries,
   costCentre: costCentreQueries,
+  deedVersion: deedVersionQueries,
   eventFeedback: eventFeedbackQueries,
   eventImmichAlbum: eventImmichAlbumQueries,
   eventInterest: eventInterestQueries,
@@ -75,6 +82,7 @@ export const queries = defineQueries({
   fiscalYear: fiscalYearQueries,
   fund: fundQueries,
   gatewaySettlement: gatewaySettlementQueries,
+  governanceDocument: governanceDocumentQueries,
   importBatch: importBatchQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiAttendee: kalakritiAttendeeQueries,
@@ -93,6 +101,7 @@ export const queries = defineQueries({
   notification: notificationQueries,
   notificationPreference: notificationPreferenceQueries,
   orgAccount: orgAccountQueries,
+  organisationRegistration: organisationRegistrationQueries,
   otherIncome: otherIncomeQueries,
   party: partyQueries,
   programme: programmeQueries,
@@ -104,6 +113,7 @@ export const queries = defineQueries({
   statementLine: statementLineQueries,
   team: teamQueries,
   teamEvent: teamEventQueries,
+  trustee: trusteeQueries,
   user: userQueries,
   vendor: vendorQueries,
   vendorPayment: vendorPaymentQueries,

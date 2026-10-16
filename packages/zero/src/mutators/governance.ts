@@ -1,0 +1,691 @@
+import { organisationRegistrationTypeValues } from "@pi-dash/shared/constants";
+import {
+  DOCUMENT_TITLE_MAX,
+  governanceDocumentKindValues,
+  newRegisterProblems,
+  type OfficeRow,
+  officeDateProblem,
+  type RegisterInput,
+  type TermRow,
+  termDateProblem,
+  trusteeCessationBasisValues,
+  trusteeOfficeValues,
+  trusteeTermBasisValues,
+  VALIDITY_NOTE_MAX,
+} from "@pi-dash/shared/governance";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
+import z from "zod";
+
+import "../context";
+import type { Context } from "../context";
+import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
+import { type Schema, zql } from "../schema";
+
+/**
+ * Register writes. Terms and offices sync through Zero, so they change here;
+ * a trustee's identity and private details go through the `saveTrustee`
+ * server function, and vault files through `createGovernanceDocument`.
+ * Every write refuses a change that would give an office two holders, put an
+ * office outside its holder's term, or give a trustee overlapping terms.
+ */
+
+type Tx = Transaction<Schema>;
+
+const isoDate = z.iso.date();
+const note = z.string().trim().max(VALIDITY_NOTE_MAX).nullable().optional();
+const documentId = z.string().nullable().optional();
+
+/** Zero stores Postgres `date` columns as epoch milliseconds at UTC midnight. */
+function toEpoch(value: string): number;
+function toEpoch(value: string | null | undefined): number | null;
+function toEpoch(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  return new Date(`${value}T00:00:00Z`).getTime();
+}
+
+function toIso(value: number): string;
+function toIso(value: number | null | undefined): string | null;
+function toIso(value: number | null | undefined): string | null {
+  return value === null || value === undefined
+    ? null
+    : new Date(value).toISOString().slice(0, 10);
+}
+
+type TermZ = {
+  basis: TermRow["basis"];
+  endedOn: number | null;
+  endEvidenceDocumentId: string | null;
+  endsOn: number | null;
+  id: string;
+  startEvidenceDocumentId: string | null;
+  startsOn: number;
+  trusteeId: string;
+};
+
+type OfficeZ = {
+  endedOn: number | null;
+  endEvidenceDocumentId: string | null;
+  id: string;
+  office: OfficeRow["office"];
+  startEvidenceDocumentId: string | null;
+  startsOn: number;
+  trusteeId: string;
+};
+
+function termRow(t: TermZ): TermRow {
+  return {
+    basis: t.basis,
+    endEvidenceDocumentId: t.endEvidenceDocumentId,
+    endedOn: toIso(t.endedOn),
+    endsOn: toIso(t.endsOn),
+    id: t.id,
+    startEvidenceDocumentId: t.startEvidenceDocumentId,
+    startsOn: toIso(t.startsOn),
+    trusteeId: t.trusteeId,
+  };
+}
+
+function officeRow(o: OfficeZ): OfficeRow {
+  return {
+    endEvidenceDocumentId: o.endEvidenceDocumentId,
+    endedOn: toIso(o.endedOn),
+    id: o.id,
+    office: o.office,
+    startEvidenceDocumentId: o.startEvidenceDocumentId,
+    startsOn: toIso(o.startsOn),
+    trusteeId: o.trusteeId,
+  };
+}
+
+async function loadRegister(tx: Tx): Promise<RegisterInput> {
+  const [trustees, terms, offices, deed] = await Promise.all([
+    tx.run(zql.trustee),
+    tx.run(zql.trusteeTerm),
+    tx.run(zql.trusteeOffice),
+    tx.run(zql.deedVersion.orderBy("number", "desc").one()),
+  ]);
+  return {
+    offices: offices.map((o) => officeRow(o as OfficeZ)),
+    rules: {
+      amendmentThreshold: deed?.amendmentThreshold ?? "two_thirds_in_office",
+      castingVote: deed?.castingVote ?? "chair",
+      circularIssuers: deed?.circularIssuers ?? ["managing_trustee"],
+      coOptionMaxYears: deed?.coOptionMaxYears ?? 3,
+      electronicCirculation: deed?.electronicCirculation ?? false,
+      maxTrustees: deed?.maxTrustees ?? 9,
+      minTrustees: deed?.minTrustees ?? 2,
+      noticeDays: deed?.noticeDays ?? 7,
+      quorumFloor: deed?.quorumFloor ?? 5,
+      quorumKind: deed?.quorumKind ?? "fixed",
+      quorumRequiredOffice: deed?.quorumRequiredOffice ?? null,
+      quorumValue: deed?.quorumValue ?? 5,
+      videoCountsPresent: deed?.videoCountsPresent ?? false,
+    },
+    terms: terms.map((t) => termRow(t as TermZ)),
+    trustees: trustees.map((t) => ({
+      id: t.id,
+      isCoFounder: t.isCoFounder ?? false,
+      legalName: t.legalName,
+    })),
+  };
+}
+
+function assertNoNewProblems(before: RegisterInput, after: RegisterInput) {
+  const [problem] = newRegisterProblems(before, after);
+  if (problem) {
+    throw new Error(problem);
+  }
+}
+
+async function requireTrustee(tx: Tx, trusteeId: string) {
+  const trustee = await tx.run(zql.trustee.where("id", trusteeId).one());
+  if (!trustee) {
+    throw new Error("Trustee not found");
+  }
+  return trustee;
+}
+
+async function assertDocumentsExist(
+  tx: Tx,
+  ids: (string | null | undefined)[]
+): Promise<void> {
+  for (const id of ids) {
+    if (id && !(await tx.run(zql.governanceDocument.where("id", id).one()))) {
+      throw new Error("The evidence document isn't in the vault");
+    }
+  }
+}
+
+// ── Terms ───────────────────────────────────────────────────────────────────
+
+const termFields = {
+  acceptanceDocumentId: documentId,
+  basis: z.enum(trusteeTermBasisValues),
+  endsOn: isoDate.nullable().optional(),
+  startEvidenceDocumentId: documentId,
+  startsOn: isoDate,
+  validityNote: note,
+};
+
+const termCreateInput = z.object({
+  ...termFields,
+  id: z.string(),
+  trusteeId: z.string(),
+});
+
+const termUpdateInput = z.object({
+  ...termFields,
+  cessationBasis: z.enum(trusteeCessationBasisValues).nullable().optional(),
+  endEvidenceDocumentId: documentId,
+  endedOn: isoDate.nullable().optional(),
+  id: z.string(),
+});
+
+const termEndInput = z.object({
+  cessationBasis: z.enum(trusteeCessationBasisValues),
+  endEvidenceDocumentId: documentId,
+  endedOn: isoDate,
+  id: z.string(),
+  validityNote: note,
+});
+
+async function requireTerm(tx: Tx, id: string) {
+  const term = await tx.run(zql.trusteeTerm.where("id", id).one());
+  if (!term) {
+    throw new Error("Term not found");
+  }
+  return term;
+}
+
+export const trusteeTermMutators = {
+  create: defineMutator(termCreateInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    await requireTrustee(tx, args.trusteeId);
+    const dateProblem = termDateProblem({
+      endedOn: null,
+      endsOn: args.endsOn ?? null,
+      startsOn: args.startsOn,
+    });
+    if (dateProblem) {
+      throw new Error(dateProblem);
+    }
+    await assertDocumentsExist(tx, [
+      args.startEvidenceDocumentId,
+      args.acceptanceDocumentId,
+    ]);
+    const before = await loadRegister(tx);
+    const row: TermRow = {
+      basis: args.basis,
+      endEvidenceDocumentId: null,
+      endedOn: null,
+      endsOn: args.endsOn ?? null,
+      id: args.id,
+      startEvidenceDocumentId: args.startEvidenceDocumentId ?? null,
+      startsOn: args.startsOn,
+      trusteeId: args.trusteeId,
+    };
+    assertNoNewProblems(before, { ...before, terms: [...before.terms, row] });
+    const now = Date.now();
+    await tx.mutate.trusteeTerm.insert({
+      acceptanceDocumentId: args.acceptanceDocumentId ?? null,
+      basis: args.basis,
+      cessationBasis: null,
+      createdAt: now,
+      endEvidenceDocumentId: null,
+      endedOn: null,
+      endsOn: toEpoch(args.endsOn),
+      id: args.id,
+      startEvidenceDocumentId: args.startEvidenceDocumentId ?? null,
+      startsOn: toEpoch(args.startsOn),
+      trusteeId: args.trusteeId,
+      updatedAt: now,
+      validityNote: args.validityNote ?? null,
+    });
+  }),
+
+  /** Corrects a term: any field, including its end, for records entered wrongly. */
+  update: defineMutator(termUpdateInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const existing = await requireTerm(tx, args.id);
+    const endedOn =
+      args.endedOn === undefined ? toIso(existing.endedOn) : args.endedOn;
+    const cessationBasis =
+      args.cessationBasis === undefined
+        ? (existing.cessationBasis ?? null)
+        : args.cessationBasis;
+    if ((endedOn === null) !== (cessationBasis === null)) {
+      throw new Error(
+        "Give both the day the trustee ceased and the reason, or neither."
+      );
+    }
+    const endsOn =
+      args.endsOn === undefined ? toIso(existing.endsOn) : args.endsOn;
+    const dateProblem = termDateProblem({
+      endedOn,
+      endsOn,
+      startsOn: args.startsOn,
+    });
+    if (dateProblem) {
+      throw new Error(dateProblem);
+    }
+    const startEvidenceDocumentId =
+      args.startEvidenceDocumentId === undefined
+        ? (existing.startEvidenceDocumentId ?? null)
+        : args.startEvidenceDocumentId;
+    const endEvidenceDocumentId =
+      args.endEvidenceDocumentId === undefined
+        ? (existing.endEvidenceDocumentId ?? null)
+        : args.endEvidenceDocumentId;
+    const acceptanceDocumentId =
+      args.acceptanceDocumentId === undefined
+        ? (existing.acceptanceDocumentId ?? null)
+        : args.acceptanceDocumentId;
+    await assertDocumentsExist(tx, [
+      startEvidenceDocumentId,
+      endEvidenceDocumentId,
+      acceptanceDocumentId,
+    ]);
+    const before = await loadRegister(tx);
+    const row: TermRow = {
+      basis: args.basis,
+      endEvidenceDocumentId,
+      endedOn,
+      endsOn,
+      id: args.id,
+      startEvidenceDocumentId,
+      startsOn: args.startsOn,
+      trusteeId: existing.trusteeId,
+    };
+    assertNoNewProblems(before, {
+      ...before,
+      terms: before.terms.map((t) => (t.id === args.id ? row : t)),
+    });
+    await tx.mutate.trusteeTerm.update({
+      acceptanceDocumentId,
+      basis: args.basis,
+      cessationBasis,
+      endEvidenceDocumentId,
+      endedOn: toEpoch(endedOn),
+      endsOn: toEpoch(endsOn),
+      id: args.id,
+      startEvidenceDocumentId,
+      startsOn: toEpoch(args.startsOn),
+      updatedAt: Date.now(),
+      validityNote:
+        args.validityNote === undefined
+          ? (existing.validityNote ?? null)
+          : args.validityNote,
+    });
+  }),
+
+  /** Records that a trustee ceased: resignation, death, absence, removal or the term's end. */
+  end: defineMutator(termEndInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const existing = await requireTerm(tx, args.id);
+    if (existing.endedOn !== null && existing.endedOn !== undefined) {
+      throw new Error("This term has already ended. Correct it instead.");
+    }
+    const dateProblem = termDateProblem({
+      endedOn: args.endedOn,
+      endsOn: toIso(existing.endsOn),
+      startsOn: toIso(existing.startsOn),
+    });
+    if (dateProblem) {
+      throw new Error(dateProblem);
+    }
+    await assertDocumentsExist(tx, [args.endEvidenceDocumentId]);
+    const before = await loadRegister(tx);
+    assertNoNewProblems(before, {
+      ...before,
+      terms: before.terms.map((t) =>
+        t.id === args.id
+          ? {
+              ...t,
+              endEvidenceDocumentId: args.endEvidenceDocumentId ?? null,
+              endedOn: args.endedOn,
+            }
+          : t
+      ),
+    });
+    // Offices still open end with the term, so the register reads the same
+    // whether or not each one was closed separately; close them explicitly
+    // so a later term can't revive them.
+    const openOffices = await tx.run(
+      zql.trusteeOffice
+        .where("trusteeId", existing.trusteeId)
+        .where("endedOn", "IS", null)
+    );
+    const now = Date.now();
+    for (const office of openOffices) {
+      if (office.startsOn < toEpoch(args.endedOn)) {
+        await tx.mutate.trusteeOffice.update({
+          endEvidenceDocumentId: args.endEvidenceDocumentId ?? null,
+          endedOn: toEpoch(args.endedOn),
+          id: office.id,
+          updatedAt: now,
+        });
+      }
+    }
+    await tx.mutate.trusteeTerm.update({
+      cessationBasis: args.cessationBasis,
+      endEvidenceDocumentId: args.endEvidenceDocumentId ?? null,
+      endedOn: toEpoch(args.endedOn),
+      id: args.id,
+      updatedAt: now,
+      validityNote:
+        args.validityNote === undefined
+          ? (existing.validityNote ?? null)
+          : args.validityNote,
+    });
+  }),
+
+  /** Deletes a term entered by mistake; one with offices inside it can't go. */
+  remove: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const existing = await requireTerm(tx, args.id);
+      const before = await loadRegister(tx);
+      assertNoNewProblems(before, {
+        ...before,
+        terms: before.terms.filter((t) => t.id !== args.id),
+      });
+      await tx.mutate.trusteeTerm.delete({ id: existing.id });
+    }
+  ),
+};
+
+// ── Offices ─────────────────────────────────────────────────────────────────
+
+const officeCreateInput = z.object({
+  id: z.string(),
+  office: z.enum(trusteeOfficeValues),
+  startEvidenceDocumentId: documentId,
+  startsOn: isoDate,
+  trusteeId: z.string(),
+  validityNote: note,
+});
+
+const officeUpdateInput = z.object({
+  endEvidenceDocumentId: documentId,
+  endedOn: isoDate.nullable().optional(),
+  id: z.string(),
+  office: z.enum(trusteeOfficeValues),
+  startEvidenceDocumentId: documentId,
+  startsOn: isoDate,
+  validityNote: note,
+});
+
+const officeEndInput = z.object({
+  endEvidenceDocumentId: documentId,
+  endedOn: isoDate,
+  id: z.string(),
+  validityNote: note,
+});
+
+async function requireOffice(tx: Tx, id: string) {
+  const office = await tx.run(zql.trusteeOffice.where("id", id).one());
+  if (!office) {
+    throw new Error("Office not found");
+  }
+  return office;
+}
+
+export const trusteeOfficeMutators = {
+  create: defineMutator(officeCreateInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    await requireTrustee(tx, args.trusteeId);
+    await assertDocumentsExist(tx, [args.startEvidenceDocumentId]);
+    const before = await loadRegister(tx);
+    const row: OfficeRow = {
+      endEvidenceDocumentId: null,
+      endedOn: null,
+      id: args.id,
+      office: args.office,
+      startEvidenceDocumentId: args.startEvidenceDocumentId ?? null,
+      startsOn: args.startsOn,
+      trusteeId: args.trusteeId,
+    };
+    assertNoNewProblems(before, {
+      ...before,
+      offices: [...before.offices, row],
+    });
+    const now = Date.now();
+    await tx.mutate.trusteeOffice.insert({
+      createdAt: now,
+      endEvidenceDocumentId: null,
+      endedOn: null,
+      id: args.id,
+      office: args.office,
+      startEvidenceDocumentId: args.startEvidenceDocumentId ?? null,
+      startsOn: toEpoch(args.startsOn),
+      trusteeId: args.trusteeId,
+      updatedAt: now,
+      validityNote: args.validityNote ?? null,
+    });
+  }),
+
+  update: defineMutator(officeUpdateInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const existing = await requireOffice(tx, args.id);
+    const endedOn =
+      args.endedOn === undefined ? toIso(existing.endedOn) : args.endedOn;
+    const dateProblem = officeDateProblem({ endedOn, startsOn: args.startsOn });
+    if (dateProblem) {
+      throw new Error(dateProblem);
+    }
+    const startEvidenceDocumentId =
+      args.startEvidenceDocumentId === undefined
+        ? (existing.startEvidenceDocumentId ?? null)
+        : args.startEvidenceDocumentId;
+    const endEvidenceDocumentId =
+      args.endEvidenceDocumentId === undefined
+        ? (existing.endEvidenceDocumentId ?? null)
+        : args.endEvidenceDocumentId;
+    await assertDocumentsExist(tx, [
+      startEvidenceDocumentId,
+      endEvidenceDocumentId,
+    ]);
+    const before = await loadRegister(tx);
+    const row: OfficeRow = {
+      endEvidenceDocumentId,
+      endedOn,
+      id: args.id,
+      office: args.office,
+      startEvidenceDocumentId,
+      startsOn: args.startsOn,
+      trusteeId: existing.trusteeId,
+    };
+    assertNoNewProblems(before, {
+      ...before,
+      offices: before.offices.map((o) => (o.id === args.id ? row : o)),
+    });
+    await tx.mutate.trusteeOffice.update({
+      endEvidenceDocumentId,
+      endedOn: toEpoch(endedOn),
+      id: args.id,
+      office: args.office,
+      startEvidenceDocumentId,
+      startsOn: toEpoch(args.startsOn),
+      updatedAt: Date.now(),
+      validityNote:
+        args.validityNote === undefined
+          ? (existing.validityNote ?? null)
+          : args.validityNote,
+    });
+  }),
+
+  end: defineMutator(officeEndInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const existing = await requireOffice(tx, args.id);
+    if (existing.endedOn !== null && existing.endedOn !== undefined) {
+      throw new Error("This office has already ended. Correct it instead.");
+    }
+    const dateProblem = officeDateProblem({
+      endedOn: args.endedOn,
+      startsOn: toIso(existing.startsOn),
+    });
+    if (dateProblem) {
+      throw new Error(dateProblem);
+    }
+    await assertDocumentsExist(tx, [args.endEvidenceDocumentId]);
+    await tx.mutate.trusteeOffice.update({
+      endEvidenceDocumentId: args.endEvidenceDocumentId ?? null,
+      endedOn: toEpoch(args.endedOn),
+      id: args.id,
+      updatedAt: Date.now(),
+      validityNote:
+        args.validityNote === undefined
+          ? (existing.validityNote ?? null)
+          : args.validityNote,
+    });
+  }),
+
+  remove: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const existing = await requireOffice(tx, args.id);
+      await tx.mutate.trusteeOffice.delete({ id: existing.id });
+    }
+  ),
+};
+
+// ── Vault document details ──────────────────────────────────────────────────
+
+const documentUpdateInput = z.object({
+  datedOn: isoDate,
+  id: z.string(),
+  kind: z.enum(governanceDocumentKindValues),
+  note: z.string().trim().max(VALIDITY_NOTE_MAX).nullable().optional(),
+  title: z.string().trim().min(1).max(DOCUMENT_TITLE_MAX),
+});
+
+export const governanceDocumentMutators = {
+  /** Title, kind, date and note; the file itself never changes. */
+  update: defineMutator(documentUpdateInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const existing = await tx.run(
+      zql.governanceDocument.where("id", args.id).one()
+    );
+    if (!existing) {
+      throw new Error("Document not found");
+    }
+    await tx.mutate.governanceDocument.update({
+      datedOn: toEpoch(args.datedOn),
+      id: args.id,
+      kind: args.kind,
+      note: args.note === undefined ? (existing.note ?? null) : args.note,
+      title: args.title,
+    });
+  }),
+};
+
+// ── Deed versions ───────────────────────────────────────────────────────────
+
+export const deedVersionMutators = {
+  /** Links the registered deed (or deed of amendment) in the vault to its version. */
+  linkDocument: defineMutator(
+    z.object({ documentId: z.string().nullable(), id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const version = await tx.run(zql.deedVersion.where("id", args.id).one());
+      if (!version) {
+        throw new Error("Deed version not found");
+      }
+      if (args.documentId) {
+        const document = await tx.run(
+          zql.governanceDocument.where("id", args.documentId).one()
+        );
+        if (!document) {
+          throw new Error("The document isn't in the vault");
+        }
+        if (
+          !(
+            document.kind === "trust_deed" || document.kind === "deed_amendment"
+          )
+        ) {
+          throw new Error("Link a trust deed or a deed of amendment.");
+        }
+      }
+      await tx.mutate.deedVersion.update({
+        documentId: args.documentId,
+        id: args.id,
+      });
+    }
+  ),
+};
+
+// ── Registrations ───────────────────────────────────────────────────────────
+
+const registrationInput = z
+  .object({
+    certificateDocumentId: documentId,
+    id: z.string(),
+    issuedOn: isoDate.nullable().optional(),
+    number: z.string().trim().min(1).max(60),
+    scopeNote: z.string().trim().max(VALIDITY_NOTE_MAX).nullable().optional(),
+    type: z.enum(organisationRegistrationTypeValues),
+    validFrom: isoDate.nullable().optional(),
+    validTo: isoDate.nullable().optional(),
+  })
+  .refine(
+    (v) => !(v.validFrom && v.validTo) || v.validTo >= v.validFrom,
+    "Valid to must be on or after valid from"
+  );
+
+/** Governance keeps the trust's registrations; finance setup may too, as before. */
+function assertCanManageRegistrations(
+  ctx: Context | undefined
+): asserts ctx is Context {
+  assertIsLoggedIn(ctx);
+  if (!(can(ctx, "governance.manage") || can(ctx, "finance.manage"))) {
+    throw new Error("Unauthorized");
+  }
+}
+
+export const organisationRegistrationMutators = {
+  create: defineMutator(registrationInput, async ({ tx, ctx, args }) => {
+    assertCanManageRegistrations(ctx);
+    await assertDocumentsExist(tx, [args.certificateDocumentId]);
+    const now = Date.now();
+    await tx.mutate.organisationRegistration.insert({
+      certificateDocumentId: args.certificateDocumentId ?? null,
+      createdAt: now,
+      id: args.id,
+      issuedOn: toEpoch(args.issuedOn),
+      number: args.number,
+      scopeNote: args.scopeNote ?? null,
+      type: args.type,
+      updatedAt: now,
+      validFrom: toEpoch(args.validFrom),
+      validTo: toEpoch(args.validTo),
+    });
+  }),
+  update: defineMutator(registrationInput, async ({ tx, ctx, args }) => {
+    assertCanManageRegistrations(ctx);
+    const existing = await tx.run(
+      zql.organisationRegistration.where("id", args.id).one()
+    );
+    if (!existing) {
+      throw new Error("Registration not found");
+    }
+    await assertDocumentsExist(tx, [args.certificateDocumentId]);
+    await tx.mutate.organisationRegistration.update({
+      certificateDocumentId:
+        args.certificateDocumentId === undefined
+          ? (existing.certificateDocumentId ?? null)
+          : args.certificateDocumentId,
+      id: args.id,
+      issuedOn: toEpoch(args.issuedOn),
+      number: args.number,
+      scopeNote: args.scopeNote ?? null,
+      type: args.type,
+      updatedAt: Date.now(),
+      validFrom: toEpoch(args.validFrom),
+      validTo: toEpoch(args.validTo),
+    });
+  }),
+};

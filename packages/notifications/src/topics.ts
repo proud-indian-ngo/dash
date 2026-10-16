@@ -9,6 +9,7 @@ export const TOPICS = {
   EVENTS_INTEREST: "Events - Interest",
   EVENTS_PHOTOS: "Events - Photos",
   EVENTS_SCHEDULE: "Events - Schedule",
+  GOVERNANCE: "Governance",
   KALAKRITI_REGISTRATION: "Kalakriti - Registration",
   KALAKRITI_SCHEDULE: "Kalakriti - Schedule",
   KALAKRITI_TRANSPORT: "Kalakriti - Transport",
@@ -36,6 +37,17 @@ export interface TopicMeta {
 }
 
 export const TOPIC_CATALOG: TopicMeta[] = [
+  {
+    // No WhatsApp template yet; trustees get these by email and in the inbox.
+    channels: ["inbox", "email"],
+    defaultEnabled: true,
+    description:
+      "Trustee terms coming to an end, and later resolutions and meetings that need you.",
+    group: "Governance",
+    id: TOPICS.GOVERNANCE,
+    name: "Governance",
+    required: false,
+  },
   {
     channels: ["inbox", "whatsapp"],
     defaultEnabled: true,
