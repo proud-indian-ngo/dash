@@ -79,7 +79,7 @@ Read the named chapter directly when its detailed behavior is needed; do not rea
 | Vendor payments and invoice approval, vendor details and bank-account reveal | `docs/architecture/vendor-payments.md` |
 | pg-boss, notifications, notification batching and digests, email templates, unsubscribe, bounces, WhatsApp delivery | `docs/architecture/notifications.md`, `docs/architecture/jobs.md` |
 | R2 uploads, attachments, Immich | `docs/architecture/file-uploads.md` |
-| Cash-voucher or Kalakriti ID-card PDF generation | `docs/architecture/cash-vouchers.md`, `docs/architecture/pdf.md` |
+| Cash-voucher, payee signature or Kalakriti ID-card PDF generation | `docs/architecture/cash-vouchers.md`, `docs/architecture/pdf.md` |
 | Logging and request/task events | `docs/architecture/observability.md` |
 | Visual design, colours, fonts, brand styling, restyling screens | `docs/architecture/design-language.md` |
 | Plate editor | `docs/architecture/editor.md` |

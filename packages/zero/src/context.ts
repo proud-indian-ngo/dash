@@ -17,6 +17,11 @@ export interface AsyncTask {
 
 export interface CopyR2ObjectInput {
   byteSize?: number;
+  /**
+   * Checks the bytes before the copy: `payeeSignature` takes only a PNG the
+   * signature pad could have drawn (size, dimensions and format).
+   */
+  contentCheck?: "payeeSignature";
   mimeType?: string;
   sourceKey: string;
   targetKey: string;

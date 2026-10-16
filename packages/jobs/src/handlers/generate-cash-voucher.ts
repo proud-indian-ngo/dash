@@ -13,15 +13,21 @@ import {
   parseCashVoucherLimit,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 
-import type { GenerateCashVoucherPayload } from "../enqueue";
+import { enqueue, type GenerateCashVoucherPayload } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
+import {
+  type PayeeSignatureSkip,
+  readPayeeSignatureImage,
+} from "./payee-signature-image";
 import { getR2Client } from "./r2";
 import {
   type RenderedFrom,
+  claimantDeclaration,
+  onlySignatureChanged,
   stillAsRendered,
   voucherPayee,
 } from "./voucher-render-check";
@@ -43,7 +49,14 @@ async function commitVoucherAttachment(opts: {
   };
   lineItemId: string;
   rendered: RenderedFrom;
-}): Promise<{ linked: false } | { linked: true; oldR2Key: string | null }> {
+}): Promise<
+  | {
+      linked: false;
+      /** Only the payee signature changed: no edit queued a newer render. */
+      signatureOnly: boolean;
+    }
+  | { linked: true; oldR2Key: string | null }
+> {
   return await db.transaction(async (tx) => {
     const [current] = await tx
       .select({
@@ -52,6 +65,8 @@ async function commitVoucherAttachment(opts: {
         description: reimbursementLineItem.description,
         payeeName: reimbursementLineItem.payeeName,
         payeePhone: reimbursementLineItem.payeePhone,
+        payeeSignatureAttachmentId:
+          reimbursementLineItem.payeeSignatureAttachmentId,
         voucherAttachmentId: reimbursementLineItem.voucherAttachmentId,
       })
       .from(reimbursementLineItem)
@@ -65,7 +80,10 @@ async function commitVoucherAttachment(opts: {
       .from(reimbursement)
       .where(eq(reimbursement.id, opts.attachment.reimbursementId));
     if (!(current && stillAsRendered(current, request, opts.rendered))) {
-      return { linked: false };
+      return {
+        linked: false,
+        signatureOnly: onlySignatureChanged(current, request, opts.rendered),
+      };
     }
 
     await tx.insert(reimbursementAttachment).values({
@@ -99,6 +117,46 @@ async function commitVoucherAttachment(opts: {
     }
     return { linked: true, oldR2Key };
   });
+}
+
+/**
+ * The payee's drawn signature for the Received by box, read from R2 like any
+ * other attachment of the request. A missing row or object, or a file the
+ * pad couldn't have drawn, prints the empty box; storage errors throw so the
+ * job retries.
+ */
+async function loadPayeeSignature(
+  lineItem: {
+    payeeSignatureAttachmentId: string | null;
+    payeeSignatureCapturedAt: Date | null;
+  },
+  reimbursementId: string
+): Promise<{
+  skipped?: PayeeSignatureSkip;
+  signature: { capturedAt: number; image: Buffer } | null;
+}> {
+  const attachmentId = lineItem.payeeSignatureAttachmentId;
+  const capturedAt = lineItem.payeeSignatureCapturedAt;
+  if (!(attachmentId && capturedAt)) {
+    return { signature: null };
+  }
+  const [row] = await db
+    .select({ objectKey: reimbursementAttachment.objectKey })
+    .from(reimbursementAttachment)
+    .where(
+      and(
+        eq(reimbursementAttachment.id, attachmentId),
+        eq(reimbursementAttachment.reimbursementId, reimbursementId)
+      )
+    );
+  if (!row?.objectKey) {
+    return { signature: null, skipped: "payee_signature_missing" };
+  }
+  const read = await readPayeeSignatureImage(getR2Client().file(row.objectKey));
+  if ("skipped" in read) {
+    return { signature: null, skipped: read.skipped };
+  }
+  return { signature: { capturedAt: capturedAt.getTime(), image: read.image } };
 }
 
 async function generateCashVoucher(data: GenerateCashVoucherPayload) {
@@ -158,10 +216,29 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     .from(user)
     .where(eq(user.id, reimb.userId));
 
+  // Raised for the claimant by someone else: their name goes on the
+  // claimant's declaration instead.
+  const [creator] =
+    reimb.createdBy && reimb.createdBy !== reimb.userId
+      ? await db
+          .select({ name: user.name })
+          .from(user)
+          .where(eq(user.id, reimb.createdBy))
+      : [];
+
   const [category] = await db
     .select({ name: expenseCategory.name })
     .from(expenseCategory)
     .where(eq(expenseCategory.id, lineItem.categoryId));
+
+  // Read before a number is drawn, so a failed read wastes no number.
+  const { signature: payeeSignature, skipped } = await loadPayeeSignature(
+    lineItem,
+    data.reimbursementId
+  );
+  if (skipped) {
+    log.set({ payeeSignatureSkipped: skipped });
+  }
 
   // Allocate voucher number (nextval is atomic — no duplicates even concurrently)
   const seqRows = await db.execute(
@@ -191,6 +268,13 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
     orgRegistration: env.VOUCHER_ORG_REGISTRATION,
     claimedBy: submitter?.name ?? "Unknown",
     ...voucherPayee(lineItem, submitter),
+    claimantDeclaration: claimantDeclaration({
+      claimantName: submitter?.name ?? "Unknown",
+      creatorName: creator?.name,
+      item: lineItem,
+      request: reimb,
+    }),
+    payeeSignature,
     voucherNumber,
   });
 
@@ -222,6 +306,9 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
       expenseDate: reimb.expenseDate,
       payeeName: lineItem.payeeName,
       payeePhone: lineItem.payeePhone,
+      // A signature that failed to load printed nothing; a later edit that
+      // links one queues a new render.
+      payeeSignatureAttachmentId: lineItem.payeeSignatureAttachmentId,
     },
   });
 
@@ -234,6 +321,13 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
       });
     });
     log.set({ event: "voucher_render_stale" });
+    if (committed.signatureOnly) {
+      // Collecting a signature queues no voucher, so render again with it.
+      await enqueue("generate-cash-voucher", data, {
+        singletonKey: `voucher-${data.lineItemId}`,
+      });
+      log.set({ requeued: true });
+    }
     log.emit();
     return;
   }

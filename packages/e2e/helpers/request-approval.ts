@@ -149,10 +149,51 @@ async function linkVoucher(id: string) {
   return { id, linked: items.length };
 }
 
+/**
+ * Runs the real voucher job for each opted-in line item of an approved
+ * reimbursement, as approval would queue it, so a spec can open the PDF.
+ * Needs R2, like the job.
+ */
+async function generateVouchers(id: string) {
+  const { handleGenerateCashVoucher } =
+    await import("@pi-dash/jobs/handlers/generate-cash-voucher");
+  const reviewer = await reviewerId();
+  const items = await db
+    .select({ id: reimbursementLineItem.id })
+    .from(reimbursementLineItem)
+    .where(
+      and(
+        eq(reimbursementLineItem.reimbursementId, id),
+        eq(reimbursementLineItem.generateVoucher, true)
+      )
+    );
+  await handleGenerateCashVoucher(
+    items.map((item) => ({
+      data: {
+        approverUserId: reviewer,
+        lineItemId: item.id,
+        reimbursementId: id,
+      },
+      id: uuidv7(),
+      name: "generate-cash-voucher",
+    })) as never
+  );
+  const linked = await db
+    .select({ voucherAttachmentId: reimbursementLineItem.voucherAttachmentId })
+    .from(reimbursementLineItem)
+    .where(eq(reimbursementLineItem.reimbursementId, id));
+  if (!linked.some((item) => item.voucherAttachmentId)) {
+    throw new Error(`No voucher was generated for ${id}`);
+  }
+  return { generated: items.length, id };
+}
+
 const [action, type = "", id = ""] = process.argv.slice(2);
 let result: unknown;
 if (action === "approve") {
   result = await approve(type, id);
+} else if (action === "generate-voucher" && type === "reimbursement") {
+  result = await generateVouchers(id);
 } else if (action === "link-voucher" && type === "reimbursement") {
   result = await linkVoucher(id);
 } else if (action === "reject-with-screenshot" && type === "reimbursement") {

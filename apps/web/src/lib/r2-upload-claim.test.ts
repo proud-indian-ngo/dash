@@ -333,3 +333,127 @@ describe("copyR2Object", () => {
     }
   );
 });
+
+describe("copyR2Object for a payee signature", () => {
+  /** The start of a PNG declaring these header fields, padded to `size`. */
+  const png = (
+    width: number,
+    height: number,
+    { colourType = 6, size = 2048 } = {}
+  ) => {
+    const bytes = new Uint8Array(size);
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+    const view = new DataView(bytes.buffer);
+    view.setUint32(8, 13);
+    bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+    view.setUint32(16, width);
+    view.setUint32(20, height);
+    bytes[24] = 8;
+    bytes[25] = colourType;
+    return bytes;
+  };
+  const signatureInput = {
+    contentCheck: "payeeSignature" as const,
+    mimeType: "image/png",
+    sourceKey: "app/attachments/tmp/user-1/payee-signature.png",
+    targetKey: "app/attachments/reimbursements/request-1/payee-signature.png",
+  };
+  /** A stream of the bytes in 1 KB chunks, counting how many were read. */
+  let chunksRead = 0;
+  const streamOf = (bytes: Uint8Array) => () =>
+    new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const start = chunksRead * 1024;
+        if (start >= bytes.byteLength) {
+          controller.close();
+          return;
+        }
+        chunksRead += 1;
+        controller.enqueue(bytes.slice(start, start + 1024));
+      },
+    });
+  const withSource = (
+    bytes: Uint8Array,
+    type = "image/png",
+    statSize = bytes.byteLength
+  ) => {
+    chunksRead = 0;
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    s3.stat.mockResolvedValue({ size: statSize, type });
+    s3.file.mockImplementation(((key: string) =>
+      key === signatureInput.sourceKey
+        ? { stream: streamOf(bytes) }
+        : { writer: () => writer }) as never);
+  };
+  /** The durable target already exists, as when the key was claimed before. */
+  const withExistingTarget = (bytes: Uint8Array, type = "image/png") => {
+    chunksRead = 0;
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+    s3.stat.mockResolvedValue({ size: bytes.byteLength, type });
+    s3.file.mockImplementation(((key: string) =>
+      key === signatureInput.targetKey
+        ? { stream: streamOf(bytes) }
+        : { writer: () => writer }) as never);
+  };
+
+  it("copies a PNG the pad could have drawn", async () => {
+    withSource(png(480, 160));
+    await copyR2Object(signatureInput, deps);
+    expect(writer.write).toHaveBeenCalledTimes(1);
+    expect(writer.end).toHaveBeenCalledWith();
+  });
+
+  it.each([
+    ["huge dimensions in a small file", png(6000, 6000), "too_large"],
+    [
+      "a wrong colour type",
+      png(480, 160, { colourType: 3 }),
+      "unsupported_format",
+    ],
+    ["a blank 1×1", png(1, 1), "too_small"],
+  ])("refuses %s", async (_, bytes, problem) => {
+    withSource(bytes);
+    await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
+      `Invalid payee signature image: ${problem}`
+    );
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("refuses a file over the signature cap", async () => {
+    withSource(png(480, 160, { size: 512 * 1024 + 1 }));
+    await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
+      "Upload exceeds 524288 byte limit"
+    );
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("refuses anything but a PNG", async () => {
+    withSource(png(480, 160), "image/jpeg");
+    await expect(
+      copyR2Object({ ...signatureInput, mimeType: "image/jpeg" }, deps)
+    ).rejects.toThrow("Unsupported upload type: image/jpeg");
+  });
+
+  it("stops reading an object swapped for a bigger one", async () => {
+    // Stat said 2 KB, but the stream runs on: reading stops past the size.
+    withSource(png(480, 160, { size: 300 * 1024 }), "image/png", 2048);
+    await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
+      "Upload changed during claim"
+    );
+    expect(chunksRead).toBeLessThanOrEqual(3);
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("checks a target that already exists", async () => {
+    withExistingTarget(png(480, 160));
+    await expect(copyR2Object(signatureInput, deps)).resolves.toBeUndefined();
+    withExistingTarget(png(6000, 6000));
+    await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
+      "Invalid payee signature image: too_large"
+    );
+    withExistingTarget(png(480, 160), "application/pdf");
+    await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
+      "Unsupported upload type: application/pdf"
+    );
+  });
+});

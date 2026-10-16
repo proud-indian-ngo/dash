@@ -28,6 +28,10 @@ import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
 import { PaidFromBank } from "@/components/income/bank/in-bank-fact";
 import { ChangeClaimantDialog } from "@/components/reimbursements/change-claimant-dialog";
+import {
+  canCollectPayeeSignature,
+  PayeeSignatureLine,
+} from "@/components/reimbursements/payee-signature";
 import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
@@ -738,6 +742,15 @@ function LineItemsTable({
     request.userId === user.id ||
     hasPermission("finance.manage") ||
     hasPermission("requests.approve");
+  // The payee signs on the dashboard until the request is approved.
+  const canCollectSignature =
+    isReimb &&
+    canCollectPayeeSignature({
+      hasPermission,
+      request,
+      userId: user.id,
+      voided,
+    });
 
   return (
     <RecordSection title="Line items">
@@ -761,6 +774,16 @@ function LineItemsTable({
                   <td className="text-muted-foreground px-3 py-2">
                     {item.description}
                     <PaidToLine claimantName={request.user?.name} item={item} />
+                    {isReimb ? (
+                      <PayeeSignatureLine
+                        attachments={request.attachments}
+                        canCollect={canCollectSignature}
+                        expenseDate={request.expenseDate}
+                        item={item}
+                        limitPaise={voucherLimitPaise}
+                        reimbursementId={request.id}
+                      />
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatPaise(item.amountPaise)}
