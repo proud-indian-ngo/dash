@@ -66,6 +66,19 @@ export function mapAttachmentsToFormValues(
   );
 }
 
+/**
+ * A vendor payment's own attachments, for its edit form. Invoice files are
+ * submitted and replaced through the invoice section; the update mutator
+ * only keeps quotation files, so sending invoice files back fails.
+ */
+export function mapQuotationAttachmentsToFormValues(
+  attachments: readonly (RawAttachment & { purpose?: null | string })[]
+): Attachment[] {
+  return mapAttachmentsToFormValues(
+    attachments.filter((att) => att.purpose !== "invoice")
+  );
+}
+
 interface RawTransaction {
   amountPaise: number;
   attachments?: readonly RawAttachment[];

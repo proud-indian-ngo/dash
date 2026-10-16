@@ -16,8 +16,8 @@ import { useRecordTitle } from "@/hooks/use-record-title";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import {
-  mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
+  mapQuotationAttachmentsToFormValues,
 } from "@/lib/submission-mappers";
 
 export const Route = createFileRoute("/_app/vendor-payments/$id")({
@@ -136,7 +136,7 @@ function VendorPaymentDetailRouteComponent() {
   };
 
   const initialValues = {
-    attachments: mapAttachmentsToFormValues(vendorPayment.attachments),
+    attachments: mapQuotationAttachmentsToFormValues(vendorPayment.attachments),
     city: vendorPayment.city as "bangalore" | "mumbai",
     id: vendorPayment.id as string,
     lineItems: mapLineItemsToFormValues(vendorPayment.lineItems),

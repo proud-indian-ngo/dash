@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
+  mapQuotationAttachmentsToFormValues,
   paiseToFormAmount,
 } from "./submission-mappers";
 
@@ -139,5 +140,35 @@ describe("mapAttachmentsToFormValues", () => {
 
   it("returns empty array for empty input", () => {
     expect(mapAttachmentsToFormValues([])).toEqual([]);
+  });
+});
+
+describe("mapQuotationAttachmentsToFormValues", () => {
+  it("leaves out invoice files so editing a request with an invoice saves", () => {
+    const result = mapQuotationAttachmentsToFormValues([
+      {
+        filename: "quote.pdf",
+        id: "q1",
+        mimeType: "application/pdf",
+        objectKey: "prod/attachments/vendor-payments/vp1/quotation/quote.pdf",
+        purpose: "quotation",
+        type: "file",
+      },
+      {
+        filename: "invoice.pdf",
+        id: "i1",
+        mimeType: "application/pdf",
+        objectKey: "prod/attachments/vendor-payments/vp1/invoice/invoice.pdf",
+        purpose: "invoice",
+        type: "file",
+      },
+      {
+        id: "q2",
+        purpose: "quotation",
+        type: "url",
+        url: "https://example.com/quote",
+      },
+    ]);
+    expect(result.map((att) => att.id)).toEqual(["q1", "q2"]);
   });
 });
