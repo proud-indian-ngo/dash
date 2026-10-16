@@ -248,9 +248,23 @@ function ReimbursementFormInner({
     ) {
       return;
     }
-    form.setFieldValue("bankAccountName", defaultBankAccount.accountName);
-    form.setFieldValue("bankAccountNumber", defaultBankAccount.accountNumber);
-    form.setFieldValue("bankAccountIfscCode", defaultBankAccount.ifscCode);
+    // A default, not an edit: leave the fields untouched and unvalidated.
+    const asDefault = { dontUpdateMeta: true, dontValidate: true };
+    form.setFieldValue(
+      "bankAccountName",
+      defaultBankAccount.accountName,
+      asDefault
+    );
+    form.setFieldValue(
+      "bankAccountNumber",
+      defaultBankAccount.accountNumber,
+      asDefault
+    );
+    form.setFieldValue(
+      "bankAccountIfscCode",
+      defaultBankAccount.ifscCode,
+      asDefault
+    );
   }, [defaultBankAccount, followsDefaultBankAccount, form]);
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";

@@ -1,10 +1,11 @@
-import { randomInt } from "node:crypto";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { randomInt, randomUUID } from "node:crypto";
+import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { expect, test } from "../../fixtures/test";
+import { chargeRequestTo } from "../../helpers/request-event";
 import { openSettingsPage } from "../../helpers/settings";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
@@ -112,8 +113,11 @@ async function deleteDuplicateAccounts(
 
 const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
 
-/** A lock older than this belongs to a worker that died holding it. */
-const STALE_LOCK_MS = 120_000;
+/**
+ * A lock older than this belongs to a worker that died holding it. Longer
+ * than one test may hold it: the slow budget (135s) plus cleanup.
+ */
+const STALE_LOCK_MS = 300_000;
 
 /**
  * Each copy of this test changes the user's default account, so copies for
@@ -131,7 +135,17 @@ async function acquireUserLock(lockDir: string): Promise<void> {
   }
   const held = await stat(lockDir).catch(() => null);
   if (held && Date.now() - held.mtimeMs > STALE_LOCK_MS) {
-    await rm(lockDir, { force: true, recursive: true });
+    // Move it aside first, so a fresh lock taken in the meantime by another
+    // worker isn't the one removed.
+    const stale = `${lockDir}-stale-${randomUUID()}`;
+    if (
+      await rename(lockDir, stale).then(
+        () => true,
+        () => false
+      )
+    ) {
+      await rm(stale, { force: true, recursive: true });
+    }
   } else {
     await sleep(200);
   }
@@ -148,8 +162,37 @@ function uniqueAccountNumber(): string {
   return `98${Date.now().toString().slice(-4)}${lastFour}`;
 }
 
+async function submitClaim(
+  reimbursements: ReimbursementPage,
+  label: string
+): Promise<void> {
+  const title = `E2E Bank ${label} ${Date.now()}`;
+  await reimbursements.form.fillTitle(title);
+  await reimbursements.form.selectCity("Bangalore");
+  await chargeRequestTo(reimbursements.page, "Organisation (admin)");
+  await reimbursements.selectExpenseDate();
+  await reimbursements.form.fillLineItem({
+    amount: "100",
+    description: "Test item",
+  });
+  await reimbursements.form.submit();
+  await reimbursements.waitForDetail(title);
+}
+
+async function expectPaidTo(
+  page: import("@playwright/test").Page,
+  accountNumber: string
+): Promise<void> {
+  await expect(
+    page
+      .getByRole("region", { name: "Paid to" })
+      .getByText(accountNumber, { exact: true })
+  ).toBeVisible({ timeout: 15_000 });
+}
+
 test.describe("Bank account selection with duplicate names", () => {
   const SEED_LAST4 = "7890";
+  const SEED_NUMBER = "1234567890";
   let duplicateLast4 = "";
   let lockDir = "";
 
@@ -159,11 +202,13 @@ test.describe("Bank account selection with duplicate names", () => {
       "Bank account UX covered under super_admin + volunteer projects"
     );
     const server = new URL(testInfo.project.use.baseURL ?? "http://local").port;
-    lockDir = path.join(
+    const dir = path.join(
       tmpdir(),
       `pi-dash-e2e-bank-default-${server}-${testInfo.project.name}`
     );
-    await acquireUserLock(lockDir);
+    await acquireUserLock(dir);
+    // Only once held: afterEach releases whatever is recorded here.
+    lockDir = dir;
   });
 
   test.afterEach(async ({ page }) => {
@@ -258,10 +303,20 @@ test.describe("Bank account selection with duplicate names", () => {
       duplicateLast4
     );
 
-    // Step 4: Open the dropdown and switch to the other account
-    await selectBankAccountOption(bankAccountGroup, SEED_LAST4);
+    // Step 4: The claim is paid to the account the picker showed
+    await submitClaim(reimbursements, "default account");
+    await expectPaidTo(page, duplicateNumber);
 
-    // Step 5: Switch back to verify both directions work
+    // Step 5: Switch accounts both ways, then submit on the seeded one
+    await reimbursements.navigateToNew();
+    await expect(bankAccountGroup.getByRole("combobox")).toContainText(
+      duplicateLast4,
+      { timeout: 15_000 }
+    );
+    await selectBankAccountOption(bankAccountGroup, SEED_LAST4);
     await selectBankAccountOption(bankAccountGroup, duplicateLast4);
+    await selectBankAccountOption(bankAccountGroup, SEED_LAST4);
+    await submitClaim(reimbursements, "switched account");
+    await expectPaidTo(page, SEED_NUMBER);
   });
 });
