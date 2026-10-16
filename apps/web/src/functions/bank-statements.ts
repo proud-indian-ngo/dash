@@ -1,6 +1,10 @@
 import { razorpaySettlementSummary } from "@pi-dash/db/queries/razorpay-settlements";
 import { statementSummary } from "@pi-dash/db/queries/statement-lines";
-import { statementLineIgnoreReasonValues } from "@pi-dash/shared/constants";
+import type { AuditMetadata } from "@pi-dash/db/schema/audit-log";
+import {
+  STATEMENT_DOCUMENT_ALLOCATION_KINDS,
+  statementLineIgnoreReasonValues,
+} from "@pi-dash/shared/constants";
 import { currentFinancialYear } from "@pi-dash/shared/income";
 import { createServerFn } from "@tanstack/react-start";
 import z from "zod";
@@ -10,6 +14,13 @@ import {
   assertServerPermission,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { DEBIT_DIFFERENCE_VALUES } from "@/lib/bank-statement/debit-match";
+import {
+  accountDebitSummary,
+  debitSuggestions,
+  listUnseenPayments,
+  searchDebitDocuments,
+} from "@/lib/bank-statement/debits";
 import {
   BANK_FIELD_KEYS,
   BANK_IGNORE_FIELD,
@@ -29,10 +40,13 @@ import {
 import type {
   BankStatementSummaryResponse,
   CreateStatementBatchResponse,
+  DebitDocumentView,
+  DebitSuggestionsResponse,
   LinkCandidatesResponse,
   MatchRunResult,
   StatementReviewResponse,
   StatementRunResponse,
+  UnseenPaymentsResponse,
 } from "@/lib/bank-statement/types";
 import {
   DATE_FORMAT_VALUES,
@@ -200,6 +214,31 @@ const actionSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("unmatch"), lineId }),
   z.object({ action: z.literal("note"), lineId, note: noteSchema }),
+  // Bank debit matching (layer 3-3b).
+  z.object({
+    action: z.literal("match_debit"),
+    difference: z.enum(DEBIT_DIFFERENCE_VALUES),
+    items: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          kind: z.enum(STATEMENT_DOCUMENT_ALLOCATION_KINDS),
+        })
+      )
+      .min(1)
+      .max(50),
+    lineId,
+    reason: z.enum(["amount_date", "manual", "reference"]),
+  }),
+  z.object({
+    action: z.literal("dismiss_debit"),
+    documentId: z.uuid(),
+    lineId,
+  }),
+  z.object({ action: z.literal("bank_charges"), lineId, note: noteSchema }),
+  z.object({ action: z.literal("tax_payment"), lineId, note: noteSchema }),
+  z.object({ action: z.literal("needs_claim"), lineId, note: noteSchema }),
+  z.object({ action: z.literal("clear_needs_claim"), lineId }),
 ]);
 
 type ActionInput = z.infer<typeof actionSchema>;
@@ -212,9 +251,32 @@ const relatedIdKey = (kind: string) =>
  * note or line content. Accept, dismiss and unmatch name the record they
  * take, turn down or untie, read from the line before the action.
  */
-async function actionMetadata(
-  input: ActionInput
-): Promise<Record<string, string | Record<string, string>>> {
+async function actionMetadata(input: ActionInput): Promise<AuditMetadata> {
+  if (input.action === "match_debit") {
+    const ids = (kind: (typeof input.items)[number]["kind"]) =>
+      input.items.filter((i) => i.kind === kind).map((i) => i.id);
+    return {
+      allocationCount: input.items.length,
+      difference: input.difference,
+      kind: "expense",
+      reason: input.reason,
+      relatedIds: {
+        reimbursementIds: ids("reimbursement"),
+        vendorPaymentTransactionIds: ids("vendor_payment_transaction"),
+      },
+    };
+  }
+  if (input.action === "dismiss_debit") {
+    return { relatedIds: { documentId: input.documentId } };
+  }
+  if (
+    input.action === "bank_charges" ||
+    input.action === "tax_payment" ||
+    input.action === "needs_claim" ||
+    input.action === "clear_needs_claim"
+  ) {
+    return {};
+  }
   if (input.action === "link") {
     return {
       kind: input.kind,
@@ -224,7 +286,19 @@ async function actionMetadata(
   if (input.action === "ignore") {
     return { reason: input.reason };
   }
-  const { kind, targetId } = await describeStatementAction(input);
+  const described = await describeStatementAction(input);
+  const { kind, targetId } = described;
+  if (kind === "expense") {
+    return {
+      allocationCount: described.allocationCount ?? 0,
+      kind,
+      relatedIds: {
+        reimbursementIds: described.reimbursementIds ?? [],
+        vendorPaymentTransactionIds:
+          described.vendorPaymentTransactionIds ?? [],
+      },
+    };
+  }
   return {
     ...(kind ? { kind } : {}),
     ...(kind && targetId
@@ -235,8 +309,10 @@ async function actionMetadata(
 
 /**
  * Accept or turn down a suggestion, link by hand, mark as a give.do payout
- * or a transfer, ignore, add a note, or unmatch: one line, finance.manage,
- * audited as `statement_line.<action>`.
+ * or a transfer, ignore, add a note, or unmatch; for a debit (layer 3-3b),
+ * match it to claims and vendor payments, mark it as bank charges or a tax
+ * payment, or flag it as needing a claim: one line, finance.manage,
+ * audited as `statement_line.<action>` with kinds, counts and record IDs.
  */
 export const updateStatementLine = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -292,8 +368,76 @@ export const getBankStatementSummary = createServerFn({ method: "POST" })
           : null;
         return {
           ...summary,
+          debits: await accountDebitSummary(data.orgAccountId),
           razorpayClearingPaise: razorpay?.awaitingPaise ?? null,
         };
       }
+    );
+  });
+
+const readFailure = (event: string, message: string) => ({
+  fields: { event },
+  isUserFacing: () => false,
+  message,
+  path: "bank-statements",
+});
+
+/**
+ * Suggested claims and vendor payments for each open debit of an account
+ * (layer 3-3b). A read, so not audited.
+ */
+export const getDebitSuggestions = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ orgAccountId: z.uuid() }))
+  .handler(async ({ context, data }): Promise<DebitSuggestionsResponse> => {
+    await assertServerPermission(context.session, "finance.manage");
+    return await withSafeErrors(
+      readFailure(
+        "bank_debit_suggestions_failed",
+        "Suggestions couldn't be loaded."
+      ),
+      async () => await debitSuggestions(data.orgAccountId)
+    );
+  });
+
+/**
+ * "Find other match": approved claims and vendor payments not yet paid in
+ * full by bank lines, filtered by type, payee or title, dates and amounts.
+ * A read, so not audited.
+ */
+export const searchDebitMatches = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      from: z.iso.date().nullable(),
+      kind: z.enum(STATEMENT_DOCUMENT_ALLOCATION_KINDS).nullable(),
+      maxPaise: z.number().int().min(0).nullable(),
+      minPaise: z.number().int().min(0).nullable(),
+      query: z.string().trim().max(100).nullable(),
+      to: z.iso.date().nullable(),
+    })
+  )
+  .handler(async ({ context, data }): Promise<DebitDocumentView[]> => {
+    await assertServerPermission(context.session, "finance.manage");
+    return await withSafeErrors(
+      readFailure("bank_debit_search_failed", "Records couldn't be loaded."),
+      async () => await searchDebitDocuments(data)
+    );
+  });
+
+/**
+ * Approved claims and vendor payments since 1 Apr 2026 that no bank debit
+ * pays in full yet: "Paid per approval, not seen in the bank". A read.
+ */
+export const getUnseenPayments = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<UnseenPaymentsResponse> => {
+    await assertServerAnyPermission(context.session, FINANCE_READ);
+    return await withSafeErrors(
+      readFailure(
+        "bank_unseen_payments_failed",
+        "Payments not seen in the bank couldn't be loaded."
+      ),
+      async () => await listUnseenPayments()
     );
   });

@@ -1,7 +1,6 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   type ExpenseSourceType,
-  LEDGER_CUTOVER_ON,
   LEDGER_SOURCE_TYPES,
 } from "@pi-dash/shared/ledger";
 import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
@@ -12,17 +11,23 @@ import { expenseCategory } from "../schema/expense-category";
 import { orgAccount } from "../schema/finance-dimensions";
 import { accountMovement, posting } from "../schema/ledger";
 import { reimbursement, reimbursementLineItem } from "../schema/reimbursement";
+import { statementAllocation, statementLine } from "../schema/statement-line";
 import { teamEvent } from "../schema/team-event";
 import { vendorPayment, vendorPaymentLineItem } from "../schema/vendor";
 import { vendorPaymentTransaction } from "../schema/vendor-payment-transaction";
 import type { LedgerTx } from "./engine";
 import { ensureExpenseCategoryHeads } from "./expense-heads";
 import {
+  type BankMatchFacts,
   type ExpenseChargeFacts,
   type ExpenseLineFacts,
   type PayingAccountFacts,
+  paymentTiming,
   type ReimbursementFacts,
   reimbursementPlan,
+  type StatementChargeFacts,
+  statementChargePlan,
+  timingWait,
   type VendorPaymentFacts,
   vendorPaymentPlan,
   type VendorPaymentTransactionFacts,
@@ -79,7 +84,10 @@ async function payingAccountFacts(
         isNull(posting.reversesPostingId),
         isNull(reversal.id),
         eq(accountMovement.kind, "payout"),
-        eq(accountMovement.direction, "out")
+        eq(accountMovement.direction, "out"),
+        // Not a payment a matched bank debit placed (layer 3-3b): that
+        // follows the match, so unmatching restores the default account.
+        isNull(accountMovement.bankValueOn)
       )
     )
     .limit(1);
@@ -88,6 +96,38 @@ async function payingAccountFacts(
     mainAccountId: banks.find((b) => b.isMain)?.id ?? null,
     postedAccountId: posted?.orgAccountId ?? null,
   };
+}
+
+/** The bank debits matched to a claim or vendor payment (live allocations). */
+async function bankMatchFacts(
+  tx: LedgerTx,
+  target: { reimbursementId: string } | { vendorPaymentTransactionId: string }
+): Promise<BankMatchFacts[]> {
+  const rows = await tx
+    .select({
+      amountPaise: statementAllocation.amountPaise,
+      orgAccountId: statementLine.orgAccountId,
+      statementLineId: statementLine.id,
+      valueOn: statementLine.valueOn,
+    })
+    .from(statementAllocation)
+    .innerJoin(
+      statementLine,
+      eq(statementLine.id, statementAllocation.statementLineId)
+    )
+    .where(
+      and(
+        "reimbursementId" in target
+          ? eq(statementAllocation.reimbursementId, target.reimbursementId)
+          : eq(
+              statementAllocation.vendorPaymentTransactionId,
+              target.vendorPaymentTransactionId
+            ),
+        isNull(statementAllocation.releasedAt)
+      )
+    )
+    .orderBy(asc(statementLine.valueOn), asc(statementLine.id));
+  return rows;
 }
 
 async function chargeFacts(
@@ -172,11 +212,9 @@ async function reimbursementFacts(
     return null;
   }
   const approvedOn = dayOf(row.reviewedAt);
-  // Only an approved one from the cutover needs its lines and accounts.
-  if (
-    row.status !== "approved" ||
-    (approvedOn !== null && approvedOn < LEDGER_CUTOVER_ON)
-  ) {
+  // Only an approved one needs its lines, accounts and bank debits (one
+  // approved before the cutover still posts when a debit after it paid it).
+  if (row.status !== "approved") {
     return {
       activeBankAccountIds: [],
       approvedOn,
@@ -186,6 +224,7 @@ async function reimbursementFacts(
       hasPaymentProof: Boolean(row.approvalScreenshotKey),
       id: row.id,
       lines: [],
+      matches: [],
       postedAccountId: null,
       status: row.status,
       title: row.title,
@@ -216,6 +255,7 @@ async function reimbursementFacts(
     hasPaymentProof: Boolean(row.approvalScreenshotKey),
     id: row.id,
     lines: await lineFacts(tx, lines),
+    matches: await bankMatchFacts(tx, { reimbursementId: row.id }),
     status: row.status,
     title: row.title,
     voidedOn: dayOf(row.voidedAt),
@@ -258,6 +298,7 @@ async function vendorPaymentFacts(
       ? await tx
           .select({
             amountPaise: vendorPaymentTransaction.amountPaise,
+            id: vendorPaymentTransaction.id,
             transactionDate: vendorPaymentTransaction.transactionDate,
           })
           .from(vendorPaymentTransaction)
@@ -272,14 +313,24 @@ async function vendorPaymentFacts(
       : [];
   let paidPaise = 0;
   let paidBeforeCutoverPaise = 0;
+  let paymentWaiting: VendorPaymentFacts["paymentWaiting"] = null;
   for (const p of payments) {
     if (p.amountPaise <= 0) {
       continue;
     }
-    if (todayInKolkata(p.transactionDate) < LEDGER_CUTOVER_ON) {
+    // By when its money actually left (its matched bank debits, else its
+    // date), as `vendorPaymentTransactionPlan` books it.
+    const timing = paymentTiming({
+      defaultOn: todayInKolkata(p.transactionDate),
+      matches: await bankMatchFacts(tx, { vendorPaymentTransactionId: p.id }),
+      totalPaise: p.amountPaise,
+    });
+    if (timing.kind === "before") {
       paidBeforeCutoverPaise += p.amountPaise;
-    } else {
+    } else if (timing.kind === "after") {
       paidPaise += p.amountPaise;
+    } else {
+      paymentWaiting ??= timingWait(timing);
     }
   }
   return {
@@ -290,6 +341,7 @@ async function vendorPaymentFacts(
     lines: await lineFacts(tx, lines),
     paidBeforeCutoverPaise,
     paidPaise,
+    paymentWaiting,
     status: row.status,
     title: row.title,
     vendorId: row.vendorId,
@@ -331,6 +383,7 @@ async function vendorPaymentTransactionFacts(
     })),
     amountPaise: row.amountPaise,
     id: row.id,
+    matches: await bankMatchFacts(tx, { vendorPaymentTransactionId: row.id }),
     paidOn: todayInKolkata(row.transactionDate),
     paymentReference: row.paymentReference,
     requestStatus: row.requestStatus,
@@ -338,6 +391,51 @@ async function vendorPaymentTransactionFacts(
     title: row.title,
     vendorId: row.vendorId,
     voidedOn: dayOf(row.voidedAt ?? row.requestVoidedAt),
+  };
+}
+
+/** A bank debit's live bank charges and tax payment (layer 3-3b). */
+async function statementChargeFacts(
+  tx: LedgerTx,
+  id: string
+): Promise<StatementChargeFacts | null> {
+  const [line] = await tx
+    .select({
+      direction: statementLine.direction,
+      id: statementLine.id,
+      orgAccountId: statementLine.orgAccountId,
+      valueOn: statementLine.valueOn,
+    })
+    .from(statementLine)
+    .where(eq(statementLine.id, id))
+    .limit(1);
+  if (!line) {
+    return null;
+  }
+  const charges = await tx
+    .select({
+      amountPaise: statementAllocation.amountPaise,
+      kind: statementAllocation.kind,
+    })
+    .from(statementAllocation)
+    .where(
+      and(
+        eq(statementAllocation.statementLineId, id),
+        isNull(statementAllocation.releasedAt)
+      )
+    );
+  const sumOf = (kind: string) =>
+    line.direction === "debit"
+      ? charges
+          .filter((c) => c.kind === kind)
+          .reduce((sum, c) => sum + c.amountPaise, 0)
+      : 0;
+  return {
+    bankChargesPaise: sumOf("bank_charges"),
+    id: line.id,
+    orgAccountId: line.orgAccountId,
+    taxPaise: sumOf("tax_payment"),
+    valueOn: line.valueOn,
   };
 }
 
@@ -355,6 +453,10 @@ export async function planExpenseSource(
       return vendorPaymentTransactionPlan(
         await vendorPaymentTransactionFacts(tx, source.sourceId)
       );
+    case T.statementCharge:
+      return statementChargePlan(
+        await statementChargeFacts(tx, source.sourceId)
+      );
     default:
       throw new LedgerError("invalid", "Not an expense source");
   }
@@ -371,6 +473,10 @@ export async function planExpenseSource(
  */
 export function expenseSourceWatermark(type: ExpenseSourceType, id: SQL): SQL {
   const banks = sql`(select max(wa.updated_at) from ${orgAccount} wa where wa.kind = 'bank')`;
+  // A bank debit matched or released (layer 3-3b); released rows stay, so
+  // an unmatch moves the watermark too.
+  const matched = (column: SQL, owner: SQL) =>
+    sql`(select max(greatest(ws.created_at, ws.released_at)) from ${statementAllocation} ws where ${column} = ${owner})`;
   switch (type) {
     case T.reimbursement:
       return sql`(select greatest(
@@ -379,7 +485,8 @@ export function expenseSourceWatermark(type: ExpenseSourceType, id: SQL): SQL {
             join ${expenseCategory} wk on wk.id = wl.category_id
             where wl.reimbursement_id = wr.id),
           (select we.updated_at from ${teamEvent} we where we.id = wr.event_id),
-          ${banks}
+          ${banks},
+          ${matched(sql`ws.reimbursement_id`, sql`wr.id`)}
         ) from ${reimbursement} wr where wr.id = ${id})`;
     case T.vendorPayment:
       return sql`(select greatest(
@@ -389,13 +496,21 @@ export function expenseSourceWatermark(type: ExpenseSourceType, id: SQL): SQL {
             where wl.vendor_payment_id = wv.id),
           (select we.updated_at from ${teamEvent} we where we.id = wv.event_id),
           (select max(wt.updated_at) from ${vendorPaymentTransaction} wt
+            where wt.vendor_payment_id = wv.id),
+          (select max(greatest(ws.created_at, ws.released_at)) from ${statementAllocation} ws
+            join ${vendorPaymentTransaction} wt on wt.id = ws.vendor_payment_transaction_id
             where wt.vendor_payment_id = wv.id)
         ) from ${vendorPayment} wv where wv.id = ${id})`;
     case T.vendorPaymentTransaction:
-      return sql`(select greatest(wt.updated_at, wv.updated_at, ${banks})
+      return sql`(select greatest(wt.updated_at, wv.updated_at, ${banks},
+          ${matched(sql`ws.vendor_payment_transaction_id`, sql`wt.id`)})
         from ${vendorPaymentTransaction} wt
         join ${vendorPayment} wv on wv.id = wt.vendor_payment_id
         where wt.id = ${id})`;
+    case T.statementCharge:
+      return sql`(select greatest(wl.updated_at,
+          ${matched(sql`ws.statement_line_id`, sql`wl.id`)})
+        from ${statementLine} wl where wl.id = ${id})`;
     default:
       return sql`null::timestamp`;
   }
@@ -417,11 +532,19 @@ export async function listExpenseSources(
   changed: (type: ExpenseSourceType, idColumn: SQL) => SQL
 ): Promise<ExpenseSource[]> {
   const { from, to } = range;
+  // Also those a bank debit in the range pays (layer 3-3b): a claim
+  // approved before the cutover posts on its debit's day.
+  const matchedIn = (owner: SQL) => sql`or exists (
+      select 1 from ${statementAllocation} a
+      join ${statementLine} l on l.id = a.statement_line_id
+      where ${owner} and a.released_at is null
+        and l.value_on between ${from} and ${to})`;
   const claims = rowsOf(
     await tx.execute(sql`
       select r.id from ${reimbursement} r
       where r.status = 'approved'
-        and coalesce(${indiaDay(sql`r.reviewed_at`)}, r.expense_date) between ${from} and ${to}
+        and (coalesce(${indiaDay(sql`r.reviewed_at`)}, r.expense_date) between ${from} and ${to}
+          ${matchedIn(sql`a.reimbursement_id = r.id`)})
         ${changed(T.reimbursement, sql`r.id`)}`)
   );
   const requests = rowsOf(
@@ -435,11 +558,25 @@ export async function listExpenseSources(
     await tx.execute(sql`
       select t.id from ${vendorPaymentTransaction} t
       where t.status = 'approved'
-        and ${indiaDay(sql`t.transaction_date`)} between ${from} and ${to}
+        and (${indiaDay(sql`t.transaction_date`)} between ${from} and ${to}
+          ${matchedIn(sql`a.vendor_payment_transaction_id = t.id`)})
         ${changed(T.vendorPaymentTransaction, sql`t.id`)}`)
+  );
+  // Bank debits with live bank charges or a tax payment (layer 3-3b).
+  const charges = rowsOf(
+    await tx.execute(sql`
+      select l.id from ${statementLine} l
+      where l.direction = 'debit'
+        and l.value_on between ${from} and ${to}
+        and exists (
+          select 1 from ${statementAllocation} a
+          where a.statement_line_id = l.id and a.released_at is null
+            and a.kind in ('bank_charges', 'tax_payment'))
+        ${changed(T.statementCharge, sql`l.id`)}`)
   );
   return [
     ...claims.map((r) => ({ sourceId: r.id, sourceType: T.reimbursement })),
+    ...charges.map((r) => ({ sourceId: r.id, sourceType: T.statementCharge })),
     ...requests.map((r) => ({ sourceId: r.id, sourceType: T.vendorPayment })),
     ...payments.map((r) => ({
       sourceId: r.id,

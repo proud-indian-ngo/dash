@@ -4,6 +4,7 @@ import {
   importedRowRetention,
   uploadedRowRetention,
 } from "@pi-dash/db/import-retention";
+import { liveAllocationsOfLines } from "@pi-dash/db/queries/bank-debits";
 import {
   claimImportBatch,
   countImportBatchRows,
@@ -66,6 +67,16 @@ import { razorpaySetup } from "@/lib/razorpay/config";
 import { withSafeErrors } from "@/lib/safe-errors";
 
 import {
+  allocationSources,
+  clearNeedsClaim,
+  debitMayBeIgnored,
+  flagNeedsClaim,
+  markDebitCharge,
+  matchDebit,
+  releaseDebit,
+} from "./debits";
+import { StatementInputError } from "./errors";
+import {
   type AmountLayout,
   BANK_PARSER_VERSION,
   type BankMapping,
@@ -111,13 +122,6 @@ const STALE_RUN_MS = 15 * 60 * 1000;
 function razorpayMode(): string | null {
   const setup = razorpaySetup();
   return setup.enabled ? setup.mode : null;
-}
-
-export class StatementInputError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "StatementInputError";
-  }
 }
 
 export const STATEMENT_SAVE_FAILED_MESSAGE =
@@ -833,19 +837,71 @@ function ledgerSourcesOf(
   ];
 }
 
-async function applyAction(
+/** Refuses a credit-style action on a debit that is partly explained already. */
+async function requireNoAllocations(
+  tx: StatementTx,
+  line: StatementLineRecord
+) {
+  if (line.direction !== "debit") {
+    return;
+  }
+  const [allocated] = await liveAllocationsOfLines(tx, [line.id]);
+  if (allocated) {
+    throw new StatementInputError(
+      "Part of this line is already matched; unmatch it first"
+    );
+  }
+}
+
+/**
+ * Applies one action in the caller's statement line transaction; returns
+ * the posting sources it moved that the line itself doesn't name (claims,
+ * vendor payments, bank charges). Exported for the database tests.
+ */
+export async function applyAction(
   tx: StatementTx,
   line: StatementLineRecord,
   input: StatementLineAction,
   actorId: string,
   now: Date
-): Promise<void> {
+): Promise<LedgerSourceRef[]> {
   const matched = { matchedAt: now, matchedBy: actorId, updatedAt: now };
   switch (input.action) {
+    case "match_debit":
+      return await matchDebit(tx, line, input, actorId, now);
+    case "bank_charges":
+    case "tax_payment":
+      return await markDebitCharge(
+        tx,
+        line,
+        input.action,
+        trimNote(input.note),
+        actorId,
+        now
+      );
+    case "needs_claim":
+      await flagNeedsClaim(tx, line, trimNote(input.note), actorId, now);
+      return [];
+    case "clear_needs_claim":
+      await clearNeedsClaim(tx, line, now);
+      return [];
+    case "dismiss_debit": {
+      requireUnmatched(line);
+      await updateStatementLine(tx, line.id, {
+        dismissedSuggestions: withDismissed(line, input.documentId),
+        updatedAt: now,
+      });
+      return [];
+    }
     case "accept": {
       requireUnmatched(line);
       const kind = line.suggestedKind;
-      if (!kind || kind === "transfer" || kind === "other") {
+      if (
+        !kind ||
+        kind === "transfer" ||
+        kind === "other" ||
+        kind === "expense"
+      ) {
         throw new StatementInputError("This line has no suggestion to accept");
       }
       const targetId =
@@ -867,7 +923,7 @@ async function applyAction(
         actorId,
         now
       );
-      return;
+      return [];
     }
     case "dismiss": {
       requireUnmatched(line);
@@ -886,7 +942,7 @@ async function applyAction(
         suggestionReason: null,
         updatedAt: now,
       });
-      return;
+      return [];
     }
     case "link": {
       requireUnmatched(line);
@@ -898,7 +954,7 @@ async function applyAction(
         actorId,
         now
       );
-      return;
+      return [];
     }
     case "giveindia": {
       requireUnmatched(line);
@@ -912,10 +968,11 @@ async function applyAction(
         actorId,
         now
       );
-      return;
+      return [];
     }
     case "transfer": {
       requireUnmatched(line);
+      await requireNoAllocations(tx, line);
       const { otherAccountId } = input;
       await assertTransferAccount(tx, line, otherAccountId);
       await updateStatementLine(tx, line.id, {
@@ -924,6 +981,9 @@ async function applyAction(
         matchKind: "transfer",
         matchReason: "manual",
         matchStatus: "matched",
+        // Only an open line waits for a claim.
+        needsClaimAt: null,
+        needsClaimBy: null,
         note: trimNote(input.note) ?? line.note,
         transferOrgAccountId: otherAccountId,
         suggestedContributionId: null,
@@ -934,10 +994,18 @@ async function applyAction(
       // The other bank's own line for this transfer, if already marked:
       // paired one-to-one so the books post the transfer once.
       await pairTransferLine(tx, line.id, now);
-      return;
+      return [];
     }
     case "ignore": {
       requireUnmatched(line);
+      await requireNoAllocations(tx, line);
+      // Money out from the cutover is in the books: it is matched, marked
+      // or flagged as needing a claim, never set aside.
+      if (!debitMayBeIgnored(line)) {
+        throw new StatementInputError(
+          "Money out from 1 Apr 2026 can't be ignored: match it, mark it as bank charges, a tax payment or a transfer, or flag it as needing a claim"
+        );
+      }
       const note = trimNote(input.note);
       if (input.reason === "other" && !note) {
         throw new StatementInputError("Say why in a note");
@@ -946,16 +1014,20 @@ async function applyAction(
         ...matched,
         ignoredReason: input.reason,
         matchStatus: "ignored",
+        needsClaimAt: null,
+        needsClaimBy: null,
         note: note ?? line.note,
         suggestedContributionId: null,
         suggestedKind: null,
         suggestedSettlementId: null,
         suggestionReason: null,
       });
-      return;
+      return [];
     }
     case "unmatch": {
-      if (line.matchStatus === "unmatched") {
+      // A debit explained in part is open but can still be unmatched.
+      const released = await releaseDebit(tx, line, actorId, now);
+      if (line.matchStatus === "unmatched" && released.length === 0) {
         throw new StatementInputError("This line is not matched or ignored");
       }
       // Not matched to the same record again by the next "Find matches".
@@ -971,7 +1043,7 @@ async function applyAction(
       await updateStatementLine(tx, line.id, {
         dismissedSuggestions: dismissed,
       });
-      return;
+      return allocationSources(line.id, released);
     }
     case "note": {
       const note = trimNote(input.note);
@@ -988,7 +1060,7 @@ async function applyAction(
         note,
         updatedAt: now,
       });
-      return;
+      return [];
     }
     default:
       throw new StatementInputError("Unknown action");
@@ -1008,12 +1080,17 @@ export async function actOnStatementLine(
         if (!line) {
           throw new StatementInputError("Bank statement line not found");
         }
-        await applyAction(tx, line, input, actorId, new Date());
+        const moved = await applyAction(tx, line, input, actorId, new Date());
         const after = await lockStatementLine(tx, line.id);
-        // The payout or transfer it was and is tied to post again.
+        // The payout or transfer it was and is tied to post again, and the
+        // claims, payments and charges a debit match moved.
         return {
           lineId: line.id,
-          sources: [...ledgerSourcesOf(line), ...ledgerSourcesOf(after)],
+          sources: [
+            ...ledgerSourcesOf(line),
+            ...ledgerSourcesOf(after),
+            ...moved,
+          ],
         };
       })
   );
@@ -1038,13 +1115,20 @@ export async function statementLinkCandidates(
 }
 
 /**
- * What an action ties the line to, for its audit entry (kind and record ID,
- * never line content): the suggestion an accept takes or a dismiss turns
- * down, the match an unmatch undoes, or a give.do payout.
+ * What an action ties the line to, for its audit entry (kind and record
+ * IDs, never line content): the suggestion an accept takes or a dismiss
+ * turns down, the match an unmatch undoes (for a debit, the claims and
+ * vendor payments it paid), or a give.do payout.
  */
 export async function describeStatementAction(
   input: StatementLineAction
-): Promise<{ kind?: string; targetId?: string }> {
+): Promise<{
+  allocationCount?: number;
+  kind?: string;
+  reimbursementIds?: string[];
+  targetId?: string;
+  vendorPaymentTransactionIds?: string[];
+}> {
   if (
     input.action !== "accept" &&
     input.action !== "dismiss" &&
@@ -1060,6 +1144,19 @@ export async function describeStatementAction(
     const line = await getStatementLine(input.lineId);
     if (!line) {
       return {};
+    }
+    if (input.action === "unmatch" && line.direction === "debit") {
+      const live = await liveAllocationsOfLines(db, [line.id]);
+      if (live.length > 0) {
+        const ids = (key: "reimbursementId" | "vendorPaymentTransactionId") =>
+          live.flatMap((a) => (a[key] ? [a[key] as string] : []));
+        return {
+          allocationCount: live.length,
+          kind: "expense",
+          reimbursementIds: ids("reimbursementId"),
+          vendorPaymentTransactionIds: ids("vendorPaymentTransactionId"),
+        };
+      }
     }
     const suggestion = input.action === "accept" || input.action === "dismiss";
     const kind = suggestion ? line.suggestedKind : line.matchKind;

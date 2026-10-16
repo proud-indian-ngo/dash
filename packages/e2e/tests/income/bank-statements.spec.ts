@@ -172,18 +172,19 @@ test.describe("Income: bank statements", () => {
       page.getByText("All money in is matched or ignored")
     ).toBeVisible({ timeout: 15_000 });
 
-    // The debit waits under Money out and is set aside.
+    // The debit waits under Money out. From 1 Apr 2026 it can't be
+    // ignored; it is marked as bank charges instead.
     await page.getByRole("tab", { name: /^Money out/ }).click();
     const debit = line(page, `PRINTING ${run}`);
-    await expect(debit).toContainText("Expense matching comes with the ledger");
     await debit.getByRole("button", { name: "Line actions" }).click();
-    await page.getByRole("menuitem", { name: "Ignore" }).click();
-    const ignore = page.getByRole("dialog", { name: "Ignore this line?" });
-    await ignore.getByRole("button", { name: "Ignore line" }).click();
-    await expect(ignore).toBeHidden();
-    await expect(page.getByText("No money out left to note")).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.getByRole("menuitem", { name: "Ignore" })).toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Bank charges" }).click();
+    const charges = page.getByRole("dialog", { name: "Bank charges" });
+    await charges.getByRole("button", { name: "Mark as bank charges" }).click();
+    await expect(charges).toBeHidden();
+    await expect(
+      page.getByText("All money out is matched or explained")
+    ).toBeVisible({ timeout: 15_000 });
 
     const stored = await fixture<StoredLine[]>(
       "bank-statements",
@@ -195,7 +196,7 @@ test.describe("Income: bank statements", () => {
       ["matched", "contribution"],
       ["matched", "giveindia_payout"],
       ["matched", "contribution"],
-      ["ignored", null],
+      ["matched", "expense"],
     ]);
 
     // An overlapping statement adds only the line that is new.
@@ -226,6 +227,149 @@ test.describe("Income: bank statements", () => {
       amountPaise: 30_000,
       matchStatus: "unmatched",
     });
+  });
+
+  test("matches bank debits to claims and vendor payments, splits one, and marks bank charges", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+    const run = `${Date.now()}${randomUUID().slice(0, 6)}`.toUpperCase();
+    const setup = await fixture<{
+      accountId: string;
+      accountName: string;
+      amounts: { claimA: number; claimB: number; payment: number };
+      claimA: string;
+      claimB: string;
+      paymentId: string;
+    }>("bank-statements", "debit-setup", run);
+    const rupees = (paise: number) =>
+      `"${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}"`;
+    const csv = Buffer.from(
+      [
+        "Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balance",
+        `21/09/26,NEFT DR-TENT HOUSE VUTR${run},VUTR${run},21/09/26,${rupees(setup.amounts.payment)},,`,
+        `22/09/26,IMPS DR-REIMBURSE ${run},IMPS${run},22/09/26,${rupees(setup.amounts.claimA + setup.amounts.claimB)},,`,
+        `23/09/26,CHRG SMS ALERTS ${run},,23/09/26,17.70,,`,
+      ].join("\n"),
+      "utf8"
+    );
+    await importStatement(page, setup, `debits-${run}.csv`, csv);
+    await expect(page.getByTestId("statement-review-summary")).toContainText(
+      "3 new lines, 0 already imported"
+    );
+    await page.getByRole("button", { name: "Import 3 lines" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Import lines" })
+      .click();
+    await expect(page.getByTestId("statement-import-result")).toContainText(
+      "3 lines imported"
+    );
+    await page.getByRole("link", { name: "Review the lines" }).click();
+    await waitForZeroReady(page);
+    await page.getByRole("tab", { name: /^Money out/ }).click();
+    await expect(page.getByRole("tab", { name: "Money out 3" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("debit-reconciliation")).toContainText(
+      "0 debits matched · 3 need attention"
+    );
+
+    // The vendor payment whose UTR the line carries is suggested first.
+    const tent = line(page, `TENT HOUSE VUTR${run}`);
+    const suggestion = tent.getByTestId("debit-suggestion");
+    await expect(suggestion).toContainText(`E2E tent hire ${run}`, {
+      timeout: 15_000,
+    });
+    await expect(suggestion).toContainText("Reference matches");
+    await suggestion.getByRole("button", { name: "Confirm match" }).click();
+    await expect(tent).toHaveCount(0, { timeout: 15_000 });
+
+    // One debit paid two claims: picked together in Find match.
+    const both = line(page, `REIMBURSE ${run}`);
+    await both.getByRole("button", { name: /^Find (other )?match/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Find match" });
+    await dialog.getByRole("textbox", { name: "Payee or title" }).fill(run);
+    await dialog
+      .getByTestId("debit-candidate")
+      .filter({ hasText: `E2E outing ${run}` })
+      .click();
+    await dialog
+      .getByTestId("debit-candidate")
+      .filter({ hasText: `E2E snacks ${run}` })
+      .click();
+    const total = dialog.getByTestId("debit-selection-total");
+    await expect(total).not.toContainText("not explained");
+    await dialog.getByRole("button", { name: "Match debit" }).click();
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    await expect(both).toHaveCount(0, { timeout: 15_000 });
+
+    // Money out with no claim behind it: bank charges.
+    const sms = line(page, `SMS ALERTS ${run}`);
+    await sms.getByRole("button", { name: "Line actions" }).click();
+    await page.getByRole("menuitem", { name: "Bank charges" }).click();
+    const charges = page.getByRole("dialog", { name: "Bank charges" });
+    await charges.getByRole("button", { name: "Mark as bank charges" }).click();
+    await expect(charges).toBeHidden();
+
+    await expect(page.getByTestId("debit-reconciliation")).toContainText(
+      "All debits are matched",
+      { timeout: 15_000 }
+    );
+    await expect(
+      page.getByText("All money out is matched or explained")
+    ).toBeVisible();
+    await page.getByRole("tab", { name: /^Matched/ }).click();
+    await expect(line(page, `REIMBURSE ${run}`)).toContainText(
+      `E2E outing ${run}`
+    );
+    await expect(line(page, `REIMBURSE ${run}`)).toContainText(
+      `E2E snacks ${run}`
+    );
+
+    const allocations = await fixture<
+      {
+        amountPaise: number;
+        kind: string;
+        reimbursementId: string | null;
+        vendorPaymentTransactionId: string | null;
+      }[]
+    >("bank-statements", "debit-allocations", setup.accountId);
+    expect(allocations).toEqual([
+      {
+        amountPaise: 1770,
+        kind: "bank_charges",
+        reimbursementId: null,
+        vendorPaymentTransactionId: null,
+      },
+      {
+        amountPaise: setup.amounts.claimB,
+        kind: "reimbursement",
+        reimbursementId: setup.claimB,
+        vendorPaymentTransactionId: null,
+      },
+      {
+        amountPaise: setup.amounts.claimA,
+        kind: "reimbursement",
+        reimbursementId: setup.claimA,
+        vendorPaymentTransactionId: null,
+      },
+      {
+        amountPaise: setup.amounts.payment,
+        kind: "vendor_payment_transaction",
+        reimbursementId: null,
+        vendorPaymentTransactionId: setup.paymentId,
+      },
+    ]);
+
+    // The claim says where it was paid from.
+    await page.goto(`/reimbursements/${setup.claimA}`);
+    await waitForZeroReady(page);
+    await expect(page.getByTestId("paid-from-bank")).toContainText(
+      `Paid from ${setup.accountName} on 22 Sep 2026`,
+      { timeout: 15_000 }
+    );
   });
 
   test("a role with donors.view only cannot open bank statements", async ({

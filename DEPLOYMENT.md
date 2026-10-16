@@ -311,7 +311,7 @@ Messages to people move to Meta's Cloud API only once both `WHATSAPP_CLOUD_ACCES
 
 1. Check every template is approved: `bun run whatsapp:templates status`. Unapproved ones aren't sent on the Cloud API.
 2. Use a Cloud API number that is neither the GoWA gateway's number nor registered on the WhatsApp or WhatsApp Business app.
-3. Set `WHATSAPP_CLOUD_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN` and `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID`, then deploy. The deploy applies migration `0147` (send log and digest columns).
+3. Set `WHATSAPP_CLOUD_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN` and `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID`, then deploy. The deploy applies migration `0149` (send log and digest columns).
 4. In the app's WhatsApp → Configuration page, register the webhook `https://<APP_URL>/api/whatsapp/cloud/webhook` with the same verify token, and subscribe to the `messages` field.
 5. Set `WHATSAPP_CLOUD_ACCESS_TOKEN` (system user token, expiry **Never**) and `WHATSAPP_CLOUD_PHONE_NUMBER_ID`, and redeploy. This is the switch.
 
@@ -441,6 +441,10 @@ The new permission `donors.receipt` goes to every finance admin and super admin 
 1. Fills in Settings → Organisation accounts → Donation receipts: the trust's registered name, address, PAN, and the signatory's name and designation (printed on every receipt; never seed the real values).
 2. Checks the 80G registration (URN and date) under Donations return in the same page.
 3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.
+
+### Expenses head repair and payment proof
+
+No migration, environment variable, service or queue. On start the web server gives the Expenses parent head its own ID and moves the expense category heads (`EXPENSE_*`) out from under Corpus donations, where a clash of IDs had put them. During a rolling deploy an instance still on the old build may create one more category head under Corpus donations; the next restart moves it. After the deploy, a finance admin clears the Reimbursements filter "Missing payment proof" by adding each claim's payment screenshot (or voiding a claim that was never paid), then chooses Post pending on Books.
 
 ### CA handoff workbook (books layer 3-5)
 

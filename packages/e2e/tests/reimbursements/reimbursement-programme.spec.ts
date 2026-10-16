@@ -151,7 +151,9 @@ test.describe("Reimbursement charged to", () => {
       process.env.SUPER_ADMIN_EMAIL ?? "test-super-admin@pi-dash.test"
     );
     await reimbursements.navigateToList();
-    await page.getByRole("button", { name: /^Unallocated · \d+$/ }).click();
+    const unallocated = page.getByRole("tab", { name: /^Unallocated \d+$/ });
+    await unallocated.click();
+    await expect(unallocated).toHaveAttribute("aria-selected", "true");
     await reimbursements.list
       .getSearchInput("Search reimbursements...")
       .fill(title);

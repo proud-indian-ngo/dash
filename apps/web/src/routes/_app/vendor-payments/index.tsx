@@ -9,7 +9,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
+import { useUnallocatedAttentionView } from "@/components/expenses/unallocated-attention-view";
 import { VoidDialog } from "@/components/form/void-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { TipStrip } from "@/components/shared/tip-strip";
@@ -74,6 +74,7 @@ function VendorPaymentsRouteComponent() {
     [data, postedRequests, postedPayments]
   );
   const voidedFilter = useVoidedFilter(data);
+  const unallocatedView = useUnallocatedAttentionView(data);
   const [voidTarget, setVoidTarget] =
     useState<VendorPaymentWithRelations | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
@@ -146,6 +147,7 @@ function VendorPaymentsRouteComponent() {
           items={computeVendorPaymentStats(data.filter((vp) => !isVoided(vp)))}
         />
         <VendorPaymentsTable
+          attentionViews={unallocatedView ? [unallocatedView] : undefined}
           canDelete={canDelete}
           data={voidedFilter.rows}
           isLoading={isLoading}
@@ -153,12 +155,7 @@ function VendorPaymentsRouteComponent() {
           onNavigate={stableOnNavigate1}
           onVoid={setVoidTarget}
           postedIds={postedIds}
-          toolbarActions={
-            <>
-              <UnallocatedFilterButton rows={data} />
-              {voidedFilter.button}
-            </>
-          }
+          toolbarActions={voidedFilter.button}
         />
       </div>
       <VoidDialog

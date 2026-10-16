@@ -1,13 +1,19 @@
 import type {
+  StatementAllocationKind,
   StatementLineIgnoreReason,
   StatementLineMatchKind,
   StatementLineMatchReason,
 } from "@pi-dash/shared/constants";
 
+import {
+  DEBIT_MATCH_WINDOW_DAYS,
+  type DebitSuggestionReason,
+} from "./debit-match";
 import type { StatementRowCategory } from "./types";
 
 export const MATCH_KIND_LABELS: Record<StatementLineMatchKind, string> = {
   contribution: "Donation",
+  expense: "Claims, payments and charges",
   giveindia_payout: "give.do payout",
   other: "Other",
   settlement: "Settlement",
@@ -39,8 +45,18 @@ export const STATEMENT_ROW_CATEGORY_LABELS: Record<
   skipped: "Skipped",
 };
 
-/** Shown on debit lines: what can be done with them before the ledger. */
-export const DEBIT_MATCHING_NOTE = "Expense matching comes with the ledger.";
+/** What part of a debit pays, in words. */
+export const ALLOCATION_KIND_LABELS: Record<StatementAllocationKind, string> = {
+  bank_charges: "Bank charges",
+  reimbursement: "Reimbursement",
+  tax_payment: "Tax or government fee",
+  vendor_payment_transaction: "Vendor payment",
+};
+
+export const DEBIT_REASON_LABELS: Record<DebitSuggestionReason, string> = {
+  amount_date: `Same amount, within ${DEBIT_MATCH_WINDOW_DAYS} days`,
+  reference: "Reference matches",
+};
 
 const matchKindFrom = (value: string | null | undefined) =>
   value && value in MATCH_KIND_LABELS

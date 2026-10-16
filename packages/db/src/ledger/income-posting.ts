@@ -41,10 +41,17 @@ import {
   accountMovement,
   ledgerEntry,
   ledgerSourceState,
+  movementAllocation,
   posting,
 } from "../schema/ledger";
 import { statementLine } from "../schema/statement-line";
-import { type LedgerTx, post, type PostingRow, reverse } from "./engine";
+import {
+  type LedgerTx,
+  MOVEMENT_ALLOCATION_STATEMENT_LINE,
+  post,
+  type PostingRow,
+  reverse,
+} from "./engine";
 import {
   expenseSourceWatermark,
   listExpenseSources,
@@ -518,6 +525,9 @@ function movementCanon(m: MovementInput, day: string): Canon {
     // reversal; the next real repost carries the new one.
     m.memo ?? null,
     m.bankValueOn ?? null,
+    // The bank line it is reconciled to (layer 3-3b), so moving a match
+    // between two equal lines on the same day still reposts.
+    m.statementLineId ?? null,
   ];
 }
 
@@ -565,13 +575,40 @@ async function standingPostings(tx: LedgerTx, source: IncomeSource) {
           .from(ledgerEntry)
           .where(inArray(ledgerEntry.postingId, ids))
       : [];
-  const movements =
+  const movementRows =
     ids.length > 0
       ? await tx
           .select()
           .from(accountMovement)
           .where(inArray(accountMovement.postingId, ids))
       : [];
+  // The bank line each standing movement was reconciled to.
+  const reconciled =
+    movementRows.length > 0
+      ? await tx
+          .select({
+            documentId: movementAllocation.documentId,
+            movementId: movementAllocation.accountMovementId,
+          })
+          .from(movementAllocation)
+          .where(
+            and(
+              inArray(
+                movementAllocation.accountMovementId,
+                movementRows.map((m) => m.id)
+              ),
+              eq(
+                movementAllocation.documentType,
+                MOVEMENT_ALLOCATION_STATEMENT_LINE
+              )
+            )
+          )
+      : [];
+  const lineOf = new Map(reconciled.map((r) => [r.movementId, r.documentId]));
+  const movements = movementRows.map((m) => ({
+    ...m,
+    statementLineId: lineOf.get(m.id) ?? null,
+  }));
   const standing: Standing[] = live.map((p) => {
     const own = movements.filter((m) => m.postingId === p.id);
     return {
@@ -711,6 +748,55 @@ export async function postIncomeSource(
   }
   const { maxRevision, standing } = await standingPostings(tx, source);
 
+  if (plan.kind === "wait" && plan.reverseStanding && standing.length > 0) {
+    // What stands would count bank money twice: reverse it while it waits.
+    try {
+      const reversed = await tx.transaction(async (sp) => {
+        for (const s of standing) {
+          await reverse(sp, s.posting.id, {
+            actorId: context.actorId,
+            now,
+            reason: `The ${LEDGER_SOURCE_LABELS[source.sourceType].toLowerCase()} waits: ${ledgerReasonLabel(plan.reason)}`,
+          });
+        }
+        return standing.length;
+      });
+      await saveState(
+        tx,
+        source,
+        {
+          economicOn: plan.economicOn,
+          reason: plan.reason,
+          sourceUpdatedAt: seen,
+          status: "waiting",
+        },
+        now
+      );
+      return { posted: 0, reason: plan.reason, reversed, status: "waiting" };
+    } catch (error) {
+      if (!(error instanceof LedgerError && error.code === "closed_year")) {
+        throw error;
+      }
+      // A closed year refuses the reversal: it waits for the year first.
+      await saveState(
+        tx,
+        source,
+        {
+          economicOn: plan.economicOn,
+          reason: LEDGER_WAIT_REASONS.closedYear,
+          sourceUpdatedAt: seen,
+          status: "waiting",
+        },
+        now
+      );
+      return {
+        posted: 0,
+        reason: LEDGER_WAIT_REASONS.closedYear,
+        reversed: 0,
+        status: "waiting",
+      };
+    }
+  }
   if (plan.kind === "wait") {
     await saveState(
       tx,
@@ -748,13 +834,18 @@ export async function postIncomeSource(
       changed.add(action);
     }
   }
-  // Money changed: the whole posting is reversed and reposted, so the
-  // recognition and its movements always share a revision.
-  const moneyChanged = [...changed].some(
-    (action) =>
-      (desired.get(action)?.movements.length ?? 0) > 0 ||
-      (byAction.get(action) ?? []).some((s) => s.hasMovements)
-  );
+  // Income: when the money changed, the whole posting is reversed and
+  // reposted, so the recognition and its movements share a revision.
+  // Expenses keep their parts apart: a bank debit matched or unmatched
+  // (layer 3-3b) moves only the payment (its account and date), so only
+  // the cash part is reposted and the expense entries stand untouched.
+  const moneyChanged =
+    !isExpenseSourceType(source.sourceType) &&
+    [...changed].some(
+      (action) =>
+        (desired.get(action)?.movements.length ?? 0) > 0 ||
+        (byAction.get(action) ?? []).some((s) => s.hasMovements)
+    );
   const redo = moneyChanged
     ? new Set([...desired.keys(), ...byAction.keys()])
     : changed;

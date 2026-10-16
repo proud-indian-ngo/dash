@@ -69,6 +69,7 @@ import {
   type FilterValueGetter,
 } from "@/components/data-table/compile-filter-query";
 import {
+  type DataTableAttentionView,
   DataTableViewTabs,
   getDataTableViews,
 } from "@/components/data-table/data-table-view-tabs";
@@ -130,6 +131,8 @@ import { getSizingColumns, useTableViewportWidth } from "./use-column-fill";
 export interface DataTableFilterConfig<TData extends object> {
   /** When false, persist and render the query but do not filter `data` locally. */
   applyLocally?: boolean;
+  /** Count shortcuts shown after the view tabs, past a divider. Needs `viewField`. */
+  attentionViews?: DataTableAttentionView[];
   fields: FilterField[];
   getValue?: FilterValueGetter<TData>;
   queryKey?: string;
@@ -240,6 +243,7 @@ function DataTableWrapperWithFilters<TData extends object>({
 }: DataTableWrapperProps<TData> & { filter: DataTableFilterConfig<TData> }) {
   const {
     applyLocally: applyLocallyOption,
+    attentionViews,
     fields,
     getValue,
     pinnedFields,
@@ -301,6 +305,7 @@ function DataTableWrapperWithFilters<TData extends object>({
       toolbarTop={
         viewField && views ? (
           <DataTableViewTabs
+            attentionViews={attentionViews}
             fieldId={viewField}
             onQueryChange={handleQueryChange}
             query={query}

@@ -1,12 +1,14 @@
 import type {
   ImportBatchStatus,
   ImportRowOutcome,
+  StatementDocumentAllocationKind,
   StatementLineDirection,
   StatementLineIgnoreReason,
 } from "@pi-dash/shared/constants";
 
 import type { ImportDateFormat } from "@/lib/income-import/fields";
 
+import type { DebitDifference, DebitSuggestionReason } from "./debit-match";
 import type { AmountLayout, BankMapping } from "./fields";
 import type { StatementCellIssue, StatementSkipReason } from "./normalize";
 
@@ -105,7 +107,55 @@ export type StatementLineAction =
       reason: StatementLineIgnoreReason;
     }
   | { action: "unmatch"; lineId: string }
-  | { action: "note"; lineId: string; note: string | null };
+  | { action: "note"; lineId: string; note: string | null }
+  // Bank debit matching (layer 3-3b).
+  | {
+      action: "match_debit";
+      /** How the difference between the debit and the selection is recorded. */
+      difference: DebitDifference;
+      /** Claims and vendor payments, in the order the debit pays them. */
+      items: { id: string; kind: StatementDocumentAllocationKind }[];
+      lineId: string;
+      /** Why: a confirmed suggestion's reason, else matched by hand. */
+      reason: "amount_date" | "manual" | "reference";
+    }
+  | { action: "dismiss_debit"; documentId: string; lineId: string }
+  | { action: "bank_charges"; lineId: string; note: string | null }
+  | { action: "tax_payment"; lineId: string; note: string | null }
+  | { action: "needs_claim"; lineId: string; note: string | null }
+  | { action: "clear_needs_claim"; lineId: string };
+
+/** A claim or vendor payment a debit can pay, as the browser sees it. */
+export interface DebitDocumentView {
+  allocatedPaise: number;
+  amountPaise: number;
+  id: string;
+  kind: StatementDocumentAllocationKind;
+  /** Approval day of a claim, payment date of a vendor payment. */
+  on: string;
+  payee: string;
+  reference: string | null;
+  /** The reimbursement, or the vendor payment request. */
+  requestId: string;
+  title: string;
+}
+
+export interface DebitSuggestionsResponse {
+  lines: Record<
+    string,
+    {
+      /** What live allocations on the line already explain. */
+      allocatedPaise: number;
+      suggestions: (DebitDocumentView & { reason: DebitSuggestionReason })[];
+    }
+  >;
+}
+
+export interface UnseenPaymentsResponse {
+  documents: DebitDocumentView[];
+  /** The list stopped at its limit: there are more. */
+  capped: boolean;
+}
 
 export interface LinkCandidatesResponse {
   contributions: {
@@ -129,6 +179,16 @@ export interface BankStatementSummaryResponse {
   closing: { balancePaise: number; valueOn: string } | null;
   creditCount: number;
   creditsMatchedCount: number;
+  /** Bank debit reconciliation (layer 3-3b). */
+  debits: {
+    /** Open debits: not matched in full or ignored. */
+    attentionCount: number;
+    debitCount: number;
+    debitsMatchedCount: number;
+    needsClaimCount: number;
+    /** Open debits from 1 Apr 2026, less what their allocations explain. */
+    unexplainedPaise: number;
+  };
   giveDoClearingPaise: number;
   lineCount: number;
   /** Null when Razorpay is not configured on the server. */

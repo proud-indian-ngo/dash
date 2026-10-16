@@ -64,6 +64,13 @@ export interface MovementInput {
   occurredOn?: string;
   orgAccountId: string;
   paymentReference?: string | null;
+  /**
+   * The bank statement line this money is reconciled to (layer 3-3b): the
+   * engine records it as the movement's `movement_allocation`
+   * (`document_type` statement_line), so the books keep which bank line
+   * each payment was matched to.
+   */
+  statementLineId?: string | null;
   transferId?: string | null;
 }
 

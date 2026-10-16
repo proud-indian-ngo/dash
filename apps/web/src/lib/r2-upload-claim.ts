@@ -15,6 +15,11 @@ import {
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
 import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
+import {
+  PAYEE_SIGNATURE_MAX_BYTES,
+  PAYEE_SIGNATURE_MIME_TYPE,
+  payeeSignatureImageProblem,
+} from "@pi-dash/shared/payee-signature";
 
 import { getS3 } from "./s3";
 
@@ -30,6 +35,7 @@ const defaultDeps: CopyR2ObjectDeps = { getS3 };
 
 export interface CopyR2ObjectInput {
   byteSize?: number;
+  contentCheck?: "payeeSignature";
   mimeType?: string;
   sourceKey: string;
   targetKey: string;
@@ -152,6 +158,12 @@ export async function copyR2Object(
     throw new Error("Temporary upload not found");
   }
   if (await s3.exists(input.targetKey)) {
+    // A signature is checked even when its target already exists: the same
+    // temporary key may have been claimed before as an ordinary attachment.
+    if (input.contentCheck === "payeeSignature") {
+      await checkExistingPayeeSignature(s3, input.targetKey);
+      return;
+    }
     if (input.byteSize !== undefined) {
       const target = await s3.stat(input.targetKey);
       if (
@@ -195,5 +207,109 @@ export async function copyR2Object(
   const options = { type: storedMimeType };
   const sourceFile = s3.file(input.sourceKey, options);
   const writer = s3.file(input.targetKey, options).writer(options);
+  if (input.contentCheck === "payeeSignature") {
+    await copyPayeeSignature(sourceFile, writer, storedMimeType, source.size);
+    return;
+  }
   await copyValidatedStream(sourceFile, writer, source.size, policy.maxSize);
+}
+
+/**
+ * A payee signature is small, so it is read whole and its PNG header checked
+ * before it is copied: the pad's size and format only, under its own byte
+ * cap rather than the generic attachment limit.
+ */
+async function copyPayeeSignature(
+  sourceFile: R2CopyFile,
+  writer: R2CopyWriter,
+  storedMimeType: string,
+  size: number
+): Promise<void> {
+  assertPayeeSignatureMetadata(storedMimeType, size);
+  try {
+    const bytes = await readCapped(sourceFile, size);
+    assertPayeeSignatureImage(bytes);
+    await writer.write(bytes);
+    await writer.end();
+  } catch (error) {
+    await writer.end(
+      error instanceof Error ? error : new Error("Upload copy failed")
+    );
+    throw error;
+  }
+}
+
+/** An already-claimed target must pass the same checks before it is reused. */
+async function checkExistingPayeeSignature(
+  s3: R2CopyClient,
+  targetKey: string
+): Promise<void> {
+  const target = await s3.stat(targetKey);
+  assertPayeeSignatureMetadata(normalizeMimeType(target.type), target.size);
+  assertPayeeSignatureImage(await readCapped(s3.file(targetKey), target.size));
+}
+
+function assertPayeeSignatureMetadata(mimeType: string, size: number): void {
+  if (mimeType !== PAYEE_SIGNATURE_MIME_TYPE) {
+    throw new Error(`Unsupported upload type: ${mimeType}`);
+  }
+  if (size > PAYEE_SIGNATURE_MAX_BYTES) {
+    throw new Error(`Upload exceeds ${PAYEE_SIGNATURE_MAX_BYTES} byte limit`);
+  }
+}
+
+function assertPayeeSignatureImage(bytes: Uint8Array): void {
+  const problem = payeeSignatureImageProblem(bytes, bytes.byteLength);
+  if (problem) {
+    throw new Error(`Invalid payee signature image: ${problem}`);
+  }
+}
+
+async function readNextChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  chunks: Uint8Array[],
+  readSize: number,
+  limit: number
+): Promise<number> {
+  const { done, value } = await reader.read();
+  if (done) {
+    return readSize;
+  }
+  const nextSize = readSize + value.byteLength;
+  if (nextSize > limit) {
+    await reader.cancel();
+    throw new Error("Upload changed during claim");
+  }
+  chunks.push(value);
+  return readNextChunk(reader, chunks, nextSize, limit);
+}
+
+/**
+ * Reads a small object chunk by chunk, stopping as soon as it runs past the
+ * stated size or the signature cap, so an object swapped for a bigger one
+ * is never buffered whole.
+ */
+async function readCapped(
+  file: R2CopyFile,
+  expectedSize: number
+): Promise<Uint8Array> {
+  const limit = Math.min(expectedSize, PAYEE_SIGNATURE_MAX_BYTES);
+  const reader = file.stream().getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    total = await readNextChunk(reader, chunks, 0, limit);
+  } finally {
+    reader.releaseLock();
+  }
+  if (total !== expectedSize) {
+    throw new Error("Upload changed during claim");
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }

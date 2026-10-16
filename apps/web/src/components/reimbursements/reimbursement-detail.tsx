@@ -3,6 +3,7 @@ import {
   CheckmarkCircle01Icon,
   Edit02Icon,
   FileDownloadIcon,
+  ImageUploadIcon,
   RepeatIcon,
   TickDouble02Icon,
   UnavailableIcon,
@@ -25,7 +26,13 @@ import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
+import { PaidFromBank } from "@/components/income/bank/in-bank-fact";
 import { ChangeClaimantDialog } from "@/components/reimbursements/change-claimant-dialog";
+import {
+  canCollectPayeeSignature,
+  PayeeSignatureLine,
+} from "@/components/reimbursements/payee-signature";
+import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -70,6 +77,10 @@ interface ReimbursementDetailProps {
   canUpdateAnyStatus?: boolean;
   /** Opens the edit form; omitted when the viewer can't edit. */
   onEdit?: () => void;
+  /** Called when the payment proof dialog closes (clears its deep link). */
+  onPaymentProofClose?: () => void;
+  /** Opens "Add payment proof" on arrival, from the Books waiting list. */
+  openPaymentProof?: boolean;
   request: RequestDetailData;
 }
 
@@ -99,6 +110,8 @@ export function ReimbursementDetail({
   canApprove,
   canUpdateAnyStatus = false,
   onEdit,
+  onPaymentProofClose,
+  openPaymentProof = false,
   request,
 }: ReimbursementDetailProps) {
   const zero = useZero();
@@ -124,6 +137,17 @@ export function ReimbursementDetail({
     hasPermission("requests.create_for_others");
   const [generatingVoucherId, setGeneratingVoucherId] = useState<string | null>(
     null
+  );
+  // An approved claim takes its payment screenshot after approval too: the
+  // books post it only with one (finance layer 3-3a).
+  const hasPaymentProof = Boolean(request.approvalScreenshotKey);
+  const showPaymentProof =
+    request.type === "reimbursement" &&
+    request.status === "approved" &&
+    !voided &&
+    hasPermission("requests.approve");
+  const [paymentProofOpen, setPaymentProofOpen] = useState(
+    openPaymentProof && showPaymentProof
   );
 
   const typeLabel = REQUEST_TYPE_LABELS[request.type];
@@ -225,6 +249,15 @@ export function ReimbursementDetail({
     setChangeClaimantOpen(true)
   );
   const handleOpenVoid = useEventCallback(() => setVoidOpen(true));
+  const handleOpenPaymentProof = useEventCallback(() =>
+    setPaymentProofOpen(true)
+  );
+  const handlePaymentProofOpenChange = useEventCallback((isOpen: boolean) => {
+    setPaymentProofOpen(isOpen);
+    if (!isOpen) {
+      onPaymentProofClose?.();
+    }
+  });
   const handleVoid = useEventCallback(async (reason: string) => {
     setVoidLoading(true);
     try {
@@ -296,6 +329,14 @@ export function ReimbursementDetail({
               ) : null}
               <PageHeaderMenu
                 actions={[
+                  showPaymentProof && {
+                    id: "payment-proof",
+                    icon: ImageUploadIcon,
+                    label: hasPaymentProof
+                      ? "Replace payment proof"
+                      : "Add payment proof",
+                    onSelect: handleOpenPaymentProof,
+                  },
                   showChangeClaimant && {
                     id: "change-claimant",
                     icon: UserSwitchIcon,
@@ -345,6 +386,19 @@ export function ReimbursementDetail({
               {isReimbursement(request) ? (
                 <ChargedToCard kind="reimbursement" request={request} />
               ) : null}
+              {isReimbursement(request) &&
+              request.status === "approved" &&
+              !voided &&
+              (hasPermission("finance.view") ||
+                hasPermission("finance.manage")) ? (
+                <DetailsCard title="In the bank">
+                  <PaidFromBank
+                    amountPaise={total}
+                    documentId={request.id}
+                    kind="reimbursement"
+                  />
+                </DetailsCard>
+              ) : null}
               <BankAccountCard request={request} />
               <HistoryCard entries={request.history} />
             </>
@@ -389,7 +443,7 @@ export function ReimbursementDetail({
                   />
                 </a>
                 <span className="min-w-0 flex-1 text-sm">
-                  Screenshot added when this was approved
+                  Screenshot of the payment
                 </span>
                 <a
                   className="text-primary px-1 text-xs font-medium underline-offset-2 hover:underline"
@@ -403,6 +457,33 @@ export function ReimbursementDetail({
                 >
                   Download
                 </a>
+              </div>
+            </RecordSection>
+          ) : null}
+          {/* Only for those who can add it: the claimant needn't see it. */}
+          {showPaymentProof && !approvalScreenshot ? (
+            <RecordSection title="Payment proof">
+              <div
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3"
+                data-testid="payment-proof-missing"
+              >
+                <span className="min-w-0 flex-1 text-sm">
+                  No payment screenshot. The books post this claim once it has
+                  one.
+                </span>
+                <Button
+                  onClick={handleOpenPaymentProof}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={ImageUploadIcon}
+                    strokeWidth={2}
+                  />
+                  Add payment proof
+                </Button>
               </div>
             </RecordSection>
           ) : null}
@@ -443,6 +524,14 @@ export function ReimbursementDetail({
           onOpenChange={setVoidOpen}
           open={voidOpen}
         />
+        {showPaymentProof ? (
+          <PaymentProofDialog
+            onOpenChange={handlePaymentProofOpenChange}
+            open={paymentProofOpen}
+            reimbursementId={request.id}
+            replacing={hasPaymentProof}
+          />
+        ) : null}
         {showChangeClaimant ? (
           <ChangeClaimantDialog
             onOpenChange={setChangeClaimantOpen}
@@ -653,6 +742,15 @@ function LineItemsTable({
     request.userId === user.id ||
     hasPermission("finance.manage") ||
     hasPermission("requests.approve");
+  // The payee signs on the dashboard until the request is approved.
+  const canCollectSignature =
+    isReimb &&
+    canCollectPayeeSignature({
+      hasPermission,
+      request,
+      userId: user.id,
+      voided,
+    });
 
   return (
     <RecordSection title="Line items">
@@ -676,6 +774,16 @@ function LineItemsTable({
                   <td className="text-muted-foreground px-3 py-2">
                     {item.description}
                     <PaidToLine claimantName={request.user?.name} item={item} />
+                    {isReimb ? (
+                      <PayeeSignatureLine
+                        attachments={request.attachments}
+                        canCollect={canCollectSignature}
+                        expenseDate={request.expenseDate}
+                        item={item}
+                        limitPaise={voucherLimitPaise}
+                        reimbursementId={request.id}
+                      />
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatPaise(item.amountPaise)}

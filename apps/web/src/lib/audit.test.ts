@@ -214,6 +214,60 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain("signed.jpg");
   });
 
+  it("records payment proof by IDs and field names, never its object key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.addPaymentProof",
+      {
+        approvalScreenshotKey: "app/approval-screenshots/tmp/u/upi-proof.png",
+        id: TARGET_ID,
+        keptAttachmentId: NEW_ID,
+        replacing: true,
+      },
+      "actor-1"
+    );
+    expect(summary.target).toEqual({ id: TARGET_ID, type: "reimbursement" });
+    expect(summary.metadata?.changedFields).toEqual([
+      "approvalScreenshotKey",
+      "id",
+      "replacing",
+    ]);
+    expect(summary.metadata?.relatedIds).toMatchObject({
+      keptAttachmentId: NEW_ID,
+    });
+    expect(JSON.stringify(summary)).not.toContain("upi-proof");
+    expect(JSON.stringify(summary)).not.toContain("approval-screenshots/");
+  });
+
+  it("records a payee signature by IDs, never the payee or the key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.collectPayeeSignature",
+      {
+        attachmentId: NEW_ID,
+        lineItemId: TARGET_ID,
+        objectKey: "app/attachments/tmp/u/payee-signature.png",
+        reimbursementId: TEAM_ID,
+        replacesAttachmentId: REPLACED_ID,
+        signedFacts: {
+          amountPaise: 50_000,
+          categoryId: TARGET_ID,
+          description: "Cleaning",
+          expenseDay: "2026-10-01",
+          payeeName: "Test Payee",
+        },
+      },
+      "actor-1"
+    );
+    expect(summary.metadata?.relatedIds).toEqual({
+      attachmentId: NEW_ID,
+      lineItemId: TARGET_ID,
+      reimbursementId: TEAM_ID,
+      replacesAttachmentId: REPLACED_ID,
+    });
+    const stored = JSON.stringify(summary);
+    expect(stored).not.toContain("Test Payee");
+    expect(stored).not.toContain("payee-signature.png");
+  });
+
   it("keeps IDs and field names without storing sensitive values", () => {
     const summary = summarizeZeroMutation(
       "user.update",

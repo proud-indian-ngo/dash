@@ -1,5 +1,5 @@
 {
-  "id": "ebae4820-3e4f-4898-947e-03872891eafb",
+  "id": "a2232e4a-c1c3-4d96-b357-2f20f44c1883",
   "prevId": "1d5ae0d9-bbcd-4e6c-bd15-317c9b155f00",
   "version": "7",
   "dialect": "postgresql",
@@ -13958,6 +13958,271 @@
       },
       "isRLSEnabled": false
     },
+    "public.statement_allocation": {
+      "name": "statement_allocation",
+      "schema": "",
+      "columns": {
+        "amount_paise": {
+          "name": "amount_paise",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "statement_allocation_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reimbursement_id": {
+          "name": "reimbursement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_by": {
+          "name": "released_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statement_line_id": {
+          "name": "statement_line_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendor_payment_transaction_id": {
+          "name": "vendor_payment_transaction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "statement_allocation_lineId_idx": {
+          "name": "statement_allocation_lineId_idx",
+          "columns": [
+            {
+              "expression": "statement_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statement_allocation_reimbursementId_idx": {
+          "name": "statement_allocation_reimbursementId_idx",
+          "columns": [
+            {
+              "expression": "reimbursement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statement_allocation_vptId_idx": {
+          "name": "statement_allocation_vptId_idx",
+          "columns": [
+            {
+              "expression": "vendor_payment_transaction_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statement_allocation_live_reimbursement_uidx": {
+          "name": "statement_allocation_live_reimbursement_uidx",
+          "columns": [
+            {
+              "expression": "statement_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reimbursement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statement_allocation\".\"reimbursement_id\" is not null and \"statement_allocation\".\"released_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statement_allocation_live_vpt_uidx": {
+          "name": "statement_allocation_live_vpt_uidx",
+          "columns": [
+            {
+              "expression": "statement_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "vendor_payment_transaction_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statement_allocation\".\"vendor_payment_transaction_id\" is not null and \"statement_allocation\".\"released_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statement_allocation_live_charge_uidx": {
+          "name": "statement_allocation_live_charge_uidx",
+          "columns": [
+            {
+              "expression": "statement_line_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"statement_allocation\".\"kind\" in ('bank_charges', 'tax_payment') and \"statement_allocation\".\"released_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "statement_allocation_created_by_user_id_fk": {
+          "name": "statement_allocation_created_by_user_id_fk",
+          "tableFrom": "statement_allocation",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "statement_allocation_reimbursement_id_reimbursement_id_fk": {
+          "name": "statement_allocation_reimbursement_id_reimbursement_id_fk",
+          "tableFrom": "statement_allocation",
+          "tableTo": "reimbursement",
+          "columnsFrom": [
+            "reimbursement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "statement_allocation_released_by_user_id_fk": {
+          "name": "statement_allocation_released_by_user_id_fk",
+          "tableFrom": "statement_allocation",
+          "tableTo": "user",
+          "columnsFrom": [
+            "released_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "statement_allocation_statement_line_id_statement_line_id_fk": {
+          "name": "statement_allocation_statement_line_id_statement_line_id_fk",
+          "tableFrom": "statement_allocation",
+          "tableTo": "statement_line",
+          "columnsFrom": [
+            "statement_line_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "statement_allocation_vendor_payment_transaction_id_vendor_payment_transaction_id_fk": {
+          "name": "statement_allocation_vendor_payment_transaction_id_vendor_payment_transaction_id_fk",
+          "tableFrom": "statement_allocation",
+          "tableTo": "vendor_payment_transaction",
+          "columnsFrom": [
+            "vendor_payment_transaction_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "statement_allocation_amount_positive": {
+          "name": "statement_allocation_amount_positive",
+          "value": "\"statement_allocation\".\"amount_paise\" > 0"
+        },
+        "statement_allocation_target": {
+          "name": "statement_allocation_target",
+          "value": "(\"statement_allocation\".\"kind\"::text = 'reimbursement') = (\"statement_allocation\".\"reimbursement_id\" is not null)\n        and (\"statement_allocation\".\"kind\"::text = 'vendor_payment_transaction') = (\"statement_allocation\".\"vendor_payment_transaction_id\" is not null)"
+        },
+        "statement_allocation_released": {
+          "name": "statement_allocation_released",
+          "value": "\"statement_allocation\".\"released_by\" is null or \"statement_allocation\".\"released_at\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.statement_line": {
       "name": "statement_line",
       "schema": "",
@@ -14047,6 +14312,18 @@
           "name": "match_kind",
           "type": "statement_line_match_kind",
           "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_claim_at": {
+          "name": "needs_claim_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "needs_claim_by": {
+          "name": "needs_claim_by",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -14335,6 +14612,19 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
+        "statement_line_needs_claim_by_user_id_fk": {
+          "name": "statement_line_needs_claim_by_user_id_fk",
+          "tableFrom": "statement_line",
+          "tableTo": "user",
+          "columnsFrom": [
+            "needs_claim_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "statement_line_org_account_id_org_account_id_fk": {
           "name": "statement_line_org_account_id_org_account_id_fk",
           "tableFrom": "statement_line",
@@ -14423,7 +14713,15 @@
         },
         "statement_line_credit_matches": {
           "name": "statement_line_credit_matches",
-          "value": "\"statement_line\".\"direction\"::text = 'credit' or coalesce(\"statement_line\".\"match_kind\"::text, 'other') in ('transfer', 'other')"
+          "value": "\"statement_line\".\"direction\"::text = 'credit' or coalesce(\"statement_line\".\"match_kind\"::text, 'other') in ('transfer', 'other', 'expense')"
+        },
+        "statement_line_expense_matches": {
+          "name": "statement_line_expense_matches",
+          "value": "\"statement_line\".\"direction\"::text = 'debit' or coalesce(\"statement_line\".\"match_kind\"::text, '') <> 'expense'"
+        },
+        "statement_line_needs_claim_open": {
+          "name": "statement_line_needs_claim_open",
+          "value": "\"statement_line\".\"needs_claim_at\" is null or \"statement_line\".\"match_status\"::text = 'unmatched'"
         }
       },
       "isRLSEnabled": false
@@ -16701,12 +16999,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "whatsapp_template": {
-          "name": "whatsapp_template",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
         "whatsapp_text": {
           "name": "whatsapp_text",
           "type": "text",
@@ -17808,116 +18100,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "private.whatsapp_message": {
-      "name": "whatsapp_message",
-      "schema": "private",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "whatsapp_message_status",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'sending'"
-        },
-        "template": {
-          "name": "template",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "wamid": {
-          "name": "wamid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "whatsapp_message_wamid_idx": {
-          "name": "whatsapp_message_wamid_idx",
-          "columns": [
-            {
-              "expression": "wamid",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "whatsapp_message_created_at_idx": {
-          "name": "whatsapp_message_created_at_idx",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "whatsapp_message_user_id_user_id_fk": {
-          "name": "whatsapp_message_user_id_user_id_fk",
-          "tableFrom": "whatsapp_message",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "private.contribution_receipt_counter": {
       "name": "contribution_receipt_counter",
       "schema": "private",
@@ -18571,6 +18753,16 @@
         "both"
       ]
     },
+    "public.statement_allocation_kind": {
+      "name": "statement_allocation_kind",
+      "schema": "public",
+      "values": [
+        "reimbursement",
+        "vendor_payment_transaction",
+        "bank_charges",
+        "tax_payment"
+      ]
+    },
     "public.statement_line_direction": {
       "name": "statement_line_direction",
       "schema": "public",
@@ -18597,7 +18789,8 @@
         "contribution",
         "giveindia_payout",
         "transfer",
-        "other"
+        "other",
+        "expense"
       ]
     },
     "public.statement_line_match_status": {
@@ -18746,17 +18939,6 @@
         "ration_card",
         "tax_id_foreign",
         "none"
-      ]
-    },
-    "private.whatsapp_message_status": {
-      "name": "whatsapp_message_status",
-      "schema": "private",
-      "values": [
-        "sending",
-        "sent",
-        "delivered",
-        "read",
-        "failed"
       ]
     }
   },

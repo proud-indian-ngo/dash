@@ -155,6 +155,8 @@ filter={{
 }}
 ```
 
+`viewField: "status"` shows that select field as view tabs with counts above the toolbar. Count shortcuts for rows that need attention ("Unallocated", "Missing payment proof") go in `attentionViews` beside those tabs, past a divider, not in `toolbarActions`: each is `{ id, label, count, rule: { path, value } }`, where `count` uses the same predicate as the filter value at `path`. Picking one replaces the whole query with its `is` rule; picking a status tab or All drops it and keeps other filters. A view is hidden while its count is 0 unless it is the active filter. Toggles such as "Show voided" stay in `toolbarActions`.
+
 ## Totals and grouping
 
 - `totals={["total"]}` adds a ₹ totals row under the grid, summed over every filtered row. Only list columns whose sum means something.

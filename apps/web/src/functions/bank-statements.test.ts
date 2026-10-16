@@ -53,6 +53,12 @@ mock.module("@/lib/bank-statement/server", () => ({
   runStatementBatch: service("run"),
   statementLinkCandidates: service("candidates"),
 }));
+mock.module("@/lib/bank-statement/debits", () => ({
+  accountDebitSummary: service("debitSummary", { debitCount: 0 }),
+  debitSuggestions: service("suggestions", { lines: {} }),
+  listUnseenPayments: service("unseen", { capped: false, documents: [] }),
+  searchDebitDocuments: service("search", []),
+}));
 mock.module("@pi-dash/db/queries/statement-lines", () => ({
   statementSummary: service("summary", { closing: null }),
 }));
@@ -131,7 +137,12 @@ describe("bank statement server functions", () => {
     ).rejects.toThrow("Forbidden");
     granted = ["finance.view"];
     await call(fns.getBankStatementSummary, { orgAccountId: ID });
-    expect(serviceCalls.map((c) => c.name)).toEqual(["summary"]);
+    await call(fns.getUnseenPayments, undefined);
+    expect(serviceCalls.map((c) => c.name)).toEqual([
+      "summary",
+      "debitSummary",
+      "unseen",
+    ]);
     // Reads are not audited.
     expect(audits).toEqual([]);
   });
@@ -236,5 +247,73 @@ describe("bank statement server functions", () => {
         target: { id: LINE, type: "statement_line" },
       }))
     );
+  });
+
+  it("audits debit matches and quick actions with record IDs and counts only", async () => {
+    granted = ["finance.manage"];
+    const claim = "0190a000-0000-7000-8000-000000000021";
+    const payment = "0190a000-0000-7000-8000-000000000022";
+    await call(fns.updateStatementLine, {
+      action: "match_debit",
+      difference: "bank_charges",
+      items: [
+        { id: claim, kind: "reimbursement" },
+        { id: payment, kind: "vendor_payment_transaction" },
+      ],
+      lineId: LINE,
+      reason: "manual",
+    });
+    await call(fns.updateStatementLine, {
+      action: "bank_charges",
+      lineId: LINE,
+      note: "SMS charges for Priya",
+    });
+    await call(fns.updateStatementLine, {
+      action: "needs_claim",
+      lineId: LINE,
+      note: "Ask Priya for the bill",
+    });
+    expect(audits).toEqual([
+      {
+        action: "statement_line.match_debit",
+        metadata: {
+          allocationCount: 2,
+          difference: "bank_charges",
+          kind: "expense",
+          reason: "manual",
+          relatedIds: {
+            reimbursementIds: [claim],
+            vendorPaymentTransactionIds: [payment],
+          },
+        },
+        target: { id: LINE, type: "statement_line" },
+      },
+      {
+        action: "statement_line.bank_charges",
+        metadata: {},
+        target: { id: LINE, type: "statement_line" },
+      },
+      {
+        action: "statement_line.needs_claim",
+        metadata: {},
+        target: { id: LINE, type: "statement_line" },
+      },
+    ]);
+    expect(JSON.stringify(audits)).not.toContain("Priya");
+  });
+
+  it("keeps debit suggestions and Find match to finance.manage, unaudited", async () => {
+    granted = ["finance.view"];
+    await expect(
+      call(fns.getDebitSuggestions, { orgAccountId: ID })
+    ).rejects.toThrow("Forbidden");
+    await expect(
+      call(fns.searchDebitMatches, { query: "tent" })
+    ).rejects.toThrow("Forbidden");
+    granted = ["finance.manage"];
+    await call(fns.getDebitSuggestions, { orgAccountId: ID });
+    await call(fns.searchDebitMatches, { query: "tent" });
+    expect(serviceCalls.map((c) => c.name)).toEqual(["suggestions", "search"]);
+    expect(audits).toEqual([]);
   });
 });

@@ -2,10 +2,11 @@ import {
   CORPUS_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 
 import { db } from "..";
 import { accountHead, fund } from "../schema/finance-dimensions";
+import { ledgerEntry } from "../schema/ledger";
 import type { LedgerTx } from "./engine";
 import { ensureExpenseCategoryHeads } from "./expense-heads";
 
@@ -145,6 +146,38 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Supplier Advances",
     type: "asset" as const,
   },
+  // Bank debit matching (layer 3-3b): money out the bank statement shows
+  // with no claim or vendor payment behind it.
+  {
+    code: "BANK_CHARGES",
+    description:
+      "Charges the bank debits from the account: fees, SMS and card charges, and the GST on them.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.bankCharges,
+    name: "Bank charges",
+    sortOrder: 620,
+    tallyLedgerName: "Bank Charges",
+    type: "expense" as const,
+  },
+  {
+    code: "TAXES_AND_FEES",
+    description:
+      "Taxes and government fees paid from the bank (the trust deducts no TDS); for the CA to classify.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.taxesAndFees,
+    name: "Taxes and government fees",
+    sortOrder: 630,
+    tallyLedgerName: "Rates and Taxes",
+    type: "expense" as const,
+  },
+  {
+    code: "CLAIMS_PAYABLE",
+    description:
+      "Approved reimbursements not yet paid out of the bank; a payment before its approval shows as a negative balance (an advance to the claimant).",
+    id: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+    name: "Claims payable",
+    sortOrder: 210,
+    tallyLedgerName: "Reimbursements Payable",
+    type: "liability" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {
@@ -163,8 +196,88 @@ function reportClash(kind: string, code: string, error: unknown) {
   );
 }
 
+/**
+ * The Corpus donations head (#265) and the Expenses parent (#266) once
+ * shared one ID, so whichever was created first took it: the other was
+ * skipped and the expense category heads were put under that row. When the
+ * Expenses parent holds the row (code EXPENSES or type expense), this gives
+ * it back to Corpus donations (code, name, type, description, no parent;
+ * only when it holds no entries: expense lines post to the category heads,
+ * never to their parent); a renamed Corpus donations head is left alone.
+ * It then moves the `EXPENSE_*` heads still under that row to the Expenses
+ * row, once the reference data has created it. Idempotent: nothing changes
+ * once repaired.
+ */
+export async function repairExpensesParent(tx: LedgerTx): Promise<void> {
+  const corpusDefinition = LEDGER_REFERENCE_HEADS.find(
+    (h) => h.id === LEDGER_ACCOUNT_HEAD_IDS.corpusDonations
+  );
+  const [shared] = await tx
+    .select()
+    .from(accountHead)
+    .where(eq(accountHead.id, LEDGER_ACCOUNT_HEAD_IDS.corpusDonations))
+    .limit(1);
+  // Only the clash itself: the Expenses parent took the row. A Corpus
+  // donations head the CA renamed is theirs to keep.
+  if (
+    corpusDefinition &&
+    shared &&
+    (shared.code === "EXPENSES" || shared.type === "expense")
+  ) {
+    const [entry] = await tx
+      .select({ id: ledgerEntry.id })
+      .from(ledgerEntry)
+      .where(eq(ledgerEntry.accountHeadId, shared.id))
+      .limit(1);
+    if (entry) {
+      process.stderr.write(
+        `[books] The Corpus donations head's row holds "${shared.code}" with entries; not changed. Ask the CA before fixing it by hand.\n`
+      );
+    } else {
+      await tx
+        .update(accountHead)
+        .set({
+          code: corpusDefinition.code,
+          description: corpusDefinition.description,
+          name: corpusDefinition.name,
+          parentId: null,
+          type: corpusDefinition.type,
+          updatedAt: now(),
+        })
+        .where(eq(accountHead.id, shared.id));
+    }
+  }
+  const [expenses] = await tx
+    .select({ id: accountHead.id })
+    .from(accountHead)
+    .where(eq(accountHead.id, LEDGER_ACCOUNT_HEAD_IDS.expenses))
+    .limit(1);
+  if (!expenses) {
+    return;
+  }
+  await tx
+    .update(accountHead)
+    .set({ parentId: expenses.id, updatedAt: now() })
+    .where(
+      and(
+        eq(accountHead.type, "expense"),
+        like(accountHead.code, "EXPENSE\\_%"),
+        eq(accountHead.parentId, LEDGER_ACCOUNT_HEAD_IDS.corpusDonations)
+      )
+    );
+}
+
 /** Ensures the rows exist; returns the codes still missing afterwards. */
 export async function ensureLedgerReferenceData(): Promise<string[]> {
+  // Before the inserts: the Expenses row can't be created while the shared
+  // row still holds its code.
+  try {
+    await db.transaction((tx) =>
+      repairExpensesParent(tx as unknown as LedgerTx)
+    );
+  } catch (error) {
+    reportClash("Account head", "CORPUS_DONATIONS", error);
+  }
   try {
     await db
       .insert(fund)
@@ -204,9 +317,11 @@ export async function ensureLedgerReferenceData(): Promise<string[]> {
     missing.push(CORPUS_FUND.code);
   }
   try {
-    await db.transaction((tx) =>
-      ensureExpenseCategoryHeads(tx as unknown as LedgerTx)
-    );
+    await db.transaction(async (tx) => {
+      await ensureExpenseCategoryHeads(tx as unknown as LedgerTx);
+      // Now the Expenses row exists, its category heads move under it.
+      await repairExpensesParent(tx as unknown as LedgerTx);
+    });
   } catch (error) {
     reportClash("Expense category heads", "EXPENSE_*", error);
   }

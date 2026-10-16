@@ -60,6 +60,11 @@ export const LEDGER_SOURCE_TYPES = {
   otherIncome: "other_income",
   /** An approved (already paid) reimbursement: expense per line and the payment. */
   reimbursement: "reimbursement",
+  /**
+   * A bank debit's bank charges and tax payments (layer 3-3b): the line
+   * itself is the source, since no document stands behind them.
+   */
+  statementCharge: "statement_charge",
   /** A bank statement line marked as a transfer between the trust's own accounts. */
   statementTransfer: "statement_transfer",
   /** A vendor payment request: expense per line once its invoice is accepted. */
@@ -88,6 +93,7 @@ export const EXPENSE_SOURCE_TYPES = [
   LEDGER_SOURCE_TYPES.reimbursement,
   LEDGER_SOURCE_TYPES.vendorPayment,
   LEDGER_SOURCE_TYPES.vendorPaymentTransaction,
+  LEDGER_SOURCE_TYPES.statementCharge,
 ] as const;
 export type ExpenseSourceType = (typeof EXPENSE_SOURCE_TYPES)[number];
 
@@ -113,6 +119,7 @@ export const LEDGER_SOURCE_LABELS: Record<LedgerSourceType, string> = {
   opening_balance: "Opening balances",
   other_income: "Other income",
   reimbursement: "Reimbursement",
+  statement_charge: "Bank charge or tax",
   statement_transfer: "Transfer",
   vendor_payment: "Vendor payment",
   vendor_payment_transaction: "Vendor payment made",
@@ -125,6 +132,12 @@ export const POSTING_ACTIONS = {
   /** Recognition part of an income source: income and expense entries. */
   recognise: "recognise",
   reverse: "reverse",
+  /**
+   * Entries only (layer 3-3b): a reimbursement's "Claims payable", raised on
+   * its approval day and cleared on each payment's day, kept apart from
+   * the expense and the money so neither reposts when only it changes.
+   */
+  settle: "settle",
 } as const;
 
 /**
@@ -138,6 +151,13 @@ export type LedgerSourceStatus = (typeof ledgerSourceStatusValues)[number];
 
 /** Why a source waits to post. */
 export const LEDGER_WAIT_REASONS = {
+  /**
+   * A payment whose matched bank debit falls on the other side of 1 April
+   * 2026 from the day it posts on (approved after the cutover but paid
+   * before it, or the reverse): the audited opening balance already holds
+   * or lacks that money, so how it posts is the CA's call (layer 3-3b).
+   */
+  bankDebitAcrossCutover: "bank_debit_across_cutover",
   closedYear: "year_closed",
   error: "error",
   /**
@@ -147,6 +167,12 @@ export const LEDGER_WAIT_REASONS = {
    * payments and the lines agree.
    */
   invoiceExceedsPayments: "invoice_exceeds_payments",
+  /**
+   * The bank debits matched to a payment add up to more than the payment
+   * (its amount was lowered after the match): it waits until the match or
+   * the amount is corrected (layer 3-3b).
+   */
+  matchExceedsAmount: "match_exceeds_amount",
   noBankAccount: "pick_bank_account",
   noClearingAccount: "no_clearing_account",
   noOtherAccount: "pick_other_account",
@@ -162,6 +188,11 @@ export const LEDGER_WAIT_REASONS = {
    */
   noPaymentProof: "no_payment_proof",
   /**
+   * An approved reimbursement with its payment screenshot but no approval
+   * day recorded (older records): the day it posts on is unknown.
+   */
+  noApprovalDay: "no_approval_day",
+  /**
    * A vendor payment request paid partly before 1 April 2026 and partly
    * after: the audited opening balances hold the earlier part, so how its
    * invoice posts is the CA's call.
@@ -175,15 +206,20 @@ export type LedgerWaitReason =
   (typeof LEDGER_WAIT_REASONS)[keyof typeof LEDGER_WAIT_REASONS];
 
 export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
+  bank_debit_across_cutover:
+    "Its bank debit and the day it posts on fall on either side of 1 Apr 2026: ask the CA how it posts",
   error: "Couldn't post",
   invoice_exceeds_payments:
     "The invoice is more than the approved payments: record the missing payment or correct the lines",
+  match_exceeds_amount:
+    "The matched bank debits are more than the amount: unmatch a bank line or correct the amount",
   unchecked: "Not looked at yet: post pending",
   no_clearing_account: "The settlement has no clearing account",
   pick_bank_account:
     "Pick the bank account: match the payout's bank statement line",
-  no_payment_proof:
-    "No payment screenshot: the founder gives the payment date, account and bank reference",
+  no_payment_proof: "No payment screenshot: add the payment proof on the claim",
+  no_approval_day:
+    "The approval date isn't recorded; ask an administrator to fix the claim",
   paid_across_cutover:
     "Paid partly before 1 Apr 2026: ask the CA how its invoice posts",
   pick_other_account: "Pick the other account of the transfer",
@@ -201,6 +237,8 @@ export const LEDGER_SKIP_REASONS = {
   invoiceNotAccepted: "invoice_not_accepted",
   /** A reimbursement, vendor payment or payment that isn't approved. */
   notApproved: "not_approved",
+  /** An approved reimbursement whose lines add up to nothing. */
+  nothingToPost: "nothing_to_post",
   notProcessed: "not_processed",
   notReceived: "not_received",
   otherSidePosts: "other_side_posts",
@@ -217,10 +255,11 @@ export const LEDGER_SKIP_REASON_LABELS: Record<LedgerSkipReason, string> = {
   deleted: "Deleted",
   invoice_not_accepted: "The invoice isn't approved yet",
   not_approved: "Not approved",
+  nothing_to_post: "Nothing to post: the total is zero",
   not_processed: "Not processed yet",
   not_received: "Not received, or reversed",
   other_side_posts: "Posted from the other account's statement line",
-  unmatched: "No longer marked as a transfer",
+  unmatched: "The bank line was unmatched",
   voided: "Voided",
 };
 
@@ -707,3 +746,12 @@ export const VOIDED_DELETE_MESSAGE =
   "This is void and stays as the record, so it can't be deleted";
 
 export const VOID_REASON_MAX = 500;
+
+/**
+ * Refused void or delete of a claim or vendor payment a bank debit is
+ * matched to (layer 3-3b): the bank line is unmatched first, deliberately,
+ * so the debit goes back to the open list rather than silently losing what
+ * explained it.
+ */
+export const MATCHED_TO_BANK_MESSAGE =
+  "A bank statement line is matched to this. Unmatch it on the Bank statements page first.";

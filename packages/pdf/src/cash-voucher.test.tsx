@@ -1,14 +1,32 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 
 import { paiseToWords } from "./amount-to-words";
-import { type CashVoucherProps, formatPayeePhone } from "./cash-voucher";
+import {
+  type CashVoucherProps,
+  claimantDeclarationText,
+  formatPayeePhone,
+  formatSignedAt,
+} from "./cash-voucher";
 import { generateCashVoucherPdf } from "./generate-voucher";
+import { syntheticSignaturePng } from "./synthetic-signature.test-helper";
 
 /** Embedded font names, without the subset prefix. */
 function fontNames(pdf: Buffer): string[] {
   return [
     ...pdf.toString("latin1").matchAll(/\/BaseFont \/(?:[A-Z]{6}\+)?([\w-]+)/g),
   ].map((match) => match[1] ?? "");
+}
+
+const UNSIGNED_VOUCHER_SHA256 =
+  "3eb85483698c855b05d5e0d44972c179030f8994ea78a6a3c109e2f237b8beb5";
+
+function sha256(pdf: Buffer): string {
+  return createHash("sha256").update(pdf).digest("hex");
+}
+
+function imageCount(pdf: Buffer): number {
+  return [...pdf.toString("latin1").matchAll(/\/Subtype \/Image\b/g)].length;
 }
 
 function pageCount(pdf: Buffer): number {
@@ -126,5 +144,132 @@ describe("formatPayeePhone", () => {
 
   it("prints anything else as given", () => {
     expect(formatPayeePhone("+14155550123")).toBe("+14155550123");
+  });
+
+  describe("with the payee's signature", () => {
+    const signed: CashVoucherProps = {
+      ...sampleVoucher,
+      // 12 Oct 2026, 3:40 pm in India.
+      payeeSignature: {
+        capturedAt: Date.UTC(2026, 9, 12, 10, 10),
+        image: syntheticSignaturePng(),
+      },
+    };
+
+    it("embeds the signature beside the treasurer's", async () => {
+      const [plain, withSignature] = await Promise.all([
+        generateCashVoucherPdf(sampleVoucher),
+        generateCashVoucherPdf(signed),
+      ]);
+      expect(imageCount(withSignature)).toBeGreaterThan(imageCount(plain));
+      expect(pageCount(withSignature)).toBe(1);
+    });
+
+    it("renders the same bytes every time", async () => {
+      const first = await generateCashVoucherPdf(signed);
+      const second = await generateCashVoucherPdf(signed);
+      expect(second.equals(first)).toBe(true);
+    });
+
+    it("keeps a long payee name and a square signature on one page", async () => {
+      const pdf = await generateCashVoucherPdf({
+        ...signed,
+        paidTo:
+          "Venkatanarasimharajuvaripeta Subrahmanyam Lakshminarayanan Ramaswamy Iyengar",
+        payeeSignature: {
+          capturedAt: Date.UTC(2026, 9, 12, 10, 10),
+          image: syntheticSignaturePng(200, 200),
+        },
+      });
+      expect(pageCount(pdf)).toBe(1);
+    });
+
+    it("prints an unsigned voucher exactly as before", async () => {
+      // The SHA-256 of the sample voucher rendered before payee signatures
+      // existed (master at b4185eb4): an unsigned voucher must not change.
+      const [unsigned, explicitNull] = await Promise.all([
+        generateCashVoucherPdf(sampleVoucher),
+        generateCashVoucherPdf({ ...sampleVoucher, payeeSignature: null }),
+      ]);
+      expect(sha256(unsigned)).toBe(UNSIGNED_VOUCHER_SHA256);
+      expect(sha256(explicitNull)).toBe(UNSIGNED_VOUCHER_SHA256);
+    });
+  });
+
+  it("dates the signature in India", () => {
+    expect(formatSignedAt(Date.UTC(2026, 9, 12, 10, 10))).toBe(
+      "12 Oct 2026, 3:40 pm"
+    );
+    expect(formatSignedAt(Date.UTC(2026, 9, 11, 19, 0))).toBe(
+      "12 Oct 2026, 12:30 am"
+    );
+  });
+
+  describe("paid to the claimant", () => {
+    // 12 Oct 2026, 3:40 pm in India.
+    const declaredAt = Date.UTC(2026, 9, 12, 10, 10);
+    const claimantPaid: CashVoucherProps = {
+      ...sampleVoucher,
+      claimantDeclaration: {
+        claimantName: "Test Volunteer",
+        declaredAt,
+        kind: "self",
+      },
+      paidTo: "Test Volunteer",
+    };
+
+    it("declares a self-submitted claim", () => {
+      expect(
+        claimantDeclarationText({
+          claimantName: "Test Volunteer",
+          declaredAt,
+          kind: "self",
+        })
+      ).toBe(
+        "Declared electronically by Test Volunteer (claimant) on 12 Oct 2026, 3:40 pm, when the claim was submitted."
+      );
+    });
+
+    it("says who raised a claim for the claimant", () => {
+      expect(
+        claimantDeclarationText({
+          claimantName: "Test Volunteer",
+          creatorName: "Test Finance",
+          declaredAt,
+          kind: "raised",
+        })
+      ).toBe(
+        "Raised by Test Finance for Test Volunteer on 12 Oct 2026, 3:40 pm; no payee signature needed as the claimant was paid."
+      );
+    });
+
+    it("prints the declaration on one page, unlike the empty box", async () => {
+      const [declared, raised, empty] = await Promise.all([
+        generateCashVoucherPdf(claimantPaid),
+        generateCashVoucherPdf({
+          ...claimantPaid,
+          claimantDeclaration: {
+            claimantName:
+              "Venkatanarasimharajuvaripeta Subrahmanyam Lakshminarayanan Ramaswamy Iyengar",
+            creatorName:
+              "Synthetic Finance Volunteer With A Rather Long Name For Testing",
+            declaredAt,
+            kind: "raised",
+          },
+        }),
+        generateCashVoucherPdf({ ...claimantPaid, claimantDeclaration: null }),
+      ]);
+      expect(pageCount(declared)).toBe(1);
+      expect(pageCount(raised)).toBe(1);
+      expect(declared.equals(empty)).toBe(false);
+    });
+
+    it("keeps a third-party payee's unsigned voucher as before", async () => {
+      const pdf = await generateCashVoucherPdf({
+        ...sampleVoucher,
+        claimantDeclaration: null,
+      });
+      expect(sha256(pdf)).toBe(UNSIGNED_VOUCHER_SHA256);
+    });
   });
 });

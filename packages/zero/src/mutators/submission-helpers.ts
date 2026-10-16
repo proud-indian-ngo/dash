@@ -24,6 +24,7 @@ type R2Subfolder =
 interface R2ObjectClaimOptions {
   asyncTasks?: Context["asyncTasks"];
   beforeCommitTasks?: Context["beforeCommitTasks"];
+  contentCheck?: "payeeSignature";
   copyR2Object?: Context["copyR2Object"];
   durablePrefix: string;
   enqueue?: Context["enqueue"];
@@ -47,7 +48,10 @@ export function createR2ClaimOptions(
   txLocation: string,
   options: Pick<R2ObjectClaimOptions, "durablePrefix" | "subfolder"> &
     Partial<
-      Pick<R2ObjectClaimOptions, "existingObjectKeys" | "mimeType" | "byteSize">
+      Pick<
+        R2ObjectClaimOptions,
+        "byteSize" | "contentCheck" | "existingObjectKeys" | "mimeType"
+      >
     >
 ): R2ObjectClaimOptions {
   return {
@@ -189,6 +193,7 @@ function pushClaimR2ObjectTasks(
         }
       );
       await copyR2Object({
+        ...(options.contentCheck ? { contentCheck: options.contentCheck } : {}),
         ...(options.mimeType ? { mimeType: options.mimeType } : {}),
         ...(options.byteSize === undefined
           ? {}

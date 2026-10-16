@@ -22,7 +22,12 @@ import {
   createR2ClaimOptions,
   enqueueDeleteR2Object,
 } from "./submission-helpers";
-import { assertDeletable, assertNotVoided, voidSchema } from "./void";
+import {
+  assertDeletable,
+  assertNotMatchedToBank,
+  assertNotVoided,
+  voidSchema,
+} from "./void";
 
 export const transactionAttachmentKeyPrefixes = (id: string) => [
   `attachments/vendor-payment-transactions/${id}/`,
@@ -576,6 +581,9 @@ export const vendorPaymentTransactionMutators = {
     if (entity.voidedAt) {
       return;
     }
+    await assertNotMatchedToBank(tx, [
+      { sourceId: args.id, sourceType: "vendor_payment_transaction" },
+    ]);
     const vpId = entity.vendorPaymentId as string;
     const now = Date.now();
     await tx.mutate.vendorPaymentTransaction.update({

@@ -44,10 +44,23 @@ checks the stored object's type and size against the approval-screenshot
 limits; a temporary key that no longer exists is refused even when its durable
 target does. Rejecting keeps the stored screenshot, since it is evidence that
 money was paid, and a later re-approval can reuse it; the approve dialog then
-shows it as already attached with an optional Replace. Resetting to pending
-clears the stored screenshot and queues the file for deletion. Editing does not
+shows it as already attached with an optional Replace. For reimbursements the
+screenshot is never deleted while the claim exists: a replacement at
+re-approval keeps the old file as a plain attachment
+("payment-proof-replaced-<day>.<ext>", the day in India, with "-2" and on
+when the claim already has that name), and resetting to pending clears the
+field but keeps the file the same way ("payment-proof-previous-<day>.<ext>").
+Kept; only approvers can remove it: the edit mutator refuses anyone else
+("Only an approver can remove kept payment proof"). Such kept files stay under
+the approval-screenshots prefix, which the reimbursement's edit and delete
+paths own, so an approver's removal queues its deletion (if-unreferenced) and
+orphan cleanup never sweeps a referenced key. Advance
+payments still delete a replaced or reset screenshot. Editing does not
 need a screenshot, and requests approved before the rule keep their missing
-screenshot.
+screenshot until an approver adds it: `reimbursement.addPaymentProof` claims a
+new upload from the same temporary folder into the same durable place and
+field as approval, and a replaced screenshot stays as a plain reimbursement
+attachment instead of being deleted (finance chapter, layer 3-3a).
 
 Vendor-payment invoice signing accepts the payment ID only to authorize the
 payment owner or a user with `requests.approve` or `requests.edit_all`; the

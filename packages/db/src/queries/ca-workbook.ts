@@ -37,6 +37,7 @@ import {
 import {
   accountMovement,
   ledgerEntry,
+  movementAllocation,
   openingBalance,
   posting,
 } from "../schema/ledger";
@@ -525,6 +526,11 @@ const counterpart = alias(statementLine, "counterpart_line");
  * account's own line paired with it (`transfer_pair_line_id`), so both legs
  * count whichever side posted.
  * Other income has no statement link yet, so its deposits are never backed.
+ * From layer 3-3b, a movement the posting engine reconciled to a bank line
+ * (a `movement_allocation` of type `statement_line`: a claim's or vendor
+ * payment's money, bank charges, a tax payment) is backed by itself, keyed
+ * `movement:<id>`, so a claim paid partly by a matched debit marks only
+ * that part.
  */
 async function loadStatementBacked(
   reader: WorkbookReader,
@@ -569,6 +575,26 @@ async function loadStatementBacked(
       if (row.counterpartAccountId) {
         backed.add(`${row.counterpartAccountId}:${source}`);
       }
+    }
+  }
+  const movementIds = movements
+    .filter((m) => m.sourceType !== BROUGHT_FORWARD_SOURCE)
+    .map((m) => m.id);
+  for (let i = 0; i < movementIds.length; i += chunk) {
+    const reconciled = await reader
+      .select({ id: movementAllocation.accountMovementId })
+      .from(movementAllocation)
+      .where(
+        and(
+          eq(movementAllocation.documentType, "statement_line"),
+          inArray(
+            movementAllocation.accountMovementId,
+            movementIds.slice(i, i + chunk)
+          )
+        )
+      );
+    for (const row of reconciled) {
+      backed.add(`movement:${row.id}`);
     }
   }
   return backed;

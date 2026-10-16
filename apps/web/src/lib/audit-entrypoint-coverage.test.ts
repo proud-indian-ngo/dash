@@ -58,6 +58,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getContributionImport",
   "getGiveDoPayoutImport",
   "getContributionSettlementLock",
+  "getDebitSuggestions",
   "getDonationsReturnReadiness",
   "getEventEditorUploadUrl",
   "getEventPhotoUploadUrl",
@@ -72,9 +73,11 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getSettlementSummary",
   "getYearCloseChecklist",
   "getStatementLinkCandidates",
+  "getUnseenPayments",
   "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",
+  "searchDebitMatches",
   "updateKalakritiGuardian",
 ];
 
