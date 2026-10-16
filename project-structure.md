@@ -273,6 +273,7 @@ All hook paths above are prefixed with `apps/web/src/`.
 | `functions/event-poll.ts` | Audited event RSVP poll command |
 | `functions/social-people.ts` | Ids and names for the Social page (approver candidates, droppers) without syncing user rows (`social.manage` or `users.view`) |
 | `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API tokens |
+| `functions/vendor-payment-provision.ts` | What is outstanding of the audit fee provision for an invoice, and how the books split its lines (`requests.approve`, `finance.view`, `finance.manage`; read only) |
 
 All function paths above are prefixed with `apps/web/src/`.
 

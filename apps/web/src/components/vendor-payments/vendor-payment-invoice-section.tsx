@@ -11,7 +11,7 @@ import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
@@ -27,6 +27,15 @@ import { handleMutationResult } from "@/lib/mutation-result";
 import { mapAttachmentsToFormValues } from "@/lib/submission-mappers";
 
 import { InvoiceFormDialog } from "./vendor-payment-invoice-form";
+import {
+  type LineCharges,
+  lineChargesOf,
+  ProvisionChargePicker,
+  ProvisionSplit,
+  provisionArgs,
+  useCanSeeProvision,
+  useVendorPaymentProvision,
+} from "./vendor-payment-provision";
 import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 interface AttachmentRow {
@@ -177,11 +186,50 @@ export function VendorPaymentInvoiceSection({
   // the payment without one.
   const reviewLabel = isNoInvoice ? "payment without an invoice" : "invoice";
 
+  // What each line is charged to: its category, or the audit fee
+  // provision (finance picks at approval; the books split it).
+  const canSeeProvision = useCanSeeProvision();
+  const [charges, setCharges] = useState<LineCharges>({});
+  const hasProvisionLine = request.lineItems.some((l) => l.provisionHeadId);
+  // The provision choice stays folded away until asked for ("Charge to a
+  // provision"); folded, every line goes to its category.
+  const [provisionOpen, setProvisionOpen] = useState(false);
+  const [splitCheck, setSplitCheck] = useState(0);
+  const provision = useVendorPaymentProvision(
+    request.id,
+    canSeeProvision &&
+      ((invoiceApproveOpen && provisionOpen) ||
+        (status === "completed" && hasProvisionLine)),
+    `${status}:${invoiceApproveOpen}:${provisionOpen}:${splitCheck}`
+  );
+  const awaitingSplit =
+    status === "completed" &&
+    hasProvisionLine &&
+    provision !== null &&
+    !request.lineItems.every(
+      (l) =>
+        !l.provisionHeadId || provision.split.some((s) => s.lineId === l.id)
+    );
+  // The books post the accepted invoice moments after approval: look again
+  // a few times until the split is there.
+  useEffect(() => {
+    if (!awaitingSplit || splitCheck >= 5) {
+      return;
+    }
+    const timer = setTimeout(() => setSplitCheck((n) => n + 1), 3000);
+    return () => clearTimeout(timer);
+  }, [awaitingSplit, splitCheck]);
+  const handleChargeChange = useEventCallback((lineId: string, head: string) =>
+    setCharges((current) => ({ ...current, [lineId]: head }))
+  );
+  const handleOpenProvision = useEventCallback(() => setProvisionOpen(true));
+
   const handleApproveInvoice = useEventCallback(async (message: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.approveInvoice({
         id: request.id,
         note: message || undefined,
+        ...(provisionOpen ? provisionArgs(charges) : {}),
       })
     ).server;
     handleMutationResult(res, {
@@ -215,7 +263,12 @@ export function VendorPaymentInvoiceSection({
     setInvoiceFormMode("edit");
     setInvoiceFormOpen(true);
   });
-  const stableOnClick2 = useEventCallback(() => setInvoiceApproveOpen(true));
+  const stableOnClick2 = useEventCallback(() => {
+    setCharges(lineChargesOf(request.lineItems));
+    // Opened already when a line is charged to a provision (a re-approval).
+    setProvisionOpen(hasProvisionLine);
+    setInvoiceApproveOpen(true);
+  });
   const stableOnClick3 = useEventCallback(() => setInvoiceRejectOpen(true));
 
   if (!INVOICE_STATUSES.has(status)) {
@@ -312,6 +365,9 @@ export function VendorPaymentInvoiceSection({
           request={request}
           showEmptyState={showEmptyState}
         />
+        {canSeeProvision && status === "completed" ? (
+          <ProvisionSplit lines={request.lineItems} split={provision?.split} />
+        ) : null}
       </RecordSection>
 
       <InvoiceFormDialog
@@ -345,6 +401,28 @@ export function VendorPaymentInvoiceSection({
         onConfirm={handleApproveInvoice}
         onOpenChange={setInvoiceApproveOpen}
         open={invoiceApproveOpen}
+        summary={
+          canSeeProvision && request.lineItems.length > 0 ? (
+            provisionOpen ? (
+              <ProvisionChargePicker
+                charges={charges}
+                lines={request.lineItems}
+                onChange={handleChargeChange}
+                outstanding={provision?.outstanding}
+              />
+            ) : (
+              <Button
+                className="h-auto px-0"
+                onClick={handleOpenProvision}
+                size="sm"
+                type="button"
+                variant="link"
+              >
+                Charge to a provision
+              </Button>
+            )
+          ) : undefined
+        }
       />
       <RejectDialog
         entityLabel={isNoInvoice ? "reason" : "invoice"}

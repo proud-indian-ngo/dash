@@ -1,0 +1,3 @@
+ALTER TABLE "vendor_payment_line_item" ADD COLUMN "provision_head_id" uuid;--> statement-breakpoint
+ALTER TABLE "vendor_payment_line_item" ADD CONSTRAINT "vendor_payment_line_item_provision_head_id_account_head_id_fk" FOREIGN KEY ("provision_head_id") REFERENCES "public"."account_head"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "vendor_payment_line_item_provisionHeadId_idx" ON "vendor_payment_line_item" USING btree ("provision_head_id") WHERE "vendor_payment_line_item"."provision_head_id" IS NOT NULL;

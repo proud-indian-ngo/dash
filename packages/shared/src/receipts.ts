@@ -100,12 +100,13 @@ export function receiptFileName(number: string): string {
   return `${number.replace(/[/\\]/g, "-")}.pdf`;
 }
 
-// ── Wording (CA to confirm) ─────────────────────────────────────────────────
+// ── Wording (founder approved) ──────────────────────────────────────────────
 
 /**
- * CA TO CONFIRM: the 80G eligibility line printed on receipts whose gift is
- * deductible. The 2025 Act renumbers sections; the section label comes from
- * the 80G registration in Settings so it changes in one place.
+ * The 80G eligibility line printed on receipts whose gift is deductible
+ * (wording approved by the founder, 17 October 2026). The 2025 Act
+ * renumbers sections; the section label comes from the 80G registration in
+ * Settings so it changes in one place.
  */
 export function receipt80GLine(registration: {
   sectionCode: string;
@@ -115,11 +116,11 @@ export function receipt80GLine(registration: {
   return `This donation is eligible for deduction under ${registration.sectionCode} of the Income-tax Act, as per Unique Registration Number ${registration.urn} dated ${formatReceiptDate(registration.urnIssuedOn)}.`;
 }
 
-/** CA TO CONFIRM: the note about the annual certificate. */
+/** The note about the annual certificate (founder approved). */
 export const RECEIPT_CERTIFICATE_NOTE =
   "The certificate of donation (Form 114, formerly Form 10BE) will be issued after the trust files its annual statement of donations (Form 113).";
 
-/** CA TO CONFIRM: printed instead of the 80G line when the gift is not claimed. */
+/** Printed instead of the 80G line when the gift is not claimed (founder approved). */
 export const RECEIPT_NO_DEDUCTION_NOTE =
   "No tax deduction certificate is issued for this donation.";
 

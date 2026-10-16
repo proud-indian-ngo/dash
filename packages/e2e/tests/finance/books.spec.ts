@@ -22,6 +22,19 @@ import { ListPage } from "../../pages/list-page";
  */
 
 const YEAR = "2026-27";
+
+/** The April-to-March year a day (yyyy-MM-dd) falls in, as "2026-27". */
+const financialYearOf = (iso: string) => {
+  const year = Number(iso.slice(0, 4));
+  const start = Number(iso.slice(5, 7)) >= 4 ? year : year - 1;
+  return `${start}-${String(start + 1).slice(2)}`;
+};
+/** The year before a label: "2025-26" for "2026-27". */
+const yearBefore = (label: string) =>
+  financialYearOf(`${Number(label.slice(0, 4)) - 1}-04-01`);
+/** Today in India (yyyy-MM-dd). */
+const todayInIndia = () =>
+  new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const execFileAsync = promisify(execFile);
 
 /** Paise as the plain rupee text the inputs take ("-12.50"). */
@@ -589,6 +602,92 @@ test.describe("Books (treasurer)", () => {
     await page.getByRole("tab", { name: "Cash book" }).click();
     // The original payment, its reversal and the corrected one.
     await expect(claimRows).toHaveCount(3, { timeout: 15_000 });
+  });
+
+  // The audit fee provision: in this serial group because it posts into
+  // 2026-27 and reads the books, which other tests close and match.
+  test("charges an auditor's invoice to the audit fee provision: the payment clears it and only the rest is expense", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(150_000);
+    await books("ensure-opening", YEAR);
+    const run = `audit${Date.now()}${testInfo.retry}`;
+    // The opening balances carry the provision; earlier runs' auditor
+    // invoices are voided so it is whole.
+    const fixture = await books<{
+      amountPaise: number;
+      outstandingPaise: number;
+      vendorPaymentId: string;
+      years: string[];
+    }>("provision-fixture", run, YEAR);
+    // The opening balances of YEAR hold the provision for the year before
+    // it; the invoice is approved today, in whatever year today is.
+    const providedFor = yearBefore(YEAR);
+    expect(financialYearOf(todayInIndia()) >= YEAR).toBe(true);
+    try {
+      expect(fixture.outstandingPaise).toBeGreaterThan(0);
+      expect(fixture.years).toEqual([providedFor]);
+      const cleared = Math.min(fixture.outstandingPaise, fixture.amountPaise);
+      const rest = fixture.amountPaise - cleared;
+
+      // Finance charges the line to the provision at invoice approval; the
+      // picker says what is outstanding and from which year.
+      await page.goto(`/vendor-payments/${fixture.vendorPaymentId}`);
+      await waitForZeroReady(page);
+      await page.getByRole("button", { name: "Approve invoice" }).click();
+      const approve = page.getByRole("alertdialog");
+      // Folded away until asked for: every line goes to its category.
+      await expect(approve.getByRole("combobox")).toHaveCount(0);
+      await approve
+        .getByRole("button", { name: "Charge to a provision" })
+        .click();
+      await pickOption(approve, page, "Charge to", "Audit fees payable");
+      await expect(approve.getByTestId("provision-outstanding")).toContainText(
+        `${inr(fixture.outstandingPaise)} outstanding from FY ${providedFor}`,
+        { timeout: 15_000 }
+      );
+      await approve.getByRole("button", { name: "Approve" }).click();
+      await expect(approve).toBeHidden({ timeout: 10_000 });
+      await expect(
+        page
+          .locator('[data-slot="status-badge"]')
+          .getByText("Completed", { exact: true })
+      ).toBeVisible({ timeout: 10_000 });
+
+      // The books: the provision decreases by what was outstanding, the
+      // rest is audit fees, and the payment's supplier advance is cleared.
+      await postPendingFromBooks(page);
+      const expected = [
+        `AUDIT_FEES_PAYABLE GEN -${cleared}`,
+        `SUPPLIER_ADVANCES GEN -${fixture.amountPaise}`,
+        ...(rest > 0 ? [`AUDIT_FEES GEN ${rest}`] : []),
+      ].sort();
+      await expect
+        .poll(() => books<string[]>("entries", fixture.vendorPaymentId), {
+          timeout: 30_000,
+        })
+        .toEqual(expected);
+      await page.getByRole("tab", { name: "Balance summary" }).click();
+      await expect(page.getByTestId("balance-check")).toHaveText("Balances", {
+        timeout: 15_000,
+      });
+
+      // The invoice shows how the books split it.
+      await page.goto(`/vendor-payments/${fixture.vendorPaymentId}`);
+      await waitForZeroReady(page);
+      const split = page.getByTestId("provision-split");
+      await expect(split).toContainText(
+        `${inr(cleared)} cleared from Audit fees payable`,
+        { timeout: 30_000 }
+      );
+      if (rest > 0) {
+        await expect(split).toContainText(`${inr(rest)} as audit fees`);
+      }
+    } finally {
+      // The provision stands whole again for the tests after this one.
+      await books("void-auditor-invoices");
+    }
   });
 
   test("downloads the year's CA workbook as a valid XLSX with its five sheets", async ({

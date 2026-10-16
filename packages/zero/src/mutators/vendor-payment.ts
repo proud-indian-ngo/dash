@@ -2,17 +2,18 @@ import {
   cityValues,
   vendorPaymentNoInvoiceReasonValues,
 } from "@pi-dash/shared/constants";
+import { provisionHeadOf } from "@pi-dash/shared/provisions";
 import {
   NO_INVOICE_NOTE_MAX_LENGTH,
   NO_INVOICE_REASON_LABELS,
   noInvoiceDetailsError,
 } from "@pi-dash/shared/vendor-payment";
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
@@ -176,6 +177,45 @@ function invoiceDetailsHistory(args: InvoiceDetails): {
     };
   }
   return { metadata: { invoiceKind: "invoice" }, note: undefined };
+}
+
+/**
+ * At invoice approval, finance may charge lines to a provision (the audit
+ * fee payable) instead of their category's expense: only a head in
+ * `PROVISION_HEADS`, only lines of this request. Every other line goes
+ * back to its category. Lines whose choice doesn't change are not touched,
+ * so the books see no change for them.
+ */
+async function chargeLinesToProvision(
+  tx: Transaction<Schema>,
+  args: { id: string; provisionHeadId?: string; provisionLineIds?: string[] },
+  now: number
+) {
+  const chosen = new Set(args.provisionLineIds ?? []);
+  const provision =
+    chosen.size > 0 ? provisionHeadOf(args.provisionHeadId) : null;
+  if (chosen.size > 0 && !provision) {
+    throw new Error("A line can only be charged to a provision");
+  }
+  const lines = await tx.run(
+    zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
+  );
+  const ids = new Set(lines.map((l) => l.id));
+  if ([...chosen].some((lineId) => !ids.has(lineId))) {
+    throw new Error("That line isn't on this vendor payment");
+  }
+  for (const line of lines) {
+    const provisionHeadId = chosen.has(line.id)
+      ? (provision?.id ?? null)
+      : null;
+    if ((line.provisionHeadId ?? null) !== provisionHeadId) {
+      await tx.mutate.vendorPaymentLineItem.update({
+        id: line.id,
+        provisionHeadId,
+        updatedAt: now,
+      });
+    }
+  }
 }
 
 const createSchema = z.object({
@@ -357,6 +397,13 @@ export const vendorPaymentMutators = {
     z.object({
       id: z.string(),
       note: z.string().optional(),
+      /**
+       * The provision the lines in `provisionLineIds` pay instead of their
+       * category's expense (`PROVISION_HEADS`, the audit fee). Every other
+       * line is charged to its category, as before.
+       */
+      provisionHeadId: z.string().optional(),
+      provisionLineIds: z.array(z.string()).max(100).optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
@@ -372,6 +419,7 @@ export const vendorPaymentMutators = {
       }
 
       const now = Date.now();
+      await chargeLinesToProvision(tx, args, now);
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
@@ -1128,6 +1176,16 @@ export const vendorPaymentMutators = {
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
     const charge = await resolveExpenseCharge(tx, args, entity);
+    // Lines finance charged to a provision, as they were.
+    const provisionByLine = new Map(
+      (
+        await tx.run(
+          zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
+        )
+      ).flatMap((l) => (l.provisionHeadId ? [[l.id, l] as const] : []))
+    );
+    const provisionCleared = new Set<string>();
+    const provisionKeptResized = new Set<string>();
 
     await tx.mutate.vendorPayment.update({
       ...charge,
@@ -1154,7 +1212,23 @@ export const vendorPaymentMutators = {
             purpose: "quotation",
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
-        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        // A line finance charged to a provision keeps that choice when
+        // the request is edited (lines keep their IDs), also when only its
+        // amount changes (the invoice can't be approved again to put it
+        // back). A new category is a different cost: the choice goes.
+        insertLineItem: (data) => {
+          const before = provisionByLine.get(data.id);
+          const kept = before?.categoryId === data.categoryId;
+          if (before && !kept) {
+            provisionCleared.add(data.id);
+          } else if (before && before.amountPaise !== data.amountPaise) {
+            provisionKeptResized.add(data.id);
+          }
+          return tx.mutate.vendorPaymentLineItem.insert({
+            ...data,
+            provisionHeadId: kept ? (before.provisionHeadId ?? null) : null,
+          });
+        },
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
             keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
@@ -1177,6 +1251,39 @@ export const vendorPaymentMutators = {
         subfolder: "attachments",
       })
     );
+
+    if (provisionKeptResized.size > 0) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          provisionKeptResized.size === 1
+            ? "The line's amount changed; it is still charged to the provision"
+            : `${provisionKeptResized.size} lines' amounts changed; they are still charged to the provision`
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
+    // A line that was removed loses its charge too.
+    for (const lineId of provisionByLine.keys()) {
+      if (!args.lineItems.some((l) => l.id === lineId)) {
+        provisionCleared.add(lineId);
+      }
+    }
+    if (provisionCleared.size > 0) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          provisionCleared.size === 1
+            ? "Provision charge cleared: the line charged to a provision changed category or was removed"
+            : `Provision charge cleared: ${provisionCleared.size} lines charged to a provision changed category or were removed`
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
 
     // Recalculate payment status when admin edits line items on a non-pending VP
     if (hasEditAll && entity.status !== "pending") {

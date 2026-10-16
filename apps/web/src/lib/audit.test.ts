@@ -110,6 +110,37 @@ describe("audit metadata", () => {
     expect(payment.metadata?.changedFields).toEqual(["amountPaise", "id"]);
   });
 
+  it("records the provision head and line IDs, with their count, when an invoice is charged to a provision, never the note", () => {
+    const headId = "01930000-0000-7000-8000-000000000802";
+    const lineIds = [
+      "0190a000-0000-7000-8000-0000000000b1",
+      "0190a000-0000-7000-8000-0000000000b2",
+    ];
+    const summary = summarizeZeroMutation(
+      "vendorPayment.approveInvoice",
+      {
+        id: TARGET_ID,
+        note: "Audit fee for the year",
+        provisionHeadId: headId,
+        provisionLineIds: lineIds,
+      },
+      "actor-1"
+    );
+    expect(summary.metadata.changedFields).toEqual([
+      "id",
+      "note",
+      "provisionHeadId",
+      "provisionLineIds",
+    ]);
+    expect(summary.metadata.relatedIds).toEqual({
+      id: TARGET_ID,
+      provisionHeadId: headId,
+      provisionLineIds: lineIds,
+    });
+    expect(summary.metadata.batchCount).toBe(2);
+    expect(JSON.stringify(summary)).not.toContain("Audit fee for the year");
+  });
+
   it("records contribution field names and ids but never their text", () => {
     const partyId = "0190a000-0000-7000-8000-0000000000a1";
     const fundId = "0190a000-0000-7000-8000-0000000000a2";
