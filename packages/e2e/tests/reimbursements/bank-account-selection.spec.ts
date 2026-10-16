@@ -1,3 +1,9 @@
+import { randomInt } from "node:crypto";
+import { mkdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { expect, test } from "../../fixtures/test";
 import { openSettingsPage } from "../../helpers/settings";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
@@ -106,18 +112,72 @@ async function deleteDuplicateAccounts(
 
 const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
 
+/** A lock older than this belongs to a worker that died holding it. */
+const STALE_LOCK_MS = 120_000;
+
+/**
+ * Each copy of this test changes the user's default account, so copies for
+ * the same user (repeats, retries in another worker) take turns. The lock is
+ * a directory, which only one process can create.
+ */
+async function acquireUserLock(lockDir: string): Promise<void> {
+  try {
+    await mkdir(lockDir);
+    return;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw error;
+    }
+  }
+  const held = await stat(lockDir).catch(() => null);
+  if (held && Date.now() - held.mtimeMs > STALE_LOCK_MS) {
+    await rm(lockDir, { force: true, recursive: true });
+  } else {
+    await sleep(200);
+  }
+  await acquireUserLock(lockDir);
+}
+
+/** A 10-digit account number unique across parallel copies of this test. */
+function uniqueAccountNumber(): string {
+  const lastFour = String(randomInt(0, 10_000)).padStart(4, "0");
+  // The seeded account ends in 7890; never reuse its last four.
+  if (lastFour === "7890") {
+    return uniqueAccountNumber();
+  }
+  return `98${Date.now().toString().slice(-4)}${lastFour}`;
+}
+
 test.describe("Bank account selection with duplicate names", () => {
   const SEED_LAST4 = "7890";
   let duplicateLast4 = "";
+  let lockDir = "";
 
-  test.beforeEach(({ page: _page }, testInfo) => {
+  test.beforeEach(async ({ page: _page }, testInfo) => {
     test.skip(
       !ROLES_FOR_BANK_ACCOUNT_FLOW.has(testInfo.project.name),
       "Bank account UX covered under super_admin + volunteer projects"
     );
+    const server = new URL(testInfo.project.use.baseURL ?? "http://local").port;
+    lockDir = path.join(
+      tmpdir(),
+      `pi-dash-e2e-bank-default-${server}-${testInfo.project.name}`
+    );
+    await acquireUserLock(lockDir);
   });
 
   test.afterEach(async ({ page }) => {
+    try {
+      await cleanUpDuplicate(page);
+    } finally {
+      if (lockDir) {
+        await rm(lockDir, { force: true, recursive: true });
+        lockDir = "";
+      }
+    }
+  });
+
+  async function cleanUpDuplicate(page: import("@playwright/test").Page) {
     if (!duplicateLast4) {
       return;
     }
@@ -135,12 +195,12 @@ test.describe("Bank account selection with duplicate names", () => {
     } catch {
       // Best-effort cleanup — don't fail the test
     }
-  });
+  }
 
   test("selects default account and allows switching between same-named accounts", async ({
     page,
   }) => {
-    const duplicateNumber = `98${Date.now().toString().slice(-8)}`;
+    const duplicateNumber = uniqueAccountNumber();
     duplicateLast4 = duplicateNumber.slice(-4);
 
     // Step 1: Add a second bank account with the same name via Settings → Bank accounts
