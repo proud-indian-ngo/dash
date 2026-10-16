@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
  * Database-backed checks of circular resolutions: issue, objections,
@@ -16,39 +16,43 @@ const enabled =
     process.env.DATABASE_URL ?? ""
   );
 
-const run = enabled ? describe : describe.skip;
-
-run("circular resolutions in the database", async () => {
-  const { db } = await import(".");
-  const schema = await import("./schema/governance");
-  const q = await import("./queries/resolutions");
-
+// Nothing touches a database unless opted in: Vitest runs a skipped
+// suite's body while collecting it, so all setup lives in beforeAll.
+describe.skipIf(!enabled)("circular resolutions in the database", () => {
   const today = "2026-10-20";
   const trustees = [uuidv7(), uuidv7(), uuidv7()];
   const newcomer = uuidv7();
   const resolutionIds: string[] = [];
   const now = new Date();
+  let db: typeof import(".").db;
+  let schema: typeof import("./schema/governance");
+  let q: typeof import("./queries/resolutions");
 
-  await db.insert(schema.trustee).values(
-    [...trustees, newcomer].map((id, i) => ({
-      createdAt: now,
-      id,
-      isCoFounder: false,
-      legalName: `DB Test Trustee ${i} ${id.slice(-6)}`,
-      updatedAt: now,
-    }))
-  );
-  // Three trustees in office in a year far from the seeded board.
-  await db.insert(schema.trusteeTerm).values(
-    trustees.map((trusteeId) => ({
-      basis: "deed_original" as const,
-      createdAt: now,
-      id: uuidv7(),
-      startsOn: "2019-03-16",
-      trusteeId,
-      updatedAt: now,
-    }))
-  );
+  beforeAll(async () => {
+    db = (await import(".")).db;
+    schema = await import("./schema/governance");
+    q = await import("./queries/resolutions");
+    await db.insert(schema.trustee).values(
+      [...trustees, newcomer].map((id, i) => ({
+        createdAt: now,
+        id,
+        isCoFounder: false,
+        legalName: `DB Test Trustee ${i} ${id.slice(-6)}`,
+        updatedAt: now,
+      }))
+    );
+    // Three more trustees in office alongside whatever the database holds.
+    await db.insert(schema.trusteeTerm).values(
+      trustees.map((trusteeId) => ({
+        basis: "deed_original" as const,
+        createdAt: now,
+        id: uuidv7(),
+        startsOn: "2019-03-16",
+        trusteeId,
+        updatedAt: now,
+      }))
+    );
+  });
 
   afterAll(async () => {
     await db
@@ -81,7 +85,9 @@ run("circular resolutions in the database", async () => {
   });
 
   async function draft(
-    effect: Parameters<typeof q.effectRegisterProblem>[1]
+    effect: Parameters<
+      typeof import("./queries/resolutions").effectRegisterProblem
+    >[1]
   ): Promise<string> {
     const id = uuidv7();
     resolutionIds.push(id);
