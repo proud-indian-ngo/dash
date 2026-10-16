@@ -19,10 +19,12 @@ import {
   fund,
   orgAccount,
 } from "../schema/finance-dimensions";
+import { otherIncome } from "../schema/income";
 import {
   auditedFigures,
   auditedFiguresLine,
   ledgerEntry,
+  ledgerSourceState,
   openingBalance,
   posting,
 } from "../schema/ledger";
@@ -33,8 +35,9 @@ import {
   reverseAuditedFigures,
   skipAuditedFigures,
 } from "./audited-figures";
-import type { LedgerTx } from "./engine";
-import { postOpeningBalance } from "./opening-balance";
+import { type LedgerTx, post, reverse } from "./engine";
+import { listIncomeSources, postIncomeSource } from "./income-posting";
+import { postOpeningBalance, reverseOpeningBalance } from "./opening-balance";
 import { LedgerError } from "./rules";
 import { yearCloseChecklist } from "./year-close";
 
@@ -118,6 +121,8 @@ async function foundation(tx: LedgerTx) {
           ["depreciation", "expense"],
           ["yearEndAdjustments", "expense"],
           ["fundTransfers", "fund"],
+          ["yearEndAdjustmentsIncome", "income"],
+          ["fdInterest", "income"],
         ] as const
       ).map(([key, type]) => ({
         code: `TEST_${key}`,
@@ -130,6 +135,20 @@ async function foundation(tx: LedgerTx) {
     )
     .onConflictDoNothing();
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
+  // Nothing waiting to post, whatever the database's own records are
+  // doing: they count as looked at, so only this test's records matter.
+  await tx.delete(ledgerSourceState);
+  const existing = await listIncomeSources(tx);
+  if (existing.length > 0) {
+    await tx.insert(ledgerSourceState).values(
+      existing.map((source) => ({
+        ...source,
+        checkedAt: DURING_YEAR,
+        id: uuidv7(),
+        status: "none" as const,
+      }))
+    );
+  }
   // Earlier documents are final; only a maintenance session may clear
   // them, and only inside this rolled-back transaction.
   await tx.execute(sql`SET LOCAL pi_dash.ledger_maintenance = 'on'`);
@@ -178,10 +197,10 @@ const keys = (bank: string, asset: string) => ({
 /** The figures as the books stand, with `changes` (paise added) by key. */
 async function figures(
   tx: LedgerTx,
-  base: { fiscalYearId: string; id?: string },
+  base: { asOf?: string; fiscalYearId: string; id?: string; signedOn?: string },
   changes: Record<string, number> = {}
 ): Promise<AuditedFiguresInput> {
-  const { lines } = await loadBalanceSheetLines(tx, YEAR_END);
+  const { lines } = await loadBalanceSheetLines(tx, base.asOf ?? YEAR_END);
   return {
     caName: "Test CA",
     fiscalYearId: base.fiscalYearId,
@@ -191,7 +210,7 @@ async function figures(
       booksPaise: l.booksPaise,
       key: l.key,
     })),
-    signedOn: SIGNED_ON,
+    signedOn: base.signedOn ?? SIGNED_ON,
   };
 }
 
@@ -287,8 +306,8 @@ it.skipIf(!localDatabase)(
           }),
           expect.objectContaining({
             amountPaise: 100_00,
-            effect: "decrease",
-            head: H.yearEndAdjustments,
+            effect: "increase",
+            head: H.yearEndAdjustmentsIncome,
           }),
         ])
       );
@@ -567,6 +586,225 @@ it.skipIf(!localDatabase)(
       const open = await yearCloseChecklist(tx, ids.yearId, AFTER_YEAR_END);
       expect(open.checks.find((c) => c.id === "audited_figures")).toMatchObject(
         { ok: false, required: false }
+      );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "freezes a matched year: new postings and reversals into it are refused and wait with the reason, and the checklist sees books that changed anyway",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const k = keys(ids.bank, ids.asset);
+      const context = { actorId: ids.user, now: AFTER_YEAR_END };
+
+      // Something waiting to post in the year holds the match up.
+      const incomeId = uuidv7();
+      await tx.insert(otherIncome).values({
+        amountPaise: 5_00,
+        createdAt: DURING_YEAR,
+        fundId: GENERAL_FUND_ID,
+        id: incomeId,
+        kind: "interest",
+        orgAccountId: ids.bank,
+        receivedOn: "2026-06-30",
+        updatedAt: DURING_YEAR,
+      });
+      expect(
+        await messageOf(async () =>
+          postAuditedFigures(
+            tx,
+            await figures(tx, { fiscalYearId: ids.yearId }),
+            context
+          )
+        )
+      ).toMatch(/1 record dated in FY 2026-27 is waiting to post/);
+      await postIncomeSource(
+        tx,
+        { sourceId: incomeId, sourceType: "other_income" },
+        { actorId: null, now: AFTER_YEAR_END }
+      );
+
+      const document = await postAuditedFigures(
+        tx,
+        await figures(
+          tx,
+          { fiscalYearId: ids.yearId },
+          { [k.asset]: -120_00, [k.general]: -120_00 }
+        ),
+        context
+      );
+
+      // A new posting dated in the year is refused like a closed year's.
+      expect(
+        await messageOf(() =>
+          post(
+            tx,
+            {
+              action: "post",
+              economicOn: "2026-07-01",
+              entries: [],
+              movements: [
+                {
+                  amountPaise: 1_00,
+                  direction: "in",
+                  kind: "receipt",
+                  orgAccountId: ids.bank,
+                },
+              ],
+              sourceId: uuidv7(),
+              sourceType: "test_source",
+            },
+            context
+          )
+        )
+      ).toBe(
+        "FY 2026-27's audited figures are matched; reverse them to change the year"
+      );
+      // A record that changes in the year waits with that reason.
+      const lateId = uuidv7();
+      await tx.insert(otherIncome).values({
+        amountPaise: 7_00,
+        createdAt: AFTER_YEAR_END,
+        fundId: GENERAL_FUND_ID,
+        id: lateId,
+        kind: "interest",
+        orgAccountId: ids.bank,
+        receivedOn: "2026-08-01",
+        updatedAt: AFTER_YEAR_END,
+      });
+      expect(
+        await postIncomeSource(
+          tx,
+          { sourceId: lateId, sourceType: "other_income" },
+          { actorId: null, now: AFTER_YEAR_END }
+        )
+      ).toMatchObject({ reason: "audited_figures_matched", status: "waiting" });
+      // The year can't close with it waiting (nothing posted past the match).
+      const checklist = await yearCloseChecklist(
+        tx,
+        ids.yearId,
+        AFTER_YEAR_END
+      );
+      expect(
+        checklist.checks.find((c) => c.id === "unposted_sources")?.ok
+      ).toBe(false);
+      expect(
+        checklist.checks.find((c) => c.id === "audited_figures")
+      ).toMatchObject({ ok: true });
+
+      // Books that changed anyway (here: an override) fail the checklist item.
+      const [openingPosting] = await tx
+        .select({ id: posting.id })
+        .from(posting)
+        .innerJoin(openingBalance, eq(openingBalance.postingId, posting.id));
+      await reverse(tx, openingPosting?.id as string, {
+        actorId: ids.user,
+        intoMatchedYear: true,
+        now: AFTER_YEAR_END,
+        reason: "Test drift",
+      });
+      const drifted = await yearCloseChecklist(tx, ids.yearId, AFTER_YEAR_END);
+      expect(
+        drifted.checks.find((c) => c.id === "audited_figures")
+      ).toMatchObject({ ok: false });
+      expect(
+        drifted.checks.find((c) => c.id === "audited_figures")?.details[1]
+      ).toMatch(/^Books changed since the audited figures were matched/);
+
+      // The match's own reversal still goes through.
+      await reverseAuditedFigures(
+        tx,
+        { id: document.id, reason: "Reversed for the test" },
+        context
+      );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "matches the years in order, and refuses reversing a year or the opening balances under a later match",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const k = keys(ids.bank, ids.asset);
+      const [next] = await tx
+        .select()
+        .from(fiscalYear)
+        .where(eq(fiscalYear.startsOn, "2027-04-01"));
+      if (!next) {
+        throw new Error("Seed FY 2027-28 first");
+      }
+      const afterNext = {
+        actorId: ids.user,
+        now: new Date("2028-04-02T06:00:00Z"),
+      };
+      expect(
+        await messageOf(() =>
+          skipAuditedFigures(
+            tx,
+            { fiscalYearId: next.id, id: uuidv7(), reason: "Not audited yet" },
+            afterNext
+          )
+        )
+      ).toBe(
+        "Match or skip FY 2026-27's audited figures first: each year opens from the one before"
+      );
+      const first = await postAuditedFigures(
+        tx,
+        await figures(
+          tx,
+          { fiscalYearId: ids.yearId },
+          { [k.asset]: -120_00, [k.general]: -120_00 }
+        ),
+        afterNext
+      );
+      const second = await postAuditedFigures(
+        tx,
+        await figures(
+          tx,
+          { asOf: "2028-03-31", fiscalYearId: next.id, signedOn: "2028-04-01" },
+          { [k.asset]: -100_00, [k.general]: -100_00 }
+        ),
+        afterNext
+      );
+      expect(
+        await messageOf(() =>
+          reverseAuditedFigures(
+            tx,
+            { id: first.id, reason: "The CA revised them" },
+            afterNext
+          )
+        )
+      ).toBe(
+        "Reverse FY 2027-28's audited figures first: they were matched against this year's closing"
+      );
+      const [opening] = await tx
+        .select({ id: openingBalance.id })
+        .from(openingBalance)
+        .limit(1);
+      expect(
+        await messageOf(() =>
+          reverseOpeningBalance(
+            tx,
+            { id: opening?.id as string, reason: "Corrected opening" },
+            afterNext
+          )
+        )
+      ).toBe(
+        "Reverse FY 2026-27's audited figures first: they were matched against the books these opening balances start"
+      );
+      // In order, they reverse.
+      await reverseAuditedFigures(
+        tx,
+        { id: second.id, reason: "The CA revised them" },
+        afterNext
+      );
+      await reverseAuditedFigures(
+        tx,
+        { id: first.id, reason: "The CA revised them" },
+        afterNext
       );
     });
   }

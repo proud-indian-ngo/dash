@@ -1,12 +1,13 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { POSTING_ACTIONS } from "@pi-dash/shared/ledger";
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import type { db } from "..";
 import { fiscalPeriod, fiscalYear } from "../schema/finance-dimensions";
 import {
   accountMovement,
+  auditedFigures,
   ledgerEntry,
   movementAllocation,
   posting,
@@ -31,6 +32,10 @@ import {
  * - Dates resolve to fiscal periods; a closed year refuses the posting
  *   (the year row is read FOR SHARE, so a concurrent close waits).
  * - posted_on is today in India.
+ * - A year whose audited figures are matched is frozen like a closed one
+ *   (except for the audited figures' own reversal): its closing is the
+ *   CA's signed figures, so nothing more may move it until they are
+ *   reversed. Sources then wait with that reason.
  */
 
 export type LedgerTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -42,8 +47,17 @@ export type PostingRow = typeof posting.$inferSelect;
 export interface PostContext {
   /** The user posting; null for system postings. */
   actorId: string | null;
+  /**
+   * Only the audited figures' own reversal: post into a year whose
+   * audited figures are matched.
+   */
+  intoMatchedYear?: boolean;
   now?: Date;
 }
+
+/** The refusal for a year whose audited figures are matched. */
+export const matchedYearMessage = (label: string) =>
+  `FY ${label}'s audited figures are matched; reverse them to change the year`;
 
 export interface PostResult {
   created: boolean;
@@ -67,9 +81,11 @@ interface ResolvedPeriod {
  */
 export async function resolvePeriods(
   tx: LedgerTx,
-  dates: readonly string[]
+  dates: readonly string[],
+  options: { intoMatchedYear?: boolean } = {}
 ): Promise<Map<string, ResolvedPeriod>> {
   const resolved = new Map<string, ResolvedPeriod>();
+  const matchedChecked = new Set<string>();
   for (const day of dates) {
     const [row] = await tx
       .select({
@@ -96,6 +112,25 @@ export async function resolvePeriods(
         "closed_year",
         `${row.label} is closed. Reopen the year to post into it.`
       );
+    }
+    if (!(options.intoMatchedYear || matchedChecked.has(row.fiscalYearId))) {
+      // Read after the year's FOR SHARE: a match commits while holding the
+      // year FOR NO KEY UPDATE, so this sees it once the lock is granted.
+      const [matched] = await tx
+        .select({ id: auditedFigures.id })
+        .from(auditedFigures)
+        .where(
+          and(
+            eq(auditedFigures.fiscalYearId, row.fiscalYearId),
+            eq(auditedFigures.status, "matched"),
+            isNull(auditedFigures.reversedAt)
+          )
+        )
+        .limit(1);
+      if (matched) {
+        throw new LedgerError("matched_year", matchedYearMessage(row.label));
+      }
+      matchedChecked.add(row.fiscalYearId);
     }
     resolved.set(day, {
       fiscalYearId: row.fiscalYearId,
@@ -156,7 +191,9 @@ export async function post(
     return { created: false, posting: existing };
   }
 
-  const periods = await resolvePeriods(tx, postingDates(input));
+  const periods = await resolvePeriods(tx, postingDates(input), {
+    intoMatchedYear: context.intoMatchedYear,
+  });
   const now = context.now ?? new Date();
   const postedOn = todayInKolkata(now);
   const [created] = await tx
@@ -319,7 +356,8 @@ export async function reverse(
             ...movements.map((m) => m.occurredOn),
           ]),
         ].sort()
-      : [on]
+      : [on],
+    { intoMatchedYear: options.intoMatchedYear }
   );
   const dated = on === undefined ? null : { day: on, ...periodOf(periods, on) };
 

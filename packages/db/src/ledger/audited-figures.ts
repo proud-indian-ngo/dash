@@ -16,7 +16,19 @@ import {
   LEDGER_SOURCE_TYPES,
   POSTING_ACTIONS,
 } from "@pi-dash/shared/ledger";
-import { and, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import {
@@ -34,6 +46,7 @@ import {
   posting,
 } from "../schema/ledger";
 import { type LedgerTx, post, reverse } from "./engine";
+import { uncheckedSources, waitingByReason } from "./income-posting";
 import { isIsoDay, LedgerError } from "./rules";
 
 /**
@@ -73,15 +86,85 @@ async function lockYearDocument(tx: LedgerTx, fiscalYearId: string) {
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:audited_figures_year:${fiscalYearId}`}, 0))`
   );
+  // FOR NO KEY UPDATE conflicts with the engine's FOR SHARE on the year:
+  // a posting into the year waits for this document's transaction, then
+  // sees the match (and is refused), so no posting lands between reading
+  // the books and writing the document.
   const [year] = await tx
     .select()
     .from(fiscalYear)
     .where(eq(fiscalYear.id, fiscalYearId))
+    .for("no key update")
     .limit(1);
   if (!year) {
     throw new LedgerError("not_found", "That financial year doesn't exist");
   }
   return year;
+}
+
+/**
+ * The years are matched in order: the previous ended books year must be
+ * matched or skipped before the next one is entered.
+ */
+async function assertPreviousYearDone(tx: LedgerTx, year: YearRow) {
+  const [previous] = await tx
+    .select()
+    .from(fiscalYear)
+    .where(
+      and(
+        lt(fiscalYear.startsOn, year.startsOn),
+        gte(fiscalYear.endsOn, LEDGER_CUTOVER_ON)
+      )
+    )
+    .orderBy(desc(fiscalYear.startsOn))
+    .limit(1);
+  if (previous && !(await standingDocument(tx, previous.id))) {
+    throw new LedgerError(
+      "invalid",
+      `Match or skip FY ${previous.label}'s audited figures first: each year opens from the one before`
+    );
+  }
+}
+
+/** A later year's matched figures were checked against this year's closing. */
+async function assertNoLaterMatch(tx: LedgerTx, year: YearRow) {
+  const [later] = await tx
+    .select({ label: fiscalYear.label })
+    .from(auditedFigures)
+    .innerJoin(fiscalYear, eq(fiscalYear.id, auditedFigures.fiscalYearId))
+    .where(
+      and(
+        gt(fiscalYear.startsOn, year.startsOn),
+        eq(auditedFigures.status, "matched"),
+        isNull(auditedFigures.reversedAt)
+      )
+    )
+    .orderBy(fiscalYear.startsOn)
+    .limit(1);
+  if (later) {
+    throw new LedgerError(
+      "invalid",
+      `Reverse FY ${later.label}'s audited figures first: they were matched against this year's closing`
+    );
+  }
+}
+
+/**
+ * Records dated in the year still waiting to post (or never looked at)
+ * would change the closing after the match, so the match waits for them.
+ */
+async function assertNothingWaiting(tx: LedgerTx, year: YearRow) {
+  const range = { endsOn: year.endsOn, startsOn: year.startsOn };
+  const waiting = await waitingByReason(tx, range);
+  const unchecked = await uncheckedSources(tx, range);
+  const count =
+    [...waiting.values()].reduce((sum, n) => sum + n, 0) + unchecked;
+  if (count > 0) {
+    throw new LedgerError(
+      "invalid",
+      `${count === 1 ? "1 record" : `${count} records`} dated in FY ${year.label} ${count === 1 ? "is" : "are"} waiting to post. Post them, or resolve why they wait (Books → Waiting to post), before matching the audited figures.`
+    );
+  }
 }
 
 /** The year is in the books and has ended. */
@@ -216,6 +299,7 @@ async function assertReferenceData(tx: LedgerTx) {
   const required = [
     { id: LEDGER_ACCOUNT_HEAD_IDS.depreciation, type: "expense" },
     { id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustments, type: "expense" },
+    { id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustmentsIncome, type: "income" },
     { id: LEDGER_ACCOUNT_HEAD_IDS.fundTransfers, type: "fund" },
   ];
   const rows = await tx
@@ -231,7 +315,7 @@ async function assertReferenceData(tx: LedgerTx) {
   if (required.some((r) => typeById.get(r.id) !== r.type)) {
     throw new LedgerError(
       "invalid",
-      "Books reference data missing: the Depreciation, Year-end adjustments (audited) or Transfers between funds account head couldn't be created. Ask an administrator to check the server log."
+      "Books reference data missing: the Depreciation, Year-end adjustments (audited), Year-end adjustments (audited) — income or Transfers between funds account head couldn't be created. Ask an administrator to check the server log."
     );
   }
 }
@@ -340,6 +424,8 @@ export async function postAuditedFigures(
   }
   assertCaFields(input, year, now);
   assertNoStanding(await standingDocument(tx, year.id), year);
+  await assertPreviousYearDone(tx, year);
+  await assertNothingWaiting(tx, year);
   const [opening] = await tx
     .select({ id: openingBalance.id })
     .from(openingBalance)
@@ -493,6 +579,7 @@ export async function skipAuditedFigures(
   }
   assertEnded(year, now);
   assertNoStanding(await standingDocument(tx, year.id), year);
+  await assertPreviousYearDone(tx, year);
   const [document] = await tx
     .insert(auditedFigures)
     .values({
@@ -545,6 +632,7 @@ export async function reverseAuditedFigures(
       "These audited figures are already reversed"
     );
   }
+  await assertNoLaterMatch(tx, year);
   const now = context.now ?? new Date();
   let reversalPostingId: string | null = null;
   if (document.postingId) {
@@ -554,8 +642,10 @@ export async function reverseAuditedFigures(
         `Reopen FY ${year.label} to correct its audited figures`
       );
     }
+    // The one posting allowed into a matched year: the match's own reversal.
     const { posting: reversal } = await reverse(tx, document.postingId, {
       actorId: context.actorId,
+      intoMatchedYear: true,
       now,
       reason,
     });

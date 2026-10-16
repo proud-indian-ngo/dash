@@ -30,6 +30,9 @@ describe("books route guards", () => {
     );
     expect(allows(beforeLoad as never, ["finance.view"])).toBe(true);
     expect(allows(beforeLoad as never, ["finance.manage"])).toBe(true);
+    // The treasurer's own permissions read the books too.
+    expect(allows(beforeLoad as never, ["finance.adjust"])).toBe(true);
+    expect(allows(beforeLoad as never, ["finance.post_opening"])).toBe(true);
   });
 
   it("opens the opening balances to book readers and the treasurer", () => {

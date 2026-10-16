@@ -8,6 +8,7 @@ import {
   LEDGER_WAIT_REASONS,
   ledgerReasonLabel,
   type LedgerSourceStatus,
+  type LedgerWaitReason,
   POSTED_SOURCE_TYPES,
   type PostedSourceType,
 } from "@pi-dash/shared/ledger";
@@ -774,16 +775,17 @@ export async function postIncomeSource(
       );
       return { posted: 0, reason: plan.reason, reversed, status: "waiting" };
     } catch (error) {
-      if (!(error instanceof LedgerError && error.code === "closed_year")) {
+      const frozen = frozenYearReason(error);
+      if (!frozen) {
         throw error;
       }
-      // A closed year refuses the reversal: it waits for the year first.
+      // A closed (or matched) year refuses the reversal: it waits for the year first.
       await saveState(
         tx,
         source,
         {
           economicOn: plan.economicOn,
-          reason: LEDGER_WAIT_REASONS.closedYear,
+          reason: frozen,
           sourceUpdatedAt: seen,
           status: "waiting",
         },
@@ -791,7 +793,7 @@ export async function postIncomeSource(
       );
       return {
         posted: 0,
-        reason: LEDGER_WAIT_REASONS.closedYear,
+        reason: frozen,
         reversed: 0,
         status: "waiting",
       };
@@ -912,16 +914,14 @@ export async function postIncomeSource(
     if (!(error instanceof LedgerError)) {
       throw error;
     }
-    const reason =
-      error.code === "closed_year"
-        ? LEDGER_WAIT_REASONS.closedYear
-        : LEDGER_WAIT_REASONS.error;
+    const frozen = frozenYearReason(error);
+    const reason = frozen ?? LEDGER_WAIT_REASONS.error;
     await saveState(
       tx,
       source,
       {
         economicOn,
-        message: error.code === "closed_year" ? null : error.message,
+        message: frozen ? null : error.message,
         reason,
         sourceUpdatedAt: seen,
         status: "waiting",
@@ -930,6 +930,23 @@ export async function postIncomeSource(
     );
     return { posted: 0, reason, reversed: 0, status: "waiting" };
   }
+}
+
+/**
+ * The wait reason for a refusal from a frozen year (closed, or its audited
+ * figures matched); null for any other error.
+ */
+function frozenYearReason(error: unknown): LedgerWaitReason | null {
+  if (!(error instanceof LedgerError)) {
+    return null;
+  }
+  if (error.code === "closed_year") {
+    return LEDGER_WAIT_REASONS.closedYear;
+  }
+  if (error.code === "matched_year") {
+    return LEDGER_WAIT_REASONS.matchedYear;
+  }
+  return null;
 }
 
 /** Records where the source stands once the books match it. */

@@ -235,6 +235,8 @@ export const reverseAuditedFiguresFn = createServerFn({ method: "POST" })
       },
       () => reverseAuditedFiguresNow(data, session.user.id)
     );
+    // What waited for the matched year posts now.
+    queuePostingAfterReopen(session.user.id);
     return { id: data.id };
   });
 

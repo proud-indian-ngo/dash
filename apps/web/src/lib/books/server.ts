@@ -102,9 +102,14 @@ export const postAuditedFiguresNow = (
   input: AuditedFiguresInput,
   actorId: string
 ) =>
-  safely("postAudited", () =>
-    db.transaction((tx) => postAuditedFigures(tx, input, { actorId }))
-  );
+  safely("postAudited", async () => {
+    // As a close does: post the year's records first (bounded), so the
+    // "nothing waiting" check sees them as they are now.
+    await postYearFirst(input.fiscalYearId, actorId);
+    return await db.transaction((tx) =>
+      postAuditedFigures(tx, input, { actorId })
+    );
+  });
 
 export const skipAuditedFiguresNow = (
   input: { fiscalYearId: string; id: string; reason: string },

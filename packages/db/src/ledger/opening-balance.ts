@@ -18,7 +18,7 @@ import {
   fund,
   orgAccount,
 } from "../schema/finance-dimensions";
-import { openingBalance } from "../schema/ledger";
+import { auditedFigures, openingBalance } from "../schema/ledger";
 import { type LedgerTx, post, reverse } from "./engine";
 import {
   type EntryInput,
@@ -323,6 +323,24 @@ export async function reverseOpeningBalance(
     throw new LedgerError(
       "already_reversed",
       "These opening balances are already reversed"
+    );
+  }
+  const [matched] = await tx
+    .select({ label: fiscalYear.label })
+    .from(auditedFigures)
+    .innerJoin(fiscalYear, eq(fiscalYear.id, auditedFigures.fiscalYearId))
+    .where(
+      and(
+        eq(auditedFigures.status, "matched"),
+        isNull(auditedFigures.reversedAt)
+      )
+    )
+    .orderBy(fiscalYear.startsOn)
+    .limit(1);
+  if (matched) {
+    throw new LedgerError(
+      "invalid",
+      `Reverse FY ${matched.label}'s audited figures first: they were matched against the books these opening balances start`
     );
   }
   const now = context.now ?? new Date();

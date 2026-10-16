@@ -29,7 +29,8 @@ import {
 export interface AuditedViewLine {
   /** The difference posted (audited less the books before). */
   adjustmentPaise: number;
-  auditedPaise: number;
+  /** Null for a line that appeared after the match. */
+  auditedPaise: number | null;
   booksPaise: number;
   /** What the head the difference posted against is called. */
   counterHeadName: string | null;
@@ -118,7 +119,9 @@ export function AuditedFiguresView({
                       {formatPaise(line.booksPaise)}
                     </span>
                     <span className="font-mono tabular-nums sm:text-right">
-                      {formatPaise(line.auditedPaise)}
+                      {line.auditedPaise === null
+                        ? "Not in the audited figures"
+                        : formatPaise(line.auditedPaise)}
                     </span>
                     <span className="font-mono tabular-nums sm:text-right">
                       {line.adjustmentPaise === 0

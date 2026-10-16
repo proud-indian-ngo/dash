@@ -192,12 +192,22 @@ export const LEDGER_REFERENCE_HEADS = [
   {
     code: "YEAR_END_ADJUSTMENTS",
     description:
-      "The other side of the CA's year-end corrections per the audited accounts: provisions made or written back (a write-back lowers it), assets written up or down; for the CA to confirm.",
+      "The other side of the CA's year-end corrections that lower the surplus, per the audited accounts: new provisions, assets written down (other than depreciation); for the CA to confirm.",
     id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustments,
     name: "Year-end adjustments (audited)",
     sortOrder: 650,
     tallyLedgerName: "Year-end Adjustments",
     type: "expense" as const,
+  },
+  {
+    code: "YEAR_END_ADJUSTMENTS_INCOME",
+    description:
+      "The other side of the CA's year-end corrections that raise the surplus, per the audited accounts: provisions written back, assets written up; for the CA to confirm.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustmentsIncome,
+    name: "Year-end adjustments (audited) — income",
+    sortOrder: 530,
+    tallyLedgerName: "Year-end Adjustments (Income)",
+    type: "income" as const,
   },
   {
     code: "FUND_TRANSFERS",

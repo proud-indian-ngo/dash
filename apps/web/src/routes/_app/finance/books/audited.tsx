@@ -11,35 +11,30 @@ import {
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
 import { env } from "@pi-dash/env/web";
-import {
-  type BalanceSheetLine,
-  balanceSheetLines,
-} from "@pi-dash/shared/audited-figures";
-import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+import type { BalanceSheetLine } from "@pi-dash/shared/audited-figures";
 import { epochDayToIso } from "@pi-dash/shared/income";
 import {
-  BOOKS_VIEW_PERMISSIONS,
+  BOOKS_PAGE_PERMISSIONS,
   LEDGER_CUTOVER_ON,
 } from "@pi-dash/shared/ledger";
-import { createFileRoute } from "@tanstack/react-router";
+import { queries } from "@pi-dash/zero/queries";
+import { useQuery } from "@rocicorp/zero/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
-import {
-  type AuditedFormLine,
-  AuditedFiguresForm,
-} from "@/components/books/audited-figures-form";
+import { AuditedFiguresForm } from "@/components/books/audited-figures-form";
 import {
   AuditedFiguresView,
   type AuditedViewSection,
   ReverseAuditedDialog,
   SkipAuditedDialog,
 } from "@/components/books/audited-figures-view";
+import { formLines, lineLabeller } from "@/components/books/audited-lines";
 import { formatDay } from "@/components/books/labels";
 import {
   type Books,
   type BooksYear,
-  booksAccounts,
   useBooks,
 } from "@/components/books/use-books";
 import { NotFoundState } from "@/components/shared/not-found-state";
@@ -51,7 +46,7 @@ import { assertAnyPermission } from "@/lib/route-guards";
 
 export const Route = createFileRoute("/_app/finance/books/audited")({
   beforeLoad: ({ context }) =>
-    assertAnyPermission(context, ...BOOKS_VIEW_PERMISSIONS, "finance.adjust"),
+    assertAnyPermission(context, ...BOOKS_PAGE_PERMISSIONS),
   component: AuditedFiguresPage,
   head: () => ({
     meta: [{ title: `Audited figures | ${env.VITE_APP_NAME}` }],
@@ -69,63 +64,6 @@ function pickYear(books: Books, label: string | null): BooksYear | undefined {
   );
 }
 
-/** Each balance sheet line at the year end, named, in the order the page lists them. */
-function formLines(books: Books, year: BooksYear): AuditedFormLine[] {
-  const accounts = booksAccounts(books);
-  const accountKinds = new Map(accounts.map((a) => [a.id, a.kind]));
-  const lines = balanceSheetLines({
-    accountIds: accounts.map((a) => a.id),
-    asOf: year.endsOn,
-    entries: books.entries,
-    fundIds: books.funds.filter((f) => f.active).map((f) => f.id),
-    movements: books.movements,
-  });
-  const label = lineLabeller(books);
-  const named = lines.map((l) => ({
-    ...l,
-    accountKind: l.orgAccountId ? accountKinds.get(l.orgAccountId) : undefined,
-    label: label(l),
-  }));
-  const accountLines = named.filter((l) => l.kind === "account");
-  const rest = named
-    .filter((l) => l.kind !== "account")
-    .sort(
-      (a, b) =>
-        KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) ||
-        a.label.localeCompare(b.label)
-    );
-  return [...accountLines, ...rest];
-}
-
-const KIND_ORDER = ["asset", "liability", "fund"];
-
-function lineLabeller(books: Books) {
-  const accountNames = new Map(books.accounts.map((a) => [a.id, a.name]));
-  const headNames = new Map(books.heads.map((h) => [h.id, h.name]));
-  const fundNames = new Map(books.funds.map((f) => [f.id, f.name]));
-  return (
-    l: Pick<
-      BalanceSheetLine,
-      "accountHeadId" | "fundId" | "kind" | "memo" | "orgAccountId"
-    >
-  ) => {
-    if (l.kind === "account") {
-      return accountNames.get(l.orgAccountId ?? "") ?? "Account";
-    }
-    if (l.kind === "fund") {
-      return fundNames.get(l.fundId ?? "") ?? "Fund";
-    }
-    const head = headNames.get(l.accountHeadId ?? "") ?? "Account head";
-    if (l.memo) {
-      return l.memo;
-    }
-    return l.kind === "asset" &&
-      l.accountHeadId === LEDGER_ACCOUNT_HEAD_IDS.fixedAssets
-      ? `${head} — other`
-      : head;
-  };
-}
-
 type AuditedDocument = Books["auditedFigures"][number];
 
 /** A matched document's lines beside the books as they stand now. */
@@ -138,14 +76,16 @@ function viewSections(
   transfers: Parameters<typeof AuditedFiguresView>[0]["transfers"];
 } {
   const label = lineLabeller(books);
-  const now = new Map(formLines(books, year).map((l) => [l.key, l.booksPaise]));
+  const current = formLines(books, year);
+  const now = new Map(current.map((l) => [l.key, l.booksPaise]));
+  const storedKeys = new Set(document.lines.map((l) => l.lineKey));
   const headNames = new Map(books.heads.map((h) => [h.id, h.name]));
   const fundNames = new Map(books.funds.map((f) => [f.id, f.name]));
   const stored = document.lines.filter((l) => l.kind !== "fund_transfer");
   const section = (title: string, kind: string): AuditedViewSection => ({
     lines: stored
       .filter((l) => l.kind === kind)
-      .map((l) => ({
+      .map((l): AuditedViewSection["lines"][number] => ({
         adjustmentPaise: l.kind === "fund" ? 0 : l.auditedPaise - l.booksPaise,
         auditedPaise: l.auditedPaise,
         booksPaise: l.booksPaise,
@@ -161,7 +101,24 @@ function viewSections(
           orgAccountId: l.orgAccountId ?? null,
         }),
         nowPaise: now.get(l.lineKey) ?? 0,
-      })),
+      }))
+      .concat(
+        // Lines with a balance that weren't in the books at the match.
+        current
+          .filter(
+            (l) =>
+              l.kind === kind && !storedKeys.has(l.key) && l.booksPaise !== 0
+          )
+          .map((l) => ({
+            adjustmentPaise: 0,
+            auditedPaise: null,
+            booksPaise: 0,
+            counterHeadName: null,
+            key: l.key,
+            label: l.label,
+            nowPaise: l.booksPaise,
+          }))
+      ),
     title,
   });
   return {
@@ -190,6 +147,7 @@ function AuditedFiguresPage() {
   const [reversing, setReversing] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const canAdjust = hasPermission("finance.adjust");
+  const [waitingRows] = useQuery(queries.ledger.waiting());
 
   if (books.isLoading || books.auditedLoading) {
     return (
@@ -326,13 +284,43 @@ function AuditedFiguresPage() {
         (y) => y.id === o.fiscalYearId && y.startsOn === LEDGER_CUTOVER_ON
       )
   );
-  let postBlocker: string | null = null;
+  const waitingInYear = waitingRows.filter((w) => {
+    const on = w.economicOn ? epochDayToIso(w.economicOn) : null;
+    return on !== null && on >= year.startsOn && on <= year.endsOn;
+  }).length;
+  const previous = books.years.find(
+    (y) => y.endsOn < year.startsOn && y.endsOn >= LEDGER_CUTOVER_ON
+  );
+  const previousDone =
+    !previous ||
+    books.auditedFigures.some(
+      (d) => d.fiscalYearId === previous.id && !d.reversedAt
+    );
+  let postBlocker: ReactNode = null;
   if (!openingPosted) {
     postBlocker = "Post the opening balances first.";
+  } else if (!previousDone && previous) {
+    postBlocker = `Match or skip FY ${previous.label}'s audited figures first: each year opens from the one before.`;
   } else if (!ended) {
     postBlocker = `FY ${year.label} ends on ${formatDay(year.endsOn)}: you can compare figures now, and post them once the year has ended and the CA has signed the statements.`;
   } else if (closed) {
     postBlocker = `Reopen FY ${year.label} to match its audited figures.`;
+  } else if (waitingInYear > 0) {
+    postBlocker = (
+      <>
+        {waitingInYear === 1
+          ? "1 record dated in the year is"
+          : `${waitingInYear} records dated in the year are`}{" "}
+        waiting to post: post them, or resolve why they wait, first.{" "}
+        <Link
+          className="underline underline-offset-4"
+          search={{ year: year.label } as never}
+          to="/finance/books"
+        >
+          Open Waiting to post
+        </Link>
+      </>
+    );
   }
   const activeHeads = books.heads.filter((h) => h.active !== false);
   return (
@@ -375,7 +363,7 @@ function AuditedFiguresPage() {
             balanceHeads={activeHeads.filter(
               (h) => h.type === "asset" || h.type === "liability"
             )}
-            booksLines={formLines(books, year)}
+            liveLines={formLines(books, year)}
             counterHeads={activeHeads.filter(
               (h) => h.type === "income" || h.type === "expense"
             )}

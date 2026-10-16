@@ -1,3 +1,4 @@
+import { auditedDrift } from "@pi-dash/shared/audited-figures";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   LEDGER_CUTOVER_ON,
@@ -15,6 +16,7 @@ import {
   lt,
   lte,
   max,
+  ne,
   sql,
 } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -23,10 +25,12 @@ import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
 import {
   accountMovement,
   auditedFigures,
+  auditedFiguresLine,
   fiscalYearEvent,
   openingBalance,
 } from "../schema/ledger";
 import { statementLine } from "../schema/statement-line";
+import { loadBalanceSheetLines } from "./audited-figures";
 import type { LedgerTx } from "./engine";
 import { uncheckedSources, waitingByReason } from "./income-posting";
 import { LedgerError } from "./rules";
@@ -216,6 +220,7 @@ export async function yearCloseChecklist(
   const [audited] = await tx
     .select({
       caName: auditedFigures.caName,
+      id: auditedFigures.id,
       signedOn: auditedFigures.signedOn,
       skipReason: auditedFigures.skipReason,
       status: auditedFigures.status,
@@ -230,15 +235,39 @@ export async function yearCloseChecklist(
     .limit(1);
   let auditedDetail =
     "The CA signs the statements months after the year ends: close now, then reopen the year to match them, or skip them with a reason";
+  let auditedOk = audited !== undefined;
+  const auditedDetails: string[] = [];
   if (audited?.status === "matched") {
     auditedDetail = `Signed by ${audited.caName} on ${audited.signedOn}`;
+    // The books must still equal them (the engine freezes a matched year,
+    // so this only catches what got past it, such as a repair).
+    const stored = await tx
+      .select({
+        auditedPaise: auditedFiguresLine.auditedPaise,
+        key: auditedFiguresLine.lineKey,
+      })
+      .from(auditedFiguresLine)
+      .where(
+        and(
+          eq(auditedFiguresLine.auditedFiguresId, audited.id),
+          ne(auditedFiguresLine.kind, "fund_transfer")
+        )
+      );
+    const { lines } = await loadBalanceSheetLines(tx, year.endsOn);
+    const drift = auditedDrift(stored, lines);
+    if (drift.length > 0) {
+      auditedOk = false;
+      auditedDetails.push(
+        `Books changed since the audited figures were matched: ${drift.length} line${drift.length === 1 ? "" : "s"} differ`
+      );
+    }
   } else if (audited) {
     auditedDetail = `Skipped: ${audited.skipReason}`;
   }
   checks.push({
-    details: [auditedDetail],
+    details: [auditedDetail, ...auditedDetails],
     id: "audited_figures",
-    ok: audited !== undefined,
+    ok: auditedOk,
     required: false,
   });
 

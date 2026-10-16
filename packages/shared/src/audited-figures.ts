@@ -12,11 +12,14 @@
  * - Money accounts are never adjusted: a difference means records are
  *   missing or wrong (an unrecorded bank charge, a missing transfer), so it
  *   blocks posting until they are found.
- * - A fixed asset carried at less than the books is depreciation; one
- *   carried at more, and every other asset and liability difference, is a
- *   "Year-end adjustments (audited)" line, unless the treasurer picks
- *   another income or expense head. Writing back a provision reduces the
- *   liability and lowers that expense.
+ * - A fixed asset carried at less than the books is depreciation. Any
+ *   other difference that lowers the surplus (a new provision, another
+ *   asset written down) is "Year-end adjustments (audited)" expense; one
+ *   that raises it (a provision written back, an asset written up) is
+ *   "Year-end adjustments (audited) — income". The treasurer may pick
+ *   another income or expense head per line. Every adjustment lands in
+ *   the General Fund; a correction of a restricted fund needs the
+ *   transfer between funds as well.
  * - Funds are never adjusted directly: the differences above flow into the
  *   General Fund through the year's surplus, then each fund is checked
  *   against the audited figure. A fund that still differs (the CA moved
@@ -323,6 +326,10 @@ const DEFAULT_HEADS = {
     id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustments,
     type: "expense" as const,
   },
+  yearEndAdjustmentsIncome: {
+    id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustmentsIncome,
+    type: "income" as const,
+  },
 };
 
 /**
@@ -465,9 +472,15 @@ export function planAuditedFigures(input: {
       l.kind === "asset" &&
       l.accountHeadId === LEDGER_ACCOUNT_HEAD_IDS.fixedAssets &&
       differencePaise < 0;
-    let counterHead: { id: string; type: CounterHeadType } = depreciation
-      ? DEFAULT_HEADS.depreciation
-      : DEFAULT_HEADS.yearEndAdjustments;
+    // An asset up (or a liability down) raises the surplus.
+    const surplus = l.kind === "asset" ? differencePaise : -differencePaise;
+    let counterHead: { id: string; type: CounterHeadType } =
+      DEFAULT_HEADS.yearEndAdjustments;
+    if (depreciation) {
+      counterHead = DEFAULT_HEADS.depreciation;
+    } else if (surplus > 0) {
+      counterHead = DEFAULT_HEADS.yearEndAdjustmentsIncome;
+    }
     if (given.counterHeadId && given.counterHeadId !== counterHead.id) {
       const type = input.counterHeads.get(given.counterHeadId);
       if (type) {
@@ -476,8 +489,6 @@ export function planAuditedFigures(input: {
         blockers.add("invalid_head");
       }
     }
-    // An asset up (or a liability down) raises the surplus.
-    const surplus = l.kind === "asset" ? differencePaise : -differencePaise;
     surplusPaise += surplus;
     const label = labelOf(l);
     const memo = label
@@ -616,4 +627,106 @@ function addTo(totals: AuditedTotals, kind: AuditedLineKind, paise: number) {
   } else {
     totals.fundsPaise += paise;
   }
+}
+
+// ── After the match ─────────────────────────────────────────────────────────
+
+export interface AuditedDrift {
+  /** The audited figure; null for a line that appeared after the match. */
+  auditedPaise: number | null;
+  key: string;
+  nowPaise: number;
+}
+
+/**
+ * Where the books no longer equal a matched document: a line whose closing
+ * has moved since, or a line with a balance that wasn't in the books when
+ * the figures were matched. Empty while they agree.
+ */
+export function auditedDrift(
+  stored: readonly { auditedPaise: number; key: string }[],
+  current: readonly Pick<BalanceSheetLine, "booksPaise" | "key">[]
+): AuditedDrift[] {
+  const now = new Map(current.map((l) => [l.key, l.booksPaise]));
+  const known = new Set(stored.map((l) => l.key));
+  const drift: AuditedDrift[] = [];
+  for (const line of stored) {
+    const nowPaise = now.get(line.key) ?? 0;
+    if (nowPaise !== line.auditedPaise) {
+      drift.push({ auditedPaise: line.auditedPaise, key: line.key, nowPaise });
+    }
+  }
+  for (const line of current) {
+    if (!known.has(line.key) && line.booksPaise !== 0) {
+      drift.push({
+        auditedPaise: null,
+        key: line.key,
+        nowPaise: line.booksPaise,
+      });
+    }
+  }
+  return drift;
+}
+
+// ── The form's payload ──────────────────────────────────────────────────────
+
+export interface EnteredFigure {
+  /** Null while not entered. */
+  auditedPaise: number | null;
+  counterHeadId?: string | null;
+  key: string;
+}
+
+export interface PayloadLine {
+  auditedPaise: number;
+  /** The books' figure when the page opened, so the server can tell if they changed. */
+  booksPaise: number;
+  counterHeadId: string | null;
+  key: string;
+}
+
+export type AuditedPayload =
+  | { lines: PayloadLine[]; ok: true }
+  | { missing: string[]; ok: false };
+
+/**
+ * The lines the form posts: one per line of the snapshot of the books taken
+ * when the page opened, each with the figure typed against that line's key
+ * (never its position, so a line added, dropped or reordered since can't
+ * carry another line's figure). Refused while a snapshot line has no
+ * figure; figures for keys outside the snapshot are ignored.
+ */
+export function buildAuditedPayload(
+  snapshot: readonly Pick<BalanceSheetLine, "booksPaise" | "key">[],
+  entered: readonly EnteredFigure[]
+): AuditedPayload {
+  const byKey = new Map(entered.map((e) => [e.key, e]));
+  const missing: string[] = [];
+  const lines: PayloadLine[] = [];
+  for (const line of snapshot) {
+    const figure = byKey.get(line.key);
+    if (figure?.auditedPaise === null || figure?.auditedPaise === undefined) {
+      missing.push(line.key);
+      continue;
+    }
+    lines.push({
+      auditedPaise: figure.auditedPaise,
+      booksPaise: line.booksPaise,
+      counterHeadId: figure.counterHeadId || null,
+      key: line.key,
+    });
+  }
+  return missing.length > 0 ? { missing, ok: false } : { lines, ok: true };
+}
+
+/** Whether the live books differ from the snapshot the page opened with. */
+export function booksChangedSince(
+  snapshot: readonly Pick<BalanceSheetLine, "booksPaise" | "key">[],
+  live: readonly Pick<BalanceSheetLine, "booksPaise" | "key">[]
+): boolean {
+  if (snapshot.length !== live.length) {
+    return true;
+  }
+  const then = new Map(snapshot.map((l) => [l.key, l.booksPaise]));
+  return live.some((l) => then.get(l.key) !== l.booksPaise);
 }

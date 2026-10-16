@@ -11,6 +11,8 @@ import {
   type CounterHeadType,
   type FundTransferInput,
   type PlanLine,
+  booksChangedSince,
+  buildAuditedPayload,
   planAuditedFigures,
 } from "@pi-dash/shared/audited-figures";
 import {
@@ -265,7 +267,7 @@ interface ArrayApi<T> {
 
 export function AuditedFiguresForm({
   balanceHeads,
-  booksLines,
+  liveLines,
   counterHeads,
   fiscalYearId,
   funds,
@@ -274,15 +276,24 @@ export function AuditedFiguresForm({
 }: {
   /** Active asset and liability heads, for added lines. */
   balanceHeads: readonly HeadOption[];
-  booksLines: readonly AuditedFormLine[];
+  /** The books' lines as they stand now (Zero, live). */
+  liveLines: readonly AuditedFormLine[];
   /** Active income and expense heads a difference may post against. */
   counterHeads: readonly HeadOption[];
   fiscalYearId: string;
   funds: readonly { id: string; name: string }[];
   /** Why this year can't post now (not ended, closed); the form still compares. */
-  postBlocker: string | null;
+  postBlocker: ReactNode | null;
   yearLabel: string;
 }) {
+  // The figures are typed against the books as they stood when the page
+  // opened: every input is keyed to a line of this snapshot, the payload is
+  // built from it, and it is what the server checks "unchanged" against.
+  // If the live books move, the treasurer refreshes it (typed figures follow
+  // their line's key) before posting.
+  const [snapshot, setSnapshot] = useState(liveLines);
+  const booksLines = snapshot;
+  const changed = booksChangedSince(snapshot, liveLines);
   const navigate = useNavigate();
   const postAudited = useServerFn(postAuditedFiguresFn);
   // One id per form, so a double submit posts once.
@@ -313,10 +324,27 @@ export function AuditedFiguresForm({
 
   const submit = useEventCallback(async (value: FormValues) => {
     const result = plan(value);
-    if (!result.canPost || postBlocker) {
+    const refusal =
+      (changed
+        ? "The books changed since you opened this page: refresh the figures first."
+        : null) ??
+      result.blockers[0]?.message ??
+      null;
+    if (refusal || postBlocker) {
+      toast.error("Couldn't post the audited figures", {
+        description: refusal ?? undefined,
+      });
       return;
     }
     const inputs = planInputs(value);
+    const payload = buildAuditedPayload(snapshot, inputs.audited);
+    if (!payload.ok) {
+      toast.error("Couldn't post the audited figures", {
+        description:
+          "Enter the audited figure for every line (0 when the statements show none)",
+      });
+      return;
+    }
     try {
       await postAudited({
         data: {
@@ -330,12 +358,7 @@ export function AuditedFiguresForm({
           caName: value.caName.trim(),
           fiscalYearId,
           id: documentId,
-          lines: booksLines.map((l, index) => ({
-            auditedPaise: inputs.audited[index]?.auditedPaise ?? 0,
-            booksPaise: l.booksPaise,
-            counterHeadId: inputs.audited[index]?.counterHeadId || null,
-            key: l.key,
-          })),
+          lines: payload.lines,
           signedOn: format(value.signedOn as Date, ISO_DATE),
           transfers: inputs.transfers,
         },
@@ -367,6 +390,22 @@ export function AuditedFiguresForm({
     },
     submit
   );
+
+  const refresh = () => {
+    const typed = new Map(form.state.values.lines.map((l) => [l.key, l]));
+    form.setFieldValue(
+      "lines",
+      liveLines.map(
+        (l) =>
+          typed.get(l.key) ?? {
+            amount: "",
+            counterHeadId: undefined,
+            key: l.key,
+          }
+      )
+    );
+    setSnapshot(liveLines);
+  };
 
   const lineRow = (line: AuditedFormLine, planLine: PlanLine | undefined) => {
     const index = indexOf.get(line.key) ?? 0;
@@ -460,6 +499,21 @@ export function AuditedFiguresForm({
 
   return (
     <FormLayout className="grid max-w-4xl gap-8" form={form}>
+      {changed ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm"
+          data-testid="audited-books-changed"
+          role="status"
+        >
+          <span>
+            The books changed since you opened this page. Refresh to compare
+            your figures with the books as they are now.
+          </span>
+          <Button onClick={refresh} size="sm" type="button" variant="outline">
+            Refresh
+          </Button>
+        </div>
+      ) : null}
       <form.Subscribe selector={(state) => state.values}>
         {(values) => {
           const result = plan(values);
@@ -526,7 +580,7 @@ export function AuditedFiguresForm({
       <form.Subscribe selector={(state) => state.values}>
         {(values) => (
           <FormActions
-            disabled={postBlocker !== null || !plan(values).canPost}
+            disabled={changed || postBlocker !== null || !plan(values).canPost}
             onCancel={() =>
               navigate({
                 search: { year: yearLabel } as never,

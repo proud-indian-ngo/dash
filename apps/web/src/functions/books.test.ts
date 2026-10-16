@@ -288,7 +288,12 @@ describe("books server functions", () => {
       id: DOC,
       reason: "Private reason text",
     });
-    expect(calls).toEqual(["postAudited", "skipAudited", "reverseAudited"]);
+    expect(calls).toEqual([
+      "postAudited",
+      "skipAudited",
+      "reverseAudited",
+      "queueAfterReopen",
+    ]);
     expect(audits).toEqual([
       {
         action: "books.audited_figures.post",

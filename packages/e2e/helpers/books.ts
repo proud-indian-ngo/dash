@@ -101,8 +101,11 @@ import { uuidv7 } from "uuidv7";
  *   real posting, as if the day after the year ended (a running year can't
  *   post in the UI): the books' figures, less 20 of depreciation on the
  *   E2E sewing machine and with the audit fee payable written back, the
- *   General Fund moving with them. Reports the lines' audited figures.
- * - `reverse-audited <label>`: reverses the standing audited figures, if any.
+ *   General Fund moving with them. The year's records are posted first
+ *   and what other specs leave waiting is set aside, as for close-year.
+ *   Reports the lines' audited figures.
+ * - `reverse-audited <label>`: reverses the standing audited figures, if
+ *   any, and posts what waited for the year meanwhile.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -623,6 +626,8 @@ async function reverseAudited(label: string) {
       { actorId }
     )
   );
+  // What other specs recorded meanwhile waited for the match: post it now.
+  await postPendingForYear(year.id, { actorId, deadline: Date.now() + 60_000 });
   return { id: standing.id, reversed: true };
 }
 
@@ -694,7 +699,23 @@ async function postAudited(label: string) {
   const signedOn = new Date(`${year.endsOn}T00:00:00Z`);
   signedOn.setUTCDate(signedOn.getUTCDate() + 1);
   const actorId = await anyUserId();
+  // As the close step does: post the year's records, then set aside what
+  // other specs leave waiting (a match refuses while anything waits).
+  await postPendingForYear(year.id, {
+    actorId,
+    deadline: Date.now() + 60_000,
+  });
   return await db.transaction(async (tx) => {
+    await tx
+      .update(ledgerSourceState)
+      .set({ reason: null, status: "none" })
+      .where(
+        and(
+          eq(ledgerSourceState.status, "waiting"),
+          gte(ledgerSourceState.economicOn, year.startsOn),
+          lte(ledgerSourceState.economicOn, year.endsOn)
+        )
+      );
     const { lines } = await loadBalanceSheetLines(tx, year.endsOn);
     const asset = lines.find(
       (l) => l.accountHeadId === FIXED_ASSETS_HEAD_ID && l.memo === E2E_ASSET

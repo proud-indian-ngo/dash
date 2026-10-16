@@ -17,6 +17,8 @@ import { isSafePaise } from "@pi-dash/shared/money";
 export type LedgerErrorCode =
   | "before_cutover"
   | "closed_year"
+  /** The year's audited figures are matched (the engine treats it like a closed year). */
+  | "matched_year"
   | "empty"
   | "invalid"
   | "invalid_amount"

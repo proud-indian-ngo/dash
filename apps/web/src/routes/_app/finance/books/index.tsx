@@ -27,18 +27,19 @@ import {
   accountBalances,
   type BalanceLine,
   balanceSummary,
-  BOOKS_VIEW_PERMISSIONS,
+  BOOKS_PAGE_PERMISSIONS,
   booksAsOf,
   LEDGER_CUTOVER_ON,
 } from "@pi-dash/shared/ledger";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { useState } from "react";
 
 import { AccountsRail } from "@/components/books/accounts-rail";
+import { auditedDriftCount } from "@/components/books/audited-lines";
 import { BalanceSummaryTab } from "@/components/books/balance-summary-tab";
 import {
   CaWorkbookLabel,
@@ -74,7 +75,7 @@ type BookTab = (typeof BOOK_TABS)[number];
 
 export const Route = createFileRoute("/_app/finance/books/")({
   beforeLoad: ({ context }) =>
-    assertAnyPermission(context, ...BOOKS_VIEW_PERMISSIONS),
+    assertAnyPermission(context, ...BOOKS_PAGE_PERMISSIONS),
   component: BooksPage,
   head: () => ({
     meta: [{ title: `Books | ${env.VITE_APP_NAME}` }],
@@ -179,6 +180,7 @@ function BooksPage() {
   });
 
   const lastEvent = yearEvents.find((e) => e.fiscalYearId === year.id);
+  const driftCount = books.auditedLoading ? 0 : auditedDriftCount(books, year);
   const canPostOpening = hasPermission("finance.post_opening");
   const openOpening = () => navigate({ to: "/finance/books/opening" });
 
@@ -295,6 +297,24 @@ function BooksPage() {
           {format(lastEvent.occurredAt, DATE_TIME)}
           {lastEvent.actor ? ` by ${lastEvent.actor.name}` : ""}
           {lastEvent.reason ? `: ${lastEvent.reason}` : ""}
+        </p>
+      ) : null}
+      {driftCount > 0 ? (
+        <p
+          className="text-warning-foreground mt-3 rounded-lg border px-3 py-2.5 text-sm"
+          data-testid="audited-drift-banner"
+          role="status"
+        >
+          The books changed since FY {year.label}'s audited figures were
+          matched: {driftCount} line{driftCount === 1 ? "" : "s"} no longer
+          equal them.{" "}
+          <Link
+            className="underline underline-offset-4"
+            search={{ year: year.label } as never}
+            to="/finance/books/audited"
+          >
+            Open the audited figures
+          </Link>
         </p>
       ) : null}
       <WaitingToPost canPost={canPostPending} />

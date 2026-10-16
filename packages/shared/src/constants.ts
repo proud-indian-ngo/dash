@@ -230,11 +230,17 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
    */
   depreciation: "01930000-0000-7000-8000-000000000840",
   /**
-   * Audited figures: the other side of every other year-end correction the
-   * CA made (a provision written back, a new provision, an asset written
-   * up), unless the treasurer picks another income or expense head.
+   * Audited figures: the other side of a correction that lowers the
+   * surplus (a new provision, an asset written down other than a fixed
+   * asset's depreciation), unless the treasurer picks another head.
    */
   yearEndAdjustments: "01930000-0000-7000-8000-000000000841",
+  /**
+   * Audited figures: the other side of a correction that raises the
+   * surplus (a provision written back, an asset written up), unless the
+   * treasurer picks another head. Lowering ones use `yearEndAdjustments`.
+   */
+  yearEndAdjustmentsIncome: "01930000-0000-7000-8000-000000000843",
   /** Audited figures: money the CA moved from one fund to another. */
   fundTransfers: "01930000-0000-7000-8000-000000000842",
 } as const;

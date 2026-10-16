@@ -167,6 +167,11 @@ export const LEDGER_WAIT_REASONS = {
   closedYear: "year_closed",
   error: "error",
   /**
+   * The year's audited figures are matched, which freezes it like a close:
+   * reverse them (Books → Audited figures) to let the record post.
+   */
+  matchedYear: "audited_figures_matched",
+  /**
    * An accepted vendor invoice larger than the request's approved payments
    * (lines raised, or a payment rejected or deleted, after the invoice):
    * posting it would leave the books unbalanced, so it waits until the
@@ -214,6 +219,8 @@ export type LedgerWaitReason =
 export const LEDGER_WAIT_REASON_LABELS: Record<LedgerWaitReason, string> = {
   bank_debit_across_cutover:
     "Its bank debit and the day it posts on fall on either side of 1 Apr 2026: ask the CA how it posts",
+  audited_figures_matched:
+    "The year's audited figures are matched: reverse them on Books → Audited figures to post into it",
   error: "Couldn't post",
   invoice_exceeds_payments:
     "The invoice is more than the approved payments: record the missing payment or correct the lines",
@@ -294,6 +301,17 @@ export const BOOKS_PERMISSIONS = {
 export const BOOKS_VIEW_PERMISSIONS = [
   "finance.view",
   "finance.manage",
+] as const;
+
+/**
+ * Who may open the Books page and see it in the navigation: book readers,
+ * and the treasurer's permissions that read the books to act on them (as
+ * the Zero books queries admit).
+ */
+export const BOOKS_PAGE_PERMISSIONS = [
+  ...BOOKS_VIEW_PERMISSIONS,
+  "finance.post_opening",
+  "finance.adjust",
 ] as const;
 
 export const signedPaise = (effect: LedgerEffect, amountPaise: number) =>

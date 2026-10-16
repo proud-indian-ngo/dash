@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  auditedDrift,
   auditedLineKey,
+  booksChangedSince,
+  buildAuditedPayload,
   type AuditedLineInput,
   balanceSheetLines,
   type BalanceSheetLine,
@@ -129,7 +132,11 @@ function effectOnBooks(plan: ReturnType<typeof planAuditedFigures>) {
     } else if (e.accountHeadId === H.fundTransfers) {
       funds += signed;
     } else {
-      const headType = e.accountHeadId === "income-head" ? "income" : "expense";
+      const headType =
+        e.accountHeadId === "income-head" ||
+        e.accountHeadId === H.yearEndAdjustmentsIncome
+          ? "income"
+          : "expense";
       funds +=
         surplusPaiseOf({
           amountPaise: e.amountPaise,
@@ -160,7 +167,7 @@ describe("planAuditedFigures", () => {
     ).toBe(true);
   });
 
-  it("posts a fixed asset carried at less as depreciation against the asset, and a provision written back as a negative year-end adjustment", () => {
+  it("posts a fixed asset carried at less as depreciation against the asset, and a provision written back as year-end adjustment income", () => {
     const asset = BOOKS[2] as BalanceSheetLine;
     const liability = keyOf("liability", H.auditFeesPayable);
     const general = keyOf("fund", GENERAL_FUND_ID);
@@ -184,7 +191,7 @@ describe("planAuditedFigures", () => {
       treatment: "depreciation",
     });
     expect(plan.lines.find((l) => l.key === liability)).toMatchObject({
-      counterHead: { id: H.yearEndAdjustments },
+      counterHead: { id: H.yearEndAdjustmentsIncome, type: "income" },
       differencePaise: -100_00,
       treatment: "adjustment",
     });
@@ -211,9 +218,9 @@ describe("planAuditedFigures", () => {
         memo: "Per audited accounts: Audit fees payable",
       },
       {
-        accountHeadId: H.yearEndAdjustments,
+        accountHeadId: H.yearEndAdjustmentsIncome,
         amountPaise: 100_00,
-        effect: "decrease",
+        effect: "increase",
         fundId: GENERAL_FUND_ID,
         memo: "Per audited accounts: Audit fees payable",
       },
@@ -242,9 +249,11 @@ describe("planAuditedFigures", () => {
       books: BOOKS,
       counterHeads: new Map([["income-head", "income"]]),
     });
-    expect(plan.lines.find((l) => l.key === asset.key)?.treatment).toBe(
-      "adjustment"
-    );
+    // Written up: raises the surplus, so year-end adjustment income.
+    expect(plan.lines.find((l) => l.key === asset.key)).toMatchObject({
+      counterHead: { id: H.yearEndAdjustmentsIncome, type: "income" },
+      treatment: "adjustment",
+    });
     expect(plan.lines.find((l) => l.key === advances)?.counterHead).toEqual({
       id: "income-head",
       type: "income",
@@ -528,5 +537,127 @@ describe("balanceSheetLines", () => {
       [`fund:${CORPUS_FUND_ID}`, 0],
       [`fund:${GENERAL_FUND_ID}`, 500_00],
     ]);
+  });
+});
+
+describe("auditedDrift", () => {
+  it("is empty while the books equal the matched figures", () => {
+    expect(
+      auditedDrift(
+        [{ auditedPaise: 100, key: "a" }],
+        [
+          { booksPaise: 100, key: "a" },
+          { booksPaise: 0, key: "new-empty-account" },
+        ]
+      )
+    ).toEqual([]);
+  });
+
+  it("flags a moved line, a vanished one and one that appeared since", () => {
+    expect(
+      auditedDrift(
+        [
+          { auditedPaise: 100, key: "a" },
+          { auditedPaise: 50, key: "gone" },
+        ],
+        [
+          { booksPaise: 90, key: "a" },
+          { booksPaise: 7, key: "new" },
+        ]
+      )
+    ).toEqual([
+      { auditedPaise: 100, key: "a", nowPaise: 90 },
+      { auditedPaise: 50, key: "gone", nowPaise: 0 },
+      { auditedPaise: null, key: "new", nowPaise: 7 },
+    ]);
+  });
+});
+
+describe("buildAuditedPayload", () => {
+  const snapshot = [
+    { booksPaise: 100, key: "account:a" },
+    { booksPaise: 200, key: "asset:h:Machine" },
+    { booksPaise: 300, key: "fund:g" },
+  ];
+
+  it("pairs each snapshot line with the figure typed against its key, whatever the order", () => {
+    const payload = buildAuditedPayload(snapshot, [
+      { auditedPaise: 3, key: "fund:g" },
+      { auditedPaise: 1, key: "account:a" },
+      { auditedPaise: 2, counterHeadId: "head", key: "asset:h:Machine" },
+    ]);
+    expect(payload).toEqual({
+      lines: [
+        {
+          auditedPaise: 1,
+          booksPaise: 100,
+          counterHeadId: null,
+          key: "account:a",
+        },
+        {
+          auditedPaise: 2,
+          booksPaise: 200,
+          counterHeadId: "head",
+          key: "asset:h:Machine",
+        },
+        {
+          auditedPaise: 3,
+          booksPaise: 300,
+          counterHeadId: null,
+          key: "fund:g",
+        },
+      ],
+      ok: true,
+    });
+  });
+
+  it("refuses while a snapshot line has no figure, and ignores figures for lines it doesn't hold", () => {
+    expect(
+      buildAuditedPayload(snapshot, [
+        { auditedPaise: 1, key: "account:a" },
+        { auditedPaise: null, key: "asset:h:Machine" },
+        { auditedPaise: 9, key: "asset:h:" },
+      ])
+    ).toEqual({ missing: ["asset:h:Machine", "fund:g"], ok: false });
+    const payload = buildAuditedPayload(snapshot, [
+      { auditedPaise: 1, key: "account:a" },
+      { auditedPaise: 2, key: "asset:h:Machine" },
+      { auditedPaise: 3, key: "fund:g" },
+      { auditedPaise: 9, key: "account:new" },
+    ]);
+    expect(payload.ok && payload.lines.map((l) => l.key)).toEqual([
+      "account:a",
+      "asset:h:Machine",
+      "fund:g",
+    ]);
+  });
+});
+
+describe("booksChangedSince", () => {
+  const snapshot = [
+    { booksPaise: 100, key: "a" },
+    { booksPaise: 200, key: "b" },
+  ];
+  it("ignores order but sees a changed figure, a new line and a dropped one", () => {
+    expect(booksChangedSince(snapshot, [...snapshot].reverse())).toBe(false);
+    expect(
+      booksChangedSince(snapshot, [
+        { booksPaise: 100, key: "a" },
+        { booksPaise: 201, key: "b" },
+      ])
+    ).toBe(true);
+    expect(
+      booksChangedSince(snapshot, [...snapshot, { booksPaise: 0, key: "c" }])
+    ).toBe(true);
+    expect(booksChangedSince(snapshot, [{ booksPaise: 100, key: "a" }])).toBe(
+      true
+    );
+    // A fixed asset first synced on its head's other line, then by its name.
+    expect(
+      booksChangedSince(
+        [{ booksPaise: 100, key: "asset:h:" }],
+        [{ booksPaise: 100, key: "asset:h:Machine" }]
+      )
+    ).toBe(true);
   });
 });
