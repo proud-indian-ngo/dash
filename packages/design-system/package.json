@@ -15,7 +15,7 @@
     "@dnd-kit/utilities": "catalog:",
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
-    "@proudindian/design": "github:proud-indian-ngo/design#v0.3.4",
+    "@proudindian/design": "github:proud-indian-ngo/design#v0.4.0",
     "@tanstack/react-table": "^9.3.1",
     "@tanstack/react-virtual": "^3.14.20",
     "class-variance-authority": "^0.7.1",
