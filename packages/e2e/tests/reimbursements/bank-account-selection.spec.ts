@@ -72,6 +72,22 @@ async function selectBankAccountOption(
   await expect(bankAccountGroup.getByRole("combobox")).toContainText(lastFour);
 }
 
+/**
+ * Makes an account the default and waits for the server to confirm it (the
+ * toast follows the server result, the badge is only optimistic), so leaving
+ * the page can't cut the change off.
+ */
+async function setDefaultOnServer(
+  page: import("@playwright/test").Page,
+  card: import("@playwright/test").Locator
+): Promise<void> {
+  await card.getByRole("button", { name: "Set default" }).click();
+  await expect(page.getByText("Default bank account set")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(card.getByText("Default", { exact: true })).toBeVisible();
+}
+
 async function deleteDuplicateAccounts(
   page: import("@playwright/test").Page,
   dialog: import("@playwright/test").Locator,
@@ -96,16 +112,16 @@ async function deleteDuplicateAccounts(
       .isVisible()
       .catch(() => false))
   ) {
-    await seedCard.getByRole("button", { name: "Set default" }).click();
-    await expect(seedCard.getByText("Default", { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    await setDefaultOnServer(page, seedCard);
   }
   await card.first().getByRole("button", { name: "Delete account" }).click();
-  const confirmBtn = page
-    .getByRole("alertdialog")
-    .getByRole("button", { name: "Delete" });
-  await confirmBtn.click({ timeout: 5000 });
+  const confirm = page.getByRole("alertdialog");
+  await confirm
+    .getByRole("button", { name: "Delete" })
+    .click({ timeout: 5000 });
+  // The dialog closes once the server has deleted the account, so the next
+  // copy of this test (which waits for the lock) never races this one.
+  await expect(confirm).toBeHidden({ timeout: 15_000 });
   await expect(card).toHaveCount(count - 1, { timeout: 10_000 });
 
   await deleteDuplicateAccounts(page, dialog, duplicateLast4, seedLast4);
@@ -262,31 +278,7 @@ test.describe("Bank account selection with duplicate names", () => {
     });
 
     // Step 2: Set the new account as default
-    await accountCard(dialog, duplicateLast4)
-      .first()
-      .getByRole("button", { name: "Set default" })
-      .click();
-
-    // Wait for the Default badge to appear on the new account card
-    await expect(
-      accountCard(dialog, duplicateLast4)
-        .first()
-        .getByText("Default", { exact: true })
-    ).toBeVisible({ timeout: 10_000 });
-
-    // The badge is optimistic. Reload until the server has the new default
-    // too, so leaving the page can't cut off the pending mutation.
-    await expect(async () => {
-      const reloaded = await navigateToBanking(page);
-      const card = accountCard(reloaded, duplicateLast4).first();
-      const setDefault = card.getByRole("button", { name: "Set default" });
-      if (await setDefault.isVisible().catch(() => false)) {
-        await setDefault.click();
-      }
-      await expect(card.getByText("Default", { exact: true })).toBeVisible({
-        timeout: 3000,
-      });
-    }).toPass({ timeout: 30_000 });
+    await setDefaultOnServer(page, accountCard(dialog, duplicateLast4).first());
 
     // Step 3: Open new reimbursement form and verify the default account is selected
     const reimbursements = new ReimbursementPage(page, "reimbursement");
