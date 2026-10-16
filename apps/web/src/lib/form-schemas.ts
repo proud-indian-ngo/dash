@@ -7,7 +7,6 @@ import {
   PAYEE_PHONE_MESSAGE,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
-import { cityValues } from "@pi-dash/shared/constants";
 import {
   MAX_AMOUNT_MESSAGE,
   MAX_AMOUNT_PAISE,
@@ -16,17 +15,11 @@ import {
   sumPaise,
   tryRupeesToPaise,
 } from "@pi-dash/shared/money";
-import capitalize from "lodash/capitalize";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 export const MAX_ATTACHMENT_FILES = 10;
 export const ATTACHMENT_ACCEPT = "image/*,application/pdf";
-
-export const cityOptions = cityValues.map((value) => ({
-  label: capitalize(value),
-  value,
-}));
 
 /** A positive rupee amount typed into a form, within the per-item limit. */
 export const positiveRupeesSchema = z

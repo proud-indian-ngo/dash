@@ -13,6 +13,7 @@ import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
+import { useRequestCity } from "@/components/expenses/use-request-city";
 import { FormLayout } from "@/components/form/form-layout";
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
@@ -128,6 +129,10 @@ function ReimbursementFormInner({
     ? claimantBankAccountsResult
     : ownBankAccountsResult;
   const [events] = useQuery(queries.teamEvent.allAccessible());
+  const { cityOptions, defaultCostCentreId, listsEvent } = useRequestCity(
+    initialValues,
+    isEdit
+  );
 
   const entityId = existingId ?? uuidv7();
 
@@ -135,15 +140,10 @@ function ReimbursementFormInner({
   const bankAccountList = (bankAccounts ?? []) as BankAccount[];
   const eventList = (events ?? []) as TeamEvent[];
 
-  function getFilteredEventOptions(selectedCity: string | undefined) {
-    const filtered = selectedCity
-      ? eventList.filter((e) => e.city === selectedCity)
-      : eventList;
-    return filtered.map((e) => ({
-      label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
-      value: e.id,
-    }));
-  }
+  const eventOptions = eventList.filter(listsEvent).map((e) => ({
+    label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
+    value: e.id,
+  }));
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: bankAccountOptionLabel(account),
@@ -166,6 +166,7 @@ function ReimbursementFormInner({
 
   const defaultValues: RequestFormValues = {
     ...getDefaultValues(requestType),
+    costCentreId: defaultCostCentreId,
     ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
       ? bankAccountFormFields(defaultBankAccount)
       : {}),
@@ -177,8 +178,8 @@ function ReimbursementFormInner({
 
   const voucherLimitPaise = useCashVoucherLimit();
   const requestFormSchema = useMemo(
-    () => createRequestFormSchema(voucherLimitPaise),
-    [voucherLimitPaise]
+    () => createRequestFormSchema(voucherLimitPaise, cityOptions.length > 1),
+    [voucherLimitPaise, cityOptions.length]
   );
 
   const form = useForm({
@@ -279,14 +280,12 @@ function ReimbursementFormInner({
       values: {
         bankAccountNumber?: string;
         bankAccountUpiId?: string;
-        city?: string;
-        eventId?: string;
+        chargedTo?: string;
       };
     }) => ({
       bankAccountNumber: state.values.bankAccountNumber,
       bankAccountUpiId: state.values.bankAccountUpiId,
-      city: state.values.city,
-      eventId: state.values.eventId,
+      chargedTo: state.values.chargedTo,
     })
   );
   // The picker also fills in an account on its own when the stored one
@@ -326,16 +325,9 @@ function ReimbursementFormInner({
         />
       ) : null}
       <form.Subscribe selector={stableSelector0}>
-        {({
-          bankAccountNumber,
-          bankAccountUpiId,
-          city: selectedCity,
-          eventId,
-        }) => {
-          const filteredOptions = getFilteredEventOptions(selectedCity);
-          if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
-            setTimeout(() => form.setFieldValue("eventId", undefined), 0);
-          }
+        {({ bankAccountNumber, bankAccountUpiId, chargedTo }) => {
+          // On an event, the claim takes the event's city: no picker.
+          const showsCity = cityOptions.length > 1 && chargedTo !== "event";
           return (
             <StandardReimbursementFields
               bankAccountList={bankAccountList}
@@ -346,9 +338,10 @@ function ReimbursementFormInner({
               bankAccountOptions={bankAccountOptions}
               bankAccountsStatus={bankAccountsStatus}
               categoryList={categoryList}
+              cityOptions={showsCity ? cityOptions : []}
               currentChargeProgramme={currentChargeProgramme}
               disableBankAccountSelection={disableBankAccountSelection}
-              eventOptions={filteredOptions}
+              eventOptions={eventOptions}
               form={form}
               isEdit={isEdit}
               onBankAccountSelected={handleBankAccountSelected}

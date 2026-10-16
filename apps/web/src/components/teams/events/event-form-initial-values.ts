@@ -48,7 +48,7 @@ function buildEventEditInitialValues(
   // Prefill what the row shows today, including what an exception inherits.
   const social = deriveSocialFacts(event, seriesParent);
   return {
-    city: event.city,
+    costCentreId: event.costCentreId,
     description: event.description,
     endTime: event.endTime,
     feedbackDeadline: event.feedbackDeadline,
@@ -147,7 +147,7 @@ export function buildEventDuplicateInitialValues(
 ) {
   const social = deriveSocialFacts(event, seriesParent);
   return {
-    city: event.city,
+    costCentreId: event.costCentreId,
     description: event.description,
     endTime: event.endTime,
     feedbackDeadline: event.feedbackDeadline,

@@ -145,7 +145,7 @@ export class ReimbursementPage {
     await this.form.selectBankAccount();
     await this.form.fillTitle(title);
     if (event && "name" in event) {
-      await selectRequestEvent(this.page, event.name, event.city);
+      await selectRequestEvent(this.page, event.name);
     } else if (event) {
       await this.form.selectCity("Bangalore");
       await chargeRequestToProgramme(this.page, event.programme);

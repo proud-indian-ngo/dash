@@ -29,7 +29,7 @@ const validReimbursement = {
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
   chargedTo: "organisation" as const,
-  city: "bangalore" as const,
+  costCentreId: "cc-blr",
   expenseDate: new Date(2025, 5, 1),
   lineItems: [validLineItem],
   title: "Monthly Reimbursement",
@@ -41,7 +41,7 @@ const validAdvancePayment = {
   bankAccountIfscCode: "HDFC0001234",
   bankAccountName: "HDFC Savings",
   bankAccountNumber: "1234567890",
-  city: "mumbai" as const,
+  costCentreId: "cc-blr",
   lineItems: [validLineItem],
   title: "Travel Advance",
   type: "advance_payment" as const,
@@ -99,12 +99,17 @@ describe("reimbursementRequestFormSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects undefined city", () => {
-    const result = reimbursementRequestFormSchema.safeParse({
-      ...validReimbursement,
-      city: undefined,
-    });
-    expect(result.success).toBe(false);
+  it("asks for the city only when there is a choice and no event", () => {
+    const noCity = { ...validReimbursement, costCentreId: undefined };
+    // One active centre: the server takes it.
+    expect(reimbursementRequestFormSchema.safeParse(noCity).success).toBe(true);
+    const asking = createReimbursementRequestFormSchema(100_000, true);
+    expect(asking.safeParse(noCity).success).toBe(false);
+    // On an event, the event's city counts.
+    expect(
+      asking.safeParse({ ...noCity, chargedTo: "event", eventId: "event-1" })
+        .success
+    ).toBe(true);
   });
 
   it("rejects empty line items", () => {
@@ -165,12 +170,14 @@ describe("advancePaymentRequestFormSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects undefined city", () => {
-    const result = advancePaymentRequestFormSchema.safeParse({
-      ...validAdvancePayment,
-      city: undefined,
-    });
-    expect(result.success).toBe(false);
+  it("asks for the city when there is a choice", () => {
+    const noCity = { ...validAdvancePayment, costCentreId: undefined };
+    expect(advancePaymentRequestFormSchema.safeParse(noCity).success).toBe(
+      true
+    );
+    expect(
+      createRequestFormSchema(100_000, true).safeParse(noCity).success
+    ).toBe(false);
   });
 
   it("rejects empty line items", () => {

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { COST_CENTRE_IDS, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { rupeesToPaise } from "@pi-dash/shared/money";
 import { S3Client } from "bun";
 import { eq, ne } from "drizzle-orm";
@@ -462,12 +462,13 @@ async function processSequentially<T>(
   }, Promise.resolve());
 }
 
-function mapCity(cityId: number | null): "bangalore" | "mumbai" | null {
+/** The old city id as the cost centre that replaced it. */
+function mapCostCentre(cityId: number | null): string | null {
   if (cityId === 225) {
-    return "bangalore";
+    return COST_CENTRE_IDS.bangalore;
   }
   if (cityId === 329) {
-    return "mumbai";
+    return COST_CENTRE_IDS.mumbai;
   }
   return null;
 }
@@ -828,7 +829,7 @@ async function insertReimbursementRow(
     // Legacy claims carry no event; finance clears them from Unallocated.
     chargedProgrammeId: PROGRAMME_IDS.unallocated,
     chargedTo: "programme",
-    city: mapCity(r.city_belongs_to),
+    costCentreId: mapCostCentre(r.city_belongs_to),
     expenseDate: resolveExpenseDate(r),
     id: newId,
     status,
@@ -993,7 +994,7 @@ async function insertAdvancePaymentRow(
   updatedAt: Date
 ): Promise<void> {
   const status = mapAdvancePaymentStatus(ap.advance_amount_status);
-  const city = mapCity(ap.city_belongs_to);
+  const costCentreId = mapCostCentre(ap.city_belongs_to);
   const bankSnapshot = buildBankSnapshot(ap.bank_detail_id, bankById);
   const reviewedBy = ap.poc_id ? userMap.get(ap.poc_id) : null;
   const reviewedAt =
@@ -1002,7 +1003,7 @@ async function insertAdvancePaymentRow(
       : null;
 
   await tx.insert(schema.advancePayment).values({
-    city,
+    costCentreId,
     id: newId,
     status,
     title: ap.name.trim(),

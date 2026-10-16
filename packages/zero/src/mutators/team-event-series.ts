@@ -1,4 +1,4 @@
-import type { City, ReminderTarget } from "@pi-dash/shared/constants";
+import type { ReminderTarget } from "@pi-dash/shared/constants";
 
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
@@ -48,6 +48,7 @@ export function buildExceptionInsert(
     postRsvpPoll: boolean;
     rsvpPollLeadMinutes: number;
     postEventNudgesEnabled: boolean;
+    costCentreId: string;
     programmeId: string;
     reminderIntervals: number[] | null;
     reminderTarget: string;
@@ -59,7 +60,7 @@ export function buildExceptionInsert(
 ) {
   return {
     cancelledAt: overrides.cancelledAt ?? null,
-    city: series.city,
+    costCentreId: overrides.costCentreId ?? series.costCentreId,
     createdAt: now,
     createdBy,
     description: overrides.description ?? series.description ?? null,
@@ -106,7 +107,7 @@ export function buildExceptionInsert(
 }
 
 export interface UpdateArgs {
-  city?: City;
+  costCentreId?: string;
   description?: string;
   endTime?: number;
   feedbackDeadline?: number | null;
@@ -140,7 +141,9 @@ export function buildUpdateFields(args: UpdateArgs) {
     ...(args.publicArea !== undefined && {
       publicArea: args.publicArea || null,
     }),
-    ...(args.city !== undefined && { city: args.city }),
+    ...(args.costCentreId !== undefined && {
+      costCentreId: args.costCentreId,
+    }),
     ...(args.programmeId !== undefined && { programmeId: args.programmeId }),
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
@@ -231,6 +234,7 @@ export async function updateSeriesThis(
     now: number;
     originalDate?: string;
     newExceptionId?: string;
+    costCentreId?: string;
     name?: string;
     description?: string;
     location?: string;
@@ -267,6 +271,7 @@ export async function updateSeriesThis(
         userId,
         args.now,
         {
+          costCentreId: args.costCentreId,
           description: args.description,
           endTime: args.endTime,
           feedbackDeadline: args.feedbackDeadline,
@@ -297,6 +302,7 @@ export async function updateSeriesFollowing(
     now: number;
     originalDate: string;
     newSeriesId: string;
+    costCentreId?: string;
     name?: string;
     description?: string;
     location?: string;
@@ -337,7 +343,7 @@ export async function updateSeriesFollowing(
   const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
   await tx.mutate.teamEvent.insert({
     cancelledAt: null,
-    city: existing.city,
+    costCentreId: args.costCentreId ?? existing.costCentreId,
     createdAt: args.now,
     createdBy: userId,
     description: args.description ?? existing.description ?? null,

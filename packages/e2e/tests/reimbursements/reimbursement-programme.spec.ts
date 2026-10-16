@@ -46,6 +46,10 @@ test.describe("Reimbursement charged to", () => {
     await expect(
       page.getByText(`Programme · ${PROGRAMME_EVENT.programme}`)
     ).toBeVisible();
+    // The claim asked for no city: it shows its event's.
+    await expect(
+      page.getByText(PROGRAMME_EVENT.city, { exact: true })
+    ).toBeVisible();
     const admin = await reimbursements.createReimbursement(`${tag} Admin`);
     // The header says "Admin", not "Programme · Admin".
     await expect(
@@ -62,6 +66,7 @@ test.describe("Reimbursement charged to", () => {
     const eventRow = reimbursements.list.getRowByText(withEvent);
     const adminRow = reimbursements.list.getRowByText(admin);
     await expect(eventRow).toContainText(PROGRAMME_EVENT.programme);
+    await expect(eventRow).toContainText(PROGRAMME_EVENT.city);
     await expect(adminRow).toContainText("Admin");
     await expect(adminRow).not.toContainText("No event");
 

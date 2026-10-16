@@ -7,7 +7,7 @@ describe("advancePayment mutator schemas", () => {
     it("accepts valid input", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "bangalore",
+        costCentreId: "cc-blr",
         id: "ap-1",
         lineItems: [
           {
@@ -52,10 +52,10 @@ describe("advancePayment mutator schemas", () => {
       expect(result.success).toBe(false);
     });
 
-    it("accepts valid city enum value", () => {
+    it("accepts a cost centre id", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "mumbai",
+        costCentreId: "cc-mum",
         id: "ap-1",
         lineItems: [],
         title: "Test",
@@ -63,10 +63,10 @@ describe("advancePayment mutator schemas", () => {
       expect(result.success).toBe(true);
     });
 
-    it("rejects invalid city enum value", () => {
+    it("rejects a cost centre that is not an id string", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "delhi",
+        costCentreId: 42,
         id: "ap-1",
         lineItems: [],
         title: "Test",

@@ -137,7 +137,8 @@ function VendorPaymentDetailRouteComponent() {
 
   const initialValues = {
     attachments: mapQuotationAttachmentsToFormValues(vendorPayment.attachments),
-    city: vendorPayment.city as "bangalore" | "mumbai",
+    // Its own city; one on an event takes the event's.
+    costCentreId: vendorPayment.costCentreId ?? undefined,
     id: vendorPayment.id as string,
     lineItems: mapLineItemsToFormValues(vendorPayment.lineItems),
     title: vendorPayment.title as string,

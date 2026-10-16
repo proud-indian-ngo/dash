@@ -22,6 +22,9 @@ function createDb(
   locked?: Row
 ) {
   const tables: Record<string, Row[]> = {
+    costCentre: [
+      { active: true, code: "BLR", id: "cc-blr", name: "Bangalore" },
+    ],
     appConfig: [],
     expenseCategory: [{ id: "cat-1", name: "Labour" }],
     reimbursement: [],
@@ -422,7 +425,7 @@ describe("reimbursement.update and the payee signature", () => {
   const args = (item: Row = {}, overrides: Row = {}) => ({
     attachments: [file("att-sig", SIGNATURE_KEY)],
     chargedTo: "organisation",
-    city: "bangalore",
+    costCentreId: "cc-blr",
     expenseDate: EXPENSE_DATE,
     id: "request-1",
     lineItems: [

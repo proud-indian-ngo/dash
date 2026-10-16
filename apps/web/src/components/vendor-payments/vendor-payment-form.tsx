@@ -5,12 +5,13 @@ import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fields";
 import { chargedToPayload } from "@/components/expenses/charged-to-schema";
+import { useRequestCity } from "@/components/expenses/use-request-city";
 import { FormLayout } from "@/components/form/form-layout";
 import { DATE } from "@/lib/date-formats";
 import { newLineItem, toLineItemsPayload } from "@/lib/form-schemas";
@@ -18,9 +19,9 @@ import { handleMutationResult } from "@/lib/mutation-result";
 
 import { VendorPaymentFields } from "./vendor-payment-fields";
 import {
+  createVendorPaymentFormSchema,
   getVendorPaymentDefaultValues,
   type VendorPaymentFormValues,
-  vendorPaymentFormSchema,
 } from "./vendor-payment-form.schema";
 
 export interface VendorPaymentFormProps {
@@ -61,16 +62,18 @@ export function VendorPaymentForm({
   }));
 
   const eventList = (events ?? []) as TeamEvent[];
-
-  function getFilteredEventOptions(selectedCity: string | undefined) {
-    const filtered = selectedCity
-      ? eventList.filter((e) => e.city === selectedCity)
-      : eventList;
-    return filtered.map((e) => ({
-      label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
-      value: e.id,
-    }));
-  }
+  const { cityOptions, defaultCostCentreId, listsEvent } = useRequestCity(
+    initialValues,
+    isEdit
+  );
+  const eventOptions = eventList.filter(listsEvent).map((e) => ({
+    label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
+    value: e.id,
+  }));
+  const vendorPaymentFormSchema = useMemo(
+    () => createVendorPaymentFormSchema(cityOptions.length > 1),
+    [cityOptions.length]
+  );
 
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
@@ -78,6 +81,7 @@ export function VendorPaymentForm({
     defaultValues: {
       ...getVendorPaymentDefaultValues(),
       ...initialValues,
+      ...(defaultCostCentreId ? { costCentreId: defaultCostCentreId } : {}),
       attachments: initialValues?.attachments ?? [],
       lineItems: initialValues?.lineItems ?? [newLineItem()],
     },
@@ -89,7 +93,11 @@ export function VendorPaymentForm({
 
       const payload = {
         attachments: value.attachments,
-        city: value.city,
+        // On an event the payment takes the event's city, so none is sent.
+        costCentreId:
+          value.chargedTo === "event"
+            ? undefined
+            : value.costCentreId || undefined,
         ...chargedToPayload(value),
         id,
         lineItems,
@@ -118,10 +126,7 @@ export function VendorPaymentForm({
     },
   });
   const stableSelector0 = useEventCallback(
-    (state: { values: { city?: string; eventId?: string } }) => ({
-      city: state.values.city,
-      eventId: state.values.eventId,
-    })
+    (state: { values: { chargedTo?: string } }) => state.values.chargedTo
   );
   const handleVendorCreated = useEventCallback((id: string) =>
     form.setFieldValue("vendorId", id)
@@ -134,16 +139,15 @@ export function VendorPaymentForm({
     <AppErrorBoundary level="section">
       <FormLayout className="flex flex-col gap-4" form={form}>
         <form.Subscribe selector={stableSelector0}>
-          {({ city: selectedCity, eventId }) => {
-            const filteredOptions = getFilteredEventOptions(selectedCity);
-            if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
-              setTimeout(() => form.setFieldValue("eventId", undefined), 0);
-            }
+          {(chargedTo) => {
+            // On an event, the payment takes the event's city: no picker.
+            const showsCity = cityOptions.length > 1 && chargedTo !== "event";
             return (
               <VendorPaymentFields
                 categoryList={categoryList}
+                cityOptions={showsCity ? cityOptions : []}
                 currentChargeProgramme={currentChargeProgramme}
-                eventOptions={filteredOptions}
+                eventOptions={eventOptions}
                 isEdit={isEdit}
                 onCancel={onCancel}
                 onVendorCreated={handleVendorCreated}

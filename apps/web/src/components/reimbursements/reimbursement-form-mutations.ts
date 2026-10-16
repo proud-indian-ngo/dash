@@ -86,7 +86,11 @@ export function buildMutation(
   );
   const basePayload = {
     attachments,
-    city: value.city,
+    // On an event the request takes the event's city, so none is sent.
+    costCentreId:
+      value.type === "reimbursement" && value.chargedTo === "event"
+        ? undefined
+        : value.costCentreId || undefined,
     id,
     lineItems,
     title: value.title,

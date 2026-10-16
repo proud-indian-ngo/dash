@@ -34,6 +34,7 @@ import { user } from "../schema/auth";
 import { eventInterest } from "../schema/event-interest";
 import { eventPartner } from "../schema/event-partner";
 import { eventPhoto } from "../schema/event-photo";
+import { costCentre } from "../schema/finance-dimensions";
 import {
   type SocialPostChannel,
   type SocialPostKind,
@@ -49,7 +50,9 @@ import { teamEvent, teamEventMember } from "../schema/team-event";
 const sourceColumns = {
   cancelledAt: teamEvent.cancelledAt,
   childrenAttended: teamEvent.childrenAttended,
-  city: teamEvent.city,
+  city: costCentre.code,
+  cityActive: costCentre.active,
+  cityName: costCentre.name,
   description: teamEvent.description,
   endTime: teamEvent.endTime,
   id: teamEvent.id,
@@ -77,7 +80,8 @@ function selectSource() {
   return db
     .select(sourceColumns)
     .from(teamEvent)
-    .innerJoin(team, eq(team.id, teamEvent.teamId));
+    .innerJoin(team, eq(team.id, teamEvent.teamId))
+    .innerJoin(costCentre, eq(costCentre.id, teamEvent.costCentreId));
 }
 
 type SourceSelect = Awaited<ReturnType<typeof selectSource>>[number];
@@ -214,7 +218,8 @@ async function loadPartners(
 }
 
 /**
- * Social events in a window: public, non-Kalakriti events in every city,
+ * Social events in a window: public, non-Kalakriti events in every active
+ * cost centre,
  * cancelled ones included, `from` not clamped to now.
  */
 export async function getSocialEvents(

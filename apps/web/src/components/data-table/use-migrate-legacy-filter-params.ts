@@ -14,6 +14,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 
 export interface LegacyFilterParamMapping {
+  /** Maps an old value to what the filter compares today. */
+  mapValue?: (value: string) => string;
   param: string;
   path: string;
 }
@@ -33,7 +35,7 @@ export function buildLegacyFilterQuery(
         id: `legacy-${mapping.param}`,
         operator: "is",
         path: [mapping.path],
-        value,
+        value: mapping.mapValue ? mapping.mapValue(value) : value,
       })
     );
   }

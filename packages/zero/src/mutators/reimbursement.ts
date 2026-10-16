@@ -9,7 +9,6 @@ import {
   parseCashVoucherLimit,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
-import { cityValues } from "@pi-dash/shared/constants";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   PAYEE_SIGNATURE_MIME_TYPE,
@@ -38,6 +37,10 @@ import {
   resolveClaimant,
   userName,
 } from "./claimant";
+import {
+  costCentreAfterRecharge,
+  pickRequestCostCentreId,
+} from "./cost-centre-pick";
 import {
   assertCanChangeCharge,
   chargeChangeNote,
@@ -136,7 +139,7 @@ export const createSchema = z.object({
     .optional()
     .refine((v) => !v?.trim() || isValidUpiHandle(v), UPI_HANDLE_MESSAGE),
   ...expenseChargeArgs,
-  city: z.enum(cityValues).optional(),
+  costCentreId: z.string().optional(),
   eventId: z.string().optional(),
   expenseDate: z
     .number()
@@ -432,7 +435,6 @@ const entityFields = (args: z.infer<typeof createSchema>) => ({
   bankAccountName: args.bankAccountName,
   bankAccountNumber: clearable(args.bankAccountNumber),
   bankAccountUpiId: clearable(args.bankAccountUpiId, normalizeUpiHandle),
-  city: args.city,
   expenseDate: args.expenseDate,
 });
 
@@ -984,6 +986,10 @@ export const reimbursementMutators = {
       : undefined;
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args);
+    const costCentreId = await pickRequestCostCentreId(tx, {
+      costCentreId: args.costCentreId,
+      eventId: charge.eventId,
+    });
     const voucherPlans = planVoucherFields({
       attachmentsAfter: [],
       attachmentsBefore: [],
@@ -1009,6 +1015,7 @@ export const reimbursementMutators = {
       ...entityFields(args),
       ...bank,
       ...charge,
+      costCentreId,
     });
 
     await insertRelations(
@@ -1304,11 +1311,17 @@ export const reimbursementMutators = {
     }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
+    const costCentreId = await costCentreAfterRecharge(
+      tx,
+      entity,
+      charge.eventId
+    );
     const now = Date.now();
     await tx.mutate.reimbursement.update({
       id: args.id,
       updatedAt: now,
       ...charge,
+      costCentreId,
     });
     await tx.mutate.reimbursementHistory.insert({
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
@@ -1367,6 +1380,11 @@ export const reimbursementMutators = {
     await lockReimbursement(tx, args.id);
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args, entity);
+    const costCentreId = await pickRequestCostCentreId(
+      tx,
+      { costCentreId: args.costCentreId, eventId: charge.eventId },
+      entity.costCentreId ?? null
+    );
     const [itemsBefore, attachmentsBefore] = await Promise.all([
       tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
       tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
@@ -1412,6 +1430,7 @@ export const reimbursementMutators = {
       updatedAt: now,
       ...entityFields(args),
       ...charge,
+      costCentreId,
     });
 
     await replaceRelations(

@@ -113,6 +113,7 @@ function editTx() {
     run: mock()
       .mockResolvedValueOnce({
         chargedTo: "organisation",
+        costCentreId: "cc-blr",
         status: "completed",
         title: "Statutory audit",
         userId: "user-2",

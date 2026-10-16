@@ -1,5 +1,6 @@
 import type { BalanceSheetLine } from "@pi-dash/shared/audited-figures";
 import {
+  COST_CENTRE_IDS,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -233,6 +234,7 @@ async function addInvoice(
   const paymentId = uuidv7();
   await tx.insert(vendorPayment).values({
     chargedTo: "organisation",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: NOW,
     id,
     invoiceDate: input.acceptedOn,

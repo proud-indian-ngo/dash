@@ -1,4 +1,5 @@
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 
 import {
   dateField,
@@ -7,7 +8,10 @@ import {
   selectField,
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
-import { cityOptions } from "@/lib/form-schemas";
+import {
+  cityFilterOptions,
+  LEGACY_CITY_FILTER_PARAM,
+} from "@/lib/cost-centre-filter";
 import {
   MISSING_PROOF_FILTER,
   requestPaymentProofValue,
@@ -40,7 +44,7 @@ const TYPE_OPTIONS = [
 const LEGACY_REIMBURSEMENT_FILTER_PARAMS = [
   { param: "status", path: "status" },
   { param: "type", path: "type" },
-  { param: "city", path: "city" },
+  LEGACY_CITY_FILTER_PARAM,
 ] as const;
 
 /** Total in rupees, because the number filter compares what people type in rupees. */
@@ -55,7 +59,8 @@ export function getReimbursementFilterValue(
   const [key] = path;
   switch (key) {
     case "city":
-      return row.city;
+      // The event's cost centre for a claim on an event, else its own.
+      return requestCostCentreId(row);
     case "createdBy":
       return row.userId;
     case "event":
@@ -83,12 +88,13 @@ export function getReimbursementFilterValue(
 }
 
 export function createReimbursementFilterFields(
-  rows: readonly RequestRow[]
+  rows: readonly RequestRow[],
+  activeCostCentres: readonly { id: string; name: string }[]
 ): FilterField[] {
   return [
     selectField("status", "Status", STATUS_OPTIONS),
     selectField("type", "Type", TYPE_OPTIONS),
-    selectField("city", "City", cityOptions),
+    selectField("city", "City", cityFilterOptions(activeCostCentres)),
     selectField(
       "event",
       "Event",

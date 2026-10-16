@@ -62,3 +62,18 @@ describe("buildLegacyFilterQuery", () => {
     });
   });
 });
+
+describe("legacy city links", () => {
+  it("filter by the cost centre that replaced the city", async () => {
+    const { LEGACY_CITY_FILTER_PARAM } =
+      await import("@/lib/cost-centre-filter");
+    const { COST_CENTRE_IDS } = await import("@pi-dash/shared/constants");
+    const query = buildLegacyFilterQuery({ city: "bangalore" }, [
+      LEGACY_CITY_FILTER_PARAM,
+    ]);
+    expect(query?.rules[0]).toMatchObject({
+      path: ["city"],
+      value: COST_CENTRE_IDS.bangalore,
+    });
+  });
+});

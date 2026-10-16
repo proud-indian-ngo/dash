@@ -1,3 +1,4 @@
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { financialYearOf, todayInKolkata } from "@pi-dash/shared/income";
 import {
   type ExpenseSourceType,
@@ -163,23 +164,28 @@ async function chargeFacts(
     chargedProgrammeId: string | null;
     chargedProjectId: string | null;
     chargedTo: ExpenseChargeFacts["chargedTo"];
+    costCentreId: string | null;
     eventId: string | null;
   }
 ): Promise<ExpenseChargeFacts> {
-  const [event] =
-    request.chargedTo === "event" && request.eventId
-      ? await tx
-          .select({ programmeId: teamEvent.programmeId })
-          .from(teamEvent)
-          .where(eq(teamEvent.id, request.eventId))
-          .limit(1)
-      : [];
+  const [event] = request.eventId
+    ? await tx
+        .select({
+          costCentreId: teamEvent.costCentreId,
+          programmeId: teamEvent.programmeId,
+        })
+        .from(teamEvent)
+        .where(eq(teamEvent.id, request.eventId))
+        .limit(1)
+    : [];
   return {
     chargedProgrammeId: request.chargedProgrammeId,
     chargedProjectId: request.chargedProjectId,
     chargedTo: request.chargedTo,
+    costCentreId: requestCostCentreId({ ...request, event }),
     eventId: request.eventId,
-    eventProgrammeId: event?.programmeId ?? null,
+    eventProgrammeId:
+      request.chargedTo === "event" ? (event?.programmeId ?? null) : null,
   };
 }
 
@@ -703,7 +709,10 @@ async function vendorPaymentTransactionFacts(
   const [row] = await tx
     .select({
       amountPaise: vendorPaymentTransaction.amountPaise,
+      eventCostCentreId: teamEvent.costCentreId,
+      eventId: vendorPayment.eventId,
       id: vendorPaymentTransaction.id,
+      requestCostCentreId: vendorPayment.costCentreId,
       paymentReference: vendorPaymentTransaction.paymentReference,
       requestStatus: vendorPayment.status,
       status: vendorPaymentTransaction.status,
@@ -718,6 +727,7 @@ async function vendorPaymentTransactionFacts(
       vendorPayment,
       eq(vendorPayment.id, vendorPaymentTransaction.vendorPaymentId)
     )
+    .leftJoin(teamEvent, eq(teamEvent.id, vendorPayment.eventId))
     .where(eq(vendorPaymentTransaction.id, id))
     .limit(1);
   if (!row) {
@@ -729,6 +739,11 @@ async function vendorPaymentTransactionFacts(
       sourceType: T.vendorPaymentTransaction,
     })),
     amountPaise: row.amountPaise,
+    costCentreId: requestCostCentreId({
+      costCentreId: row.requestCostCentreId,
+      event: { costCentreId: row.eventCostCentreId },
+      eventId: row.eventId,
+    }),
     id: row.id,
     matches: await bankMatchFacts(tx, { vendorPaymentTransactionId: row.id }),
     paidOn: todayInKolkata(row.transactionDate),
@@ -876,7 +891,9 @@ export function expenseSourceWatermark(type: ExpenseSourceType, id: SQL): SQL {
           ) end
         ) from ${vendorPayment} pw where pw.id = ${id})`;
     case T.vendorPaymentTransaction:
+      // The request's event too: its cost centre is on the payment's entries.
       return sql`(select greatest(wt.updated_at, wv.updated_at, ${banks},
+          (select we.updated_at from ${teamEvent} we where we.id = wv.event_id),
           ${matched(sql`ws.vendor_payment_transaction_id`, sql`wt.id`)})
         from ${vendorPaymentTransaction} wt
         join ${vendorPayment} wv on wv.id = wt.vendor_payment_id

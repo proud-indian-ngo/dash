@@ -16,6 +16,7 @@ import {
   formatCashVoucherLimit,
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -54,6 +55,7 @@ import {
 } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
@@ -116,6 +118,7 @@ export function ReimbursementDetail({
 }: ReimbursementDetailProps) {
   const zero = useZero();
   const { hasPermission } = useApp();
+  const costCentres = useCostCentres();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [changeClaimantOpen, setChangeClaimantOpen] = useState(false);
@@ -375,7 +378,10 @@ export function ReimbursementDetail({
             raisedByOther(request) ? (
               <span key="raised-by">Raised by {raisedByOther(request)}</span>
             ) : null,
-            ...reimbursementHeaderMeta(request),
+            ...reimbursementHeaderMeta(
+              request,
+              costCentres.nameOf(requestCostCentreId(request))
+            ),
           ]}
           title={request.title}
         />

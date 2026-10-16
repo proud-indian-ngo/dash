@@ -10,6 +10,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq, inArray } from "drizzle-orm";
 
 const FIXTURE = {
@@ -105,7 +106,7 @@ async function setup(email?: string) {
   const now = new Date();
   await db.insert(teamEvent).values([
     {
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: actor.id,
       description: "Kalakriti public schedule E2E fixture",
@@ -118,7 +119,7 @@ async function setup(email?: string) {
       updatedAt: now,
     },
     {
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: actor.id,
       description: "Kalakriti draft schedule E2E fixture",

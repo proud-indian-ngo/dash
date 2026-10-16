@@ -15,6 +15,7 @@ import {
   kalakritiTransportStatusHistory,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 
 import { KALAKRITI_ACTORS } from "../fixtures/kalakriti-actors";
@@ -75,7 +76,7 @@ async function setup(adminEmail: string, transportLeadEmail: string) {
   const now = new Date();
   await db.insert(teamEvent).values({
     id: ids.eventId,
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
     createdBy: admin.id,
     description: "Isolated Center transport E2E",

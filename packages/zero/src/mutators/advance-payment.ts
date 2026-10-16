@@ -1,4 +1,3 @@
-import { cityValues } from "@pi-dash/shared/constants";
 import {
   clearable,
   isValidUpiHandle,
@@ -15,6 +14,7 @@ import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
+import { pickCostCentreId } from "./cost-centre-pick";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -49,7 +49,7 @@ export const createSchema = z.object({
     .string()
     .optional()
     .refine((v) => !v?.trim() || isValidUpiHandle(v), UPI_HANDLE_MESSAGE),
-  city: z.enum(cityValues).optional(),
+  costCentreId: z.string().optional(),
   id: z.string(),
   lineItems: z.array(lineItemSchema),
   title: z.string().min(1),
@@ -64,7 +64,6 @@ const entityFields = (args: z.infer<typeof createSchema>) => ({
   bankAccountName: args.bankAccountName,
   bankAccountNumber: clearable(args.bankAccountNumber),
   bankAccountUpiId: clearable(args.bankAccountUpiId, normalizeUpiHandle),
-  city: args.city,
 });
 
 export const advancePaymentMutators = {
@@ -174,6 +173,7 @@ export const advancePaymentMutators = {
       updatedAt: now,
       userId,
       ...entityFields(args),
+      costCentreId: await pickCostCentreId(tx, args.costCentreId),
     });
 
     await insertRelations(
@@ -388,6 +388,11 @@ export const advancePaymentMutators = {
     const now = Date.now();
 
     await tx.mutate.advancePayment.update({
+      costCentreId: await pickCostCentreId(
+        tx,
+        args.costCentreId,
+        entity.costCentreId ?? null
+      ),
       id: args.id,
       title: args.title,
       updatedAt: now,

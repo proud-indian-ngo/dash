@@ -477,6 +477,20 @@ export const costCentreMutators = {
     if (!existing) {
       throw new Error("Cost centre not found");
     }
+    // The code is what the public events feed and the website use, and
+    // records point at the centre, so it never changes once created.
+    if (args.code !== existing.code) {
+      throw new Error("A cost centre's code can't be changed");
+    }
+    const active = args.active ?? existing.active ?? true;
+    if (existing.active !== false && !active) {
+      const others = await tx.run(
+        zql.costCentre.where("active", true).where("id", "!=", args.id)
+      );
+      if (others.length === 0) {
+        throw new Error("At least one cost centre must stay active");
+      }
+    }
     await assertCodeAndNameFree(args, {
       byCode: () =>
         tx.run(
@@ -494,7 +508,7 @@ export const costCentreMutators = {
         ),
     });
     await tx.mutate.costCentre.update({
-      active: args.active ?? existing.active ?? true,
+      active,
       code: args.code,
       id: args.id,
       name: args.name,

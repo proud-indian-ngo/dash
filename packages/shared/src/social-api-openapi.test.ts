@@ -12,7 +12,9 @@ describe("buildSocialApiOpenApi", () => {
         {
           cancelledAt: null,
           childrenAttended: null,
-          city: "bangalore",
+          city: "BLR",
+          cityActive: true,
+          cityName: "Bangalore",
           description: null,
           endTime: null,
           id: "e1",

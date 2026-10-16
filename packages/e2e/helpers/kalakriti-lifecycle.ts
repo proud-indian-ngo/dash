@@ -17,6 +17,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { inArray } from "drizzle-orm";
 
 const fixtures = {
@@ -120,7 +121,7 @@ async function setup(actorEmail: string) {
   const fixtureRows = Object.values(fixtures);
   await db.insert(teamEvent).values(
     fixtureRows.map((fixture) => ({
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: actor.id,
       description: "Kalakriti lifecycle E2E fixture",

@@ -17,13 +17,16 @@ import {
 } from "./public-events-table";
 
 const NOW = Date.UTC(2026, 7, 17, 6, 30, 0);
+const BLR = "cc-blr";
+const cityNameOf = (id: string | null | undefined) =>
+  id === BLR ? "Bengaluru" : "";
 
 function event(
   overrides: Partial<PublicEventRow> & { id: string }
 ): PublicEventRow {
   return {
     cancelledAt: undefined,
-    city: "bangalore",
+    costCentreId: BLR,
     createdAt: NOW,
     createdBy: "user-1",
     exceptions: [],
@@ -108,10 +111,11 @@ describe("toPublicDisplayRow", () => {
       id: "kk-1",
       location: "Palace Grounds",
     });
-    const row = toPublicDisplayRow(source);
+    const row = toPublicDisplayRow(source, cityNameOf);
 
     expect(row).toEqual({
-      city: "bangalore",
+      cityName: "Bengaluru",
+      costCentreId: BLR,
       endTime: Date.UTC(2027, 10, 21, 18),
       eventId: "kk-1",
       isPublic: true,
@@ -131,7 +135,7 @@ describe("toPublicDisplayRow", () => {
 });
 
 describe("rowMatchesPublicFilters", () => {
-  const row = toPublicDisplayRow(event({ id: "kk-1" }));
+  const row = toPublicDisplayRow(event({ id: "kk-1" }), cityNameOf);
   const eventsTeam = new Set(["team-events"]);
 
   it("keeps the row for All and Public filters", () => {
@@ -147,9 +151,10 @@ describe("rowMatchesPublicFilters", () => {
     expect(rowMatchesPublicFilters(row, "my-teams", "all", "", new Set())).toBe(
       false
     );
-    expect(rowMatchesPublicFilters(row, "all", "mumbai", "", eventsTeam)).toBe(
+    expect(rowMatchesPublicFilters(row, "all", "cc-mum", "", eventsTeam)).toBe(
       false
     );
+    expect(rowMatchesPublicFilters(row, "all", BLR, "", eventsTeam)).toBe(true);
     expect(
       rowMatchesPublicFilters(row, "all", "all", "workshop", eventsTeam)
     ).toBe(false);
@@ -160,8 +165,8 @@ describe("rowPlace and rowMapUrl", () => {
   const place = (
     location: string | null,
     publicArea: string | null,
-    city: string | null = "bangalore"
-  ) => ({ city, location, publicArea });
+    cityName = "Bengaluru"
+  ) => ({ cityName, location, publicArea });
 
   it("prefers a typed address and has no map link for it", () => {
     const row = place("PI Center, Indiranagar", "Indiranagar");
@@ -177,13 +182,14 @@ describe("rowPlace and rowMapUrl", () => {
 
   it("uses the city alone without an area, and the area without a city", () => {
     expect(rowPlace(place(null, null))).toBe("Bengaluru");
-    expect(rowPlace(place(null, "Gubbachi", null))).toBe("Gubbachi");
-    expect(rowPlace(place(null, null, null))).toBeNull();
+    expect(rowPlace(place(null, "Gubbachi", ""))).toBe("Gubbachi");
+    expect(rowPlace(place(null, null, ""))).toBeNull();
   });
 
   it("lets search match the place shown on the row", () => {
     const row = toPublicDisplayRow(
-      event({ id: "kk-2", location: "https://maps.app.goo.gl/abc" })
+      event({ id: "kk-2", location: "https://maps.app.goo.gl/abc" }),
+      cityNameOf
     );
     expect(
       rowMatchesPublicFilters(row, "all", "all", "bengaluru", new Set())

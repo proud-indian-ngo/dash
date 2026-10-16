@@ -127,7 +127,8 @@ function buildInitialValues(resolved: ResolvedRequest) {
     id: request.id,
     title: request.title,
     type: requestType,
-    ...("city" in request ? { city: request.city ?? undefined } : {}),
+    // The request's own city; one on an event takes the event's.
+    costCentreId: request.costCentreId ?? undefined,
     ...("bankAccountName" in request
       ? {
           bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,

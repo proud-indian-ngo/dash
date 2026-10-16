@@ -53,7 +53,11 @@ const objectSchema = (properties: Record<string, SchemaObject>) => ({
 });
 
 const EVENT_PROPERTIES: Record<keyof SocialEvent, SchemaObject> = {
-  area: { description: "Coarse public area, naming the city.", type: "string" },
+  area: {
+    description:
+      "Coarse public area, naming the city (its cost centre's name).",
+    type: "string",
+  },
   attendance: nullable(
     objectSchema({
       children: count,
@@ -61,7 +65,15 @@ const EVENT_PROPERTIES: Record<keyof SocialEvent, SchemaObject> = {
       volunteers: { ...count, description: "Volunteers checked in present." },
     })
   ),
-  city: { type: "string" },
+  city: {
+    description:
+      "The event's cost centre code (for example `BLR`). Only active cost centres' events are listed.",
+    type: "string",
+  },
+  cityName: {
+    description: 'The cost centre\'s name (for example "Bangalore").',
+    type: "string",
+  },
   endTime: hhmm,
   id: {
     description:

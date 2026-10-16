@@ -20,6 +20,7 @@ import {
 const WINDOW_MS = 16 * 60 * 1000;
 
 interface PollCandidate {
+  costCentreId: string;
   createdBy: string;
   description: string | null;
   endTime: Date | null;
@@ -60,6 +61,7 @@ function inWindow(pollMs: number, now: number): boolean {
 
 function toSeriesParent(event: PollCandidate): SeriesParent {
   return {
+    costCentreId: event.costCentreId,
     createdBy: event.createdBy,
     description: event.description,
     endTime: event.endTime,
@@ -164,6 +166,7 @@ async function dispatchStandalone(
 async function loadCandidates(): Promise<PollCandidate[]> {
   return await db
     .select({
+      costCentreId: teamEvent.costCentreId,
       createdBy: teamEvent.createdBy,
       description: teamEvent.description,
       endTime: teamEvent.endTime,

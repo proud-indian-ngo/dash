@@ -66,9 +66,6 @@ export const ALLOWED_KALAKRITI_SCORECARD_TYPES = [
 export type AllowedKalakritiScorecardMimeType =
   (typeof ALLOWED_KALAKRITI_SCORECARD_TYPES)[number];
 
-export const cityValues = ["bangalore", "mumbai"] as const;
-export type City = (typeof cityValues)[number];
-
 export const attachmentTypeValues = ["file", "url"] as const;
 export type AttachmentType = (typeof attachmentTypeValues)[number];
 

@@ -2,6 +2,7 @@ import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { team } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq, inArray, sql } from "drizzle-orm";
 
 /**
@@ -98,7 +99,7 @@ async function setup(creatorEmail: string) {
     {
       ...base,
       ...at(today + 3 * DAY),
-      city: "mumbai",
+      costCentreId: COST_CENTRE_IDS.mumbai,
       id: ID.mumbai,
       name: "Public feed E2E mumbai",
     },

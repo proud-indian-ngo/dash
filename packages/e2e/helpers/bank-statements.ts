@@ -19,6 +19,7 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -169,6 +170,7 @@ async function debitSetup(run: string) {
   });
   const requestId = uuidv7();
   await db.insert(vendorPayment).values({
+    costCentreId: COST_CENTRE_IDS.bangalore,
     chargedTo: "organisation",
     createdAt: now,
     id: requestId,

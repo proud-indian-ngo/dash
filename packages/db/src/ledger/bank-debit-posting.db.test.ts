@@ -1,4 +1,5 @@
 import {
+  COST_CENTRE_IDS,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -787,6 +788,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: "organisation",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         id: vpId,
         status: "paid",
@@ -947,6 +949,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: "organisation",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         id: vpId,
         status: "paid",
@@ -1000,6 +1003,7 @@ it.skipIf(!localDatabase)(
         const vpId = uuidv7();
         await tx.insert(vendorPayment).values({
           chargedTo: "organisation",
+          costCentreId: COST_CENTRE_IDS.bangalore,
           createdAt: NOW,
           id: vpId,
           invoiceDate: "2026-04-10",
@@ -1114,6 +1118,7 @@ async function addPayment(
   const vpId = uuidv7();
   await tx.insert(vendorPayment).values({
     chargedTo: "organisation",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: NOW,
     id: vpId,
     status: "paid",
@@ -1269,6 +1274,8 @@ it.skipIf(!localDatabase)(
             {
               accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
               amountPaise: 60_000,
+              // Its request's cost centre, as rules version 3 posts it.
+              costCentreId: COST_CENTRE_IDS.bangalore,
               effect: "increase",
               fundId: GENERAL_FUND_ID,
               memo: "Lights",
@@ -1343,6 +1350,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: "organisation",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         id: vpId,
         invoiceDate: "2026-07-15",

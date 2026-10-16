@@ -27,6 +27,8 @@ async function fixture<T>(action: "cleanup" | "setup", argument?: string) {
 
 interface FeedEvent {
   area: string;
+  city: string;
+  cityName: string;
   id: string;
   name: string;
   occurrenceDate: string;
@@ -39,6 +41,7 @@ interface FeedEvent {
 const ALLOWED_KEYS = [
   "area",
   "city",
+  "cityName",
   "endTime",
   "id",
   "name",
@@ -101,9 +104,13 @@ test.describe("Public events API", () => {
         expect(ids.has(fx.ids[excluded] ?? "")).toBe(false);
       }
 
+      // The inactive Mumbai cost centre's event is left out (above); the
+      // rest name their cost centre by code, and the area by its name.
       const listed = ours.find((e) => e.id === fx.ids.listed);
       expect(listed).toMatchObject({
-        area: "Iblur, Bengaluru",
+        area: "Iblur, Bangalore",
+        city: "BLR",
+        cityName: "Bangalore",
         summary: "Help with maths. Call.",
         team: fx.teamName,
       });
@@ -122,7 +129,7 @@ test.describe("Public events API", () => {
       expect(seriesDates).toContain(fx.virtualDate);
       expect(seriesDates).not.toContain(fx.skippedDate);
       expect(ours.find((e) => e.id === fx.ids.series)?.area).toBe(
-        "HSR Layout, Bengaluru"
+        "HSR Layout, Bangalore"
       );
 
       // Sorted by start time.
@@ -131,6 +138,61 @@ test.describe("Public events API", () => {
     } finally {
       await fixture("cleanup");
     }
+  });
+
+  test("lists a cost centre by its code or the deprecated alias, and refuses an inactive one", async ({
+    request,
+  }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for the public feed fixture");
+    }
+    const fx = await fixture<{ ids: Record<string, string> }>(
+      "setup",
+      creatorEmail
+    );
+    try {
+      // Queries no other spec uses, so the server cache starts empty.
+      for (const city of ["BLR", "blr", "bangalore", "bengaluru"]) {
+        const response = await request.get(
+          `/api/public/events?city=${city}&days=28&limit=50`
+        );
+        expect(response.status()).toBe(200);
+        const body = (await response.json()) as { events: FeedEvent[] };
+        const listed = body.events.find((e) => e.id === fx.ids.listed);
+        expect(listed?.city).toBe("BLR");
+        expect(body.events.some((e) => e.id === fx.ids.mumbai)).toBe(false);
+      }
+      // Mumbai is closed: its code, and its old city value, are refused
+      // with the codes that are active.
+      for (const city of ["MUM", "mumbai"]) {
+        const response = await request.get(`/api/public/events?city=${city}`);
+        expect(response.status()).toBe(400);
+        const body = (await response.json()) as { error: string };
+        expect(body.error).toMatch(/^city must be one of .*\bBLR\b/);
+        expect(body.error).not.toContain("MUM");
+      }
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+
+  test("describes the active codes in its OpenAPI document", async ({
+    request,
+  }) => {
+    const response = await request.get("/api/public/openapi.json");
+    expect(response.status()).toBe(200);
+    const spec = (await response.json()) as {
+      paths: Record<
+        string,
+        { get: { parameters: { name: string; schema: unknown }[] } }
+      >;
+    };
+    const city = spec.paths["/api/public/events"]?.get.parameters.find(
+      (p) => p.name === "city"
+    );
+    expect(JSON.stringify(city?.schema)).toContain('"BLR"');
+    expect(JSON.stringify(city?.schema)).not.toContain('"MUM"');
   });
 
   test("refuses writes and far-future windows", async ({ request }) => {

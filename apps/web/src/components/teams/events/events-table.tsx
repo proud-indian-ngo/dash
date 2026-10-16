@@ -16,6 +16,7 @@ import {
   getDefaultDateRange,
   searchDisplayRow,
 } from "@/components/teams/events/events-table-helpers";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 
 export type {
   EventDisplayRow,
@@ -49,8 +50,10 @@ export function EventsTable({
   const { end } = getDefaultDateRange();
   const displayRows = buildEventDisplayRows(events, end);
 
+  const costCentres = useCostCentres();
   const columns = createEventsTableColumns({
     canCancelPast,
+    cityNameOf: costCentres.nameOf,
     canCreate,
     canManage,
     onCancelEvent,
@@ -68,7 +71,7 @@ export function EventsTable({
       emptyMessage="No events found."
       compactOnMobile
       filter={{
-        fields: createEventFilterFields(displayRows),
+        fields: createEventFilterFields(displayRows, costCentres.active),
         getValue: getEventFilterValue,
       }}
       getRowId={stableGetRowId0}

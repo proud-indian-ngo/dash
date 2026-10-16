@@ -20,7 +20,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 
 const QUERY: PublicEventsQuery = {
-  city: "bangalore",
+  cities: ["BLR"],
   from: NOW,
   limit: 20,
   to: NOW + 30 * DAY,
@@ -29,6 +29,7 @@ const QUERY: PublicEventsQuery = {
 const PUBLIC_EVENT_KEYS = [
   "area",
   "city",
+  "cityName",
   "endTime",
   "id",
   "name",
@@ -43,7 +44,9 @@ const PUBLIC_EVENT_KEYS = [
 function row(overrides: Partial<PublicEventSourceRow>): PublicEventSourceRow {
   return {
     cancelledAt: null,
-    city: "bangalore",
+    city: "BLR",
+    cityActive: true,
+    cityName: "Bengaluru",
     description: "Help children with maths.",
     endTime: NOW + 2 * DAY + 2 * HOUR,
     id: "019a0000-0000-7000-8000-000000000001",
@@ -66,7 +69,8 @@ describe("buildPublicEvents", () => {
 
     expect(event).toEqual({
       area: "Iblur, Bengaluru",
-      city: "bangalore",
+      city: "BLR",
+      cityName: "Bengaluru",
       endTime: "2026-10-10T02:00:00.000Z",
       id: "019a0000-0000-7000-8000-000000000001",
       name: "Maths class",
@@ -89,7 +93,14 @@ describe("buildPublicEvents", () => {
         row({ cancelledAt: NOW - DAY, id: "cancelled" }),
         row({ id: "past", startTime: NOW - HOUR }),
         row({ id: "too-far", startTime: NOW + 31 * DAY }),
-        row({ city: "mumbai", id: "other-city" }),
+        row({ city: "DEL", cityName: "Delhi", id: "other-city" }),
+        // Asked for, but its cost centre is inactive.
+        row({
+          city: "BLR",
+          cityActive: false,
+          cityName: "Bengaluru",
+          id: "inactive-centre",
+        }),
         row({ id: "listed" }),
       ],
       QUERY,
@@ -270,9 +281,11 @@ describe("buildPublicEvents", () => {
 });
 
 describe("parsePublicEventsQuery", () => {
-  it("applies the documented defaults", () => {
-    expect(parsePublicEventsQuery(new URLSearchParams(), NOW)).toEqual({
-      city: "bangalore",
+  const ACTIVE = ["BLR", "DEL"];
+
+  it("applies the documented defaults: every active cost centre", () => {
+    expect(parsePublicEventsQuery(new URLSearchParams(), NOW, ACTIVE)).toEqual({
+      cities: ["BLR", "DEL"],
       from: NOW,
       limit: 20,
       to: NOW + 30 * DAY,
@@ -281,11 +294,12 @@ describe("parsePublicEventsQuery", () => {
 
   it("clamps days and limit, and never starts in the past", () => {
     const query = parsePublicEventsQuery(
-      new URLSearchParams("days=400&limit=500&from=2020-01-01&city=mumbai"),
-      NOW
+      new URLSearchParams("days=400&limit=500&from=2020-01-01&city=del"),
+      NOW,
+      ACTIVE
     );
     expect(query).toEqual({
-      city: "mumbai",
+      cities: ["DEL"],
       from: NOW,
       limit: 50,
       to: NOW + 90 * DAY,
@@ -295,16 +309,37 @@ describe("parsePublicEventsQuery", () => {
   it("reads a bare date as the start of that day in India", () => {
     const query = parsePublicEventsQuery(
       new URLSearchParams("from=2026-10-18"),
-      NOW
+      NOW,
+      ACTIVE
     );
     expect(new Date(query.from).toISOString()).toBe("2026-10-17T18:30:00.000Z");
   });
 
-  it.each(["city=delhi", "days=0", "days=abc", "limit=-1", "from=not-a-date"])(
+  it("takes bangalore and bengaluru as deprecated aliases of BLR", () => {
+    for (const alias of ["bangalore", "Bengaluru"]) {
+      expect(
+        parsePublicEventsQuery(
+          new URLSearchParams({ city: alias }),
+          NOW,
+          ACTIVE
+        ).cities
+      ).toEqual(["BLR"]);
+    }
+  });
+
+  it("names the active codes for an unknown or inactive one", () => {
+    for (const city of ["MUM", "mumbai", "PUNE"]) {
+      expect(() =>
+        parsePublicEventsQuery(new URLSearchParams({ city }), NOW, ACTIVE)
+      ).toThrow("city must be one of BLR, DEL");
+    }
+  });
+
+  it.each(["days=0", "days=abc", "limit=-1", "from=not-a-date"])(
     "rejects %s",
     (params) => {
       expect(() =>
-        parsePublicEventsQuery(new URLSearchParams(params), NOW)
+        parsePublicEventsQuery(new URLSearchParams(params), NOW, ACTIVE)
       ).toThrow(PublicEventsQueryError);
     }
   );
@@ -342,14 +377,20 @@ describe("toPublicSummary", () => {
 
 describe("toPublicArea", () => {
   it("does not repeat the city, under either name", () => {
-    expect(toPublicArea("Iblur, Bengaluru", "bangalore")).toBe(
+    expect(toPublicArea("Iblur, Bengaluru", "Bangalore")).toBe(
       "Iblur, Bengaluru"
     );
-    expect(toPublicArea("Iblur, Bangalore", "bangalore")).toBe(
+    expect(toPublicArea("Iblur, Bangalore", "Bangalore")).toBe(
       "Iblur, Bangalore"
     );
-    expect(toPublicArea("Dadar, Bombay", "mumbai")).toBe("Dadar, Bombay");
-    expect(toPublicArea("  ", "mumbai")).toBe("Mumbai");
+    expect(toPublicArea("Dadar, Bombay", "Mumbai")).toBe("Dadar, Bombay");
+    expect(toPublicArea("  ", "Mumbai")).toBe("Mumbai");
+  });
+
+  it("names the city by its cost centre's name", () => {
+    expect(toPublicArea("Iblur", "Bangalore")).toBe("Iblur, Bangalore");
+    expect(toPublicArea("Koregaon Park", "Pune")).toBe("Koregaon Park, Pune");
+    expect(toPublicArea("Pune Camp", "Pune")).toBe("Pune Camp");
   });
 });
 
@@ -387,7 +428,10 @@ describe("summarizePublicSession", () => {
     });
   });
 
-  it("reveals nothing about private or Kalakriti events", () => {
+  it("reveals nothing about private, Kalakriti or inactive centres' events", () => {
+    expect(
+      summarizePublicSession(row({ cityActive: false }), null, undefined, NOW)
+    ).toBeNull();
     expect(
       summarizePublicSession(row({ isPublic: false }), null, undefined, NOW)
     ).toBeNull();

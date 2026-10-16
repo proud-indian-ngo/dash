@@ -1,4 +1,4 @@
-import { cityValues } from "./constants";
+import { DEPRECATED_PUBLIC_CITY_ALIASES } from "./cost-centre";
 import {
   PUBLIC_EVENTS_DEFAULT_DAYS,
   PUBLIC_EVENTS_DEFAULT_LIMIT,
@@ -23,13 +23,30 @@ interface SchemaObject {
   type?: string;
 }
 
-const PUBLIC_EVENT_PROPERTIES: Record<keyof PublicEvent, SchemaObject> = {
+/** An active cost centre the feed lists: its code and name. */
+export interface PublicCostCentre {
+  code: string;
+  name: string;
+}
+
+const publicEventProperties = (
+  centres: readonly PublicCostCentre[]
+): Record<keyof PublicEvent, SchemaObject> => ({
   area: {
     description:
-      'Coarse public area set by the organisers, always naming the city ("Bellandur, Bengaluru"); never the exact location.',
+      'Coarse public area set by the organisers, always naming the city ("Bellandur, Bangalore"); never the exact location.',
     type: "string",
   },
-  city: { enum: [...cityValues], type: "string" },
+  city: {
+    description:
+      "Code of the cost centre (city) the session runs in, for example `BLR`.",
+    enum: centres.map((c) => c.code),
+    type: "string",
+  },
+  cityName: {
+    description: 'Name of that cost centre, for example "Bangalore".',
+    type: "string",
+  },
   endTime: {
     description:
       "End of the session (UTC). Open-ended sessions end when they start.",
@@ -74,7 +91,7 @@ const PUBLIC_EVENT_PROPERTIES: Record<keyof PublicEvent, SchemaObject> = {
     description: "Name of the team running the session.",
     type: "string",
   },
-};
+});
 
 const OPTIONAL_PUBLIC_EVENT_FIELDS = new Set<keyof PublicEvent>(["programme"]);
 
@@ -98,7 +115,17 @@ const errorResponse = (description: string) => ({
   description,
 });
 
-export function buildPublicEventsOpenApi(baseUrl: string) {
+/**
+ * The document for the cost centres active now: `city` takes their codes,
+ * so it is built per request (`/api/public/openapi.json`).
+ */
+export function buildPublicEventsOpenApi(
+  baseUrl: string,
+  centres: readonly PublicCostCentre[]
+) {
+  const properties = publicEventProperties(centres);
+  const codes = centres.map((c) => c.code);
+  const aliases = Object.keys(DEPRECATED_PUBLIC_CITY_ALIASES);
   return {
     components: {
       schemas: {
@@ -109,8 +136,8 @@ export function buildPublicEventsOpenApi(baseUrl: string) {
         },
         PublicEvent: {
           additionalProperties: false,
-          properties: PUBLIC_EVENT_PROPERTIES,
-          required: Object.keys(PUBLIC_EVENT_PROPERTIES).filter(
+          properties,
+          required: Object.keys(properties).filter(
             (key) => !OPTIONAL_PUBLIC_EVENT_FIELDS.has(key as keyof PublicEvent)
           ),
           type: "object",
@@ -132,7 +159,7 @@ export function buildPublicEventsOpenApi(baseUrl: string) {
       description:
         "Upcoming public volunteering sessions run by Proud Indian, a volunteer-run NGO. No authentication; read-only; rate limited to 60 requests a minute per client. Responses may be cached for 5 minutes.",
       title: "Proud Indian public events",
-      version: "1.0.0",
+      version: "2.0.0",
     },
     openapi: "3.1.0",
     paths: {
@@ -143,13 +170,19 @@ export function buildPublicEventsOpenApi(baseUrl: string) {
           operationId: "listPublicEvents",
           parameters: [
             {
-              description: "City to list sessions for.",
+              description: `Cost centre (city) code to list sessions for, in any case (${codes.join(", ")}). Without it, sessions of every active cost centre are listed. An unknown or inactive code is a 400 naming the active codes. \`bangalore\` and \`bengaluru\` are deprecated aliases of \`BLR\`, kept while the website moves to codes.`,
               in: "query",
               name: "city",
               schema: {
-                default: "bangalore",
-                enum: [...cityValues],
-                type: "string",
+                anyOf: [
+                  { enum: codes, type: "string" },
+                  {
+                    deprecated: true,
+                    description: "Deprecated aliases of BLR.",
+                    enum: aliases,
+                    type: "string",
+                  },
+                ],
               },
             },
             {

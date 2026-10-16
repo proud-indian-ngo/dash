@@ -56,6 +56,7 @@ import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/ind
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
 import { Route as AppSettingsApiTokensRouteImport } from './routes/_app/settings/api-tokens'
 import { Route as AppSettingsBankAccountsRouteImport } from './routes/_app/settings/bank-accounts'
+import { Route as AppSettingsCostCentresRouteImport } from './routes/_app/settings/cost-centres'
 import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/settings/expense-categories'
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
 import { Route as AppSettingsIntegrationsRouteImport } from './routes/_app/settings/integrations'
@@ -382,6 +383,11 @@ const AppSettingsApiTokensRoute = AppSettingsApiTokensRouteImport.update({
 const AppSettingsBankAccountsRoute = AppSettingsBankAccountsRouteImport.update({
   id: '/bank-accounts',
   path: '/bank-accounts',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
+const AppSettingsCostCentresRoute = AppSettingsCostCentresRouteImport.update({
+  id: '/cost-centres',
+  path: '/cost-centres',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
 const AppSettingsExpenseCategoriesRoute =
@@ -928,6 +934,7 @@ export interface FileRoutesByFullPath {
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/integrations': typeof AppSettingsIntegrationsRoute
@@ -1058,6 +1065,7 @@ export interface FileRoutesByTo {
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/integrations': typeof AppSettingsIntegrationsRoute
@@ -1199,6 +1207,7 @@ export interface FileRoutesById {
   '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/_app/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
+  '/_app/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/_app/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
   '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/settings/integrations': typeof AppSettingsIntegrationsRoute
@@ -1342,6 +1351,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/api-tokens'
     | '/settings/bank-accounts'
+    | '/settings/cost-centres'
     | '/settings/expense-categories'
     | '/settings/general'
     | '/settings/integrations'
@@ -1472,6 +1482,7 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/api-tokens'
     | '/settings/bank-accounts'
+    | '/settings/cost-centres'
     | '/settings/expense-categories'
     | '/settings/general'
     | '/settings/integrations'
@@ -1612,6 +1623,7 @@ export interface FileRouteTypes {
     | '/_app/settings/account'
     | '/_app/settings/api-tokens'
     | '/_app/settings/bank-accounts'
+    | '/_app/settings/cost-centres'
     | '/_app/settings/expense-categories'
     | '/_app/settings/general'
     | '/_app/settings/integrations'
@@ -2088,6 +2100,13 @@ declare module '@tanstack/react-router' {
       path: '/bank-accounts'
       fullPath: '/settings/bank-accounts'
       preLoaderRoute: typeof AppSettingsBankAccountsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/cost-centres': {
+      id: '/_app/settings/cost-centres'
+      path: '/cost-centres'
+      fullPath: '/settings/cost-centres'
+      preLoaderRoute: typeof AppSettingsCostCentresRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/expense-categories': {
@@ -2969,6 +2988,7 @@ interface AppSettingsRouteRouteChildren {
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
   AppSettingsApiTokensRoute: typeof AppSettingsApiTokensRoute
   AppSettingsBankAccountsRoute: typeof AppSettingsBankAccountsRoute
+  AppSettingsCostCentresRoute: typeof AppSettingsCostCentresRoute
   AppSettingsExpenseCategoriesRoute: typeof AppSettingsExpenseCategoriesRoute
   AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
   AppSettingsIntegrationsRoute: typeof AppSettingsIntegrationsRoute
@@ -2987,6 +3007,7 @@ const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsAccountRoute: AppSettingsAccountRoute,
   AppSettingsApiTokensRoute: AppSettingsApiTokensRoute,
   AppSettingsBankAccountsRoute: AppSettingsBankAccountsRoute,
+  AppSettingsCostCentresRoute: AppSettingsCostCentresRoute,
   AppSettingsExpenseCategoriesRoute: AppSettingsExpenseCategoriesRoute,
   AppSettingsGeneralRoute: AppSettingsGeneralRoute,
   AppSettingsIntegrationsRoute: AppSettingsIntegrationsRoute,

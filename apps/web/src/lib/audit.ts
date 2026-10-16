@@ -136,6 +136,8 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "chargedTo",
   "childrenAttended",
   "city",
+  // The cost centre ("City") of an event or a request without one.
+  "costCentreId",
   "contactEmail",
   "contactPhone",
   "content",

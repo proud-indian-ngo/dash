@@ -73,8 +73,12 @@ export const GATEWAY_CHANNELS: readonly string[] = ["razorpay", "give_do"];
  * 2 (layer 3-3b): each reimbursement gains a `settle` part ("Claims
  * payable" raised on approval, cleared on each payment's day); its expense
  * and money parts, and every vendor payment, compare equal and stay.
+ * 3 (cost centres): expense and payment entries of reimbursements, vendor
+ * payments and their payments carry the document's cost centre, so their
+ * entries-bearing parts reverse and repost once (money parts compare equal
+ * and stay; sources in a closed or matched year wait and stand as they are).
  */
-export const INCOME_RULES_VERSION = 2;
+export const INCOME_RULES_VERSION = 3;
 
 /** The entries and movements of one part of a source's posting. */
 export interface PlanPart {

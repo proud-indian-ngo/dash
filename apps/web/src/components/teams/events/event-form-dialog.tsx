@@ -6,11 +6,7 @@ import {
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import {
-  cityValues,
-  PROGRAMME_IDS,
-  reminderTargetValues,
-} from "@pi-dash/shared/constants";
+import { PROGRAMME_IDS, reminderTargetValues } from "@pi-dash/shared/constants";
 import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
@@ -42,8 +38,8 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { cityOptions } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { isTeamLead } from "@/lib/team-utils";
 
@@ -60,7 +56,7 @@ import { ReminderIntervalsField } from "./reminder-intervals-field";
 const VOLUNTEERS_NEEDED_RE = /^\d*$/;
 
 const eventFormSchema = z.object({
-  city: z.enum(cityValues, { message: "City is required" }),
+  costCentreId: z.string(),
   createWaGroup: z.boolean(),
   description: z.string().optional(),
   endTime: z.date().optional(),
@@ -106,11 +102,21 @@ const rsvpPollLeadOptions = RSVP_POLL_LEAD_PRESETS.map((p) => ({
 const endTimeAfterStartTime = (data: EventFormValues) =>
   !(data.endTime && data.startTime) || data.endTime > data.startTime;
 
-function createEventFormSchema(isEdit: boolean, canBackdate: boolean) {
-  const withEndTimeCheck = eventFormSchema.refine(endTimeAfterStartTime, {
-    message: "End time must be after start time",
-    path: ["endTime"],
-  });
+function createEventFormSchema(
+  isEdit: boolean,
+  canBackdate: boolean,
+  asksCity: boolean
+) {
+  const withEndTimeCheck = eventFormSchema
+    .refine(endTimeAfterStartTime, {
+      message: "End time must be after start time",
+      path: ["endTime"],
+    })
+    // Asked only when several cost centres are active.
+    .refine((data) => !asksCity || data.costCentreId !== "", {
+      message: "City is required",
+      path: ["costCentreId"],
+    });
   if (isEdit || canBackdate) {
     return withEndTimeCheck;
   }
@@ -126,7 +132,7 @@ interface EventFormState {
 }
 
 interface InitialValues {
-  city: string | null;
+  costCentreId: string | null;
   description: string | null;
   endTime: number | null;
   feedbackDeadline: number | null;
@@ -174,10 +180,11 @@ interface EventFormDialogProps {
 
 function getDefaultValues(
   initialValues: InitialValues | undefined,
-  teamProgrammeId: string | null | undefined
+  teamProgrammeId: string | null | undefined,
+  costCentreId: string
 ): EventFormValues {
   return {
-    city: (initialValues?.city ?? "bangalore") as (typeof cityValues)[number],
+    costCentreId,
     createWaGroup: false,
     description: initialValues?.description ?? undefined,
     endTime: initialValues?.endTime
@@ -258,7 +265,7 @@ function buildUpdateMutatorArgs(
   initialValues: InitialValues
 ) {
   return {
-    city: value.city,
+    costCentreId: value.costCentreId || undefined,
     description: value.description?.trim() || undefined,
     endTime: value.endTime?.getTime(),
     feedbackDeadline: value.feedbackDeadline?.getTime(),
@@ -298,7 +305,7 @@ function buildUpdateSeriesArgs(
   originalDate?: string
 ) {
   const base = {
-    city: value.city,
+    costCentreId: value.costCentreId || undefined,
     description: value.description?.trim() || undefined,
     endTime: value.endTime?.getTime(),
     feedbackDeadline: value.feedbackDeadline?.getTime(),
@@ -358,7 +365,8 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     : undefined;
 
   return {
-    city: value.city,
+    // Without a pick (one active centre), the server takes the only one.
+    costCentreId: value.costCentreId || undefined,
     createWhatsAppGroup: value.createWaGroup || undefined,
     description: value.description?.trim() || undefined,
     endTime: value.endTime?.getTime(),
@@ -404,7 +412,7 @@ function getMutation(
       mutation: zero.mutate(
         mutators.kalakritiEdition.updateLinkedEvent({
           auditEntryId: uuidv7(),
-          city: value.city,
+          costCentreId: value.costCentreId || undefined,
           description: value.description?.trim() || undefined,
           editionId: kalakritiEditionId,
           endTime: value.endTime?.getTime(),
@@ -475,6 +483,8 @@ function EventFormContent({
   isEdit,
   kalakritiEditionId,
   onOpenChange,
+  cityOptions,
+  defaultCostCentreId,
   originalDate,
   programmeOptions,
   teamHasWhatsAppGroup,
@@ -483,6 +493,9 @@ function EventFormContent({
   userIsTeamLead,
   waGroupOptions,
 }: {
+  /** Shown only with a choice: several active centres, or an inactive current one. */
+  cityOptions: { label: string; value: string }[];
+  defaultCostCentreId: string;
   editScope?: EditScope;
   initialValues?: InitialValues;
   isEdit: boolean;
@@ -502,7 +515,11 @@ function EventFormContent({
     hasPermission("events.create_backdated") || userIsTeamLead;
 
   const form = useForm({
-    defaultValues: getDefaultValues(initialValues, teamProgrammeId),
+    defaultValues: getDefaultValues(
+      initialValues,
+      teamProgrammeId,
+      defaultCostCentreId
+    ),
     onSubmit: async ({ value }) => {
       const { mutation, mutationName } = getMutation(
         zero,
@@ -534,7 +551,11 @@ function EventFormContent({
     },
     validators: {
       onBlur: eventFormSchema,
-      onSubmit: createEventFormSchema(isEdit, canBackdate),
+      onSubmit: createEventFormSchema(
+        isEdit,
+        canBackdate,
+        cityOptions.length > 1
+      ),
     },
   });
 
@@ -595,13 +616,16 @@ function EventFormContent({
           name="location"
           placeholder="https://meet.google.com/..."
         />
-        <SelectField
-          isRequired
-          label="City"
-          name="city"
-          options={cityOptions}
-          placeholder="Select city"
-        />
+        {cityOptions.length > 1 && (
+          <ComboboxField
+            emptyMessage="No matching cities."
+            isRequired
+            label="City"
+            name="costCentreId"
+            options={cityOptions}
+            placeholder="Search cities"
+          />
+        )}
         <ComboboxField
           description="The cause this event counts towards."
           emptyMessage="No matching programmes."
@@ -861,6 +885,17 @@ export function EventFormDialog({
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
   const [programmes, programmesResult] = useQuery(queries.programme.all());
+  const costCentres = useCostCentres();
+  // An edit keeps its centre, even an inactive one; a new or duplicated
+  // event takes an active one.
+  const currentCostCentreId = isEdit ? initialValues?.costCentreId : null;
+  const cityOptions = costCentres.pickerOptions(currentCostCentreId);
+  const initialCostCentreId = initialValues?.costCentreId;
+  const defaultCostCentreId =
+    (initialCostCentreId &&
+    cityOptions.some((o) => o.value === initialCostCentreId)
+      ? initialCostCentreId
+      : costCentres.defaultId) ?? "";
   const [allTeams] = useQuery(queries.team.all());
   const [allEvents] = useQuery(queries.teamEvent.allAccessible());
 
@@ -929,6 +964,8 @@ export function EventFormDialog({
           </DialogDescription>
         </DialogHeader>
         <EventFormContent
+          cityOptions={cityOptions}
+          defaultCostCentreId={defaultCostCentreId}
           editScope={editScope}
           initialValues={initialValues}
           isEdit={isEdit}

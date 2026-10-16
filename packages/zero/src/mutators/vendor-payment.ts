@@ -1,7 +1,4 @@
-import {
-  cityValues,
-  vendorPaymentNoInvoiceReasonValues,
-} from "@pi-dash/shared/constants";
+import { vendorPaymentNoInvoiceReasonValues } from "@pi-dash/shared/constants";
 import { provisionHeadOf } from "@pi-dash/shared/provisions";
 import {
   NO_INVOICE_NOTE_MAX_LENGTH,
@@ -22,6 +19,10 @@ import {
   INVOICE_LOCKED_STATUSES,
   INVOICE_UPLOADABLE_STATUSES,
 } from "../vendor-payment-constants";
+import {
+  costCentreAfterRecharge,
+  pickRequestCostCentreId,
+} from "./cost-centre-pick";
 import {
   assertCanChangeCharge,
   chargeChangeNote,
@@ -221,7 +222,7 @@ async function chargeLinesToProvision(
 const createSchema = z.object({
   attachments: z.array(attachmentSchema),
   ...expenseChargeArgs,
-  city: z.enum(cityValues).optional(),
+  costCentreId: z.string().optional(),
   eventId: z.string().optional(),
   id: z.string(),
   lineItems: z.array(lineItemSchema),
@@ -486,7 +487,10 @@ export const vendorPaymentMutators = {
     await tx.mutate.vendorPayment.insert({
       approvalScreenshotKey: null,
       ...charge,
-      city: args.city,
+      costCentreId: await pickRequestCostCentreId(tx, {
+        costCentreId: args.costCentreId,
+        eventId: charge.eventId,
+      }),
       createdAt: now,
       id: args.id,
       invoiceDate: null,
@@ -1073,6 +1077,7 @@ export const vendorPaymentMutators = {
       id: args.id,
       updatedAt: now,
       ...charge,
+      costCentreId: await costCentreAfterRecharge(tx, entity, charge.eventId),
     });
     await tx.mutate.vendorPaymentHistory.insert({
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
@@ -1194,7 +1199,11 @@ export const vendorPaymentMutators = {
 
     await tx.mutate.vendorPayment.update({
       ...charge,
-      city: args.city,
+      costCentreId: await pickRequestCostCentreId(
+        tx,
+        { costCentreId: args.costCentreId, eventId: charge.eventId },
+        entity.costCentreId ?? null
+      ),
       id: args.id,
       title: args.title,
       updatedAt: now,

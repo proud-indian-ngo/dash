@@ -138,7 +138,7 @@ export async function createVendorPayment(
   await page.getByLabel("Title").fill(title);
   await selectOrCreateVendor(page, "E2E Vendor");
   if (event && "name" in event) {
-    await selectRequestEvent(page, event.name, event.city);
+    await selectRequestEvent(page, event.name);
   } else if (event) {
     await chargeRequestToProgramme(page, event.programme);
   } else {

@@ -1,4 +1,4 @@
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { COST_CENTRE_IDS, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { DEFAULT_RSVP_POLL_LEAD_MINUTES } from "@pi-dash/shared/event-reminders";
 import { relations, sql } from "drizzle-orm";
 import {
@@ -19,10 +19,10 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { eventPartner } from "./event-partner";
-import { programme } from "./finance-dimensions";
+import { costCentre, programme } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { reimbursement } from "./reimbursement";
-import { cityEnum, reminderTargetEnum } from "./shared";
+import { reminderTargetEnum } from "./shared";
 import { team } from "./team";
 import { vendorPayment } from "./vendor";
 import { whatsappGroup } from "./whatsapp-group";
@@ -38,7 +38,15 @@ export const teamEvent = pgTable(
     cancelledAt: timestamp("cancelled_at"),
     /** Children who attended, entered by the lead in the post-event social form. */
     childrenAttended: integer("children_attended"),
-    city: cityEnum("city").notNull().default("bangalore"),
+    /**
+     * Where the event runs (shown as "City" to volunteers). Requests linked
+     * to the event read it from here. Defaults to Bangalore so legacy
+     * inserts stay valid; the app always sets it.
+     */
+    costCentreId: uuid("cost_centre_id")
+      .notNull()
+      .default(COST_CENTRE_IDS.bangalore)
+      .references(() => costCentre.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by")
       .notNull()
@@ -102,6 +110,7 @@ export const teamEvent = pgTable(
       .where(sql`cancelled_at IS NULL AND series_id IS NULL`),
     index("team_event_teamId_idx").on(table.teamId),
     index("team_event_programmeId_idx").on(table.programmeId),
+    index("team_event_costCentreId_idx").on(table.costCentreId),
     index("team_event_seriesId_idx").on(table.seriesId),
     index("team_event_seriesId_id_idx").on(table.seriesId, table.id.asc()),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with

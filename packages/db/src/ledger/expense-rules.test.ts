@@ -34,6 +34,7 @@ const EVENT_PROGRAMME = "00000000-0000-7000-8000-000000000e02";
 const PROJECT = "00000000-0000-7000-8000-000000000e11";
 const EVENT = "00000000-0000-7000-8000-000000000e21";
 const VENDOR = "00000000-0000-7000-8000-000000000d01";
+const CENTRE = "00000000-0000-7000-8000-000000000c99";
 
 const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
   activeBankAccountIds: [BANK],
@@ -43,6 +44,7 @@ const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
     chargedProgrammeId: PROGRAMME,
     chargedProjectId: PROJECT,
     chargedTo: "programme",
+    costCentreId: null,
     eventId: null,
     eventProgrammeId: null,
   },
@@ -79,6 +81,7 @@ const request = (
     chargedProgrammeId: null,
     chargedProjectId: null,
     chargedTo: "event",
+    costCentreId: null,
     eventId: EVENT,
     eventProgrammeId: EVENT_PROGRAMME,
   },
@@ -108,6 +111,7 @@ const payment = (
 ): VendorPaymentTransactionFacts => ({
   activeBankAccountIds: [BANK],
   amountPaise: 250_000,
+  costCentreId: null,
   id: "00000000-0000-7000-8000-000000000c01",
   mainAccountId: null,
   matches: [],
@@ -184,6 +188,7 @@ describe("reimbursementPlan", () => {
       {
         accountHeadId: TRAVEL_HEAD,
         amountPaise: 30_000,
+        costCentreId: null,
         effect: "increase",
         eventId: null,
         fundId: GENERAL_FUND_ID,
@@ -196,6 +201,7 @@ describe("reimbursementPlan", () => {
       {
         accountHeadId: FOOD_HEAD,
         amountPaise: 12_500,
+        costCentreId: null,
         effect: "increase",
         eventId: null,
         fundId: GENERAL_FUND_ID,
@@ -229,6 +235,7 @@ describe("reimbursementPlan", () => {
         {
           accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
           amountPaise: 42_500,
+          costCentreId: null,
           economicOn: "2026-06-03",
           effect: "increase",
           fundId: GENERAL_FUND_ID,
@@ -237,6 +244,7 @@ describe("reimbursementPlan", () => {
         {
           accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
           amountPaise: 42_500,
+          costCentreId: null,
           economicOn: "2026-06-03",
           effect: "decrease",
           fundId: GENERAL_FUND_ID,
@@ -269,6 +277,7 @@ describe("reimbursementPlan", () => {
           chargedProgrammeId: null,
           chargedProjectId: null,
           chargedTo: "event",
+          costCentreId: null,
           eventId: EVENT,
           eventProgrammeId: EVENT_PROGRAMME,
         },
@@ -285,6 +294,7 @@ describe("reimbursementPlan", () => {
           chargedProgrammeId: null,
           chargedProjectId: null,
           chargedTo: "organisation",
+          costCentreId: null,
           eventId: null,
           eventProgrammeId: null,
         },
@@ -295,6 +305,26 @@ describe("reimbursementPlan", () => {
       programmeId: null,
       projectId: null,
     });
+  });
+
+  it("carries the cost centre on the expense and the payable, never on the money", () => {
+    const plan = reimbursementPlan(
+      claim({ charge: { ...claim().charge, costCentreId: CENTRE } })
+    );
+    const recognise = part(plan, "recognise");
+    const settle = part(plan, "settle");
+    expect(recognise?.entries.length).toBeGreaterThan(0);
+    for (const entry of [
+      ...(recognise?.entries ?? []),
+      ...(settle?.entries ?? []),
+    ]) {
+      expect(entry.costCentreId).toBe(CENTRE);
+    }
+    // Older claims that never recorded a city post with none.
+    for (const entry of part(reimbursementPlan(claim()), "recognise")
+      ?.entries ?? []) {
+      expect(entry.costCentreId).toBeNull();
+    }
   });
 
   it("posts nothing unless approved, and nothing approved before the cutover", () => {
@@ -400,6 +430,7 @@ describe("reimbursementPlan", () => {
           chargedProgrammeId: EVENT_PROGRAMME,
           chargedProjectId: null,
           chargedTo: "programme",
+          costCentreId: null,
           eventId: null,
           eventProgrammeId: null,
         },
@@ -433,6 +464,7 @@ describe("vendorPaymentPlan", () => {
     expect(part(plan, "recognise")?.entries[0]).toEqual({
       accountHeadId: TRAVEL_HEAD,
       amountPaise: 250_000,
+      costCentreId: null,
       effect: "increase",
       eventId: EVENT,
       fundId: GENERAL_FUND_ID,
@@ -450,6 +482,7 @@ describe("vendorPaymentPlan", () => {
     expect(part(plan, "recognise")?.entries.at(-1)).toEqual({
       accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
       amountPaise: 250_000,
+      costCentreId: null,
       effect: "decrease",
       fundId: GENERAL_FUND_ID,
       memo: "Bus for the event",
@@ -540,6 +573,22 @@ describe("vendorPaymentPlan", () => {
   });
 });
 
+describe("vendor payment cost centres", () => {
+  it("puts the request's cost centre on the expense, the advance and its clearing", () => {
+    const charge = { ...request().charge, costCentreId: CENTRE };
+    const invoice = part(vendorPaymentPlan(request({ charge })), "recognise");
+    expect(invoice?.entries.map((e) => e.costCentreId)).toEqual([
+      CENTRE,
+      CENTRE,
+    ]);
+    const advance = part(
+      vendorPaymentTransactionPlan(payment({ costCentreId: CENTRE })),
+      "recognise"
+    );
+    expect(advance?.entries.map((e) => e.costCentreId)).toEqual([CENTRE]);
+  });
+});
+
 describe("vendorPaymentTransactionPlan", () => {
   it("takes an approved payment out of the bank on its date as a supplier advance", () => {
     const plan = vendorPaymentTransactionPlan(payment());
@@ -555,6 +604,7 @@ describe("vendorPaymentTransactionPlan", () => {
           {
             accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
             amountPaise: 250_000,
+            costCentreId: null,
             economicOn: "2026-07-10",
             effect: "increase",
             fundId: GENERAL_FUND_ID,
@@ -1009,6 +1059,7 @@ describe("provisions a vendor invoice clears", () => {
         chargedProgrammeId: null,
         chargedProjectId: null,
         chargedTo: "organisation",
+        costCentreId: null,
         eventId: null,
         eventProgrammeId: null,
       },

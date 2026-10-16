@@ -7,7 +7,7 @@ describe("reimbursement mutator schemas", () => {
     it("accepts valid input", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "bangalore",
+        costCentreId: "cc-blr",
         expenseDate: new Date("2025-01-15").getTime(),
         id: "r-1",
         lineItems: [
@@ -78,10 +78,10 @@ describe("reimbursement mutator schemas", () => {
       expect(result.success).toBe(false);
     });
 
-    it("accepts valid city enum value", () => {
+    it("accepts a cost centre id", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "mumbai",
+        costCentreId: "cc-mum",
         expenseDate: new Date("2025-01-15").getTime(),
         id: "r-1",
         lineItems: [],
@@ -90,10 +90,10 @@ describe("reimbursement mutator schemas", () => {
       expect(result.success).toBe(true);
     });
 
-    it("rejects invalid city enum value", () => {
+    it("rejects a cost centre that is not an id string", () => {
       const result = createSchema.safeParse({
         attachments: [],
-        city: "delhi",
+        costCentreId: 42,
         expenseDate: new Date("2025-01-15").getTime(),
         id: "r-1",
         lineItems: [],

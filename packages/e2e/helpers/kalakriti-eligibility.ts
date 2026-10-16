@@ -5,6 +5,7 @@ import {
   kalakritiEdition,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 
 const EDITION_ID = "019f0000-0000-7000-8000-00000000e801";
@@ -31,7 +32,7 @@ async function setup(superAdminEmail: string) {
   }
   const now = new Date();
   await db.insert(teamEvent).values({
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
     createdBy: actor.id,
     description: "Kalakriti eligibility E2E fixture",

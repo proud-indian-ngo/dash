@@ -12,7 +12,6 @@ test.describe("New reimbursement form", () => {
 
   test("renders all form fields including Expense Date", async ({ page }) => {
     await expect(reimbursements.form.getTitleInput()).toBeVisible();
-    await expect(reimbursements.form.getCityInput()).toBeVisible();
     await expect(page.getByLabel("Expense Date")).toBeVisible();
     // Bank Account section hydrates from a separate Zero query, which runs
     // later than data-zero-ready under parallel load — extra headroom.
@@ -46,7 +45,6 @@ test.describe("New reimbursement form", () => {
 
     const errors = reimbursements.form.getFieldErrors();
     await expect(errors.filter({ hasText: "Title is required" })).toBeVisible();
-    await expect(errors.filter({ hasText: "City is required" })).toBeVisible();
     await expect(
       errors.filter({ hasText: "Expense date is required" })
     ).toBeVisible();

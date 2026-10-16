@@ -16,11 +16,10 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
-import { programme, project } from "./finance-dimensions";
+import { costCentre, programme, project } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import {
   attachmentTypeEnum,
-  cityEnum,
   expenseChargedToEnum,
   historyActionEnum,
 } from "./shared";
@@ -55,7 +54,14 @@ export const reimbursement = pgTable(
     chargedProjectId: uuid("charged_project_id"),
     /** Which work the expense served; see `expenseProgrammeOf`. */
     chargedTo: expenseChargedToEnum("charged_to").notNull(),
-    city: cityEnum("city"),
+    /**
+     * Cost centre ("City") of a request with no event; null when it has an
+     * event, whose cost centre it uses (`requestCostCentreId`). Null on
+     * older requests that never recorded a city.
+     */
+    costCentreId: uuid("cost_centre_id").references(() => costCentre.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at").notNull(),
     /**
      * Who raised the request. Usually the claimant (`userId`); finance raises
@@ -100,6 +106,7 @@ export const reimbursement = pgTable(
     index("reimbursement_status_idx").on(table.status),
     index("reimbursement_eventId_idx").on(table.eventId),
     index("reimbursement_chargedProgrammeId_idx").on(table.chargedProgrammeId),
+    index("reimbursement_costCentreId_idx").on(table.costCentreId),
     // A project must sit under the charged programme.
     foreignKey({
       columns: [table.chargedProjectId, table.chargedProgrammeId],
@@ -109,6 +116,12 @@ export const reimbursement = pgTable(
     check(
       "reimbursement_charged_to_chk",
       sql`(${table.chargedTo} = 'event' AND ${table.eventId} IS NOT NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL) OR (${table.chargedTo} = 'programme' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NOT NULL) OR (${table.chargedTo} = 'organisation' AND ${table.eventId} IS NULL AND ${table.chargedProgrammeId} IS NULL AND ${table.chargedProjectId} IS NULL)`
+    ),
+    // A request linked to an event reads the event's cost centre and
+    // stores none of its own, so the two can never drift.
+    check(
+      "reimbursement_cost_centre_chk",
+      sql`${table.eventId} IS NULL OR ${table.costCentreId} IS NULL`
     ),
     check(
       "reimbursement_rejection_reason_chk",

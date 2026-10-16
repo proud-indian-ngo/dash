@@ -1,5 +1,5 @@
 import {
-  cityValues,
+  COST_CENTRE_IDS,
   PROGRAMME_IDS,
   reminderTargetValues,
 } from "@pi-dash/shared/constants";
@@ -22,6 +22,7 @@ import {
 } from "../kalakriti-registration-readiness";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { zql } from "../schema";
+import { pickCostCentreId } from "./cost-centre-pick";
 import {
   assertCanManageKalakritiConfiguration,
   assertKalakritiEditionStructurallyConfigurable,
@@ -93,7 +94,7 @@ export const kalakritiEditionUpdateParticipationRulesSchema = z.object({
 
 export const kalakritiEditionUpdateLinkedEventSchema = z.object({
   auditEntryId: z.string(),
-  city: z.enum(cityValues).optional(),
+  costCentreId: z.string().optional(),
   description: z.string().optional(),
   editionId: z.string(),
   endTime: z.number().optional(),
@@ -230,7 +231,7 @@ function buildLinkedEventAuditFields(args: LinkedEventUpdateArgs): string[] {
     ...(args.endTime === undefined ? [] : ["endTime"]),
     ...(args.location === undefined ? [] : ["location"]),
     ...(args.description === undefined ? [] : ["description"]),
-    ...(args.city === undefined ? [] : ["city"]),
+    ...(args.costCentreId === undefined ? [] : ["costCentreId"]),
     ...(args.feedbackEnabled === undefined ? [] : ["feedbackEnabled"]),
     ...(args.feedbackDeadline === undefined ? [] : ["feedbackDeadline"]),
     ...(args.postEventNudgesEnabled === undefined
@@ -716,7 +717,7 @@ export const kalakritiEditionMutators = {
 
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
-        city: "bangalore",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: args.now,
         createdBy: ctx.userId,
         description: "Technical event record managed by the Kalakriti module.",
@@ -933,6 +934,7 @@ export const kalakritiEditionMutators = {
         zql.teamEvent.where("id", edition.teamEventId).one()
       )) as
         | {
+            costCentreId: string | null;
             id: string;
             name: string;
             seriesId: string | null;
@@ -975,9 +977,10 @@ export const kalakritiEditionMutators = {
         });
       }
 
+      await pickCostCentreId(tx, args.costCentreId, existingEvent.costCentreId);
       await (tx as EditionTx).mutate.teamEvent.update(
         buildUpdateFields({
-          city: args.city,
+          costCentreId: args.costCentreId,
           description: args.description,
           endTime: args.endTime,
           feedbackDeadline: args.feedbackDeadline,

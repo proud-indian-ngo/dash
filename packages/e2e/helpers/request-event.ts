@@ -1,29 +1,30 @@
 import type { Page } from "@playwright/test";
 
-/** Seeded Bangalore event in the Unallocated programme, used to check a request's derived programme. */
+/**
+ * Seeded Bangalore event in the Unallocated programme, used to check a
+ * request's derived programme and city (a request on an event takes both
+ * from it).
+ */
 export const PROGRAMME_EVENT = {
   city: "Bangalore",
   name: "E2E Upcoming Public Bangalore",
   programme: "Unallocated",
 } as const;
 
-/** Picks the request's city, then an event from that city, in a reimbursement or vendor payment form. */
-export async function selectRequestEvent(
-  page: Page,
-  eventName: string,
-  city: string
-) {
-  await page.getByLabel("City").click();
-  await page.getByRole("option", { name: city }).click();
+/**
+ * Picks an event in a reimbursement or vendor payment form. The request
+ * takes the event's city, so the form asks for none.
+ */
+export async function selectRequestEvent(page: Page, eventName: string) {
   const eventInput = page.getByRole("combobox", { name: "Event" });
   await eventInput.click();
   await eventInput.fill(eventName);
   await page.getByRole("option").filter({ hasText: eventName }).first().click();
 }
 
-/** How a test request is charged: to an event (by city and name) or a programme. */
+/** How a test request is charged: to an event (by name; `city` is the event's) or a programme. */
 export type ChargeOption =
-  | { city: string; name: string }
+  | { city?: string; name: string }
   | { programme: string };
 
 /** The "Charged to" choices on the reimbursement and vendor payment forms. */

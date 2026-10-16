@@ -152,6 +152,7 @@ import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
   CORPUS_FUND_ID,
+  COST_CENTRE_IDS,
   FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   GIVE_INDIA_PARTY_ID,
@@ -1509,7 +1510,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
 
   const events = [
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       creator: leadId,
       end: addHours(past(7), 2),
       feedbackEnabled: true,
@@ -1522,7 +1523,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       teamId: ID.teamTeaching,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       creator: leadId,
       end: addHours(future(2), 2),
       id: ID.evTeachingNext,
@@ -1534,7 +1535,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       teamId: ID.teamTeaching,
     },
     {
-      city: "mumbai" as const,
+      costCentreId: COST_CENTRE_IDS.mumbai,
       creator: v3,
       end: addHours(past(3), 4),
       id: ID.evKitchen,
@@ -1546,7 +1547,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       teamId: ID.teamKitchen,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       creator: adminId,
       end: addHours(future(7), 6),
       feedbackEnabled: true,
@@ -1561,7 +1562,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       teamId: ID.teamEvents,
     },
     {
-      city: "mumbai" as const,
+      costCentreId: COST_CENTRE_IDS.mumbai,
       creator: adminId,
       end: addHours(past(14), 1),
       id: ID.evPlanning,
@@ -1573,7 +1574,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       teamId: ID.teamEvents,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       creator: v1,
       end: addHours(future(1), 3),
       id: ID.evSupply,
@@ -1592,7 +1593,7 @@ async function seedEvents(userMap: Map<string, string>): Promise<void> {
       await db
         .insert(teamEvent)
         .values({
-          city: e.city,
+          costCentreId: e.costCentreId,
           createdAt: subDays(e.start, 5),
           createdBy: e.creator,
           description: `${e.name} — organized by the team`,
@@ -1645,7 +1646,7 @@ async function seedKalakriti(userMap: Map<string, string>): Promise<void> {
   await db
     .insert(teamEvent)
     .values({
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: adminId,
       description: "Technical event record managed by the Kalakriti module.",
@@ -2577,7 +2578,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
 
   const reimbursements = [
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       eventId: ID.evTeaching,
       expenseDate: past(10),
       historyIds: [ID.rh01, ID.rh02, ID.rh03],
@@ -2606,7 +2607,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       userId: v1,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       eventId: ID.evKitchen,
       expenseDate: past(5),
       historyIds: [ID.rh04, ID.rh05],
@@ -2633,7 +2634,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       // Ongoing cost without an event, charged straight to a programme.
       chargedProgrammeId: PROGRAMME_IDS.communitySupport,
       chargedTo: "programme" as const,
-      city: "mumbai" as const,
+      costCentreId: COST_CENTRE_IDS.mumbai,
       expenseDate: past(2),
       historyIds: [ID.rh06],
       id: ID.reimb03,
@@ -2650,7 +2651,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       userId: leadId,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       expenseDate: past(20),
       historyIds: [ID.rh07, ID.rh08],
       id: ID.reimb04,
@@ -2683,7 +2684,8 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
             chargedTo: r.chargedTo,
             eventId: r.eventId,
           }),
-          city: r.city,
+          // An event-linked claim reads its event's cost centre.
+          costCentreId: r.eventId ? null : r.costCentreId,
           createdAt: subDays(r.expenseDate, 2),
           expenseDate: r.expenseDate.toISOString().slice(0, 10),
           id: r.id,
@@ -2824,7 +2826,7 @@ async function seedAdvancePayments(
       bankAccountIfscCode: "HDFC0002345",
       bankAccountName: "Priya Savings",
       bankAccountNumber: "2001200034005601",
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: past(7),
       id: ID.adv01,
       reviewedAt: past(3),
@@ -2962,7 +2964,6 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
     .insert(vendorPayment)
     .values({
       chargedTo: "event",
-      city: "bangalore",
       createdAt: past(15),
       eventId: ID.evOutreach,
       id: ID2.vp01,
@@ -3135,7 +3136,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
       // A legacy request without an event, left for finance to clear.
       chargedProgrammeId: PROGRAMME_IDS.unallocated,
       chargedTo: "programme",
-      city: "mumbai",
+      costCentreId: COST_CENTRE_IDS.mumbai,
       createdAt: past(3),
       id: ID2.vp02,
       status: "pending",
@@ -3200,7 +3201,7 @@ async function seedVendors(userMap: Map<string, string>): Promise<void> {
     .values({
       // Office rent runs the trust, so it is charged to admin.
       chargedTo: "organisation",
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: past(30),
       id: ID2.vp03,
       invoiceDate: past(25).toISOString().slice(0, 10),

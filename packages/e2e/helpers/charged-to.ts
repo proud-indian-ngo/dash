@@ -4,7 +4,7 @@ import {
   reimbursement,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { COST_CENTRE_IDS, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -44,7 +44,7 @@ async function insertRequest(
   const now = new Date();
   await db.insert(reimbursement).values({
     ...charge,
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
     expenseDate: now.toISOString().slice(0, 10),
     id,

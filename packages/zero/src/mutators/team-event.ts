@@ -1,5 +1,5 @@
 import {
-  cityValues,
+  COST_CENTRE_IDS,
   PROGRAMME_IDS,
   reminderTargetValues,
 } from "@pi-dash/shared/constants";
@@ -19,6 +19,7 @@ import {
 } from "../permissions";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { type Schema, zql } from "../schema";
+import { pickCostCentreId } from "./cost-centre-pick";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   buildUpdateFields,
@@ -148,7 +149,7 @@ export async function resolveJoinTarget(
   const occEnd = duration === null ? null : occStart + duration;
   await tx.mutate.teamEvent.insert({
     cancelledAt: null,
-    city: event.city,
+    costCentreId: event.costCentreId,
     createdAt: args.now,
     createdBy: ctx.userId,
     description: event.description,
@@ -744,7 +745,7 @@ export const teamEventMutators = {
   ),
   create: defineMutator(
     z.object({
-      city: z.enum(cityValues).optional(),
+      costCentreId: z.string().optional(),
       createWhatsAppGroup: z.boolean().optional(),
       description: z.string().optional(),
       endTime: z.number().optional(),
@@ -801,7 +802,10 @@ export const teamEventMutators = {
       }
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
-        city: args.city,
+        // The client may not hold the centres yet; the server always resolves.
+        costCentreId:
+          (await pickCostCentreId(tx, args.costCentreId)) ??
+          COST_CENTRE_IDS.bangalore,
         createdAt: args.now,
         createdBy: ctx.userId,
         description: args.description,
@@ -1193,6 +1197,7 @@ export const teamEventMutators = {
       await assertEventIdAvailable(tx, args.id);
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
+        costCentreId: series.costCentreId,
         createdAt: args.now,
         createdBy: ctx.userId,
         description: series.description,
@@ -1325,7 +1330,7 @@ export const teamEventMutators = {
 
   update: defineMutator(
     z.object({
-      city: z.enum(cityValues).optional(),
+      costCentreId: z.string().optional(),
       description: z.string().optional(),
       endTime: z.number().optional(),
       feedbackDeadline: z.number().nullable().optional(),
@@ -1381,6 +1386,7 @@ export const teamEventMutators = {
         existing,
         args.whatsappGroupId
       );
+      await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
       if (args.partners) {
@@ -1471,7 +1477,7 @@ export const teamEventMutators = {
   /** Update a series with edit mode: "this", "following", or "all". */
   updateSeries: defineMutator(
     z.object({
-      city: z.enum(cityValues).optional(),
+      costCentreId: z.string().optional(),
       description: z.string().optional(),
       endTime: z.number().optional(),
       feedbackDeadline: z.number().nullable().optional(),
@@ -1537,6 +1543,7 @@ export const teamEventMutators = {
         existing,
         args.whatsappGroupId
       );
+      await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
       if (
         args.mode === "all" &&
         args.programmeId !== undefined &&

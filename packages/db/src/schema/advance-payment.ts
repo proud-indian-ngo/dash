@@ -12,8 +12,9 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
+import { costCentre } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
-import { attachmentTypeEnum, cityEnum, historyActionEnum } from "./shared";
+import { attachmentTypeEnum, historyActionEnum } from "./shared";
 
 // Advance-payment-specific enums
 const advancePaymentStatusValues = ["pending", "approved", "rejected"] as const;
@@ -35,7 +36,10 @@ export const advancePayment = pgTable(
     bankAccountNumber: text("bank_account_number"),
     /** The payee's UPI ID or number, copied with the bank details; finance pays by either. */
     bankAccountUpiId: text("bank_account_upi_id"),
-    city: cityEnum("city"),
+    /** Cost centre ("City") of the advance; null on older ones without a city. */
+    costCentreId: uuid("cost_centre_id").references(() => costCentre.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at").notNull(),
     id: uuid("id").primaryKey(),
     rejectionReason: text("rejection_reason"),
@@ -54,6 +58,7 @@ export const advancePayment = pgTable(
   (table) => [
     index("advance_payment_userId_idx").on(table.userId),
     index("advance_payment_status_idx").on(table.status),
+    index("advance_payment_costCentreId_idx").on(table.costCentreId),
   ]
 );
 
