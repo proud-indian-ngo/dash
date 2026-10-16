@@ -18,6 +18,7 @@ import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -31,6 +32,7 @@ import { reportMutationResult } from "@/lib/report-mutation-result";
 const CODE_RE = /^[A-Z0-9_-]+$/i;
 
 const costCentreSchema = z.object({
+  active: z.boolean(),
   code: z
     .string()
     .trim()
@@ -87,6 +89,13 @@ function CostCentreForm({
           label="State or union territory"
           name="stateUt"
         />
+        {isEdit ? null : (
+          <CheckboxField
+            description="Untick to add it closed: it can't be picked until it is reactivated."
+            label="Active"
+            name="active"
+          />
+        )}
         <FormActions
           onCancel={onCancel}
           submitLabel="Save cost centre"
@@ -198,7 +207,7 @@ export function CostCentresSection() {
     async (values: CostCentreFormValues) => {
       const id = uuidv7();
       const res = await zero.mutate(
-        mutators.costCentre.create(toMutatorArgs(id, values, true))
+        mutators.costCentre.create(toMutatorArgs(id, values, values.active))
       ).server;
       reportMutationResult(res, {
         entityId: id,
@@ -294,7 +303,7 @@ export function CostCentresSection() {
         <div className="bg-muted/30 px-4 py-3">
           <h3 className="mb-3 text-sm font-medium">New cost centre</h3>
           <CostCentreForm
-            initialValues={{ code: "", name: "", stateUt: "" }}
+            initialValues={{ active: true, code: "", name: "", stateUt: "" }}
             isEdit={false}
             onCancel={cancelInline}
             onSubmit={handleCreate}
@@ -307,6 +316,7 @@ export function CostCentresSection() {
             <h3 className="mb-3 text-sm font-medium">Edit cost centre</h3>
             <CostCentreForm
               initialValues={{
+                active: centre.active !== false,
                 code: centre.code,
                 name: centre.name,
                 stateUt: centre.stateUt ?? "",

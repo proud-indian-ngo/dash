@@ -37,7 +37,7 @@ test.describe("Cost centres settings (admin)", () => {
     ).toBeDisabled();
   });
 
-  test("adds a cost centre, deactivates it, and then it is offered nowhere", async ({
+  test("adds a closed cost centre, which is offered nowhere", async ({
     page,
     request,
   }) => {
@@ -47,22 +47,21 @@ test.describe("Cost centres settings (admin)", () => {
     const name = `E2E City ${stamp}`;
     const code = `E2E${stamp}`;
 
+    // Added closed, so no second centre is ever active while other specs
+    // run (every event and request form would then ask for a city);
+    // `cost-centre-activation.spec.ts` covers activating and deactivating
+    // on its own, after every other spec.
     await main.getByRole("button", { name: "Add cost centre" }).click();
     await expect(main.getByText("New cost centre")).toBeVisible();
     await main.getByLabel("Name").fill(name);
     await main.getByLabel("Code").fill(code.toLowerCase());
     await main.getByLabel("State or union territory").fill("Goa");
+    await main.getByRole("switch", { name: "Active" }).click();
     await main.getByRole("button", { name: "Save cost centre" }).click();
     await expect(page.getByText("Cost centre added")).toBeVisible();
     const row = centreRow(main, name);
     // Saved upper-case: the code is what the website's feed uses.
     await expect(row).toContainText(`${code} · Goa`, { timeout: 10_000 });
-
-    // Deactivated at once: while two are active, every event and request
-    // form asks for a city, so other specs on this stack would see it.
-    await row.getByRole("button", { name: `Actions for ${name}` }).click();
-    await page.getByRole("menuitem", { name: "Deactivate" }).click();
-    await expect(page.getByText(`${name} deactivated`)).toBeVisible();
     await expect(row).toContainText("Inactive");
 
     // The code can't change once created.
@@ -72,8 +71,8 @@ test.describe("Cost centres settings (admin)", () => {
     await expect(main.getByLabel("Code")).toHaveValue(code);
     await main.getByRole("button", { name: "Cancel" }).click();
 
-    // The event form offers no inactive city: with one active centre it
-    // asks for none.
+    // The event form offers no closed city: with one active centre it asks
+    // for none.
     await openSeededTeam(page, SANDBOX_TEAM);
     await page.getByRole("button", { name: "Create event" }).click();
     const dialog = page.getByRole("dialog");
@@ -83,8 +82,8 @@ test.describe("Cost centres settings (admin)", () => {
     );
     await expect(dialog.getByText(name)).toHaveCount(0);
 
-    // Nor does the website's events feed: an inactive code is refused with
-    // the active ones.
+    // Nor does the website's events feed: a code that was never active is
+    // refused with the active ones.
     const response = await request.get(`/api/public/events?city=${code}`);
     expect(response.status()).toBe(400);
     const body = (await response.json()) as { error: string };

@@ -20,7 +20,7 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
-import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { costCentre, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
 import { contribution } from "@pi-dash/db/schema/income";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { role, rolePermission } from "@pi-dash/db/schema/permission";
@@ -43,7 +43,7 @@ import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
-import { eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { seedKalakritiReleaseFixture } from "./kalakriti-release-fixture";
@@ -1718,6 +1718,12 @@ async function ensureFilterTestEvents(
 async function seed(): Promise<void> {
   await syncPermissions();
   await ensureFinanceDimensions();
+  // Cost centres a spec added and left active (a run stopped part way)
+  // would make every event and request form ask for a city: close them.
+  await db
+    .update(costCentre)
+    .set({ active: false, updatedAt: new Date() })
+    .where(and(like(costCentre.code, "E2E%"), eq(costCentre.active, true)));
   await verifyReservedPermissionSync();
   log("Synced roles and permissions");
 

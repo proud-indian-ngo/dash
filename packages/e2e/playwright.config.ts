@@ -4,6 +4,7 @@ import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 import {
+  exclusiveLastPatterns,
   releaseInvariantPatterns,
   testIgnoreForRole,
 } from "./project-selection";
@@ -24,6 +25,8 @@ export default defineConfig({
       name: "setup",
       testDir: path.resolve(import.meta.dirname),
       testMatch: /global-setup\.ts/,
+      // Runs once every project that depends on setup has finished.
+      teardown: "exclusive_last",
     },
     {
       dependencies: ["setup"],
@@ -101,9 +104,26 @@ export default defineConfig({
       },
     },
     {
+      // After setup, only so that setup's teardown (exclusive_last) also
+      // waits for it.
+      dependencies: ["setup"],
       name: "unauthenticated",
       testMatch: /auth\//,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // setup's teardown: runs once every other project has finished, with
+      // one worker, so the state it changes is never seen by another spec.
+      name: "exclusive_last",
+      testMatch: exclusiveLastPatterns,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.resolve(
+          import.meta.dirname,
+          ".auth/super_admin.json"
+        ),
+      },
+      workers: 1,
     },
   ],
   reporter: isCI
