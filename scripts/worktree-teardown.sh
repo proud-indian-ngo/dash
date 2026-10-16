@@ -24,6 +24,7 @@ else
 fi
 
 echo "Tearing down worktree ID=$WT_ID..."
+CLEANUP_FAILED=false
 
 # Stop and remove isolated DB container if it exists
 DB_CONTAINER="pi-dash-postgres-wt${WT_ID}"
@@ -35,14 +36,22 @@ DB_VOLUMES=("pi-dash-wt${WT_ID}_${DB_VOLUME}" "$DB_VOLUME")
 
 if [ -f "$DB_COMPOSE" ]; then
   echo "Stopping isolated database..."
-  # down -v removes the project-prefixed volume compose created.
-  docker compose -f "$DB_COMPOSE" down -v --remove-orphans 2>/dev/null || true
-  rm -f "$DB_COMPOSE"
-  echo "✓ Removed isolated DB (container: $DB_CONTAINER)"
+  # down -v removes the project-prefixed volume compose created. Keep the
+  # compose file when it fails (Docker stopped, say), so a rerun can clean up.
+  if docker compose -f "$DB_COMPOSE" down -v --remove-orphans; then
+    rm -f "$DB_COMPOSE"
+    echo "✓ Removed isolated DB (container: $DB_CONTAINER)"
+  else
+    echo "⚠ Couldn't remove the isolated DB (container: $DB_CONTAINER); kept $DB_COMPOSE so a rerun can clean up" >&2
+    CLEANUP_FAILED=true
+  fi
 elif docker ps -a --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-  docker stop "$DB_CONTAINER" 2>/dev/null || true
-  docker rm "$DB_CONTAINER" 2>/dev/null || true
-  echo "✓ Removed isolated DB (container: $DB_CONTAINER)"
+  if docker rm -f "$DB_CONTAINER" >/dev/null; then
+    echo "✓ Removed isolated DB (container: $DB_CONTAINER)"
+  else
+    echo "⚠ Couldn't remove the isolated DB container $DB_CONTAINER" >&2
+    CLEANUP_FAILED=true
+  fi
 fi
 
 # Remove any volume left behind under either name, e.g. when the compose file
@@ -58,8 +67,12 @@ done
 for e2e_compose in "$REPO_ROOT"/packages/db/docker-compose.e2e-wt"${WT_ID}".yml \
   "$REPO_ROOT"/packages/db/docker-compose.e2e-wt"${WT_ID}"-stack*.yml; do
   [ -f "$e2e_compose" ] || continue
-  docker compose -f "$e2e_compose" down -v --remove-orphans 2>/dev/null || true
-  rm -f "$e2e_compose"
+  if docker compose -f "$e2e_compose" down -v --remove-orphans; then
+    rm -f "$e2e_compose"
+  else
+    echo "⚠ Couldn't remove the E2E stack in $e2e_compose; kept it so a rerun can clean up" >&2
+    CLEANUP_FAILED=true
+  fi
 done
 
 # Remove Zero replica files
@@ -69,6 +82,12 @@ rm -f "/tmp/pi-dash-test-wt${WT_ID}.db"*
 # Remove log files
 rm -f "/tmp/pi-dash-test-wt${WT_ID}-zero.log"
 rm -f "/tmp/pi-dash-test-wt${WT_ID}-vite.log"
+
+if [ "$CLEANUP_FAILED" = true ]; then
+  # Keep .worktree-id and .env.worktree so rerunning teardown finds them.
+  echo "⚠ Worktree ID=$WT_ID teardown incomplete: start Docker and run it again." >&2
+  exit 1
+fi
 
 # Remove worktree config files
 rm -f "$REPO_ROOT/.env.worktree"
