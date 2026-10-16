@@ -44,6 +44,7 @@ import { FormActions } from "@/components/form/form-actions";
 import {
   type FormFieldApi,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
@@ -277,7 +278,7 @@ function ResponsibilitySelectField({
   name: string;
 }) {
   const form = useResolvedForm(undefined, "ResponsibilitySelectField");
-  const submitted = form.state.submissionAttempts > 0;
+  const submitted = useFormSubmitted(form);
 
   return (
     <CustomField

@@ -25,6 +25,10 @@ import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import { ClaimForField } from "./claim-for-field";
 import { useClaimantOptions } from "./claimant-picker";
 import {
+  defaultBankAccountFor,
+  shouldApplyDefaultBankAccount,
+} from "./default-bank-account";
+import {
   getDefaultValues,
   type RequestFormValues,
   createRequestFormSchema,
@@ -144,8 +148,7 @@ function ReimbursementFormInner({
     value: account.id,
   }));
 
-  const defaultBankAccount =
-    bankAccountList.find((a) => a.isDefault) ?? bankAccountList[0];
+  const defaultBankAccount = defaultBankAccountFor(bankAccountList);
 
   const strippedInitialValues = (() => {
     if (!initialValues || requestType === "reimbursement") {
@@ -220,23 +223,49 @@ function ReimbursementFormInner({
     },
   });
 
-  const hasInitialBankAccount = "bankAccountName" in (initialValues ?? {});
-  const autoBankAccountNumber = useRef(defaultBankAccount?.accountNumber);
+  // A new request follows the (claimant's) default account as it syncs in
+  // or changes, until the person picks an account in this form. Edits and
+  // prefilled bank details keep what they were given.
+  const followsDefaultBankAccount = !(
+    isEdit || "bankAccountName" in (initialValues ?? {})
+  );
+  const bankAccountPickedByUser = useRef(false);
   useEffect(() => {
-    if (!defaultBankAccount || isEdit || hasInitialBankAccount) {
+    if (
+      !(
+        defaultBankAccount &&
+        shouldApplyDefaultBankAccount({
+          current: {
+            accountName: form.getFieldValue("bankAccountName"),
+            accountNumber: form.getFieldValue("bankAccountNumber"),
+            ifscCode: form.getFieldValue("bankAccountIfscCode"),
+          },
+          defaultAccount: defaultBankAccount,
+          enabled: followsDefaultBankAccount,
+          pickedByUser: bankAccountPickedByUser.current,
+        })
+      )
+    ) {
       return;
     }
-    const currentBankAccountNumber = form.getFieldValue("bankAccountNumber");
-    if (
-      !currentBankAccountNumber ||
-      currentBankAccountNumber === autoBankAccountNumber.current
-    ) {
-      form.setFieldValue("bankAccountName", defaultBankAccount.accountName);
-      form.setFieldValue("bankAccountNumber", defaultBankAccount.accountNumber);
-      form.setFieldValue("bankAccountIfscCode", defaultBankAccount.ifscCode);
-      autoBankAccountNumber.current = defaultBankAccount.accountNumber;
-    }
-  }, [defaultBankAccount, form, isEdit, hasInitialBankAccount]);
+    // A default, not an edit: leave the fields untouched and unvalidated.
+    const asDefault = { dontUpdateMeta: true, dontValidate: true };
+    form.setFieldValue(
+      "bankAccountName",
+      defaultBankAccount.accountName,
+      asDefault
+    );
+    form.setFieldValue(
+      "bankAccountNumber",
+      defaultBankAccount.accountNumber,
+      asDefault
+    );
+    form.setFieldValue(
+      "bankAccountIfscCode",
+      defaultBankAccount.ifscCode,
+      asDefault
+    );
+  }, [defaultBankAccount, followsDefaultBankAccount, form]);
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
 
@@ -255,13 +284,18 @@ function ReimbursementFormInner({
       eventId: state.values.eventId,
     })
   );
-  // The picker fills in the default account on its own (after a claimant
-  // change, the fields start empty), so set the name too.
-  const handleBankAccountSelected = useEventCallback((account: BankAccount) => {
-    form.setFieldValue("bankAccountName", account.accountName);
-    form.setFieldValue("bankAccountNumber", account.accountNumber);
-    form.setFieldValue("bankAccountIfscCode", account.ifscCode);
-  });
+  // The picker also fills in an account on its own when the stored one
+  // isn't listed; only a person's pick stops the default from following.
+  const handleBankAccountSelected = useEventCallback(
+    (account: BankAccount, source: "auto" | "user") => {
+      if (source === "user") {
+        bankAccountPickedByUser.current = true;
+      }
+      form.setFieldValue("bankAccountName", account.accountName);
+      form.setFieldValue("bankAccountNumber", account.accountNumber);
+      form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+    }
+  );
   // A new claimant means a new set of accounts: clear the old choice so the
   // claimant's default fills in.
   const handleClaimantChange = useEventCallback((nextId: string) => {
@@ -271,7 +305,7 @@ function ReimbursementFormInner({
     form.setFieldValue("bankAccountName", "");
     form.setFieldValue("bankAccountNumber", "");
     form.setFieldValue("bankAccountIfscCode", "");
-    autoBankAccountNumber.current = undefined;
+    bankAccountPickedByUser.current = false;
     setClaimantId(nextId);
   });
 
@@ -286,7 +320,7 @@ function ReimbursementFormInner({
         />
       ) : null}
       <form.Subscribe selector={stableSelector0}>
-        {({ city: selectedCity, eventId }) => {
+        {({ bankAccountNumber, city: selectedCity, eventId }) => {
           const filteredOptions = getFilteredEventOptions(selectedCity);
           if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
             setTimeout(() => form.setFieldValue("eventId", undefined), 0);
@@ -294,6 +328,7 @@ function ReimbursementFormInner({
           return (
             <StandardReimbursementFields
               bankAccountList={bankAccountList}
+              bankAccountNumber={bankAccountNumber}
               bankAccountsKey={claimantId}
               claimantName={claimantName}
               bankAccountOptions={bankAccountOptions}

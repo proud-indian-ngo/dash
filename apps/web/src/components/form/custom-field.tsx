@@ -12,10 +12,15 @@ import type {
   FormFieldApi,
   FormInstance,
 } from "./form-context";
-import { getFieldErrorState, useResolvedForm } from "./form-context";
+import {
+  getFieldErrorState,
+  useFormSubmitted,
+  useResolvedForm,
+} from "./form-context";
 
 interface CustomFieldProps<TValue = unknown> {
-  children: (field: FormFieldApi<TValue>) => ReactNode;
+  /** Renders the control; `submitted` is whether the form was submitted. */
+  children: (field: FormFieldApi<TValue>, submitted: boolean) => ReactNode;
   className?: string;
   controlId?: string;
   description?: ReactNode;
@@ -42,12 +47,12 @@ export function CustomField<TValue = unknown>({
   validators,
 }: CustomFieldProps<TValue>) {
   const resolvedForm = useResolvedForm(form, "CustomField");
+  const submitted = useFormSubmitted(resolvedForm);
 
   return (
     <resolvedForm.Field name={name} validators={validators}>
       {(field: unknown) => {
         const typedField = field as FormFieldApi<TValue>;
-        const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           typedField,
           submitted
@@ -71,7 +76,7 @@ export function CustomField<TValue = unknown>({
                 </span>
               ) : null}
             </FieldLabel>
-            {children(typedField)}
+            {children(typedField, submitted)}
             {description ? (
               <FieldDescription>{description}</FieldDescription>
             ) : null}

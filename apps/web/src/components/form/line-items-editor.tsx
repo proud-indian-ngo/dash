@@ -39,6 +39,7 @@ import type { FormInstance } from "./form-context";
 import {
   blurField,
   shouldShowFieldErrors,
+  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 import { InputField } from "./input-field";
@@ -488,6 +489,7 @@ export function LineItemsEditor({
   showVoucher,
 }: LineItemsEditorProps) {
   const form = useResolvedForm(formProp, "LineItemsEditor");
+  const submitted = useFormSubmitted(form);
   const voucherLimitPaise = useCashVoucherLimit();
 
   const categoryOptions = categories.map((category) => ({
@@ -531,7 +533,7 @@ export function LineItemsEditor({
                       name={name}
                       removeValue={arrayField.removeValue}
                       showVoucher={showVoucher}
-                      submitted={form.state.submissionAttempts > 0}
+                      submitted={submitted}
                       voucherLimitPaise={voucherLimitPaise}
                     />
                   ))}
@@ -542,8 +544,7 @@ export function LineItemsEditor({
                 </p>
               )}
 
-              {form.state.submissionAttempts > 0 &&
-              arrayField.state.value.length === 0 ? (
+              {submitted && arrayField.state.value.length === 0 ? (
                 <p className="text-destructive text-xs" role="alert">
                   At least one line item is required
                 </p>

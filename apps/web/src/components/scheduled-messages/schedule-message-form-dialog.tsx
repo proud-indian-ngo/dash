@@ -17,6 +17,7 @@ import z from "zod";
 
 import { DateTimeField } from "@/components/form/date-time-field";
 import { FormActions } from "@/components/form/form-actions";
+import { useFormSubmitted } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
 import { TextareaField } from "@/components/form/textarea-field";
@@ -119,6 +120,7 @@ export function ScheduleMessageFormDialog({
       onSubmit: formSchema,
     },
   });
+  const submitted = useFormSubmitted(form);
   const stableOnOpenChange0 = useEventCallback((v: boolean) => {
     if (!v) {
       setFormKey((k) => k + 1);
@@ -170,7 +172,6 @@ export function ScheduleMessageFormDialog({
 
         <form.Field name="recipients">
           {(field) => {
-            const submitted = form.state.submissionAttempts > 0;
             const hasError =
               (field.state.meta.isBlurred || submitted) &&
               field.state.meta.errors.length > 0;

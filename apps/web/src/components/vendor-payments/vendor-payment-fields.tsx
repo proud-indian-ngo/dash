@@ -22,6 +22,7 @@ import { FormActions } from "@/components/form/form-actions";
 import type { FormFieldApi } from "@/components/form/form-context";
 import {
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
@@ -120,6 +121,7 @@ export function VendorPaymentFields({
   onVendorDialogOpenChange,
 }: VendorPaymentFieldsProps) {
   const resolvedForm = useResolvedForm(undefined, "VendorPaymentFields");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -137,7 +139,6 @@ export function VendorPaymentFields({
           name="vendorId"
         >
           {(field) => {
-            const submitted = resolvedForm.state.submissionAttempts > 0;
             return (
               <VendorSelectField
                 field={field}

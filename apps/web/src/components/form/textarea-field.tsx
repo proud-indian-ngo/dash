@@ -69,7 +69,7 @@ export function TextareaField({
   validators,
   ...props
 }: TextareaFieldProps) {
-  const resolvedForm = useResolvedForm(form, "TextareaField");
+  useResolvedForm(form, "TextareaField");
   return (
     <CustomField
       description={description}
@@ -80,12 +80,12 @@ export function TextareaField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <TextareaFieldControl
           {...props}
           field={field}
           isRequired={isRequired}
-          submitted={resolvedForm.state.submissionAttempts > 0}
+          submitted={submitted}
         />
       )}
     </CustomField>

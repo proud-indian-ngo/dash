@@ -20,7 +20,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -228,6 +228,10 @@ function hasAdvancedValues(values: EventFormValues): boolean {
     values.postRsvpPoll ||
     values.feedbackDeadline
   );
+}
+
+function selectHasAdvancedValues(state: EventFormState): boolean {
+  return hasAdvancedValues(state.values);
 }
 
 function getStartTimeEpoch(value: EventFormValues): number {
@@ -540,7 +544,8 @@ function EventFormContent({
     autoExpand
   );
 
-  const configured = !showAdvanced && hasAdvancedValues(form.state.values);
+  const hasAdvanced = useSelector(form.store, selectHasAdvancedValues);
+  const configured = !showAdvanced && hasAdvanced;
   const stableSelector0 = useEventCallback(
     (state: EventFormState) => state.values.startTime
   );
@@ -681,29 +686,33 @@ function EventFormContent({
                 editScope === "all" ||
                 editScope === "following" ||
                 (!editScope && !!initialValues?.recurrenceRule)) && (
-                <form.Field name="rrule">
-                  {(rruleField) => (
-                    <form.Field name="excludeRules">
-                      {(excludeField) => (
-                        <RecurrenceBuilder
-                          excludeRules={
-                            Array.isArray(excludeField.state.value)
-                              ? excludeField.state.value
-                              : []
-                          }
-                          onChange={rruleField.handleChange}
-                          onExcludeRulesChange={excludeField.handleChange}
-                          startTime={form.state.values.startTime}
-                          value={
-                            typeof rruleField.state.value === "string"
-                              ? rruleField.state.value
-                              : ""
-                          }
-                        />
+                <form.Subscribe selector={stableSelector0}>
+                  {(startTime) => (
+                    <form.Field name="rrule">
+                      {(rruleField) => (
+                        <form.Field name="excludeRules">
+                          {(excludeField) => (
+                            <RecurrenceBuilder
+                              excludeRules={
+                                Array.isArray(excludeField.state.value)
+                                  ? excludeField.state.value
+                                  : []
+                              }
+                              onChange={rruleField.handleChange}
+                              onExcludeRulesChange={excludeField.handleChange}
+                              startTime={startTime}
+                              value={
+                                typeof rruleField.state.value === "string"
+                                  ? rruleField.state.value
+                                  : ""
+                              }
+                            />
+                          )}
+                        </form.Field>
                       )}
                     </form.Field>
                   )}
-                </form.Field>
+                </form.Subscribe>
               )}
 
           {kalakritiEditionId ? null : (

@@ -76,7 +76,7 @@ export function InputField({
   validators,
   ...props
 }: InputFieldProps) {
-  const resolvedForm = useResolvedForm(form, "InputField");
+  useResolvedForm(form, "InputField");
   return (
     <CustomField
       description={description}
@@ -87,12 +87,12 @@ export function InputField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <InputFieldControl
           {...props}
           field={field}
           isRequired={isRequired}
-          submitted={resolvedForm.state.submissionAttempts > 0}
+          submitted={submitted}
           type={type}
         />
       )}

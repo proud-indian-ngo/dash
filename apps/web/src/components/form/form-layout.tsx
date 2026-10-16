@@ -1,8 +1,9 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { useSelector } from "@tanstack/react-form";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-import type { FormInstance } from "./form-context";
+import type { FormInstance, FormStateSlice } from "./form-context";
 import { FormContextProvider } from "./form-context";
 
 interface FormLayoutProps extends Omit<
@@ -15,9 +16,26 @@ interface FormLayoutProps extends Omit<
   submitError?: string | null;
 }
 
-const getSubmitErrorMessage = (form: FormInstance): string | undefined => {
-  const submitError = form.state.errorMap?.onSubmit;
+const selectSubmitError = (state: FormStateSlice): unknown =>
+  state.errorMap?.onSubmit;
 
+const messageOf = (value: unknown): string | undefined =>
+  typeof value === "object" &&
+  value !== null &&
+  "message" in value &&
+  typeof value.message === "string" &&
+  value.message
+    ? value.message
+    : undefined;
+
+/**
+ * The submit error to show above the form. A form-level schema error is a map
+ * of field path to issues: field issues already show inline, so only issues
+ * on the form itself (the empty path) are shown here.
+ */
+export const getSubmitErrorMessage = (
+  submitError: unknown
+): string | undefined => {
   if (!submitError) {
     return;
   }
@@ -35,12 +53,17 @@ const getSubmitErrorMessage = (form: FormInstance): string | undefined => {
       return submitError.form;
     }
 
-    if (
-      "message" in submitError &&
-      typeof submitError.message === "string" &&
-      submitError.message
-    ) {
-      return submitError.message;
+    const message = messageOf(submitError);
+    if (message) {
+      return message;
+    }
+
+    const issueMap = Object.values(submitError);
+    if (issueMap.length > 0 && issueMap.every(Array.isArray)) {
+      const rootIssues: unknown = (submitError as Record<string, unknown>)[""];
+      return Array.isArray(rootIssues)
+        ? rootIssues.map(messageOf).find(Boolean)
+        : undefined;
     }
   }
 
@@ -55,8 +78,10 @@ export function FormLayout({
   submitError,
   ...props
 }: FormLayoutProps) {
+  const formSubmitError = useSelector(form.store, selectSubmitError);
   const submitErrorMessage =
-    submitError ?? (showSubmitError ? getSubmitErrorMessage(form) : null);
+    submitError ??
+    (showSubmitError ? getSubmitErrorMessage(formSubmitError) : null);
   const stableOnSubmit0 = useEventCallback(
     (event: { preventDefault: () => void; stopPropagation: () => void }) => {
       event.preventDefault();
