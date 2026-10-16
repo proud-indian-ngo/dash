@@ -4,6 +4,7 @@ import type {
   WorkbookFacts,
   WorkbookMovement,
 } from "@pi-dash/db/queries/ca-workbook";
+import { assetLineMemo } from "@pi-dash/shared/audited-figures";
 import {
   CAPITAL_RECEIPT_HEAD_IDS,
   GENERAL_FUND_ID,
@@ -83,6 +84,38 @@ const sourceLabel = (sourceType: string) =>
 /** "Contribution 0190…": the pi-dash document a row came from. */
 export const documentReference = (sourceType: string, sourceId: string) =>
   `${sourceLabel(sourceType)} ${sourceId}`;
+
+/** "30-09-2027" from "2027-09-30". */
+const dayText = (iso: string) => iso.split("-").reverse().join("-");
+
+/** How the CA's year-end corrections are named in the workbook. */
+export const AUDITED_ADJUSTMENTS_LABEL =
+  "Year-end adjustments per audited accounts";
+
+/** "Year-end adjustments per audited accounts, signed 30-09-2027 by GVNKA & Associates". */
+export function auditedAdjustmentsTitle(
+  document: { caName: string | null; signedOn: string | null } | undefined
+): string {
+  if (!(document?.signedOn && document.caName)) {
+    return AUDITED_ADJUSTMENTS_LABEL;
+  }
+  return `${AUDITED_ADJUSTMENTS_LABEL}, signed ${dayText(document.signedOn)} by ${document.caName}`;
+}
+
+/**
+ * An entry's document: its type and reference, and for the audited figures
+ * what they are, when and by whom they were signed.
+ */
+function entryReference(
+  e: Pick<WorkbookEntry, "sourceId" | "sourceType">,
+  facts: Pick<WorkbookFacts, "auditedFigures">
+): string {
+  const reference = documentReference(e.sourceType, e.sourceId);
+  if (e.sourceType !== LEDGER_SOURCE_TYPES.auditedFigures) {
+    return reference;
+  }
+  return `${auditedAdjustmentsTitle(facts.auditedFigures.get(e.sourceId))} (${reference})`;
+}
 
 const ACCOUNT_KIND_LABELS: Record<WorkbookAccount["kind"], string> = {
   bank: "Bank",
@@ -408,7 +441,7 @@ export function incomeExpenditureSheet(facts: WorkbookFacts): WorkbookSheet {
         e.fundName,
         e.partyName ?? "",
         e.medium === "in_kind" ? "In kind" : "Monetary",
-        documentReference(e.sourceType, e.sourceId),
+        entryReference(e, facts),
         e.reversesEntryId ?? "",
         backfilled.get(e.id) ? "Yes" : "No",
         e.id,
@@ -565,6 +598,67 @@ function capitalReceiptRows(entries: readonly WorkbookEntry[]): WorkbookRow[] {
 }
 
 /**
+ * The audited figures' year-end adjustments of the year (already in the
+ * totals above), by document and head, so the CA sees their own
+ * corrections apart: one block per document, its reversal included, with
+ * what it added to the surplus. None, no rows.
+ */
+function auditedAdjustmentRows(
+  entries: readonly WorkbookEntry[],
+  facts: Pick<WorkbookFacts, "auditedFigures">
+): WorkbookRow[] {
+  const documents = new Map<string, Map<string, Group>>();
+  for (const e of entries) {
+    if (
+      e.sourceType !== LEDGER_SOURCE_TYPES.auditedFigures ||
+      !(e.headType === "income" || e.headType === "expense")
+    ) {
+      continue;
+    }
+    const heads = documents.get(e.sourceId) ?? new Map<string, Group>();
+    addTo(
+      heads,
+      `${e.headType}:${e.accountHeadId}`,
+      `${e.headName} (${e.headType === "income" ? "income" : "expenditure"})`,
+      signedPaise(e.effect, e.amountPaise)
+    );
+    documents.set(e.sourceId, heads);
+  }
+  const rows: WorkbookRow[] = [];
+  for (const [id, heads] of documents) {
+    const document = facts.auditedFigures.get(id);
+    let surplus = 0;
+    for (const e of entries) {
+      if (
+        e.sourceId === id &&
+        e.sourceType === LEDGER_SOURCE_TYPES.auditedFigures
+      ) {
+        surplus += surplusPaiseOf(e) ?? 0;
+      }
+    }
+    rows.push(
+      { cells: [null, null, null] },
+      {
+        bold: true,
+        cells: [
+          `${auditedAdjustmentsTitle(document)}${document?.reversed ? " (reversed)" : ""} (included above)`,
+          null,
+          null,
+        ],
+      },
+      ...[...heads.values()].sort(byLabel).map((group): WorkbookRow => ({
+        cells: [group.label, "All programmes", rupees(group.paise)],
+      })),
+      {
+        bold: true,
+        cells: ["Effect on the surplus", "All programmes", rupees(surplus)],
+      }
+    );
+  }
+  return rows;
+}
+
+/**
  * The year's income and expenditure by account head and programme, with a
  * total per head, per section and per programme, and the surplus (income
  * less expenditure). The totals tie to the income and expenditure sheet.
@@ -632,6 +726,7 @@ export function summarySheet(facts: WorkbookFacts): WorkbookSheet {
         ],
       },
       ...capitalReceiptRows(entries),
+      ...auditedAdjustmentRows(entries, facts),
       { cells: [null, null, null] },
       { bold: true, cells: ["By programme", null, null] },
       ...programmeRows,
@@ -732,14 +827,13 @@ function headItems(facts: WorkbookFacts, headType: "asset" | "liability") {
     let key = e.accountHeadId;
     let label = e.headName;
     if (headType === "asset") {
-      const openingLine =
-        e.sourceType === LEDGER_SOURCE_TYPES.openingBalance && e.memo;
-      key = openingLine
-        ? `${e.accountHeadId}:line:${e.memo}`
+      // The same lines as the Audited figures page: an opening line's
+      // asset, with the audited figures' depreciation against its name.
+      const lineMemo = assetLineMemo(e);
+      key = lineMemo
+        ? `${e.accountHeadId}:line:${lineMemo}`
         : `${e.accountHeadId}:other`;
-      label = openingLine
-        ? `${e.headName}: ${e.memo}`
-        : `${e.headName} — other`;
+      label = lineMemo ? `${e.headName}: ${lineMemo}` : `${e.headName} — other`;
     }
     const item = items.get(key) ?? { label, totals: emptyTotals() };
     addEntry(item.totals, e, facts);

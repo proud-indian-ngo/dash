@@ -224,6 +224,25 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
    * approval leaves it negative in between, as an advance to the claimant.
    */
   claimsPayable: "01930000-0000-7000-8000-000000000830",
+  /**
+   * Audited figures (the year-end true-up): a fixed asset the CA's
+   * statements carry at less than the books, as depreciation.
+   */
+  depreciation: "01930000-0000-7000-8000-000000000840",
+  /**
+   * Audited figures: the other side of a correction that lowers the
+   * surplus (a new provision, an asset written down other than a fixed
+   * asset's depreciation), unless the treasurer picks another head.
+   */
+  yearEndAdjustments: "01930000-0000-7000-8000-000000000841",
+  /**
+   * Audited figures: the other side of a correction that raises the
+   * surplus (a provision written back, an asset written up), unless the
+   * treasurer picks another head. Lowering ones use `yearEndAdjustments`.
+   */
+  yearEndAdjustmentsIncome: "01930000-0000-7000-8000-000000000843",
+  /** Audited figures: money the CA moved from one fund to another. */
+  fundTransfers: "01930000-0000-7000-8000-000000000842",
 } as const;
 
 /**
@@ -235,6 +254,17 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
  */
 export const CAPITAL_RECEIPT_HEAD_IDS: readonly string[] = [
   LEDGER_ACCOUNT_HEAD_IDS.corpusDonations,
+];
+
+/**
+ * Fund heads whose entries during the year are a fund's movement of the
+ * year rather than part of its opening: capital receipts, and transfers
+ * between funds the audited figures post. Only the capital receipts are
+ * listed apart in the CA workbook's summary.
+ */
+export const FUND_MOVEMENT_HEAD_IDS: readonly string[] = [
+  ...CAPITAL_RECEIPT_HEAD_IDS,
+  LEDGER_ACCOUNT_HEAD_IDS.fundTransfers,
 ];
 
 /**

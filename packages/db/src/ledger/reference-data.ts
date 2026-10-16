@@ -178,6 +178,47 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Reimbursements Payable",
     type: "liability" as const,
   },
+  // Audited figures (the year-end true-up to the CA's signed statements).
+  {
+    code: "DEPRECIATION",
+    description:
+      "Depreciation per the audited accounts: a fixed asset the CA's statements carry at less than the books.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.depreciation,
+    name: "Depreciation",
+    sortOrder: 640,
+    tallyLedgerName: "Depreciation",
+    type: "expense" as const,
+  },
+  {
+    code: "YEAR_END_ADJUSTMENTS",
+    description:
+      "The other side of the CA's year-end corrections that lower the surplus, per the audited accounts: new provisions, assets written down (other than depreciation); for the CA to confirm.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustments,
+    name: "Year-end adjustments (audited)",
+    sortOrder: 650,
+    tallyLedgerName: "Year-end Adjustments",
+    type: "expense" as const,
+  },
+  {
+    code: "YEAR_END_ADJUSTMENTS_INCOME",
+    description:
+      "The other side of the CA's year-end corrections that raise the surplus, per the audited accounts: provisions written back, assets written up; for the CA to confirm.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustmentsIncome,
+    name: "Year-end adjustments (audited) — income",
+    sortOrder: 530,
+    tallyLedgerName: "Year-end Adjustments (Income)",
+    type: "income" as const,
+  },
+  {
+    code: "FUND_TRANSFERS",
+    description:
+      "Money the audited accounts move from one fund to another; the entry's fund says which, out of one and into the other.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.fundTransfers,
+    name: "Transfers between funds",
+    sortOrder: 320,
+    tallyLedgerName: "Fund Transfers",
+    type: "fund" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {

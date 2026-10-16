@@ -48,10 +48,7 @@ const roleOnlySpecs = {
     "vendors/vendor-unhappy-paths.spec.ts",
   ],
   admin: ["roles/admin-flows.spec.ts", "social/social-page.spec.ts"],
-  finance_admin: [
-    "finance/void-reimbursement.spec.ts",
-    "reimbursements/claim-for-others.spec.ts",
-  ],
+  finance_admin: ["reimbursements/claim-for-others.spec.ts"],
   volunteer: [
     "authorization/api-authorization-expanded.spec.ts",
     "events/event-interest-unhappy-paths.spec.ts",

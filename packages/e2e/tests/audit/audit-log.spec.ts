@@ -14,8 +14,8 @@ test.describe("audit log for super admins", () => {
     await expect(
       page.getByRole("heading", { name: "Audit Log" })
     ).toBeVisible();
-    await expect(page.getByText(SEEDED_ACTION).first()).toBeVisible();
-
+    // Search first: other specs on the shard write newer entries, so the
+    // seeded one isn't always on the first page.
     await page
       .getByPlaceholder("Search actor, action, or target...")
       .fill(SEEDED_ACTION);

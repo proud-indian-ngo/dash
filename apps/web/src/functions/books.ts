@@ -13,11 +13,14 @@ import { runSessionAuditedAction } from "@/lib/audit";
 import {
   closeFiscalYear,
   loadYearCloseChecklist,
+  postAuditedFiguresNow,
   postOpeningBalances,
   postPendingNow,
   queuePostingAfterReopen,
   reopenFiscalYear,
+  reverseAuditedFiguresNow,
   reverseOpeningBalances,
+  skipAuditedFiguresNow,
 } from "@/lib/books/server";
 import { buildCaWorkbook, type CaWorkbookFile } from "@/lib/ca-workbook/server";
 import { authMiddleware } from "@/middleware/auth";
@@ -26,9 +29,10 @@ import { authMiddleware } from "@/middleware/auth";
  * The books (Finance → Books). Reading the year-close checklist is a read
  * for finance.view holders and the treasurer. Posting and reversing the
  * opening balances (finance.post_opening), closing (finance.close_year) and
- * reopening the year (finance.reopen_year) are audited with IDs and counts
- * only; amounts, names and reasons stay in the books, never in the audit
- * metadata.
+ * reopening the year (finance.reopen_year), and matching, skipping or
+ * reversing a year's audited figures (finance.adjust) are audited with IDs
+ * and counts only; amounts, names and reasons stay in the books, never in
+ * the audit metadata.
  */
 
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use yyyy-MM-dd");
@@ -42,6 +46,51 @@ const openingLine = z.object({
   kind: z.enum(["account", "asset", "liability", "fund"]),
   memo: z.string().trim().max(120).nullish(),
   orgAccountId: z.uuid().nullish(),
+});
+
+const signedPaise = z
+  .number()
+  .int()
+  .min(-Number.MAX_SAFE_INTEGER)
+  .max(Number.MAX_SAFE_INTEGER);
+
+const auditedFiguresInput = z.object({
+  added: z
+    .array(
+      z.object({
+        accountHeadId: z.uuid(),
+        auditedPaise: signedPaise,
+        counterHeadId: z.uuid().nullish(),
+        kind: z.enum(["asset", "liability"]),
+        memo: z.string().trim().max(120).nullish(),
+      })
+    )
+    .max(30),
+  caName: z.string().trim().min(1).max(120),
+  fiscalYearId: z.uuid(),
+  id: z.uuid(),
+  lines: z
+    .array(
+      z.object({
+        auditedPaise: signedPaise,
+        booksPaise: signedPaise,
+        counterHeadId: z.uuid().nullish(),
+        key: z.string().min(1).max(300),
+      })
+    )
+    .min(1)
+    .max(500),
+  signedOn: isoDay,
+  transfers: z
+    .array(
+      z.object({
+        amountPaise: paise,
+        fromFundId: z.uuid(),
+        reason,
+        toFundId: z.uuid(),
+      })
+    )
+    .max(20),
 });
 
 export const getYearCloseChecklist = createServerFn({ method: "POST" })
@@ -111,6 +160,83 @@ export const reverseOpeningBalancesFn = createServerFn({ method: "POST" })
       },
       () => reverseOpeningBalances(data, session.user.id)
     );
+    return { id: data.id };
+  });
+
+/**
+ * Matches a year's books to its audited figures (finance.adjust): one
+ * posting dated the year's last day. Audited with the line counts only.
+ */
+export const postAuditedFiguresFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(auditedFiguresInput)
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.adjust");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    const document = await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.audited_figures.post",
+        metadata: {
+          addedLineCount: data.added.length,
+          differenceCount:
+            data.lines.filter((l) => l.auditedPaise !== l.booksPaise).length +
+            data.added.filter((l) => l.auditedPaise !== 0).length,
+          lineCount: data.lines.length,
+          transferCount: data.transfers.length,
+        },
+        target: { id: data.id, type: "audited_figures" },
+      },
+      () => postAuditedFiguresNow(data, session.user.id)
+    );
+    return { id: document.id };
+  });
+
+export const skipAuditedFiguresFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ fiscalYearId: z.uuid(), id: z.uuid(), reason }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.adjust");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.audited_figures.skip",
+        target: { id: data.id, type: "audited_figures" },
+      },
+      () => skipAuditedFiguresNow(data, session.user.id)
+    );
+    return { id: data.id };
+  });
+
+export const reverseAuditedFiguresFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid(), reason }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.adjust");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.audited_figures.reverse",
+        target: { id: data.id, type: "audited_figures" },
+      },
+      () => reverseAuditedFiguresNow(data, session.user.id)
+    );
+    // What waited for the matched year posts now.
+    queuePostingAfterReopen(session.user.id);
     return { id: data.id };
   });
 

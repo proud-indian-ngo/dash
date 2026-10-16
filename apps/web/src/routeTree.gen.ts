@@ -91,6 +91,7 @@ import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
+import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
 import { Route as AppIncomeBankImportRouteImport } from './routes/_app/income/bank/import'
@@ -561,6 +562,11 @@ const AppFinanceBooksIndexRoute = AppFinanceBooksIndexRouteImport.update({
   path: '/finance/books/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFinanceBooksAuditedRoute = AppFinanceBooksAuditedRouteImport.update({
+  id: '/finance/books/audited',
+  path: '/finance/books/audited',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFinanceBooksOpeningRoute = AppFinanceBooksOpeningRouteImport.update({
   id: '/finance/books/opening',
   path: '/finance/books/opening',
@@ -963,6 +969,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1090,6 +1097,7 @@ export interface FileRoutesByTo {
   '/vendor-payments': typeof AppVendorPaymentsIndexRoute
   '/vendors': typeof AppVendorsIndexRoute
   '/api/jobs': typeof ApiJobsIndexRoute
+  '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1232,6 +1240,7 @@ export interface FileRoutesById {
   '/api/jobs/': typeof ApiJobsIndexRoute
   '/_app/kalakriti/$year/competitions': typeof AppKalakritiYearCompetitionsRouteRouteWithChildren
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
+  '/_app/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1374,6 +1383,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/kalakriti/$year/competitions'
     | '/kalakriti/$year/settings'
+    | '/finance/books/audited'
     | '/finance/books/opening'
     | '/income/bank/import'
     | '/income/imports/$batchId'
@@ -1501,6 +1511,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/api/jobs'
+    | '/finance/books/audited'
     | '/finance/books/opening'
     | '/income/bank/import'
     | '/income/imports/$batchId'
@@ -1642,6 +1653,7 @@ export interface FileRouteTypes {
     | '/api/jobs/'
     | '/_app/kalakriti/$year/competitions'
     | '/_app/kalakriti/$year/settings'
+    | '/_app/finance/books/audited'
     | '/_app/finance/books/opening'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
@@ -2321,6 +2333,13 @@ declare module '@tanstack/react-router' {
       path: '/finance/books'
       fullPath: '/finance/books/'
       preLoaderRoute: typeof AppFinanceBooksIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finance/books/audited': {
+      id: '/_app/finance/books/audited'
+      path: '/finance/books/audited'
+      fullPath: '/finance/books/audited'
+      preLoaderRoute: typeof AppFinanceBooksAuditedRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/finance/books/opening': {
@@ -3047,6 +3066,7 @@ interface AppRouteChildren {
   AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppFinanceBooksAuditedRoute: typeof AppFinanceBooksAuditedRoute
   AppFinanceBooksOpeningRoute: typeof AppFinanceBooksOpeningRoute
   AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
   AppFinanceBooksIndexRoute: typeof AppFinanceBooksIndexRoute
@@ -3071,6 +3091,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppFinanceBooksAuditedRoute: AppFinanceBooksAuditedRoute,
   AppFinanceBooksOpeningRoute: AppFinanceBooksOpeningRoute,
   AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,
   AppFinanceBooksIndexRoute: AppFinanceBooksIndexRoute,

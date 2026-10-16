@@ -48,13 +48,16 @@ const record =
 mock.module("@/lib/books/server", () => ({
   closeFiscalYear: record("close", { label: "2026-27" }),
   loadYearCloseChecklist: record("checklist"),
+  postAuditedFiguresNow: record("postAudited", { id: DOC }),
   postOpeningBalances: record("post", { id: DOC }),
   postPendingNow: record("postPending", { checked: 3, posted: 2 }),
   queuePostingAfterReopen: () => {
     calls.push("queueAfterReopen");
   },
   reopenFiscalYear: record("reopen", { label: "2026-27" }),
+  reverseAuditedFiguresNow: record("reverseAudited"),
   reverseOpeningBalances: record("reverse"),
+  skipAuditedFiguresNow: record("skipAudited"),
 }));
 let workbookInputs: { fiscalYearId: string; includeDonors: boolean }[] = [];
 mock.module("@/lib/ca-workbook/server", () => ({
@@ -227,6 +230,94 @@ describe("books server functions", () => {
     const serialized = JSON.stringify(audits);
     expect(serialized).not.toContain("Private");
     expect(serialized).not.toContain("123456");
+  });
+
+  it("matches, skips and reverses audited figures only for finance.adjust, audited with counts only", async () => {
+    const audited = {
+      added: [
+        {
+          accountHeadId: FUND,
+          auditedPaise: 98_765,
+          kind: "liability",
+          memo: "Private liability name",
+        },
+      ],
+      caName: "Private CA Name",
+      fiscalYearId: YEAR,
+      id: DOC,
+      lines: [
+        {
+          auditedPaise: 123_456,
+          booksPaise: 123_456,
+          key: `account:${ACCOUNT}`,
+        },
+        { auditedPaise: 100, booksPaise: 400, key: `fund:${FUND}` },
+      ],
+      signedOn: "2027-09-30",
+      transfers: [],
+    };
+    granted = [
+      "finance.view",
+      "finance.manage",
+      "finance.post_opening",
+      "finance.close_year",
+    ];
+    await expect(call(fns.postAuditedFiguresFn, audited)).rejects.toThrow(
+      "Forbidden"
+    );
+    await expect(
+      call(fns.skipAuditedFiguresFn, {
+        fiscalYearId: YEAR,
+        id: DOC,
+        reason: "Private reason text",
+      })
+    ).rejects.toThrow("Forbidden");
+    await expect(
+      call(fns.reverseAuditedFiguresFn, { id: DOC, reason: "Corrected" })
+    ).rejects.toThrow("Forbidden");
+    expect(calls).toEqual([]);
+
+    granted = ["finance.adjust"];
+    await call(fns.postAuditedFiguresFn, audited);
+    await call(fns.skipAuditedFiguresFn, {
+      fiscalYearId: YEAR,
+      id: DOC,
+      reason: "Private reason text",
+    });
+    await call(fns.reverseAuditedFiguresFn, {
+      id: DOC,
+      reason: "Private reason text",
+    });
+    expect(calls).toEqual([
+      "postAudited",
+      "skipAudited",
+      "reverseAudited",
+      "queueAfterReopen",
+    ]);
+    expect(audits).toEqual([
+      {
+        action: "books.audited_figures.post",
+        metadata: {
+          addedLineCount: 1,
+          differenceCount: 2,
+          lineCount: 2,
+          transferCount: 0,
+        },
+        target: { id: DOC, type: "audited_figures" },
+      },
+      {
+        action: "books.audited_figures.skip",
+        target: { id: DOC, type: "audited_figures" },
+      },
+      {
+        action: "books.audited_figures.reverse",
+        target: { id: DOC, type: "audited_figures" },
+      },
+    ]);
+    const serialized = JSON.stringify(audits);
+    expect(serialized).not.toContain("Private");
+    expect(serialized).not.toContain("123456");
+    expect(serialized).not.toContain("98765");
   });
 
   it("exports the CA workbook to book readers, the donor list only with a donor permission, audited with counts", async () => {

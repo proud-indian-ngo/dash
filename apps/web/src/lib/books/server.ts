@@ -1,4 +1,10 @@
 import { db } from "@pi-dash/db";
+import {
+  type AuditedFiguresInput,
+  postAuditedFigures,
+  reverseAuditedFigures,
+  skipAuditedFigures,
+} from "@pi-dash/db/ledger/audited-figures";
 import type { SweepResult } from "@pi-dash/db/ledger/income-posting";
 import {
   postPendingForYear,
@@ -29,6 +35,9 @@ import { withSafeErrors } from "@/lib/safe-errors";
 
 const MESSAGES = {
   checklist: "The year-close checklist couldn't be loaded.",
+  postAudited: "The audited figures couldn't be posted.",
+  reverseAudited: "The audited figures couldn't be reversed.",
+  skipAudited: "The audited figures couldn't be marked as skipped.",
   close: "The year couldn't be closed.",
   postOpening: "The opening balances couldn't be posted.",
   postPending: "The waiting records couldn't be posted.",
@@ -87,6 +96,35 @@ export const reverseOpeningBalances = (
 ) =>
   safely("reverseOpening", () =>
     db.transaction((tx) => reverseOpeningBalance(tx, input, { actorId }))
+  );
+
+export const postAuditedFiguresNow = (
+  input: AuditedFiguresInput,
+  actorId: string
+) =>
+  safely("postAudited", async () => {
+    // As a close does: post the year's records first (bounded), so the
+    // "nothing waiting" check sees them as they are now.
+    await postYearFirst(input.fiscalYearId, actorId);
+    return await db.transaction((tx) =>
+      postAuditedFigures(tx, input, { actorId })
+    );
+  });
+
+export const skipAuditedFiguresNow = (
+  input: { fiscalYearId: string; id: string; reason: string },
+  actorId: string
+) =>
+  safely("skipAudited", () =>
+    db.transaction((tx) => skipAuditedFigures(tx, input, { actorId }))
+  );
+
+export const reverseAuditedFiguresNow = (
+  input: { id: string; reason: string },
+  actorId: string
+) =>
+  safely("reverseAudited", () =>
+    db.transaction((tx) => reverseAuditedFigures(tx, input, { actorId }))
   );
 
 export const closeFiscalYear = (fiscalYearId: string, actorId: string) =>

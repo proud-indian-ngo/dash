@@ -6,9 +6,9 @@ import { zql } from "../schema";
 
 /**
  * The books: postings, recognition entries, cash-book movements, opening
- * balances and year close history. Finance records, so only finance.view
- * and finance.manage holders, and whoever may post the opening balances,
- * read them (not donors.view). Read-only: every write goes through the
+ * balances, audited figures and year close history. Finance records, so
+ * only finance.view and finance.manage holders, and whoever may post the
+ * opening balances or the audited figures, read them (not donors.view). Read-only: every write goes through the
  * server-side posting engine.
  *
  * The books views sum across years (a balance is everything up to a date),
@@ -23,7 +23,8 @@ export function canSeeBooks(
     ctx !== undefined &&
     (can(ctx, "finance.view") ||
       can(ctx, "finance.manage") ||
-      can(ctx, "finance.post_opening"))
+      can(ctx, "finance.post_opening") ||
+      can(ctx, "finance.adjust"))
   );
 }
 
@@ -55,6 +56,16 @@ export const ledgerQueries = {
       ? zql.openingBalance.orderBy("createdAt", "desc")
       : zql.openingBalance.where("id", NEVER)
   ),
+  /**
+   * Audited-figures documents (the year-end true-up) with their lines,
+   * newest first; at most one stands per year.
+   */
+  auditedFigures: defineQuery(({ ctx }) => {
+    const documents = zql.auditedFigures
+      .related("lines", (lines) => lines.orderBy("position", "asc"))
+      .orderBy("createdAt", "desc");
+    return canSeeBooks(ctx) ? documents : documents.where("id", NEVER);
+  }),
   /** Postings, for each line's source and reversal. */
   postings: defineQuery(({ ctx }) =>
     canSeeBooks(ctx)

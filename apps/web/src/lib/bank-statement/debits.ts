@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import {
   closedYearTouched,
+  matchedYearTouched,
   type DebitDocument,
   type DebitDocumentFilter,
   debitSummary,
@@ -19,7 +20,7 @@ import {
 } from "@pi-dash/db/queries/statement-lines";
 import { statementLine } from "@pi-dash/db/schema/statement-line";
 import type { StatementLineMatchReason } from "@pi-dash/shared/constants";
-import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
+import { LEDGER_CUTOVER_ON, matchedYearMessage } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
 import { and, eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -186,7 +187,7 @@ async function openPaiseOf(tx: StatementTx, line: StatementLineRecord) {
 
 /**
  * Refuses changing a bank match that would move the books of a closed
- * year: the line's own date (from the cutover; earlier lines are evidence
+ * year, or of a year its matched audited figures freeze: the line's own date (from the cutover; earlier lines are evidence
  * only), or a standing posting of a claim, payment or charge it moves.
  */
 async function requireOpenYears(
@@ -194,17 +195,22 @@ async function requireOpenYears(
   line: StatementLineRecord,
   sources: readonly LedgerSourceRef[]
 ) {
-  const label = await closedYearTouched(tx, {
+  const touched = {
     dates: line.valueOn >= LEDGER_CUTOVER_ON ? [line.valueOn] : [],
     sources: [
       ...sources,
       { sourceId: line.id, sourceType: "statement_charge" },
     ],
-  });
+  };
+  const label = await closedYearTouched(tx, touched);
   if (label) {
     throw new StatementInputError(
       `FY ${label} is closed; reopen it to change its bank matches`
     );
+  }
+  const matched = await matchedYearTouched(tx, touched);
+  if (matched) {
+    throw new StatementInputError(matchedYearMessage(matched));
   }
 }
 

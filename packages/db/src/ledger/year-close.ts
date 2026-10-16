@@ -1,3 +1,4 @@
+import { auditedDrift } from "@pi-dash/shared/audited-figures";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   LEDGER_CUTOVER_ON,
@@ -15,6 +16,7 @@ import {
   lt,
   lte,
   max,
+  ne,
   sql,
 } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -22,10 +24,13 @@ import { uuidv7 } from "uuidv7";
 import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
 import {
   accountMovement,
+  auditedFigures,
+  auditedFiguresLine,
   fiscalYearEvent,
   openingBalance,
 } from "../schema/ledger";
 import { statementLine } from "../schema/statement-line";
+import { loadBalanceSheetLines } from "./audited-figures";
 import type { LedgerTx } from "./engine";
 import { uncheckedSources, waitingByReason } from "./income-posting";
 import { LedgerError } from "./rules";
@@ -39,8 +44,11 @@ import { LedgerError } from "./rules";
  * (in the cutover year) the opening balances are posted, and no record
  * dated in the year is waiting to post. A later year that is closed blocks
  * reopening an earlier one. The rest of the checklist is for the treasurer
- * to judge: bank statements reaching the year end, and the clearing
- * balances at year end (payouts in transit are normal).
+ * to judge: bank statements reaching the year end, the clearing
+ * balances at year end (payouts in transit are normal), and the audited
+ * figures matched or skipped (a warning only: the CA signs the statements
+ * months after the year ends, so the year is usually closed first and
+ * reopened to match them).
  */
 
 export type CloseCheckId =
@@ -49,7 +57,8 @@ export type CloseCheckId =
   | "opening_balances"
   | "unposted_sources"
   | "bank_statements"
-  | "clearing_balances";
+  | "clearing_balances"
+  | "audited_figures";
 
 export interface CloseCheck {
   /** Short facts for the row, such as "HDFC current account: to 31 Mar 2027". */
@@ -152,8 +161,11 @@ export async function yearCloseChecklist(
   checks.push({
     details: [...waiting.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(
-        ([reason, count]) => `${count} waiting: ${ledgerReasonLabel(reason)}`
+      .map(([reason, count]) =>
+        // Kept blocking (the year must be complete), with the way out.
+        reason === LEDGER_WAIT_REASONS.matchedYear
+          ? `${count} record${count === 1 ? "" : "s"} arrived after the audited figures were matched — reverse the audited figures, post, and match again`
+          : `${count} waiting: ${ledgerReasonLabel(reason)}`
       ),
     id: "unposted_sources",
     ok: waiting.size === 0,
@@ -204,6 +216,61 @@ export async function yearCloseChecklist(
     ),
     id: "clearing_balances",
     ok: true,
+    required: false,
+  });
+
+  // A warning, never a blocker: audits finish months after the year end.
+  const [audited] = await tx
+    .select({
+      caName: auditedFigures.caName,
+      id: auditedFigures.id,
+      signedOn: auditedFigures.signedOn,
+      skipReason: auditedFigures.skipReason,
+      status: auditedFigures.status,
+    })
+    .from(auditedFigures)
+    .where(
+      and(
+        eq(auditedFigures.fiscalYearId, year.id),
+        isNull(auditedFigures.reversedAt)
+      )
+    )
+    .limit(1);
+  let auditedDetail =
+    "The CA signs the statements months after the year ends: close now, then reopen the year to match them, or skip them with a reason";
+  let auditedOk = audited !== undefined;
+  const auditedDetails: string[] = [];
+  if (audited?.status === "matched") {
+    auditedDetail = `Signed by ${audited.caName} on ${audited.signedOn}`;
+    // The books must still equal them (the engine freezes a matched year,
+    // so this only catches what got past it, such as a repair).
+    const stored = await tx
+      .select({
+        auditedPaise: auditedFiguresLine.auditedPaise,
+        key: auditedFiguresLine.lineKey,
+      })
+      .from(auditedFiguresLine)
+      .where(
+        and(
+          eq(auditedFiguresLine.auditedFiguresId, audited.id),
+          ne(auditedFiguresLine.kind, "fund_transfer")
+        )
+      );
+    const { lines } = await loadBalanceSheetLines(tx, year.endsOn);
+    const drift = auditedDrift(stored, lines);
+    if (drift.length > 0) {
+      auditedOk = false;
+      auditedDetails.push(
+        `Books changed since the audited figures were matched: ${drift.length} line${drift.length === 1 ? "" : "s"} differ`
+      );
+    }
+  } else if (audited) {
+    auditedDetail = `Skipped: ${audited.skipReason}`;
+  }
+  checks.push({
+    details: [auditedDetail, ...auditedDetails],
+    id: "audited_figures",
+    ok: auditedOk,
     required: false,
   });
 

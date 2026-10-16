@@ -4,10 +4,13 @@ import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
   "closeFiscalYearFn",
+  "postAuditedFiguresFn",
   "postOpeningBalancesFn",
   "postPendingFn",
   "reopenFiscalYearFn",
+  "reverseAuditedFiguresFn",
   "reverseOpeningBalancesFn",
+  "skipAuditedFiguresFn",
   "createBankStatementImport",
   "createContributionImport",
   "createGiveDoPayoutImport",

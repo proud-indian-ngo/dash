@@ -85,6 +85,16 @@ const HEADS = {
     headName: "Gateway charges",
     headType: "expense",
   },
+  adjustments: {
+    accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.yearEndAdjustments,
+    headName: "Year-end adjustments (audited)",
+    headType: "expense",
+  },
+  depreciation: {
+    accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.depreciation,
+    headName: "Depreciation",
+    headType: "expense",
+  },
   corpus: {
     accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.corpusDonations,
     headName: "Corpus donations",
@@ -308,6 +318,7 @@ function fixture(): WorkbookFacts {
       { id: FD, kind: "deposit", name: "Fixed deposit" },
       { id: CLEARING, kind: "gateway_clearing", name: "Razorpay clearing" },
     ],
+    auditedFigures: new Map(),
     entries,
     lastStatementBalances: new Map([
       [BANK, { balancePaise: 227_640, valueOn: "2027-03-28" }],
@@ -351,8 +362,10 @@ function nextYear(prior: WorkbookFacts): WorkbookFacts {
       ...e,
       economicOn: e.economicOn < "2027-04-01" ? bfOn : e.economicOn,
       reversesEntryId: null,
-      sourceType:
-        e.sourceType === "opening_balance" ? e.sourceType : "brought_forward",
+      // Asset lines keep their source, as loadWorkbookFacts sums them.
+      sourceType: ["opening_balance", "audited_figures"].includes(e.sourceType)
+        ? e.sourceType
+        : "brought_forward",
     })),
     movements: [...sums]
       .filter(([, paise]) => paise !== 0)
@@ -1026,6 +1039,94 @@ describe("CA workbook sheets", () => {
     expect(fundRowOf(next.sheet, "General Fund (Domestic) total")).toEqual([
       4253.4, 0, 0, 4253.4,
     ]);
+  });
+
+  it("labels the audited figures' year-end adjustments, keeps depreciation on its asset, and opens the next year at them", () => {
+    const facts = fixture();
+    const af = { sourceId: "af-1", sourceType: "audited_figures" };
+    const yearEnd = "2027-03-31";
+    facts.auditedFigures.set("af-1", {
+      caName: "Test CA LLP",
+      reversed: false,
+      signedOn: "2027-09-30",
+    });
+    // Depreciation of 20 on the sewing machine, the audit fee of 100 written back.
+    facts.entries.push(
+      entry("fixedAssets", {
+        ...af,
+        amountPaise: 2000,
+        economicOn: yearEnd,
+        effect: "decrease",
+        memo: "Sewing machine",
+      }),
+      entry("depreciation", {
+        ...af,
+        amountPaise: 2000,
+        economicOn: yearEnd,
+        memo: "Per audited accounts: Sewing machine",
+      }),
+      entry("payable", {
+        ...af,
+        amountPaise: 10_000,
+        economicOn: yearEnd,
+        effect: "decrease",
+      }),
+      entry("adjustments", {
+        ...af,
+        amountPaise: 10_000,
+        economicOn: yearEnd,
+        effect: "decrease",
+      })
+    );
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.closingDifferencePaise).toBe(0);
+    expect(fundRowOf(sheet, "Fixed assets: Sewing machine")).toEqual([
+      50, 0, 20, 30,
+    ]);
+    expect(sheet.rows.some((r) => r.cells[0] === "Fixed assets — other")).toBe(
+      false
+    );
+    expect(fundRowOf(sheet, "Audit fees payable")).toEqual([100, 0, 100, 0]);
+    expect(
+      incomeExpenditureSheet(facts).rows.find(
+        (r) => r.cells[2] === "Depreciation"
+      )?.cells[12]
+    ).toBe(
+      "Year-end adjustments per audited accounts, signed 30-09-2027 by Test CA LLP (Audited figures af-1)"
+    );
+    const summary = summarySheet(facts).rows;
+    const heading = summary.findIndex(
+      (r) =>
+        r.cells[0] ===
+        "Year-end adjustments per audited accounts, signed 30-09-2027 by Test CA LLP (included above)"
+    );
+    expect(heading).toBeGreaterThan(0);
+    expect(summary[heading + 1]?.cells).toEqual([
+      "Depreciation (expenditure)",
+      "All programmes",
+      20,
+    ]);
+    expect(summary[heading + 2]?.cells).toEqual([
+      "Year-end adjustments (audited) (expenditure)",
+      "All programmes",
+      -100,
+    ]);
+    expect(summary[heading + 3]?.cells).toEqual([
+      "Effect on the surplus",
+      "All programmes",
+      80,
+    ]);
+
+    // The next year opens at the audited figures.
+    const next = balanceSheet(nextYear(facts));
+    expect(next.check.openingDifferencePaise).toBe(0);
+    expect(fundRowOf(next.sheet, "Fixed assets: Sewing machine")).toEqual([
+      30, 0, 0, 30,
+    ]);
+    expect(fundRowOf(next.sheet, "Audit fees payable")).toEqual([0, 0, 0, 0]);
+    expect(fundRowOf(next.sheet, "General Fund (Domestic) total")?.[0]).toBe(
+      4253.4 + 80
+    );
   });
 
   it("leaves out a fund that is zero throughout", () => {
