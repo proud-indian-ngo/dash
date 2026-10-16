@@ -93,6 +93,8 @@ The child runner receives `E2E_STACK_INDEX=1|2` and allocates four reserved port
 
 Partition and snapshot-isolation tests run with the E2E package's unit-test command alongside the existing process-cleanup tests.
 
+**The books serial group.** Closing FY 2026-27 or matching its audited figures freezes the year for every spec on the same stack database. So every test that posts into the books and waits on the result (the `postings` helper step, Books → Post pending), closes the year (`close-year*`) or matches its audited figures (`post-audited`, `reverse-audited`) lives in the serial "Books (treasurer)" group of `tests/finance/books.spec.ts`, including voiding a posted reimbursement and payment proof after approval. The partition keeps the file whole on one stack. `books-serial-group.test.ts` (in the E2E unit tests) fails when a spec elsewhere uses those steps.
+
 ## Page Objects
 
 `pages/` holds page-object classes. Tests consume them for selector stability. New pages: add to `pages/`, export a class with `goto()` + action methods, don't inline selectors in tests.

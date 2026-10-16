@@ -3,6 +3,7 @@ import {
   Undo02Icon,
   UnavailableIcon,
 } from "@hugeicons/core-free-icons";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,7 @@ import {
 } from "@pi-dash/shared/ledger";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
 import { type ReactNode, useState } from "react";
 
@@ -147,6 +148,7 @@ function AuditedFiguresPage() {
   const [reversing, setReversing] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const canAdjust = hasPermission("finance.adjust");
+  const navigate = useNavigate();
   const [waitingRows] = useQuery(queries.ledger.waiting());
 
   if (books.isLoading || books.auditedLoading) {
@@ -218,6 +220,21 @@ function AuditedFiguresPage() {
           actions={
             <>
               {yearSelect}
+              {live.status === "matched" &&
+              !closed &&
+              hasPermission("finance.close_year") ? (
+                <Button
+                  onClick={() =>
+                    navigate({
+                      search: { close: "1", year: year.label } as never,
+                      to: "/finance/books",
+                    })
+                  }
+                  type="button"
+                >
+                  {`Close FY ${year.label} now`}
+                </Button>
+              ) : null}
               {canReverse ? (
                 <PageHeaderMenu
                   actions={[

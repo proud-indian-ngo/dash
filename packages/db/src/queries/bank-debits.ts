@@ -369,6 +369,47 @@ export async function closedYearTouched(
   return rows[0]?.label ?? null;
 }
 
+/**
+ * The matched year (audited figures standing) a bank match would move, if
+ * any: one ending on or after the line's date, or on or after the start of
+ * the year a claim, payment or charge it moves stands in. The engine
+ * freezes those years (and every year before a matched one), so the match
+ * is refused up front rather than left waiting.
+ */
+export async function matchedYearTouched(
+  reader: Reader,
+  input: {
+    dates: readonly string[];
+    sources: readonly { sourceId: string; sourceType: string }[];
+  }
+): Promise<string | null> {
+  const byDate = input.dates.length
+    ? sql`exists (select 1 from unnest(array[${sql.join(
+        input.dates.map((d) => sql`${d}::date`),
+        sql`, `
+      )}]) d where d <= m.ends_on)`
+    : sql`false`;
+  const bySource = input.sources.length
+    ? sql`exists (select 1 from posting p
+        join fiscal_year fy on fy.id = p.fiscal_year_id
+        where fy.starts_on <= m.ends_on and p.reverses_posting_id is null
+          and not exists (select 1 from posting r where r.reverses_posting_id = p.id)
+          and (p.source_type, p.source_id) in (${sql.join(
+            input.sources.map(
+              (s) => sql`(${s.sourceType}, ${s.sourceId}::uuid)`
+            ),
+            sql`, `
+          )}))`
+    : sql`false`;
+  const rows = (await reader.execute(sql`
+    select m.label from fiscal_year m
+    join audited_figures a on a.fiscal_year_id = m.id
+      and a.status = 'matched' and a.reversed_at is null
+    where ${byDate} or ${bySource}
+    order by m.starts_on limit 1`)) as unknown as { label: string }[];
+  return rows[0]?.label ?? null;
+}
+
 /** The bank debit figures of one account, for its reconciliation summary. */
 export interface DebitSummary {
   /** Open debits (not matched in full, not ignored), those waiting for a claim included. */

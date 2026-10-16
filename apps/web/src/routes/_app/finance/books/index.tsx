@@ -96,7 +96,9 @@ function BooksPage() {
     parseAsStringLiteral(BOOK_TABS).withDefault("cash")
   );
   const [yearEvents] = useQuery(queries.ledger.yearEvents());
-  const [closing, setClosing] = useState(false);
+  // ?close=1 (from Audited figures, after a match) opens the close dialog.
+  const [closeParam, setCloseParam] = useQueryState("close", parseAsString);
+  const [closing, setClosing] = useState(closeParam === "1");
   const { post: postPending, posting } = usePostPending();
   const canPostPending = hasPermission("finance.post_pending");
   const [reopening, setReopening] = useState(false);
@@ -371,8 +373,18 @@ function BooksPage() {
       <CloseYearDialog
         fiscalYearId={year.id}
         label={year.label}
-        onOpenChange={setClosing}
-        open={closing}
+        onOpenChange={(open) => {
+          setClosing(open);
+          if (!open && closeParam) {
+            setCloseParam(null);
+          }
+        }}
+        open={
+          closing &&
+          !closed &&
+          year.startsOn <= books.today &&
+          hasPermission("finance.close_year")
+        }
       />
       <ReopenYearDialog
         fiscalYearId={year.id}

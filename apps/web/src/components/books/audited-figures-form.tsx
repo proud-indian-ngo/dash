@@ -363,10 +363,17 @@ export function AuditedFiguresForm({
           transfers: inputs.transfers,
         },
       });
-      toast.success("Audited figures matched");
-      await navigate({
-        search: { tab: "balance", year: yearLabel },
-        to: "/finance/books",
+      // The usual next step: close the year (or close it again).
+      toast.success("Audited figures matched", {
+        action: {
+          label: `Close FY ${yearLabel} now`,
+          onClick: () => {
+            navigate({
+              search: { close: "1", year: yearLabel } as never,
+              to: "/finance/books",
+            });
+          },
+        },
       });
     } catch (error) {
       toast.error("Couldn't post the audited figures", {

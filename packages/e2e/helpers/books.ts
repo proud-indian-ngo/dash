@@ -4,6 +4,7 @@ import {
   postAuditedFigures,
   reverseAuditedFigures,
 } from "@pi-dash/db/ledger/audited-figures";
+import { listIncomeSources } from "@pi-dash/db/ledger/income-posting";
 import { postPendingForYear } from "@pi-dash/db/ledger/income-runner";
 import {
   postOpeningBalance,
@@ -716,6 +717,24 @@ async function postAudited(label: string) {
           lte(ledgerSourceState.economicOn, year.endsOn)
         )
       );
+    // Records other specs created since the posting above, which no run
+    // has looked at yet, are set aside the same way.
+    const sources = await listIncomeSources(tx, {
+      range: { endsOn: year.endsOn, startsOn: year.startsOn },
+    });
+    if (sources.length > 0) {
+      await tx
+        .insert(ledgerSourceState)
+        .values(
+          sources.map((source) => ({
+            ...source,
+            checkedAt: new Date(),
+            id: uuidv7(),
+            status: "none" as const,
+          }))
+        )
+        .onConflictDoNothing();
+    }
     const { lines } = await loadBalanceSheetLines(tx, year.endsOn);
     const asset = lines.find(
       (l) => l.accountHeadId === FIXED_ASSETS_HEAD_ID && l.memo === E2E_ASSET

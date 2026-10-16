@@ -288,6 +288,13 @@ export function ledgerReasonLabel(reason: string | null | undefined): string {
   );
 }
 
+/**
+ * The refusal for a date a matched year's audited figures freeze (the
+ * year itself, or any year before it).
+ */
+export const matchedYearMessage = (label: string) =>
+  `FY ${label}'s audited figures are matched; reverse them to change the year`;
+
 /** Permissions of the treasurer's book-keeping actions. */
 export const BOOKS_PERMISSIONS = {
   adjust: "finance.adjust",

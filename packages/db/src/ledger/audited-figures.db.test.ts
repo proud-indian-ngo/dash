@@ -10,6 +10,7 @@ import { drizzle } from "drizzle-orm/bun-sql";
 import { uuidv7 } from "uuidv7";
 import { expect, it } from "vitest";
 
+import { matchedYearTouched } from "../queries/bank-debits";
 // biome-ignore lint/performance/noNamespaceImport: the test database needs the full Drizzle schema.
 import * as schema from "../schema";
 import { user } from "../schema/auth";
@@ -691,6 +692,24 @@ it.skipIf(!localDatabase)(
         checklist.checks.find((c) => c.id === "unposted_sources")?.ok
       ).toBe(false);
       expect(
+        checklist.checks.find((c) => c.id === "unposted_sources")?.details
+      ).toContain(
+        "1 record arrived after the audited figures were matched — reverse the audited figures, post, and match again"
+      );
+      // A bank match moving the year is refused up front.
+      expect(
+        await matchedYearTouched(tx, { dates: ["2026-09-01"], sources: [] })
+      ).toBe("2026-27");
+      expect(
+        await matchedYearTouched(tx, { dates: ["2027-04-05"], sources: [] })
+      ).toBeNull();
+      expect(
+        await matchedYearTouched(tx, {
+          dates: [],
+          sources: [{ sourceId: incomeId, sourceType: "other_income" }],
+        })
+      ).toBe("2026-27");
+      expect(
         checklist.checks.find((c) => c.id === "audited_figures")
       ).toMatchObject({ ok: true });
 
@@ -713,12 +732,20 @@ it.skipIf(!localDatabase)(
         drifted.checks.find((c) => c.id === "audited_figures")?.details[1]
       ).toMatch(/^Books changed since the audited figures were matched/);
 
-      // The match's own reversal still goes through.
+      // The match's own reversal still goes through, and the late record
+      // then posts.
       await reverseAuditedFigures(
         tx,
         { id: document.id, reason: "Reversed for the test" },
         context
       );
+      expect(
+        await postIncomeSource(
+          tx,
+          { sourceId: lateId, sourceType: "other_income" },
+          { actorId: null, now: AFTER_YEAR_END }
+        )
+      ).toMatchObject({ status: "posted" });
     });
   }
 );
@@ -806,6 +833,70 @@ it.skipIf(!localDatabase)(
         { id: first.id, reason: "The CA revised them" },
         afterNext
       );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "freezes every year before a matched one too, so a skipped earlier year can't move a later match's closing",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const k = keys(ids.bank, ids.asset);
+      const [next] = await tx
+        .select()
+        .from(fiscalYear)
+        .where(eq(fiscalYear.startsOn, "2027-04-01"));
+      if (!next) {
+        throw new Error("Seed FY 2027-28 first");
+      }
+      const context = {
+        actorId: ids.user,
+        now: new Date("2028-04-02T06:00:00Z"),
+      };
+      await skipAuditedFigures(
+        tx,
+        { fiscalYearId: ids.yearId, id: uuidv7(), reason: "Not audited yet" },
+        context
+      );
+      await postAuditedFigures(
+        tx,
+        await figures(
+          tx,
+          { asOf: "2028-03-31", fiscalYearId: next.id, signedOn: "2028-04-01" },
+          { [k.asset]: -100_00, [k.general]: -100_00 }
+        ),
+        context
+      );
+      // FY 2026-27 is open and only skipped, yet a posting into it is refused.
+      expect(
+        await messageOf(() =>
+          post(
+            tx,
+            {
+              action: "post",
+              economicOn: "2026-07-01",
+              entries: [],
+              movements: [
+                {
+                  amountPaise: 1_00,
+                  direction: "in",
+                  kind: "receipt",
+                  orgAccountId: ids.bank,
+                },
+              ],
+              sourceId: uuidv7(),
+              sourceType: "test_source",
+            },
+            context
+          )
+        )
+      ).toBe(
+        "FY 2027-28's audited figures are matched; reverse them to change the year"
+      );
+      expect(
+        await matchedYearTouched(tx, { dates: ["2026-07-01"], sources: [] })
+      ).toBe("2027-28");
     });
   }
 );

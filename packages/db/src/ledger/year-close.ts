@@ -161,8 +161,11 @@ export async function yearCloseChecklist(
   checks.push({
     details: [...waiting.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(
-        ([reason, count]) => `${count} waiting: ${ledgerReasonLabel(reason)}`
+      .map(([reason, count]) =>
+        // Kept blocking (the year must be complete), with the way out.
+        reason === LEDGER_WAIT_REASONS.matchedYear
+          ? `${count} record${count === 1 ? "" : "s"} arrived after the audited figures were matched — reverse the audited figures, post, and match again`
+          : `${count} waiting: ${ledgerReasonLabel(reason)}`
       ),
     id: "unposted_sources",
     ok: waiting.size === 0,

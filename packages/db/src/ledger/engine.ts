@@ -1,5 +1,5 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
-import { POSTING_ACTIONS } from "@pi-dash/shared/ledger";
+import { matchedYearMessage, POSTING_ACTIONS } from "@pi-dash/shared/ledger";
 import { and, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -55,10 +55,6 @@ export interface PostContext {
   now?: Date;
 }
 
-/** The refusal for a year whose audited figures are matched. */
-export const matchedYearMessage = (label: string) =>
-  `FY ${label}'s audited figures are matched; reverse them to change the year`;
-
 export interface PostResult {
   created: boolean;
   posting: PostingRow;
@@ -85,7 +81,7 @@ export async function resolvePeriods(
   options: { intoMatchedYear?: boolean } = {}
 ): Promise<Map<string, ResolvedPeriod>> {
   const resolved = new Map<string, ResolvedPeriod>();
-  const matchedChecked = new Set<string>();
+  let matched: { endsOn: string; label: string }[] | undefined;
   for (const day of dates) {
     const [row] = await tx
       .select({
@@ -113,24 +109,30 @@ export async function resolvePeriods(
         `${row.label} is closed. Reopen the year to post into it.`
       );
     }
-    if (!(options.intoMatchedYear || matchedChecked.has(row.fiscalYearId))) {
-      // Read after the year's FOR SHARE: a match commits while holding the
+    if (!options.intoMatchedYear) {
+      // A matched year's closing is the CA's signed figures, and every
+      // later year opens from the one before, so a date is refused when any
+      // matched year ends on or after it (an earlier, unmatched year too).
+      // Read after the year's FOR SHARE: a match commits while holding its
       // year FOR NO KEY UPDATE, so this sees it once the lock is granted.
-      const [matched] = await tx
-        .select({ id: auditedFigures.id })
+      matched ??= await tx
+        .select({ endsOn: fiscalYear.endsOn, label: fiscalYear.label })
         .from(auditedFigures)
+        .innerJoin(fiscalYear, eq(fiscalYear.id, auditedFigures.fiscalYearId))
         .where(
           and(
-            eq(auditedFigures.fiscalYearId, row.fiscalYearId),
             eq(auditedFigures.status, "matched"),
             isNull(auditedFigures.reversedAt)
           )
         )
-        .limit(1);
-      if (matched) {
-        throw new LedgerError("matched_year", matchedYearMessage(row.label));
+        .orderBy(fiscalYear.endsOn);
+      const frozenBy = matched.find((m) => m.endsOn >= day);
+      if (frozenBy) {
+        throw new LedgerError(
+          "matched_year",
+          matchedYearMessage(frozenBy.label)
+        );
       }
-      matchedChecked.add(row.fiscalYearId);
     }
     resolved.set(day, {
       fiscalYearId: row.fiscalYearId,
