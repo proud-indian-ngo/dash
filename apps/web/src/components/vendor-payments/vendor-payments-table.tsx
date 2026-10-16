@@ -19,6 +19,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
+import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
@@ -96,6 +97,8 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
 }
 
 interface VendorPaymentsTableProps {
+  /** Count shortcuts beside the status tabs ("Unallocated", "Missing payment proof"). */
+  attentionViews?: DataTableAttentionView[];
   canDelete?: boolean;
   data: VendorPaymentWithRelations[];
   isLoading?: boolean;
@@ -178,6 +181,7 @@ function VendorPaymentRowActions({
 }
 
 export function VendorPaymentsTable({
+  attentionViews,
   canDelete,
   data,
   isLoading,
@@ -513,6 +517,7 @@ export function VendorPaymentsTable({
         emptyMessage="No vendor payments found."
         compactOnMobile
         filter={{
+          attentionViews,
           fields: filterFields,
           getValue: getVendorPaymentFilterValue,
           viewField: "status",
