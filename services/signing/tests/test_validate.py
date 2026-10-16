@@ -87,3 +87,49 @@ def test_api_refuses_without_a_configured_token(pki: Pki) -> None:
         "/validate", content=blank_pdf(), headers={"Authorization": "Bearer "}
     )
     assert response.status_code == 503
+
+
+def test_prepare_adds_empty_fields_that_signers_fill(pki: Pki) -> None:
+    import base64
+
+    from pidash_signing.prepare import FieldRequest, prepare_fields
+
+    prepared = prepare_fields(
+        blank_pdf(),
+        [
+            FieldRequest(name="Trustee_a", page=-1, box=(300, 600, 547, 672)),
+            FieldRequest(name="Trustee_b", page=-1, box=(300, 470, 547, 542)),
+        ],
+    )
+    assert prepared.startswith(blank_pdf()[:8])
+    # An unsigned prepared PDF has fields but no signatures yet.
+    assert validate_pdf(prepared, settings_with(pki))["status"] == "no_signatures"
+    # Each trustee signs their own field, one incremental update at a time.
+    first = sign(prepared, pki, "Trustee_a")
+    assert first.startswith(prepared)
+    second = sign(first, pki, "Trustee_b")
+    assert second.startswith(first)
+    report = validate_pdf(second, settings_with(pki))
+    assert report["status"] == "valid"
+    assert [s["fieldName"] for s in report["signatures"]] == ["Trustee_a", "Trustee_b"]
+
+    client = TestClient(create_app(settings_with(pki), token="secret"))
+    response = client.post(
+        "/prepare",
+        json={
+            "fields": [{"box": [300, 600, 547, 672], "name": "Trustee_a", "page": -1}],
+            "pdf": base64.b64encode(blank_pdf()).decode(),
+        },
+        headers={"Authorization": "Bearer secret"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    bad = client.post(
+        "/prepare",
+        json={
+            "fields": [{"box": [0, 0, 10, 10], "name": "x", "page": 9}],
+            "pdf": base64.b64encode(blank_pdf()).decode(),
+        },
+        headers={"Authorization": "Bearer secret"},
+    )
+    assert bad.status_code == 422

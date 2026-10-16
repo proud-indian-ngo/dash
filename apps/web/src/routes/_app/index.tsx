@@ -26,6 +26,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQueryStates } from "nuqs";
 
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
+import { AwaitingMyVote } from "@/components/dashboard/awaiting-my-vote";
 import { MyTeams } from "@/components/dashboard/my-teams";
 import {
   countPendingReviews,
@@ -379,7 +380,8 @@ function OrientedDashboard() {
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <AwaitingMyVote />
         <PendingReviews
           advancePayments={pendingAdvancePayments}
           eventInterests={pendingInterests}

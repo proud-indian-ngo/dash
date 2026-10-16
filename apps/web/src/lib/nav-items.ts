@@ -31,6 +31,7 @@ import {
   Settings01Icon,
   Store01Icon,
   TaskDaily02Icon,
+  TaskDone01Icon,
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
@@ -146,6 +147,12 @@ const trusteeRegisterNavItem: NavItem = {
   url: "/governance",
 };
 
+const resolutionsNavItem: NavItem = {
+  icon: TaskDone01Icon,
+  title: "Resolutions",
+  url: "/governance/resolutions",
+};
+
 const governanceDocumentsNavItem: NavItem = {
   icon: Files01Icon,
   title: "Documents",
@@ -168,7 +175,11 @@ const deedNavItem: NavItem = {
 function governanceNavItems(permissions: string[]): NavItem[] {
   const items: NavItem[] = [];
   if (hasAny(permissions, ...GOVERNANCE_PAGE_PERMISSIONS)) {
-    items.push(trusteeRegisterNavItem, governanceDocumentsNavItem);
+    items.push(
+      trusteeRegisterNavItem,
+      resolutionsNavItem,
+      governanceDocumentsNavItem
+    );
   }
   if (hasAny(permissions, ...REGISTRATIONS_PAGE_PERMISSIONS)) {
     items.push(registrationsNavItem);

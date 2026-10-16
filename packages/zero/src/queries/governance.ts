@@ -77,3 +77,56 @@ export const organisationRegistrationQueries = {
           .related("certificate")
   ),
 };
+
+const resolutionDetail = () =>
+  zql.resolution
+    .related("responses", (q) => q.related("trustee").related("signature"))
+    .related("revisions", (q) => q.orderBy("revision", "desc").limit(1))
+    .related("issuedBy");
+
+/**
+ * Resolutions: everything for governance; for a trustee, the ones issued
+ * while they were in office (they have a response row under their account).
+ */
+export const resolutionQueries = {
+  all: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.resolution.related("responses").orderBy("updatedAt", "desc")
+      : zql.resolution.where("id", "__never_match__").related("responses")
+  ),
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
+    if (canSeeGovernance(ctx)) {
+      return resolutionDetail().where("id", id).one();
+    }
+    if (ctx) {
+      return resolutionDetail()
+        .where("id", id)
+        .whereExists("responses", (r) => r.where("userId", ctx.userId))
+        .one();
+    }
+    return resolutionDetail().where("id", "__never_match__").one();
+  }),
+  /** Resolutions sent to the signed-in trustee. */
+  mine: defineQuery(({ ctx }) =>
+    ctx
+      ? zql.resolution
+          .where("status", "!=", "draft")
+          .whereExists("responses", (r) => r.where("userId", ctx.userId))
+          .related("responses")
+          .orderBy("updatedAt", "desc")
+      : zql.resolution.where("id", "__never_match__").related("responses")
+  ),
+  /** The signed-in trustee's open circulars still waiting for them: the dashboard card. */
+  awaitingMe: defineQuery(({ ctx }) =>
+    ctx
+      ? zql.resolutionResponse
+          .where("userId", ctx.userId)
+          .where("response", "pending")
+          .where("conflictDeclared", false)
+          .whereExists("resolution", (q) => q.where("status", "issued"))
+          .related("resolution")
+      : zql.resolutionResponse
+          .where("id", "__never_match__")
+          .related("resolution")
+  ),
+};

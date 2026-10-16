@@ -74,3 +74,107 @@ export async function notifyTermEnding(
     whatsappTemplate: null,
   });
 }
+
+// ── Resolutions ─────────────────────────────────────────────────────────────
+
+export interface ResolutionNotice {
+  /** For "decided": the outcome. */
+  number?: string | null;
+  outcome?: "passed" | "failed" | "withdrawn";
+  outcomeNote?: string | null;
+  resolutionId: string;
+  responseDueOn?: string | null;
+  title: string;
+}
+
+/** A circular went out: every trustee it went to is asked to respond. */
+export async function notifyResolutionIssued(
+  notice: ResolutionNotice & { userIds: string[] }
+): Promise<void> {
+  const path = `/governance/resolutions/${notice.resolutionId}`;
+  const due = notice.responseDueOn ? formatDay(notice.responseDueOn) : null;
+  const paragraphs = [
+    `A circular resolution needs your response: "${notice.title}".`,
+    `Read it, then either sign it with your DSC or record an objection${due ? ` by ${due}` : ""}. If you have a conflict of interest, declare it instead.`,
+  ];
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the circular",
+    ctaUrl: `${env.APP_URL}${path}`,
+    heading: "A circular needs your vote",
+    paragraphs,
+  });
+  await Promise.all(
+    notice.userIds.map((userId) =>
+      sendMessage({
+        body: paragraphs.join(" "),
+        clickAction: path,
+        digest: {
+          actionLabel: "Respond",
+          meta: due ? `Respond by ${due}` : "Respond",
+          name: notice.title,
+          status: { label: "Your vote", tone: "warning" },
+        },
+        emailHtml,
+        idempotencyKey: `resolution-issued-${notice.resolutionId}-${userId}`,
+        title: `Circular for your vote: ${notice.title}`,
+        to: userId,
+        topic: TOPICS.GOVERNANCE,
+        whatsappTemplate: null,
+      })
+    )
+  );
+}
+
+const OUTCOME_TEXT = {
+  failed: "did not pass",
+  passed: "passed",
+  withdrawn: "was withdrawn",
+} as const;
+
+/** A circular passed, failed or was withdrawn: the trustees and the secretaries hear. */
+export async function notifyResolutionDecided(
+  notice: ResolutionNotice & { userIds: string[] }
+): Promise<void> {
+  const outcome = notice.outcome ?? "passed";
+  const path = `/governance/resolutions/${notice.resolutionId}`;
+  const first =
+    outcome === "passed" && notice.number
+      ? `The circular "${notice.title}" passed and is recorded as ${notice.number}.`
+      : `The circular "${notice.title}" ${OUTCOME_TEXT[outcome]}.`;
+  const paragraphs = notice.outcomeNote ? [first, notice.outcomeNote] : [first];
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the resolution",
+    ctaUrl: `${env.APP_URL}${path}`,
+    heading:
+      outcome === "passed"
+        ? "Resolution passed"
+        : `Circular ${OUTCOME_TEXT[outcome]}`,
+    paragraphs,
+  });
+  await Promise.all(
+    notice.userIds.map((userId) =>
+      sendMessage({
+        body: paragraphs.join(" "),
+        clickAction: path,
+        digest: {
+          actionLabel: "Open",
+          meta: notice.number ?? OUTCOME_TEXT[outcome],
+          name: notice.title,
+          status: {
+            label: outcome === "passed" ? "Passed" : "Closed",
+            tone: outcome === "passed" ? "success" : "neutral",
+          },
+        },
+        emailHtml,
+        idempotencyKey: `resolution-decided-${notice.resolutionId}-${outcome}-${userId}`,
+        title:
+          outcome === "passed"
+            ? `Passed: ${notice.title}`
+            : `Circular ${OUTCOME_TEXT[outcome]}: ${notice.title}`,
+        to: userId,
+        topic: TOPICS.GOVERNANCE,
+        whatsappTemplate: null,
+      })
+    )
+  );
+}

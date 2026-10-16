@@ -21,6 +21,7 @@ import {
   deedVersionMutators,
   governanceDocumentMutators,
   organisationRegistrationMutators,
+  resolutionMutators,
   trusteeOfficeMutators,
   trusteeTermMutators,
 } from "./mutators/governance";
@@ -89,6 +90,7 @@ export const mutators = defineMutators({
   programme: programmeMutators,
   project: projectMutators,
   reimbursement: reimbursementMutators,
+  resolution: resolutionMutators,
   scheduledMessage: scheduledMessageMutators,
   socialPost: socialPostMutators,
   team: teamMutators,
