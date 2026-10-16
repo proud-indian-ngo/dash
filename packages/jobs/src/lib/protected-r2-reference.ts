@@ -49,6 +49,10 @@ export async function isProtectedR2ObjectReferenced(
       SELECT 1 FROM kalakriti_inventory_item WHERE photo_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM governance_document WHERE object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM resolution_revision WHERE object_key = ${r2Key} OR latest_object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM resolution_signature WHERE object_key = ${r2Key}
     ) AS referenced
   `);
 
