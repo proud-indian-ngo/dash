@@ -37,6 +37,8 @@ import type { RequestType } from "@/lib/reimbursement-types";
 
 interface StandardReimbursementFieldsProps {
   bankAccountList: BankAccount[];
+  /** The form's current account number, read reactively from form state. */
+  bankAccountNumber: string | undefined;
   /** Remounts the bank account picker when the claimant changes. */
   bankAccountsKey?: string;
   bankAccountOptions: { label: string; value: string }[];
@@ -49,7 +51,10 @@ interface StandardReimbursementFieldsProps {
   eventOptions: SelectOption[];
   form: FormWithField;
   isEdit: boolean;
-  onBankAccountSelected: (account: BankAccount) => void;
+  onBankAccountSelected: (
+    account: BankAccount,
+    source: "auto" | "user"
+  ) => void;
   onCancel: () => void;
   /**
    * The claimant's name for the "paid to the claimant" box when they aren't
@@ -61,24 +66,31 @@ interface StandardReimbursementFieldsProps {
 
 function BankAccountSelect({
   bankAccountList,
+  bankAccountNumber,
   bankAccountOptions,
   disableBankAccountSelection,
   field,
-  form,
   onBankAccountSelected,
   submitted,
 }: {
   bankAccountList: BankAccount[];
+  /**
+   * Passed in rather than read with `form.getFieldValue`: the React Compiler
+   * caches that read against the stable `form`, so a default applied by the
+   * form wouldn't show until the account list changed.
+   */
+  bankAccountNumber: string | undefined;
   bankAccountOptions: { label: string; value: string }[];
   disableBankAccountSelection: boolean;
   field: FormFieldApi<string | undefined>;
-  form: FormWithField;
-  onBankAccountSelected: (account: BankAccount) => void;
+  onBankAccountSelected: (
+    account: BankAccount,
+    source: "auto" | "user"
+  ) => void;
   submitted: boolean;
 }) {
   const selectedAccountByNumber = bankAccountList.find(
-    (account) =>
-      account.accountNumber === form.getFieldValue("bankAccountNumber")
+    (account) => account.accountNumber === bankAccountNumber
   );
   const selectedAccount =
     selectedAccountByNumber ??
@@ -97,7 +109,7 @@ function BankAccountSelect({
   useEffect(() => {
     setSelectedAccountId(selectedAccount?.id ?? "");
     if (selectedAccount && !selectedAccountByNumber) {
-      onBankAccountSelected(selectedAccount);
+      onBankAccountSelected(selectedAccount, "auto");
     }
   }, [onBankAccountSelected, selectedAccount, selectedAccountByNumber]);
 
@@ -116,7 +128,7 @@ function BankAccountSelect({
     if (account) {
       setSelectedAccountId(account.id);
       field.handleChange(account.accountName);
-      onBankAccountSelected(account);
+      onBankAccountSelected(account, "user");
     }
   });
 
@@ -169,6 +181,7 @@ function BankAccountsSettingsLink() {
 
 export function StandardReimbursementFields({
   bankAccountList,
+  bankAccountNumber,
   bankAccountOptions,
   bankAccountsKey,
   bankAccountsStatus,
@@ -206,11 +219,11 @@ export function StandardReimbursementFields({
             return (
               <BankAccountSelect
                 bankAccountList={bankAccountList}
+                bankAccountNumber={bankAccountNumber}
                 key={bankAccountsKey}
                 bankAccountOptions={bankAccountOptions}
                 disableBankAccountSelection={disableBankAccountSelection}
                 field={field}
-                form={form}
                 onBankAccountSelected={onBankAccountSelected}
                 submitted={submitted}
               />
