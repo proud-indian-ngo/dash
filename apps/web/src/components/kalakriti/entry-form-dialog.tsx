@@ -239,16 +239,6 @@ function selectIsSubmitting(state: { isSubmitting: boolean }): boolean {
   return state.isSubmitting;
 }
 
-function selectMusicFieldState(state: {
-  values: { music: unknown[]; sessionId: string; studentIds: string[] };
-}) {
-  return {
-    musicCount: state.values.music.length,
-    sessionId: state.values.sessionId,
-    studentCount: state.values.studentIds.length,
-  };
-}
-
 function shouldShowEntryMusicField({
   entry,
   session,
@@ -287,13 +277,29 @@ interface EntryValidationIssue {
   path: "sessionId" | "studentIds";
 }
 
+/**
+ * Where a Session-level issue shows: the Session picker, or Students when the
+ * Session is fixed or an Entry is being edited and the picker isn't rendered.
+ */
+function sessionIssuePath({
+  entry,
+  fixedSession,
+}: {
+  entry?: KalakritiEntryRow;
+  fixedSession?: KalakritiEntrySession;
+}): EntryValidationIssue["path"] {
+  return fixedSession || entry ? "studentIds" : "sessionId";
+}
+
 function getIndividualSelectionIssue({
   entries,
+  entry,
   fixedSession,
   session,
   students,
 }: {
   entries: readonly KalakritiEntryRow[];
+  entry?: KalakritiEntryRow;
   fixedSession?: KalakritiEntrySession;
   session: KalakritiEntrySession;
   students: readonly KalakritiEntryStudent[];
@@ -307,14 +313,14 @@ function getIndividualSelectionIssue({
     if (message) {
       return {
         message,
-        path: fixedSession ? "studentIds" : "sessionId",
+        path: sessionIssuePath({ entry, fixedSession }),
       };
     }
   }
   return null;
 }
 
-function getEntryValidationIssues({
+export function getEntryValidationIssues({
   entries,
   entry,
   fixedSession,
@@ -334,7 +340,12 @@ function getEntryValidationIssues({
   const session = sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
     return sessionId
-      ? [{ message: unavailableSessionMessage, path: "sessionId" }]
+      ? [
+          {
+            message: unavailableSessionMessage,
+            path: sessionIssuePath({ entry, fixedSession }),
+          },
+        ]
       : [];
   }
   const selectedStudents = studentIds.flatMap((studentId) => {
@@ -359,6 +370,7 @@ function getEntryValidationIssues({
   }
   const issue = getIndividualSelectionIssue({
     entries,
+    entry,
     fixedSession,
     session,
     students: selectedStudents,
@@ -549,13 +561,16 @@ function EntryForm({
         (candidate) => candidate.id === value.sessionId
       );
       if (!session) {
-        form.setFieldMeta("sessionId", (previous) => ({
-          ...previous,
-          errorMap: {
-            ...previous.errorMap,
-            onServer: { message: unavailableSessionMessage },
-          },
-        }));
+        form.setFieldMeta(
+          sessionIssuePath({ entry, fixedSession }),
+          (previous) => ({
+            ...previous,
+            errorMap: {
+              ...previous.errorMap,
+              onServer: { message: unavailableSessionMessage },
+            },
+          })
+        );
         return;
       }
       if (
@@ -597,6 +612,23 @@ function EntryForm({
     validators: { onChange: validationSchema, onSubmit: validationSchema },
   });
   const isSubmitting = useSelector(form.store, selectIsSubmitting);
+  // The Session whose music field shows, or null: a primitive, so the field
+  // re-renders only when that changes. Staged music keeps the field visible.
+  const selectMusicSessionId = (state: {
+    values: { music: unknown[]; sessionId: string; studentIds: string[] };
+  }): string | null => {
+    const session = sessions.find(
+      (candidate) => candidate.id === state.values.sessionId
+    );
+    if (!session) {
+      return null;
+    }
+    const studentCount = state.values.studentIds.length;
+    return shouldShowEntryMusicField({ entry, session, studentCount }) ||
+      state.values.music.length > 0
+      ? session.id
+      : null;
+  };
 
   function finishMutation(
     result: EntryMutationResult,
@@ -804,16 +836,12 @@ function EntryForm({
             );
           }}
         </form.Subscribe>
-        <form.Subscribe selector={selectMusicFieldState}>
-          {({ musicCount, sessionId, studentCount }) => {
+        <form.Subscribe selector={selectMusicSessionId}>
+          {(musicSessionId) => {
             const session = sessions.find(
-              (candidate) => candidate.id === sessionId
+              (candidate) => candidate.id === musicSessionId
             );
-            if (
-              !session ||
-              (!shouldShowEntryMusicField({ entry, session, studentCount }) &&
-                musicCount === 0)
-            ) {
+            if (!session) {
               return null;
             }
             const isGroup = session.competition.participationMode === "group";

@@ -90,11 +90,15 @@ test.describe("Recurring events", () => {
     await page.getByRole("option", { name: "Weekly" }).click();
 
     const preview = dialog.getByText(/^Next \d+ occurrences$/).locator("..");
-    await expect(preview).toContainText(day(first));
+    // Each occurrence is its own tag, "17 Oct 2026, 12:00 am"; anchor the
+    // match so "1 Oct" never matches "31 Oct".
+    const occurrence = (date: Date) =>
+      preview.getByText(new RegExp(`^${day(date)},`));
+    await expect(occurrence(first)).toBeVisible();
 
     await pickDate(dialog, "Start time", later);
-    await expect(preview).toContainText(day(later));
-    await expect(preview).not.toContainText(day(first));
+    await expect(occurrence(later)).toBeVisible();
+    await expect(occurrence(first)).toHaveCount(0);
   });
 
   test("recurring events appear on the events page", async ({ page }) => {

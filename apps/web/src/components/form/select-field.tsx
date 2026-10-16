@@ -13,7 +13,6 @@ import {
   type FormFieldApi,
   type FormInstance,
   fieldErrorProps,
-  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -124,8 +123,7 @@ export function SelectField({
   triggerClassName = "w-full",
   validators,
 }: SelectFieldProps) {
-  const resolvedForm = useResolvedForm(form, "SelectField");
-  const submitted = useFormSubmitted(resolvedForm);
+  useResolvedForm(form, "SelectField");
   return (
     <CustomField<string | undefined>
       controlId={id}
@@ -137,7 +135,7 @@ export function SelectField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <SelectFieldControl
           disabled={disabled}
           field={field}

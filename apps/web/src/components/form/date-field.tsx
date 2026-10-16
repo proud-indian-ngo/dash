@@ -17,11 +17,7 @@ import { DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
-import {
-  getFieldErrorState,
-  useFormSubmitted,
-  useResolvedForm,
-} from "./form-context";
+import { getFieldErrorState, useResolvedForm } from "./form-context";
 
 interface DateFieldProps {
   description?: ReactNode;
@@ -144,8 +140,7 @@ export function DateField({
   startMonth = new Date(1900, 0, 1),
   validators,
 }: DateFieldProps) {
-  const resolvedForm = useResolvedForm(form, "DateField");
-  const submitted = useFormSubmitted(resolvedForm);
+  useResolvedForm(form, "DateField");
   return (
     <CustomField<Date | undefined>
       description={description}
@@ -156,7 +151,7 @@ export function DateField({
       name={name}
       validators={validators}
     >
-      {(field) => {
+      {(field, submitted) => {
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
           submitted

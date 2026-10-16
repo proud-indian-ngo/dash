@@ -19,7 +19,8 @@ import {
 } from "./form-context";
 
 interface CustomFieldProps<TValue = unknown> {
-  children: (field: FormFieldApi<TValue>) => ReactNode;
+  /** Renders the control; `submitted` is whether the form was submitted. */
+  children: (field: FormFieldApi<TValue>, submitted: boolean) => ReactNode;
   className?: string;
   controlId?: string;
   description?: ReactNode;
@@ -75,7 +76,7 @@ export function CustomField<TValue = unknown>({
                 </span>
               ) : null}
             </FieldLabel>
-            {children(typedField)}
+            {children(typedField, submitted)}
             {description ? (
               <FieldDescription>{description}</FieldDescription>
             ) : null}

@@ -7,7 +7,6 @@ import {
   type FormInstance,
   blurField,
   fieldErrorProps,
-  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -36,8 +35,7 @@ export function PhoneField({
   validators,
   ...props
 }: PhoneFieldProps) {
-  const resolvedForm = useResolvedForm(form, "PhoneField");
-  const submitted = useFormSubmitted(resolvedForm);
+  useResolvedForm(form, "PhoneField");
   return (
     <CustomField
       description={description}
@@ -48,7 +46,7 @@ export function PhoneField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <PhoneInput
           {...props}
           {...fieldErrorProps(field, submitted)}

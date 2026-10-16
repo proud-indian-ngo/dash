@@ -22,11 +22,7 @@ import { DATE_TIME } from "@/lib/date-formats";
 import { CustomField } from "./custom-field";
 import { applyTimeChange } from "./date-time-utils";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
-import {
-  getFieldErrorState,
-  useFormSubmitted,
-  useResolvedForm,
-} from "./form-context";
+import { getFieldErrorState, useResolvedForm } from "./form-context";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
@@ -292,8 +288,7 @@ export function DateTimeField({
   placeholder = "Pick date and time",
   validators,
 }: DateTimeFieldProps) {
-  const resolvedForm = useResolvedForm(form, "DateTimeField");
-  const submitted = useFormSubmitted(resolvedForm);
+  useResolvedForm(form, "DateTimeField");
   return (
     <CustomField<Date | undefined>
       description={description}
@@ -304,7 +299,7 @@ export function DateTimeField({
       name={name}
       validators={validators}
     >
-      {(field) => {
+      {(field, submitted) => {
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
           submitted

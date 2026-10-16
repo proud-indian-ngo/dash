@@ -9,7 +9,6 @@ import {
   type FormInstance,
   blurField,
   fieldErrorProps,
-  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -77,8 +76,7 @@ export function InputField({
   validators,
   ...props
 }: InputFieldProps) {
-  const resolvedForm = useResolvedForm(form, "InputField");
-  const submitted = useFormSubmitted(resolvedForm);
+  useResolvedForm(form, "InputField");
   return (
     <CustomField
       description={description}
@@ -89,7 +87,7 @@ export function InputField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <InputFieldControl
           {...props}
           field={field}
