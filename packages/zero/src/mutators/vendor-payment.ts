@@ -1185,6 +1185,7 @@ export const vendorPaymentMutators = {
       ).flatMap((l) => (l.provisionHeadId ? [[l.id, l] as const] : []))
     );
     const provisionCleared = new Set<string>();
+    const provisionKeptResized = new Set<string>();
 
     await tx.mutate.vendorPayment.update({
       ...charge,
@@ -1212,15 +1213,16 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         // A line finance charged to a provision keeps that choice when
-        // the request is edited (lines keep their IDs), unless its
-        // category or amount changed: then finance chooses again.
+        // the request is edited (lines keep their IDs), also when only its
+        // amount changes (the invoice can't be approved again to put it
+        // back). A new category is a different cost: the choice goes.
         insertLineItem: (data) => {
           const before = provisionByLine.get(data.id);
-          const kept =
-            before?.categoryId === data.categoryId &&
-            before.amountPaise === data.amountPaise;
+          const kept = before?.categoryId === data.categoryId;
           if (before && !kept) {
             provisionCleared.add(data.id);
+          } else if (before && before.amountPaise !== data.amountPaise) {
+            provisionKeptResized.add(data.id);
           }
           return tx.mutate.vendorPaymentLineItem.insert({
             ...data,
@@ -1250,6 +1252,19 @@ export const vendorPaymentMutators = {
       })
     );
 
+    if (provisionKeptResized.size > 0) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          provisionKeptResized.size === 1
+            ? "The line's amount changed; it is still charged to the provision"
+            : `${provisionKeptResized.size} lines' amounts changed; they are still charged to the provision`
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
     // A line that was removed loses its charge too.
     for (const lineId of provisionByLine.keys()) {
       if (!args.lineItems.some((l) => l.id === lineId)) {
@@ -1263,8 +1278,8 @@ export const vendorPaymentMutators = {
           "updated",
           now,
           provisionCleared.size === 1
-            ? "Provision charge cleared: the line charged to a provision changed"
-            : `Provision charge cleared: ${provisionCleared.size} lines charged to a provision changed`
+            ? "Provision charge cleared: the line charged to a provision changed category or was removed"
+            : `Provision charge cleared: ${provisionCleared.size} lines charged to a provision changed category or were removed`
         ),
         vendorPaymentId: args.id,
       });

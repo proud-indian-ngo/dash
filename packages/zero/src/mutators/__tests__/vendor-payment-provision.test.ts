@@ -152,35 +152,39 @@ const edit = (tx: unknown, line: { amountPaise: number; categoryId: string }) =>
   } as never);
 
 describe("editing a request with a line charged to a provision", () => {
+  const notes = (insertHistory: ReturnType<typeof mock>) =>
+    insertHistory.mock.calls.map((c) => String(c[0]?.note));
+
   it("keeps the charge when the line's category and amount stay", async () => {
     const { insertHistory, insertLine, tx } = editTx();
     await edit(tx, { amountPaise: 15_000, categoryId: "cat-1" });
     expect(insertLine).toHaveBeenCalledWith(
       expect.objectContaining({ id: "line-1", provisionHeadId: PROVISION })
     );
-    expect(
-      insertHistory.mock.calls.some((c) =>
-        String(c[0]?.note).startsWith("Provision charge cleared")
-      )
-    ).toBe(false);
+    expect(notes(insertHistory).some((n) => n.includes("provision"))).toBe(
+      false
+    );
   });
 
-  it("clears it, with a history note, when the amount or category changes", async () => {
-    for (const line of [
-      { amountPaise: 18_000, categoryId: "cat-1" },
-      { amountPaise: 15_000, categoryId: "cat-2" },
-    ]) {
-      const { insertHistory, insertLine, tx } = editTx();
-      await edit(tx, line);
-      expect(insertLine).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "line-1", provisionHeadId: null })
-      );
-      expect(insertHistory).toHaveBeenCalledWith(
-        expect.objectContaining({
-          note: "Provision charge cleared: the line charged to a provision changed",
-          vendorPaymentId: "vp-1",
-        })
-      );
-    }
+  it("keeps the charge when only the amount changes, and says so", async () => {
+    const { insertHistory, insertLine, tx } = editTx();
+    await edit(tx, { amountPaise: 18_000, categoryId: "cat-1" });
+    expect(insertLine).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "line-1", provisionHeadId: PROVISION })
+    );
+    expect(notes(insertHistory)).toContain(
+      "The line's amount changed; it is still charged to the provision"
+    );
+  });
+
+  it("clears it, with a history note, when the category changes", async () => {
+    const { insertHistory, insertLine, tx } = editTx();
+    await edit(tx, { amountPaise: 15_000, categoryId: "cat-2" });
+    expect(insertLine).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "line-1", provisionHeadId: null })
+    );
+    expect(notes(insertHistory)).toContain(
+      "Provision charge cleared: the line charged to a provision changed category or was removed"
+    );
   });
 });

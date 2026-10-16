@@ -701,3 +701,73 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+it.skipIf(!localDatabase)(
+  "keeps a share taken in one year when the invoice is voided in the next, freeing it only from the void day",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const a = await addInvoice(tx, ids, {
+        acceptedOn: "2026-06-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-06-05",
+      });
+      await run(tx, paymentSource(a.paymentId));
+      await run(tx, invoiceSource(a.id));
+      // Raised above its payments: A waits with its posting kept.
+      await tx
+        .update(vendorPaymentLineItem)
+        .set({ amountPaise: 6000_00 })
+        .where(eq(vendorPaymentLineItem.id, a.lineId));
+      await run(tx, invoiceSource(a.id));
+      const b = await addInvoice(tx, ids, {
+        acceptedOn: "2026-07-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-07-01",
+      });
+      await run(tx, paymentSource(b.paymentId));
+      await run(tx, invoiceSource(b.id));
+      expect(await splitOf(tx, b.id)).toEqual([[2500_00, 2500_00]]);
+
+      // Voided on 2 Apr 2027, in the next financial year.
+      const later = new Date("2027-04-05T06:00:00Z");
+      const voidedAt = at("2027-04-02");
+      await tx
+        .update(vendorPayment)
+        .set({ voidedAt, voidedBy: ids.user, voidReason: "Raised twice" })
+        .where(eq(vendorPayment.id, a.id));
+      await tx
+        .update(vendorPaymentTransaction)
+        .set({ voidedAt, voidedBy: ids.user, voidReason: "Raised twice" })
+        .where(eq(vendorPaymentTransaction.id, a.paymentId));
+      expect(await run(tx, invoiceSource(a.id), later)).toMatchObject({
+        reversed: 1,
+        status: "none",
+      });
+      await run(tx, paymentSource(a.paymentId), later);
+      // B keeps its split: FY 2026-27's closing doesn't move.
+      expect(await run(tx, invoiceSource(b.id), later)).toMatchObject({
+        posted: 0,
+        reversed: 0,
+      });
+      expect(await provisionOn(tx, YEAR_END)).toBe(0);
+      expect(await provisionOn(tx, "2027-04-02")).toBe(5000_00);
+      // An invoice after the void takes the freed share.
+      const c = await addInvoice(tx, ids, {
+        acceptedOn: "2027-05-01",
+        amountPaise: 6000_00,
+        paidOn: "2027-04-20",
+      });
+      const next = new Date("2027-05-02T06:00:00Z");
+      await run(tx, paymentSource(c.paymentId), next);
+      await run(tx, invoiceSource(c.id), next);
+      expect(await splitOf(tx, c.id)).toEqual([[5000_00, 1000_00]]);
+      await expectSound(tx, [
+        ...DAYS,
+        "2027-04-01",
+        "2027-04-02",
+        "2027-05-01",
+      ]);
+    });
+  }
+);

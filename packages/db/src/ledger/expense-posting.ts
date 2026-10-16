@@ -448,12 +448,13 @@ async function frozenDays(tx: LedgerTx): Promise<(day: string) => boolean> {
  *   year before the cutover), the audited figures, and the standing
  *   entries of every other invoice that is not a claim (one that waits
  *   with its posting kept, one in a closed or matched year, one about to
- *   be reversed). A voided invoice is no claim for anyone: its entries are
- *   left out, so invoices dated before its void day are allocated as if it
- *   never claimed. Its own reversal still lands on the void day, so the
- *   provision can dip below zero in between; the year-end figure is
- *   right. Only a voided invoice that posted on a frozen day stays in the
- *   base, with its reversal, as it stands.
+ *   be reversed). A voided invoice is no claim for anyone. Voided in the
+ *   year it posted in, its entries are left out, so invoices dated before
+ *   its void day are allocated as if it never claimed; its own reversal
+ *   still lands on the void day, so the provision can dip below zero in
+ *   between, within that year, and that year's closing is right. One that
+ *   posted on a frozen day, or in an earlier year than its void, stays in
+ *   the base with its reversal, as it stands.
  */
 export async function provisionLedger(
   tx: LedgerTx,
@@ -489,15 +490,27 @@ export async function provisionLedger(
       : 0;
     // Only an invoice that posts takes from the provision; whether it
     // posts never depends on how its lines split. One on a frozen day, or
-    // one that waits, is in the base as its postings stand.
+    // one that waits, is in the base as its postings stand. The read-only
+    // picker creates no category heads, so a line whose category has none
+    // yet counts as mapped: the posting run will make the head.
+    const planned =
+      facts && options.readOnly
+        ? {
+            ...facts,
+            lines: facts.lines.map((l) => ({
+              ...l,
+              accountHeadId: l.accountHeadId ?? "unmapped-category",
+            })),
+          }
+        : facts;
     if (
-      facts &&
+      planned &&
       on &&
       !isFrozen(on) &&
       claimPaise > 0 &&
-      vendorPaymentPlan(facts).kind === "post"
+      vendorPaymentPlan(planned).kind === "post"
     ) {
-      claims.push({ claimPaise, id: facts.id, on });
+      claims.push({ claimPaise, id: planned.id, on });
     }
   }
   const claimIds = new Set(claims.map((c) => c.id));
@@ -514,6 +527,8 @@ export async function provisionLedger(
       sourceType: posting.sourceType,
       voided: sql<boolean>`exists (select 1 from ${vendorPayment} pv
         where pv.id = ${posting.sourceId} and pv.voided_at is not null)`,
+      voidedOn: sql<string | null>`(select ${indiaDay(sql`pv.voided_at`)}::text
+        from ${vendorPayment} pv where pv.id = ${posting.sourceId})`,
     })
     .from(ledgerEntry)
     .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
@@ -522,12 +537,22 @@ export async function provisionLedger(
     .orderBy(asc(ledgerEntry.economicOn), asc(ledgerEntry.id));
   const invoiceOf = (r: (typeof rows)[number]) =>
     r.sourceType === T.vendorPayment;
-  // A voided invoice stays in the base only when it posted on a frozen day.
-  const frozenVoided = new Set(
+  // A voided invoice is left out (as if it never claimed) only when it was
+  // voided in the year it posted in, on days that can still change. One
+  // that posted on a frozen day, or in an earlier year than its void,
+  // stays in the base as it stands: its share comes back on the void day,
+  // for invoices from then on, and no earlier year's closing moves.
+  const keptVoided = new Set(
     rows
       .filter(
         (r) =>
-          invoiceOf(r) && r.voided && !r.isReversal && isFrozen(r.economicOn)
+          invoiceOf(r) &&
+          r.voided &&
+          !r.isReversal &&
+          (isFrozen(r.economicOn) ||
+            (r.voidedOn !== null &&
+              financialYearOf(r.economicOn).label !==
+                financialYearOf(r.voidedOn).label))
       )
       .map((r) => r.sourceId)
   );
@@ -537,10 +562,10 @@ export async function provisionLedger(
       if (r.sourceId === exceptId || claimIds.has(r.sourceId)) {
         continue;
       }
-      // A voided one as it stands only on a frozen day; any other only
+      // A voided one as it stands only when kept above; any other only
       // its standing entries.
       const kept = r.voided
-        ? frozenVoided.has(r.sourceId)
+        ? keptVoided.has(r.sourceId)
         : !(r.isReversal || r.reversed);
       if (!kept) {
         continue;
