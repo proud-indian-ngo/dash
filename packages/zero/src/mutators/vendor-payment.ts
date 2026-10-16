@@ -1202,7 +1202,7 @@ export const vendorPaymentMutators = {
       costCentreId: await pickRequestCostCentreId(
         tx,
         { costCentreId: args.costCentreId, eventId: charge.eventId },
-        entity.costCentreId ?? null
+        entity
       ),
       id: args.id,
       title: args.title,

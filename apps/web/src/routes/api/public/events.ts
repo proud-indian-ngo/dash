@@ -60,7 +60,7 @@ export interface PublicEventsHandlerDeps {
   cache: TtlCache<PublicEventsResponse>;
   checkRateLimit: typeof checkRateLimit;
   /** The active cost centres, cached like the events (`activeCodes`). */
-  centresCache: TtlCache<string[]>;
+  centresCache: TtlCache<CostCentreCodes>;
   getPublicCostCentres: typeof getPublicCostCentres;
   getPublicEvents: typeof getPublicEvents;
   now: () => number;
@@ -76,8 +76,18 @@ export const createPublicEventsCache = () =>
     ttlMs: CACHE_TTL_MS,
   });
 
+/** The active codes and when they were read. */
+export interface CostCentreCodes {
+  codes: string[];
+  readAt: number;
+}
+
+// Refreshed after a minute; kept for a day so a failed refresh can fall
+// back to the last codes read.
+const CODES_KEEP_MS = 24 * 60 * 60_000;
+
 export const createCostCentresCache = () =>
-  createTtlCache<string[]>({ maxEntries: 1, ttlMs: CACHE_TTL_MS });
+  createTtlCache<CostCentreCodes>({ maxEntries: 1, ttlMs: CODES_KEEP_MS });
 
 const defaultHandlerDeps: PublicEventsHandlerDeps = {
   baseUrl: env.BETTER_AUTH_URL,
@@ -95,12 +105,24 @@ async function activeCodes(
   now: number
 ): Promise<string[]> {
   const cached = deps.centresCache.get("active", now);
-  if (cached) {
-    return cached;
+  if (cached && now - cached.readAt < CACHE_TTL_MS) {
+    return cached.codes;
   }
-  const codes = (await deps.getPublicCostCentres()).map((c) => c.code);
-  deps.centresCache.set("active", codes, now);
-  return codes;
+  try {
+    const codes = (await deps.getPublicCostCentres()).map((c) => c.code);
+    deps.centresCache.set("active", { codes, readAt: now }, now);
+    return codes;
+  } catch (error) {
+    // The website keeps working on the last codes read.
+    if (cached) {
+      const log = createRequestLogger({ method: "GET", path: PATH });
+      log.set({ warning: "cost centres unavailable; serving the last codes" });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
+      return cached.codes;
+    }
+    throw error;
+  }
 }
 
 export async function handlePublicEventsRequest(

@@ -7,6 +7,7 @@ import {
   type ScopeTables,
 } from "../../queries/query-scope-test-utils";
 import {
+  CLOSED_EVENT_CITY_MESSAGE,
   costCentreAfterRecharge,
   pickCostCentreId,
   pickRequestCostCentreId,
@@ -74,6 +75,53 @@ describe("pickCostCentreId", () => {
   });
 });
 
+describe("linking a request to an event", () => {
+  const tables = {
+    costCentre: [BLR, MUM],
+    teamEvent: [
+      { costCentreId: "blr", id: "e-blr" },
+      { costCentreId: "mum", id: "e-mum" },
+    ],
+  };
+
+  it("refuses an event in a closed city, unless the request is already on it", async () => {
+    const tx = fakeTx(tables);
+    expect(await pickRequestCostCentreId(tx, { eventId: "e-blr" })).toBeNull();
+    await expect(
+      pickRequestCostCentreId(tx, { eventId: "e-mum" })
+    ).rejects.toThrow(CLOSED_EVENT_CITY_MESSAGE);
+    await expect(
+      pickRequestCostCentreId(tx, { eventId: "e-mum" }, { eventId: "e-blr" })
+    ).rejects.toThrow(CLOSED_EVENT_CITY_MESSAGE);
+    expect(
+      await pickRequestCostCentreId(
+        tx,
+        { eventId: "e-mum" },
+        { costCentreId: null, eventId: "e-mum" }
+      )
+    ).toBeNull();
+  });
+
+  it("refuses finance re-charging onto an event in a closed city", async () => {
+    const tx = fakeTx(tables);
+    await expect(
+      costCentreAfterRecharge(
+        tx,
+        { costCentreId: "blr", eventId: null },
+        "e-mum"
+      )
+    ).rejects.toThrow(CLOSED_EVENT_CITY_MESSAGE);
+    expect(
+      await costCentreAfterRecharge(tx, { eventId: "e-mum" }, "e-mum")
+    ).toBeNull();
+  });
+
+  it("leaves it to the server when the client has not synced the event", async () => {
+    const tx = fakeTx({}, "client");
+    expect(await pickRequestCostCentreId(tx, { eventId: "e-mum" })).toBeNull();
+  });
+});
+
 describe("request cost centres", () => {
   it("store none on an event", async () => {
     const tx = fakeTx({ costCentre: [BLR] });
@@ -86,7 +134,10 @@ describe("request cost centres", () => {
   it("keep the event's centre when finance moves a request off its event", async () => {
     const tx = fakeTx({
       costCentre: [BLR, MUM],
-      teamEvent: [{ costCentreId: "mum", id: "e1" }],
+      teamEvent: [
+        { costCentreId: "mum", id: "e1" },
+        { costCentreId: "blr", id: "e2" },
+      ],
     });
     expect(
       await costCentreAfterRecharge(
@@ -99,7 +150,7 @@ describe("request cost centres", () => {
       await costCentreAfterRecharge(
         tx,
         { costCentreId: "blr", eventId: null },
-        "e1"
+        "e2"
       )
     ).toBeNull();
     expect(

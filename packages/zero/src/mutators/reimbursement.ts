@@ -1383,7 +1383,7 @@ export const reimbursementMutators = {
     const costCentreId = await pickRequestCostCentreId(
       tx,
       { costCentreId: args.costCentreId, eventId: charge.eventId },
-      entity.costCentreId ?? null
+      entity
     );
     const [itemsBefore, attachmentsBefore] = await Promise.all([
       tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),

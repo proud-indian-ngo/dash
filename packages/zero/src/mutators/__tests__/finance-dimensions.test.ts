@@ -47,7 +47,23 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       Object.assign(current, row);
     },
   });
+  const locks: string[] = [];
   const tx = {
+    // The server's row locks (the active cost centres before deactivating).
+    dbTransaction: {
+      wrappedTransaction: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: async (mode: string) => {
+                locks.push(mode);
+                return [];
+              },
+            }),
+          }),
+        }),
+      },
+    },
     location: "server",
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
@@ -63,7 +79,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       return query.format.singular ? result[0] : result;
     },
   };
-  return { tables, tx, writes };
+  return { locks, tables, tx, writes };
 }
 
 function run(
@@ -498,6 +514,18 @@ describe("cost centre mutators", () => {
     });
   });
 
+  it("refuses the codes the public feed reads as Bangalore", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        costCentreMutators.create,
+        db,
+        financeCtx,
+        centre({ code: "BENGALURU", id: "cc-x", name: "X" })
+      )
+    ).rejects.toThrow("Code BENGALURU is reserved");
+  });
+
   it("renames, but never changes the code", async () => {
     const db = createDb({ costCentre: [centre()] });
     await run(
@@ -522,6 +550,8 @@ describe("cost centre mutators", () => {
     await expect(
       run(costCentreMutators.update, db, financeCtx, centre({ active: false }))
     ).rejects.toThrow("At least one cost centre must stay active");
+    // Read under a lock on the active rows, so two deactivations can't race.
+    expect(db.locks).toEqual(["update"]);
     await run(
       costCentreMutators.update,
       db,

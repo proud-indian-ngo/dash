@@ -227,6 +227,29 @@ describe("handlePublicEventsRequest", () => {
     expect(getPublicEvents).not.toHaveBeenCalled();
   });
 
+  it("keeps serving on the last codes when the cost centres can't be read", async () => {
+    let now = NOW;
+    let failing = false;
+    const { deps, getPublicEvents } = createDeps({
+      getPublicCostCentres: mock(async () => {
+        if (failing) {
+          throw new Error("db down");
+        }
+        return [{ code: "BLR", name: "Bangalore" }];
+      }),
+      now: () => now,
+    });
+    await handlePublicEventsRequest(request(), deps);
+    failing = true;
+    now += 61_000;
+    const response = await handlePublicEventsRequest(request(), deps);
+    expect(response.status).toBe(200);
+    expect(getPublicEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cities: ["BLR"] }),
+      "https://dash.proudindian.ngo"
+    );
+  });
+
   it("hides an error reading the cost centres", async () => {
     const { deps, getPublicEvents } = createDeps({
       getPublicCostCentres: mock(async () => {

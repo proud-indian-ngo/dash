@@ -47,19 +47,58 @@ export async function pickCostCentreId(
   return active[0]?.id ?? null;
 }
 
+export const CLOSED_EVENT_CITY_MESSAGE =
+  "That event's city is closed. Choose an event in an active city";
+
+/**
+ * A request may be linked anew to an event only in an active cost centre;
+ * one already on an event in a closed city keeps it. On the client the
+ * event or centre may not have synced, so only the server enforces it.
+ */
+async function assertEventCityOpen(
+  tx: Tx,
+  eventId: string | null | undefined,
+  currentEventId: string | null | undefined
+): Promise<void> {
+  if (!eventId || eventId === currentEventId) {
+    return;
+  }
+  const event = await tx.run(zql.teamEvent.where("id", eventId).one());
+  if (!event?.costCentreId) {
+    return;
+  }
+  const centre = await tx.run(
+    zql.costCentre.where("id", event.costCentreId).one()
+  );
+  if (centre?.active === false) {
+    throw new Error(CLOSED_EVENT_CITY_MESSAGE);
+  }
+}
+
+interface RequestCostCentre {
+  costCentreId?: string | null;
+  eventId?: string | null;
+}
+
 /**
  * A request's own cost centre: none when it is linked to an event (it reads
- * the event's), else the pick as `pickCostCentreId` allows it.
+ * the event's, which must be active unless it is the request's current
+ * event), else the pick as `pickCostCentreId` allows it.
  */
 export async function pickRequestCostCentreId(
   tx: Tx,
-  input: { costCentreId?: string | null; eventId?: string | null },
-  current: string | null = null
+  input: RequestCostCentre,
+  current: RequestCostCentre | null = null
 ): Promise<string | null> {
   if (input.eventId) {
+    await assertEventCityOpen(tx, input.eventId, current?.eventId);
     return null;
   }
-  return await pickCostCentreId(tx, input.costCentreId, current);
+  return await pickCostCentreId(
+    tx,
+    input.costCentreId,
+    current?.costCentreId ?? null
+  );
 }
 
 /**
@@ -73,6 +112,7 @@ export async function costCentreAfterRecharge(
   nextEventId: string | null
 ): Promise<string | null> {
   if (nextEventId) {
+    await assertEventCityOpen(tx, nextEventId, entity.eventId);
     return null;
   }
   if (entity.eventId) {

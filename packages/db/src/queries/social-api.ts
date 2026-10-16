@@ -306,7 +306,8 @@ export async function findSocialOccurrenceRowId(
 }
 
 /**
- * Approved Immich-backed image photos of a public, non-Kalakriti event:
+ * Approved Immich-backed image photos of a public, non-Kalakriti event in
+ * an active cost centre:
  * usable photos first, then "do not use" ones, each oldest first by capture
  * (else upload) time. Null when the event is not listed.
  */
@@ -316,11 +317,14 @@ export async function getSocialEventPhotos(
   const [event] = await db
     .select({ id: teamEvent.id })
     .from(teamEvent)
+    // Like the events list: an inactive cost centre's events are left out.
+    .innerJoin(costCentre, eq(costCentre.id, teamEvent.costCentreId))
     .where(
       and(
         eq(teamEvent.id, eventId),
         eq(teamEvent.isPublic, true),
-        isNull(teamEvent.managementDomain)
+        isNull(teamEvent.managementDomain),
+        eq(costCentre.active, true)
       )
     )
     .limit(1);
