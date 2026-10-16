@@ -10,7 +10,9 @@ import {
   qualifiesForCashVoucher,
 } from "@pi-dash/shared/cash-voucher";
 import { cityValues } from "@pi-dash/shared/constants";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import type { Context } from "../context";
@@ -142,6 +144,86 @@ export const changeClaimantSchema = z.object({
   userId: z.string(),
 });
 
+/** Payment proof added after approval, or a replacement for it. */
+export const addPaymentProofSchema = z.object({
+  /** The uploaded screenshot (a temporary upload, claimed here). */
+  approvalScreenshotKey: z.string().min(1),
+  id: z.string(),
+  /** When replacing: the attachment that keeps the old screenshot. */
+  keptAttachmentId: z.string().optional(),
+  /** Whether the client saw a screenshot, so two adds never race. */
+  replacing: z.boolean(),
+});
+
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const extensionOf = (key: string) => {
+  const name = key.split("/").pop() ?? "";
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+};
+
+const imageMimeTypeOf = (key: string) =>
+  IMAGE_MIME_TYPES[extensionOf(key)] ?? null;
+
+const KEPT_PROOF_PREFIX = "payment-proof-";
+
+/** A payment screenshot kept as an attachment (see `keepProofAsAttachment`). */
+const isKeptPaymentProof = (attachment: {
+  filename: null | string;
+  objectKey?: null | string;
+}) =>
+  Boolean(attachment.filename?.startsWith(KEPT_PROOF_PREFIX)) &&
+  Boolean(attachment.objectKey?.includes("approval-screenshots/"));
+
+const KEPT_PROOF_REMOVAL_MESSAGE =
+  "Only an approver can remove kept payment proof";
+
+/**
+ * Payment proof is evidence: a screenshot that stops being the claim's
+ * proof (replaced, or cleared by a reset to pending) is kept as a plain
+ * attachment, "payment-proof-replaced-2026-10-17.png" or
+ * "payment-proof-previous-2026-10-17.png" (the day in India, with "-2",
+ * "-3" when the claim already has that name). Kept; only approvers can
+ * remove it.
+ */
+async function keepProofAsAttachment(
+  tx: Transaction<Schema>,
+  reimbursementId: string,
+  objectKey: string,
+  { id, kind, now }: { id: string; kind: "previous" | "replaced"; now: number }
+) {
+  const ext = extensionOf(objectKey);
+  const base = `${KEPT_PROOF_PREFIX}${kind}-${todayInKolkata(new Date(now))}`;
+  const withExt = (name: string) => (ext ? `${name}.${ext}` : name);
+  const taken = new Set(
+    (
+      await tx.run(
+        zql.reimbursementAttachment.where("reimbursementId", reimbursementId)
+      )
+    ).map((a) => a.filename)
+  );
+  let filename = withExt(base);
+  for (let n = 2; taken.has(filename); n += 1) {
+    filename = withExt(`${base}-${n}`);
+  }
+  return tx.mutate.reimbursementAttachment.insert({
+    createdAt: now,
+    filename,
+    id,
+    mimeType: imageMimeTypeOf(objectKey),
+    objectKey,
+    reimbursementId,
+    type: "file",
+    url: null,
+  });
+}
+
 const fk = (id: string) => ({ reimbursementId: id });
 
 /** Its posting in the books (finance layer 3-3a). */
@@ -243,16 +325,17 @@ export const reimbursementMutators = {
         })
       );
 
+      // A re-approval with a new screenshot keeps the old one as evidence.
+      // The server alone writes it, under an ID of its own.
       if (
+        tx.location === "server" &&
         entity.approvalScreenshotKey &&
         entity.approvalScreenshotKey !== approvalScreenshotKey
       ) {
-        enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-          keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
-          meta: {
-            mutator: "reimbursement.approve:replaceApprovalScreenshot",
-            reimbursementId: args.id,
-          },
+        await keepProofAsAttachment(tx, args.id, entity.approvalScreenshotKey, {
+          id: uuidv7(),
+          kind: "replaced",
+          now,
         });
       }
 
@@ -326,6 +409,68 @@ export const reimbursementMutators = {
           },
         });
       }
+    }
+  ),
+  /**
+   * Adds the payment screenshot to an approved reimbursement that has none
+   * (older records approved before it was required), or replaces it. It is
+   * stored exactly as approval stores it (`approval_screenshot_key`), so the
+   * books post the claim with no special case: the posting job is queued
+   * after the commit. A replaced screenshot is never deleted: it stays among
+   * the request's attachments as evidence.
+   */
+  addPaymentProof: defineMutator(
+    addPaymentProofSchema,
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "requests.approve");
+      const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(entity, "Reimbursement");
+      assertNotVoided(entity);
+      if (entity.status !== "approved") {
+        throw new Error("Only an approved reimbursement takes payment proof");
+      }
+      const previousKey = entity.approvalScreenshotKey ?? null;
+      if (Boolean(previousKey) !== args.replacing) {
+        throw new Error(
+          "The payment proof changed meanwhile. Reload and try again"
+        );
+      }
+      if (previousKey && !args.keptAttachmentId) {
+        throw new Error("Replacing the payment proof keeps the old one");
+      }
+
+      const now = Date.now();
+      const approvalScreenshotKey = claimUploadedR2ObjectKey(
+        args.approvalScreenshotKey,
+        createR2ClaimOptions(ctx, tx.location, {
+          durablePrefix: `reimbursements/${args.id}/approval-screenshots`,
+          subfolder: "approval-screenshots",
+        })
+      );
+
+      if (previousKey && args.keptAttachmentId) {
+        await keepProofAsAttachment(tx, args.id, previousKey, {
+          id: args.keptAttachmentId,
+          kind: "replaced",
+          now,
+        });
+      }
+      await tx.mutate.reimbursement.update({
+        approvalScreenshotKey,
+        id: args.id,
+        updatedAt: now,
+      });
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          previousKey ? "Payment proof replaced" : "Payment proof added"
+        ),
+        reimbursementId: args.id,
+      });
+      // With its screenshot, an approved claim waiting in the books posts.
+      queuePosting(ctx, tx, args.id, "reimbursement.addPaymentProof");
     }
   ),
   /**
@@ -683,7 +828,11 @@ export const reimbursementMutators = {
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            // A replaced payment proof is kept as an attachment.
+            keyPrefixes: [
+              ...reimbursementAttachmentKeyPrefixes(args.id),
+              ...reimbursementApprovalKeyPrefixes(args.id),
+            ],
             meta: {
               mutator: "reimbursement.delete",
               reimbursementId: args.id,
@@ -827,13 +976,14 @@ export const reimbursementMutators = {
       }
 
       const now = Date.now();
-      enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
-        keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
-        meta: {
-          mutator: "reimbursement.resetToPending",
-          reimbursementId: args.id,
-        },
-      });
+      // The payment screenshot stays with the claim as evidence.
+      if (tx.location === "server" && entity.approvalScreenshotKey) {
+        await keepProofAsAttachment(tx, args.id, entity.approvalScreenshotKey, {
+          id: uuidv7(),
+          kind: "previous",
+          now,
+        });
+      }
 
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey: null,
@@ -932,6 +1082,16 @@ export const reimbursementMutators = {
       tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
       tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
     ]);
+    // Kept payment proof is evidence: only an approver may remove it.
+    const keptIds = new Set(args.attachments.map((a) => a.id));
+    if (
+      attachmentsBefore.some(
+        (a) => !keptIds.has(a.id) && isKeptPaymentProof(a)
+      ) &&
+      !can(ctx, "requests.approve")
+    ) {
+      throw new Error(KEPT_PROOF_REMOVAL_MESSAGE);
+    }
     const voucherPlans = planVoucherFields({
       attachmentsAfter: args.attachments.map((attachment) => ({
         id: attachment.id,
@@ -973,7 +1133,11 @@ export const reimbursementMutators = {
         ),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
-            keyPrefixes: reimbursementAttachmentKeyPrefixes(args.id),
+            // Kept payment proof sits under the approval screenshots.
+            keyPrefixes: [
+              ...reimbursementAttachmentKeyPrefixes(args.id),
+              ...reimbursementApprovalKeyPrefixes(args.id),
+            ],
             meta: {
               mutator: "reimbursement.update",
               reimbursementId: args.id,

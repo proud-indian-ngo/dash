@@ -276,10 +276,41 @@ describe("reimbursementPlan", () => {
       kind: "wait",
       reason: "no_payment_proof",
     });
-    expect(reimbursementPlan(claim({ approvedOn: null }))).toEqual({
+    expect(
+      reimbursementPlan(claim({ approvedOn: null, hasPaymentProof: false }))
+    ).toEqual({
       economicOn: null,
       kind: "wait",
       reason: "no_payment_proof",
+    });
+  });
+
+  it("waits for the approval day, not the screenshot, when only the day is missing", () => {
+    expect(reimbursementPlan(claim({ approvedOn: null }))).toEqual({
+      economicOn: null,
+      kind: "wait",
+      reason: "no_approval_day",
+    });
+  });
+
+  it("posts nothing for a zero total, and says so rather than 'Not approved'", () => {
+    const zero = claim({
+      lines: [
+        {
+          accountHeadId: TRAVEL_HEAD,
+          amountPaise: 0,
+          description: "Waived",
+          id: "00000000-0000-7000-8000-000000000a13",
+        },
+      ],
+    });
+    expect(reimbursementPlan(zero)).toEqual({
+      kind: "none",
+      reason: "nothing_to_post",
+    });
+    expect(reimbursementPlan(claim({ lines: [] }))).toEqual({
+      kind: "none",
+      reason: "nothing_to_post",
     });
   });
 

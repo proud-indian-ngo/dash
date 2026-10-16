@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
 import { VoidDialog } from "@/components/form/void-dialog";
+import { MissingProofFilterButton } from "@/components/reimbursements/missing-proof-filter-button";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { PageHeader } from "@/components/shared/page-header";
@@ -188,6 +189,7 @@ function ReimbursementsRouteComponent() {
           toolbarActions={
             <>
               <UnallocatedFilterButton rows={reimbursements} />
+              <MissingProofFilterButton rows={allData} />
               {voidedFilter.button}
             </>
           }

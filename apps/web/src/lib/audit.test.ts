@@ -214,6 +214,30 @@ describe("audit metadata", () => {
     expect(JSON.stringify(summary)).not.toContain("signed.jpg");
   });
 
+  it("records payment proof by IDs and field names, never its object key", () => {
+    const summary = summarizeZeroMutation(
+      "reimbursement.addPaymentProof",
+      {
+        approvalScreenshotKey: "app/approval-screenshots/tmp/u/upi-proof.png",
+        id: TARGET_ID,
+        keptAttachmentId: NEW_ID,
+        replacing: true,
+      },
+      "actor-1"
+    );
+    expect(summary.target).toEqual({ id: TARGET_ID, type: "reimbursement" });
+    expect(summary.metadata?.changedFields).toEqual([
+      "approvalScreenshotKey",
+      "id",
+      "replacing",
+    ]);
+    expect(summary.metadata?.relatedIds).toMatchObject({
+      keptAttachmentId: NEW_ID,
+    });
+    expect(JSON.stringify(summary)).not.toContain("upi-proof");
+    expect(JSON.stringify(summary)).not.toContain("approval-screenshots/");
+  });
+
   it("keeps IDs and field names without storing sensitive values", () => {
     const summary = summarizeZeroMutation(
       "user.update",
