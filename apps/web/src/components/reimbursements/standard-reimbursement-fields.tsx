@@ -36,10 +36,14 @@ import type { Attachment } from "@/lib/form-schemas";
 import { cityOptions } from "@/lib/form-schemas";
 import type { RequestType } from "@/lib/reimbursement-types";
 
+import { isSameBankAccount } from "./default-bank-account";
+
 interface StandardReimbursementFieldsProps {
   bankAccountList: BankAccount[];
   /** The form's current account number, read reactively from form state. */
   bankAccountNumber: string | undefined;
+  /** The form's current UPI ID, read reactively from form state. */
+  bankAccountUpiId: string | undefined;
   /** Remounts the bank account picker when the claimant changes. */
   bankAccountsKey?: string;
   bankAccountOptions: { label: string; value: string }[];
@@ -68,6 +72,7 @@ interface StandardReimbursementFieldsProps {
 function BankAccountSelect({
   bankAccountList,
   bankAccountNumber,
+  bankAccountUpiId,
   bankAccountOptions,
   disableBankAccountSelection,
   field,
@@ -81,6 +86,7 @@ function BankAccountSelect({
    * form wouldn't show until the account list changed.
    */
   bankAccountNumber: string | undefined;
+  bankAccountUpiId: string | undefined;
   bankAccountOptions: { label: string; value: string }[];
   disableBankAccountSelection: boolean;
   field: FormFieldApi<string | undefined>;
@@ -90,8 +96,11 @@ function BankAccountSelect({
   ) => void;
   submitted: boolean;
 }) {
-  const selectedAccountByNumber = bankAccountList.find(
-    (account) => account.accountNumber === bankAccountNumber
+  const selectedAccountByNumber = bankAccountList.find((account) =>
+    isSameBankAccount(account, {
+      accountNumber: bankAccountNumber,
+      upiId: bankAccountUpiId,
+    })
   );
   const selectedAccount =
     selectedAccountByNumber ??
@@ -149,7 +158,7 @@ function BankAccountSelect({
           className="flex flex-1 items-center text-left"
           data-slot="select-value"
         >
-          {selectedOptionLabel ?? "Select bank account"}
+          {selectedOptionLabel || "Select bank account or UPI"}
         </span>
       </SelectTrigger>
       <SelectContent>
@@ -183,6 +192,7 @@ function BankAccountsSettingsLink() {
 export function StandardReimbursementFields({
   bankAccountList,
   bankAccountNumber,
+  bankAccountUpiId,
   bankAccountOptions,
   bankAccountsKey,
   bankAccountsStatus,
@@ -212,7 +222,7 @@ export function StandardReimbursementFields({
           description={
             claimantName ? `${claimantName}'s saved accounts` : undefined
           }
-          label="Bank account"
+          label="Bank account or UPI"
           name="bankAccountName"
         >
           {(field) => {
@@ -220,6 +230,7 @@ export function StandardReimbursementFields({
               <BankAccountSelect
                 bankAccountList={bankAccountList}
                 bankAccountNumber={bankAccountNumber}
+                bankAccountUpiId={bankAccountUpiId}
                 key={bankAccountsKey}
                 bankAccountOptions={bankAccountOptions}
                 disableBankAccountSelection={disableBankAccountSelection}
@@ -248,15 +259,15 @@ export function StandardReimbursementFields({
     if (claimantName) {
       return (
         <p className="text-muted-foreground text-sm">
-          {claimantName} has no saved bank account. They need to add one in
-          Settings &rarr; Bank accounts before you can raise this for them.
+          {claimantName} has no saved bank account or UPI. They need to add one
+          in Settings &rarr; Bank accounts before you can raise this for them.
         </p>
       );
     }
 
     return (
       <p className="text-muted-foreground text-sm">
-        No bank account found. Add one in <BankAccountsSettingsLink /> to
+        No bank account or UPI saved. Add one in <BankAccountsSettingsLink /> to
         receive payments.
       </p>
     );

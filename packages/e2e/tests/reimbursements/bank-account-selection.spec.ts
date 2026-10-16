@@ -79,7 +79,7 @@ async function setDefaultOnServer(
   card: import("@playwright/test").Locator
 ): Promise<void> {
   await card.getByRole("button", { name: "Set default" }).click();
-  await expect(page.getByText("Default bank account set")).toBeVisible({
+  await expect(page.getByText("Default account set")).toBeVisible({
     timeout: 15_000,
   });
   await expect(card.getByText("Default", { exact: true })).toBeVisible();
@@ -259,5 +259,72 @@ test.describe("Bank account selection with duplicate names", () => {
     await selectBankAccountOption(bankAccountGroup, SEED_LAST4);
     await submitClaim(reimbursements, "switched account");
     await expectPaidTo(page, SEED_NUMBER);
+  });
+});
+
+test.describe("Reimbursement paid by UPI", () => {
+  let upiId = "";
+  let release: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ page: _page }, testInfo) => {
+    test.skip(
+      !ROLES_FOR_BANK_ACCOUNT_FLOW.has(testInfo.project.name),
+      "Bank account UX covered under super_admin + volunteer projects"
+    );
+    release = await lockBankAccounts(testInfo);
+  });
+
+  test.afterEach(async ({ page }) => {
+    try {
+      if (upiId) {
+        const dialog = await navigateToBanking(page);
+        const card = dialog
+          .locator("[data-slot='settings-list-item']")
+          .filter({ hasText: upiId });
+        if (await card.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await card.getByRole("button", { name: "Delete account" }).click();
+          const confirm = page.getByRole("alertdialog");
+          await confirm.getByRole("button", { name: "Delete" }).click();
+          await expect(confirm).toBeHidden({ timeout: 15_000 });
+        }
+      }
+    } catch {
+      // Best-effort cleanup — don't fail the test
+    } finally {
+      upiId = "";
+      await release?.();
+      release = undefined;
+    }
+  });
+
+  test("pays a claim to a saved UPI ID with no bank details", async ({
+    page,
+  }) => {
+    upiId = `e2e.${Date.now()}${randomInt(0, 1000)}@okhdfc`;
+
+    const dialog = await navigateToBanking(page);
+    await dialog.getByLabel("Account name").fill("E2E UPI payee");
+    await dialog.getByLabel("UPI ID or mobile number").fill(upiId);
+    await dialog.getByRole("button", { name: "Add account" }).click();
+    await expect(page.getByText("UPI added")).toBeVisible({ timeout: 15_000 });
+
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToNew();
+    const bankAccountGroup = page
+      .getByRole("group")
+      .filter({ hasText: "Bank Account" });
+    await expect(bankAccountGroup.getByRole("combobox")).toBeVisible({
+      timeout: 15_000,
+    });
+    await selectBankAccountOption(bankAccountGroup, upiId);
+    await submitClaim(reimbursements, "UPI");
+
+    const paidTo = page.getByRole("region", { name: "Paid to" });
+    await expect(paidTo.getByText(upiId, { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(paidTo.getByText("UPI", { exact: true })).toBeVisible();
+    await expect(paidTo.getByText("IFSC code")).toHaveCount(0);
+    await expect(paidTo.getByText("Account number")).toHaveCount(0);
   });
 });

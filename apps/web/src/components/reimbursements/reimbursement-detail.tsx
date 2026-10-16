@@ -837,21 +837,33 @@ function getBankDetails(request: RequestDetailData) {
     ifsc: request.bankAccountIfscCode?.trim() || null,
     name: request.bankAccountName?.trim() || null,
     number: request.bankAccountNumber?.trim() || null,
+    upi: request.bankAccountUpiId?.trim() || null,
   };
+}
+
+/** How finance can pay: whichever the claimant saved, their pick when both. */
+function payByLabel(bank: ReturnType<typeof getBankDetails>): string | null {
+  if (bank.number && bank.upi) {
+    return "Bank transfer or UPI";
+  }
+  if (bank.upi) {
+    return "UPI";
+  }
+  return bank.number ? "Bank transfer" : null;
 }
 
 function BankAccountCard({ request }: { request: RequestDetailData }) {
   const bank = getBankDetails(request);
 
-  if (!(bank.name || bank.number || bank.ifsc)) {
+  if (!(bank.name || bank.number || bank.ifsc || bank.upi)) {
     return null;
   }
+  const payBy = payByLabel(bank);
 
   return (
     <DetailsCard title="Paid to">
-      {bank.name ? (
-        <DetailsRow label="Account name">{bank.name}</DetailsRow>
-      ) : null}
+      {payBy ? <DetailsRow label="Pay by">{payBy}</DetailsRow> : null}
+      {bank.name ? <DetailsRow label="Name">{bank.name}</DetailsRow> : null}
       {bank.number ? (
         <DetailsRow label="Account number">
           <span className="font-mono">{bank.number}</span>
@@ -860,6 +872,11 @@ function BankAccountCard({ request }: { request: RequestDetailData }) {
       {bank.ifsc ? (
         <DetailsRow label="IFSC code">
           <span className="font-mono">{bank.ifsc}</span>
+        </DetailsRow>
+      ) : null}
+      {bank.upi ? (
+        <DetailsRow label="UPI ID or number">
+          <span className="font-mono">{bank.upi}</span>
         </DetailsRow>
       ) : null}
     </DetailsCard>

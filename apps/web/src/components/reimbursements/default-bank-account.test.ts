@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  bankAccountOptionLabel,
   defaultBankAccountFor,
+  isSameBankAccount,
   shouldApplyDefaultBankAccount,
 } from "./default-bank-account";
 
@@ -103,6 +105,83 @@ describe("shouldApplyDefaultBankAccount", () => {
       shouldApplyDefaultBankAccount({
         current: { accountName: "", accountNumber: "", ifscCode: "" },
         defaultAccount: undefined,
+        enabled: true,
+        pickedByUser: false,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("bankAccountOptionLabel", () => {
+  it("masks a bank account number", () => {
+    expect(
+      bankAccountOptionLabel({
+        accountName: "Savings",
+        accountNumber: "1234567890",
+        upiId: null,
+      })
+    ).toBe("Savings (••••7890)");
+  });
+
+  it("shows a UPI ID in full, after the bank account when both", () => {
+    expect(
+      bankAccountOptionLabel({
+        accountName: "Priya",
+        accountNumber: null,
+        upiId: "priya@okhdfc",
+      })
+    ).toBe("Priya (UPI priya@okhdfc)");
+    expect(
+      bankAccountOptionLabel({
+        accountName: "Priya",
+        accountNumber: "1234567890",
+        upiId: "priya@okhdfc",
+      })
+    ).toBe("Priya (••••7890 · UPI priya@okhdfc)");
+  });
+});
+
+describe("isSameBankAccount", () => {
+  it("matches on the number and UPI ID together", () => {
+    const account = { accountNumber: "1234567890", upiId: "priya@okhdfc" };
+    expect(
+      isSameBankAccount(account, {
+        accountNumber: "1234567890",
+        upiId: "priya@okhdfc",
+      })
+    ).toBe(true);
+    expect(
+      isSameBankAccount(account, { accountNumber: "1234567890", upiId: "" })
+    ).toBe(false);
+  });
+
+  it("matches a UPI-only account against the form's empty number", () => {
+    expect(
+      isSameBankAccount(
+        { accountNumber: null, upiId: "priya@okhdfc" },
+        { accountNumber: "", upiId: "priya@okhdfc" }
+      )
+    ).toBe(true);
+  });
+});
+
+describe("shouldApplyDefaultBankAccount with UPI", () => {
+  it("treats a UPI-only account's missing parts as the form's empty ones", () => {
+    expect(
+      shouldApplyDefaultBankAccount({
+        current: {
+          accountName: "Priya",
+          accountNumber: "",
+          ifscCode: "",
+          upiId: "priya@okhdfc",
+        },
+        defaultAccount: {
+          accountName: "Priya",
+          accountNumber: null,
+          ifscCode: null,
+          isDefault: true,
+          upiId: "priya@okhdfc",
+        },
         enabled: true,
         pickedByUser: false,
       })

@@ -172,8 +172,8 @@ function ReimbursementsRouteComponent() {
           className="mt-4"
           id="reimbursements-bank-account"
         >
-          Add your bank account once in Settings → Bank accounts, and every
-          claim fills it in for you.
+          Add your bank account or UPI once in Settings → Bank accounts, and
+          every claim fills it in for you.
         </TipStrip>
       ) : null}
 

@@ -19,6 +19,7 @@ import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { ClaimantCombobox, useClaimantOptions } from "./claimant-picker";
+import { bankAccountOptionLabel } from "./default-bank-account";
 
 const changeClaimantFormSchema = z.object({
   bankAccountId: z.string().optional(),
@@ -37,14 +38,6 @@ interface ChangeClaimantRequest {
   status: null | string;
   title: string;
   userId: string;
-}
-
-function maskedLabel(account: { accountName: string; accountNumber: string }) {
-  const last4 =
-    account.accountNumber.length >= 4
-      ? account.accountNumber.slice(-4)
-      : account.accountNumber;
-  return `${account.accountName} (••••${last4})`;
 }
 
 /**
@@ -86,9 +79,9 @@ function ClaimantBankAccountField({
   if (accounts.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        {claimantName} has no saved bank account, so the bank details on this
-        reimbursement will be cleared. They can add one in Settings &rarr; Bank
-        accounts.
+        {claimantName} has no saved bank account or UPI, so the payment details
+        on this reimbursement will be cleared. They can add one in Settings
+        &rarr; Bank accounts.
       </p>
     );
   }
@@ -96,13 +89,13 @@ function ClaimantBankAccountField({
     <SelectField
       description={`${claimantName}'s saved accounts`}
       isRequired
-      label="Bank account"
+      label="Bank account or UPI"
       name="bankAccountId"
       options={accounts.map((account) => ({
-        label: maskedLabel(account),
+        label: bankAccountOptionLabel(account),
         value: account.id,
       }))}
-      placeholder="Select bank account"
+      placeholder="Select bank account or UPI"
     />
   );
 }

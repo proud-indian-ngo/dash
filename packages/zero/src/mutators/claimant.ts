@@ -6,23 +6,25 @@ import { type Schema, zql } from "../schema";
 
 type Tx = Transaction<Schema>;
 
-/** Bank details copied onto a reimbursement from a saved account. */
+/** Payee details (bank, UPI or both) copied onto a reimbursement from a saved account. */
 export interface ClaimantBankFields {
   bankAccountIfscCode: null | string;
   bankAccountName: null | string;
   bankAccountNumber: null | string;
+  bankAccountUpiId: null | string;
 }
 
 const NO_BANK_FIELDS: ClaimantBankFields = {
   bankAccountIfscCode: null,
   bankAccountName: null,
   bankAccountNumber: null,
+  bankAccountUpiId: null,
 };
 
 export const CHOOSE_CLAIMANT_ACCOUNT_MESSAGE =
-  "Choose one of the claimant's saved bank accounts";
+  "Choose one of the claimant's saved bank accounts or UPI";
 export const CLAIMANT_HAS_NO_ACCOUNT_MESSAGE =
-  "The claimant has no saved bank account. They need to add one in Settings → Bank accounts";
+  "The claimant has no saved bank account or UPI. They need to add one in Settings → Bank accounts";
 
 /**
  * The person a reimbursement is for. Without `claimantUserId`, or with your
@@ -84,6 +86,7 @@ export async function claimantBankFields(
         bankAccountIfscCode: account.ifscCode,
         bankAccountName: account.accountName,
         bankAccountNumber: account.accountNumber,
+        bankAccountUpiId: account.upiId ?? null,
       };
     }
     if (isServer) {

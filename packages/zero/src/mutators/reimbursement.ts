@@ -15,6 +15,12 @@ import {
   PAYEE_SIGNATURE_MIME_TYPE,
   payeeSignatureStatement,
 } from "@pi-dash/shared/payee-signature";
+import {
+  clearable,
+  isValidUpiHandle,
+  normalizeUpiHandle,
+  UPI_HANDLE_MESSAGE,
+} from "@pi-dash/shared/payout-account";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -125,6 +131,10 @@ export const createSchema = z.object({
   bankAccountIfscCode: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
+  bankAccountUpiId: z
+    .string()
+    .optional()
+    .refine((v) => !v?.trim() || isValidUpiHandle(v), UPI_HANDLE_MESSAGE),
   ...expenseChargeArgs,
   city: z.enum(cityValues).optional(),
   eventId: z.string().optional(),
@@ -416,9 +426,12 @@ function queueVouchers(
 }
 
 const entityFields = (args: z.infer<typeof createSchema>) => ({
-  bankAccountIfscCode: args.bankAccountIfscCode,
+  // "" clears a part the newly chosen account doesn't have; undefined
+  // leaves it as it was.
+  bankAccountIfscCode: clearable(args.bankAccountIfscCode),
   bankAccountName: args.bankAccountName,
-  bankAccountNumber: args.bankAccountNumber,
+  bankAccountNumber: clearable(args.bankAccountNumber),
+  bankAccountUpiId: clearable(args.bankAccountUpiId, normalizeUpiHandle),
   city: args.city,
   expenseDate: args.expenseDate,
 });

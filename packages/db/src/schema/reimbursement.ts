@@ -44,6 +44,8 @@ export const reimbursement = pgTable(
     bankAccountIfscCode: text("bank_account_ifsc_code"),
     bankAccountName: text("bank_account_name"),
     bankAccountNumber: text("bank_account_number"),
+    /** The payee's UPI ID or number, copied with the bank details; finance pays by either. */
+    bankAccountUpiId: text("bank_account_upi_id"),
     /** Programme the expense is charged to when it has no event. */
     chargedProgrammeId: uuid("charged_programme_id").references(
       () => programme.id,
