@@ -1,6 +1,7 @@
 import {
   Book02Icon,
   BookUploadIcon,
+  Audit01Icon,
   FileDownloadIcon,
   FileValidationIcon,
   SquareLock01Icon,
@@ -240,6 +241,16 @@ function BooksPage() {
                   id: "opening",
                   label: "Opening balances",
                   onSelect: openOpening,
+                },
+                {
+                  icon: Audit01Icon,
+                  id: "audited",
+                  label: "Audited figures",
+                  onSelect: () =>
+                    navigate({
+                      search: { year: year.label } as never,
+                      to: "/finance/books/audited",
+                    }),
                 },
                 !closed &&
                   year.startsOn <= books.today &&

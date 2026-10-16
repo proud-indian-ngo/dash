@@ -8,7 +8,7 @@
  * entry's effect or the movement's direction.
  */
 
-import { CAPITAL_RECEIPT_HEAD_IDS } from "./constants";
+import { FUND_MOVEMENT_HEAD_IDS } from "./constants";
 
 /** The first day the pi-dash ledger keeps the books (FY 2026-27). Nothing earlier is posted. */
 export const LEDGER_CUTOVER_ON = "2026-04-01";
@@ -49,10 +49,15 @@ export type FiscalYearEventAction =
 
 /**
  * Source documents that post. Layer 3-3a adds the expense side
- * (reimbursements, vendor payments and their payments); the adjustment
- * document comes with layer 3-3c.
+ * (reimbursements, vendor payments and their payments); the audited
+ * figures (the year-end true-up) are entered by hand once a year.
  */
 export const LEDGER_SOURCE_TYPES = {
+  /**
+   * The year-end true-up to the CA's signed statements: one posting dated
+   * the year's last day (`audited-figures.ts`).
+   */
+  auditedFigures: "audited_figures",
   contribution: "contribution",
   contributionRefund: "contribution_refund",
   gatewaySettlement: "gateway_settlement",
@@ -113,6 +118,7 @@ export const POSTED_SOURCE_TYPES = [
 export type PostedSourceType = (typeof POSTED_SOURCE_TYPES)[number];
 
 export const LEDGER_SOURCE_LABELS: Record<LedgerSourceType, string> = {
+  audited_figures: "Audited figures",
   contribution: "Contribution",
   contribution_refund: "Refund",
   gateway_settlement: "Settlement",
@@ -578,7 +584,8 @@ export interface BalanceLine {
    * A fund that income or expenditure or capital receipts are posted to:
    * its balance at the year's start (fund balance entries, earlier years'
    * capital receipts and the surplus of earlier years), the year's capital
-   * receipts (corpus gifts less their refunds) and the year's surplus, or
+   * receipts (corpus gifts less their refunds) and transfers between funds
+   * (`FUND_MOVEMENT_HEAD_IDS`), and the year's surplus, or
    * deficit when negative, up to the date. `paise` is their sum.
    */
   movement?: {
@@ -664,7 +671,7 @@ export function balanceSummary(input: {
       const surplus = surplusPaiseOf(e);
       if (surplus === null) {
         fund.paise += paise;
-        if (CAPITAL_RECEIPT_HEAD_IDS.includes(e.accountHeadId)) {
+        if (FUND_MOVEMENT_HEAD_IDS.includes(e.accountHeadId)) {
           fund.hasMovement = true;
           if (e.economicOn >= input.startsOn) {
             fund.additionsPaise += paise;
@@ -696,9 +703,8 @@ export function balanceSummary(input: {
         // surplus, so it also holds any other fund-balance entry dated in
         // the year. Today only the opening balances post to the Fund
         // balance head (dated the cutover year's first day, so part of its
-        // opening by design); a later in-year fund-balance posting (an
-        // adjustment) would show inside the opening here, while the
-        // workbook shows it as the year's movement.
+        // opening by design); a transfer between funds per the audited
+        // figures has its own head and counts with the additions.
         movement: {
           additionsPaise: fund.additionsPaise,
           openingPaise: fund.paise - fund.additionsPaise - fund.surplusPaise,

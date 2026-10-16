@@ -4,6 +4,7 @@ mock.module("@pi-dash/env/web", () => ({
   env: { VITE_APP_NAME: "Proud Indian Dashboard" },
 }));
 
+import { Route as AuditedRoute } from "@/routes/_app/finance/books/audited";
 import { Route as BooksRoute } from "@/routes/_app/finance/books/index";
 import { Route as OpeningRoute } from "@/routes/_app/finance/books/opening";
 
@@ -37,5 +38,17 @@ describe("books route guards", () => {
     expect(allows(beforeLoad as never, ["donors.view"])).toBe(false);
     expect(allows(beforeLoad as never, ["finance.view"])).toBe(true);
     expect(allows(beforeLoad as never, ["finance.post_opening"])).toBe(true);
+  });
+
+  it("opens the audited figures to book readers and the treasurer", () => {
+    const { beforeLoad } = AuditedRoute.options;
+    expect(beforeLoad).toBeTypeOf("function");
+    expect(allows(beforeLoad as never, [])).toBe(false);
+    expect(
+      allows(beforeLoad as never, ["donors.view", "finance.post_pending"])
+    ).toBe(false);
+    expect(allows(beforeLoad as never, ["finance.view"])).toBe(true);
+    expect(allows(beforeLoad as never, ["finance.manage"])).toBe(true);
+    expect(allows(beforeLoad as never, ["finance.adjust"])).toBe(true);
   });
 });

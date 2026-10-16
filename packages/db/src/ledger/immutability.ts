@@ -8,8 +8,8 @@ import {
 } from "./immutability-sql";
 
 /**
- * Database guards that keep the books append-only. Migrations 0133 and 0134
- * install them in migrated databases; `ensureLedgerTriggers` installs the
+ * Database guards that keep the books append-only. Migrations 0133, 0134
+ * and 0151 install them in migrated databases; `ensureLedgerTriggers` installs the
  * same definitions in databases built with `drizzle-kit push` (CI E2E,
  * isolated worktrees) and is a no-op when they are already in place, so a
  * server start runs no DDL on a migrated database.
@@ -21,7 +21,10 @@ import {
  * - `opening_balance`: no DELETE; the only UPDATEs are the one-time
  *   reversal stamp and a creator or reverser becoming NULL when that login
  *   is deleted.
- * - All six: no TRUNCATE.
+ * - `audited_figures`: no DELETE; the only UPDATEs are the one-time
+ *   reversal stamp and a creator or reverser becoming NULL.
+ * - `audited_figures_line`: no UPDATE or DELETE.
+ * - All eight: no TRUNCATE.
  *
  * A reviewed repair or the retention process switches the guards off for
  * its own transaction with `SET LOCAL pi_dash.ledger_maintenance = 'on'`.

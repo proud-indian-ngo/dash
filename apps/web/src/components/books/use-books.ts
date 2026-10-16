@@ -32,6 +32,8 @@ export interface BooksEntryRow extends BookEntry {
   memo: string | null;
   postingId: string;
   reversal: boolean;
+  /** The posting's source type ("" until the posting has synced). */
+  sourceType: string;
 }
 
 export interface BooksPosting {
@@ -54,9 +56,12 @@ export function useBooks() {
   const [programmes] = useQuery(queries.programme.all());
   const [movementRows, movementsResult] = useQuery(queries.ledger.movements());
   const [entryRows, entriesResult] = useQuery(queries.ledger.entries());
-  const [postingRows] = useQuery(queries.ledger.postings());
+  const [postingRows, postingsResult] = useQuery(queries.ledger.postings());
   const [openingBalances, openingResult] = useQuery(
     queries.ledger.openingBalances()
+  );
+  const [auditedFigures, auditedResult] = useQuery(
+    queries.ledger.auditedFigures()
   );
 
   const years: BooksYear[] = yearRows
@@ -84,9 +89,18 @@ export function useBooks() {
     reversal: Boolean(m.reversesMovementId),
   }));
   // An entry whose head hasn't synced yet is left out rather than guessed.
+  const sourceTypes = new Map(postingRows.map((p) => [p.id, p.sourceType]));
   const entries: BooksEntryRow[] = entryRows.flatMap((e) => {
     const type = headType.get(e.accountHeadId);
-    return type ? [{ ...toEntry(e), headType: type }] : [];
+    return type
+      ? [
+          {
+            ...toEntry(e),
+            headType: type,
+            sourceType: sourceTypes.get(e.postingId) ?? "",
+          },
+        ]
+      : [];
   });
   function toEntry(e: (typeof entryRows)[number]) {
     return {
@@ -117,6 +131,11 @@ export function useBooks() {
 
   return {
     accounts,
+    auditedFigures,
+    /** The audited figures page also needs every document and posting. */
+    auditedLoading:
+      (auditedFigures.length === 0 && auditedResult.type !== "complete") ||
+      (postingRows.length === 0 && postingsResult.type !== "complete"),
     entries,
     funds,
     heads,

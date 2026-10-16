@@ -1,4 +1,8 @@
 import {
+  auditedFiguresLineKindValues,
+  auditedFiguresStatusValues,
+} from "@pi-dash/shared/audited-figures";
+import {
   fiscalYearEventActionValues,
   ledgerEffectValues,
   ledgerMediumValues,
@@ -10,6 +14,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -273,6 +278,123 @@ export const openingBalance = pgTable(
   ]
 );
 
+export const auditedFiguresStatusEnum = pgEnum(
+  "audited_figures_status",
+  auditedFiguresStatusValues
+);
+export const auditedFiguresLineKindEnum = pgEnum(
+  "audited_figures_line_kind",
+  auditedFiguresLineKindValues
+);
+
+/**
+ * The audited figures of one ended year (the year-end true-up): the CA's
+ * signed balance sheet as the treasurer entered it, and the one posting,
+ * dated the year's last day, that brings pi-dash's closing to it
+ * (`packages/db/src/ledger/audited-figures.ts`). `matched` with no posting
+ * when the books already agreed; `skipped` (with the reason, no posting)
+ * when the treasurer closes a year without them. One standing document per
+ * year; a correction reverses it (its posting too) and enters a new one.
+ */
+export const auditedFigures = pgTable(
+  "audited_figures",
+  {
+    /** The year's last day (yyyy-MM-dd), the posting's date. */
+    asOn: date("as_on").notNull(),
+    caName: text("ca_name"),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    fiscalYearId: uuid("fiscal_year_id")
+      .notNull()
+      .references(() => fiscalYear.id, { onDelete: "restrict" }),
+    id: uuid("id").primaryKey(),
+    /** Null when nothing differed, and for a skip. */
+    postingId: uuid("posting_id").references(() => posting.id, {
+      onDelete: "restrict",
+    }),
+    reversalPostingId: uuid("reversal_posting_id").references(
+      () => posting.id,
+      { onDelete: "restrict" }
+    ),
+    reversalReason: text("reversal_reason"),
+    reversedAt: timestamp("reversed_at"),
+    reversedBy: text("reversed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** The day the CA signed the statements. */
+    signedOn: date("signed_on"),
+    skipReason: text("skip_reason"),
+    status: auditedFiguresStatusEnum("status").notNull(),
+  },
+  (t) => [
+    uniqueIndex("audited_figures_postingId_uidx")
+      .on(t.postingId)
+      .where(sql`${t.postingId} IS NOT NULL`),
+    // One standing document per year.
+    uniqueIndex("audited_figures_live_year_uidx")
+      .on(t.fiscalYearId)
+      .where(sql`${t.reversedAt} IS NULL`),
+    check(
+      "audited_figures_status_check",
+      sql`(${t.status} = 'matched' AND ${t.caName} IS NOT NULL AND ${t.signedOn} IS NOT NULL AND ${t.skipReason} IS NULL) OR (${t.status} = 'skipped' AND ${t.skipReason} IS NOT NULL AND ${t.postingId} IS NULL)`
+    ),
+    check(
+      "audited_figures_reversal_check",
+      sql`${t.reversalPostingId} IS NULL OR ${t.reversedAt} IS NOT NULL`
+    ),
+  ]
+);
+
+/**
+ * One line of an audited-figures document: a balance sheet line with what
+ * the books held before (`books_paise`) and the audited figure, the head
+ * its difference posted against, or a transfer between funds (`fund_id`
+ * from, `to_fund_id` to, the amount in `audited_paise`, the reason in
+ * `memo`). Written with the document, never changed.
+ */
+export const auditedFiguresLine = pgTable(
+  "audited_figures_line",
+  {
+    accountHeadId: uuid("account_head_id").references(() => accountHead.id, {
+      onDelete: "restrict",
+    }),
+    /** Not in the books before: entered with "Add a line". */
+    added: boolean("added").default(false).notNull(),
+    auditedFiguresId: uuid("audited_figures_id")
+      .notNull()
+      .references(() => auditedFigures.id, { onDelete: "restrict" }),
+    /** Signed paise. */
+    auditedPaise: bigint("audited_paise", { mode: "number" }).notNull(),
+    /** pi-dash's closing before the document, signed paise. */
+    booksPaise: bigint("books_paise", { mode: "number" }).notNull(),
+    counterHeadId: uuid("counter_head_id").references(() => accountHead.id, {
+      onDelete: "restrict",
+    }),
+    fundId: uuid("fund_id").references(() => fund.id, {
+      onDelete: "restrict",
+    }),
+    id: uuid("id").primaryKey(),
+    kind: auditedFiguresLineKindEnum("kind").notNull(),
+    lineKey: text("line_key").notNull(),
+    memo: text("memo"),
+    orgAccountId: uuid("org_account_id").references(() => orgAccount.id, {
+      onDelete: "restrict",
+    }),
+    position: integer("position").notNull(),
+    toFundId: uuid("to_fund_id").references(() => fund.id, {
+      onDelete: "restrict",
+    }),
+  },
+  (t) => [
+    index("audited_figures_line_document_idx").on(
+      t.auditedFiguresId,
+      t.position
+    ),
+  ]
+);
+
 /** Year close and reopen history; a reopen carries its reason. */
 export const fiscalYearEvent = pgTable(
   "fiscal_year_event",
@@ -380,6 +502,27 @@ export const openingBalanceRelations = relations(openingBalance, ({ one }) => ({
     references: [posting.id],
   }),
 }));
+
+export const auditedFiguresRelations = relations(
+  auditedFigures,
+  ({ many, one }) => ({
+    fiscalYear: one(fiscalYear, {
+      fields: [auditedFigures.fiscalYearId],
+      references: [fiscalYear.id],
+    }),
+    lines: many(auditedFiguresLine),
+  })
+);
+
+export const auditedFiguresLineRelations = relations(
+  auditedFiguresLine,
+  ({ one }) => ({
+    document: one(auditedFigures, {
+      fields: [auditedFiguresLine.auditedFiguresId],
+      references: [auditedFigures.id],
+    }),
+  })
+);
 
 export const fiscalYearEventRelations = relations(
   fiscalYearEvent,

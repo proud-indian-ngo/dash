@@ -39,6 +39,10 @@ import {
 import { formatDay } from "./labels";
 
 const CHECK_LABELS: Record<CloseCheckId, { fail: string; pass: string }> = {
+  audited_figures: {
+    fail: "Audited figures not matched yet",
+    pass: "Audited figures matched or skipped",
+  },
   bank_statements: {
     fail: "Bank statements don't reach the year end",
     pass: "Bank statements imported to the year end",

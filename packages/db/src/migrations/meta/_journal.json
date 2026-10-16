@@ -1051,6 +1051,20 @@
       "when": 1792123476066,
       "tag": "0149_whatsapp_cloud_api",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1792163738207,
+      "tag": "0150_audited_figures",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1792163739466,
+      "tag": "0151_ledger_guards_v3",
+      "breakpoints": true
     }
   ]
 }

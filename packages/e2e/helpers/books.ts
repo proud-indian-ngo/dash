@@ -1,6 +1,14 @@
 import { db } from "@pi-dash/db";
+import {
+  loadBalanceSheetLines,
+  postAuditedFigures,
+  reverseAuditedFigures,
+} from "@pi-dash/db/ledger/audited-figures";
 import { postPendingForYear } from "@pi-dash/db/ledger/income-runner";
-import { postOpeningBalance } from "@pi-dash/db/ledger/opening-balance";
+import {
+  postOpeningBalance,
+  reverseOpeningBalance,
+} from "@pi-dash/db/ledger/opening-balance";
 import {
   closeYear,
   reopenYear,
@@ -20,6 +28,7 @@ import {
 } from "@pi-dash/db/schema/gateway-settlement";
 import { contribution } from "@pi-dash/db/schema/income";
 import {
+  auditedFigures,
   ledgerEntry,
   ledgerSourceState,
   openingBalance,
@@ -82,6 +91,18 @@ import { uuidv7 } from "uuidv7";
  *   payment of 2,500 to a vendor of this run, paid on 10 Jul 2026, with its
  *   invoice submitted and waiting for approval.
  * - `edit-claim <id>`: raises the reimbursement's first line to 350.
+ * - `audited-fixture <label>`: the audited figures spec's starting point:
+ *   reverses any standing audited figures of the year, and makes sure the
+ *   standing opening balances name a fixed asset and an audit fee
+ *   liability (reversing fake ones that don't and posting E2E ones that
+ *   do: bank 1,000, "E2E sewing machine" 50, audit fees payable 100,
+ *   General Fund 950).
+ * - `post-audited <label>`: matches the year's audited figures through the
+ *   real posting, as if the day after the year ended (a running year can't
+ *   post in the UI): the books' figures, less 20 of depreciation on the
+ *   E2E sewing machine and with the audit fee payable written back, the
+ *   General Fund moving with them. Reports the lines' audited figures.
+ * - `reverse-audited <label>`: reverses the standing audited figures, if any.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -574,6 +595,147 @@ async function ensureOpening(label: string) {
   return { id, posted: true };
 }
 
+const E2E_ASSET = "E2E sewing machine";
+/** Must match LEDGER_ACCOUNT_HEAD_IDS in @pi-dash/shared/constants. */
+const FIXED_ASSETS_HEAD_ID = "01930000-0000-7000-8000-000000000801";
+const AUDIT_FEES_PAYABLE_HEAD_ID = "01930000-0000-7000-8000-000000000802";
+
+async function reverseAudited(label: string) {
+  const year = await yearByLabel(label);
+  const [standing] = await db
+    .select({ id: auditedFigures.id })
+    .from(auditedFigures)
+    .where(
+      and(
+        eq(auditedFigures.fiscalYearId, year.id),
+        isNull(auditedFigures.reversedAt)
+      )
+    )
+    .limit(1);
+  if (!standing) {
+    return { reversed: false };
+  }
+  const actorId = await anyUserId();
+  await db.transaction((tx) =>
+    reverseAuditedFigures(
+      tx,
+      { id: standing.id, reason: "E2E rerun starts clean" },
+      { actorId }
+    )
+  );
+  return { id: standing.id, reversed: true };
+}
+
+async function auditedFixture(label: string) {
+  await reverseAudited(label);
+  const year = await yearByLabel(label);
+  const lines = await db.transaction((tx) =>
+    loadBalanceSheetLines(tx, year.endsOn)
+  );
+  const hasAsset = lines.lines.some(
+    (l) =>
+      l.accountHeadId === FIXED_ASSETS_HEAD_ID &&
+      l.memo === E2E_ASSET &&
+      l.booksPaise > 0
+  );
+  const hasLiability = lines.lines.some(
+    (l) => l.accountHeadId === AUDIT_FEES_PAYABLE_HEAD_ID && l.booksPaise > 0
+  );
+  if (hasAsset && hasLiability) {
+    return { posted: false };
+  }
+  const actorId = await anyUserId();
+  const [standing] = await db
+    .select({ id: openingBalance.id })
+    .from(openingBalance)
+    .where(
+      and(
+        eq(openingBalance.fiscalYearId, year.id),
+        isNull(openingBalance.reversalPostingId)
+      )
+    )
+    .limit(1);
+  await db.transaction(async (tx) => {
+    if (standing) {
+      await reverseOpeningBalance(
+        tx,
+        { id: standing.id, reason: "E2E audited figures need an asset" },
+        { actorId }
+      );
+    }
+    await postOpeningBalance(
+      tx,
+      {
+        caConfirmedOn: year.startsOn,
+        caName: "E2E Test CA",
+        fiscalYearId: year.id,
+        id: uuidv7(),
+        lines: [
+          { amountPaise: 100_000, kind: "account", orgAccountId: E2E_BANK_ID },
+          { amountPaise: 5000, kind: "asset", memo: E2E_ASSET },
+          {
+            amountPaise: 10_000,
+            kind: "liability",
+            memo: "E2E audit fees payable",
+          },
+          { amountPaise: 95_000, fundId: GENERAL_FUND_ID, kind: "fund" },
+        ],
+      },
+      { actorId }
+    );
+  });
+  return { posted: true };
+}
+
+async function postAudited(label: string) {
+  const year = await yearByLabel(label);
+  const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
+  dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
+  const signedOn = new Date(`${year.endsOn}T00:00:00Z`);
+  signedOn.setUTCDate(signedOn.getUTCDate() + 1);
+  const actorId = await anyUserId();
+  return await db.transaction(async (tx) => {
+    const { lines } = await loadBalanceSheetLines(tx, year.endsOn);
+    const asset = lines.find(
+      (l) => l.accountHeadId === FIXED_ASSETS_HEAD_ID && l.memo === E2E_ASSET
+    );
+    const liability = lines.find(
+      (l) => l.accountHeadId === AUDIT_FEES_PAYABLE_HEAD_ID
+    );
+    if (!(asset && liability)) {
+      throw new Error("Run audited-fixture first");
+    }
+    const audited = new Map(lines.map((l) => [l.key, l.booksPaise]));
+    audited.set(asset.key, asset.booksPaise - 2000);
+    audited.set(liability.key, 0);
+    const general = `fund:${GENERAL_FUND_ID}`;
+    audited.set(
+      general,
+      (audited.get(general) ?? 0) - 2000 + liability.booksPaise
+    );
+    const document = await postAuditedFigures(
+      tx,
+      {
+        caName: "E2E Test CA",
+        fiscalYearId: year.id,
+        id: uuidv7(),
+        lines: lines.map((l) => ({
+          auditedPaise: audited.get(l.key) ?? 0,
+          booksPaise: l.booksPaise,
+          key: l.key,
+        })),
+        signedOn: signedOn.toISOString().slice(0, 10),
+      },
+      { actorId, now: dayAfter }
+    );
+    return {
+      assetAuditedPaise: audited.get(asset.key),
+      id: document.id,
+      liabilityBooksPaise: liability.booksPaise,
+    };
+  });
+}
+
 /** Must match CORPUS_FUND_ID in @pi-dash/shared/constants. */
 const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
 
@@ -675,6 +837,12 @@ if (action === "close-year") {
         )
       )
     : { label, reopened: false };
+} else if (action === "audited-fixture") {
+  result = await auditedFixture(label);
+} else if (action === "post-audited") {
+  result = await postAudited(label);
+} else if (action === "reverse-audited") {
+  result = await reverseAudited(label);
 } else if (action === "probe-guards") {
   result = await probeGuards();
 } else if (action === "close-year-strict") {

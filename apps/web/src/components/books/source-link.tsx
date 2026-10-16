@@ -9,7 +9,7 @@ import { sourceLabel } from "./labels";
 /**
  * Where a posting's source lives: the contribution sheet (a refund opens
  * its gift's sheet), the settlement sheet, Other income, the bank
- * statements, the opening balances, or a reimbursement or vendor payment
+ * statements, the opening balances, the audited figures, or a reimbursement or vendor payment
  * request. Null for a source with no page (a vendor payment's payment
  * opens its request through `VendorPaymentMadeLink`).
  */
@@ -23,6 +23,8 @@ export function sourceLinkProps(
   switch (sourceType) {
     case LEDGER_SOURCE_TYPES.openingBalance:
       return { to: "/finance/books/opening" };
+    case LEDGER_SOURCE_TYPES.auditedFigures:
+      return { to: "/finance/books/audited" };
     case LEDGER_SOURCE_TYPES.contribution:
       return {
         search: { contribution: sourceId, tab: "contributions" },

@@ -19,6 +19,16 @@ import { clickPageAction, openPageAction } from "../../helpers/page-header";
 const YEAR = "2026-27";
 const execFileAsync = promisify(execFile);
 
+/** Paise as the plain rupee text the inputs take ("-12.50"). */
+const rupeesText = (paise: number) => {
+  const abs = Math.abs(paise);
+  return `${paise < 0 ? "-" : ""}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+};
+const inr = (paise: number) =>
+  new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(
+    paise / 100
+  );
+
 /** Runs a step of `helpers/books.ts` against the test database. */
 async function books<T = Record<string, string>>(
   ...args: string[]
@@ -602,6 +612,144 @@ test.describe("Books (treasurer)", () => {
     // IDs are always masked in the workbook; a finance admin sees the list.
     expect(sheets[4]?.data[0]?.[2]).toBe("ID (last 4)");
     await expect(page.getByText("CA workbook downloaded")).toBeVisible();
+  });
+
+  // Audited figures (the year-end true-up). In this serial group: other
+  // tests close and reopen 2026-27, and these figures post into it.
+  test("compares the signed balance sheet line by line, refuses a money account that differs, and opens the next year at the matched figures", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(120_000);
+    await books("audited-fixture", YEAR);
+    try {
+      await page.goto(`/finance/books/audited?year=${YEAR}`);
+      await waitForZeroReady(page);
+      await expect(page.getByTestId("audited-status")).toHaveText(
+        "Not matched"
+      );
+      // FY 2026-27 is still running: figures can be compared, not posted.
+      await expect(page.getByTestId("audited-post-blocker")).toContainText(
+        "ends on"
+      );
+
+      // The signed figures: the books', less 20 of depreciation on the
+      // sewing machine, with the audit fee payable written back.
+      const lines = page.getByTestId("audited-line");
+      await expect(lines.first()).toBeVisible({ timeout: 15_000 });
+      const asset = lines.filter({ hasText: "E2E sewing machine" });
+      const liability = lines.filter({ hasText: "Audit fees payable" });
+      const bank = lines.filter({ hasText: "E2E Bank Account" });
+      const liabilityPaise = Number(
+        await liability.getAttribute("data-books-paise")
+      );
+      for (const row of await lines.all()) {
+        const paise = Number(await row.getAttribute("data-books-paise"));
+        const isAsset = (await row.innerText()).includes("E2E sewing machine");
+        const isLiability = (await row.innerText()).includes(
+          "Audit fees payable"
+        );
+        let audited = paise;
+        if (isAsset) {
+          audited = paise - 2000;
+        } else if (isLiability) {
+          audited = 0;
+        }
+        await row.getByRole("textbox").fill(rupeesText(audited));
+      }
+      const general = page
+        .getByTestId("audited-fund")
+        .filter({ hasText: "General Fund (Domestic)" });
+      for (const row of await page.getByTestId("audited-fund").all()) {
+        const paise = Number(await row.getAttribute("data-books-paise"));
+        await row.getByRole("textbox").fill(rupeesText(paise));
+      }
+      // Before the General Fund moves with the adjustments, it differs.
+      await expect(general).toContainText("Still differs");
+      const generalPaise = Number(
+        await general.getAttribute("data-books-paise")
+      );
+      await general
+        .getByRole("textbox")
+        .fill(rupeesText(generalPaise - 2000 + liabilityPaise));
+
+      await expect(asset).toContainText("Depreciation");
+      await expect(asset).toContainText("-₹20.00");
+      await expect(liability).toContainText("Year-end adjustment");
+      await expect(general).toContainText("Agrees");
+      await expect(page.getByTestId("audited-surplus")).toHaveText(
+        `+${inr(liabilityPaise - 2000)}`.replace("+-", "-")
+      );
+      await expect(page.getByTestId("audited-ready")).toBeVisible();
+
+      // A bank charge missing from the books: money accounts are never adjusted.
+      const bankPaise = Number(await bank.getAttribute("data-books-paise"));
+      await bank.getByRole("textbox").fill(rupeesText(bankPaise - 500));
+      await expect(bank).toContainText("Find the missing records");
+      await expect(
+        bank.getByRole("link", { name: "Open the cash book" })
+      ).toBeVisible();
+      await expect(page.getByTestId("audited-blockers")).toContainText(
+        "Money accounts are never adjusted"
+      );
+      await expect(
+        page.getByRole("button", { name: "Post audited figures" })
+      ).toBeDisabled();
+
+      // Posted as of the day after the year end, through the real posting.
+      const posted = await books<{ assetAuditedPaise: number }>(
+        "post-audited",
+        YEAR
+      );
+      await page.reload();
+      await waitForZeroReady(page);
+      await expect(page.getByTestId("audited-status")).toHaveText("Matched", {
+        timeout: 15_000,
+      });
+      const assetLine = page
+        .getByTestId("audited-view-line")
+        .filter({ hasText: "E2E sewing machine" });
+      await expect(assetLine).toContainText("Posted against Depreciation");
+      await expect(assetLine).not.toContainText("Changed since");
+      await expect(assetLine).toContainText(inr(posted.assetAuditedPaise));
+
+      // The year-close checklist sees it.
+      await page.goto(`/finance/books?year=${YEAR}`);
+      await waitForZeroReady(page);
+      await clickPageAction(page, `Close ${YEAR}`);
+      const closeDialog = page.getByRole("dialog");
+      await expect(
+        closeDialog.getByTestId("close-check-audited_figures")
+      ).toHaveAttribute("data-ok", "true");
+      await closeDialog.getByRole("button", { name: "Cancel" }).click();
+
+      // The next year opens at the audited figures: the provision is gone.
+      await page.goto("/finance/books?year=2027-28&tab=balance");
+      await waitForZeroReady(page);
+      await expect(page.getByTestId("balance-check")).toHaveText("Balances");
+      await expect(
+        page
+          .getByTestId("balance-liabilities")
+          .getByRole("listitem")
+          .filter({ hasText: "Audit fees payable" })
+      ).toContainText("₹0.00");
+
+      // A correction starts by reversing them.
+      await page.goto(`/finance/books/audited?year=${YEAR}`);
+      await waitForZeroReady(page);
+      await clickPageAction(page, "Reverse audited figures");
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Reason").fill("E2E: the CA revised them");
+      await dialog
+        .getByRole("button", { name: "Reverse audited figures" })
+        .click();
+      await expect(page.getByTestId("audited-status")).toHaveText(
+        "Not matched",
+        { timeout: 15_000 }
+      );
+    } finally {
+      await books("reverse-audited", YEAR);
+    }
   });
 });
 

@@ -1,3 +1,4 @@
+import { ASSET_LINE_SOURCE_TYPES } from "@pi-dash/shared/audited-figures";
 import type { OrgAccountKind } from "@pi-dash/shared/constants";
 import {
   type BookHeadType,
@@ -36,6 +37,7 @@ import {
 } from "../schema/finance-dimensions";
 import {
   accountMovement,
+  auditedFigures,
   ledgerEntry,
   movementAllocation,
   openingBalance,
@@ -128,8 +130,17 @@ export interface WorkbookStatementBalance {
   valueOn: string;
 }
 
+/** An audited-figures document of the year (the year-end true-up), by ID. */
+export interface WorkbookAuditedFigures {
+  caName: string | null;
+  reversed: boolean;
+  signedOn: string | null;
+}
+
 export interface WorkbookFacts {
   accounts: WorkbookAccount[];
+  /** The year's audited-figures documents, reversed ones included, by ID. */
+  auditedFigures: Map<string, WorkbookAuditedFigures>;
   /**
    * The year's entries, after one brought-forward row per head, fund, memo
    * (opening lines only) and effect summing everything before the year.
@@ -289,8 +300,28 @@ export async function loadWorkbookFacts(
     ...(await yearEntries(reader, year)),
   ];
 
+  const audited = await reader
+    .select({
+      caName: auditedFigures.caName,
+      id: auditedFigures.id,
+      reversedAt: auditedFigures.reversedAt,
+      signedOn: auditedFigures.signedOn,
+    })
+    .from(auditedFigures)
+    .where(eq(auditedFigures.fiscalYearId, year.id));
+
   return {
     accounts: accounts.map((a) => ({ ...a, kind: a.kind as OrgAccountKind })),
+    auditedFigures: new Map(
+      audited.map((a) => [
+        a.id,
+        {
+          caName: a.caName,
+          reversed: a.reversedAt !== null,
+          signedOn: a.signedOn,
+        },
+      ])
+    ),
     entries,
     goLiveOn: await loadGoLiveOn(reader),
     lastStatementBalances: await loadLastStatementBalances(reader, year.endsOn),
@@ -417,18 +448,29 @@ async function yearEntries(
 
 /**
  * Everything recognised before the year, summed per head, fund and effect;
- * opening lines (the cutover's opening balances) keep their memo and stay
- * apart, so each fixed asset is still its own item.
+ * asset lines (the cutover's opening balances, and the audited figures'
+ * depreciation against them, `ASSET_LINE_SOURCE_TYPES`) keep their memo
+ * and source type and stay apart, so each fixed asset is still its own
+ * item.
  */
 async function priorEntries(
   reader: WorkbookReader,
   startsOn: string,
   on: string
 ): Promise<WorkbookEntry[]> {
-  const isOpening = sql<boolean>`(${posting.sourceType} = 'opening_balance')`;
+  // Inlined constants: bound parameters would make the selected and the
+  // grouped expressions differ, which PostgreSQL refuses (42803).
+  const lineSources = sql.raw(
+    ASSET_LINE_SOURCE_TYPES.map(
+      (type) => `'${type.replaceAll("'", "''")}'`
+    ).join(", ")
+  );
+  const lineSource = sql<
+    string | null
+  >`(case when ${posting.sourceType} in (${lineSources}) then ${posting.sourceType} end)`;
   const memo = sql<
     string | null
-  >`(case when ${posting.sourceType} = 'opening_balance' then ${ledgerEntry.memo} end)`;
+  >`(case when ${posting.sourceType} in (${lineSources}) then ${ledgerEntry.memo} end)`;
   const rows = await reader
     .select({
       accountHeadId: ledgerEntry.accountHeadId,
@@ -437,7 +479,7 @@ async function priorEntries(
       fundName: fund.name,
       headName: accountHead.name,
       headType: accountHead.type,
-      isOpening,
+      lineSource,
       memo,
       paise: sql<string>`sum(${ledgerEntry.amountPaise})`,
     })
@@ -453,7 +495,7 @@ async function priorEntries(
       fund.name,
       accountHead.name,
       accountHead.type,
-      isOpening,
+      lineSource,
       memo
     );
   return rows.map((row, index): WorkbookEntry => ({
@@ -477,7 +519,7 @@ async function priorEntries(
     projectName: null,
     reversesEntryId: null,
     sourceId: `bf-${index}`,
-    sourceType: row.isOpening ? "opening_balance" : BROUGHT_FORWARD_SOURCE,
+    sourceType: row.lineSource ?? BROUGHT_FORWARD_SOURCE,
   }));
 }
 

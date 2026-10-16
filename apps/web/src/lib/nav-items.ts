@@ -140,6 +140,11 @@ const booksNavItem: NavItem = {
       title: "Opening balances",
       url: "/finance/books/opening",
     },
+    {
+      isHidden: true,
+      title: "Audited figures",
+      url: "/finance/books/audited",
+    },
   ],
   title: "Books",
   url: "/finance/books",

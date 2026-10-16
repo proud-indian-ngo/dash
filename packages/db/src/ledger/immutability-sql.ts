@@ -1,6 +1,7 @@
 /**
- * The SQL of the books' database guards, shared by migration 0134 (checked
- * by immutability.test.ts) and `ensureLedgerTriggers` (immutability.ts).
+ * The SQL of the books' database guards, shared by the latest
+ * `NNNN_ledger_guards*` migration (0151, checked by immutability.test.ts)
+ * and `ensureLedgerTriggers` (immutability.ts).
  */
 
 /**
@@ -8,7 +9,7 @@
  * migration named `NNNN_ledger_guards_<version>` generated from this file
  * (immutability.test.ts checks the latest one).
  */
-export const LEDGER_GUARD_VERSION = "pi-dash ledger guards v2";
+export const LEDGER_GUARD_VERSION = "pi-dash ledger guards v3";
 
 export const LEDGER_FUNCTION_STATEMENTS: readonly string[] = [
   `CREATE OR REPLACE FUNCTION "ledger_reject_change"() RETURNS trigger
@@ -62,6 +63,33 @@ BEGIN
     USING ERRCODE = 'restrict_violation';
 END;
 $$`,
+  `CREATE OR REPLACE FUNCTION "audited_figures_guard"() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+  stamp text[] := ARRAY['reversal_posting_id', 'reversal_reason', 'reversed_at', 'reversed_by'];
+  users text[] := ARRAY['created_by', 'reversed_by'];
+BEGIN
+  IF current_setting('pi_dash.ledger_maintenance', true) = 'on' THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    -- The one-time reversal stamp (a skip or a match with nothing to post
+    -- has no reversal posting, so the time marks it).
+    IF OLD.reversed_at IS NULL AND NEW.reversed_at IS NOT NULL
+       AND (to_jsonb(NEW) - stamp) = (to_jsonb(OLD) - stamp) THEN
+      RETURN NEW;
+    END IF;
+    -- A deleted login's reference becoming NULL.
+    IF (to_jsonb(NEW) - users) = (to_jsonb(OLD) - users)
+       AND (NEW.created_by IS NULL OR NEW.created_by = OLD.created_by)
+       AND (NEW.reversed_by IS NULL OR NEW.reversed_by = OLD.reversed_by) THEN
+      RETURN NEW;
+    END IF;
+  END IF;
+  RAISE EXCEPTION 'Audited figures are final: % on audited_figures is not allowed', TG_OP
+    USING ERRCODE = 'restrict_violation';
+END;
+$$`,
   `CREATE OR REPLACE FUNCTION "ledger_reject_truncate"() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -100,6 +128,8 @@ const LEDGER_TABLES = [
   "movement_allocation",
   "fiscal_year_event",
   "opening_balance",
+  "audited_figures",
+  "audited_figures_line",
 ] as const;
 
 export const LEDGER_TRIGGERS: readonly LedgerTrigger[] = [
@@ -113,5 +143,11 @@ export const LEDGER_TRIGGERS: readonly LedgerTrigger[] = [
     name: "opening_balance_final",
     table: "opening_balance",
   },
+  {
+    create: `CREATE TRIGGER "audited_figures_final" BEFORE UPDATE OR DELETE ON "audited_figures" FOR EACH ROW EXECUTE FUNCTION "audited_figures_guard"()`,
+    name: "audited_figures_final",
+    table: "audited_figures",
+  },
+  rowGuard("audited_figures_line"),
   ...LEDGER_TABLES.map(truncateGuard),
 ];

@@ -22,6 +22,7 @@ import { uuidv7 } from "uuidv7";
 import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
 import {
   accountMovement,
+  auditedFigures,
   fiscalYearEvent,
   openingBalance,
 } from "../schema/ledger";
@@ -39,8 +40,11 @@ import { LedgerError } from "./rules";
  * (in the cutover year) the opening balances are posted, and no record
  * dated in the year is waiting to post. A later year that is closed blocks
  * reopening an earlier one. The rest of the checklist is for the treasurer
- * to judge: bank statements reaching the year end, and the clearing
- * balances at year end (payouts in transit are normal).
+ * to judge: bank statements reaching the year end, the clearing
+ * balances at year end (payouts in transit are normal), and the audited
+ * figures matched or skipped (a warning only: the CA signs the statements
+ * months after the year ends, so the year is usually closed first and
+ * reopened to match them).
  */
 
 export type CloseCheckId =
@@ -49,7 +53,8 @@ export type CloseCheckId =
   | "opening_balances"
   | "unposted_sources"
   | "bank_statements"
-  | "clearing_balances";
+  | "clearing_balances"
+  | "audited_figures";
 
 export interface CloseCheck {
   /** Short facts for the row, such as "HDFC current account: to 31 Mar 2027". */
@@ -204,6 +209,36 @@ export async function yearCloseChecklist(
     ),
     id: "clearing_balances",
     ok: true,
+    required: false,
+  });
+
+  // A warning, never a blocker: audits finish months after the year end.
+  const [audited] = await tx
+    .select({
+      caName: auditedFigures.caName,
+      signedOn: auditedFigures.signedOn,
+      skipReason: auditedFigures.skipReason,
+      status: auditedFigures.status,
+    })
+    .from(auditedFigures)
+    .where(
+      and(
+        eq(auditedFigures.fiscalYearId, year.id),
+        isNull(auditedFigures.reversedAt)
+      )
+    )
+    .limit(1);
+  let auditedDetail =
+    "The CA signs the statements months after the year ends: close now, then reopen the year to match them, or skip them with a reason";
+  if (audited?.status === "matched") {
+    auditedDetail = `Signed by ${audited.caName} on ${audited.signedOn}`;
+  } else if (audited) {
+    auditedDetail = `Skipped: ${audited.skipReason}`;
+  }
+  checks.push({
+    details: [auditedDetail],
+    id: "audited_figures",
+    ok: audited !== undefined,
     required: false,
   });
 
