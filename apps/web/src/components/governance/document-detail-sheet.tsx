@@ -28,6 +28,8 @@ import { formatTimestamp } from "@/lib/date-formats";
 import { formatIso } from "./register-data";
 
 export interface VaultDocument {
+  archiveRenewOn: string | null;
+  archivedAt: number | null;
   contentType: string;
   createdAt: number;
   datedOn: string;
@@ -203,6 +205,12 @@ export function DocumentDetailSheet({
               value={<code className="text-xs">{document.sha256}</code>}
             />
             {document.note ? <Row label="Note" value={document.note} /> : null}
+            {document.archivedAt ? (
+              <Row
+                label="Long-term copy"
+                value={`Made ${formatTimestamp(new Date(document.archivedAt).toISOString())}; next timestamp due ${formatIso(document.archiveRenewOn)}`}
+              />
+            ) : null}
           </section>
 
           {report?.email ? (

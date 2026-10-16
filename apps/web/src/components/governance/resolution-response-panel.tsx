@@ -29,6 +29,7 @@ import {
 } from "@/functions/resolutions";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
+import { DscSignSection } from "./dsc-sign-section";
 import { useVoteReauth } from "./use-vote-reauth";
 
 type Kind = "objection" | "conflict";
@@ -159,6 +160,8 @@ export function ResolutionResponsePanel({
       <h2 className="text-base font-semibold" id="my-response-heading">
         Your response
       </h2>
+      <DscSignSection onVote={runVote} resolutionId={resolutionId} />
+      <h3 className="text-sm font-medium">Or sign in Adobe Acrobat</h3>
       <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
         <li>
           <span className="flex flex-wrap items-center gap-2">

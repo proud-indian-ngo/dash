@@ -88,6 +88,15 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Monthly on the 10th at 3:15 AM IST — renew long-term copies of signed
+  // governance documents whose yearly document timestamp is due
+  await boss.schedule(
+    "retimestamp-governance-archives",
+    "15 3 10 * *",
+    {},
+    { expireInSeconds: 1800, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Daily at 9:00 AM IST — trustee terms ending in 90, 30 or 7 days
   await boss.schedule(
     "remind-trustee-terms",
