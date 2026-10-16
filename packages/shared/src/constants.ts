@@ -213,6 +213,17 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   otherIncome: "01930000-0000-7000-8000-000000000809",
   /** Vendor payments made before their invoice is accepted (layer 3-3a). */
   supplierAdvances: "01930000-0000-7000-8000-000000000811",
+  /** Bank debits marked as bank charges on the statement (layer 3-3b). */
+  bankCharges: "01930000-0000-7000-8000-000000000820",
+  /** Bank debits marked as a tax or government fee payment (layer 3-3b). */
+  taxesAndFees: "01930000-0000-7000-8000-000000000821",
+  /**
+   * Approved reimbursements not yet paid, by date (layer 3-3b): the
+   * approval raises it, each payment out of the bank clears its part, so
+   * the books balance on every day between the two. A payment before the
+   * approval leaves it negative in between, as an advance to the claimant.
+   */
+  claimsPayable: "01930000-0000-7000-8000-000000000830",
 } as const;
 
 /**
@@ -479,8 +490,9 @@ export type StatementLineMatchStatus =
 /**
  * What a matched line is: a gateway settlement paid out to the bank, a
  * contribution deposited straight into it, a give.do (GiveIndia) payout, a
- * transfer between the trust's own accounts, or something else (debits,
- * until expense matching comes with the ledger).
+ * transfer between the trust's own accounts, money out explained in full by
+ * its allocations (`expense`: reimbursements, vendor payments, bank charges
+ * and taxes, layer 3-3b), or something else (older debit marks).
  */
 export const statementLineMatchKindValues = [
   "settlement",
@@ -488,6 +500,7 @@ export const statementLineMatchKindValues = [
   "giveindia_payout",
   "transfer",
   "other",
+  "expense",
 ] as const;
 export type StatementLineMatchKind =
   (typeof statementLineMatchKindValues)[number];
@@ -502,6 +515,28 @@ export const statementLineMatchReasonValues = [
 ] as const;
 export type StatementLineMatchReason =
   (typeof statementLineMatchReasonValues)[number];
+
+/**
+ * What part of a bank debit pays for (layer 3-3b, `statement_allocation`):
+ * an approved reimbursement, an approved vendor payment, or no document at
+ * all: bank charges, or a tax or government fee.
+ */
+export const statementAllocationKindValues = [
+  "reimbursement",
+  "vendor_payment_transaction",
+  "bank_charges",
+  "tax_payment",
+] as const;
+export type StatementAllocationKind =
+  (typeof statementAllocationKindValues)[number];
+
+/** The allocation kinds that pay a document (a claim or a vendor payment). */
+export const STATEMENT_DOCUMENT_ALLOCATION_KINDS = [
+  "reimbursement",
+  "vendor_payment_transaction",
+] as const satisfies readonly StatementAllocationKind[];
+export type StatementDocumentAllocationKind =
+  (typeof STATEMENT_DOCUMENT_ALLOCATION_KINDS)[number];
 
 /** Why a line was set aside. */
 export const statementLineIgnoreReasonValues = [

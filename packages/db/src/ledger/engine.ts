@@ -5,7 +5,12 @@ import { uuidv7 } from "uuidv7";
 
 import type { db } from "..";
 import { fiscalPeriod, fiscalYear } from "../schema/finance-dimensions";
-import { accountMovement, ledgerEntry, posting } from "../schema/ledger";
+import {
+  accountMovement,
+  ledgerEntry,
+  movementAllocation,
+  posting,
+} from "../schema/ledger";
 import {
   isIsoDay,
   LedgerError,
@@ -29,6 +34,9 @@ import {
  */
 
 export type LedgerTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** `movement_allocation.document_type` of a movement reconciled to a bank line. */
+export const MOVEMENT_ALLOCATION_STATEMENT_LINE = "statement_line";
 export type PostingRow = typeof posting.$inferSelect;
 
 export interface PostContext {
@@ -197,26 +205,44 @@ export async function post(
     );
   }
   if (input.movements.length > 0) {
-    await tx.insert(accountMovement).values(
-      input.movements.map((m) => {
-        const occurredOn = m.occurredOn ?? input.economicOn;
-        return {
-          amountPaise: m.amountPaise,
-          bankValueOn: m.bankValueOn ?? null,
-          direction: m.direction,
-          fiscalPeriodId: periodOf(periods, occurredOn).periodId,
-          id: uuidv7(),
-          kind: m.kind,
-          memo: m.memo ?? null,
-          occurredOn,
-          orgAccountId: m.orgAccountId,
-          paymentReference: m.paymentReference ?? null,
-          postedOn,
-          postingId: created.id,
-          transferId: m.transferId ?? null,
-        };
-      })
-    );
+    const rows = input.movements.map((m) => {
+      const occurredOn = m.occurredOn ?? input.economicOn;
+      return {
+        amountPaise: m.amountPaise,
+        bankValueOn: m.bankValueOn ?? null,
+        direction: m.direction,
+        fiscalPeriodId: periodOf(periods, occurredOn).periodId,
+        id: uuidv7(),
+        kind: m.kind,
+        memo: m.memo ?? null,
+        occurredOn,
+        orgAccountId: m.orgAccountId,
+        paymentReference: m.paymentReference ?? null,
+        postedOn,
+        postingId: created.id,
+        transferId: m.transferId ?? null,
+      };
+    });
+    await tx.insert(accountMovement).values(rows);
+    // The bank line each movement is reconciled to (layer 3-3b).
+    const allocations = input.movements.flatMap((m, index) => {
+      const row = rows[index];
+      return m.statementLineId && row
+        ? [
+            {
+              accountMovementId: row.id,
+              amountPaise: m.amountPaise,
+              createdAt: now,
+              documentId: m.statementLineId,
+              documentType: MOVEMENT_ALLOCATION_STATEMENT_LINE,
+              id: uuidv7(),
+            },
+          ]
+        : [];
+    });
+    if (allocations.length > 0) {
+      await tx.insert(movementAllocation).values(allocations);
+    }
   }
   return { created: true, posting: created };
 }

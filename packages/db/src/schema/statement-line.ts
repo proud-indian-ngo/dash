@@ -1,4 +1,5 @@
 import {
+  statementAllocationKindValues,
   statementLineDirectionValues,
   statementLineIgnoreReasonValues,
   statementLineMatchKindValues,
@@ -26,6 +27,8 @@ import { gatewaySettlement } from "./gateway-settlement";
 import { importBatch } from "./import-batch";
 import { contribution } from "./income";
 import { jsonb } from "./jsonb";
+import { reimbursement } from "./reimbursement";
+import { vendorPaymentTransaction } from "./vendor-payment-transaction";
 
 export const statementLineDirectionEnum = pgEnum(
   "statement_line_direction",
@@ -42,6 +45,10 @@ export const statementLineMatchKindEnum = pgEnum(
 export const statementLineIgnoreReasonEnum = pgEnum(
   "statement_line_ignore_reason",
   statementLineIgnoreReasonValues
+);
+export const statementAllocationKindEnum = pgEnum(
+  "statement_allocation_kind",
+  statementAllocationKindValues
 );
 
 /**
@@ -107,6 +114,14 @@ export const statementLine = pgTable(
     ),
     /** Set with match_status `matched`. */
     matchKind: statementLineMatchKindEnum("match_kind"),
+    /**
+     * "Needs a claim" (layer 3-3b): money out with no claim or payment
+     * recorded yet; listed until it is matched. The note says who to chase.
+     */
+    needsClaimAt: timestamp("needs_claim_at"),
+    needsClaimBy: text("needs_claim_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     /** Why it was matched: a `statementLineMatchReasonValues` code. */
     matchReason: text("match_reason"),
     matchStatus: statementLineMatchStatusEnum("match_status")
@@ -199,41 +214,151 @@ export const statementLine = pgTable(
       "statement_line_transfer_account",
       sql`${t.transferOrgAccountId} is null or (coalesce(${t.matchKind}::text, '') = 'transfer' and ${t.transferOrgAccountId} <> ${t.orgAccountId})`
     ),
-    // Settlements, contributions and give.do payouts are money in.
+    // Settlements, contributions and give.do payouts are money in; an
+    // expense match (claims, vendor payments, charges) is money out.
     check(
       "statement_line_credit_matches",
-      sql`${t.direction}::text = 'credit' or coalesce(${t.matchKind}::text, 'other') in ('transfer', 'other')`
+      sql`${t.direction}::text = 'credit' or coalesce(${t.matchKind}::text, 'other') in ('transfer', 'other', 'expense')`
+    ),
+    check(
+      "statement_line_expense_matches",
+      sql`${t.direction}::text = 'debit' or coalesce(${t.matchKind}::text, '') <> 'expense'`
+    ),
+    // Only an open line can wait for a claim.
+    check(
+      "statement_line_needs_claim_open",
+      sql`${t.needsClaimAt} is null or ${t.matchStatus}::text = 'unmatched'`
     ),
   ]
 );
 
-export const statementLineRelations = relations(statementLine, ({ one }) => ({
-  importBatch: one(importBatch, {
-    fields: [statementLine.importBatchId],
-    references: [importBatch.id],
-  }),
-  matchedByUser: one(user, {
-    fields: [statementLine.matchedBy],
-    references: [user.id],
-  }),
-  matchedContribution: one(contribution, {
-    fields: [statementLine.matchedContributionId],
-    references: [contribution.id],
-  }),
-  matchedSettlement: one(gatewaySettlement, {
-    fields: [statementLine.matchedSettlementId],
-    references: [gatewaySettlement.id],
-  }),
-  orgAccount: one(orgAccount, {
-    fields: [statementLine.orgAccountId],
-    references: [orgAccount.id],
-  }),
-  suggestedContribution: one(contribution, {
-    fields: [statementLine.suggestedContributionId],
-    references: [contribution.id],
-  }),
-  suggestedSettlement: one(gatewaySettlement, {
-    fields: [statementLine.suggestedSettlementId],
-    references: [gatewaySettlement.id],
-  }),
-}));
+/**
+ * What a bank debit paid (finance layer 3-3b): part or all of the line
+ * against an approved reimbursement or vendor payment, or as bank charges
+ * or a tax payment. One debit can pay several claims and one claim can be
+ * paid by several debits; a line is matched (`match_kind` expense) when its
+ * live allocations add up to its amount, and stays open, visibly part
+ * explained, until then.
+ *
+ * The reviewer's link, not the books: it changes (an unmatch releases it),
+ * so it is kept here rather than in the append-only `movement_allocation`.
+ * The posting run reads the live allocations of lines dated from the
+ * cutover: the claim's or payment's money then leaves the line's account
+ * on the line's date, and bank charges and taxes post from the line itself
+ * (source `statement_charge`); each such movement carries a
+ * `movement_allocation` to the line, so the books keep which bank line
+ * each payment was reconciled to. Lines before the cutover are evidence
+ * only. Releasing keeps the row (`released_at`), so history and the
+ * posting run's change watermark survive an unmatch. Written only by the
+ * audited bank statement server functions, under the statement line lock.
+ */
+export const statementAllocation = pgTable(
+  "statement_allocation",
+  {
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    id: uuid("id").primaryKey(),
+    kind: statementAllocationKindEnum("kind").notNull(),
+    /** Restrict: a claim matched to a bank line can't be deleted. */
+    reimbursementId: uuid("reimbursement_id").references(
+      () => reimbursement.id,
+      { onDelete: "restrict" }
+    ),
+    releasedAt: timestamp("released_at"),
+    releasedBy: text("released_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    statementLineId: uuid("statement_line_id")
+      .notNull()
+      .references(() => statementLine.id, { onDelete: "restrict" }),
+    vendorPaymentTransactionId: uuid(
+      "vendor_payment_transaction_id"
+    ).references(() => vendorPaymentTransaction.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    index("statement_allocation_lineId_idx").on(t.statementLineId),
+    index("statement_allocation_reimbursementId_idx").on(t.reimbursementId),
+    index("statement_allocation_vptId_idx").on(t.vendorPaymentTransactionId),
+    // A document is allocated once per line while live.
+    uniqueIndex("statement_allocation_live_reimbursement_uidx")
+      .on(t.statementLineId, t.reimbursementId)
+      .where(sql`${t.reimbursementId} is not null and ${t.releasedAt} is null`),
+    uniqueIndex("statement_allocation_live_vpt_uidx")
+      .on(t.statementLineId, t.vendorPaymentTransactionId)
+      .where(
+        sql`${t.vendorPaymentTransactionId} is not null and ${t.releasedAt} is null`
+      ),
+    // One bank charges and one tax allocation per line while live.
+    uniqueIndex("statement_allocation_live_charge_uidx")
+      .on(t.statementLineId, t.kind)
+      .where(
+        sql`${t.kind} in ('bank_charges', 'tax_payment') and ${t.releasedAt} is null`
+      ),
+    check("statement_allocation_amount_positive", sql`${t.amountPaise} > 0`),
+    check(
+      "statement_allocation_target",
+      sql`(${t.kind}::text = 'reimbursement') = (${t.reimbursementId} is not null)
+        and (${t.kind}::text = 'vendor_payment_transaction') = (${t.vendorPaymentTransactionId} is not null)`
+    ),
+    check(
+      "statement_allocation_released",
+      sql`${t.releasedBy} is null or ${t.releasedAt} is not null`
+    ),
+  ]
+);
+
+export const statementLineRelations = relations(
+  statementLine,
+  ({ many, one }) => ({
+    allocations: many(statementAllocation),
+    importBatch: one(importBatch, {
+      fields: [statementLine.importBatchId],
+      references: [importBatch.id],
+    }),
+    matchedByUser: one(user, {
+      fields: [statementLine.matchedBy],
+      references: [user.id],
+    }),
+    matchedContribution: one(contribution, {
+      fields: [statementLine.matchedContributionId],
+      references: [contribution.id],
+    }),
+    matchedSettlement: one(gatewaySettlement, {
+      fields: [statementLine.matchedSettlementId],
+      references: [gatewaySettlement.id],
+    }),
+    orgAccount: one(orgAccount, {
+      fields: [statementLine.orgAccountId],
+      references: [orgAccount.id],
+    }),
+    suggestedContribution: one(contribution, {
+      fields: [statementLine.suggestedContributionId],
+      references: [contribution.id],
+    }),
+    suggestedSettlement: one(gatewaySettlement, {
+      fields: [statementLine.suggestedSettlementId],
+      references: [gatewaySettlement.id],
+    }),
+  })
+);
+
+export const statementAllocationRelations = relations(
+  statementAllocation,
+  ({ one }) => ({
+    reimbursement: one(reimbursement, {
+      fields: [statementAllocation.reimbursementId],
+      references: [reimbursement.id],
+    }),
+    statementLine: one(statementLine, {
+      fields: [statementAllocation.statementLineId],
+      references: [statementLine.id],
+    }),
+    vendorPaymentTransaction: one(vendorPaymentTransaction, {
+      fields: [statementAllocation.vendorPaymentTransactionId],
+      references: [vendorPaymentTransaction.id],
+    }),
+  })
+);

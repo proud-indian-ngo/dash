@@ -6,10 +6,15 @@ import { describe, expect, it } from "vitest";
 
 import { expenseHeadCode } from "./expense-heads";
 import {
+  type BankMatchFacts,
   invoiceAcceptedDay,
+  paymentTiming,
   payingAccount,
+  paymentMovements,
   type ReimbursementFacts,
   reimbursementPlan,
+  type StatementChargeFacts,
+  statementChargePlan,
   type VendorPaymentFacts,
   vendorPaymentPlan,
   type VendorPaymentTransactionFacts,
@@ -56,6 +61,7 @@ const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
       id: "00000000-0000-7000-8000-000000000a12",
     },
   ],
+  matches: [],
   postedAccountId: null,
   status: "approved",
   title: "Class outing",
@@ -86,6 +92,7 @@ const request = (
   ],
   paidBeforeCutoverPaise: 0,
   paidPaise: 250_000,
+  paymentWaiting: null,
   status: "completed",
   title: "Bus for the event",
   vendorId: VENDOR,
@@ -100,6 +107,7 @@ const payment = (
   amountPaise: 250_000,
   id: "00000000-0000-7000-8000-000000000c01",
   mainAccountId: null,
+  matches: [],
   paidOn: "2026-07-10",
   paymentReference: "UTR42",
   postedAccountId: null,
@@ -132,30 +140,34 @@ const validParts = (plan: SourcePlan) => {
   }
 };
 
-const ASSET_HEADS = new Set<string>([LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances]);
+const LIABILITY_HEADS = new Set<string>([
+  LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+]);
 
 /**
- * Assets move by what the funds move by: money and asset heads on one side,
- * expenses (here every other head) on the other, so the balance summary
- * stays balanced.
+ * Assets move by what the funds and liabilities move by on every date,
+ * across a source's parts: money and asset heads on one side, liabilities
+ * and expenses (here every other head, reducing the funds) on the other,
+ * so the balance summary agrees whatever day it is read on.
  */
 const isBalanced = (plan: SourcePlan) => {
-  let assets = 0;
-  let funds = 0;
+  const net = new Map<string, number>();
+  const add = (day: string, paise: number) =>
+    net.set(day, (net.get(day) ?? 0) + paise);
   for (const p of posted(plan).parts) {
     for (const m of p.movements) {
-      assets += m.direction === "in" ? m.amountPaise : -m.amountPaise;
+      add(
+        m.occurredOn ?? p.economicOn,
+        m.direction === "in" ? m.amountPaise : -m.amountPaise
+      );
     }
     for (const e of p.entries) {
       const signed = e.effect === "increase" ? e.amountPaise : -e.amountPaise;
-      if (ASSET_HEADS.has(e.accountHeadId)) {
-        assets += signed;
-      } else {
-        funds -= signed;
-      }
+      const day = e.economicOn ?? p.economicOn;
+      add(day, LIABILITY_HEADS.has(e.accountHeadId) ? -signed : signed);
     }
   }
-  return assets === funds;
+  return [...net.values()].every((v) => v === 0);
 };
 
 describe("reimbursementPlan", () => {
@@ -190,15 +202,45 @@ describe("reimbursementPlan", () => {
         sourceLineId: "00000000-0000-7000-8000-000000000a12",
       },
     ]);
-    expect(part(plan, "cash")?.movements).toEqual([
-      {
-        amountPaise: 42_500,
-        direction: "out",
-        kind: "payout",
-        memo: "Class outing (paid to Ravi Kumar)",
-        orgAccountId: BANK,
-      },
-    ]);
+    // The money out alone, as layer 3-3a posted it ...
+    expect(part(plan, "cash")).toEqual({
+      action: "cash",
+      economicOn: "2026-06-03",
+      entries: [],
+      movements: [
+        {
+          amountPaise: 42_500,
+          direction: "out",
+          kind: "payout",
+          memo: "Class outing (paid to Ravi Kumar)",
+          orgAccountId: BANK,
+        },
+      ],
+    });
+    // ... and the claim as payable: raised on approval, cleared by payment.
+    expect(part(plan, "settle")).toEqual({
+      action: "settle",
+      economicOn: "2026-06-03",
+      entries: [
+        {
+          accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+          amountPaise: 42_500,
+          economicOn: "2026-06-03",
+          effect: "increase",
+          fundId: GENERAL_FUND_ID,
+          memo: "Class outing (paid to Ravi Kumar)",
+        },
+        {
+          accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+          amountPaise: 42_500,
+          economicOn: "2026-06-03",
+          effect: "decrease",
+          fundId: GENERAL_FUND_ID,
+          memo: "Class outing (paid to Ravi Kumar)",
+        },
+      ],
+      movements: [],
+    });
   });
 
   it("names the claimant on the payout, so a claimant change reposts it", () => {
@@ -207,7 +249,8 @@ describe("reimbursementPlan", () => {
     expect(memo({ claimantName: "Meena S" })).toBe(
       "Class outing (paid to Meena S)"
     );
-    // The recognition doesn't change with the claimant.
+    // The expense entries don't change with the claimant (only the
+    // payable's memo, which names who is owed).
     expect(
       part(reimbursementPlan(claim({ claimantName: "Meena S" })), "recognise")
     ).toEqual(part(reimbursementPlan(claim()), "recognise"));
@@ -271,14 +314,14 @@ describe("reimbursementPlan", () => {
   });
 
   it("waits for the payment when no screenshot was attached (section 6)", () => {
-    expect(reimbursementPlan(claim({ hasPaymentProof: false }))).toEqual({
+    expect(reimbursementPlan(claim({ hasPaymentProof: false }))).toMatchObject({
       economicOn: "2026-06-03",
       kind: "wait",
       reason: "no_payment_proof",
     });
     expect(
       reimbursementPlan(claim({ approvedOn: null, hasPaymentProof: false }))
-    ).toEqual({
+    ).toMatchObject({
       economicOn: null,
       kind: "wait",
       reason: "no_payment_proof",
@@ -317,7 +360,7 @@ describe("reimbursementPlan", () => {
   it("waits for the paying account with several bank accounts, unless already posted from one", () => {
     expect(
       reimbursementPlan(claim({ activeBankAccountIds: [BANK, BANK_2] }))
-    ).toEqual({
+    ).toMatchObject({
       economicOn: "2026-06-03",
       kind: "wait",
       reason: "pick_paying_account",
@@ -437,7 +480,7 @@ describe("vendorPaymentPlan", () => {
 
   it("waits when the invoice is more than the approved payments, since it wouldn't balance", () => {
     for (const paidPaise of [0, 200_000]) {
-      expect(vendorPaymentPlan(request({ paidPaise }))).toEqual({
+      expect(vendorPaymentPlan(request({ paidPaise }))).toMatchObject({
         economicOn: "2026-07-20",
         kind: "wait",
         reason: "invoice_exceeds_payments",
@@ -455,7 +498,7 @@ describe("vendorPaymentPlan", () => {
       vendorPaymentPlan(
         request({ paidBeforeCutoverPaise: 100_000, paidPaise: 150_000 })
       )
-    ).toEqual({
+    ).toMatchObject({
       economicOn: "2026-07-20",
       kind: "wait",
       reason: "paid_across_cutover",
@@ -498,6 +541,8 @@ describe("vendorPaymentTransactionPlan", () => {
     const plan = vendorPaymentTransactionPlan(payment());
     validParts(plan);
     expect(isBalanced(plan)).toBe(true);
+    // The advance on the day the money left, in its own part; the money
+    // out alone in the cash part, as layer 3-3a posted it.
     expect(posted(plan).parts).toEqual([
       {
         action: "recognise",
@@ -506,6 +551,7 @@ describe("vendorPaymentTransactionPlan", () => {
           {
             accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
             amountPaise: 250_000,
+            economicOn: "2026-07-10",
             effect: "increase",
             fundId: GENERAL_FUND_ID,
             memo: "Bus for the event",
@@ -550,7 +596,7 @@ describe("vendorPaymentTransactionPlan", () => {
     ).toEqual({ kind: "none", reason: "before_cutover" });
     expect(
       vendorPaymentTransactionPlan(payment({ activeBankAccountIds: [] }))
-    ).toEqual({
+    ).toMatchObject({
       economicOn: "2026-07-10",
       kind: "wait",
       reason: "pick_paying_account",
@@ -613,5 +659,336 @@ describe("voided requests", () => {
     expect(
       vendorPaymentTransactionPlan(payment({ voidedOn: "2026-11-02" }))
     ).toEqual(voided);
+  });
+});
+
+describe("matched bank debits (layer 3-3b)", () => {
+  const LINE_A = "00000000-0000-7000-8000-00000000c0a1";
+  const LINE_B = "00000000-0000-7000-8000-00000000c0a2";
+  const match = (over: Partial<BankMatchFacts> = {}): BankMatchFacts => ({
+    amountPaise: 42_500,
+    orgAccountId: BANK_2,
+    statementLineId: LINE_A,
+    valueOn: "2026-06-05",
+    ...over,
+  });
+
+  it("pays a fully matched claim from the line's account on the line's date, leaving the expense as it was", () => {
+    const plain = reimbursementPlan(claim());
+    const plan = reimbursementPlan(claim({ matches: [match()] }));
+    validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
+    expect(part(plan, "recognise")).toEqual(part(plain, "recognise"));
+    expect(part(plan, "settle")?.entries.at(-1)).toMatchObject({
+      amountPaise: 42_500,
+      economicOn: "2026-06-05",
+      effect: "decrease",
+    });
+    expect(part(plan, "cash")).toEqual({
+      action: "cash",
+      economicOn: "2026-06-05",
+      entries: [],
+      movements: [
+        {
+          amountPaise: 42_500,
+          bankValueOn: "2026-06-05",
+          direction: "out",
+          kind: "payout",
+          memo: "Class outing (paid to Ravi Kumar)",
+          occurredOn: "2026-06-05",
+          orgAccountId: BANK_2,
+          statementLineId: LINE_A,
+        },
+      ],
+    });
+  });
+
+  it("splits a claim paid by two debits, and leaves the unmatched rest on the default account", () => {
+    const plan = reimbursementPlan(
+      claim({
+        matches: [
+          match({
+            amountPaise: 20_000,
+            statementLineId: LINE_B,
+            valueOn: "2026-06-09",
+          }),
+          match({ amountPaise: 15_000 }),
+        ],
+      })
+    );
+    validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
+    const cash = part(plan, "cash");
+    expect(cash?.economicOn).toBe("2026-06-03");
+    expect(
+      cash?.movements.map((m) => [
+        m.orgAccountId,
+        m.occurredOn,
+        m.amountPaise,
+        m.statementLineId ?? null,
+      ])
+    ).toEqual([
+      [BANK_2, "2026-06-05", 15_000, LINE_A],
+      [BANK_2, "2026-06-09", 20_000, LINE_B],
+      [BANK, "2026-06-03", 7500, null],
+    ]);
+  });
+
+  it("needs no main bank account when the debits pay it all", () => {
+    const plan = reimbursementPlan(
+      claim({ activeBankAccountIds: [BANK, BANK_2], matches: [match()] })
+    );
+    expect(plan.kind).toBe("post");
+    expect(
+      reimbursementPlan(
+        claim({
+          activeBankAccountIds: [BANK, BANK_2],
+          matches: [match({ amountPaise: 100 })],
+        })
+      )
+    ).toMatchObject({
+      economicOn: "2026-06-03",
+      kind: "wait",
+      reason: "pick_paying_account",
+    });
+  });
+
+  it("waits when the matched debits are more than the claim", () => {
+    expect(
+      reimbursementPlan(claim({ matches: [match({ amountPaise: 50_000 })] }))
+    ).toMatchObject({
+      economicOn: "2026-06-03",
+      kind: "wait",
+      reason: "match_exceeds_amount",
+    });
+  });
+
+  it("counts a matched debit as proof of payment", () => {
+    expect(
+      reimbursementPlan(claim({ hasPaymentProof: false, matches: [match()] }))
+        .kind
+    ).toBe("post");
+  });
+
+  it("follows the money across the cutover: history before it, posted from the debit after it, waiting for the CA on both sides", () => {
+    // Approved after the cutover, paid by a debit before it: history.
+    expect(
+      reimbursementPlan(
+        claim({
+          approvedOn: "2026-04-02",
+          matches: [match({ valueOn: "2026-03-30" })],
+        })
+      )
+    ).toEqual({ kind: "none", reason: "before_cutover" });
+    // Approved before, paid after: recognised and paid on the debit day.
+    const late = reimbursementPlan(
+      claim({
+        approvedOn: "2026-03-28",
+        matches: [match({ valueOn: "2026-04-02" })],
+      })
+    );
+    validParts(late);
+    expect(isBalanced(late)).toBe(true);
+    expect(posted(late).parts.map((p) => p.economicOn)).toEqual([
+      "2026-04-02",
+      "2026-04-02",
+      "2026-04-02",
+    ]);
+    // Debits on both sides: the CA decides.
+    expect(
+      reimbursementPlan(
+        claim({
+          matches: [
+            match({ amountPaise: 20_000, valueOn: "2026-03-30" }),
+            match({
+              amountPaise: 22_500,
+              statementLineId: LINE_B,
+              valueOn: "2026-04-02",
+            }),
+          ],
+        })
+      )
+    ).toMatchObject({ kind: "wait", reason: "bank_debit_across_cutover" });
+    // Approved before and unmatched, or paid before: history.
+    expect(reimbursementPlan(claim({ approvedOn: "2026-03-28" }))).toEqual({
+      kind: "none",
+      reason: "before_cutover",
+    });
+    // Part paid before the cutover, the rest on an approval after it.
+    expect(
+      reimbursementPlan(
+        claim({ matches: [match({ amountPaise: 100, valueOn: "2026-03-30" })] })
+      )
+    ).toMatchObject({ kind: "wait", reason: "bank_debit_across_cutover" });
+  });
+
+  it("keeps the books balanced between the approval and the debit, in both orders", () => {
+    for (const valueOn of ["2026-06-20", "2026-05-25"]) {
+      const plan = reimbursementPlan(claim({ matches: [match({ valueOn })] }));
+      expect(isBalanced(plan)).toBe(true);
+      expect(part(plan, "recognise")?.economicOn).toBe("2026-06-03");
+      expect(part(plan, "cash")?.economicOn).toBe(valueOn);
+    }
+  });
+
+  it("moves a vendor payment to its matched debit and keeps the reference", () => {
+    const plan = vendorPaymentTransactionPlan(
+      payment({
+        matches: [match({ amountPaise: 250_000, valueOn: "2026-07-11" })],
+      })
+    );
+    validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
+    expect(part(plan, "cash")?.movements).toEqual([
+      {
+        amountPaise: 250_000,
+        bankValueOn: "2026-07-11",
+        direction: "out",
+        kind: "payout",
+        memo: "Bus for the event",
+        occurredOn: "2026-07-11",
+        orgAccountId: BANK_2,
+        paymentReference: "UTR42",
+        statementLineId: LINE_A,
+      },
+    ]);
+    // Part paid by a debit before the cutover, the rest on its date after.
+    expect(
+      vendorPaymentTransactionPlan(
+        payment({ matches: [match({ valueOn: "2026-03-31" })] })
+      )
+    ).toMatchObject({ kind: "wait", reason: "bank_debit_across_cutover" });
+    // Paid in full by a debit before the cutover: history.
+    expect(
+      vendorPaymentTransactionPlan(
+        payment({
+          matches: [match({ amountPaise: 250_000, valueOn: "2026-03-31" })],
+        })
+      )
+    ).toEqual({ kind: "none", reason: "before_cutover" });
+    // Dated before the cutover but paid by a debit after it: posts then.
+    const late = vendorPaymentTransactionPlan(
+      payment({
+        matches: [match({ amountPaise: 250_000, valueOn: "2026-04-03" })],
+        paidOn: "2026-03-30",
+      })
+    );
+    expect(posted(late).economicOn).toBe("2026-04-03");
+  });
+
+  it("an invoice waits while one of its payments waits, so no advance is cleared that was never booked", () => {
+    expect(
+      vendorPaymentPlan(
+        request({ paymentWaiting: "bank_debit_across_cutover" })
+      )
+    ).toMatchObject({ kind: "wait", reason: "bank_debit_across_cutover" });
+  });
+
+  it("paymentTiming reads when the money left against the cutover", () => {
+    const at = (matches: BankMatchFacts[], defaultOn = "2026-06-03") =>
+      paymentTiming({ defaultOn, matches, totalPaise: 42_500 });
+    expect(at([])).toEqual({ firstOn: "2026-06-03", kind: "after" });
+    expect(at([], "2026-03-31")).toEqual({ kind: "before" });
+    expect(at([match({ valueOn: "2026-03-31" })])).toEqual({ kind: "before" });
+    expect(at([match({ valueOn: "2026-04-01" })], "2026-03-01")).toEqual({
+      firstOn: "2026-04-01",
+      kind: "after",
+    });
+    expect(at([match({ amountPaise: 1, valueOn: "2026-03-31" })])).toEqual({
+      kind: "across",
+    });
+    expect(at([match({ amountPaise: 50_000 })])).toEqual({ kind: "exceeds" });
+  });
+
+  it("paymentMovements orders matches by date, then line", () => {
+    const result = paymentMovements({
+      defaultAccountId: BANK,
+      defaultOn: "2026-06-03",
+      matches: [
+        match({
+          amountPaise: 1,
+          statementLineId: LINE_B,
+          valueOn: "2026-06-05",
+        }),
+        match({
+          amountPaise: 2,
+          statementLineId: LINE_A,
+          valueOn: "2026-06-05",
+        }),
+      ],
+      movement: { direction: "out", kind: "payout" },
+      totalPaise: 3,
+    });
+    expect(
+      result.kind === "ok" && result.movements.map((m) => m.statementLineId)
+    ).toEqual([LINE_A, LINE_B]);
+  });
+});
+
+describe("statementChargePlan", () => {
+  const LINE = "00000000-0000-7000-8000-00000000c0b1";
+  const line = (
+    over: Partial<StatementChargeFacts> = {}
+  ): StatementChargeFacts => ({
+    bankChargesPaise: 5900,
+    id: LINE,
+    orgAccountId: BANK,
+    taxPaise: 0,
+    valueOn: "2026-08-12",
+    ...over,
+  });
+
+  it("posts bank charges as an expense paid from the line's account on its date", () => {
+    const plan = statementChargePlan(line());
+    validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
+    expect(posted(plan).parts).toHaveLength(1);
+    expect(part(plan, "cash")?.entries).toEqual([
+      {
+        accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.bankCharges,
+        amountPaise: 5900,
+        effect: "increase",
+        fundId: GENERAL_FUND_ID,
+        memo: "Bank charges",
+      },
+    ]);
+    expect(part(plan, "cash")?.movements).toEqual([
+      {
+        amountPaise: 5900,
+        bankValueOn: "2026-08-12",
+        direction: "out",
+        kind: "fee",
+        memo: "Bank charges",
+        occurredOn: "2026-08-12",
+        orgAccountId: BANK,
+        statementLineId: LINE,
+      },
+    ]);
+  });
+
+  it("posts a tax payment under taxes and government fees", () => {
+    const plan = statementChargePlan(
+      line({ bankChargesPaise: 0, taxPaise: 120_000 })
+    );
+    expect(isBalanced(plan)).toBe(true);
+    expect(part(plan, "cash")?.entries[0]?.accountHeadId).toBe(
+      LEDGER_ACCOUNT_HEAD_IDS.taxesAndFees
+    );
+    expect(part(plan, "cash")?.movements[0]?.kind).toBe("tax_remittance");
+  });
+
+  it("posts nothing before the cutover, when unmarked, or when gone", () => {
+    expect(statementChargePlan(line({ valueOn: "2026-03-31" }))).toEqual({
+      kind: "none",
+      reason: "before_cutover",
+    });
+    expect(statementChargePlan(line({ bankChargesPaise: 0 }))).toEqual({
+      kind: "none",
+      reason: "unmatched",
+    });
+    expect(statementChargePlan(null)).toEqual({
+      kind: "none",
+      reason: "deleted",
+    });
   });
 });

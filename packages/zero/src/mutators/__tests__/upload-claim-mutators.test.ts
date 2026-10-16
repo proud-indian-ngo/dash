@@ -221,8 +221,10 @@ describe("server mutator upload claims", () => {
           userId: "owner-1",
         })
         // The delete first checks that the books hold neither the request
-        // nor its payment (finance Option B).
+        // nor its payment (finance Option B), and that no bank debit is
+        // matched to the payment (layer 3-3b).
         .mockResolvedValueOnce([{ id: "transaction-1" }])
+        .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([])
@@ -948,12 +950,15 @@ describe("approval screenshot requirement", () => {
           [tableName]: { update },
           [`${tableName}History`]: { insert: mock() },
         },
-        run: mock().mockResolvedValueOnce({
-          approvalScreenshotKey: storedKey,
-          status: "approved",
-          title: "Travel",
-          userId: "owner-1",
-        }),
+        run: mock()
+          .mockResolvedValueOnce({
+            approvalScreenshotKey: storedKey,
+            status: "approved",
+            title: "Travel",
+            userId: "owner-1",
+          })
+          // A reimbursement checks that no bank debit pays it (layer 3-3b).
+          .mockResolvedValueOnce([]),
       };
 
       await mutators.reject.fn({

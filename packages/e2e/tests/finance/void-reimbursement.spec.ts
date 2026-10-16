@@ -66,7 +66,7 @@ test.describe("Voiding a posted reimbursement", () => {
       .poll(() => books<string[]>("postings", fixture.claimId), {
         timeout: 30_000,
       })
-      .toEqual(["recognise", "cash"]);
+      .toEqual(["recognise", "cash", "settle"]);
 
     // In the books: the list offers Void, not Delete.
     const list = new ListPage(page);
@@ -94,7 +94,7 @@ test.describe("Voiding a posted reimbursement", () => {
     await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
 
-    // The books reverse both parts, once.
+    // The books reverse all three parts, once.
     await postPending(page);
     await expect
       .poll(
@@ -102,13 +102,20 @@ test.describe("Voiding a posted reimbursement", () => {
           [...(await books<string[]>("postings", fixture.claimId))].sort(),
         { timeout: 30_000 }
       )
-      .toEqual(["cash", "recognise", "reverse:cash", "reverse:recognise"]);
+      .toEqual([
+        "cash",
+        "recognise",
+        "reverse:cash",
+        "reverse:recognise",
+        "reverse:settle",
+        "settle",
+      ]);
     await page.getByRole("tab", { name: "Balance summary" }).click();
     await expect(page.getByTestId("balance-check")).toHaveText("Balances", {
       timeout: 15_000,
     });
     await postPending(page);
-    expect(await books<string[]>("postings", fixture.claimId)).toHaveLength(4);
+    expect(await books<string[]>("postings", fixture.claimId)).toHaveLength(6);
 
     // Hidden from the list until asked, then shown marked Void.
     const hidden = await findInList(page, title);

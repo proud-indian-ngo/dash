@@ -1,6 +1,10 @@
 import {
   ArrowDataTransferHorizontalIcon,
+  BankIcon,
+  Flag01Icon,
+  Invoice03Icon,
   Link01Icon,
+  Search01Icon,
   MoneyReceive01Icon,
   MoreHorizontalIcon,
   NoteEditIcon,
@@ -19,11 +23,17 @@ import type {
   StatementLine,
 } from "@pi-dash/zero/schema";
 
+import {
+  type DebitActions,
+  type DebitAllocationRow,
+  DebitOutcome,
+  isBeforeCutover,
+  type LineSuggestions,
+} from "@/components/income/bank/debit-match";
 import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
-  DEBIT_MATCHING_NOTE,
   IGNORE_REASON_LABELS,
   matchKindLabel,
   matchReasonLabel,
@@ -31,14 +41,19 @@ import {
 } from "@/lib/bank-statement/labels";
 
 export type StatementLineRow = StatementLine & {
+  allocations?: readonly DebitAllocationRow[];
   matchedContribution?: (Contribution & { party?: Party | null }) | null;
   matchedSettlement?: GatewaySettlement | null;
   suggestedContribution?: (Contribution & { party?: Party | null }) | null;
   suggestedSettlement?: GatewaySettlement | null;
 };
 
-export interface LineActions {
+export interface LineActions extends DebitActions {
   onAccept: (line: StatementLineRow) => void;
+  onBankCharges: (line: StatementLineRow) => void;
+  onClearNeedsClaim: (line: StatementLineRow) => void;
+  onNeedsClaim: (line: StatementLineRow) => void;
+  onTaxPayment: (line: StatementLineRow) => void;
   onDismiss: (line: StatementLineRow) => void;
   onGiveIndia: (line: StatementLineRow) => void;
   onIgnore: (line: StatementLineRow) => void;
@@ -149,9 +164,50 @@ function LineMenu({
 }) {
   const open = line.matchStatus === "unmatched";
   const credit = line.direction === "credit";
+  const debit = !credit;
+  const partMatched = (line.allocations ?? []).length > 0;
+  // Money out from the cutover is in the books: never set aside.
+  const mayIgnore = credit || isBeforeCutover(line);
   return (
     <ResponsiveActionMenu
       actions={[
+        open &&
+          debit && {
+            icon: Search01Icon,
+            id: "find-match",
+            label: "Find match…",
+            onSelect: () => actions.onFind(line),
+          },
+        open &&
+          debit && {
+            icon: BankIcon,
+            id: "bank-charges",
+            label: "Bank charges",
+            onSelect: () => actions.onBankCharges(line),
+          },
+        open &&
+          debit && {
+            icon: Invoice03Icon,
+            id: "tax-payment",
+            label: "Tax payment",
+            onSelect: () => actions.onTaxPayment(line),
+          },
+        open &&
+          debit &&
+          !line.needsClaimAt && {
+            icon: Flag01Icon,
+            id: "needs-claim",
+            label: "Needs a claim",
+            onSelect: () => actions.onNeedsClaim(line),
+          },
+        open &&
+          debit &&
+          Boolean(line.needsClaimAt) && {
+            icon: Flag01Icon,
+            id: "clear-needs-claim",
+            label: "Claim no longer needed",
+            onSelect: () => actions.onClearNeedsClaim(line),
+          },
         open &&
           credit &&
           canRecord && {
@@ -174,25 +230,28 @@ function LineMenu({
             label: "Mark as give.do payout",
             onSelect: () => actions.onGiveIndia(line),
           },
-        open && {
-          icon: ArrowDataTransferHorizontalIcon,
-          id: "transfer",
-          label: "Mark as transfer",
-          onSelect: () => actions.onTransfer(line),
-        },
+        open &&
+          !partMatched && {
+            icon: ArrowDataTransferHorizontalIcon,
+            id: "transfer",
+            label: "Mark as transfer",
+            onSelect: () => actions.onTransfer(line),
+          },
         {
           icon: NoteEditIcon,
           id: "note",
           label: line.note ? "Edit note" : "Add note",
           onSelect: () => actions.onNote(line),
         },
-        open && {
-          icon: ViewOffSlashIcon,
-          id: "ignore",
-          label: "Ignore",
-          onSelect: () => actions.onIgnore(line),
-        },
-        !open && {
+        open &&
+          mayIgnore &&
+          !partMatched && {
+            icon: ViewOffSlashIcon,
+            id: "ignore",
+            label: "Ignore",
+            onSelect: () => actions.onIgnore(line),
+          },
+        (!open || partMatched) && {
           destructive: true,
           icon: Undo02Icon,
           id: "unmatch",
@@ -224,12 +283,28 @@ function Outcome({
   canManage,
   canRecord,
   line,
+  suggestions,
 }: {
   actions: LineActions;
   canManage: boolean;
   canRecord: boolean;
   line: StatementLineRow;
+  suggestions: LineSuggestions | undefined;
 }) {
+  // Money out (layer 3-3b): what it pays, or how to explain it.
+  if (
+    line.direction === "debit" &&
+    (line.matchStatus === "unmatched" || line.matchKind === "expense")
+  ) {
+    return (
+      <DebitOutcome
+        actions={actions}
+        canManage={canManage}
+        line={line}
+        suggestions={suggestions}
+      />
+    );
+  }
   if (line.matchStatus === "matched") {
     return (
       <div className="min-w-0 text-sm">
@@ -266,11 +341,6 @@ function Outcome({
       <SuggestionCard actions={actions} canManage={canManage} line={line} />
     );
   }
-  if (line.direction === "debit") {
-    return (
-      <p className="text-muted-foreground text-sm">{DEBIT_MATCHING_NOTE}</p>
-    );
-  }
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="text-muted-foreground">We didn't find a match yet.</span>
@@ -297,12 +367,15 @@ export function StatementLineItem({
   canManage,
   canRecord,
   line,
+  suggestions,
 }: {
   actions: LineActions;
   canManage: boolean;
   /** donors.manage as well: recording a donation creates a contribution. */
   canRecord: boolean;
   line: StatementLineRow;
+  /** A debit's suggested claims and payments, for finance.manage. */
+  suggestions?: LineSuggestions;
 }) {
   const credit = line.direction === "credit";
   return (
@@ -345,6 +418,7 @@ export function StatementLineItem({
         canManage={canManage}
         canRecord={canRecord}
         line={line}
+        suggestions={suggestions}
       />
       <div className="flex justify-end">
         {canManage ? (

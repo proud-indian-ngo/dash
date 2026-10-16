@@ -21,6 +21,7 @@ import { useState } from "react";
 
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
+import { PaidFromBank } from "@/components/income/bank/in-bank-fact";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { RecordSection } from "@/components/shared/record-detail";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
@@ -438,6 +439,13 @@ function TransactionRow({
         {transaction.transactionDate
           ? format(transaction.transactionDate, DATE)
           : "—"}
+        {transaction.status === "approved" && !voided ? (
+          <PaidFromBank
+            amountPaise={transaction.amountPaise}
+            documentId={transaction.id}
+            kind="vendor_payment_transaction"
+          />
+        ) : null}
       </td>
       <td className="text-muted-foreground px-3 py-2">
         {transaction.paymentMethod ?? "—"}

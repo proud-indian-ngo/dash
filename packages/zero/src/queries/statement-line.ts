@@ -29,7 +29,8 @@ export const statementLineQueries = {
   /**
    * One bank account's lines, newest first, with what each is matched to
    * or suggested for: the settlement, or the contribution and its donor's
-   * name.
+   * name; for a debit, what its live allocations pay (the claim and its
+   * claimant, the vendor payment, its request and vendor, layer 3-3b).
    */
   byAccount: defineQuery(
     z.object({ orgAccountId: z.string() }),
@@ -40,6 +41,14 @@ export const statementLineQueries = {
         .related("matchedContribution", (c) => c.related("party"))
         .related("suggestedSettlement")
         .related("suggestedContribution", (c) => c.related("party"))
+        .related("allocations", (a) =>
+          a
+            .where("releasedAt", "IS", null)
+            .related("reimbursement", (r) => r.related("user"))
+            .related("vendorPaymentTransaction", (t) =>
+              t.related("vendorPayment", (v) => v.related("vendor"))
+            )
+        )
         .orderBy("valueOn", "desc")
         .orderBy("position", "desc")
         .orderBy("id", "desc")
@@ -56,6 +65,28 @@ export const statementLineQueries = {
         )
         .related("orgAccount")
         .one()
+  ),
+  /**
+   * The bank lines paying a reimbursement or a vendor payment, for its
+   * sheet ("Paid from HDFC on 12 Aug"), layer 3-3b.
+   */
+  allocationsByDocument: defineQuery(
+    z.object({
+      documentId: z.string(),
+      kind: z.enum(["reimbursement", "vendor_payment_transaction"]),
+    }),
+    ({ args: { documentId, kind }, ctx }) =>
+      zql.statementAllocation
+        .where(
+          kind === "reimbursement"
+            ? "reimbursementId"
+            : "vendorPaymentTransactionId",
+          canSeeStatementLines(ctx) ? documentId : NEVER
+        )
+        .where("releasedAt", "IS", null)
+        .related("statementLine", (l) => l.related("orgAccount"))
+        .orderBy("createdAt", "asc")
+        .orderBy("id", "asc")
   ),
   /** The line a settlement is matched to, for its sheet. */
   bySettlement: defineQuery(

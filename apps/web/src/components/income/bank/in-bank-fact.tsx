@@ -1,8 +1,11 @@
+import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
 import type { OrgAccount, StatementLine } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
+import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 
+import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
 
@@ -51,4 +54,71 @@ export function SettlementInBank({ settlementId }: { settlementId: string }) {
     queries.statementLine.bySettlement({ settlementId })
   );
   return <InBank complete={result.type === "complete"} line={line} />;
+}
+
+/**
+ * Where an approved reimbursement or vendor payment left the bank (finance
+ * layer 3-3b): "Paid from HDFC current account on 12 Aug 2026", one line per
+ * matched bank debit with the part it paid when split, or "Not seen in the
+ * bank yet". Finance readers only (the query returns nothing to anyone
+ * else, and the component isn't asked for).
+ */
+export function PaidFromBank({
+  amountPaise,
+  documentId,
+  kind,
+}: {
+  /** The claim's total or the payment's amount, to show a part payment. */
+  amountPaise: number;
+  documentId: string;
+  kind: "reimbursement" | "vendor_payment_transaction";
+}) {
+  const { hasPermission } = useApp();
+  const canSee =
+    hasPermission("finance.view") || hasPermission("finance.manage");
+  const [allocations, result] = useQuery(
+    queries.statementLine.allocationsByDocument({ documentId, kind }),
+    { enabled: canSee }
+  );
+  if (!canSee || (allocations.length === 0 && result.type !== "complete")) {
+    return null;
+  }
+  const paid = allocations.reduce((sum, a) => sum + a.amountPaise, 0);
+  return (
+    <div className="text-sm" data-testid="paid-from-bank">
+      {allocations.length === 0 ? (
+        <span className="text-muted-foreground">Not seen in the bank yet</span>
+      ) : (
+        allocations.map((a) => {
+          const line = a.statementLine;
+          const date = line ? epochToLocalDate(line.valueOn) : null;
+          const part =
+            a.amountPaise === amountPaise
+              ? ""
+              : ` (${formatPaise(a.amountPaise)})`;
+          return (
+            <div key={a.id}>
+              Paid from {line?.orgAccount?.name ?? "the bank"} on{" "}
+              {date ? format(date, DATE) : "—"}
+              {part}{" "}
+              <Link
+                className="text-muted-foreground underline-offset-4 hover:underline"
+                search={
+                  line ? { account: line.orgAccountId, tab: "matched" } : {}
+                }
+                to="/income/bank"
+              >
+                statement line
+              </Link>
+            </div>
+          );
+        })
+      )}
+      {allocations.length > 0 && paid < amountPaise ? (
+        <div className="text-muted-foreground">
+          {formatPaise(amountPaise - paid)} not seen in the bank yet
+        </div>
+      ) : null}
+    </div>
+  );
 }

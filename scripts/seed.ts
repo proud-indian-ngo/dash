@@ -22,6 +22,7 @@ import { createHash } from "node:crypto";
  *   gatewaySettlement, gatewaySettlementItem,
  *   accountHead, openingBalance, posting, ledgerEntry, accountMovement (fake opening balances),
  *   importBatch, importRow, externalIdentity, collectionEvent, statementLine,
+ *   statementAllocation,
  *   reimbursement, reimbursementLineItem, reimbursementAttachment, reimbursementHistory,
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
@@ -128,7 +129,10 @@ import {
 import { socialApiToken } from "@pi-dash/db/schema/social-api-token";
 import { socialPost } from "@pi-dash/db/schema/social-post";
 import { socialRun } from "@pi-dash/db/schema/social-run";
-import { statementLine } from "@pi-dash/db/schema/statement-line";
+import {
+  statementAllocation,
+  statementLine,
+} from "@pi-dash/db/schema/statement-line";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import {
@@ -1122,6 +1126,80 @@ async function seedStatementLines(adminId: string): Promise<void> {
       }))
     )
     .onConflictDoNothing();
+}
+
+const BANK_DEBIT_SEED = {
+  chargesAllocation: "01930000-0000-7000-8000-000000000649",
+  chargesLine: "01930000-0000-7000-8000-000000000647",
+  claimAllocation: "01930000-0000-7000-8000-000000000648",
+  claimLine: "01930000-0000-7000-8000-000000000646",
+};
+
+/**
+ * Bank debit matching (layer 3-3b): one debit matched to the approved
+ * "Bus fare" reimbursement (1,950.00, paid the day it was approved), and one
+ * small debit marked as bank charges. Idempotent: fixed IDs.
+ */
+async function seedBankDebits(adminId: string): Promise<void> {
+  const paidOn = past(1).toISOString().slice(0, 10);
+  const orgAccountId = ORG_ACCOUNTS[0]?.id as string;
+  const lines = [
+    {
+      amountPaise: 195_000,
+      id: BANK_DEBIT_SEED.claimLine,
+      narration: "IMPS DR-REIMBURSEMENT BUS FARE",
+      reference: "IMPSSEED01",
+    },
+    {
+      amountPaise: 59_000,
+      id: BANK_DEBIT_SEED.chargesLine,
+      narration: "CHRG: ACCOUNT MAINTENANCE INCL GST",
+      reference: null,
+    },
+  ];
+  await db
+    .insert(statementLine)
+    .values(
+      lines.map((line, index) => ({
+        ...line,
+        createdAt: now,
+        direction: "debit" as const,
+        lineHash: `seed:${line.id}`,
+        matchedAt: now,
+        matchedBy: adminId,
+        matchKind: "expense" as const,
+        matchReason: "manual",
+        matchStatus: "matched" as const,
+        orgAccountId,
+        position: STATEMENT_LINES.length + index + 1,
+        updatedAt: now,
+        valueOn: paidOn,
+      }))
+    )
+    .onConflictDoNothing();
+  await db
+    .insert(statementAllocation)
+    .values([
+      {
+        amountPaise: 195_000,
+        createdAt: now,
+        createdBy: adminId,
+        id: BANK_DEBIT_SEED.claimAllocation,
+        kind: "reimbursement" as const,
+        reimbursementId: ID.reimb01,
+        statementLineId: BANK_DEBIT_SEED.claimLine,
+      },
+      {
+        amountPaise: 59_000,
+        createdAt: now,
+        createdBy: adminId,
+        id: BANK_DEBIT_SEED.chargesAllocation,
+        kind: "bank_charges" as const,
+        statementLineId: BANK_DEBIT_SEED.chargesLine,
+      },
+    ])
+    .onConflictDoNothing();
+  log("Bank debits matched: 1 reimbursement, 1 bank charges");
 }
 
 const SEED_IMPORT = {
@@ -3746,6 +3824,7 @@ async function main(): Promise<void> {
   await seedReimbursements(userMap);
   await seedAdvancePayments(userMap);
   await seedVendors(userMap);
+  await seedBankDebits(getUser(userMap, "admin@pi-dash.dev"));
   await seedScheduledMessages(userMap);
   await seedNotificationPreferences(userMap);
   await seedEmailSuppressions();

@@ -114,6 +114,14 @@ async function foundation(tx: LedgerTx) {
         updatedAt: NOW,
       },
       {
+        code: "TEST_CLAIMS_PAYABLE",
+        createdAt: NOW,
+        id: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
+        name: "Test claims payable",
+        type: "liability",
+        updatedAt: NOW,
+      },
+      {
         code: "TEST_SUPPLIER_ADVANCES",
         createdAt: NOW,
         id: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
@@ -245,6 +253,10 @@ async function expenseByProgramme(tx: LedgerTx, sourceId: string) {
     .where(eq(posting.sourceId, sourceId));
   const net = new Map<string | null, number>();
   for (const { entry } of rows) {
+    // Claims payable is a liability the payment clears, not expense.
+    if (entry.accountHeadId === LEDGER_ACCOUNT_HEAD_IDS.claimsPayable) {
+      continue;
+    }
     net.set(
       entry.programmeId,
       (net.get(entry.programmeId) ?? 0) +
@@ -284,8 +296,9 @@ it.skipIf(!localDatabase)(
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
       const id = await addClaim(tx, ids);
+      // The expense, the money out, and the claim as payable (settle).
       expect(await run(tx, claimSource(id))).toEqual({
-        posted: 2,
+        posted: 3,
         reason: null,
         reversed: 0,
         status: "posted",
@@ -298,6 +311,7 @@ it.skipIf(!localDatabase)(
       expect(postings.map((p) => [p.action, p.economicOn])).toEqual([
         ["recognise", "2026-06-03"],
         ["cash", "2026-06-03"],
+        ["settle", "2026-06-03"],
       ]);
       expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
       expect(await expenseByProgramme(tx, id)).toEqual(
@@ -322,8 +336,9 @@ it.skipIf(!localDatabase)(
             postings.map((p) => p.id)
           )
         );
+      // The category's head, and the claims payable the payment clears.
       expect(new Set(entries.map((e) => e.accountHeadId))).toEqual(
-        new Set([head?.id])
+        new Set([head?.id, LEDGER_ACCOUNT_HEAD_IDS.claimsPayable])
       );
       expect(await stateOf(tx, id)).toMatchObject({ status: "posted" });
     });
@@ -355,7 +370,7 @@ it.skipIf(!localDatabase)(
         ])
       );
 
-      // An amount change reposts both parts at the next revision.
+      // An amount change reposts every part at the next revision.
       await tx
         .update(reimbursementLineItem)
         .set({ amountPaise: 40_000 })
@@ -366,8 +381,8 @@ it.skipIf(!localDatabase)(
           )
         );
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 2,
-        reversed: 2,
+        posted: 3,
+        reversed: 3,
       });
       expect(await balanceOf(tx, ids.bank)).toBe(-52_500);
       const revisions = (await postingsOf(tx, id)).map((p) => p.sourceRevision);
@@ -384,7 +399,7 @@ it.skipIf(!localDatabase)(
         .where(eq(reimbursement.id, id));
       expect(await run(tx, claimSource(id))).toMatchObject({
         posted: 0,
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
@@ -399,10 +414,10 @@ it.skipIf(!localDatabase)(
           status: "approved",
         })
         .where(eq(reimbursement.id, id));
-      expect(await run(tx, claimSource(id))).toMatchObject({ posted: 2 });
+      expect(await run(tx, claimSource(id))).toMatchObject({ posted: 3 });
       await tx.delete(reimbursement).where(eq(reimbursement.id, id));
       expect(await run(tx, claimSource(id))).toMatchObject({
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       expect(await balanceOf(tx, ids.bank)).toBe(0);
@@ -471,8 +486,9 @@ it.skipIf(!localDatabase)(
           approvalScreenshotKey: `approval-screenshots/reimbursements/${id}/approval-screenshots/added.png`,
         })
         .where(eq(reimbursement.id, id));
+      // The expense, the money out and the claim as payable (settle).
       expect(await run(tx, claimSource(id))).toMatchObject({
-        posted: 2,
+        posted: 3,
         status: "posted",
       });
       // On its approval day, out of the main bank account.
@@ -481,6 +497,7 @@ it.skipIf(!localDatabase)(
       ).toEqual([
         ["recognise", "2026-06-03"],
         ["cash", "2026-06-03"],
+        ["settle", "2026-06-03"],
       ]);
       expect(await balanceOf(tx, ids.bank)).toBe(-42_500);
       expect(await stateOf(tx, id)).toMatchObject({ status: "posted" });
@@ -573,6 +590,7 @@ it.skipIf(!localDatabase)(
       expect(await relatedIncomeSources(tx, payment)).toEqual([request]);
 
       // Paid, invoice not accepted: money out as a supplier advance.
+      // The advance and the money out, each in its own part.
       expect(await run(tx, payment)).toMatchObject({ posted: 2 });
       expect(await run(tx, request)).toMatchObject({
         reason: "invoice_not_accepted",
@@ -821,6 +839,8 @@ it.skipIf(!localDatabase)(
         .update(reimbursement)
         .set({ updatedAt: new Date(NOW.getTime() + 1000), userId: second })
         .where(eq(reimbursement.id, id));
+      // The payout and the claims payable name the claimant, so both
+      // parts are reposted.
       expect(await run(tx, claimSource(id))).toMatchObject({
         posted: 2,
         reversed: 2,
@@ -867,17 +887,22 @@ it.skipIf(!localDatabase)(
       expect(await run(tx, claimSource(id))).toMatchObject({
         posted: 0,
         reason: "voided",
-        reversed: 2,
+        reversed: 3,
         status: "none",
       });
       const postings = await postingsOf(tx, id);
+      // The reversals are written in one run; their order isn't fixed.
       expect(
-        postings.map((p) => [p.action, p.economicOn, p.reason ?? null])
+        postings
+          .map((p) => [p.action, p.economicOn, p.reason ?? null])
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
       ).toEqual([
-        ["recognise", "2026-06-03", null],
         ["cash", "2026-06-03", null],
-        ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
+        ["recognise", "2026-06-03", null],
         ["reverse:cash", "2026-11-02", "The reimbursement was voided"],
+        ["reverse:recognise", "2026-11-02", "The reimbursement was voided"],
+        ["reverse:settle", "2026-11-02", "The reimbursement was voided"],
+        ["settle", "2026-06-03", null],
       ]);
       // The reversing entries and movements are dated the void day too.
       const reversalIds = postings
@@ -906,7 +931,7 @@ it.skipIf(!localDatabase)(
         posted: 0,
         reversed: 0,
       });
-      expect(await postingsOf(tx, id)).toHaveLength(4);
+      expect(await postingsOf(tx, id)).toHaveLength(6);
     });
   }
 );
@@ -933,9 +958,9 @@ it.skipIf(!localDatabase)(
         reversed: 0,
         status: "waiting",
       });
-      expect(await postingsOf(tx, id)).toHaveLength(2);
+      expect(await postingsOf(tx, id)).toHaveLength(3);
       await tx.update(fiscalYear).set({ closedAt: null });
-      expect(await run(tx, claimSource(id))).toMatchObject({ reversed: 2 });
+      expect(await run(tx, claimSource(id))).toMatchObject({ reversed: 3 });
     });
   }
 );
