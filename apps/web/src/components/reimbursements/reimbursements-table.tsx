@@ -19,6 +19,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
+import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
@@ -79,6 +80,8 @@ const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
 const SKELETON_TYPE = <Skeleton className="h-6 w-24" />;
 
 interface ReimbursementsTableProps {
+  /** Count shortcuts beside the status tabs ("Unallocated", "Missing payment proof"). */
+  attentionViews?: DataTableAttentionView[];
   data: RequestRow[];
   isLoading?: boolean;
   onDelete: (row: RequestRow) => Promise<void>;
@@ -179,6 +182,7 @@ function searchReimbursement(row: RequestRow, query: string): boolean {
 }
 
 export function ReimbursementsTable({
+  attentionViews,
   data,
   isLoading,
   onDelete,
@@ -572,6 +576,7 @@ export function ReimbursementsTable({
         emptyMessage="No reimbursements found."
         compactOnMobile
         filter={{
+          attentionViews,
           fields: filterFields,
           getValue: getReimbursementFilterValue,
           viewField: "status",

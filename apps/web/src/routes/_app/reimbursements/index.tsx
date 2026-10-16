@@ -9,9 +9,10 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { UnallocatedFilterButton } from "@/components/expenses/unallocated-filter-button";
+import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
+import { useUnallocatedAttentionView } from "@/components/expenses/unallocated-attention-view";
 import { VoidDialog } from "@/components/form/void-dialog";
-import { MissingProofFilterButton } from "@/components/reimbursements/missing-proof-filter-button";
+import { useMissingProofAttentionView } from "@/components/reimbursements/missing-proof-attention-view";
 import { computeReimbursementStats } from "@/components/reimbursements/reimbursement-stats";
 import { ReimbursementsTable } from "@/components/reimbursements/reimbursements-table";
 import { PageHeader } from "@/components/shared/page-header";
@@ -80,6 +81,11 @@ function ReimbursementsRouteComponent() {
 
   const postedIds = usePostedSourceIds("reimbursement");
   const voidedFilter = useVoidedFilter(allData);
+  const unallocatedView = useUnallocatedAttentionView(reimbursements);
+  const missingProofView = useMissingProofAttentionView(allData);
+  const attentionViews = [unallocatedView, missingProofView].filter(
+    (view): view is DataTableAttentionView => view !== null
+  );
   const [voidTarget, setVoidTarget] = useState<RequestRow | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
 
@@ -180,19 +186,14 @@ function ReimbursementsRouteComponent() {
           )}
         />
         <ReimbursementsTable
+          attentionViews={attentionViews}
           data={voidedFilter.rows}
           isLoading={isLoading}
           onDelete={handleDelete}
           onNavigate={stableOnNavigate1}
           onVoid={setVoidTarget}
           postedIds={postedIds}
-          toolbarActions={
-            <>
-              <UnallocatedFilterButton rows={reimbursements} />
-              <MissingProofFilterButton rows={allData} />
-              {voidedFilter.button}
-            </>
-          }
+          toolbarActions={voidedFilter.button}
         />
       </div>
       <VoidDialog

@@ -98,17 +98,31 @@ test.describe("Payment proof after approval", () => {
     await expect(
       page.getByRole("row").filter({ hasText: fixture.earlyNoProofTitle })
     ).toHaveCount(0);
-    // The count button applies the same filter.
+    // The attention view beside the status tabs applies the same filter.
     await page.goto("/reimbursements");
     await waitForZeroReady(page);
-    await page
-      .getByRole("button", { name: /^Missing payment proof · / })
-      .click();
+    const missingView = page.getByRole("tab", {
+      name: /^Missing payment proof \d+$/,
+    });
+    await missingView.click();
     await expect(page).toHaveURL(/filters=/);
+    await expect(missingView).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: /^All \d+$/ })).toHaveAttribute(
+      "aria-selected",
+      "false"
+    );
     await page.getByPlaceholder("Search reimbursements...").fill(noProofTitle);
     await expect(
       page.getByRole("row").filter({ hasText: noProofTitle })
     ).toBeVisible({ timeout: 15_000 });
+    // A status tab replaces it: the attention view is no longer selected.
+    await page.getByRole("tab", { name: /^Approved \d+$/ }).click();
+    await expect(
+      page.getByRole("tab", { name: /^Approved \d+$/ })
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(missingView).toHaveAttribute("aria-selected", "false");
+    // The Voided toggle stays in the toolbar, not among the views.
+    await expect(page.getByRole("tab", { name: /voided/i })).toHaveCount(0);
 
     // The waiting list's link opens the claim with Add payment proof.
     await page.goto("/finance/books");
@@ -200,7 +214,7 @@ test.describe("Payment proof after approval", () => {
     await page.goto("/reimbursements");
     await waitForZeroReady(page);
     await expect(
-      page.getByRole("button", { name: /^Missing payment proof · / })
+      page.getByRole("tab", { name: /^Missing payment proof / })
     ).toHaveCount(0);
   });
 });
