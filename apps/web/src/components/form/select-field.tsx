@@ -13,6 +13,7 @@ import {
   type FormFieldApi,
   type FormInstance,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -124,6 +125,7 @@ export function SelectField({
   validators,
 }: SelectFieldProps) {
   const resolvedForm = useResolvedForm(form, "SelectField");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <CustomField<string | undefined>
       controlId={id}
@@ -143,7 +145,7 @@ export function SelectField({
           isRequired={isRequired}
           options={options}
           placeholder={placeholder}
-          submitted={resolvedForm.state.submissionAttempts > 0}
+          submitted={submitted}
           triggerClassName={triggerClassName}
         />
       )}

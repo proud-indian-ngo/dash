@@ -22,6 +22,7 @@ import { FormActions } from "@/components/form/form-actions";
 import {
   type FormFieldApi,
   getFieldErrorState,
+  useFormSubmitted,
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -156,6 +157,7 @@ function InvoiceFormContent({
       onSubmit: invoiceFormSchema,
     },
   });
+  const submitted = useFormSubmitted(form);
   const stableOnCancel0 = useEventCallback(() => onOpenChange(false));
   const selectKind = useEventCallback((next: string[]) => {
     const picked = next[0];
@@ -253,7 +255,7 @@ function InvoiceFormContent({
             {(field) => {
               const { hasError, errorMessageId } = getFieldErrorState(
                 field as unknown as FormFieldApi,
-                form.state.submissionAttempts > 0
+                submitted
               );
               return (
                 <div className="flex flex-col gap-2">

@@ -9,6 +9,7 @@ import {
   type FormInstance,
   blurField,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -70,6 +71,7 @@ export function TextareaField({
   ...props
 }: TextareaFieldProps) {
   const resolvedForm = useResolvedForm(form, "TextareaField");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <CustomField
       description={description}
@@ -85,7 +87,7 @@ export function TextareaField({
           {...props}
           field={field}
           isRequired={isRequired}
-          submitted={resolvedForm.state.submissionAttempts > 0}
+          submitted={submitted}
         />
       )}
     </CustomField>

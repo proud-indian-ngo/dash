@@ -7,6 +7,7 @@ import {
   type FormInstance,
   blurField,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -36,6 +37,7 @@ export function PhoneField({
   ...props
 }: PhoneFieldProps) {
   const resolvedForm = useResolvedForm(form, "PhoneField");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <CustomField
       description={description}
@@ -49,7 +51,7 @@ export function PhoneField({
       {(field) => (
         <PhoneInput
           {...props}
-          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
+          {...fieldErrorProps(field, submitted)}
           aria-required={isRequired}
           id={field.name}
           onBlur={(event: { relatedTarget: EventTarget | null }) =>

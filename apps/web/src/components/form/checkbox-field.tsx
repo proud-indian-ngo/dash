@@ -10,6 +10,7 @@ import {
   type FormInstance,
   blurField,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "./form-context";
 
@@ -63,6 +64,7 @@ export function CheckboxField({
   validators,
 }: CheckboxFieldProps) {
   const resolvedForm = useResolvedForm(form, "CheckboxField");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <div className="flex flex-col gap-1">
       <CustomField<boolean>
@@ -79,7 +81,7 @@ export function CheckboxField({
             field={field}
             isRequired={isRequired}
             readonly={readonly}
-            submitted={resolvedForm.state.submissionAttempts > 0}
+            submitted={submitted}
           />
         )}
       </CustomField>

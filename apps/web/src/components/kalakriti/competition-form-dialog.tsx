@@ -33,6 +33,7 @@ import { FormActions } from "@/components/form/form-actions";
 import {
   type FormFieldApi,
   fieldErrorProps,
+  useFormSubmitted,
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -289,6 +290,7 @@ function CompetitionForm({
     },
     validators: { onChange: schema, onSubmit: schema },
   });
+  const submitted = useFormSubmitted(form);
   return (
     <FormLayout form={form}>
       <InputField autoFocus isRequired label="Competition name" name="name" />
@@ -315,7 +317,7 @@ function CompetitionForm({
             <AgeCategoryDivisionPicker
               field={field}
               options={activeAgeCategories}
-              submitted={form.state.submissionAttempts > 0}
+              submitted={submitted}
             />
           )}
         </CustomField>

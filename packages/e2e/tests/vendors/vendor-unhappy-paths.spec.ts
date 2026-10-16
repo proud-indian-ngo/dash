@@ -39,6 +39,25 @@ test.describe("Vendor unhappy paths (admin)", () => {
     await expect(dialog).toBeHidden();
   });
 
+  test("submitting with Enter shows the error on the field being typed in", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Add vendor" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    // Typing without leaving the field, then Enter: the field never blurs,
+    // so only the submit attempt reveals its error.
+    const ifsc = dialog.getByRole("textbox", { name: "IFSC Code" });
+    await ifsc.fill("BAD");
+    await ifsc.press("Enter");
+
+    await expect(ifsc).toHaveAttribute("aria-invalid", "true");
+    await expect(
+      dialog.getByText("Invalid IFSC code (e.g. SBIN0001234)")
+    ).toBeVisible();
+  });
+
   test("cannot delete vendor with existing payment requests", async ({
     page,
   }) => {

@@ -17,7 +17,11 @@ import { DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
 import type { FieldValidatorConfig, FormInstance } from "./form-context";
-import { getFieldErrorState, useResolvedForm } from "./form-context";
+import {
+  getFieldErrorState,
+  useFormSubmitted,
+  useResolvedForm,
+} from "./form-context";
 
 interface DateFieldProps {
   description?: ReactNode;
@@ -141,6 +145,7 @@ export function DateField({
   validators,
 }: DateFieldProps) {
   const resolvedForm = useResolvedForm(form, "DateField");
+  const submitted = useFormSubmitted(resolvedForm);
   return (
     <CustomField<Date | undefined>
       description={description}
@@ -152,7 +157,6 @@ export function DateField({
       validators={validators}
     >
       {(field) => {
-        const submitted = resolvedForm.state.submissionAttempts > 0;
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
           submitted

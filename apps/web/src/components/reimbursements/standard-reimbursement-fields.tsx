@@ -25,6 +25,7 @@ import type {
 } from "@/components/form/form-context";
 import {
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "@/components/form/form-context";
 import { InputField } from "@/components/form/input-field";
@@ -201,6 +202,7 @@ export function StandardReimbursementFields({
     undefined,
     "StandardReimbursementFields"
   );
+  const submitted = useFormSubmitted(resolvedForm);
 
   function renderBankAccountField() {
     if (bankAccountOptions.length > 0) {
@@ -214,8 +216,6 @@ export function StandardReimbursementFields({
           name="bankAccountName"
         >
           {(field) => {
-            const submitted = resolvedForm.state.submissionAttempts > 0;
-
             return (
               <BankAccountSelect
                 bankAccountList={bankAccountList}

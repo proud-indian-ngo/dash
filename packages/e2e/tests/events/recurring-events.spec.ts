@@ -68,6 +68,35 @@ test.describe("Recurring events", () => {
     await expect(recurrenceBadges.first()).toBeVisible();
   });
 
+  test("changing the start time refreshes the recurrence preview", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Create event" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(`E2E Recurrence Preview ${Date.now()}`);
+
+    const first = new Date(Date.now() + 86_400_000);
+    const later = new Date(Date.now() + 3 * 86_400_000);
+    const day = (date: Date) =>
+      `${date.getDate()} ${date.toLocaleString("en-US", { month: "short" })} ${date.getFullYear()}`;
+
+    await pickDate(dialog, "Start time", first);
+    await openAdvancedSettings(dialog);
+    await dialog.getByText("None (one-time)").click();
+    await page.getByRole("option", { name: "Weekly" }).click();
+
+    const preview = dialog.getByText(/^Next \d+ occurrences$/).locator("..");
+    await expect(preview).toContainText(day(first));
+
+    await pickDate(dialog, "Start time", later);
+    await expect(preview).toContainText(day(later));
+    await expect(preview).not.toContainText(day(first));
+  });
+
   test("recurring events appear on the events page", async ({ page }) => {
     await page.goto(`/events?s=${encodeURIComponent(SEEDED_RECURRING)}`);
     await expect(
