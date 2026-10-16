@@ -14,6 +14,7 @@ import {
   relatedIncomeSources,
   type SweepResult,
   sweepIncomeSources,
+  type TransactionRunner,
 } from "./income-posting";
 import { INCOME_RULES_VERSION } from "./income-rules";
 
@@ -54,27 +55,38 @@ export async function postIncomeSourceNow(
 }
 
 /** The income rules version every source was last looked at under (`app_config`). */
-const INCOME_RULES_VERSION_KEY = "ledger_income_rules_version";
+export const INCOME_RULES_VERSION_KEY = "ledger_income_rules_version";
 
-async function sweptRulesVersion(): Promise<number> {
-  const [row] = await db
-    .select({ value: appConfig.value })
-    .from(appConfig)
-    .where(eq(appConfig.key, INCOME_RULES_VERSION_KEY))
-    .limit(1);
-  const version = Number(row?.value ?? 0);
-  return Number.isInteger(version) ? version : 0;
+/** Where the swept rules version is kept: the app database, or a test's transaction. */
+export interface RulesVersionStore {
+  read: () => Promise<number>;
+  record: () => Promise<void>;
 }
 
-async function recordSweptRulesVersion() {
-  const value = String(INCOME_RULES_VERSION);
-  await db
-    .insert(appConfig)
-    .values({ key: INCOME_RULES_VERSION_KEY, updatedAt: new Date(), value })
-    .onConflictDoUpdate({
-      set: { updatedAt: new Date(), value },
-      target: appConfig.key,
-    });
+export function rulesVersionStore(
+  handle: Pick<LedgerTx, "insert" | "select">
+): RulesVersionStore {
+  return {
+    read: async () => {
+      const [row] = await handle
+        .select({ value: appConfig.value })
+        .from(appConfig)
+        .where(eq(appConfig.key, INCOME_RULES_VERSION_KEY))
+        .limit(1);
+      const version = Number(row?.value ?? 0);
+      return Number.isInteger(version) ? version : 0;
+    },
+    record: async () => {
+      const value = String(INCOME_RULES_VERSION);
+      await handle
+        .insert(appConfig)
+        .values({ key: INCOME_RULES_VERSION_KEY, updatedAt: new Date(), value })
+        .onConflictDoUpdate({
+          set: { updatedAt: new Date(), value },
+          target: appConfig.key,
+        });
+    },
+  };
 }
 
 /**
@@ -90,20 +102,27 @@ export async function postPendingIncome(
   options: ListOptions & {
     actorId: string | null;
     deadline?: number;
+    now?: () => Date;
     onFailure?: (source: IncomeSource, error: unknown) => void;
+    /** Defaults to one app-database transaction per source. */
+    run?: TransactionRunner;
+    /** Defaults to the app database's `app_config`. */
+    versionStore?: RulesVersionStore;
   }
 ): Promise<SweepResult> {
+  const store =
+    options.versionStore ??
+    rulesVersionStore(db as unknown as Pick<LedgerTx, "insert" | "select">);
   const everything =
     !options.range &&
-    (!options.incremental ||
-      (await sweptRulesVersion()) < INCOME_RULES_VERSION);
+    (!options.incremental || (await store.read()) < INCOME_RULES_VERSION);
   const result = await sweepIncomeSources({
     ...options,
     incremental: options.incremental && !everything,
-    run: inTransaction,
+    run: options.run ?? inTransaction,
   });
   if (everything && result.remaining === 0 && result.failed === 0) {
-    await recordSweptRulesVersion();
+    await store.record();
   }
   return result;
 }

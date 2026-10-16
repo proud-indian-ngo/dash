@@ -29,7 +29,7 @@ import { party } from "../schema/party";
 import { reimbursement, reimbursementLineItem } from "../schema/reimbursement";
 import { team } from "../schema/team";
 import { teamEvent } from "../schema/team-event";
-import { vendor, vendorPayment } from "../schema/vendor";
+import { vendor, vendorPayment, vendorPaymentLineItem } from "../schema/vendor";
 import { vendorPaymentTransaction } from "../schema/vendor-payment-transaction";
 import { type LedgerTx, post } from "./engine";
 import {
@@ -38,6 +38,7 @@ import {
   planIncomeSource,
   postIncomeSource,
 } from "./income-posting";
+import { INCOME_RULES_VERSION } from "./income-rules";
 
 /**
  * Database-backed checks that expense postings carry the document's cost
@@ -520,6 +521,158 @@ it.skipIf(!localDatabase)(
         )
       ).rejects.toThrow();
       await tx.execute(sql`rollback to savepoint no_centre`);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reposts a vendor payment and its payment once, the money untouched",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      const vpId = uuidv7();
+      await tx.insert(vendorPayment).values({
+        chargedTo: "organisation",
+        costCentreId: BLR,
+        createdAt: NOW,
+        id: vpId,
+        invoiceDate: "2026-07-15",
+        invoiceNumber: "INV-1",
+        invoiceReviewedAt: new Date("2026-07-20T06:00:00Z"),
+        reviewedAt: NOW,
+        status: "completed",
+        title: "Sound system",
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorId: ids.vendor,
+      });
+      await tx.insert(vendorPaymentLineItem).values({
+        amountPaise: 40_000,
+        categoryId: ids.category,
+        createdAt: NOW,
+        id: uuidv7(),
+        sortOrder: 0,
+        updatedAt: NOW,
+        vendorPaymentId: vpId,
+      });
+      const paymentId = uuidv7();
+      await tx.insert(vendorPaymentTransaction).values({
+        amountPaise: 40_000,
+        createdAt: NOW,
+        id: paymentId,
+        reviewedAt: NOW,
+        status: "approved",
+        transactionDate: new Date("2026-07-10T05:00:00Z"),
+        updatedAt: NOW,
+        userId: ids.user,
+        vendorPaymentId: vpId,
+      });
+      const payment: IncomeSource = {
+        sourceId: paymentId,
+        sourceType: "vendor_payment_transaction",
+      };
+      const invoice: IncomeSource = {
+        sourceId: vpId,
+        sourceType: "vendor_payment",
+      };
+      await postWithoutCostCentre(tx, payment);
+      await postWithoutCostCentre(tx, invoice);
+      const before = await bankBalance(tx, ids.bank);
+
+      // The payment's advance part and the invoice repost; the payment's
+      // money part compares equal and stays.
+      expect(await run(tx, payment)).toMatchObject({ posted: 1, reversed: 1 });
+      expect(await run(tx, invoice)).toMatchObject({ posted: 1, reversed: 1 });
+      expect(await bankBalance(tx, ids.bank)).toBe(before);
+      expect(await booksDifference(tx)).toBe(baseline);
+      // Expense 40,000 and the advance raised and cleared, all under BLR.
+      expect(await netByCostCentre(tx, [vpId, paymentId])).toEqual(
+        new Map([
+          [null, 0],
+          [BLR, 40_000],
+        ])
+      );
+      expect(await run(tx, payment)).toMatchObject({ posted: 0, reversed: 0 });
+      expect(await run(tx, invoice)).toMatchObject({ posted: 0, reversed: 0 });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reverses a voided claim posted without a cost centre on its void day, and reposts nothing",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      const id = await addClaim(tx, ids);
+      await postWithoutCostCentre(tx, claimSource(id));
+      const VOIDED_AT = new Date("2026-11-02T05:00:00Z");
+      await tx
+        .update(reimbursement)
+        .set({ updatedAt: VOIDED_AT, voidedAt: VOIDED_AT, voidReason: "Dup" })
+        .where(eq(reimbursement.id, id));
+      expect(await run(tx, claimSource(id))).toMatchObject({
+        posted: 0,
+        reason: "voided",
+        reversed: 3,
+        status: "none",
+      });
+      expect(await netByCostCentre(tx, [id])).toEqual(new Map([[null, 0]]));
+      expect(await bankBalance(tx, ids.bank)).toBe(0);
+      expect(await booksDifference(tx)).toBe(baseline);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "records rules version 3 after one sweep over everything while frozen sources wait, and then runs incrementally",
+  async () => {
+    // The runner module opens the app database pool on import; point it at
+    // the test database (it is not used: the sweep runs in this transaction).
+    process.env.DATABASE_URL ??= databaseUrl;
+    process.env.SKIP_VALIDATION ??= "true";
+    const { postPendingIncome, rulesVersionStore } =
+      await import("./income-runner");
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const id = await addClaim(tx, ids);
+      await postWithoutCostCentre(tx, claimSource(id));
+      const before = await postingsOf(tx, id);
+      const store = rulesVersionStore(tx);
+      await tx.execute(
+        sql`insert into app_config (key, value, updated_at)
+          values ('ledger_income_rules_version', '2', now())
+          on conflict (key) do update set value = '2'`
+      );
+      // Every year closed: the claim, like everything else, waits.
+      await tx.update(fiscalYear).set({ closedAt: NOW });
+      const options = {
+        actorId: null,
+        incremental: true,
+        now: () => NOW,
+        run: <T>(work: (t: LedgerTx) => Promise<T>) => work(tx),
+        versionStore: store,
+      };
+
+      const first = await postPendingIncome(options);
+      expect(first).toMatchObject({ failed: 0, remaining: 0, reversed: 0 });
+      expect(first.waiting).toBeGreaterThanOrEqual(1);
+      expect(await store.read()).toBe(INCOME_RULES_VERSION);
+      expect(await postingsOf(tx, id)).toEqual(before);
+
+      // Incremental from now on: only the waiting sources are looked at
+      // again, and they still wait, so nothing moves and nothing loops.
+      const second = await postPendingIncome(options);
+      expect(second).toMatchObject({
+        failed: 0,
+        posted: 0,
+        remaining: 0,
+        reversed: 0,
+      });
+      expect(second.checked).toBeLessThanOrEqual(first.checked);
+      expect(await store.read()).toBe(INCOME_RULES_VERSION);
+      expect(await postingsOf(tx, id)).toEqual(before);
     });
   }
 );
