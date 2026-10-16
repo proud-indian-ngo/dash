@@ -31,7 +31,7 @@ import {
 } from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
 import { log } from "evlog";
@@ -44,6 +44,7 @@ import { FormActions } from "@/components/form/form-actions";
 import {
   type FormFieldApi,
   fieldErrorProps,
+  useFormSubmitted,
   useResolvedForm,
 } from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
@@ -234,13 +235,8 @@ function selectSessionId(state: { values: { sessionId: string } }): string {
   return state.values.sessionId;
 }
 
-function selectMusicFieldState(state: {
-  values: { sessionId: string; studentIds: string[] };
-}) {
-  return {
-    sessionId: state.values.sessionId,
-    studentCount: state.values.studentIds.length,
-  };
+function selectIsSubmitting(state: { isSubmitting: boolean }): boolean {
+  return state.isSubmitting;
 }
 
 function shouldShowEntryMusicField({
@@ -281,13 +277,29 @@ interface EntryValidationIssue {
   path: "sessionId" | "studentIds";
 }
 
+/**
+ * Where a Session-level issue shows: the Session picker, or Students when the
+ * Session is fixed or an Entry is being edited and the picker isn't rendered.
+ */
+function sessionIssuePath({
+  entry,
+  fixedSession,
+}: {
+  entry?: KalakritiEntryRow;
+  fixedSession?: KalakritiEntrySession;
+}): EntryValidationIssue["path"] {
+  return fixedSession || entry ? "studentIds" : "sessionId";
+}
+
 function getIndividualSelectionIssue({
   entries,
+  entry,
   fixedSession,
   session,
   students,
 }: {
   entries: readonly KalakritiEntryRow[];
+  entry?: KalakritiEntryRow;
   fixedSession?: KalakritiEntrySession;
   session: KalakritiEntrySession;
   students: readonly KalakritiEntryStudent[];
@@ -301,14 +313,14 @@ function getIndividualSelectionIssue({
     if (message) {
       return {
         message,
-        path: fixedSession ? "studentIds" : "sessionId",
+        path: sessionIssuePath({ entry, fixedSession }),
       };
     }
   }
   return null;
 }
 
-function getEntryValidationIssues({
+export function getEntryValidationIssues({
   entries,
   entry,
   fixedSession,
@@ -328,7 +340,12 @@ function getEntryValidationIssues({
   const session = sessions.find((candidate) => candidate.id === sessionId);
   if (!session) {
     return sessionId
-      ? [{ message: unavailableSessionMessage, path: "sessionId" }]
+      ? [
+          {
+            message: unavailableSessionMessage,
+            path: sessionIssuePath({ entry, fixedSession }),
+          },
+        ]
       : [];
   }
   const selectedStudents = studentIds.flatMap((studentId) => {
@@ -353,6 +370,7 @@ function getEntryValidationIssues({
   }
   const issue = getIndividualSelectionIssue({
     entries,
+    entry,
     fixedSession,
     session,
     students: selectedStudents,
@@ -372,6 +390,7 @@ function StudentCombobox({
   options: readonly StudentComboboxOption[];
 }) {
   const form = useResolvedForm(undefined, "StudentCombobox");
+  const submitted = useFormSubmitted(form);
 
   return (
     <CustomField<string[]>
@@ -385,7 +404,7 @@ function StudentCombobox({
           field={field}
           maximum={maximum}
           options={options}
-          submitted={form.state.submissionAttempts > 0}
+          submitted={submitted}
         />
       )}
     </CustomField>
@@ -542,13 +561,16 @@ function EntryForm({
         (candidate) => candidate.id === value.sessionId
       );
       if (!session) {
-        form.setFieldMeta("sessionId", (previous) => ({
-          ...previous,
-          errorMap: {
-            ...previous.errorMap,
-            onServer: { message: unavailableSessionMessage },
-          },
-        }));
+        form.setFieldMeta(
+          sessionIssuePath({ entry, fixedSession }),
+          (previous) => ({
+            ...previous,
+            errorMap: {
+              ...previous.errorMap,
+              onServer: { message: unavailableSessionMessage },
+            },
+          })
+        );
         return;
       }
       if (
@@ -589,6 +611,24 @@ function EntryForm({
     },
     validators: { onChange: validationSchema, onSubmit: validationSchema },
   });
+  const isSubmitting = useSelector(form.store, selectIsSubmitting);
+  // The Session whose music field shows, or null: a primitive, so the field
+  // re-renders only when that changes. Staged music keeps the field visible.
+  const selectMusicSessionId = (state: {
+    values: { music: unknown[]; sessionId: string; studentIds: string[] };
+  }): string | null => {
+    const session = sessions.find(
+      (candidate) => candidate.id === state.values.sessionId
+    );
+    if (!session) {
+      return null;
+    }
+    const studentCount = state.values.studentIds.length;
+    return shouldShowEntryMusicField({ entry, session, studentCount }) ||
+      state.values.music.length > 0
+      ? session.id
+      : null;
+  };
 
   function finishMutation(
     result: EntryMutationResult,
@@ -733,10 +773,7 @@ function EntryForm({
 
   return (
     <FormLayout form={form} showSubmitError>
-      <fieldset
-        className="grid gap-4"
-        disabled={uploading || form.state.isSubmitting}
-      >
+      <fieldset className="grid gap-4" disabled={uploading || isSubmitting}>
         {fixedSession || entry ? null : (
           <form.Subscribe selector={(state) => state.values.music.length}>
             {(musicCount) => (
@@ -799,16 +836,12 @@ function EntryForm({
             );
           }}
         </form.Subscribe>
-        <form.Subscribe selector={selectMusicFieldState}>
-          {({ sessionId, studentCount }) => {
+        <form.Subscribe selector={selectMusicSessionId}>
+          {(musicSessionId) => {
             const session = sessions.find(
-              (candidate) => candidate.id === sessionId
+              (candidate) => candidate.id === musicSessionId
             );
-            if (
-              !session ||
-              (!shouldShowEntryMusicField({ entry, session, studentCount }) &&
-                form.state.values.music.length === 0)
-            ) {
+            if (!session) {
               return null;
             }
             const isGroup = session.competition.participationMode === "group";
@@ -827,7 +860,7 @@ function EntryForm({
                     centerId={centerId}
                     divisionId={session.id}
                     editionId={editionId}
-                    disabled={uploading || form.state.isSubmitting}
+                    disabled={uploading || isSubmitting}
                     onUploadingChange={setUploading}
                     onErrorsChange={setFailedUploads}
                     onChange={field.handleChange}

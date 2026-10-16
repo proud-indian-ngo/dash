@@ -226,6 +226,98 @@ test.describe("Kalakriti Competition Entry registration", () => {
     }
   });
 
+  test("unlocks the Entry form when the server rejects a registration", async ({
+    page,
+    volunteerEmail,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "volunteer",
+      "Volunteer Liaison Entry workflow"
+    );
+    test.slow();
+    const { year, centerName } = await fixture<{
+      year: number;
+      centerName: string;
+    }>("setup", "liaison", volunteerEmail);
+    const losingPage = await page.context().newPage();
+    // Hold the losing tab's create on its way to the server: it applies
+    // locally (the form re-renders mid-submit), then the server rejects it as
+    // a duplicate once the other tab's Entry is in.
+    let holdCreate = true;
+    const held: (() => void)[] = [];
+    await losingPage.routeWebSocket(/.*/, (client) => {
+      const server = client.connectToServer();
+      client.onMessage((message) => {
+        if (
+          holdCreate &&
+          message.toString().includes("kalakritiEntry.createIndividual")
+        )
+          held.push(() => server.send(message));
+        else server.send(message);
+      });
+    });
+    const winner = new KalakritiEntriesPage(page);
+    const loser = new KalakritiEntriesPage(losingPage);
+
+    let primaryFailed = false;
+    try {
+      await Promise.all([winner.goto(year), loser.goto(year)]);
+      const [winningDialog, losingDialog] = await Promise.all([
+        winner.openRegistrationForm(centerName),
+        loser.openRegistrationForm(centerName),
+      ]);
+      await winner.fillEntries(winningDialog, ["Entry Student A"]);
+      await loser.fillEntries(losingDialog, ["Entry Student A"]);
+
+      await losingDialog
+        .getByRole("button", { name: "Register Entries" })
+        .click();
+      await expect.poll(() => held.length).toBeGreaterThan(0);
+      const cancel = losingDialog.getByRole("button", {
+        exact: true,
+        name: "Cancel",
+      });
+      await expect(cancel).toBeDisabled();
+
+      await winningDialog
+        .getByRole("button", { name: "Register Entries" })
+        .click();
+      await expect(winningDialog).toBeHidden();
+      await waitForEntryCount("liaison", 1);
+
+      holdCreate = false;
+      for (const send of held.splice(0)) send();
+      await expect(
+        losingDialog.getByRole("button", {
+          exact: true,
+          name: "Register Entries",
+        })
+      ).toBeVisible();
+      await expect(losingDialog).toBeVisible();
+      await expect(cancel).toBeEnabled();
+      await expect(losingDialog.getByLabel("Students")).toBeEnabled();
+      expect((await waitForEntryCount("liaison", 1)).entries).toHaveLength(1);
+    } catch (error) {
+      primaryFailed = true;
+      throw error;
+    } finally {
+      await registrationCleanup(
+        [
+          async () => {
+            if (!losingPage.isClosed()) await losingPage.close();
+          },
+          async () => {
+            if (!page.isClosed())
+              await page.goto("about:blank", { timeout: 5000 });
+          },
+          () => fixture("cleanup", "liaison"),
+        ],
+        primaryFailed,
+        testInfo
+      );
+    }
+  });
+
   test("allows an assigned Liaison to create, edit, and remove a group Entry", async ({
     page,
     volunteerEmail,

@@ -35,7 +35,7 @@ export function PhoneField({
   validators,
   ...props
 }: PhoneFieldProps) {
-  const resolvedForm = useResolvedForm(form, "PhoneField");
+  useResolvedForm(form, "PhoneField");
   return (
     <CustomField
       description={description}
@@ -46,10 +46,10 @@ export function PhoneField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <PhoneInput
           {...props}
-          {...fieldErrorProps(field, resolvedForm.state.submissionAttempts > 0)}
+          {...fieldErrorProps(field, submitted)}
           aria-required={isRequired}
           id={field.name}
           onBlur={(event: { relatedTarget: EventTarget | null }) =>

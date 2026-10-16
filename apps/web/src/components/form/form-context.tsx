@@ -3,6 +3,7 @@ import type {
   FieldValidateOrFn,
   FieldValidators,
 } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import type { ReactNode } from "react";
 import { createContext, use } from "react";
 
@@ -50,10 +51,26 @@ export interface FormWithField {
   getFieldValue: (...args: any[]) => any;
 }
 
+/** The slice of form state that shared form components read. */
+export interface FormStateSlice {
+  errorMap?: { onSubmit?: unknown };
+  isSubmitting: boolean;
+  submissionAttempts: number;
+  values: unknown;
+}
+
 export interface FormWithState {
-  state: {
-    errorMap?: { onSubmit?: unknown };
-    submissionAttempts: number;
+  state: FormStateSlice;
+  /**
+   * Reactive form state. Read it with `useSelector(form.store, selector)` (or
+   * `form.Subscribe`) during render; `form.state` is a snapshot that neither
+   * re-renders the component nor survives React Compiler memoization.
+   */
+  store: {
+    get(): FormStateSlice;
+    subscribe(listener: (value: FormStateSlice) => void): {
+      unsubscribe: () => void;
+    };
   };
 }
 
@@ -145,6 +162,13 @@ export function fieldErrorProps(field: FormFieldApi, submitted = false) {
     "aria-describedby": hasError ? errorMessageId : undefined,
     "aria-invalid": hasError,
   } as const;
+}
+
+const selectSubmitted = (state: FormStateSlice) => state.submissionAttempts > 0;
+
+/** Whether the form has been submitted at least once; re-renders when it is. */
+export function useFormSubmitted(form: FormInstance): boolean {
+  return useSelector(form.store, selectSubmitted);
 }
 
 export function useResolvedForm(

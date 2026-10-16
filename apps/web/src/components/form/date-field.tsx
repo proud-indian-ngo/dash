@@ -140,7 +140,7 @@ export function DateField({
   startMonth = new Date(1900, 0, 1),
   validators,
 }: DateFieldProps) {
-  const resolvedForm = useResolvedForm(form, "DateField");
+  useResolvedForm(form, "DateField");
   return (
     <CustomField<Date | undefined>
       description={description}
@@ -151,8 +151,7 @@ export function DateField({
       name={name}
       validators={validators}
     >
-      {(field) => {
-        const submitted = resolvedForm.state.submissionAttempts > 0;
+      {(field, submitted) => {
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
           submitted

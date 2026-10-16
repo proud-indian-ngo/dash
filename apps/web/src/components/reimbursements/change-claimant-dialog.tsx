@@ -8,7 +8,10 @@ import z from "zod";
 
 import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
-import { fieldErrorProps } from "@/components/form/form-context";
+import {
+  fieldErrorProps,
+  useFormSubmitted,
+} from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormModal } from "@/components/form/form-modal";
 import { SelectField } from "@/components/form/select-field";
@@ -149,6 +152,7 @@ function ChangeClaimantForm({
       onSubmit: changeClaimantFormSchema,
     },
   });
+  const submitted = useFormSubmitted(form);
   const handleCancel = useEventCallback(() => onOpenChange(false));
   const getAccountId = useEventCallback(() =>
     form.getFieldValue("bankAccountId")
@@ -166,11 +170,7 @@ function ChangeClaimantForm({
         {(field) => (
           <ClaimantCombobox
             id={field.name}
-            invalid={
-              fieldErrorProps(field, form.state.submissionAttempts > 0)[
-                "aria-invalid"
-              ]
-            }
+            invalid={fieldErrorProps(field, submitted)["aria-invalid"]}
             onBlur={field.handleBlur}
             onValueChange={field.handleChange}
             users={candidates}

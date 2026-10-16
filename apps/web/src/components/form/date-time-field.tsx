@@ -288,7 +288,7 @@ export function DateTimeField({
   placeholder = "Pick date and time",
   validators,
 }: DateTimeFieldProps) {
-  const resolvedForm = useResolvedForm(form, "DateTimeField");
+  useResolvedForm(form, "DateTimeField");
   return (
     <CustomField<Date | undefined>
       description={description}
@@ -299,8 +299,7 @@ export function DateTimeField({
       name={name}
       validators={validators}
     >
-      {(field) => {
-        const submitted = resolvedForm.state.submissionAttempts > 0;
+      {(field, submitted) => {
         const { hasError, errorMessageId } = getFieldErrorState(
           field,
           submitted

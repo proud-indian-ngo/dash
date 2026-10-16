@@ -107,3 +107,4 @@ export function MyDialog({ open, onOpenChange }: Props) {
 - **Never** show validation errors via `toast.error` — let inline form errors handle it
 - **Never** use `form.reset()` + `useEffect` for dialog reset — use `formKey` remount
 - **Never** use raw `<Label>` + `<Input>` — use the form field components
+- **Never** read form state during render (`form.state.*`, `form.getFieldValue()` in a component body or a render-prop closure). `useForm` does not re-render on changes and the React Compiler caches the read against the stable `form`, so the value goes stale. Read it with `form.Subscribe` (put every value the children use in the selector), `useSelector(form.store, selector)` from `@tanstack/react-form`, or the shared `useFormSubmitted(form)` from `form-context`. Inside a field's render prop, `field.state` is safe; reads in event handlers, effects, listeners and validators are fine.

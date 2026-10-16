@@ -123,7 +123,7 @@ export function SelectField({
   triggerClassName = "w-full",
   validators,
 }: SelectFieldProps) {
-  const resolvedForm = useResolvedForm(form, "SelectField");
+  useResolvedForm(form, "SelectField");
   return (
     <CustomField<string | undefined>
       controlId={id}
@@ -135,7 +135,7 @@ export function SelectField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <SelectFieldControl
           disabled={disabled}
           field={field}
@@ -143,7 +143,7 @@ export function SelectField({
           isRequired={isRequired}
           options={options}
           placeholder={placeholder}
-          submitted={resolvedForm.state.submissionAttempts > 0}
+          submitted={submitted}
           triggerClassName={triggerClassName}
         />
       )}

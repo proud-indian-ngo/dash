@@ -62,7 +62,7 @@ export function CheckboxField({
   readonly = false,
   validators,
 }: CheckboxFieldProps) {
-  const resolvedForm = useResolvedForm(form, "CheckboxField");
+  useResolvedForm(form, "CheckboxField");
   return (
     <div className="flex flex-col gap-1">
       <CustomField<boolean>
@@ -74,12 +74,12 @@ export function CheckboxField({
         orientation="horizontal"
         validators={validators}
       >
-        {(field) => (
+        {(field, submitted) => (
           <CheckboxFieldControl
             field={field}
             isRequired={isRequired}
             readonly={readonly}
-            submitted={resolvedForm.state.submissionAttempts > 0}
+            submitted={submitted}
           />
         )}
       </CustomField>
