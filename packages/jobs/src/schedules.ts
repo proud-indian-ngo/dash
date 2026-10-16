@@ -97,6 +97,22 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 1800, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Daily at 2:45 AM IST — create the compliance calendar's coming items
+  await boss.schedule(
+    "generate-compliance-items",
+    "45 2 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
+  // Daily at 9:15 AM IST — compliance items due in 30, 7 or 1 days
+  await boss.schedule(
+    "remind-compliance-items",
+    "15 9 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Daily at 9:00 AM IST — trustee terms ending in 90, 30 or 7 days
   await boss.schedule(
     "remind-trustee-terms",

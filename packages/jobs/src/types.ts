@@ -792,6 +792,8 @@ export interface JobPayloads {
   "notify-resolution-decided": NotifyResolutionPayload;
   "close-due-resolutions": Record<string, never>;
   "retimestamp-governance-archives": Record<string, never>;
+  "generate-compliance-items": Record<string, never>;
+  "remind-compliance-items": Record<string, never>;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;

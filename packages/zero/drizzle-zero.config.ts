@@ -18,6 +18,8 @@ export default drizzleZeroConfig(drizzleSchema, {
     bankAccount: true,
     budget: true,
     budgetLine: true,
+    complianceItem: true,
+    complianceTemplate: true,
     contribution: true,
     contributionReceipt: true,
     contributionRefund: true,

@@ -1163,6 +1163,13 @@
       "when": 1792423866684,
       "tag": "0165_governance_signing",
       "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1792423978654,
+      "tag": "0166_governance_compliance",
+      "breakpoints": true
     }
   ]
 }

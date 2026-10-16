@@ -130,3 +130,19 @@ export const resolutionQueries = {
           .related("resolution")
   ),
 };
+
+export const complianceQueries = {
+  items: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.complianceItem
+          .related("evidence")
+          .orderBy("dueOn", "asc")
+          .orderBy("title", "asc")
+      : zql.complianceItem.where("id", "__never_match__").related("evidence")
+  ),
+  templates: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.complianceTemplate.orderBy("title", "asc")
+      : zql.complianceTemplate.where("id", "__never_match__")
+  ),
+};
