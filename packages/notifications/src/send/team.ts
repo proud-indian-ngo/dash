@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
@@ -54,6 +55,11 @@ export async function notifyTeamUpdated({
     title: "📋 Team update",
     topic: TOPICS.TEAMS,
     userIds: memberIds,
+    whatsappTemplate: whatsappTemplate(
+      "team_details_changed",
+      { team: teamName },
+      `/teams/${teamId}`
+    ),
   });
 }
 
@@ -81,6 +87,11 @@ export async function notifyTeamDeleted({
     title: "📋 Team removed",
     topic: TOPICS.TEAMS,
     userIds: memberIds,
+    whatsappTemplate: whatsappTemplate(
+      "team_deleted",
+      { team: teamName },
+      "/teams"
+    ),
   });
 }
 
@@ -109,6 +120,11 @@ export async function notifyAddedToTeam({
     title: "🙌 You're on the team!",
     to: userId,
     topic: TOPICS.TEAMS,
+    whatsappTemplate: whatsappTemplate(
+      "team_added",
+      { team: teamName },
+      `/teams/${teamId}`
+    ),
   });
 }
 
@@ -137,6 +153,11 @@ export async function notifyRemovedFromTeam({
     title: "📋 Team change",
     to: userId,
     topic: TOPICS.TEAMS,
+    whatsappTemplate: whatsappTemplate(
+      "team_removed",
+      { team: teamName },
+      "/teams"
+    ),
   });
 }
 
@@ -178,5 +199,10 @@ export async function notifyTeamRoleChanged({
     title: `${titleEmoji} ${heading}`,
     to: userId,
     topic: TOPICS.TEAMS,
+    whatsappTemplate: whatsappTemplate(
+      "team_role_changed",
+      { role: newRole, team: teamName },
+      `/teams/${teamId}`
+    ),
   });
 }

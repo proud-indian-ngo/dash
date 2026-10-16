@@ -8,7 +8,11 @@ import { eq, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
+import { isCloudApiEnabled } from "./cloud";
+import { sendWhatsAppNotification } from "./notify";
 import { formatPhoneForWhatsApp } from "./phone";
+import { getEnabledUserPhonesForTopic } from "./preferences";
+import { whatsappTemplate } from "./template-message";
 import { getUserPhone } from "./users";
 
 const WHATSAPP_JID_SUFFIX = /@s\.whatsapp\.net$/;
@@ -307,7 +311,7 @@ export async function manageOrientationGroupMembership(
       ALL_VOLUNTEERS_GROUP_ID
     );
     if (allVolunteersJid) {
-      await addToWhatsAppGroup(allVolunteersJid, phone);
+      await addOrInviteToWhatsAppGroup(allVolunteersJid, phone, userId);
     }
     const orientationJid = await getGroupJidByConfigKey(ORIENTATION_GROUP_ID);
     if (orientationJid) {
@@ -316,7 +320,7 @@ export async function manageOrientationGroupMembership(
   } else {
     const orientationJid = await getGroupJidByConfigKey(ORIENTATION_GROUP_ID);
     if (orientationJid) {
-      await addToWhatsAppGroup(orientationJid, phone);
+      await addOrInviteToWhatsAppGroup(orientationJid, phone, userId);
     }
   }
 }
@@ -366,4 +370,164 @@ export async function getAllGroupJidsForUser(
   }
 
   return [...jids];
+}
+
+/** The group's invite link from GoWA, or null when it can't be had. */
+export async function getWhatsAppGroupInviteLink(
+  groupJid: string
+): Promise<string | null> {
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    return null;
+  }
+  const url = new URL(`${apiUrl}/group/invite-link`);
+  url.searchParams.set("group_id", groupJid);
+  const response = await fetch(url.toString(), {
+    headers: getWhatsAppHeaders(),
+    method: "GET",
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `WhatsApp group invite link error ${response.status}: ${text}`
+    );
+  }
+  const data = (await response.json()) as {
+    results?: { invite_link?: string };
+  };
+  const link = data.results?.invite_link;
+  return link?.startsWith("https://chat.whatsapp.com/") ? link : null;
+}
+
+/** WhatsApp topic settings that decide who gets a group invite. */
+const TEAMS_TOPIC = "Teams";
+const EVENTS_TOPIC = "Events - Schedule";
+
+/**
+ * How the invite names what the person joined: the team or event the group
+ * belongs to, else the dashboard (the all-volunteers and orientation groups).
+ * The topic is the WhatsApp setting someone turns off to stop invites.
+ */
+async function describeGroup(
+  groupId: string
+): Promise<{ joined: string; topic: string }> {
+  const [teamRow] = await db
+    .select({ name: team.name })
+    .from(team)
+    .where(eq(team.whatsappGroupId, groupId))
+    .limit(1);
+  if (teamRow) {
+    return { joined: `the team ${teamRow.name}`, topic: TEAMS_TOPIC };
+  }
+  const [eventRow] = await db
+    .select({ name: teamEvent.name })
+    .from(teamEvent)
+    .where(eq(teamEvent.whatsappGroupId, groupId))
+    .limit(1);
+  if (eventRow) {
+    return { joined: `the event ${eventRow.name}`, topic: EVENTS_TOPIC };
+  }
+  return { joined: "Proud Indian Dashboard", topic: EVENTS_TOPIC };
+}
+
+const indiaDate = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "Asia/Kolkata",
+  year: "numeric",
+});
+
+export interface GroupInviteResult {
+  alreadyMember: number;
+  invited: number;
+  /** No phone, or WhatsApp turned off for the group's topic. */
+  optedOut: number;
+  rejected: number;
+}
+
+/**
+ * Send the group invite template instead of adding people. Adding people
+ * who haven't saved the number is a strong ban signal for the GoWA number,
+ * so with the Cloud API on, people join through the invite link themselves.
+ * Skips people already in the group and people who turned WhatsApp off for
+ * the group's topic; one invite per group per person per day. Each person
+ * is tried on their own; a transient failure is rethrown at the end so the
+ * job retries (people already invited are skipped then).
+ */
+export async function inviteToWhatsAppGroup(
+  groupJid: string,
+  userIds: string[]
+): Promise<GroupInviteResult> {
+  const result: GroupInviteResult = {
+    alreadyMember: 0,
+    invited: 0,
+    optedOut: 0,
+    rejected: 0,
+  };
+  const [group] = await db
+    .select({ id: whatsappGroup.id, name: whatsappGroup.name })
+    .from(whatsappGroup)
+    .where(eq(whatsappGroup.jid, groupJid))
+    .limit(1);
+  if (!group || userIds.length === 0) {
+    return result;
+  }
+  const { joined, topic } = await describeGroup(group.id);
+  const phones = await getEnabledUserPhonesForTopic(userIds, topic);
+  result.optedOut = userIds.length - phones.size;
+  if (phones.size === 0) {
+    return result;
+  }
+  const participants = new Set(await getGroupParticipants(groupJid));
+  const template = whatsappTemplate(
+    "group_invite",
+    { group: group.name, joined },
+    `/whatsapp-groups/${group.id}/join`
+  );
+  const day = indiaDate.format(new Date());
+  let transient: unknown;
+  for (const [userId, phone] of phones) {
+    if (participants.has(formatPhoneForWhatsApp(phone))) {
+      result.alreadyMember += 1;
+      continue;
+    }
+    try {
+      const outcome = await sendWhatsAppNotification(
+        phone,
+        { template, text: "" },
+        { idempotencyKey: `group-invite-${group.id}-${userId}-${day}`, userId }
+      );
+      if (outcome === "sent" || outcome === "duplicate") {
+        result.invited += 1;
+      } else {
+        result.rejected += 1;
+      }
+    } catch (error) {
+      transient ??= error;
+      const log = createRequestLogger({
+        method: "POST",
+        path: "inviteToWhatsAppGroup",
+      });
+      log.set({ groupId: group.id, userId });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
+    }
+  }
+  if (transient) {
+    throw transient;
+  }
+  return result;
+}
+
+/** Invite through the Cloud API when it's on; otherwise add through GoWA. */
+export async function addOrInviteToWhatsAppGroup(
+  groupJid: string,
+  phone: string,
+  userId: string
+): Promise<void> {
+  if (isCloudApiEnabled()) {
+    await inviteToWhatsAppGroup(groupJid, [userId]);
+    return;
+  }
+  await addToWhatsAppGroup(groupJid, phone);
 }

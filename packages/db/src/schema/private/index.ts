@@ -8,4 +8,5 @@ export * from "./email-suppression";
 export * from "./party-private";
 export * from "./imports";
 export * from "./held-notification";
+export * from "./whatsapp-message";
 export * from "./receipts";

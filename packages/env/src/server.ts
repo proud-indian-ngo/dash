@@ -121,6 +121,27 @@ export const env = createEnv({
     WHATSAPP_API_URL: z.url().optional(),
     WHATSAPP_AUTH_PASS: z.string().min(1).optional(),
     WHATSAPP_AUTH_USER: z.string().min(1).optional(),
+    /**
+     * WhatsApp Cloud API (official). With the token and phone number ID set,
+     * notifications go through Meta as templates; GoWA keeps groups, polls
+     * and scheduled messages.
+     */
+    WHATSAPP_CLOUD_ACCESS_TOKEN: z.string().min(1).optional(),
+    /** App secret that signs `/api/whatsapp/cloud/webhook` requests; unset disables the route. */
+    WHATSAPP_CLOUD_APP_SECRET: z.string().min(1).optional(),
+    /** WhatsApp Business Account ID; required with the token (template categories). */
+    WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID: z
+      .string()
+      .min(1)
+      .optional()
+      .refine(
+        (v) => !process.env.WHATSAPP_CLOUD_ACCESS_TOKEN || !!v,
+        "WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID is required with WHATSAPP_CLOUD_ACCESS_TOKEN"
+      ),
+    WHATSAPP_CLOUD_GRAPH_VERSION: z.string().min(1).default("v25.0"),
+    WHATSAPP_CLOUD_PHONE_NUMBER_ID: z.string().min(1).optional(),
+    /** Shared token Meta echoes back when the webhook URL is registered. */
+    WHATSAPP_CLOUD_VERIFY_TOKEN: z.string().min(1).optional(),
     WHATSAPP_WEBHOOK_SECRET: z.string().min(1),
     ZERO_ADMIN_PASSWORD: z.string().optional(),
     ZERO_LOG_LEVEL: z.string().default("debug"),

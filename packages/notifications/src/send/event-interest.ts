@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
@@ -60,6 +61,11 @@ export async function notifyEventInterestReceived({
     title: "🙋 Someone's interested!",
     topic: TOPICS.EVENTS_INTEREST,
     userIds: leadUserIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_interest_received",
+      { event: eventName, volunteer: volunteerName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -90,6 +96,11 @@ export async function notifyEventInterestApproved({
     title: "✅ You're in!",
     to: userId,
     topic: TOPICS.EVENTS_INTEREST,
+    whatsappTemplate: whatsappTemplate(
+      "event_interest_approved",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -120,6 +131,11 @@ export async function notifyEventInterestRejected({
     title: "📅 Interest update",
     to: userId,
     topic: TOPICS.EVENTS_INTEREST,
+    whatsappTemplate: whatsappTemplate(
+      "event_interest_declined",
+      { event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -151,5 +167,10 @@ export async function notifyEventVolunteerLeft({
     title: "🏃 Volunteer left",
     topic: TOPICS.EVENTS_INTEREST,
     userIds: leadUserIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_volunteer_left",
+      { event: eventName, volunteer: volunteerName },
+      `/events/${eventId}`
+    ),
   });
 }

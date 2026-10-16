@@ -53,6 +53,8 @@ export async function handleSendNotification(
         title,
         to: userId,
         topic,
+        // An admin's free-text message has no approved template.
+        whatsappTemplate: null,
       });
 
       log.set({ event: "job_complete" });

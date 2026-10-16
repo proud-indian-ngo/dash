@@ -22,7 +22,7 @@ vi.mock("../send-message", () => ({
 }));
 
 import { TOPICS } from "../topics";
-import { notifyKalakritiGuardianAccess } from "./user";
+import { notifyKalakritiGuardianAccess, notifyUserBanned } from "./user";
 
 describe("Kalakriti Guardian access notification", () => {
   beforeEach(() => {
@@ -63,7 +63,41 @@ describe("Kalakriti Guardian access notification", () => {
         title: "Guardian access for Kalakriti 2028",
         to: "user-1",
         topic: TOPICS.ACCOUNT,
+        whatsappTemplate: {
+          name: "kalakriti_guardian_ready",
+          params: { edition: "Kalakriti 2028" },
+          path: "kalakriti/2028",
+        },
       });
     }
   );
+});
+
+describe("suspended account notification", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends the reason in the WhatsApp template when there is one", async () => {
+    await notifyUserBanned({ reason: "Missed\nshifts", userId: "user-1" });
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        whatsappTemplate: {
+          name: "account_suspended",
+          params: { reason: "Missed shifts" },
+        },
+      })
+    );
+  });
+
+  it("uses the no-reason template when there is no reason", async () => {
+    await notifyUserBanned({ userId: "user-1" });
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        whatsappTemplate: { name: "account_suspended_no_reason", params: {} },
+      })
+    );
+  });
 });

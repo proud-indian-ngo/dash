@@ -93,4 +93,68 @@ describe("submission approval notifications", () => {
       },
     });
   });
+
+  it("fills the request_approved_with_note template when there is a note", async () => {
+    const notifier = createSubmissionNotifier({
+      entityLabel: "Reimbursement",
+      getLineItems: async () => [
+        { amountPaise: 150_000, categoryName: "Travel", description: null },
+      ],
+      idempotencyPrefix: "reimbursement",
+      listNoun: "reimbursements",
+      routePrefix: "reimbursements",
+      statusTopic: TOPICS.REQUESTS_STATUS,
+      submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+    });
+
+    await notifier.notifyApproved({
+      entityId: "request-1",
+      note: "Paid by UPI",
+      submitterId: "user-1",
+      title: "Travel",
+    });
+
+    expect(mocks.sendMessage.mock.calls[0]?.[0]).toMatchObject({
+      whatsappTemplate: {
+        name: "request_approved_with_note",
+        params: {
+          amount: "₹1,500.00",
+          note: "Paid by UPI",
+          request_type: "reimbursement",
+          title: "Travel",
+        },
+        path: "reimbursements/request-1",
+      },
+    });
+  });
+
+  it("fills the request_approved template without a note or line items", async () => {
+    const notifier = createSubmissionNotifier({
+      entityLabel: "Advance Payment",
+      getLineItems: async () => [],
+      idempotencyPrefix: "advance-payment",
+      listNoun: "advance payments",
+      routePrefix: "advance-payments",
+      statusTopic: TOPICS.REQUESTS_STATUS,
+      submittedTopic: TOPICS.REQUESTS_SUBMISSIONS,
+    });
+
+    await notifier.notifyApproved({
+      entityId: "request-2",
+      submitterId: "user-1",
+      title: "Stage hire",
+    });
+
+    expect(mocks.sendMessage.mock.calls[0]?.[0]).toMatchObject({
+      whatsappTemplate: {
+        name: "request_approved",
+        params: {
+          amount: "amount not entered",
+          request_type: "advance payment",
+          title: "Stage hire",
+        },
+        path: "advance-payments/request-2",
+      },
+    });
+  });
 });

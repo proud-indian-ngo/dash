@@ -44,6 +44,8 @@ export async function handleSendScheduledMessage(
         title,
         to: userId,
         topic,
+        // A free-text message has no approved template.
+        whatsappTemplate: null,
       });
 
       log.set({ event: "job_complete" });

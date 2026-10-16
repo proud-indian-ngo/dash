@@ -2,9 +2,11 @@ import { db } from "@pi-dash/db";
 import { team } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import {
-  addToWhatsAppGroup,
+  addOrInviteToWhatsAppGroup,
   addUsersToWhatsAppGroup,
+  inviteToWhatsAppGroup,
   createWhatsAppGroup,
   getTeamWhatsAppGroupJid,
   manageOrientationGroupMembership,
@@ -96,7 +98,7 @@ export async function handleWhatsAppAddMember(
       if (group) {
         const phone = await getUserPhone(userId);
         if (phone) {
-          await addToWhatsAppGroup(group.jid, phone);
+          await addOrInviteToWhatsAppGroup(group.jid, phone, userId);
         }
       }
 
@@ -122,9 +124,13 @@ export async function handleWhatsAppAddMembers(
         where: (row, { eq: equals }) => equals(row.id, groupId),
       });
       if (group) {
-        const phoneMap = await getUserPhones(userIds);
-        const phones = [...phoneMap.values()];
-        await addUsersToWhatsAppGroup(group.jid, phones);
+        if (isCloudApiEnabled()) {
+          const invites = await inviteToWhatsAppGroup(group.jid, userIds);
+          log.set({ ...invites });
+        } else {
+          const phoneMap = await getUserPhones(userIds);
+          await addUsersToWhatsAppGroup(group.jid, [...phoneMap.values()]);
+        }
       }
 
       log.set({ event: "job_complete" });
@@ -177,7 +183,7 @@ export async function handleWhatsAppAddMemberTeam(
       if (jid) {
         const phone = await getUserPhone(userId);
         if (phone) {
-          await addToWhatsAppGroup(jid, phone);
+          await addOrInviteToWhatsAppGroup(jid, phone, userId);
         }
       }
 

@@ -99,6 +99,7 @@ const CLASSIFIED_API_POST_FILES = [
   // Webhook: verified by signature, outside the audit ledger; it stages the
   // payment and enqueues the import job, or enqueues the refund job.
   "routes/api/razorpay/webhook.ts",
+  "routes/api/whatsapp/cloud/webhook.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
   "routes/api/zero/query.ts",

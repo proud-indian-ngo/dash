@@ -2,15 +2,18 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { env } from "@pi-dash/env/server";
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
-import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
+import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
+import { sendWhatsAppNotification } from "@pi-dash/whatsapp/notify";
 import {
   getEnabledUserPhonesForTopic,
   isWhatsAppTopicEnabled,
 } from "@pi-dash/whatsapp/preferences";
+import type { WhatsAppTemplateMessage } from "@pi-dash/whatsapp/template-message";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createRequestLogger } from "evlog";
 
 import { type HeldRecipient, holdNotification } from "./batching";
+import { forEachLimited } from "./concurrency";
 import { buildWhatsAppText } from "./digest";
 import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { insertBulkNotifications, insertNotification } from "./inbox";
@@ -40,6 +43,11 @@ export interface SendMessageOptions {
   title: string;
   to: string;
   topic: Topic;
+  /**
+   * The WhatsApp Cloud API template. `null` means this message deliberately
+   * has none: with the Cloud API on it isn't sent (or held) on WhatsApp.
+   */
+  whatsappTemplate: WhatsAppTemplateMessage | null;
 }
 
 export interface SendMessageResult {
@@ -54,6 +62,32 @@ export interface SendMessageResult {
 }
 
 const sendCaptureStore = new AsyncLocalStorage<CapturedSend[]>();
+
+/** WhatsApp DMs in flight at once for one bulk send. */
+const BULK_WHATSAPP_CONCURRENCY = 5;
+
+/**
+ * Whether WhatsApp has a message to send: with the Cloud API on, only a
+ * template can go out, so a message without one is left off WhatsApp.
+ */
+function hasWhatsAppForm(template: WhatsAppTemplateMessage | null): boolean {
+  return template !== null || !isCloudApiEnabled();
+}
+
+/** "sent" and "duplicate" (already sent by an earlier attempt) delivered it. */
+function delivered(outcome: string): boolean {
+  return outcome === "sent" || outcome === "duplicate";
+}
+
+function logWhatsAppError(
+  error: unknown,
+  fields: Record<string, unknown>
+): void {
+  const log = createRequestLogger();
+  log.set({ channel: "whatsapp", ...fields });
+  log.error(error instanceof Error ? error : String(error));
+  log.emit();
+}
 
 function recordSend(entry: CapturedSend): void {
   sendCaptureStore.getStore()?.push(entry);
@@ -71,6 +105,7 @@ export async function sendMessage({
   immediate,
   topic,
   channels,
+  whatsappTemplate,
 }: SendMessageOptions): Promise<SendMessageResult> {
   if (await isNotificationsDisabled()) {
     const log = createRequestLogger();
@@ -116,7 +151,9 @@ export async function sendMessage({
   const held = !immediate && isBatchedTopic(topic);
   const wantsEmail =
     (channels?.includes("email") ?? true) && prefs.emailEnabled && !!email;
-  const wantsWhatsApp = channels?.includes("whatsapp") ?? true;
+  const wantsWhatsApp =
+    (channels?.includes("whatsapp") ?? true) &&
+    hasWhatsAppForm(whatsappTemplate);
   const whatsappText = buildWhatsAppText({
     appName: env.APP_NAME,
     appUrl: env.APP_URL,
@@ -139,6 +176,10 @@ export async function sendMessage({
         })
       : false;
 
+  // A thrown send is transient (throttled, 5xx, network): it's kept and
+  // rethrown once the other channels finish, so the job is retried. Every
+  // channel is idempotent by key, so the retry duplicates nothing.
+  let whatsappError: unknown;
   const whatsappPromise = (async (): Promise<boolean> => {
     if (!wantsWhatsApp) {
       return false;
@@ -154,22 +195,21 @@ export async function sendMessage({
       if (held) {
         return true;
       }
-      await sendWhatsAppMessage(phone, whatsappText, {
-        idempotencyKey: `${idempotencyKey}-whatsapp-${to}`,
-      });
-      return true;
+      const outcome = await sendWhatsAppNotification(
+        phone,
+        { template: whatsappTemplate ?? undefined, text: whatsappText },
+        { idempotencyKey: `${idempotencyKey}-whatsapp-${to}`, userId: to }
+      );
+      return delivered(outcome);
     } catch (error) {
-      const log = createRequestLogger();
-      log.set({
-        channel: "whatsapp",
+      logWhatsAppError(error, {
         handler: "sendMessage",
         idempotencyKey,
         title,
         topic,
         userId: to,
       });
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
+      whatsappError = error;
       return false;
     }
   })();
@@ -195,6 +235,7 @@ export async function sendMessage({
         recipients: heldRecipients,
         title,
         topic,
+        whatsappTemplate,
         whatsappText,
       })
     : false;
@@ -213,6 +254,9 @@ export async function sendMessage({
     topic,
   };
   recordSend({ kind: "message", result });
+  if (whatsappError !== undefined) {
+    throw whatsappError;
+  }
   return result;
 }
 
@@ -231,6 +275,8 @@ interface SendBulkMessageOptions {
   title: string;
   topic: Topic;
   userIds: string[];
+  /** See `SendMessageOptions.whatsappTemplate`. */
+  whatsappTemplate: WhatsAppTemplateMessage | null;
 }
 
 export interface SendBulkMessageResult {
@@ -276,6 +322,7 @@ export async function sendBulkMessage({
   inboxBody,
   skipWhatsApp,
   topic,
+  whatsappTemplate,
 }: SendBulkMessageOptions): Promise<SendBulkMessageResult> {
   if (userIds.length === 0) {
     const empty: SendBulkMessageResult = {
@@ -383,41 +430,59 @@ export async function sendBulkMessage({
     });
   })();
 
+  // See sendMessage: a thrown send is rethrown once every channel finishes.
+  let whatsappError: unknown;
   // For batched topics this only finds who's held: the ids, sent nothing.
   const whatsappPromise = (async (): Promise<string[]> => {
-    if (skipWhatsApp) {
+    if (skipWhatsApp || !hasWhatsAppForm(whatsappTemplate)) {
       return [];
     }
+    let phoneMap: Map<string, string>;
     try {
-      const phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
-      if (held || phoneMap.size === 0) {
-        return [...phoneMap.keys()];
-      }
-
-      const results = await Promise.allSettled(
-        [...phoneMap.entries()].map(([userId, phone]) =>
-          sendWhatsAppMessage(phone, whatsappText, {
-            idempotencyKey: `${idempotencyKey}-whatsapp-${userId}`,
-          })
-        )
-      );
-      return [...phoneMap.keys()].filter(
-        (_, i) => results[i]?.status === "fulfilled"
-      );
+      phoneMap = await getEnabledUserPhonesForTopic(userIds, topic);
     } catch (error) {
-      const log = createRequestLogger();
-      log.set({
-        channel: "whatsapp",
+      logWhatsAppError(error, {
         handler: "sendBulkMessage",
         idempotencyKey,
         title,
         topic,
         userCount: userIds.length,
       });
-      log.error(error instanceof Error ? error : String(error));
-      log.emit();
+      whatsappError = error;
       return [];
     }
+    if (held || phoneMap.size === 0) {
+      return [...phoneMap.keys()];
+    }
+
+    const sentTo = new Set<string>();
+    await forEachLimited(
+      [...phoneMap.entries()],
+      BULK_WHATSAPP_CONCURRENCY,
+      async ([userId, phone]) => {
+        const recipientKey = `${idempotencyKey}-whatsapp-${userId}`;
+        try {
+          const outcome = await sendWhatsAppNotification(
+            phone,
+            { template: whatsappTemplate ?? undefined, text: whatsappText },
+            { idempotencyKey: recipientKey, userId }
+          );
+          if (delivered(outcome)) {
+            sentTo.add(userId);
+          }
+        } catch (error) {
+          logWhatsAppError(error, {
+            handler: "sendBulkMessage",
+            idempotencyKey: recipientKey,
+            topic,
+            userId,
+          });
+          whatsappError ??= error;
+        }
+      }
+    );
+    // Report recipients in the order they were given.
+    return [...phoneMap.keys()].filter((userId) => sentTo.has(userId));
   })();
 
   const [inboxQueued, emailQueued, whatsappUserIds] = await Promise.all([
@@ -445,6 +510,7 @@ export async function sendBulkMessage({
         ],
         title,
         topic,
+        whatsappTemplate,
         whatsappText,
       })
     : false;
@@ -464,5 +530,8 @@ export async function sendBulkMessage({
     userCount: userIds.length,
   };
   recordSend({ kind: "bulk", result });
+  if (whatsappError !== undefined) {
+    throw whatsappError;
+  }
   return result;
 }

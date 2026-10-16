@@ -4,23 +4,32 @@ import { db } from "@pi-dash/db";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   type HeldNotificationChannel,
+  type HeldWhatsAppTemplate,
   heldNotification,
   heldNotificationRecipient,
 } from "@pi-dash/db/schema/private/held-notification";
 import { renderNotificationDigestEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
-import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
+import { getCloudTemplate, isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
+import {
+  pruneWhatsAppMessages,
+  sendWhatsAppNotification,
+} from "@pi-dash/whatsapp/notify";
 import { getEnabledUserPhonesForTopic } from "@pi-dash/whatsapp/preferences";
+import type { WhatsAppTemplateMessage } from "@pi-dash/whatsapp/template-message";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
+import { forEachLimited } from "./concurrency";
 import {
   buildDigest,
+  buildWhatsAppDigestTemplate,
   buildWhatsAppDigestText,
   buildWhatsAppText,
   DIGEST_EMAIL_ITEM_LIMIT,
   type DigestEntry,
+  digestRowCount,
 } from "./digest";
 import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
 import { isNotificationsDisabled } from "./kill-switch";
@@ -45,6 +54,19 @@ export const MAX_ATTEMPTS = 3;
 
 /** WhatsApp DMs in flight at once, so a large group doesn't hold up the run. */
 const WHATSAPP_CONCURRENCY = 5;
+
+/**
+ * The most held messages sent to one person as separate WhatsApp templates
+ * when the summary template is marketing. Past this the summary goes anyway:
+ * a burst of six or more messages reads as spam and runs into Meta's
+ * per-recipient rate limit, and one marketing-priced message costs less than
+ * six or more utility ones.
+ */
+export const WHATSAPP_SEPARATE_SEND_LIMIT = 5;
+
+/** The WhatsApp send log is pruned at most this often. */
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+let lastPrunedAt = 0;
 
 const RETENTION = sql`interval '2 days'`;
 const WINDOW = sql`make_interval(mins => ${BATCH_WINDOW_MINUTES}::int)`;
@@ -85,6 +107,7 @@ export async function holdNotification(input: {
   recipients: HeldRecipient[];
   title: string;
   topic: string;
+  whatsappTemplate?: HeldWhatsAppTemplate | null;
   whatsappText?: string;
 }): Promise<boolean> {
   if (input.recipients.length === 0) {
@@ -96,6 +119,7 @@ export async function holdNotification(input: {
     digest: input.digest ?? null,
     emailHtml: input.emailHtml ?? null,
     title: input.title,
+    whatsappTemplate: input.whatsappTemplate ?? null,
     whatsappText: input.whatsappText ?? null,
   };
   try {
@@ -168,6 +192,7 @@ async function warnOnKeyReuse(
 interface HeldItem extends DigestEntry {
   emailHtml: string | null;
   key: string;
+  whatsappTemplate: HeldWhatsAppTemplate | null;
   whatsappText: string | null;
 }
 
@@ -279,6 +304,7 @@ async function loadBatches(batchIds: string[]): Promise<HeldBatch[]> {
       title: heldNotification.title,
       topicId: heldNotificationRecipient.topicId,
       userId: heldNotificationRecipient.userId,
+      whatsappTemplate: heldNotification.whatsappTemplate,
       whatsappText: heldNotification.whatsappText,
     })
     .from(heldNotificationRecipient)
@@ -309,6 +335,7 @@ async function loadBatches(batchIds: string[]): Promise<HeldBatch[]> {
       emailHtml: row.emailHtml,
       key: row.key,
       title: row.title,
+      whatsappTemplate: row.whatsappTemplate,
       whatsappText: row.whatsappText,
     };
     const batch = batches.get(row.batchId);
@@ -427,27 +454,6 @@ function groupBy<T>(list: T[], keyOf: (item: T) => string): Map<string, T[]> {
   return groups;
 }
 
-/** Runs `fn` over `items` with at most `limit` in flight. */
-async function forEachLimited<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<void>
-): Promise<void> {
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    while (next < items.length) {
-      const item = items[next];
-      next += 1;
-      if (item !== undefined) {
-        await fn(item);
-      }
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, worker)
-  );
-}
-
 /**
  * A recipient with one message gets it as it was written; recipients of the
  * same message go out together through the batch endpoint, as they would
@@ -517,6 +523,135 @@ async function flushEmail(
   }
 }
 
+function singleWhatsAppText(item: HeldItem): string {
+  return (
+    item.whatsappText ??
+    buildWhatsAppText({
+      appName: env.APP_NAME,
+      appUrl: env.APP_URL,
+      body: item.body,
+      clickAction: item.clickAction ?? undefined,
+      title: item.title,
+    })
+  );
+}
+
+const DIGEST_TEMPLATE = "notifications_summary";
+
+/**
+ * Whether the Cloud API digest template can be used. "utility": always for
+ * two or more messages. "marketing" (Meta moves templates there on its own):
+ * a marketing digest costs more than a few messages sent separately and is
+ * subject to Meta's marketing limits, so only past
+ * `WHATSAPP_SEPARATE_SEND_LIMIT`. "unavailable" (not approved, or the lookup
+ * failed): never, each message goes alone.
+ */
+type DigestTemplateUse = "utility" | "marketing" | "unavailable";
+
+async function digestTemplateUse(): Promise<DigestTemplateUse> {
+  try {
+    const template = await getCloudTemplate(DIGEST_TEMPLATE);
+    if (template?.status !== "APPROVED") {
+      return "unavailable";
+    }
+    return template.category === "UTILITY" ? "utility" : "marketing";
+  } catch (error) {
+    logError(error, { handler: "digestTemplateUse" });
+    return "unavailable";
+  }
+}
+
+function useDigestFor(batch: HeldBatch, use: DigestTemplateUse): boolean {
+  if (!isCloudApiEnabled()) {
+    return true;
+  }
+  if (use === "utility") {
+    return true;
+  }
+  return (
+    use === "marketing" && batch.items.length > WHATSAPP_SEPARATE_SEND_LIMIT
+  );
+}
+
+interface WhatsAppBatchResult {
+  kind: "single" | "digest" | "separate";
+  /** Messages Meta (or GoWA) accepted in this run; repeats aren't counted. */
+  sent: number;
+  /** A send threw (throttled, 5xx, network): the batch is retried later. */
+  transientError?: unknown;
+}
+
+/**
+ * Sends one recipient's batch: one message, a digest, or each message alone.
+ * A "rejected" or "no_template" outcome is final; a thrown send is transient
+ * and is reported so the batch is retried rather than stamped sent. A retry
+ * resends under the same keys, so the parts already sent aren't repeated.
+ */
+async function sendWhatsAppBatch(
+  batch: HeldBatch,
+  phone: string,
+  digestUse: DigestTemplateUse
+): Promise<WhatsAppBatchResult> {
+  const sendOne = (item: HeldItem) =>
+    sendWhatsAppNotification(
+      phone,
+      {
+        // Written by sendMessage from a typed template, so the name is known.
+        template:
+          (item.whatsappTemplate as WhatsAppTemplateMessage | null) ??
+          undefined,
+        text: singleWhatsAppText(item),
+      },
+      {
+        idempotencyKey: `${item.key}-whatsapp-${batch.userId}`,
+        userId: batch.userId,
+      }
+    );
+  // One message, or several updates to one record: the latest, as itself.
+  const newest = batch.items.at(-1);
+  if (newest && digestRowCount(batch.items) === 1) {
+    const outcome = await sendOne(newest);
+    return { kind: "single", sent: outcome === "sent" ? 1 : 0 };
+  }
+  if (!useDigestFor(batch, digestUse)) {
+    let sent = 0;
+    let transientError: unknown;
+    for (const item of batch.items) {
+      try {
+        if ((await sendOne(item)) === "sent") {
+          sent += 1;
+        }
+      } catch (error) {
+        logError(error, {
+          batchId: batch.batchId,
+          channel: "whatsapp",
+          handler: "flushHeldNotifications",
+          idempotencyKey: item.key,
+          topic: batch.topicId,
+          userId: batch.userId,
+        });
+        transientError ??= error;
+      }
+    }
+    return { kind: "separate", sent, transientError };
+  }
+  const outcome = await sendWhatsAppNotification(
+    phone,
+    {
+      template: buildWhatsAppDigestTemplate(batch.items, batch.topicId),
+      text: buildWhatsAppDigestText(batch.items, batch.topicId, {
+        appName: env.APP_NAME,
+        appUrl: env.APP_URL,
+      }),
+    },
+    {
+      idempotencyKey: `digest-${batch.batchId}-whatsapp`,
+      userId: batch.userId,
+    }
+  );
+  return { kind: "digest", sent: outcome === "sent" ? 1 : 0 };
+}
+
 async function flushWhatsApp(
   topicId: string,
   batches: HeldBatch[],
@@ -526,35 +661,22 @@ async function flushWhatsApp(
     batches.map((b) => b.userId),
     topicId
   );
+  const digestUse: DigestTemplateUse =
+    isCloudApiEnabled() && batches.some((b) => digestRowCount(b.items) > 1)
+      ? await digestTemplateUse()
+      : "unavailable";
   await forEachLimited(batches, WHATSAPP_CONCURRENCY, async (batch) => {
     const phone = phones.get(batch.userId);
-    const [first] = batch.items;
-    if (phone && first) {
-      const single = batch.items.length === 1;
+    let transientError: unknown;
+    if (phone && batch.items.length > 0) {
       try {
-        const text = single
-          ? (first.whatsappText ??
-            buildWhatsAppText({
-              appName: env.APP_NAME,
-              appUrl: env.APP_URL,
-              body: first.body,
-              clickAction: first.clickAction ?? undefined,
-              title: first.title,
-            }))
-          : buildWhatsAppDigestText(batch.items, topicId, {
-              appName: env.APP_NAME,
-              appUrl: env.APP_URL,
-            });
-        await sendWhatsAppMessage(phone, text, {
-          idempotencyKey: single
-            ? `${first.key}-whatsapp-${batch.userId}`
-            : `digest-${batch.batchId}-whatsapp`,
-        });
-        if (single) {
-          result.singles += 1;
+        const sent = await sendWhatsAppBatch(batch, phone, digestUse);
+        if (sent.kind === "digest") {
+          result.digests += sent.sent;
         } else {
-          result.digests += 1;
+          result.singles += sent.sent;
         }
+        transientError = sent.transientError;
       } catch (error) {
         logError(error, {
           batchId: batch.batchId,
@@ -563,9 +685,16 @@ async function flushWhatsApp(
           topic: topicId,
           userId: batch.userId,
         });
+        transientError = error;
       }
     }
-    await markSent([batch.batchId]);
+    if (transientError === undefined) {
+      await markSent([batch.batchId]);
+    } else {
+      // Retried by a later run, up to MAX_ATTEMPTS; the send log's claims
+      // keep the messages that did go out from going again.
+      await expireClaims([batch.batchId]);
+    }
   });
 }
 
@@ -586,7 +715,8 @@ async function dropDue(): Promise<number> {
 
 /**
  * Clears the content of messages with nothing left to send (the inbox keeps
- * its own copy), then deletes them two days after they were held.
+ * its own copy), then deletes them two days after they were held. Also drops
+ * WhatsApp send log rows past 90 days.
  */
 async function clearAndExpire(): Promise<void> {
   const nothingUnsent = sql`not exists (
@@ -601,6 +731,7 @@ async function clearAndExpire(): Promise<void> {
       clearedAt: sql`now()`,
       digest: null,
       emailHtml: null,
+      whatsappTemplate: null,
       whatsappText: null,
     })
     .where(and(isNull(heldNotification.clearedAt), nothingUnsent));
@@ -612,14 +743,32 @@ async function clearAndExpire(): Promise<void> {
         nothingUnsent
       )
     );
+  await pruneWhatsAppLogHourly();
+}
+
+/**
+ * The Cloud API send log only needs recent delivery; this job keeps it trim,
+ * at most hourly since it runs every minute. A failed prune waits its turn.
+ */
+async function pruneWhatsAppLogHourly(now = Date.now()): Promise<void> {
+  if (now - lastPrunedAt < PRUNE_INTERVAL_MS) {
+    return;
+  }
+  lastPrunedAt = now;
+  try {
+    await pruneWhatsAppMessages();
+  } catch (error) {
+    logError(error, { handler: "pruneWhatsAppMessages" });
+  }
 }
 
 /**
  * Sends the batches this run claims: new ones past the window and any whose
  * lease ran out. Each topic and channel is sent on its own, so one failing
  * group can't hold up the rest; a failed group is retried by the next run,
- * up to `MAX_ATTEMPTS`. Delivery failures inside a group are logged and not
- * retried, as with messages sent straight away. Stops between groups once
+ * up to `MAX_ATTEMPTS`. A WhatsApp send that throws (throttled, 5xx,
+ * network) retries its batch the same way; a delivery refused outright is
+ * logged and not retried, as with messages sent straight away. Stops between groups once
  * `signal` aborts (the job expired), leaving the rest to the lease.
  */
 export async function flushHeldNotifications(

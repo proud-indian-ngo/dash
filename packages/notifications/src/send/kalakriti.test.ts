@@ -28,6 +28,7 @@ describe("Kalakriti notifications", () => {
       "Kalakriti registration open",
       "Registration is now open for Kalakriti 2028.",
       { label: "Open", tone: "success" },
+      "now open",
     ],
     [
       "registration_close_reminder",
@@ -35,6 +36,7 @@ describe("Kalakriti notifications", () => {
       "Kalakriti registration closing soon",
       "Registration for Kalakriti 2028 closes soon.",
       { label: "Closing soon", tone: "warning" },
+      "closing soon",
     ],
     [
       "registration_closed",
@@ -42,10 +44,18 @@ describe("Kalakriti notifications", () => {
       "Kalakriti registration closed",
       "Registration for Kalakriti 2028 is now closed.",
       { label: "Closed", tone: "neutral" },
+      "now closed",
     ],
   ] as const)(
     "sends %s lifecycle copy through inbox and WhatsApp",
-    async (transition, transitionRevision, title, body, status) => {
+    async (
+      transition,
+      transitionRevision,
+      title,
+      body,
+      status,
+      templateStatus
+    ) => {
       await notifyKalakritiRegistrationLifecycle({
         editionId: "edition-1",
         editionName: "Kalakriti 2028",
@@ -64,6 +74,11 @@ describe("Kalakriti notifications", () => {
         title,
         to: "user-1",
         topic: TOPICS.KALAKRITI_REGISTRATION,
+        whatsappTemplate: {
+          name: "kalakriti_registration",
+          params: { edition: "Kalakriti 2028", status: templateStatus },
+          path: "kalakriti/2028",
+        },
       });
     }
   );
@@ -85,6 +100,11 @@ describe("Kalakriti notifications", () => {
       title: "Kalakriti schedule updated",
       to: "user-1",
       topic: TOPICS.KALAKRITI_SCHEDULE,
+      whatsappTemplate: {
+        name: "kalakriti_schedule_changed",
+        params: { edition: "Kalakriti 2028" },
+        path: "kalakriti/2028/schedule",
+      },
     });
   });
 
@@ -108,6 +128,11 @@ describe("Kalakriti notifications", () => {
       title: "Kalakriti transport updated",
       to: "user-1",
       topic: TOPICS.KALAKRITI_TRANSPORT,
+      whatsappTemplate: {
+        name: "kalakriti_transport_changed",
+        params: { edition: "Kalakriti 2028" },
+        path: "kalakriti/2028/centers?centerId=center-1",
+      },
     });
   });
 
@@ -134,6 +159,11 @@ describe("Kalakriti notifications", () => {
       title: "Kalakriti Guardian access restored",
       to: "user-1",
       topic: TOPICS.KALAKRITI_REGISTRATION,
+      whatsappTemplate: {
+        name: "kalakriti_guardian_reactivated",
+        params: { edition: "Kalakriti 2028" },
+        path: "kalakriti/2028",
+      },
     });
   });
 });

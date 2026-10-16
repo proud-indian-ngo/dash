@@ -29,8 +29,61 @@ vi.mock("./email", () => ({
   sendNotificationEmail: vi.fn(async () => true),
 }));
 
+const { cloud, gowaSend, logged } = vi.hoisted(() => ({
+  cloud: { enabled: false },
+  gowaSend: vi.fn(
+    async (
+      _phone: string,
+      _message: string,
+      _options?: { idempotencyKey?: string }
+    ) => undefined
+  ),
+  logged: [] as { error?: unknown; fields: Record<string, unknown> }[],
+}));
+
+vi.mock("@pi-dash/whatsapp/cloud", () => ({
+  isCloudApiEnabled: () => cloud.enabled,
+}));
+
+// Records what each logger was given, so tests can check what's logged.
+vi.mock("evlog", () => ({
+  createRequestLogger: () => {
+    const entry: { error?: unknown; fields: Record<string, unknown> } = {
+      fields: {},
+    };
+    logged.push(entry);
+    return {
+      emit: () => undefined,
+      error: (error: unknown) => {
+        entry.error = error;
+      },
+      set: (fields: Record<string, unknown>) => {
+        Object.assign(entry.fields, fields);
+      },
+      warn: () => undefined,
+    };
+  },
+}));
+
 vi.mock("@pi-dash/whatsapp/messaging", () => ({
-  sendWhatsAppMessage: vi.fn(async () => undefined),
+  sendWhatsAppMessage: gowaSend,
+}));
+
+// The GoWA path of sendWhatsAppNotification (Cloud API not configured).
+const { gowaNotify } = vi.hoisted(() => ({
+  gowaNotify: async (
+    phone: string,
+    notification: { text: string },
+    options: { idempotencyKey: string }
+  ): Promise<"sent" | "duplicate" | "no_template" | "rejected"> => {
+    await gowaSend(phone, notification.text, {
+      idempotencyKey: options.idempotencyKey,
+    });
+    return "sent";
+  },
+}));
+vi.mock("@pi-dash/whatsapp/notify", () => ({
+  sendWhatsAppNotification: vi.fn(gowaNotify),
 }));
 
 vi.mock("@pi-dash/whatsapp/preferences", () => ({
@@ -47,6 +100,7 @@ vi.mock("@pi-dash/env/server", () => ({
 }));
 
 import { sendWhatsAppMessage } from "@pi-dash/whatsapp/messaging";
+import { sendWhatsAppNotification } from "@pi-dash/whatsapp/notify";
 import {
   getEnabledUserPhonesForTopic,
   isWhatsAppTopicEnabled,
@@ -71,6 +125,7 @@ const baseMessage = {
   title: "t",
   to: "user-1",
   topic: TOPICS.ACCOUNT,
+  whatsappTemplate: null,
 };
 
 describe("captureSends", () => {
@@ -120,6 +175,7 @@ describe("captureSends", () => {
         title: "t",
         topic: TOPICS.ACCOUNT,
         userIds: ["u1", "u2"],
+        whatsappTemplate: null,
       })
     );
     expect(sends).toHaveLength(1);
@@ -211,6 +267,7 @@ describe("sendMessage channel allowlist", () => {
       title: "t",
       topic: TOPICS.ACCOUNT,
       userIds: ["u1", "u2", "u3"],
+      whatsappTemplate: null,
     });
 
     expect(result.channels.emailQueued).toBe(true);
@@ -297,6 +354,7 @@ describe("sendBulkMessage WhatsApp delivery keys", () => {
       title: "t",
       topic: TOPICS.ACCOUNT,
       userIds: ["user-1", "user-2"],
+      whatsappTemplate: null,
     };
 
     const first = await sendBulkMessage(message);
@@ -354,6 +412,7 @@ describe("batched topics", () => {
       ],
       title: "👥 Added to team",
       topic: TOPICS.TEAMS,
+      whatsappTemplate: null,
       whatsappText:
         "*👥 Added to team*\n\nb\n\nView: http://test/teams/t1\n\n_Sent by test_(http://test)",
     });
@@ -390,6 +449,7 @@ describe("batched topics", () => {
       title: "t",
       topic: TOPICS.REQUESTS_SUBMISSIONS,
       userIds: ["u1", "u2", "u3"],
+      whatsappTemplate: null,
     });
 
     expect(sendBulkNotificationEmails).not.toHaveBeenCalled();
@@ -430,8 +490,165 @@ describe("batched topics", () => {
       title: "t",
       topic: TOPICS.EVENTS_SCHEDULE,
       userIds: ["u1"],
+      whatsappTemplate: null,
     });
 
     expect(getEnabledUserPhonesForTopic).not.toHaveBeenCalled();
+  });
+});
+
+const template = {
+  name: "account_welcome",
+  params: { name: "Asha" },
+} as const;
+
+describe("WhatsApp outcomes and failures", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    logged.length = 0;
+    cloud.enabled = false;
+    vi.mocked(sendWhatsAppNotification).mockImplementation(gowaNotify);
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getChannelPreferences).mockResolvedValue({
+      emailEnabled: true,
+      inboxEnabled: true,
+      whatsappEnabled: true,
+    });
+    vi.mocked(getUserPhone).mockResolvedValue("919999999999");
+    vi.mocked(isWhatsAppTopicEnabled).mockResolvedValue(true);
+  });
+
+  it("counts a duplicate as delivered and a rejection as not", async () => {
+    vi.mocked(sendWhatsAppNotification).mockResolvedValueOnce("duplicate");
+    const duplicate = await sendMessage(baseMessage);
+    vi.mocked(sendWhatsAppNotification).mockResolvedValueOnce("rejected");
+    const rejected = await sendMessage(baseMessage);
+
+    expect(duplicate.channels.whatsapp).toBe(true);
+    expect(rejected.channels.whatsapp).toBe(false);
+  });
+
+  it("rethrows a transient WhatsApp failure once inbox and email finish", async () => {
+    const finished: string[] = [];
+    vi.mocked(insertNotification).mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      finished.push("inbox");
+      return true;
+    });
+    vi.mocked(sendNotificationEmail).mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      finished.push("email");
+      return true;
+    });
+    vi.mocked(sendWhatsAppNotification).mockRejectedValueOnce(
+      new Error("throttled")
+    );
+
+    await expect(sendMessage(baseMessage)).rejects.toThrow("throttled");
+    expect(finished.sort()).toEqual(["email", "inbox"]);
+    expect(logged.some((l) => l.fields.channel === "whatsapp")).toBe(true);
+  });
+
+  it("holds a batched message without a template off WhatsApp on the Cloud API", async () => {
+    cloud.enabled = true;
+
+    const result = await sendMessage({ ...baseMessage, topic: TOPICS.TEAMS });
+
+    expect(getUserPhone).not.toHaveBeenCalled();
+    expect(vi.mocked(holdNotification).mock.calls[0]?.[0].recipients).toEqual([
+      { channel: "email", userId: "user-1" },
+    ]);
+    expect(result.channels.whatsapp).toBe(false);
+  });
+
+  it("holds a batched message with a template for WhatsApp on the Cloud API", async () => {
+    cloud.enabled = true;
+
+    await sendMessage({
+      ...baseMessage,
+      topic: TOPICS.TEAMS,
+      whatsappTemplate: template,
+    });
+
+    expect(vi.mocked(holdNotification).mock.calls[0]?.[0].recipients).toEqual([
+      { channel: "email", userId: "user-1" },
+      { channel: "whatsapp", userId: "user-1" },
+    ]);
+  });
+
+  it("keeps a message without a template on WhatsApp through GoWA", async () => {
+    const result = await sendMessage(baseMessage);
+    expect(result.channels.whatsapp).toBe(true);
+    expect(sendWhatsAppMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("sendBulkMessage WhatsApp sends", () => {
+  const userIds = Array.from({ length: 12 }, (_, i) => `u${i}`);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    logged.length = 0;
+    cloud.enabled = true;
+    vi.mocked(isNotificationsDisabled).mockResolvedValue(false);
+    vi.mocked(getEnabledUserPhonesForTopic).mockResolvedValue(
+      new Map(userIds.map((id) => [id, `91${id}`]))
+    );
+  });
+
+  const bulk = {
+    body: "b",
+    idempotencyKey: "k",
+    title: "t",
+    topic: TOPICS.ACCOUNT,
+    userIds,
+    whatsappTemplate: template,
+  };
+
+  it("sends at most five at once", async () => {
+    let inFlight = 0;
+    let most = 0;
+    vi.mocked(sendWhatsAppNotification).mockImplementation(async () => {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      inFlight -= 1;
+      return "sent";
+    });
+
+    const result = await sendBulkMessage(bulk);
+
+    expect(sendWhatsAppNotification).toHaveBeenCalledTimes(12);
+    expect(most).toBe(5);
+    expect(result.channels.whatsappRecipients).toBe(12);
+  });
+
+  it("logs a failed recipient, sends the rest and then fails for a retry", async () => {
+    vi.mocked(sendWhatsAppNotification).mockImplementation(
+      async (_phone, _notification, options) => {
+        if (options.userId === "u3") {
+          throw new Error("503 from Meta");
+        }
+        return options.userId === "u4" ? "rejected" : "sent";
+      }
+    );
+
+    await expect(sendBulkMessage(bulk)).rejects.toThrow("503 from Meta");
+
+    expect(sendWhatsAppNotification).toHaveBeenCalledTimes(12);
+    const failures = logged.filter((l) => l.error);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.fields).toMatchObject({
+      channel: "whatsapp",
+      idempotencyKey: "k-whatsapp-u3",
+      userId: "u3",
+    });
+    expect(JSON.stringify(failures[0]?.fields)).not.toContain("91u3");
+  });
+
+  it("skips WhatsApp on the Cloud API for a message without a template", async () => {
+    await sendBulkMessage({ ...bulk, whatsappTemplate: null });
+    expect(getEnabledUserPhonesForTopic).not.toHaveBeenCalled();
+    expect(sendWhatsAppNotification).not.toHaveBeenCalled();
   });
 });

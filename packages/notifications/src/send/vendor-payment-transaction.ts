@@ -1,6 +1,7 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatPaise, rupeesToPaise } from "@pi-dash/shared/money";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
@@ -64,6 +65,15 @@ export async function notifyVendorPaymentTransactionSubmitted(
     title: "💰 New payment logged",
     topic: TOPICS.REQUESTS_SUBMISSIONS,
     userIds: approverIds,
+    whatsappTemplate: whatsappTemplate(
+      "payment_logged",
+      {
+        amount: formatted,
+        submitter: options.submitterName,
+        title: options.vendorPaymentTitle,
+      },
+      `/vendor-payments/${options.vendorPaymentId}`
+    ),
   });
 }
 
@@ -102,6 +112,21 @@ export async function notifyVendorPaymentTransactionApproved(
     title: "✅ Payment approved!",
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: options.note
+      ? whatsappTemplate(
+          "payment_approved_with_note",
+          {
+            amount: formatted,
+            note: options.note,
+            title: options.vendorPaymentTitle,
+          },
+          `/vendor-payments/${options.vendorPaymentId}`
+        )
+      : whatsappTemplate(
+          "payment_approved",
+          { amount: formatted, title: options.vendorPaymentTitle },
+          `/vendor-payments/${options.vendorPaymentId}`
+        ),
   });
 }
 
@@ -139,5 +164,14 @@ export async function notifyVendorPaymentTransactionRejected(
     title: "↩️ Payment not approved",
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "payment_not_approved",
+      {
+        amount: formatted,
+        reason: options.reason,
+        title: options.vendorPaymentTitle,
+      },
+      `/vendor-payments/${options.vendorPaymentId}`
+    ),
   });
 }

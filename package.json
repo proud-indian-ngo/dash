@@ -92,6 +92,7 @@
     "ui:add": "turbo run --filter=@pi-dash/design-system ui:add --",
     "whatsapp:start": "turbo run --filter=@pi-dash/db whatsapp:start",
     "whatsapp:stop": "turbo run --filter=@pi-dash/db whatsapp:stop",
+    "whatsapp:templates": "bun --env-file=.env --env-file=.env.worktree run scripts/whatsapp-templates.ts",
     "worktree:setup": "bash scripts/worktree-setup.sh",
     "worktree:teardown": "bash scripts/worktree-teardown.sh",
     "zero:analyze": "turbo run --filter=@pi-dash/zero zero:analyze",
@@ -102,6 +103,7 @@
     "@pi-dash/auth": "workspace:*",
     "@pi-dash/db": "workspace:*",
     "@pi-dash/shared": "workspace:*",
+    "@pi-dash/whatsapp": "workspace:*",
     "@pi-dash/zero": "workspace:*",
     "drizzle-orm": "^0.45.4"
   },

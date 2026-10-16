@@ -117,6 +117,12 @@ The treasurer signature (`packages/pdf/assets/signature.png`) is embedded in the
 | `WHATSAPP_API_URL` | WhatsApp gateway URL; blank to disable |
 | `WHATSAPP_AUTH_USER` / `WHATSAPP_AUTH_PASS` | Gateway basic auth (default `admin`/`admin`) |
 | `WHATSAPP_WEBHOOK_SECRET` | **Required** — secret for WhatsApp webhook validation |
+| `WHATSAPP_CLOUD_ACCESS_TOKEN` | Meta system user token (expiry **Never**, permissions `whatsapp_business_messaging` and `whatsapp_business_management`). With the phone number ID set, messages to people go through the official Cloud API as templates; blank keeps everything on the gateway |
+| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | Phone number ID from the app's WhatsApp → API Setup page (not the number itself) |
+| `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID` | WhatsApp Business Account ID (not the business portfolio ID); used to read template categories and by `bun run whatsapp:templates` |
+| `WHATSAPP_CLOUD_APP_SECRET` | App secret (App settings → Basic); verifies `/api/whatsapp/cloud/webhook`, blank disables it |
+| `WHATSAPP_CLOUD_VERIFY_TOKEN` | Any random string; enter the same value as the webhook's verify token in the app's WhatsApp → Configuration page |
+| `WHATSAPP_CLOUD_GRAPH_VERSION` | Graph API version, default `v25.0` |
 | `IMMICH_API_KEY` | Immich API key |
 | `VITE_IMMICH_URL` | Public Immich URL; blank to disable |
 | `IMMICH_INTERNAL_URL` | Optional direct/internal Immich URL used by server-side jobs (photo sync, delete) to bypass Cloudflare 100 MB body limit. Example: `http://immich-server:2283` on shared Docker network. Falls back to `VITE_IMMICH_URL` when unset. |
@@ -298,6 +304,18 @@ For a fixed or offline UI build, follow [upstream's dashboard instructions](http
 GoWA v9.6.0 sends webhook requests with `Content-Length`, so the old buffering proxy is no longer needed. Local Compose sends callbacks directly to `http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook`. For local webhook testing, run the web dev server with `bun run --cwd apps/web dev --host 0.0.0.0` so Docker can reach it. If using a different `DEV_WEB_PORT`, supply the same value to the web process and Compose. The Vite configuration already allows the `host.docker.internal` hostname.
 
 Deploy the app's upstream poll parser and gateway image together. Both Compose configurations subscribe to `WHATSAPP_WEBHOOK_EVENTS=message`; change any device-specific webhook event override from `message.poll_vote` to `message` too. The app reads votes from `payload.poll` and ignores other messages and failed vote decryption. Keep the existing WhatsApp storage volume and `WHATSAPP_WEBHOOK_SECRET` when replacing the fork container.
+
+### Switching WhatsApp to the Cloud API
+
+Messages to people move to Meta's Cloud API only once both `WHATSAPP_CLOUD_ACCESS_TOKEN` and `WHATSAPP_CLOUD_PHONE_NUMBER_ID` are set; until then everything stays on the gateway. Switch in this order:
+
+1. Check every template is approved: `bun run whatsapp:templates status`. Unapproved ones aren't sent on the Cloud API.
+2. Use a Cloud API number that is neither the GoWA gateway's number nor registered on the WhatsApp or WhatsApp Business app.
+3. Set `WHATSAPP_CLOUD_APP_SECRET`, `WHATSAPP_CLOUD_VERIFY_TOKEN` and `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID`, then deploy. The deploy applies migration `0149` (send log and digest columns).
+4. In the app's WhatsApp → Configuration page, register the webhook `https://<APP_URL>/api/whatsapp/cloud/webhook` with the same verify token, and subscribe to the `messages` field.
+5. Set `WHATSAPP_CLOUD_ACCESS_TOKEN` (system user token, expiry **Never**) and `WHATSAPP_CLOUD_PHONE_NUMBER_ID`, and redeploy. This is the switch.
+
+Template buttons link to the production `APP_URL` registered with each template, so a staging deployment on the Cloud API would send people to production. Keep staging and local `.env` files without `WHATSAPP_CLOUD_PHONE_NUMBER_ID`.
 
 ## Production Checklist
 

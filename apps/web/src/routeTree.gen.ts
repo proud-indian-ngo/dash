@@ -113,6 +113,7 @@ import { Route as AppKalakritiYearTransportRouteImport } from './routes/_app/kal
 import { Route as AppKalakritiYearVolunteersRouteImport } from './routes/_app/kalakriti/$year/volunteers'
 import { Route as AppSettingsRolesIndexRouteImport } from './routes/_app/settings/roles/index'
 import { Route as AppSettingsRolesRoleIdRouteImport } from './routes/_app/settings/roles/$roleId'
+import { Route as AppWhatsappGroupsGroupIdJoinRouteImport } from './routes/_app/whatsapp-groups/$groupId.join'
 import { Route as ApiImmichOriginalIdRouteImport } from './routes/api/immich/original.$id'
 import { Route as ApiImmichThumbnailIdRouteImport } from './routes/api/immich/thumbnail.$id'
 import { Route as ApiJobsIdCancelRouteImport } from './routes/api/jobs/$id/cancel'
@@ -130,6 +131,7 @@ import { Route as ApiSocialV1PostedRouteImport } from './routes/api/social/v1/po
 import { Route as ApiSocialV1RunsRouteImport } from './routes/api/social/v1/runs'
 import { Route as ApiSocialV1SettingsRouteImport } from './routes/api/social/v1/settings'
 import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
+import { Route as ApiWhatsappCloudWebhookRouteImport } from './routes/api/whatsapp/cloud/webhook'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
 import { Route as AppKalakritiYearCompetitionsCatalogRouteImport } from './routes/_app/kalakriti/$year/competitions/catalog'
@@ -677,6 +679,12 @@ const AppSettingsRolesRoleIdRoute = AppSettingsRolesRoleIdRouteImport.update({
   path: '/$roleId',
   getParentRoute: () => AppSettingsRolesRouteRoute,
 } as any)
+const AppWhatsappGroupsGroupIdJoinRoute =
+  AppWhatsappGroupsGroupIdJoinRouteImport.update({
+    id: '/whatsapp-groups/$groupId/join',
+    path: '/whatsapp-groups/$groupId/join',
+    getParentRoute: () => AppRoute,
+  } as any)
 const ApiImmichOriginalIdRoute = ApiImmichOriginalIdRouteImport.update({
   id: '/api/immich/original/$id',
   path: '/api/immich/original/$id',
@@ -763,6 +771,11 @@ const ApiSocialV1SettingsRoute = ApiSocialV1SettingsRouteImport.update({
 const ApiSocialV1StatsRoute = ApiSocialV1StatsRouteImport.update({
   id: '/api/social/v1/stats',
   path: '/api/social/v1/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWhatsappCloudWebhookRoute = ApiWhatsappCloudWebhookRouteImport.update({
+  id: '/api/whatsapp/cloud/webhook',
+  path: '/api/whatsapp/cloud/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppKalakritiYearCentersIndexRoute =
@@ -967,6 +980,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
   '/kalakriti/$year/volunteers': typeof AppKalakritiYearVolunteersRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
+  '/whatsapp-groups/$groupId/join': typeof AppWhatsappGroupsGroupIdJoinRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
@@ -984,6 +998,7 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
+  '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books/': typeof AppFinanceBooksIndexRoute
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -1091,6 +1106,7 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
   '/kalakriti/$year/volunteers': typeof AppKalakritiYearVolunteersRoute
   '/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
+  '/whatsapp-groups/$groupId/join': typeof AppWhatsappGroupsGroupIdJoinRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
@@ -1108,6 +1124,7 @@ export interface FileRoutesByTo {
   '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
+  '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books': typeof AppFinanceBooksIndexRoute
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
@@ -1232,6 +1249,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/transport': typeof AppKalakritiYearTransportRoute
   '/_app/kalakriti/$year/volunteers': typeof AppKalakritiYearVolunteersRoute
   '/_app/settings/roles/$roleId': typeof AppSettingsRolesRoleIdRoute
+  '/_app/whatsapp-groups/$groupId/join': typeof AppWhatsappGroupsGroupIdJoinRoute
   '/api/immich/original/$id': typeof ApiImmichOriginalIdRoute
   '/api/immich/thumbnail/$id': typeof ApiImmichThumbnailIdRoute
   '/api/jobs/$id/cancel': typeof ApiJobsIdCancelRoute
@@ -1249,6 +1267,7 @@ export interface FileRoutesById {
   '/api/social/v1/runs': typeof ApiSocialV1RunsRoute
   '/api/social/v1/settings': typeof ApiSocialV1SettingsRoute
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
+  '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/_app/finance/books/': typeof AppFinanceBooksIndexRoute
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -1372,6 +1391,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/transport'
     | '/kalakriti/$year/volunteers'
     | '/settings/roles/$roleId'
+    | '/whatsapp-groups/$groupId/join'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
@@ -1389,6 +1409,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/runs'
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
+    | '/api/whatsapp/cloud/webhook'
     | '/finance/books/'
     | '/income/bank/'
     | '/kalakriti/$year/'
@@ -1496,6 +1517,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/transport'
     | '/kalakriti/$year/volunteers'
     | '/settings/roles/$roleId'
+    | '/whatsapp-groups/$groupId/join'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
@@ -1513,6 +1535,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/runs'
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
+    | '/api/whatsapp/cloud/webhook'
     | '/finance/books'
     | '/income/bank'
     | '/kalakriti/$year'
@@ -1636,6 +1659,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/transport'
     | '/_app/kalakriti/$year/volunteers'
     | '/_app/settings/roles/$roleId'
+    | '/_app/whatsapp-groups/$groupId/join'
     | '/api/immich/original/$id'
     | '/api/immich/thumbnail/$id'
     | '/api/jobs/$id/cancel'
@@ -1653,6 +1677,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/runs'
     | '/api/social/v1/settings'
     | '/api/social/v1/stats'
+    | '/api/whatsapp/cloud/webhook'
     | '/_app/finance/books/'
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
@@ -1717,6 +1742,7 @@ export interface RootRouteChildren {
   ApiSocialV1RunsRoute: typeof ApiSocialV1RunsRoute
   ApiSocialV1SettingsRoute: typeof ApiSocialV1SettingsRoute
   ApiSocialV1StatsRoute: typeof ApiSocialV1StatsRoute
+  ApiWhatsappCloudWebhookRoute: typeof ApiWhatsappCloudWebhookRoute
   ApiKalakritiYearPeopleLookupRoute: typeof ApiKalakritiYearPeopleLookupRoute
   ApiSocialV1MediaPhotoIdVariantRoute: typeof ApiSocialV1MediaPhotoIdVariantRoute
 }
@@ -2451,6 +2477,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRolesRoleIdRouteImport
       parentRoute: typeof AppSettingsRolesRouteRoute
     }
+    '/_app/whatsapp-groups/$groupId/join': {
+      id: '/_app/whatsapp-groups/$groupId/join'
+      path: '/whatsapp-groups/$groupId/join'
+      fullPath: '/whatsapp-groups/$groupId/join'
+      preLoaderRoute: typeof AppWhatsappGroupsGroupIdJoinRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/api/immich/original/$id': {
       id: '/api/immich/original/$id'
       path: '/api/immich/original/$id'
@@ -2568,6 +2601,13 @@ declare module '@tanstack/react-router' {
       path: '/api/social/v1/stats'
       fullPath: '/api/social/v1/stats'
       preLoaderRoute: typeof ApiSocialV1StatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/whatsapp/cloud/webhook': {
+      id: '/api/whatsapp/cloud/webhook'
+      path: '/api/whatsapp/cloud/webhook'
+      fullPath: '/api/whatsapp/cloud/webhook'
+      preLoaderRoute: typeof ApiWhatsappCloudWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/kalakriti/$year/centers/': {
@@ -3008,6 +3048,7 @@ interface AppRouteChildren {
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
   AppFinanceBooksOpeningRoute: typeof AppFinanceBooksOpeningRoute
+  AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
   AppFinanceBooksIndexRoute: typeof AppFinanceBooksIndexRoute
 }
 
@@ -3031,6 +3072,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
   AppFinanceBooksOpeningRoute: AppFinanceBooksOpeningRoute,
+  AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,
   AppFinanceBooksIndexRoute: AppFinanceBooksIndexRoute,
 }
 
@@ -3121,6 +3163,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSocialV1RunsRoute: ApiSocialV1RunsRoute,
   ApiSocialV1SettingsRoute: ApiSocialV1SettingsRoute,
   ApiSocialV1StatsRoute: ApiSocialV1StatsRoute,
+  ApiWhatsappCloudWebhookRoute: ApiWhatsappCloudWebhookRoute,
   ApiKalakritiYearPeopleLookupRoute: ApiKalakritiYearPeopleLookupRoute,
   ApiSocialV1MediaPhotoIdVariantRoute: ApiSocialV1MediaPhotoIdVariantRoute,
 }

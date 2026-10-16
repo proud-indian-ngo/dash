@@ -4,42 +4,37 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
+import { formatEventWhen } from "../event-time";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
+/** " on Sat, 18 Oct, 10:00 am at Cubbon Park", to follow an event name. */
 function formatEventDetails(
   startTime: number,
   location?: string | null
 ): string {
-  const date = new Date(startTime).toLocaleDateString("en-US", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    weekday: "short",
-  });
-  const parts = [` on ${date}`];
+  const parts = [` on ${formatEventWhen(startTime)}`];
   if (location) {
     parts.push(` at ${location}`);
   }
   return parts.join("");
 }
 
-const whenFormat = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  month: "short",
-  timeZone: "Asia/Kolkata",
-  weekday: "short",
-});
+/** "on Sat, 18 Oct, 10:00 am at Cubbon Park", for a WhatsApp template. */
+function eventTemplateDetails(
+  startTime: number,
+  location?: string | null
+): string {
+  return formatEventDetails(startTime, location).trim();
+}
 
 /** "Fri, 17 Oct, 6:00 pm · Community hall", for a digest row. */
 function eventWhenWhere(startTime: number, location?: string | null): string {
-  const date = whenFormat.format(new Date(startTime));
+  const date = formatEventWhen(startTime);
   return location ? `${date} · ${location}` : date;
 }
 
@@ -122,6 +117,11 @@ export async function notifyAddedToEvent({
     title: "✅ You're in!",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_added",
+      { details: eventTemplateDetails(startTime, location), event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -154,6 +154,11 @@ export async function notifyUsersAddedToEvent({
     title: "✅ You're in!",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_added",
+      { details: eventTemplateDetails(startTime, location), event: eventName },
+      `/events/${eventId}`
+    ),
   });
 }
 
@@ -183,6 +188,11 @@ export async function notifyRemovedFromEvent({
     title: "📅 Event update",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
+    whatsappTemplate: whatsappTemplate(
+      "event_removed",
+      { event: eventName },
+      `/teams/${teamId}`
+    ),
   });
 }
 
@@ -217,6 +227,11 @@ export async function notifyEventCreated({
     title: "🗓️ New event!",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: teamMemberIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_created",
+      { details: eventTemplateDetails(startTime, location), event: eventName },
+      `/teams/${teamId}`
+    ),
   });
 
   const [row] = await db
@@ -287,6 +302,11 @@ export async function notifyEventUpdated({
     title: "📅 Event update",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_schedule_changed",
+      { details: eventTemplateDetails(startTime, location), event: eventName },
+      `/teams/${teamId}`
+    ),
   });
 }
 
@@ -317,5 +337,10 @@ export async function notifyEventCancelled({
     title: "❌ Event cancelled",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
+    whatsappTemplate: whatsappTemplate(
+      "event_cancelled",
+      { event: eventName },
+      `/teams/${teamId}`
+    ),
   });
 }

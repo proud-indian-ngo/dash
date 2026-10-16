@@ -13,6 +13,7 @@ import {
   handleSocialNotifyRequest,
   notifyRequestSchema,
   type SocialNotifyDeps,
+  socialDigestSummary,
   socialNotifyIdempotencyKey,
 } from "./notify";
 import { stubAuthorize } from "./test-helpers";
@@ -71,6 +72,46 @@ describe("notifyRequestSchema", () => {
   });
 });
 
+describe("socialDigestSummary", () => {
+  it("lists every line when they fit", () => {
+    expect(socialDigestSummary(["Recap of Sunday class", "Science Fair"])).toBe(
+      "2 items: Recap of Sunday class; Science Fair"
+    );
+  });
+
+  it("includes whole lines within 280 characters and counts the rest", () => {
+    const lines = Array.from(
+      { length: 10 },
+      (_, index) => `Post ${index + 1} ${"x".repeat(60)}`
+    );
+    const summary = socialDigestSummary(lines);
+    expect(summary.length).toBeLessThanOrEqual(280);
+    expect(summary.startsWith("10 items: Post 1 ")).toBe(true);
+    expect(summary).toMatch(/; Post 3 x+ and 7 more$/);
+    expect(summary).not.toContain("Post 4");
+  });
+
+  it("shortens each line to about 100 characters and flattens whitespace", () => {
+    const summary = socialDigestSummary([
+      `First\n\nline ${"y".repeat(200)}`,
+      "Second",
+    ]);
+    const [first] = summary.slice("2 items: ".length).split("; ");
+    expect(first?.length).toBe(100);
+    expect(first?.endsWith("…")).toBe(true);
+    expect(first?.startsWith("First line ")).toBe(true);
+    expect(summary.endsWith("; Second")).toBe(true);
+  });
+
+  it("fits two shortened long lines and counts the rest", () => {
+    const summary = socialDigestSummary(
+      Array.from({ length: 40 }, () => "z".repeat(500))
+    );
+    expect(summary).toMatch(/^40 items: z+…; z+… and 38 more$/);
+    expect(summary.length).toBeLessThanOrEqual(280);
+  });
+});
+
 describe("handleSocialNotifyRequest", () => {
   it("queues one WhatsApp digest to the approver with a per-day idempotency key", async () => {
     const { deps, enqueueWhatsApp, getUserPhone } = createDeps();
@@ -86,6 +127,13 @@ describe("handleSocialNotifyRequest", () => {
       ),
       message: "Social digest\n\nRecap: Spoken English, Sat 18 Oct, 3 photos",
       phone: "+919999999999",
+      template: {
+        name: "social_digest",
+        params: {
+          summary: "1 item: Recap: Spoken English, Sat 18 Oct, 3 photos",
+        },
+        path: "social",
+      },
     });
   });
 

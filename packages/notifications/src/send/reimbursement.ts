@@ -1,6 +1,7 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
+import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { getReimbursementLineItems } from "../helpers";
 import { sendMessage } from "../send-message";
@@ -102,6 +103,11 @@ export async function notifyReimbursementRaisedForYou(options: {
     title: "🧾 A reimbursement was raised for you",
     to: claimantId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "reimbursement_raised_for_you",
+      { raised_by: raisedByName, title },
+      path
+    ),
   });
 }
 
@@ -158,6 +164,11 @@ export async function notifyReimbursementClaimantChanged(options: {
     title: "🧾 A reimbursement is now yours",
     to: newClaimantId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate(
+      "reimbursement_now_yours",
+      { changed_by: changedByName, reason, title },
+      path
+    ),
   });
 
   // The previous claimant can no longer open the request, so no link.
@@ -182,5 +193,11 @@ export async function notifyReimbursementClaimantChanged(options: {
     title: "↪️ A reimbursement was moved to someone else",
     to: previousClaimantId,
     topic: TOPICS.REQUESTS_STATUS,
+    whatsappTemplate: whatsappTemplate("reimbursement_moved_away", {
+      changed_by: changedByName,
+      new_claimant: newClaimantName,
+      reason,
+      title,
+    }),
   });
 }
