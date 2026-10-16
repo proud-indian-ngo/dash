@@ -1,0 +1,57 @@
+name: Signing helper
+
+on:
+  push:
+    tags: ["signing-helper-v*"]
+    paths: ["services/signing-helper/**"]
+  pull_request:
+    paths: ["services/signing-helper/**"]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: services/signing-helper
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+
+  macos:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/signing-helper-v')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: cargo build --release --locked --target aarch64-apple-darwin
+      - run: cargo build --release --locked --target x86_64-apple-darwin
+      - run: |
+          lipo -create -output pidash-sign \
+            target/aarch64-apple-darwin/release/pidash-sign \
+            target/x86_64-apple-darwin/release/pidash-sign
+          tar -czf pidash-sign-macos-universal.tar.gz pidash-sign
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: services/signing-helper/pidash-sign-macos-universal.tar.gz
+
+  windows:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/signing-helper-v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked
+      - run: Compress-Archive -Path target/release/pidash-sign.exe -DestinationPath pidash-sign-windows-x64.zip
+        shell: pwsh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: services/signing-helper/pidash-sign-windows-x64.zip

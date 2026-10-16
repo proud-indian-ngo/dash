@@ -59,6 +59,8 @@ function GovernanceDocumentsPage() {
   const [trustees] = useQuery(queries.trustee.all());
   const isLoading = rows.length === 0 && result.type !== "complete";
   const documents: VaultDocument[] = rows.map((d) => ({
+    archiveRenewOn: epochToIso(d.archiveRenewOn ?? null),
+    archivedAt: d.archivedAt ?? null,
     contentType: d.contentType,
     createdAt: d.createdAt,
     datedOn: epochToIso(d.datedOn),

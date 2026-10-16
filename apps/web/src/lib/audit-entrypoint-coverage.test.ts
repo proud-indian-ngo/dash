@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "startDscSigningFn",
+  "startDscEnrolmentFn",
   "recordHistoricalResolutionFn",
   "withdrawResolutionFn",
   "submitSignedResolutionFn",
@@ -65,6 +67,8 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "getSigningJobStatus",
+  "getMyDscStatus",
   "getResolutionSignUploadUrl",
   "archiveKalakritiGuardian",
   "getBankStatementSummary",
@@ -120,6 +124,9 @@ const CLASSIFIED_API_POST_FILES = [
   // Webhook: verified by signature, outside the audit ledger; it stages the
   // payment and enqueues the import job, or enqueues the refund job.
   "routes/api/razorpay/webhook.ts",
+  // DSC helper: authorised by the one-time job token; audited in its handler
+  // in the name of the trustee who started the job.
+  "routes/api/signing/jobs/$token.ts",
   "routes/api/whatsapp/cloud/webhook.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
@@ -135,6 +142,7 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
   "routes/api/jobs/$id/retry.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/index.ts": ["runSessionAuditedAction"],
   "lib/social-api/posted.ts": ["runAuditedAction", "social.posted.record"],
+  "lib/governance/signing-jobs.ts": ["runAuditedAction", "resolution.sign"],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",
     "tx.mutate.auditLog.insert",

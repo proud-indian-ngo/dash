@@ -102,6 +102,7 @@ export default drizzleZeroConfig(drizzleSchema, {
     scheduledMessage: true,
     scheduledMessageRecipient: true,
     session: false,
+    signingCertificate: true,
     socialPost: true,
     socialRun: true,
     statementAllocation: true,

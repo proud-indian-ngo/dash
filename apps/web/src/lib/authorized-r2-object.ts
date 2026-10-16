@@ -296,7 +296,9 @@ async function resolveGovernanceDocument(
     ? {
         access: "governanceDocument",
         filename: document.originalFilename,
-        key: document.objectKey,
+        // The long-term copy extends the original (revocation data and
+        // document timestamps appended), so it is the one to hand out.
+        key: document.archiveObjectKey ?? document.objectKey,
         kind: document.kind,
       }
     : null;
