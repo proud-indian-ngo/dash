@@ -25,6 +25,8 @@ import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import { ClaimForField } from "./claim-for-field";
 import { useClaimantOptions } from "./claimant-picker";
 import {
+  bankAccountFormFields,
+  bankAccountOptionLabel,
   defaultBankAccountFor,
   shouldApplyDefaultBankAccount,
 } from "./default-bank-account";
@@ -144,7 +146,7 @@ function ReimbursementFormInner({
   }
 
   const bankAccountOptions = bankAccountList.map((account) => ({
-    label: `${account.accountName} (••••${account.accountNumber.length >= 4 ? account.accountNumber.slice(-4) : account.accountNumber})`,
+    label: bankAccountOptionLabel(account),
     value: account.id,
   }));
 
@@ -165,11 +167,7 @@ function ReimbursementFormInner({
   const defaultValues: RequestFormValues = {
     ...getDefaultValues(requestType),
     ...(defaultBankAccount && !("bankAccountName" in (initialValues ?? {}))
-      ? {
-          bankAccountIfscCode: defaultBankAccount.ifscCode,
-          bankAccountName: defaultBankAccount.accountName,
-          bankAccountNumber: defaultBankAccount.accountNumber,
-        }
+      ? bankAccountFormFields(defaultBankAccount)
       : {}),
     ...strippedInitialValues,
     attachments: initialValues?.attachments ?? [],
@@ -223,6 +221,20 @@ function ReimbursementFormInner({
     },
   });
 
+  function setBankAccountFields(
+    fields: ReturnType<typeof bankAccountFormFields>,
+    options?: { dontUpdateMeta: boolean; dontValidate: boolean }
+  ) {
+    form.setFieldValue("bankAccountName", fields.bankAccountName, options);
+    form.setFieldValue("bankAccountNumber", fields.bankAccountNumber, options);
+    form.setFieldValue(
+      "bankAccountIfscCode",
+      fields.bankAccountIfscCode,
+      options
+    );
+    form.setFieldValue("bankAccountUpiId", fields.bankAccountUpiId, options);
+  }
+
   // A new request follows the (claimant's) default account as it syncs in
   // or changes, until the person picks an account in this form. Edits and
   // prefilled bank details keep what they were given.
@@ -239,6 +251,7 @@ function ReimbursementFormInner({
             accountName: form.getFieldValue("bankAccountName"),
             accountNumber: form.getFieldValue("bankAccountNumber"),
             ifscCode: form.getFieldValue("bankAccountIfscCode"),
+            upiId: form.getFieldValue("bankAccountUpiId"),
           },
           defaultAccount: defaultBankAccount,
           enabled: followsDefaultBankAccount,
@@ -250,21 +263,7 @@ function ReimbursementFormInner({
     }
     // A default, not an edit: leave the fields untouched and unvalidated.
     const asDefault = { dontUpdateMeta: true, dontValidate: true };
-    form.setFieldValue(
-      "bankAccountName",
-      defaultBankAccount.accountName,
-      asDefault
-    );
-    form.setFieldValue(
-      "bankAccountNumber",
-      defaultBankAccount.accountNumber,
-      asDefault
-    );
-    form.setFieldValue(
-      "bankAccountIfscCode",
-      defaultBankAccount.ifscCode,
-      asDefault
-    );
+    setBankAccountFields(bankAccountFormFields(defaultBankAccount), asDefault);
   }, [defaultBankAccount, followsDefaultBankAccount, form]);
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
@@ -277,9 +276,15 @@ function ReimbursementFormInner({
 
   const stableSelector0 = useEventCallback(
     (state: {
-      values: { bankAccountNumber?: string; city?: string; eventId?: string };
+      values: {
+        bankAccountNumber?: string;
+        bankAccountUpiId?: string;
+        city?: string;
+        eventId?: string;
+      };
     }) => ({
       bankAccountNumber: state.values.bankAccountNumber,
+      bankAccountUpiId: state.values.bankAccountUpiId,
       city: state.values.city,
       eventId: state.values.eventId,
     })
@@ -291,9 +296,7 @@ function ReimbursementFormInner({
       if (source === "user") {
         bankAccountPickedByUser.current = true;
       }
-      form.setFieldValue("bankAccountName", account.accountName);
-      form.setFieldValue("bankAccountNumber", account.accountNumber);
-      form.setFieldValue("bankAccountIfscCode", account.ifscCode);
+      setBankAccountFields(bankAccountFormFields(account));
     }
   );
   // A new claimant means a new set of accounts: clear the old choice so the
@@ -302,9 +305,12 @@ function ReimbursementFormInner({
     if (nextId === claimantId) {
       return;
     }
-    form.setFieldValue("bankAccountName", "");
-    form.setFieldValue("bankAccountNumber", "");
-    form.setFieldValue("bankAccountIfscCode", "");
+    setBankAccountFields({
+      bankAccountIfscCode: "",
+      bankAccountName: "",
+      bankAccountNumber: "",
+      bankAccountUpiId: "",
+    });
     bankAccountPickedByUser.current = false;
     setClaimantId(nextId);
   });
@@ -320,7 +326,12 @@ function ReimbursementFormInner({
         />
       ) : null}
       <form.Subscribe selector={stableSelector0}>
-        {({ bankAccountNumber, city: selectedCity, eventId }) => {
+        {({
+          bankAccountNumber,
+          bankAccountUpiId,
+          city: selectedCity,
+          eventId,
+        }) => {
           const filteredOptions = getFilteredEventOptions(selectedCity);
           if (eventId && !filteredOptions.some((o) => o.value === eventId)) {
             setTimeout(() => form.setFieldValue("eventId", undefined), 0);
@@ -329,6 +340,7 @@ function ReimbursementFormInner({
             <StandardReimbursementFields
               bankAccountList={bankAccountList}
               bankAccountNumber={bankAccountNumber}
+              bankAccountUpiId={bankAccountUpiId}
               bankAccountsKey={claimantId}
               claimantName={claimantName}
               bankAccountOptions={bankAccountOptions}

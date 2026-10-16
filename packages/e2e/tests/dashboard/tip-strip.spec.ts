@@ -1,7 +1,7 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const BANK_TIP =
-  "Add your bank account once in Settings → Bank accounts, and every claim fills it in for you.";
+  "Add your bank account or UPI once in Settings → Bank accounts, and every claim fills it in for you.";
 
 test.describe("Tip strip", () => {
   test.beforeEach(({ page: _page }, testInfo) => {

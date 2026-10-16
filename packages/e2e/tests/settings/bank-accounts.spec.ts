@@ -56,7 +56,7 @@ test.describe("Banking settings — bank account management", () => {
         ) {
           await setDefaultBtn.click();
           // Shown once the server has saved it (the badge is optimistic).
-          await expect(page.getByText("Default bank account set")).toBeVisible({
+          await expect(page.getByText("Default account set")).toBeVisible({
             timeout: 15_000,
           });
         }
@@ -123,6 +123,70 @@ test.describe("Banking settings — bank account management", () => {
     });
   });
 
+  test("adds a UPI ID alongside or instead of a bank account", async ({
+    page,
+  }) => {
+    const dialog = await openBankingSettings(page);
+    const upiName = `E2E UPI ${Date.now()}`;
+    const handle = `e2e.${Date.now()}@okhdfc`;
+
+    // Neither bank details nor UPI: refused.
+    await dialog.getByLabel("Account name").fill(upiName);
+    await dialog.getByLabel("Account number").focus();
+    await dialog.getByLabel("Account number").blur();
+    await expect(
+      dialog.getByText("Add bank details, a UPI ID or number, or both")
+    ).toBeVisible();
+
+    const handleInput = dialog.getByLabel("UPI ID or mobile number");
+    await handleInput.fill("not a upi id");
+    await handleInput.blur();
+    await expect(
+      dialog.getByText("Enter a UPI ID (e.g. name@okhdfc)", { exact: false })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Add account" })
+    ).toBeDisabled();
+
+    // UPI alone.
+    await handleInput.fill(handle);
+    await dialog.getByRole("button", { name: "Add account" }).click();
+    await expect(page.getByText("UPI added")).toBeVisible();
+    const upiRow = dialog
+      .locator("[data-slot='settings-list-item']")
+      .filter({ hasText: upiName });
+    await expect(upiRow.getByText(`UPI ${handle}`)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Both on one account.
+    const bothName = `E2E Both ${Date.now()}`;
+    const bothNumber = uniqueAccountNumber("004");
+    await dialog.getByLabel("Account name").fill(bothName);
+    await dialog.getByLabel("Account number").fill(bothNumber);
+    await dialog.getByLabel("IFSC code").fill("TEST0000004");
+    const mobile = `9${String(Date.now()).slice(-9)}`;
+    await handleInput.fill(`+91 ${mobile}`);
+    await dialog.getByRole("button", { name: "Add account" }).click();
+    await expect(page.getByText("Bank account and UPI added")).toBeVisible();
+    const bothRow = dialog
+      .locator("[data-slot='settings-list-item']")
+      .filter({ hasText: bothName });
+    await expect(
+      bothRow.getByText(
+        `••••${bothNumber.slice(-4)} · TEST0000004 · UPI ${mobile}`
+      )
+    ).toBeVisible({ timeout: 10_000 });
+
+    // The same UPI ID can't be saved twice.
+    await dialog.getByLabel("Account name").fill(`E2E Dup ${Date.now()}`);
+    await handleInput.fill(handle.toUpperCase());
+    await handleInput.blur();
+    await expect(
+      dialog.getByText("This UPI ID or number is already saved")
+    ).toBeVisible();
+  });
+
   test("sets a bank account as default", async ({ page }) => {
     test.slow();
     const dialog = await openBankingSettings(page);
@@ -177,7 +241,7 @@ test.describe("Banking settings — bank account management", () => {
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
-    await expect(confirmDialog.getByText("Delete bank account?")).toBeVisible();
+    await expect(confirmDialog.getByText("Delete account?")).toBeVisible();
     await confirmDialog.getByRole("button", { name: "Delete" }).click();
     await expect(confirmDialog).toBeHidden({ timeout: 10_000 });
 

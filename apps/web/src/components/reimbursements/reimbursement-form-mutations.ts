@@ -5,6 +5,10 @@ import type { useZero } from "@rocicorp/zero/react";
 import { chargedToPayload } from "@/components/expenses/charged-to-schema";
 import { toLineItemsPayload } from "@/lib/form-schemas";
 
+import {
+  bankAccountFormFields,
+  isSameBankAccount,
+} from "./default-bank-account";
 import type { RequestFormValues } from "./form/reimbursement-form.schema";
 
 function requireDate(value: Date | undefined, field: string): number {
@@ -12,6 +16,50 @@ function requireDate(value: Date | undefined, field: string): number {
     throw new Error(`${field} is required`);
   }
   return value.getTime();
+}
+
+type BankFieldValues = Pick<
+  RequestFormValues,
+  | "bankAccountIfscCode"
+  | "bankAccountName"
+  | "bankAccountNumber"
+  | "bankAccountUpiId"
+>;
+
+/**
+ * The payee details a request sends. A listed saved account sends every
+ * part, "" for one it lacks so a part left from the previous account is
+ * cleared. Otherwise (an edit whose account was since deleted) only the
+ * parts the form holds are sent, and the rest stay as they were.
+ */
+export function requestBankFields(
+  value: BankFieldValues,
+  bankAccountList: readonly BankAccount[]
+) {
+  const selectedAccount = bankAccountList.find((account) =>
+    isSameBankAccount(account, {
+      accountNumber: value.bankAccountNumber,
+      upiId: value.bankAccountUpiId,
+    })
+  );
+  if (selectedAccount) {
+    return {
+      bankFields: bankAccountFormFields(selectedAccount),
+      selectedAccount,
+    };
+  }
+  const bankFields: Partial<BankFieldValues> = {};
+  for (const key of [
+    "bankAccountIfscCode",
+    "bankAccountName",
+    "bankAccountNumber",
+    "bankAccountUpiId",
+  ] as const) {
+    if (value[key]) {
+      bankFields[key] = value[key];
+    }
+  }
+  return { bankFields, selectedAccount };
 }
 
 export function buildMutation(
@@ -32,8 +80,9 @@ export function buildMutation(
   const { attachments } = value;
   const id = existingId ?? entityId;
 
-  const selectedAccount = bankAccountList.find(
-    (account) => account.accountNumber === value.bankAccountNumber
+  const { bankFields, selectedAccount } = requestBankFields(
+    value,
+    bankAccountList
   );
   const basePayload = {
     attachments,
@@ -41,18 +90,7 @@ export function buildMutation(
     id,
     lineItems,
     title: value.title,
-    ...((selectedAccount?.ifscCode ?? value.bankAccountIfscCode)
-      ? {
-          bankAccountIfscCode:
-            selectedAccount?.ifscCode ?? value.bankAccountIfscCode,
-        }
-      : {}),
-    ...(value.bankAccountName
-      ? { bankAccountName: value.bankAccountName }
-      : {}),
-    ...(value.bankAccountNumber
-      ? { bankAccountNumber: value.bankAccountNumber }
-      : {}),
+    ...bankFields,
   };
 
   if (value.type === "reimbursement") {

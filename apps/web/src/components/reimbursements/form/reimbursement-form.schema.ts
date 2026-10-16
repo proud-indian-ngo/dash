@@ -18,8 +18,10 @@ import type { RequestType } from "@/lib/reimbursement-types";
 const baseFields = {
   attachments: z.array(attachmentSchema),
   bankAccountIfscCode: z.string().optional(),
-  bankAccountName: z.string().min(1, "Bank account is required"),
-  bankAccountNumber: z.string().min(1, "Bank account number is required"),
+  bankAccountName: z.string().min(1, "Choose a bank account or UPI"),
+  // A saved account has bank details, UPI or both; the picker fills these.
+  bankAccountNumber: z.string().optional(),
+  bankAccountUpiId: z.string().optional(),
   city: z
     .enum(cityValues)
     .optional()
@@ -85,6 +87,7 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
     bankAccountIfscCode: "",
     bankAccountName: "",
     bankAccountNumber: "",
+    bankAccountUpiId: "",
     city: undefined as "bangalore" | "mumbai" | undefined,
     lineItems: [newLineItem()],
     title: "",

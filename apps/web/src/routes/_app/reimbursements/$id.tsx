@@ -133,6 +133,7 @@ function buildInitialValues(resolved: ResolvedRequest) {
           bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
           bankAccountName: request.bankAccountName ?? undefined,
           bankAccountNumber: request.bankAccountNumber ?? undefined,
+          bankAccountUpiId: request.bankAccountUpiId ?? undefined,
         }
       : {}),
     ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),

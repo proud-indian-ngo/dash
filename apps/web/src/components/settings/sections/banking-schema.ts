@@ -1,14 +1,43 @@
+import {
+  findDuplicatePayout,
+  normalizePayoutAccount,
+  refinePayoutAccount,
+} from "@pi-dash/shared/payout-account";
 import z from "zod";
 
-export const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+export { IFSC_PATTERN } from "@pi-dash/shared/payout-account";
 
-export const bankAccountSchema = z.object({
-  accountName: z.string().min(1, "Account name is required"),
-  accountNumber: z.string().min(1, "Account number is required"),
-  ifscCode: z.string().refine((v) => IFSC_PATTERN.test(v.toUpperCase()), {
-    message:
-      "IFSC must be 11 characters: 4 letters, a zero, then 6 alphanumeric (e.g. ABCD0123456)",
-  }),
+const bankAccountFields = z.object({
+  accountName: z.string(),
+  accountNumber: z.string(),
+  ifscCode: z.string(),
+  upiId: z.string(),
 });
 
-export type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
+export type BankAccountFormValues = z.infer<typeof bankAccountFields>;
+
+/**
+ * Bank details, a UPI ID or number, or both, with the same rules the server
+ * applies. Given the person's saved accounts, a number or UPI ID already
+ * among them is refused here, before the server would.
+ */
+export function createBankAccountSchema(
+  existing: readonly { accountNumber: string | null; upiId: string | null }[]
+) {
+  return bankAccountFields.superRefine((value, context) => {
+    refinePayoutAccount(value, context);
+    const duplicate = findDuplicatePayout(
+      existing,
+      normalizePayoutAccount(value)
+    );
+    if (duplicate) {
+      context.addIssue({
+        code: "custom",
+        message: duplicate.message,
+        path: [duplicate.field],
+      });
+    }
+  });
+}
+
+export const bankAccountSchema = createBankAccountSchema([]);

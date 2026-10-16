@@ -1,4 +1,10 @@
 import { cityValues } from "@pi-dash/shared/constants";
+import {
+  clearable,
+  isValidUpiHandle,
+  normalizeUpiHandle,
+  UPI_HANDLE_MESSAGE,
+} from "@pi-dash/shared/payout-account";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -39,6 +45,10 @@ export const createSchema = z.object({
   bankAccountIfscCode: z.string().optional(),
   bankAccountName: z.string().optional(),
   bankAccountNumber: z.string().optional(),
+  bankAccountUpiId: z
+    .string()
+    .optional()
+    .refine((v) => !v?.trim() || isValidUpiHandle(v), UPI_HANDLE_MESSAGE),
   city: z.enum(cityValues).optional(),
   id: z.string(),
   lineItems: z.array(lineItemSchema),
@@ -48,9 +58,12 @@ export const createSchema = z.object({
 const fk = (id: string) => ({ advancePaymentId: id });
 
 const entityFields = (args: z.infer<typeof createSchema>) => ({
-  bankAccountIfscCode: args.bankAccountIfscCode,
+  // "" clears a part the newly chosen account doesn't have; undefined
+  // leaves it as it was.
+  bankAccountIfscCode: clearable(args.bankAccountIfscCode),
   bankAccountName: args.bankAccountName,
-  bankAccountNumber: args.bankAccountNumber,
+  bankAccountNumber: clearable(args.bankAccountNumber),
+  bankAccountUpiId: clearable(args.bankAccountUpiId, normalizeUpiHandle),
   city: args.city,
 });
 

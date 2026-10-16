@@ -2,12 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import z from "zod";
 
-const createSchema = z.object({
-  accountName: z.string().min(1),
-  accountNumber: z.string().min(1),
-  id: z.string(),
-  ifscCode: z.string().min(1),
-});
+import { createBankAccountArgs } from "../bank-account";
 
 const deleteSchema = z.object({
   id: z.string().min(1),
@@ -19,90 +14,57 @@ const setDefaultSchema = z.object({
 
 describe("bankAccount mutator schemas", () => {
   describe("create", () => {
-    it("accepts valid input with all fields", () => {
-      const result = createSchema.safeParse({
-        accountName: "John Doe Savings",
-        accountNumber: "1234567890123456",
-        id: "ba-1",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("accepts minimal valid input", () => {
-      const result = createSchema.safeParse({
-        accountName: "Account",
-        accountNumber: "123456",
-        id: "ba-1",
-        ifscCode: "CODE",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects missing accountName", () => {
-      const result = createSchema.safeParse({
-        accountNumber: "1234567890123456",
-        id: "ba-1",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects empty accountName", () => {
-      const result = createSchema.safeParse({
-        accountName: "",
-        accountNumber: "1234567890123456",
-        id: "ba-1",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects missing accountNumber", () => {
-      const result = createSchema.safeParse({
+    const parse = (value: Record<string, string>) =>
+      createBankAccountArgs.safeParse({
         accountName: "John Doe",
         id: "ba-1",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(false);
+        ...value,
+      }).success;
+
+    it("accepts bank details", () => {
+      expect(
+        parse({ accountNumber: "1234567890123456", ifscCode: "HDFC0000001" })
+      ).toBe(true);
     });
 
-    it("rejects empty accountNumber", () => {
-      const result = createSchema.safeParse({
-        accountName: "John Doe",
-        accountNumber: "",
-        id: "ba-1",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(false);
+    it("accepts a UPI ID or number alone", () => {
+      expect(parse({ upiId: "john@okhdfc" })).toBe(true);
+      expect(parse({ upiId: "9876543210" })).toBe(true);
     });
 
-    it("rejects missing ifscCode", () => {
-      const result = createSchema.safeParse({
-        accountName: "John Doe",
-        accountNumber: "1234567890123456",
-        id: "ba-1",
-      });
-      expect(result.success).toBe(false);
+    it("accepts bank details and UPI together", () => {
+      expect(
+        parse({
+          accountNumber: "1234567890",
+          ifscCode: "HDFC0000001",
+          upiId: "john@okhdfc",
+        })
+      ).toBe(true);
     });
 
-    it("rejects empty ifscCode", () => {
-      const result = createSchema.safeParse({
-        accountName: "John Doe",
-        accountNumber: "1234567890123456",
-        id: "ba-1",
-        ifscCode: "",
-      });
-      expect(result.success).toBe(false);
+    it("rejects an entry with neither", () => {
+      expect(parse({})).toBe(false);
     });
 
-    it("rejects missing id", () => {
-      const result = createSchema.safeParse({
-        accountName: "John Doe",
-        accountNumber: "1234567890123456",
-        ifscCode: "HDFC0000001",
-      });
-      expect(result.success).toBe(false);
+    it("rejects an account number without a valid IFSC", () => {
+      expect(parse({ accountNumber: "1234567890" })).toBe(false);
+      expect(parse({ accountNumber: "1234567890", ifscCode: "CODE" })).toBe(
+        false
+      );
+    });
+
+    it("rejects an invalid UPI value", () => {
+      expect(parse({ upiId: "john" })).toBe(false);
+    });
+
+    it("rejects an empty name or missing id", () => {
+      expect(parse({ accountName: "", upiId: "john@okhdfc" })).toBe(false);
+      expect(
+        createBankAccountArgs.safeParse({
+          accountName: "John Doe",
+          upiId: "john@okhdfc",
+        }).success
+      ).toBe(false);
     });
   });
 

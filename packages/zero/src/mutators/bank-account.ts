@@ -1,3 +1,9 @@
+import {
+  findDuplicatePayout,
+  normalizePayoutAccount,
+  payoutAccountFields,
+  refinePayoutAccount,
+} from "@pi-dash/shared/payout-account";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -5,31 +11,29 @@ import "../context";
 import { assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
 
+/** Bank details (number and IFSC), a UPI ID or number, or both. */
+export const createBankAccountArgs = z
+  .object({ ...payoutAccountFields, id: z.string() })
+  .superRefine(refinePayoutAccount);
+
 export const bankAccountMutators = {
-  create: defineMutator(
-    z.object({
-      accountName: z.string().min(1),
-      accountNumber: z.string().min(1),
-      id: z.string(),
-      ifscCode: z.string().min(1),
-    }),
-    async ({ tx, ctx, args }) => {
-      assertIsLoggedIn(ctx);
-      const existing = await tx.run(
-        zql.bankAccount.where("userId", ctx.userId)
-      );
-      await tx.mutate.bankAccount.insert({
-        accountName: args.accountName,
-        accountNumber: args.accountNumber,
-        createdAt: Date.now(),
-        id: args.id,
-        ifscCode: args.ifscCode,
-        isDefault: existing.length === 0,
-        updatedAt: Date.now(),
-        userId: ctx.userId,
-      });
+  create: defineMutator(createBankAccountArgs, async ({ tx, ctx, args }) => {
+    assertIsLoggedIn(ctx);
+    const account = normalizePayoutAccount(args);
+    const existing = await tx.run(zql.bankAccount.where("userId", ctx.userId));
+    const duplicate = findDuplicatePayout(existing, account);
+    if (duplicate) {
+      throw new Error(duplicate.message);
     }
-  ),
+    await tx.mutate.bankAccount.insert({
+      ...account,
+      createdAt: Date.now(),
+      id: args.id,
+      isDefault: existing.length === 0,
+      updatedAt: Date.now(),
+      userId: ctx.userId,
+    });
+  }),
   delete: defineMutator(
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {

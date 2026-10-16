@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { bankAccountSchema, IFSC_PATTERN } from "./banking-schema";
+import {
+  bankAccountSchema,
+  createBankAccountSchema,
+  IFSC_PATTERN,
+} from "./banking-schema";
 
 describe("IFSC_PATTERN", () => {
   it("matches valid IFSC codes", () => {
@@ -36,56 +40,61 @@ describe("bankAccountSchema", () => {
     accountName: "John Doe",
     accountNumber: "1234567890",
     ifscCode: "SBIN0001234",
+    upiId: "",
+  };
+  const pathsOf = (value: typeof valid, schema = bankAccountSchema) => {
+    const result = schema.safeParse(value);
+    return result.success
+      ? []
+      : result.error.issues.map((issue) => issue.path.join("."));
   };
 
-  it("accepts valid input", () => {
-    const result = bankAccountSchema.safeParse(valid);
-    expect(result.success).toBe(true);
+  it("accepts bank details alone", () => {
+    expect(pathsOf(valid)).toEqual([]);
   });
 
-  it("rejects empty accountName", () => {
-    const result = bankAccountSchema.safeParse({
-      ...valid,
-      accountName: "",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toBe("Account name is required");
-    }
+  it("accepts lowercase IFSC", () => {
+    expect(pathsOf({ ...valid, ifscCode: "sbin0001234" })).toEqual([]);
   });
 
-  it("rejects empty accountNumber", () => {
-    const result = bankAccountSchema.safeParse({
-      ...valid,
-      accountNumber: "",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toBe(
-        "Account number is required"
-      );
-    }
+  it("accepts UPI alone", () => {
+    expect(
+      pathsOf({ ...valid, accountNumber: "", ifscCode: "", upiId: "john@ybl" })
+    ).toEqual([]);
   });
 
-  it("rejects invalid IFSC code", () => {
-    const result = bankAccountSchema.safeParse({
-      ...valid,
-      ifscCode: "INVALID",
-    });
-    expect(result.success).toBe(false);
+  it("accepts bank details and UPI together", () => {
+    expect(pathsOf({ ...valid, upiId: "+91 98765 43210" })).toEqual([]);
   });
 
-  it("accepts lowercase IFSC (refine uppercases)", () => {
-    // The schema uses .refine with toUpperCase(), so lowercase should pass
-    const result = bankAccountSchema.safeParse({
-      ...valid,
-      ifscCode: "sbin0001234",
-    });
-    expect(result.success).toBe(true);
+  it("rejects an empty name", () => {
+    expect(pathsOf({ ...valid, accountName: "" })).toEqual(["accountName"]);
   });
 
-  it("rejects missing fields", () => {
-    const result = bankAccountSchema.safeParse({});
-    expect(result.success).toBe(false);
+  it("rejects an entry with neither bank details nor UPI", () => {
+    expect(
+      pathsOf({ ...valid, accountNumber: "", ifscCode: "", upiId: "" })
+    ).toEqual(["accountNumber"]);
+  });
+
+  it("rejects an invalid IFSC", () => {
+    expect(pathsOf({ ...valid, ifscCode: "INVALID" })).toEqual(["ifscCode"]);
+  });
+
+  it("rejects a UPI value that is neither an ID nor a number", () => {
+    expect(pathsOf({ ...valid, upiId: "not upi" })).toEqual(["upiId"]);
+  });
+
+  it("refuses a number or UPI ID already saved", () => {
+    const schema = createBankAccountSchema([
+      { accountNumber: "1234567890", upiId: "john@ybl" },
+    ]);
+    expect(pathsOf(valid, schema)).toEqual(["accountNumber"]);
+    expect(
+      pathsOf(
+        { ...valid, accountNumber: "", ifscCode: "", upiId: "JOHN@YBL" },
+        schema
+      )
+    ).toEqual(["upiId"]);
   });
 });
