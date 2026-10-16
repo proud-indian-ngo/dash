@@ -522,6 +522,7 @@ export async function provisionLedger(
       economicOn: ledgerEntry.economicOn,
       effect: ledgerEntry.effect,
       isReversal: sql<boolean>`${posting.reversesPostingId} is not null`,
+      reversalOn: reversal.economicOn,
       reversed: sql<boolean>`${reversal.id} is not null`,
       sourceId: posting.sourceId,
       sourceType: posting.sourceType,
@@ -541,7 +542,9 @@ export async function provisionLedger(
   // voided in the year it posted in, on days that can still change. One
   // that posted on a frozen day, or in an earlier year than its void,
   // stays in the base as it stands: its share comes back on the void day,
-  // for invoices from then on, and no earlier year's closing moves.
+  // for invoices from then on, and no earlier year's closing moves. Only
+  // the revision the void reversed counts: one reversed earlier (a
+  // re-approval) says nothing about the year it was voided in.
   const keptVoided = new Set(
     rows
       .filter(
@@ -549,6 +552,7 @@ export async function provisionLedger(
           invoiceOf(r) &&
           r.voided &&
           !r.isReversal &&
+          (!r.reversed || r.reversalOn === r.voidedOn) &&
           (isFrozen(r.economicOn) ||
             (r.voidedOn !== null &&
               financialYearOf(r.economicOn).label !==
