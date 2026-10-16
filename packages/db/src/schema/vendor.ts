@@ -16,7 +16,7 @@ import {
 
 import { user } from "./auth";
 import { expenseCategory } from "./expense-category";
-import { programme, project } from "./finance-dimensions";
+import { accountHead, programme, project } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { party } from "./party";
 import {
@@ -194,6 +194,16 @@ export const vendorPaymentLineItem = pgTable(
     createdAt: timestamp("created_at").notNull(),
     description: text("description"),
     id: uuid("id").primaryKey(),
+    /**
+     * Set at invoice approval when the line pays a provision (the audit
+     * fee) instead of an expense: one of `PROVISION_HEADS` in
+     * `@pi-dash/shared/provisions`. The books clear the provision up to
+     * what is outstanding and post the rest as expense.
+     */
+    provisionHeadId: uuid("provision_head_id").references(
+      () => accountHead.id,
+      { onDelete: "restrict" }
+    ),
     sortOrder: integer("sort_order").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
     vendorPaymentId: uuid("vendor_payment_id")
@@ -204,6 +214,9 @@ export const vendorPaymentLineItem = pgTable(
     index("vendor_payment_line_item_vendorPaymentId_idx").on(
       table.vendorPaymentId
     ),
+    index("vendor_payment_line_item_provisionHeadId_idx")
+      .on(table.provisionHeadId)
+      .where(sql`${table.provisionHeadId} IS NOT NULL`),
   ]
 );
 

@@ -82,6 +82,10 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "leadUserId",
   "parentId",
   "programmeId",
+  // A vendor invoice's lines charged to a provision at approval: the head
+  // and line IDs only.
+  "provisionHeadId",
+  "provisionLineIds",
   "quotedBudgetPaise",
   "reportDueOn",
   "restriction",

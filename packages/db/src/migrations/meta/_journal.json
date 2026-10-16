@@ -1065,6 +1065,13 @@
       "when": 1792163739466,
       "tag": "0151_ledger_guards_v3",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1792163856295,
+      "tag": "0152_audit_fee_provision",
+      "breakpoints": true
     }
   ]
 }

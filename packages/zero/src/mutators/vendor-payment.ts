@@ -2,17 +2,18 @@ import {
   cityValues,
   vendorPaymentNoInvoiceReasonValues,
 } from "@pi-dash/shared/constants";
+import { provisionHeadOf } from "@pi-dash/shared/provisions";
 import {
   NO_INVOICE_NOTE_MAX_LENGTH,
   NO_INVOICE_REASON_LABELS,
   noInvoiceDetailsError,
 } from "@pi-dash/shared/vendor-payment";
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
 import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
@@ -176,6 +177,45 @@ function invoiceDetailsHistory(args: InvoiceDetails): {
     };
   }
   return { metadata: { invoiceKind: "invoice" }, note: undefined };
+}
+
+/**
+ * At invoice approval, finance may charge lines to a provision (the audit
+ * fee payable) instead of their category's expense: only a head in
+ * `PROVISION_HEADS`, only lines of this request. Every other line goes
+ * back to its category. Lines whose choice doesn't change are not touched,
+ * so the books see no change for them.
+ */
+async function chargeLinesToProvision(
+  tx: Transaction<Schema>,
+  args: { id: string; provisionHeadId?: string; provisionLineIds?: string[] },
+  now: number
+) {
+  const chosen = new Set(args.provisionLineIds ?? []);
+  const provision =
+    chosen.size > 0 ? provisionHeadOf(args.provisionHeadId) : null;
+  if (chosen.size > 0 && !provision) {
+    throw new Error("A line can only be charged to a provision");
+  }
+  const lines = await tx.run(
+    zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
+  );
+  const ids = new Set(lines.map((l) => l.id));
+  if ([...chosen].some((lineId) => !ids.has(lineId))) {
+    throw new Error("That line isn't on this vendor payment");
+  }
+  for (const line of lines) {
+    const provisionHeadId = chosen.has(line.id)
+      ? (provision?.id ?? null)
+      : null;
+    if ((line.provisionHeadId ?? null) !== provisionHeadId) {
+      await tx.mutate.vendorPaymentLineItem.update({
+        id: line.id,
+        provisionHeadId,
+        updatedAt: now,
+      });
+    }
+  }
 }
 
 const createSchema = z.object({
@@ -357,6 +397,13 @@ export const vendorPaymentMutators = {
     z.object({
       id: z.string(),
       note: z.string().optional(),
+      /**
+       * The provision the lines in `provisionLineIds` pay instead of their
+       * category's expense (`PROVISION_HEADS`, the audit fee). Every other
+       * line is charged to its category, as before.
+       */
+      provisionHeadId: z.string().optional(),
+      provisionLineIds: z.array(z.string()).max(100).optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
@@ -372,6 +419,7 @@ export const vendorPaymentMutators = {
       }
 
       const now = Date.now();
+      await chargeLinesToProvision(tx, args, now);
 
       await tx.mutate.vendorPayment.update({
         id: args.id,
@@ -1128,6 +1176,13 @@ export const vendorPaymentMutators = {
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
     const charge = await resolveExpenseCharge(tx, args, entity);
+    const provisionByLine = new Map(
+      (
+        await tx.run(
+          zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
+        )
+      ).flatMap((l) => (l.provisionHeadId ? [[l.id, l.provisionHeadId]] : []))
+    );
 
     await tx.mutate.vendorPayment.update({
       ...charge,
@@ -1154,7 +1209,13 @@ export const vendorPaymentMutators = {
             purpose: "quotation",
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
-        insertLineItem: (data) => tx.mutate.vendorPaymentLineItem.insert(data),
+        // A line finance charged to a provision keeps that choice when
+        // the request is edited (lines keep their IDs).
+        insertLineItem: (data) =>
+          tx.mutate.vendorPaymentLineItem.insert({
+            ...data,
+            provisionHeadId: provisionByLine.get(data.id) ?? null,
+          }),
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
             keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),

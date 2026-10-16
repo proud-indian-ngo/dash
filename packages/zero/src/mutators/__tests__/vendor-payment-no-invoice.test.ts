@@ -431,10 +431,13 @@ describe("closing a vendor payment without an invoice", () => {
         vendorPayment: { update },
         vendorPaymentHistory: { insert: mock() },
       },
-      run: mock().mockResolvedValueOnce({
-        noInvoiceReason: "rent",
-        status: "invoice_pending",
-      }),
+      run: mock()
+        .mockResolvedValueOnce({
+          noInvoiceReason: "rent",
+          status: "invoice_pending",
+        })
+        // Its lines, none charged to a provision.
+        .mockResolvedValueOnce([]),
     };
 
     await vendorPaymentMutators.approveInvoice.fn({

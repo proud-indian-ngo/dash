@@ -219,6 +219,20 @@ export const LEDGER_REFERENCE_HEADS = [
     tallyLedgerName: "Fund Transfers",
     type: "fund" as const,
   },
+  // Provisions a vendor invoice clears (`@pi-dash/shared/provisions`): the
+  // part of an auditor's invoice above the outstanding provision. Under
+  // the Expenses parent, which is created above.
+  {
+    code: "AUDIT_FEES",
+    description:
+      "Audit fees above the provision for them: the rest of an auditor's invoice charged to Audit fees payable.",
+    id: LEDGER_ACCOUNT_HEAD_IDS.auditFees,
+    name: "Audit fees",
+    parentId: LEDGER_ACCOUNT_HEAD_IDS.expenses,
+    sortOrder: 660,
+    tallyLedgerName: "Audit Fees",
+    type: "expense" as const,
+  },
 ] as const;
 
 const CORPUS_FUND = {

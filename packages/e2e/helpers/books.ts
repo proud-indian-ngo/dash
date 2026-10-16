@@ -4,8 +4,13 @@ import {
   postAuditedFigures,
   reverseAuditedFigures,
 } from "@pi-dash/db/ledger/audited-figures";
+import type { LedgerTx } from "@pi-dash/db/ledger/engine";
+import { vendorPaymentProvisionView } from "@pi-dash/db/ledger/expense-posting";
 import { listIncomeSources } from "@pi-dash/db/ledger/income-posting";
-import { postPendingForYear } from "@pi-dash/db/ledger/income-runner";
+import {
+  postIncomeSourceNow,
+  postPendingForYear,
+} from "@pi-dash/db/ledger/income-runner";
 import {
   postOpeningBalance,
   reverseOpeningBalance,
@@ -47,7 +52,7 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
-import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, like, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -107,6 +112,15 @@ import { uuidv7 } from "uuidv7";
  *   Reports the lines' audited figures.
  * - `reverse-audited <label>`: reverses the standing audited figures, if
  *   any, and posts what waited for the year meanwhile.
+ * - `provision-fixture <run>`: an auditor's invoice charged to the audit fee
+ *   provision. Voids the auditor invoices of earlier runs (so the
+ *   provision is whole again), makes sure the opening balances carry an
+ *   audit fee liability (as `audited-fixture` does), then adds a bank
+ *   account of this run marked main, an auditor of this run and a vendor
+ *   payment of 150 paid on 15 Jul 2026 with its invoice waiting for
+ *   approval. Reports what the approval picker should show as outstanding.
+ * - `void-auditor-invoices`: voids every E2E auditor invoice and posts the
+ *   reversals (cleanup: the provision stands whole for the next test).
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -560,6 +574,144 @@ async function editClaim(id: string) {
   return { id };
 }
 
+const AUDITOR_TITLE = "E2E auditor invoice";
+
+/** Voids the auditor invoices of every run, and posts their reversals. */
+async function voidAuditorInvoices() {
+  const userId = await anyUserId();
+  const now = new Date();
+  const open = await db
+    .select({ id: vendorPayment.id })
+    .from(vendorPayment)
+    .where(
+      and(
+        like(vendorPayment.title, `${AUDITOR_TITLE}%`),
+        isNull(vendorPayment.voidedAt)
+      )
+    );
+  for (const { id } of open) {
+    await db.transaction(async (tx) => {
+      const values = {
+        updatedAt: now,
+        voidedAt: now,
+        voidedBy: userId,
+        voidReason: "E2E rerun starts clean",
+      };
+      await tx
+        .update(vendorPayment)
+        .set(values)
+        .where(eq(vendorPayment.id, id));
+      await tx
+        .update(vendorPaymentTransaction)
+        .set(values)
+        .where(eq(vendorPaymentTransaction.vendorPaymentId, id));
+    });
+    // The request, then (as its related sources) its payments.
+    await postIncomeSourceNow({ sourceId: id, sourceType: "vendor_payment" });
+  }
+  return { voided: open.length };
+}
+
+async function provisionFixture(run: string) {
+  await voidAuditorInvoices();
+  await auditedFixture("2026-27");
+  const now = new Date();
+  const userId = await anyUserId();
+  const bankId = uuidv7();
+  await db.transaction(async (tx) => {
+    // Paid out of the main bank account; this run's is it.
+    await tx
+      .update(orgAccount)
+      .set({ isMain: false, updatedAt: now })
+      .where(eq(orgAccount.isMain, true));
+    await tx.insert(orgAccount).values({
+      createdAt: now,
+      id: bankId,
+      isMain: true,
+      kind: "bank",
+      name: `E2E Audit Bank ${run}`,
+      updatedAt: now,
+    });
+  });
+  const categoryId = uuidv7();
+  await db.insert(expenseCategory).values({
+    createdAt: now,
+    id: categoryId,
+    name: `E2E Audit Category ${run}`,
+    updatedAt: now,
+  });
+  const vendorId = uuidv7();
+  await db.insert(party).values({
+    createdAt: now,
+    displayName: `E2E Auditors ${run}`,
+    id: vendorId,
+    kind: "organisation",
+    updatedAt: now,
+  });
+  await db.insert(vendor).values({
+    createdAt: now,
+    id: vendorId,
+    name: `E2E Auditors ${run}`,
+    status: "approved",
+    updatedAt: now,
+  });
+  const vendorPaymentId = uuidv7();
+  const amountPaise = 15_000;
+  await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
+    createdAt: now,
+    id: vendorPaymentId,
+    invoiceDate: "2026-07-16",
+    invoiceNumber: `AUD-E2E-${run}`,
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "invoice_pending",
+    title: `${AUDITOR_TITLE} ${run}`,
+    updatedAt: now,
+    userId,
+    vendorId,
+  });
+  await db.insert(vendorPaymentLineItem).values({
+    amountPaise,
+    categoryId,
+    createdAt: now,
+    description: "Statutory audit fee",
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: now,
+    vendorPaymentId,
+  });
+  await db.insert(vendorPaymentTransaction).values({
+    amountPaise,
+    createdAt: now,
+    id: uuidv7(),
+    paymentMethod: "bank_transfer",
+    paymentReference: `E2EAUDIT${run}`,
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "approved",
+    transactionDate: new Date("2026-07-15T05:00:00Z"),
+    updatedAt: now,
+    userId,
+    vendorPaymentId,
+  });
+  const view = await db.transaction((tx) =>
+    vendorPaymentProvisionView(
+      tx as unknown as LedgerTx,
+      vendorPaymentId,
+      // Today in India.
+      new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10)
+    )
+  );
+  const [provision] = view.outstanding;
+  return {
+    amountPaise,
+    outstandingPaise: provision?.paise ?? 0,
+    vendorPaymentId,
+    years: provision?.years ?? [],
+  };
+}
+
 /** "E2E Bank Account", seeded by seed-test-user. */
 const E2E_BANK_ID = "01930000-0000-7000-8000-000000000711";
 
@@ -917,6 +1069,10 @@ if (action === "close-year") {
   result = await editClaim(label);
 } else if (action === "postings") {
   result = await postingsOf(label);
+} else if (action === "provision-fixture") {
+  result = await provisionFixture(label);
+} else if (action === "void-auditor-invoices") {
+  result = await voidAuditorInvoices();
 } else if (action === "corpus-gift") {
   result = await corpusGift(label);
 } else if (action === "entries") {

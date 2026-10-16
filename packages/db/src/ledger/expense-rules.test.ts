@@ -6,11 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { expenseHeadCode } from "./expense-heads";
 import {
+  allocateProvision,
   type BankMatchFacts,
   invoiceAcceptedDay,
   paymentTiming,
   payingAccount,
   paymentMovements,
+  provisionOutstanding,
   type ReimbursementFacts,
   reimbursementPlan,
   type StatementChargeFacts,
@@ -93,6 +95,7 @@ const request = (
   paidBeforeCutoverPaise: 0,
   paidPaise: 250_000,
   paymentWaiting: null,
+  provisionAvailablePaise: {},
   status: "completed",
   title: "Bus for the event",
   vendorId: VENDOR,
@@ -141,6 +144,7 @@ const validParts = (plan: SourcePlan) => {
 };
 
 const LIABILITY_HEADS = new Set<string>([
+  LEDGER_ACCOUNT_HEAD_IDS.auditFeesPayable,
   LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
 ]);
 
@@ -989,6 +993,214 @@ describe("statementChargePlan", () => {
     expect(statementChargePlan(null)).toEqual({
       kind: "none",
       reason: "deleted",
+    });
+  });
+});
+
+describe("provisions a vendor invoice clears", () => {
+  const PROVISION = LEDGER_ACCOUNT_HEAD_IDS.auditFeesPayable;
+  const AUDIT_FEES = LEDGER_ACCOUNT_HEAD_IDS.auditFees;
+  const auditor = (
+    available: number,
+    over: Partial<VendorPaymentFacts> = {}
+  ): VendorPaymentFacts =>
+    request({
+      charge: {
+        chargedProgrammeId: null,
+        chargedProjectId: null,
+        chargedTo: "organisation",
+        eventId: null,
+        eventProgrammeId: null,
+      },
+      lines: [
+        {
+          accountHeadId: TRAVEL_HEAD,
+          amountPaise: 9000_00,
+          description: "Audit fee",
+          id: "00000000-0000-7000-8000-000000000b12",
+          provisionHeadId: PROVISION,
+        },
+      ],
+      paidPaise: 9000_00,
+      provisionAvailablePaise: { [PROVISION]: available },
+      title: "Statutory audit",
+      ...over,
+    });
+
+  it("clears the provision up to what is outstanding and posts the rest as audit fees", () => {
+    const plan = vendorPaymentPlan(auditor(7500_00));
+    validParts(plan);
+    expect(isBalanced(plan)).toBe(true);
+    expect(part(plan, "recognise")?.entries).toEqual([
+      {
+        accountHeadId: PROVISION,
+        amountPaise: 7500_00,
+        effect: "decrease",
+        fundId: GENERAL_FUND_ID,
+        memo: "Audit fee",
+        partyId: VENDOR,
+        sourceLineId: "00000000-0000-7000-8000-000000000b12",
+      },
+      expect.objectContaining({
+        accountHeadId: AUDIT_FEES,
+        amountPaise: 1500_00,
+        effect: "increase",
+        programmeId: null,
+        sourceLineId: "00000000-0000-7000-8000-000000000b12",
+      }),
+      expect.objectContaining({
+        accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
+        amountPaise: 9000_00,
+        effect: "decrease",
+      }),
+    ]);
+  });
+
+  it("posts it all as audit fees with nothing outstanding, and all against the provision when it covers it", () => {
+    const none = part(vendorPaymentPlan(auditor(0)), "recognise")?.entries;
+    expect(none?.map((e) => [e.accountHeadId, e.amountPaise])).toEqual([
+      [AUDIT_FEES, 9000_00],
+      [LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances, 9000_00],
+    ]);
+    const all = part(
+      vendorPaymentPlan(auditor(20_000_00)),
+      "recognise"
+    )?.entries;
+    expect(all?.map((e) => [e.accountHeadId, e.amountPaise])).toEqual([
+      [PROVISION, 9000_00],
+      [LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances, 9000_00],
+    ]);
+  });
+
+  it("leaves the other lines under their category's head, and waits for a head that is not a provision", () => {
+    const mixed = auditor(500_00, {
+      lines: [
+        ...auditor(0).lines,
+        {
+          accountHeadId: FOOD_HEAD,
+          amountPaise: 200_00,
+          description: "Courier",
+          id: "00000000-0000-7000-8000-000000000b13",
+        },
+      ],
+      paidPaise: 9200_00,
+    });
+    const plan = vendorPaymentPlan(mixed);
+    expect(isBalanced(plan)).toBe(true);
+    expect(
+      part(plan, "recognise")?.entries.map((e) => [
+        e.accountHeadId,
+        e.effect,
+        e.amountPaise,
+      ])
+    ).toEqual([
+      [FOOD_HEAD, "increase", 200_00],
+      [PROVISION, "decrease", 500_00],
+      [AUDIT_FEES, "increase", 8500_00],
+      [LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances, "decrease", 9200_00],
+    ]);
+    const wrong = auditor(500_00, {
+      lines: [{ ...auditor(0).lines[0]!, provisionHeadId: FOOD_HEAD }],
+    });
+    expect(vendorPaymentPlan(wrong)).toMatchObject({
+      kind: "wait",
+      reason: "reference_data_missing",
+    });
+  });
+
+  it("still waits for the payments: the invoice's amount is every line", () => {
+    expect(
+      vendorPaymentPlan(auditor(7500_00, { paidPaise: 8000_00 }))
+    ).toMatchObject({ kind: "wait", reason: "invoice_exceeds_payments" });
+  });
+});
+
+describe("allocateProvision", () => {
+  const opening = {
+    economicOn: "2026-04-01",
+    forYear: "2025-26",
+    signedPaise: 7500_00,
+  };
+  const a = { claimPaise: 5000_00, id: "a", on: "2026-06-01" };
+  const b = { claimPaise: 5000_00, id: "b", on: "2026-07-01" };
+
+  it("gives an earlier invoice priority, whatever order the claims come in", () => {
+    const expected = new Map([
+      ["a", 5000_00],
+      ["b", 2500_00],
+    ]);
+    expect(allocateProvision([opening], [a, b])).toEqual(expected);
+    expect(new Map([...allocateProvision([opening], [b, a])].sort())).toEqual(
+      expected
+    );
+  });
+
+  it("orders invoices of one day by ID", () => {
+    const sameDay = [
+      { ...b, id: "z", on: a.on },
+      { ...a, id: "m" },
+    ];
+    expect(allocateProvision([opening], sameDay)).toEqual(
+      new Map([
+        ["m", 5000_00],
+        ["z", 2500_00],
+      ])
+    );
+  });
+
+  it("takes only what is provided on or before the invoice's day", () => {
+    const audited = {
+      economicOn: "2027-03-31",
+      forYear: "2026-27",
+      signedPaise: 6000_00,
+    };
+    const c = { claimPaise: 9000_00, id: "c", on: "2027-05-01" };
+    expect(allocateProvision([opening, audited], [a, b, c])).toEqual(
+      new Map([
+        ["a", 5000_00],
+        ["b", 2500_00],
+        ["c", 6000_00],
+      ])
+    );
+  });
+
+  it("frees what a voided invoice took from its void day, not before", () => {
+    // A voided invoice's posting and its reversal on the void day.
+    const voided = [
+      { economicOn: "2026-05-01", forYear: null, signedPaise: -7500_00 },
+      { economicOn: "2026-06-15", forYear: null, signedPaise: 7500_00 },
+    ];
+    expect(allocateProvision([opening, ...voided], [a, b])).toEqual(
+      new Map([
+        ["a", 0],
+        ["b", 5000_00],
+      ])
+    );
+  });
+
+  it("says what is outstanding today and the years it is from", () => {
+    const audited = {
+      economicOn: "2027-03-31",
+      forYear: "2026-27",
+      signedPaise: 6000_00,
+    };
+    expect(provisionOutstanding([opening], [], "2026-10-16")).toEqual({
+      paise: 7500_00,
+      years: ["2025-26"],
+    });
+    expect(provisionOutstanding([opening], [a], "2026-10-16")).toEqual({
+      paise: 2500_00,
+      years: ["2025-26"],
+    });
+    expect(provisionOutstanding([opening, audited], [a], "2027-04-10")).toEqual(
+      { paise: 8500_00, years: ["2025-26", "2026-27"] }
+    );
+    expect(
+      provisionOutstanding([opening, audited], [a, b], "2027-04-10")
+    ).toEqual({ paise: 6000_00, years: ["2026-27"] });
+    expect(provisionOutstanding([opening], [a, b], "2026-10-16")).toEqual({
+      paise: 0,
+      years: [],
     });
   });
 });

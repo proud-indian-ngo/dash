@@ -11,6 +11,7 @@ import {
   type LedgerWaitReason,
   POSTING_ACTIONS,
 } from "@pi-dash/shared/ledger";
+import { provisionHeadOf } from "@pi-dash/shared/provisions";
 
 import type { SourcePlan } from "./income-rules";
 import type { EntryInput, MovementInput } from "./rules";
@@ -52,10 +53,13 @@ import type { EntryInput, MovementInput } from "./rules";
  * - TDS: "Tax is deducted from a vendor payment (TDS) | Nothing; the amount
  *   owed to the government is tracked on the deduction | Nothing". The trust
  *   deducts none (founder, section 4 question 8), so nothing posts for it.
- * - The audit fee: "Founder: treat the payment as FY 2026-27 expense"
- *   (section 4 question 5), so it posts as any other vendor payment.
- *   Writing back the opening "Audit fees payable" liability is the CA's
- *   open question; it will be an adjustment (layer 3-3c), not a rule here.
+ * - The audit fee: "Founder: the payment clears the provision, and any
+ *   excess is expense" (section 4 question 5, 17 October 2026). Finance
+ *   charges the auditor's invoice line to "Audit fees payable" at invoice
+ *   approval (`PROVISION_HEADS`); the line then decreases the provision by
+ *   what is outstanding and posts the rest under "Audit fees". What is
+ *   outstanding is worked out by `allocateProvision`, so the split never
+ *   depends on the order the posting run looks at the invoices.
  * - Dimensions: programme and project from "Charged to"
  *   (`expenseProgrammeOf`), the event when charged to one, and the General
  *   Fund (requests carry no fund; restricted gifts: none today).
@@ -117,7 +121,7 @@ export interface BankMatchFacts {
  * When a payment's money left the bank (layer 3-3b), against the cutover:
  * the matched debits' value dates, and the default day for any part no
  * debit is matched to yet. The audited FY 2025-26 accounts are cash-basis
- * for payments (founder decision, CA to confirm), so:
+ * for payments (founder decision, confirmed as built on 17 October 2026), so:
  * - `before`: all of it left before 1 Apr 2026: history, nothing posts
  *   (the opening balances already hold it), even if approved after;
  * - `after`: all of it left from 1 Apr 2026: it posts, recognised no earlier
@@ -244,6 +248,11 @@ export interface ExpenseLineFacts {
   amountPaise: number;
   description: string | null;
   id: string;
+  /**
+   * A vendor invoice line charged to a provision instead of its category's
+   * head (`PROVISION_HEADS`); null or absent otherwise.
+   */
+  provisionHeadId?: string | null;
 }
 
 /** The dimensions every line of a request carries. */
@@ -492,12 +501,193 @@ export interface VendorPaymentFacts {
    * so the invoice waits rather than clear what was never advanced.
    */
   paymentWaiting: LedgerWaitReason | null;
+  /**
+   * By provision head: what this invoice may clear of it, from
+   * `allocateProvision` (absent means nothing). Its lines charged to the
+   * provision take it in line order; the rest of them is expense.
+   */
+  provisionAvailablePaise: Readonly<Record<string, number>>;
   status: string;
   title: string;
   /** The vendor's party (a vendor is a party with the vendor role). */
   vendorId: string;
   /** The void day in India, once voided. */
   voidedOn: string | null;
+}
+
+// ── Provisions a vendor invoice clears ──────────────────────────────────────
+
+/**
+ * A provision movement no clearing invoice makes: the opening balances,
+ * the audited figures (a new provision, a write-back), and a voided
+ * invoice's posting with its reversal on the void day (final, so read from
+ * the books).
+ */
+export interface ProvisionBaseEntry {
+  economicOn: string;
+  /**
+   * The financial year it is a provision for, such as "2025-26"; null for
+   * a voided invoice's entries, which net to nothing once reversed.
+   */
+  forYear: string | null;
+  /** Positive raises the provision, negative lowers it. */
+  signedPaise: number;
+}
+
+/** A standing, accepted invoice whose lines are charged to the provision. */
+export interface ProvisionClaim {
+  /** What its lines charged to the provision add up to. */
+  claimPaise: number;
+  id: string;
+  /** The day it posts on (`invoiceAcceptedDay`). */
+  on: string;
+}
+
+const claimOrder = (a: ProvisionClaim, b: ProvisionClaim) =>
+  a.on.localeCompare(b.on) || a.id.localeCompare(b.id);
+
+const baseOn = (base: readonly ProvisionBaseEntry[], day: string) =>
+  base.reduce((sum, e) => (e.economicOn <= day ? sum + e.signedPaise : sum), 0);
+
+/**
+ * What each clearing invoice takes of a provision: in posting date order,
+ * then by ID, each takes what is outstanding on its day (the base entries
+ * dated up to it, less what earlier invoices took), up to its own claim.
+ * An earlier invoice always comes first, and the result is a function of
+ * the records alone: never of which invoice the posting run looked at
+ * first, nor of what other invoices' postings stand at the moment.
+ */
+export function allocateProvision(
+  base: readonly ProvisionBaseEntry[],
+  claims: readonly ProvisionClaim[]
+): Map<string, number> {
+  const taken = new Map<string, number>();
+  let takenPaise = 0;
+  for (const claim of [...claims].sort(claimOrder)) {
+    const outstanding = Math.max(0, baseOn(base, claim.on) - takenPaise);
+    const take = Math.min(Math.max(0, claim.claimPaise), outstanding);
+    taken.set(claim.id, take);
+    takenPaise += take;
+  }
+  return taken;
+}
+
+/**
+ * What is outstanding of a provision on a day for a new invoice that would
+ * post then (ordered after every claim dated up to that day), and the
+ * financial years it is a provision for: increases are used oldest first,
+ * so the years are those of the increases not yet used up.
+ */
+export function provisionOutstanding(
+  base: readonly ProvisionBaseEntry[],
+  claims: readonly ProvisionClaim[],
+  day: string
+): { paise: number; years: string[] } {
+  const earlier = claims.filter((c) => c.on <= day);
+  const takenPaise = [...allocateProvision(base, earlier).values()].reduce(
+    (sum, p) => sum + p,
+    0
+  );
+  const dated = base.filter((e) => e.economicOn <= day);
+  const paise = Math.max(
+    0,
+    dated.reduce((sum, e) => sum + e.signedPaise, 0) - takenPaise
+  );
+  if (paise === 0) {
+    return { paise, years: [] };
+  }
+  // Increases are used up oldest first, by every decrease and claim. A
+  // voided invoice's entries net to nothing by the void day, so they are
+  // left out.
+  const own = dated.filter((e) => e.forYear !== null);
+  let used =
+    takenPaise -
+    own.reduce((sum, e) => (e.signedPaise < 0 ? sum + e.signedPaise : sum), 0);
+  const years: string[] = [];
+  const increases = own
+    .filter((e) => e.signedPaise > 0)
+    .sort((a, b) => a.economicOn.localeCompare(b.economicOn));
+  for (const e of increases) {
+    const left = e.signedPaise - Math.min(used, e.signedPaise);
+    used = Math.max(0, used - e.signedPaise);
+    if (left > 0 && e.forYear && !years.includes(e.forYear)) {
+      years.push(e.forYear);
+    }
+  }
+  return { paise, years };
+}
+
+/**
+ * An invoice's entries: each line's expense under its category's head, or
+ * for a line charged to a provision, a decrease of the provision by what
+ * is still available to this invoice (in line order) and the rest as
+ * expense under the provision's expense head. Still one target per line:
+ * the split is the books' arithmetic, not a second choice. The provision
+ * decrease carries the vendor and the General Fund (where the provision
+ * was raised) but no programme: it is not spending of the year. Null when
+ * a line has no head, or names a head that is not a provision.
+ */
+function vendorInvoiceEntries(vp: VendorPaymentFacts): EntryInput[] | null {
+  const plain = vp.lines.filter((l) => !l.provisionHeadId);
+  const entries = expenseEntries(plain, vp.charge, vp.vendorId, vp.title);
+  if (!entries) {
+    return null;
+  }
+  const dims = dimensionsOf(vp.charge, vp.vendorId);
+  const left = new Map(Object.entries(vp.provisionAvailablePaise));
+  for (const line of vp.lines) {
+    if (!line.provisionHeadId || line.amountPaise <= 0) {
+      continue;
+    }
+    const provision = provisionHeadOf(line.provisionHeadId);
+    if (!provision) {
+      return null;
+    }
+    const memo = line.description?.trim() || vp.title;
+    const cleared = Math.min(
+      line.amountPaise,
+      Math.max(0, left.get(provision.id) ?? 0)
+    );
+    left.set(provision.id, (left.get(provision.id) ?? 0) - cleared);
+    if (cleared > 0) {
+      entries.push({
+        accountHeadId: provision.id,
+        amountPaise: cleared,
+        effect: "decrease",
+        fundId: GENERAL_FUND_ID,
+        memo,
+        partyId: vp.vendorId,
+        sourceLineId: line.id,
+      });
+    }
+    if (line.amountPaise > cleared) {
+      entries.push({
+        ...dims,
+        accountHeadId: provision.excessHeadId,
+        amountPaise: line.amountPaise - cleared,
+        effect: "increase",
+        memo,
+        sourceLineId: line.id,
+      });
+    }
+  }
+  return entries;
+}
+
+/** What a request's lines charged to each provision add up to. */
+export function provisionClaimsOf(
+  lines: readonly Pick<ExpenseLineFacts, "amountPaise" | "provisionHeadId">[]
+): Map<string, number> {
+  const claims = new Map<string, number>();
+  for (const line of lines) {
+    if (line.provisionHeadId && line.amountPaise > 0) {
+      claims.set(
+        line.provisionHeadId,
+        (claims.get(line.provisionHeadId) ?? 0) + line.amountPaise
+      );
+    }
+  }
+  return claims;
 }
 
 /** The day an accepted invoice is recognised: its approval day, else its date. */
@@ -528,7 +718,7 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   }
   // Recoverable GST is nil: the trust is not GST-registered (cutover doc
   // section 3), so the expense is the full amount.
-  const entries = expenseEntries(vp.lines, vp.charge, vp.vendorId, vp.title);
+  const entries = vendorInvoiceEntries(vp);
   if (!entries) {
     return wait(day, LEDGER_WAIT_REASONS.referenceDataMissing);
   }
@@ -552,7 +742,11 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   // with nothing on the other side, so it waits until they agree; one
   // below them clears only its own amount, and the rest stays on the
   // vendor's advance for the CA to look at (an overpayment).
-  const expensePaise = entries.reduce((sum, e) => sum + e.amountPaise, 0);
+  // The invoice's amount: every line, whether expense or provision cleared.
+  const expensePaise = vp.lines.reduce(
+    (sum, l) => sum + Math.max(0, l.amountPaise),
+    0
+  );
   // What stands is kept: the invoice moves no money, and its expense with
   // the advance it cleared (now partly unpaid) is still the right position.
   if (expensePaise > vp.paidPaise) {

@@ -1295,6 +1295,79 @@ describe("CA workbook sheets", () => {
     expect(toBooks(next).balanced).toBe(true);
   });
 
+  it("shows an auditor's invoice clearing the audit fee provision as its decrease, and only the excess as expense", () => {
+    const facts = fixture();
+    // The opening provision is 100; the auditor is paid 150 (a supplier
+    // advance), and the accepted invoice, charged to the provision, clears
+    // the 100 and posts 50 as audit fees.
+    const payment = {
+      sourceId: "vpt-audit",
+      sourceType: "vendor_payment_transaction",
+    };
+    const invoice = { sourceId: "vp-audit", sourceType: "vendor_payment" };
+    const auditFees = {
+      accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.auditFees,
+      headName: "Audit fees",
+      headType: "expense",
+    } as const;
+    facts.movements.push(
+      movement({
+        ...payment,
+        amountPaise: 15_000,
+        direction: "out",
+        kind: "payout",
+        occurredOn: "2026-09-10",
+        orgAccountId: BANK,
+      })
+    );
+    facts.entries.push(
+      entry("advances", {
+        ...payment,
+        amountPaise: 15_000,
+        economicOn: "2026-09-10",
+        partyName: "Test Auditors",
+      }),
+      entry("payable", {
+        ...invoice,
+        amountPaise: 10_000,
+        economicOn: "2026-09-20",
+        effect: "decrease",
+        partyName: "Test Auditors",
+      }),
+      entry("charges", {
+        ...invoice,
+        ...auditFees,
+        amountPaise: 5000,
+        economicOn: "2026-09-20",
+        partyName: "Test Auditors",
+      }),
+      entry("advances", {
+        ...invoice,
+        amountPaise: 15_000,
+        economicOn: "2026-09-20",
+        effect: "decrease",
+        partyName: "Test Auditors",
+      })
+    );
+
+    const { check, sheet } = balanceSheet(facts);
+    expect(check.closingDifferencePaise).toBe(0);
+    // Opening 100, no increase, a decrease of 100, closing nil.
+    expect(fundRowOf(sheet, "Audit fees payable")).toEqual([100, 0, 100, 0]);
+    // Only the 50 above the provision is expense: 1,313.40 less 50.
+    expect(
+      fundRowOf(
+        sheet,
+        "General Fund (Domestic): current year surplus/(deficit)"
+      )
+    ).toEqual([0, 1263.4, 0, 1263.4]);
+    const expenses = incomeExpenditureSheet(facts).rows.filter(
+      (r) => r.cells[2] === "Audit fees"
+    );
+    expect(expenses.map((r) => r.cells[4])).toEqual([50]);
+    expect(toBooks(facts).balanced).toBe(true);
+  });
+
   it("agrees with the Books balance summary on every fund", () => {
     const cases = [
       withCorpusGift(fixture()),

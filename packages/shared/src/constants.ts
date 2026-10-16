@@ -243,6 +243,11 @@ export const LEDGER_ACCOUNT_HEAD_IDS = {
   yearEndAdjustmentsIncome: "01930000-0000-7000-8000-000000000843",
   /** Audited figures: money the CA moved from one fund to another. */
   fundTransfers: "01930000-0000-7000-8000-000000000842",
+  /**
+   * Audit fees above the provision their payment clears: the rest of a
+   * vendor invoice line charged to `auditFeesPayable` (under `expenses`).
+   */
+  auditFees: "01930000-0000-7000-8000-000000000844",
 } as const;
 
 /**

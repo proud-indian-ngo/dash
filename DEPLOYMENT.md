@@ -428,6 +428,10 @@ On start the web server ensures the Corpus Fund and the books' account heads (`F
 
 Migration `0149_audited_figures` adds `audited_figures` and `audited_figures_line` (with the `audited_figures_status` and `audited_figures_line_kind` enums), synced read-only through Zero to book readers; `0150_ledger_guards_v3` puts them under the books' database guards (the document final except its one-time reversal stamp, its lines append-only, no TRUNCATE on either) and moves the guard functions to v3. Deploy them with the regenerated Zero schema and the web build. No new environment variables, services or queues. On start the web server adds four reference account heads: `Depreciation` and `Year-end adjustments (audited)` (expense), `Year-end adjustments (audited) — income` (income) and `Transfers between funds` (fund). Rolling back to code from before guards v3 makes the server rewrite the guard functions with the v2 version comment on start; the triggers on the audited-figures tables stay in place, and redeploying restores v3. `finance.adjust`, which finance admins and super admins already hold, now enters them. Nothing posts until a finance admin enters a year's figures at Finance → Books → Audited figures (`/finance/books/audited`), after the year has ended and the CA has signed its statements; never seed or script the real figures.
 
+### Audit fee provision
+
+Migration `0152_audit_fee_provision` adds the nullable `vendor_payment_line_item.provision_head_id` (a foreign key to `account_head`, with a partial index). Deploy it with the regenerated Zero schema and the web build. No new environment variables, services or queues. On start the web server adds the `Audit fees` expense head under Expenses. Nothing changes for existing invoices: a line is charged to the provision only when finance picks "Audit fees payable (provision)" while approving its invoice.
+
 ### Income posting (books layer 3-2)
 
 Migration `0135_ledger_income` adds `ledger_source_state` (with the `ledger_source_status` enum) and `statement_line.transfer_org_account_id` with its check. Run it in the existing `migrate` service and deploy it with the regenerated Zero schema and the web build. No new environment variables or services. Two new pg-boss queues, created by the jobs worker at start: `ledger-post-source` (one job per changed income record) and `ledger-post-pending` (the sweep, scheduled daily at 03:30 India time). On start the web server adds the account heads `Donations received`, `In-kind donations`, `Other income`, `In-kind consumed` and `Gateway charges` (fixed IDs; a code clash is logged as "Books reference data missing" and the affected records wait with that reason). The new permission `finance.post_pending` goes to every finance admin and super admin automatically. After the deploy:
@@ -444,7 +448,7 @@ The new permission `donors.receipt` goes to every finance admin and super admin 
 
 1. Fills in Settings → Organisation accounts → Donation receipts: the trust's registered name, address, PAN, and the signatory's name and designation (printed on every receipt; never seed the real values).
 2. Checks the 80G registration (URN and date) under Donations return in the same page.
-3. Has the CA confirm the receipt wording marked CA TO CONFIRM in `packages/shared/src/receipts.ts` before the first receipt is sent.
+3. Knows the receipt wording in `packages/shared/src/receipts.ts` was approved by the founder on 17 October 2026; the CA may still review it before the first receipt is sent.
 
 ### Expenses head repair and payment proof
 
