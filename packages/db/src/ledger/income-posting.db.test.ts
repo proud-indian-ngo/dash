@@ -927,11 +927,19 @@ it.skipIf(!localDatabase)(
           (s) => s.sourceId === payout
         );
       expect(await listed()).toBe(false);
-      await resetStatementLine(
-        tx as never,
-        lineId,
-        new Date(NOW.getTime() + 60_000)
-      );
+      // A payout's watermark includes every bank account's update time, so
+      // rows outside this test can put it past NOW; unmatch after the look.
+      const [state] = await tx
+        .select({ seen: ledgerSourceState.sourceUpdatedAt })
+        .from(ledgerSourceState)
+        .where(
+          and(
+            eq(ledgerSourceState.sourceType, source.sourceType),
+            eq(ledgerSourceState.sourceId, payout)
+          )
+        );
+      const seen = state?.seen?.getTime() ?? NOW.getTime();
+      await resetStatementLine(tx as never, lineId, new Date(seen + 60_000));
       expect(await listed()).toBe(true);
       expect(await run(tx, source)).toMatchObject({ posted: 1, reversed: 1 });
       expect((await postingsOf(tx, payout)).at(-1)?.economicOn).toBe(
