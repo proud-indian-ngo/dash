@@ -79,6 +79,14 @@ export interface GovernanceDocumentR2ObjectRecord {
   kind: string;
 }
 
+/** A circular's PDF: governance, and the trustees it went to. */
+export interface ResolutionR2ObjectRecord {
+  access: "resolution";
+  filename: string;
+  key: string;
+  recipientUserIds: readonly string[];
+}
+
 export interface KalakritiInventoryPhotoR2ObjectRecord {
   access: "kalakritiInventoryPhoto";
   editionId: string;
@@ -89,6 +97,7 @@ export interface KalakritiInventoryPhotoR2ObjectRecord {
 export type R2ObjectRecord =
   | EventPhotoR2ObjectRecord
   | GovernanceDocumentR2ObjectRecord
+  | ResolutionR2ObjectRecord
   | KalakritiEntryMusicR2ObjectRecord
   | KalakritiInventoryPhotoR2ObjectRecord
   | KalakritiScorecardR2ObjectRecord
@@ -203,6 +212,12 @@ export async function authorizeR2Object(
     allowed = await deps.canReadKalakritiScorecard(session, record);
   } else if (record.access === "governanceDocument") {
     allowed = await canReadGovernanceDocument(session, record, deps);
+  } else if (record.access === "resolution") {
+    allowed =
+      record.recipientUserIds.includes(session.user.id) ||
+      (await deps.resolvePermissions(getRole(session))).some(
+        (p) => p === "governance.view" || p === "governance.manage"
+      );
   } else {
     await authorizeEventPhoto(session, record, deps);
   }

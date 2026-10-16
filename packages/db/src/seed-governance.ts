@@ -21,8 +21,10 @@ export const GOVERNANCE_SEED_IDS = {
 const T = GOVERNANCE_SEED_IDS;
 
 export async function ensureGovernanceFixtures(options: {
-  /** Account linked to the trustee in office who is not a Co-Founder. */
-  linkedUserId: string | null;
+  /** Account linked to the Joint Managing Trustee (Vikram Menon), if any. */
+  jointManagingTrusteeUserId: string | null;
+  /** Account linked to the Managing Trustee (Asha Rao), who issues circulars. */
+  managingTrusteeUserId: string | null;
 }): Promise<void> {
   await ensureGovernanceReferenceData();
   const now = new Date();
@@ -35,7 +37,7 @@ export async function ensureGovernanceFixtures(options: {
         isCoFounder: true,
         legalName: "Asha Rao",
         updatedAt: now,
-        userId: null,
+        userId: options.managingTrusteeUserId,
       },
       {
         createdAt: now,
@@ -43,7 +45,7 @@ export async function ensureGovernanceFixtures(options: {
         isCoFounder: false,
         legalName: "Vikram Menon",
         updatedAt: now,
-        userId: options.linkedUserId,
+        userId: options.jointManagingTrusteeUserId,
       },
       {
         createdAt: now,

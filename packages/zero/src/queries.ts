@@ -26,6 +26,7 @@ import {
   deedVersionQueries,
   governanceDocumentQueries,
   organisationRegistrationQueries,
+  resolutionQueries,
   trusteeQueries,
 } from "./queries/governance";
 import {
@@ -107,6 +108,7 @@ export const queries = defineQueries({
   programme: programmeQueries,
   project: projectQueries,
   reimbursement: reimbursementQueries,
+  resolution: resolutionQueries,
   scheduledMessage: scheduledMessageQueries,
   socialPost: socialPostQueries,
   socialRun: socialRunQueries,

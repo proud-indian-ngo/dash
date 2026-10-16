@@ -109,6 +109,11 @@ import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
 import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
 import { handleRemindTrusteeTerms } from "./remind-trustee-terms";
+import {
+  handleCloseDueResolutions,
+  handleNotifyResolutionDecided,
+  handleNotifyResolutionIssued,
+} from "./resolutions";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendContributionReceipt } from "./send-contribution-receipt";
@@ -559,6 +564,21 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "flush-held-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleFlushHeldNotifications)
+  );
+  await boss.work(
+    "notify-resolution-issued",
+    NOTIFY_POLL,
+    handleNotifyResolutionIssued
+  );
+  await boss.work(
+    "notify-resolution-decided",
+    NOTIFY_POLL,
+    handleNotifyResolutionDecided
+  );
+  await boss.work(
+    "close-due-resolutions",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleCloseDueResolutions(jobs))
   );
   await boss.work(
     "remind-trustee-terms",

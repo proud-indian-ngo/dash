@@ -1795,6 +1795,7 @@ async function seed(): Promise<void> {
   await ensureWhatsAppGroup();
 
   let superAdminUserId = "";
+  let adminUserId = "";
   let financeAdminUserId = "";
   let unorientedUserId = "";
   let volunteerUserId = "";
@@ -1804,6 +1805,8 @@ async function seed(): Promise<void> {
       await ensureBankAccount(userId);
       if (testUser.role === "super_admin") {
         superAdminUserId = userId;
+      } else if (testUser.role === "admin") {
+        adminUserId = userId;
       } else if (testUser.role === "finance_admin") {
         financeAdminUserId = userId;
       } else if (testUser.role === "unoriented_volunteer") {
@@ -1830,7 +1833,12 @@ async function seed(): Promise<void> {
   });
   await ensureAuditLogEntry(superAdminUserId);
   // A fictional board for the register; specs that change it add their own trustees.
-  await ensureGovernanceFixtures({ linkedUserId: superAdminUserId });
+  // The super admin is the Managing Trustee (issues circulars); the admin the
+  // Joint Managing Trustee.
+  await ensureGovernanceFixtures({
+    jointManagingTrusteeUserId: adminUserId,
+    managingTrusteeUserId: superAdminUserId,
+  });
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });

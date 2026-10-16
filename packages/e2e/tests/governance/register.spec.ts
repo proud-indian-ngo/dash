@@ -82,8 +82,10 @@ test.describe("trustee register (super admin)", () => {
     await expect(sheet).toBeVisible();
     await sheet.getByRole("button", { name: "Add term" }).click();
     const termDialog = page.getByRole("dialog", { name: "Add a term" });
+    // Next month, so the board in office today stays the seeded two for
+    // the circular specs.
     const start = new Date();
-    start.setDate(1);
+    start.setMonth(start.getMonth() + 1, 1);
     await pickDay(termDialog, "Starts on", start);
     await termDialog.getByRole("button", { name: "Add term" }).click();
     await expect(page.getByText("Term added")).toBeVisible();
