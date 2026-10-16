@@ -29,8 +29,9 @@ import type { VendorPaymentWithRelations } from "./vendor-payment-types";
 
 /**
  * An auditor's invoice clearing the audit fee provision. At invoice
- * approval finance picks, per line, its category's expense or a provision
- * (`PROVISION_HEADS`); the picker says what is outstanding of it. Once the
+ * approval finance may open "Charge to a provision" and pick, per line,
+ * its category's expense or a provision (`PROVISION_HEADS`); the picker
+ * says what is outstanding of it. Once the
  * books post the invoice, the Invoice section shows how each such line was
  * split: cleared from the provision, and the rest as expense.
  */

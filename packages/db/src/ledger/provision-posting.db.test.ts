@@ -325,15 +325,25 @@ const balanceCheck = (lines: readonly BalanceSheetLine[]) =>
     0
   );
 
-/** The books balance and the provision never goes below zero, on each day. */
-async function expectSound(tx: LedgerTx, days: readonly string[]) {
+/**
+ * The books balance and the provision never goes below zero, on each day
+ * (except the days a voided invoice's share is taken before its void day:
+ * the accepted dip).
+ */
+async function expectSound(
+  tx: LedgerTx,
+  days: readonly string[],
+  dipDays: readonly string[] = []
+) {
   for (const day of days) {
     const { lines } = await loadBalanceSheetLines(tx, day);
     expect(balanceCheck(lines), `balance check on ${day}`).toBe(0);
-    expect(
-      await provisionOn(tx, day),
-      `provision on ${day}`
-    ).toBeGreaterThanOrEqual(0);
+    if (!dipDays.includes(day)) {
+      expect(
+        await provisionOn(tx, day),
+        `provision on ${day}`
+      ).toBeGreaterThanOrEqual(0);
+    }
   }
 }
 
@@ -385,7 +395,7 @@ it.skipIf(!localDatabase)(
 );
 
 it.skipIf(!localDatabase)(
-  "keeps the split through an unrelated repost, resplits a later invoice when an earlier one changes, and frees a voided one's share only from its void day",
+  "keeps the split through an unrelated repost, resplits a later invoice when an earlier one changes, and reallocates as if a voided one never claimed",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const ids = await foundation(tx);
@@ -451,12 +461,19 @@ it.skipIf(!localDatabase)(
       expect(await splitOf(tx, b.id)).toEqual([[4500_00, 500_00]]);
       await expectSound(tx, DAYS);
 
-      // A voided on 1 Aug: its share comes back on that day, so B (10 Jul)
-      // keeps its split and an invoice after the void takes the share.
+      // A voided on 1 Aug is no claim for anyone: B (10 Jul) takes what A
+      // took, and an invoice after the void takes the rest. A's own
+      // reversal lands on 1 Aug, so the provision dips below zero between
+      // 10 Jul and 1 Aug (the accepted trade-off); the year end is right.
       const voidedAt = at("2026-08-01");
       await tx
         .update(vendorPayment)
-        .set({ voidedAt, voidedBy: ids.user, voidReason: "Raised twice" })
+        .set({
+          updatedAt: smaller,
+          voidedAt,
+          voidedBy: ids.user,
+          voidReason: "Raised twice",
+        })
         .where(eq(vendorPayment.id, a.id));
       await tx
         .update(vendorPaymentTransaction)
@@ -467,10 +484,15 @@ it.skipIf(!localDatabase)(
         status: "none",
       });
       await run(tx, paymentSource(a.paymentId), smaller);
+      // Voiding A reposts the others charged to the provision.
+      expect(await relatedIncomeSources(tx, invoiceSource(a.id))).toEqual(
+        expect.arrayContaining([invoiceSource(b.id)])
+      );
       expect(await run(tx, invoiceSource(b.id), smaller)).toMatchObject({
-        posted: 0,
-        reversed: 0,
+        posted: 1,
+        reversed: 1,
       });
+      expect(await splitOf(tx, b.id)).toEqual([[5000_00, 0]]);
       const c = await addInvoice(tx, ids, {
         acceptedOn: "2026-09-01",
         amountPaise: 5000_00,
@@ -478,11 +500,15 @@ it.skipIf(!localDatabase)(
       });
       await run(tx, paymentSource(c.paymentId), smaller);
       await run(tx, invoiceSource(c.id), smaller);
-      expect(await splitOf(tx, c.id)).toEqual([[3000_00, 2000_00]]);
-      expect(await provisionOn(tx, "2026-07-31")).toBe(0);
-      expect(await provisionOn(tx, "2026-08-01")).toBe(3000_00);
+      expect(await splitOf(tx, c.id)).toEqual([[2500_00, 2500_00]]);
+      expect(await provisionOn(tx, "2026-07-31")).toBe(-500_00);
+      expect(await provisionOn(tx, "2026-08-01")).toBe(2500_00);
       expect(await provisionOn(tx, YEAR_END)).toBe(0);
-      await expectSound(tx, [...DAYS, "2026-09-01"]);
+      await expectSound(
+        tx,
+        [...DAYS, "2026-07-31", "2026-09-01"],
+        ["2026-07-10", "2026-07-31"]
+      );
 
       // The approval picker says what is left, and from which year.
       const view = await vendorPaymentProvisionView(tx, uuidv7(), "2026-10-15");
@@ -544,6 +570,15 @@ it.skipIf(!localDatabase)(
         { actorId: ids.user, now: AFTER_YEAR_END }
       );
       expect(await provisionOn(tx, YEAR_END)).toBe(6000_00);
+      // The audited figures post a difference, so the years can't be told.
+      const picker = await vendorPaymentProvisionView(
+        tx,
+        uuidv7(),
+        "2027-04-10"
+      );
+      expect(picker.outstanding).toEqual([
+        { headId: H.auditFeesPayable, paise: 6000_00, years: [] },
+      ]);
 
       // An invoice in FY 2027-28 clears it, posting in its own year.
       const nextYear = new Date("2027-06-01T06:00:00Z");
@@ -580,6 +615,89 @@ it.skipIf(!localDatabase)(
       });
       expect(await provisionOn(tx, "2027-05-10")).toBe(0);
       await expectSound(tx, [YEAR_END, "2027-05-10"]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "counts an invoice that cleared the provision and then waits as it stands, so a later invoice never takes it twice",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const a = await addInvoice(tx, ids, {
+        acceptedOn: "2026-06-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-06-05",
+      });
+      await run(tx, paymentSource(a.paymentId));
+      await run(tx, invoiceSource(a.id));
+      expect(await splitOf(tx, a.id)).toEqual([[5000_00, 0]]);
+      // Raised above its payments: A waits with its posting kept.
+      await tx
+        .update(vendorPaymentLineItem)
+        .set({ amountPaise: 6000_00 })
+        .where(eq(vendorPaymentLineItem.id, a.lineId));
+      expect(await run(tx, invoiceSource(a.id))).toMatchObject({
+        reason: "invoice_exceeds_payments",
+        status: "waiting",
+      });
+      expect(await splitOf(tx, a.id)).toEqual([[5000_00, 0]]);
+      const b = await addInvoice(tx, ids, {
+        acceptedOn: "2026-07-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-07-01",
+      });
+      await run(tx, paymentSource(b.paymentId));
+      await run(tx, invoiceSource(b.id));
+      // B takes only what A's standing posting left.
+      expect(await splitOf(tx, b.id)).toEqual([[2500_00, 2500_00]]);
+      expect(await provisionOn(tx, YEAR_END)).toBe(0);
+      await expectSound(tx, DAYS);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "gives a voided duplicate's share to the invoice it crowded out, so the year end holds no double count",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const a = await addInvoice(tx, ids, {
+        acceptedOn: "2026-07-10",
+        amountPaise: PROVISION_PAISE,
+        paidOn: "2026-07-05",
+      });
+      const b = await addInvoice(tx, ids, {
+        acceptedOn: "2026-07-15",
+        amountPaise: PROVISION_PAISE,
+        paidOn: "2026-07-05",
+      });
+      for (const invoice of [a, b]) {
+        await run(tx, paymentSource(invoice.paymentId));
+        await run(tx, invoiceSource(invoice.id));
+      }
+      expect(await splitOf(tx, b.id)).toEqual([[0, PROVISION_PAISE]]);
+      const voidedAt = at("2026-07-20");
+      await tx
+        .update(vendorPayment)
+        .set({ voidedAt, voidedBy: ids.user, voidReason: "Duplicate" })
+        .where(eq(vendorPayment.id, a.id));
+      await tx
+        .update(vendorPaymentTransaction)
+        .set({ voidedAt, voidedBy: ids.user, voidReason: "Duplicate" })
+        .where(eq(vendorPaymentTransaction.id, a.paymentId));
+      await run(tx, invoiceSource(a.id));
+      await run(tx, paymentSource(a.paymentId));
+      await run(tx, invoiceSource(b.id));
+      expect(await splitOf(tx, b.id)).toEqual([[PROVISION_PAISE, 0]]);
+      expect(await provisionOn(tx, YEAR_END)).toBe(0);
+      // Between B's day and A's void day the provision dips.
+      expect(await provisionOn(tx, "2026-07-15")).toBe(-PROVISION_PAISE);
+      await expectSound(
+        tx,
+        ["2026-07-09", "2026-07-15", "2026-07-20", YEAR_END],
+        ["2026-07-15"]
+      );
     });
   }
 );

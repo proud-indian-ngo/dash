@@ -89,3 +89,98 @@ describe("approving an invoice charged to a provision", () => {
     expect(otherLine.updateRequest).not.toHaveBeenCalled();
   });
 });
+
+/** A client transaction for editing a request whose line is charged to the provision. */
+function editTx() {
+  const insertLine = mock();
+  const insertHistory = mock();
+  const existing = [
+    {
+      amountPaise: 15_000,
+      categoryId: "cat-1",
+      id: "line-1",
+      provisionHeadId: PROVISION,
+    },
+  ];
+  const tx = {
+    location: "client",
+    mutate: {
+      vendorPayment: { update: mock() },
+      vendorPaymentAttachment: { delete: mock(), insert: mock() },
+      vendorPaymentHistory: { insert: insertHistory },
+      vendorPaymentLineItem: { delete: mock(), insert: insertLine },
+    },
+    run: mock()
+      .mockResolvedValueOnce({
+        chargedTo: "organisation",
+        status: "completed",
+        title: "Statutory audit",
+        userId: "user-2",
+      })
+      .mockResolvedValueOnce({ createdBy: "user-2", status: "approved" })
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce([]),
+  };
+  return { insertHistory, insertLine, tx };
+}
+
+const edit = (tx: unknown, line: { amountPaise: number; categoryId: string }) =>
+  vendorPaymentMutators.update.fn({
+    args: {
+      attachments: [],
+      chargedTo: "organisation",
+      id: "vp-1",
+      lineItems: [
+        {
+          ...line,
+          description: "Audit fee",
+          generateVoucher: false,
+          id: "line-1",
+          sortOrder: 0,
+        },
+      ],
+      title: "Statutory audit",
+      vendorId: "vendor-1",
+    },
+    ctx: {
+      permissions: ["requests.edit_all_statuses"],
+      role: "finance_admin",
+      userId: "user-1",
+    },
+    tx,
+  } as never);
+
+describe("editing a request with a line charged to a provision", () => {
+  it("keeps the charge when the line's category and amount stay", async () => {
+    const { insertHistory, insertLine, tx } = editTx();
+    await edit(tx, { amountPaise: 15_000, categoryId: "cat-1" });
+    expect(insertLine).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "line-1", provisionHeadId: PROVISION })
+    );
+    expect(
+      insertHistory.mock.calls.some((c) =>
+        String(c[0]?.note).startsWith("Provision charge cleared")
+      )
+    ).toBe(false);
+  });
+
+  it("clears it, with a history note, when the amount or category changes", async () => {
+    for (const line of [
+      { amountPaise: 18_000, categoryId: "cat-1" },
+      { amountPaise: 15_000, categoryId: "cat-2" },
+    ]) {
+      const { insertHistory, insertLine, tx } = editTx();
+      await edit(tx, line);
+      expect(insertLine).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "line-1", provisionHeadId: null })
+      );
+      expect(insertHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          note: "Provision charge cleared: the line charged to a provision changed",
+          vendorPaymentId: "vp-1",
+        })
+      );
+    }
+  });
+});

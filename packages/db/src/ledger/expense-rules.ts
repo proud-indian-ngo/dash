@@ -530,6 +530,11 @@ export interface ProvisionBaseEntry {
    * a voided invoice's entries, which net to nothing once reversed.
    */
   forYear: string | null;
+  /**
+   * From the audited figures: a difference to the CA's figure, not a
+   * provision of its own year, so the years it is from can't be told.
+   */
+  fromAudited?: true;
   /** Positive raises the provision, negative lowers it. */
   signedPaise: number;
 }
@@ -593,7 +598,9 @@ export function provisionOutstanding(
     0,
     dated.reduce((sum, e) => sum + e.signedPaise, 0) - takenPaise
   );
-  if (paise === 0) {
+  // An audited figures entry posts the difference to the CA's figure, so
+  // which years the rest is from can't be told: the amount alone.
+  if (paise === 0 || base.some((e) => e.fromAudited)) {
     return { paise, years: [] };
   }
   // Increases are used up oldest first, by every decrease and claim. A

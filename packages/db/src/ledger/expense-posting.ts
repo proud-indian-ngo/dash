@@ -9,6 +9,7 @@ import {
   and,
   asc,
   eq,
+  inArray,
   isNotNull,
   isNull,
   ne,
@@ -19,7 +20,11 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { user } from "../schema/auth";
 import { expenseCategory } from "../schema/expense-category";
-import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
+import {
+  accountHead,
+  fiscalYear,
+  orgAccount,
+} from "../schema/finance-dimensions";
 import {
   accountMovement,
   auditedFigures,
@@ -190,11 +195,16 @@ async function lineFacts(
     description: string | null;
     id: string;
     provisionHeadId?: string | null;
-  }[]
+  }[],
+  options: { readOnly?: boolean } = {}
 ): Promise<ExpenseLineFacts[]> {
-  await ensureExpenseCategoryHeads(tx, [
-    ...new Set(lines.map((l) => l.categoryId)),
-  ]);
+  // A read (the approval picker) never writes: a category without a head
+  // then reads as having none.
+  if (!options.readOnly) {
+    await ensureExpenseCategoryHeads(tx, [
+      ...new Set(lines.map((l) => l.categoryId)),
+    ]);
+  }
   const heads = new Map<string, string | null>();
   for (const categoryId of new Set(lines.map((l) => l.categoryId))) {
     const [row] = await tx
@@ -290,11 +300,12 @@ async function reimbursementFacts(
  * A vendor payment request's facts. With `provision` off, what its lines
  * may clear of a provision is left out: that is how another invoice asks
  * whether this one posts (it does whatever the split), without recursing.
+ * With `readOnly`, nothing is written (no category heads are created).
  */
 async function vendorPaymentFacts(
   tx: LedgerTx,
   id: string,
-  options: { provision: boolean } = { provision: true }
+  options: { provision: boolean; readOnly?: boolean } = { provision: true }
 ): Promise<VendorPaymentFacts | null> {
   const [row] = await tx
     .select()
@@ -382,7 +393,7 @@ async function vendorPaymentFacts(
     charge: await chargeFacts(tx, row),
     id: row.id,
     invoiceDate: row.invoiceDate,
-    lines: await lineFacts(tx, lines),
+    lines: await lineFacts(tx, lines, { readOnly: options.readOnly }),
     paidBeforeCutoverPaise,
     paidPaise,
     paymentWaiting,
@@ -428,62 +439,29 @@ async function frozenDays(tx: LedgerTx): Promise<(day: string) => boolean> {
 /**
  * Everything `allocateProvision` needs for one provision head, leaving out
  * one invoice (the one asking):
- * - `base`: its entries in the books that no standing invoice's record
- *   decides: the opening balances (a provision for the year before the
- *   cutover), the audited figures, voided invoices' postings with their
- *   reversals, and what invoices took on days the books can no longer
- *   change (a closed or matched year): those are final, so they are read
- *   from the books;
- * - `claims`: the other standing invoices with lines charged to it that
- *   post (accepted, from the cutover, paid as their invoice needs) on a
- *   day that can still change, each by its own record, not by what its
- *   postings say right now.
+ * - `claims`: the other standing (not voided), accepted invoices with lines
+ *   charged to it that post (from the cutover, paid as their invoice
+ *   needs) on a day that can still change, each by its own record, not by
+ *   what its postings say right now;
+ * - `base`: the provision's entries that no claim's record decides, as
+ *   they stand in the books: the opening balances (a provision for the
+ *   year before the cutover), the audited figures, and the standing
+ *   entries of every other invoice that is not a claim (one that waits
+ *   with its posting kept, one in a closed or matched year, one about to
+ *   be reversed). A voided invoice is no claim for anyone: its entries are
+ *   left out, so invoices dated before its void day are allocated as if it
+ *   never claimed. Its own reversal still lands on the void day, so the
+ *   provision can dip below zero in between; the year-end figure is
+ *   right. Only a voided invoice that posted on a frozen day stays in the
+ *   base, with its reversal, as it stands.
  */
 export async function provisionLedger(
   tx: LedgerTx,
   headId: string,
-  exceptId: string | null
+  exceptId: string | null,
+  options: { readOnly?: boolean } = {}
 ): Promise<{ base: ProvisionBaseEntry[]; claims: ProvisionClaim[] }> {
   const isFrozen = await frozenDays(tx);
-  const rows = await tx
-    .select({
-      amountPaise: ledgerEntry.amountPaise,
-      economicOn: ledgerEntry.economicOn,
-      effect: ledgerEntry.effect,
-      sourceId: posting.sourceId,
-      sourceType: posting.sourceType,
-      voided: sql<boolean>`exists (select 1 from ${vendorPayment} pv
-        where pv.id = ${posting.sourceId} and pv.voided_at is not null)`,
-    })
-    .from(ledgerEntry)
-    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
-    .where(eq(ledgerEntry.accountHeadId, headId))
-    .orderBy(asc(ledgerEntry.economicOn), asc(ledgerEntry.id));
-  const base: ProvisionBaseEntry[] = [];
-  for (const r of rows) {
-    const invoice = r.sourceType === T.vendorPayment;
-    if (
-      invoice &&
-      (r.sourceId === exceptId || !(r.voided || isFrozen(r.economicOn)))
-    ) {
-      continue;
-    }
-    base.push({
-      economicOn: r.economicOn,
-      // The opening balances, dated the year's first day, hold the
-      // provision the CA made for the year before. A voided invoice's
-      // entries net to nothing once reversed, so they name no year.
-      forYear:
-        invoice && r.voided
-          ? null
-          : financialYearOf(
-              r.sourceType === T.openingBalance
-                ? dayBefore(r.economicOn)
-                : r.economicOn
-            ).label,
-      signedPaise: signedPaise(r.effect, r.amountPaise),
-    });
-  }
   const candidates = await tx
     .selectDistinct({ id: vendorPayment.id })
     .from(vendorPayment)
@@ -503,14 +481,15 @@ export async function provisionLedger(
   for (const candidate of candidates) {
     const facts = await vendorPaymentFacts(tx, candidate.id, {
       provision: false,
+      readOnly: options.readOnly,
     });
     const on = facts ? invoiceAcceptedDay(facts) : null;
     const claimPaise = facts
       ? (provisionClaimsOf(facts.lines).get(headId) ?? 0)
       : 0;
     // Only an invoice that posts takes from the provision; whether it
-    // posts never depends on how its lines split. One on a frozen day is
-    // in the base, as its postings stand.
+    // posts never depends on how its lines split. One on a frozen day, or
+    // one that waits, is in the base as its postings stand.
     if (
       facts &&
       on &&
@@ -520,6 +499,69 @@ export async function provisionLedger(
     ) {
       claims.push({ claimPaise, id: facts.id, on });
     }
+  }
+  const claimIds = new Set(claims.map((c) => c.id));
+
+  const reversal = alias(posting, "reversal");
+  const rows = await tx
+    .select({
+      amountPaise: ledgerEntry.amountPaise,
+      economicOn: ledgerEntry.economicOn,
+      effect: ledgerEntry.effect,
+      isReversal: sql<boolean>`${posting.reversesPostingId} is not null`,
+      reversed: sql<boolean>`${reversal.id} is not null`,
+      sourceId: posting.sourceId,
+      sourceType: posting.sourceType,
+      voided: sql<boolean>`exists (select 1 from ${vendorPayment} pv
+        where pv.id = ${posting.sourceId} and pv.voided_at is not null)`,
+    })
+    .from(ledgerEntry)
+    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+    .leftJoin(reversal, eq(reversal.reversesPostingId, posting.id))
+    .where(eq(ledgerEntry.accountHeadId, headId))
+    .orderBy(asc(ledgerEntry.economicOn), asc(ledgerEntry.id));
+  const invoiceOf = (r: (typeof rows)[number]) =>
+    r.sourceType === T.vendorPayment;
+  // A voided invoice stays in the base only when it posted on a frozen day.
+  const frozenVoided = new Set(
+    rows
+      .filter(
+        (r) =>
+          invoiceOf(r) && r.voided && !r.isReversal && isFrozen(r.economicOn)
+      )
+      .map((r) => r.sourceId)
+  );
+  const base: ProvisionBaseEntry[] = [];
+  for (const r of rows) {
+    if (invoiceOf(r)) {
+      if (r.sourceId === exceptId || claimIds.has(r.sourceId)) {
+        continue;
+      }
+      // A voided one as it stands only on a frozen day; any other only
+      // its standing entries.
+      const kept = r.voided
+        ? frozenVoided.has(r.sourceId)
+        : !(r.isReversal || r.reversed);
+      if (!kept) {
+        continue;
+      }
+    }
+    base.push({
+      economicOn: r.economicOn,
+      ...(r.sourceType === T.auditedFigures && { fromAudited: true as const }),
+      // The opening balances, dated the year's first day, hold the
+      // provision the CA made for the year before. A voided invoice's
+      // entries net to nothing once reversed, so they name no year.
+      forYear:
+        invoiceOf(r) && r.voided
+          ? null
+          : financialYearOf(
+              r.sourceType === T.openingBalance
+                ? dayBefore(r.economicOn)
+                : r.economicOn
+            ).label,
+      signedPaise: signedPaise(r.effect, r.amountPaise),
+    });
   }
   return { base, claims };
 }
@@ -549,11 +591,31 @@ export async function vendorPaymentProvisionView(
   split: ProvisionLineSplit[];
 }> {
   const outstanding: { headId: string; paise: number; years: string[] }[] = [];
+  const present = new Set(
+    (
+      await tx
+        .select({ id: accountHead.id })
+        .from(accountHead)
+        .where(
+          inArray(
+            accountHead.id,
+            PROVISION_HEADS.flatMap((h) => [h.id, h.excessHeadId])
+          )
+        )
+    ).map((h) => h.id)
+  );
   for (const head of PROVISION_HEADS) {
+    // Read only: heads the books' reference data hasn't made yet mean
+    // nothing is outstanding.
+    if (!(present.has(head.id) && present.has(head.excessHeadId))) {
+      outstanding.push({ headId: head.id, paise: 0, years: [] });
+      continue;
+    }
     const { base, claims } = await provisionLedger(
       tx,
       head.id,
-      vendorPaymentId
+      vendorPaymentId,
+      { readOnly: true }
     );
     outstanding.push({
       headId: head.id,

@@ -191,12 +191,16 @@ export function VendorPaymentInvoiceSection({
   const canSeeProvision = useCanSeeProvision();
   const [charges, setCharges] = useState<LineCharges>({});
   const hasProvisionLine = request.lineItems.some((l) => l.provisionHeadId);
+  // The provision choice stays folded away until asked for ("Charge to a
+  // provision"); folded, every line goes to its category.
+  const [provisionOpen, setProvisionOpen] = useState(false);
   const [splitCheck, setSplitCheck] = useState(0);
   const provision = useVendorPaymentProvision(
     request.id,
     canSeeProvision &&
-      (invoiceApproveOpen || (status === "completed" && hasProvisionLine)),
-    `${status}:${invoiceApproveOpen}:${splitCheck}`
+      ((invoiceApproveOpen && provisionOpen) ||
+        (status === "completed" && hasProvisionLine)),
+    `${status}:${invoiceApproveOpen}:${provisionOpen}:${splitCheck}`
   );
   const awaitingSplit =
     status === "completed" &&
@@ -218,13 +222,14 @@ export function VendorPaymentInvoiceSection({
   const handleChargeChange = useEventCallback((lineId: string, head: string) =>
     setCharges((current) => ({ ...current, [lineId]: head }))
   );
+  const handleOpenProvision = useEventCallback(() => setProvisionOpen(true));
 
   const handleApproveInvoice = useEventCallback(async (message: string) => {
     const res = await zero.mutate(
       mutators.vendorPayment.approveInvoice({
         id: request.id,
         note: message || undefined,
-        ...provisionArgs(charges),
+        ...(provisionOpen ? provisionArgs(charges) : {}),
       })
     ).server;
     handleMutationResult(res, {
@@ -260,6 +265,8 @@ export function VendorPaymentInvoiceSection({
   });
   const stableOnClick2 = useEventCallback(() => {
     setCharges(lineChargesOf(request.lineItems));
+    // Opened already when a line is charged to a provision (a re-approval).
+    setProvisionOpen(hasProvisionLine);
     setInvoiceApproveOpen(true);
   });
   const stableOnClick3 = useEventCallback(() => setInvoiceRejectOpen(true));
@@ -396,12 +403,24 @@ export function VendorPaymentInvoiceSection({
         open={invoiceApproveOpen}
         summary={
           canSeeProvision && request.lineItems.length > 0 ? (
-            <ProvisionChargePicker
-              charges={charges}
-              lines={request.lineItems}
-              onChange={handleChargeChange}
-              outstanding={provision?.outstanding}
-            />
+            provisionOpen ? (
+              <ProvisionChargePicker
+                charges={charges}
+                lines={request.lineItems}
+                onChange={handleChargeChange}
+                outstanding={provision?.outstanding}
+              />
+            ) : (
+              <Button
+                className="h-auto px-0"
+                onClick={handleOpenProvision}
+                size="sm"
+                type="button"
+                variant="link"
+              >
+                Charge to a provision
+              </Button>
+            )
           ) : undefined
         }
       />

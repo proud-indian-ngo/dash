@@ -1176,13 +1176,15 @@ export const vendorPaymentMutators = {
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
     const charge = await resolveExpenseCharge(tx, args, entity);
+    // Lines finance charged to a provision, as they were.
     const provisionByLine = new Map(
       (
         await tx.run(
           zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
         )
-      ).flatMap((l) => (l.provisionHeadId ? [[l.id, l.provisionHeadId]] : []))
+      ).flatMap((l) => (l.provisionHeadId ? [[l.id, l] as const] : []))
     );
+    const provisionCleared = new Set<string>();
 
     await tx.mutate.vendorPayment.update({
       ...charge,
@@ -1210,12 +1212,21 @@ export const vendorPaymentMutators = {
           }),
         insertHistory: (data) => tx.mutate.vendorPaymentHistory.insert(data),
         // A line finance charged to a provision keeps that choice when
-        // the request is edited (lines keep their IDs).
-        insertLineItem: (data) =>
-          tx.mutate.vendorPaymentLineItem.insert({
+        // the request is edited (lines keep their IDs), unless its
+        // category or amount changed: then finance chooses again.
+        insertLineItem: (data) => {
+          const before = provisionByLine.get(data.id);
+          const kept =
+            before?.categoryId === data.categoryId &&
+            before.amountPaise === data.amountPaise;
+          if (before && !kept) {
+            provisionCleared.add(data.id);
+          }
+          return tx.mutate.vendorPaymentLineItem.insert({
             ...data,
-            provisionHeadId: provisionByLine.get(data.id) ?? null,
-          }),
+            provisionHeadId: kept ? (before.provisionHeadId ?? null) : null,
+          });
+        },
         onDeleteAttachmentObjectKey: (key) =>
           enqueueDeleteR2Object(ctx, tx.location, key, {
             keyPrefixes: vendorPaymentAttachmentKeyPrefixes(args.id, key),
@@ -1238,6 +1249,26 @@ export const vendorPaymentMutators = {
         subfolder: "attachments",
       })
     );
+
+    // A line that was removed loses its charge too.
+    for (const lineId of provisionByLine.keys()) {
+      if (!args.lineItems.some((l) => l.id === lineId)) {
+        provisionCleared.add(lineId);
+      }
+    }
+    if (provisionCleared.size > 0) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          provisionCleared.size === 1
+            ? "Provision charge cleared: the line charged to a provision changed"
+            : `Provision charge cleared: ${provisionCleared.size} lines charged to a provision changed`
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
 
     // Recalculate payment status when admin edits line items on a non-pending VP
     if (hasEditAll && entity.status !== "pending") {

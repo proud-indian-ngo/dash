@@ -112,7 +112,7 @@ import { uuidv7 } from "uuidv7";
  *   Reports the lines' audited figures.
  * - `reverse-audited <label>`: reverses the standing audited figures, if
  *   any, and posts what waited for the year meanwhile.
- * - `provision-fixture <run>`: an auditor's invoice charged to the audit fee
+ * - `provision-fixture <run> <label>`: an auditor's invoice charged to the audit fee
  *   provision. Voids the auditor invoices of earlier runs (so the
  *   provision is whole again), makes sure the opening balances carry an
  *   audit fee liability (as `audited-fixture` does), then adds a bank
@@ -612,9 +612,9 @@ async function voidAuditorInvoices() {
   return { voided: open.length };
 }
 
-async function provisionFixture(run: string) {
+async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
-  await auditedFixture("2026-27");
+  await auditedFixture(yearLabel);
   const now = new Date();
   const userId = await anyUserId();
   const bankId = uuidv7();
@@ -1070,7 +1070,7 @@ if (action === "close-year") {
 } else if (action === "postings") {
   result = await postingsOf(label);
 } else if (action === "provision-fixture") {
-  result = await provisionFixture(label);
+  result = await provisionFixture(label, process.argv[4] ?? "2026-27");
 } else if (action === "void-auditor-invoices") {
   result = await voidAuditorInvoices();
 } else if (action === "corpus-gift") {

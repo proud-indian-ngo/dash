@@ -22,6 +22,19 @@ import { ListPage } from "../../pages/list-page";
  */
 
 const YEAR = "2026-27";
+
+/** The April-to-March year a day (yyyy-MM-dd) falls in, as "2026-27". */
+const financialYearOf = (iso: string) => {
+  const year = Number(iso.slice(0, 4));
+  const start = Number(iso.slice(5, 7)) >= 4 ? year : year - 1;
+  return `${start}-${String(start + 1).slice(2)}`;
+};
+/** The year before a label: "2025-26" for "2026-27". */
+const yearBefore = (label: string) =>
+  financialYearOf(`${Number(label.slice(0, 4)) - 1}-04-01`);
+/** Today in India (yyyy-MM-dd). */
+const todayInIndia = () =>
+  new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
 const execFileAsync = promisify(execFile);
 
 /** Paise as the plain rupee text the inputs take ("-12.50"). */
@@ -607,10 +620,14 @@ test.describe("Books (treasurer)", () => {
       outstandingPaise: number;
       vendorPaymentId: string;
       years: string[];
-    }>("provision-fixture", run);
+    }>("provision-fixture", run, YEAR);
+    // The opening balances of YEAR hold the provision for the year before
+    // it; the invoice is approved today, in whatever year today is.
+    const providedFor = yearBefore(YEAR);
+    expect(financialYearOf(todayInIndia()) >= YEAR).toBe(true);
     try {
       expect(fixture.outstandingPaise).toBeGreaterThan(0);
-      expect(fixture.years).toEqual(["2025-26"]);
+      expect(fixture.years).toEqual([providedFor]);
       const cleared = Math.min(fixture.outstandingPaise, fixture.amountPaise);
       const rest = fixture.amountPaise - cleared;
 
@@ -620,9 +637,14 @@ test.describe("Books (treasurer)", () => {
       await waitForZeroReady(page);
       await page.getByRole("button", { name: "Approve invoice" }).click();
       const approve = page.getByRole("alertdialog");
+      // Folded away until asked for: every line goes to its category.
+      await expect(approve.getByRole("combobox")).toHaveCount(0);
+      await approve
+        .getByRole("button", { name: "Charge to a provision" })
+        .click();
       await pickOption(approve, page, "Charge to", "Audit fees payable");
       await expect(approve.getByTestId("provision-outstanding")).toContainText(
-        `${inr(fixture.outstandingPaise)} outstanding from FY 2025-26`,
+        `${inr(fixture.outstandingPaise)} outstanding from FY ${providedFor}`,
         { timeout: 15_000 }
       );
       await approve.getByRole("button", { name: "Approve" }).click();

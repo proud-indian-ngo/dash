@@ -1164,8 +1164,9 @@ describe("allocateProvision", () => {
     );
   });
 
-  it("frees what a voided invoice took from its void day, not before", () => {
-    // A voided invoice's posting and its reversal on the void day.
+  it("frees what a base invoice took from its reversal day, not before", () => {
+    // A voided invoice that posted on a frozen day stays in the base as
+    // it stands: its posting, and its reversal on the void day.
     const voided = [
       { economicOn: "2026-05-01", forYear: null, signedPaise: -7500_00 },
       { economicOn: "2026-06-15", forYear: null, signedPaise: 7500_00 },
@@ -1202,5 +1203,13 @@ describe("allocateProvision", () => {
       paise: 0,
       years: [],
     });
+    // An audited figures entry is a difference: the amount alone.
+    expect(
+      provisionOutstanding(
+        [opening, { ...audited, fromAudited: true }],
+        [a],
+        "2027-04-10"
+      )
+    ).toEqual({ paise: 8500_00, years: [] });
   });
 });

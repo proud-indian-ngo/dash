@@ -3,6 +3,7 @@ import type { LedgerTx } from "@pi-dash/db/ledger/engine";
 import { vendorPaymentProvisionView } from "@pi-dash/db/ledger/expense-posting";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { createServerFn } from "@tanstack/react-start";
+import { sql } from "drizzle-orm";
 import z from "zod";
 
 import { assertServerAnyPermission } from "@/lib/api-auth";
@@ -30,11 +31,13 @@ export const getVendorPaymentProvision = createServerFn({ method: "GET" })
       "finance.view",
       "finance.manage",
     ]);
-    return await db.transaction((tx) =>
-      vendorPaymentProvisionView(
+    // A read: the database refuses any write in this transaction.
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SET TRANSACTION READ ONLY`);
+      return await vendorPaymentProvisionView(
         tx as unknown as LedgerTx,
         data.vendorPaymentId,
         todayInKolkata()
-      )
-    );
+      );
+    });
   });
