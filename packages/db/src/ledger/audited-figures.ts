@@ -1,4 +1,5 @@
 import {
+  ASSET_LINE_SOURCE_TYPES,
   AUDITED_REASON_MAX,
   AUDITED_REASON_MIN,
   type AddedLineInput,
@@ -246,40 +247,63 @@ export async function loadBalanceSheetLines(
   const heads = await tx
     .select({ id: accountHead.id, name: accountHead.name })
     .from(accountHead);
+  // Summed in SQL by everything a line depends on (head, fund, effect, and
+  // a fixed asset's name), so a year's closing reads a few rows per head
+  // rather than every entry since the cutover.
+  // Inlined constants, not parameters: GROUP BY must repeat the select's
+  // expression exactly.
+  const assetSources = sql.raw(
+    ASSET_LINE_SOURCE_TYPES.map((t) => `'${t}'`).join(", ")
+  );
+  const assetMemo = sql<string | null>`case when ${accountHead.type} = 'asset'
+    and ${posting.sourceType} in (${assetSources}) then ${ledgerEntry.memo} end`;
   const entries = await tx
     .select({
       accountHeadId: ledgerEntry.accountHeadId,
-      amountPaise: ledgerEntry.amountPaise,
-      economicOn: ledgerEntry.economicOn,
+      amountPaise: sql<number>`sum(${ledgerEntry.amountPaise})`.mapWith(Number),
       effect: ledgerEntry.effect,
       fundId: ledgerEntry.fundId,
       headType: accountHead.type,
-      memo: ledgerEntry.memo,
+      memo: assetMemo,
       sourceType: posting.sourceType,
     })
     .from(ledgerEntry)
     .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
     .innerJoin(accountHead, eq(accountHead.id, ledgerEntry.accountHeadId))
-    .where(lte(ledgerEntry.economicOn, asOf));
+    .where(lte(ledgerEntry.economicOn, asOf))
+    .groupBy(
+      ledgerEntry.accountHeadId,
+      accountHead.type,
+      ledgerEntry.fundId,
+      ledgerEntry.effect,
+      posting.sourceType,
+      assetMemo
+    );
   const movements = await tx
     .select({
-      amountPaise: accountMovement.amountPaise,
+      amountPaise: sql<number>`sum(${accountMovement.amountPaise})`.mapWith(
+        Number
+      ),
       direction: accountMovement.direction,
-      id: accountMovement.id,
-      occurredOn: accountMovement.occurredOn,
       orgAccountId: accountMovement.orgAccountId,
     })
     .from(accountMovement)
-    .where(lte(accountMovement.occurredOn, asOf));
+    .where(lte(accountMovement.occurredOn, asOf))
+    .groupBy(accountMovement.orgAccountId, accountMovement.direction);
   const lines = balanceSheetLines({
     accountIds,
     asOf,
     entries: entries.map((e) => ({
       ...e,
+      economicOn: asOf,
       headType: e.headType as BookHeadType,
     })),
     fundIds: funds.filter((f) => f.active).map((f) => f.id),
-    movements,
+    movements: movements.map((m) => ({
+      ...m,
+      id: `${m.orgAccountId}:${m.direction}`,
+      occurredOn: asOf,
+    })),
   });
   const headNames = new Map(heads.map((h) => [h.id, h.name]));
   const fundNames = new Map(funds.map((f) => [f.id, f.name]));

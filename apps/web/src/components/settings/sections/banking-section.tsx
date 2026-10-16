@@ -126,6 +126,7 @@ export function BankingSection() {
       entityId: id,
       errorMsg: "Couldn't set default bank account",
       mutation: "bankAccount.setDefault",
+      successMsg: "Default bank account set",
     });
   });
   const handleDeleteRequest = useEventCallback((id: string) =>

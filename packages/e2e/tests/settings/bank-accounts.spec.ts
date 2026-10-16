@@ -1,4 +1,5 @@
 import { expect, test } from "../../fixtures/test";
+import { lockBankAccounts } from "../../helpers/bank-account-lock";
 import { openSettingsPage } from "../../helpers/settings";
 
 function openBankingSettings(page: import("@playwright/test").Page) {
@@ -11,14 +12,28 @@ function uniqueAccountNumber(suffix: string) {
 }
 
 test.describe("Banking settings — bank account management", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
+  let release: (() => Promise<void>) | undefined;
+
+  test.beforeEach(async ({ page: _page }, testInfo) => {
     test.skip(
       testInfo.project.name !== "unoriented_volunteer",
       "Banking settings behavior is role-independent; run against isolated user"
     );
+    // These tests add accounts and change the default, as does the
+    // reimbursement bank-account spec: take turns on the user's accounts.
+    release = await lockBankAccounts(testInfo);
   });
 
   test.afterEach(async ({ page }) => {
+    try {
+      await cleanUpAccounts(page);
+    } finally {
+      await release?.();
+      release = undefined;
+    }
+  });
+
+  async function cleanUpAccounts(page: import("@playwright/test").Page) {
     const cleanup = async () => {
       const dialog = await openBankingSettings(page);
       const cleanupOne = async (attempt: number): Promise<void> => {
@@ -40,16 +55,21 @@ test.describe("Banking settings — bank account management", () => {
           await setDefaultBtn.isVisible({ timeout: 500 }).catch(() => false)
         ) {
           await setDefaultBtn.click();
-          await page.waitForTimeout(1000);
+          // Shown once the server has saved it (the badge is optimistic).
+          await expect(page.getByText("Default bank account set")).toBeVisible({
+            timeout: 15_000,
+          });
         }
         await e2eCard
           .getByRole("button", { name: "Delete account" })
           .click({ timeout: 5000 });
-        await page
-          .getByRole("alertdialog")
+        const confirm = page.getByRole("alertdialog");
+        await confirm
           .getByRole("button", { name: "Delete" })
           .click({ timeout: 5000 });
-        await expect(e2eCard).toBeHidden({ timeout: 5000 });
+        // The dialog closes once the server has deleted the account, so
+        // releasing the lock afterwards can't race the next test.
+        await expect(confirm).toBeHidden({ timeout: 15_000 });
         await cleanupOne(attempt + 1);
       };
       await cleanupOne(0);
@@ -73,7 +93,7 @@ test.describe("Banking settings — bank account management", () => {
     } finally {
       clearTimeout(timer);
     }
-  });
+  }
 
   test("shows existing seeded bank account", async ({ page }) => {
     const dialog = await openBankingSettings(page);
