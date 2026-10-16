@@ -14,6 +14,10 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
+import {
+  GOVERNANCE_DOCUMENT_CONTENT_TYPES,
+  GOVERNANCE_DOCUMENT_MAX_BYTES,
+} from "@pi-dash/shared/governance";
 import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 import {
   PAYEE_SIGNATURE_MAX_BYTES,
@@ -91,6 +95,14 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
     return {
       allowed: ALLOWED_KALAKRITI_SCORECARD_TYPES as readonly string[],
       maxSize: MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
+    };
+  }
+  if (sourceKey.includes("/governance/tmp/")) {
+    return {
+      allowed: [
+        ...new Set(Object.values(GOVERNANCE_DOCUMENT_CONTENT_TYPES).flat()),
+      ] as readonly string[],
+      maxSize: GOVERNANCE_DOCUMENT_MAX_BYTES,
     };
   }
   throw new Error("Invalid temporary upload key");

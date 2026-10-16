@@ -15,7 +15,7 @@ export async function mapUnreadableValue<T>(
     /** IDs naming the record; never values. */
     ids: Record<string, string>;
     path: string;
-    what: "account number" | "ID number";
+    what: "account number" | "ID number" | "PAN or Aadhaar reference";
   },
   reveal: () => Promise<T>
 ): Promise<T> {

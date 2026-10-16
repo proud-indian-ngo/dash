@@ -754,6 +754,7 @@ export interface JobPayloads {
   "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
+  "remind-trustee-terms": Record<string, never>;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
