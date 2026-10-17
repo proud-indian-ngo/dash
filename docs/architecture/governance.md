@@ -21,7 +21,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Immutability | Decided resolutions never change; a new one amends or rescinds. An issued circular is withdrawn and reissued | Signatures cover a fixed revision |
 | Signing | DSC through a local helper; Acrobat download and upload; Leegality Aadhaar eSign. A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac |
 | Vote confirmation | Signing or objecting needs a sign-in within 10 minutes | Shared laptops must not vote |
-| Finance | No trustee tier in approvals. A payment to a trustee that isn't a reimbursement warns | Clause 7.24 |
+| Finance | No trustee tier in approvals. A payment to a trustee or a declared related party warns ([declarations](governance-compliance.md#declarations-of-interests)) | Clause 7.24 |
 
 ## Deed rules (version 1)
 
@@ -69,10 +69,6 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 ### Aadhaar eSign
 
 A fallback to the DSC through Leegality (about ₹25 per signature; Leegality sees the full PDF), checked like any other signed copy.
-
-### Declarations and policies
-
-Yearly conflict-of-interest declarations that feed the finance warning; a policy register whose child-safeguarding policy gates events with children; annual-approval templates opened from calendar items; CSR utilisation certificates after finance Phase 5.
 
 ## Board at design time
 

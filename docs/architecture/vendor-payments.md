@@ -20,6 +20,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 ## Payment phase
 
 - Finance can change what the request is charged to at approval or later; see "Charged to" in `finance-and-programmes.md`.
+- Approvers are warned when the vendor is a trustee or a party a trustee declared ([declarations](governance-compliance.md#declarations-of-interests)).
 - Approve and reject apply only to `pending` requests. Approval ends with `recalculateParentStatus()`, so a request already holding approved payments lands on `partially_paid` or `paid`.
 - Reject is refused once any payment is approved; otherwise it rejects the pending payments too.
 - `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment.
