@@ -88,6 +88,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | E2E specs | `e2e-testing.md` |
 | Governance: trustee register, deed versions, vault, signing service | `governance.md` |
 | Circular resolutions, DSC signing helper, long-term copies | `governance-resolutions.md` |
+| Compliance calendar | `governance-compliance.md` |
 | Plate editor, shared constants | `editor.md`, `shared.md` |
 
 ## Documentation
