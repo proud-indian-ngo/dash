@@ -15,6 +15,13 @@ describe("resolveDateRange", () => {
     expect(range.to).toBeInstanceOf(Date);
   });
 
+  it("resolves last fiscal year as April to the end of March", () => {
+    const { from, to } = resolveDateRange("last_fiscal_year", "", "");
+    expect([from?.getMonth(), from?.getDate()]).toEqual([3, 1]);
+    expect([to?.getMonth(), to?.getDate()]).toEqual([2, 31]);
+    expect((to?.getFullYear() ?? 0) - (from?.getFullYear() ?? 0)).toBe(1);
+  });
+
   it("resolves custom range with valid ISO dates", () => {
     const range = resolveDateRange("custom", "2026-01-01", "2026-03-31");
     expect(range.from?.getFullYear()).toBe(2026);
