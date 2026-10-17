@@ -11,6 +11,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 
+import { trustedClientIp } from "@/lib/client-ip";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { createTtlCache, type TtlCache } from "@/lib/ttl-cache";
 
@@ -31,9 +32,7 @@ let warnedUnknownIp = false;
  * left-most entries are client-controlled.
  */
 export function clientIp(request: Request): string {
-  const ip =
-    request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
+  const ip = trustedClientIp(request);
   if (ip) {
     return ip;
   }

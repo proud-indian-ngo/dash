@@ -22,5 +22,8 @@ Job handlers log through `createNotifyHandler()`.
 ## Client logging
 
 Client catch blocks use `log.error()` from `evlog`; errors ship to `/api/log/ingest`.
+The anonymous ingest endpoint accepts the client's 25-event batch, limits each
+body to 256 KiB, and rate limits each trusted client IP. Error events are sent
+to PostHog in one best-effort batch per request.
 
 Zero mutation results go through `handleMutationResult()` (`apps/web/src/lib/mutation-result.ts`), which logs and shows an error toast. Do not inline `if (res.type === "error") toast.error(...)`.
