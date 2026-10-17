@@ -1,358 +1,176 @@
 # E2E Testing
 
-> **Load when**: `packages/e2e`, Playwright tests, `global-setup`, seed helpers, test fixtures, `.auth` state, shard-by-duration, `run-e2e.sh`, E2E DB isolation, `duration-reporter`, flaky tests, test-user seeding.
-> **Related**: `data-layer.md`, `env-and-secrets.md`, `monorepo.md`
+> **Load when**: `packages/e2e`, Playwright tests, `global-setup`, seed helpers, test fixtures, `.auth` state, shard-by-duration, `run-e2e.sh`, E2E DB isolation, `duration-reporter`, flaky tests, test-user seeding, performance benchmarks.
+> **Related**: `data-layer.md`, `env-and-secrets.md`, `monorepo.md`, [query performance audit](../query-performance-audit.md). Writing conventions (selectors, fixtures, when to add a spec) are in `.agents/skills/e2e-testing/SKILL.md`.
 
 ## Layout
 
 ```
 packages/e2e/
-├── .auth/              # storageState per shared role and active Kalakriti actor
-├── fixtures/           # Custom Playwright fixtures
-├── helpers/            # seed-dev-data.ts (31+ fns), seed-test-user.ts
-├── pages/              # Page objects
-├── tests/              # Specs by feature
-├── global-setup.ts     # Authenticates shared roles + active Kalakriti actors
+├── .auth/                  # storageState per shared role and active Kalakriti actor
+├── fixtures/               # test.ts shared fixture, Kalakriti actors, upload files
+├── helpers/                # Seeds, feature helpers, performance profilers
+├── pages/                  # Page objects
+├── tests/                  # Specs by feature folder
+├── global-setup.ts         # Signs in shared roles and active Kalakriti actors
 ├── playwright.config.ts
-├── project-selection.ts # Role-only and release-invariant spec filters
-├── duration-reporter.ts
-├── shard-by-duration.ts
-├── run-e2e.sh          # Full-stack orchestration
-├── run-two-stacks.ts   # Opt-in two-stack benchmark
-├── partition-specs.ts  # Whole-file duration balancing
-├── stack-workspace.ts  # Source snapshots and dependency/cache isolation
-├── .env.test           # E2E-only env
-└── .test-durations.json  # Historical timings for sharding
+├── project-selection.ts    # Role-only and release-invariant spec filters
+├── duration-reporter.ts    # Writes .test-durations.json
+├── shard-by-duration.ts    # CI shard lists
+├── run-e2e.sh              # Full-stack orchestration
+├── run-two-stacks.ts       # Opt-in two-stack run
+├── partition-specs.ts      # Whole-file balancing for two stacks
+├── stack-workspace.ts      # Source snapshots for two stacks
+├── .env.test               # E2E-only env and test credentials
+└── .test-durations.json    # Historical timings for sharding
 ```
 
-## Global Setup
+## Commands
 
-The `setup` project runs once per Playwright invocation, before its dependent projects. Each CI shard invokes it separately:
+| Command | What it does |
+|---|---|
+| `bun run test:e2e` | Full suite through Turborepo (`bash run-e2e.sh`) |
+| `cd packages/e2e && bash run-e2e.sh` | Full suite: isolated DB, migrate, seed, Zero, app, Playwright, teardown |
+| `cd packages/e2e && bash run-e2e.sh tests/<spec>.spec.ts` | One spec; paths are relative to `packages/e2e/`. Extra arguments go to `playwright test` |
+| `E2E_SERVER=dev bash packages/e2e/run-e2e.sh tests/<spec>.spec.ts` | Run against Vite dev, skipping the production build |
+| `bash run-e2e.sh --ui` or `bun run test:e2e:ui` | Playwright UI mode on the same harness; defaults to Vite dev so app edits show |
+| `bash packages/e2e/run-e2e.sh --list` | List selected tests without starting services (`--help` also returns early) |
+| `bun run packages/e2e/run-two-stacks.ts` | Whole suite across two isolated stacks (see below) |
+| `bun run test:seed` | Run `helpers/seed-test-user.ts` against `DATABASE_URL` |
+| `bun run --cwd packages/e2e test:unit` | Partition, snapshot, books-serial-group and process-cleanup tests (also part of `bun run test:unit`) |
 
-1. Loads `.env.test` with `dotenv`.
-2. Signs in the shared global roles and active Kalakriti release actors through Playwright's API `request` fixture. Each actor uses a distinct `192.0.2.x` `x-forwarded-for` test address so setup does not consume the normal browser login tests' localhost rate-limit bucket if rate limiting is enabled.
-3. Saves `request.storageState()` for each active actor under `.auth/`. Dormant actors intentionally have no state.
-4. Tests reference the state via `test.use({ storageState: "..." })`.
+`E2E_SERVER` accepts `production` (default) or `dev`. `--ui` and `--debug` switch the default to `dev` unless `E2E_SERVER` is set. Local runs use at most four workers; pass `--workers` to override.
 
-`authenticate()` logs each sign-in response status and URL, and retries only a bounded 429 response.
+## Browser projects
 
-The shared fixture listens for browser errors only when a test requests `page`. API-only authorization and object-access tests use Playwright's `request` fixture, so they exercise the live HTTP/Zero authorization path without creating a browser page. UI tests still annotate uncaught page errors.
+`playwright.config.ts` defines `setup` plus seven browser projects, all Desktop Chrome:
 
-## Seed Strategy
+| Project | Storage state | Notes |
+|---|---|---|
+| `setup` | none | Runs `global-setup.ts` once per invocation |
+| `kalakriti_release_invariants` | `unoriented_volunteer` | One worker. Specs listed in `project-selection.ts` |
+| `super_admin` | `super_admin` | |
+| `admin` | `admin` | Ignores `users/` |
+| `finance_admin` | `finance_admin` | Ignores `users/` |
+| `volunteer` | `volunteer` | Ignores `users/` |
+| `unoriented_volunteer` | `unoriented_volunteer` | Also ignores `reimbursements/` and `teams/`; dedicated coverage in `tests/roles/unoriented-volunteer-flows.spec.ts` and `tests/authorization/` |
+| `unauthenticated` | none | Only `tests/auth/` |
 
-`helpers/seed-dev-data.ts` (31+ functions) is the canonical seeder. Used by:
-- `run-e2e.sh` before tests
-- `bun run test:seed` for manual dev
-- Individual test fixtures that need a specific entity
+Every authenticated project ignores `tests/auth/`, so API authorization specs belong in `tests/authorization/`.
 
-Functions are idempotent where possible (`onConflictDoNothing()`), return the inserted IDs. Never create stale data: each test relies on seed having run.
+`project-selection.ts` keeps a role-only file out of the other role projects. Add a file to a role's list only when every test in it is gated to that role. Release-invariant specs are excluded from all role projects.
 
-`helpers/seed-test-user.ts` covers the canonical global users and invokes `helpers/kalakriti-release-fixture.ts` for the deterministic Registration Release role, cross-Edition, cross-Center, privacy, and race fixtures.
+## Global setup and auth
 
-**DB isolation**: `run-e2e.sh` bootstraps a separate Postgres via `packages/db/docker-compose.e2e*.yml`. Worktree-aware — port + DB name derived from `WORKTREE_ID` to avoid collision with dev DB.
+`global-setup.ts` loads `.env.test`, signs in each shared role and each active Kalakriti actor through Playwright's API `request` fixture, and saves `request.storageState()` under `.auth/`. Dormant actors get no state file. Each actor sends a distinct `192.0.2.x` `x-forwarded-for` address, so setup does not use up the localhost rate-limit bucket that browser login tests share. `authenticate()` logs each response and retries only a 429, a bounded number of times.
 
-## Kalakriti global invariants
+The shared fixture in `fixtures/test.ts` listens for browser errors only when a test requests `page`. API-only authorization tests use `request`, so they exercise the live HTTP and Zero authorization path without a browser page.
 
-Public schedule, database race, JSON operation, and sidebar Center scan tests run only in the `kalakriti_release_invariants` project with one worker. This project is queued before the other authenticated projects so its serial work overlaps their execution. They share the database-wide single-live-Edition constraint, so distinct fixture IDs alone don't isolate them. Keep new live-Edition tests in this lane and add their files to `project-selection.ts` so role projects exclude them. `operations-person-qr.spec.ts` and `event-day-transport.spec.ts` override the lane's default storage state with the super-admin actor while testing additional scoped actors in separate browser contexts. The transport fixture uses isolated Edition 2166 and its own Guardian identity. `event-day-stations.spec.ts` also runs in this serialized lane, using isolated live Edition 2168 and draft Edition 2169 for role unions, check-in/meal eligibility, scoped attendance, cancelled sessions/Competitions, replay, and stale callbacks after activity changes. Camera frames are simulated at the decoder boundary; UI, Zero mutations, authorization, and database assertions use the real stack. Its three-Student fixture picks up two Students and leaves one absent, covering four Center sessions, absentee exclusion, complete-traveler finalization in later stages, derived vehicle history, single-Center name display, Student-versus-Center transport status updates, mobile modal persistence, camera fallback, and stale-frame protection. The deleted Event day route must return 404 for every role. Cleanup removes Center scan stages before Centers because their composite FK is restrictive. Parent transport-operation fixtures must finalize pickup and venue arrival before testing departure.
+Fixture users are inserted by `seed-test-user.ts`, bypassing Better Auth sign-up and its email verification and 18+ date-of-birth checks. Public self-registration is covered by `tests/auth/register.spec.ts`.
 
-## Sharding by Duration
+## Seeding and DB isolation
 
-`.github/workflows/ci.yml` splits E2E across 4 shards. Sharding is **duration-balanced**, not filename-alphabetical:
+`run-e2e.sh` migrates the test database, then runs `helpers/seed-test-user.ts`. That seed creates the canonical global users and calls `helpers/kalakriti-release-fixture.ts` for the Registration Release roles and the cross-Edition, cross-Center, privacy and race fixtures. Feature helpers in `helpers/` add the entities a spec needs and should be idempotent (`onConflictDoNothing()`), returning inserted IDs.
 
-1. `prepare-shards` job runs `shard-by-duration.ts 4`.
-2. Script reads `.test-durations.json` (produced by `duration-reporter.ts` during prior runs, cached between CI runs via `actions/cache`).
-3. Greedy bin-packing (longest-processing-time-first) assigns project-qualified test cases to 4 `shard-lists/shard-{1..4}.txt` files.
-4. Unknown tests default to 10-sec estimate.
-5. Each shard job reads its list via Playwright's `--test-list` flag.
+`helpers/seed-dev-data.ts` seeds development data for `scripts/cloud-session-start.sh`; the harness does not run it.
 
-Cache key: `e2e-durations-${{ github.ref_name }}` with fallback to `e2e-durations-master`. New specs on feature branches inherit master's timing data.
-
-`project-selection.ts` excludes a role-only file from other role projects only when every test in that file belongs to one role. Shared multirole specs keep their project coverage. The duration reporter records both passed and runtime-skipped case durations; new cases still use the 10-second estimate.
+`run-e2e.sh` writes a temporary `packages/db/docker-compose.e2e<suffix>.yml` and starts its own Postgres (`pi-dash-test` on loopback). Ports derive from `WORKTREE_ID`, so runs never touch the dev database. Teardown removes it.
 
 ## `run-e2e.sh`
 
-Full-stack orchestration for local E2E:
-- Starts isolated Postgres through Docker Compose, then migrates and seeds it.
-- Starts Zero with `ZERO_LAZY_STARTUP=false` and waits for the root HTTP health response after its workers initialize.
-- The optimized test runtime and CI set both `NODE_ENV=test` and `VITE_E2E=true`, raising the in-memory API budgets 100 times for shared E2E users. Normal production/development limits remain unchanged; unit tests cover their boundaries.
-- Builds the optimized Nitro output with `NODE_ENV=production` and serves it with `NODE_ENV=test` by default, overlapping the build with Zero startup. The local test runtime keeps localhost WebSocket behavior; it does not verify deployment CSP. Set `E2E_SERVER=dev` to run against Vite dev instead. Local runs use at most four workers by default; pass `--workers` to override this.
-- Local Zero runs in production mode with a test-only `ZERO_ADMIN_PASSWORD`, matching CI's inspector authentication requirement. Inspector-based tests authenticate with that environment value before querying state; they must not rely on the interactive password prompt or the development-mode bypass.
-- Runs `playwright test`, reports environment-ready, Playwright, and total elapsed times, then tears down on exit.
+1. Starts the isolated Postgres, migrates and seeds it.
+2. Starts Zero in production mode with `ZERO_LAZY_STARTUP=false` and a test-only `ZERO_ADMIN_PASSWORD` (default `e2e-test-admin`), then waits for the root HTTP health response. Inspector-based tests authenticate with that env value; they must not rely on the interactive prompt or the development-mode bypass.
+3. Builds the Nitro output with `NODE_ENV=production`, overlapping the build with Zero startup, and serves it with `NODE_ENV=test`. This keeps localhost WebSocket behaviour and does not verify deployment CSP.
+4. Exports `VITE_E2E=true`. With `NODE_ENV=test` this raises in-memory API rate budgets 100 times for shared E2E users.
+5. Runs `playwright test`, prints environment-ready, Playwright and total elapsed times, and tears everything down on exit.
 
-Use `bun run test:e2e:ui` for interactive Playwright UI mode with the same full-stack harness and Vite dev, so app edits remain visible. UI/debug flags default to dev unless `E2E_SERVER` explicitly overrides it. `--list` and `--help` return without starting services.
+`E2E_STACK_INDEX=1|2` gives a run its own ports (`20000 + worktreeId * 100 + stackIndex * 10`: web, Zero, change streamer, Postgres) and suffixes container, Compose, volume, replica and log names. Benchmarks use `E2E_STACK_INDEX=2` so they can run beside an ordinary stack.
 
-## Two-stack benchmark
+## Release-invariant lane
 
-Run `bun run packages/e2e/run-two-stacks.ts` from the repository root to benchmark the complete suite across two independent local stacks. This is an opt-in experiment; the ordinary runner remains a single stack. Each child uses two workers, `--trace=off`, and `--retries=0`.
+Specs that touch the database-wide single-live-Edition constraint run only in `kalakriti_release_invariants` with one worker. Distinct fixture IDs do not isolate them. The project is queued before the role projects so its serial work overlaps theirs.
 
-The coordinator snapshots tracked and nonignored working files, preserving uncommitted source changes. Each snapshot has its own `.auth`, app output, test results, and duration report. Workspace dependencies point into the snapshot; installed external packages use links to the existing installation. Writable `.nitro`, `.vite`, `.vite-temp`, and `.cache` directories must never be linked between snapshots. A shared Nitro directory can mix asset manifests from concurrent builds and serve missing JavaScript chunks.
+- Put new live-Edition specs in this lane and add them to `releaseInvariantSpecs` in `project-selection.ts`.
+- `operations-person-qr.spec.ts` and `event-day-transport.spec.ts` override the lane's storage state with the super-admin actor and test other actors in separate browser contexts.
+- `event-day-transport.spec.ts` uses isolated Edition 2166 and its own Guardian. `event-day-stations.spec.ts` uses live Edition 2168 and draft Edition 2169.
+- Camera frames are simulated at the decoder boundary; everything else uses the real stack.
+- Cleanup removes Center scan stages before Centers because their composite foreign key is restrictive.
+- Transport fixtures must finalize pickup and venue arrival before testing departure.
 
-`partition-specs.ts` groups all role/project cases for a spec file together, preserving serial and `beforeAll` dependencies. It balances invariant files first, then remaining files by historical worker time. The coordinator checks that the partition covers every selected non-setup row exactly once. Setup runs independently in each stack, adding twelve repeated authentication cases.
+## CI sharding
 
-The child runner receives `E2E_STACK_INDEX=1|2` and allocates four reserved ports starting at `20000 + worktreeId * 100 + stackIndex * 10`: web, Zero, change streamer, and PostgreSQL. Container, Compose, volume, replica, and log names include the stack suffix. Occupied stack ports are rejected before startup. Each child tears down its services on exit; cancellation signals both process groups. The coordinator prints the private temporary directory containing snapshots, per-stack logs/JSON, partition data, and `summary.json`. Total time includes snapshot creation, both builds, setup, tests, and teardown.
+`.github/workflows/ci.yml` splits E2E across four shards by duration:
 
-Partition and snapshot-isolation tests run with the E2E package's unit-test command alongside the existing process-cleanup tests.
+1. The `prepare-shards` job runs `shard-by-duration.ts 4`.
+2. It reads `.test-durations.json`, restored by `actions/cache` with key `e2e-durations-${{ github.ref_name }}` and fallback `e2e-durations-master`.
+3. Longest-first greedy bin-packing assigns project-qualified test cases to `shard-lists/shard-{1..4}.txt`. Unknown tests count as 10 s.
+4. Each shard job runs Playwright with `--test-list`.
 
-**The books serial group.** Closing FY 2026-27 or matching its audited figures freezes the year for every spec on the same stack database. So every test that posts into the books and waits on the result (the `postings` helper step, Books → Post pending), closes the year (`close-year*`) or matches its audited figures (`post-audited`, `reverse-audited`) lives in the serial "Books (treasurer)" group of `tests/finance/books.spec.ts`, including voiding a posted reimbursement and payment proof after approval. The partition keeps the file whole on one stack. `books-serial-group.test.ts` (in the E2E unit tests) fails when a spec elsewhere uses those steps.
+`duration-reporter.ts` records passed and runtime-skipped case durations; CI merges the shard files and saves them back to the cache.
 
-## Page Objects
+## Two-stack run
 
-`pages/` holds page-object classes. Tests consume them for selector stability. New pages: add to `pages/`, export a class with `goto()` + action methods, don't inline selectors in tests.
+`run-two-stacks.ts` is an opt-in way to run the whole suite on two independent local stacks; the normal runner stays single-stack. Each child uses two workers, `--trace=off` and `--retries=0`.
 
-## Durations Reporter
+- The coordinator snapshots tracked and non-ignored working files, so uncommitted changes are included.
+- Workspace dependencies point into the snapshot; external packages link to the existing install. Never link writable `.nitro`, `.vite`, `.vite-temp` or `.cache` between snapshots: a shared Nitro directory mixes asset manifests from concurrent builds and serves missing chunks.
+- `partition-specs.ts` keeps every project's cases for a spec file on one stack, preserving serial and `beforeAll` dependencies, and balances files by historical worker time. The coordinator checks every selected case is covered exactly once.
+- The coordinator prints a temp directory with per-stack logs, partition data and `summary.json`.
 
-`duration-reporter.ts` is a Playwright reporter registered in `playwright.config.ts`. It writes passed and skipped test-case durations to `.test-durations.json`; CI restores and updates this file through its cache for later shard balancing.
+### Books serial group
 
-## Auth Plugins and E2E
+Closing FY 2026-27 or matching its audited figures freezes that year for every spec on the same database. So every test that posts into the books and waits on the result (the `postings` helper step, Books → Post pending), closes the year (`close-year*`) or matches audited figures (`post-audited`, `reverse-audited`) lives in the serial "Books (treasurer)" group of `tests/finance/books.spec.ts`. That includes voiding a posted reimbursement and payment proof. The partition keeps the file on one stack, and `books-serial-group.test.ts` fails when another spec uses those steps.
 
-Fixture users are seeded directly via `seed-test-user.ts`, bypassing Better Auth sign-up (and its email verification and 18+ date-of-birth checks). Email verification is pre-satisfied in the seed. Public self-registration at `/register` is covered separately by `tests/auth/register.spec.ts`.
+## Page objects
 
-## Kalakriti data-scale benchmark
+`pages/` holds page-object classes. A new page object exports a class with `goto()` and action methods; keep selectors out of specs.
 
-Run the opt-in synthetic workload from the repository root:
+## Performance benchmarks
 
-```bash
-env -u ELECTRON_RUN_AS_NODE KALAKRITI_PERFORMANCE=true E2E_STACK_INDEX=2 \
-  PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh \
-  tests/performance/kalakriti.spec.ts --project=super_admin --workers=1 --retries=0
-```
-
-The isolated stack runs `helpers/seed-kalakriti-performance.ts` and profiles Food memberships/students, the Students directory/compliance query, Entries/divisions, Guardians, Volunteers, Centers and Competition configuration as the seeded super-admin. Each query is analyzed three times after initial hydration. The Playwright report includes `kalakriti-performance.json` with dataset counts, server/total hydration timings, analyzer timings, read/scan counts and SQLite plans; it omits record contents and credentials. No timing threshold is enforced because local hardware and concurrent work vary.
-
-The seed refuses non-loopback databases and any database name other than `pi-dash-test`. It uses a dedicated synthetic Edition and repeatable identifiers. The harness removes its disposable database on exit, preserving the regular development database. Add `--ui` to keep the test stack available while using Playwright UI; that mode defaults to the development server, so do not compare its timings directly with production-build runs.
-
-Use the same seed, role, runtime and machine for before/after comparisons. Report analyzer execution separately from first hydration and browser navigation. Larger data reproduces query work, not production disk latency or CPU contention. The benchmark is skipped in ordinary CI unless explicitly enabled.
-
-Initial local sample (2026-09-14, Zero 1.9.0, optimized app build): the fixture contains 10 Centers, 1,500 Students, 300 memberships, 600 assignments, 300 Guardian-Center links, 30 Divisions, 3,000 Entries and entry members, and 6,000 operations. Median analyzer times from three runs were:
-
-| Query | Before admin shortcut | With shortcut | Reads with shortcut | Unique synced rows |
-|---|---:|---:|---:|---:|
-| Food memberships | 259 ms | 173 ms | 5,401 | 911 |
-| Food students | 505 ms | 491 ms | 9,011 | 6,011 |
-| Students directory | 328 ms | 329 ms | 12,000 | 7,511 |
-| Entries | 1,329 ms | 1,308 ms | 39,000 | 9,103 |
-| Available divisions | 19 ms | 19 ms | 393 | 93 |
-
-Only Food memberships changed between the compared application versions: its reads fell from 9,902 to 5,401 with identical synced-row counts. Other timing differences are run variability. These are synthetic local results, not production latency predictions.
-
-Inspect every sample's plan before identifying a persistent bottleneck. The Students directory's first entry-member sample scanned about 4.5 million rows, but the next two used the existing Student index and scanned 6,000 rows. Guardian-Center plans also changed between samples. Food's assignment relationship consistently used an Edition index rather than a membership-leading lookup (about 180,300 visits). Validate candidate index/query changes against repeated plans and permission regressions. Some Zero 1.9 analyzer scan counters are negative; retain them in raw diagnostics but do not interpret them as meaningful negative work.
-
-
-The test-only assignment index experiment used `(membership_id, edition_id, id)` on the same fixture. Assignment scans fell from 180,300 to 600 in all three samples; Food membership median analyzer time fell from 173 ms to 148 ms with 911 unique synced rows. A separate offline replica experiment confirmed `ANALYZE` alone did not produce a membership-leading lookup. Migration 0084 adds this index to the application schema. Other plan choices changed during sampling, including Guardian-Center predicate pushdown, so total read counts varied even with identical synced results.
-
-## App data-scale benchmark
-
-`tests/performance/app.spec.ts` profiles the Dashboard, Events, reimbursements, vendor payments and vendors using a separate synthetic fixture. Enable it with `APP_PERFORMANCE=true` and run it through the same isolated harness:
+Benchmarks are opt-in specs under `tests/performance/`, skipped unless their flag is set. All of them run as `super_admin` on an isolated stack:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE APP_PERFORMANCE=true E2E_STACK_INDEX=2 \
-  PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh \
-  tests/performance/app.spec.ts --project=super_admin --workers=1 --retries=0
+env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never \
+  bash packages/e2e/run-e2e.sh tests/performance/<spec>.spec.ts \
+  --project=super_admin --workers=1 --retries=0
 ```
 
-The fixture creates 600 Events with memberships and interests, 1,000 reimbursements, 500 advances, 100 Vendors and 1,000 Vendor Payments. Each financial request has two line items and two history rows; each Vendor Payment also has a transaction with two history rows. The helper refuses databases outside the local test stack and checks repeatable counts on a second seed. The report attachment `app-performance.json` contains per-route query diagnostics. Its `navigationAndAnalysisMs` includes three analyzer calls per query and must not be reported as page-load time. Server hydration, total hydration and analyzer samples remain separate fields. Shared diagnostic capture lives in `helpers/zero-performance.ts`.
-
-Initial Dashboard samples on this fixture (2026-09-14, three analyzer calls per query):
-
-| Query | Median analyzer time | Reads | Unique synced rows |
-|---|---:|---:|---:|
-| reimbursement.all | 324 ms | 9,014 | 5,615 |
-| advancePayment.all | 142 ms | 4,000 | 2,505 |
-| vendorPayment.all | 480 ms | 14,011 | 8,712 |
-| teamEvent.allAccessible | 156 ms | 3,666 | 1,845 |
-| teamEvent.byCurrentUserAll | 159 ms | 4,272 | 1,837 |
-
-Steady-state financial relationship plans use the existing foreign-key indexes. A full root scan is expected for these unbounded admin queries; it is not by itself evidence of a missing index. Small attachment tables can also be cheaper to scan than index. These measurements do not justify narrowing the existing local datasets. The initial table above predates the split of fixture ownership between admin and volunteer. Current fixtures alternate financial ownership, preserving the same total root counts. The benchmark also profiles the volunteer’s lists, public Event access, own financial details and denied financial details; denied detail queries must sync zero rows. This fixture does not yet model attachment-heavy requests, recurring Event exceptions or deep detail histories.
-
-
-Restricted-role baseline (same total fixture scale, 2026-09-14):
-
-| Query | Median analyzer time | Reads | Unique synced rows |
-|---|---:|---:|---:|
-| reimbursement.all (500 owned) | 167 ms | 4,500 | 2,803 |
-| advancePayment.all (250 owned) | 78 ms | 2,000 | 1,253 |
-| vendorPayment.all (500 owned) | 236 ms | 7,000 | 4,353 |
-| teamEvent.allAccessible (300 public fixture Events) | 85 ms | 2,200 | 946 |
-| reimbursement.byId (owned) | 13 ms | 9 | 9 |
-| vendorPayment.byId (owned) | 14 ms | 14 | 13 |
-| reimbursement.byId / vendorPayment.byId (denied) | 11 ms each | 0 | 0 |
-
-These steady-state samples use indexed relationship lookups. The analyzer helper matches query arguments as well as names, preventing a cached detail query for a different record from satisfying a scenario.
-
-
-Additional Kalakriti admin baselines (same large fixture, 2026-09-14): Guardians 14 ms for 150 memberships; Volunteers 32 ms for 150 memberships plus 600 assignments; Centers 13 ms for 10 rows; Student compliance 126 ms for 1,500 Students plus 3,000 entry members; Competition configuration queries 12–14 ms for 30 Competitions/sessions. These do not show the persistent membership-assignment scan fixed in migration 0084. Most roster users are unlinked synthetic memberships; the fixture now links one Guardian and one liaison for restricted Students, Entries and Food measurements. Other roster roles remain unmeasured. The fixture's single category and venue are functional coverage, not scale evidence for those tables.
-
-
-The Kalakriti benchmark also runs `helpers/profile-kalakriti-dashboard.ts` after the guarded seed. This invokes the production PostgreSQL projection implementation for edition, two-Center, two-Competition and all-category scopes, three times each. Only elapsed times and aggregate totals are reported. It verifies the edition's Student/Entry totals and renders the overview page. This measures aggregate execution separately from authentication, scope resolution, HTTP latency and Zero hydration; manually supplied scopes are not authorization tests.
-
-On the 1,500-Student/3,000-Entry fixture, median aggregate execution was 112 ms edition-wide, 40 ms for two Centers, 19 ms for two Competitions and 113 ms across all Competition Categories. These results do not establish a server aggregate bottleneck on local hardware.
-
-Zero analysis now requests join plans and records only plan structure and cost estimates, omitting filter/constraint values. This complements SQLite index plans when investigating repeated relationship work. The [Zero inspector documentation](https://zero.rocicorp.dev/docs/debug/inspector) explains the two planner layers. `serverMs` and `totalMs` come from server and client query metrics respectively; they are retained separately and must not be subtracted to infer network latency when cached queries or client recreation can refer to different hydration lifetimes.
-
-With join diagnostics enabled, the admin Entries query still reads 39,000 rows for 9,103 unique synced rows (about 4.3 reads per synced row). It returns no alternative join-plan events, while Food and available-divisions queries do. Its admin permission shortcut is already present. The current measurements therefore do not justify another permission shortcut or a speculative index for Entries; its full relationship graph remains the largest measured hydration workload.
-
-
-## Restricted Kalakriti scale profiles
-
-The benchmark uses an active Guardian membership for the seeded unassigned volunteer account and the seeded liaison account's membership. Both have access to Centers 0 and 1. This avoids altering the existing Guardian's globally unique active membership in the release fixture. It changes no global permissions or existing release memberships.
-
-Each scoped query has three timed analyzer samples plus a separate scope-verification analysis. The latter counts the specific table's synced records and checks Student/Entry Center IDs, returning only counts. Inspector `rowCount` includes related records and is recorded as `inspectorRows`; it must not be treated as the root table's count. Record contents from the verification pass never enter the report.
-
-Baseline before testing additional Center/Competition assignment indexes:
-
-| Query | Guardian median | Liaison median | Verified root rows |
-|---|---:|---:|---:|
-| Students directory | 110 ms | 119 ms | 300 |
-| Entries | 391 ms | 397 ms | 600 |
-| Food students | 113 ms | 114 ms | 300 |
-| Food memberships | 151 ms | 162 ms | 90 |
-
-All Student and Entry rows belong to the two assigned Centers. Food membership analysis reads approximately 6,900 rows for 213 unique synced rows. Its Center assignment lookups and Entries' Competition assignment lookups use broad scans with the current indexes; these are candidates for measured index experiments.
-
-A disposable-database experiment added assignment indexes on `(center_id, responsibility, edition_id, id)` and `(competition_id, responsibility, id)`. Guardian Entries assignment scans fell from 24,846 to 906; Food membership assignment scans fell from 20,072 to 1,864. Timings did not materially improve (Entries 391 → 388 ms, Food memberships 151 → 149 ms), and read/synced counts were unchanged. Liaison samples were similarly unchanged. Migration 0085 includes these indexes to reduce scan work as assignment volume and concurrency grow. This is a scan-work improvement; faster page loads have not been demonstrated by this local comparison. The remaining read amplification requires investigating the permission/relationship graph, rather than assuming every scan reduction yields a useful latency reduction.
-
-
-## Center transport and Scan profiles
-
-The large Kalakriti fixture includes 40 synthetic transport assignments, four per Center. The benchmark opens the Centers directory's deep-linked detail sheet for admin, Guardian and liaison accounts and verifies exactly four transport records, all from the selected Center. It then uses the Scan page object to open Transport scanning for admin and liaison accounts and select Performance Center 1. The fixture remains in registration-open state: this measures query hydration, not live scan recording or camera performance.
-
-Local baseline (2026-09-14, median of three analyzer calls):
-
-| Query / account | Median analyzer time | Reads | Unique synced rows |
-|---|---:|---:|---:|
-| Transport / admin | 10 ms | 4 | 4 |
-| Transport / Guardian | 14 ms | 16 | 7 |
-| Transport / liaison | 15 ms | 20 | 7 |
-| Center Scan / admin | 25 ms | 454 | 452 |
-| Center Scan / liaison | 26 ms | 458 | 454 |
-
-Transport uses its existing Edition/Center index. Center Scan returns one Center with 150 Students and 300 pickup/venue-arrival operations; its root count is verified separately. These samples do not establish a query bottleneck or justify another index. Persisted scan-stage rows, later finalized stages, live mutation latency and larger per-Center rosters remain unmeasured. Server hydration and total hydration remain separate fields in the report attachment.
-
-
-## Guest and Judge profiles
-
-The Kalakriti fixture adds 100 Guests, 100 Judges, two Competition assignments per Judge and three operations per attendee (check-in, breakfast and lunch). Its existing 6,000 Student operations remain unchanged; total operations are 6,600. The benchmark opens both real roster routes as admin, matches analyzer queries by Edition and kind, and verifies 100 attendee root rows per roster. Reports include `kind` to distinguish the two instances of `kalakritiAttendee.visible`.
-
-Initial median analyzer times were 22 ms for Guests (400 reads / 400 synced rows) and 34 ms for Judges (800 reads / 630 synced rows). These populated admin profiles do not show a slow hydration. Restricted Judge assignment visibility still needs a separate workload.
-
-See [query performance audit coverage](../query-performance-audit.md) for the complete registered query inventory and remaining scope; a benchmark for one account or query variant does not prove the whole page or permission surface.
-
-
-## Entries member Center relation comparison
-
-On the same expanded fixture, removing the unused `members.student.center` relation reduced admin Entries reads from 39,000 to 36,000, with 9,103 unique synced rows unchanged. Median analyzer time decreased from 1,332 ms to 1,202 ms (three samples per version, approximately 10%). This is an analyzer comparison, not a production page-load measurement. The query still includes the Entry's Center, member Student age category and arrival/attendance operations, music files and Division context. Registration picker Center labels come from `kalakritiStudent.visibleForEntries`, which is unchanged.
-
-Guardian Entries decreased from 390 ms to 363 ms and liaison Entries from 385 ms to 364 ms. Each retained exactly 600 Entry roots from the two assigned Centers and 1,898 unique synced rows; reads decreased from 14,545 to 13,945. The local regression run passed 25 checks (four role-inapplicable cases skipped), including registration, music editing and two-Center permissions.
-
-
-## Populated Event detail profiles
-
-The app fixture's first public Event is in the past with feedback enabled and both admin and volunteer membership (601 total fixture Event memberships). It contains 200 updates, 200 photo metadata rows and 200 feedback rows. Updates and feedback use valid Plate JSON. Updates/photos each have 100 approved and 100 pending rows, with pending content split equally between admin and volunteer authors. Photo rows have no remote asset keys and use the empty-image fallback: this does not measure media downloads or image decoding.
-
-The benchmark verifies 100 approved rows, 100 admin-visible pending rows, 50 volunteer-owned pending rows and 200 admin feedback rows. It opens Photos and Feedback and asserts rendered update/feedback content. The volunteer feedback form must render without any `eventFeedback.byEvent` inspector query. Previously that aggregate query read 202 rows to return zero on this fixture; Event detail now enables it only for feedback managers. The existing participant server function and query authorization remain unchanged.
-
-Local medians (2026-09-14, three analyzer samples):
-
-| Query | Admin | Volunteer | Reads / synced, admin | Reads / synced, volunteer |
-|---|---:|---:|---:|---:|
-| Event by ID | 11 ms | Not profiled | 8 / 7 | Not profiled |
-| Approved updates | 21 ms | 25 ms | 301 / 102 | 503 / 103 |
-| Pending updates | 16 ms | 15 ms (own) | 200 / 102 | 253 / 53 |
-| Approved photos | 21 ms | 25 ms | 301 / 102 | 503 / 103 |
-| Pending photos | 17 ms | 14 ms (own) | 200 / 102 | 253 / 53 |
-| Aggregate feedback | 14 ms | Subscription absent | 200 / 200 | No query |
-
-These queries do not show a local hydration bottleneck at this scale. Rich-text rendering is exercised but not separately timed. The participant's own-feedback HTTP latency, external media, recurrence exceptions, deep expenses and lead-specific authorization still need separate measurements. The corrected benchmark passes all 13 checks, including authentication setup; root and focused TypeScript, unit, lint and unused-export checks pass. React Doctor retains branch-wide route/component diagnostics.
-
-
-## Dashboard review profiles
-
-With the expanded Event fixture, admin Dashboard medians were 13 ms for `team.byCurrentUser` (22 reads / 13 synced), 52 ms for `eventInterest.allPending` (1,803 / 1,204), and 20–21 ms for pending update/photo queries (approximately 300 reads / 100 synced). Team cardinality is small here, so this does not establish its scaling behavior.
-
-`eventInterest.byCurrentUser` initially took 84 ms with 2,400 reads / 1,200 synced rows. Its existing user index was used, but a redundant Event-existence predicate caused repeated Event lookups for globally authorized readers. Removing that predicate only for `events.view_all` reduced the median to 42 ms and reads to 1,200, with exactly 600 owned interests and the same synced rows. Restricted Event access and ownership filters are unchanged. These are local analyzer timings, not production navigation measurements. The comparison/regression run passed 15 checks; ten existing cases skipped and are not completion evidence. Focused and full unit/type/lint/unused checks passed.
-
-
-## Audit Log performance benchmark
-
-Run `env -u ELECTRON_RUN_AS_NODE AUDIT_PERFORMANCE=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never bash packages/e2e/run-e2e.sh tests/performance/audit.spec.ts --project=super_admin --workers=1 --retries=0`.
-
-The helper refuses any database except loopback `pi-dash-test` before importing the database client. It seeds 50,000 synthetic audit rows, analyzes table statistics and profiles production query builders with `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`. The spec repeats the helper to check idempotent counts, measures authenticated HTTP reads for nine filter/pagination cases, and checks volunteer denial. `audit-performance.json` is attached to the Playwright report with sanitized plans and separate SQL/HTTP timings. The baseline and its limits are in `docs/query-performance-audit.md`; this is opt-in and does not seed production or the regular development database.
-
-The Audit Log report also measures the original two distinct facet queries alongside the grouped implementation and asserts exact equality with the production loader's option arrays. These reference queries run only in the opt-in benchmark.
-
-The Audit Log benchmark requires migration 0086's `(attempted_at DESC, id DESC)` index and verifies it exists before profiling. The helper also verifies exact expected row IDs and order for every scenario. The initial unindexed baseline is recorded in `docs/query-performance-audit.md`.
-
-Audit search coverage includes a selective match, a broad match, no matches and an offset beyond the last match. The benchmark keeps exact totals when a page is empty and bounds expected page lengths at zero.
-
-The Audit Log performance spec also navigates to page two in the browser and types a search. It requires exactly one API request with the final text and offset zero, preventing an immediate page reset from fetching the previous search before the 300 ms debounce completes.
-
-The scoped Kalakriti Audit benchmark runs with `KALAKRITI_AUDIT_PERFORMANCE=true E2E_STACK_INDEX=2 bash packages/e2e/run-e2e.sh tests/performance/kalakriti-audit.spec.ts --project=super_admin --workers=1 --retries=0`. It seeds 41,000 local-only rows across two Editions and checks exact results for three roles, domain filters, deep offsets, snapshot reuse and denied domains. Its `kalakriti-audit-performance.json` attachment separates PostgreSQL plans from authenticated HTTP timings. Both audit benchmarks share the sanitized plan summarizer in `helpers/postgres-performance.ts`.
-
-The app performance fixture also includes 10,000 synthetic notifications across admin and volunteer accounts, with equal archived/active histories. The benchmark verifies the exact newest-50 result set for each user, reporting only a boolean match plus diagnostics. Synthetic timestamps in 2191 ensure ordinary seed notifications cannot displace those expected IDs.
-
-For the disposable notification index comparison, add `NOTIFICATION_INDEX_EXPERIMENT=true` to the app benchmark command. The guarded seed creates the candidate index only in the local test database and records the flag in the report. Default runs retain the migrated schema.
-
-
-The app performance fixture also adds 1,000 synthetic users without credentials and 11,022 notification preferences using the canonical topic list. The benchmark visits Users, an individual user's notification settings, and personal settings for admin and volunteer. It verifies visible user totals and exact preference ownership without recording preference contents. These cases use the existing app performance command and local-only database guard.
-
-
-The app performance fixture includes 500 completed Scheduled Messages and 5,000 sent recipient rows. It writes rows directly under the existing local database guard and enqueues no jobs. The benchmark checks root/recipient counts and measures the WhatsApp user picker by opening and cancelling the scheduling dialog. It does not submit a message or exercise delivery.
-
-
-Set `SCHEDULED_INDEX_EXPERIMENT=true` with the app benchmark to compare disposable message and recipient ordering indexes. The seed records this option in the report; the isolated stack removes the indexes on teardown. The first 500-message comparison removed temporary sorts and reduced scans without a meaningful analyzer-time improvement, so it did not produce a schema migration.
-
-
-The app benchmark visits Advance Payment detail as admin, owner and a denied requester using the existing 500-advance fixture. It verifies the exact request ID, owner and related line-item/history counts, plus the empty Reimbursement lookup mounted by the shared request-detail route. It does not edit or submit financial records.
-
-
-The app fixture concentrates 200 Reimbursements and 200 Vendor Payments on the sampled public Event, split between two owners. The benchmark profiles both Event expense queries as admin and volunteer and asserts 200/100 roots plus volunteer ownership. Event summary metrics also consume these queries when the manager-only Expenses tab is absent.
-
-
-The app benchmark opens the Vendor Payment form as admin and volunteer. It seeds 100 approved vendors and 50 pending vendors per account, derives the full approved count from the database, and verifies exact pending IDs for each account. Existing payments reference approved vendors. The form is not submitted.
-
-
-Banking performance uses 2,004 synthetic accounts across fixture users. Personal Settings visits Notifications and Banking for both admin and volunteer, checks complete per-user counts against PostgreSQL and verifies every returned account belongs to the signed-in user. It performs no account changes or financial operations.
-
-
-Shared lookup profiling uses 100 synthetic expense categories and 200 synthetic WhatsApp groups, with full expected counts derived from PostgreSQL to include ordinary seed records. Categories are measured in both payment-form account scopes; groups are measured in the admin recipient picker. Synthetic groups use non-deliverable identifiers and no message is submitted.
-
-
-The Kalakriti Centers benchmark checks 300 Guardian links and 300 liaison assignments under global-admin access, using the existing 300-membership and 600-assignment fixture. Restricted manager performance requires separate linked Edition-admin/coordinator memberships; the Guardian and liaison navigation checks do not substitute for those roles.
-
-
-The Kalakriti performance fixture links Edition-admin and volunteer-coordinator accounts to existing synthetic memberships, replacing one Competition-volunteer assignment each with their manager responsibility. Dataset totals remain fixed. Centers benchmarks verify their permitted assignment lists; the analyzer's optional row filter distinguishes liaison roots from manager authorization rows without altering timing or scan metrics.
-
-
-Students-page profiling includes `myAccess` and `ageCategoriesByCenter` for admin, Guardian and liaison. It verifies the empty admin membership, Guardian membership without assignments, liaison membership with four assignments, and one reference-Center age category per account. The single-category fixture establishes scoped lookup behavior rather than category-catalog scale.
-
-
-The linked Edition-admin account also profiles full Students, Entries and Food routes. Expected roots match global admin, while analyzer reports preserve the additional authorization work. This role has an Edition assignment rather than the global `kalakriti.admin` permission.
-
-The overview benchmark profiles its mounted clone-source configuration for global admin and Edition admin, verifying the exact Edition and structural relationship counts. It also profiles the distinct Edition-admin configuration list and confirms the synthetic Edition is included. It performs no clone mutation.
-
-`tests/kalakriti/food-entry-scopes.spec.ts` also verifies live Center revocation for Guardian and liaison Food readers. The serialized fixture removes only the actor's Center B authority while the page stays open. Assertions check removal of a Center B-only person, narrowing of a retained person's nested Centers, no document reload and no outside-Center data in incoming Zero frames.
-
-
-`ENTRY_MEMBER_INDEX_EXPERIMENT=true` enables a disposable Student/Edition/ID index for entry members in the Kalakriti fixture. Compare the first analyzer sample separately from warm samples: the baseline initially selected a full scan, then switched to the existing Student index. The experiment retains all role result checks and changes no query permissions.
-
-The Kalakriti benchmark explicitly profiles the Edition picker for global admin, Guardian, liaison and Edition admin, plus Eligibility for both admin scopes. Picker verification checks inclusion of the synthetic Edition; Eligibility checks its one age-category root. Three seeded Editions do not represent a long multi-year history.
-
-`CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT=true` adds the disposable category/responsibility/ID assignment index for comparison on an older schema. The seed report records the flag. Migration 0090 supplies the canonical index, so leave this experiment disabled when validating current migrations. The original entry-member experiment now executes only once per seed invocation, inside the guarded seeder.
-
-`OPERATION_INDEX_EXPERIMENT=true` adds a disposable Student/Edition/type/ID operation index inside the guarded local fixture. The report records the flag. Migration 0091 supplies the canonical index; leave the experiment disabled when validating migrations.
-
-`ENTRY_ORDERING_INDEX_EXPERIMENT=true` adds two disposable indexes: Entries by Edition/descending creation time/ID and members by Entry/Edition/ID. Migration 0092 supplies only the first. The second remains an experiment: both individual and ten-member group workloads showed fewer scans without a material timing improvement. Leave the flag disabled when validating migrations.
-
-`KALAKRITI_GROUP_PERFORMANCE=true` switches the isolated Kalakriti workload to 300 ten-student group Entries, keeping 1,500 Students, 3,000 entry memberships and the existing Center/permission assignments. Each Division has ten Entries instead of 100. The seed verifies the member count and a single Center per Entry; browser checks verify the group label and role-scoped root/member counts. Default mode remains 3,000 individual Entries. Use a fresh test database when switching modes: the fixture IDs are intentionally shared and seeding is idempotent within one mode, not a mode-conversion migration.
-
-The app benchmark visits the Team list and synthetic Team detail as admin, verifying the Team ID and all 600 event roots. It explicitly profiles event-detail own-interest and manager-interest subscriptions with one fixture interest each. This measures a large event history within one team.
-
-An additional Team is led by the seeded volunteer, with one private Event and 801 existing pending interests: the lead's own request plus 800 distinct synthetic volunteers. These rows use a separate ID range from the original fixture counts. The benchmark verifies the exact lead queue and related-user count in the manager and dashboard queries, the lead's own request, and the original denied-Team behavior. Three fresh browser contexts record cold/warm pairs until all review controls render; these samples are descriptive, not a latency acceptance threshold. The workload models review of an existing queue, not creation of interests on a private Event.
-
-The app benchmark also opens the synthetic Team as a non-member volunteer. It verifies the denied Team result is empty and no `teamEvent.byTeam` query is registered. The earlier baseline verified exactly 300 public event IDs in the unused preload; that preload is now removed. Three fresh browser contexts measure authorized Team rendering and warm returns, waiting for the complete pending-interest count before recording elapsed time.
-
-The app fixture also seeds 600 album metadata records and ten inert configuration keys. General settings profiles `appConfig.all` as admin; public event detail profiles album metadata as admin and volunteer. Album IDs are synthetic, links are not opened, and the benchmark does not contact Immich or toggle settings.
-
-The Kalakriti benchmark exposes the linked `eventId` and visits that event route as global admin and Edition admin to profile `kalakritiEdition.byTeamEventId`. It verifies the exact returned Edition ID. This tests the mounted lookup without changing the event or Edition.
-
-The Kalakriti fixture now splits 30 Competitions across two categories and links isolated category-lead and overall-events actors. Their Catalog Eligibility and Entries queries are measured separately. Category lead must return the exact first 1,500 Entry IDs (the fixture groups 100 Entries per Division); overall-events must return all 3,000. Existing total membership/assignment counts remain unchanged, while readiness includes 14 linked-volunteer assignments. Earlier one-category measurements require a fresh baseline before comparison.
+| Benchmark | Spec and helpers | Flag | What it guards |
+|---|---|---|---|
+| Kalakriti data scale | `kalakriti.spec.ts`; `helpers/seed-kalakriti-performance.ts`, `zero-performance.ts` | `KALAKRITI_PERFORMANCE` | Zero hydration of every Kalakriti page on 10 Centers, 1,500 Students and 3,000 Entries |
+| Kalakriti restricted roles | `kalakriti.spec.ts` | `KALAKRITI_PERFORMANCE` | The same pages as Guardian, liaison, Edition admin, volunteer coordinator, category lead and overall-events lead; exact root IDs and no outside-Center rows |
+| Center transport and Scan | `kalakriti.spec.ts`; `pages/kalakriti-scan-page.ts` | `KALAKRITI_PERFORMANCE` | Center detail transport (four records per Center) and Transport scanning hydration for admin, Guardian and liaison. No live scan recording or camera |
+| Guests and Judges | `kalakriti.spec.ts` | `KALAKRITI_PERFORMANCE` | `kalakritiAttendee.visible` per `kind`, 100 roots each, with operations and Judge assignments |
+| Group Entries | `kalakriti.spec.ts` | `KALAKRITI_GROUP_PERFORMANCE` (with `KALAKRITI_PERFORMANCE`) | 300 ten-student group Entries instead of 3,000 individual ones; synced member counts per role |
+| Dashboard aggregates | `helpers/profile-kalakriti-dashboard.ts` (run by `kalakriti.spec.ts`) | `KALAKRITI_PERFORMANCE` | PostgreSQL aggregate time for Edition, two-Center, two-Competition and all-category scopes; Student and Entry totals |
+| App data scale | `app.spec.ts`; `helpers/seed-app-performance.ts`, `zero-performance.ts` | `APP_PERFORMANCE` | Dashboard, Events, requests, vendors, Users, notifications, banking, Scheduled Messages, Teams and settings as admin and volunteer; denied details sync zero rows |
+| Event detail | `app.spec.ts` | `APP_PERFORMANCE` | 200 updates, photos and feedback rows on one Event; volunteers mount no `eventFeedback.byEvent` query |
+| Event expenses | `app.spec.ts` | `APP_PERFORMANCE` | 200 reimbursements and 200 vendor payments on one Event; 200/100 roots and volunteer ownership |
+| Team-lead queue | `app.spec.ts` | `APP_PERFORMANCE` | 801 pending interests on one private Event; denied Team registers no `teamEvent.byTeam` query |
+| Global Audit Log | `audit.spec.ts`; `helpers/profile-audit-performance.ts`, `postgres-performance.ts` | `AUDIT_PERFORMANCE` | 50,000 rows; nine filter, search and pagination cases with exact IDs; volunteer 403; ordered index used without temp writes; grouped facets match; one debounced search request |
+| Kalakriti Audit | `kalakriti-audit.spec.ts`; `helpers/profile-kalakriti-audit.ts`, `postgres-performance.ts` | `KALAKRITI_AUDIT_PERFORMANCE` | 41,000 rows across two Editions; exact results for three roles, domain filters, deep offsets, snapshot reuse and denied domains |
+
+Each Zero query gets three analyzer samples after initial hydration. JSON reports are attached to the Playwright report and hold counts, timings and sanitized plans only, never record contents, filter values or credentials. No timing threshold is enforced.
+
+### Index experiment flags
+
+These add a disposable index in the test database only and record the flag in the report. Leave them off when validating real migrations.
+
+| Flag | Benchmark | Index | Status |
+|---|---|---|---|
+| `ENTRY_MEMBER_INDEX_EXPERIMENT` | Kalakriti | entry member `(student_id, edition_id, id)` | Shipped in migration 0089 |
+| `CATEGORY_ASSIGNMENT_INDEX_EXPERIMENT` | Kalakriti | assignment `(competition_category_id, responsibility, id)` | Shipped in 0090 |
+| `OPERATION_INDEX_EXPERIMENT` | Kalakriti | operation `(student_id, edition_id, type, id)` | Shipped in 0091 |
+| `ENTRY_ORDERING_INDEX_EXPERIMENT` | Kalakriti | Entries `(edition_id, created_at DESC, id)` and members `(entry_id, edition_id, id)` | First shipped in 0092; member index still experimental |
+| `NOTIFICATION_INDEX_EXPERIMENT` | App | notification `(user_id, archived, created_at DESC, id)` | Shipped in 0088 |
+| `SCHEDULED_INDEX_EXPERIMENT` | App | scheduled message and recipient ordering | Rejected |
+
+### Benchmark rules
+
+- Seeds refuse any database that is not loopback `pi-dash-test`, use repeatable IDs and are idempotent within one mode. Use a fresh database when switching `KALAKRITI_GROUP_PERFORMANCE` on or off.
+- Compare before and after on the same seed, role, runtime and machine. `--ui` runs on Vite dev, so do not compare its timings with production-build runs.
+- Keep analyzer time, server hydration (`serverMs`), total hydration (`totalMs`) and navigation time separate. Do not subtract them to infer network latency. `navigationAndAnalysisMs` includes the analyzer calls and is not page-load time.
+- Inspect every sample's plan; SQLite plans can change between samples. Some Zero 1.9 analyzer scan counters are negative: keep them in raw diagnostics and ignore them.
+- Inspector `rowCount` includes related rows (reported as `inspectorRows`). Root counts come from a separate untimed verification pass.
+- Zero caches views by AST, so two query names with the same AST (for example admin `availableDivisionsByCenter` and `availableDivisions`) show up as one view.
+- Record results, accepted changes and rejected hypotheses in the [query performance audit](../query-performance-audit.md).

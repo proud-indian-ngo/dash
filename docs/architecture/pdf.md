@@ -1,44 +1,63 @@
-# PDF Generation (`packages/pdf`)
+# PDF generation (`packages/pdf`)
 
-> **Load when**: `@react-pdf/renderer`, voucher layout, `amount-to-words`, PDF assets (logo/signature).
-> **Related**: `cash-vouchers.md`, `jobs.md`
+> **Load when**: `@react-pdf/renderer`, voucher or receipt layout, `amount-to-words`, PDF fonts and assets, Kalakriti ID cards.
+> **Related**: `cash-vouchers.md` (voucher flow and content), `finance-receipts-and-returns.md` ("Donation receipts and numbering"), `design-language.md`, `jobs.md`
 
-React PDF (`@react-pdf/renderer`) for cash vouchers, donation receipts and Kalakriti ID cards.
+`@react-pdf/renderer` draws cash vouchers, donation receipts and Kalakriti ID cards. This chapter covers rendering, fonts and assets; what each document contains and when it is produced belongs to its feature chapter.
 
 | File | Purpose |
 |---|---|
-| `src/product-pdf.tsx` | Shared by the receipt and the voucher: font registration and fallback chain, product tokens, base styles, `Line`, `Fact`, `Meta`, `wholeWords`, `documentDate` |
-| `src/cash-voucher.tsx` | Voucher layout (see "Cash vouchers" below) |
-| `src/voucher-assets.ts` | Flat map of the voucher's images (the treasurer signature) |
-| `src/amount-to-words.ts` | `paiseToWords`: paise amount → English words for vouchers |
-| `assets/signature.png` | Treasurer signature drawn on vouchers |
+| `src/product-pdf.tsx` | Shared by receipt and voucher: font registration and fallback, product tokens, base styles, `Line`, `Fact`, `Meta`, `wholeWords`, `documentDate` |
+| `src/proud-indian-lockup.tsx` | The horizontal logo lockup as vector paths |
+| `src/donation-receipt.tsx`, `src/generate-donation-receipt.tsx` | Receipt layout and render |
+| `src/cash-voucher.tsx`, `src/generate-voucher.ts` | Voucher layout and render |
+| `src/receipt-assets.ts`, `src/voucher-assets.ts`, `src/kalakriti-id-card-assets.ts` | Asset maps (fonts, treasurer signature, card artwork) |
+| `src/amount-to-words.ts` | `paiseToWords` for vouchers |
+| `src/kalakriti-id-cards.tsx`, `src/kalakriti-id-card-layout.ts`, `src/generate-kalakriti-id-cards.tsx`, `src/generate-blank-kalakriti-id-cards.tsx` | ID cards |
+| `assets/signature.png` | Treasurer signature on vouchers |
 
-## Donation receipts
+## Shared rules
 
-`src/donation-receipt.tsx` (A4, one page) and `src/generate-donation-receipt.tsx` render a receipt from its frozen snapshot on demand; nothing is stored. The receipt follows the product design language (`design-language.md`): the full-colour horizontal lockup (`pi-lockup.svg`, the file the `@proudindian/design` logo README names for receipts) drawn as vector paths by `src/proud-indian-lockup.tsx`, because react-pdf's `<Image>` can't read SVG (re-copy the paths from the package if the logo changes; never edit them), product token hex values, hairlines and one tinted amount card. Layout: lockup and issuer, title with number and date, void banner, donor, amount in figures and words, details table, then the 80G notes beside the signature, with a fixed footer. It stays readable in black and white, and typical long names and addresses fit one page. At the input maximums (300-character void reason and organisation address, long donor address and "other" description) it spills to a second page: the notes and signature move together, and a voided receipt carries a fixed VOID marker at the top of every page as well as the void sentence on page one. Names, numbers and legal lines wrap between words and are never hyphenated; a run of more than 40 characters with no spaces (a pasted reference) may break between characters, and react-pdf draws a hyphen at such a break because it can't break without one. Fonts are static TTFs in `assets/fonts/` (react-pdf can't read woff2), listed in `src/receipt-assets.ts`: Geist Regular and SemiBold (upstream `geist` npm 1.7.2, Geist 1.800, the full Latin set with ₹), Bricolage Grotesque 600 for the title, and Paper Mono 400/500 for the amount, number and dates, the last two instanced with fontTools from the variable woff2 files in `@proudindian/design/fonts` (the Bricolage name table rewritten to `BricolageGrotesque-SemiBold`); their OFL licences sit beside them. The big amount and the No./Date values use Paper Mono rather than the display face `design-language.md` gives big numbers and dates, because Bricolage has no ₹. Every family falls back per glyph to the bundled Plus Jakarta Sans (`ReceiptFallback`), which carries the dotted IAST letters (ṭ ḍ ṇ ṣ ṛ ḥ ṃ ṅ) Geist and Paper Mono lack; without it react-pdf substitutes a non-embedded Helvetica. Devanagari and other Indian scripts still don't render (no bundled font has them, as before this redesign). The fonts, tokens and primitives live in `src/product-pdf.tsx`, which the cash voucher shares; the receipt renders the same bytes as before the split. The web Vite plugin `kalakriti-pdf-assets.ts` embeds the asset maps into the server bundle. The Kalakriti cards keep their own fonts and logo. The document's creation and modification dates are the issue day, so the same receipt always renders the same bytes (a retried email attaches an identical file under the same idempotency key). `packages/jobs/src/lib/receipt-pdf.ts` maps the snapshot to props for the download route and the email job. Amounts in words use `paiseToIndianWords` from `@pi-dash/shared/amount-in-words` (lakh and crore, "rupees and paise"). See `finance-and-programmes.md`, "Donation receipts".
+- **Assets in the bundle.** The production image ships only `.output`, so PDFs never read the source tree at runtime. The web Vite plugin `apps/web/src/lib/dev/kalakriti-pdf-assets.ts` embeds every asset map into the server bundle as data URLs.
+- **Deterministic bytes.** Creation and modification dates are fixed (receipt: issue day; voucher: expense date), so the same document always renders the same bytes. A retried receipt email attaches an identical file under the same idempotency key.
+- **Logo as vectors.** react-pdf's `<Image>` cannot read SVG, so `proud-indian-lockup.tsx` holds the paths of `pi-lockup.svg` from `@proudindian/design`. If the logo changes, re-copy the paths; never edit them.
+- **Product design language** (`design-language.md`): token hex values, hairlines, one tinted amount card, readable in black and white.
 
-## Cash vouchers
+## Fonts (receipt and voucher)
 
-`src/cash-voucher.tsx` (A4, one page) is drawn in the same product language as the receipt, from `src/product-pdf.tsx`: the lockup with the issuing organisation (`VOUCHER_ORG_*`), the title "Cash voucher" with No. and Date in Paper Mono, "Paid to" with the payee's name (the claimant on items from before the payee fields) and mobile when given, the amount card with figures and words, a Description, Category and Claimed by table, then "Approved by" (the treasurer signature from `signature.png`, `VOUCHER_FINANCE_ADMIN_NAME`, Treasurer) beside the **Received by** box, and a fixed footer. When the payee signed on the dashboard (`payeeSignature`: the PNG bytes and when they signed), the box carries the drawn signature, with the payee's name and "Signed electronically on 12 Oct 2026, 3:40 pm" (India time) under it; for a voucher paid to the claimant it carries their declaration (`claimantDeclaration`, see `cash-vouchers.md`), a box that grows for long names; otherwise it stays empty for a signature or thumb impression on paper, with a date line, and renders the same bytes as before the signature existed. The job reads the PNG from R2 like any request attachment, so no asset bundling is involved, and checks its size and PNG header before react-pdf decodes it (see `cash-vouchers.md`). Long names and addresses stay on one page, and descriptions up to about 700 characters do even with long names elsewhere; a longer description spills to a second page, where the Approved by and Received by boxes move together and the fixed footer repeats the voucher number. The creation and modification dates are the expense date, so the same voucher renders the same bytes. The signature reaches the server bundle through `src/voucher-assets.ts` and the Vite plugin as a data URL; before this the voucher read `assets/logo.png` and `signature.png` from a source-tree path that the production image (which ships only `.output`) doesn't have, so deployed vouchers printed neither. Flow, limit, payee and signed copy: `cash-vouchers.md`.
+Static TTFs in `assets/fonts/` (react-pdf cannot read woff2), with their OFL licences:
+
+- Geist Regular and SemiBold (from the `geist` npm package): body.
+- Bricolage Grotesque 600: title.
+- Paper Mono 400/500: amount, number and dates. Used for the big amount instead of the display face because Bricolage has no ₹.
+- Plus Jakarta Sans (`ReceiptFallback`): per-glyph fallback for every family. It carries the IAST letters (ṭ ḍ ṇ ṣ ṛ ḥ ṃ ṅ) the others lack; without it react-pdf substitutes a non-embedded Helvetica.
+
+Bricolage and Paper Mono are instanced with fontTools from the variable woff2 files in `@proudindian/design/fonts` (Bricolage's name table rewritten to `BricolageGrotesque-SemiBold`). Devanagari and other Indian scripts do not render; no bundled font has them.
+
+## Donation receipt
+
+A4. Snapshot-to-props mapping is in `packages/jobs/src/lib/receipt-pdf.ts`, used by the download route and the email job. Rendered on demand from the frozen snapshot; nothing is stored. Amounts in words use `paiseToIndianWords` from `@pi-dash/shared/amount-in-words` (lakh and crore).
+
+- Order: lockup and issuer, title with number and date, void banner, donor, amount in figures and words, details table, 80G notes beside the signature, fixed footer.
+- Typical content fits one page. At the input maximums (300-character void reason or organisation address, long donor address) it spills to a second page; notes and signature move together, and a voided receipt repeats a VOID marker on every page.
+- Text wraps between words without hyphenation. A run over 40 characters with no spaces may break mid-word, and react-pdf draws a hyphen there.
+
+## Cash voucher
+
+A4, same language and primitives as the receipt. Content (payee, claimant, Received by box) is defined in `cash-vouchers.md`.
+
+- Order: lockup with the issuing organisation (`VOUCHER_ORG_*`), "Cash voucher" with No. and Date, Paid to, amount card in figures and words, Description / Category / Claimed by table, then "Approved by" (treasurer signature, `VOUCHER_FINANCE_ADMIN_NAME`) beside Received by, fixed footer.
+- The payee signature is passed as `payeeSignature` (PNG bytes and signing time); the job validates it before react-pdf decodes it. The declaration box grows for long names.
+- Descriptions up to about 700 characters stay on one page. Longer ones spill to a second page, where Approved by and Received by move together and the footer repeats the voucher number.
 
 ## Kalakriti ID cards
 
-The dashboard also offers **Download blank ID cards**. Administrators choose whole page counts for Volunteer, Guest, and Judge cards, from 1 to 100 pages total. `generate-blank-kalakriti-id-cards.tsx` renders four cards per page, grouped by type, with a write-in name line and a fresh UUIDv7 person QR for every card. Downloading does not create people; **Register ID card** links the scanned UUID to a new person later.
+- **Roster download**: the admin-only `/api/kalakriti/$year/id-cards` endpoint requires global Kalakriti admin or an active edition_admin before loading roster data; the renderer itself does not authorise. `apps/web/src/lib/server/kalakriti-id-card-data.ts` projects cards in a read-only repeatable-read transaction. Server code imports `generateKalakritiIdCards` from `@pi-dash/pdf/generate-kalakriti-id-cards.tsx`.
+- **Blank cards**: administrators choose whole page counts of Volunteer, Guest and Judge cards (1 to 100 pages). Each card gets a write-in name line and a fresh UUIDv7 person QR. Downloading creates no people; **Register ID card** later links the scanned UUID to a new person.
+- **Layout**: A4 split edge-to-edge into a 2×2 of 105 × 148.5 mm, with one vertical and one horizontal through-cut. The 90 × 130 mm artwork scales to each quadrant; hole centres scale from 19 and 71 mm left, 7 mm from the top. The source artwork is clipped to remove transparent margins, never edited. Decoration and QR modules are vector paths.
+- **QR**: the shared `{ id, type }` person contract (Student UUID, Guardian/Volunteer Edition Membership UUID, Guest/Judge Attendee UUID). The 48 mm QR area includes a four-module quiet zone.
+- **Content**: student cards show centre name and competitions, with times in Asia/Kolkata (AM/PM) or `Time TBA`.
+- **Text fitting**: `kalakriti-id-card-layout.ts` measures against embedded Plus Jakarta Sans metrics and tries readable sizes in the space above the QR. Oversized content fails generation instead of clipping. Only Latin-script names render.
+- **Fonts**: Plus Jakarta Sans Regular and Bold from the upstream repository, with `OFL.txt`, embedded in each PDF. Cards keep their own fonts and logo.
 
-`src/kalakriti-id-cards.tsx` contains reusable React PDF card and document components. `src/generate-kalakriti-id-cards.tsx` validates printable data and returns a PDF buffer. The Kalakriti dashboard downloads the complete current roster through the admin-only `/api/kalakriti/$year/id-cards` endpoint. `apps/web/src/lib/server/kalakriti-id-card-data.ts` projects cards in a read-only repeatable-read transaction.
-
-Cards fill A4 edge-to-edge as a 2×2 of 105 × 148.5 mm (the 90 × 130 mm artwork is scaled to each quadrant). One vertical and one horizontal through-cut at the midlines separate the four cards. Hole centers scale with the artwork from 19 and 71 mm left and 7 mm from the top in design space. The original Kalakriti asset is displayed through a clipped viewport to remove transparent margins without changing the source artwork. The festive decoration and QR modules are vector paths.
-
-QR codes use the shared `{ id, type }` person contract: Student UUID, Guardian/Volunteer Edition Membership UUID, or Guest/Judge Attendee UUID. The 48 mm QR area includes a four-module white quiet zone. Student cards include their center name alongside their competitions. Student times are formatted in Asia/Kolkata with AM/PM; a missing time displays `Time TBA`.
-
-`src/kalakriti-id-card-layout.ts` measures text against the embedded Plus Jakarta Sans metrics, wraps it, and tries readable font sizes in the space above the QR. Oversized content fails generation instead of silently clipping or dropping competitions. Use Latin-script display names with the current Plus Jakarta Sans font; additional scripts require an appropriate embedded font.
-
-Generate the five-role sample (two pages) with:
-
-```bash
-bun run preview:id-cards
-```
-
-The output is `output/pdf/kalakriti-id-cards.pdf`. Print at actual size (100%), with printer scaling disabled. Import `generateKalakritiIdCards` from `@pi-dash/pdf/generate-kalakriti-id-cards.tsx` for server consumers. The endpoint resolves current Edition access and requires global Kalakriti admin or active edition_admin before loading any roster data. The renderer itself does not authorize access.
-
-Card fonts are bundled in `assets/fonts/` from https://github.com/tokotype/PlusJakartaSans (Regular and Bold), with the upstream `OFL.txt` license. They are embedded in each PDF; rendering needs no external font service. The web Vite plugin `kalakriti-pdf-assets.ts` embeds the assets into the server bundle so deployments do not depend on repository paths.
+Preview the five-role sample (`output/pdf/kalakriti-id-cards.pdf`) with `bun run preview:id-cards`. Print at 100% with printer scaling off.

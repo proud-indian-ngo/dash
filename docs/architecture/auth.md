@@ -1,86 +1,104 @@
-# Auth
+# Authentication
 
-> **Load when**: Better Auth, session cookie, sign-in flow, `getAuth`, `getCachedAuth`, `requireSession`, admin user creation, cross-subdomain cookies, `beforeLoad` route guards, `assertPermission`, impersonation, OTP/reset-token flow.
-> **Related**: `authorization.md`, `data-layer.md`, `caching.md`
+> **Load when**: Better Auth, sessions and cookies, sign-in, volunteer sign-up, `/register` links, email verification redirects, `getAuth`, `getCachedAuth`, `requireSession`, the `_app` session gate, Zero auth, impersonation, reset-password and OTP routes, user admin (`/users`), Settings > Roles, orientation.
+> **Related**: `authorization.md` (permissions and route permission guards), `data-layer.md`, `caching.md`
 
 ## Setup
 
-Better Auth (`packages/auth/src/index.ts`):
+Better Auth is configured in `packages/auth/src/auth.ts`:
 
-- **Drizzle adapter** — sessions, accounts, verification tokens in Postgres. Better Auth 1.7.3+ keys each account by `(providerId, accountId)`, enforced by a unique index; credential rows use provider ID `credential`. The obsolete `issuer` column is removed by the generated migration.
-- **Admin plugin** — roles (`admin`, `volunteer`), ban/unban, impersonate
-- **Email/password** — public volunteer signup at `/register` (optional `?eventId=`, `?interestEventId=`, `?occDate=` and `?group=` query params); email verification required
-- **Rate limiting** — sign-in 10/min, sign-up 5/min
-- **Session** — 7-day expiry, daily refresh
+- Drizzle adapter: sessions, accounts and verification tokens in Postgres. Accounts are unique on `(providerId, accountId)`; password accounts use provider `credential`.
+- Admin plugin: `adminRoles` are `super_admin`, `admin`, `finance_admin`; default role `unoriented_volunteer`. Ban, unban and impersonation come from it. Custom roles are not registered there (`authorization.md`).
+- Email and password with required email verification. Public volunteer sign-up at `/register`.
+- Rate limits per minute: sign-in 10, sign-up 5, forgot and reset password 5, verify email 10; 100 otherwise.
+- Sessions last 7 days and refresh daily. With `COOKIE_DOMAIN` set the cookie spans subdomains.
 
-## Volunteer signup
+## Session flow
 
-`/_auth/register` creates the user immediately through Better Auth `signUp.email`, then redirects to `/login` for email verification.
+1. A volunteer signs up (or an admin creates the account), verifies email and signs in.
+2. The `_app` layout's `beforeLoad` calls `getCachedAuth()`, which wraps the `getAuth` server function (session and permissions together). It caches on the client for 5 minutes with promise dedup, so viewport preloading does not refetch (`caching.md`). With no session it redirects to `/login` with the full current location. It returns `{ permissions, session }` into route context. `_app` has `staleTime: Infinity`, so `beforeLoad` reruns only when invalidated.
+3. Server functions and API routes call `requireSession(request)` (`apps/web/src/lib/api-auth.ts`).
+4. zero-cache forwards cookies to `/api/zero/mutate` and `/api/zero/query` (`ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES`). The app validates the session cookie and builds the Zero context. There is no separate JWT.
 
-Self-registration is 18+. The form's date picker stops at `latestVolunteerDob`, and the Better Auth `before` hook rejects `/sign-up/email` with 400 when `dob` is missing, invalid (before 1900), or under `MIN_VOLUNTEER_AGE` (`packages/auth/src/sign-up-age.ts`). The server compares UTC calendar dates with one day of slack so it never rejects a date the form accepts. Admin-created accounts and profile `dob` edits are deliberately exempt.
+Reset-password and similar token routes validate their Zod-parsed search params in `beforeLoad` before render.
 
-Optional independent search params:
+## Volunteer sign-up
 
-- `?group=campus-west` — persisted on `user.registrationGroup` (URL query stays `group`)
-- `?eventId=<uuid>` — after signup, the after-signup hook enrolls the new user on that event when it exists, is not cancelled, and has not started. Enroll failures are logged and never block account creation.
-- `?interestEventId=<uuid>[&occDate=YYYY-MM-DD]` — links from the public website (`signUpUrl` in `/api/public/events`). The register page shows a banner naming the session (`getPublicSessionSummary`, public non-Kalakriti events only). Nothing is written at signup: the register form passes `/events/<id>[?occDate=]&interest=1` as Better Auth's `callbackURL`, the verification email carries it as `redirect`, and `/verify-email` files a **pending** `event_interest` (`fileVerifiedSignUpInterest`) only on the account's first verification, then notifies team leads. Interest is per session: for a recurring series the `occDate` session is validated against the RRULE and materialized (copying the series row in SQL, plus inherited volunteers). Private, Kalakriti, cancelled or started sessions are skipped and the outcome is logged. It never enrolls; a team lead approves the request as usual.
-- both together, or neither (`/register` unchanged)
+`/_auth/register` calls `signUp.email`, which creates the user at once, then redirects to `/login` for verification.
 
-Website links also carry the visitor to the event page. A signed-in visitor opening `/register?interestEventId=` is redirected from `/_auth` to `/events/<id>[?occDate=]` (invite `?eventId=` links still go to `/`). The register form's Login link, the post-signup `/login`, the verification email and the login page's "Resend verification" all carry the same redirect; `@pi-dash/shared/event-redirect` is the single validator (only `/events/<uuid>` with `occDate`/`interest=1`). Login drops the `interest` marker before navigating. Better Auth's automatic re-send on an unverified sign-in keeps it too: the login form sends the redirect in the `x-auth-event-redirect` header (`EVENT_REDIRECT_HEADER`) rather than `callbackURL`, which would make the client redirect plugin reload the page, and `sendVerificationEmail` reads `callbackURL` first, then the header, through the same validator. `_app` keeps the full path and query when sending signed-out visitors to `/login`.
+### Age
 
-Invalid values are dropped; the page still loads. Group-only links never touch events. Event enroll writes `team_event_member` directly (no team membership required). A Kalakriti-linked event also creates or reactivates an **unassigned** volunteer Edition membership and atomically promotes only `unoriented_volunteer` to `volunteer`. Persistence locks and rechecks the Edition, event, user, and membership before writing; Guardian and external identities are excluded. Promotion revokes existing sessions transactionally, then invalidates role caches and enqueues role-change and orientation WhatsApp jobs after commit. The default unoriented signup job runs only after enrollment and only if the persisted role remains unoriented. Signup never fails because enroll skipped or conflicted; enroll runs fire-and-forget after a persisted user row is confirmed.
+Self-registration is 18+. The date picker stops at `latestVolunteerDob`. The Better Auth `before` hook (`packages/auth/src/sign-up-age.ts`) rejects `/sign-up/email` with 400 when `dob` is missing, before 1900, or under `MIN_VOLUNTEER_AGE`. It compares UTC calendar dates with one day of slack so it never rejects a date the form accepted. Admin-created accounts and profile `dob` edits are exempt.
 
-Unauthenticated signup stays outside the central audit ledger. Do not put group text in `audit_log`.
+### Link parameters
 
-## Session Lifecycle
+Each is optional and independent. Invalid values are dropped and the page still loads.
 
-1. Volunteer signs up at `/register` (or an admin creates the account) → verification email sent → user verifies and signs in.
-2. User signs in → session cookie set (cross-subdomain via `COOKIE_DOMAIN` if configured).
-3. `_app` layout `beforeLoad` → `getAuth()` (combined session + permissions server fn) via `getCachedAuth()` — cached client-side 5 min with promise dedup. Prevents redundant calls from viewport preloading.
-4. Server functions + API routes call `requireSession(request)` to validate.
-5. Zero mutate/query endpoints extract session → build `{ userId, role }` context.
+| Param | Effect |
+|---|---|
+| `?group=campus-west` | Stored on `user.registrationGroup`. Never touches events |
+| `?eventId=<uuid>` | Enrols the new user on the event after sign-up, if it exists, is not cancelled and has not started |
+| `?interestEventId=<uuid>[&occDate=YYYY-MM-DD]` | Website sign-up links (`signUpUrl` from `/api/public/events`). Files event interest after verification |
 
-## Zero Auth Integration
+`?eventId=` enrolment:
 
-Zero cache forwards cookies to app's mutate/query endpoints (`ZERO_MUTATE_FORWARD_COOKIES=true`). App validates session cookie → builds Zero context. **No separate JWT** for Zero auth.
+- Writes `team_event_member` directly; no team membership needed.
+- For a Kalakriti-linked event it also creates or reactivates an unassigned volunteer Edition membership and promotes only `unoriented_volunteer` to `volunteer`. It locks and rechecks the Edition, event, user and membership first; Guardian and external identities are excluded.
+- Promotion revokes sessions in the same transaction, then invalidates role caches and enqueues role-change and orientation WhatsApp jobs after commit.
+- The default unoriented sign-up job runs after enrolment, only if the stored role is still unoriented.
+- Enrolment runs fire-and-forget after the user row is confirmed. Skips, conflicts and failures are logged and never fail sign-up.
 
-## Route Guards (`beforeLoad`)
+`?interestEventId=`:
 
-TanStack Router routes enforce auth + permissions via `beforeLoad`. Two patterns:
+- The register page shows a banner naming the session (`getPublicSessionSummary`, public non-Kalakriti events only).
+- Nothing is written at sign-up. The form passes `/events/<id>[?occDate=]&interest=1` as `callbackURL`; the verification email carries it as `redirect`.
+- `/verify-email` files a pending `event_interest` (`fileVerifiedSignUpInterest`, `packages/auth/src/register-interest.ts`) on the account's first verification only, then notifies team leads. For a series the `occDate` session is checked against the RRULE and materialised (`recurring-events.md`).
+- Private, Kalakriti, cancelled or started sessions are skipped and logged. It never enrols; a team lead approves as usual.
 
-**Top-level session gate** (`apps/web/src/routes/_app.tsx`):
+### Event redirects
 
-```ts
-beforeLoad: async ({ location }) => {
-  const { session, permissions } = await getCachedAuth();
-  if (!session) {
-    throw redirect({ to: "/login", search: { redirect: location.pathname } });
-  }
-  return { permissions, session };
-},
-```
+- `@pi-dash/shared/event-redirect` is the single validator: only `/events/<uuid>` with `occDate` and `interest=1`.
+- A signed-in visitor on `/register?interestEventId=` goes straight to `/events/<id>[?occDate=]`. Invite `?eventId=` links go to `/`.
+- The register page's Login link, the post-sign-up `/login`, the verification email and "Resend verification" all carry the redirect. Login drops the `interest` marker before navigating.
+- On an unverified sign-in Better Auth re-sends verification. The login form sends the redirect in the `x-auth-event-redirect` header (`EVENT_REDIRECT_HEADER`), because a `callbackURL` would make the client redirect plugin reload the page. `sendVerificationEmail` reads `callbackURL` first, then the header, through the same validator.
 
-- `getCachedAuth()` hits client-side 5-min cache (see `caching.md`).
-- Returns `{ permissions, session }` into `context` — child routes consume this via `{ context }`.
-- `staleTime: Infinity` on `_app` — re-enters `beforeLoad` only when invalidated.
+### Audit
 
-**Per-route permission gate** (e.g. `_app/analytics.tsx`, `_app/users.tsx`, 16 routes total):
+Unauthenticated sign-up stays outside the audit ledger. Never put group text in `audit_log`.
 
-```ts
-beforeLoad: ({ context }) => assertPermission(context, "analytics.view"),
-```
+## Impersonation
 
-`assertPermission()` throws on missing perm → router catches → 403 page.
+- The admin plugin stores the impersonator in `session.impersonated_by` (`packages/db/src/schema/auth.ts`). There is no UI entry point.
+- The impersonator gets exactly the target's permissions.
+- Audit entries snapshot the actor's ID, name and role, plus the impersonator's ID and name when present (`apps/web/src/lib/audit.ts`), so deleting a user does not erase attribution.
+- Before adding a UI, decide which actions to block while impersonating (such as changing the target's password) and how the session ends. Keep resulting commands inside the audit boundaries.
 
-**Search-param binding** — reset/OTP routes unpack `location.search` in `beforeLoad` to validate tokens before render. Pattern: `beforeLoad: ({ search }) => { /* validate token */ }` with Zod-parsed `search` schema on the route.
+## Users and access
 
-## Admin Impersonation
+### User admin
 
-Better Auth's admin plugin supports impersonation via `session.impersonated_by` column (`packages/db/src/schema/auth.ts`, migration `0002_furry_vermin.sql`).
+`/users` (`routes/_app/users.tsx`, `components/users/`) needs `users.manage` to open. `users.view` only widens Zero user queries for pickers. The server functions live in `apps/web/src/functions/user-admin.ts`; each checks its own permission and runs inside `runSessionAuditedAction`.
 
-- **Capability present**: DB column + Better Auth admin plugin wiring.
-- **No UI entry point currently**. Trigger would be a server fn calling the admin plugin's impersonate API, setting `impersonated_by = <admin-user-id>` on the new session.
-- **Audit**: direct authenticated state-changing commands write to the persistent `audit_log` ledger. Each entry snapshots the acting user's ID, name, and role plus the impersonator's ID and name when `impersonated_by` is present, so later user deletion cannot erase attribution. The ledger stores sanitized IDs and field names rather than request payloads, secrets, or error messages.
-- **Scope**: full user permissions. Impersonator cannot escalate beyond target's role.
+| Action | Permission | Notes |
+|---|---|---|
+| Create | `users.create` | Better Auth `createUser`, then the real role is written to `user.role`. Enqueues the welcome notification, and the orientation WhatsApp job for an unoriented user |
+| Edit | `users.edit` | Profile fields, registration group and role. A role change revokes the user's sessions, invalidates both roles' permission caches and enqueues `notify-role-changed` |
+| Ban or unban | `users.ban` | Optional reason and future expiry. You can't ban yourself. Each enqueues a notification |
+| Set password | `users.set_password` | Enqueues `notify-password-reset` |
+| Delete | `users.delete` | You can't delete yourself |
 
-Before adding impersonation UI, decide which actions are blocked during impersonation (for example, changing the target's password) and define the session-end flow. Keep all resulting commands inside the existing audit boundaries.
+Users with the technical `external_user` role are refused by every action, and no action can assign that role (`apps/web/src/lib/technical-role-policy.ts`).
+
+Delete is refused while `userHasExpensesInBooks` (`packages/db/src/ledger/expense-posting.ts`) finds a standing posting for a reimbursement, vendor payment or vendor payment transaction the user raised or recorded. Those rows cascade with the user, and the next posting run would reverse money that really left the bank, so ban the account instead. A permitted delete enqueues removal from every WhatsApp group, removes the user, then sends the deletion email captured beforehand.
+
+The user sheet shows email suppression after a bounce or complaint. `users.edit` holders can clear it with **Resume email** ([bounces and complaints](notifications.md#bounces-and-complaints)).
+
+### Roles
+
+Settings > Roles (`routes/_app/settings/roles/`, `components/roles/`, `apps/web/src/functions/role-admin.ts`) needs `settings.roles`. It creates custom roles and sets each role's permissions. Admin-tier and technical roles can't be edited. System roles can't be deleted, nor can a role that still has users. Reserved permissions can't be assigned. Every change invalidates the permission cache. Checks and the role order are in [authorization](authorization.md).
+
+### Orientation
+
+New sign-ups get `unoriented_volunteer`, which grants only `events.view_own`. They join the orientation WhatsApp group, and the team member picker leaves them out (the event member picker drops only inactive users).
+
+An admin with `users.edit` orients a volunteer by changing their role to `volunteer` on `/users`. The orientation job then adds them to the all-volunteers group and removes them from the orientation group. Kalakriti enrolment, or a Kalakriti responsibility, also promotes `unoriented_volunteer` to `volunteer` ([volunteer roster and orientation](kalakriti-registration.md#volunteer-roster-and-orientation)). Nothing demotes automatically.

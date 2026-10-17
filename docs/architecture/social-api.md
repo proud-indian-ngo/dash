@@ -1,69 +1,89 @@
 # Social API
 
-> **Load when**: `/api/social/v1`, social-artifacts pipeline, `social_api_token`, `social:token`, `requireSocialToken`, `social_post`, `event_partner`, post-event social form fields (`children_attended`, `social_notes`, `social_completed_at`, `volunteers_needed`), signed photo links, `SOCIAL_MEDIA_SIGNING_SECRET`, `social_approver_user_id`, social digest, `social_run`, `social_paused`, `social.manage`, Social page (`/social`), `socialPost.drop`.
+> **Load when**: `/api/social/v1`, social-artifacts pipeline, `social_api_token`, `social:token`, `requireSocialToken`, `social_post`, `social_run`, `event_partner`, post-event social fields (`children_attended`, `social_notes`, `social_completed_at`, `volunteers_needed`), signed photo links, `SOCIAL_MEDIA_SIGNING_SECRET`, social digest, `social_paused`, `social_rules`, `social.manage`, Social page (`/social`), `socialPost.drop`.
 > **Related**: `recurring-events.md`, `file-uploads.md`, `notifications.md`, `caching.md`
 
-Machine-facing API for the social-artifacts generator (Instagram and LinkedIn posts). Contract: `social-artifacts/docs/strategy/dashboard-api-spec.md`; the consumer's typed client (`social-artifacts/worker/src/pipeline/dashboard.ts`) is the source of truth for response shapes. No browser consumer, so no CORS.
+Machine-facing API for the social-artifacts generator (Instagram and LinkedIn posts). The contract is `social-artifacts/docs/strategy/dashboard-api-spec.md`; the consumer's typed client (`social-artifacts/worker/src/pipeline/dashboard.ts`) is the source of truth for response shapes. No browser consumer, so no CORS.
 
-## Auth
+## Bearer tokens
 
-- `Authorization: Bearer <token>`, one token per consumer. Table `social_api_token` stores only the sha256 hex of the raw token, its `scopes` (`events:read`, `photos:read`, `signups:read`, `social:write`), `last_used_at` and `revoked_at`.
-- `scripts/seed.ts` inserts a fixed dev token for local use only; it is skipped when `NODE_ENV` is `production` (`scripts/seed-social-token.ts`).
-- Manage tokens in **Settings → API Tokens** (`settings.app_config`) or with the CLI fallback `bun run social:token create <name> --scopes …` (prints the raw token once), `list` and `revoke <id>`.
-- The settings section talks to server functions in `apps/web/src/functions/social-api-tokens.ts` (`getSocialApiTokens`, `createSocialApiTokenFn`, `revokeSocialApiTokenFn`), because the table is not in Zero. Each checks `settings.app_config` with `assertServerPermission`. Create generates 32 random bytes (`generateSocialToken`), stores `hashSocialToken(raw)` and returns the raw token once; the dialog shows it with a Copy button and a warning that it cannot be shown again. Create and revoke run inside `runSessionAuditedAction` as `socialApiToken.create` / `socialApiToken.revoke`; metadata carries field names and scopes, never the token, its hash or the free-text name.
-- `apps/web/src/lib/social-api-auth.ts`: `requireSocialToken(request, scope)` looks the token up by hash (so no constant-time compare is needed), checks scope membership (a list means "any of"), and touches `last_used_at` fire-and-forget. 401 for missing, unknown or revoked tokens, 403 for a missing scope, both `Cache-Control: no-store`. `authorizeSocialRequest` adds the in-process rate limit: 600 requests a minute per token and endpoint.
-- `social_api_token` is deliberately not exported from the schema barrel, so it never enters the generated Zero schema.
+- `Authorization: Bearer <token>`, one token per consumer. `social_api_token` stores the sha256 hex of the token, `scopes` (`events:read`, `photos:read`, `signups:read`, `social:write`), `last_used_at` and `revoked_at`. It is kept out of the schema barrel so it never reaches Zero.
+- `requireSocialToken(request, scope)` (`apps/web/src/lib/social-api-auth.ts`) looks the token up by hash (so no constant-time compare is needed), checks the scope (a list means any of), and touches `last_used_at` fire-and-forget. Missing, unknown or revoked: 401. Missing scope: 403. Both `Cache-Control: no-store`.
+- `authorizeSocialRequest` adds the in-process rate limit: 600 requests a minute per token and endpoint (see `caching.md`).
+- Manage tokens in Settings → API Tokens (`settings.app_config`) through server functions in `apps/web/src/functions/social-api-tokens.ts`. The raw token is shown once. Create and revoke are audited as `socialApiToken.create` and `socialApiToken.revoke`, never with the token or name.
+- CLI fallback: `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`.
+- `scripts/seed.ts` inserts a fixed dev token, skipped in production (`scripts/seed-social-token.ts`).
 
 ## Endpoints
 
-All under `apps/web/src/routes/api/social/v1/`; handlers with injectable dependencies live in `apps/web/src/lib/social-api/`. Every route answers other methods with 405.
+Routes live in `apps/web/src/routes/api/social/v1/`, handlers with injectable dependencies in `apps/web/src/lib/social-api/`. Other methods get 405. `POST` bodies over 64 KB get 413 (`readJsonBody`, checked by `Content-Length` and by actual size).
 
-| Endpoint | Scope | Notes |
+| Endpoint | Scope | Returns |
 |---|---|---|
-| `GET events?from=YYYY-MM-DD&to=YYYY-MM-DD` | `events:read` | India-time dates, inclusive, at most 120 days counting both `from` and `to` (an impossible date such as `2026-13-01` is a 400), `from` may be in the past. `{ timezone: "Asia/Kolkata", events }` |
-| `GET events/{id}/photos` | `photos:read` | `id` is a social event id: a `team_event` row id of a public, non-Kalakriti event, or `{seriesId}:{occDate}` for a virtual occurrence (resolved to the exception row for that `original_date`; `{ photos: [] }` when none exists); up to 12 approved image photos with an Immich asset |
-| `GET media/{photoId}/{variant}?exp=&sig=` | none | Token-free proxy for the signed links; `variant` is `original` or `thumbnail` |
-| `GET stats?month=YYYY-MM` | `events:read` | Monthly impact card numbers |
-| `POST posted` | `social:write` | Upsert on (event id, channel, kind, buffer post id); optional `occurrenceDate` (YYYY-MM-DD) and `eventName` are stored and updated by a repeat; optional `held` (boolean: `true` = created as a Buffer draft for approval, `false` = scheduled automatically) is stored as given, absent stays null, and a repeat without it keeps the stored value; audited as `social.posted.record` with actor role `social-api` (target `teamEvent` only for a bare uuid, `teamEventSeries` with the series id for a composite id, otherwise `socialPost` without an id); 204 |
-| `GET posted?eventId=` or `GET posted?from=&to=` | `social:write` or `events:read` | Exactly one form, else 400. `{ posted: PostedRecord[] }`, `occurrenceDate`, `eventName` and `held` null when unset. The window form (same validation as `events`) returns records whose `occurrence_date` is in the window, or whose `occurrence_date` is null and `event_id` is `<uuid>:<YYYY-MM-DD>` with the date in the window |
-| `POST notify` | `social:write` | WhatsApp digest to the approver; 204 |
-| `GET settings` | `events:read` | `{ paused, pausedKinds, rules }` from app_config `social_paused`, `social_paused_kinds` and `social_rules` (see [Pause](#pause) and [Posting rules](#posting-rules)); `Cache-Control: no-store` |
-| `POST runs` | `social:write` | One pipeline run report (see [Runs](#runs)); 204 |
+| `GET events?from=&to=` | `events:read` | `{ timezone: "Asia/Kolkata", events }` |
+| `GET events/{id}/photos` | `photos:read` | Up to 12 photos with signed links |
+| `GET media/{photoId}/{variant}?exp=&sig=` | none (signed) | Image bytes; `variant` is `original` or `thumbnail` |
+| `GET stats?month=YYYY-MM` | `events:read` | Monthly impact numbers |
+| `POST posted` | `social:write` | 204 |
+| `GET posted?eventId=` or `?from=&to=` | `social:write` or `events:read` | `{ posted }` |
+| `POST notify` | `social:write` | 204 |
+| `GET settings` | `events:read` | `{ paused, pausedKinds, rules }`, `no-store` |
+| `POST runs` | `social:write` | 204 |
 | `GET openapi.json` | none | `@pi-dash/shared/social-api-openapi` |
 
 ### Events
 
-`getSocialEvents` (`packages/db/src/queries/social-api.ts`) loads the same standalone/parent/exception rows as the public feed, but in both cities, without clamping `from` to now, and including cancelled rows. Expansion is shared with the public feed through `expandEventOccurrences` in `@pi-dash/shared/public-events`; `buildSocialEvents` (`@pi-dash/shared/social-api`) maps occurrences:
+`from` and `to` are India dates, inclusive, at most 120 days counting both ends; `from` may be in the past. Impossible dates are a 400.
 
-- `id` is the row id for exceptions and standalone events and `{seriesId}:{occDate}` (`occDate` is the series' date key, as in `original_date`) for a virtual occurrence, so every week of a series has its own id (`virtualSocialEventId` / `parseVirtualSocialEventId`). Once an occurrence is materialised its id becomes the exception row id. `signUpUrl` keeps the register link (`interestEventId` = series id plus `occDate`).
-- `status`: `cancelled` when the row or its series is cancelled, and for an occurrence the RRULE produces inside the window that the series' `recurrence_rule.exdates` removed (and no exception row replaced); `completed` when `social_completed_at` is set on a materialised row (a virtual occurrence never is); otherwise `scheduled`. Dates removed by `excludeRules` are part of the pattern and never appear.
-- Limitation: "cancel this and following" truncates the RRULE by overwriting its `UNTIL`, so the occurrences it removed cannot be reconstructed and simply disappear from the feed (materialised exceptions after the split are cancelled rows and stay as `cancelled`). The pipeline treats an occurrence that vanished as dropped.
-- `volunteers`: `needed` from `volunteers_needed`, falling back to the series parent; `approved` and `waitlisted` count `event_interest` rows (`approved`, `pending`) on the materialised row, the series parent for virtual occurrences.
-- `partners` from `event_partner`: an exception row uses its own partners when it has any, otherwise the parent's.
-- `attendance` (children, checked-in volunteers, session hours to one decimal), `photos.count` (usable photos: approved, Immich asset set, `mime_type` `image/*`, not `do_not_use`) and `socialNotes` stay null until `social_completed_at` is set. `photos.consentCleared` is always false until the consent process exists.
-- `startTime`/`endTime` are `HH:mm` in India; `programme` is inferred from the team name, `"general"` when unknown; `venue.name` is the public area.
+`getSocialEvents` (`packages/db/src/queries/social-api.ts`) loads the same rows as the public feed, but in both cities, without clamping `from` to now and including cancelled rows. Both share `expandEventOccurrences` (`@pi-dash/shared/public-events`); `buildSocialEvents` (`@pi-dash/shared/social-api`) maps occurrences.
 
-### Request bodies
-
-`POST runs`, `posted` and `notify` read their JSON through `readJsonBody` (`lib/social-api/shared.ts`), which refuses bodies over 64 KB with 413: by `Content-Length` before reading, and by the actual size when the header is missing or wrong.
+- `id` is the row id for standalone events and exceptions, and `{seriesId}:{occDate}` for a virtual occurrence (`virtualSocialEventId`, `parseVirtualSocialEventId`). Once materialised, the occurrence's id becomes the exception row id.
+- `status` is `cancelled` when the row or series is cancelled or the occurrence is in `recurrence_rule.exdates` with no replacing exception; `completed` when `social_completed_at` is set (never on a virtual occurrence); otherwise `scheduled`. `excludeRules` dates never appear.
+- "Cancel this and following" overwrites the RRULE's `UNTIL`, so the removed occurrences vanish from the feed. The pipeline treats a vanished occurrence as dropped.
+- `volunteers.needed` comes from `volunteers_needed`, falling back to the series parent. `approved` and `waitlisted` count `approved` and `pending` `event_interest` rows on the materialised row, or the parent for virtual occurrences.
+- `partners` come from `event_partner`: an exception's own if it has any, otherwise the parent's.
+- `attendance` (children, checked-in volunteers, hours to one decimal), `photos.count` and `socialNotes` stay null until `social_completed_at` is set. `photos.consentCleared` is always false until a consent process exists.
 
 ### Photos and signed links
 
-The photos endpoint reads `event_photo` rows with status `approved`, `immich_asset_id` set and `mime_type` starting `image/` (the signed media proxy serves only those rows too). Usable photos rank first, then by `coalesce(taken_at, created_at)`; the cap of 12 applies after ranking, so `do_not_use` photos are still returned with the flag but never displace usable ones. Up to 60 candidates are read in that order, so later uploads are not starved by photos without a capture time. When `width` or `height` is null the asset is looked up once in Immich `GET /api/assets/{id}` (EXIF size, rotated orientations swapped; `dateTimeOriginal` then `fileCreatedAt`), at most 4 lookups at a time per request, and the result persisted; a size Immich does not know is stored as `0` ("unknown, checked") so the asset is not fetched again, and an unknown capture time falls back to the upload time.
-
-Links are `/api/social/v1/media/{photoId}/{variant}?exp=<unix>&sig=<hex>`, where `sig = HMAC-SHA256(SOCIAL_MEDIA_SIGNING_SECRET, "{photoId}\n{variant}\n{exp}")` and `exp` is 36 hours ahead (`apps/web/src/lib/social-media-url.ts`). The proxy verifies with `timingSafeEqual`, streams `fetchImmichOriginal` / `fetchImmichThumbnail`, and sets `Cache-Control: private, max-age=3600`. The listing returns 503 only when the secret is missing; without Immich it still lists photos but skips the metadata backfill, and the media proxy returns 503 when a link is fetched.
+- A `{seriesId}:{occDate}` id resolves to the exception row for that date; with none, `{ photos: [] }`.
+- Photos must be `approved`, have `immich_asset_id`, and have an `image/*` MIME type; the media proxy serves only those rows. Usable photos rank first, then by `coalesce(taken_at, created_at)`. The cap of 12 applies after ranking, so `do_not_use` photos come back flagged but never displace usable ones. Up to 60 candidates are read.
+- Missing `width`, `height` or `taken_at` is fetched once from Immich `GET /api/assets/{id}` (at most 4 at a time) and stored. An unknown size is stored as `0` so it is not fetched again.
+- Links are `/api/social/v1/media/{photoId}/{variant}?exp=<unix>&sig=<hex>`, with `sig = HMAC-SHA256(SOCIAL_MEDIA_SIGNING_SECRET, "{photoId}\n{variant}\n{exp}")` and `exp` 36 hours ahead (`apps/web/src/lib/social-media-url.ts`). The proxy verifies with `timingSafeEqual`, streams from Immich and sets `Cache-Control: private, max-age=3600`.
+- The listing returns 503 only when the secret is missing. Without Immich it still lists photos but skips the size backfill, and the proxy returns 503.
 
 ### Stats
 
-Sessions are `team_event` rows with `social_completed_at` set and `cancelled_at` null whose start falls in the India-time month (`summarizeSocialSessions` in `@pi-dash/shared/social-api`). `children` sums `children_attended`, `volunteers` counts distinct users marked present, `hours` sums session hours, `newOptimists` counts active users created in the month, `partners` are distinct partner names (with series inheritance) of public sessions only: private sessions count towards sessions, children, volunteers and hours, but their partners are never published. `allTime` computes active users, hours and children over every completed, non-cancelled row; app_config overrides replace each value when set to a non-negative number.
+Sessions are `team_event` rows with `social_completed_at` set and not cancelled, starting in the India-time month (`summarizeSocialSessions`).
 
-### Pause
+- `children` sums `children_attended`; `volunteers` counts distinct users marked present; `hours` sums session hours; `newOptimists` counts active users created in the month.
+- `partners` lists distinct partner names of public sessions only. Private sessions count towards every other figure, but their partners are never published.
+- `allTime` covers active users, hours and children over all completed, non-cancelled rows. The `social_all_time_*` app_config values replace each figure when set to a non-negative number.
 
-`GET settings` is read by the generator at the start of every run. `paused` is true only when `social_paused` is exactly `"true"`; then the hourly run does nothing (no planning, rendering, recording or Buffer queueing). `pausedKinds` lists the kinds in `social_paused_kinds` (comma-separated; unknown values are ignored, order is `schedule`, `recap`, `volunteer-call`, `impact`, `story`) and the run skips posts of those kinds. Posts already queued in Buffer are not touched by a pause; drop them (below) and delete them in Buffer. Parsing lives in `buildSocialSettings` / `parseSocialPausedKinds` (`@pi-dash/shared/social-api`).
+### Posted log
 
-### Posting rules
+- `POST posted` upserts on (event id, channel, kind, Buffer post id). Optional `occurrenceDate`, `eventName` and `held` (`true` = Buffer draft for approval, `false` = scheduled) are stored; a repeat without `held` keeps the stored value.
+- It is audited as `social.posted.record` with actor role `social-api`. The target is `teamEvent` for a bare uuid, `teamEventSeries` for a composite id, otherwise `socialPost` without an id.
+- `GET posted` takes exactly one of `eventId` or `from`/`to` (same validation as events), else 400. The window form returns records whose `occurrence_date` is in the window, or whose `occurrence_date` is null and whose composite `event_id` date is in the window.
 
-`rules` in `GET settings` carries the posting rules the pipeline merges over its own defaults. Every field is optional; an absent field (or kind) means the pipeline default, so the dashboard stores only what an admin set. Shape (`socialRulesSchema`, strict at both levels):
+### Social digest
+
+`POST notify` takes `{ to: "approver", template: "social-digest", lines }` (1–40 lines, 500 characters each).
+
+- With the notifications kill switch on, it returns 204 without sending.
+- It sends to the user in app_config `social_approver_user_id`; with no approver or phone, 503. The pipeline never stores phone numbers.
+- It enqueues one `send-whatsapp` job with the text `Social digest` + blank line + lines, and the `social_digest` template with a summary of about 280 characters ("N items: first; second and K more", whole lines only, each cut to about 100).
+- The idempotency key is sha256 of the India date and body, so the same digest sends once a day.
+
+### Settings: pause switches and posting rules
+
+The generator reads `GET settings` at the start of every run. Parsing lives in `buildSocialSettings` (`@pi-dash/shared/social-api`).
+
+- `paused` is true only when `social_paused` is exactly `"true"`. The hourly run then does nothing.
+- `pausedKinds` lists the kinds in `social_paused_kinds` (comma-separated; unknown values ignored; order `schedule`, `recap`, `volunteer-call`, `impact`, `story`). The run skips those kinds.
+- A pause does not touch posts already in Buffer. Drop them on the Social page and delete them in Buffer.
+
+`rules` carries posting rules the pipeline merges over its own defaults. Every field is optional; an absent field means the pipeline default. Shape (`socialRulesSchema`, strict):
 
 ```
 rules = {
@@ -75,85 +95,87 @@ rules = {
 }
 ```
 
-Times are IST `"HH:MM"` strings (24-hour, any minute). `minRows` / `maxRows` are integers 1–6, `lookbackDays` 0–14, `slideshowMinPhotos` and `photosMax` 1–12, `reelMinSeconds` 5–60, `daysOut` 1–14, `postDaysAfterBuild` 0–6; `held` is a boolean (held posts land in Buffer drafts for the approver); `title`, `closingLine` and `line` are trimmed strings of 1–120 characters on one line: control characters (U+0000–U+001F, U+007F, so newlines and tabs too) are refused. Cross-field checks use the default for the side that is unset, and report on the field named last:
+- Times are IST `"HH:MM"`. `minRows` and `maxRows` 1–6, `lookbackDays` 0–14, `slideshowMinPhotos` and `photosMax` 1–12, `reelMinSeconds` 5–60, `daysOut` 1–14, `postDaysAfterBuild` 0–6. `held` sends posts to Buffer drafts for the approver. `title`, `closingLine` and `line` are 1–120 characters on one line, with no control characters.
+- Cross-field checks use the default for an unset side and report on the field named last:
+  - schedule: `minRows ≤ maxRows`, `buildTime < postTime`, and the window `[buildTime, postTime)` must contain an HH:00 instant, because the Worker's cron runs hourly (`hasHourMarkBetween`)
+  - recap: `photosMax ≥ slideshowMinPhotos`; recaps without cleared photo consent stay held regardless
+  - impact: `postDaysAfterBuild > 0` or `postTime > buildTime`
+- Stored as JSON in app_config `social_rules`. A missing key, bad JSON or a schema failure all give `rules: {}`; the last two log `social_rules_invalid`, never a 500.
+- `SOCIAL_RULES_DEFAULTS` is a display copy of the Worker's defaults, which the Worker owns. The OpenAPI `rules` schema is generated from `socialRulesSchema` with these as defaults.
 
-- schedule: `minRows ≤ maxRows`; `buildTime < postTime`; and `[buildTime, postTime)` contains a top-of-hour instant (HH:00), because the Worker's cron runs hourly and builds on the first hour mark at or after `buildTime` (`hasHourMarkBetween`). An inverted window reports only the first error.
-- recap: `photosMax ≥ slideshowMinPhotos`. Recaps whose photo consent is not cleared stay held whatever `held` says.
-- impact: `postDaysAfterBuild > 0` or `postTime > buildTime` (a same-day post must come after the build). The value is stored as JSON in app_config `social_rules` (`SOCIAL_RULES_CONFIG_KEY`). `buildSocialSettings` parses it with `parseSocialRules`; a missing key gives `rules: {}`, and bad JSON or a value outside the schema also gives `rules: {}` while the settings handler logs a `social_rules_invalid` warning, never a 500.
+### Run reports
 
-`SOCIAL_RULES_DEFAULTS` is a display copy of the pipeline's defaults (the Worker owns them): schedule build 09:00, post 19:00, 3–6 rows, not held, title "This week with Proud Indian"; story not held; recap post 20:00, look back 3 days, slideshow from 3 photos, at most 12 photos, reels from 15 s, held, closing line "Thank you for showing up"; volunteer call post 19:00, 4 days before the session, not held; impact build 09:00, post 09:00, 2 days after the build, held, line "Thank you to every Optimist and partner who showed up.". The OpenAPI `SocialSettings.rules` schema is generated from `socialRulesSchema` (`z.toJSONSchema`) with these defaults as `default`.
+`POST runs` takes `{ startedAt, finishedAt, tick: "hourly" | "digest", eventsSeen, planned, rendered, recorded, dropped, skipped, errors, digestSent }` (strict; counts non-negative; `finishedAt` not before `startedAt`).
 
-### Runs
-
-`POST runs` takes `{ startedAt, finishedAt, tick: "hourly" | "digest", eventsSeen, planned, rendered, recorded, dropped, skipped, errors, digestSent }` (strict; counts are non-negative integers, `finishedAt` may not precede `startedAt`). `skipped` and `errors` are refused beyond 1,000 entries or 10,000 characters an entry, and otherwise capped: the first 50 entries are kept, each cut to 500 characters. `insertSocialRun` (`packages/db/src/queries/social-api.ts`) inserts the row into `social_run` and, in the same transaction, deletes everything but the latest 500 rows (by uuidv7 id). The route is not audited: like a scheduled job, it is the pipeline's own telemetry (classified in `audit-entrypoint-coverage.test.ts`).
-
-### Drop
-
-Holders of `social.manage` can drop a `queued` or `approved` post on the Social page (`socialPost.drop`). The row gets `status = "dropped"`, `dropped_by` (the user) and `dropped_at`. The generator treats `dropped` as final, and `upsertSocialPost` keeps a dropped row dropped when `POST posted` repeats it with `queued` or `approved` (the other fields still update). A repeat reporting `published` wins, because the post went out anyway (for example it was already in Buffer); `dropped_by` and `dropped_at` stay on the row as history. Dropping does not delete the Buffer post; the confirmation tells the user to delete it there.
-
-### Notify
-
-Body `{ to: "approver", template: "social-digest", lines }` (1–40 lines, 500 characters each). The handler respects the notifications kill switch (204 without sending), resolves the approver, and enqueues one `send-whatsapp` job with text `Social digest` + blank line + the lines. The idempotency key (sha256 of the India date and body) is forwarded to the gateway, so the same digest on the same day sends once.
+- `skipped` and `errors` are refused beyond 1,000 entries or 10,000 characters an entry; otherwise the first 50 are kept, each cut to 500 characters.
+- `insertSocialRun` inserts into `social_run` and, in the same transaction, keeps only the latest 500 rows.
+- Not audited: it is the pipeline's own telemetry, like a scheduled job (classified in `audit-entrypoint-coverage.test.ts`).
 
 ## app_config keys
 
 | Key | Value |
 |---|---|
-| `social_approver_user_id` | User id whose phone receives the social digest; unset makes `notify` return 503 |
-| `social_all_time_optimists` | Overrides `allTime.optimists` (historical total, e.g. `3600`) |
-| `social_all_time_hours` | Overrides `allTime.hours` (e.g. `14000`) |
-| `social_all_time_reached` | Overrides `allTime.reached` (e.g. `23000`) |
-| `social_paused` | `"true"` pauses the whole pipeline; `"false"` or unset runs it |
-| `social_paused_kinds` | Comma-separated kinds the run skips (e.g. `recap,impact`); unset when none |
-| `social_rules` | JSON posting rules (see [Posting rules](#posting-rules)); unset means every pipeline default |
+| `social_approver_user_id` | User whose phone gets the social digest; unset makes `notify` return 503 |
+| `social_all_time_optimists`, `social_all_time_hours`, `social_all_time_reached` | Override the computed all-time figures |
+| `social_paused` | `"true"` pauses the pipeline |
+| `social_paused_kinds` | Comma-separated kinds to skip |
+| `social_rules` | JSON posting rules; unset means every default |
 
-Set them on the **Social page → Settings** tab (`social.manage`): "Pause all posts", one "Pause … posts" switch per kind (`schedule`, `recap`, `volunteer-call`, `impact`; `story` is reserved and kept if already listed), a "Posting rules" form below the switches, a picker of active, unbanned users for the approver, and three optional number fields for the all-time totals. Saving a value uses `appConfig.upsert`; clearing a field (or picking "None", or unpausing the last kind) uses `appConfig.remove`, so the API falls back to the computed figure, no paused kinds, or 503 for a missing approver. The posting rules form (`social-rules.tsx`, helpers in `social-rules-form.ts`) has one card per kind (Weekly schedule, Schedule story, Recap, Volunteer call, LinkedIn impact): an empty text field per rule with the default as placeholder and help text (plus the limit for fields with a cross-field or one-line rule), and a "Hold … for approval" switch showing the effective value; the Recap card notes that recaps without cleared photo consent stay held regardless. "Save rules" validates with `socialRulesSchema` (errors show under each field; an issue no field shows, such as an unknown key, shows as a line above the buttons), says "Nothing to save" when the result equals the stored value, leaves out empty fields and switches left at their default, and upserts the JSON; saving with nothing set removes the key. "Reset to defaults" (behind a confirmation) removes `social_rules`. A stored value the schema rejects shows a warning and an empty form. The form is seeded once: a synced change from another admin re-seeds it only when it has no unsaved edits; otherwise a notice offers "Reload" and the edits stay. Cross-field checks are skipped while either side is itself invalid, so only that field's error shows. Writes go through `useConfigWriter` (`components/social/use-config-writer.ts`), shared with the other Social settings. `appConfig.upsert` / `remove` accept these seven keys (`SOCIAL_MANAGE_CONFIG_KEYS` in `@pi-dash/shared/social-api`) from `social.manage`; every other key still needs `settings.app_config`, which may write all keys. API tokens stay in **Settings → API Tokens** (`settings.app_config`).
+`appConfig.upsert` and `appConfig.remove` accept these seven keys (`SOCIAL_MANAGE_CONFIG_KEYS`) from `social.manage` holders (`assertCanWriteAppConfig`); `settings.app_config` may write any key. Clearing a field removes its key, so the API falls back to the computed figure, no paused kinds or 503.
 
-## Dashboard UI
+## Social page
 
-### Social page
+`/social` (`apps/web/src/routes/_app/social.tsx`, components in `apps/web/src/components/social/`) needs `social.manage`, in `beforeLoad` and for the sidebar link. `social.manage` is granted to `super_admin` and `admin`, not `finance_admin`. Tabs, by `?tab=`:
 
-`/social` (`apps/web/src/routes/_app/social.tsx`, components in `apps/web/src/components/social/`), guarded by `social.manage` in `beforeLoad` and listed in the sidebar's Organization group after Events only with that permission. `social.manage` ("Manage social posts: pause the pipeline, drop queued posts, change social settings") is granted to `super_admin` and `admin` by `syncPermissions`; `finance_admin` is excluded. Three tabs, selected by `?tab=`:
+- Runs (default): `socialRun.all`, with skipped reasons and errors expandable.
+- Posts: `socialPost.all`, with a Drop post action on queued and approved rows.
+- Settings: pause switches (overall and per kind; `story` is reserved), posting rules, the approver and the all-time totals.
 
-- **Runs** (default): `socialRun.all`, newest first by `started_at`: time (IST), tick, events seen, planned, rendered, recorded, dropped, digest sent and a result badge (OK or the error count). Rows with skipped reasons or errors expand to list them. With no runs, an empty state explains the hourly and daily digest runs.
-- **Posts**: `socialPost.all`, newest first by `scheduled_for`: scheduled for (IST), kind, channel, event (name and occurrence date; a link to `/events/$id` when the event id is a bare uuid), status badge with a "Held" tag when `held` is true on a queued or approved row (dropped rows add who and when), Buffer id. Status, kind and channel filters, with status as view tabs. Queued and approved rows have a **Drop post** row action behind a confirmation.
-- **Settings**: the pause switches, the posting rules, the digest approver and the all-time totals (see [app_config keys](#app_config-keys)).
+Both Zero queries return nothing without `social.manage`; `social_run` has no mutators. Names come from the `getSocialPeople` server function (`apps/web/src/functions/social-people.ts`, `social.manage` or `users.view`), which returns ids and names only, never from synced user rows. Zero 1.9 has no column projection, so `socialPost.all` has no user relation.
 
-Both Zero queries return nothing without `social.manage`; `social_run` has no mutators. User names never come from synced user rows: the approver picker and the "dropped by" names use the `getSocialPeople` server function (`apps/web/src/functions/social-people.ts`, loader in `apps/web/src/lib/social-people.ts`, `social.manage` or `users.view`), which returns ids and names only: active, unbanned, non-external users as approver candidates, plus the named ids (the current approver) and everyone who dropped a post. Zero 1.9 has no column projection, so `socialPost.all` has no user relation.
+The posting rules form (`social-rules.tsx`, `social-rules-form.ts`) validates with `socialRulesSchema` and stores only fields that differ from the defaults; saving nothing or "Reset to defaults" removes `social_rules`. It seeds once, and a synced change from another admin re-seeds it only when there are no unsaved edits.
 
-### Social recap (post-event form)
+### Dropping a post
 
-`apps/web/src/components/teams/events/event-social-recap.tsx`, rendered above the post-event tabs on the event detail page. It appears when the viewer can mark attendance (`events.manage_attendance` or team lead, so admins and the event's team leads), the event has ended and is not cancelled, and the page shows a single session row: a standalone event or an exception. A series parent never gets the card (the API expands it into virtual occurrences, which cannot be completed). A past **virtual** occurrence shows a "Start recap" button only when the viewer can materialise it (`teamEvent.materialize`: `events.edit` or lead) or when an exception row for that date already exists; the button opens the existing row, otherwise materialises the occurrence and navigates to the new row (`deriveSocialRecapMode` in `event-social-fields.ts`). Kalakriti-managed events never show it.
+`socialPost.drop` (`social.manage`) works on `queued` or `approved` posts. It sets `status = "dropped"`, `dropped_by` and `dropped_at`. The generator treats `dropped` as final, and `upsertSocialPost` keeps a dropped row dropped when `POST posted` repeats `queued` or `approved`. A repeat reporting `published` wins, because the post went out anyway. Dropping does not delete the Buffer post; the confirmation says to delete it there.
 
-The card holds: children attended (required whole number), volunteers attended (read-only count of members marked present, with a hint to mark attendance in the Volunteers list), "What happened" (`social_notes`, at most 280 characters) and every approved photo with a "Do not use" switch. "Mark recap ready" saves the fields and stamps `social_completed_at`; the card then shows "Recap ready · date" with **Edit** (updates children and notes, keeps the original stamp) and **Undo** (clears `social_completed_at`, keeps the entered figures). Photo upload stays in the Photos tab.
+## Event-side fields
+
+### Social recap card
+
+`apps/web/src/components/teams/events/event-social-recap.tsx`, above the post-event tabs on the event page.
+
+- Shown on ended, non-cancelled, non-Kalakriti single session rows (standalone or exception) to people who can mark attendance. A series parent never shows it; a past virtual occurrence offers "Start recap", which opens or materialises the row (`deriveSocialRecapMode`).
+- It records children attended, "What happened" (`social_notes`, 280 characters) and a "Do not use" switch per approved photo.
+- "Mark recap ready" stamps `social_completed_at`. Edit keeps the stamp; Undo clears it and keeps the figures.
 
 ### Event form
 
-`event-form-dialog.tsx` has a "Volunteers and partners" block for non-Kalakriti events: "Volunteers needed" (optional whole number, at most 1000) and a partners repeater (`event-partners-field.tsx`; name required, Instagram handle and LinkedIn optional, at most 6). Values are written to the row the edit already targets: the event itself, the series parent for "all", the new or existing exception for "this", and the new series for "following" (`resolveSeriesWriteTarget`). Partners are replaced as a set with fresh ids on every save, so a new exception or split series never reuses the source row's ids. The edit form prefills what the row shows today, including what an exception inherits from its parent. For "this" and for edits of an exception, `buildSocialFields` (`event-social-fields.ts`) sends `partners` and `volunteersNeeded` only when they differ from that prefill, so unchanged values keep inheriting from the series; "all" and "following" always send both.
+`event-form-dialog.tsx` sets "Volunteers needed" (up to 1000) and up to 6 partners for non-Kalakriti events.
 
-`teamEvent.create`, `materialize` and `updateSeries` ("this" and "following") refuse a client-supplied row id that already exists (Zero server inserts are `ON CONFLICT DO NOTHING`, so a colliding insert would be silent), and `replaceEventPartners` re-reads its target row and requires the team the caller was authorised against.
+- Values go to the row the edit targets (`resolveSeriesWriteTarget`): the event, the series parent for "all", the exception for "this", the new series for "following".
+- Partners are replaced as a set with fresh ids each save, so a new exception or split series never reuses the source's ids.
+- For "this" and exception edits, `buildSocialFields` sends `partners` and `volunteersNeeded` only when they differ from the prefill, so unchanged values keep inheriting. "All" and "following" always send both.
+- `teamEvent.create`, `materialize` and `updateSeries` refuse a client row id that already exists, because Zero server inserts are `ON CONFLICT DO NOTHING` and a collision would be silent. `replaceEventPartners` re-reads its target and requires the authorised team.
 
-### Event detail display
+Only `teamEvent.byId` loads `partners`.
 
-The details card lists the effective partners (an exception's own, otherwise its parent's). For managers, quick stats add "Approved / needed" (approved `event_interest` rows against `volunteers_needed`, falling back to the parent) when a target is set. Only `teamEvent.byId` loads the `partners` relation.
-
-### Mutators and permissions
+### Mutators
 
 | Mutator | Gate |
 |---|---|
-| `teamEvent.saveSocialRecap({ eventId, childrenAttended, socialNotes, markReady, now })` | `events.manage_attendance` or team lead; ended, non-series-parent, non-Kalakriti row; stamps `social_completed_at` only when unset |
-| `teamEvent.undoSocialRecap({ eventId, now })` | same as above |
-| `eventPhoto.setDoNotUse({ id, doNotUse })` | approved photos only; `events.manage_photos`, or `events.manage_attendance` / team lead |
-| `teamEvent.create` / `update` / `updateSeries` with `volunteersNeeded`, `partners` | the existing `events.create` / `events.edit` or team lead gates |
-| `appConfig.upsert` / `appConfig.remove` | `settings.app_config` for any key; `social.manage` for the seven social keys only (`assertCanWriteAppConfig`) |
-| `socialPost.drop({ id, now })` | `social.manage`; `queued` or `approved` posts only; stamps `dropped_by` / `dropped_at` |
+| `teamEvent.saveSocialRecap`, `teamEvent.undoSocialRecap` | `events.manage_attendance` or team lead; ended, non-series-parent, non-Kalakriti row. Save stamps `social_completed_at` only when unset |
+| `eventPhoto.setDoNotUse` | approved photos; `events.manage_photos`, `events.manage_attendance` or team lead |
+| `teamEvent.create` / `update` / `updateSeries` with `volunteersNeeded`, `partners` | existing event create and edit gates |
+| `appConfig.upsert` / `remove` | `settings.app_config`, or `social.manage` for the social keys |
+| `socialPost.drop` | `social.manage` |
 
-All go through the central Zero mutation audit; `childrenAttended`, `socialNotes`, `markReady`, `doNotUse`, `partners` and `volunteersNeeded` are allowed as changed-field names (values are never stored). Shared limits live in `@pi-dash/shared/social-recap`.
+All pass through the central Zero mutation audit with field names only. Shared limits live in `@pi-dash/shared/social-recap`.
 
 ## Data
 
-- `team_event`: `volunteers_needed` (event form), `children_attended`, `social_notes`, `social_completed_at` (social recap card).
-- `event_partner`: partner name and optional Instagram handle and LinkedIn slug per event row; exposed to Zero as `teamEvent.partners`.
+- `team_event`: `volunteers_needed`, `children_attended`, `social_notes`, `social_completed_at`.
+- `event_partner`: name, optional Instagram handle and LinkedIn slug per event row (`teamEvent.partners` in Zero).
 - `event_photo`: `do_not_use`, `width`, `height`, `taken_at`.
-- `social_post`: the posted log; `event_id` is the social API event id as the generator sent it (never rewritten when an occurrence is materialised), so not a foreign key; `occurrence_date` (indexed) and `event_name` are set for event posts; `held` (nullable boolean) records whether the pipeline created the post as a Buffer draft; `dropped_by` (user, set null on delete) and `dropped_at` are set by `socialPost.drop`; names resolve through `getSocialPeople`.
-- `social_run`: pipeline run reports (`POST runs`), at most 500 rows; `skipped` and `errors` are jsonb string arrays. In Zero, read-only.
+- `social_post`: the posted log. `event_id` is the API id as sent and is never rewritten on materialisation, so it is not a foreign key. Also `occurrence_date` (indexed), `event_name`, nullable `held`, `dropped_by` (set null on user delete), `dropped_at`.
+- `social_run`: run reports, at most 500 rows; `skipped` and `errors` are jsonb string arrays. Read-only in Zero.

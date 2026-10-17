@@ -1,92 +1,94 @@
-# Recurring Events (RRULE)
+# Recurring events (RRULE)
 
-> **Load when**: `teamEvent`, RRULE, recurrence, `seriesId`, `originalDate`, materialize, exdate, expand, `VirtualOccurrence`, series parent, "this and following".
+> **Load when**: `teamEvent`, RRULE, recurrence, `seriesId`, `originalDate`, materialize, exdate, `excludeRules`, `expandSeries`, `VirtualOccurrence`, series parent, "this and following", `inheritVolunteers`.
 > **Related**: `data-layer.md`
 
-## Data Model
+## Model
 
-RFC 5545 RRULE-based. `teamEvent` table, three recurrence columns:
+RFC 5545 RRULEs on the `teamEvent` table:
 
 | Column | Type | Purpose |
 |---|---|---|
-| `recurrenceRule` | `jsonb` | `{ rrule: string, exdates?: string[] }` on series parent; null for standalone + exceptions |
-| `seriesId` | `text` | FK → series parent; null for standalone + series parents |
-| `originalDate` | `text` | ISO date (YYYY-MM-DD) — which occurrence this exception replaces |
+| `recurrenceRule` | `jsonb` | `{ rrule, exdates?, excludeRules? }` on a series parent; null otherwise |
+| `seriesId` | `text` | The series parent, on exceptions only |
+| `originalDate` | `text` | ISO date (YYYY-MM-DD) of the occurrence an exception replaces |
+| `inheritVolunteers` | `boolean` | Series parent only (default `false`): materialised occurrences copy the parent's `teamEventMember` rows |
 
-- **Series parent**: `recurrenceRule` set, `seriesId: null`
-- **Exception** (materialized): `seriesId` set, `originalDate` set
-- **Standalone**: all three null
+- Series parent: `recurrenceRule` set, `seriesId` null.
+- Exception (materialised occurrence): `seriesId` and `originalDate` set.
+- Standalone: all null.
 
-## Client-Side Expansion
+`excludeRules` are RRULEs for dates to skip (for example every third Saturday). `parseRecurrenceRule` also accepts a rule stored as a JSON string, as older bun-sql writes left it (see jsonb in `data-layer.md`).
 
-Virtual occurrences expanded client-side via `expandSeries()` from `@pi-dash/zero/rrule-utils`. Takes date range → `VirtualOccurrence[]`. **No DB rows** exist for these. Only when user modifies a specific occurrence (edit, cancel, add member) does it "materialize" into an exception row via `materialize` mutator.
+## Expansion
 
-Zero queries filter `seriesId IS NULL` → only series parents + standalone events sync. Exceptions fetched via `exceptions` relation on series parent.
+`expandSeries()` and `findOccurrence()` in `packages/shared/src/rrule-expand.ts` turn a rule into `VirtualOccurrence`s (date, start, end) for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest.
 
-### Team detail display range
+Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
 
-`buildEventDisplayRows` (`apps/web/src/components/teams/events/events-table-helpers.tsx`) expands each series over its **own** range: `[event.startTime, ruleUntil ?? callerRangeEnd]`. Bounded series (with `UNTIL`) always render every occurrence regardless of the caller's window; unbounded series are capped by the caller's `rangeEnd`. Exceptions have no upper bound — see "Post-split orphan exceptions" below.
+Form and label helpers are in `packages/zero/src/lib/rrule-utils.ts` (`@pi-dash/zero/rrule-utils`): `rruleToFormState`/`formStateToRRule`, `rruleToLabel`, `truncateRRule`, exclude-rule builders and labels, `toISODate`.
 
-An exception row keeps `event` as the series parent (for `seriesId`, recurrence and edit scopes) and carries the materialized occurrence as `exception`. Name, location, city, visibility, search and filters read `getRowDetails(row)`, which is the occurrence's own record. Both the team table and the event page prefill the edit form through `buildScopedEditInitialValues` (`event-form-initial-values.ts`). "This event" prefills the occurrence's own values, and its partners and volunteer target fall back to the series' when it has none. "This and following" and "All events" save to the series parent, so they prefill the series parent's values. Times follow the scope on both pages: "This event" and "This and following" use the occurrence's start and end (for "following", where the new series begins); "All events" keeps the series parent's own start and end, because the save writes them to the parent and `expandSeries` starts the series there. The recurrence rule always comes from the series parent, since an edited occurrence stores none. On the event page the series parent loads by a separate query: until it arrives, the scope dialog disables "This and following" and "All events", and `buildScopedEditInitialValues` returns null for those scopes so the form never saves an occurrence's values over the series.
+## Team page display
 
-## Edit/Cancel Scope
+`buildEventDisplayRows` (`apps/web/src/components/teams/events/events-table-helpers.tsx`):
 
-Google Calendar-style scope selection ("This event" / "This and following" / "All events"):
+- Expands each series over its own range, `[startTime, UNTIL ?? caller's rangeEnd]`. Bounded series show every occurrence; unbounded ones stop at the caller's range end.
+- Applies no range filter to exceptions: every non-cancelled exception renders. Series edits can orphan exceptions (see below), and this keeps them visible.
+- An exception row keeps `event` as the series parent (for `seriesId`, recurrence and edit scopes) and carries the occurrence as `exception`. Name, location, city, visibility, search and filters read `getRowDetails(row)`, the occurrence's own record.
 
-| Mode | Edit behavior | Cancel behavior |
+## Edit and cancel scope
+
+"This event", "This and following", "All events", as in Google Calendar. Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materialize`.
+
+| Scope | Edit | Cancel |
 |---|---|---|
-| `this` | Creates/updates exception row | Creates cancelled exception (exdate) |
-| `following` | Truncates original series UNTIL, creates new series | Truncates original UNTIL, cancels exceptions on/after date |
-| `all` | Updates series parent directly | Cancels series parent + all exceptions |
+| `this` | Creates or updates an exception | Creates a cancelled exception |
+| `following` | Truncates the series with UNTIL, creates a new series | Truncates UNTIL, cancels exceptions on or after the date |
+| `all` | Updates the series parent | Cancels the parent and all exceptions |
 
-Mutators: `teamEvent.updateSeries`, `teamEvent.cancelSeries`, `teamEvent.materialize`.
+- `buildTruncatedRRule` (`packages/zero/src/mutators/team-event-series.ts`) sets `UNTIL=<splitDate>T000000Z`. Midnight UTC keeps the boundary timezone-clean whatever the series' wall-clock time.
+- Orphaned exceptions: `following` does not move exceptions on or after the split to the new series, and `all` can move the parent's start past existing exceptions. Their dates then no longer match the expansion.
+- A programme change applies forward only. `updateSeries` rejects it in `all` scope, so callers split (`following`) or use `this`. Every path that writes an occurrence copies `programmeId` from the series: `buildExceptionInsert`, the following-split insert, self-join, both background materialisers; `register-interest-db.ts` copies all columns.
 
-### UNTIL boundary
+### Edit form prefill
 
-`buildTruncatedRRule` (`packages/zero/src/mutators/team-event-series.ts`) sets `UNTIL=<splitDate>T000000Z`. Any occurrence at or after `splitDate 00:00Z` is excluded (belongs to the new series); earlier occurrences stay on the old series. Using midnight UTC keeps the boundary TZ-clean regardless of the series' wall-clock time.
+Both the team table and the event page prefill through `buildScopedEditInitialValues` (`event-form-initial-values.ts`):
 
-### Orphaned exceptions
+- "This event": the occurrence's own values; partners and volunteer target fall back to the series' when the occurrence has none.
+- "This and following" and "All events": the series parent's values, since they save to the parent.
+- Times: "This event" and "This and following" use the occurrence's start and end; "All events" keeps the parent's, because `expandSeries` starts the series there.
+- The recurrence rule always comes from the parent.
+- On the event page the parent loads by a separate query. Until it arrives the dialog disables the two series scopes and the builder returns null for them, so an occurrence's values never save over the series.
 
-Series edits like `all` and `following` can shift the parent's DTSTART or truncate its UNTIL, leaving materialized exception rows whose `originalDate` or `startTime` no longer lines up with the current RRULE expansion. Examples:
+## Materialisation paths
 
-- `updateSeriesFollowing` does **not** migrate exceptions with `originalDate >= splitDate` to the new series — they stay on the old parent, past its truncated UNTIL.
-- `updateSeriesAll` can move the parent's `startTime` forward, leaving exceptions whose `startTime` is before the new DTSTART.
-
-To keep them visible, the team detail display applies **no range filter** to exception rows — every non-cancelled exception renders, regardless of how its timestamps relate to the current RRULE.
-
-## Programme on occurrences
-
-Every path that writes an occurrence row copies `programmeId` from the series: `buildExceptionInsert`, the following-split insert, self-join, the background materialiser (`packages/jobs/src/lib/materialize-occurrences.ts`) and the RSVP-poll materialiser; `register-interest-db.ts` copies all columns. A programme change is future-effective: `updateSeries` rejects it in `all` scope, so callers use `following` (a split) or `this` (an exception). Already-materialised occurrences keep their own value.
-
-## Self-Join Materialization
-
-`teamEvent.joinAsMember` lets regular team members self-join an event without `events.edit` or team-lead perms. For a virtual occurrence, client passes `{occDate, materializedId}` — server materializes the exception row server-side (bypasses `teamEvent.materialize` perm gate) and inserts the `teamEventMember` row pointing to it. Uses the (`seriesId`, `originalDate`) unique index to dedupe concurrent joins.
-
-Auth gate: must be a member of `event.teamId` via `teamMember` table.
-
-## Interest and the public feed
-
-Interest is per session. `eventInterest.create` takes optional `occDate` + `materializedId`: the date is validated with `findOccurrence` (`@pi-dash/shared/rrule-expand`) and the session is materialized through `resolveJoinTarget`, exactly like self-join, so the interest and its approval land on that session's row. Without `occDate`, a series parent that has started is rejected. The event page's "Show Interest" dialog and the `/events` cards pass the virtual occurrence's date (or the existing exception id) and the dialog opens the session afterwards. Website sign-ups (`/register?interestEventId=&occDate=`) do the same server-side on email verification. `parseRecurrenceRule` also accepts rules stored as a JSON string (Drizzle on bun-sql writes jsonb that way). The public events feed (`@pi-dash/shared/public-events`) expands series server-side: it applies `exdates`/`excludeRules`, lets every exception row (cancelled ones included) replace its virtual date, lists non-cancelled public exceptions on their own ids, and inherits the parent's `publicArea` when an exception has none. A cancelled or private parent hides all of its occurrences, and Kalakriti-managed events are never listed. Exception rows are loaded only when they start in the window or replace a date in it.
-
-## Volunteer Inheritance
-
-Series parents have an `inheritVolunteers` boolean column (default `false`). When `true`, all materialized occurrences copy `teamEventMember` rows from the series parent.
-
-Three materialization paths check this flag:
-
-| Path | File | Trigger |
+| Path | Where | Trigger |
 |---|---|---|
-| Background job | `packages/jobs/src/lib/materialize-occurrences.ts` | Cron: past occurrences with members |
-| `materialize` mutator | `packages/zero/src/mutators/team-event.ts` | UI: edit/add-member on virtual occurrence |
-| `resolveJoinTarget` | `packages/zero/src/mutators/team-event.ts` | Self-join on virtual occurrence |
+| `materialize` mutator | `packages/zero/src/mutators/team-event.ts` | Edit or add member on a virtual occurrence |
+| `resolveJoinTarget` | `packages/zero/src/mutators/team-event.ts` | Self-join or interest on a virtual occurrence |
+| Background job | `packages/jobs/src/lib/materialize-occurrences.ts` | Cron, for past occurrences with members |
+| RSVP-poll materialiser | `packages/jobs/src/handlers/send-event-rsvp-polls.ts` | RSVP poll for a virtual occurrence |
+| Website sign-up | `packages/auth/src/register-interest-db.ts` | Interest filed on email verification |
 
-UI: "Inherit volunteers" checkbox in event form, visible only when recurrence is configured. The setting propagates to exceptions via `buildExceptionInsert` and to new series via `updateSeriesFollowing`.
+All honour `inheritVolunteers`. The "Inherit volunteers" checkbox shows only when recurrence is set; the flag carries to exceptions through `buildExceptionInsert` and to new series through `updateSeriesFollowing`.
 
-## RRULE Utilities
+## Self-join
 
-`packages/zero/src/lib/rrule-utils.ts` → exported as `@pi-dash/zero/rrule-utils`:
+`teamEvent.joinAsMember` lets members of `event.teamId` join without `events.edit` or team-lead rights. For a virtual occurrence the client passes `{ occDate, materializedId }`; the server materialises the exception (bypassing the `materialize` permission) and inserts the `teamEventMember` row. The unique index on (`seriesId`, `originalDate`) dedupes concurrent joins.
 
-- `expandSeries()` — expand RRULE into virtual occurrences in date range
-- `rruleToFormState()` / `formStateToRRule()` — convert between RRULE strings + UI form state
-- `rruleToLabel()` — human-readable description
-- `toISODate()` — date formatting helper
+## Interest
+
+- Interest is per session. `eventInterest.create` takes optional `occDate` and `materializedId`, validates the date with `findOccurrence` and materialises through `resolveJoinTarget`, so the interest and its approval land on that session's row.
+- Without `occDate`, interest on a series parent that has started is rejected.
+- The event page's "Show Interest" dialog and `/events` rows pass the occurrence date (or existing exception id); the dialog then opens the session.
+- Website sign-ups (`/register?interestEventId=&occDate=`) do the same server-side on email verification (`auth.md`).
+
+## Public feed
+
+`packages/shared/src/public-events.ts` expands series server-side:
+
+- applies `exdates` and `excludeRules`;
+- every exception row, cancelled ones included, replaces its virtual date; non-cancelled public exceptions are listed under their own ids;
+- an exception without `publicArea` inherits the parent's;
+- a cancelled or private parent hides all its occurrences; Kalakriti-managed events are never listed;
+- exception rows load only when they start in the window or replace a date in it.

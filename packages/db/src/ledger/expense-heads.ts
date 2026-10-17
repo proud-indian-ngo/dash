@@ -8,7 +8,7 @@ import type { LedgerTx } from "./engine";
 
 /**
  * Expense categories map to account heads (finance layer 3-3a). The design
- * (`finance-and-programmes.md` section 7): "Expense categories in use ...
+ * (`finance-and-programmes.md`, "Account heads"): "Expense categories in use ...
  * become account heads under one expense parent with Tally ledger names
  * supplied by the CA". So every category gets its own expense head, named
  * after it, under the "Expenses" parent; a reimbursement or vendor payment

@@ -3,45 +3,47 @@
 > **Load when**: new workspace, package layout, Turborepo, Dockerfile, build topology.
 > **Related**: `data-layer.md`, `jobs.md`
 
-Turborepo monorepo. Bun package manager.
+Turborepo with Bun workspaces.
 
 | Package | Purpose |
 |---|---|
-| `apps/web` | Full-stack app — React + TanStack Start (SSR, file-based routing) |
+| `apps/web` | TanStack Start app: SSR, file-based routes, server functions |
 | `packages/auth` | Better Auth config, admin seed script |
-| `packages/db` | Drizzle ORM schema, migrations, Docker Compose (Postgres, WhatsApp) |
-| `packages/email` | React Email templates + Resend transport |
-| `packages/env` | Zod-validated env contracts (`server.ts`, `web.ts`) via t3-env |
-| `packages/config` | Shared TypeScript & tooling config |
-| `packages/design-system` | shadcn/ui + reui components, theme provider |
-| `packages/editor` | Plate.js rich-text editor (`editor` + `renderer` exports) |
-| `packages/jobs` | pg-boss handlers + `enqueue()` |
-| `packages/notifications` | Multi-channel notifications (inbox, email, WhatsApp) |
-| `packages/observability` | `withTaskLog`, `withFireAndForgetLog` |
-| `packages/pdf` | React-PDF voucher generation |
-| `packages/shared` | Client-safe constants, types, utilities |
-| `packages/whatsapp` | Self-hosted WhatsApp gateway client |
-| `packages/zero` | Rocicorp Zero — schema, queries, mutators, permissions |
+| `packages/config` | Shared TypeScript and tooling config |
+| `packages/db` | Drizzle schema, migrations, local Docker Compose (Postgres, WhatsApp) |
+| `packages/design-system` | shadcn/ui and reui components, theme provider |
 | `packages/e2e` | Playwright E2E tests |
+| `packages/editor` | Plate rich-text editor (`editor` and `renderer` exports) |
+| `packages/email` | React Email templates and Resend transport |
+| `packages/env` | Zod-validated env contracts (`server.ts`, `web.ts`) |
+| `packages/jobs` | pg-boss handlers and `enqueue()` |
+| `packages/notifications` | Inbox, email and WhatsApp delivery |
+| `packages/observability` | `withTaskLog`, `withFireAndForgetLog` |
+| `packages/pdf` | React-PDF documents (vouchers, receipts, ID cards) |
+| `packages/shared` | Client-safe constants, types and utilities |
+| `packages/whatsapp` | GoWA gateway and Cloud API clients |
+| `packages/zero` | Zero schema, queries, mutators, permissions |
 
-## New Workspace Rule
+## Adding a workspace
 
-New `packages/*`: add `COPY packages/<name>/package.json packages/<name>/` to `Dockerfile` before `RUN bun install`. Else Docker build breaks.
+Add `COPY packages/<name>/package.json packages/<name>/` to the `Dockerfile` copy layer before `RUN bun install`, or the Docker build breaks.
 
-Dockerfile `bun install` uses `--ignore-scripts`. `@rocicorp/zero-sqlite3` is a trustedDependency whose install script compiles a native addon under Bun; slim images have no Python/g++. Web build and migrator do not load that addon — `zero-cache` is the `rocicorp/zero` image. Keep that image on the same minor as the `@rocicorp/zero` catalog version.
+## Docker build
+
+- `bun install` runs with `--frozen-lockfile --ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.
+- zero-cache runs from the `rocicorp/zero` image. Keep it on the same minor as the `@rocicorp/zero` catalog version.
+- Stages: `source` (install and copy), `build` (Vite, with `VITE_*` build arguments and `SKIP_VALIDATION=true`), `migrator` (dependencies and `packages/db` only) and `production` (`apps/web/.output`).
 
 ## Web compilation
 
-`apps/web/vite.config.ts` uses `src/lib/dev/react-compiler-preset.ts` to exclude only ReUI's `data-grid-table.tsx` and `data-grid-table-dnd.tsx` from React Compiler. Those renderers subscribe to mutable TanStack state but read widths and pin offsets through stable object references; compiler caching otherwise leaves stale DOM geometry after resizing or pinning. Other components retain compiler optimization. Keep this exclusion until the upstream renderers provide compiler-safe reactive inputs, and verify changes with actual browser geometry rather than persisted sizing state alone.
+`apps/web/vite.config.ts` uses `src/lib/dev/react-compiler-preset.ts` to exclude ReUI's `data-grid-table.tsx` and `data-grid-table-dnd.tsx` from React Compiler. They read column widths and pin offsets through stable references to mutable TanStack state, so compiler caching leaves stale geometry after resizing or pinning. Keep the exclusion until upstream is compiler-safe, and verify changes against real browser geometry.
 
-Shared table sizing lives in `components/data-table/column-fill.ts` and `use-column-fill.ts`. The last visible unpinned column absorbs spare viewport width in the TanStack sizing model; other columns keep their preferred widths. Viewport-derived fill is never persisted. The filler cannot shrink below the remaining-space floor, but can grow into horizontal overflow. With no unpinned column or a limiting maximum width, spare space may remain.
+Table sizing lives in `components/data-table/column-fill.ts` and `use-column-fill.ts`. The last visible unpinned column absorbs spare width; viewport-derived fill is never persisted. The filler never shrinks below the remaining space but may grow into overflow. With no unpinned column, or a limiting maximum width, spare space may remain.
 
-## Dev Tooling
+## Dev tooling
 
-- **Biome + ultracite** (`biome.jsonc`): linter + formatter. `bun run check` validates, `bun run fix` auto-fixes. Ultracite = preset on top of Biome with opinionated React/TS rules.
-- **Lefthook** (`lefthook.yml`): git hooks.
-  - `pre-commit` (parallel): type check, `ultracite fix {staged_files}` with `stage_fixed: true`, unit tests, `check:unused` (knip).
-  - `post-checkout` — on worktree switch: copies `.env` from main worktree if missing; re-runs `bun run ruler:apply` if `CLAUDE.md` missing or older than `.ruler/agent-guide.md`.
-- **Commitlint** (`commitlint.config.js`): enforces conventional commits (`feat:`, `fix:`, `docs:`, etc).
-- **Knip** (`knip.json`): unused exports/dependencies check via `bun run check:unused`.
-- **Turborepo** (`turbo.json`): task orchestration + remote cache (self-hosted at `turbo.ducktors.dev`).
+- Biome with the Ultracite preset (`biome.jsonc`): `bun run check` validates, `bun run fix` fixes.
+- Lefthook (`lefthook.yml`): pre-commit runs `oxfmt` and `oxlint --fix` on staged files, affected type checks and unit tests, `bun run check` when manifests change, and `check:docs` (word budgets) when Markdown changes. Post-checkout copies `.env` from the main worktree when missing and reruns `bun run ruler:apply` when `CLAUDE.md` is missing or older than `.ruler/agent-guide.md`.
+- Commitlint (`commitlint.config.js`) enforces conventional commits.
+- Knip (`knip.json`) checks unused exports and dependencies via `bun run check:unused`.
+- Turborepo (`turbo.json`) orchestrates tasks with a self-hosted remote cache at `turbo.ducktors.dev`.

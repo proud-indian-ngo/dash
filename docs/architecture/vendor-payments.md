@@ -1,11 +1,11 @@
-# Vendor Payment Lifecycle
+# Vendor payments
 
-> **Load when**: vendor payment, VP, `vendorPayment`, status state machine, invoice approval, `recalculateParentStatus`, `quotation`/`invoice` attachment purposes, transaction recording.
-> **Related**: `authorization.md`, `data-layer.md`, `notifications.md`
+> **Load when**: vendor payment, VP, `vendorPayment`, status state machine, invoice approval, `recalculateParentStatus`, `quotation`/`invoice` attachment purposes, transaction recording, vendor details, bank-account reveal.
+> **Related**: `authorization.md`, `data-layer.md`, `notifications.md`, `finance-books.md` (expense posting), `finance-bank-statements.md` (debit matching)
 
-Two-phase approval: payment approval → invoice approval.
+A vendor payment (VP) is approved twice: first the payment, then the invoice. The rule: no payment before approval, and the invoice comes only after payment.
 
-## Status State Machine
+## Statuses
 
 ```
 pending → approved → partially_paid → paid → invoice_pending → completed
@@ -15,62 +15,69 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 
 | Status | Meaning |
 |---|---|
-| `pending` | Submitted, awaiting admin approval; no payments can be recorded |
-| `approved` | Admin approved, payments can be recorded |
-| `rejected` | Admin rejected (terminal unless resubmitted) |
-| `partially_paid` | Some transactions approved, total < line items |
-| `paid` | All transactions approved, total >= line items |
-| `invoice_pending` | Invoice uploaded (or no-invoice reason given), awaiting admin approval |
-| `completed` | Invoice or no-invoice submission approved (terminal) |
+| `pending` | Awaiting approval; no payments can be recorded |
+| `approved` | Payments can be recorded |
+| `rejected` | Terminal unless reset |
+| `partially_paid` | Approved payments total less than the line items |
+| `paid` | Approved payments cover the line items |
+| `invoice_pending` | Invoice or no-invoice reason awaiting approval |
+| `completed` | Invoice or no-invoice reason approved |
 
-## Phase 1 — Payment
+`recalculateParentStatus()` moves `approved` → `partially_paid` → `paid` from approved payment totals. It leaves `pending`, `rejected`, `invoice_pending` and `completed` alone.
 
-1. Volunteer (or admin) creates VP: title, vendor, line items, quotation attachments. The submitter says what the payment is charged to: an event, a programme (and optional project) without an event, or the organisation (admin); finance can change it at approval or later. The vendor payments table shows and filters by the derived programme ("Admin" for organisation). See "Charged to" in `finance-and-programmes.md`.
-2. Admin approves/rejects VP. Approve and reject apply only to `pending` requests, for every role; `requests.edit_all_statuses` holders reopen review with `resetToPending`, which is refused while the request has invoice data or any payment that is not rejected; rejected payments do not block it and stay on the request as history. Approve ends with `recalculateParentStatus()`, so an older pending request that already holds approved payments lands on `partially_paid` or `paid`; landing on `paid` also sends the owner the fully-paid notification (`notify-vp-fully-paid`), as approving the final payment does. Reject is refused while the request has an approved payment ("This request already has approved payments; approve it instead"), since the money already went out; otherwise it cascades to the request's pending transactions.
-3. Transactions recorded against VP once it is `approved`, `partially_paid` or `paid` (`PAYABLE_STATUSES` in `packages/zero/src/vendor-payment-constants.ts`); a pending request refuses them ("Payments can be recorded only after the vendor payment is approved") and the detail page says so in place of the Record payment button. While the request is pending, its payment rows have no Approve or Reject actions; the server refuses those until the request is approved. Creator is admin → auto-approved. Else → separate approval.
-4. `recalculateParentStatus()` transitions VP: `approved` → `partially_paid` → `paid` based on approved transaction totals vs line item totals. It leaves `pending`, `rejected`, `invoice_pending` and `completed` alone.
+## Payment phase
 
-## Phase 2 — Invoice
+- The submitter enters title, vendor, line items, quotation attachments and what the payment is charged to (event, programme and optional project, or the organisation). Finance can change the charge at approval or later; see "Charged to" in `finance-and-programmes.md`.
+- Approve and reject apply only to `pending` requests. Approval ends with `recalculateParentStatus()`, so a request already holding approved payments lands on `partially_paid` or `paid`; landing on `paid` sends `notify-vp-fully-paid`.
+- Reject is refused once any payment is approved ("approve it instead"); otherwise it rejects the pending payments too.
+- `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment.
+- Payments are recorded only in `PAYABLE_STATUSES` (`approved`, `partially_paid`, `paid`, in `packages/zero/src/vendor-payment-constants.ts`). An admin's payment is auto-approved; others need approval, which the server refuses until the request is approved.
 
-5. Status `paid` → owner (or admin) opens **Add invoice or reason** and answers **Do you have an invoice?** with one of two kinds:
-   - **Yes, upload invoice**: invoice number, invoice date and at least one attachment with `purpose: "invoice"`.
-   - **No invoice** (rent, tax and the like): a reason, `rent` ("Rent / lease"), `statutory` ("Tax / statutory payment") or `other` ("Other"); a required document date; and an optional proof attachment with `purpose: "invoice"`. The date label is "Receipt or challan date", or "Date" for Other. The form defaults it to the latest approved payment's `transactionDate`. The reason and note are stored in the nullable `vendor_payment.no_invoice_reason` (enum `vendor_payment_no_invoice_reason`) and `no_invoice_note` columns (migration 0130). The document date for both kinds is stored in `invoice_date`. The form encodes its calendar day as UTC midnight for Zero and converts it back to a local calendar date for display and editing, so saving does not shift the day. The values are `vendorPaymentNoInvoiceReasonValues` in `@pi-dash/shared/constants`, and the labels and proof rule are in `@pi-dash/shared/vendor-payment`. The note is limited to 500 characters. It is optional for rent and statutory payments and required for Other; `noInvoiceDetailsError` enforces this in the form and mutators. When there is no proof, the detail page shows "No proof attached" so the approver sees it before approving.
-6. `submitInvoice` and `updateInvoice` take a discriminated union on `kind` (`"invoice"` | `"no_invoice"`). For compatibility with clients from the previous release, a missing `kind` is temporarily preprocessed as `"invoice"`; remove this shim after the next release. Each kind clears the other kind's exclusive columns. The `vendor_payment_invoice_or_no_invoice_chk` database check forbids an invoice number together with a no-invoice reason, while `invoice_date` is valid for and required by the mutators for both kinds. A submission moves the request to `invoice_pending`. The history entry stays `invoice_submitted` / `invoice_updated`, with `metadata.invoiceKind` (and `noInvoiceReason`) and, for no invoice, a note naming the reason.
-7. Admin approval moves the request to `completed`; rejection reverts it to `paid` with `invoiceRejectionReason` set. For no-invoice submissions, the actions are **Approve without invoice** and **Reject reason**, with the matching "Closed without invoice" and "Reason rejected" confirmations. Invoice wording is unchanged. The submission notification names the no-invoice reason and says either "No proof attached" or "with N proof file(s)".
-8. Owner can resubmit either kind on rejection by calling `submitInvoice` again. An admin uses **Edit details** for an existing submission. The action opening the dialog determines its mode: initial submission and resubmission call `submitInvoice`, while editing calls `updateInvoice`, regardless of edit permission. Editing a completed request within the same kind keeps it `completed` and preserves its review. Changing kind moves it back to `invoice_pending`, clears `invoiceReviewedAt` and `invoiceReviewedBy`, and notifies approvers so the replacement needs approval. `invoice_updated` history metadata records `invoiceKind`, `oldInvoiceKind` and `newInvoiceKind` for the change.
+## Invoice phase
 
-Switching kind replaces the request's `invoice` attachments with the ones submitted: the form opens with the current files, so files the user keeps stay on the request and files they remove are deleted, as in any invoice edit.
+From `paid`, the owner or an admin opens **Add invoice or reason** and picks a kind:
 
-The detail page shows "No invoice — <reason>" with the document date, note and files under "Proof". The financial-year export puts that text in the Invoice Number column and the stored `invoice_date` in the Invoice Date column. Both kinds fall in the financial year of `invoice_date`; there is no latest-approved-payment fallback.
+- **Invoice**: number, date and at least one attachment.
+- **No invoice** (rent, tax and similar): reason `rent`, `statutory` or `other`, a required document date (defaults to the latest approved payment's date) and optional proof. The note (max 500 characters) is required for `other`. `noInvoiceDetailsError` enforces this in form and mutators; values and labels are in `@pi-dash/shared/constants` and `@pi-dash/shared/vendor-payment`.
 
-## Charging a line to a provision (the audit fee)
+Rules:
 
-The CA provides for each year's audit fee at year end (`Audit fees payable`), and the auditor is paid the next year as a vendor payment. When finance approves the invoice, the approval dialog offers a quiet "Charge to a provision" link. Left closed, every line goes to its category. Opened, it shows a "Charge to" combobox per line: its category's expense, or "Audit fees payable (provision)" with what is outstanding for this invoice today (and the financial years it is from, unless audited figures have touched it). `vendorPayment.approveInvoice` takes `provisionHeadId` and `provisionLineIds`. It needs `requests.approve`, as approval always did, and accepts only a head in `PROVISION_HEADS` (`@pi-dash/shared/provisions`) and lines of the request. It stores the choice in `vendor_payment_line_item.provision_head_id`; lines not chosen go back to their category. The audit ledger records the head ID, the line IDs and their count. An edit keeps a line's choice, also when only its amount changes (with a history entry saying it is still charged to the provision), because a completed invoice can't be approved again to put it back. Changing the line's category, or removing the line, clears it, with a "Provision charge cleared" history entry.
+- `submitInvoice` and `updateInvoice` take a union on `kind`. A missing `kind` is treated as `"invoice"` for older clients; remove that shim after the next release.
+- The document date for both kinds is `invoice_date`. The form stores the calendar day as UTC midnight and converts it back for display, so the day never shifts. A request falls in the financial year of `invoice_date`, which the export also prints.
+- Each kind clears the other's columns; the `vendor_payment_invoice_or_no_invoice_chk` check forbids an invoice number with a no-invoice reason.
+- Submission moves the request to `invoice_pending`. Approval moves it to `completed`; rejection reverts to `paid` with `invoiceRejectionReason`, and the owner resubmits with `submitInvoice`.
+- An admin edits an existing submission with **Edit details** (`updateInvoice`). Editing within the same kind keeps a completed request completed. Changing kind sends it back to `invoice_pending`, clears the review and notifies approvers.
+- Switching kind or editing replaces the `invoice` attachments with the submitted set; removed files are deleted.
+- The detail page shows "No invoice — <reason>" with date, note and proof, or "No proof attached".
 
-The books then clear the provision by what is outstanding on the invoice's day and post the rest under `Audit fees`: a provision of 7,500 and a bill of 9,000 clear 7,500 and post 1,500 of expense, and with nothing outstanding all of it is expense. The Invoice section shows each such line's split once it is posted. The allocation across several invoices, and why it never depends on the posting order, are in "The audit fee provision" in `finance-and-programmes.md`.
+## Attachments
+
+`vendorPaymentAttachment.purpose` is `quotation` (at creation) or `invoice` (after payment: the invoice or no-invoice proof). Create and update mutators touch only quotations; invoice mutators touch only invoices.
+
+## Charging a line to a provision (audit fee)
+
+The auditor is paid the year after the CA provides for the fee (`Audit fees payable`). When approving the invoice, finance can open "Charge to a provision" and, per line, pick "Audit fees payable (provision)" instead of the category's expense. The picker shows what is outstanding for this invoice today.
+
+- `vendorPayment.approveInvoice` takes `provisionHeadId` and `provisionLineIds`, needs `requests.approve`, and accepts only heads in `PROVISION_HEADS` (`@pi-dash/shared/provisions`). The choice is stored in `vendor_payment_line_item.provision_head_id`.
+- An edit keeps the choice, even when the amount changes, because a completed invoice cannot be approved again. Changing the line's category or removing the line clears it, with a "Provision charge cleared" history entry.
+- The books clear the provision by what is outstanding on the invoice's day and post the rest under `Audit fees`. The Invoice section shows each line's split once posted. Allocation across invoices: "Audit fee provision" in `finance-books.md`.
 
 ## Voiding
 
-A request or payment the books hold (finance layer 3-3a) is voided, not deleted (finance Option B; see "Voiding" under "Expense posting" in `finance-and-programmes.md`). `vendorPayment.delete` refuses when the request or any of its payments has a standing posting, and `vendorPaymentTransaction.delete` when the payment has one: "Posted to the books. Void it instead." `vendorPayment.void` (`requests.void`, a reason) sets `voided_at`, `voided_by` and `void_reason` on the request and on each of its payments, keeps their status, attachments and history, writes a `voided` history entry on each, and queues the posting run, which reverses the invoice's expense and each payment's advance and payout on the void day. `vendorPaymentTransaction.void` voids one payment: it no longer counts as paid (`recalculateParentStatus`, the payment cap), so the request may drop back to `partially_paid`, and an accepted invoice then waits in the books until the payments cover it again. A voided request takes no further step: no edit, approval, rejection, reset, invoice submission or review, and no payment recorded, edited or approved against it. The detail page shows the reason and a "Void" badge, the payments table marks voided payments and offers Void instead of Delete on posted ones, and the vendor payments list hides voided requests until "Show voided" is pressed.
+Once the books hold a request or payment, it is voided, not deleted ("Posted to the books. Void it instead."). See "Voiding" in `finance-books.md`.
 
-## Status repair
+- `vendorPayment.void` (`requests.void`, with a reason) sets `voided_at`, `voided_by` and `void_reason` on the request and its payments, keeps status, attachments and history, and queues a posting run that reverses the invoice expense and each payment on the void day.
+- `vendorPaymentTransaction.void` voids one payment. It stops counting as paid, so the request may drop to `partially_paid` and an accepted invoice waits in the books until payments cover it again.
+- A voided request takes no further action. The list hides voided requests until "Show voided" is pressed.
 
-Before payments needed an approved request, a request could be paid while still `pending`, and an admin approval from any status reset a paid or invoiced request to `approved`. A one-off repair corrected those statuses in production in October 2026, recording an `updated` history entry per change; the script and its rules are in git history.
+## Vendor details
 
-## Attachment Purposes
+A vendor is a party with the `vendor` role. The synced `vendor` row holds only name, GSTIN and approval status. Contact details, PAN and bank account are in the server-only `private` schema (`party_private`, `party_bank_account`; PAN and account number AES-GCM encrypted) and never reach Zero.
 
-`vendorPaymentAttachment.purpose`:
-- `"quotation"` — uploaded at creation
-- `"invoice"` — uploaded post-payment: the vendor invoice, or the proof for a payment without one
-
-Create/update mutators only touch `quotation`. Invoice mutators only touch `invoice`.
-
-## Vendor Details
-
-A vendor is a party with the `vendor` role; the synced `vendor` row holds only name, GSTIN and approval status. Contact details, PAN and the bank account live in the server-only `private` schema (`party_private`, `party_bank_account`, with PAN and account number AES-GCM encrypted) and never reach Zero. Vendor screens and the payment page's Vendor and Paid to cards load them through `getVendorDetails` in `apps/web/src/functions/vendors.ts`, with the account number masked to its last four digits. Create, edit and delete go through the audited `saveVendor` and `deleteVendor` server functions; approval stays on the Zero `vendor.approve`/`vendor.unapprove` mutators.
-
-Revealing the full account number (`revealVendorBankAccount`, audited as `vendor.bank_account.reveal`) is allowed for `finance.view_sensitive` and `requests.approve` (approvers pay vendors), and for `requests.record_payment` holders who raised a payment request to that vendor themselves. Details are visible to `vendors.view_all`, `vendors.edit` and `requests.approve` (approvers review payments to pending vendors); for approved vendors also to `vendors.view_approved` and `requests.record_payment`; and to the creator of a pending vendor. Both rules live in `apps/web/src/lib/vendor-access.ts`; the server functions enforce them and the screens use them only to decide what to show. A refused details load shows "Not available to you" instead of a retry.
-
-`vendor.created_by` is set to null when the creator's account is deleted (migration 0117), so the vendor and its payment history stay; approval notifications are then skipped.
-
-Deleting a vendor whose party also holds another active role (for example a donor) removes only the `vendor` row, its `vendor` role and its bank accounts; the party and its private details stay for the other role. The Donors directory (`party.all`, `party.byId`) lists only parties with an active donor, sponsor, grantor or intermediary role, so vendor-only parties stay off it, and a donor save renames the matching `vendor` row so the two names cannot drift. Saves of one party ID serialise on `pg_advisory_xact_lock(hashtext(id))` before any row lock; the lock order for every vendor write path is documented at the top of `packages/db/src/queries/vendor-party.ts`.
+- Screens load them through `getVendorDetails` (`apps/web/src/functions/vendors.ts`), with the account number masked to its last four digits. Create, edit and delete go through the audited `saveVendor` and `deleteVendor`; approval stays on the Zero `vendor.approve`/`vendor.unapprove` mutators.
+- Access rules live in `apps/web/src/lib/vendor-access.ts`; the server enforces them.
+  - Details: `vendors.view_all`, `vendors.edit`, `requests.approve`; for approved vendors also `vendors.view_approved` and `requests.record_payment`; and the creator of a pending vendor.
+  - Full account number (`revealVendorBankAccount`, audited as `vendor.bank_account.reveal`): `finance.view_sensitive`, `requests.approve`, and `requests.record_payment` holders who raised a payment to that vendor.
+- `vendor.created_by` becomes null when the creator's account is deleted; approval notifications are then skipped.
+- Deleting a vendor whose party has another active role (such as donor) removes only the `vendor` row, role and bank accounts. The Donors directory lists only donor, sponsor, grantor or intermediary parties, and a donor save renames the matching `vendor` row.
+- Saves of one party serialise on `pg_advisory_xact_lock(hashtext(id))` before any row lock. The lock order for vendor writes is at the top of `packages/db/src/queries/vendor-party.ts`.

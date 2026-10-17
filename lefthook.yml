@@ -18,6 +18,10 @@ pre-commit:
         - "bun.lock"
       run: bun run check
 
+    docs:
+      glob: "*.md"
+      run: bun run check:docs
+
     test:
       glob: "*.{ts,tsx}"
       run: bun run test:unit:affected

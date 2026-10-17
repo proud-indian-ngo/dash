@@ -51,7 +51,7 @@ import { uncheckedSources, waitingByReason } from "./income-posting";
 import { isIsoDay, LedgerError } from "./rules";
 
 /**
- * Audited figures (the year-end true-up; finance-and-programmes.md
+ * Audited figures (the year-end true-up; finance-books.md
  * "Audited figures"). Once a year has ended and the CA has signed its
  * statements, the treasurer (`finance.adjust`) enters the audited balance
  * sheet; this posts the differences as one balanced posting dated the

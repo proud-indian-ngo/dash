@@ -1,46 +1,38 @@
-# Architecture Docs — Index
+# Architecture chapters
 
-**Agents: read this first when any trigger below matches.** Then load the matching chapter(s) with `rtk read docs/architecture/<chapter>.md`. Do NOT load everything.
+Each chapter covers one subsystem. Agents route to chapters through the agent guide (`.ruler/agent-guide.md`); this list is for people.
 
-Chapters intentionally sharded so loading stays cheap.
+| Chapter | Covers |
+|---|---|
+| [audit-log](audit-log.md) | The audit ledger: what is audited, row lifecycle, allowed metadata |
+| [auth](auth.md) | Better Auth, sessions, sign-in and the session cache |
+| [authorization](authorization.md) | Permissions, roles and how checks run on server and client |
+| [caching](caching.md) | Auth and permission caches, rate limiting |
+| [cash-vouchers](cash-vouchers.md) | Cash vouchers, the voucher limit and voucher PDFs |
+| [data-layer](data-layer.md) | Zero, Drizzle, sync, queries, mutators and SSR loaders |
+| [design-language](design-language.md) | Product visual design: tokens, fonts, page, sheet and menu conventions |
+| [e2e-testing](e2e-testing.md) | Playwright setup, seeds, auth state and E2E commands |
+| [editor](editor.md) | The Plate rich-text editor |
+| [env-and-secrets](env-and-secrets.md) | Environment contracts, secrets and worktree ports |
+| [file-uploads](file-uploads.md) | R2 uploads, attachments, media reads and Immich |
+| [finance-and-programmes](finance-and-programmes.md) | Finance overview: status, decisions, programmes and dimensions, Charged to, deferred work |
+| [finance-income](finance-income.md) | Donors, contributions, CSV imports, Razorpay, give.do payouts |
+| [finance-bank-statements](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
+| [finance-books](finance-books.md) | Ledger, posting engine, opening balances, year close, posting rules, audited figures, CA workbook |
+| [finance-receipts-and-returns](finance-receipts-and-returns.md) | Donation receipts and the donations return (Form 113/114) |
+| [finance-ledger-cutover](finance-ledger-cutover.md) | Ledger cutover: opening balances, backfill, posting rules and CA handoff |
+| [governance](governance.md) | Trustee register, resolutions, meetings, signing and compliance (design) |
+| [jobs](jobs.md) | pg-boss handlers, schedules and retries |
+| [kalakriti-registration](kalakriti-registration.md) | Kalakriti Editions, registration, event-day operations, results and awards |
+| [monorepo](monorepo.md) | Workspaces, Turborepo and the Docker package layout |
+| [notifications](notifications.md) | Inbox, email and WhatsApp delivery, batching and digests |
+| [observability](observability.md) | Structured logging with evlog |
+| [pdf](pdf.md) | The PDF package: vouchers, receipts and ID cards |
+| [recurring-events](recurring-events.md) | Recurring events and RRULE handling |
+| [shared](shared.md) | Client-safe constants in `@pi-dash/shared` |
+| [social-api](social-api.md) | Social API, tokens, signed photo links and the Social page |
+| [reimbursements](reimbursements.md) | Reimbursement lifecycle, payouts by bank or UPI, claim for others, financial-year export |
+| [teams-and-events](teams-and-events.md) | Teams, events, attendance, updates, photos, feedback, interest, orientation and smaller pages |
+| [vendor-payments](vendor-payments.md) | Vendors, vendor payments, transactions and invoice approval |
 
-## Chapter Map
-
-| Chapter | File | Load when task mentions / touches |
-|---|---|---|
-| Monorepo | `monorepo.md` | new workspace, package layout, Turborepo, Dockerfile copy lines, build topology |
-| Data Layer | `data-layer.md` | Zero, mutators, queries, Drizzle schema, connection pool, sync, SSR, preload, IndexedDB |
-| Auth | `auth.md` | Better Auth, session cookie, sign-in, `getAuth`, `requireSession`, 5-min cache |
-| Authorization | `authorization.md` | permissions, `assertHasPermission`, `can`, `hasPermission`, roles, `team_lead`, `volunteer`, `resolvePermissions` |
-| Recurring Events | `recurring-events.md` | RRULE, `teamEvent`, `seriesId`, `originalDate`, materialize, exdate, expandSeries, edit/cancel scope |
-| Vendor Payments | `vendor-payments.md` | vendor payment, VP, status state machine, invoice approval, `recalculateParentStatus`, `quotation`, `invoice` purposes |
-| Notifications | `notifications.md` | `enqueue`, in-app inbox, email, WhatsApp RSVP poll, notification topic preferences, `notify-*` handlers, GoWA gateway |
-| Social API | `social-api.md` | `/api/social/v1`, social-artifacts pipeline, bearer tokens, `social:token`, `event_partner`, `social_post`, signed photo links, social digest, post-event social fields |
-| File Uploads | `file-uploads.md` | R2, presigned URL, attachments, Immich sync, event photos, `immichAssetId` |
-| Cash Vouchers | `cash-vouchers.md` | cash voucher, cash-voucher limit, payee phone, PDF generation, `generate-cash-voucher`, `@react-pdf/renderer`, `VOUCHER_ORG_*` |
-| Observability | `observability.md` | evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, client logger, `/api/log/ingest` |
-| Jobs | `jobs.md` | pg-boss, job handler, `enqueue`, schedules, retry, DLQ, `singletonKey`, 42 handlers |
-| PDF | `pdf.md` | `@pi-dash/pdf`, voucher layout, `amount-to-words`, signature assets |
-| Editor | `editor.md` | `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload` adapter |
-| Shared | `shared.md` | `@pi-dash/shared`, `ALLOWED_IMAGE_TYPES`, event reminder presets, client/server constant boundary |
-| Env & Secrets | `env-and-secrets.md` | `packages/env`, `.env`, `.env.worktree`, `BETTER_AUTH_SECRET`, `createEnv`, worktree port auto-detect, `SKIP_VALIDATION`, `VITE_E2E` |
-| Caching & Rate Limit | `caching.md` | `getCachedAuth`, `invalidateAuthCache`, permission cache TTL, `checkRateLimit`, 429 response, HMR-reset cache, `Retry-After` |
-| E2E Testing | `e2e-testing.md` | `packages/e2e`, Playwright global setup, seed helpers, `.auth` state, `shard-by-duration`, `run-e2e.sh`, duration reporter |
-| Design Language | `design-language.md` | visual design, brand, colours, fonts, Bricolage, Paper Mono, `@proudindian/design`, pi-design, `.pi-*` classes, StatusBadge/Tag, restyling, "make it look like the website" |
-| Finance & Programmes (design) | `finance-and-programmes.md` | finance redesign, programme, project, fund, ledger entry, account head, contribution, donor, receipt, Form 113/114 (formerly 10BD/10BE), FC-4, FCRA, budget, approval policy, advance settlement, in-kind, retention class |
-| Finance ledger cutover (Phase 0) | `finance-ledger-cutover.md` | ledger cutover, opening balances, audited FY 2025-26 figures, fixed deposit, backfill, posting rules in plain language, CA questions, CA handoff workbook |
-| Governance (design) | `governance.md` | trustee register, Board of Trustees, office-bearers, circular resolution, board meeting, quorum, minutes, trust deed versions, DSC signing, HYP2003, pyHanko, signing helper, Aadhaar eSign, compliance calendar, conflict of interest, policy register, CSR utilisation certificate |
-| Kalakriti Registration | `kalakriti-registration.md` | Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competitions, Students, Entries, lifecycle, public schedule, dashboards, audit, scoped exports |
-
-## Load Rules
-
-- **Index first, chapter second**. Skip index only if prior turn already read it in this session.
-- **Multiple chapters allowed**. Data-layer work often pulls `data-layer.md` + `authorization.md`.
-- **Skip entirely for**: UI copy, lint fixes, dep bumps, typo fixes, test-only edits, commit message drafting, config-file edits unrelated to above triggers.
-- If task scope unclear → skip architecture docs, start reading code first, reconsider only if code surfaces unfamiliar architectural patterns.
-
-## Cross-Refs
-
-- `project-structure.md` — file layout, paths, library doc IDs (kept separate, always-on repo map)
-- `DEPLOYMENT.md` — env vars, hosting, build steps (load only for deploy/infra work)
-- `README.md` — onboarding, scripts overview
+Also see the [query performance audit](../query-performance-audit.md), the [repository map](../../project-structure.md) and [DEPLOYMENT.md](../../DEPLOYMENT.md).

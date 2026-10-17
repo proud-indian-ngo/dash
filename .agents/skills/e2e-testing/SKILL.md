@@ -19,4 +19,4 @@ description: Use when writing, modifying, running, or debugging E2E tests — in
 - DO: Wait for form population (`await expect(input).toHaveValue(expected)`) before editing inputs in Zero-synced forms to avoid DOM detachment errors.
 - DO: Use `test.slow()` for multi-step CRUD tests (create + edit + delete) that need extra timeout.
 
-For E2E structure details (projects, auth state, seeding, env), see `project-structure.md`.
+For E2E structure details (projects, auth state, seeding, env), see `docs/architecture/e2e-testing.md`.
