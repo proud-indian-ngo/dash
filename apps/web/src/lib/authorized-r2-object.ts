@@ -5,6 +5,7 @@ import {
   advancePaymentAttachment,
 } from "@pi-dash/db/schema/advance-payment";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { governanceDocument } from "@pi-dash/db/schema/governance";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -231,6 +232,22 @@ async function resolveVendorPaymentTransactionAttachment(
   ]);
 }
 
+async function resolveGovernanceDocument(
+  ref: AssetRef<"governanceDocument">
+): Promise<R2ObjectRecord | null> {
+  const document = await db.query.governanceDocument.findFirst({
+    where: eq(governanceDocument.id, ref.id),
+  });
+  return document
+    ? {
+        access: "governanceDocument",
+        filename: document.originalFilename,
+        key: document.objectKey,
+        kind: document.kind,
+      }
+    : null;
+}
+
 async function resolveKalakritiEntryMusic(
   ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
 ): Promise<R2ObjectRecord | null> {
@@ -263,6 +280,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveAdvancePaymentApprovalScreenshot(ref);
     case "eventPhoto":
       return resolveEventPhoto(ref);
+    case "governanceDocument":
+      return resolveGovernanceDocument(ref);
     case "kalakritiEntryMusic":
       return resolveKalakritiEntryMusic(ref);
     case "kalakritiInventoryPhoto":

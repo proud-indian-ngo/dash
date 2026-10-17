@@ -102,6 +102,13 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `SOCIAL_MEDIA_SIGNING_SECRET` | No | `openssl rand -hex 32`. Signs 36-hour photo links; rotating it invalidates issued links |
 | `WEBSITE_DISPATCH_TOKEN` | No | Fine-grained GitHub token for `proud-indian-ngo/website` only, Contents read and write. The `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and sends `events-changed` `repository_dispatch` when the feed changes |
 
+### Governance
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing`, `http://signing:8080` in `docker-compose.prod.yml`. Unset stores governance documents unchecked; they can be checked later |
+| `SIGNING_SERVICE_TOKEN` | No | Bearer token, 16+ characters (`openssl rand -hex 32`), shared with the signing service, which refuses requests without it |
+
 ### Observability
 
 | Variable | Required | Purpose |
@@ -157,6 +164,10 @@ zero-cache runs separately (the `rocicorp/zero` image in production, `npx zero-c
 
 For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`.
 
+### Signing service
+
+`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents. Extra trust roots go in `services/signing/roots/`.
+
 ### WhatsApp gateway (optional)
 
 ```bash
@@ -188,7 +199,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] zero-cache's `ZERO_MUTATE_URL` and `ZERO_QUERY_URL` reach the web app; `VITE_ZERO_URL` is public
 - [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` match the production domain
 - [ ] Resend domain verified (SPF and DKIM). Webhook to `https://<app-host>/api/email/webhook` with events `email.bounced` and `email.complained`, its secret in `RESEND_WEBHOOK_SECRET`
-- [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/` after 24 hours. Durable keys must not expire
+- [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages,governance}/tmp/` after 24 hours. Durable keys must not expire
 - [ ] [Organisation accounts](#organisation-accounts), [books and receipts](#books-and-receipts) and, if used, [Razorpay](#razorpay-setup) set up
 - [ ] WhatsApp gateway paired and Immich reachable, if used
 - [ ] Social pipeline, if used: `SOCIAL_MEDIA_SIGNING_SECRET` set, token created with `bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`, and app_config `social_approver_user_id` names the digest recipient ([social-api.md](docs/architecture/social-api.md))

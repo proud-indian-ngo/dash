@@ -15,6 +15,7 @@ export * from "./event-update";
 export * from "./expense-category";
 export * from "./finance-dimensions";
 export * from "./gateway-settlement";
+export * from "./governance";
 export * from "./import-batch";
 export * from "./income";
 export * from "./kalakriti";
