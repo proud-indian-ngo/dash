@@ -55,7 +55,11 @@ describe("Kalakriti navigation", () => {
         .find((group) => group.label === "Finance")
         ?.items.map((item) => item.title) ?? [];
     expect(financeTitles(["donors.view"])).toEqual(["Donors", "Income"]);
-    expect(financeTitles(["finance.view"])).toEqual(["Income", "Books"]);
+    expect(financeTitles(["finance.view"])).toEqual([
+      "Income",
+      "Books",
+      "Budgets",
+    ]);
     expect(financeTitles(["donors.manage"])).toContain("Income");
     expect(financeTitles(["finance.manage"])).toContain("Income");
     expect(financeTitles(["requests.view_own"])).not.toContain("Income");
@@ -69,6 +73,18 @@ describe("Kalakriti navigation", () => {
     expect(financeTitles(["donors.view", "donors.manage"])).not.toContain(
       "Books"
     );
+  });
+  it("shows Budgets after Books to finance.view holders only", () => {
+    const financeTitles = (permissions: string[]) =>
+      buildNavGroups(permissions)
+        .find((group) => group.label === "Finance")
+        ?.items.map((item) => item.title) ?? [];
+    expect(financeTitles(["finance.view", "finance.manage"])).toEqual([
+      "Income",
+      "Books",
+      "Budgets",
+    ]);
+    expect(financeTitles(["finance.adjust"])).not.toContain("Budgets");
   });
   it.each([
     ["/kalakriti", true],

@@ -1,13 +1,13 @@
 # Finance and programmes
 
-> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, cost centres, deferred finance work, FCRA, retention.
+> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, cost centres, budgets, deferred finance work, FCRA, retention.
 > **Related**: `authorization.md`, `data-layer.md`, `reimbursements.md`, `vendor-payments.md`, `cash-vouchers.md`
 
 The dashboard keeps the trust's operational financial record year-round, organised by programme: expenses, income, donors, receipts and a single-entry set of books. The CA keeps the statutory books and takes year-end exports from the dashboard. The ledger starts at the cutover, 1 April 2026.
 
 | Chapter | Covers |
 |---|---|
-| This one | Decisions, dimensions, Charged to, cost centres, deferred work, data protection |
+| This one | Decisions, dimensions, Charged to, cost centres, budgets, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursements, payouts, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, income, imports, Razorpay, give.do payouts, Reached bank |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
@@ -88,6 +88,16 @@ One target per request. Advance payments carry none.
 
 See "Claim for others" in [reimbursements.md](reimbursements.md).
 
+## Budgets
+
+Finance → Budgets (`/finance/budgets`) sets a year's budget for a programme, and optionally for a project under it, split by expense head, and shows it against the books (founder decisions).
+
+- `budget` (fiscal year, programme, optional project, note) is unique per year, programme and project; a composite foreign key keeps the project under the programme. `budget_line` holds one amount per expense head in paise (zero or more); a head without a line has no budget. Saving with every head blank removes the budget.
+- Reading needs `finance.view` (budgets sync only to it); setting needs `finance.manage` through the audited `budget.save` mutator.
+- Actual is the expense the books recognise: entries on expense heads by economic date within the year, net of reversals, the same figures as Books → Income & expenditure. Actuals are never stored: `loadBudgetActuals` (`packages/db/src/queries/budget-actuals.ts`) sums them in SQL per programme, project and head.
+- `budgetYearView` (`packages/shared/src/budgets.ts`) lays them out without double counting. A programme budget's actual is all its spend, projects included, on every head; a head with spend and no line shows as unbudgeted within it. A project budget's actual is that project's spend only, nested under its programme and never added to the totals. Spend in a programme without a programme budget, or with no programme, is in the Unbudgeted group, so budgeted plus unbudgeted spend is the year's expenditure.
+- Overruns show in red only. Approvals, claims and vendor payments are never warned or blocked.
+
 ## Planned and deferred
 
 Kept from the agreed design; none of this is built unless stated.
@@ -98,10 +108,6 @@ Kept from the agreed design; none of this is built unless stated.
 - Creator, claimant and identifiable beneficiary can't approve or pay their own request; lead and finance must be different people; an approver may also pay. Nothing approves automatically.
 - Planned `approval_step` table and permissions `finance.approve_lead`, `finance.approve`, `finance.confirm_payment`. Today approval uses `requests.approve`.
 - A team lead may move an event between programmes until an expense links to it; after that only `finance.manage`.
-
-### Budgets
-
-`budget` and `budget_line` by fiscal year, scope and account head, measuring recognised cost at first. Fund and programme views are alternative cuts, never summed.
 
 ### In-kind
 
