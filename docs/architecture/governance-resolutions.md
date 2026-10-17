@@ -1,6 +1,6 @@
 # Governance: resolutions
 
-> **Load when**: circular resolution, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `pidash-sign://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
+> **Load when**: circular resolution, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `pidash-sign://`, certificate enrolment, Aadhaar eSign, Leegality, PAdES, long-term copies, re-timestamping.
 > **Related**: `governance.md` (register, deed rules, vault, signing service)
 
 ## Lifecycle
@@ -30,7 +30,7 @@
 
 ## Signing
 
-Trustees sign with the DSC helper or in Acrobat, and every copy goes through the checks above.
+A trustee signs in one of three ways, and every copy goes through the checks above.
 
 - **DSC helper.** Browsers can't reach PKCS#11 tokens, so the signature is made outside the browser and joined back on the server:
   1. Enrolment, once per DSC: the helper reads the token's certificate (valid now, RSA), kept in the trustee's name. A renewed DSC is enrolled again.
@@ -38,6 +38,12 @@ Trustees sign with the DSC helper or in Acrobat, and every copy goes through the
   3. The helper fetches the job, asks for the PIN in its own window (never stored or sent), signs on the token and posts the signature back.
   4. The service checks the signature against the certificate and embeds it with a timestamp (PAdES B-T). The result must come from the enrolled certificate. The box shows the name large, then "Digitally signed by", the name and the date in India time, over a faint Proud Indian symbol. The job API has no session, so it is audited in the trustee's name.
 - **Acrobat**: download the latest PDF, sign the box with the token in Acrobat or Reader, upload the saved copy.
+- **Aadhaar eSign** through Leegality, offered once the four `LEEGALITY_*` variables are set. It needs a recent sign-in.
+  1. The latest PDF goes to the Leegality workflow for that one trustee, with their Aadhaar name, contact and, when known, the last four Aadhaar digits for Leegality to check against the certificate. Leegality is a processor and sees the full PDF (about ₹25 a signature). Its signing link opens in a new tab and is never stored.
+  2. Leegality's webhook (verified by its MAC: HMAC-SHA1 of the document ID, keyed with the private salt), or the trustee asking the page to check, fetches the signed PDF from the details API. Both are audited as the trustee.
+  3. A copy another signature has moved past, or one Leegality rewrote instead of appending to, is refused with the reason, since the other trustees' signatures wouldn't survive. Leegality places its own signature, so the trustee's empty box stays empty.
+
+Every decided circular notifies its trustees, whichever way the deciding signature came.
 
 The helper (`services/signing-helper`, Rust) signs only for the server its installer wrote into its config, so a crafted link can't make a token sign for another site. Installing and releasing it are in its README. The Windows binary is unsigned until SignPath signs it.
 
@@ -45,4 +51,4 @@ The helper (`services/signing-helper`, Rust) signs only for the server its insta
 
 A passed circular's signed PDF gets a long-term copy at once (revocation data and a document timestamp, PAdES B-LTA), and downloads serve that copy. A monthly job adds a new document timestamp a year after the last; a failed one stays due.
 
-Not built: certifying (DocMDP) first signatures. The first signature is an approval signature.
+Not built: certifying (DocMDP) first signatures; the first signature is an approval signature. Not yet tried with a Leegality account: that its signed PDF appends to ours, where the signature lands, and whether Adobe Reader trusts it.
