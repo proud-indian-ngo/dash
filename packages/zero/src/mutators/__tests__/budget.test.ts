@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  LEDGER_ACCOUNT_HEAD_IDS,
+  PROGRAMME_IDS,
+} from "@pi-dash/shared/constants";
+
+import {
   matchesScope,
   type ScopeAst,
   type ScopeRow,
@@ -10,13 +15,13 @@ import { budgetMutators } from "../budget";
 
 type Row = Record<string, unknown>;
 
-const UNALLOCATED = "01930000-0000-7000-8000-000000000009";
-
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [
       { id: "h-travel", type: "expense" },
       { id: "h-bank", type: "expense" },
+      { id: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges, type: "expense" },
+      { id: LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed, type: "expense" },
     ],
     budget: [],
     budgetLine: [],
@@ -25,9 +30,9 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
     programme: [
       { active: true, id: "prog-1" },
       { active: false, id: "prog-old" },
-      { active: true, id: UNALLOCATED },
+      { active: true, id: PROGRAMME_IDS.unallocated },
     ],
-    project: [],
+    project: [{ id: "proj-other", programmeId: "prog-other" }],
     ...seed,
   };
   const tableApi = (table: string) => ({
@@ -104,6 +109,40 @@ describe("budget.save", () => {
     expect(db.tables.budgetLine).toHaveLength(1);
   });
 
+  it("budgets in-kind consumed and gateway charges", async () => {
+    const db = createDb();
+    await save(db, {
+      lines: [
+        line(LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges),
+        line(LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed),
+      ],
+    });
+    expect(db.tables.budgetLine).toHaveLength(2);
+  });
+
+  it("refuses a project under another programme", async () => {
+    const db = createDb();
+    await expect(
+      save(db, { lines: [line("h-travel")], projectId: "proj-other" })
+    ).rejects.toThrow("Project not found under this programme");
+  });
+
+  it("refuses a stale budget ID for a scope that has a budget", async () => {
+    const db = createDb({
+      budget: [
+        {
+          fiscalYearId: "fy-1",
+          id: "b-1",
+          programmeId: "prog-1",
+          projectId: null,
+        },
+      ],
+    });
+    await expect(
+      save(db, { id: "b-stale", lines: [line("h-travel")] })
+    ).rejects.toThrow("This budget changed");
+  });
+
   it("refuses a head no category posts to", async () => {
     const db = createDb();
     await expect(save(db, { lines: [line("h-bank")] })).rejects.toThrow(
@@ -128,7 +167,7 @@ describe("budget.save", () => {
   });
 
   it("refuses a new budget for an inactive or Unallocated programme", async () => {
-    for (const programmeId of ["prog-old", UNALLOCATED]) {
+    for (const programmeId of ["prog-old", PROGRAMME_IDS.unallocated]) {
       const db = createDb();
       await expect(
         save(db, { lines: [line("h-travel")], programmeId })

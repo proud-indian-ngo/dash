@@ -1,12 +1,6 @@
-import {
-  MoreVerticalIcon,
-  PencilEdit01Icon,
-  PlusSignIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { PencilEdit01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
   Tooltip,
@@ -21,6 +15,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 
 import type {
@@ -88,18 +83,17 @@ function Remaining({
 }
 
 /** A slim "spent of budget" bar with the share spent; red once spend passes the budget. */
-export function SpentBar({
+function SpentBar({
   actualPaise,
   budgetPaise,
 }: {
   actualPaise: number;
   budgetPaise: number | null;
 }) {
-  const use = budgetUse(actualPaise, budgetPaise);
-  if (!use) {
+  if (budgetPaise === null) {
     return <span className="text-muted-foreground text-xs">No budget</span>;
   }
-  const { over, percent } = use;
+  const { over, percent } = budgetUse(actualPaise, budgetPaise);
   // A ₹0 budget is full once anything is spent against it.
   const width = percent ?? (over ? 100 : 0);
   return (
@@ -305,8 +299,14 @@ export function BudgetsTable({
                 Counted in Unbudgeted: this programme has no budget of its own.
               </TooltipContent>
             </Tooltip>
-            {/* Tooltips don't open on touch; phones get a caption. */}
-            <span className="block text-xs md:hidden">In Unbudgeted</span>
+            {/* Tooltips don't open on touch or reach screen readers, so the
+                caption always shows and spells it out for them. */}
+            <span aria-hidden="true" className="block text-xs">
+              In Unbudgeted
+            </span>
+            <span className="sr-only">
+              Counted in Unbudgeted: this programme has no budget of its own.
+            </span>
           </span>
         ) : (
           formatPaise(row.original.actualPaise)
@@ -349,7 +349,10 @@ export function BudgetsTable({
       size: 140,
     },
     {
-      accessorFn: (row) => budgetUse(row.actualPaise, row.budgetPaise)?.percent,
+      accessorFn: (row) =>
+        row.budgetPaise === null
+          ? null
+          : budgetUse(row.actualPaise, row.budgetPaise).percent,
       cell: ({ row }) =>
         row.original.kind === "unbudgeted" ? null : (
           <SpentBar
@@ -443,21 +446,7 @@ function RowActions({
           },
       ]}
       title={row.label}
-      trigger={
-        <Button
-          aria-label={`Actions for ${row.label}`}
-          data-testid="row-actions"
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <HugeiconsIcon
-            className="size-4"
-            icon={MoreVerticalIcon}
-            strokeWidth={2}
-          />
-        </Button>
-      }
+      trigger={<RowActionsButton aria-label={`Actions for ${row.label}`} />}
     />
   );
 }

@@ -1,3 +1,4 @@
+import { LEDGER_ACCOUNT_HEAD_IDS } from "./constants";
 import { sumPaise as sum } from "./money";
 
 /**
@@ -192,14 +193,8 @@ export interface BudgetUse {
   percent: number | null;
 }
 
-/** How much of a budget is spent; null when there is no budget. */
-export function budgetUse(
-  actualPaise: number,
-  budgetPaise: number | null
-): BudgetUse | null {
-  if (budgetPaise === null) {
-    return null;
-  }
+/** How much of a budget is spent. */
+export function budgetUse(actualPaise: number, budgetPaise: number): BudgetUse {
   return {
     over: actualPaise > budgetPaise,
     percent:
@@ -208,10 +203,20 @@ export function budgetUse(
 }
 
 /**
+ * Reference expense heads that post with a programme without an expense
+ * category behind them (founder decision): in-kind gifts consumed and
+ * gateway charges.
+ */
+export const BUDGETABLE_REFERENCE_HEAD_IDS: readonly string[] = [
+  LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed,
+  LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+];
+
+/**
  * The heads a budget can use: the expense heads that expense categories
- * post to, so the heads reimbursements and vendor payments are booked to.
- * Other expense heads (bank charges, depreciation, gateway charges) still
- * show their spend, as unbudgeted.
+ * post to, so the heads reimbursements and vendor payments are booked to,
+ * plus `BUDGETABLE_REFERENCE_HEAD_IDS`. Other expense heads (bank charges,
+ * depreciation) still show their spend, as unbudgeted.
  */
 export function budgetableHeadIds(
   categories: readonly { accountHeadId: string | null }[],
@@ -221,8 +226,9 @@ export function budgetableHeadIds(
     heads.filter((h) => h.type === "expense").map((h) => h.id)
   );
   return new Set(
-    categories.flatMap((c) =>
-      c.accountHeadId && expense.has(c.accountHeadId) ? [c.accountHeadId] : []
-    )
+    [
+      ...categories.flatMap((c) => (c.accountHeadId ? [c.accountHeadId] : [])),
+      ...BUDGETABLE_REFERENCE_HEAD_IDS,
+    ].filter((id) => expense.has(id))
   );
 }

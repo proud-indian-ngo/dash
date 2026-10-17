@@ -55,7 +55,7 @@ export interface BudgetFormOptions {
    */
   heads: (Named & { budgetable: boolean })[];
   programmes: (Named & { active: boolean })[];
-  projects: (Named & { programmeId: string; status: string })[];
+  projects: (Named & { programmeId: string; status: string | null })[];
 }
 
 const NO_PROJECT = "none";
@@ -145,6 +145,11 @@ function BudgetAmountsForm({
             ]
           : [];
       });
+      if (lines.length === 0 && !budget) {
+        // Nothing set and nothing to remove.
+        onOpenChange(false);
+        return;
+      }
       const res = await zero.mutate(
         mutators.budget.save({
           fiscalYearId: yearId,
@@ -240,10 +245,12 @@ function BudgetAmountsForm({
  */
 function ScopePicker({
   children,
+  header,
   options,
   programmeId: initialProgrammeId,
 }: {
   children: (scope: BudgetScopeChoice | null) => ReactNode;
+  header: (scope: BudgetScopeChoice | null) => ReactNode;
   options: BudgetFormOptions;
   programmeId: string | null;
 }) {
@@ -263,8 +270,12 @@ function ScopePicker({
         const project = options.projects.find(
           (p) => p.id === projectId && p.programmeId === programmeId
         );
+        const scope = programmeId
+          ? { programmeId, projectId: project?.id ?? null }
+          : null;
         return (
           <>
+            {header(scope)}
             <div className="grid gap-3 sm:grid-cols-2">
               <SelectField
                 form={form}
@@ -291,11 +302,7 @@ function ScopePicker({
                 placeholder={WHOLE_PROGRAMME}
               />
             </div>
-            {children(
-              programmeId
-                ? { programmeId, projectId: project?.id ?? null }
-                : null
-            )}
+            {children(scope)}
           </>
         );
       }}
@@ -342,33 +349,46 @@ export function BudgetFormDialog({
       />
     );
   };
-  const fixed = fixedScope ? findBudget(budgets, year.id, fixedScope) : null;
-  const programmeName = options.programmes.find(
-    (p) => p.id === fixedScope?.programmeId
-  )?.name;
-  const projectName = options.projects.find(
-    (p) => p.id === fixedScope?.projectId
-  )?.name;
-  const scopeName = projectName
-    ? `${projectName} (${programmeName ?? "programme"})`
-    : programmeName;
+  const headerFor = (scope: BudgetScopeChoice | null) => {
+    const budget = scope ? findBudget(budgets, year.id, scope) : undefined;
+    const programmeName = options.programmes.find(
+      (p) => p.id === scope?.programmeId
+    )?.name;
+    const projectName = options.projects.find(
+      (p) => p.id === scope?.projectId
+    )?.name;
+    const scopeName = projectName
+      ? `${projectName} (${programmeName ?? "programme"})`
+      : programmeName;
+    return (
+      <DialogHeader>
+        <DialogTitle>
+          {budget ? "Edit budget" : "Set budget"} · FY {year.label}
+        </DialogTitle>
+        <DialogDescription>
+          {fixedScope && scopeName
+            ? `${scopeName}: the year's budget for each expense head.`
+            : "Pick a programme, or one of its projects, then set the year's budget for each expense head."}
+        </DialogDescription>
+      </DialogHeader>
+    );
+  };
 
   return (
     <Dialog onOpenChange={onOpenChange} open={target !== null}>
       <DialogContent className="sm:max-w-(--dialog-lg)">
-        <DialogHeader>
-          <DialogTitle>
-            {fixed ? "Edit budget" : "Set budget"} · FY {year.label}
-          </DialogTitle>
-          <DialogDescription>
-            {scopeName
-              ? `${scopeName}: the year's budget for each expense head.`
-              : "Pick a programme, or one of its projects, then set the year's budget for each expense head."}
-          </DialogDescription>
-        </DialogHeader>
-        {fixedScope ? amountsFor(fixedScope) : null}
+        {fixedScope ? (
+          <>
+            {headerFor(fixedScope)}
+            {amountsFor(fixedScope)}
+          </>
+        ) : null}
         {target?.kind === "pick" ? (
-          <ScopePicker options={options} programmeId={target.programmeId}>
+          <ScopePicker
+            header={headerFor}
+            options={options}
+            programmeId={target.programmeId}
+          >
             {(scope) => (scope ? amountsFor(scope) : null)}
           </ScopePicker>
         ) : null}

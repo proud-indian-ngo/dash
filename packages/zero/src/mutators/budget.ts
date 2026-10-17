@@ -1,3 +1,4 @@
+import { BUDGETABLE_REFERENCE_HEAD_IDS } from "@pi-dash/shared/budgets";
 import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { paiseSchema } from "@pi-dash/shared/money";
 import { defineMutator } from "@rocicorp/zero";
@@ -74,8 +75,9 @@ export const budgetMutators = {
       }
     }
     // Heads the budget already holds stay allowed; new ones must be an
-    // expense head an expense category posts to. Categories may not be on
-    // the client, so the server checks.
+    // expense head an expense category posts to, or in-kind consumed or
+    // gateway charges (`budgetableHeadIds`). Categories may not be on the
+    // client, so the server checks.
     const held = new Set(existing?.lines.map((l) => l.accountHeadId));
     if (tx.location === "server") {
       for (const line of args.lines) {
@@ -88,9 +90,12 @@ export const budgetMutators = {
             zql.expenseCategory.where("accountHeadId", line.accountHeadId).one()
           ),
         ]);
-        if (head?.type !== "expense" || !category) {
+        const reference = BUDGETABLE_REFERENCE_HEAD_IDS.includes(
+          line.accountHeadId
+        );
+        if (head?.type !== "expense" || !(category || reference)) {
           throw new Error(
-            "Only the expense heads of expense categories can be budgeted"
+            "Only the expense heads of expense categories, in-kind consumed and gateway charges can be budgeted"
           );
         }
       }

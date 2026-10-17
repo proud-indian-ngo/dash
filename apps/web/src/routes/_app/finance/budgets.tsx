@@ -139,7 +139,7 @@ function BudgetsPage() {
   const headName = (id: string) => headNames.get(id) ?? "Account head";
   const retired = new Set(
     programmes
-      .filter((p) => p.active === false || p.id === PROGRAMME_IDS.unallocated)
+      .filter((p) => !p.active || p.id === PROGRAMME_IDS.unallocated)
       .map((p) => p.id)
   );
   const programmeName = (id: string | null) =>
@@ -185,12 +185,12 @@ function BudgetsPage() {
   const budgetable = budgetableHeadIds(categories, heads);
   const formOptions = {
     heads: heads.map((h) => ({
-      budgetable: budgetable.has(h.id) && h.active !== false,
+      budgetable: budgetable.has(h.id) && Boolean(h.active),
       id: h.id,
       name: h.name,
     })),
     programmes: programmes.map((p) => ({
-      active: p.active !== false,
+      active: Boolean(p.active),
       id: p.id,
       name: p.name,
     })),
@@ -198,7 +198,7 @@ function BudgetsPage() {
       id: p.id,
       name: p.name,
       programmeId: p.programmeId,
-      status: p.status ?? "active",
+      status: p.status,
     })),
   };
 
@@ -291,10 +291,10 @@ function BudgetsPage() {
               {
                 icon: PercentCircleIcon,
                 label: "Used",
-                tone: used?.over ? "danger" : "neutral",
+                tone: used.over ? "danger" : "neutral",
                 value:
-                  used?.percent == null
-                    ? used?.over
+                  used.percent === null
+                    ? used.over
                       ? "Over"
                       : "—"
                     : `${used.percent}%`,

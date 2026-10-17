@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { budgetableHeadIds, budgetUse, budgetYearView } from "./budgets";
+import { LEDGER_ACCOUNT_HEAD_IDS } from "./constants";
 
 const EDU = "programme-edu";
 const ART = "programme-art";
@@ -102,13 +103,14 @@ describe("budgetUse", () => {
     expect(budgetUse(100_400, 100_000)).toEqual({ over: true, percent: 100 });
     expect(budgetUse(10, 0)).toEqual({ over: true, percent: null });
     expect(budgetUse(0, 0)).toEqual({ over: false, percent: null });
-    expect(budgetUse(10, null)).toBeNull();
   });
 });
 
 describe("budgetableHeadIds", () => {
-  it("takes the expense heads categories post to", () => {
+  it("takes the expense heads categories post to, in-kind consumed and gateway charges", () => {
     const heads = [
+      { id: LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed, type: "expense" },
+      { id: LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges, type: "expense" },
       { id: TRAVEL, type: "expense" },
       { id: FOOD, type: "expense" },
       { id: "head-bank-charges", type: "expense" },
@@ -121,7 +123,12 @@ describe("budgetableHeadIds", () => {
       { accountHeadId: null },
     ];
     expect([...budgetableHeadIds(categories, heads)].sort()).toEqual(
-      [FOOD, TRAVEL].sort()
+      [
+        FOOD,
+        TRAVEL,
+        LEDGER_ACCOUNT_HEAD_IDS.inKindConsumed,
+        LEDGER_ACCOUNT_HEAD_IDS.gatewayCharges,
+      ].sort()
     );
   });
 });
