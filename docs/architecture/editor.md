@@ -1,15 +1,10 @@
 # Editor (`packages/editor`)
 
-> **Load when**: `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, `onImageUpload`, editor image upload, rich text.
+> **Load when**: `@pi-dash/editor`, Plate.js, `PlateEditor`, `PlateRenderer`, editor image upload, rich text.
 > **Related**: `file-uploads.md`
 
-Plate.js (Slate-based) rich text with two entry points:
+Plate.js rich text with two entry points: `@pi-dash/editor/editor` (`PlateEditor`, full plugin set) and `@pi-dash/editor/renderer` (`PlateRenderer`, read-only subset for stored Plate JSON).
 
-| Export | Component | Plugins |
-|---|---|---|
-| `@pi-dash/editor/editor` | `PlateEditor` | Full set in `src/editor.tsx`: toolbar, image upload, mentions |
-| `@pi-dash/editor/renderer` | `PlateRenderer` | Read-only subset in `src/renderer.tsx` for stored Plate JSON |
-
-- The package takes `onImageUpload: (file: File) => Promise<{ url: string } | undefined>` and validates files itself against `ALLOWED_IMAGE_TYPES` (`@pi-dash/shared/constants`). Transport belongs to the caller.
-- The web adapters `apps/web/src/components/editor/plate-editor.tsx` and `plate-renderer.tsx` supply the upload through a presigned URL (`getEventEditorUploadUrl`). `entityId` lives in the adapter, not the package.
-- Consumers lazy-load the adapters with `React.lazy(() => import("@/components/editor/plate-editor"))`; `editor-skeletons.tsx` holds the fallbacks.
+- The package validates image files itself, but transport belongs to the caller through `onImageUpload`.
+- The web adapters in `apps/web/src/components/editor/` supply the upload through a presigned URL. `entityId` lives in the adapter, not the package.
+- Consumers lazy-load the adapters with `React.lazy`; `editor-skeletons.tsx` holds the fallbacks.

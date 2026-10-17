@@ -1,8 +1,8 @@
 # Finance ledger cutover: contract with the CA
 
 > **Status**: built; founder answers recorded, CA confirmation pending. Items marked **Proposal** or "open for the CA" need sign-off.
-> **Load when**: ledger cutover, opening balances, posting rules in plain language, backfill of FY 2026-27, CA handoff workbook columns, fixed deposit account, audited FY 2025-26 figures.
-> **Related**: `finance-books.md` (posting engine, income and expense posting, audited figures, CA workbook build), `finance-and-programmes.md` (overview), `vendor-payments.md`
+> **Load when**: ledger cutover, opening balance figures, plain-language posting rules, FY 2026-27 backfill, CA workbook columns, fixed deposit, audited FY 2025-26 figures.
+> **Related**: `finance-books.md` (how it is built), `finance-and-programmes.md`, `vendor-payments.md`
 
 This is the agreement between the founder and the chartered accountant (CA, GVNKA & Associates): from which day the dashboard keeps the books, which balances it starts from, how each event is recorded, and what the CA receives at year end. The dashboard is an operational record that feeds the CA; the CA still keeps the statutory books and signs the statements.
 
@@ -17,7 +17,7 @@ The ledger starts on **1 April 2026**, the first day of FY 2026-27. Opening bala
 
 - Nothing dated before 1 April 2026 posts. Earlier records stay as history; the audited balances already hold them.
 - Everything dated on or after 1 April 2026 posts once the ledger is on.
-- Opening balances post once, dated 1 April 2026, and change only through a CA-confirmed correction (`finance.adjust`, with a reason).
+- Opening balances post once, dated 1 April 2026, and change only through a CA-confirmed correction (`finance.post_opening`, with a reason).
 
 ### Backfill to go-live
 
@@ -44,13 +44,13 @@ From the audited balance sheet at 31 March 2026.
 
 The General Fund is the opening 4,45,052 plus the FY 2025-26 surplus of 6,48,986.
 
-A finance admin (`finance.post_opening`) enters the figures at Finance → Books → Opening balances (`/finance/books/opening`); they are never seeded or hard-coded. The document will not post unless assets equal funds plus liabilities and the CA's name and confirmation date are recorded. Account lines become opening movements; asset, liability and fund lines are opening entries with no money movement. A correction reverses the whole document and posts a new one. Uploading the signed statements as evidence is not built.
+A finance admin enters the figures at Finance → Books → Opening balances; they are never seeded or hard-coded. The document will not post unless assets equal funds plus liabilities and the CA's name and confirmation date are recorded. Account lines become opening movements; asset, liability and fund lines are opening entries with no money movement. A correction reverses the whole document and posts a new one. Uploading the signed statements as evidence is not built.
 
 ### Fixed deposit
 
-Org accounts of kind `deposit` ("Fixed deposit" in Settings → Organisation accounts):
+Org accounts of kind `deposit` ("Fixed deposit" in Settings):
 
-- are never offered for donations and never take bank statement imports (the contribution form, mutator and income imports refuse them);
+- are never offered for donations and never take bank statement imports;
 - get money only by transfer: placing or closing an FD posts from the current account's statement line marked as a transfer with the FD as the other account;
 - earn interest recorded as `other_income` of kind interest, never as a donation.
 
@@ -66,7 +66,7 @@ Gross 27,842, accumulated depreciation 23,451, net 4,391, depreciated on WDV at 
 | Croma speaker | 332 |
 | Solar power bank equipment | 73 |
 
-Each posts as its own opening line, named in the description, so the Phase 5 fixed asset register can adopt them without changing posted data. Per-asset rates, gross and accumulated depreciation are asked of the CA (question 7).
+Each posts as its own opening line, named in the description, so a later fixed asset register can adopt them without changing posted data. Per-asset rates, gross and accumulated depreciation are asked of the CA (question 7).
 
 ## 3. Posting rules
 
@@ -91,7 +91,7 @@ Each event records into up to two views that are never added together:
 | Correction | Reversal plus new entry | Only if money moved |
 | Opening balances | Fund, liability and asset lines | Into bank and FD |
 
-Each posting is final; a change is a reversal plus a new entry, and the workbook shows both. Records that cannot post yet (closed year, unknown account, missing head) wait on the Books page's "Waiting to post" list with a reason, and a year cannot close while any of its records wait.
+Each posting is final; a change is a reversal plus a new entry, and the workbook shows both. Records that cannot post yet (closed year, unknown account, missing head) wait on the Books page with a reason, and a year cannot close while any of its records wait.
 
 ### Income (`packages/db/src/ledger/income-rules.ts`)
 
@@ -110,7 +110,7 @@ All income rules live in this one module, so a CA change is a one-place edit.
 
 ### Expenses (`packages/db/src/ledger/expense-rules.ts`)
 
-- "The main bank account" is the one marked so in Settings → Organisation accounts, else the only active bank account.
+- "The main bank account" is the one marked so in Settings, else the only active bank account.
 - An approved reimbursement is an expense per line under its category's account head, with its programme, project and event, in the General Fund, on the approval day. A `Claims payable` liability is raised that day and cleared by each payment on the day the money left; a payment before approval shows as a negative payable (an advance to the claimant). One without a payment screenshot waits (section 6).
 - A vendor payment is held as a supplier advance until the invoice (or no-invoice reason) is approved; the invoice then posts expense per line at full amount and clears the advance. An overpayment stays on the advance; an invoice above the approved payments waits until they agree.
 - The trust is not GST-registered and deducts no TDS, so neither posts anything.
@@ -132,7 +132,7 @@ Founder answers are recorded under each question; the CA confirms or corrects th
 2. **Income presentation.** The statements show all income as "Donations received", including corporate engagement money. Keep one line, or sub-lines (CSR, Goodera, individual)? Donation type and channel are recorded on every gift, so either works.
 3. **Expense heads.** The receipts and payments account lists payments by activity. The dashboard tags each expense with programme, optional project and event, and an account head from the expense categories (Resource Cost, Procurement, Transportation, Food or Refreshment, Logistics, Others, Scholarship). Can those columns build the activity lines? List any fixed heads needed (audit fees, website hosting, depreciation).
 4. **Depreciation.** **Proposal**: the CA calculates it at year end and the dashboard records the figure; it never computes depreciation.
-   - **Founder**: as proposed. Built: the treasurer enters the signed figures (Audited figures); a fixed asset carried at less posts as depreciation.
+   - **Founder**: as proposed. The treasurer enters the signed figures; a fixed asset carried at less posts as depreciation.
 5. **Audit fee provision of 10,000.** Does the FY 2025-26 fee, paid in FY 2026-27, clear the opening liability rather than count as expense?
    - **Founder** (17 October 2026): the payment clears the provision and any excess is expense, as built (section 3). This replaces an earlier answer to expense it. Built fallback: a write-back in the signed statements is entered with the audited figures, under `Year-end adjustments (audited) — income` by default. CA to confirm the head.
 6. **Column headers in the signed I&E** read "31-March-2025" and "31-March-2024" for FY 2025-26 and FY 2024-25 figures. Is a corrected copy needed?
@@ -157,7 +157,7 @@ Also confirmed by the founder as built (17 October 2026), for CA review:
 
 ## 5. CA handoff workbook (XLSX)
 
-Finance → Books → Download CA workbook. One workbook per financial year, one sheet per export, XLSX only (no Tally XML), account head names are the dashboard's own. Amounts in rupees with two decimals; dates dd-MM-yyyy; in-kind lines labelled and kept out of cash totals. Every row carries its document reference.
+Downloaded from the Books page. One workbook per financial year, XLSX only (no Tally XML), with the dashboard's own account head names. Amounts in rupees with two decimals; dates dd-MM-yyyy; in-kind lines labelled and kept out of cash totals. Every row carries its document reference.
 
 | Sheet | One row per | Columns |
 |---|---|---|
@@ -172,14 +172,14 @@ Finance → Books → Download CA workbook. One workbook per financial year, one
 ### Later years
 
 - Opening balances are entered once. Closing a year posts nothing; from FY 2027-28 each fund opens with its balance plus every earlier year's surplus posted to it.
-- Once the CA signs a year, the treasurer enters the signed balance sheet at Finance → Books → Audited figures. The CA's year-end corrections (depreciation, write-backs, reclassifications, fund transfers) post as one entry dated 31 March, so the year closes and the next opens at the audited figures. Money accounts are never adjusted; a difference there means records are missing. Once matched, the year is frozen until the figures are reversed.
+- Once the CA signs a year, the treasurer enters the signed balance sheet as the year's audited figures. The CA's year-end corrections (depreciation, write-backs, reclassifications, fund transfers) post as one entry dated 31 March, so the year closes and the next opens at the audited figures. Money accounts are never adjusted; a difference there means records are missing. Once matched, the year is frozen until the figures are reversed.
 - Reopening a year and posting into it changes every later year's openings, so a later workbook the CA has signed can differ from a fresh download. Keep the signed copy.
 
 ## 6. What the founder supplies
 
 1. **Payments since 1 April 2026 without proof.** For each, the payment date, paying account and bank reference, or mark it unpaid.
-   - Reimbursements: the "Missing payment proof" filter on Reimbursements and the "No payment screenshot" rows on Waiting to post, which link to Add payment proof. Adding proof posts the claim on its approval day; an unpaid claim is voided. A claim with proof but no recorded approval day waits separately.
-   - Vendor payments: no dedicated list; payments show up through bank debit matching on the bank statements page.
+   - Reimbursements: listed by the Missing payment proof filter and on the Books waiting list. Adding proof posts the claim on its approval day; an unpaid claim is voided. A claim with proof but no recorded approval day waits separately.
+   - Vendor payments: no dedicated list; they show up through bank debit matching.
 2. **Organisation accounts**: confirm the current account and add the FD as a `deposit` account.
 3. **Bank statements from 1 April 2026** for the current account, imported so backfilled entries can be matched.
 4. **FD evidence**: start date, amount, maturity and interest credited since 1 April 2026.

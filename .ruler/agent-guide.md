@@ -29,10 +29,8 @@ Worktrees: `bun run worktree:setup <ID>` (add `--isolated-db` for separate Postg
 
 - The focused checks for what changed pass, or you report why one could not run.
 - A new route, CRUD flow or role-gated capability has an E2E spec.
-- The owning doc describes the new behaviour (see [Documentation](#documentation)).
+- The owning doc records any new rule, decision or gotcha (see [Documentation](#documentation)).
 - The diff holds no edits to generated files.
-
-On commit, Lefthook formats and lints staged files, runs affected type checks and unit tests, and checks doc budgets. CI adds `bun run check:unused` and E2E. Commitlint enforces conventional commits.
 
 ## Boundaries
 
@@ -93,13 +91,13 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 
 ## Documentation
 
-Docs describe how the system works now. Git history holds how it got here.
+Docs hold what the code can't tell a reader: why it is built this way, rules that span several files, gotchas, decisions and rejected alternatives, procedures, external contracts, and facts that would take many files to gather. Before writing a line, ask whether a file or two of code would teach the same thing; if so, leave it out. Docs describe the system as it is now; git history holds how it got here.
 
 - **Update in place.** When behaviour changes, rewrite the section that describes it and delete what is no longer true. Avoid appending notes after the old text.
 - **One fact, one home.** Each rule lives in its owning chapter. Elsewhere, link to it.
   - The README gets one line per feature area.
   - This guide gets one routing row per area.
-- **Leave out history:** changelogs, "shipped" status, PR and migration numbers, dated narrative, and anything code or config already states (file lists, scripts, env lists).
+- **Leave out** changelogs, "shipped" status, PR and migration numbers, dated narrative, and restatements of code or config: file, route, field and script lists, UI copy, and step-by-step narration of one function.
 - **Budgets:** every doc has a word budget, enforced by `bun run check:docs` (`scripts/check-doc-budgets.ts`, also part of `bun run check` and the commit hook). When a doc is over, cut it or split it by subsystem. Raise a budget only when the doc cannot be split.
 - **New rules go in the owning chapter.** A rule earns a place here only if it applies across the repository and no tool can enforce it. Otherwise prefer a lint rule, test or hook.
-- **Major features:** one README line, the owning chapter, a routing row here if it opens a new area, `project-structure.md` for new routes or paths, and `DEPLOYMENT.md` for production env vars, services or build steps.
+- **Major features:** one README line, the owning chapter, a routing row here if it opens a new area, `project-structure.md` for a new structural pattern, and `DEPLOYMENT.md` for production env vars, services or build steps.

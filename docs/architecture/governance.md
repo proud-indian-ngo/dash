@@ -1,14 +1,12 @@
 # Governance (design)
 
 > **Status**: design agreed 17 October 2026; nothing built yet.
-> **Load when**: trustee register, offices and terms, deed versions, circular resolutions, meetings, quorum, minutes, DSC (HYP2003, PKCS#11), signing helper, pyHanko sidecar, Aadhaar eSign (Leegality), governance documents vault, compliance calendar, conflict of interest, policy register, safeguarding, CSR utilisation certificates, annual approvals pack.
+> **Load when**: trustee register, deed versions, circular resolutions, meetings and quorum, DSC or Aadhaar eSign signing, governance documents vault, compliance calendar, conflict of interest, policy register, CSR utilisation certificates.
 > **Related**: `finance-and-programmes.md`, `authorization.md`, `file-uploads.md`, `pdf.md`, `editor.md`, `notifications.md`, `jobs.md`
 
 ## Goals
 
 Proud Indian is a public charitable trust under deed Doc. No. 864, Book IV, 2018-19, registered at the Shivajinagar (Indiranagar) Sub-Registrar on 16-03-2019. Bengaluru has no Charity Commissioner, so the deed alone governs Board decisions. Board records have lived in Word files, emails and scans, and the 07-12-2025 resolution claimed a quorum it did not have.
-
-The dashboard will hold the trustee register, run circulars and meetings by the deed's rules, get decisions signed by DSC or Aadhaar eSign, keep the trust's registrations and deeds, and drive a compliance calendar with evidence.
 
 ## Decisions
 
@@ -29,7 +27,7 @@ The dashboard will hold the trustee register, run circulars and meetings by the 
 | History | Past records imported read-only with evidence and a validity note | The register must answer for any date since 2019 |
 | Deed amendment | Template for the resolution only; the registered Deed of Amendment is uploaded and creates a new deed version | Execution and registration are on paper |
 | Finance | No trustee tier in approvals. A non-reimbursement payment to a trustee warns | Clause 7.24 |
-| Placement | "Governance" sidebar section; "Needs your vote or signature" dashboard card | Agreed scope |
+| Placement | "Governance" sidebar section; "Needs your vote or signature" dashboard card | |
 
 ## Deed rules (version 1)
 
@@ -92,7 +90,7 @@ governance_document (vault)    compliance_item ─ evidence
 
 ### Resolution lifecycle
 
-- Draft: edited through Zero by `governance.manage`.
+- Draft: edited by `governance.manage`.
 - Issue (MT only): freeze a revision, render the PDF with `@pi-dash/pdf`, snapshot trustees in office, notify every trustee.
 - Respond: an assent is a signature on the PDF; an objection is a click with a reason.
 - Pass: signed assents reach the threshold. Assign the number, apply the template's register effects in the same transaction, finalise the PDF (B-LTA), add to the next meeting's "to be noted" list.
@@ -141,10 +139,9 @@ Browsers cannot reach PKCS#11 tokens, so signing is external:
 
 ## Security and audit
 
-- Routes check permissions in `beforeLoad`; server functions use `assertServerPermission` or the trustee check. Responding and signing are server functions (session age check, sidecar calls).
-- Every state change (draft, issue, respond, sign, withdraw, attendance, vote, register change, import, upload) goes through the Zero mutation audit boundary or `runSessionAuditedAction`. PAN and Aadhaar reveals are audited like `party.identifier.reveal`. Metadata holds IDs and field names only.
-- PAN and Aadhaar references use the existing data encryption key, in the `private` schema.
-- Signed PDFs, emails and scans are server-only. Leegality is a processor that sees the full document, and the trustee notice says so.
+- Responding and signing are server functions, because they check session age and call the sidecar. Server functions use `assertServerPermission` or the trustee check.
+- Every state change is audited, including attendance, votes, imports and uploads. PAN and Aadhaar reveals are audited like `party.identifier.reveal`.
+- Signed PDFs, emails and scans are server-only. The trustee notice says Leegality sees the full document.
 - Governance records are kept permanently.
 
 ## Board at design time
@@ -171,7 +168,7 @@ After circular PI/TR/2026-27/001 (ink-signed 18 October 2026):
 | 5 Meetings | Notice, agenda, attendance, live quorum, absentee and casting votes, Plate minutes, chair signature, "to be noted" | A test meeting under version 2 yields signed minutes |
 | 6 Annual pack and policies | Annual templates, declarations and finance warning, policy register and safeguarding gate, CSR certificates | CSR after finance Phase 5 |
 
-Each phase ships migrations, idempotent seeds in `scripts/seed.ts`, Zero regeneration, the agent-guide routing row and E2E coverage of its state machines. The sidecar (phase 1) and helper (phase 3) go into `DEPLOYMENT.md`.
+Each phase ships E2E coverage of its state machines. The sidecar (phase 1) and helper (phase 3) go into `DEPLOYMENT.md`.
 
 ## Open questions
 

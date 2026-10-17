@@ -6,16 +6,12 @@ Volunteers aged 18 or over can register at `/register` and verify their email. A
 
 ## Stack
 
-| Layer | Tools |
+The libraries are in each `package.json`. The external services are:
+
+| Layer | Services |
 |---|---|
-| App | TanStack Start, Router, Form and Table; React 19 |
-| Data | PostgreSQL, Drizzle ORM, Rocicorp Zero |
-| Auth | Better Auth with the admin plugin |
-| UI | Tailwind CSS v4, shadcn/ui and reui, Hugeicons, Plate editor |
-| Jobs and delivery | pg-boss, Resend with React Email, WhatsApp Cloud API and the GoWA gateway |
+| Delivery | Resend, WhatsApp Cloud API and the GoWA gateway |
 | Storage | Cloudflare R2, Immich for event photos |
-| Logging | evlog |
-| Tooling | Bun, Turborepo, Vitest, Playwright, oxlint and oxfmt, GitHub Actions |
 
 ## What it does
 
@@ -48,38 +44,9 @@ Requires Bun and Docker.
 | Zero cache | http://localhost:4848 |
 | Drizzle Studio | http://localhost:5555 |
 
-For parallel worktrees, use `bun run worktree:setup <ID>` (add `--isolated-db` for a separate database) and `bun run worktree:teardown`.
-
 ## Scripts
 
-| Script | Does |
-|---|---|
-| `bun run dev` / `dev:web` | Start all services, or the web app only |
-| `bun run db:start` / `db:stop` / `db:down` | Start, stop, or remove the PostgreSQL container and volume |
-| `bun run db:generate` | Generate a migration from the Drizzle schema |
-| `bun run db:migrate` | Apply pending migrations |
-| `bun run db:push` | Push the schema without migrations (local only) |
-| `bun run db:studio` | Open Drizzle Studio |
-| `bun run zero:generate` | Regenerate the Zero schema from Drizzle |
-| `bun run seed` | Seed idempotent dev data |
-| `bun run auth:seed-admin` | Create or promote the admin user |
-| `bun run whatsapp:start` / `whatsapp:stop` | Start or stop the GoWA gateway container |
-| `bun run whatsapp:templates status\|submit` | Check or submit WhatsApp Cloud API templates |
-| `bun run social:token` | Create, list or revoke Social API tokens |
-| `bun run ui:add <component>` | Add a shadcn/ui component to the design system |
-| `bun run check:types` | Type check all packages |
-| `bun run check` / `fix` | Lint and format check, or auto-fix |
-| `bun run check:unused` | Find unused exports (knip) |
-| `bun run test:unit` | Run unit tests |
-| `bun run build` | Build all apps |
-
-End-to-end tests run against a dedicated database and stack:
-
-- `bun run test:e2e` runs the full Playwright suite.
-- `cd packages/e2e && bash run-e2e.sh tests/<spec>.spec.ts` runs one spec.
-- `bun run test:e2e:ui` opens Playwright UI mode.
-
-See [E2E testing](docs/architecture/e2e-testing.md) for the other options.
+Scripts are in `package.json`. `bun run db:push` is for local development only. E2E tests run against a dedicated database and stack; see [E2E testing](docs/architecture/e2e-testing.md).
 
 ## Documentation
 

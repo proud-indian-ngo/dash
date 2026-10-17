@@ -36,7 +36,7 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 - Charts: `--chart-*` tokens.
 - Active nav item, tab or toggle: sky ink on sky wash (`bg-sidebar-accent text-sidebar-accent-foreground`). This is the only active state.
 - Type: Geist (`font-sans`) at 13px (`text-sm`) for reading text. Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), applied by column `meta.kind`.
-- Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`, about 6, 7 and 10px). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
+- Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
 - Sizes: buttons 32px. Inputs, selects and date pickers 36px (40px on touch), except the 32px table toolbar search. One-line table rows 36px.
 
 ## Status and labels
@@ -53,7 +53,7 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 
 ## Dates
 
-Use the formats in `apps/web/src/lib/date-formats.ts`: `DATE` (`16 Oct 2026`), `DATE_TIME` (`16 Oct 2026, 9:40 am`), `DAY_MONTH`, `DAY_MONTH_TIME`, `TIME`, matching `en-IN` `Intl` output.
+Use the formats in `apps/web/src/lib/date-formats.ts`, which match `en-IN` `Intl` output.
 
 - Lists show minutes. Only audit and job detail sheets show seconds (`formatTimestamp(value, { seconds: true })`).
 - `ISO_DATE` only for keys, URLs and input values.
@@ -127,7 +127,7 @@ Time-based lists that are not tables (the events page):
 - Tables: `DataTableWrapper`.
 - Menus: `ResponsiveActionMenu` for row and page menus. Every item needs a Hugeicons icon (drawn muted); destructive items go last, in red, after a divider. Permission checks and confirmations stay with the caller, not inside the menu. Desktop: solid popover with 28px rows (taller on touch). Phones: bottom drawer.
 - Undoable one-click actions: `deferAction` from `@/lib/deferred-actions`. Deletes: a confirmation dialog.
-- Dialog widths: `sm:max-w-(--dialog-sm)` (400px) for confirms and one-field prompts, `--dialog-md` (480px) for most forms, `--dialog-lg` (640px) for long or two-column forms. Very wide pickers and tables keep their own width.
+- Dialog widths: `sm:max-w-(--dialog-sm)` for confirms and one-field prompts, `--dialog-md` for most forms, `--dialog-lg` for long or two-column forms. Very wide pickers and tables keep their own width.
 - Desktop dialogs are banded: sticky header above a hairline, scrolling fields, sticky footer (`DialogFooter` or `FormActions`, styled in `apps/web/src/index.css`) on a grey strip. Page-like dialogs opt out with `data-plain`. Phones use the bottom drawer.
 - `FormActions`: Cancel then verb, right-aligned, everywhere except scan panels, which keep the action left (away from toasts, for repeated scans).
 - Loading: `DetailPageSkeleton` and `TableSkeleton` (`@/components/shared/page-skeleton`). Spinners only for actions in progress and inside dialogs.
@@ -136,16 +136,13 @@ Time-based lists that are not tables (the events page):
   - Unknown addresses for signed-in people hit the `_app/$` route so the sidebar stays.
   - Page errors: `ErrorState`, red-tinted tile with a copyable reference (the id logged to evlog and PostHog); the raw message is folded away for admins.
   - Outside the app layout, `StandalonePage` frames the block with the compact lockup.
-- Tips: `TipStrip` (`@/components/shared/tip-strip`), one dismissible sentence under the header for something people would not discover. At most one per page, optional link action, stable `id`. Dismissal is per person in `localStorage`; it is server-rendered so the page does not shift. Current tips: reimbursements (bank account), vendor payments (quotation then invoice), events (show interest), team page for leads, users (detail sheet), desktop dashboard (⌘B).
+- Tips: `TipStrip` (`@/components/shared/tip-strip`), one dismissible sentence under the header for something people would not discover. At most one per page, optional link action, stable `id`.
 - Sign-in screens: `AuthLayout` (`components/login/auth-layout.tsx`), compact lockup over the form beside a flat info-wash panel (`bg-info/10`, no illustrations or animation) with the welcome text, sign-up steps or the session being joined. Phones show the form only. Titles use page-title type.
 
 ## Motion and hover
 
-- Overlays use the app curves, never default `ease`:
-  - menus, popovers, selects, comboboxes, tooltips: enter 120ms (tooltips 100ms) on `--ease-out-expo`, leave 100ms;
-  - dialogs: 150ms on `--ease-out-expo`;
-  - sheets and sidebar: 200ms on `--ease-out-sheet` / `--ease-out-expo`.
-- Route changes that change the path crossfade the root for 150ms through the View Transitions API (`defaultViewTransition` in `apps/web/src/router.tsx`, keyframes in `styles.css`), only in browsers that support view-transition types. Pages have no other entrance animation.
+- Overlays use the app curves (`--ease-out-expo`, `--ease-out-sheet`), never default `ease`. Menus, popovers, selects and comboboxes enter in 120ms (tooltips 100ms) and leave in 100ms; dialogs take 150ms; sheets and the sidebar 200ms.
+- Route changes that change the path crossfade the root through the View Transitions API (`defaultViewTransition` in `apps/web/src/router.tsx`). Pages have no other entrance animation.
 - Tooltips wait 400ms before the first opens (root `TooltipProvider`), then open instantly between triggers.
 - Use Tailwind v4 `hover:` (hover-capable devices only), not raw `:hover` CSS.
 - The global `prefers-reduced-motion` rule in `styles.css` turns all motion off.

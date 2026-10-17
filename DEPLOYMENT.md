@@ -4,7 +4,6 @@
 
 | Requirement | Version |
 |---|---|
-| Bun | `>=1.3.11` (see `packageManager` in `package.json`) |
 | Node.js | `>=20`, for zero-cache and build tools |
 | PostgreSQL | `>=17` with `wal_level=logical`; Compose and production use 18 |
 | Docker | Local Postgres and the WhatsApp gateway |
@@ -13,23 +12,22 @@ External services, each optional unless its variables are required below: Cloudf
 
 ## Environment variables
 
-Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` passes variables to each service. The contracts are `packages/env/src/server.ts` and `web.ts` ([how they load](docs/architecture/env-and-secrets.md)). "Prod" means required when `NODE_ENV=production`. Empty strings count as unset. Every key, token and secret is a secret.
+Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` passes variables to each service. The contracts are `packages/env/src/server.ts` and `web.ts` ([how they load](docs/architecture/env-and-secrets.md)); they hold the formats, defaults and some purposes not repeated here. "Prod" means required when `NODE_ENV=production`. Empty strings count as unset. Every key, token and secret is a secret.
 
 ### Core, auth and encryption
 
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `BETTER_AUTH_SECRET` | Yes | Session secret, 32+ characters |
+| `BETTER_AUTH_SECRET` | Yes | Session secret |
 | `BETTER_AUTH_URL` | Yes | Auth base URL and base of the public events feed's `signUpUrl`. The website accepts only `https://dash.proudindian.ngo/` links, so production must use that origin |
-| `CORS_ORIGIN` | Yes | Allowed origin, usually `BETTER_AUTH_URL` |
-| `DATA_ENCRYPTION_KEY` | Prod | Base64 of 32 bytes (`openssl rand -base64 32`). Encrypts donor IDs, PANs and bank numbers and keys import hashes. Never change it once data exists. Scripts that write encrypted values must use the production key |
+| `CORS_ORIGIN` | Yes | Usually `BETTER_AUTH_URL` |
+| `DATA_ENCRYPTION_KEY` | Prod | `openssl rand -base64 32`. Also keys import hashes. Never change it once data exists. Scripts that write encrypted values must use the production key |
 | `COOKIE_DOMAIN` | No | Cross-subdomain cookie domain |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | No | Account for `bun run auth:seed-admin`; password 8+ characters |
-| `NODE_ENV` | No | `development` (default), `production` or `test` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | No | Account for `bun run auth:seed-admin` |
 | `APP_URL` | No | App URL in notification footers |
-| `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name; default `Proud Indian Dashboard` |
-| `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window; default 120, max 3600 |
+| `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name |
+| `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window |
 
 ### Zero
 
@@ -38,18 +36,14 @@ Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` pa
 | `VITE_ZERO_URL` | Yes | Public zero-cache URL that browsers connect to; build argument too |
 | `ZERO_UPSTREAM_DB` | Yes (zero-cache) | Unpooled PostgreSQL URL for logical replication |
 | `ZERO_MUTATE_URL`, `ZERO_QUERY_URL` | Yes (zero-cache) | Web app's `/api/zero/mutate` and `/api/zero/query` |
-| `ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES` | No | Forward session cookies; default `true` |
+| `ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES` | No | Forward session cookies |
 | `ZERO_ADMIN_PASSWORD` | Prod | zero-cache admin password |
-| `ZERO_LOG_LEVEL`, `ZERO_REPLICA_FILE` | No | Log level (default `debug`); SQLite replica path |
+| `ZERO_LOG_LEVEL`, `ZERO_REPLICA_FILE` | No | Log level; SQLite replica path |
 | `ZERO_QUERY_HYDRATION_STATS` | No | Slow-hydration statistics; keep `false` |
 
 ### Email (Resend)
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `RESEND_API_KEY` | Prod | Sending key; unset skips email (auth links are logged) |
-| `EMAIL_FROM` | Prod | Address on a Resend-verified domain, bare or `Name <address>` |
-| `RESEND_WEBHOOK_SECRET` | No | `whsec_…` secret of the bounce and complaint webhook; unset makes `/api/email/webhook` answer 503 |
+`RESEND_API_KEY` and `EMAIL_FROM` are required in production. With the key unset, email is skipped and auth links are logged. `RESEND_WEBHOOK_SECRET` is optional.
 
 ### Storage (Cloudflare R2)
 
@@ -64,8 +58,7 @@ Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` pa
 | Variable | Required | Purpose |
 |---|---|---|
 | `GRAVATAR_API_KEY`, `AVATAR_FALLBACK_SEED` | Yes | Gravatar REST key; DiceBear fallback seed |
-| `GRAVATAR_API_BASE_URL`, `GRAVATAR_TIMEOUT_MS` | No | Defaults `https://api.gravatar.com/v3` and `5000` |
-| `VOUCHER_ORG_NAME`, `VOUCHER_ORG_ADDRESS`, `VOUCHER_ORG_PHONE`, `VOUCHER_ORG_EMAIL`, `VOUCHER_ORG_REGISTRATION`, `VOUCHER_FINANCE_ADMIN_NAME` | Yes | Organisation and finance admin details printed on cash vouchers |
+| `VOUCHER_ORG_*`, `VOUCHER_FINANCE_ADMIN_NAME` | Yes | Organisation and finance admin details printed on cash vouchers |
 
 The treasurer signature (`packages/pdf/assets/signature.png`) is bundled at build time. The cash-voucher limit is a setting (Settings → Programmes).
 
@@ -80,16 +73,15 @@ The treasurer signature (`packages/pdf/assets/signature.png`) is bundled at buil
 
 ### WhatsApp Cloud API
 
-See [Switching WhatsApp to the Cloud API](#switching-whatsapp-to-the-cloud-api).
+All optional. See [Switching WhatsApp to the Cloud API](#switching-whatsapp-to-the-cloud-api).
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `WHATSAPP_CLOUD_ACCESS_TOKEN` | No | System user token, expiry Never, permissions `whatsapp_business_messaging` and `whatsapp_business_management` |
-| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | No | Phone number ID from WhatsApp → API Setup (not the number) |
-| `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID` | With the token | WhatsApp Business Account ID (not the portfolio ID); also used by `bun run whatsapp:templates` |
-| `WHATSAPP_CLOUD_APP_SECRET` | No | App secret (App settings → Basic); verifies `/api/whatsapp/cloud/webhook`; unset disables the route |
-| `WHATSAPP_CLOUD_VERIFY_TOKEN` | No | Any random string, also entered as the webhook verify token in Meta |
-| `WHATSAPP_CLOUD_GRAPH_VERSION` | No | Graph API version; default `v25.0` |
+| Variable | Where to find it |
+|---|---|
+| `WHATSAPP_CLOUD_ACCESS_TOKEN` | System user token, expiry Never, permissions `whatsapp_business_messaging` and `whatsapp_business_management` |
+| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | WhatsApp → API Setup (the ID, not the number) |
+| `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID` | The WhatsApp Business Account ID, not the portfolio ID; also used by `bun run whatsapp:templates` |
+| `WHATSAPP_CLOUD_APP_SECRET` | App settings → Basic |
+| `WHATSAPP_CLOUD_VERIFY_TOKEN` | Any random string, also entered as the webhook verify token in Meta |
 
 ### Immich
 
@@ -101,19 +93,13 @@ See [Switching WhatsApp to the Cloud API](#switching-whatsapp-to-the-cloud-api).
 
 ### Razorpay
 
-Ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` are set.
-
-| Variable | Required | Purpose |
-|---|---|---|
-| `RAZORPAY_KEY_ID` | No | `rzp_live_…` or `rzp_test_…`; the prefix sets live or test mode |
-| `RAZORPAY_WEBHOOK_SECRET` | No | Secret set on the Razorpay dashboard webhook; unset makes the webhook answer 404 |
-| `RAZORPAY_KEY_SECRET` | No | Fetches payments, refunds and settlements from the API. Without it, webhook copies are used and settlements and "Import past payments" are off |
+All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` are set. With the webhook secret unset, the webhook answers 404. Without `RAZORPAY_KEY_SECRET`, settlements and "Import past payments" are off.
 
 ### Social API and website
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SOCIAL_MEDIA_SIGNING_SECRET` | No | HMAC key, 32+ characters (`openssl rand -hex 32`), for 36-hour signed photo links. Unset makes `/api/social/v1/events/{id}/photos` and `/api/social/v1/media/…` answer 503. Rotating it invalidates issued links |
+| `SOCIAL_MEDIA_SIGNING_SECRET` | No | `openssl rand -hex 32`. Signs 36-hour photo links; rotating it invalidates issued links |
 | `WEBSITE_DISPATCH_TOKEN` | No | Fine-grained GitHub token for `proud-indian-ngo/website` only, Contents read and write. The `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and sends `events-changed` `repository_dispatch` when the feed changes |
 
 ### Observability
@@ -121,11 +107,9 @@ Ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET` a
 | Variable | Required | Purpose |
 |---|---|---|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | OTLP logs endpoint; overrides the PostHog fallback |
-| `POSTHOG_API_KEY` | No | Server key; exports logs to PostHog over OTLP when no endpoint is set |
-| `POSTHOG_HOST` | No | Default `https://us.i.posthog.com` |
-| `OTEL_SERVICE_NAME` | No | Service name on server logs; default `pi-dash` |
-| `VITE_POSTHOG_KEY` | No | Browser analytics and exception capture; unset disables them |
-| `VITE_POSTHOG_HOST` | No | Browser PostHog host |
+| `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP when no endpoint is set |
+| `OTEL_SERVICE_NAME` | No | Service name on server logs |
+| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser analytics and exception capture; unset disables them |
 
 ### Production Compose and tooling
 
@@ -153,28 +137,15 @@ SELECT count(*) FROM pg_stat_statements;
 
 Apply migrations with `bun run db:migrate` (`db:push` is for local development only). Production Compose runs the `migrate` service before the app. Keep schema changes Zero-compatible: add columns with defaults, deploy, then drop old columns in a later release. A migration that drops a column the old build reads ships with the regenerated Zero schema and web build; stop old app and Zero workers first.
 
-Seed the admin with `ADMIN_EMAIL` and `ADMIN_PASSWORD` set:
-
-```bash
-bun run auth:seed-admin   # idempotent; creates the user and ensures the admin role
-```
+Seed the admin with `bun run auth:seed-admin` (idempotent), with `ADMIN_EMAIL` and `ADMIN_PASSWORD` set.
 
 ## Build
 
-```bash
-bun install
-bun run build
-```
-
-The web build writes `apps/web/.output/`. In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version. Image stages are described in [monorepo.md](docs/architecture/monorepo.md#docker-build).
+In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version. Image stages are described in [monorepo.md](docs/architecture/monorepo.md#docker-build).
 
 ## Running
 
 ### Web app
-
-```bash
-bun run --cwd apps/web start   # bun run .output/server/index.mjs
-```
 
 The production container listens on port 3000 with a health check at `/api/health`; local development uses 3001.
 
@@ -282,16 +253,9 @@ The log reason is `encrypted_value_unreadable`: the value was encrypted under an
 
 Each waiting record has a reason, such as `pick_bank_account` or `no_payment_proof`. Fix the record, then choose Post pending ([finance-books.md](docs/architecture/finance-books.md#posting-runs-and-waiting-to-post)).
 
-## CI
-
-`.github/workflows/ci.yml` runs on pull requests to `master` and on pushes to `master`:
-
-- Checks: `bun run check:types`, `bun run check`, `bun run check:unused`, `bun run test:unit`
-- E2E: builds the web app, pushes the schema to a test database, starts zero-cache and runs Playwright in four shards
-
 ## Upgrade notes
 
-Steps here are still needed on a fresh environment. Legacy data migrations are listed at the end.
+Steps here are still needed on a fresh environment.
 
 ### Organisation accounts
 
@@ -329,11 +293,11 @@ Contribution CSV, give.do payout and bank statement imports need the organisatio
 
 ### Private media cutover
 
-Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. The media reference backfill is already applied in production (October 2026). Disable the R2 public URL and CDN route once authenticated reads are verified. Keep `VITE_CDN_URL` until a release removes its use, and unset it only after that release deploys.
+Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. Disable the R2 public URL and CDN route once authenticated reads are verified. Keep `VITE_CDN_URL` until a release removes its use, and unset it only after that release deploys.
 
 ### Kalakriti
 
-The results, two-file music (`0079`, `0080`) and credential-removal migrations apply in order with `bun run db:migrate`; their one-off backfills are gone from the repo. Do not roll back to single-file music code, which cannot hold two files.
+Do not roll back past the two-file music migrations (`0079`, `0080`) to single-file music code, which cannot hold two files.
 
 ### pg-boss event triggers
 
@@ -371,11 +335,3 @@ SELECT
 The migration's own counts: `SELECT value FROM app_config WHERE key = 'cost_centre_backfill';`.
 
 The next posting run reposts every expense posting (rules version 3).
-
-### Already applied in production (October 2026)
-
-- Vendor parties (`0116_vendor_parties.sql`): vendor details encrypted into `party_private` and `party_bank_account`. `drop_vendor_legacy_details` stops with `vendor_legacy_details still has rows` if any remain; the backfill script is in git history.
-- Vendor payment status repair: run on 17 October 2026; script in git history.
-- Money in paise (`0118_money_paise.sql`): rupee `amount` columns replaced by `amount_paise`.
-- Production finance setup: done on 17 October 2026.
-- Expenses head repair: the server moves `EXPENSE_*` heads out from under Corpus donations on start. Where legacy claims exist, clear the Reimbursements filter "Missing payment proof" (add the screenshot or void unpaid claims), then choose Post pending.
