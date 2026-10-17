@@ -74,10 +74,9 @@ A fallback to the DSC through Leegality (about ₹25 per signature; Leegality se
 
 Notice by the deed's days; quorum and result per agenda item, by the deed in force that day; absentee written votes count toward the result, not quorum; the chair's casting vote; minutes signed by the chair; circulars since the last meeting noted.
 
-### Compliance, declarations and policies
+### Declarations and policies
 
-- A calendar of filings and renewals with reminders; items close only with evidence.
-- Yearly conflict-of-interest declarations that feed the finance warning; a policy register whose child-safeguarding policy gates events with children; annual-approval templates opened from calendar items; CSR utilisation certificates after finance Phase 5.
+Yearly conflict-of-interest declarations that feed the finance warning; a policy register whose child-safeguarding policy gates events with children; annual-approval templates opened from calendar items; CSR utilisation certificates after finance Phase 5.
 
 ## Board at design time
 
