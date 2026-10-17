@@ -11,7 +11,7 @@ import { assertHasPermission, assertIsLoggedIn } from "../permissions";
 import { zql } from "../schema";
 
 /**
- * The policy register (governance phase 6): governance adds policies and
+ * The policy register: governance adds policies and
  * publishes versions from approved documents in the vault; everyone
  * acknowledges the versions meant for them.
  */

@@ -7,7 +7,7 @@ import { todayInKolkata } from "@pi-dash/shared/income";
 import { zql } from "../schema";
 
 /**
- * The child-safeguarding gate (governance phase 6): nobody joins an event
+ * The child-safeguarding gate: nobody joins an event
  * with children (a Kalakriti event, or an event of a team that works with
  * children) without acknowledging the version of every gating policy in
  * force. Checked on the server only: the client can't see other people's
