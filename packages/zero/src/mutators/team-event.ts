@@ -106,7 +106,13 @@ export async function resolveJoinTarget(
     now: number;
   }
 ): Promise<JoinTarget> {
-  if (!args.occDate) {
+  // Without a date, a series parent means its first session.
+  const occDate =
+    args.occDate ??
+    (event.recurrenceRule && !event.seriesId
+      ? seriesStartDate(event.startTime)
+      : undefined);
+  if (!occDate) {
     if (event.startTime <= args.now) {
       throw new Error("Cannot join event that has already started");
     }
@@ -121,16 +127,18 @@ export async function resolveJoinTarget(
   if (!event.recurrenceRule) {
     throw new Error("Event is not a recurring series");
   }
-  if (!args.materializedId) {
-    throw new Error("materializedId required for virtual occurrence");
-  }
+  // A saved row for the date takes it, the start date included: there it
+  // stands for the first session.
   const existing = (await tx.run(
     zql.teamEvent
       .where("seriesId", args.eventId)
-      .where("originalDate", args.occDate)
+      .where("originalDate", occDate)
       .one()
   )) as TeamEvent | undefined;
   if (existing) {
+    if (existing.cancelledAt) {
+      throw new Error("This session was cancelled");
+    }
     if (existing.startTime <= args.now) {
       throw new Error("Cannot join event that has already started");
     }
@@ -143,7 +151,7 @@ export async function resolveJoinTarget(
     };
   }
   // The series' first session is the parent row itself.
-  if (args.occDate === seriesStartDate(event.startTime)) {
+  if (occDate === seriesStartDate(event.startTime)) {
     if (event.startTime <= args.now) {
       throw new Error("Cannot join event that has already started");
     }
@@ -155,7 +163,10 @@ export async function resolveJoinTarget(
       startTime: event.startTime,
     };
   }
-  const occStart = computeOccurrenceStart(event.startTime, args.occDate);
+  if (!args.materializedId) {
+    throw new Error("materializedId required for virtual occurrence");
+  }
+  const occStart = computeOccurrenceStart(event.startTime, occDate);
   if (occStart <= args.now) {
     throw new Error("Cannot join event that has already started");
   }
@@ -176,7 +187,7 @@ export async function resolveJoinTarget(
     isPublic: event.isPublic,
     location: event.location,
     name: event.name,
-    originalDate: args.occDate,
+    originalDate: occDate,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: event.postRsvpPoll,
     programmeId: event.programmeId,
@@ -1585,7 +1596,6 @@ export const teamEventMutators = {
       }
 
       let movedOccurrenceIds: string[] = [];
-      let newSeriesId: string | undefined;
       if (args.mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
         if (nextGroupId !== undefined) {
@@ -1603,7 +1613,7 @@ export const teamEventMutators = {
         args.originalDate &&
         args.newSeriesId
       ) {
-        newSeriesId = await updateSeriesFollowing(
+        movedOccurrenceIds = await updateSeriesFollowing(
           tx,
           {
             ...args,
@@ -1615,9 +1625,7 @@ export const teamEventMutators = {
         );
       }
 
-      // A split onto a saved first session writes that row, not newSeriesId.
-      const writeTarget =
-        newSeriesId ?? resolveSeriesWriteTarget(args, existing);
+      const writeTarget = resolveSeriesWriteTarget(args, existing);
       if (args.partners && writeTarget) {
         await replaceEventPartners(
           tx,

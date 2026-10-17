@@ -106,6 +106,7 @@ async function setup(email: string) {
   ]);
   return {
     firstDate: utcDate(start),
+    splitDate: utcDate(start + 35 * DAY),
     pastDate: utcDate(start + 7 * DAY),
     seriesId: ID.series,
     splitId: ID.split,
@@ -124,28 +125,39 @@ async function inspect(pastDate: string) {
     })
     .from(teamEvent)
     .where(eq(teamEvent.teamId, ID.team));
+  const members = await db
+    .select({
+      attendance: teamEventMember.attendance,
+      eventId: teamEventMember.eventId,
+    })
+    .from(teamEventMember)
+    .innerJoin(teamEvent, eq(teamEvent.id, teamEventMember.eventId))
+    .where(eq(teamEvent.teamId, ID.team));
+  const membersOf = (id: string | undefined) =>
+    members.filter((m) => m.eventId === id);
   const past = rows.find(
     (r) => r.seriesId === ID.series && r.originalDate === pastDate
   );
-  const attendance = past
-    ? await db
-        .select({ attendance: teamEventMember.attendance })
-        .from(teamEventMember)
-        .where(eq(teamEventMember.eventId, past.id))
-    : [];
   const byId = (id: string) => rows.find((r) => r.id === id);
+  const newSeries = rows.find((r) => r.seriesId === null && r.id !== ID.series);
   return {
     later: { seriesId: byId(ID.later)?.seriesId ?? null },
+    newSeries: newSeries
+      ? { id: newSeries.id, members: membersOf(newSeries.id).length }
+      : null,
+    oldRule:
+      (byId(ID.series)?.recurrenceRule as { rrule?: string } | null)?.rrule ??
+      null,
     past: past
-      ? { attendance: attendance.map((a) => a.attendance), id: past.id }
+      ? { attendance: membersOf(past.id).map((m) => m.attendance), id: past.id }
       : null,
     series: {
       childrenAttended: byId(ID.series)?.childrenAttended ?? null,
       recapReady: byId(ID.series)?.socialCompletedAt !== null,
     },
-    sessions: rows.length,
+    seriesRows: rows.filter((r) => r.seriesId === null).length,
     split: {
-      recurring: byId(ID.split)?.recurrenceRule !== null,
+      members: membersOf(ID.split).length,
       seriesId: byId(ID.split)?.seriesId ?? null,
     },
   };

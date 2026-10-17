@@ -3,7 +3,7 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { RecordNotFound } from "@/components/shared/not-found-state";
@@ -14,10 +14,7 @@ import { applyOccurrenceDate } from "@/components/teams/events/events-table-help
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { useRecordTitle } from "@/hooks/use-record-title";
-import {
-  firstSessionExceptionId,
-  sessionOccDate,
-} from "@/lib/event-display-utils";
+import { sessionOccDate, startDateRow } from "@/lib/event-display-utils";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
 
@@ -274,16 +271,6 @@ function EventDetailRouteComponent() {
   const [myInterests] = useQuery(
     queries.eventInterest.myByEvent({ eventId: id })
   );
-  // The parent is its series' first session; interest filed earlier on a
-  // legacy exception row for that date still belongs here.
-  const legacyFirstSessionId =
-    event && !sessionOccDate(event, occDateParam)
-      ? firstSessionExceptionId(event)
-      : undefined;
-  const [legacyFirstSessionInterests] = useQuery(
-    queries.eventInterest.myByEvent({ eventId: legacyFirstSessionId ?? "" }),
-    { enabled: !!legacyFirstSessionId }
-  );
   const [managerInterests] = useQuery(
     queries.eventInterest.managerByEvent({ eventId: id }),
     { enabled: canManageInterest }
@@ -310,15 +297,21 @@ function EventDetailRouteComponent() {
   }
 
   const interests = selectManagerInterests(canManageInterest, managerInterests);
-  const myInterest = (myInterests[0] ??
-    (legacyFirstSessionId ? legacyFirstSessionInterests[0] : undefined) ??
-    null) as (EventInterest & { user: User | undefined }) | null;
+  const myInterest = (myInterests[0] ?? null) as
+    | (EventInterest & { user: User | undefined })
+    | null;
   const isMember = event.members.some((m) => m.userId === session.user.id);
   const isTeamMember =
     team?.members.some((m) => m.userId === session.user.id) ?? false;
 
   // The series parent's own date is its first session, not a virtual one.
   const occDate = sessionOccDate(event, occDateParam);
+  // A link to the start date opens the saved row there when one is live,
+  // as sign-ups on that date land on it.
+  const firstRow = startDateRow(event);
+  if (occDateParam && !occDate && firstRow && !firstRow.cancelled) {
+    return <Navigate params={{ id: firstRow.id }} replace to="/events/$id" />;
+  }
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 
   const seriesParent = deriveSeriesParent(event, parentEvent, displayEvent);

@@ -76,7 +76,7 @@ Creating an event that does not start in the past notifies the team. Event Whats
 
 ### Attendance
 
-Attendance is set per member row, only after the event starts. For a series, the parent row is the first session ([recurring events](recurring-events.md#expansion)) and takes its own attendance; every later session's lives on its materialised occurrence. On a past session not yet saved, the Volunteers tab offers "Mark attendance" to people who can open it (`events.edit` or a lead), which materialises it as the social recap does; others see a hint that a lead or editor must open it first.
+Attendance is set per member row, only after the event starts. For a series, the first session's attendance lives on the parent row, or on its start-date row when one exists ([first session](recurring-events.md#first-session)); every later session's lives on its materialised occurrence. On a past session not yet saved, the Volunteers tab offers "Mark attendance" to people who can open it (`events.edit` or a lead), which materialises it as the social recap does; others see a hint that a lead or editor must open it first.
 
 ### Interest
 

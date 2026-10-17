@@ -38,20 +38,27 @@ export function sessionOccDate(
 }
 
 /**
- * A legacy exception row saved on a series' own start date, which earlier
- * code could create; its interest and records belong to the first session.
+ * A saved row on a series' own start date. A "this and following" split
+ * moves the split-day session there, and older code could create one. A live
+ * row is the first session, so the parent's page points to it; a cancelled
+ * one means the first session was cancelled.
  */
-export function firstSessionExceptionId(event: {
-  exceptions: readonly { id: string; originalDate: string | null }[];
+export function startDateRow(event: {
+  exceptions: readonly {
+    cancelledAt: number | null;
+    id: string;
+    originalDate: string | null;
+  }[];
   recurrenceRule: unknown;
   seriesId: string | null;
   startTime: number;
-}): string | undefined {
+}): { cancelled: boolean; id: string } | undefined {
   if (!event.recurrenceRule || event.seriesId) {
     return undefined;
   }
   const firstDate = seriesStartDate(event.startTime);
-  return event.exceptions.find((e) => e.originalDate === firstDate)?.id;
+  const row = event.exceptions.find((e) => e.originalDate === firstDate);
+  return row ? { cancelled: row.cancelledAt !== null, id: row.id } : undefined;
 }
 
 export function expandSeriesOccurrences(

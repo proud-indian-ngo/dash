@@ -96,7 +96,7 @@ The social keys (`SOCIAL_MANAGE_CONFIG_KEYS`) are the approver, the all-time ove
 
 ### Social recap card
 
-- Shown on ended, non-cancelled, non-Kalakriti session rows to people who can mark attendance, including a series parent as its first session. A past virtual occurrence offers "Start recap", which materialises the row. Materialising never copies the parent's recap; the events endpoint still lists a series' first date as a virtual occurrence, so a recap there counts in monthly stats but not on that listing.
+- Shown on ended, non-cancelled, non-Kalakriti session rows to people who can mark attendance, including a series parent as its first session (unless a start-date row stands for it, see [first session](recurring-events.md#first-session)). A past virtual occurrence offers "Start recap", which materialises the row. Materialising never copies the parent's recap; the events endpoint still lists a series' first date as a virtual occurrence, so a recap there counts in monthly stats but not on that listing.
 - "Mark recap ready" stamps `social_completed_at`. Undo clears it and keeps the figures.
 - "No children at this event" (cleanups, volunteer meetups) saves `children_attended` as null, so a ready recap with a null count means no children, and the API sends `attendance.children: null`. A typed 0 means children were expected but none came.
 

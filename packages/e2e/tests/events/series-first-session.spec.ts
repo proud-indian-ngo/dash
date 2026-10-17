@@ -24,6 +24,7 @@ async function fixture<T>(
 
 interface Fixture {
   firstDate: string;
+  splitDate: string;
   pastDate: string;
   seriesId: string;
   splitId: string;
@@ -31,10 +32,12 @@ interface Fixture {
 
 interface Inspection {
   later: { seriesId: string | null };
+  newSeries: { id: string; members: number } | null;
+  oldRule: string | null;
   past: { attendance: (string | null)[]; id: string } | null;
   series: { childrenAttended: number | null; recapReady: boolean };
-  sessions: number;
-  split: { recurring: boolean; seriesId: string | null };
+  seriesRows: number;
+  split: { members: number; seriesId: string | null };
 }
 
 test.describe("A series' first session and its saved sessions", () => {
@@ -108,7 +111,7 @@ test.describe("A series' first session and its saved sessions", () => {
     expect(page.url()).toContain(`/events/${past?.id}`);
   });
 
-  test("this and following makes the saved split session the new series and moves later ones", async ({
+  test("this and following starts a new series and moves the saved sessions from the split day on", async ({
     page,
   }) => {
     await page.goto(`/events/${fx.splitId}`);
@@ -131,16 +134,35 @@ test.describe("A series' first session and its saved sessions", () => {
     await expect(editDialog).toBeHidden({ timeout: 10_000 });
 
     await expect
-      .poll(async () => {
-        const state = await fixture<Inspection>("inspect", fx.pastDate);
-        return {
-          later: state.later.seriesId,
-          split: state.split,
-        };
-      })
-      .toEqual({
-        later: fx.splitId,
-        split: { recurring: true, seriesId: null },
-      });
+      .poll(
+        async () =>
+          (await fixture<Inspection>("inspect", fx.pastDate)).newSeries
+      )
+      .not.toBeNull();
+    const state = await fixture<Inspection>("inspect", fx.pastDate);
+    // One new series row, nothing else promoted to a series.
+    expect(state.seriesRows).toBe(2);
+    const [year, month, day] = fx.splitDate.split("-").map(Number);
+    const dayBefore = new Date(
+      Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) - 1)
+    )
+      .toISOString()
+      .slice(0, 10)
+      .replaceAll("-", "");
+    expect(state.oldRule).toBe(`FREQ=WEEKLY;UNTIL=${dayBefore}T235959Z`);
+    // The split day's row and the one after moved; its volunteer stayed on it.
+    const newSeriesId = state.newSeries?.id;
+    expect(state.split).toEqual({ members: 1, seriesId: newSeriesId });
+    expect(state.later.seriesId).toBe(newSeriesId);
+    expect(state.newSeries?.members).toBe(0);
+
+    // The new series' page points to its first session, the moved row.
+    await page.goto(`/events/${newSeriesId}`);
+    await waitForZeroReady(page);
+    await page
+      .getByRole("region", { name: "First session" })
+      .getByRole("link", { name: "Open this session" })
+      .click({ timeout: 15_000 });
+    await page.waitForURL(`**/events/${fx.splitId}`, { timeout: 15_000 });
   });
 });

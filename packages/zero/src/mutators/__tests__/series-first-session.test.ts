@@ -100,6 +100,48 @@ describe("a series' first session is the parent row", () => {
     expect(db.tables.teamEvent).toHaveLength(1);
   });
 
+  it("sends the start date (or no date) to a live start-date row", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        endTime: FIRST + 7_200_000,
+        id: "first-row",
+        location: "Iblur",
+        name: "Weekly class",
+        originalDate: "2026-10-03",
+        seriesId: "series-1",
+        startTime: FIRST,
+      },
+    ]);
+    for (const occDate of ["2026-10-03", undefined]) {
+      const target = await resolveJoinTarget(
+        db.tx as never,
+        ctx as never,
+        series as never,
+        { eventId: "series-1", now: NOW, occDate }
+      );
+      expect(target.eventId).toBe("first-row");
+    }
+  });
+
+  it("refuses a cancelled saved session, the start date included", async () => {
+    const db = createDb([
+      {
+        cancelledAt: NOW - 1000,
+        id: "first-row",
+        originalDate: "2026-10-03",
+        seriesId: "series-1",
+        startTime: FIRST,
+      },
+    ]);
+    await expect(
+      resolveJoinTarget(db.tx as never, ctx as never, series as never, {
+        eventId: "series-1",
+        now: NOW,
+      })
+    ).rejects.toThrow("This session was cancelled");
+  });
+
   it("still saves a later date as its own session", async () => {
     const db = createDb();
     const target = await resolveJoinTarget(
@@ -168,41 +210,75 @@ describe("this and following", () => {
   const row = (db: ReturnType<typeof createDb>, id: string) =>
     db.tables.teamEvent?.find((e) => e.id === id);
 
-  it("makes a saved session on the split date the new series and moves later ones to it", async () => {
+  it("starts a new series row and moves saved sessions from the split day on", async () => {
     const db = createDb([
       session("before", "2026-10-10"),
-      session("on-split", split.date, { childrenAttended: 12 }),
+      session("on-split", split.date, {
+        childrenAttended: 12,
+        name: "Own edit",
+      }),
       session("after", "2026-10-24"),
     ]);
-    expect(await follow(db)).toBe("on-split");
-    expect(row(db, "on-split")).toMatchObject({
-      childrenAttended: 12,
-      name: "Weekly class, new room",
-      originalDate: split.date,
-      recurrenceRule: { rrule: "FREQ=WEEKLY" },
-      seriesId: null,
-      startTime: split.start,
-    });
-    expect(row(db, "after")?.seriesId).toBe("on-split");
-    expect(row(db, "before")?.seriesId).toBe("series-1");
-    expect(row(db, "series-2")).toBeUndefined();
-    expect(row(db, "series-1")?.recurrenceRule).toEqual({
-      rrule: "FREQ=WEEKLY;UNTIL=20261017T000000Z",
-    });
-  });
-
-  it("starts a new series row when the split date has no live session", async () => {
-    const db = createDb([
-      session("cancelled", split.date, { cancelledAt: NOW - DAY }),
-      session("after", "2026-10-24"),
-    ]);
-    expect(await follow(db)).toBe("series-2");
+    expect(await follow(db)).toEqual(["on-split", "after"]);
     expect(row(db, "series-2")).toMatchObject({
+      name: "Weekly class, new room",
+      recurrenceRule: { rrule: "FREQ=WEEKLY" },
       seriesId: null,
       startTime: split.start,
       teamId: "team-1",
     });
-    expect(row(db, "cancelled")?.seriesId).toBe("series-2");
+    // The split day's row keeps its own edits and recap, now as the new
+    // series' start-date row.
+    expect(row(db, "on-split")).toMatchObject({
+      childrenAttended: 12,
+      name: "Own edit",
+      originalDate: split.date,
+      seriesId: "series-2",
+    });
     expect(row(db, "after")?.seriesId).toBe("series-2");
+    expect(row(db, "before")?.seriesId).toBe("series-1");
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261016T235959Z",
+    });
+    expect(db.tables.teamEvent).toHaveLength(5);
+  });
+
+  it("moves a cancelled split-day session too, still cancelled", async () => {
+    const db = createDb([
+      session("cancelled", split.date, { cancelledAt: NOW - DAY }),
+    ]);
+    await follow(db);
+    expect(row(db, "cancelled")).toMatchObject({
+      cancelledAt: NOW - DAY,
+      seriesId: "series-2",
+    });
+  });
+
+  it("hands the WhatsApp group to the new series and its inherited sessions", async () => {
+    const db = createDb([
+      session("before", "2026-10-10", { whatsappGroupId: "g-1" }),
+      session("inherited", split.date, { whatsappGroupId: "g-1" }),
+      session("own-group", "2026-10-24", { whatsappGroupId: "g-own" }),
+    ]);
+    const parent = db.tables.teamEvent?.[0] as Row;
+    parent.whatsappGroupId = "g-1";
+    await updateSeriesFollowing(
+      db.tx as never,
+      {
+        id: "series-1",
+        newSeriesId: "series-2",
+        now: NOW,
+        originalDate: split.date,
+        startTime: split.start,
+      },
+      { ...series, whatsappGroupId: "g-1" } as never,
+      "lead-1"
+    );
+    expect(row(db, "series-1")?.whatsappGroupId).toBeNull();
+    expect(row(db, "series-2")?.whatsappGroupId).toBe("g-1");
+    expect(row(db, "inherited")?.whatsappGroupId).toBe("g-1");
+    expect(row(db, "own-group")?.whatsappGroupId).toBe("g-own");
+    // Past sessions keep their stored group for history.
+    expect(row(db, "before")?.whatsappGroupId).toBe("g-1");
   });
 });

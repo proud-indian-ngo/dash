@@ -1,23 +1,29 @@
 import type { ReminderTarget } from "@pi-dash/shared/constants";
-import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
 
 const UNTIL_RE = /UNTIL=\d{8}T\d{6}Z/;
 const DASH_RE = /-/g;
+const COLON_RE = /:/g;
 
 /**
- * Build a truncated RRULE string with UNTIL pinned to 00:00:00Z of splitDate.
- * Any occurrence at or after splitDate (UTC) is excluded; earlier occurrences
- * stay on the old series. TZ-clean regardless of the series' wall-clock time.
+ * Build a truncated RRULE string ending the second before splitDate starts
+ * (UTC). UNTIL is inclusive, so pinning it to 00:00:00Z of the split date
+ * would keep a session at exactly midnight UTC on the old series. Every
+ * occurrence keyed on or after splitDate leaves the old series; earlier ones
+ * stay. TZ-clean regardless of the series' wall-clock time.
  */
 export function buildTruncatedRRule(
   rruleStr: string,
   splitIsoDate: string
 ): string {
-  const untilStr = splitIsoDate.replace(DASH_RE, "");
-  const until = `UNTIL=${untilStr}T000000Z`;
+  const lastSecond = new Date(Date.parse(`${splitIsoDate}T00:00:00Z`) - 1000);
+  const until = `UNTIL=${lastSecond
+    .toISOString()
+    .slice(0, 19)
+    .replace(DASH_RE, "")
+    .replace(COLON_RE, "")}Z`;
   if (rruleStr.includes("UNTIL=")) {
     return rruleStr.replace(UNTIL_RE, until);
   }
@@ -365,6 +371,8 @@ export async function updateSeriesFollowing(
   const rule = existing.recurrenceRule as RecurrenceRuleValue & {
     rrule: string;
   };
+  // The WhatsApp group follows the continuing series. The old row lets go of
+  // it first: a group belongs to one series row at a time.
   await tx.mutate.teamEvent.update({
     id: args.id,
     recurrenceRule: {
@@ -372,6 +380,7 @@ export async function updateSeriesFollowing(
       rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
     },
     updatedAt: args.now,
+    ...(existing.whatsappGroupId ? { whatsappGroupId: null } : {}),
   });
   const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
   const newStart = args.startTime ?? existing.startTime;
@@ -413,49 +422,37 @@ export async function updateSeriesFollowing(
         : args.whatsappGroupId || null,
   };
 
-  // Saved sessions from the split on belong to the new series, with their
-  // members, attendance, interest and recaps; left behind, the new series
-  // would list the same dates again.
+  await tx.mutate.teamEvent.insert({
+    ...series,
+    createdAt: args.now,
+    createdBy: userId,
+    id: args.newSeriesId,
+    teamId: existing.teamId,
+  });
+  // Saved sessions from the split on, the split day's included, move to the
+  // new series with their own members, edits, attendance, interest and
+  // recaps; left behind, the new series would list the same dates again.
+  // The split day's row lands on the new series' start date, where it stands
+  // for the first session. A session still on the old series' group takes
+  // the new series' group; one given its own group keeps it.
   const moving = (
     (await tx.run(zql.teamEvent.where("seriesId", args.id))) as TeamEvent[]
   ).filter(
     (e) => e.originalDate !== null && e.originalDate >= args.originalDate
   );
-  // A live session on the new series' start date is its first session, which
-  // is the series row itself: that row becomes the new series, so nothing it
-  // holds has to move.
-  const firstDate = seriesStartDate(newStart);
-  const promoted = moving.find(
-    (e) => e.originalDate === firstDate && e.cancelledAt === null
-  );
-  const newSeriesId = promoted?.id ?? args.newSeriesId;
-  if (promoted) {
-    await tx.mutate.teamEvent.update({
-      ...series,
-      id: promoted.id,
-      originalDate: promoted.originalDate,
-    });
-  } else {
-    await tx.mutate.teamEvent.insert({
-      ...series,
-      createdAt: args.now,
-      createdBy: userId,
-      id: args.newSeriesId,
-      teamId: existing.teamId,
-    });
-  }
   await Promise.all(
-    moving
-      .filter((e) => e.id !== promoted?.id)
-      .map((e) =>
-        tx.mutate.teamEvent.update({
-          id: e.id,
-          seriesId: newSeriesId,
-          updatedAt: args.now,
-        })
-      )
+    moving.map((e) =>
+      tx.mutate.teamEvent.update({
+        id: e.id,
+        seriesId: args.newSeriesId,
+        updatedAt: args.now,
+        ...(e.whatsappGroupId === existing.whatsappGroupId
+          ? { whatsappGroupId: series.whatsappGroupId }
+          : {}),
+      })
+    )
   );
-  return newSeriesId;
+  return moving.map((e) => e.id);
 }
 
 // ---------------------------------------------------------------------------

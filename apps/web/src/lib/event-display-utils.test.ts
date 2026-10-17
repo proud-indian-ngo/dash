@@ -9,9 +9,9 @@ import {
 
 import {
   expandSeriesOccurrences,
-  firstSessionExceptionId,
   sessionOccDate,
   sortUpcomingFirstThenPast,
+  startDateRow,
 } from "./event-display-utils";
 
 describe("sortUpcomingFirstThenPast", () => {
@@ -219,30 +219,36 @@ describe("sessionOccDate", () => {
   });
 });
 
-describe("firstSessionExceptionId", () => {
+describe("startDateRow", () => {
   const series = {
     exceptions: [
-      { id: "exc-later", originalDate: "2026-10-10" },
-      { id: "exc-first", originalDate: "2026-10-03" },
+      { cancelledAt: null, id: "exc-later", originalDate: "2026-10-10" },
+      { cancelledAt: null, id: "exc-first", originalDate: "2026-10-03" },
     ],
     recurrenceRule: { rrule: "FREQ=WEEKLY" },
     seriesId: null,
     startTime: Date.UTC(2026, 9, 3, 4, 30),
   };
 
-  it("finds a legacy row saved on the series' own start date", () => {
-    expect(firstSessionExceptionId(series)).toBe("exc-first");
+  it("finds a live row saved on the series' own start date", () => {
+    expect(startDateRow(series)).toEqual({ cancelled: false, id: "exc-first" });
+  });
+
+  it("flags a cancelled start-date row", () => {
+    expect(
+      startDateRow({
+        ...series,
+        exceptions: [
+          { cancelledAt: 1, id: "exc-first", originalDate: "2026-10-03" },
+        ],
+      })
+    ).toEqual({ cancelled: true, id: "exc-first" });
   });
 
   it("finds nothing without one, or on a row that is not a parent", () => {
     expect(
-      firstSessionExceptionId({
-        ...series,
-        exceptions: [series.exceptions[0]!],
-      })
+      startDateRow({ ...series, exceptions: series.exceptions.slice(0, 1) })
     ).toBeUndefined();
-    expect(
-      firstSessionExceptionId({ ...series, seriesId: "s" })
-    ).toBeUndefined();
+    expect(startDateRow({ ...series, seriesId: "s" })).toBeUndefined();
   });
 });
