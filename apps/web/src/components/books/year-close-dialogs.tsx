@@ -51,6 +51,10 @@ const CHECK_LABELS: Record<CloseCheckId, { fail: string; pass: string }> = {
     fail: "Clearing balances at year end",
     pass: "Clearing balances at year end",
   },
+  open_bank_lines: {
+    fail: "Bank lines still open",
+    pass: "Every bank line matched or explained",
+  },
   opening_balances: {
     fail: "Opening balances not posted",
     pass: "Opening balances posted",

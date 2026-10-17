@@ -11,6 +11,7 @@ import {
   desc,
   eq,
   gt,
+  gte,
   isNotNull,
   isNull,
   lt,
@@ -41,8 +42,9 @@ import { LedgerError } from "./rules";
  * its own permission and a reason, kept in `fiscal_year_event`.
  *
  * Blocking: the year has ended, the previous year in the books is closed,
- * (in the cutover year) the opening balances are posted, and no record
- * dated in the year is waiting to post. A later year that is closed blocks
+ * (in the cutover year) the opening balances are posted, no record
+ * dated in the year is waiting to post, and no bank line dated in it is
+ * open. A later year that is closed blocks
  * reopening an earlier one. The rest of the checklist is for the treasurer
  * to judge: bank statements reaching the year end, the clearing
  * balances at year end (payouts in transit are normal), and the audited
@@ -57,6 +59,7 @@ export type CloseCheckId =
   | "opening_balances"
   | "unposted_sources"
   | "bank_statements"
+  | "open_bank_lines"
   | "clearing_balances"
   | "audited_figures";
 
@@ -79,6 +82,8 @@ export interface YearCloseChecklist {
 }
 
 const BLOCKER_MESSAGES: Partial<Record<CloseCheckId, string>> = {
+  open_bank_lines:
+    "Bank lines dated in this year are still open. Match or explain them under Bank statements before closing the year",
   opening_balances: "Post the opening balances before closing the year",
   unposted_sources:
     "Records dated in this year are waiting to post. Post them, or resolve why they wait, before closing the year",
@@ -189,6 +194,33 @@ export async function yearCloseChecklist(
     id: "bank_statements",
     ok: banks.every((b) => b.lastOn !== null && b.lastOn >= year.endsOn),
     required: false,
+  });
+
+  // Blocking: once the year is closed, its lines can no longer be matched.
+  const openLines = await tx
+    .select({
+      credits: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit')::int`,
+      debits: sql<number>`count(*) filter (where ${statementLine.direction} = 'debit')::int`,
+      name: orgAccount.name,
+    })
+    .from(statementLine)
+    .innerJoin(orgAccount, eq(orgAccount.id, statementLine.orgAccountId))
+    .where(
+      and(
+        eq(statementLine.matchStatus, "unmatched"),
+        gte(statementLine.valueOn, year.startsOn),
+        lte(statementLine.valueOn, year.endsOn)
+      )
+    )
+    .groupBy(orgAccount.id, orgAccount.name)
+    .orderBy(orgAccount.name);
+  checks.push({
+    details: openLines.map(
+      (l) => `${l.name}: ${l.credits} money in, ${l.debits} money out`
+    ),
+    id: "open_bank_lines",
+    ok: openLines.length === 0,
+    required: true,
   });
 
   // Shown for the treasurer to check, never a failure: money a gateway has

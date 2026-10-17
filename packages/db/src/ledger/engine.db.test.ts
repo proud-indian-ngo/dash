@@ -27,6 +27,7 @@ import {
   openingBalance,
   posting,
 } from "../schema/ledger";
+import { statementLine } from "../schema/statement-line";
 import { type LedgerTx, post, reverse } from "./engine";
 import { listIncomeSources } from "./income-posting";
 import { postOpeningBalance, reverseOpeningBalance } from "./opening-balance";
@@ -131,6 +132,11 @@ async function foundation(tx: LedgerTx) {
   await tx.update(fiscalYear).set({ closedAt: null, closedBy: null });
   // Nothing waiting to post, whatever the database's own records are doing.
   await tx.delete(ledgerSourceState);
+  // No open bank lines either: the database's own would block every close.
+  await tx
+    .update(statementLine)
+    .set({ valueOn: "2026-03-31" })
+    .where(eq(statementLine.matchStatus, "unmatched"));
   // The database's own income records count as looked at, so only this
   // test's records can hold up a year close.
   const existing = await listIncomeSources(tx);
@@ -363,6 +369,67 @@ it.skipIf(!localDatabase)(
         { action: "close", reason: null },
         { action: "reopen", reason: "CA found a missing receipt" },
       ]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "won't close a year while one of its bank lines is open",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      await postOpeningBalance(
+        tx,
+        {
+          caConfirmedOn: "2026-04-15",
+          caName: "Test CA",
+          fiscalYearId: ids.yearId,
+          id: uuidv7(),
+          lines: [
+            { amountPaise: 1000, kind: "account", orgAccountId: ids.bank },
+            { amountPaise: 1000, fundId: GENERAL_FUND_ID, kind: "fund" },
+          ],
+        },
+        { actorId: ids.user, now: NOW }
+      );
+      const lineId = uuidv7();
+      await tx.insert(statementLine).values({
+        amountPaise: 30_000,
+        createdAt: NOW,
+        direction: "debit",
+        id: lineId,
+        lineHash: `h1:${uuidv7()}`,
+        orgAccountId: ids.bank,
+        position: 1,
+        updatedAt: NOW,
+        valueOn: "2026-09-12",
+      });
+      const open = await yearCloseChecklist(tx, ids.yearId, AFTER_YEAR_END);
+      expect(open.canClose).toBe(false);
+      expect(open.checks.find((c) => c.id === "open_bank_lines")).toMatchObject(
+        { ok: false, required: true }
+      );
+      expect(
+        await codeOf(() =>
+          closeYear(tx, ids.yearId, { actorId: ids.user, now: AFTER_YEAR_END })
+        )
+      ).toBe("invalid");
+      await tx
+        .update(statementLine)
+        .set({
+          matchKind: "other",
+          matchStatus: "matched",
+          matchedAt: NOW,
+        })
+        .where(eq(statementLine.id, lineId));
+      const explained = await yearCloseChecklist(
+        tx,
+        ids.yearId,
+        AFTER_YEAR_END
+      );
+      expect(
+        explained.checks.find((c) => c.id === "open_bank_lines")
+      ).toMatchObject({ ok: true });
     });
   }
 );

@@ -399,12 +399,40 @@ async function closeAfterPosting(
           lte(ledgerSourceState.economicOn, year.endsOn)
         )
       );
+    // Open bank lines other specs leave in the year are moved out of it for
+    // the close and put back before commit, so specs running alongside
+    // never see them change. The ledger's DB tests cover that check.
+    const open = await tx
+      .select({ id: statementLine.id, valueOn: statementLine.valueOn })
+      .from(statementLine)
+      .where(
+        and(
+          eq(statementLine.matchStatus, "unmatched"),
+          gte(statementLine.valueOn, year.startsOn),
+          lte(statementLine.valueOn, year.endsOn)
+        )
+      );
+    const outside = new Date(`${year.startsOn}T00:00:00Z`);
+    outside.setUTCDate(outside.getUTCDate() - 1);
+    for (const line of open) {
+      await tx
+        .update(statementLine)
+        .set({ valueOn: outside.toISOString().slice(0, 10) })
+        .where(eq(statementLine.id, line.id));
+    }
     const checklist = await yearCloseChecklist(tx, year.id, dayAfter);
     // Shown when the close refuses, to say which check held it up.
     process.stderr.write(
       `close-year checklist: ${JSON.stringify(checklist.checks)}\n`
     );
-    return await closeYear(tx, year.id, { actorId, now: dayAfter });
+    const closed = await closeYear(tx, year.id, { actorId, now: dayAfter });
+    for (const line of open) {
+      await tx
+        .update(statementLine)
+        .set({ valueOn: line.valueOn })
+        .where(eq(statementLine.id, line.id));
+    }
+    return closed;
   });
 }
 
