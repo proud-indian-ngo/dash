@@ -117,6 +117,36 @@ export const DEFAULT_COMPLIANCE_TEMPLATES: ComplianceTemplateDefinition[] = [
     title: "Annual accounts approved by the Board",
   },
   {
+    dates: [{ day: 30, month: 4 }],
+    description:
+      "Every trustee in office declares their interests for the new financial year, or that they have none (clause 5.3), on the Declarations page.",
+    key: "interest_declarations",
+    kind: "yearly",
+    offsetDays: null,
+    registrationType: null,
+    title: "Trustees' declarations of interests",
+  },
+  {
+    dates: [{ day: 30, month: 6 }],
+    description:
+      "The Board appoints or reappoints the auditor for the year, before the audit starts.",
+    key: "auditor_appointment",
+    kind: "yearly",
+    offsetDays: null,
+    registrationType: null,
+    title: "Auditor appointed for the year",
+  },
+  {
+    dates: [{ day: 31, month: 8 }],
+    description:
+      "When income is set apart for a purpose: the Board's resolution and the accumulation statement (Form 109), at least two months before the income-tax return is due. Mark it not needed in a year with no accumulation.",
+    key: "accumulation",
+    kind: "yearly",
+    offsetDays: null,
+    registrationType: null,
+    title: "Accumulation of income (Form 109)",
+  },
+  {
     dates: [{ day: 30, month: 6 }],
     description:
       "Send the principal donors the yearly report of the work their money did.",

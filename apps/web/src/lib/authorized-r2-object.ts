@@ -4,6 +4,7 @@ import {
   advancePayment,
   advancePaymentAttachment,
 } from "@pi-dash/db/schema/advance-payment";
+import { policyVersion } from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import {
   governanceDocument,
@@ -316,6 +317,32 @@ async function resolveMeetingMinutes(
   };
 }
 
+/** A published policy version's document. */
+async function resolvePolicyDocument(
+  ref: AssetRef<"policyDocument">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      archiveKey: governanceDocument.archiveObjectKey,
+      filename: governanceDocument.originalFilename,
+      key: governanceDocument.objectKey,
+    })
+    .from(policyVersion)
+    .innerJoin(
+      governanceDocument,
+      eq(governanceDocument.id, policyVersion.documentId)
+    )
+    .where(eq(policyVersion.id, ref.id))
+    .limit(1);
+  return row
+    ? {
+        access: "policy",
+        filename: row.filename,
+        key: row.archiveKey ?? row.key,
+      }
+    : null;
+}
+
 async function resolveKalakritiEntryMusic(
   ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
 ): Promise<R2ObjectRecord | null> {
@@ -358,6 +385,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveKalakritiScorecard(ref);
     case "meetingMinutes":
       return resolveMeetingMinutes(ref);
+    case "policyDocument":
+      return resolvePolicyDocument(ref);
     case "reimbursementAttachment":
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":

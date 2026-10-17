@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "submitConflictDeclarationFn",
   "sendMeetingNoticeFn",
   "decideAgendaItemFn",
   "markMeetingHeldFn",
@@ -72,6 +73,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "getPaymentGovernanceWarnings",
   "getMinutesUploadUrl",
   "getSigningJobStatus",
   "getMyDscStatus",

@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { handleMutationResult, joinErrorMessage } from "@/lib/mutation-result";
 
 interface ShowInterestDialogProps {
   eventDate?: string;
@@ -69,7 +69,7 @@ export function ShowInterestDialog({
     setIsSubmitting(false);
     handleMutationResult(res, {
       entityId: id,
-      errorMsg: "Failed to submit interest",
+      errorMsg: joinErrorMessage(res, "Failed to submit interest"),
       mutation: "eventInterest.create",
       successMsg: "Interest submitted!",
     });

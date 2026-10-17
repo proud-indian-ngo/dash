@@ -151,7 +151,9 @@ import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import {
   ensureComplianceFixtures,
   ensureGovernanceFixtures,
+  ensureDevPolicyExamples,
   ensureMeetingFixtures,
+  ensurePolicyFixtures,
 } from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
@@ -3815,8 +3817,10 @@ async function seedGovernance(userMap: Map<string, string>): Promise<void> {
   });
   await ensureComplianceFixtures();
   await ensureMeetingFixtures();
+  await ensurePolicyFixtures();
+  await ensureDevPolicyExamples(getUser(userMap, "admin@pi-dash.dev"));
   log(
-    "Deed version 1, a fictional board of 4 trustees, the compliance calendar and a board meeting ready"
+    "Deed version 1, a fictional board of 4 trustees, the compliance calendar, a board meeting and the policy register ready"
   );
 }
 

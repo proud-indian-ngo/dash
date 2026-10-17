@@ -1,5 +1,11 @@
 import { describe, expect, it, mock } from "bun:test";
 
+// The safeguarding gate has its own tests; these fakes answer queries in order.
+mock.module("../safeguarding", () => ({
+  assertSafeguardingAcknowledged: async () => undefined,
+  assertSafeToJoinEvent: async () => undefined,
+}));
+
 import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
 
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";

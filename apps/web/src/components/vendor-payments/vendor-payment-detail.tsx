@@ -50,6 +50,7 @@ import {
 import { sumAmounts } from "@/lib/stats";
 import { getStatusBadge } from "@/lib/status-badge";
 
+import { GovernancePaymentWarnings } from "./governance-payment-warnings";
 import { VendorDetailCards } from "./vendor-details-card";
 import { VendorPaymentInvoiceSection } from "./vendor-payment-invoice-section";
 import { VendorPaymentTransactions } from "./vendor-payment-transactions";
@@ -394,6 +395,10 @@ export function VendorPaymentDetail({
           {voided && request.voidReason ? (
             <RejectionNote label="Void" reason={request.voidReason} />
           ) : null}
+          <GovernancePaymentWarnings
+            enabled={hasPermission("requests.approve") && !voided}
+            vendorPaymentId={request.id}
+          />
 
           <VendorPaymentLineItemsTable
             lineItems={request.lineItems}

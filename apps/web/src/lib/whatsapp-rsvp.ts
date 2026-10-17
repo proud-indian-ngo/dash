@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { safeguardingBlocks } from "@pi-dash/db/queries/policies";
 import { user } from "@pi-dash/db/schema/auth";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
@@ -7,6 +8,7 @@ import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import { formatPhoneForWhatsApp } from "@pi-dash/whatsapp/phone";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { and, eq, sql } from "drizzle-orm";
@@ -249,6 +251,17 @@ export async function processWhatsAppPollVoteWebhook(
         }
       );
     }
+  }
+
+  if (
+    selectedOption === "yes" &&
+    (await safeguardingBlocks(poll.eventId, resolvedUserId, todayInKolkata()))
+  ) {
+    // An event with children needs the safeguarding policy acknowledged;
+    // the volunteer sees it on their dashboard.
+    log.set({ event: "rsvp_safeguarding_not_acknowledged" });
+    log.emit();
+    return "processed";
   }
 
   if (selectedOption === "yes") {

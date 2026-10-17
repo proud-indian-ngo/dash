@@ -21,7 +21,7 @@ import {
   getUsersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { handleMutationResult, joinErrorMessage } from "@/lib/mutation-result";
 
 const addMemberSchema = z.object({
   userIds: z.array(z.string()).min(1, "Select at least one volunteer"),
@@ -83,7 +83,7 @@ function AddEventMemberFormContent({
       const count = members.length;
       handleMutationResult(res, {
         entityId: eventId,
-        errorMsg: "Failed to add volunteers",
+        errorMsg: joinErrorMessage(res, "Failed to add volunteers"),
         mutation: "teamEvent.addMembers",
         successMsg:
           count === 1 ? "Volunteer added" : `${count} volunteers added`,

@@ -43,6 +43,7 @@ import {
   ensureComplianceFixtures,
   ensureGovernanceFixtures,
   ensureMeetingFixtures,
+  ensurePolicyFixtures,
 } from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
@@ -1786,6 +1787,7 @@ async function seed(): Promise<void> {
   // meeting specs; it takes effect on 1 Jan 2026.
   await ensureAmendedDeedFixture();
   await ensureMeetingFixtures();
+  await ensurePolicyFixtures();
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });

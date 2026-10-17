@@ -74,6 +74,7 @@ export const governanceDocumentKindValues = [
   "resignation",
   "acceptance",
   "policy",
+  "declaration",
   "evidence",
   "other",
 ] as const;
@@ -85,6 +86,7 @@ export const GOVERNANCE_DOCUMENT_KIND_LABELS: Record<
   string
 > = {
   acceptance: "Acceptance of trusteeship",
+  declaration: "Declaration of interests",
   deed_amendment: "Deed of amendment",
   evidence: "Evidence",
   minutes: "Minutes",
