@@ -30,7 +30,10 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { TipStrip } from "@/components/shared/tip-strip";
 import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
-import { EditScopeDialog } from "@/components/teams/events/edit-scope-dialog";
+import {
+  EditScopeDialog,
+  seriesEditScopes,
+} from "@/components/teams/events/edit-scope-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
 import {
   buildRowDuplicateInitialValues,
@@ -189,6 +192,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
   return {
     cancelEvent,
     cancelScopeDialogOpen,
+    cancelScopeRow,
     handleCancelEvent,
     handleCancelScopeSelect,
     setCancelScopeDialogOpen,
@@ -245,6 +249,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
     editScope,
     setEditScope,
     editScopeDialogOpen,
+    editScopeRow,
     setEditScopeDialogOpen,
     setEditScopeRow,
     handleEditEvent,
@@ -255,6 +260,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
   const {
     cancelEvent,
     cancelScopeDialogOpen,
+    cancelScopeRow,
     setCancelScopeDialogOpen,
     handleCancelEvent,
     handleCancelScopeSelect,
@@ -486,6 +492,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           onOpenChange={setEditScopeDialogOpen}
           onSelect={handleEditScopeSelect}
           open={editScopeDialogOpen}
+          scopes={seriesEditScopes(
+            editScopeRow?.event.startTime,
+            editScopeRow?.originalDate
+          )}
           title="Edit recurring event"
         />
 
@@ -494,6 +504,10 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           onOpenChange={setCancelScopeDialogOpen}
           onSelect={handleCancelScopeSelect}
           open={cancelScopeDialogOpen}
+          scopes={seriesEditScopes(
+            cancelScopeRow?.event.startTime,
+            cancelScopeRow?.originalDate
+          )}
           title="Cancel recurring event"
         />
 

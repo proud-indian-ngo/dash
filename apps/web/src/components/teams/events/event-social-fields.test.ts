@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildSocialFields,
+  deriveAttendanceMode,
   deriveSocialRecapMode,
 } from "./event-social-fields";
 
@@ -106,7 +107,7 @@ describe("deriveSocialRecapMode", () => {
     ).toBe("materialize");
   });
 
-  it("shows the form on a single session and nothing on a series parent", () => {
+  it("shows the form on a saved session and on a series parent as its first session", () => {
     expect(
       deriveSocialRecapMode({
         ...base,
@@ -115,6 +116,45 @@ describe("deriveSocialRecapMode", () => {
       })
     ).toBe("form");
     expect(deriveSocialRecapMode({ ...base, isVirtualOccurrence: false })).toBe(
+      "form"
+    );
+  });
+});
+
+describe("deriveAttendanceMode", () => {
+  const base = {
+    canManageAttendance: true,
+    canMaterialize: true,
+    cancelled: false,
+    existingOccurrenceId: undefined,
+    hasStarted: true,
+    isVirtualOccurrence: true,
+  };
+
+  it("opens a started virtual occurrence instead of marking on the series", () => {
+    expect(deriveAttendanceMode(base)).toBe("open");
+    expect(
+      deriveAttendanceMode({
+        ...base,
+        canMaterialize: false,
+        existingOccurrenceId: "exc-1",
+      })
+    ).toBe("open");
+    expect(deriveAttendanceMode({ ...base, canMaterialize: false })).toBe(
+      "locked"
+    );
+    expect(deriveAttendanceMode({ ...base, cancelled: true })).toBe(null);
+  });
+
+  it("marks on a saved row, including a series parent's first session", () => {
+    expect(deriveAttendanceMode({ ...base, isVirtualOccurrence: false })).toBe(
+      "mark"
+    );
+  });
+
+  it("offers nothing before the start or without the permission", () => {
+    expect(deriveAttendanceMode({ ...base, hasStarted: false })).toBe(null);
+    expect(deriveAttendanceMode({ ...base, canManageAttendance: false })).toBe(
       null
     );
   });

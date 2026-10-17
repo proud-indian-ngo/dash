@@ -183,13 +183,15 @@ describe("teamEvent.saveSocialRecap", () => {
     ).rejects.toThrow("after the event ends");
   });
 
-  it("rejects series parents", async () => {
+  it("records the recap on a series parent, its first session", async () => {
     const db = createDb({
       teamEvent: [pastEvent({ recurrenceRule: { rrule: "FREQ=WEEKLY" } })],
     });
-    await expect(
-      run(teamEventMutators.saveSocialRecap, db, adminCtx, recap)
-    ).rejects.toThrow("single session");
+    await run(teamEventMutators.saveSocialRecap, db, adminCtx, recap);
+    expect(db.tables.teamEvent?.[0]).toMatchObject({
+      childrenAttended: 18,
+      socialCompletedAt: NOW,
+    });
   });
 
   it("rejects Kalakriti-managed events", async () => {

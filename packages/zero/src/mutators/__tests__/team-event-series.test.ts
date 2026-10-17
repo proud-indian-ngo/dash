@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { expandSeries } from "@pi-dash/shared/rrule-expand";
+
 import {
   buildExceptionInsert,
   buildTruncatedRRule,
@@ -9,9 +11,9 @@ import {
 const NOW = 1_700_000_000_000;
 
 describe("buildTruncatedRRule", () => {
-  it("appends UNTIL pinned to 00:00:00Z of split date", () => {
+  it("ends the rule the second before the split date starts (UTC)", () => {
     const result = buildTruncatedRRule("FREQ=WEEKLY;BYDAY=SA", "2026-04-15");
-    expect(result).toBe("FREQ=WEEKLY;BYDAY=SA;UNTIL=20260415T000000Z");
+    expect(result).toBe("FREQ=WEEKLY;BYDAY=SA;UNTIL=20260414T235959Z");
   });
 
   it("replaces existing UNTIL", () => {
@@ -19,22 +21,42 @@ describe("buildTruncatedRRule", () => {
       "FREQ=MONTHLY;BYDAY=1SA;UNTIL=20261231T235959Z",
       "2026-06-01"
     );
-    expect(result).toBe("FREQ=MONTHLY;BYDAY=1SA;UNTIL=20260601T000000Z");
+    expect(result).toBe("FREQ=MONTHLY;BYDAY=1SA;UNTIL=20260531T235959Z");
   });
 
-  it("handles January 1st split", () => {
-    const result = buildTruncatedRRule("FREQ=WEEKLY", "2026-01-01");
-    expect(result).toBe("FREQ=WEEKLY;UNTIL=20260101T000000Z");
+  it("crosses year and leap-day boundaries", () => {
+    expect(buildTruncatedRRule("FREQ=WEEKLY", "2026-01-01")).toBe(
+      "FREQ=WEEKLY;UNTIL=20251231T235959Z"
+    );
+    expect(buildTruncatedRRule("FREQ=DAILY", "2025-03-01")).toBe(
+      "FREQ=DAILY;UNTIL=20250228T235959Z"
+    );
+    expect(buildTruncatedRRule("FREQ=DAILY", "2024-03-01")).toBe(
+      "FREQ=DAILY;UNTIL=20240229T235959Z"
+    );
   });
 
-  it("handles March 1st split in non-leap year", () => {
-    const result = buildTruncatedRRule("FREQ=DAILY", "2025-03-01");
-    expect(result).toBe("FREQ=DAILY;UNTIL=20250301T000000Z");
+  const datesUntil = (start: number, split: string) =>
+    expandSeries(
+      { rrule: buildTruncatedRRule("FREQ=DAILY", split) },
+      start,
+      null,
+      start,
+      start + 10 * 86_400_000
+    ).map((occ) => occ.date);
+
+  it("moves a midnight-UTC session on the split date off the old series", () => {
+    expect(datesUntil(Date.UTC(2026, 3, 13, 0, 0), "2026-04-15")).toEqual([
+      "2026-04-13",
+      "2026-04-14",
+    ]);
   });
 
-  it("handles March 1st split in leap year", () => {
-    const result = buildTruncatedRRule("FREQ=DAILY", "2024-03-01");
-    expect(result).toBe("FREQ=DAILY;UNTIL=20240301T000000Z");
+  it("keeps the day before when the series runs at 23:30Z", () => {
+    expect(datesUntil(Date.UTC(2026, 3, 13, 23, 30), "2026-04-15")).toEqual([
+      "2026-04-13",
+      "2026-04-14",
+    ]);
   });
 });
 

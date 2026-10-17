@@ -4,6 +4,7 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -127,6 +128,10 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
         if (existing) {
           return existing;
         }
+        // The series' first session is the parent row itself.
+        if (occurrence.date === seriesStartDate(series.startTime)) {
+          return series;
+        }
         const [parent] = await tx
           .select({ inheritVolunteers: teamEvent.inheritVolunteers })
           .from(teamEvent)
@@ -143,6 +148,9 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
             tx
               .select({
                 ...getTableColumns(teamEvent),
+                // The parent is its own first session, so its recap stays
+                // there: a new session starts without one.
+                childrenAttended: sql`null::integer`.as("children_attended"),
                 createdAt: sql`${new Date(now)}::timestamp`.as("created_at"),
                 createdBy: sql`${userId}`.as("created_by"),
                 endTime: sql`${
@@ -154,6 +162,10 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
                 originalDate: sql`${occurrence.date}`.as("original_date"),
                 recurrenceRule: sql`null::jsonb`.as("recurrence_rule"),
                 seriesId: teamEvent.id,
+                socialCompletedAt: sql`null::timestamp`.as(
+                  "social_completed_at"
+                ),
+                socialNotes: sql`null::text`.as("social_notes"),
                 startTime: sql`${new Date(occurrence.startTime)}::timestamp`.as(
                   "start_time"
                 ),
