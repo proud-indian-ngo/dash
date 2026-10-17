@@ -27,7 +27,7 @@ import {
   openingBalance,
   posting,
 } from "../schema/ledger";
-import { statementLine } from "../schema/statement-line";
+import { statementAllocation, statementLine } from "../schema/statement-line";
 import { type LedgerTx, post, reverse } from "./engine";
 import { listIncomeSources } from "./income-posting";
 import { postOpeningBalance, reverseOpeningBalance } from "./opening-balance";
@@ -402,13 +402,44 @@ it.skipIf(!localDatabase)(
         orgAccountId: ids.bank,
         position: 1,
         updatedAt: NOW,
+        needsClaimAt: NOW,
         valueOn: "2026-09-12",
+      });
+      // Explained in part, so still open.
+      await tx.insert(statementAllocation).values({
+        amountPaise: 10_000,
+        createdAt: NOW,
+        id: uuidv7(),
+        kind: "bank_charges",
+        statementLineId: lineId,
+      });
+      // An ignored line is settled.
+      await tx.insert(statementLine).values({
+        amountPaise: 5000,
+        createdAt: NOW,
+        direction: "credit",
+        id: uuidv7(),
+        ignoredReason: "bank_interest",
+        lineHash: `h1:${uuidv7()}`,
+        matchStatus: "ignored",
+        orgAccountId: ids.bank,
+        position: 2,
+        updatedAt: NOW,
+        valueOn: "2026-09-13",
       });
       const open = await yearCloseChecklist(tx, ids.yearId, AFTER_YEAR_END);
       expect(open.canClose).toBe(false);
-      expect(open.checks.find((c) => c.id === "open_bank_lines")).toMatchObject(
-        { ok: false, required: true }
-      );
+      const openCheck = open.checks.find((c) => c.id === "open_bank_lines");
+      expect(openCheck).toMatchObject({ ok: false, required: true });
+      expect(openCheck?.accounts).toEqual([
+        {
+          detail: expect.stringMatching(
+            /: 1 money out, 1 waiting for a claim$/
+          ),
+          orgAccountId: ids.bank,
+          tab: "out",
+        },
+      ]);
       expect(
         await codeOf(() =>
           closeYear(tx, ids.yearId, { actorId: ids.user, now: AFTER_YEAR_END })
@@ -420,6 +451,7 @@ it.skipIf(!localDatabase)(
           matchKind: "other",
           matchStatus: "matched",
           matchedAt: NOW,
+          needsClaimAt: null,
         })
         .where(eq(statementLine.id, lineId));
       const explained = await yearCloseChecklist(

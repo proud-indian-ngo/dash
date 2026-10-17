@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
   type ClassifyContext,
   type ClassifyRowInput,
+  type NameMatch,
   classifyRows,
   idMatchKey,
   planRows,
@@ -516,7 +517,10 @@ describe("name proposals", () => {
   it("proposes an existing donor with the same name and never picks it", () => {
     const context = emptyContext();
     context.nameMatches = new Map([
-      ["goodera", [{ name: "Goodera", partyId: "p-g" }]],
+      [
+        "goodera",
+        [{ idLast4: null, idType: "none", name: "Goodera", partyId: "p-g" }],
+      ],
     ]);
     const r = input(row({ donorName: "  GOODERA ", externalId: "N1" }));
     const [result] = classifyRows([r], context);
@@ -556,6 +560,101 @@ describe("name proposals", () => {
     expect(summarizePlans(joined.values()).newDonors).toBe(1);
     const apart = planRows(classified, { [b.id]: { donor: "new" } });
     expect(summarizePlans(apart.values()).newDonors).toBe(2);
+  });
+
+  it("drops a donor whose stored ID number of the same type ends differently", () => {
+    const context = emptyContext();
+    context.nameMatches = new Map<string, NameMatch[]>([
+      [
+        "asha rao",
+        [
+          { idLast4: "999Z", idType: "pan", name: "Asha Rao", partyId: "p-1" },
+          { idLast4: "234F", idType: "pan", name: "Asha Rao", partyId: "p-2" },
+          { idLast4: null, idType: "none", name: "Asha Rao", partyId: "p-3" },
+          {
+            idLast4: "5678",
+            idType: "passport",
+            name: "Asha Rao",
+            partyId: "p-4",
+          },
+        ],
+      ],
+    ]);
+    const [result] = classifyRows(
+      [input(row({ externalId: "N6", idNumber: "ABCDE1234F", idType: "pan" }))],
+      context
+    );
+    expect(
+      result?.donorOptions.map((o) => (o.kind === "existing" ? o.partyId : ""))
+    ).toEqual(["p-2", "p-3", "p-4"]);
+  });
+
+  it("offers only the first earlier row with the name, and three rows make one donor", () => {
+    const [a, b, c] = ["N7", "N8", "N9"].map((externalId) =>
+      input(row({ externalId }))
+    );
+    const classified = classifyRows([a!, b!, c!], emptyContext());
+    expect(classified[2]?.donorOptions).toEqual([
+      { kind: "row", reason: "name", rowId: a!.id, rowNumber: a!.rowNumber },
+    ]);
+    const plans = planRows(classified, {
+      [b!.id]: { donor: `row:${a!.id}` },
+      [c!.id]: { donor: `row:${a!.id}` },
+    });
+    expect(summarizePlans(plans.values())).toMatchObject({
+      imports: 3,
+      newDonors: 1,
+    });
+  });
+
+  it("never proposes by a blank name", () => {
+    const context = emptyContext();
+    context.nameMatches = new Map([
+      ["", [{ idLast4: null, idType: "none", name: "", partyId: "p-x" }]],
+    ]);
+    const classified = classifyRows(
+      [
+        input(row({ donorName: "  ", externalId: "N10" })),
+        input(row({ donorName: " ", externalId: "N11" })),
+      ],
+      context
+    );
+    expect(classified.map((c) => c.category)).toEqual([
+      "new_donor",
+      "new_donor",
+    ]);
+  });
+
+  it("proposes by name only without an ID number, email or phone when asked", () => {
+    const context = {
+      ...emptyContext(),
+      nameMatches: new Map([
+        [
+          "asha rao",
+          [
+            {
+              idLast4: null,
+              idType: "none" as const,
+              name: "Asha Rao",
+              partyId: "p-1",
+            },
+          ],
+        ],
+      ]),
+      namesOnlyWithoutContact: true,
+    };
+    const [withEmail, bare, again] = classifyRows(
+      [
+        input(row({ email: "asha@example.test", externalId: "N12" })),
+        input(row({ externalId: "N13" })),
+        input(row({ externalId: "N14", phone: "+919876543210" })),
+      ],
+      context
+    );
+    expect(withEmail?.category).toBe("new_donor");
+    expect(bare?.category).toBe("needs_review");
+    expect(bare?.donorOptions.map((o) => o.kind)).toEqual(["existing", "row"]);
+    expect(again?.category).toBe("new_donor");
   });
 
   it("does not offer a row whose different ID number makes it another donor", () => {

@@ -4,7 +4,10 @@ import {
   importedRowRetention,
   uploadedRowRetention,
 } from "@pi-dash/db/import-retention";
-import { liveAllocationsOfLines } from "@pi-dash/db/queries/bank-debits";
+import {
+  closedYearTouched,
+  liveAllocationsOfLines,
+} from "@pi-dash/db/queries/bank-debits";
 import {
   claimImportBatch,
   countImportBatchRows,
@@ -457,6 +460,11 @@ export async function runStatementBatch(
           (r) => r.record.raw && r.record.outcome === "pending"
         );
         const toInsert = open.filter((r) => r.category === "new");
+        await requireOpenYearsOn(
+          tx,
+          toInsert.flatMap((r) => (r.line ? [r.line.valueOn] : [])),
+          "This statement has lines in"
+        );
         const inserted = await insertStatementLines(
           tx,
           toInsert.flatMap((r) =>
@@ -854,6 +862,27 @@ async function requireNoAllocations(
 }
 
 /**
+ * Refuses lines dated in a closed financial year: the year was closed with
+ * none of its lines open, so it neither takes new ones nor has one matched,
+ * ignored or unmatched again.
+ */
+async function requireOpenYearsOn(
+  tx: StatementTx,
+  dates: readonly string[],
+  subject: string
+) {
+  const label = await closedYearTouched(tx, {
+    dates: [...new Set(dates)],
+    sources: [],
+  });
+  if (label) {
+    throw new StatementInputError(
+      `${subject} FY ${label}, which is closed: reopen it first`
+    );
+  }
+}
+
+/**
  * Applies one action in the caller's statement line transaction; returns
  * the posting sources it moved that the line itself doesn't name (claims,
  * vendor payments, bank charges). Exported for the database tests.
@@ -866,6 +895,19 @@ export async function applyAction(
   now: Date
 ): Promise<LedgerSourceRef[]> {
   const matched = { matchedAt: now, matchedBy: actorId, updatedAt: now };
+  // A note never changes the books; every other action can.
+  if (input.action !== "note") {
+    await requireOpenYearsOn(tx, [line.valueOn], "This line is in");
+  }
+  // Unmatching a transfer also unpairs the other bank's line.
+  if (input.action === "unmatch" && line.transferPairLineId) {
+    const pair = await lockStatementLine(tx, line.transferPairLineId);
+    await requireOpenYearsOn(
+      tx,
+      pair ? [pair.valueOn] : [],
+      "The other side of this transfer is in"
+    );
+  }
   switch (input.action) {
     case "match_debit":
       return await matchDebit(tx, line, input, actorId, now);

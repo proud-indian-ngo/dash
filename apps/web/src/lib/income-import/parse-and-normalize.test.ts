@@ -360,6 +360,15 @@ describe("normalizeRow", () => {
       "ORG",
       "Company",
       "Trust",
+      "Society",
+      "CSR",
+      "Corporate",
+      "Foundation",
+      "NGO",
+      "Institution",
+      "Firm",
+      "LLP",
+      "HUF",
     ]) {
       expect(read(value).row.donorKind).toBe("organisation");
     }
@@ -371,13 +380,15 @@ describe("normalizeRow", () => {
     });
     expect(donor.kind).toBe("organisation");
     expect(saveDonorSchema.safeParse(donor).success).toBe(true);
-    expect(read("Society").errors).toEqual([
+    const unknown = read("Partnership");
+    expect(unknown.errors).toEqual([]);
+    expect(unknown.warnings).toEqual([
       {
         field: "donorKind",
-        message:
-          "Unknown donor type; use person, individual, organisation, company or trust",
+        message: "Unknown donor type; the donor is saved as a person",
       },
     ]);
+    expect(unknown.row.donorKind).toBe("person");
   });
 
   it("maps a Donor type header to the donor type field", () => {

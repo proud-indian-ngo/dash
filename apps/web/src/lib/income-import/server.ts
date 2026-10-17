@@ -298,6 +298,8 @@ export interface RowRules {
   /** No provider ID, so re-uploads are matched by a fingerprint. */
   weakIdentity: boolean;
   linkExistingById?: boolean;
+  /** See `ClassifyContext.namesOnlyWithoutContact`. */
+  namesOnlyWithoutContact?: boolean;
 }
 
 function csvRowRules(
@@ -583,6 +585,7 @@ async function classifyBatch(
     identities,
     idMatches,
     nameMatches,
+    namesOnlyWithoutContact: rules.namesOnlyWithoutContact,
     phoneMatches: contact.byPhone,
   });
   const proposed = classified.flatMap((row) =>

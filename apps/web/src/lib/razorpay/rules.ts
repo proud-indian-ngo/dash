@@ -17,7 +17,9 @@ import {
  * Server-only. How the import flow reads a Razorpay batch: payments
  * normalised with the configured notes keys, identified by payment ID under
  * the batch's mode (live and test IDs never mix), and fingerprinted from the
- * payment itself so a changed setting never makes a conflict.
+ * payment itself so a changed setting never makes a conflict. A payer types
+ * their name, so a name alone is proposed only when the payment has no PAN,
+ * email or phone.
  */
 export async function razorpayRowRules(
   batch: ImportBatchRow
@@ -36,6 +38,7 @@ export async function razorpayRowRules(
       providerAccount: key.mode,
       weak: false,
     }),
+    namesOnlyWithoutContact: true,
     normalize: (raw) => normalizeRazorpayRow(raw, notesKeys),
     payloadHash: (_row, raw) => razorpayPayloadHash(raw),
     weakIdentity: false,

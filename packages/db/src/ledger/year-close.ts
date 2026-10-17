@@ -64,6 +64,11 @@ export type CloseCheckId =
   | "audited_figures";
 
 export interface CloseCheck {
+  /**
+   * Per bank account, a fact that links to its statement, such as "HDFC: 2
+   * money out" (open bank lines).
+   */
+  accounts?: { detail: string; orgAccountId: string; tab: "out" | "review" }[];
   /** Short facts for the row, such as "HDFC current account: to 31 Mar 2027". */
   details: string[];
   id: CloseCheckId;
@@ -83,7 +88,7 @@ export interface YearCloseChecklist {
 
 const BLOCKER_MESSAGES: Partial<Record<CloseCheckId, string>> = {
   open_bank_lines:
-    "Bank lines dated in this year are still open. Match or explain them under Bank statements before closing the year",
+    "Bank lines dated in this year are still open. Under Bank statements, match them, mark money out as bank charges, a tax payment or a transfer, or ignore money in that needs no record; a line waiting for a claim clears once the claim is approved and matched to it",
   opening_balances: "Post the opening balances before closing the year",
   unposted_sources:
     "Records dated in this year are waiting to post. Post them, or resolve why they wait, before closing the year",
@@ -201,7 +206,9 @@ export async function yearCloseChecklist(
     .select({
       credits: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit')::int`,
       debits: sql<number>`count(*) filter (where ${statementLine.direction} = 'debit')::int`,
+      id: orgAccount.id,
       name: orgAccount.name,
+      needsClaim: sql<number>`count(*) filter (where ${statementLine.needsClaimAt} is not null)::int`,
     })
     .from(statementLine)
     .innerJoin(orgAccount, eq(orgAccount.id, statementLine.orgAccountId))
@@ -215,9 +222,19 @@ export async function yearCloseChecklist(
     .groupBy(orgAccount.id, orgAccount.name)
     .orderBy(orgAccount.name);
   checks.push({
-    details: openLines.map(
-      (l) => `${l.name}: ${l.credits} money in, ${l.debits} money out`
-    ),
+    accounts: openLines.map((l) => {
+      const parts = [
+        ...(l.credits > 0 ? [`${l.credits} money in`] : []),
+        ...(l.debits > 0 ? [`${l.debits} money out`] : []),
+        ...(l.needsClaim > 0 ? [`${l.needsClaim} waiting for a claim`] : []),
+      ];
+      return {
+        detail: `${l.name}: ${parts.join(", ")}`,
+        orgAccountId: l.id,
+        tab: l.credits > 0 ? "review" : "out",
+      };
+    }),
+    details: [],
     id: "open_bank_lines",
     ok: openLines.length === 0,
     required: true,

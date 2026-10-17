@@ -197,13 +197,13 @@ it.skipIf(!localDatabase)(
         .where(eq(fiscalYear.label, "2026-27"));
       await t.execute(sql`savepoint closed`);
       await expect(act(tx, line, match, someone)).rejects.toThrow(
-        "FY 2026-27 is closed; reopen it to change its bank matches"
+        "This line is in FY 2026-27, which is closed: reopen it first"
       );
       await t.execute(sql`rollback to savepoint closed`);
       await t.execute(sql`savepoint closed2`);
       await expect(
         act(tx, line, { action: "bank_charges", note: null }, someone)
-      ).rejects.toThrow("FY 2026-27 is closed");
+      ).rejects.toThrow("FY 2026-27, which is closed");
       await t.execute(sql`rollback to savepoint closed2`);
 
       // Reopened: matched once; a second line can't pay it again.
@@ -217,6 +217,96 @@ it.skipIf(!localDatabase)(
         "already paid in full"
       );
       await t.execute(sql`rollback to savepoint twice`);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "refuses ignoring or unmatching a line of a closed year, but not a note",
+  async () => {
+    await rolledBack(async (tx) => {
+      const { fiscalYear } =
+        await import("@pi-dash/db/schema/finance-dimensions");
+      const { addLine, someone, t } = await setup(tx);
+      const close = (label: string) =>
+        t
+          .update(fiscalYear)
+          .set({ closedAt: NOW })
+          .where(eq(fiscalYear.label, label));
+      const old = await addLine("2026-03-20");
+      await close("2025-26");
+      await t.execute(sql`savepoint ignore`);
+      await expect(
+        act(
+          tx,
+          old,
+          { action: "ignore", note: null, reason: "not_ours" },
+          someone
+        )
+      ).rejects.toThrow(
+        "This line is in FY 2025-26, which is closed: reopen it first"
+      );
+      await t.execute(sql`rollback to savepoint ignore`);
+      await act(tx, old, { action: "note", note: "Asked the bank" }, someone);
+
+      const line = await addLine("2026-06-05");
+      await act(tx, line, { action: "bank_charges", note: null }, someone);
+      await close("2026-27");
+      await t.execute(sql`savepoint unmatch`);
+      await expect(
+        act(tx, line, { action: "unmatch" }, someone)
+      ).rejects.toThrow(
+        "This line is in FY 2026-27, which is closed: reopen it first"
+      );
+      await t.execute(sql`rollback to savepoint unmatch`);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "counts the summary cards from the cutover",
+  async () => {
+    await rolledBack(async (tx) => {
+      const { debitSummary } = await import("@pi-dash/db/queries/bank-debits");
+      const { statementSummary } =
+        await import("@pi-dash/db/queries/statement-lines");
+      const { statementLine } =
+        await import("@pi-dash/db/schema/statement-line");
+      const { addLine, bank, someone, t } = await setup(tx);
+      const old = await addLine("2026-03-20");
+      await act(
+        tx,
+        old,
+        { action: "ignore", note: null, reason: "not_ours" },
+        someone
+      );
+      const line = await addLine("2026-06-05");
+      await act(tx, line, { action: "bank_charges", note: null }, someone);
+      for (const valueOn of ["2026-03-21", "2026-06-06"]) {
+        const id = uuidv7();
+        await t.insert(statementLine).values({
+          amountPaise: 1000,
+          createdAt: NOW,
+          direction: "credit",
+          id,
+          lineHash: `test-${id}`,
+          orgAccountId: bank,
+          position: 2,
+          updatedAt: NOW,
+          valueOn,
+        });
+      }
+      expect(await debitSummary(t as never, bank)).toMatchObject({
+        attentionCount: 0,
+        debitCount: 1,
+        debitsMatchedCount: 1,
+      });
+      expect(await statementSummary(bank, t as never)).toMatchObject({
+        creditCount: 1,
+        creditsMatchedCount: 0,
+        lineCount: 4,
+        unmatchedCount: 1,
+      });
     });
   }
 );

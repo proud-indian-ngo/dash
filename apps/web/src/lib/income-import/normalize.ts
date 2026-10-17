@@ -264,11 +264,20 @@ const DONATION_TYPE_ALIASES: Record<string, DonationType> = {
 
 const DONOR_KIND_ALIASES: Record<string, PartyKind> = {
   company: "organisation",
+  corporate: "organisation",
+  csr: "organisation",
+  firm: "organisation",
+  foundation: "organisation",
+  huf: "organisation",
   individual: "person",
+  institution: "organisation",
+  llp: "organisation",
+  ngo: "organisation",
   org: "organisation",
   organisation: "organisation",
   organization: "organisation",
   person: "person",
+  society: "organisation",
   trust: "organisation",
 };
 
@@ -448,10 +457,9 @@ export function normalizeRow(
     if (mapped) {
       donorKind = mapped;
     } else {
-      errors.push({
+      warnings.push({
         field: "donorKind",
-        message:
-          "Unknown donor type; use person, individual, organisation, company or trust",
+        message: "Unknown donor type; the donor is saved as a person",
       });
     }
   }

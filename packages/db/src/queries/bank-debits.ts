@@ -410,15 +410,19 @@ export async function matchedYearTouched(
   return rows[0]?.label ?? null;
 }
 
-/** The bank debit figures of one account, for its reconciliation summary. */
+/**
+ * The bank debit figures of one account, for its reconciliation summary.
+ * Every figure counts debits from the cutover only: earlier ones are
+ * evidence, never reviewed.
+ */
 export interface DebitSummary {
-  /** Open debits (not matched in full, not ignored) from the cutover, those waiting for a claim included. */
+  /** Open debits (not matched in full, not ignored), those waiting for a claim included. */
   attentionCount: number;
   debitCount: number;
   debitsMatchedCount: number;
-  /** Open debits from the cutover marked "Needs a claim". */
+  /** Open debits marked "Needs a claim". */
   needsClaimCount: number;
-  /** Open debits from the cutover, less what their allocations already explain. */
+  /** Open debits, less what their allocations already explain. */
   unexplainedPaise: number;
 }
 
@@ -430,14 +434,15 @@ export async function debitSummary(
     select
       count(*)::int as debits,
       count(*) filter (where l.match_status = 'matched')::int as matched,
-      count(*) filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date)::int as open,
-      count(*) filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date and l.needs_claim_at is not null)::int as needs_claim,
+      count(*) filter (where l.match_status = 'unmatched')::int as open,
+      count(*) filter (where l.match_status = 'unmatched' and l.needs_claim_at is not null)::int as needs_claim,
       coalesce(sum(l.amount_paise - coalesce((
           select sum(a.amount_paise) from ${statementAllocation} a
           where a.statement_line_id = l.id and a.released_at is null), 0))
-        filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date), 0)::bigint as unexplained
+        filter (where l.match_status = 'unmatched'), 0)::bigint as unexplained
     from ${statementLine} l
-    where l.org_account_id = ${orgAccountId} and l.direction = 'debit'`)) as unknown as {
+    where l.org_account_id = ${orgAccountId} and l.direction = 'debit'
+      and l.value_on >= ${LEDGER_CUTOVER_ON}::date`)) as unknown as {
     debits: number;
     matched: number;
     needs_claim: number;

@@ -14,7 +14,8 @@ Reading needs `finance.view` or `finance.manage`; importing and every action nee
 - Narrations are masked for PAN and Aadhaar shapes. The reference is taken from the file, or else the first UPI/IMPS RRN or NEFT/RTGS UTR in the narration.
 - A keyed hash of the line's facts and its occurrence is unique per account, so overlapping uploads never duplicate.
 - Lines keep file order, oldest first, so the last line gives the closing balance.
-- To review and Money out, their counts and the summaries above them hold only unmatched lines from the cutover (`LEDGER_CUTOVER_ON`). Earlier lines are outside the books and wait under All, where they can still be matched, ignored or recorded as donations.
+- To review, Money out, their counts and the summary cards count only lines from the cutover (`LEDGER_CUTOVER_ON`). Earlier lines are outside the books and wait under All, where they can still be matched, ignored or recorded as donations.
+- A closed year takes no new lines and no match, ignore or unmatch of its lines (notes still change): an import with a line in it is refused whole. Statement writes share the year-close lock.
 
 ### Credit matching
 

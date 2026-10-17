@@ -1,4 +1,4 @@
-import type { ImportRowOutcome } from "@pi-dash/shared/constants";
+import type { ImportRowOutcome, PartyIdType } from "@pi-dash/shared/constants";
 
 import type { CellIssue, NormalizedRow } from "./normalize";
 
@@ -65,6 +65,12 @@ export interface PartyRef {
   partyId: string;
 }
 
+/** A donor found by name, with its stored ID type and last four (if any). */
+export interface NameMatch extends PartyRef {
+  idLast4: string | null;
+  idType: PartyIdType;
+}
+
 export interface ClassifyRowInput {
   id: string;
   /** Identity key and payload hash, computed server-side; null for error rows. */
@@ -86,7 +92,13 @@ export interface ClassifyContext {
   /** Keyed by `idMatchKey`; only exact matches of a stored identifier. */
   idMatches: ReadonlyMap<string, readonly PartyRef[]>;
   /** Keyed by `foldName` of the display or legal name. */
-  nameMatches: ReadonlyMap<string, readonly PartyRef[]>;
+  nameMatches: ReadonlyMap<string, readonly NameMatch[]>;
+  /**
+   * Propose donors and earlier rows by name only for rows with no ID
+   * number, email or phone (Razorpay payments, whose names are typed by the
+   * payer).
+   */
+  namesOnlyWithoutContact?: boolean;
   phoneMatches: ReadonlyMap<string, readonly PartyRef[]>;
 }
 
@@ -118,7 +130,7 @@ export interface ClassifiedRow {
 export const idMatchKey = (idType: string, idNumber: string) =>
   `${idType}:${idNumber}`;
 
-/** A donor name compared without case or extra spaces. */
+/** A name or reference compared without case or extra spaces. */
 export const foldName = (name: string) =>
   name.toLowerCase().replaceAll(/\s+/g, " ").trim();
 
@@ -174,6 +186,12 @@ interface FileDonor {
   phone: string;
   rowId: string;
   rowNumber: number;
+}
+
+/** An earlier row of the file offered as this row's donor, and why. */
+interface FileMatch {
+  d: FileDonor;
+  reason: Exclude<MatchReason, "id_number">;
 }
 
 /** The first row of the file with an ID number, which later rows with it follow. */
@@ -286,7 +304,29 @@ export function classifyRows(
         reason: "id_number" as const,
       }));
     } else {
-      const name = foldName(row.donorName);
+      const name =
+        context.namesOnlyWithoutContact && (idKey || row.email || row.phone)
+          ? ""
+          : foldName(row.donorName);
+      const idTail = row.idNumber.length >= 8 ? row.idNumber.slice(-4) : null;
+      // A donor whose stored ID number of the same type ends differently is
+      // certainly someone else.
+      const nameParties = (name ? (context.nameMatches.get(name) ?? []) : [])
+        .filter(
+          (p) =>
+            !(
+              idKey &&
+              p.idType === row.idType &&
+              p.idLast4 &&
+              idTail &&
+              p.idLast4 !== idTail
+            )
+        )
+        .map(({ name: partyName, partyId }) => ({
+          name: partyName,
+          partyId,
+          reason: "name" as const,
+        }));
       const contactParties = [
         ...(row.email ? (context.emailMatches.get(row.email) ?? []) : []).map(
           (p) => ({ ...p, reason: "email" as const })
@@ -294,33 +334,32 @@ export function classifyRows(
         ...(row.phone ? (context.phoneMatches.get(row.phone) ?? []) : []).map(
           (p) => ({ ...p, reason: "phone" as const })
         ),
-        ...(context.nameMatches.get(name) ?? []).map((p) => ({
-          ...p,
-          reason: "name" as const,
-        })),
+        ...nameParties,
       ];
       options = unique(contactParties, (p) => p.partyId).map((p) => ({
         kind: "existing" as const,
         ...p,
       }));
-      // Rows sharing an ID number are one donor, so only the first is offered.
-      const sameDonor = unique(
-        fileDonors.filter(
-          (d) =>
-            (!idKey || !d.idKey) &&
-            ((row.email && d.email === row.email) ||
-              (row.phone && d.phone === row.phone) ||
-              d.name === name)
-        ),
-        (d) => d.idKey ?? d.rowId
-      );
-      for (const d of sameDonor) {
-        let reason: Exclude<MatchReason, "id_number"> = "name";
-        if (row.email && d.email === row.email) {
-          reason = "email";
-        } else if (row.phone && d.phone === row.phone) {
-          reason = "phone";
+      const matches = fileDonors.flatMap((d): FileMatch[] => {
+        if (idKey && d.idKey) {
+          return [];
         }
+        if (row.email && d.email === row.email) {
+          return [{ d, reason: "email" as const }];
+        }
+        if (row.phone && d.phone === row.phone) {
+          return [{ d, reason: "phone" as const }];
+        }
+        return name && d.name === name ? [{ d, reason: "name" as const }] : [];
+      });
+      // Rows sharing an ID number are one donor, so only the first is
+      // offered; of rows that share only a name, likewise only the first.
+      const sameDonor = unique(
+        matches,
+        ({ d, reason }) =>
+          d.idKey ?? (reason === "name" ? `name:${d.name}` : d.rowId)
+      );
+      for (const { d, reason } of sameDonor) {
         options.push({
           kind: "row",
           reason,

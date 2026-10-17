@@ -53,7 +53,17 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
-import { and, asc, eq, gte, isNull, like, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  like,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -400,37 +410,43 @@ async function closeAfterPosting(
         )
       );
     // Open bank lines other specs leave in the year are moved out of it for
-    // the close and put back before commit, so specs running alongside
-    // never see them change. The ledger's DB tests cover that check.
-    const open = await tx
-      .select({ id: statementLine.id, valueOn: statementLine.valueOn })
-      .from(statementLine)
-      .where(
-        and(
-          eq(statementLine.matchStatus, "unmatched"),
-          gte(statementLine.valueOn, year.startsOn),
-          lte(statementLine.valueOn, year.endsOn)
-        )
-      );
+    // the close, in one statement just before it, and put back by ID before
+    // commit, so specs running alongside never see them change. The
+    // ledger's DB tests cover that check.
     const outside = new Date(`${year.startsOn}T00:00:00Z`);
     outside.setUTCDate(outside.getUTCDate() - 1);
-    for (const line of open) {
-      await tx
-        .update(statementLine)
-        .set({ valueOn: outside.toISOString().slice(0, 10) })
-        .where(eq(statementLine.id, line.id));
-    }
+    const moved = (await tx.execute(sql`
+      update ${statementLine} l
+      set value_on = ${outside.toISOString().slice(0, 10)}::date
+      from (
+        select id, value_on from ${statementLine}
+        where match_status = 'unmatched'
+          and value_on between ${year.startsOn}::date and ${year.endsOn}::date
+        for update
+      ) old
+      where l.id = old.id
+      returning old.id, old.value_on::text as "valueOn"`)) as unknown as {
+      id: string;
+      valueOn: string;
+    }[];
     const checklist = await yearCloseChecklist(tx, year.id, dayAfter);
     // Shown when the close refuses, to say which check held it up.
     process.stderr.write(
       `close-year checklist: ${JSON.stringify(checklist.checks)}\n`
     );
     const closed = await closeYear(tx, year.id, { actorId, now: dayAfter });
-    for (const line of open) {
+    const idsByDay = new Map<string, string[]>();
+    for (const line of moved) {
+      idsByDay.set(line.valueOn, [
+        ...(idsByDay.get(line.valueOn) ?? []),
+        line.id,
+      ]);
+    }
+    for (const [valueOn, ids] of idsByDay) {
       await tx
         .update(statementLine)
-        .set({ valueOn: line.valueOn })
-        .where(eq(statementLine.id, line.id));
+        .set({ valueOn })
+        .where(inArray(statementLine.id, ids));
     }
     return closed;
   });
