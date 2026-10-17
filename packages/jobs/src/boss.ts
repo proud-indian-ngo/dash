@@ -8,6 +8,8 @@ import {
   setReadyPromise,
 } from "./boss-instance";
 import { getJobDatabaseUrl } from "./database-url";
+import { registerHandlers } from "./handlers/index";
+import { registerSchedules } from "./schedules";
 
 export async function startWorker(): Promise<void> {
   // Skip if already started (prevents duplicate pools on Vite SSR HMR re-evaluations).
@@ -47,10 +49,7 @@ export async function startWorker(): Promise<void> {
     log.set({ event: "pg_boss_started" });
     log.emit();
 
-    // Register handlers and cron schedules after start (dynamic import to
-    // keep the enqueue subpath free of handler dependencies for client bundles)
-    const { registerHandlers } = await import("./handlers/index");
-    const { registerSchedules } = await import("./schedules");
+    // Register handlers and cron schedules after start
     await registerHandlers(boss);
     await registerSchedules(boss);
   })();
