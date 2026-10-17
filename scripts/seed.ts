@@ -45,6 +45,7 @@ import { appConfig } from "@pi-dash/db/schema/app-config";
 import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { bankAccount } from "@pi-dash/db/schema/bank-account";
+import { budget, budgetLine } from "@pi-dash/db/schema/budget";
 import {
   eventFeedback,
   eventFeedbackSubmission,
@@ -56,7 +57,7 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
-import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { accountHead, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
 import {
   gatewaySettlement,
   gatewaySettlementItem,
@@ -3799,6 +3800,48 @@ async function seedBooks(adminId: string): Promise<void> {
   log("Fake opening balances posted");
 }
 
+const SEED_BUDGET_ID = "01930000-0000-7000-8000-000000000601";
+
+/** Education's FY 2026-27 budget on three expense heads (fake amounts). */
+async function seedBudgets(): Promise<void> {
+  log("Seeding budgets...");
+  await db
+    .insert(budget)
+    .values({
+      createdAt: now,
+      fiscalYearId: FISCAL_YEAR_IDS["2026-27"],
+      id: SEED_BUDGET_ID,
+      note: "Seed budget (fake figures)",
+      programmeId: PROGRAMME_IDS.education,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  const amounts: [string, number, string][] = [
+    ["EXPENSE_TRAVEL", 20_000_00, "01930000-0000-7000-8000-000000000611"],
+    ["EXPENSE_FOOD", 15_000_00, "01930000-0000-7000-8000-000000000612"],
+    ["EXPENSE_SUPPLIES", 10_000_00, "01930000-0000-7000-8000-000000000613"],
+  ];
+  for (const [code, amountPaise, id] of amounts) {
+    const [head] = await db
+      .select({ id: accountHead.id })
+      .from(accountHead)
+      .where(eq(accountHead.code, code))
+      .limit(1);
+    if (head) {
+      await db
+        .insert(budgetLine)
+        .values({
+          accountHeadId: head.id,
+          amountPaise,
+          budgetId: SEED_BUDGET_ID,
+          id,
+        })
+        .onConflictDoNothing();
+    }
+  }
+  log("Budgets ready");
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -3825,6 +3868,7 @@ async function main(): Promise<void> {
   await seedReimbursements(userMap);
   await seedAdvancePayments(userMap);
   await seedVendors(userMap);
+  await seedBudgets();
   await seedBankDebits(getUser(userMap, "admin@pi-dash.dev"));
   await seedScheduledMessages(userMap);
   await seedNotificationPreferences(userMap);

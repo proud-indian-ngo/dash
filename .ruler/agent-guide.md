@@ -70,7 +70,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Sign-in, sessions, sign-up links, user admin, roles settings | `auth.md` |
 | Teams, events, attendance, updates, photos, feedback, interest, orientation, the home dashboard, Analytics, Scheduled messages, WhatsApp groups | `teams-and-events.md` |
 | Recurring events or the public events feed | `recurring-events.md` |
-| Finance overview: programmes, projects, funds, account heads, Charged to, claim for others | `finance-and-programmes.md` |
+| Finance overview: programmes, projects, funds, account heads, Charged to, claim for others, budgets | `finance-and-programmes.md` |
 | Donors, contributions, imports, Razorpay, give.do payouts | `finance-income.md` |
 | Bank statements, credit and debit matching | `finance-bank-statements.md` |
 | Books, posting rules, opening balances, year close, audited figures, CA workbook | `finance-books.md`; figures and CA rules in `finance-ledger-cutover.md` |

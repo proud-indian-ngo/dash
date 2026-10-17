@@ -348,6 +348,13 @@ export const projectMutators = {
       // Expenses charged to the project name its programme too, so moving
       // it would split them from it.
       await assertNoChargedExpenses(tx, args.id);
+      // Its budgets sit under the old programme.
+      const budget = await tx.run(zql.budget.where("projectId", args.id).one());
+      if (budget) {
+        throw new Error(
+          "This project has a budget, so it can't move to another programme. Remove its budgets first."
+        );
+      }
     }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()

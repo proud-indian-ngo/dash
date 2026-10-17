@@ -3,6 +3,7 @@ import { defineQueries } from "@rocicorp/zero";
 import { advancePaymentQueries } from "./queries/advance-payment";
 import { appConfigQueries } from "./queries/app-config";
 import { bankAccountQueries } from "./queries/bank-account";
+import { budgetQueries } from "./queries/budget";
 import { eventFeedbackQueries } from "./queries/event-feedback";
 import { eventInterestQueries } from "./queries/event-interest";
 import {
@@ -61,6 +62,7 @@ export const queries = defineQueries({
   advancePayment: advancePaymentQueries,
   appConfig: appConfigQueries,
   bankAccount: bankAccountQueries,
+  budget: budgetQueries,
   contribution: contributionQueries,
   contributionReceipt: contributionReceiptQueries,
   costCentre: costCentreQueries,

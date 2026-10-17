@@ -4,6 +4,7 @@ export * from "./app-config";
 export * from "./audit-log";
 export * from "./auth";
 export * from "./bank-account";
+export * from "./budget";
 export * from "./contribution-receipt";
 export * from "./event-feedback";
 export * from "./event-interest";
