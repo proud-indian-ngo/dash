@@ -50,6 +50,10 @@ test.describe("circular resolutions (Managing Trustee)", () => {
   test("an objection from one of two trustees fails the circular", async ({
     page,
   }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Issuing stores the circular's PDF in R2, which CI does not have"
+    );
     test.slow();
     const title = `E2E circular objected ${Date.now()}`;
     await draftAndIssue(page, title);
@@ -80,6 +84,10 @@ test.describe("circular resolutions (Managing Trustee)", () => {
   test("a conflicted trustee steps aside, and the issuer can withdraw", async ({
     page,
   }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Issuing stores the circular's PDF in R2, which CI does not have"
+    );
     test.slow();
     const title = `E2E circular withdrawn ${Date.now()}`;
     await draftAndIssue(page, title);
