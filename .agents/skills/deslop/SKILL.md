@@ -62,7 +62,7 @@ Review for drift from repo rules and documented architecture:
 - Are permissions and auth patterns correct: `assertHasPermission()`, `can()`, route guards, nav gating, and permission IDs from `packages/db/src/permissions.ts`?
 - Are imports using approved surfaces such as `@pi-dash/design-system/...` and `@pi-dash/shared`?
 - Did we edit generated files or skip the real source of truth?
-- Did the change require doc updates in `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, the owning `docs/architecture/` chapter, or `DEPLOYMENT.md`?
+- Did the change add a rule, decision or gotcha that belongs in `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, the owning `docs/architecture/` chapter, or `DEPLOYMENT.md`? Did it add doc lines that only restate the code? Those go (agent guide, Documentation section).
 - Did we invent commands instead of using repo scripts from `package.json`?
 
 ### 2. Type safety and source of truth

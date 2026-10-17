@@ -23,7 +23,8 @@ description: Use when creating, modifying, refactoring, or fixing data tables â€
 ```tsx
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 
-const columns = useMemo<DataGridColumnDef<MyEntity>[]>(() => [
+// A plain array: the React Compiler memoises it, so no useMemo.
+const columns: DataGridColumnDef<MyEntity>[] = [
   {
     id: "name",
     accessorFn: (row) => row.name,
@@ -45,7 +46,7 @@ const columns = useMemo<DataGridColumnDef<MyEntity>[]>(() => [
     },
     size: 48,
   },
-], []);
+];
 ```
 
 ## Row Actions Pattern
