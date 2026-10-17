@@ -69,49 +69,49 @@ export function EsignSection({
     // Opened now, while the click still counts, so the browser allows it.
     const tab = window.open("", "_blank");
     setBusy("start");
-    try {
-      const started = await onVote(() => start({ data: { resolutionId } }));
-      if (!started) {
+    await onVote(() => start({ data: { resolutionId } }))
+      .then((started) => {
+        if (!started) {
+          tab?.close();
+          return;
+        }
+        if (tab) {
+          tab.location.href = started.signUrl;
+        } else {
+          window.location.href = started.signUrl;
+        }
+        refresh();
+      })
+      .catch((error: unknown) => {
         tab?.close();
-        return;
-      }
-      if (tab) {
-        tab.location.href = started.signUrl;
-      } else {
-        window.location.href = started.signUrl;
-      }
-      refresh();
-    } catch (error) {
-      tab?.close();
-      toast.error("Couldn't start Aadhaar eSign", {
-        description: errorText(error),
-      });
-    } finally {
-      setBusy(null);
-    }
+        toast.error("Couldn't start Aadhaar eSign", {
+          description: errorText(error),
+        });
+      })
+      .finally(() => setBusy(null));
   });
 
   const handleCheck = useEventCallback(async () => {
     setBusy("check");
-    try {
-      const outcome = await check({ data: { resolutionId } });
-      if (outcome.status === "signed") {
-        toast.success("Signed with Aadhaar eSign");
-      } else if (outcome.status === "pending") {
-        toast.info("Leegality doesn't have your signature yet.");
-      } else {
-        toast.error("Your eSign didn't go through", {
-          description: outcome.message,
+    await check({ data: { resolutionId } })
+      .then((outcome) => {
+        if (outcome.status === "signed") {
+          toast.success("Signed with Aadhaar eSign");
+        } else if (outcome.status === "pending") {
+          toast.info("Leegality doesn't have your signature yet.");
+        } else {
+          toast.error("Your eSign didn't go through", {
+            description: outcome.message,
+          });
+        }
+        refresh();
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't check with Leegality", {
+          description: errorText(error),
         });
-      }
-      refresh();
-    } catch (error) {
-      toast.error("Couldn't check with Leegality", {
-        description: errorText(error),
-      });
-    } finally {
-      setBusy(null);
-    }
+      })
+      .finally(() => setBusy(null));
   });
 
   if (!status?.available) {
