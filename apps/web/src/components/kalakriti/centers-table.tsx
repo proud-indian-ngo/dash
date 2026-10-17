@@ -15,6 +15,7 @@ import {
 } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { numberField } from "@/components/data-table/filter-fields";
 import {
@@ -269,6 +270,7 @@ export function CentersTable({
       meta: {
         compact: "primary",
         headerTitle: "Transport status",
+        icon: COLUMN_ICONS.transport,
         kind: "status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -291,6 +293,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Student registration",
+        icon: COLUMN_ICONS.studentRegistration,
         kind: "status",
         skeleton: SKELETON_REGISTRATION,
       },
@@ -313,6 +316,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Participation registration",
+        icon: COLUMN_ICONS.participation,
         kind: "status",
         skeleton: SKELETON_REGISTRATION,
       },
@@ -342,6 +346,7 @@ export function CentersTable({
       ),
       meta: {
         headerTitle: "Participation compliance",
+        icon: COLUMN_ICONS.compliance,
         kind: "status",
         skeleton: SKELETON_REGISTRATION,
         stopRowClick: true,

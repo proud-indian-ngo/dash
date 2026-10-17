@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
 import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -302,7 +303,12 @@ export function VendorPaymentsTable({
         />
       ),
       id: "vendor",
-      meta: { headerTitle: "Vendor", kind: "text", skeleton: SKELETON_TEXT },
+      meta: {
+        headerTitle: "Vendor",
+        icon: COLUMN_ICONS.vendor,
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
       minSize: 120,
       size: 180,
     },
@@ -317,7 +323,12 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       id: "city",
-      meta: { headerTitle: "City", kind: "location", skeleton: SKELETON_TEXT },
+      meta: {
+        headerTitle: "City",
+        icon: COLUMN_ICONS.city,
+        kind: "location",
+        skeleton: SKELETON_TEXT,
+      },
       minSize: 100,
       size: 120,
     },
@@ -332,7 +343,12 @@ export function VendorPaymentsTable({
         <DataGridColumnHeader column={column} title="Event" visibility={true} />
       ),
       id: "event",
-      meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TEXT },
+      meta: {
+        headerTitle: "Event",
+        icon: COLUMN_ICONS.event,
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
       minSize: 120,
       size: 180,
     },
@@ -353,6 +369,7 @@ export function VendorPaymentsTable({
       id: "programme",
       meta: {
         headerTitle: "Programme",
+        icon: COLUMN_ICONS.programme,
         kind: "text",
         skeleton: SKELETON_TEXT,
       },
@@ -430,7 +447,12 @@ export function VendorPaymentsTable({
         />
       ),
       id: "submittedAt",
-      meta: { headerTitle: "Submitted", kind: "date", skeleton: SKELETON_TEXT },
+      meta: {
+        headerTitle: "Submitted",
+        icon: COLUMN_ICONS.submittedAt,
+        kind: "date",
+        skeleton: SKELETON_TEXT,
+      },
       size: 130,
     },
     {

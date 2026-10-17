@@ -8,6 +8,7 @@ import type { SocialPost } from "@pi-dash/zero/schema";
 import { Link } from "@tanstack/react-router";
 import type { MouseEvent } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -205,6 +206,7 @@ function createColumns(
       id: "scheduledFor",
       meta: {
         headerTitle: "Scheduled for",
+        icon: COLUMN_ICONS.scheduledAt,
         kind: "date",
         skeleton: SKELETON_DATE,
       },
@@ -217,7 +219,12 @@ function createColumns(
         <DataGridColumnHeader column={column} title="Kind" visibility={true} />
       ),
       id: "kind",
-      meta: { headerTitle: "Kind", kind: "tag", skeleton: SKELETON_TAG },
+      meta: {
+        headerTitle: "Kind",
+        icon: COLUMN_ICONS.kind,
+        kind: "tag",
+        skeleton: SKELETON_TAG,
+      },
       size: 130,
     },
     {
@@ -231,7 +238,12 @@ function createColumns(
         />
       ),
       id: "channel",
-      meta: { headerTitle: "Channel", kind: "tag", skeleton: SKELETON_TAG },
+      meta: {
+        headerTitle: "Channel",
+        icon: COLUMN_ICONS.socialChannel,
+        kind: "tag",
+        skeleton: SKELETON_TAG,
+      },
       size: 120,
     },
     {
@@ -244,6 +256,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Event",
+        icon: COLUMN_ICONS.event,
         kind: "text",
         skeleton: SKELETON_TEXT,
         stopRowClick: true,

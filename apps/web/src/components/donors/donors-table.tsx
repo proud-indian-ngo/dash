@@ -5,6 +5,7 @@ import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
@@ -104,7 +105,12 @@ export function DonorsTable({
         <DataGridColumnHeader column={column} title="Kind" visibility={true} />
       ),
       id: "kind",
-      meta: { headerTitle: "Kind", kind: "text", skeleton: SKELETON_KIND },
+      meta: {
+        headerTitle: "Kind",
+        icon: COLUMN_ICONS.kind,
+        kind: "text",
+        skeleton: SKELETON_KIND,
+      },
       size: 120,
     },
     {
@@ -122,7 +128,12 @@ export function DonorsTable({
         <DataGridColumnHeader column={column} title="Roles" visibility={true} />
       ),
       id: "roles",
-      meta: { headerTitle: "Roles", kind: "text", skeleton: SKELETON_ROLES },
+      meta: {
+        headerTitle: "Roles",
+        icon: COLUMN_ICONS.role,
+        kind: "text",
+        skeleton: SKELETON_ROLES,
+      },
       size: 220,
     },
     {

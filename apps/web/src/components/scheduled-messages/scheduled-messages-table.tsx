@@ -19,6 +19,7 @@ import type {
 import { format } from "date-fns";
 import type { MouseEvent, ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
@@ -141,6 +142,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Message",
+        icon: COLUMN_ICONS.message,
         kind: "text",
         skeleton: SKELETON_MSG,
       },
@@ -162,6 +164,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Scheduled At",
+        icon: COLUMN_ICONS.scheduledAt,
         kind: "date",
         skeleton: SKELETON_DATE,
       },

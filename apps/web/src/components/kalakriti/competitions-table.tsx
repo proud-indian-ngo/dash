@@ -13,6 +13,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createCompetitionFilterFields,
@@ -234,6 +235,7 @@ export function CompetitionsTable({
       meta: {
         compact: "primary",
         headerTitle: "Competition",
+        icon: COLUMN_ICONS.competition,
         kind: "text",
         skeleton: SKELETON_NAME,
       },
@@ -251,6 +253,7 @@ export function CompetitionsTable({
       id: "ageCategories",
       meta: {
         headerTitle: "Age Category",
+        icon: COLUMN_ICONS.ageCategory,
         kind: "tag",
         skeleton: SKELETON_VALUE,
       },
@@ -267,6 +270,7 @@ export function CompetitionsTable({
       ),
       meta: {
         headerTitle: "Category",
+        icon: COLUMN_ICONS.category,
         kind: "tag",
         skeleton: SKELETON_CATEGORY,
       },
@@ -286,7 +290,12 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Entries", kind: "count", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Entries",
+        icon: COLUMN_ICONS.entries,
+        kind: "count",
+        skeleton: SKELETON_VALUE,
+      },
       size: 100,
     },
     {
@@ -306,6 +315,7 @@ export function CompetitionsTable({
       meta: {
         compact: "trailing",
         headerTitle: "Participants",
+        icon: COLUMN_ICONS.people,
         kind: "count",
         skeleton: SKELETON_VALUE,
       },
@@ -318,6 +328,7 @@ export function CompetitionsTable({
       ),
       meta: {
         headerTitle: "Venue",
+        icon: COLUMN_ICONS.venue,
         kind: "location",
         skeleton: SKELETON_VALUE,
       },
@@ -349,7 +360,12 @@ export function CompetitionsTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Format", kind: "tag", skeleton: SKELETON_VALUE },
+      meta: {
+        headerTitle: "Format",
+        icon: COLUMN_ICONS.format,
+        kind: "tag",
+        skeleton: SKELETON_VALUE,
+      },
       size: 120,
     },
     {
@@ -387,6 +403,7 @@ export function CompetitionsTable({
       id: "groupSize",
       meta: {
         headerTitle: "Group size",
+        icon: COLUMN_ICONS.groupSize,
         kind: "count",
         skeleton: SKELETON_VALUE,
       },

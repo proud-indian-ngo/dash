@@ -6,6 +6,7 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   optionsFromRows,
@@ -225,6 +226,7 @@ export function FoodTable({
       meta: {
         compact: "primary",
         headerTitle: "Role",
+        icon: COLUMN_ICONS.role,
         kind: "tag",
         skeleton,
       },
@@ -240,7 +242,12 @@ export function FoodTable({
           visibility={true}
         />
       ),
-      meta: { headerTitle: "Center", kind: "text", skeleton },
+      meta: {
+        headerTitle: "Center",
+        icon: COLUMN_ICONS.center,
+        kind: "text",
+        skeleton,
+      },
       size: 240,
     },
     ...(

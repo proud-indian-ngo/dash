@@ -21,6 +21,7 @@ import {
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { formatPaise } from "@pi-dash/shared/money";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
@@ -118,6 +119,7 @@ export function InventoryItemsTable({
       meta: {
         compact: "primary",
         headerTitle: "Item",
+        icon: COLUMN_ICONS.item,
         kind: "text",
         skeleton: <Skeleton className="h-5 w-36" />,
       },
@@ -137,6 +139,7 @@ export function InventoryItemsTable({
       meta: {
         compact: "trailing",
         headerTitle: "In stock",
+        icon: COLUMN_ICONS.stock,
         kind: "count",
         skeleton: <Skeleton className="h-5 w-12" />,
       },
@@ -155,6 +158,7 @@ export function InventoryItemsTable({
       cell: ({ row }) => formatPaise(row.original.unitPricePaise ?? 0),
       meta: {
         headerTitle: "Unit price",
+        icon: COLUMN_ICONS.unitPrice,
         kind: "amount",
         skeleton: <Skeleton className="h-5 w-20" />,
       },
@@ -174,6 +178,7 @@ export function InventoryItemsTable({
         formatPaise(row.original.quantity * (row.original.unitPricePaise ?? 0)),
       meta: {
         headerTitle: "Estimated value",
+        icon: COLUMN_ICONS.estimatedValue,
         kind: "amount",
         skeleton: <Skeleton className="h-5 w-20" />,
       },

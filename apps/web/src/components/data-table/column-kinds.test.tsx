@@ -3,7 +3,8 @@ import { describe, expect, it } from "bun:test";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { isValidElement, type ReactElement } from "react";
 
-import { applyColumnKinds, DATA_FONT_CLASS } from "./column-kinds";
+import { COLUMN_ICONS } from "./column-icons";
+import { applyColumnKinds, columnIcon, DATA_FONT_CLASS } from "./column-kinds";
 
 interface Row {
   amount: number;
@@ -17,7 +18,7 @@ const renderHeader = (column: DataGridColumnDef<Row>) =>
   (column.header as (context: never) => ReactElement)({} as never);
 
 describe("applyColumnKinds", () => {
-  it("leaves columns without a kind untouched", () => {
+  it("leaves columns without a kind or icon untouched", () => {
     const column: DataGridColumnDef<Row> = { id: "plain" };
     expect(applyColumnKinds([column])[0]).toBe(column);
   });
@@ -54,5 +55,27 @@ describe("applyColumnKinds", () => {
     expect(isValidElement(added)).toBe(true);
     expect((added.props as { icon?: unknown }).icon).toBeDefined();
     expect((kept.props as { icon?: unknown }).icon).toBe("own");
+  });
+
+  it("prefers the column's own icon over its kind's", () => {
+    expect(
+      columnIcon<Row>({
+        id: "programme",
+        meta: { icon: COLUMN_ICONS.programme, kind: "text" },
+      })
+    ).toBe(COLUMN_ICONS.programme);
+  });
+
+  it("adds a concept icon without the data font to columns with no kind", () => {
+    const [column] = applyColumnKinds<Row>([
+      {
+        header: () => <Header title="Programme" />,
+        id: "programme",
+        meta: { icon: COLUMN_ICONS.programme },
+      },
+    ]);
+    const rendered = renderHeader(column as DataGridColumnDef<Row>);
+    expect((rendered.props as { icon?: unknown }).icon).toBeDefined();
+    expect(column?.meta?.cellClassName).not.toContain("font-mono");
   });
 });

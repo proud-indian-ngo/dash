@@ -5,6 +5,7 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { EventActionsMenu } from "@/components/teams/events/event-actions-menu";
 import type { EventDisplayRow } from "@/components/teams/events/events-table-helpers";
@@ -218,6 +219,7 @@ export function createEventsTableColumns({
       id: "city",
       meta: {
         headerTitle: "City",
+        icon: COLUMN_ICONS.city,
         kind: "location",
         skeleton: SKELETON_LOCATION,
       },
@@ -240,6 +242,7 @@ export function createEventsTableColumns({
       id: "programme",
       meta: {
         headerTitle: "Programme",
+        icon: COLUMN_ICONS.programme,
         kind: "text",
         skeleton: SKELETON_LOCATION,
       },
@@ -261,6 +264,7 @@ export function createEventsTableColumns({
       id: "isPublic",
       meta: {
         headerTitle: "Public",
+        icon: COLUMN_ICONS.public,
         kind: "tag",
         skeleton: SKELETON_BADGE,
       },
@@ -286,6 +290,7 @@ export function createEventsTableColumns({
       id: "recurrence",
       meta: {
         headerTitle: "Recurrence",
+        icon: COLUMN_ICONS.recurrence,
         kind: "tag",
         skeleton: SKELETON_BADGE,
       },
@@ -307,6 +312,7 @@ export function createEventsTableColumns({
       id: "members",
       meta: {
         headerTitle: "Volunteers",
+        icon: COLUMN_ICONS.people,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },

@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { UserCell } from "@/components/shared/inline-meta-cell";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import {
@@ -60,6 +61,7 @@ export function createUserColumns(
       id: "role",
       meta: {
         headerTitle: "Role",
+        icon: COLUMN_ICONS.role,
         kind: "tag",
         skeleton: SKELETON_ROLE,
       },
@@ -73,6 +75,7 @@ export function createUserColumns(
       id: "registrationGroup",
       meta: {
         headerTitle: "Group",
+        icon: COLUMN_ICONS.group,
         kind: "tag",
         skeleton: SKELETON_GROUP,
       },
@@ -90,6 +93,7 @@ export function createUserColumns(
       id: "gender",
       meta: {
         headerTitle: "Gender",
+        icon: COLUMN_ICONS.gender,
         kind: "tag",
         skeleton: SKELETON_GENDER,
       },
@@ -108,6 +112,7 @@ export function createUserColumns(
       id: "dob",
       meta: {
         headerTitle: "DOB",
+        icon: COLUMN_ICONS.dateOfBirth,
         kind: "date",
         skeleton: SKELETON_DOB,
       },
@@ -131,6 +136,7 @@ export function createUserColumns(
       meta: {
         compact: "primary",
         headerTitle: "Active",
+        icon: COLUMN_ICONS.active,
         kind: "status",
         skeleton: SKELETON_ACTIVE,
       },
@@ -187,6 +193,7 @@ export function createUserColumns(
       id: "emailVerified",
       meta: {
         headerTitle: "Email Verified",
+        icon: COLUMN_ICONS.emailVerified,
         kind: "status",
         skeleton: SKELETON_EMAIL_VERIFIED,
       },
@@ -217,6 +224,7 @@ export function createUserColumns(
       id: "banned",
       meta: {
         headerTitle: "Banned",
+        icon: COLUMN_ICONS.banned,
         kind: "status",
         skeleton: SKELETON_BANNED,
       },
@@ -234,6 +242,7 @@ export function createUserColumns(
       id: "banReason",
       meta: {
         headerTitle: "Ban Reason",
+        icon: COLUMN_ICONS.reason,
         kind: "text",
         skeleton: SKELETON_BAN_REASON,
       },
@@ -256,6 +265,7 @@ export function createUserColumns(
       id: "banExpires",
       meta: {
         headerTitle: "Ban Expires",
+        icon: COLUMN_ICONS.banExpires,
         kind: "date",
         skeleton: SKELETON_BAN_EXPIRES,
       },
@@ -278,6 +288,7 @@ export function createUserColumns(
       id: "createdAt",
       meta: {
         headerTitle: "Created",
+        icon: COLUMN_ICONS.createdAt,
         kind: "date",
         skeleton: SKELETON_CREATED_AT,
       },
@@ -300,6 +311,7 @@ export function createUserColumns(
       id: "updatedAt",
       meta: {
         headerTitle: "Updated",
+        icon: COLUMN_ICONS.updatedAt,
         kind: "date",
         skeleton: SKELETON_UPDATED_AT,
       },

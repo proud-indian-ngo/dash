@@ -15,6 +15,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeaderMenu } from "@/components/shared/page-header";
@@ -252,6 +253,7 @@ export function VendorsTable({
       id: "pendingCount",
       meta: {
         headerTitle: "Pending Payments",
+        icon: COLUMN_ICONS.pending,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },
@@ -272,6 +274,7 @@ export function VendorsTable({
       id: "activeCount",
       meta: {
         headerTitle: "Active Payments",
+        icon: COLUMN_ICONS.inProgress,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },
@@ -290,7 +293,12 @@ export function VendorsTable({
         />
       ),
       id: "completedCount",
-      meta: { headerTitle: "Completed", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Completed",
+        icon: COLUMN_ICONS.completed,
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 120,
     },
     {
@@ -375,6 +383,7 @@ export function VendorsTable({
       id: "rejectedCount",
       meta: {
         headerTitle: "Rejected Payments",
+        icon: COLUMN_ICONS.rejected,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },

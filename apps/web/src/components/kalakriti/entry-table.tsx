@@ -12,6 +12,7 @@ import type { KalakritiEntryNextSlot } from "@pi-dash/shared/kalakriti-performan
 import { format } from "date-fns";
 import { type ReactNode, useState } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -252,6 +253,7 @@ export function EntryTable({
       meta: {
         compact: "primary",
         headerTitle: "Center",
+        icon: COLUMN_ICONS.center,
         kind: "text",
         skeleton: <Skeleton className="h-5 w-32" />,
       },
@@ -303,6 +305,7 @@ export function EntryTable({
       ),
       meta: {
         headerTitle: "Participation",
+        icon: COLUMN_ICONS.participation,
         kind: "status",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
@@ -356,6 +359,7 @@ export function EntryTable({
       meta: {
         compact: "primary",
         headerTitle: "Participants",
+        icon: COLUMN_ICONS.people,
         kind: "count",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
@@ -472,6 +476,7 @@ export function EntryTable({
             id: "competition",
             meta: {
               headerTitle: "Competition",
+              icon: COLUMN_ICONS.competition,
               kind: "text",
               skeleton: <Skeleton className="h-5 w-32" />,
             },
@@ -493,6 +498,7 @@ export function EntryTable({
       id: "ageCategory",
       meta: {
         headerTitle: "Age Category",
+        icon: COLUMN_ICONS.ageCategory,
         kind: "tag",
         skeleton: <Skeleton className="h-5 w-24" />,
       },
@@ -515,6 +521,7 @@ export function EntryTable({
       id: "session",
       meta: {
         headerTitle: "Session",
+        icon: COLUMN_ICONS.session,
         kind: "text",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -531,6 +538,7 @@ export function EntryTable({
       id: "venue",
       meta: {
         headerTitle: "Venue",
+        icon: COLUMN_ICONS.venue,
         kind: "location",
         skeleton: <Skeleton className="h-5 w-24" />,
       },

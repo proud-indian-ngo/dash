@@ -11,6 +11,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createVenueFilterFields,
@@ -153,6 +154,7 @@ export function VenuesTable({
       meta: {
         compact: "primary",
         headerTitle: "Venue",
+        icon: COLUMN_ICONS.venue,
         kind: "location",
         skeleton: SKELETON_NAME,
       },
@@ -169,6 +171,7 @@ export function VenuesTable({
       ),
       meta: {
         headerTitle: "Scheduled Sessions",
+        icon: COLUMN_ICONS.session,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },

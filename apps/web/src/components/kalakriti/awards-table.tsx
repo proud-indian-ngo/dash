@@ -15,6 +15,7 @@ import type {
   KalakritiAwardRecipient as KalakritiAwardMember,
 } from "@pi-dash/shared/kalakriti-awards";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -333,6 +334,7 @@ export function AwardsTable({
       meta: {
         compact: "primary",
         headerTitle: "Competition",
+        icon: COLUMN_ICONS.competition,
         kind: "text",
         skeleton: SKELETON_NAME,
       },
@@ -348,6 +350,7 @@ export function AwardsTable({
       meta: {
         compact: "primary",
         headerTitle: "Award",
+        icon: COLUMN_ICONS.award,
         kind: "text",
         skeleton: SKELETON_TEXT,
       },
@@ -365,6 +368,7 @@ export function AwardsTable({
       id: "centerName",
       meta: {
         headerTitle: "Center",
+        icon: COLUMN_ICONS.center,
         kind: "text",
         skeleton: SKELETON_NAME,
       },
@@ -382,6 +386,7 @@ export function AwardsTable({
       id: "ageCategoryName",
       meta: {
         headerTitle: "Age Category",
+        icon: COLUMN_ICONS.ageCategory,
         kind: "tag",
         skeleton: SKELETON_TEXT,
       },
@@ -413,7 +418,12 @@ export function AwardsTable({
         />
       ),
       id: "gender",
-      meta: { headerTitle: "Gender", kind: "tag", skeleton: SKELETON_TEXT },
+      meta: {
+        headerTitle: "Gender",
+        icon: COLUMN_ICONS.gender,
+        kind: "tag",
+        skeleton: SKELETON_TEXT,
+      },
       size: 120,
     },
     {

@@ -10,6 +10,7 @@ description: Use when creating, modifying, refactoring, or fixing data tables â€
 - [ ] Using `DataTableWrapper` from `@/components/data-table/data-table-wrapper`
 - [ ] Storage key follows `{entity}_table_state_v1` convention
 - [ ] All columns have `meta: { headerTitle, skeleton }`
+- [ ] Columns set `meta.kind`, and `meta.icon` from `COLUMN_ICONS` when the column is a domain concept: reuse the key for that concept, and add a key only for a new one
 - [ ] Column headers use `DataGridColumnHeader` with `visibility={true}`
 - [ ] Row actions use `DropdownMenu` with standard props
 - [ ] Delete confirmations use `useConfirmAction` hook
@@ -32,7 +33,7 @@ const columns: DataGridColumnDef<MyEntity>[] = [
       <DataGridColumnHeader column={column} title="Name" visibility={true} />
     ),
     cell: ({ row }) => <span>{row.original.name}</span>,
-    meta: { compact: "primary", headerTitle: "Name", skeleton: <Skeleton className="h-5 w-40" /> },
+    meta: { compact: "primary", headerTitle: "Name", kind: "text", skeleton: <Skeleton className="h-5 w-40" /> },
     size: 200,
   },
   // ... more columns

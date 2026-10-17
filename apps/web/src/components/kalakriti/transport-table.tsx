@@ -14,6 +14,7 @@ import {
 import { format } from "date-fns";
 import { useMemo } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -177,6 +178,7 @@ export function TransportTable({
           ? { compact: "primary" as const }
           : {}),
         headerTitle: title,
+        ...(key === "center" ? { icon: COLUMN_ICONS.center } : {}),
         skeleton: <Skeleton className="h-5 w-28" />,
       },
       size: 180,
