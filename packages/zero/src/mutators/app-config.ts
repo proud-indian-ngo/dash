@@ -12,6 +12,11 @@ import {
   RETURN_REGISTRATION_CONFIG_KEY,
 } from "@pi-dash/shared/donations-return";
 import {
+  isValidVolunteerHourValue,
+  VOLUNTEER_HOUR_VALUE_CONFIG_KEY,
+  VOLUNTEER_HOUR_VALUE_RANGE_MESSAGE,
+} from "@pi-dash/shared/outcomes";
+import {
   parseReceiptSettings,
   RECEIPT_SETTINGS_CONFIG_KEY,
 } from "@pi-dash/shared/receipts";
@@ -28,8 +33,8 @@ const socialManageKeys = new Set(SOCIAL_MANAGE_CONFIG_KEYS);
  * `settings.app_config` may write every key; `social.manage` may write only
  * the social settings keys shown on the Social page; `finance.manage` may
  * write only the default finance-approval threshold, the cash-voucher
- * limit, the 80G registration used by the donations return and the
- * receipt details.
+ * limit, the 80G registration used by the donations return, the receipt
+ * details and the hourly value of volunteer time.
  */
 export function assertCanWriteAppConfig(
   ctx: Context | undefined,
@@ -46,7 +51,8 @@ export function assertCanWriteAppConfig(
     (key === APP_CONFIG_FINANCE_THRESHOLD_KEY ||
       key === CASH_VOUCHER_LIMIT_CONFIG_KEY ||
       key === RETURN_REGISTRATION_CONFIG_KEY ||
-      key === RECEIPT_SETTINGS_CONFIG_KEY) &&
+      key === RECEIPT_SETTINGS_CONFIG_KEY ||
+      key === VOLUNTEER_HOUR_VALUE_CONFIG_KEY) &&
     can(ctx, "finance.manage")
   ) {
     return;
@@ -75,6 +81,12 @@ export function assertValidAppConfigValue(key: string, value: string): void {
   if (key === CASH_VOUCHER_LIMIT_CONFIG_KEY) {
     if (!isValidCashVoucherLimitValue(value)) {
       throw new Error(CASH_VOUCHER_LIMIT_RANGE_MESSAGE);
+    }
+    return;
+  }
+  if (key === VOLUNTEER_HOUR_VALUE_CONFIG_KEY) {
+    if (!isValidVolunteerHourValue(value)) {
+      throw new Error(VOLUNTEER_HOUR_VALUE_RANGE_MESSAGE);
     }
     return;
   }

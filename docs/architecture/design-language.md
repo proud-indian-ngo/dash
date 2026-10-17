@@ -119,7 +119,7 @@ Time-based lists that are not tables (the events page):
 
 - Dashboard counts are the list pages' stat chips, led by "Waiting for you" (warning tint when non-zero) for reviewers, else "My pending".
 - "Waiting for review" shows one row per kind of work (count, ₹ to approve or event names, age of the oldest, amber after a week) linking to the filtered list or event. The chip and panel share `countPendingReviews`. Section icons stay muted.
-- Analytics totals are stat chips. Each panel is a `ChartCard` (sentence-case title, optional note, empty state in the same frame). Rankings use `RankedBars` (name, bar, amount, count), not bar charts with wrapped labels or donuts.
+- Analytics spending totals are stat chips; Outcomes leads with four tiles (label, big number, one muted caption) and coverage notes under them. Each panel is a `ChartCard` (sentence-case title, optional note, empty state in the same frame). Rankings use `RankedBars` (name, bar, amount, count), not bar charts with wrapped labels or donuts.
 - Panel grids set `*:min-w-0` so charts cannot widen the page on phones.
 - On phones stat chips are one swipeable row running to the screen edge; wider screens wrap.
 

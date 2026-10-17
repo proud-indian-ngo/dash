@@ -63,6 +63,7 @@
         "helpers/seed-dev-data.ts",
         "helpers/social-recap.ts",
         "helpers/series-first-session.ts",
+        "helpers/outcomes.ts",
         "helpers/social-page.ts",
         "helpers/seed-kalakriti-performance.ts",
         "helpers/profile-kalakriti-dashboard.ts",

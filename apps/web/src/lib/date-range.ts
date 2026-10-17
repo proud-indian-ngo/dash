@@ -5,6 +5,7 @@ import {
   startOfMonth,
   subDays,
   subMonths,
+  subYears,
 } from "date-fns";
 import { parseAsString } from "nuqs";
 
@@ -20,6 +21,7 @@ export type PresetKey =
   | "this_month"
   | "3m"
   | "fiscal_year"
+  | "last_fiscal_year"
   | "all"
   | "custom";
 
@@ -67,6 +69,17 @@ export const DATE_PRESETS: Preset[] = [
     getRange: () => ({ from: fiscalYearStart(), to: new Date() }),
     key: "fiscal_year",
     label: "This fiscal year",
+  },
+  {
+    getRange: () => {
+      const start = fiscalYearStart();
+      return {
+        from: subYears(start, 1),
+        to: new Date(start.getTime() - 1),
+      };
+    },
+    key: "last_fiscal_year",
+    label: "Last fiscal year",
   },
 ];
 
