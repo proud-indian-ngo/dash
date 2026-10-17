@@ -114,24 +114,20 @@ function ReimbursementsRouteComponent() {
       return;
     }
     setVoidLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.reimbursement.void({ id: voidTarget.id, reason })
-      ).server;
-      handleMutationResult(res, {
-        entityId: voidTarget.id,
-        errorMsg: getMutationResultErrorMessage(
-          res.type === "error" ? res.error : undefined,
-          "Couldn't void the reimbursement"
-        ),
-        mutation: "reimbursement.void",
-        successMsg: "Reimbursement voided",
-      });
-      if (res.type !== "error") {
-        setVoidTarget(null);
-      }
-    } finally {
-      setVoidLoading(false);
+    const res = await zero
+      .mutate(mutators.reimbursement.void({ id: voidTarget.id, reason }))
+      .server.finally(() => setVoidLoading(false));
+    handleMutationResult(res, {
+      entityId: voidTarget.id,
+      errorMsg: getMutationResultErrorMessage(
+        res.type === "error" ? res.error : undefined,
+        "Couldn't void the reimbursement"
+      ),
+      mutation: "reimbursement.void",
+      successMsg: "Reimbursement voided",
+    });
+    if (res.type !== "error") {
+      setVoidTarget(null);
     }
   });
   const stableOnNavigate1 = useEventCallback((id: string) => {

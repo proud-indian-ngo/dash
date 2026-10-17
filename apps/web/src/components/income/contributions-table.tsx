@@ -151,18 +151,17 @@ export function ContributionsTable({
     }
   }, [bankFilterActive, query, seesBankEvidence, setQuery]);
   // Receipted is shown, and filtered, as Received now.
-  const foldedStatusQuery = useMemo(
-    () => foldReceiptedStatusFilter(query),
-    [query]
-  );
+  const foldedStatusQuery = foldReceiptedStatusFilter(query);
   useEffect(() => {
     if (foldedStatusQuery) {
       setQuery(foldedStatusQuery);
     }
   }, [foldedStatusQuery, setQuery]);
-  const bankScope = useMemo(
-    () => contributionBankScope(data, query, missingPartyIds, searchQuery),
-    [data, missingPartyIds, query, searchQuery]
+  const bankScope = contributionBankScope(
+    data,
+    query,
+    missingPartyIds,
+    searchQuery
   );
   const bank = useContributionBankEvidence(seesBankEvidence, bankScope);
   // The Receipt column: for receipt readers only, like the receipts relation.

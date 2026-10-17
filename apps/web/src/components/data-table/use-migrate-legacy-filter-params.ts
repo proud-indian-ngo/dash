@@ -9,7 +9,7 @@ import type {
 } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { parseAsString, useQueryStates } from "nuqs";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 
@@ -50,13 +50,10 @@ export function useMigrateLegacyFilterParams(
   queryKey?: string
 ) {
   const { query, setQuery } = useDataTableFilters(queryKey);
-  const parsers = useMemo(() => {
-    const next: Record<string, typeof parseAsString> = {};
-    for (const mapping of mappings) {
-      next[mapping.param] = parseAsString;
-    }
-    return next;
-  }, [mappings]);
+  const parsers: Record<string, typeof parseAsString> = {};
+  for (const mapping of mappings) {
+    parsers[mapping.param] = parseAsString;
+  }
   const [paramValues, setParamValues] = useQueryStates(parsers);
   const migrated = useRef<boolean>(false);
 

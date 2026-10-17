@@ -84,9 +84,8 @@ function PostsTab() {
         error: error instanceof Error ? error.message : String(error),
         postId: dropTarget.id,
       });
-    } finally {
-      setDropping(false);
     }
+    setDropping(false);
   });
   const handleOpenChange = useEventCallback((open: boolean) => {
     if (!open) {

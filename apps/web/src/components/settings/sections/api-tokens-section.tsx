@@ -161,9 +161,8 @@ function CreateTokenDialog({
         error: getErrorMessage(error),
       });
       toast.error("Couldn't create token");
-    } finally {
-      setSubmitting(false);
     }
+    setSubmitting(false);
   });
   const handleDone = useEventCallback(() => handleOpenChange(false));
 
@@ -322,10 +321,9 @@ export function ApiTokensSection() {
         error: getErrorMessage(error),
       });
       toast.error("Couldn't revoke token");
-    } finally {
-      setRevokeLoading(false);
-      setRevoking(null);
     }
+    setRevokeLoading(false);
+    setRevoking(null);
   });
   const handleRevokeOpenChange = useEventCallback((open: boolean) => {
     if (!open) {

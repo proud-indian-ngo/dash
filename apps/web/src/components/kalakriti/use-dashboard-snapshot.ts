@@ -1,6 +1,6 @@
 import { useConnectionState } from "@rocicorp/zero/react";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getKalakritiDashboardSummary } from "@/functions/kalakriti-dashboard-summary";
 
@@ -33,7 +33,7 @@ export function useDashboardSnapshot({
     error: false,
   }));
   const refreshRef = useRef<() => Promise<void>>(async () => undefined);
-  const refresh = useCallback(() => refreshRef.current(), []);
+  const refresh = () => refreshRef.current();
 
   const polling =
     state.key === scopeKey && state.data
@@ -43,14 +43,14 @@ export function useDashboardSnapshot({
   useEffect(() => {
     let disposed = false;
     let generation = 0;
+    const isCurrent = (request: number) => !disposed && request === generation;
     const fetchSnapshot = async () => {
       if (!connected) return;
       generation += 1;
       const request = generation;
       try {
         const data = await loadKalakritiDashboard(year);
-        if (!disposed && request === generation)
-          setState({ key: scopeKey, data, error: false });
+        if (isCurrent(request)) setState({ key: scopeKey, data, error: false });
       } catch (error) {
         log.error({
           component: "KalakritiDashboard",
@@ -58,7 +58,7 @@ export function useDashboardSnapshot({
           year,
           error: error instanceof Error ? error.message : String(error),
         });
-        if (!disposed && request === generation)
+        if (isCurrent(request))
           setState((previous) => ({
             key: scopeKey,
             data: previous.key === scopeKey ? previous.data : undefined,

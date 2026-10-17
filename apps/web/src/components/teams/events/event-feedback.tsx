@@ -257,9 +257,8 @@ function EventFeedbackParticipant({
         error: err instanceof Error ? err.message : String(err),
         eventId,
       });
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   });
 
   const handleUpdate = useEventCallback(async (content: string) => {
@@ -298,9 +297,8 @@ function EventFeedbackParticipant({
         error: err instanceof Error ? err.message : String(err),
         eventId,
       });
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   });
   const stableOnClick0 = useEventCallback(() => setEditing(true));
   const stableOnCancel1 = useEventCallback(() => setEditing(false));

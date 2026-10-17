@@ -1,6 +1,7 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getContributionReceiptReadiness } from "@/functions/contribution-receipts";
 
@@ -50,8 +51,7 @@ export function useReceiptReadiness({
   synced: boolean;
 }): ReceiptReadinessState {
   const load = useServerFn(getContributionReceiptReadiness);
-  const loadRef = useRef(load);
-  loadRef.current = load;
+  const loadReadiness = useEventCallback(() => load());
   const [readiness, setReadiness] = useState<ReceiptReadinessSets | null>(null);
   const [error, setError] = useState(false);
   // The start number of the load the current answer came from.
@@ -71,7 +71,7 @@ export function useReceiptReadiness({
     const loader = createReadinessLoader({
       debounceMs: DEBOUNCE_MS,
       isHidden: () => document.hidden,
-      load: () => loadRef.current(),
+      load: loadReadiness,
       onError: (caught) => {
         log.error({
           action: "income.receiptReadiness",
@@ -129,11 +129,11 @@ export function useReceiptReadiness({
     }
   }, [active, unclassified, missRefetch, refreshKey]);
 
-  const retry = useCallback(() => {
+  const retry = () => {
     setError(false);
     setMissRefetch(null);
     loaderRef.current?.request();
-  }, []);
+  };
 
   const gaveUp =
     unclassified &&

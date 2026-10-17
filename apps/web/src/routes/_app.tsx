@@ -41,14 +41,17 @@ export const Route = createFileRoute("/_app")({
   staleTime: Number.POSITIVE_INFINITY,
 });
 
+const loadClientLogger = () => import("@/lib/client-logger");
+const loadPostHog = () => import("@/lib/posthog");
+
 function LogIdentitySync() {
   const { user } = useApp();
 
   useEffect(() => {
-    import("@/lib/client-logger").then(({ setLogIdentity }) =>
+    loadClientLogger().then(({ setLogIdentity }) =>
       setLogIdentity(user.id, user.role ?? "volunteer")
     );
-    import("@/lib/posthog")
+    loadPostHog()
       .then(({ identifyUser }) =>
         identifyUser(user.id, { role: user.role ?? "volunteer" })
       )
@@ -61,10 +64,8 @@ function LogIdentitySync() {
         });
       });
     return () => {
-      import("@/lib/client-logger").then(({ clearLogIdentity }) =>
-        clearLogIdentity()
-      );
-      import("@/lib/posthog")
+      loadClientLogger().then(({ clearLogIdentity }) => clearLogIdentity());
+      loadPostHog()
         .then(({ resetUser }) => resetUser())
         .catch((error) => {
           log.error({

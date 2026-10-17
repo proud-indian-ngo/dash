@@ -101,6 +101,8 @@ function KalakritiGuardiansPage() {
 
   const reuseAction = useConfirmAction<ReusePayload>({
     onConfirm: async (payload) => {
+      const password = payload.password || undefined;
+      const phone = payload.phone || undefined;
       try {
         await inviteKalakritiGuardian({
           data: {
@@ -108,8 +110,8 @@ function KalakritiGuardiansPage() {
             editionId: edition.id,
             email: payload.email,
             name: payload.name,
-            password: payload.password || undefined,
-            phone: payload.phone || undefined,
+            password,
+            phone,
           },
         });
         return { type: "success" };

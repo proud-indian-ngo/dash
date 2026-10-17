@@ -1,5 +1,5 @@
 import { useConnectionState } from "@rocicorp/zero/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getKalakritiFoodAttendees } from "@/functions/kalakriti-food";
 
@@ -20,12 +20,14 @@ export function useFoodAttendees(
     complete: boolean;
   }>();
   const refreshRef = useRef<() => Promise<void>>(async () => undefined);
-  const refresh = useCallback(() => refreshRef.current(), []);
+  const refresh = () => refreshRef.current();
   useEffect(() => {
     let disposed = false;
     let generation = 0;
+    const isCurrent = (request: number) => !disposed && request === generation;
     const load = async () => {
-      const request = ++generation;
+      generation += 1;
+      const request = generation;
       setSnapshot((previous) =>
         previous?.scopeKey === scopeKey
           ? { ...previous, complete: false }
@@ -34,8 +36,7 @@ export function useFoodAttendees(
       if (!enabled || !connected) return;
       try {
         const rows = await getKalakritiFoodAttendees({ data: { year } });
-        if (!disposed && request === generation)
-          setSnapshot({ scopeKey, rows, complete: true });
+        if (isCurrent(request)) setSnapshot({ scopeKey, rows, complete: true });
       } catch {
         // Keep the last roster visible, but disable writes until a successful refresh.
       }

@@ -24,6 +24,65 @@ interface BlankIdCardDownloadFormProps {
   year: number;
 }
 
+async function downloadBlankIdCards(
+  year: number,
+  value: { guestPages: number; judgePages: number; volunteerPages: number },
+  onDownloaded: () => void,
+  onDownloadingChange: (isDownloading: boolean) => void
+) {
+  onDownloadingChange(true);
+  try {
+    const searchParams = new URLSearchParams({
+      guestPages: String(value.guestPages),
+      judgePages: String(value.judgePages),
+      mode: "blank",
+      volunteerPages: String(value.volunteerPages),
+    });
+    const response = await fetch(
+      `/api/kalakriti/${year}/id-cards?${searchParams}`
+    );
+    if (!response.ok) {
+      const body: unknown = await response.json();
+      throw new Error(
+        body &&
+          typeof body === "object" &&
+          "error" in body &&
+          typeof body.error === "string"
+          ? body.error
+          : "Blank ID cards could not be downloaded"
+      );
+    }
+
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `kalakriti-${year}-blank-id-cards.pdf`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success("Blank ID cards downloaded");
+    onDownloaded();
+  } catch (error) {
+    log.error({
+      action: "downloadBlankIdCards",
+      component: "BlankIdCardDownloadDialog",
+      error: error instanceof Error ? error.message : String(error),
+      guestPages: value.guestPages,
+      judgePages: value.judgePages,
+      volunteerPages: value.volunteerPages,
+      year,
+    });
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : "Blank ID cards could not be downloaded"
+    );
+  } finally {
+    onDownloadingChange(false);
+  }
+}
+
 function BlankIdCardDownloadForm({
   onDownloaded,
   onDownloadingChange,
@@ -38,57 +97,12 @@ function BlankIdCardDownloadForm({
       volunteerPages: 0,
     },
     onSubmit: async ({ value }) => {
-      onDownloadingChange(true);
-      try {
-        const searchParams = new URLSearchParams({
-          guestPages: String(value.guestPages),
-          judgePages: String(value.judgePages),
-          mode: "blank",
-          volunteerPages: String(value.volunteerPages),
-        });
-        const response = await fetch(
-          `/api/kalakriti/${year}/id-cards?${searchParams}`
-        );
-        if (!response.ok) {
-          const body: unknown = await response.json();
-          throw new Error(
-            body &&
-              typeof body === "object" &&
-              "error" in body &&
-              typeof body.error === "string"
-              ? body.error
-              : "Blank ID cards could not be downloaded"
-          );
-        }
-
-        const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `kalakriti-${year}-blank-id-cards.pdf`;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        toast.success("Blank ID cards downloaded");
-        onDownloaded();
-      } catch (error) {
-        log.error({
-          action: "downloadBlankIdCards",
-          component: "BlankIdCardDownloadDialog",
-          error: error instanceof Error ? error.message : String(error),
-          guestPages: value.guestPages,
-          judgePages: value.judgePages,
-          volunteerPages: value.volunteerPages,
-          year,
-        });
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Blank ID cards could not be downloaded"
-        );
-      } finally {
-        onDownloadingChange(false);
-      }
+      await downloadBlankIdCards(
+        year,
+        value,
+        onDownloaded,
+        onDownloadingChange
+      );
     },
     validators: {
       onChange: blankIdCardPagesSchema,

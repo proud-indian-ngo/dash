@@ -10,7 +10,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { KalakritiEntryNextSlot } from "@pi-dash/shared/kalakriti-performance-order";
 import { format } from "date-fns";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -193,60 +193,50 @@ export function EntryTable({
         entry.session.competition.musicUploadEnabled ||
         entry.musicFiles.length > 0
     );
-  const arrivalStudents = useMemo(
-    () => [
-      ...new Map(
-        data.flatMap((entry) =>
-          entry.members.map(
-            (member) => [member.studentId, member.student] as const
-          )
+  const arrivalStudents = [
+    ...new Map(
+      data.flatMap((entry) =>
+        entry.members.map(
+          (member) => [member.studentId, member.student] as const
         )
-      ).values(),
-    ],
-    [data]
-  );
+      )
+    ).values(),
+  ];
   const arrival = useTransportStatusSnapshot({
     data: arrivalStudents,
     scopeKey: editionId,
     complete: snapshotReady,
     getStatus: getEntryStudentArrival,
   });
-  const attendanceStudents = useMemo(
-    () => [
-      ...new Map(
-        data.flatMap((entry) =>
-          entry.members.map((member) => {
-            const id = entryAttendanceKey(entry, member.studentId);
-            return [
+  const attendanceStudents = [
+    ...new Map(
+      data.flatMap((entry) =>
+        entry.members.map((member) => {
+          const id = entryAttendanceKey(entry, member.studentId);
+          return [
+            id,
+            {
               id,
-              {
-                id,
-                student: member.student,
-                editionId,
-                sessionId: entry.session.competitionSessionId,
-              },
-            ] as const;
-          })
-        )
-      ).values(),
-    ],
-    [data, editionId]
-  );
+              student: member.student,
+              editionId,
+              sessionId: entry.session.competitionSessionId,
+            },
+          ] as const;
+        })
+      )
+    ).values(),
+  ];
   const attendance = useTransportStatusSnapshot({
     data: attendanceStudents,
     scopeKey: editionId,
     complete: snapshotReady,
     getStatus: getAttendanceSnapshotLabel,
   });
-  const filterFields = useMemo(
-    () =>
-      createEntryTableFilterFields(
-        data,
-        variant !== "session",
-        Boolean(showMusic),
-        Boolean(nextByEntryId)
-      ),
-    [data, variant, showMusic, nextByEntryId]
+  const filterFields = createEntryTableFilterFields(
+    data,
+    variant !== "session",
+    Boolean(showMusic),
+    Boolean(nextByEntryId)
   );
   const allColumns: DataGridColumnDef<KalakritiEntryRow>[] = [
     {

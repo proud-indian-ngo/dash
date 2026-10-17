@@ -7,7 +7,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useUnallocatedAttentionView } from "@/components/expenses/unallocated-attention-view";
 import { VoidDialog } from "@/components/form/void-dialog";
@@ -60,18 +60,14 @@ function VendorPaymentsRouteComponent() {
   // In the books: its expense or any of its payments stands there.
   const postedRequests = usePostedSourceIds("vendor_payment");
   const postedPayments = usePostedSourceIds("vendor_payment_transaction");
-  const postedIds = useMemo(
-    () =>
-      new Set(
-        data
-          .filter(
-            (vp) =>
-              postedRequests.has(vp.id) ||
-              (vp.transactions ?? []).some((t) => postedPayments.has(t.id))
-          )
-          .map((vp) => vp.id)
-      ),
-    [data, postedRequests, postedPayments]
+  const postedIds = new Set(
+    data
+      .filter(
+        (vp) =>
+          postedRequests.has(vp.id) ||
+          (vp.transactions ?? []).some((t) => postedPayments.has(t.id))
+      )
+      .map((vp) => vp.id)
   );
   const voidedFilter = useVoidedFilter(data);
   const unallocatedView = useUnallocatedAttentionView(data);
@@ -88,24 +84,20 @@ function VendorPaymentsRouteComponent() {
       return;
     }
     setVoidLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.vendorPayment.void({ id: voidTarget.id, reason })
-      ).server;
-      handleMutationResult(res, {
-        entityId: voidTarget.id,
-        errorMsg: getMutationResultErrorMessage(
-          res.type === "error" ? res.error : undefined,
-          "Couldn't void the vendor payment"
-        ),
-        mutation: "vendorPayment.void",
-        successMsg: "Vendor payment voided",
-      });
-      if (res.type !== "error") {
-        setVoidTarget(null);
-      }
-    } finally {
-      setVoidLoading(false);
+    const res = await zero
+      .mutate(mutators.vendorPayment.void({ id: voidTarget.id, reason }))
+      .server.finally(() => setVoidLoading(false));
+    handleMutationResult(res, {
+      entityId: voidTarget.id,
+      errorMsg: getMutationResultErrorMessage(
+        res.type === "error" ? res.error : undefined,
+        "Couldn't void the vendor payment"
+      ),
+      mutation: "vendorPayment.void",
+      successMsg: "Vendor payment voided",
+    });
+    if (res.type !== "error") {
+      setVoidTarget(null);
     }
   });
   const stableOnNavigate1 = useEventCallback((id: string) => {

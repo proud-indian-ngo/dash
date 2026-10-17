@@ -7,7 +7,7 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 
@@ -60,7 +60,7 @@ function RolesPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const loadRoles = useCallback(async () => {
+  const loadRoles = useEventCallback(async () => {
     try {
       const data = await fetchRoles();
       setRoles(data);
@@ -71,10 +71,9 @@ function RolesPage() {
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Couldn't load roles");
-    } finally {
-      setLoading(false);
     }
-  }, [fetchRoles]);
+    setLoading(false);
+  });
 
   useEffect(() => {
     loadRoles();

@@ -182,17 +182,17 @@ export function CloseYearDialog({
 
   const confirm = async () => {
     setClosing(true);
-    try {
-      await close({ data: { fiscalYearId } });
-      toast.success(`${label} closed`);
-      onOpenChange(false);
-    } catch (error) {
-      toast.error("Couldn't close the year", {
-        description: errorMessage(error),
-      });
-    } finally {
-      setClosing(false);
-    }
+    await close({ data: { fiscalYearId } })
+      .then(() => {
+        toast.success(`${label} closed`);
+        onOpenChange(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't close the year", {
+          description: errorMessage(error),
+        });
+      })
+      .finally(() => setClosing(false));
   };
 
   return (

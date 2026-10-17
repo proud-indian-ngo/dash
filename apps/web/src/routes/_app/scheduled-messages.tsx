@@ -179,9 +179,8 @@ function ScheduledMessagesPage() {
         error: error instanceof Error ? error.message : String(error),
         messageId: cancelTarget.id,
       });
-    } finally {
-      setIsCancelling(false);
     }
+    setIsCancelling(false);
   });
 
   const handleDeleteConfirm = useEventCallback(async () => {
@@ -209,9 +208,8 @@ function ScheduledMessagesPage() {
         error: error instanceof Error ? error.message : String(error),
         messageId: deleteTarget.id,
       });
-    } finally {
-      setIsDeleting(false);
     }
+    setIsDeleting(false);
   });
   const stableOnClick1 = useEventCallback(() =>
     setDialogMode({ kind: "create" })

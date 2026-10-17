@@ -206,22 +206,22 @@ export function ReimbursementDetail({
       return;
     }
     setGeneratingVoucherId(lineItemId);
-    try {
-      const res = await zero.mutate(
+    await zero
+      .mutate(
         mutators.reimbursement.generateVoucher({
           lineItemId,
           reimbursementId: request.id,
         })
-      ).server;
-      handleMutationResult(res, {
-        entityId: lineItemId,
-        errorMsg: "Couldn't generate voucher",
-        mutation: "reimbursement.generateVoucher",
-        successMsg: "Voucher generation started",
-      });
-    } finally {
-      setGeneratingVoucherId(null);
-    }
+      )
+      .server.then((res) =>
+        handleMutationResult(res, {
+          entityId: lineItemId,
+          errorMsg: "Couldn't generate voucher",
+          mutation: "reimbursement.generateVoucher",
+          successMsg: "Voucher generation started",
+        })
+      )
+      .finally(() => setGeneratingVoucherId(null));
   });
 
   const handleReject = useEventCallback(async (reason: string) => {
@@ -263,25 +263,23 @@ export function ReimbursementDetail({
   });
   const handleVoid = useEventCallback(async (reason: string) => {
     setVoidLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.reimbursement.void({ id: request.id, reason })
-      ).server;
-      handleMutationResult(res, {
-        entityId: request.id,
-        errorMsg: getMutationResultErrorMessage(
-          res.type === "error" ? res.error : undefined,
-          "Couldn't void the reimbursement"
-        ),
-        mutation: "reimbursement.void",
-        successMsg: "Reimbursement voided",
-      });
-      if (res.type !== "error") {
-        setVoidOpen(false);
-      }
-    } finally {
-      setVoidLoading(false);
-    }
+    await zero
+      .mutate(mutators.reimbursement.void({ id: request.id, reason }))
+      .server.then((res) => {
+        handleMutationResult(res, {
+          entityId: request.id,
+          errorMsg: getMutationResultErrorMessage(
+            res.type === "error" ? res.error : undefined,
+            "Couldn't void the reimbursement"
+          ),
+          mutation: "reimbursement.void",
+          successMsg: "Reimbursement voided",
+        });
+        if (res.type !== "error") {
+          setVoidOpen(false);
+        }
+      })
+      .finally(() => setVoidLoading(false));
   });
   const stableOnClick0 = useEventCallback(() => setApproveOpen(true));
   const stableOnClick1 = useEventCallback(() => setRejectOpen(true));

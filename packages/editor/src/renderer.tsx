@@ -104,11 +104,10 @@ export interface RendererProps {
   content: string;
 }
 
-export function PlateRenderer({ content, className }: RendererProps) {
-  let parsed: Value | undefined;
+function parseContent(content: string): Value | undefined {
   try {
     const value = JSON.parse(content);
-    parsed = Array.isArray(value) ? value : undefined;
+    return Array.isArray(value) ? value : undefined;
   } catch (caughtError) {
     log.warn({
       action: "parseContent",
@@ -118,8 +117,12 @@ export function PlateRenderer({ content, className }: RendererProps) {
           : String(caughtError),
       component: "PlateRenderer",
     });
+    return undefined;
   }
+}
 
+export function PlateRenderer({ content, className }: RendererProps) {
+  const parsed = parseContent(content);
   const editor = usePlateEditor({
     plugins: rendererPlugins,
     value: parsed,

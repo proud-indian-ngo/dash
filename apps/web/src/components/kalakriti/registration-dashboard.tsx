@@ -22,7 +22,7 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { useId, useMemo, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { CenterRegistrationChart } from "@/components/kalakriti/center-registration-chart";
@@ -94,59 +94,49 @@ function AggregateTable({
   storageKey: string;
   title: string;
 }) {
-  const tableColumns = useMemo<DataGridColumnDef<(typeof rows)[number]>[]>(
-    () =>
-      columns.map((label, index) => ({
-        id: `column-${index}`,
-        accessorFn: (row) => {
-          const value = row.values[index];
-          return typeof value === "number" || typeof value === "string"
-            ? value
-            : "";
-        },
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title={label}
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span
-            className={
-              typeof row.original.values[index] === "number"
-                ? "tabular-nums"
-                : undefined
-            }
-          >
-            {row.original.values[index]}
-          </span>
-        ),
-        meta: {
-          ...(index < 2 ? { compact: "primary" as const } : {}),
-          headerTitle: label,
-          skeleton: <Skeleton className="h-5 w-24" />,
-        },
-        size: index === 0 ? 220 : 130,
-      })),
-    [columns]
-  );
-  const filterFields = useMemo<FilterField[]>(
-    () =>
-      columns.flatMap((label, index) =>
-        label === "Winner" ||
-        label === "Runner-up" ||
-        label === "Participation compliance"
-          ? []
-          : [
-              {
-                id: `column-${index}`,
-                label,
-                type: index === 0 ? ("text" as const) : ("number" as const),
-              },
-            ]
+  const tableColumns: DataGridColumnDef<(typeof rows)[number]>[] = columns.map(
+    (label, index) => ({
+      id: `column-${index}`,
+      accessorFn: (row) => {
+        const value = row.values[index];
+        return typeof value === "number" || typeof value === "string"
+          ? value
+          : "";
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title={label} visibility={true} />
       ),
-    [columns]
+      cell: ({ row }) => (
+        <span
+          className={
+            typeof row.original.values[index] === "number"
+              ? "tabular-nums"
+              : undefined
+          }
+        >
+          {row.original.values[index]}
+        </span>
+      ),
+      meta: {
+        ...(index < 2 ? { compact: "primary" as const } : {}),
+        headerTitle: label,
+        skeleton: <Skeleton className="h-5 w-24" />,
+      },
+      size: index === 0 ? 220 : 130,
+    })
+  );
+  const filterFields: FilterField[] = columns.flatMap((label, index) =>
+    label === "Winner" ||
+    label === "Runner-up" ||
+    label === "Participation compliance"
+      ? []
+      : [
+          {
+            id: `column-${index}`,
+            label,
+            type: index === 0 ? ("text" as const) : ("number" as const),
+          },
+        ]
   );
   if (rows.length === 0) {
     return null;

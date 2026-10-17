@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createRequire } from "node:module";
 
 import { reactCompilerPreset } from "@vitejs/plugin-react";
 
@@ -36,6 +37,14 @@ describe("React Compiler mutable-grid compatibility boundary", () => {
     expect(
       excluded("/workspace/packages/editor/components/ui/table-node.tsx")
     ).toBe(false);
+  });
+  it("runs on Babel 7, whose AST compiler 1.0 reads", () => {
+    // On Babel 8 the compiler skips every component with a destructuring default.
+    const fromPlugin = createRequire(
+      createRequire(import.meta.url).resolve("@rolldown/plugin-babel")
+    );
+    const { version } = fromPlugin("@babel/core/package.json");
+    expect(version.split(".")[0]).toBe("7");
   });
   it("preserves the normal compiler preset and code filter", () => {
     const preset = appReactCompilerPreset();

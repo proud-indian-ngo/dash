@@ -45,19 +45,22 @@ function IdentifierRow({
   const reveal = useServerFn(revealPartyIdentifier);
   const [revealed, setRevealed] = useState<string | null>(null);
   const handleReveal = useEventCallback(async () => {
-    try {
-      const result = await reveal({ data: { partyId } });
-      setRevealed(result.idNumber ?? "");
-    } catch (error) {
-      log.error({
-        action: "donor.reveal",
-        caughtError: error instanceof Error ? error.message : String(error),
-        component: "DonorDetailSheet",
+    await reveal({ data: { partyId } })
+      .then((result) => setRevealed(result.idNumber ?? ""))
+      .catch((error: unknown) => {
+        log.error({
+          action: "donor.reveal",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DonorDetailSheet",
+        });
+        toast.error(
+          revealErrorMessage(
+            error,
+            "ID number",
+            "Couldn't reveal the identifier"
+          )
+        );
       });
-      toast.error(
-        revealErrorMessage(error, "ID number", "Couldn't reveal the identifier")
-      );
-    }
   });
   const handleHide = useEventCallback(() => setRevealed(null));
   if (details.idType === "none") {

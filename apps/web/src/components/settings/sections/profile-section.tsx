@@ -33,6 +33,100 @@ const genderOptions: SelectOption[] = [
   { label: "Prefer not to say", value: "unspecified" },
 ];
 
+async function uploadProfilePicture(file: File) {
+  try {
+    const mimeType = file.type as AllowedImageMimeType;
+    const { presignedUrl, key, url } = await getProfilePictureUploadUrl({
+      data: {
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType,
+      },
+    });
+
+    const uploadRes = await fetch(presignedUrl, {
+      body: file,
+      headers: { "Content-Type": file.type },
+      method: "PUT",
+    });
+    if (!uploadRes.ok) {
+      toast.error("Couldn't upload");
+      return;
+    }
+
+    const { error } = await authClient.updateUser({ image: url });
+    if (error) {
+      toast.error(error.message);
+      deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
+        log.error({
+          action: "cleanupOrphanedR2",
+          component: "ProfileSection",
+          error:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError),
+          key,
+        });
+      });
+    } else {
+      toast.success("Looking good!");
+    }
+  } catch (caughtError) {
+    log.error({
+      action: "uploadProfilePicture",
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "ProfileSection",
+    });
+    toast.error("Couldn't upload profile picture");
+  }
+}
+
+async function removeProfilePicture(imageUrl: string, userId: string) {
+  try {
+    // Clear DB reference first — dangling R2 object is harmless,
+    // but a dangling DB ref pointing to a deleted object = broken avatar.
+    const { error } = await authClient.updateUser({ image: "" });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    // Best-effort R2 cleanup after DB is cleared
+    const key = parseAvatarMediaKey(imageUrl, {
+      legacyCdnUrl: env.VITE_CDN_URL,
+      userId,
+    });
+    if (key) {
+      deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
+        log.error({
+          action: "cleanupR2AfterRemove",
+          component: "ProfileSection",
+          error:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError),
+          key,
+        });
+      });
+    }
+
+    toast.success("Profile picture removed");
+  } catch (caughtError) {
+    log.error({
+      action: "removeProfilePicture",
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "ProfileSection",
+    });
+    toast.error("Couldn't remove profile picture");
+  }
+}
+
 function AvatarUpload() {
   const { data: session } = authClient.useSession();
   const user = session?.user;
@@ -59,56 +153,7 @@ function AvatarUpload() {
       }
 
       setUploading(true);
-      try {
-        const mimeType = file.type as AllowedImageMimeType;
-        const { presignedUrl, key, url } = await getProfilePictureUploadUrl({
-          data: {
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType,
-          },
-        });
-
-        const uploadRes = await fetch(presignedUrl, {
-          body: file,
-          headers: { "Content-Type": file.type },
-          method: "PUT",
-        });
-        if (!uploadRes.ok) {
-          toast.error("Couldn't upload");
-          return;
-        }
-
-        const { error } = await authClient.updateUser({ image: url });
-        if (error) {
-          toast.error(error.message);
-          deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
-            log.error({
-              action: "cleanupOrphanedR2",
-              component: "ProfileSection",
-              error:
-                cleanupError instanceof Error
-                  ? cleanupError.message
-                  : String(cleanupError),
-              key,
-            });
-          });
-        } else {
-          toast.success("Looking good!");
-        }
-      } catch (caughtError) {
-        log.error({
-          action: "uploadProfilePicture",
-          caughtError:
-            caughtError instanceof Error
-              ? caughtError.message
-              : String(caughtError),
-          component: "ProfileSection",
-        });
-        toast.error("Couldn't upload profile picture");
-      } finally {
-        setUploading(false);
-      }
+      await uploadProfilePicture(file).finally(() => setUploading(false));
     }
   );
 
@@ -118,49 +163,9 @@ function AvatarUpload() {
     }
 
     setUploading(true);
-    try {
-      // Clear DB reference first — dangling R2 object is harmless,
-      // but a dangling DB ref pointing to a deleted object = broken avatar.
-      const imageUrl = user.image;
-      const { error } = await authClient.updateUser({ image: "" });
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      // Best-effort R2 cleanup after DB is cleared
-      const key = parseAvatarMediaKey(imageUrl, {
-        legacyCdnUrl: env.VITE_CDN_URL,
-        userId: user.id,
-      });
-      if (key) {
-        deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
-          log.error({
-            action: "cleanupR2AfterRemove",
-            component: "ProfileSection",
-            error:
-              cleanupError instanceof Error
-                ? cleanupError.message
-                : String(cleanupError),
-            key,
-          });
-        });
-      }
-
-      toast.success("Profile picture removed");
-    } catch (caughtError) {
-      log.error({
-        action: "removeProfilePicture",
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "ProfileSection",
-      });
-      toast.error("Couldn't remove profile picture");
-    } finally {
-      setUploading(false);
-    }
+    await removeProfilePicture(user.image, user.id).finally(() =>
+      setUploading(false)
+    );
   });
   const handleChangePhoto = useEventCallback(() =>
     fileInputRef.current?.click()

@@ -527,17 +527,16 @@ export function FindDebitMatchDialog({
       return;
     }
     setSubmitting(true);
-    try {
-      const done = await onSubmit(
-        selected.map((d) => ({ id: d.id, kind: d.kind })),
-        chosenDifference
-      );
-      if (done) {
-        onOpenChange(false);
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    await onSubmit(
+      selected.map((d) => ({ id: d.id, kind: d.kind })),
+      chosenDifference
+    )
+      .then((done) => {
+        if (done) {
+          onOpenChange(false);
+        }
+      })
+      .finally(() => setSubmitting(false));
   });
 
   // Selected records stay listed, even when a filter hides them.

@@ -230,23 +230,23 @@ export function ImportWizard({
       return;
     }
     setBusy(true);
-    try {
-      const outcome = await run({
-        data: { batchId: batch.batchId, decisions },
-      });
-      setResult(outcome);
-      setConfirmOpen(false);
-      setStep("done");
-    } catch (error) {
-      toast.error("The import did not finish", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Nothing was imported. Try again.",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await run({
+      data: { batchId: batch.batchId, decisions },
+    })
+      .then((outcome) => {
+        setResult(outcome);
+        setConfirmOpen(false);
+        setStep("done");
+      })
+      .catch((error: unknown) => {
+        toast.error("The import did not finish", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Nothing was imported. Try again.",
+        });
+      })
+      .finally(() => setBusy(false));
   });
 
   const summary = review ? summarizeReview(review.rows, decisions) : null;

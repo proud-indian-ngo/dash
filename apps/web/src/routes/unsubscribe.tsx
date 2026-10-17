@@ -42,6 +42,15 @@ function SettingsButton() {
   );
 }
 
+async function postUnsubscribe(params: URLSearchParams): Promise<void> {
+  const response = await fetch(`/api/email/unsubscribe?${params}`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
 function UnsubscribePage() {
   const link = Route.useLoaderData();
   const search = Route.useSearch();
@@ -70,12 +79,7 @@ function UnsubscribePage() {
       params.set("resubscribe", "1");
     }
     try {
-      const response = await fetch(`/api/email/unsubscribe?${params}`, {
-        method: "POST",
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      await postUnsubscribe(params);
       setEmailEnabled(enable);
       setPending("idle");
     } catch (error) {

@@ -143,32 +143,32 @@ export function IssueReceiptsDialog({
 
   const confirm = async () => {
     setIssuing(true);
-    try {
-      const result = await issue({
-        data: {
-          giftIds: batch.map((gift) => gift.contributionId),
-        },
-      });
-      const [first] = result.issued;
-      if (result.issued.length === 1 && first) {
-        toast.success(`Receipt ${first.number} issued`);
-      } else if (result.issued.length > 0) {
-        toast.success(`${result.issued.length} receipts issued`);
-      }
-      if (result.skipped.length > 0) {
-        toast.warning(
-          `${result.skipped.length} ${result.skipped.length === 1 ? "gift was" : "gifts were"} skipped because they changed since the review`
-        );
-      }
-      onOpenChange(false);
-      onIssued?.(result.issued.map((receipt) => receipt.id));
-    } catch (error) {
-      toast.error("Couldn't issue the receipts", {
-        description: errorMessage(error),
-      });
-    } finally {
-      setIssuing(false);
-    }
+    await issue({
+      data: {
+        giftIds: batch.map((gift) => gift.contributionId),
+      },
+    })
+      .then((result) => {
+        const [first] = result.issued;
+        if (result.issued.length === 1 && first) {
+          toast.success(`Receipt ${first.number} issued`);
+        } else if (result.issued.length > 0) {
+          toast.success(`${result.issued.length} receipts issued`);
+        }
+        if (result.skipped.length > 0) {
+          toast.warning(
+            `${result.skipped.length} ${result.skipped.length === 1 ? "gift was" : "gifts were"} skipped because they changed since the review`
+          );
+        }
+        onOpenChange(false);
+        onIssued?.(result.issued.map((receipt) => receipt.id));
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't issue the receipts", {
+          description: errorMessage(error),
+        });
+      })
+      .finally(() => setIssuing(false));
   };
 
   return (

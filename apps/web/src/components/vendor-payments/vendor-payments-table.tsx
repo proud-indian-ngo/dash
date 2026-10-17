@@ -16,7 +16,6 @@ import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
@@ -203,9 +202,9 @@ export function VendorPaymentsTable({
   /** "City": the event's cost centre for a payment on an event, else its own. */
   const cityOf = (row: VendorPaymentWithRelations) =>
     costCentres.nameOf(requestCostCentreId(row));
-  const filterFields = useMemo(
-    () => createVendorPaymentFilterFields(data, costCentres.active),
-    [data, costCentres.active]
+  const filterFields = createVendorPaymentFilterFields(
+    data,
+    costCentres.active
   );
   const searchFn = useEventCallback(
     (row: VendorPaymentWithRelations, query: string) =>

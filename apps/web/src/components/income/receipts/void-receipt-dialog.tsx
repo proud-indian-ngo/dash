@@ -47,16 +47,17 @@ function VoidForm({
   const form = useForm({
     defaultValues: { reason: "" },
     onSubmit: async ({ value }) => {
-      try {
-        await voidReceipt({ data: { reason: value.reason, receiptId } });
-        toast.success(`Receipt ${number} voided`);
-        onOpenChange(false);
-        onVoided?.();
-      } catch (error) {
-        toast.error("Couldn't void the receipt", {
-          description: errorMessage(error),
+      await voidReceipt({ data: { reason: value.reason, receiptId } })
+        .then(() => {
+          toast.success(`Receipt ${number} voided`);
+          onOpenChange(false);
+          onVoided?.();
+        })
+        .catch((error: unknown) => {
+          toast.error("Couldn't void the receipt", {
+            description: errorMessage(error),
+          });
         });
-      }
     },
     validators: { onChange: voidSchema, onSubmit: voidSchema },
   });

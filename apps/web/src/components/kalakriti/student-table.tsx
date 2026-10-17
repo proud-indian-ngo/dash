@@ -8,7 +8,6 @@ import {
   getKalakritiStudentTransportLabel,
 } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { format } from "date-fns";
-import { useCallback, useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -141,15 +140,9 @@ export function StudentTable({
     complete: statusSnapshotComplete,
     getStatus: studentTransportLabel,
   });
-  const getFilterValue = useCallback(
-    (row: StudentTableRow, path: string[]) =>
-      getStudentFilterValue(row, path, labels),
-    [labels]
-  );
-  const filterFields = useMemo(
-    () => createStudentFilterFields(data, centers),
-    [data, centers]
-  );
+  const getFilterValue = (row: StudentTableRow, path: string[]) =>
+    getStudentFilterValue(row, path, labels);
+  const filterFields = createStudentFilterFields(data, centers);
   const columns: DataGridColumnDef<StudentTableRow>[] = [
     {
       accessorFn: (row) => row.name,

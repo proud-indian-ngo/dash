@@ -111,19 +111,19 @@ function UploadStep({
         return;
       }
       onBusyChange(true);
-      try {
-        const orgAccountId = value.orgAccountId ?? "";
-        const result = await upload({
-          data: { csv: text, fileName: file.name, orgAccountId },
-        });
-        onUploaded({ ...result, fileName: file.name, orgAccountId });
-      } catch (error) {
-        setFileError(
-          error instanceof Error ? error.message : "The upload failed."
-        );
-      } finally {
-        onBusyChange(false);
-      }
+      const orgAccountId = value.orgAccountId ?? "";
+      await upload({
+        data: { csv: text, fileName: file.name, orgAccountId },
+      })
+        .then((result) =>
+          onUploaded({ ...result, fileName: file.name, orgAccountId })
+        )
+        .catch((error: unknown) => {
+          setFileError(
+            error instanceof Error ? error.message : "The upload failed."
+          );
+        })
+        .finally(() => onBusyChange(false));
     },
     validators: { onSubmit: uploadSchema },
   });
@@ -239,23 +239,20 @@ function MapStep({
       }
       setError(null);
       onBusyChange(true);
-      try {
-        onReviewed(
-          await review({
-            data: {
-              batchId: batch.batchId,
-              dateFormat: value.dateFormat,
-              mapping,
-            },
-          })
-        );
-      } catch (caught) {
-        setError(
-          caught instanceof Error ? caught.message : "The review failed."
-        );
-      } finally {
-        onBusyChange(false);
-      }
+      await review({
+        data: {
+          batchId: batch.batchId,
+          dateFormat: value.dateFormat,
+          mapping,
+        },
+      })
+        .then(onReviewed)
+        .catch((caught: unknown) => {
+          setError(
+            caught instanceof Error ? caught.message : "The review failed."
+          );
+        })
+        .finally(() => onBusyChange(false));
     },
   });
 
@@ -474,20 +471,21 @@ export function BankImportWizard({
       return;
     }
     setBusy(true);
-    try {
-      setResult(await run({ data: { batchId: batch.batchId } }));
-      setConfirmOpen(false);
-      setStep("done");
-    } catch (error) {
-      toast.error("The statement was not imported", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Nothing was imported. Try again.",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await run({ data: { batchId: batch.batchId } })
+      .then((next) => {
+        setResult(next);
+        setConfirmOpen(false);
+        setStep("done");
+      })
+      .catch((error: unknown) => {
+        toast.error("The statement was not imported", {
+          description:
+            error instanceof Error
+              ? error.message
+              : "Nothing was imported. Try again.",
+        });
+      })
+      .finally(() => setBusy(false));
   });
 
   const counts = review?.counts;

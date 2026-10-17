@@ -104,23 +104,22 @@ export function VendorAccountNumber({
   const reveal = useServerFn(revealVendorBankAccount);
   const [revealed, setRevealed] = useState<string | null>(null);
   const handleReveal = useEventCallback(async () => {
-    try {
-      const result = await reveal({ data: { vendorId } });
-      setRevealed(result.account?.accountNumber ?? "");
-    } catch (error) {
-      log.error({
-        action: "vendor.bank_account.reveal",
-        caughtError: error instanceof Error ? error.message : String(error),
-        component: "VendorAccountNumber",
+    await reveal({ data: { vendorId } })
+      .then((result) => setRevealed(result.account?.accountNumber ?? ""))
+      .catch((error: unknown) => {
+        log.error({
+          action: "vendor.bank_account.reveal",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "VendorAccountNumber",
+        });
+        toast.error(
+          revealErrorMessage(
+            error,
+            "account number",
+            "Couldn't reveal the account number"
+          )
+        );
       });
-      toast.error(
-        revealErrorMessage(
-          error,
-          "account number",
-          "Couldn't reveal the account number"
-        )
-      );
-    }
   });
   const handleHide = useEventCallback(() => setRevealed(null));
   return (

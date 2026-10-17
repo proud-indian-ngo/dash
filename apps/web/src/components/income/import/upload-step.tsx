@@ -284,43 +284,43 @@ export function UploadStep({
         return;
       }
       onBusyChange(true);
-      try {
-        const result = await upload({
-          data: {
-            csv: text,
-            defaultChannel: value.defaultChannel,
-            fileName: file.name,
-            fundId: value.fundId ?? "",
-            orgAccountId: value.orgAccountId ?? "",
-            programmeId: value.programmeId ?? null,
-            projectId: value.projectId ?? null,
-            source: value.source,
-          },
-        });
-        onUploaded({
-          batchId: result.batchId,
-          columns: parsed.headers.map((header) => ({
-            header,
-            samples: parsed.rows
-              .map((row) => row[header] ?? "")
-              .filter(Boolean)
-              .slice(0, 3),
-          })),
-          dateFormat: null,
+      await upload({
+        data: {
+          csv: text,
           defaultChannel: value.defaultChannel,
-          earlierUpload: result.earlierUpload,
           fileName: file.name,
-          mapping: result.mapping,
-          rowCount: result.rowCount,
+          fundId: value.fundId ?? "",
+          orgAccountId: value.orgAccountId ?? "",
+          programmeId: value.programmeId ?? null,
+          projectId: value.projectId ?? null,
           source: value.source,
-        });
-      } catch (error) {
-        setFileError(
-          error instanceof Error ? error.message : "The upload failed."
-        );
-      } finally {
-        onBusyChange(false);
-      }
+        },
+      })
+        .then((result) =>
+          onUploaded({
+            batchId: result.batchId,
+            columns: parsed.headers.map((header) => ({
+              header,
+              samples: parsed.rows
+                .map((row) => row[header] ?? "")
+                .filter(Boolean)
+                .slice(0, 3),
+            })),
+            dateFormat: null,
+            defaultChannel: value.defaultChannel,
+            earlierUpload: result.earlierUpload,
+            fileName: file.name,
+            mapping: result.mapping,
+            rowCount: result.rowCount,
+            source: value.source,
+          })
+        )
+        .catch((error: unknown) => {
+          setFileError(
+            error instanceof Error ? error.message : "The upload failed."
+          );
+        })
+        .finally(() => onBusyChange(false));
     },
     validators: { onSubmit: formSchema },
   });

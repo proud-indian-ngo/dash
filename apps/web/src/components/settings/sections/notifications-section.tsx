@@ -46,6 +46,9 @@ export function NotificationsSection() {
       channel: "email" | "whatsapp" | "inbox",
       enabled: boolean
     ) => {
+      const successMsg = enabled
+        ? "Notification turned on"
+        : "Notification turned off";
       try {
         const res = await zero.mutate(
           mutators.notificationPreference.upsert({
@@ -58,9 +61,7 @@ export function NotificationsSection() {
           entityId: topicId,
           errorMsg: "Couldn't update notification preference",
           mutation: "notificationPreference.upsert",
-          successMsg: enabled
-            ? "Notification turned on"
-            : "Notification turned off",
+          successMsg,
         });
       } catch (error) {
         log.error({

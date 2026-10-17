@@ -205,6 +205,58 @@ export function OperationScanPanel({
     </div>
   );
 }
+async function recordOperation(
+  zero: ReturnType<typeof useZero>,
+  attempt: Extract<
+    ReturnType<StationRecordingLedger["begin"]>,
+    { status: "ready" }
+  >,
+  input:
+    | { personQr: string; humanId?: never }
+    | { humanId: string; personQr?: never },
+  editionId: string,
+  onSettled: () => void
+) {
+  try {
+    const response =
+      input.personQr !== undefined
+        ? await zero.mutate(
+            mutators.kalakritiOperation.record({
+              ...attempt.args,
+              personQr: input.personQr,
+            })
+          ).server
+        : await zero.mutate(
+            mutators.kalakritiOperation.recordManual({
+              ...attempt.args,
+              humanId: input.humanId,
+            })
+          ).server;
+    attempt.finish(response.type !== "error");
+    handleMutationResult(response, {
+      entityId: attempt.args.operationId,
+      mutation: input.personQr
+        ? "kalakritiOperation.record"
+        : "kalakritiOperation.recordManual",
+      errorMsg: "Operation could not be recorded",
+      successMsg: "Operation recorded",
+    });
+  } catch (error) {
+    attempt.finish(false);
+    log.error({
+      component: "OperationScanPanel",
+      action: "record",
+      editionId,
+      operationId: attempt.args.operationId,
+      error: "Scan request failed",
+      errorType: error instanceof Error ? error.name : "unknown",
+    });
+    toast.error("Operation could not be recorded. Try again.");
+  } finally {
+    onSettled();
+  }
+}
+
 function OperationCapture({
   editionId,
   year,
@@ -261,46 +313,11 @@ function OperationCapture({
       busyRef.current = true;
       setBusy(true);
       onBusyChange(true);
-      try {
-        const response =
-          input.personQr !== undefined
-            ? await zero.mutate(
-                mutators.kalakritiOperation.record({
-                  ...attempt.args,
-                  personQr: input.personQr,
-                })
-              ).server
-            : await zero.mutate(
-                mutators.kalakritiOperation.recordManual({
-                  ...attempt.args,
-                  humanId: input.humanId,
-                })
-              ).server;
-        attempt.finish(response.type !== "error");
-        handleMutationResult(response, {
-          entityId: attempt.args.operationId,
-          mutation: input.personQr
-            ? "kalakritiOperation.record"
-            : "kalakritiOperation.recordManual",
-          errorMsg: "Operation could not be recorded",
-          successMsg: "Operation recorded",
-        });
-      } catch (error) {
-        attempt.finish(false);
-        log.error({
-          component: "OperationScanPanel",
-          action: "record",
-          editionId,
-          operationId: attempt.args.operationId,
-          error: "Scan request failed",
-          errorType: error instanceof Error ? error.name : "unknown",
-        });
-        toast.error("Operation could not be recorded. Try again.");
-      } finally {
+      await recordOperation(zero, attempt, input, editionId, () => {
         busyRef.current = false;
         if (activeRef.current) setBusy(false);
         onBusyChange(false);
-      }
+      });
     }
   );
   const scan = useEventCallback((value: string) => {

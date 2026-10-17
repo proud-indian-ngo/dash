@@ -1,7 +1,7 @@
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
@@ -184,22 +184,17 @@ export function KalakritiAuditTable({
   timeZone: string;
   toolbarActions?: ReactNode;
 }) {
-  const columns = useMemo(() => {
-    const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
-      day: "2-digit",
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      timeZone,
-      timeZoneName: "short",
-      year: "numeric",
-    });
-    return createColumns(dateTimeFormatter);
-  }, [timeZone]);
-  const filterFields = useMemo(
-    () => createKalakritiAuditFilterFields(domainOptions),
-    [domainOptions]
-  );
+  const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    timeZone,
+    timeZoneName: "short",
+    year: "numeric",
+  });
+  const columns = createColumns(dateTimeFormatter);
+  const filterFields = createKalakritiAuditFilterFields(domainOptions);
 
   return (
     <DataTableWrapper

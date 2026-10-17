@@ -91,45 +91,45 @@ export function VoucherSignedCopy({
         return;
       }
       setIsUploading(true);
-      try {
-        const uploaded = await uploadSingleAttachment(file, {
-          getRequestUploadUrl: requestUploadUrl,
-          getVendorPaymentInvoiceUploadUrl: vendorPaymentInvoiceUploadUrl,
-          toAllowedMimeType,
-        });
-        if (uploaded.type !== "file") {
-          return;
-        }
-        const res = await zero.mutate(
-          mutators.reimbursement.attachSignedVoucher({
+      await uploadSingleAttachment(file, {
+        getRequestUploadUrl: requestUploadUrl,
+        getVendorPaymentInvoiceUploadUrl: vendorPaymentInvoiceUploadUrl,
+        toAllowedMimeType,
+      })
+        .then(async (uploaded) => {
+          if (uploaded.type !== "file") {
+            return;
+          }
+          const res = await zero.mutate(
+            mutators.reimbursement.attachSignedVoucher({
+              lineItemId,
+              reimbursementId,
+              replacesAttachmentId: signedVoucherAttachmentId ?? null,
+              signedCopy: {
+                filename: uploaded.filename,
+                id: uploaded.id,
+                mimeType: uploaded.mimeType,
+                objectKey: uploaded.objectKey,
+              },
+            })
+          ).server;
+          handleMutationResult(res, {
+            entityId: lineItemId,
+            errorMsg: "Couldn't save the signed voucher",
+            mutation: "reimbursement.attachSignedVoucher",
+            successMsg: "Signed voucher uploaded",
+          });
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "uploadSignedVoucher",
+            component: "VoucherSignedCopy",
             lineItemId,
-            reimbursementId,
-            replacesAttachmentId: signedVoucherAttachmentId ?? null,
-            signedCopy: {
-              filename: uploaded.filename,
-              id: uploaded.id,
-              mimeType: uploaded.mimeType,
-              objectKey: uploaded.objectKey,
-            },
-          })
-        ).server;
-        handleMutationResult(res, {
-          entityId: lineItemId,
-          errorMsg: "Couldn't save the signed voucher",
-          mutation: "reimbursement.attachSignedVoucher",
-          successMsg: "Signed voucher uploaded",
-        });
-      } catch (error) {
-        log.error({
-          action: "uploadSignedVoucher",
-          component: "VoucherSignedCopy",
-          lineItemId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Couldn't upload the signed voucher");
-      } finally {
-        setIsUploading(false);
-      }
+            message: error instanceof Error ? error.message : String(error),
+          });
+          toast.error("Couldn't upload the signed voucher");
+        })
+        .finally(() => setIsUploading(false));
     }
   );
 

@@ -44,6 +44,9 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
       channel: "email" | "whatsapp" | "inbox",
       enabled: boolean
     ) => {
+      const successMsg = enabled
+        ? "Notification turned on"
+        : "Notification turned off";
       try {
         const res = await zero.mutate(
           mutators.notificationPreference.adminUpsert({
@@ -57,9 +60,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
           entityId: topicId,
           errorMsg: "Couldn't update notification preference",
           mutation: "notificationPreference.adminUpsert",
-          successMsg: enabled
-            ? "Notification turned on"
-            : "Notification turned off",
+          successMsg,
         });
       } catch (error) {
         log.error({

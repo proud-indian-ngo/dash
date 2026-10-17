@@ -77,9 +77,8 @@ export function UserEmailDelivery({ userId }: { userId: string }) {
         component: "UserEmailDelivery",
       });
       toast.error(getErrorMessage(error));
-    } finally {
-      setResuming(false);
     }
+    setResuming(false);
   });
 
   if (!suppression) {

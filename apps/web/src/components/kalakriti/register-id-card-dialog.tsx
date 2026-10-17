@@ -154,10 +154,9 @@ export function RegisterIdCardDialog({
           ? validationError.message
           : "This ID card could not be registered."
       );
-    } finally {
-      checkingRef.current = false;
-      setChecking(false);
     }
+    checkingRef.current = false;
+    setChecking(false);
   });
 
   return (

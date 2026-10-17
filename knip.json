@@ -16,7 +16,10 @@
   "workspaces": {
     ".": {},
     "apps/web": {
-      "entry": ["scripts/profile-entry-eligibility.ts"],
+      "entry": [
+        "scripts/check-react-compiler.ts",
+        "scripts/profile-entry-eligibility.ts"
+      ],
       "ignoreFiles": ["src/entry-server.ts", "server/**", "src/stubs/**"]
     },
     "packages/db": {

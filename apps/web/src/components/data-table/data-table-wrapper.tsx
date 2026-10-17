@@ -257,23 +257,17 @@ function DataTableWrapperWithFilters<TData extends object>({
       applyLocally && getValue ? compileFilterQuery(query, getValue) : null,
     [applyLocally, getValue, query]
   );
-  const filteredData = useMemo(
-    () => (matches ? data.filter(matches) : data),
-    [data, matches]
-  );
+  const filteredData = matches ? data.filter(matches) : data;
   const handleQueryChange = useEventCallback((next: FilterQuery) => {
     setQuery(next);
   });
   const viewFieldConfig = viewField
     ? fields.find((field) => field.id === viewField)
     : undefined;
-  const views = useMemo(
-    () =>
-      viewFieldConfig && getValue
-        ? getDataTableViews({ data, field: viewFieldConfig, getValue })
-        : null,
-    [data, getValue, viewFieldConfig]
-  );
+  const views =
+    viewFieldConfig && getValue
+      ? getDataTableViews({ data, field: viewFieldConfig, getValue })
+      : null;
   // The view tabs already cover their field, so it is not a quick filter.
   const quickFields = useMemo(
     () => fields.filter((field) => field.id !== viewField),
@@ -286,10 +280,7 @@ function DataTableWrapperWithFilters<TData extends object>({
         : undefined,
     [applyLocally, data, getValue, quickFields]
   );
-  const icons = useMemo(
-    () => filterFieldIcons(quickFields, columns),
-    [columns, quickFields]
-  );
+  const icons = filterFieldIcons(quickFields, columns);
   const [advanced, setAdvanced] = useState(false);
   const canUseQuick = isQuickFilterQuery(query, fields);
   const showAdvanced = advanced || !canUseQuick;
@@ -452,46 +443,25 @@ function DataTableWrapperBase<TData extends object>({
   );
   const isCompact =
     compactOnMobile && viewportWidth > 0 && viewportWidth < COMPACT_BREAKPOINT;
-  const collapsedForPanel = useMemo(
-    () =>
-      isCompact
-        ? visibleCollapsedIds(compactPartition.collapsedIds, columnVisibility)
-        : [],
-    [columnVisibility, compactPartition.collapsedIds, isCompact]
-  );
-  const stackedPrimaryIds = useMemo(
-    () =>
-      isCompact
-        ? visibleStackedPrimaryIds(
-            compactPartition.stackedPrimaryIds,
-            columnVisibility
-          )
-        : [],
-    [columnVisibility, compactPartition.stackedPrimaryIds, isCompact]
-  );
-  const trailingIds = useMemo(
-    () =>
-      isCompact
-        ? visibleStackedPrimaryIds(
-            compactPartition.trailingIds,
-            columnVisibility
-          )
-        : [],
-    [columnVisibility, compactPartition.trailingIds, isCompact]
-  );
+  const collapsedForPanel = isCompact
+    ? visibleCollapsedIds(compactPartition.collapsedIds, columnVisibility)
+    : [];
+  const stackedPrimaryIds = isCompact
+    ? visibleStackedPrimaryIds(
+        compactPartition.stackedPrimaryIds,
+        columnVisibility
+      )
+    : [];
+  const trailingIds = isCompact
+    ? visibleStackedPrimaryIds(compactPartition.trailingIds, columnVisibility)
+    : [];
   const showExpand = isCompact && collapsedForPanel.length > 0 && !onRowClick;
-  const existingExpandColumnId = useMemo(
-    () => findExistingExpandColumnId(columns),
-    [columns]
-  );
+  const existingExpandColumnId = findExistingExpandColumnId(columns);
   const reuseExistingExpand = showExpand && Boolean(existingExpandColumnId);
-  const existingExpandedContent = useMemo(
-    () =>
-      columns.find((column) => column.meta?.expandedContent)?.meta
-        ?.expandedContent,
-    [columns]
-  );
-  const kindColumns = useMemo(() => applyColumnKinds(columns), [columns]);
+  const existingExpandedContent = columns.find(
+    (column) => column.meta?.expandedContent
+  )?.meta?.expandedContent;
+  const kindColumns = applyColumnKinds(columns);
   const tableColumns = useMemo(() => {
     if (!isCompact) {
       return kindColumns;
@@ -633,8 +603,8 @@ function DataTableWrapperBase<TData extends object>({
         return;
       }
       // Keep the saved choice for the grouped column; grouping hides it.
-      const { [activeGroupBy.columnId]: _grouped, ...rest } =
-        nextTableVisibility;
+      const rest = { ...nextTableVisibility };
+      delete rest[activeGroupBy.columnId];
       const saved = columnVisibility?.[activeGroupBy.columnId];
       setColumnVisibility(
         saved === undefined
@@ -688,13 +658,9 @@ function DataTableWrapperBase<TData extends object>({
         : [],
     [activeGroupBy, groupedData]
   );
-  const tableExpanded = useMemo(
-    () =>
-      activeGroupBy
-        ? mergeGroupExpanded(expanded, groupIds, collapsedGroups)
-        : expanded,
-    [activeGroupBy, collapsedGroups, expanded, groupIds]
-  );
+  const tableExpanded = activeGroupBy
+    ? mergeGroupExpanded(expanded, groupIds, collapsedGroups)
+    : expanded;
   const handleExpandedChange = useEventCallback(
     (updater: Updater<ExpandedState>) => {
       const next = resolveUpdater(updater, tableExpanded);
@@ -707,6 +673,12 @@ function DataTableWrapperBase<TData extends object>({
       setExpanded(leaf);
     }
   );
+  const resetPage = () => {
+    setPagination((current) => ({
+      ...current,
+      pageIndex: 0,
+    }));
+  };
   const handleGroupToggle = useEventCallback(() => {
     if (!groupBy) {
       return;
@@ -715,24 +687,7 @@ function DataTableWrapperBase<TData extends object>({
     setCollapsedGroups(new Set());
     setGroupColumnId(activeGroupBy ? null : groupBy.columnId);
   });
-  const renderGroupRow = useEventCallback((row: DataGridRow<TData>) =>
-    activeGroupBy ? (
-      <DataTableGroupHeader
-        groupBy={activeGroupBy}
-        row={row}
-        table={table}
-        totals={totals}
-      />
-    ) : null
-  );
   const [localSearch, setLocalSearch] = useState(searchQuery);
-
-  const resetPage = () => {
-    setPagination((current) => ({
-      ...current,
-      pageIndex: 0,
-    }));
-  };
 
   const debouncedSyncRef = useRef(
     debounce((value: string) => {
@@ -894,6 +849,16 @@ function DataTableWrapperBase<TData extends object>({
       debouncedSyncRef.current(value);
     }
   );
+  const renderGroupRow = useEventCallback((row: DataGridRow<TData>) =>
+    activeGroupBy ? (
+      <DataTableGroupHeader
+        groupBy={activeGroupBy}
+        row={row}
+        table={table}
+        totals={totals}
+      />
+    ) : null
+  );
   const stableOnClick1 = useEventCallback(() => {
     setLocalSearch("");
     debouncedSyncRef.current.cancel();
@@ -905,14 +870,11 @@ function DataTableWrapperBase<TData extends object>({
     onFilteredDataChange?.(filteredData);
   }, [onFilteredDataChange, filteredData]);
 
-  const resolvedTableLayout = useMemo(
-    () => ({
-      cellBorder: true,
-      ...tableLayout,
-      ...(isCompact && { columnsDraggable: false, columnsMovable: false }),
-    }),
-    [isCompact, tableLayout]
-  );
+  const resolvedTableLayout = {
+    cellBorder: true,
+    ...tableLayout,
+    ...(isCompact && { columnsDraggable: false, columnsMovable: false }),
+  };
 
   return (
     <AppErrorBoundary level="section">

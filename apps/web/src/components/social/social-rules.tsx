@@ -66,10 +66,12 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
 
   const setValue = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, values: { ...prev.values, [key]: value } }));
-    setErrors((prev) => {
-      const { [key]: _cleared, ...fields } = prev.fields;
-      return { ...prev, fields };
-    });
+    setErrors((prev) => ({
+      ...prev,
+      fields: Object.fromEntries(
+        Object.entries(prev.fields).filter(([field]) => field !== key)
+      ),
+    }));
   };
 
   const handleReload = useEventCallback(() => {
@@ -88,16 +90,15 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
     setSaving(true);
     setSeed(next);
     setForm(nextForm);
-    try {
-      const ok = await writeConfig(SOCIAL_RULES_CONFIG_KEY, next, successMsg);
-      if (!ok) {
-        setSeed(previous.seed);
-        setForm(previous.form);
-      }
-      return ok;
-    } finally {
-      setSaving(false);
-    }
+    return await writeConfig(SOCIAL_RULES_CONFIG_KEY, next, successMsg)
+      .then((ok) => {
+        if (!ok) {
+          setSeed(previous.seed);
+          setForm(previous.form);
+        }
+        return ok;
+      })
+      .finally(() => setSaving(false));
   };
 
   const handleSubmit = useEventCallback(async (event: FormEvent) => {

@@ -20,7 +20,6 @@ import {
 } from "@pi-dash/design-system/components/ui/dialog";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { formatPaise } from "@pi-dash/shared/money";
-import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -101,181 +100,172 @@ export function InventoryItemsTable({
   onArchive: (item: InventoryItem) => void;
   onRestore: (item: InventoryItem) => void;
 }) {
-  const columns = useMemo<DataGridColumnDef<InventoryItem>[]>(
-    () => [
-      {
-        id: "name",
-        accessorFn: (item) => item.name,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Item"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            {row.original.photoKey ? (
-              <InventoryPhotoPreview item={row.original} />
-            ) : null}
-            <span>{row.original.name}</span>
-          </div>
-        ),
-        meta: {
-          compact: "primary",
-          headerTitle: "Item",
-          kind: "text",
-          skeleton: <Skeleton className="h-5 w-36" />,
-        },
-        size: 240,
+  const columns: DataGridColumnDef<InventoryItem>[] = [
+    {
+      id: "name",
+      accessorFn: (item) => item.name,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Item" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.photoKey ? (
+            <InventoryPhotoPreview item={row.original} />
+          ) : null}
+          <span>{row.original.name}</span>
+        </div>
+      ),
+      meta: {
+        compact: "primary",
+        headerTitle: "Item",
+        kind: "text",
+        skeleton: <Skeleton className="h-5 w-36" />,
       },
-      {
-        id: "quantity",
-        accessorFn: (item) => item.quantity,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="In stock"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => row.original.quantity,
-        meta: {
-          compact: "trailing",
-          headerTitle: "In stock",
-          kind: "count",
-          skeleton: <Skeleton className="h-5 w-12" />,
-        },
-        size: 120,
+      size: 240,
+    },
+    {
+      id: "quantity",
+      accessorFn: (item) => item.quantity,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="In stock"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => row.original.quantity,
+      meta: {
+        compact: "trailing",
+        headerTitle: "In stock",
+        kind: "count",
+        skeleton: <Skeleton className="h-5 w-12" />,
       },
-      {
-        id: "unitPricePaise",
-        accessorFn: (item) => item.unitPricePaise ?? 0,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Unit price"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => formatPaise(row.original.unitPricePaise ?? 0),
-        meta: {
-          headerTitle: "Unit price",
-          kind: "amount",
-          skeleton: <Skeleton className="h-5 w-20" />,
-        },
-        size: 140,
+      size: 120,
+    },
+    {
+      id: "unitPricePaise",
+      accessorFn: (item) => item.unitPricePaise ?? 0,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Unit price"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => formatPaise(row.original.unitPricePaise ?? 0),
+      meta: {
+        headerTitle: "Unit price",
+        kind: "amount",
+        skeleton: <Skeleton className="h-5 w-20" />,
       },
-      {
-        id: "estimatedValue",
-        accessorFn: (item) => item.quantity * (item.unitPricePaise ?? 0),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Estimated value"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) =>
-          formatPaise(
-            row.original.quantity * (row.original.unitPricePaise ?? 0)
-          ),
-        meta: {
-          headerTitle: "Estimated value",
-          kind: "amount",
-          skeleton: <Skeleton className="h-5 w-20" />,
-        },
-        size: 160,
+      size: 140,
+    },
+    {
+      id: "estimatedValue",
+      accessorFn: (item) => item.quantity * (item.unitPricePaise ?? 0),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Estimated value"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) =>
+        formatPaise(row.original.quantity * (row.original.unitPricePaise ?? 0)),
+      meta: {
+        headerTitle: "Estimated value",
+        kind: "amount",
+        skeleton: <Skeleton className="h-5 w-20" />,
       },
-      {
-        id: "status",
-        accessorFn: (item) => (item.archivedAt ? "Archived" : "Active"),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Status"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (row.original.archivedAt ? "Archived" : "Active"),
-        meta: {
-          compact: "primary",
-          headerTitle: "Status",
-          kind: "status",
-          skeleton: <Skeleton className="h-5 w-16" />,
-        },
-        size: 120,
+      size: 160,
+    },
+    {
+      id: "status",
+      accessorFn: (item) => (item.archivedAt ? "Archived" : "Active"),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
+      ),
+      cell: ({ row }) => (row.original.archivedAt ? "Archived" : "Active"),
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        kind: "status",
+        skeleton: <Skeleton className="h-5 w-16" />,
       },
-      {
-        id: "actions",
-        enableResizing: false,
-        cell: ({ row }) => {
-          const item = row.original;
-          return (
-            <ResponsiveActionMenu
-              title={`${item.name} actions`}
-              trigger={
-                <RowActionsButton aria-label={`Actions for ${item.name}`} />
-              }
-              actions={[
-                {
-                  id: "history",
-                  icon: Clock01Icon,
-                  label: "History",
-                  onSelect: () => onHistory(item),
+      size: 120,
+    },
+    {
+      id: "actions",
+      enableResizing: false,
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <ResponsiveActionMenu
+            title={`${item.name} actions`}
+            trigger={
+              <RowActionsButton aria-label={`Actions for ${item.name}`} />
+            }
+            actions={[
+              {
+                id: "history",
+                icon: Clock01Icon,
+                label: "History",
+                onSelect: () => onHistory(item),
+              },
+              canManage &&
+                !item.archivedAt && {
+                  id: "purchase",
+                  icon: ShoppingCart01Icon,
+                  label: "Purchase",
+                  onSelect: () => onMovement(item, "purchase"),
                 },
-                canManage &&
-                  !item.archivedAt && {
-                    id: "purchase",
-                    icon: ShoppingCart01Icon,
-                    label: "Purchase",
-                    onSelect: () => onMovement(item, "purchase"),
-                  },
-                canManage &&
-                  !item.archivedAt && {
-                    id: "adjust",
-                    icon: PlusMinusIcon,
-                    label: "Adjust stock",
-                    onSelect: () => onMovement(item, "adjustment"),
-                  },
-                canManage &&
-                  !item.archivedAt && {
-                    id: "edit",
-                    icon: Edit02Icon,
-                    label: "Edit item",
-                    onSelect: () => onEdit(item),
-                  },
-                canManage &&
-                  !item.archivedAt && {
-                    id: "archive",
-                    icon: Archive02Icon,
-                    label: "Archive item",
-                    onSelect: () => onArchive(item),
-                    disabled: item.quantity !== 0,
-                    destructive: true,
-                  },
-                canManage &&
-                  !!item.archivedAt && {
-                    id: "restore",
-                    icon: ArrowTurnBackwardIcon,
-                    label: "Restore item",
-                    onSelect: () => onRestore(item),
-                  },
-              ]}
-            />
-          );
-        },
-        meta: {
-          enableColumnOrdering: false,
-          cellClassName: "text-center",
-          headerTitle: "",
-          skeleton: <Skeleton className="size-7" />,
-        },
-        size: 52,
+              canManage &&
+                !item.archivedAt && {
+                  id: "adjust",
+                  icon: PlusMinusIcon,
+                  label: "Adjust stock",
+                  onSelect: () => onMovement(item, "adjustment"),
+                },
+              canManage &&
+                !item.archivedAt && {
+                  id: "edit",
+                  icon: Edit02Icon,
+                  label: "Edit item",
+                  onSelect: () => onEdit(item),
+                },
+              canManage &&
+                !item.archivedAt && {
+                  id: "archive",
+                  icon: Archive02Icon,
+                  label: "Archive item",
+                  onSelect: () => onArchive(item),
+                  disabled: item.quantity !== 0,
+                  destructive: true,
+                },
+              canManage &&
+                !!item.archivedAt && {
+                  id: "restore",
+                  icon: ArrowTurnBackwardIcon,
+                  label: "Restore item",
+                  onSelect: () => onRestore(item),
+                },
+            ]}
+          />
+        );
       },
-    ],
-    [canManage, onEdit, onMovement, onHistory, onArchive, onRestore]
-  );
+      meta: {
+        enableColumnOrdering: false,
+        cellClassName: "text-center",
+        headerTitle: "",
+        skeleton: <Skeleton className="size-7" />,
+      },
+      size: 52,
+    },
+  ];
 
   return (
     <DataTableWrapper

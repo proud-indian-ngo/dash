@@ -17,16 +17,16 @@ export function useEmailReceipt() {
       return;
     }
     setSendingId(receipt.id);
-    try {
-      await email({ data: { receiptId: receipt.id } });
-      toast.success(`Receipt ${receipt.number} is on its way to the donor`);
-    } catch (error) {
-      toast.error("Couldn't email the receipt", {
-        description: errorMessage(error),
-      });
-    } finally {
-      setSendingId(null);
-    }
+    await email({ data: { receiptId: receipt.id } })
+      .then(() => {
+        toast.success(`Receipt ${receipt.number} is on its way to the donor`);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't email the receipt", {
+          description: errorMessage(error),
+        });
+      })
+      .finally(() => setSendingId(null));
   };
   return { send, sendingId };
 }

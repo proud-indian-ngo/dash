@@ -129,7 +129,7 @@ function DateInputPicker({
 export function DateField({
   description,
   disabled = false,
-  endMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  endMonth: endMonthProp,
   form,
   hideLabel = false,
   isRequired = false,
@@ -137,9 +137,13 @@ export function DateField({
   maxDate,
   name,
   placeholder = "Pick a date",
-  startMonth = new Date(1900, 0, 1),
+  startMonth: startMonthProp,
   validators,
 }: DateFieldProps) {
+  const now = new Date();
+  const endMonth =
+    endMonthProp ?? new Date(now.getFullYear(), now.getMonth(), 1);
+  const startMonth = startMonthProp ?? new Date(1900, 0, 1);
   useResolvedForm(form, "DateField");
   return (
     <CustomField<Date | undefined>

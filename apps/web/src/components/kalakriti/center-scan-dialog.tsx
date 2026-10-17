@@ -187,6 +187,57 @@ function CenterScanStation({
   );
 }
 
+type ReadyRecordingAttempt = Extract<
+  ReturnType<ReturnType<typeof createEventDayRecordingLedger>["begin"]>,
+  { status: "ready" }
+>;
+
+async function recordStudent(
+  zero: ReturnType<typeof useZero>,
+  attempt: ReadyRecordingAttempt,
+  student: { id: string; name: string },
+  humanId: string | undefined,
+  editionId: string,
+  centerId: string
+) {
+  try {
+    const response = humanId
+      ? await zero.mutate(
+          mutators.kalakritiCenterScan.recordManual({
+            ...attempt.args,
+            humanId,
+          })
+        ).server
+      : await zero.mutate(
+          mutators.kalakritiCenterScan.record({
+            ...attempt.args,
+            personQr: JSON.stringify({ id: student.id, type: "student" }),
+          })
+        ).server;
+    handleMutationResult(response, {
+      entityId: attempt.args.operationId,
+      mutation: humanId
+        ? "kalakritiCenterScan.recordManual"
+        : "kalakritiCenterScan.record",
+      errorMsg: "Student could not be marked",
+      successMsg: `${student.name} marked`,
+    });
+    attempt.finish(response.type !== "error");
+  } catch (error) {
+    attempt.finish(false);
+    log.error({
+      component: "CenterScanDialog",
+      action: "markStudent",
+      editionId,
+      centerId,
+      operationId: attempt.args.operationId,
+      error: "Student scan request failed",
+      errorType: error instanceof Error ? error.name : "unknown",
+    });
+    toast.error("Student could not be marked. Try again.");
+  }
+}
+
 function ActiveCenterScanSession({
   centerId,
   editionId,
@@ -255,42 +306,7 @@ function ActiveCenterScanSession({
       busyRef.current = true;
       setRecording(true);
       onBusyChange(true);
-      try {
-        const response = humanId
-          ? await zero.mutate(
-              mutators.kalakritiCenterScan.recordManual({
-                ...attempt.args,
-                humanId,
-              })
-            ).server
-          : await zero.mutate(
-              mutators.kalakritiCenterScan.record({
-                ...attempt.args,
-                personQr: JSON.stringify({ id: student.id, type: "student" }),
-              })
-            ).server;
-        handleMutationResult(response, {
-          entityId: attempt.args.operationId,
-          mutation: humanId
-            ? "kalakritiCenterScan.recordManual"
-            : "kalakritiCenterScan.record",
-          errorMsg: "Student could not be marked",
-          successMsg: `${student.name} marked`,
-        });
-        attempt.finish(response.type !== "error");
-      } catch (error) {
-        attempt.finish(false);
-        log.error({
-          component: "CenterScanDialog",
-          action: "markStudent",
-          editionId,
-          centerId,
-          operationId: attempt.args.operationId,
-          error: "Student scan request failed",
-          errorType: error instanceof Error ? error.name : "unknown",
-        });
-        toast.error("Student could not be marked. Try again.");
-      }
+      await recordStudent(zero, attempt, student, humanId, editionId, centerId);
       busyRef.current = false;
       setRecording(false);
       onBusyChange(false);

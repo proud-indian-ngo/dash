@@ -12,7 +12,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { optionsFromRows } from "@/components/data-table/filter-fields";
@@ -211,12 +211,8 @@ function UserRowActions({
   user,
 }: UserRowActionsProps) {
   const handleUnban = useEventCallback(async () => {
-    try {
-      onSetBanningUserId(user.id);
-      await onUnbanUser(user.id);
-    } finally {
-      onSetBanningUserId(null);
-    }
+    onSetBanningUserId(user.id);
+    await onUnbanUser(user.id).finally(() => onSetBanningUserId(null));
   });
 
   const handleOpenForm = useEventCallback((kind: RowFormKind) => {
@@ -246,12 +242,8 @@ function UserSheetActions({
   const isSelf = user.id === (session?.user?.id ?? "");
   const isBanned = Boolean(user.banned);
   const handleUnban = useEventCallback(async () => {
-    try {
-      onSetBanningUserId(user.id);
-      await onUnbanUser(user.id);
-    } finally {
-      onSetBanningUserId(null);
-    }
+    onSetBanningUserId(user.id);
+    await onUnbanUser(user.id).finally(() => onSetBanningUserId(null));
   });
 
   return (
@@ -502,17 +494,13 @@ export function UsersTable({
   users,
 }: UsersTableProps) {
   useMigrateLegacyUserFilterParams();
-  const filterFields = useMemo(
-    () =>
-      createUserFilterFields(
-        roleOptions ?? [],
-        optionsFromRows(
-          users,
-          (row) => row.registrationGroup,
-          (row) => row.registrationGroup ?? ""
-        )
-      ),
-    [roleOptions, users]
+  const filterFields = createUserFilterFields(
+    roleOptions ?? [],
+    optionsFromRows(
+      users,
+      (row) => row.registrationGroup,
+      (row) => row.registrationGroup ?? ""
+    )
   );
   const [activeRowForm, setActiveRowForm] = useState<RowFormAction>(null);
   const [banningUserId, setBanningUserId] = useState<string | null>(null);
@@ -534,24 +522,18 @@ export function UsersTable({
     if (activeRowForm === null) {
       return;
     }
-    try {
-      setIsDeleting(true);
-      await onDelete(activeRowForm.userId);
-      setActiveRowForm(null);
-    } finally {
-      setIsDeleting(false);
-    }
+    setIsDeleting(true);
+    await onDelete(activeRowForm.userId).finally(() => setIsDeleting(false));
+    setActiveRowForm(null);
   });
 
   const handleDialogBan = useEventCallback(
     async (userId: string, banReason: string, banExpires?: string) => {
-      try {
-        setBanningUserId(userId);
-        await onBanUser(userId, banReason, banExpires);
-        setActiveRowForm(null);
-      } finally {
-        setBanningUserId(null);
-      }
+      setBanningUserId(userId);
+      await onBanUser(userId, banReason, banExpires).finally(() =>
+        setBanningUserId(null)
+      );
+      setActiveRowForm(null);
     }
   );
 

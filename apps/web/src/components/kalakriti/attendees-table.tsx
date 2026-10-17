@@ -13,7 +13,6 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -163,157 +162,149 @@ export function AttendeesTable({
   onAssign: (row: AttendeeRow) => void;
   toolbarActions?: ReactNode;
 }) {
-  const columns = useMemo<DataGridColumnDef<AttendeeRow>[]>(() => {
-    const text = (
-      id: string,
-      title: string,
-      get: (row: AttendeeRow) => string,
-      size = 200
-    ): DataGridColumnDef<AttendeeRow> => ({
-      id,
-      accessorFn: get,
+  const text = (
+    id: string,
+    title: string,
+    get: (row: AttendeeRow) => string,
+    size = 200
+  ): DataGridColumnDef<AttendeeRow> => ({
+    id,
+    accessorFn: get,
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title={title} visibility={true} />
+    ),
+    cell: ({ row }) => (
+      <span
+        className={
+          id === "name"
+            ? "block truncate text-sm font-medium"
+            : "block truncate text-sm"
+        }
+        title={get(row.original)}
+        data-testid={id === "name" ? "row-title" : undefined}
+      >
+        {get(row.original)}
+      </span>
+    ),
+    size,
+    meta: { headerTitle: title, skeleton: <Skeleton className="h-5 w-28" /> },
+  });
+  const columns: DataGridColumnDef<AttendeeRow>[] = [
+    {
+      ...text("name", "Name", (r) => r.name, 250),
+      meta: {
+        compact: "primary" as const,
+        headerTitle: "Name",
+        kind: "text",
+        skeleton: <Skeleton className="h-5 w-28" />,
+      },
+    } as DataGridColumnDef<AttendeeRow>,
+    ...(kind === "judge"
+      ? [
+          {
+            ...text(
+              "competitions",
+              "Competitions",
+              (r) =>
+                r.judgeAssignments
+                  .map((a) => a.competition?.name)
+                  .filter(Boolean)
+                  .join(", ") || "Unassigned",
+              280
+            ),
+            meta: {
+              compact: "primary" as const,
+              headerTitle: "Competitions",
+              skeleton: <Skeleton className="h-5 w-28" />,
+            },
+          } satisfies DataGridColumnDef<AttendeeRow>,
+        ]
+      : []),
+    {
+      ...text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
+      meta: {
+        headerTitle: "Yearly ID",
+        kind: "id",
+        skeleton: <Skeleton className="h-5 w-28" />,
+      },
+    },
+    text("phone", "Phone", (r) => r.phone, 160),
+    text("email", "Email", (r) => r.email || "—", 240),
+    ...(
+      [
+        ["attendee_check_in", "Checked in"],
+        ["breakfast", "Breakfast"],
+        ["lunch", "Lunch"],
+      ] as const
+    ).map(([type, title]): DataGridColumnDef<AttendeeRow> => ({
+      id: type,
+      size: 130,
+      enableSorting: statusReady,
+      accessorFn: (r) => (statusReady ? attendeeStatus(r, type) : undefined),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title={title} visibility={true} />
       ),
       cell: ({ row }) => (
-        <span
-          className={
-            id === "name"
-              ? "block truncate text-sm font-medium"
-              : "block truncate text-sm"
-          }
-          title={get(row.original)}
-          data-testid={id === "name" ? "row-title" : undefined}
-        >
-          {get(row.original)}
-        </span>
+        <AttendeeStatus row={row.original} type={type} ready={statusReady} />
       ),
-      size,
-      meta: { headerTitle: title, skeleton: <Skeleton className="h-5 w-28" /> },
-    });
-    return [
-      {
-        ...text("name", "Name", (r) => r.name, 250),
-        meta: {
-          compact: "primary" as const,
-          headerTitle: "Name",
-          kind: "text",
-          skeleton: <Skeleton className="h-5 w-28" />,
-        },
-      } as DataGridColumnDef<AttendeeRow>,
-      ...(kind === "judge"
-        ? [
+      meta: {
+        compact:
+          type === "attendee_check_in" ? ("primary" as const) : undefined,
+        headerTitle: title,
+        skeleton: <Skeleton className="h-5 w-12" />,
+      },
+    })),
+    {
+      id: "actions",
+      size: 52,
+      enableHiding: false,
+      enableSorting: false,
+      enableResizing: false,
+      meta: {
+        enableColumnOrdering: false,
+        cellClassName: "text-center",
+        headerTitle: "",
+        skeleton: <Skeleton className="size-7" />,
+        stopRowClick: true,
+      },
+      cell: ({ row }) => (
+        <ResponsiveActionMenu
+          title={`${row.original.name} actions`}
+          trigger={
+            <RowActionsButton aria-label={`Actions for ${row.original.name}`} />
+          }
+          actions={[
             {
-              ...text(
-                "competitions",
-                "Competitions",
-                (r) =>
-                  r.judgeAssignments
-                    .map((a) => a.competition?.name)
-                    .filter(Boolean)
-                    .join(", ") || "Unassigned",
-                280
-              ),
-              meta: {
-                compact: "primary" as const,
-                headerTitle: "Competitions",
-                skeleton: <Skeleton className="h-5 w-28" />,
+              id: "view",
+              icon: ViewIcon,
+              label: "View details",
+              onSelect: () => onView(row.original),
+            },
+            canManage && {
+              id: "edit",
+              icon: Edit02Icon,
+              label: "Edit",
+              onSelect: () => onEdit(row.original),
+            },
+            canManage &&
+              kind === "judge" && {
+                id: "assign",
+                icon: UserAdd01Icon,
+                label: "Assign competitions",
+                onSelect: () => onAssign(row.original),
               },
-            } satisfies DataGridColumnDef<AttendeeRow>,
-          ]
-        : []),
-      {
-        ...text("humanId", "Yearly ID", (r) => r.humanId || "—", 190),
-        meta: {
-          headerTitle: "Yearly ID",
-          kind: "id",
-          skeleton: <Skeleton className="h-5 w-28" />,
-        },
-      },
-      text("phone", "Phone", (r) => r.phone, 160),
-      text("email", "Email", (r) => r.email || "—", 240),
-      ...(
-        [
-          ["attendee_check_in", "Checked in"],
-          ["breakfast", "Breakfast"],
-          ["lunch", "Lunch"],
-        ] as const
-      ).map(([type, title]): DataGridColumnDef<AttendeeRow> => ({
-        id: type,
-        size: 130,
-        enableSorting: statusReady,
-        accessorFn: (r) => (statusReady ? attendeeStatus(r, type) : undefined),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title={title}
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <AttendeeStatus row={row.original} type={type} ready={statusReady} />
-        ),
-        meta: {
-          compact:
-            type === "attendee_check_in" ? ("primary" as const) : undefined,
-          headerTitle: title,
-          skeleton: <Skeleton className="h-5 w-12" />,
-        },
-      })),
-      {
-        id: "actions",
-        size: 52,
-        enableHiding: false,
-        enableSorting: false,
-        enableResizing: false,
-        meta: {
-          enableColumnOrdering: false,
-          cellClassName: "text-center",
-          headerTitle: "",
-          skeleton: <Skeleton className="size-7" />,
-          stopRowClick: true,
-        },
-        cell: ({ row }) => (
-          <ResponsiveActionMenu
-            title={`${row.original.name} actions`}
-            trigger={
-              <RowActionsButton
-                aria-label={`Actions for ${row.original.name}`}
-              />
-            }
-            actions={[
-              {
-                id: "view",
-                icon: ViewIcon,
-                label: "View details",
-                onSelect: () => onView(row.original),
-              },
-              canManage && {
-                id: "edit",
-                icon: Edit02Icon,
-                label: "Edit",
-                onSelect: () => onEdit(row.original),
-              },
-              canManage &&
-                kind === "judge" && {
-                  id: "assign",
-                  icon: UserAdd01Icon,
-                  label: "Assign competitions",
-                  onSelect: () => onAssign(row.original),
-                },
-              canManage && {
-                id: "remove",
-                icon: kind === "judge" ? Delete02Icon : Archive02Icon,
-                label: kind === "judge" ? "Delete" : "Archive",
-                onSelect: () => onRemove(row.original),
-                destructive: true,
-              },
-            ]}
-          />
-        ),
-      },
-    ];
-  }, [kind, canManage, onView, onEdit, onRemove, onAssign, statusReady]);
+            canManage && {
+              id: "remove",
+              icon: kind === "judge" ? Delete02Icon : Archive02Icon,
+              label: kind === "judge" ? "Delete" : "Archive",
+              onSelect: () => onRemove(row.original),
+              destructive: true,
+            },
+          ]}
+        />
+      ),
+    },
+  ];
   return (
     <DataTableWrapper
       filter={{

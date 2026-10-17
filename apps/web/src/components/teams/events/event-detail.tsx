@@ -802,6 +802,72 @@ function deriveEventMetrics(event: EventDetailProps["event"]) {
   return { feedbackDeadlinePassed, presentCount };
 }
 
+/**
+ * Posts the RSVP poll, materializing a virtual occurrence first. Returns the
+ * materialized occurrence's id, or null when none was created.
+ */
+async function postRsvpPoll(
+  zero: ReturnType<typeof useZero>,
+  eventId: string,
+  virtualOccDate: string | undefined
+): Promise<string | null> {
+  let targetId = eventId;
+  let materializedId: string | null = null;
+  try {
+    if (virtualOccDate) {
+      const newId = uuidv7();
+      const mat = await zero.mutate(
+        mutators.teamEvent.materialize({
+          id: newId,
+          now: Date.now(),
+          originalDate: virtualOccDate,
+          seriesId: eventId,
+        })
+      ).server;
+      if (mat.type === "error") {
+        toast.error("Couldn't create occurrence");
+        return materializedId;
+      }
+      targetId = newId;
+      materializedId = newId;
+    }
+
+    const res = await postEventRsvpPoll({ data: { eventId: targetId } });
+    if (res.type === "ok") {
+      toast.success("Poll queued");
+      return materializedId;
+    }
+    if (res.code === "unknown") {
+      log.error({
+        component: "EventDetail",
+        entityId: targetId,
+        error: res.code,
+        fn: "postEventRsvpPoll",
+      });
+      toast.error("Couldn't post poll");
+      return materializedId;
+    }
+    const message = RSVP_POLL_ERROR_MESSAGES[res.code];
+    if (res.code === "poll_exists") {
+      toast.info(message);
+    } else {
+      toast.error(message);
+    }
+  } catch (caughtError) {
+    log.error({
+      caughtError:
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      component: "EventDetail",
+      entityId: targetId,
+      fn: "postEventRsvpPoll",
+    });
+    toast.error("Couldn't post poll");
+  }
+  return materializedId;
+}
+
 export function EventDetail({
   canApproveUpdates,
   canCancelPast,
@@ -905,71 +971,21 @@ export function EventDetail({
   const [postPollDialogOpen, setPostPollDialogOpen] = useState(false);
   const [isPostingPoll, setIsPostingPoll] = useState(false);
 
-  const handlePostPollClick = useCallback(() => {
+  const handlePostPollClick = () => {
     setPostPollDialogOpen(true);
-  }, []);
+  };
 
   const handlePostPollConfirm = useCallback(async () => {
     setIsPostingPoll(true);
-    let targetId = event.id;
-    let materialized = false;
-    try {
-      if (isVirtualOccurrence && occDate) {
-        const newId = uuidv7();
-        const mat = await zero.mutate(
-          mutators.teamEvent.materialize({
-            id: newId,
-            now: Date.now(),
-            originalDate: occDate,
-            seriesId: event.id,
-          })
-        ).server;
-        if (mat.type === "error") {
-          toast.error("Couldn't create occurrence");
-          return;
-        }
-        targetId = newId;
-        materialized = true;
-      }
-
-      const res = await postEventRsvpPoll({ data: { eventId: targetId } });
-      if (res.type === "ok") {
-        toast.success("Poll queued");
-        return;
-      }
-      if (res.code === "unknown") {
-        log.error({
-          component: "EventDetail",
-          entityId: targetId,
-          error: res.code,
-          fn: "postEventRsvpPoll",
-        });
-        toast.error("Couldn't post poll");
-        return;
-      }
-      const message = RSVP_POLL_ERROR_MESSAGES[res.code];
-      if (res.code === "poll_exists") {
-        toast.info(message);
-      } else {
-        toast.error(message);
-      }
-    } catch (caughtError) {
-      log.error({
-        caughtError:
-          caughtError instanceof Error
-            ? caughtError.message
-            : String(caughtError),
-        component: "EventDetail",
-        entityId: targetId,
-        fn: "postEventRsvpPoll",
-      });
-      toast.error("Couldn't post poll");
-    } finally {
-      setIsPostingPoll(false);
-      setPostPollDialogOpen(false);
-      if (materialized) {
-        navigate({ params: { id: targetId }, to: "/events/$id" });
-      }
+    const materializedId = await postRsvpPoll(
+      zero,
+      event.id,
+      isVirtualOccurrence ? occDate : undefined
+    );
+    setIsPostingPoll(false);
+    setPostPollDialogOpen(false);
+    if (materializedId) {
+      navigate({ params: { id: materializedId }, to: "/events/$id" });
     }
   }, [isVirtualOccurrence, occDate, event.id, zero, navigate]);
 

@@ -88,6 +88,14 @@ function VendorPaymentDetailRouteComponent() {
   useRecordTitle(vendorPayment?.title);
 
   const isLoading = !vendorPayment && result.type !== "complete";
+  const setEditMode = (enabled: boolean) => {
+    navigate({
+      params: { id },
+      replace: true,
+      search: enabled ? { mode: "edit" } : {},
+      to: "/vendor-payments/$id",
+    });
+  };
   const stableOnCancel0 = useEventCallback(() => {
     navigate({ to: "/vendor-payments" });
   });
@@ -126,14 +134,6 @@ function VendorPaymentDetailRouteComponent() {
     hasPermission
   );
   const showEditForm = canEdit && mode === "edit";
-  const setEditMode = (enabled: boolean) => {
-    navigate({
-      params: { id: vendorPayment.id as string },
-      replace: true,
-      search: enabled ? { mode: "edit" } : {},
-      to: "/vendor-payments/$id",
-    });
-  };
 
   const initialValues = {
     attachments: mapQuotationAttachmentsToFormValues(vendorPayment.attachments),

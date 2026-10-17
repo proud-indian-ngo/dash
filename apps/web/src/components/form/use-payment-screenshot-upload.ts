@@ -12,6 +12,30 @@ import {
   getApprovalScreenshotUploadUrl,
 } from "@/functions/attachments";
 
+type ScreenshotType = (typeof ALLOWED_APPROVAL_SCREENSHOT_TYPES)[number];
+
+/** Uploads the file to a temporary R2 key and returns the key. */
+async function uploadScreenshot(file: File, mimeType: ScreenshotType) {
+  const { presignedUrl, key } = await getApprovalScreenshotUploadUrl({
+    data: {
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType,
+    },
+  });
+
+  const uploadRes = await fetch(presignedUrl, {
+    body: file,
+    headers: { "Content-Type": file.type },
+    method: "PUT",
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`Upload failed: ${uploadRes.status}`);
+  }
+  return key;
+}
+
 /**
  * Uploads a payment screenshot to a temporary R2 key for a mutator to
  * claim, with a local preview. Used at approval and when payment proof is
@@ -70,8 +94,7 @@ export function usePaymentScreenshotUpload(
         return;
       }
 
-      const mimeType =
-        file.type as (typeof ALLOWED_APPROVAL_SCREENSHOT_TYPES)[number];
+      const mimeType = file.type as ScreenshotType;
       if (!ALLOWED_APPROVAL_SCREENSHOT_TYPES.includes(mimeType)) {
         toast.error(
           "Invalid file type. Please upload a JPEG, PNG, or WebP image."
@@ -84,42 +107,25 @@ export function usePaymentScreenshotUpload(
       }
 
       setUploading(true);
-      try {
-        const { presignedUrl, key } = await getApprovalScreenshotUploadUrl({
-          data: {
+      await uploadScreenshot(file, mimeType)
+        .then((key) => {
+          if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+          }
+          setScreenshotKey(key);
+          setPreviewUrl(URL.createObjectURL(file));
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "uploadScreenshot",
+            component,
+            entityId,
+            error: error instanceof Error ? error.message : String(error),
             fileName: file.name,
-            fileSize: file.size,
-            mimeType,
-          },
-        });
-
-        const uploadRes = await fetch(presignedUrl, {
-          body: file,
-          headers: { "Content-Type": file.type },
-          method: "PUT",
-        });
-
-        if (!uploadRes.ok) {
-          throw new Error(`Upload failed: ${uploadRes.status}`);
-        }
-
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
-        setScreenshotKey(key);
-        setPreviewUrl(URL.createObjectURL(file));
-      } catch (error) {
-        log.error({
-          action: "uploadScreenshot",
-          component,
-          entityId,
-          error: error instanceof Error ? error.message : String(error),
-          fileName: file.name,
-        });
-        toast.error("Couldn't upload screenshot — try again");
-      } finally {
-        setUploading(false);
-      }
+          });
+          toast.error("Couldn't upload screenshot — try again");
+        })
+        .finally(() => setUploading(false));
     }
   );
 

@@ -33,6 +33,9 @@ const LazyDevTools = import.meta.env.DEV
     )
   : () => null;
 
+const loadClientLogger = () => import("@/lib/client-logger");
+const loadPostHog = () => import("@/lib/posthog");
+
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootDocument,
   // Typically we don't need the user immediately in landing pages.
@@ -100,12 +103,12 @@ function RootDocument() {
     };
     window.addEventListener("vite:preloadError", onPreloadError);
     const stopWatchingVersion = watchForNewVersion();
-    import("@/lib/client-logger")
+    loadClientLogger()
       .then(({ initClientLogger }) => initClientLogger())
       .catch(() => {
         // Non-critical
       });
-    import("@/lib/posthog")
+    loadPostHog()
       .then(({ initPostHog }) => initPostHog())
       .catch(() => {
         // Non-critical

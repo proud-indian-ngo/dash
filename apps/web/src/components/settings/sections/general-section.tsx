@@ -24,29 +24,20 @@ export function GeneralSection() {
   const notificationsDisabled =
     configs.find((c) => c.key === KILL_SWITCH_KEY)?.value === "true";
 
-  const handleToggle = useEventCallback(async (checked: boolean) => {
-    if (checked) {
-      setConfirmOpen(true);
-      return;
-    }
-    await applyToggle(false);
-  });
-
   const applyToggle = async (checked: boolean) => {
+    const value = checked ? "true" : "false";
+    const successMsg = checked
+      ? "All notifications disabled"
+      : "Notifications re-enabled";
     try {
       const res = await zero.mutate(
-        mutators.appConfig.upsert({
-          key: KILL_SWITCH_KEY,
-          value: checked ? "true" : "false",
-        })
+        mutators.appConfig.upsert({ key: KILL_SWITCH_KEY, value })
       ).server;
       handleMutationResult(res, {
         entityId: KILL_SWITCH_KEY,
         errorMsg: "Couldn't update notification setting",
         mutation: "appConfig.upsert",
-        successMsg: checked
-          ? "All notifications disabled"
-          : "Notifications re-enabled",
+        successMsg,
       });
     } catch (caughtError) {
       log.error({
@@ -61,6 +52,13 @@ export function GeneralSection() {
       toast.error("Couldn't update notification setting");
     }
   };
+  const handleToggle = useEventCallback(async (checked: boolean) => {
+    if (checked) {
+      setConfirmOpen(true);
+      return;
+    }
+    await applyToggle(false);
+  });
   const stableOnConfirm0 = useEventCallback(() => {
     setConfirmOpen(false);
     applyToggle(true);

@@ -17,7 +17,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useConnectionState, useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -71,18 +71,9 @@ export function InventoryScanPanel({
     edition.lifecycle !== "archived";
   const scan = useEventCallback((value: string) => {
     if (!ready || volunteer) return;
+    let person: ReturnType<typeof parseKalakritiPersonQr>;
     try {
-      const person = parseKalakritiPersonQr(value.trim());
-      if (
-        person.type !== "volunteer" ||
-        !volunteers.some((row) => row.id === person.id)
-      ) {
-        toast.error("Scan an active volunteer from this Edition", {
-          id: "inventory-scan-invalid",
-        });
-        return;
-      }
-      setVolunteerId(person.id);
+      person = parseKalakritiPersonQr(value.trim());
     } catch (error) {
       log.error({
         component: "InventoryScanPanel",
@@ -94,7 +85,18 @@ export function InventoryScanPanel({
       toast.error("Scan a valid volunteer QR code", {
         id: "inventory-scan-invalid",
       });
+      return;
     }
+    if (
+      person.type !== "volunteer" ||
+      !volunteers.some((row) => row.id === person.id)
+    ) {
+      toast.error("Scan an active volunteer from this Edition", {
+        id: "inventory-scan-invalid",
+      });
+      return;
+    }
+    setVolunteerId(person.id);
   });
   const form = useForm({
     defaultValues: { humanId: "" },
@@ -207,9 +209,8 @@ function InventoryBatchForm({
       volunteerMembershipId: volunteerId,
     })
   );
-  const assignmentOptions = useMemo(
-    () => getInventoryAssignmentOptions(assignedVolunteer?.assignments ?? []),
-    [assignedVolunteer]
+  const assignmentOptions = getInventoryAssignmentOptions(
+    assignedVolunteer?.assignments ?? []
   );
   const schema = batchFormSchema.refine(
     (value) =>
@@ -246,6 +247,10 @@ function InventoryBatchForm({
       const selection = assignmentOptions.find(
         (option) => option.value === value.selection
       );
+      const competitionId = selection?.competitionId ?? null;
+      const responsibility = selection?.responsibility ?? null;
+      const successMsg =
+        action === "dispatch" ? "Items dispatched" : "Items returned";
       setBusy(true);
       onBusyChange(true);
       try {
@@ -255,8 +260,8 @@ function InventoryBatchForm({
             volunteerMembershipId: volunteerId,
             items: value.items,
             notes: value.notes,
-            competitionId: selection?.competitionId ?? null,
-            responsibility: selection?.responsibility ?? null,
+            competitionId,
+            responsibility,
             editionId,
             now,
           })
@@ -264,8 +269,7 @@ function InventoryBatchForm({
         handleMutationResult(response, {
           mutation: "kalakritiInventory.recordBatch",
           entityId: volunteerId,
-          successMsg:
-            action === "dispatch" ? "Items dispatched" : "Items returned",
+          successMsg,
           errorMsg: "Stock movement could not be recorded",
         });
         if (response.type !== "error") onReset();

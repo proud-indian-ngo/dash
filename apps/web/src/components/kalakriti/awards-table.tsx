@@ -14,7 +14,6 @@ import type {
   KalakritiAwardEntry,
   KalakritiAwardRecipient as KalakritiAwardMember,
 } from "@pi-dash/shared/kalakriti-awards";
-import { useMemo } from "react";
 
 import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -242,249 +241,238 @@ export function AwardsTable({
     member: KalakritiAwardMember
   ) => void;
 }) {
-  const columns = useMemo<DataGridColumnDef<KalakritiAwardEntry>[]>(
-    () => [
-      {
-        cell: ({ row }) =>
-          row.original.type === "group" ? (
-            <div className="flex size-full items-center justify-center">
-              <DataTableExpandButton
-                expanded={row.getIsExpanded()}
-                onToggle={row.getToggleExpandedHandler()}
-              />
-            </div>
-          ) : null,
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        header: "",
-        id: "expand",
-        maxSize: 40,
-        minSize: 40,
-        size: 40,
-        meta: {
-          cellClassName: "px-0",
-          compact: "always",
-          enableColumnOrdering: false,
-          expandedContent: (entry: KalakritiAwardEntry) =>
-            entry.type === "group" ? (
-              <AwardMembersTable
-                canWrite={canWrite}
-                entry={entry}
-                isPending={isPending}
-                onSetAwarded={onSetAwarded}
-                onViewStudent={onViewStudent}
-              />
-            ) : null,
-          headerClassName: "px-0",
-          headerTitle: "",
-          skeleton: SKELETON_ACTIONS,
-          stopRowClick: true,
-        },
-      },
-      {
-        accessorFn: (entry) =>
-          entry.type === "group"
-            ? `${entry.members.length} students`
-            : (entry.members[0]?.name ?? "Student unavailable"),
-        cell: ({ row }) => {
-          const { original } = row;
-          const member = original.members[0];
-          return (
-            <InlineMetaCell
-              mono
-              primary={
-                <span data-testid="row-title">
-                  {original.type === "group"
-                    ? `${original.members.length} students`
-                    : (member?.name ?? "Student unavailable")}
-                </span>
-              }
-              secondary={
-                original.type === "individual" ? member?.humanId : undefined
-              }
+  const columns: DataGridColumnDef<KalakritiAwardEntry>[] = [
+    {
+      cell: ({ row }) =>
+        row.original.type === "group" ? (
+          <div className="flex size-full items-center justify-center">
+            <DataTableExpandButton
+              expanded={row.getIsExpanded()}
+              onToggle={row.getToggleExpandedHandler()}
             />
-          );
-        },
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Recipient"
-            visibility={true}
-          />
-        ),
-        id: "recipient",
-        meta: {
-          compact: "primary",
-          headerTitle: "Recipient",
-          kind: "person",
-          skeleton: SKELETON_NAME,
-        },
-        size: 220,
-      },
-      {
-        accessorKey: "competitionName",
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Competition"
-            visibility={true}
-          />
-        ),
-        id: "competitionName",
-        meta: {
-          compact: "primary",
-          headerTitle: "Competition",
-          kind: "text",
-          skeleton: SKELETON_NAME,
-        },
-        size: 220,
-      },
-      {
-        accessorFn: (entry) => AWARD_LABELS[entry.award],
-        cell: ({ row }) => <Tag>{AWARD_LABELS[row.original.award]}</Tag>,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Award"
-            visibility={true}
-          />
-        ),
-        id: "award",
-        meta: {
-          compact: "primary",
-          headerTitle: "Award",
-          kind: "text",
-          skeleton: SKELETON_TEXT,
-        },
-        size: 120,
-      },
-      {
-        accessorKey: "centerName",
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Center"
-            visibility={true}
-          />
-        ),
-        id: "centerName",
-        meta: {
-          headerTitle: "Center",
-          kind: "text",
-          skeleton: SKELETON_NAME,
-        },
-        size: 200,
-      },
-      {
-        accessorKey: "ageCategoryName",
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Age Category"
-            visibility={true}
-          />
-        ),
-        id: "ageCategoryName",
-        meta: {
-          headerTitle: "Age Category",
-          kind: "tag",
-          skeleton: SKELETON_TEXT,
-        },
-        size: 150,
-      },
-      {
-        accessorFn: (entry) => TYPE_LABELS[entry.type],
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Type"
-            visibility={true}
-          />
-        ),
-        id: "type",
-        meta: { headerTitle: "Type", kind: "tag", skeleton: SKELETON_TEXT },
-        size: 120,
-      },
-      {
-        accessorFn: (entry) => {
-          const genders = [
-            ...new Set(entry.members.map((member) => member.gender)),
-          ];
-          return genders.length === 1 && genders[0]
-            ? GENDER_LABELS[genders[0]]
-            : "Mixed";
-        },
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Gender"
-            visibility={true}
-          />
-        ),
-        id: "gender",
-        meta: { headerTitle: "Gender", kind: "tag", skeleton: SKELETON_TEXT },
-        size: 120,
-      },
-      {
-        accessorFn: (entry) => STATUS_LABELS[getAwardStatus(entry)],
-        cell: ({ row }) => <AwardStatusBadge entry={row.original} />,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Status"
-            visibility={true}
-          />
-        ),
-        id: "status",
-        meta: {
-          compact: "primary",
-          headerTitle: "Status",
-          kind: "status",
-          skeleton: SKELETON_TEXT,
-        },
-        size: 190,
-      },
-      {
-        cell: ({ row }) => {
-          const entry = row.original;
-          const member = entry.members[0];
-          return entry.type === "group" ? (
-            <GroupActions
+          </div>
+        ) : null,
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      header: "",
+      id: "expand",
+      maxSize: 40,
+      minSize: 40,
+      size: 40,
+      meta: {
+        cellClassName: "px-0",
+        compact: "always",
+        enableColumnOrdering: false,
+        expandedContent: (entry: KalakritiAwardEntry) =>
+          entry.type === "group" ? (
+            <AwardMembersTable
               canWrite={canWrite}
               entry={entry}
-              pending={isPending(entry)}
-              onSetGroupAwarded={onSetGroupAwarded}
-            />
-          ) : member ? (
-            <MemberActions
-              canWrite={canWrite}
-              entry={entry}
-              member={member}
-              pending={isPending(entry, member.studentId)}
+              isPending={isPending}
               onSetAwarded={onSetAwarded}
               onViewStudent={onViewStudent}
             />
-          ) : null;
-        },
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        header: "",
-        id: "actions",
-        meta: {
-          cellClassName: "text-center",
-          compact: "always",
-          enableColumnOrdering: false,
-          headerTitle: "",
-          skeleton: SKELETON_ACTIONS,
-          stopRowClick: true,
-        },
-        size: 52,
+          ) : null,
+        headerClassName: "px-0",
+        headerTitle: "",
+        skeleton: SKELETON_ACTIONS,
+        stopRowClick: true,
       },
-    ],
-    [canWrite, isPending, onSetAwarded, onSetGroupAwarded, onViewStudent]
-  );
+    },
+    {
+      accessorFn: (entry) =>
+        entry.type === "group"
+          ? `${entry.members.length} students`
+          : (entry.members[0]?.name ?? "Student unavailable"),
+      cell: ({ row }) => {
+        const { original } = row;
+        const member = original.members[0];
+        return (
+          <InlineMetaCell
+            mono
+            primary={
+              <span data-testid="row-title">
+                {original.type === "group"
+                  ? `${original.members.length} students`
+                  : (member?.name ?? "Student unavailable")}
+              </span>
+            }
+            secondary={
+              original.type === "individual" ? member?.humanId : undefined
+            }
+          />
+        );
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Recipient"
+          visibility={true}
+        />
+      ),
+      id: "recipient",
+      meta: {
+        compact: "primary",
+        headerTitle: "Recipient",
+        kind: "person",
+        skeleton: SKELETON_NAME,
+      },
+      size: 220,
+    },
+    {
+      accessorKey: "competitionName",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Competition"
+          visibility={true}
+        />
+      ),
+      id: "competitionName",
+      meta: {
+        compact: "primary",
+        headerTitle: "Competition",
+        kind: "text",
+        skeleton: SKELETON_NAME,
+      },
+      size: 220,
+    },
+    {
+      accessorFn: (entry) => AWARD_LABELS[entry.award],
+      cell: ({ row }) => <Tag>{AWARD_LABELS[row.original.award]}</Tag>,
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Award" visibility={true} />
+      ),
+      id: "award",
+      meta: {
+        compact: "primary",
+        headerTitle: "Award",
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 120,
+    },
+    {
+      accessorKey: "centerName",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Center"
+          visibility={true}
+        />
+      ),
+      id: "centerName",
+      meta: {
+        headerTitle: "Center",
+        kind: "text",
+        skeleton: SKELETON_NAME,
+      },
+      size: 200,
+    },
+    {
+      accessorKey: "ageCategoryName",
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Age Category"
+          visibility={true}
+        />
+      ),
+      id: "ageCategoryName",
+      meta: {
+        headerTitle: "Age Category",
+        kind: "tag",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 150,
+    },
+    {
+      accessorFn: (entry) => TYPE_LABELS[entry.type],
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Type" visibility={true} />
+      ),
+      id: "type",
+      meta: { headerTitle: "Type", kind: "tag", skeleton: SKELETON_TEXT },
+      size: 120,
+    },
+    {
+      accessorFn: (entry) => {
+        const genders = [
+          ...new Set(entry.members.map((member) => member.gender)),
+        ];
+        return genders.length === 1 && genders[0]
+          ? GENDER_LABELS[genders[0]]
+          : "Mixed";
+      },
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Gender"
+          visibility={true}
+        />
+      ),
+      id: "gender",
+      meta: { headerTitle: "Gender", kind: "tag", skeleton: SKELETON_TEXT },
+      size: 120,
+    },
+    {
+      accessorFn: (entry) => STATUS_LABELS[getAwardStatus(entry)],
+      cell: ({ row }) => <AwardStatusBadge entry={row.original} />,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
+      ),
+      id: "status",
+      meta: {
+        compact: "primary",
+        headerTitle: "Status",
+        kind: "status",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 190,
+    },
+    {
+      cell: ({ row }) => {
+        const entry = row.original;
+        const member = entry.members[0];
+        return entry.type === "group" ? (
+          <GroupActions
+            canWrite={canWrite}
+            entry={entry}
+            pending={isPending(entry)}
+            onSetGroupAwarded={onSetGroupAwarded}
+          />
+        ) : member ? (
+          <MemberActions
+            canWrite={canWrite}
+            entry={entry}
+            member={member}
+            pending={isPending(entry, member.studentId)}
+            onSetAwarded={onSetAwarded}
+            onViewStudent={onViewStudent}
+          />
+        ) : null;
+      },
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      header: "",
+      id: "actions",
+      meta: {
+        cellClassName: "text-center",
+        compact: "always",
+        enableColumnOrdering: false,
+        headerTitle: "",
+        skeleton: SKELETON_ACTIONS,
+        stopRowClick: true,
+      },
+      size: 52,
+    },
+  ];
   const getRowId = useEventCallback(
     (entry: KalakritiAwardEntry) =>
       `${entry.divisionId}:${entry.award}:${entry.entryId}`
@@ -492,7 +480,7 @@ export function AwardsTable({
   const getRowCanExpand = useEventCallback(
     (row: DataGridRow<KalakritiAwardEntry>) => row.original.type === "group"
   );
-  const filterFields = useMemo(() => createAwardFilterFields(data), [data]);
+  const filterFields = createAwardFilterFields(data);
 
   return (
     <DataTableWrapper

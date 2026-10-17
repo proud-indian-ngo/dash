@@ -1,6 +1,7 @@
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useConnectionState } from "@rocicorp/zero/react";
 import { log } from "evlog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useResultSnapshot<T>(
   scopeKey: string,
@@ -9,8 +10,7 @@ export function useResultSnapshot<T>(
 ) {
   const connection = useConnectionState();
   const connected = connection.name === "connected";
-  const loadRef = useRef(load);
-  loadRef.current = load;
+  const loadLatest = useEventCallback(load);
   const [snapshot, setSnapshot] = useState<{
     scopeKey: string;
     data: T;
@@ -19,13 +19,15 @@ export function useResultSnapshot<T>(
   }>();
   const [failedScope, setFailedScope] = useState<string | null>(null);
   const refreshRef = useRef<() => Promise<void>>(async () => undefined);
-  const refresh = useCallback(() => refreshRef.current(), []);
+  const refresh = () => refreshRef.current();
 
   useEffect(() => {
     let disposed = false;
     let generation = 0;
+    const isCurrent = (request: number) => !disposed && request === generation;
     const fetchSnapshot = async () => {
-      const request = ++generation;
+      generation += 1;
+      const request = generation;
       if (!enabled || !connected) {
         setSnapshot((previous) =>
           previous?.scopeKey === scopeKey
@@ -35,8 +37,8 @@ export function useResultSnapshot<T>(
         return;
       }
       try {
-        const data = await loadRef.current();
-        if (!disposed && request === generation) {
+        const data = await loadLatest();
+        if (isCurrent(request)) {
           setFailedScope(null);
           setSnapshot({ scopeKey, data, fresh: true, error: false });
         }
@@ -47,7 +49,7 @@ export function useResultSnapshot<T>(
           scopeKey,
           error: error instanceof Error ? error.message : String(error),
         });
-        if (!disposed && request === generation) {
+        if (isCurrent(request)) {
           setFailedScope(scopeKey);
           setSnapshot((previous) =>
             previous?.scopeKey === scopeKey

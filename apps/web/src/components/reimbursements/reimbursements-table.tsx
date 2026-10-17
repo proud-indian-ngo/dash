@@ -16,7 +16,7 @@ import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
@@ -262,8 +262,6 @@ export function ReimbursementsTable({
     type: "reimbursement" | "advance_payment";
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const onDeleteRef = useRef(onDelete);
-  onDeleteRef.current = onDelete;
   const handleDeleteRequest = useEventCallback((row: RequestRow) =>
     setDeleteTarget({ row, type: row.type })
   );
@@ -273,9 +271,8 @@ export function ReimbursementsTable({
       return;
     }
     setDeleteLoading(true);
-    try {
-      await onDeleteRef.current(deleteTarget.row);
-    } catch (e) {
+    // Promise handlers rather than try/finally, which the React Compiler cannot compile.
+    await onDelete(deleteTarget.row).catch((e: unknown) => {
       log.error({
         action: "delete",
         component: "ReimbursementsTable",
@@ -283,10 +280,9 @@ export function ReimbursementsTable({
         error: e instanceof Error ? e.message : String(e),
       });
       toast.error("Couldn't delete reimbursement");
-    } finally {
-      setDeleteLoading(false);
-      setDeleteTarget(null);
-    }
+    });
+    setDeleteLoading(false);
+    setDeleteTarget(null);
   });
 
   const costCentres = useCostCentres();
@@ -580,9 +576,9 @@ export function ReimbursementsTable({
       setDeleteTarget(null);
     }
   });
-  const filterFields = useMemo(
-    () => createReimbursementFilterFields(data, costCentres.active),
-    [data, costCentres.active]
+  const filterFields = createReimbursementFilterFields(
+    data,
+    costCentres.active
   );
   const stableSearch = useEventCallback((row: RequestRow, query: string) =>
     searchReimbursement(row, query, cityOf)
