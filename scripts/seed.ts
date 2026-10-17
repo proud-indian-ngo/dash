@@ -3802,9 +3802,13 @@ async function seedBooks(adminId: string): Promise<void> {
 
 // ── Governance ───────────────────────────────────────────────────────────────
 
-async function seedGovernance(adminId: string): Promise<void> {
+async function seedGovernance(userMap: Map<string, string>): Promise<void> {
   log("Seeding governance register...");
-  await ensureGovernanceFixtures({ linkedUserId: adminId });
+  // The dev admin is the Managing Trustee, so circulars can be issued locally.
+  await ensureGovernanceFixtures({
+    jointManagingTrusteeUserId: null,
+    managingTrusteeUserId: getUser(userMap, "admin@pi-dash.dev"),
+  });
   log("Deed version 1 and a fictional board of 4 trustees ready");
 }
 
@@ -3840,7 +3844,7 @@ async function main(): Promise<void> {
   await seedEmailSuppressions();
   await seedNotifications(userMap);
   await seedAppConfig();
-  await seedGovernance(getUser(userMap, "admin@pi-dash.dev"));
+  await seedGovernance(userMap);
 
   process.stdout.write("\n=== Dev data seeded successfully! ===\n");
   process.exit(0);

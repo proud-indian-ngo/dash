@@ -1114,6 +1114,13 @@
       "when": 1792226048468,
       "tag": "0158_governance_register",
       "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1792226146964,
+      "tag": "0159_governance_resolutions",
+      "breakpoints": true
     }
   ]
 }

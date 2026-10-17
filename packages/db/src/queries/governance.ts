@@ -3,7 +3,7 @@ import {
   type GovernanceDocumentFormat,
   type GovernanceDocumentKind,
 } from "@pi-dash/shared/governance";
-import { and, desc, eq, isNull, lte, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, ne } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -16,6 +16,8 @@ import {
   deedVersion,
   type GovernanceValidationReport,
   governanceDocument,
+  resolution,
+  resolutionResponse,
   trustee,
   trusteeTerm,
 } from "../schema/governance";
@@ -202,6 +204,25 @@ export async function saveTrustee(
       }
     }
 
+    // Open circulars follow the trustee to their account, so a trustee linked
+    // after issue still sees and signs them.
+    await tx
+      .update(resolutionResponse)
+      .set({ userId: input.userId })
+      .where(
+        and(
+          eq(resolutionResponse.trusteeId, input.id),
+          eq(resolutionResponse.response, "pending"),
+          inArray(
+            resolutionResponse.resolutionId,
+            tx
+              .select({ id: resolution.id })
+              .from(resolution)
+              .where(eq(resolution.status, "issued"))
+          )
+        )
+      );
+
     const pan = secretColumns(input.pan, trusteePanContext(input.id));
     const aadhaar = secretColumns(
       input.aadhaarReference,
@@ -294,7 +315,7 @@ export interface NewGovernanceDocument {
   sizeBytes: number;
   sourceFormat: GovernanceDocumentFormat;
   title: string;
-  uploadedBy: string;
+  uploadedBy: string | null;
   validationReport: GovernanceValidationReport | null;
 }
 

@@ -51,3 +51,47 @@ export async function validateSignedPdf(
     return unavailable("The signing service couldn't be reached");
   }
 }
+
+export class SigningServiceError extends Error {}
+
+/**
+ * Adds one empty signature field per signer to an issued circular. Throws
+ * when the service is missing or refuses: a circular without fields can't
+ * be signed in place.
+ */
+export async function prepareSignatureFields(
+  pdf: Uint8Array,
+  fields: {
+    box: [number, number, number, number];
+    name: string;
+    page: number;
+  }[],
+  fetchImpl: typeof fetch = fetch
+): Promise<Uint8Array> {
+  if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
+    throw new SigningServiceError(
+      "Issuing needs the signing service, which isn't set up here."
+    );
+  }
+  const response = await fetchImpl(
+    new URL("/prepare", env.SIGNING_SERVICE_URL),
+    {
+      body: JSON.stringify({
+        fields,
+        pdf: Buffer.from(pdf).toString("base64"),
+      }),
+      headers: {
+        Authorization: `Bearer ${env.SIGNING_SERVICE_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    }
+  ).catch(() => null);
+  if (!response?.ok) {
+    throw new SigningServiceError(
+      "The signing service couldn't prepare the signature boxes. Try again."
+    );
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}

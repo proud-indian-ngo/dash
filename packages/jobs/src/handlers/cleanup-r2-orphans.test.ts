@@ -125,6 +125,12 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM governance_document WHERE object_key LIKE"
       );
+      expect(statement).toContain(
+        "FROM resolution_revision WHERE latest_object_key LIKE"
+      );
+      expect(statement).toContain(
+        "FROM resolution_signature WHERE object_key LIKE"
+      );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

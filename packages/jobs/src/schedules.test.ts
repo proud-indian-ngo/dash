@@ -16,6 +16,7 @@ describe("registerSchedules", () => {
     expect(scheduled).toContain("ensure-fiscal-years");
     expect(scheduled).toContain("expire-import-rows");
     expect(scheduled).toContain("remind-trustee-terms");
+    expect(scheduled).toContain("close-due-resolutions");
     expect(scheduled).toContain("expire-event-interests");
     expect(scheduled).toContain("flush-held-notifications");
     expect(scheduled).toContain("ledger-post-pending");

@@ -13,6 +13,13 @@ import {
   trusteeTermBasisValues,
   VALIDITY_NOTE_MAX,
 } from "@pi-dash/shared/governance";
+import {
+  RESOLUTION_EFFECT_VALUES,
+  RESOLUTION_TEMPLATES,
+  RESOLUTION_TEXT_MAX,
+  RESOLUTION_TITLE_MAX,
+  resolutionTemplateKeyValues,
+} from "@pi-dash/shared/resolutions";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
@@ -688,4 +695,120 @@ export const organisationRegistrationMutators = {
       validTo: toEpoch(args.validTo),
     });
   }),
+};
+
+// ── Resolution drafts ───────────────────────────────────────────────────────
+
+const effectInput = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("none") }),
+  z.object({
+    basis: z.enum(trusteeTermBasisValues),
+    endsOn: isoDate.nullable(),
+    startsOn: isoDate,
+    trusteeId: z.string(),
+    type: z.literal("term_start"),
+  }),
+  z.object({
+    cessationBasis: z.enum(
+      RESOLUTION_EFFECT_VALUES.cessationBasis as [
+        Exclude<(typeof trusteeCessationBasisValues)[number], "removal_7_12">,
+        ...Exclude<
+          (typeof trusteeCessationBasisValues)[number],
+          "removal_7_12"
+        >[],
+      ]
+    ),
+    endedOn: isoDate,
+    trusteeId: z.string(),
+    type: z.literal("term_end"),
+  }),
+  z.object({
+    office: z.enum(trusteeOfficeValues),
+    startsOn: isoDate,
+    trusteeId: z.string(),
+    type: z.literal("office_start"),
+  }),
+  z.object({
+    endedOn: isoDate,
+    hearingNote: z.string().trim().max(VALIDITY_NOTE_MAX),
+    hearingOn: isoDate,
+    trusteeId: z.string(),
+    type: z.literal("removal"),
+  }),
+]);
+
+const draftInput = z.object({
+  body: z.string().max(RESOLUTION_TEXT_MAX),
+  effect: effectInput,
+  id: z.string(),
+  templateKey: z.enum(resolutionTemplateKeyValues),
+  title: z.string().trim().min(1).max(RESOLUTION_TITLE_MAX),
+});
+
+async function requireDraft(tx: Tx, id: string) {
+  const row = await tx.run(zql.resolution.where("id", id).one());
+  if (!row) {
+    throw new Error("Resolution not found");
+  }
+  if (row.status !== "draft") {
+    throw new Error(
+      "Only a draft can change. An issued resolution is withdrawn and a new one drafted."
+    );
+  }
+  return row;
+}
+
+function assertDraftEffect(args: z.infer<typeof draftInput>) {
+  const template = RESOLUTION_TEMPLATES[args.templateKey];
+  if (args.effect.type !== template.effect) {
+    throw new Error("The register change doesn't match the template.");
+  }
+}
+
+export const resolutionMutators = {
+  createDraft: defineMutator(draftInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    assertDraftEffect(args);
+    if (args.effect.type !== "none") {
+      await requireTrustee(tx, args.effect.trusteeId);
+    }
+    const now = Date.now();
+    await tx.mutate.resolution.insert({
+      body: args.body,
+      createdAt: now,
+      draftedBy: ctx.userId,
+      effect: args.effect,
+      historical: false,
+      id: args.id,
+      kind: "circular",
+      status: "draft",
+      templateKey: args.templateKey,
+      title: args.title,
+      updatedAt: now,
+    });
+  }),
+  updateDraft: defineMutator(draftInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    await requireDraft(tx, args.id);
+    assertDraftEffect(args);
+    if (args.effect.type !== "none") {
+      await requireTrustee(tx, args.effect.trusteeId);
+    }
+    await tx.mutate.resolution.update({
+      body: args.body,
+      effect: args.effect,
+      id: args.id,
+      templateKey: args.templateKey,
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  }),
+  deleteDraft: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      await requireDraft(tx, args.id);
+      await tx.mutate.resolution.delete({ id: args.id });
+    }
+  ),
 };

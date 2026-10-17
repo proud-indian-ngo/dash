@@ -5,7 +5,12 @@ import {
   advancePaymentAttachment,
 } from "@pi-dash/db/schema/advance-payment";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
-import { governanceDocument } from "@pi-dash/db/schema/governance";
+import {
+  governanceDocument,
+  resolution,
+  resolutionResponse,
+  resolutionRevision,
+} from "@pi-dash/db/schema/governance";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -22,7 +27,7 @@ import {
   vendorPaymentTransactionAttachment,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import {
   authorizeR2Object,
@@ -248,6 +253,41 @@ async function resolveGovernanceDocument(
     : null;
 }
 
+async function resolveResolutionPdf(
+  ref: AssetRef<"resolutionPdf">
+): Promise<R2ObjectRecord | null> {
+  const [revision] = await db
+    .select({
+      key: resolutionRevision.latestObjectKey,
+      number: resolution.number,
+      title: resolution.title,
+    })
+    .from(resolutionRevision)
+    .innerJoin(resolution, eq(resolution.id, resolutionRevision.resolutionId))
+    .where(eq(resolutionRevision.resolutionId, ref.id))
+    .orderBy(desc(resolutionRevision.revision))
+    .limit(1);
+  if (!revision) {
+    return null;
+  }
+  const recipients = await db
+    .select({ userId: resolutionResponse.userId })
+    .from(resolutionResponse)
+    .where(eq(resolutionResponse.resolutionId, ref.id));
+  const name = (revision.number ?? `circular-${ref.id.slice(-8)}`).replaceAll(
+    "/",
+    "-"
+  );
+  return {
+    access: "resolution",
+    filename: `${name}.pdf`,
+    key: revision.key,
+    recipientUserIds: recipients
+      .map((r) => r.userId)
+      .filter((id): id is string => !!id),
+  };
+}
+
 async function resolveKalakritiEntryMusic(
   ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
 ): Promise<R2ObjectRecord | null> {
@@ -292,6 +332,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":
       return resolveReimbursementApprovalScreenshot(ref);
+    case "resolutionPdf":
+      return resolveResolutionPdf(ref);
     case "scheduledMessageAttachment":
       return resolveScheduledMessageAttachment(ref);
     case "vendorPaymentAttachment":

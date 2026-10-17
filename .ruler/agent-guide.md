@@ -87,6 +87,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Workspaces, Turborepo, Docker | `monorepo.md` |
 | E2E specs | `e2e-testing.md` |
 | Governance: trustee register, deed versions, vault, signing service | `governance.md` |
+| Circular resolutions: issue, responses, signatures, numbering | `governance-resolutions.md` |
 | Plate editor, shared constants | `editor.md`, `shared.md` |
 
 ## Documentation
