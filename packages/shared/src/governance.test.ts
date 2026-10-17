@@ -44,7 +44,7 @@ function office(
   } satisfies OfficeRow;
 }
 
-/** The board at design time (governance.md section 8), trimmed. */
+/** The board at design time in governance.md, trimmed. */
 function boardAtDesign(): RegisterInput {
   return {
     offices: [

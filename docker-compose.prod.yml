@@ -206,7 +206,7 @@ services:
       - sys_module
     restart: unless-stopped
 
-  # Governance PDF validation (and signing from phase 3). No published port:
+  # The governance signing service. No published port:
   # only the web service reaches it, over the compose network.
   signing:
     build:

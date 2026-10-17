@@ -4,7 +4,7 @@ import { trustee, trusteeOffice, trusteeTerm } from "./schema/governance";
 
 /**
  * A fictional board shaped like the real one at design time
- * (docs/architecture/governance.md, section 8): two trustees in office, a
+ * ("Board at design time" in governance.md): two trustees in office, a
  * former Managing Trustee who resigned, a former trustee whose start has no
  * document, and offices that changed hands. No documents: every date shows
  * as unevidenced until one is linked. Fixed IDs, so seeding twice is safe.
