@@ -176,23 +176,19 @@ export function DscSignSection({
             To sign here, set up your DSC once: plug in your token and the
             helper registers its certificate with the dashboard.
           </p>
-          <div>
-            <Button
-              disabled={busy !== null}
-              onClick={handleEnrol}
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Key01Icon}
-                strokeWidth={2}
-              />
-              {busy === "enrol"
-                ? "Waiting for the helper..."
-                : "Set up your DSC"}
-            </Button>
-          </div>
+          <Button
+            className="w-full"
+            disabled={busy !== null}
+            onClick={handleEnrol}
+            type="button"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={Key01Icon}
+              strokeWidth={2}
+            />
+            {busy === "enrol" ? "Waiting for the helper..." : "Set up your DSC"}
+          </Button>
         </>
       )}
       <p className="text-muted-foreground text-xs">

@@ -81,6 +81,9 @@ export function ResolutionResponsePanel({
   const [sending, setSending] = useState(false);
   // Without the helper, the other ways are the only ways, so they show open.
   const [dscAvailable, setDscAvailable] = useState<boolean | null>(null);
+  // An eSign still with Leegality opens the other ways, so its status shows.
+  const [othersOpen, setOthersOpen] = useState(false);
+  const openOthers = useEventCallback(() => setOthersOpen(true));
   const href = getProtectedAttachmentHref({
     id: resolutionId,
     kind: "resolutionPdf",
@@ -202,7 +205,11 @@ export function ResolutionResponsePanel({
   );
   const otherWays = (
     <>
-      <EsignSection onVote={runVote} resolutionId={resolutionId} />
+      <EsignSection
+        onVote={runVote}
+        onWaiting={openOthers}
+        resolutionId={resolutionId}
+      />
       {acrobat}
     </>
   );
@@ -223,7 +230,7 @@ export function ResolutionResponsePanel({
       {dscAvailable === false ? (
         otherWays
       ) : (
-        <Collapsible>
+        <Collapsible onOpenChange={setOthersOpen} open={othersOpen}>
           <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3">
             Other ways to sign
             <HugeiconsIcon
@@ -232,7 +239,7 @@ export function ResolutionResponsePanel({
               strokeWidth={2}
             />
           </CollapsibleTrigger>
-          <CollapsibleContent className="flex flex-col gap-4 pt-3">
+          <CollapsibleContent className="flex flex-col gap-4 pt-3" keepMounted>
             {otherWays}
           </CollapsibleContent>
         </Collapsible>
