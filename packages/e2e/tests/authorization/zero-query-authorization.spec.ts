@@ -15,7 +15,8 @@ type QueryName =
   | "eventInterest.managerByEvent"
   | "eventInterest.myByEvent"
   | "eventPhoto.pendingByEvent"
-  | "eventUpdate.pendingByEvent";
+  | "eventUpdate.pendingByEvent"
+  | "scheduledMessage.byId";
 
 function buildQueryBody(queryName: QueryName, args: Record<string, unknown>) {
   const suffix = `${queryName.replace(".", "-")}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -80,6 +81,19 @@ function expectGloballyScopedAst(
 test.describe("Zero query API authorization — volunteer", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+  });
+
+  test("scheduled message details require scheduling permission", async ({
+    baseURL,
+    page,
+  }) => {
+    const ast = await getTransformedAstText(
+      page,
+      baseURL,
+      "scheduledMessage.byId",
+      { id: "e2e00000-0000-4000-8000-000000000401" }
+    );
+    expect(ast).toContain("__never_match__");
   });
 
   test("protected manager queries are transformed with team-lead gates", async ({
@@ -151,6 +165,21 @@ test.describe("Zero query API authorization — volunteer", () => {
 test.describe("Zero query API authorization — global manager", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin only test");
+  });
+
+  test("scheduled message details remain available to schedulers", async ({
+    baseURL,
+    page,
+  }) => {
+    const id = "e2e00000-0000-4000-8000-000000000401";
+    const ast = await getTransformedAstText(
+      page,
+      baseURL,
+      "scheduledMessage.byId",
+      { id }
+    );
+    expect(ast).toContain(id);
+    expect(ast).not.toContain("__never_match__");
   });
 
   test("global manager queries are transformed without lead-only gates", async ({

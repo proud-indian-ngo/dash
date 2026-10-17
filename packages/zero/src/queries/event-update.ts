@@ -46,15 +46,6 @@ export const eventUpdateQueries = {
         .related("author")
         .orderBy("createdAt", "desc")
   ),
-  byEvent: defineQuery(
-    z.object({ eventId: z.string() }),
-    ({ args: { eventId }, ctx }) =>
-      zql.eventUpdate
-        .where("eventId", eventId)
-        .whereExists("event", (event) => restrictToAccessibleEvents(event, ctx))
-        .related("author")
-        .orderBy("createdAt", "desc")
-  ),
   /** Current user's own pending updates. Auth-safe: uses ctx.userId. */
   myPendingByEvent: defineQuery(
     z.object({ eventId: z.string() }),
