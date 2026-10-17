@@ -19,6 +19,7 @@ import {
   PRESENCE_LABELS,
   VOTE_CHOICE_LABELS,
   type VoteChoice,
+  voteChoiceValues,
 } from "@pi-dash/shared/meetings";
 import { RESOLUTION_TEMPLATES } from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -52,15 +53,13 @@ import { errorText } from "./meeting-data";
 import { PlainSelect } from "./plain-select";
 import type { RegisterTrustee } from "./register-data";
 import { draftValuesFrom, ResolutionDraftForm } from "./resolution-draft-form";
+import { SegmentedChoice } from "./segmented-choice";
 
-const NOT_RECORDED = "";
-const choiceOptions = [
-  { label: "Not recorded", value: NOT_RECORDED },
-  { label: VOTE_CHOICE_LABELS.for, value: "for" },
-  { label: VOTE_CHOICE_LABELS.against, value: "against" },
-  { label: VOTE_CHOICE_LABELS.abstain, value: "abstain" },
-];
-
+const choiceOptions = voteChoiceValues.map((value) => ({
+  label: VOTE_CHOICE_LABELS[value],
+  short: value === "abstain" ? "Abstain" : undefined,
+  value,
+}));
 const OUTCOME = {
   failed: { label: "Not passed", tone: "danger" },
   no_decision: { label: "No decision", tone: "warning" },
@@ -591,6 +590,15 @@ function ItemVotes({
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusBadge tone={quorum.quorate ? "success" : "danger"}>
+          {quorum.quorate ? "Quorum met" : "Quorum not met"} · {quorum.counted}{" "}
+          of {quorum.needed}
+        </StatusBadge>
+        {quorum.quorate ? null : (
+          <span className="text-muted-foreground text-xs">{quorum.reason}</span>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-muted-foreground text-xs">
@@ -616,22 +624,19 @@ function ItemVotes({
                     <span className="flex flex-col">
                       <span>{name}</span>
                       <span className="text-muted-foreground text-xs">
-                        {PRESENCE_LABELS[a.presence ?? "absent"]}
+                        {a.markedAt
+                          ? PRESENCE_LABELS[a.presence ?? "absent"]
+                          : "Not marked"}
                       </span>
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     {editable && !vote?.conflict ? (
-                      <PlainSelect
-                        className="w-36"
+                      <SegmentedChoice
                         label={`Vote of ${name}`}
-                        onChange={(value) =>
-                          setVote(a, {
-                            choice: value ? (value as VoteChoice) : null,
-                          })
-                        }
+                        onChange={(choice) => setVote(a, { choice })}
                         options={choiceOptions}
-                        value={vote?.choice ?? NOT_RECORDED}
+                        value={vote?.choice ?? null}
                       />
                     ) : (
                       <span>
@@ -677,12 +682,6 @@ function ItemVotes({
         className="flex flex-col gap-1 text-sm"
         data-testid={`tally-${item.id}`}
       >
-        <span>
-          Quorum for this item:{" "}
-          {quorum.quorate
-            ? `met (${quorum.counted} of ${quorum.needed} needed)`
-            : `not met. ${quorum.reason ?? ""}`}
-        </span>
         <span className="text-muted-foreground">
           {preview.for} for, {preview.against} against
         </span>

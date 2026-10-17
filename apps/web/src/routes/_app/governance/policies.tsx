@@ -15,7 +15,10 @@ import {
   policyAudienceValues,
   policyVersionOn,
 } from "@pi-dash/shared/declarations";
-import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
+import {
+  boardOn,
+  GOVERNANCE_PAGE_PERMISSIONS,
+} from "@pi-dash/shared/governance";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -29,9 +32,18 @@ import {
   formatIso,
   todayIso,
   useGovernanceDocuments,
+  useRegister,
 } from "@/components/governance/register-data";
+import { useAccountOptions } from "@/components/governance/use-account-options";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import {
@@ -61,10 +73,26 @@ function PoliciesPage() {
   const today = todayIso();
   const [creating, setCreating] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
-  const counts = new Map<string, number>();
+  const ackedBy = new Map<string, Set<string>>();
   for (const a of acknowledgements) {
-    counts.set(a.policyVersionId, (counts.get(a.policyVersionId) ?? 0) + 1);
+    ackedBy.set(
+      a.policyVersionId,
+      (ackedBy.get(a.policyVersionId) ?? new Set()).add(a.userId)
+    );
   }
+  // Who each policy is for, so the secretary sees who still has to read it.
+  const accounts = useAccountOptions(canManage);
+  const { input } = useRegister(today);
+  const audiences: Record<PolicyAudience, { id: string; name: string }[]> = {
+    everyone: accounts,
+    trustees: boardOn(input, today).flatMap(({ trustee }) =>
+      trustee.userId ? [{ id: trustee.userId, name: trustee.legalName }] : []
+    ),
+  };
+  const [outstanding, setOutstanding] = useState<{
+    names: string[];
+    title: string;
+  } | null>(null);
 
   return (
     <div className="app-container mx-auto max-w-5xl px-2 py-6 sm:px-4">
@@ -151,9 +179,24 @@ function PoliciesPage() {
                         </span>
                       </span>
                       <span className="flex items-center gap-3">
-                        <span className="text-muted-foreground text-xs">
-                          {counts.get(v.id) ?? 0} acknowledged
-                        </span>
+                        {canManage &&
+                        inForce?.id === v.id &&
+                        accounts.length > 0 ? (
+                          <AcknowledgementCount
+                            acked={ackedBy.get(v.id)}
+                            audience={audiences[p.audience ?? "everyone"]}
+                            onShowMissing={(names) =>
+                              setOutstanding({
+                                names,
+                                title: `${p.title}, version ${v.version}`,
+                              })
+                            }
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            {ackedBy.get(v.id)?.size ?? 0} acknowledged
+                          </span>
+                        )}
                         <a
                           className="text-primary underline-offset-4 hover:underline"
                           href={getProtectedAttachmentHref(
@@ -174,6 +217,24 @@ function PoliciesPage() {
           );
         })}
       </div>
+      <Dialog
+        onOpenChange={(open) => !open && setOutstanding(null)}
+        open={outstanding !== null}
+      >
+        <DialogContent className="sm:max-w-(--dialog-sm)">
+          <DialogHeader>
+            <DialogTitle>Haven't acknowledged</DialogTitle>
+            <DialogDescription>{outstanding?.title}</DialogDescription>
+          </DialogHeader>
+          <ul className="flex max-h-80 flex-col divide-y overflow-y-auto text-sm">
+            {outstanding?.names.map((name) => (
+              <li className="py-2" key={name}>
+                {name}
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
       {creating ? <NewPolicyDialog onClose={() => setCreating(false)} /> : null}
       {publishing ? (
         <PublishDialog
@@ -184,6 +245,35 @@ function PoliciesPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+/** How many of the people a policy is for acknowledged the version in force. */
+function AcknowledgementCount({
+  acked,
+  audience,
+  onShowMissing,
+}: {
+  acked: Set<string> | undefined;
+  audience: { id: string; name: string }[];
+  onShowMissing: (names: string[]) => void;
+}) {
+  const missing = audience.filter((a) => !acked?.has(a.id));
+  return (
+    <>
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {audience.length - missing.length} of {audience.length} acknowledged
+      </span>
+      {missing.length > 0 ? (
+        <button
+          className="text-primary text-xs underline-offset-4 hover:underline"
+          onClick={() => onShowMissing(missing.map((m) => m.name))}
+          type="button"
+        >
+          {missing.length} haven't
+        </button>
+      ) : null}
+    </>
   );
 }
 

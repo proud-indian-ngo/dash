@@ -1,9 +1,11 @@
-import { Download04Icon, Upload04Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Upload04Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Button,
-  buttonVariants,
-} from "@pi-dash/design-system/components/ui/button";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
@@ -77,6 +79,8 @@ export function ResolutionResponsePanel({
   const [kind, setKind] = useState<Kind | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  // Without the helper, the other ways are the only ways, so they show open.
+  const [dscAvailable, setDscAvailable] = useState<boolean | null>(null);
   const href = getProtectedAttachmentHref({
     id: resolutionId,
     kind: "resolutionPdf",
@@ -153,6 +157,56 @@ export function ResolutionResponsePanel({
       .finally(() => setSending(false));
   });
 
+  const acrobat = (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">Adobe Acrobat</h3>
+      <ol className="text-muted-foreground flex list-decimal flex-col gap-2 pl-5 text-sm">
+        <li>
+          <a
+            className="text-primary underline-offset-4 hover:underline"
+            href={href}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Download PDF
+          </a>
+        </li>
+        <li>
+          {fieldsPrepared
+            ? "Sign the box beside your name in Acrobat or Reader with your DSC token, and save."
+            : "In Acrobat or Reader, choose Use a certificate, draw over the box beside your name, sign with your DSC token, and save."}
+        </li>
+        <li>
+          Upload the signed copy. If someone signs first, download it again.
+        </li>
+      </ol>
+      <Label className="sr-only" htmlFor="signed-circular-file">
+        Signed circular
+      </Label>
+      <Input
+        accept="application/pdf,.pdf"
+        id="signed-circular-file"
+        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        type="file"
+      />
+      <Button
+        disabled={!file || uploading}
+        onClick={handleUpload}
+        type="button"
+        variant="outline"
+      >
+        <HugeiconsIcon className="size-4" icon={Upload04Icon} strokeWidth={2} />
+        {uploading ? "Checking signature..." : "Upload signed copy"}
+      </Button>
+    </div>
+  );
+  const otherWays = (
+    <>
+      <EsignSection onVote={runVote} resolutionId={resolutionId} />
+      {acrobat}
+    </>
+  );
+
   return (
     <section
       aria-labelledby="my-response-heading"
@@ -161,79 +215,43 @@ export function ResolutionResponsePanel({
       <h2 className="text-base font-semibold" id="my-response-heading">
         Your response
       </h2>
-      <DscSignSection onVote={runVote} resolutionId={resolutionId} />
-      <EsignSection onVote={runVote} resolutionId={resolutionId} />
-      <h3 className="text-sm font-medium">Or sign in Adobe Acrobat</h3>
-      <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
-        <li>
-          <span className="flex flex-wrap items-center gap-2">
-            Download the circular.
-            <a
-              className={buttonVariants({ size: "sm", variant: "outline" })}
-              href={href}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Download04Icon}
-                strokeWidth={2}
-              />
-              Download PDF
-            </a>
-          </span>
-        </li>
-        <li>
-          {fieldsPrepared
-            ? "Open it in Adobe Acrobat or Reader, click the box beside your name on the signature page, and sign with your DSC token. Save the signed copy."
-            : "Open it in Adobe Acrobat or Reader, choose Use a certificate, draw your signature over the box beside your name on the signature page, and sign with your DSC token. Save the signed copy."}
-        </li>
-        <li>
-          Upload the signed copy. If someone else signs first, download it again
-          and sign that copy.
-          <div className="mt-2 flex flex-wrap items-end gap-2">
-            <div className="flex flex-col gap-1.5">
-              <Label className="sr-only" htmlFor="signed-circular-file">
-                Signed circular
-              </Label>
-              <Input
-                accept="application/pdf,.pdf"
-                className="max-w-xs"
-                id="signed-circular-file"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                type="file"
-              />
-            </div>
-            <Button
-              disabled={!file || uploading}
-              onClick={handleUpload}
-              type="button"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Upload04Icon}
-                strokeWidth={2}
-              />
-              {uploading ? "Checking signature..." : "Upload signed copy"}
-            </Button>
-          </div>
-        </li>
-      </ol>
-      <div className="flex flex-wrap gap-2 border-t pt-4">
-        <Button
+      <DscSignSection
+        onAvailability={setDscAvailable}
+        onVote={runVote}
+        resolutionId={resolutionId}
+      />
+      {dscAvailable === false ? (
+        otherWays
+      ) : (
+        <Collapsible>
+          <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3">
+            Other ways to sign
+            <HugeiconsIcon
+              className="size-4 transition-transform group-data-[panel-open]:rotate-180"
+              icon={ArrowDown01Icon}
+              strokeWidth={2}
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex flex-col gap-4 pt-3">
+            {otherWays}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-sm">
+        <button
+          className="hover:text-foreground underline-offset-4 hover:underline"
           onClick={() => setKind("objection")}
           type="button"
-          variant="outline"
         >
           Object
-        </Button>
-        <Button
+        </button>
+        <button
+          className="hover:text-foreground underline-offset-4 hover:underline"
           onClick={() => setKind("conflict")}
           type="button"
-          variant="ghost"
         >
           Declare a conflict of interest
-        </Button>
+        </button>
       </div>
       <Dialog
         onOpenChange={(open) => {
