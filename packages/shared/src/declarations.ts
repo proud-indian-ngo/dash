@@ -1,6 +1,6 @@
 /**
- * Conflict-of-interest declarations and the policy register (governance
- * phase 6). Pure, so the forms, the server and the finance warning agree.
+ * Conflict-of-interest declarations and the policy register.
+ * Pure, so the forms, the server and the finance warning agree.
  */
 
 /** One interest a trustee declares: a person or organisation they're connected to. */

@@ -29,7 +29,7 @@ export const team = pgTable("team", {
   name: text("name").notNull().unique(),
   /**
    * The team's events involve children: joining one needs the current
-   * child-safeguarding policy acknowledged (governance phase 6).
+   * child-safeguarding policy acknowledged.
    */
   worksWithChildren: boolean("works_with_children").default(false).notNull(),
   /** Default programme for the team's events; a team is a volunteer group inside a programme. */

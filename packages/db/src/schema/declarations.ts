@@ -21,8 +21,8 @@ import { governanceDocument, trustee } from "./governance";
 import { jsonb } from "./jsonb";
 
 /**
- * Yearly conflict-of-interest declarations and the policy register
- * (governance phase 6). Rules in packages/shared/src/declarations.ts.
+ * Yearly conflict-of-interest declarations and the policy register.
+ * Rules in packages/shared/src/declarations.ts.
  */
 
 /** A trustee's declaration for one financial year; declaring again replaces it. */
