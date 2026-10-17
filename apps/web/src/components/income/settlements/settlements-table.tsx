@@ -199,7 +199,7 @@ export function SettlementsTable({
       ...moneyColumn("net", "Net paid", (row) => row.amountPaise),
       meta: {
         cellClassName: "text-right font-semibold",
-        compact: "primary",
+        compact: "trailing",
         headerTitle: "Net paid",
         skeleton: SKELETON_NUMBER,
       },

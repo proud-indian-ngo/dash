@@ -168,7 +168,8 @@ filter={{
 Pass `compactOnMobile` so `DataTableWrapper` collapses secondary columns below 768px of table width. Tables only set column roles:
 
 - `meta.compact: "primary"` — stays in the compact row. Extra primaries stack under the first; mark the next scan field (status, center, role) as primary too.
-- `meta.compact: "trailing"` — labeled icons or badges aligned to the right of the identity (breakfast/lunch).
+- `meta.compact: "trailing"` — aligned to the right of the identity. Icons and badges get their header label (breakfast/lunch); `kind: "amount"` columns show the bare figure. Make the row's headline amount trailing (claim total, contribution amount, net paid).
+- When the row opens a sheet on click, collapsed columns are not visible on mobile at all, so anything a user scans the list for (amount, date) must be primary or trailing.
 - `meta.compact: "collapsed"` — default for remaining data columns; shown in the expanded panel when the row is not clickable.
 - `meta.compact: "always"` — default for `select` and `actions`.
 - `meta.compact: "hidden"` — omit from the compact row and the panel.

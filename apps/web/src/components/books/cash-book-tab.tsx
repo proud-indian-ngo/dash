@@ -173,7 +173,7 @@ export function CashBookTab({
       ),
       id: "in",
       meta: {
-        compact: "primary",
+        compact: "trailing",
         headerTitle: "Money In",
         kind: "amount",
         skeleton: SKELETON,
@@ -195,7 +195,7 @@ export function CashBookTab({
       ),
       id: "out",
       meta: {
-        compact: "primary",
+        compact: "trailing",
         headerTitle: "Money Out",
         kind: "amount",
         skeleton: SKELETON,

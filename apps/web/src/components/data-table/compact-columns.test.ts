@@ -96,6 +96,25 @@ describe("partitionCompactColumns", () => {
     });
   });
 
+  it("leads with the donor and stacks the received date and amount", () => {
+    expect(
+      partitionCompactColumns([
+        { id: "receivedOn" },
+        { compact: "primary", id: "donor" },
+        { compact: "trailing", id: "amount" },
+        { id: "channel" },
+      ])
+    ).toEqual({
+      alwaysIds: [],
+      collapsedIds: ["channel"],
+      firstPrimaryId: "donor",
+      hasCollapsed: true,
+      hiddenIds: [],
+      stackedPrimaryIds: ["receivedOn"],
+      trailingIds: ["amount"],
+    });
+  });
+
   it("stacks extra scan fields under Participants when Center is also primary", () => {
     expect(
       partitionCompactColumns([

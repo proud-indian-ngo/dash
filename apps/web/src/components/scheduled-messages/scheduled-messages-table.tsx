@@ -160,6 +160,7 @@ function createColumns(
       ),
       id: "scheduledAt",
       meta: {
+        compact: "primary",
         headerTitle: "Scheduled At",
         kind: "date",
         skeleton: SKELETON_DATE,

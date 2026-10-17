@@ -237,7 +237,7 @@ export function ContributionsTable({
       ),
       id: "amount",
       meta: {
-        compact: "primary",
+        compact: "trailing",
         headerTitle: "Amount",
         kind: "amount",
         skeleton: SKELETON_AMOUNT,
