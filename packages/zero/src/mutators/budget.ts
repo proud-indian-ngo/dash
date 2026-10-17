@@ -1,4 +1,5 @@
-import { MAX_PAISE } from "@pi-dash/shared/constants";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { paiseSchema } from "@pi-dash/shared/money";
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
@@ -15,7 +16,7 @@ const saveInput = z.object({
     .array(
       z.object({
         accountHeadId: z.string(),
-        amountPaise: z.number().int().nonnegative().max(MAX_PAISE),
+        amountPaise: paiseSchema,
         id: z.string(),
       })
     )
@@ -42,11 +43,27 @@ export const budgetMutators = {
     if (!year) {
       throw new Error("Financial year not found");
     }
+    const existing = await tx.run(
+      zql.budget
+        .where("fiscalYearId", args.fiscalYearId)
+        .where("programmeId", args.programmeId)
+        .where("projectId", "IS", args.projectId)
+        .related("lines")
+        .one()
+    );
     const programme = await tx.run(
       zql.programme.where("id", args.programmeId).one()
     );
     if (!programme) {
       throw new Error("Programme not found");
+    }
+    // A budget that stands can still be edited or removed once its
+    // programme is retired; a new one needs a live programme.
+    if (
+      !existing &&
+      (!programme.active || programme.id === PROGRAMME_IDS.unallocated)
+    ) {
+      throw new Error("Pick an active programme, not Unallocated");
     }
     if (args.projectId) {
       const project = await tx.run(
@@ -56,23 +73,29 @@ export const budgetMutators = {
         throw new Error("Project not found under this programme");
       }
     }
-    for (const line of args.lines) {
-      const head = await tx.run(
-        zql.accountHead.where("id", line.accountHeadId).one()
-      );
-      if (!head || head.type !== "expense") {
-        throw new Error("Only expense heads can be budgeted");
+    // Heads the budget already holds stay allowed; new ones must be an
+    // expense head an expense category posts to. Categories may not be on
+    // the client, so the server checks.
+    const held = new Set(existing?.lines.map((l) => l.accountHeadId));
+    if (tx.location === "server") {
+      for (const line of args.lines) {
+        if (held.has(line.accountHeadId)) {
+          continue;
+        }
+        const [head, category] = await Promise.all([
+          tx.run(zql.accountHead.where("id", line.accountHeadId).one()),
+          tx.run(
+            zql.expenseCategory.where("accountHeadId", line.accountHeadId).one()
+          ),
+        ]);
+        if (head?.type !== "expense" || !category) {
+          throw new Error(
+            "Only the expense heads of expense categories can be budgeted"
+          );
+        }
       }
     }
 
-    const existing = await tx.run(
-      zql.budget
-        .where("fiscalYearId", args.fiscalYearId)
-        .where("programmeId", args.programmeId)
-        .where("projectId", "IS", args.projectId)
-        .related("lines")
-        .one()
-    );
     const now = Date.now();
     if (args.lines.length === 0) {
       if (existing) {

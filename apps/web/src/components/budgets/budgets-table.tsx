@@ -10,7 +10,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { percentUsed } from "@pi-dash/shared/budgets";
+import { budgetUse } from "@pi-dash/shared/budgets";
 import { formatPaise } from "@pi-dash/shared/money";
 
 import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
@@ -80,7 +80,7 @@ function Remaining({
   );
 }
 
-/** A slim "spent of budget" bar with the share spent; red past 100%. */
+/** A slim "spent of budget" bar with the share spent; red once spend passes the budget. */
 export function SpentBar({
   actualPaise,
   budgetPaise,
@@ -88,11 +88,13 @@ export function SpentBar({
   actualPaise: number;
   budgetPaise: number | null;
 }) {
-  const percent = percentUsed(actualPaise, budgetPaise);
-  if (percent === null) {
+  const use = budgetUse(actualPaise, budgetPaise);
+  if (!use) {
     return <span className="text-muted-foreground text-xs">No budget</span>;
   }
-  const over = percent > 100;
+  const { over, percent } = use;
+  // A ₹0 budget is full once anything is spent against it.
+  const width = percent ?? (over ? 100 : 0);
   return (
     <div className="flex min-w-24 items-center gap-2">
       <div
@@ -104,7 +106,7 @@ export function SpentBar({
             "h-full rounded-full",
             over ? "bg-destructive" : "bg-chart-1"
           )}
-          style={{ width: `${Math.min(Math.max(percent, 0), 100)}%` }}
+          style={{ width: `${Math.min(Math.max(width, 0), 100)}%` }}
         />
       </div>
       <span
@@ -113,7 +115,7 @@ export function SpentBar({
           over ? "text-destructive" : "text-muted-foreground"
         )}
       >
-        {percent}%
+        {percent === null ? (over ? "Over" : "—") : `${percent}%`}
       </span>
     </div>
   );
@@ -276,7 +278,19 @@ export function BudgetsTable({
     },
     {
       accessorFn: (row) => row.actualPaise,
-      cell: ({ row }) => formatPaise(row.original.actualPaise),
+      // A programme shown only for its project budgets: its spend is
+      // counted in Unbudgeted, so it is muted here.
+      cell: ({ row }) =>
+        row.original.kind === "programme" && !row.original.hasBudget ? (
+          <span
+            className="text-muted-foreground"
+            title="Counted in Unbudgeted: this programme has no budget of its own"
+          >
+            {formatPaise(row.original.actualPaise)}
+          </span>
+        ) : (
+          formatPaise(row.original.actualPaise)
+        ),
       enableSorting: false,
       header: ({ column }) => (
         <DataGridColumnHeader
@@ -315,7 +329,7 @@ export function BudgetsTable({
       size: 140,
     },
     {
-      accessorFn: (row) => percentUsed(row.actualPaise, row.budgetPaise),
+      accessorFn: (row) => budgetUse(row.actualPaise, row.budgetPaise)?.percent,
       cell: ({ row }) =>
         row.original.kind === "unbudgeted" ? null : (
           <SpentBar

@@ -15,7 +15,11 @@ import {
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
 import { env } from "@pi-dash/env/web";
-import { budgetYearView, percentUsed } from "@pi-dash/shared/budgets";
+import {
+  budgetableHeadIds,
+  budgetUse,
+  budgetYearView,
+} from "@pi-dash/shared/budgets";
 import { epochDayToIso, todayInKolkata } from "@pi-dash/shared/income";
 import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -36,6 +40,7 @@ import {
   BudgetsTable,
 } from "@/components/budgets/budgets-table";
 import { useBudgetActuals } from "@/components/budgets/use-budget-actuals";
+import { ErrorState } from "@/components/shared/error-state";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
@@ -62,6 +67,9 @@ function BudgetsPage() {
   const [programmes, programmesResult] = useQuery(queries.programme.all());
   const [projects] = useQuery(queries.project.all());
   const [heads, headsResult] = useQuery(queries.accountHead.all());
+  const [categories, categoriesResult] = useQuery(
+    queries.expenseCategory.all()
+  );
 
   // Years before the cutover have nothing in the books to measure against.
   const years: BooksYear[] = yearRows
@@ -79,13 +87,14 @@ function BudgetsPage() {
     defaultYear(years, todayInKolkata());
   const previousYear =
     years.find((y) => year && y.endsOn < year.startsOn) ?? null;
-  const actuals = useBudgetActuals(year?.id);
+  const { actuals, error: actualsError, retry } = useBudgetActuals(year?.id);
 
   const isLoading =
     (yearRows.length === 0 && yearsResult.type !== "complete") ||
     (budgetRows.length === 0 && budgetsResult.type !== "complete") ||
     (programmes.length === 0 && programmesResult.type !== "complete") ||
-    (heads.length === 0 && headsResult.type !== "complete");
+    (heads.length === 0 && headsResult.type !== "complete") ||
+    (categories.length === 0 && categoriesResult.type !== "complete");
 
   if (isLoading || !year) {
     return (
@@ -165,14 +174,13 @@ function BudgetsPage() {
     });
   }
 
-  // Only leaf expense heads carry spending, so only they take a budget.
-  const parents = new Set(
-    heads.flatMap((h) => (h.parentId ? [h.parentId] : []))
-  );
+  const budgetable = budgetableHeadIds(categories, heads);
   const formOptions = {
-    heads: heads
-      .filter((h) => h.type === "expense" && !parents.has(h.id))
-      .map((h) => ({ active: h.active !== false, id: h.id, name: h.name })),
+    heads: heads.map((h) => ({
+      budgetable: budgetable.has(h.id) && h.active !== false,
+      id: h.id,
+      name: h.name,
+    })),
     programmes: programmes.map((p) => ({
       active: p.active !== false,
       id: p.id,
@@ -187,7 +195,7 @@ function BudgetsPage() {
   };
 
   const { summary } = view;
-  const used = percentUsed(summary.spentPaise, summary.budgetedPaise);
+  const used = budgetUse(summary.spentPaise, summary.budgetedPaise);
   const setBudget = () => setTarget({ kind: "pick", programmeId: null });
   const setBudgetButton = canManage ? (
     <Button onClick={setBudget} type="button">
@@ -224,7 +232,18 @@ function BudgetsPage() {
         description={`Budget against what the books recognise as spent in FY ${year.label}, by programme and account head.`}
         title="Budgets"
       />
-      {yearBudgets.length === 0 ? (
+      {actualsError && yearBudgets.length > 0 ? (
+        <div className="mt-6">
+          <ErrorState
+            actions={
+              <Button onClick={retry} type="button">
+                Try again
+              </Button>
+            }
+            error={actualsError}
+          />
+        </div>
+      ) : yearBudgets.length === 0 ? (
         <NotFoundState
           actions={setBudgetButton}
           className="mt-6"
@@ -264,8 +283,8 @@ function BudgetsPage() {
               {
                 icon: PercentCircleIcon,
                 label: "Used",
-                tone: used !== null && used > 100 ? "danger" : "neutral",
-                value: used === null ? "—" : `${used}%`,
+                tone: used?.over ? "danger" : "neutral",
+                value: used?.percent == null ? "—" : `${used.percent}%`,
               },
             ]}
           />

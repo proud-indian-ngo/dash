@@ -185,13 +185,44 @@ export function budgetYearView(
   };
 }
 
-/** Share of the budget spent, as a whole percentage; null without a budget to divide by. */
-export function percentUsed(
+export interface BudgetUse {
+  /** Spent more than the budget, even by a paisa; any spend against ₹0 is over. */
+  over: boolean;
+  /** Share of the budget spent, as a whole percentage; null for a ₹0 budget. */
+  percent: number | null;
+}
+
+/** How much of a budget is spent; null when there is no budget. */
+export function budgetUse(
   actualPaise: number,
   budgetPaise: number | null
-): number | null {
-  if (budgetPaise === null || budgetPaise <= 0) {
+): BudgetUse | null {
+  if (budgetPaise === null) {
     return null;
   }
-  return Math.round((actualPaise / budgetPaise) * 100);
+  return {
+    over: actualPaise > budgetPaise,
+    percent:
+      budgetPaise > 0 ? Math.round((actualPaise / budgetPaise) * 100) : null,
+  };
+}
+
+/**
+ * The heads a budget can use: the expense heads that expense categories
+ * post to, so the heads reimbursements and vendor payments are booked to.
+ * Other expense heads (bank charges, depreciation, gateway charges) still
+ * show their spend, as unbudgeted.
+ */
+export function budgetableHeadIds(
+  categories: readonly { accountHeadId: string | null }[],
+  heads: readonly { id: string; type: string }[]
+): Set<string> {
+  const expense = new Set(
+    heads.filter((h) => h.type === "expense").map((h) => h.id)
+  );
+  return new Set(
+    categories.flatMap((c) =>
+      c.accountHeadId && expense.has(c.accountHeadId) ? [c.accountHeadId] : []
+    )
+  );
 }

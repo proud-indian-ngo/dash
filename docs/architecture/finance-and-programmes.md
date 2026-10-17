@@ -92,11 +92,12 @@ See "Claim for others" in [reimbursements.md](reimbursements.md).
 
 Finance → Budgets (`/finance/budgets`) sets a year's budget for a programme, and optionally for a project under it, split by expense head, and shows it against the books (founder decisions).
 
-- `budget` (fiscal year, programme, optional project, note) is unique per year, programme and project; a composite foreign key keeps the project under the programme. `budget_line` holds one amount per expense head in paise (zero or more); a head without a line has no budget. Saving with every head blank removes the budget.
+- `budget` (fiscal year, programme, optional project, note) is unique per year, programme and project; a composite foreign key keeps the project under the programme. `budget_line` holds one amount per head in paise; a head without a line has no budget, and ₹0 is a budget. Saving with every head blank removes the budget. A project with a budget can't move to another programme.
+- Budgetable heads are the expense heads expense categories post to (`budgetableHeadIds`), so the heads claims and vendor payments are booked to; spend on other expense heads (bank charges, depreciation) shows as unbudgeted. A head a budget already holds stays on it. New budgets need an active programme, never Unallocated.
 - Reading needs `finance.view` (budgets sync only to it); setting needs `finance.manage` through the audited `budget.save` mutator.
 - Actual is the expense the books recognise: entries on expense heads by economic date within the year, net of reversals, the same figures as Books → Income & expenditure. Actuals are never stored: `loadBudgetActuals` (`packages/db/src/queries/budget-actuals.ts`) sums them in SQL per programme, project and head.
-- `budgetYearView` (`packages/shared/src/budgets.ts`) lays them out without double counting. A programme budget's actual is all its spend, projects included, on every head; a head with spend and no line shows as unbudgeted within it. A project budget's actual is that project's spend only, nested under its programme and never added to the totals. Spend in a programme without a programme budget, or with no programme, is in the Unbudgeted group, so budgeted plus unbudgeted spend is the year's expenditure.
-- Overruns show in red only. Approvals, claims and vendor payments are never warned or blocked.
+- `budgetYearView` (`packages/shared/src/budgets.ts`) lays them out without double counting. A programme budget's actual is all its spend, projects included, on every head; a head with spend and no line shows as unbudgeted within it. A project budget's actual is that project's spend only, nested under its programme and never added to the totals. Spend in a programme without a programme budget, or with no programme, is in the Unbudgeted group, so budgeted plus unbudgeted spend is the year's expenditure. A programme shown only for its project budgets has its actual muted, since Unbudgeted counts it.
+- Spend above the budget, by any amount, shows in red only. Approvals, claims and vendor payments are never warned or blocked.
 
 ## Planned and deferred
 

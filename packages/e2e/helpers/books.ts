@@ -137,8 +137,8 @@ import { uuidv7 } from "uuidv7";
  * - `budget-fixture <run>`: Finance → Budgets. A programme of this run
  *   with one project, an expense category of this run, and two approved
  *   reimbursements with payment proof in FY 2027-28, posted at once: 1,000
- *   charged to the programme and 600 to its project, out of a main bank
- *   account of this run. FY 2027-28 because the books specs freeze and close
+ *   charged to the programme and 600 to its project, out of whichever bank
+ *   account is main (never changing it). FY 2027-28 because the books specs freeze and close
  *   FY 2026-27 while other specs run; nothing freezes the later year.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
@@ -682,18 +682,27 @@ async function budgetFixture(run: string) {
     .slice(-10)
     .toUpperCase();
   await db.transaction(async (tx) => {
-    await tx
-      .update(orgAccount)
-      .set({ isMain: false, updatedAt: now })
-      .where(eq(orgAccount.isMain, true));
-    await tx.insert(orgAccount).values({
-      createdAt: now,
-      id: uuidv7(),
-      isMain: true,
-      kind: "bank",
-      name: `E2E Budget Bank ${run}`,
-      updatedAt: now,
-    });
+    // The claims are paid out of the main bank account. Other specs set
+    // their own as main while they post, so this one never changes it: it
+    // only adds one when none exists.
+    const [main] = await tx
+      .select({ id: orgAccount.id })
+      .from(orgAccount)
+      .where(eq(orgAccount.isMain, true))
+      .limit(1);
+    if (!main) {
+      await tx
+        .insert(orgAccount)
+        .values({
+          createdAt: now,
+          id: uuidv7(),
+          isMain: true,
+          kind: "bank",
+          name: `E2E Budget Bank ${run}`,
+          updatedAt: now,
+        })
+        .onConflictDoNothing();
+    }
     await tx.insert(programme).values({
       code: `B${code}`,
       createdAt: now,

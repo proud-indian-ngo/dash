@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { budgetYearView, percentUsed } from "./budgets";
+import { budgetableHeadIds, budgetUse, budgetYearView } from "./budgets";
 
 const EDU = "programme-edu";
 const ART = "programme-art";
@@ -94,11 +94,34 @@ describe("budgetYearView", () => {
   });
 });
 
-describe("percentUsed", () => {
-  it("rounds the share spent and needs a budget", () => {
-    expect(percentUsed(50, 200)).toBe(25);
-    expect(percentUsed(250, 200)).toBe(125);
-    expect(percentUsed(10, 0)).toBeNull();
-    expect(percentUsed(10, null)).toBeNull();
+describe("budgetUse", () => {
+  it("is over once spend passes the budget, and a ₹0 budget is a budget", () => {
+    expect(budgetUse(50, 200)).toEqual({ over: false, percent: 25 });
+    expect(budgetUse(200, 200)).toEqual({ over: false, percent: 100 });
+    // 100.4% rounds to 100 but is still over.
+    expect(budgetUse(100_400, 100_000)).toEqual({ over: true, percent: 100 });
+    expect(budgetUse(10, 0)).toEqual({ over: true, percent: null });
+    expect(budgetUse(0, 0)).toEqual({ over: false, percent: null });
+    expect(budgetUse(10, null)).toBeNull();
+  });
+});
+
+describe("budgetableHeadIds", () => {
+  it("takes the expense heads categories post to", () => {
+    const heads = [
+      { id: TRAVEL, type: "expense" },
+      { id: FOOD, type: "expense" },
+      { id: "head-bank-charges", type: "expense" },
+      { id: "head-asset", type: "asset" },
+    ];
+    const categories = [
+      { accountHeadId: TRAVEL },
+      { accountHeadId: FOOD },
+      { accountHeadId: "head-asset" },
+      { accountHeadId: null },
+    ];
+    expect([...budgetableHeadIds(categories, heads)].sort()).toEqual(
+      [FOOD, TRAVEL].sort()
+    );
   });
 });

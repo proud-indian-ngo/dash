@@ -49,8 +49,11 @@ interface Named {
 }
 
 export interface BudgetFormOptions {
-  /** Expense heads that can carry a budget, in the books' order. */
-  heads: (Named & { active: boolean })[];
+  /**
+   * Every account head in the books' order; `budgetable` marks the active
+   * heads expense categories post to, which a new line may use.
+   */
+  heads: (Named & { budgetable: boolean })[];
   programmes: (Named & { active: boolean })[];
   projects: (Named & { programmeId: string; status: string })[];
 }
@@ -216,7 +219,11 @@ function BudgetAmountsForm({
           </p>
         )}
       </form.Subscribe>
+      {/* The desktop footer band, pinned while the heads scroll. The
+          global band rule in index.css only matches actions placed straight
+          in the dialog body, not inside a form. */}
       <FormActions
+        className="md:bg-dialog-footer md:sticky md:-bottom-5 md:z-10 md:-mx-5 md:-mb-5 md:border-t md:px-5 md:py-3"
         disableWhenInvalid={false}
         onCancel={cancel}
         submitLabel="Save budget"
@@ -319,12 +326,13 @@ export function BudgetFormDialog({
   const fixedScope = target?.kind === "scope" ? target.scope : null;
   const amountsFor = (scope: BudgetScopeChoice) => {
     const budget = findBudget(budgets, year.id, scope);
-    // Heads in use by this budget stay listed even once inactive.
+    // Heads this budget already holds stay listed whatever they are now,
+    // so saving never drops a line.
     const used = new Set(budget?.lines.map((l) => l.accountHeadId));
     return (
       <BudgetAmountsForm
         budget={budget}
-        heads={options.heads.filter((h) => h.active || used.has(h.id))}
+        heads={options.heads.filter((h) => h.budgetable || used.has(h.id))}
         key={`${scope.programmeId}:${scope.projectId ?? ""}`}
         onOpenChange={onOpenChange}
         previous={findBudget(budgets, previousYear?.id, scope)}

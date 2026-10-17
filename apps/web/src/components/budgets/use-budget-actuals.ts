@@ -4,15 +4,29 @@ import { useEffect, useState } from "react";
 
 import { type BudgetActual, getBudgetActuals } from "@/functions/budgets";
 
-/** The year's actuals from the books; null while loading. */
-export function useBudgetActuals(
-  fiscalYearId: string | undefined
-): BudgetActual[] | null {
+/**
+ * The year's actuals from the books: null while the first load runs, the
+ * error when it failed. Reloads when the window regains focus (the books
+ * change as records post) and on `retry`.
+ */
+export function useBudgetActuals(fiscalYearId: string | undefined) {
   const load = useServerFn(getBudgetActuals);
+  const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<{
     actuals: BudgetActual[];
     fiscalYearId: string;
   } | null>(null);
+  const [failed, setFailed] = useState<{
+    error: unknown;
+    fiscalYearId: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const reload = () => setAttempt((n) => n + 1);
+    window.addEventListener("focus", reload);
+    return () => window.removeEventListener("focus", reload);
+  }, []);
+
   useEffect(() => {
     if (!fiscalYearId) {
       return;
@@ -22,6 +36,7 @@ export function useBudgetActuals(
       .then((actuals) => {
         if (!cancelled) {
           setLoaded({ actuals, fiscalYearId });
+          setFailed(null);
         }
       })
       .catch((error: unknown) => {
@@ -31,10 +46,26 @@ export function useBudgetActuals(
           component: "useBudgetActuals",
           fiscalYearId,
         });
+        if (!cancelled) {
+          setFailed({ error, fiscalYearId });
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [fiscalYearId, load]);
-  return loaded && loaded.fiscalYearId === fiscalYearId ? loaded.actuals : null;
+  }, [attempt, fiscalYearId, load]);
+
+  const actuals =
+    loaded && loaded.fiscalYearId === fiscalYearId ? loaded.actuals : null;
+  const error =
+    failed && failed.fiscalYearId === fiscalYearId ? failed.error : null;
+  return {
+    actuals,
+    // A refresh that fails keeps the figures already shown.
+    error: actuals ? null : error,
+    retry: () => {
+      setFailed(null);
+      setAttempt((n) => n + 1);
+    },
+  };
 }
