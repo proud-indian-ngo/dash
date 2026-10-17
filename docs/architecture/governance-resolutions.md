@@ -1,6 +1,6 @@
 # Governance: resolutions
 
-> **Load when**: circular resolution, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution.
+> **Load when**: circular resolution, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `pidash-sign://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
 > **Related**: `governance.md` (register, deed rules, vault, signing service)
 
 ## Lifecycle
@@ -27,4 +27,21 @@
 - Without the signing service, circulars are issued without fields and signed uploads are refused, because they can't be checked.
 - The fully signed PDF goes into the vault as a resolution and is the evidence for the register entries it made. The R2 orphan cleanup keeps every circular PDF.
 
-Trustees sign in Acrobat: download, sign the box with the DSC token, upload. The first signature is an approval signature, not a certifying one.
+## Signing
+
+Trustees sign with the DSC helper or in Acrobat, and every copy goes through the checks above.
+
+- **DSC helper.** Browsers can't reach PKCS#11 tokens, so the signature is made outside the browser and joined back on the server:
+  1. Enrolment, once per DSC: the helper reads the token's certificate (valid now, RSA), kept in the trustee's name. A renewed DSC is enrolled again.
+  2. Signing needs a recent sign-in and an enrolled certificate. The signing service reserves the trustee's field and returns the attributes to sign, and the page opens a `pidash-sign://` link with a one-time job token (hashed at rest, 15 minutes).
+  3. The helper fetches the job, asks for the PIN in its own window (never stored or sent), signs on the token and posts the signature back.
+  4. The service checks the signature against the certificate and embeds it with a timestamp (PAdES B-T). The result must come from the enrolled certificate. The job API has no session, so it is audited in the trustee's name.
+- **Acrobat**: download the latest PDF, sign the box with the token in Acrobat or Reader, upload the saved copy.
+
+The helper (`services/signing-helper`, Rust) signs only for the server its installer wrote into its config, so a crafted link can't make a token sign for another site. Installing and releasing it are in its README. The Windows binary is unsigned until SignPath signs it.
+
+## Long-term copies
+
+A passed circular's signed PDF gets a long-term copy at once (revocation data and a document timestamp, PAdES B-LTA), and downloads serve that copy. A monthly job adds a new document timestamp a year after the last; a failed one stays due.
+
+Not built: certifying (DocMDP) first signatures. The first signature is an approval signature.
