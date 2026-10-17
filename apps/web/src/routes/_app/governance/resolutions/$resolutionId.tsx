@@ -139,35 +139,33 @@ function ResolutionPage() {
 
   const handleIssue = useEventCallback(async () => {
     setBusy(true);
-    try {
-      const out = await issue({
-        data: { id: resolutionId, responseDueOn: dueOn },
-      });
-      toast.success(`Issued to ${out.responders} trustees`);
-      setIssuing(false);
-    } catch (error) {
-      toast.error("Couldn't issue it", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await issue({ data: { id: resolutionId, responseDueOn: dueOn } })
+      .then((out) => {
+        toast.success(`Issued to ${out.responders} trustees`);
+        setIssuing(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't issue it", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setBusy(false));
   });
   const handleWithdraw = useEventCallback(async () => {
     setBusy(true);
-    try {
-      await withdraw({ data: { id: resolutionId, reason } });
-      toast.success("Circular withdrawn");
-      setWithdrawing(false);
-    } catch (error) {
-      toast.error("Couldn't withdraw it", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong",
-      });
-    } finally {
-      setBusy(false);
-    }
+    await withdraw({ data: { id: resolutionId, reason } })
+      .then(() => {
+        toast.success("Circular withdrawn");
+        setWithdrawing(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't withdraw it", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setBusy(false));
   });
   const handleDelete = useEventCallback(async () => {
     const out = await zero.mutate(
