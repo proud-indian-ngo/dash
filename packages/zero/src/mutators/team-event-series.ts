@@ -227,6 +227,38 @@ export async function updateSeriesAll(
   });
 }
 
+/**
+ * "All events" moves saved occurrences still on the series' old group (null
+ * included) to the new one, or clears them when the group is removed.
+ * Occurrences given their own group keep it. Returns the moved ids.
+ */
+export async function moveSeriesOccurrencesToGroup(
+  tx: Tx,
+  args: {
+    fromGroupId: string | null;
+    now: number;
+    seriesId: string;
+    toGroupId: string | null;
+  }
+): Promise<string[]> {
+  const occurrences = (await tx.run(
+    zql.teamEvent.where("seriesId", args.seriesId)
+  )) as TeamEvent[];
+  const inherited = occurrences.filter(
+    (occ) => (occ.whatsappGroupId ?? null) === args.fromGroupId
+  );
+  await Promise.all(
+    inherited.map((occ) =>
+      tx.mutate.teamEvent.update({
+        id: occ.id,
+        updatedAt: args.now,
+        whatsappGroupId: args.toGroupId,
+      })
+    )
+  );
+  return inherited.map((occ) => occ.id);
+}
+
 export async function updateSeriesThis(
   tx: Tx,
   args: {

@@ -69,7 +69,7 @@ An event (`teamEvent`) belongs to one team. It is created from the team page and
 
 Kalakriti-managed events reject most of these mutators; their volunteers are managed from the Edition ([Kalakriti](kalakriti-registration.md)).
 
-Creating an event that does not start in the past notifies the team (`notify-event-created`). Editing notifies members. Ticking "create a group", linking, switching, "None" and the one-owner rule work as for teams, with `entityType: "event"`. The event's own `teamEventMember` rows are added; team members are not.
+Creating an event that does not start in the past notifies the team (`notify-event-created`). Editing notifies members. Ticking "create a group", linking, switching, "None" and the one-owner rule work as for teams, with `entityType: "event"`. The event's own `teamEventMember` rows are added; team members are not. Changing a series' group with "All events" also moves its saved occurrences that were still on the old group (or had none, when the series had none), and clears them on "None"; their members join the same add task. Occurrences given their own group keep it.
 
 ### Members and self-join
 
