@@ -226,7 +226,12 @@ export function ReceiptsTable({
         />
       ),
       id: "amount",
-      meta: { headerTitle: "Amount", kind: "amount", skeleton: SKELETON_DATE },
+      meta: {
+        compact: "trailing",
+        headerTitle: "Amount",
+        kind: "amount",
+        skeleton: SKELETON_DATE,
+      },
       size: 130,
     },
     {

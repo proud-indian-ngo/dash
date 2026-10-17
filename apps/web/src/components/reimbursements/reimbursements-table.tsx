@@ -458,7 +458,12 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Total" visibility={true} />
       ),
       id: "total",
-      meta: { headerTitle: "Total", kind: "amount", skeleton: SKELETON_TOTAL },
+      meta: {
+        compact: "trailing",
+        headerTitle: "Total",
+        kind: "amount",
+        skeleton: SKELETON_TOTAL,
+      },
       size: 120,
     },
     {

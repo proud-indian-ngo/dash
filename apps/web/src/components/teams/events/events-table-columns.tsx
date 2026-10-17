@@ -176,6 +176,7 @@ export function createEventsTableColumns({
       ),
       id: "startTime",
       meta: {
+        compact: "primary",
         headerTitle: "Date/Time",
         kind: "date",
         skeleton: SKELETON_DATETIME,

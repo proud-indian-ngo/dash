@@ -9,6 +9,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 
+import { DONOR_FILTER_FIELDS, getDonorFilterValue } from "./donor-filters";
 import { activeRoleLabels, type PartyRow } from "./party-row";
 
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
@@ -149,12 +150,19 @@ export function DonorsTable({
       compactOnMobile
       data={data}
       emptyMessage="No donors yet."
+      filter={{ fields: DONOR_FILTER_FIELDS, getValue: getDonorFilterValue }}
       getRowId={(row) => row.id}
       isLoading={isLoading}
       onRowClick={onView}
       searchFn={searchParty}
       searchPlaceholder="Search donors..."
       storageKey="donors_table_state_v1"
+      tableLayout={{
+        columnsDraggable: true,
+        columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
+      }}
     />
   );
 }

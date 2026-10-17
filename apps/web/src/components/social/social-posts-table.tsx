@@ -334,6 +334,12 @@ export function SocialPostsTable({
       searchPlaceholder="Search posts..."
       searchQueryKey="postSearch"
       storageKey="social_posts_table_state_v1"
+      tableLayout={{
+        columnsDraggable: true,
+        columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
+      }}
     />
   );
 }

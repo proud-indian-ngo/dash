@@ -114,7 +114,7 @@ export function partitionCompactColumns(
   };
 }
 
-const IDENTITY_PRIMARY_IDS = ["action", "student"];
+const IDENTITY_PRIMARY_IDS = ["action", "donor", "student"];
 
 function orderStackedPrimaryIds(primaryIds: string[]): string[] {
   const identity = IDENTITY_PRIMARY_IDS.find((id) => primaryIds.includes(id));

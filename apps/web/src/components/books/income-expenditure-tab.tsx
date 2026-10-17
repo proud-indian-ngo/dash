@@ -139,7 +139,7 @@ export function IncomeExpenditureTab({
       ),
       id: "amount",
       meta: {
-        compact: "primary",
+        compact: "trailing",
         headerTitle: "Amount",
         kind: "amount",
         skeleton: SKELETON,

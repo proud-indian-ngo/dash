@@ -404,7 +404,12 @@ export function VendorPaymentsTable({
         />
       ),
       id: "total",
-      meta: { headerTitle: "Amount", kind: "amount", skeleton: SKELETON_TOTAL },
+      meta: {
+        compact: "trailing",
+        headerTitle: "Amount",
+        kind: "amount",
+        skeleton: SKELETON_TOTAL,
+      },
       minSize: 100,
       size: 120,
     },

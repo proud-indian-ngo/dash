@@ -15,6 +15,7 @@ import {
   useContext,
 } from "react";
 
+import { DATA_FONT_CLASS } from "./column-kinds";
 import { COMPACT_EXPAND_COLUMN_ID } from "./compact-columns";
 
 const EXPAND_SKELETON = <Skeleton className="size-8" />;
@@ -109,8 +110,16 @@ export function DataTableCompactPrimaryCell<TData extends object>({
             if (!cell) {
               return null;
             }
-            const label =
-              cell.column.columnDef.meta?.headerTitle || cell.column.id;
+            const meta = cell.column.columnDef.meta;
+            // An amount reads on its own; icon and badge cells need the label.
+            if (meta?.kind === "amount") {
+              return (
+                <div className={DATA_FONT_CLASS} key={id}>
+                  <table.FlexRender cell={cell} />
+                </div>
+              );
+            }
+            const label = meta?.headerTitle || cell.column.id;
             return (
               <div className="flex items-center gap-1" key={id}>
                 <span className="text-muted-foreground text-xs">{label}</span>

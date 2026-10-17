@@ -237,6 +237,12 @@ export function SocialRunsTable({
       searchPlaceholder="Search skipped and errors..."
       searchQueryKey="runSearch"
       storageKey="social_runs_table_state_v1"
+      tableLayout={{
+        columnsDraggable: true,
+        columnsPinnable: true,
+        columnsResizable: true,
+        columnsVisibility: true,
+      }}
     />
   );
 }
