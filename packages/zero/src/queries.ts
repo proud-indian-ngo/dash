@@ -24,10 +24,12 @@ import {
 import { gatewaySettlementQueries } from "./queries/gateway-settlement";
 import {
   complianceQueries,
+  conflictDeclarationQueries,
   deedVersionQueries,
   governanceDocumentQueries,
   meetingQueries,
   organisationRegistrationQueries,
+  policyQueries,
   resolutionQueries,
   trusteeQueries,
 } from "./queries/governance";
@@ -75,6 +77,7 @@ export const queries = defineQueries({
   contribution: contributionQueries,
   contributionReceipt: contributionReceiptQueries,
   compliance: complianceQueries,
+  conflictDeclaration: conflictDeclarationQueries,
   costCentre: costCentreQueries,
   deedVersion: deedVersionQueries,
   eventFeedback: eventFeedbackQueries,
@@ -109,6 +112,7 @@ export const queries = defineQueries({
   organisationRegistration: organisationRegistrationQueries,
   otherIncome: otherIncomeQueries,
   party: partyQueries,
+  policy: policyQueries,
   programme: programmeQueries,
   project: projectQueries,
   reimbursement: reimbursementQueries,

@@ -64,7 +64,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { DATE_TIME } from "@/lib/date-formats";
 import { startDateRow } from "@/lib/event-display-utils";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { handleMutationResult, joinErrorMessage } from "@/lib/mutation-result";
 import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
@@ -1214,7 +1214,7 @@ export function EventDetail({
     ).server;
     handleMutationResult(res, {
       entityId: id,
-      errorMsg: "Couldn't join event",
+      errorMsg: joinErrorMessage(res, "Couldn't join event"),
       mutation: "teamEvent.joinAsMember",
       successMsg: "Joined event",
     });

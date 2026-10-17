@@ -40,6 +40,13 @@ export const trusteeQueries = {
           .related("terms")
           .related("offices")
   ),
+  /** The trustees linked to the signed-in account, for their own declaration. */
+  me: defineQuery(({ ctx }) =>
+    zql.trustee
+      .where("userId", ctx?.userId ?? "__never_match__")
+      .related("terms")
+      .related("offices")
+  ),
 };
 
 export const deedVersionQueries = {
@@ -192,5 +199,48 @@ export const meetingQueries = {
           .related("agenda")
           .orderBy("startsAt", "desc")
       : zql.meeting.where("id", "__never_match__").related("agenda")
+  ),
+};
+
+/** Declarations of interests: all for governance; a trustee's own otherwise. */
+export const conflictDeclarationQueries = {
+  all: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.conflictDeclaration
+          .related("document")
+          .orderBy("declaredAt", "desc")
+      : zql.conflictDeclaration
+          .where("id", "__never_match__")
+          .related("document")
+  ),
+  mine: defineQuery(({ ctx }) =>
+    zql.conflictDeclaration
+      .whereExists("trustee", (t) =>
+        t.where("userId", ctx?.userId ?? "__never_match__")
+      )
+      .orderBy("declaredAt", "desc")
+  ),
+};
+
+/**
+ * Policies and their versions are readable by everyone signed in, who
+ * acknowledges them; acknowledgements are a person's own, or everyone's
+ * for governance.
+ */
+export const policyQueries = {
+  all: defineQuery(({ ctx }) =>
+    ctx
+      ? zql.policy
+          .related("versions", (q) => q.orderBy("version", "desc"))
+          .orderBy("title", "asc")
+      : zql.policy.where("id", "__never_match__").related("versions")
+  ),
+  acknowledgements: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.policyAcknowledgement
+      : zql.policyAcknowledgement.where("id", "__never_match__")
+  ),
+  myAcknowledgements: defineQuery(({ ctx }) =>
+    zql.policyAcknowledgement.where("userId", ctx?.userId ?? "__never_match__")
   ),
 };

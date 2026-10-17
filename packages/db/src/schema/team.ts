@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgEnum,
   pgTable,
@@ -26,6 +27,11 @@ export const team = pgTable("team", {
   description: text("description"),
   id: uuid("id").primaryKey(),
   name: text("name").notNull().unique(),
+  /**
+   * The team's events involve children: joining one needs the current
+   * child-safeguarding policy acknowledged (governance phase 6).
+   */
+  worksWithChildren: boolean("works_with_children").default(false).notNull(),
   /** Default programme for the team's events; a team is a volunteer group inside a programme. */
   programmeId: uuid("programme_id").references(() => programme.id, {
     onDelete: "set null",

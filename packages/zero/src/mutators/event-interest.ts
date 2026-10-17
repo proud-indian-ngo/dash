@@ -19,6 +19,7 @@ import {
   ensureUnassignedVolunteerEnrollment,
   findEditionForLinkedEvent,
 } from "./kalakriti-volunteer-enroll";
+import { assertSafeToJoinEvent } from "./safeguarding";
 import { resolveJoinTarget } from "./team-event";
 import type { Tx } from "./team-event-series";
 
@@ -100,6 +101,9 @@ export const eventInterestMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.manage_interest", isTeamLead);
+      await assertSafeToJoinEvent(tx, interest.eventId, [interest.userId], {
+        self: false,
+      });
 
       const edition = await findEditionForLinkedEvent(tx, interest.eventId);
       if (edition || event.managementDomain === "kalakriti") {
@@ -292,6 +296,7 @@ export const eventInterestMutators = {
       if (teamMembership) {
         throw new Error("Team members cannot submit interest requests");
       }
+      await assertSafeToJoinEvent(tx, series.id, [ctx.userId], { self: true });
 
       const event = await resolveInterestTarget(tx, ctx, series, args);
       // A materialized session can differ from its series.

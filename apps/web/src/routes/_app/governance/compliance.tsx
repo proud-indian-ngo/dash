@@ -1,6 +1,7 @@
 import {
   CalendarSetting01Icon,
   CheckmarkCircle02Icon,
+  Edit02Icon,
   Delete02Icon,
   PlusSignIcon,
   Undo02Icon,
@@ -24,10 +25,14 @@ import {
   daysBetween,
   GOVERNANCE_PAGE_PERMISSIONS,
 } from "@pi-dash/shared/governance";
+import {
+  ANNUAL_PACK_TEMPLATES,
+  type ResolutionTemplateKey,
+} from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
@@ -86,6 +91,8 @@ interface Item {
   id: string;
   note: string | null;
   ownerUserId: string | null;
+  /** The annual-pack resolution template this item is closed by, if any. */
+  resolutionTemplate: ResolutionTemplateKey | null;
   status: ComplianceItemStatus;
   title: string;
 }
@@ -140,6 +147,8 @@ function CompliancePage() {
   const zero = useZero();
   const [rows, result] = useQuery(queries.compliance.items());
   const [templates] = useQuery(queries.compliance.templates());
+  const navigate = useNavigate();
+  const templateKeys = new Map(templates.map((t) => [t.id, t.key]));
   const { documents } = useGovernanceDocuments();
   const owners = useOwners(canManage);
   const ownerName = (id: string | null) =>
@@ -155,6 +164,8 @@ function CompliancePage() {
     id: r.id,
     note: r.note ?? null,
     ownerUserId: r.ownerUserId ?? null,
+    resolutionTemplate:
+      ANNUAL_PACK_TEMPLATES[templateKeys.get(r.templateId ?? "") ?? ""] ?? null,
     status: r.status ?? "open",
     title: r.title,
   }));
@@ -287,6 +298,20 @@ function CompliancePage() {
                           label: "Mark done",
                           onSelect: () => setDialog({ item, kind: "close" }),
                         },
+                        item.status === "open" &&
+                          item.resolutionTemplate && {
+                            icon: Edit02Icon,
+                            id: "draft",
+                            label: "Draft the resolution",
+                            onSelect: () =>
+                              navigate({
+                                search: {
+                                  template:
+                                    item.resolutionTemplate ?? undefined,
+                                },
+                                to: "/governance/resolutions",
+                              }),
+                          },
                         item.status === "open" && {
                           icon: UserAccountIcon,
                           id: "assign",

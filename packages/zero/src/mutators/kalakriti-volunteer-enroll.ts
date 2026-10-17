@@ -9,6 +9,7 @@ import {
   type OrientationTx,
   orientEnrolledKalakritiVolunteer,
 } from "./kalakriti-orientation";
+import { assertSafeguardingAcknowledged } from "./safeguarding";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -134,6 +135,10 @@ export async function ensureUnassignedVolunteerEnrollment(
   if (membership?.kind === "guardian") {
     throw new Error("Guardian memberships cannot receive volunteer roles");
   }
+  // Kalakriti is always an event with children.
+  await assertSafeguardingAcknowledged(tx, [args.userId], {
+    self: args.userId === args.actorUserId,
+  });
 
   const membershipId = membership ? membership.id : args.membershipId;
   if (!membership) {

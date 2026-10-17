@@ -458,6 +458,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
               name: team.name,
               programmeId: team.programmeId,
               whatsappGroupId: team.whatsappGroupId,
+              worksWithChildren: team.worksWithChildren,
             }}
             onOpenChange={dialog.onOpenChange}
             open={dialog.isOpen("edit")}
