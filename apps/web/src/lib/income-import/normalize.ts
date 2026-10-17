@@ -2,6 +2,7 @@ import type {
   ContributionChannel,
   DonationType,
   PartyIdType,
+  PartyKind,
 } from "@pi-dash/shared/constants";
 import {
   type ChannelAccount,
@@ -57,6 +58,8 @@ export interface NormalizedRow {
   city: string;
   country: string;
   donationType: DonationType;
+  /** Person unless the file's Donor type cell says organisation. */
+  donorKind: PartyKind;
   donorName: string;
   email: string;
   externalId: string;
@@ -259,6 +262,25 @@ const DONATION_TYPE_ALIASES: Record<string, DonationType> = {
   voluntary: "voluntary",
 };
 
+const DONOR_KIND_ALIASES: Record<string, PartyKind> = {
+  company: "organisation",
+  corporate: "organisation",
+  csr: "organisation",
+  firm: "organisation",
+  foundation: "organisation",
+  huf: "organisation",
+  individual: "person",
+  institution: "organisation",
+  llp: "organisation",
+  ngo: "organisation",
+  org: "organisation",
+  organisation: "organisation",
+  organization: "organisation",
+  person: "person",
+  society: "organisation",
+  trust: "organisation",
+};
+
 const CHANNEL_ALIASES: Record<string, ContributionChannel> = {
   bank: "neft",
   banktransfer: "neft",
@@ -429,6 +451,19 @@ export function normalizeRow(
     }
   }
 
+  let donorKind: PartyKind = "person";
+  if (get("donorKind") !== "") {
+    const mapped = DONOR_KIND_ALIASES[key(get("donorKind"))];
+    if (mapped) {
+      donorKind = mapped;
+    } else {
+      warnings.push({
+        field: "donorKind",
+        message: "Unknown donor type; the donor is saved as a person",
+      });
+    }
+  }
+
   let channel = options.defaultChannel;
   let channelFromFile = false;
   if (get("channel") !== "") {
@@ -492,6 +527,7 @@ export function normalizeRow(
     city: get("city"),
     country,
     donationType,
+    donorKind,
     donorName,
     email,
     externalId: get("externalId"),
@@ -538,7 +574,7 @@ export function donorSaveInput(
     id: options.id,
     idNumber: withId ? row.idNumber : "",
     idType: withId ? row.idType : "none",
-    kind: "person",
+    kind: row.donorKind,
     legalName: "",
     mode: "create",
     nationality: "",

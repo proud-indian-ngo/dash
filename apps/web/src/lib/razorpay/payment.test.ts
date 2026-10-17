@@ -323,6 +323,7 @@ describe("donor rules for Razorpay payments (shared classification)", () => {
     existingContributions: [],
     identities: new Map(),
     idMatches: new Map(),
+    nameMatches: new Map(),
     phoneMatches: new Map(),
   };
   const input = (p: RazorpayPayment, rowNumber = 1): ClassifyRowInput => {
@@ -364,6 +365,26 @@ describe("donor rules for Razorpay payments (shared classification)", () => {
       phoneMatches: new Map([["+919876543210", [donor]]]),
     });
     expect(byPhone?.category).toBe("needs_review");
+  });
+
+  it("proposes a donor by name only for a payment without PAN, email or phone", () => {
+    const byName = {
+      ...empty,
+      nameMatches: new Map([
+        ["asha rao", [{ ...donor, idLast4: null, idType: "none" as const }]],
+      ]),
+      namesOnlyWithoutContact: true,
+    };
+    const [withEmail] = classifyRows(
+      [input(payment({ contact: "", notes: { name: "Asha Rao" } }))],
+      byName
+    );
+    expect(withEmail?.category).toBe("new_donor");
+    const [bare] = classifyRows(
+      [input(payment({ contact: "", email: "", notes: { name: "Asha Rao" } }))],
+      byName
+    );
+    expect(bare?.category).toBe("needs_review");
   });
 
   it("creates a donor without an ID when the PAN is invalid and nothing matches", () => {

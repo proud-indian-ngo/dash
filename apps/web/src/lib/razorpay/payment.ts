@@ -365,6 +365,7 @@ export function normalizeRazorpayRow(
       city: notes.city,
       country: "IN",
       donationType: "voluntary",
+      donorKind: "person",
       donorName,
       email,
       externalId: id,

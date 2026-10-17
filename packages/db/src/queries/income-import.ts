@@ -18,6 +18,7 @@ import {
   PLATFORM_INTERMEDIARY_PARTY_IDS,
 } from "@pi-dash/shared/income";
 import {
+  type AnyColumn,
   and,
   count,
   desc,
@@ -289,9 +290,9 @@ export interface MatchedParty {
  * role, except that a donation platform such as GiveIndia needs a giver role
  * of its own (`canGive`).
  */
-const isContributor = sql`exists (
+const isContributor = (partyId: AnyColumn) => sql`exists (
   select 1 from ${partyRole}
-  where ${partyRole.partyId} = ${partyPrivate.partyId}
+  where ${partyRole.partyId} = ${partyId}
     and ${partyRole.active} = true
     and ${inArray(partyRole.role, [...CONTRIBUTOR_ROLES])}
     and (${inArray(partyRole.role, [...GIVER_ROLES])}
@@ -336,7 +337,7 @@ export async function findContributorsByIdentifier(
           inArray(partyPrivate.idNumberLast4, tails.filter(Boolean)),
           sql`${partyPrivate.idNumberLast4} is null`
         ),
-        isContributor
+        isContributor(partyPrivate.partyId)
       )
     );
   const wantedKeys = new Set(wanted.map((i) => `${i.idType}:${i.idNumber}`));
@@ -401,7 +402,7 @@ export async function findContributorsByContact(
     })
     .from(partyPrivate)
     .innerJoin(party, eq(party.id, partyPrivate.partyId))
-    .where(and(or(...conditions), isContributor));
+    .where(and(or(...conditions), isContributor(partyPrivate.partyId)));
   const add = (
     map: Map<string, MatchedParty[]>,
     key: string,
@@ -418,6 +419,77 @@ export async function findContributorsByContact(
     }
   }
   return { byEmail, byPhone };
+}
+
+/**
+ * A name folded much as the importer's `foldName` does: lower case, single
+ * spaces, trimmed. Postgres and JavaScript disagree on some Unicode (a
+ * no-break space, for one), which only costs a missed proposal.
+ */
+const nameKey = (name: AnyColumn) =>
+  sql<
+    string | null
+  >`lower(btrim(regexp_replace(${name}, '[[:space:]]+', ' ', 'g')))`;
+
+export interface NameMatchedParty extends MatchedParty {
+  idLast4: string | null;
+  idType: PartyIdType;
+}
+
+/**
+ * Contributors whose display or legal name, folded, equals one of `names`
+ * (already folded); these only become proposals. A legal-name hit is named
+ * with the legal name too, so the reviewer sees why it was proposed. Each
+ * carries its stored ID type and last four, so a donor with another ID
+ * number can be left out. Folded names have no index, so this reads the
+ * parties once per review.
+ */
+export async function findContributorsByName(
+  names: readonly string[],
+  executor: Reader = db
+): Promise<Map<string, NameMatchedParty[]>> {
+  const byName = new Map<string, NameMatchedParty[]>();
+  const wanted = new Set(names.filter(Boolean));
+  if (wanted.size === 0) {
+    return byName;
+  }
+  const displayKey = nameKey(party.displayName);
+  const legalKey = nameKey(party.legalName);
+  const rows = await executor
+    .select({
+      displayKey,
+      idLast4: partyPrivate.idNumberLast4,
+      idType: partyPrivate.idType,
+      legalKey,
+      legalName: party.legalName,
+      name: party.displayName,
+      partyId: party.id,
+    })
+    .from(party)
+    .leftJoin(partyPrivate, eq(partyPrivate.partyId, party.id))
+    .where(
+      and(
+        or(inArray(displayKey, [...wanted]), inArray(legalKey, [...wanted])),
+        isContributor(party.id)
+      )
+    );
+  for (const row of rows) {
+    for (const key of new Set([row.displayKey, row.legalKey])) {
+      if (key && wanted.has(key)) {
+        const ref = {
+          idLast4: row.idLast4,
+          idType: row.idType ?? "none",
+          name:
+            key === row.displayKey
+              ? row.name
+              : `${row.name}, legal name ${row.legalName}`,
+          partyId: row.partyId,
+        };
+        byName.set(key, [...(byName.get(key) ?? []), ref]);
+      }
+    }
+  }
+  return byName;
 }
 
 /** For each party, which fill fields it has no value for. */

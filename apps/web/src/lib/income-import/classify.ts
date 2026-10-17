@@ -1,4 +1,4 @@
-import type { ImportRowOutcome } from "@pi-dash/shared/constants";
+import type { ImportRowOutcome, PartyIdType } from "@pi-dash/shared/constants";
 
 import type { CellIssue, NormalizedRow } from "./normalize";
 
@@ -7,8 +7,8 @@ import type { CellIssue, NormalizedRow } from "./normalize";
  * what already exists. Pure, so the review step and the import run use the
  * same rules and both can be unit-tested. Automatic decisions follow design
  * 3.9: an external identity seen before links or conflicts, an exact ID
- * number picks the donor, and email, phone or amount-and-date matches are
- * only proposals.
+ * number picks the donor, and email, phone, name or amount-and-date matches
+ * are only proposals.
  */
 
 export const REVIEW_CATEGORIES = [
@@ -23,7 +23,7 @@ export const REVIEW_CATEGORIES = [
 ] as const;
 export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
-export type MatchReason = "email" | "id_number" | "phone";
+export type MatchReason = "email" | "id_number" | "name" | "phone";
 
 export type DonorOption =
   | { kind: "existing"; name: string; partyId: string; reason: MatchReason }
@@ -65,6 +65,12 @@ export interface PartyRef {
   partyId: string;
 }
 
+/** A donor found by name, with its stored ID type and last four (if any). */
+export interface NameMatch extends PartyRef {
+  idLast4: string | null;
+  idType: PartyIdType;
+}
+
 export interface ClassifyRowInput {
   id: string;
   /** Identity key and payload hash, computed server-side; null for error rows. */
@@ -85,6 +91,14 @@ export interface ClassifyContext {
   identities: ReadonlyMap<string, ExistingIdentity>;
   /** Keyed by `idMatchKey`; only exact matches of a stored identifier. */
   idMatches: ReadonlyMap<string, readonly PartyRef[]>;
+  /** Keyed by `foldName` of the display or legal name. */
+  nameMatches: ReadonlyMap<string, readonly NameMatch[]>;
+  /**
+   * Propose donors and earlier rows by name only for rows with no ID
+   * number, email or phone (Razorpay payments, whose names are typed by the
+   * payer).
+   */
+  namesOnlyWithoutContact?: boolean;
   phoneMatches: ReadonlyMap<string, readonly PartyRef[]>;
 }
 
@@ -115,6 +129,10 @@ export interface ClassifiedRow {
 
 export const idMatchKey = (idType: string, idNumber: string) =>
   `${idType}:${idNumber}`;
+
+/** A name or reference compared without case or extra spaces. */
+export const foldName = (name: string) =>
+  name.toLowerCase().replaceAll(/\s+/g, " ").trim();
 
 function unique<T>(items: readonly T[], keyOf: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -164,9 +182,16 @@ function findDuplicate(
 interface FileDonor {
   email: string;
   idKey: string | null;
+  name: string;
   phone: string;
   rowId: string;
   rowNumber: number;
+}
+
+/** An earlier row of the file offered as this row's donor, and why. */
+interface FileMatch {
+  d: FileDonor;
+  reason: Exclude<MatchReason, "id_number">;
 }
 
 /** The first row of the file with an ID number, which later rows with it follow. */
@@ -279,6 +304,29 @@ export function classifyRows(
         reason: "id_number" as const,
       }));
     } else {
+      const name =
+        context.namesOnlyWithoutContact && (idKey || row.email || row.phone)
+          ? ""
+          : foldName(row.donorName);
+      const idTail = row.idNumber.length >= 8 ? row.idNumber.slice(-4) : null;
+      // A donor whose stored ID number of the same type ends differently is
+      // certainly someone else.
+      const nameParties = (name ? (context.nameMatches.get(name) ?? []) : [])
+        .filter(
+          (p) =>
+            !(
+              idKey &&
+              p.idType === row.idType &&
+              p.idLast4 &&
+              idTail &&
+              p.idLast4 !== idTail
+            )
+        )
+        .map(({ name: partyName, partyId }) => ({
+          name: partyName,
+          partyId,
+          reason: "name" as const,
+        }));
       const contactParties = [
         ...(row.email ? (context.emailMatches.get(row.email) ?? []) : []).map(
           (p) => ({ ...p, reason: "email" as const })
@@ -286,21 +334,35 @@ export function classifyRows(
         ...(row.phone ? (context.phoneMatches.get(row.phone) ?? []) : []).map(
           (p) => ({ ...p, reason: "phone" as const })
         ),
+        ...nameParties,
       ];
       options = unique(contactParties, (p) => p.partyId).map((p) => ({
         kind: "existing" as const,
         ...p,
       }));
-      const sameContact = fileDonors.filter(
-        (d) =>
-          (!idKey || !d.idKey) &&
-          ((row.email && d.email === row.email) ||
-            (row.phone && d.phone === row.phone))
+      const matches = fileDonors.flatMap((d): FileMatch[] => {
+        if (idKey && d.idKey) {
+          return [];
+        }
+        if (row.email && d.email === row.email) {
+          return [{ d, reason: "email" as const }];
+        }
+        if (row.phone && d.phone === row.phone) {
+          return [{ d, reason: "phone" as const }];
+        }
+        return name && d.name === name ? [{ d, reason: "name" as const }] : [];
+      });
+      // Rows sharing an ID number are one donor, so only the first is
+      // offered; of rows that share only a name, likewise only the first.
+      const sameDonor = unique(
+        matches,
+        ({ d, reason }) =>
+          d.idKey ?? (reason === "name" ? `name:${d.name}` : d.rowId)
       );
-      for (const d of sameContact) {
+      for (const { d, reason } of sameDonor) {
         options.push({
           kind: "row",
-          reason: row.email && d.email === row.email ? "email" : "phone",
+          reason,
           rowId: d.rowId,
           rowNumber: d.rowNumber,
         });
@@ -312,6 +374,7 @@ export function classifyRows(
     fileDonors.push({
       email: row.email,
       idKey,
+      name: foldName(row.donorName),
       phone: row.phone,
       rowId: input.id,
       rowNumber: input.rowNumber,
@@ -362,7 +425,7 @@ export interface RowDecision {
   /** Only for rows with donor options. */
   donor?: DonorChoice;
   /**
-   * With an existing donor proposed by email or phone: add the row's ID
+   * With an existing donor proposed by email, phone or name: add the row's ID
    * number, address, email or phone where that donor has none. On unless
    * turned off.
    */
@@ -431,9 +494,9 @@ function resolveDonor(
 }
 
 /**
- * Whether the reviewer accepted an existing donor proposed by email or phone
- * on this row and left "Fill missing details" on. ID-number matches already
- * hold the identifier, so they never fill.
+ * Whether the reviewer accepted an existing donor proposed by email, phone
+ * or name on this row and left "Fill missing details" on. ID-number matches
+ * already hold the identifier, so they never fill.
  */
 export function fillsChosenDonor(
   row: Pick<ClassifiedRow, "donor" | "donorOptions" | "sameDonorAs">,

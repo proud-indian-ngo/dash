@@ -39,6 +39,7 @@ import {
   type DebitLineView,
   DebitReconciliation,
   FindDebitMatchDialog,
+  isBeforeCutover,
   UnseenPaymentsList,
 } from "@/components/income/bank/debit-match";
 import {
@@ -102,15 +103,17 @@ export const Route = createFileRoute("/_app/income/bank/")({
 
 const inTab = (line: StatementLineRow, tab: LineTab) => {
   // Unmatched credits wait for review; unmatched debits wait to be matched
-  // to claims and vendor payments, or explained (layer 3-3b).
+  // to claims and vendor payments, or explained (layer 3-3b). Lines before
+  // the cutover are outside the books, so they wait in All only.
   if (tab === "unseen") {
     return false;
   }
+  const open = line.matchStatus === "unmatched" && !isBeforeCutover(line);
   if (tab === "review") {
-    return line.matchStatus === "unmatched" && line.direction === "credit";
+    return open && line.direction === "credit";
   }
   if (tab === "out") {
-    return line.matchStatus === "unmatched" && line.direction === "debit";
+    return open && line.direction === "debit";
   }
   if (tab === "matched") {
     return line.matchStatus === "matched";
@@ -377,6 +380,13 @@ function BankStatementsPage() {
     LINE_TABS.map((t) => [t, inMonth.filter((line) => inTab(line, t)).length])
   ) as Record<LineTab, number>;
   const visible = inMonth.filter((line) => inTab(line, tab));
+  // Open lines before the cutover that To review or Money out leave out.
+  const olderOpen = inMonth.some(
+    (line) =>
+      line.matchStatus === "unmatched" &&
+      isBeforeCutover(line) &&
+      line.direction === (tab === "review" ? "credit" : "debit")
+  );
   const [shown, setShown] = useState(PAGE);
 
   const [recording, setRecording] = useState<StatementLinePrefill | null>(null);
@@ -638,7 +648,9 @@ function BankStatementsPage() {
               description={
                 lines.length === 0
                   ? "Import this account's statement as CSV to see its lines here."
-                  : "Nothing here for this month."
+                  : (tab === "review" || tab === "out") && olderOpen
+                    ? "Lines before 1 Apr 2026 are outside the books; find them under All."
+                    : "Nothing here for this month."
               }
               icon={
                 (tab === "review" || tab === "out") && lines.length > 0

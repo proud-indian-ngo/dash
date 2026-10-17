@@ -410,7 +410,11 @@ export async function matchedYearTouched(
   return rows[0]?.label ?? null;
 }
 
-/** The bank debit figures of one account, for its reconciliation summary. */
+/**
+ * The bank debit figures of one account, for its reconciliation summary.
+ * Every figure counts debits from the cutover only: earlier ones are
+ * evidence, never reviewed.
+ */
 export interface DebitSummary {
   /** Open debits (not matched in full, not ignored), those waiting for a claim included. */
   attentionCount: number;
@@ -418,7 +422,7 @@ export interface DebitSummary {
   debitsMatchedCount: number;
   /** Open debits marked "Needs a claim". */
   needsClaimCount: number;
-  /** Open debits from the cutover, less what their allocations already explain. */
+  /** Open debits, less what their allocations already explain. */
   unexplainedPaise: number;
 }
 
@@ -435,9 +439,10 @@ export async function debitSummary(
       coalesce(sum(l.amount_paise - coalesce((
           select sum(a.amount_paise) from ${statementAllocation} a
           where a.statement_line_id = l.id and a.released_at is null), 0))
-        filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date), 0)::bigint as unexplained
+        filter (where l.match_status = 'unmatched'), 0)::bigint as unexplained
     from ${statementLine} l
-    where l.org_account_id = ${orgAccountId} and l.direction = 'debit'`)) as unknown as {
+    where l.org_account_id = ${orgAccountId} and l.direction = 'debit'
+      and l.value_on >= ${LEDGER_CUTOVER_ON}::date`)) as unknown as {
     debits: number;
     matched: number;
     needs_claim: number;

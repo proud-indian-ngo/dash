@@ -28,7 +28,7 @@ The CA-confirmed opening document posts for the cutover year only: account lines
 
 ### Year close
 
-Closing posts the year's records first, then needs the year ended, the previous year closed, the cutover year's opening balances posted, and nothing in the year waiting to post. Bank statements to the year end, clearing balances and audited figures are warnings only, because the audit finishes months later. Posting takes the year-close lock shared and closing takes it exclusive. Reopening needs a reason, is refused while a later year is closed, and queues a posting sweep.
+Closing posts the year's records first, then needs the year ended, the previous year closed, the cutover year's opening balances posted, nothing in the year waiting to post, and no bank line dated in the year open (not matched in full or ignored), since an open line would be stuck: imports and line actions into a closed year are refused. Bank statements to the year end, clearing balances and audited figures are warnings only, because the audit finishes months later. Posting takes the year-close lock shared and closing takes it exclusive. Reopening needs a reason, is refused while a later year is closed, and queues a posting sweep.
 
 ### Funds carry the surplus
 

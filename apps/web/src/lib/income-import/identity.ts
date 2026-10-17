@@ -7,6 +7,7 @@ import type {
   ImportBatchSource,
 } from "@pi-dash/shared/constants";
 
+import { foldName } from "./classify";
 import type { NormalizedRow } from "./normalize";
 
 /**
@@ -45,9 +46,6 @@ const PROVIDER_BY_SOURCE: Record<ImportBatchSource, ExternalIdentityProvider> =
     razorpay_api: "razorpay",
   };
 
-const fold = (value: string) =>
-  value.toLowerCase().replaceAll(/\s+/g, " ").trim();
-
 /**
  * The provider's own donation ID when the file has one; otherwise a
  * fingerprint of date, amount, donor name and reference, prefixed so it can
@@ -73,8 +71,8 @@ export function rowIdentity(
   const fingerprint = [
     row.receivedOn ?? "",
     String(row.amountPaise ?? ""),
-    fold(row.donorName),
-    fold(row.reference),
+    foldName(row.donorName),
+    foldName(row.reference),
   ].join("|");
   return {
     ...base,
@@ -110,11 +108,11 @@ export function payloadHash(row: NormalizedRow): string {
     JSON.stringify([
       row.receivedOn,
       row.amountPaise,
-      fold(row.donorName),
+      foldName(row.donorName),
       row.email,
       row.idType,
       row.idNumber,
-      fold(row.reference),
+      foldName(row.reference),
       row.donationType,
       row.channelFromFile ? row.channel : null,
     ])

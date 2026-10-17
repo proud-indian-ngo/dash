@@ -3,6 +3,7 @@ import type {
   StatementLineMatchKind,
 } from "@pi-dash/shared/constants";
 import { CONTRIBUTION_RECEIVED_STATUSES } from "@pi-dash/shared/income";
+import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import {
   and,
   asc,
@@ -18,7 +19,8 @@ import {
 } from "drizzle-orm";
 
 import { db } from "..";
-import { orgAccount } from "../schema/finance-dimensions";
+import { shareYearCloseLock } from "../ledger/income-posting";
+import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
 import { gatewaySettlement } from "../schema/gateway-settlement";
 import { importBatch } from "../schema/import-batch";
 import { contribution } from "../schema/income";
@@ -46,10 +48,16 @@ const CHUNK = 500;
  */
 export const STATEMENT_LINE_LOCK = sql`select pg_advisory_xact_lock(hashtext('statement-line-match'))`;
 
+/**
+ * Also shares the year close's lock (`ledger:year_close`, taken exclusively
+ * by `closeYear`), first as the ledger does, so a year never closes between
+ * a write's closed-year check and its commit.
+ */
 export async function withStatementTransaction<T>(
   work: (tx: StatementTx) => Promise<T>
 ): Promise<T> {
   return await db.transaction(async (tx) => {
+    await shareYearCloseLock(tx);
     await tx.execute(STATEMENT_LINE_LOCK);
     return await work(tx);
   });
@@ -504,7 +512,11 @@ export async function pairTransferLine(
           line.direction === "debit" ? "credit" : "debit"
         ),
         eq(statementLine.amountPaise, line.amountPaise),
-        sql`${distance} <= ${TRANSFER_PAIR_DAYS}`
+        sql`${distance} <= ${TRANSFER_PAIR_DAYS}`,
+        // A line in a closed year is never paired again.
+        sql`not exists (select 1 from ${fiscalYear}
+          where ${fiscalYear.closedAt} is not null
+            and ${statementLine.valueOn} between ${fiscalYear.startsOn} and ${fiscalYear.endsOn})`
       )
     )
     .orderBy(distance, asc(statementLine.matchedAt), asc(statementLine.id))
@@ -674,6 +686,7 @@ export async function findLinkCandidates(
 export interface StatementSummary {
   /** Balance printed on the latest line that has one, and its date. */
   closing: { balancePaise: number; valueOn: string } | null;
+  /** Credits from the cutover, as are the matched and unmatched counts. */
   creditCount: number;
   creditsMatchedCount: number;
   /** give.do gifts received less give.do payouts matched to bank lines. */
@@ -686,19 +699,21 @@ export interface StatementSummary {
 
 /** The figures above an account's lines. */
 export async function statementSummary(
-  orgAccountId: string
+  orgAccountId: string,
+  reader: Reader = db
 ): Promise<StatementSummary> {
-  const [counts] = await db
+  const fromCutover = sql`${statementLine.valueOn} >= ${LEDGER_CUTOVER_ON}::date`;
+  const [counts] = await reader
     .select({
-      credits: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit')::int`,
-      creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched')::int`,
+      credits: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${fromCutover})::int`,
+      creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched' and ${fromCutover})::int`,
       lines: sql<number>`count(*)::int`,
       suggestions: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.suggestedKind} is not null)::int`,
-      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit')::int`,
+      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit' and ${fromCutover})::int`,
     })
     .from(statementLine)
     .where(eq(statementLine.orgAccountId, orgAccountId));
-  const [closing] = await db
+  const [closing] = await reader
     .select({
       balancePaise: statementLine.balancePaise,
       valueOn: statementLine.valueOn,
@@ -724,7 +739,7 @@ export async function statementSummary(
         : null,
     creditCount: Number(counts?.credits ?? 0),
     creditsMatchedCount: Number(counts?.creditsMatched ?? 0),
-    giveDoClearingPaise: await giveDoClearingPaise(),
+    giveDoClearingPaise: await giveDoClearingPaise(reader),
     lineCount: Number(counts?.lines ?? 0),
     suggestionCount: Number(counts?.suggestions ?? 0),
     unmatchedCount: Number(counts?.unmatched ?? 0),
