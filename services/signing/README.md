@@ -1,13 +1,8 @@
 # pi-dash signing service
 
-Internal pyHanko service for governance PDFs (`docs/architecture/governance.md`, section 5). Phase 1 validates signed PDFs for the vault and the history import; preparing signature fields and embedding signatures arrive in later phases.
+Internal pyHanko service for governance PDFs. What it checks and why: [governance](../../docs/architecture/governance.md#signing-service).
 
-| Route | Auth | Does |
-|---|---|---|
-| `GET /health` | none | `{ ok, trustRoots }` |
-| `POST /validate` | `Authorization: Bearer $SIGNING_SERVICE_TOKEN` | Body: the PDF (max 25 MB). Returns `{ status: valid \| invalid \| no_signatures, signatures: [...] }` with certificate facts and pyHanko's verdicts, never document text |
-
-Environment: `SIGNING_SERVICE_TOKEN` (required; the web app sends the same value), `SIGNING_TRUST_ROOTS_DIR` (defaults to `roots/`), `SIGNING_ALLOW_FETCHING=true` to let validation fetch OCSP/CRL data.
+Every route except `GET /health` needs `Authorization: Bearer $SIGNING_SERVICE_TOKEN`, the value the web app sends. `SIGNING_TRUST_ROOTS_DIR` replaces `roots/`; `SIGNING_ALLOW_FETCHING=true` lets validation fetch OCSP and CRL data.
 
 ```bash
 cd services/signing

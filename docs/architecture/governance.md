@@ -1,14 +1,13 @@
 # Governance
 
-> **Status**: the trustee register, deed versions, documents vault and registrations are built. Circulars, signing, meetings, the compliance calendar, declarations and policies are designed below.
-> **Load when**: trustee register, offices and terms, deed versions, governance documents vault, organisation registrations, signing service (pyHanko), term reminders, circular resolutions, meetings, DSC, Aadhaar eSign, compliance calendar, conflict of interest, policy register, safeguarding.
+> **Load when**: trustee register, offices and terms, deed versions, governance documents vault, organisation registrations, signing service (pyHanko), circular resolutions, meetings, DSC, Aadhaar eSign, compliance calendar, conflict of interest, policy register, safeguarding.
 > **Related**: `authorization.md`, `file-uploads.md`, `notifications.md`, `jobs.md`, `finance-and-programmes.md`
 
 ## Goals
 
 Proud Indian is a public charitable trust under deed Doc. No. 864, Book IV, 2018-19, registered at the Shivajinagar (Indiranagar) Sub-Registrar on 16-03-2019. Bengaluru has no Charity Commissioner, so the deed alone governs Board decisions. Board records lived in Word files, emails and scans, and the 07-12-2025 resolution claimed a quorum it did not have.
 
-The dashboard holds the trustee register and the trust's deeds and registrations, runs circulars and meetings by the deed's rules, gets decisions signed by DSC or Aadhaar eSign, and drives a compliance calendar with evidence.
+The aim is one place that holds the trustee register and the trust's deeds and registrations, runs circulars and meetings by the deed's rules, gets decisions signed by DSC or Aadhaar eSign, and drives a compliance calendar with evidence.
 
 ## Decisions
 
@@ -44,14 +43,12 @@ The pending amendment sets quorum to half the trustees in office with a floor of
 
 ## Trustee register
 
-- Trustees, terms and offices sync through Zero (`governance.view`). Private details (PAN and Aadhaar names, encrypted PAN and Aadhaar reference, last four digits, address, email, phone) live in the `private` schema and change only through `saveTrusteeFn`.
-- Revealing the full PAN or Aadhaar reference needs `governance.kyc.view` and is audited, like `party.identifier.reveal`.
-- The rules live in `packages/shared/src/governance.ts`, shared by the page, the mutators and the reminder job: who was a trustee and in which offices on a date (`boardOn`), warnings, quorum and the deed version in force. Dates are `yyyy-MM-dd`.
+- PAN, Aadhaar and contact details live in the `private` schema, so Zero never syncs them, and change only through `saveTrusteeFn`. Revealing the full PAN or Aadhaar reference needs `governance.kyc.view` and is audited, like `party.identifier.reveal`.
+- Who held which term and office on a date (`boardOn`), the warnings and the quorum live in `packages/shared/src/governance.ts`, so the pages, the mutators and the reminder job agree.
 - A term's `ends_on` is its last day (inclusive); `ended_on` on a term or office is the first day out. An office with no end of its own ends with its holder's term.
 - Co-Founder is a flag on the trustee, not an office.
-- Each date carries its evidence: start and end documents on terms and offices, and the acceptance on a term. A date without a document shows as unevidenced; nothing stores that flag.
-- Mutators refuse a change that gives an office two holders, puts an office outside its holder's term, or overlaps a trustee's terms. Problems already in the register show as warnings: board size, an unreachable quorum, vacant MT or President, unevidenced dates.
-- `remind-trustee-terms` runs daily at 09:00 IST: 90, 30 and 7 days before a term ends, to the trustee and everyone with `governance.manage`, louder when the board would fall below two. Topic Governance: inbox and email.
+- Every date carries its evidence: start and end documents on terms and offices, and the acceptance on a term. "Unevidenced" is derived from a missing document, never stored.
+- Mutators refuse a change that gives an office two holders, puts an office outside its holder's term, or overlaps a trustee's terms. Problems the register already holds (board size, an unreachable quorum, a vacant MT or President, unevidenced dates) show as warnings instead, since the history has them.
 
 ## Deed versions
 
@@ -59,27 +56,21 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Vault and registrations
 
-- Documents (deeds, registration certificates, resolutions, minutes, resignations, acceptances, policies, evidence) upload to a `governance` temp key, then the server:
-  - checks the real type (PDF, JPEG, PNG or `.eml`);
-  - refuses a file the vault already holds (SHA-256);
-  - checks a PDF's signatures with the signing service, or reads an email's headers, never its body;
-  - matches signers to the register;
-  - copies it to a permanent key.
-- Reads go through `/api/attachments/download?kind=governanceDocument`: `governance.view`, or `finance.view` for registration certificates. The R2 orphan cleanup keeps every key the vault references.
-- The trust's registrations (12AB, 80G and others) keep their certificate as a vault document. Finance can open the Registrations page too.
+- Every upload is checked before it's kept: its real type, a duplicate by SHA-256, and its signatures, which are matched to trustees in the register. An email (`.eml`) is read for its headers only, never its body.
+- Downloads need `governance.view`, or `finance.view` for registration certificates. The R2 orphan cleanup keeps every key the vault references.
+- A registration (12AB, 80G and others) keeps its certificate as a vault document.
 
 ## Signing service
 
-`services/signing` is an internal FastAPI and pyHanko service with no public route; the web app calls it with a bearer token. `POST /validate` reports certificate facts (subject, issuer, serial, fingerprint, validity), integrity, coverage, modification level, timestamp and trust, never document text. Without it, uploads are stored unchecked and can be checked later from the document.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the roots in `services/signing/roots/`. Without it, uploads are stored unchecked and can be checked later.
 
-## Design for later phases
+## Not built yet
 
 ### Circulars
 
-- Draft (`governance.manage`), issue (MT only): freeze a revision, render the PDF, snapshot the trustees in office, notify them.
+- Drafted by `governance.manage` and issued by the MT: a frozen revision rendered as a PDF and sent to the trustees in office.
 - An assent is a signature on the PDF; an objection is a click with a reason; a conflicted trustee leaves the count.
-- Pass when signed assents reach the threshold: number it and apply the template's register change in the same transaction. Fail when the response date passes or objections make it unreachable. The issuer may withdraw.
-- Templates: ordinary, appointment or co-option, cessation, office-bearer, bank operation, registered office, deed amendment, removal under 7.12.
+- A circular passes when signed assents reach the threshold, taking its number and making its register change in the same transaction. It fails when the response date passes or objections make the threshold unreachable. The issuer may withdraw it.
 
 ### Signing
 
@@ -91,7 +82,7 @@ Notice by the deed's days; quorum and result per agenda item, by the deed in for
 
 ### Compliance, declarations and policies
 
-- A calendar of filings and renewals (Form 112, ITR-7, Forms 113 and 114, TDS, budget, accounts, 80G and 12AB renewals, term ends) with reminders; items close only with evidence.
+- A calendar of filings and renewals with reminders; items close only with evidence.
 - Yearly conflict-of-interest declarations that feed the finance warning; a policy register whose child-safeguarding policy gates events with children; annual-approval templates opened from calendar items; CSR utilisation certificates after finance Phase 5.
 
 ## Board at design time
