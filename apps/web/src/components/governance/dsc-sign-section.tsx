@@ -88,48 +88,46 @@ export function DscSignSection({
 
   const handleEnrol = useEventCallback(async () => {
     setBusy("enrol");
-    try {
-      const outcome = await runJob(() => enrol());
-      if (outcome.status === "completed") {
-        toast.success("Your DSC is set up");
-        refresh();
-      } else {
-        toast.error("Your DSC wasn't set up", {
-          description: outcome.error ?? undefined,
+    await runJob(() => enrol())
+      .then((outcome) => {
+        if (outcome.status === "completed") {
+          toast.success("Your DSC is set up");
+          refresh();
+        } else {
+          toast.error("Your DSC wasn't set up", {
+            description: outcome.error ?? undefined,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't start the helper", {
+          description: error instanceof Error ? error.message : undefined,
         });
-      }
-    } catch (error) {
-      toast.error("Couldn't start the helper", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-    } finally {
-      setBusy(null);
-    }
+      })
+      .finally(() => setBusy(null));
   });
 
   const handleSign = useEventCallback(async () => {
     setBusy("sign");
-    try {
-      const outcome = await onVote(() =>
-        runJob(() => sign({ data: { resolutionId } }))
-      );
-      if (!outcome) {
-        return;
-      }
-      if (outcome.status === "completed") {
-        toast.success("Signed with your DSC");
-      } else {
-        toast.error("Your signature wasn't added", {
-          description: outcome.error ?? undefined,
+    await onVote(() => runJob(() => sign({ data: { resolutionId } })))
+      .then((outcome) => {
+        if (!outcome) {
+          return;
+        }
+        if (outcome.status === "completed") {
+          toast.success("Signed with your DSC");
+        } else {
+          toast.error("Your signature wasn't added", {
+            description: outcome.error ?? undefined,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't sign", {
+          description: error instanceof Error ? error.message : undefined,
         });
-      }
-    } catch (error) {
-      toast.error("Couldn't sign", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-    } finally {
-      setBusy(null);
-    }
+      })
+      .finally(() => setBusy(null));
   });
 
   if (!status?.helperAvailable) {
