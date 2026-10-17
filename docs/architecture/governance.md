@@ -64,12 +64,6 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 `services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Without it, uploads are stored unchecked and can be checked later.
 
-## Not built yet
-
-### Aadhaar eSign
-
-A fallback to the DSC through Leegality (about ₹25 per signature; Leegality sees the full PDF), checked like any other signed copy.
-
 ## Board at design time
 
 After circular PI/TR/2026-27/001 (ink-signed 18 October 2026):

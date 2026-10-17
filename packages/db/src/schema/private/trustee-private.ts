@@ -88,3 +88,37 @@ export const signingJob = privateSchema.table(
     index("signing_job_user_idx").on(t.userId, t.createdAt),
   ]
 );
+
+/**
+ * One Aadhaar eSign through Leegality: the PDF a trustee signs there and the
+ * Leegality document it became. The signing link goes to the trustee and is
+ * never stored. Server only.
+ */
+export const esignRequest = privateSchema.table(
+  "esign_request",
+  {
+    /** sha256 of the PDF sent to Leegality; refuses a stale result. */
+    basedOnSha256: text("based_on_sha256").notNull(),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull(),
+    /** A message for the trustee, when it failed. */
+    error: text("error"),
+    id: uuid("id").primaryKey(),
+    /** Leegality's document ID. */
+    providerDocumentId: text("provider_document_id").notNull(),
+    resolutionId: uuid("resolution_id")
+      .notNull()
+      .references(() => resolution.id, { onDelete: "restrict" }),
+    status: signingJobStatusEnum("status").default("pending").notNull(),
+    trusteeId: uuid("trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    uniqueIndex("esign_request_document_uidx").on(t.providerDocumentId),
+    index("esign_request_resolution_idx").on(t.resolutionId, t.trusteeId),
+  ]
+);

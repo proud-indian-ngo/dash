@@ -108,6 +108,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 |---|---|---|
 | `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing`, `http://signing:8080` in `docker-compose.prod.yml`. Unset stores governance documents unchecked; they can be checked later |
 | `SIGNING_SERVICE_TOKEN` | No | Bearer token, 16+ characters (`openssl rand -hex 32`), shared with the signing service, which refuses requests without it |
+| `LEEGALITY_API_URL`, `LEEGALITY_AUTH_TOKEN`, `LEEGALITY_PROFILE_ID`, `LEEGALITY_PRIVATE_SALT` | No | All four turn on Aadhaar eSign: API base (`https://app1.leegality.com/api`, or `sandbox.` for testing), API token, workflow ID (webhook at `/api/leegality/webhook`) and webhook salt |
 
 ### Observability
 
@@ -166,9 +167,9 @@ For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy 
 
 ### Signing service
 
-`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents and prepares, signs and finalises circulars; without it, signed circulars can't be accepted. On the service, `SIGNING_TSA_URL` names the timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+`docker-compose.prod.yml` builds `services/signing` as `signing`, reachable only from the web service, with `SIGNING_SERVICE_TOKEN` set on both. Without it, signed circulars can't be accepted ([governance](docs/architecture/governance.md#signing-service)). On the service, `SIGNING_TSA_URL` names the timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
-The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`), so that must be the address trustees use. Publish the helper by pushing a tag `signing-helper-vX.Y.Z`. Before trustees enrol, confirm the HyperSecu PKCS#11 library path on a Windows laptop (the installer defaults to `C:\Windows\System32\castle.dll` and takes `-Module`).
+The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`), the address trustees use. Publish the helper by pushing a tag `signing-helper-vX.Y.Z`. Before trustees enrol, confirm the HyperSecu PKCS#11 library path on a Windows laptop (the installer defaults to `C:\Windows\System32\castle.dll` and takes `-Module`).
 
 ### WhatsApp gateway (optional)
 

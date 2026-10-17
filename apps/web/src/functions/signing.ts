@@ -4,6 +4,7 @@ import {
   createSigningJob,
   currentCertificate,
   jobStatusFor,
+  latestEsignFor,
 } from "@pi-dash/db/queries/signing";
 import { trustee } from "@pi-dash/db/schema/governance";
 import { env } from "@pi-dash/env/server";
@@ -14,6 +15,12 @@ import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
+import {
+  completeEsign,
+  esignStatusFor,
+  startEsign,
+} from "@/lib/governance/esign";
+import { esignConfigured, LeegalityError } from "@/lib/governance/leegality";
 import {
   SigningServiceError,
   signingServiceConfigured,
@@ -46,6 +53,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
   return run().catch((error: unknown) => {
     if (
       error instanceof CircularError ||
+      error instanceof LeegalityError ||
       error instanceof SigningServiceError
     ) {
       throw new Error(error.message);
@@ -185,4 +193,91 @@ export const getSigningJobStatus = createServerFn({ method: "POST" })
       throw new Error("Not found");
     }
     return status;
+  });
+
+// ── Aadhaar eSign (Leegality) ───────────────────────────────────────────────
+
+/** Whether eSign is offered, and the trustee's latest eSign on a circular. A read. */
+export const getEsignStatusFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ resolutionId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const me = await linkedTrustee(context.session.user.id);
+    return {
+      available: esignConfigured(),
+      latest: me ? await esignStatusFor(data.resolutionId, me.id) : null,
+    };
+  });
+
+/**
+ * Sends the circular's latest PDF to Leegality for the signed-in trustee and
+ * returns their signing link, which is never stored. Needs a recent sign-in.
+ */
+export const startEsignFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ resolutionId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "resolution.sign.start",
+        metadata: { method: "esign" },
+        target: { id: data.resolutionId, type: "resolution" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          return await startEsign({
+            resolutionId: data.resolutionId,
+            trustee: me,
+            userId: session.user.id,
+          });
+        })
+    );
+  });
+
+/**
+ * Asks Leegality whether the trustee has signed, for when the webhook is
+ * slow or not set up; records the signature if they have.
+ */
+export const checkEsignFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ resolutionId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "resolution.sign",
+        metadata: { method: "esign" },
+        target: { id: data.resolutionId, type: "resolution" },
+      },
+      () =>
+        userFacing(async () => {
+          const me = await linkedTrustee(session.user.id);
+          const request = me
+            ? await latestEsignFor(data.resolutionId, me.id)
+            : null;
+          if (!request) {
+            throw new CircularError("You haven't started an eSign here.");
+          }
+          return await completeEsign(request);
+        })
+    );
   });

@@ -9,7 +9,7 @@ import {
   signingCertificate,
   trustee,
 } from "../schema/governance";
-import { signingJob } from "../schema/private/trustee-private";
+import { esignRequest, signingJob } from "../schema/private/trustee-private";
 
 /** A signing link lives this long. */
 export const SIGNING_JOB_TTL_MS = 15 * 60 * 1000;
@@ -232,4 +232,72 @@ export async function archivesDue(today: string) {
     })
     .from(governanceDocument)
     .where(lte(governanceDocument.archiveRenewOn, today));
+}
+
+// ── Aadhaar eSign (Leegality) ───────────────────────────────────────────────
+
+export type EsignRequestRow = typeof esignRequest.$inferSelect;
+
+export async function recordEsignRequest(input: {
+  basedOnSha256: string;
+  providerDocumentId: string;
+  resolutionId: string;
+  trusteeId: string;
+  userId: string;
+}): Promise<string> {
+  const id = uuidv7();
+  await db.insert(esignRequest).values({
+    ...input,
+    createdAt: new Date(),
+    id,
+    status: "pending",
+  });
+  return id;
+}
+
+export async function esignByDocumentId(
+  providerDocumentId: string
+): Promise<EsignRequestRow | null> {
+  const [row] = await db
+    .select()
+    .from(esignRequest)
+    .where(eq(esignRequest.providerDocumentId, providerDocumentId))
+    .limit(1);
+  return row ?? null;
+}
+
+/** A trustee's latest eSign on a resolution. */
+export async function latestEsignFor(
+  resolutionId: string,
+  trusteeId: string
+): Promise<EsignRequestRow | null> {
+  const [row] = await db
+    .select()
+    .from(esignRequest)
+    .where(
+      and(
+        eq(esignRequest.resolutionId, resolutionId),
+        eq(esignRequest.trusteeId, trusteeId)
+      )
+    )
+    .orderBy(desc(esignRequest.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Settles a pending eSign once; a second settle does nothing. */
+export async function settleEsign(
+  id: string,
+  outcome: { error: string } | { status: "completed" }
+): Promise<boolean> {
+  const updated = await db
+    .update(esignRequest)
+    .set(
+      "error" in outcome
+        ? { completedAt: new Date(), error: outcome.error, status: "failed" }
+        : { completedAt: new Date(), error: null, status: "completed" }
+    )
+    .where(and(eq(esignRequest.id, id), eq(esignRequest.status, "pending")))
+    .returning({ id: esignRequest.id });
+  return updated.length > 0;
 }
