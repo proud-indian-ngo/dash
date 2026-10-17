@@ -36,7 +36,7 @@ import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
 
 export class CircularError extends Error {}
 
-/** Voting needs a sign-in from the last 10 minutes (design section 2). */
+/** Voting needs a sign-in from the last 10 minutes (governance.md, decisions). */
 export function assertRecentSignIn(
   session: { session: { createdAt: Date | string } },
   now: Date = new Date()
