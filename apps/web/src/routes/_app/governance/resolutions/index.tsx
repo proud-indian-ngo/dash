@@ -48,6 +48,24 @@ export const Route = createFileRoute("/_app/governance/resolutions/")({
   }),
 });
 
+const STATUS_ORDER = {
+  draft: 1,
+  failed: 3,
+  issued: 0,
+  passed: 2,
+  withdrawn: 3,
+} as const;
+
+/** Issued circulars first, then drafts, then decided ones; newest first within each. */
+function openFirstThenRecent(
+  a: { status: keyof typeof STATUS_ORDER | null; updatedAt: number | null },
+  b: { status: keyof typeof STATUS_ORDER | null; updatedAt: number | null }
+) {
+  const byStatus =
+    STATUS_ORDER[a.status ?? "draft"] - STATUS_ORDER[b.status ?? "draft"];
+  return byStatus === 0 ? (b.updatedAt ?? 0) - (a.updatedAt ?? 0) : byStatus;
+}
+
 function ResolutionsPage() {
   const { hasPermission } = useApp();
   const canSee =
@@ -73,13 +91,7 @@ function ResolutionsPage() {
     });
   });
 
-  const sorted = [...rows].sort((a, b) => {
-    const order = { draft: 1, failed: 3, issued: 0, passed: 2, withdrawn: 3 };
-    return (
-      order[a.status ?? "draft"] - order[b.status ?? "draft"] ||
-      (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
-    );
-  });
+  const sorted = [...rows].sort(openFirstThenRecent);
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">

@@ -85,41 +85,43 @@ export function ResolutionResponsePanel({
       return;
     }
     setUploading(true);
-    try {
-      const { key, presignedUrl } = await presign({
-        data: { fileName: file.name, fileSize: file.size, id: resolutionId },
-      });
-      const put = await fetch(presignedUrl, {
-        body: file,
-        headers: { "Content-Type": "application/pdf" },
-        method: "PUT",
-      });
-      if (!put.ok) {
-        throw new Error("The upload didn't go through. Try again.");
-      }
-      const result = await runVote(() =>
-        submit({ data: { id: resolutionId, tempKey: key } })
-      );
-      if (result) {
-        toast.success(
-          result.status === "passed"
-            ? `Signed. The resolution passed as ${result.number ?? ""}.`
-            : "Signed. Your signature is on the circular."
+    await presign({
+      data: { fileName: file.name, fileSize: file.size, id: resolutionId },
+    })
+      .then(async ({ key, presignedUrl }) => {
+        const put = await fetch(presignedUrl, {
+          body: file,
+          headers: { "Content-Type": "application/pdf" },
+          method: "PUT",
+        });
+        if (!put.ok) {
+          throw new Error("The upload didn't go through. Try again.");
+        }
+        return runVote(() =>
+          submit({ data: { id: resolutionId, tempKey: key } })
         );
-        setFile(null);
-      }
-    } catch (error) {
-      log.error({
-        action: "resolution.sign",
-        caughtError: errorText(error, "unknown"),
-        component: "ResolutionResponsePanel",
-      });
-      toast.error("Your signature wasn't accepted", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setUploading(false);
-    }
+      })
+      .then((result) => {
+        if (result) {
+          toast.success(
+            result.status === "passed"
+              ? `Signed. The resolution passed as ${result.number ?? ""}.`
+              : "Signed. Your signature is on the circular."
+          );
+          setFile(null);
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "resolution.sign",
+          caughtError: errorText(error, "unknown"),
+          component: "ResolutionResponsePanel",
+        });
+        toast.error("Your signature wasn't accepted", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setUploading(false));
   });
 
   const handleSend = useEventCallback(async () => {
@@ -127,26 +129,26 @@ export function ResolutionResponsePanel({
       return;
     }
     setSending(true);
-    try {
-      const result = await runVote(() =>
-        kind === "objection"
-          ? object({ data: { id: resolutionId, reason: text } })
-          : conflict({ data: { id: resolutionId, note: text } })
-      );
-      if (result) {
-        toast.success(
-          kind === "objection" ? "Objection recorded" : "Conflict declared"
-        );
-        setKind(null);
-        setText("");
-      }
-    } catch (error) {
-      toast.error("That wasn't recorded", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setSending(false);
-    }
+    await runVote(() =>
+      kind === "objection"
+        ? object({ data: { id: resolutionId, reason: text } })
+        : conflict({ data: { id: resolutionId, note: text } })
+    )
+      .then((result) => {
+        if (result) {
+          toast.success(
+            kind === "objection" ? "Objection recorded" : "Conflict declared"
+          );
+          setKind(null);
+          setText("");
+        }
+      })
+      .catch((error: unknown) => {
+        toast.error("That wasn't recorded", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setSending(false));
   });
 
   return (
