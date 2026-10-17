@@ -140,6 +140,10 @@ test.describe("governance documents (super admin)", () => {
   });
 
   test("adds a PDF to the vault and opens its details", async ({ page }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Adding to the vault uploads the file to R2, which CI does not have"
+    );
     test.slow();
     await page.goto("/governance/documents");
     await page.getByRole("button", { name: "Add document" }).click();
