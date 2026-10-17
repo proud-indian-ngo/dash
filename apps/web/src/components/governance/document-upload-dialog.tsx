@@ -105,50 +105,53 @@ function UploadForm({
         toast.error("The file is larger than 25 MB.");
         return;
       }
-      try {
-        const mimeType = file.type || "application/octet-stream";
-        const { key, presignedUrl } = await presign({
-          data: { fileName: file.name, fileSize: file.size, mimeType },
+      const mimeType = file.type || "application/octet-stream";
+      await presign({
+        data: { fileName: file.name, fileSize: file.size, mimeType },
+      })
+        .then(async ({ key, presignedUrl }) => {
+          const put = await fetch(presignedUrl, {
+            body: file,
+            headers: { "Content-Type": mimeType },
+            method: "PUT",
+          });
+          if (!put.ok) {
+            throw new Error("The upload didn't go through. Try again.");
+          }
+          return create({
+            data: {
+              datedOn,
+              fileName: file.name,
+              kind: value.kind,
+              note: value.note,
+              sourceFormat: value.sourceFormat,
+              tempKey: key,
+              title: value.title,
+            },
+          });
+        })
+        .then((result) => {
+          const signed = result.report?.signatures.length ?? 0;
+          toast.success("Added to the vault", {
+            description:
+              signed > 0
+                ? `${signed === 1 ? "1 signature" : `${signed} signatures`} checked: ${result.report?.status === "valid" ? "valid" : (result.report?.status ?? "")}.`
+                : undefined,
+          });
+          onUploaded(result.id);
+          onDone();
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "governanceDocument.create",
+            caughtError: error instanceof Error ? error.message : String(error),
+            component: "DocumentUploadDialog",
+          });
+          toast.error("Couldn't add the document", {
+            description:
+              error instanceof Error ? error.message : "Something went wrong",
+          });
         });
-        const put = await fetch(presignedUrl, {
-          body: file,
-          headers: { "Content-Type": mimeType },
-          method: "PUT",
-        });
-        if (!put.ok) {
-          throw new Error("The upload didn't go through. Try again.");
-        }
-        const result = await create({
-          data: {
-            datedOn,
-            fileName: file.name,
-            kind: value.kind,
-            note: value.note,
-            sourceFormat: value.sourceFormat,
-            tempKey: key,
-            title: value.title,
-          },
-        });
-        const signed = result.report?.signatures.length ?? 0;
-        toast.success("Added to the vault", {
-          description:
-            signed > 0
-              ? `${signed === 1 ? "1 signature" : `${signed} signatures`} checked: ${result.report?.status === "valid" ? "valid" : (result.report?.status ?? "")}.`
-              : undefined,
-        });
-        onUploaded(result.id);
-        onDone();
-      } catch (error) {
-        log.error({
-          action: "governanceDocument.create",
-          caughtError: error instanceof Error ? error.message : String(error),
-          component: "DocumentUploadDialog",
-        });
-        toast.error("Couldn't add the document", {
-          description:
-            error instanceof Error ? error.message : "Something went wrong",
-        });
-      }
     },
   });
   const handleFile = useEventCallback(

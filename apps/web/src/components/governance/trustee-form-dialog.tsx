@@ -94,44 +94,45 @@ function TrusteeForm({
       userId: trustee?.userId ?? NO_ACCOUNT,
     } satisfies FormValues as FormValues,
     onSubmit: async ({ value }) => {
-      try {
-        await save({
-          data: {
-            aadhaarName: value.aadhaarName,
-            // Blank keeps what is stored.
-            aadhaarReference:
-              value.aadhaarReference.trim() === ""
-                ? undefined
-                : value.aadhaarReference,
-            address: value.address,
-            email: value.email,
-            id: trusteeId,
-            isCoFounder: value.isCoFounder,
-            legalName: value.legalName,
-            mode: isEdit ? "update" : "create",
-            pan: value.pan.trim() === "" ? undefined : value.pan,
-            panName: value.panName,
-            phone: value.phone,
-            userId: value.userId === NO_ACCOUNT ? null : value.userId,
-          },
+      await save({
+        data: {
+          aadhaarName: value.aadhaarName,
+          // Blank keeps what is stored.
+          aadhaarReference:
+            value.aadhaarReference.trim() === ""
+              ? undefined
+              : value.aadhaarReference,
+          address: value.address,
+          email: value.email,
+          id: trusteeId,
+          isCoFounder: value.isCoFounder,
+          legalName: value.legalName,
+          mode: isEdit ? "update" : "create",
+          pan: value.pan.trim() === "" ? undefined : value.pan,
+          panName: value.panName,
+          phone: value.phone,
+          userId: value.userId === NO_ACCOUNT ? null : value.userId,
+        },
+      })
+        .then(() => {
+          toast.success(isEdit ? "Trustee updated" : "Trustee added");
+          onSaved(trusteeId);
+          onOpenChange(false);
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: isEdit ? "trustee.update" : "trustee.create",
+            caughtError: error instanceof Error ? error.message : String(error),
+            component: "TrusteeFormDialog",
+          });
+          toast.error(
+            isEdit ? "Couldn't update trustee" : "Couldn't add trustee",
+            {
+              description:
+                error instanceof Error ? error.message : "Something went wrong",
+            }
+          );
         });
-        toast.success(isEdit ? "Trustee updated" : "Trustee added");
-        onSaved(trusteeId);
-        onOpenChange(false);
-      } catch (error) {
-        log.error({
-          action: isEdit ? "trustee.update" : "trustee.create",
-          caughtError: error instanceof Error ? error.message : String(error),
-          component: "TrusteeFormDialog",
-        });
-        toast.error(
-          isEdit ? "Couldn't update trustee" : "Couldn't add trustee",
-          {
-            description:
-              error instanceof Error ? error.message : "Something went wrong",
-          }
-        );
-      }
     },
     validators: { onChange: formSchema, onSubmit: formSchema },
   });
