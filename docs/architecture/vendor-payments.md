@@ -32,6 +32,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - Reject is refused once any payment is approved ("approve it instead"); otherwise it rejects the pending payments too.
 - `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment.
 - Payments are recorded only in `PAYABLE_STATUSES` (`approved`, `partially_paid`, `paid`, in `packages/zero/src/vendor-payment-constants.ts`). An admin's payment is auto-approved; others need approval, which the server refuses until the request is approved.
+- Only whoever recorded a payment edits or deletes it (delete also needs `requests.delete_own`), while it is pending and the invoice is not locked. The request's owner cannot change a payment someone else recorded. `requests.edit_all` and `requests.delete_all` holders can change any payment.
 
 ## Invoice phase
 

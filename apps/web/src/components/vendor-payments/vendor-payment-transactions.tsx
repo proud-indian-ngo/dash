@@ -35,6 +35,7 @@ import {
 import { getStatusBadge } from "@/lib/status-badge";
 import { mapTransactionToFormValues } from "@/lib/submission-mappers";
 
+import { getTransactionActions } from "./vendor-payment-transaction-actions";
 import { TransactionFormDialog } from "./vendor-payment-transaction-form";
 import type {
   VendorPaymentTransactionWithRelations,
@@ -288,21 +289,22 @@ export function VendorPaymentTransactions({
                   const voided = requestVoided || isVoided(t);
                   const posted = postedIds.has(t.id);
                   const isPending = t.status === "pending" && !voided;
-                  const isTransactionOwner = isOwner || t.userId === user.id;
-                  const ownerCanModify =
-                    isPending && isTransactionOwner && !isInvoiceLocked;
-                  const canEditTxn = !voided && (ownerCanModify || canEditAll);
-                  // In the books or voided: kept as the record, so voided
-                  // instead of deleted.
-                  const canDeleteTxn =
-                    !(voided || posted) &&
-                    ((ownerCanModify && canDeleteOwn) || canDeleteAll);
+                  const { canEdit, canDelete } = getTransactionActions({
+                    canDeleteAll,
+                    canDeleteOwn,
+                    canEditAll,
+                    isInvoiceLocked,
+                    isPending,
+                    isPosted: posted,
+                    isRecorder: t.userId === user.id,
+                    isVoided: voided,
+                  });
                   return (
                     <TransactionRow
                       badge={badge}
                       canApprove={canReviewPayments}
-                      canDeleteTxn={canDeleteTxn}
-                      canEditTxn={canEditTxn}
+                      canDeleteTxn={canDelete}
+                      canEditTxn={canEdit}
                       canVoidTxn={canVoid && posted && !voided}
                       isPending={isPending}
                       isVoided={voided}
