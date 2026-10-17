@@ -5,6 +5,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
@@ -145,6 +146,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Male / Center",
+        icon: COLUMN_ICONS.male,
         kind: "count",
         skeleton: SKELETON_LIMIT,
       },
@@ -161,6 +163,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Female / Center",
+        icon: COLUMN_ICONS.female,
         kind: "count",
         skeleton: SKELETON_LIMIT,
       },
@@ -177,6 +180,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Competitions / Student",
+        icon: COLUMN_ICONS.competition,
         kind: "count",
         skeleton: SKELETON_LIMIT,
       },
@@ -193,6 +197,7 @@ export function AgeCategoriesTable({
       ),
       meta: {
         headerTitle: "Per Competition Category",
+        icon: COLUMN_ICONS.category,
         kind: "count",
         skeleton: SKELETON_LIMIT,
       },

@@ -4,6 +4,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
@@ -89,6 +90,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     meta: {
       compact: "primary",
       headerTitle: "Action",
+      icon: COLUMN_ICONS.action,
       kind: "tag",
       skeleton: SKELETON_TEXT,
     },
@@ -109,7 +111,12 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Target" visibility={true} />
     ),
     id: "target",
-    meta: { headerTitle: "Target", kind: "text", skeleton: SKELETON_TEXT },
+    meta: {
+      headerTitle: "Target",
+      icon: COLUMN_ICONS.target,
+      kind: "text",
+      skeleton: SKELETON_TEXT,
+    },
     size: 220,
   },
   {

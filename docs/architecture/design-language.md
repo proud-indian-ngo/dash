@@ -36,6 +36,7 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 - Charts: `--chart-*` tokens.
 - Active nav item, tab or toggle: sky ink on sky wash (`bg-sidebar-accent text-sidebar-accent-foreground`). This is the only active state.
 - Type: Geist (`font-sans`) at 13px (`text-sm`) for reading text. Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), applied by column `meta.kind`.
+- Table header icons: a column that means a domain concept (Programme, Center, Vendor) sets `meta.icon` from `COLUMN_ICONS`, so the concept looks the same in every table. Other columns get their `meta.kind` icon.
 - Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
 - Sizes: buttons 32px. Inputs, selects and date pickers 36px (40px on touch), except the 32px table toolbar search. One-line table rows 36px.
 

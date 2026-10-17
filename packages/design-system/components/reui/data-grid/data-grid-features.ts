@@ -1,3 +1,4 @@
+import type { IconSvgElement } from "@hugeicons/react"
 import type { ReactNode } from "react"
 import type {
   Cell,
@@ -72,6 +73,8 @@ export type DataGridColumnMeta = {
   expandedContent?(row: object): ReactNode
   headerClassName?: string
   headerTitle?: string
+  /** Header icon for what the column means; overrides the kind's icon. */
+  icon?: IconSvgElement
   kind?: DataGridColumnKind
   skeleton?: ReactNode
   stopRowClick?: boolean

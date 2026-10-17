@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/zero/kalakriti-center-scan-rules";
 import { format } from "date-fns";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createStudentFilterFields,
@@ -162,6 +163,7 @@ export function StudentTable({
       meta: {
         compact: "primary",
         headerTitle: "Student",
+        icon: COLUMN_ICONS.student,
         kind: "person",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
@@ -182,6 +184,7 @@ export function StudentTable({
       ),
       meta: {
         headerTitle: "Center",
+        icon: COLUMN_ICONS.center,
         kind: "text",
         compact: "primary",
         skeleton: <Skeleton className="h-5 w-32" />,
@@ -227,6 +230,7 @@ export function StudentTable({
       meta: {
         compact: "primary",
         headerTitle: "Transport status",
+        icon: COLUMN_ICONS.transport,
         kind: "status",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -249,6 +253,7 @@ export function StudentTable({
       id: "dateOfBirth",
       meta: {
         headerTitle: "Date of birth",
+        icon: COLUMN_ICONS.dateOfBirth,
         kind: "date",
         skeleton: <Skeleton className="h-5 w-28" />,
       },
@@ -269,6 +274,7 @@ export function StudentTable({
       id: "gender",
       meta: {
         headerTitle: "Gender",
+        icon: COLUMN_ICONS.gender,
         kind: "tag",
         skeleton: <Skeleton className="h-5 w-16" />,
       },
@@ -291,6 +297,7 @@ export function StudentTable({
       id: "ageCategory",
       meta: {
         headerTitle: "Age Category",
+        icon: COLUMN_ICONS.ageCategory,
         kind: "tag",
         skeleton: <Skeleton className="h-5 w-28" />,
       },

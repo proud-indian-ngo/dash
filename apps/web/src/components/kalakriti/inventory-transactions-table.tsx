@@ -6,6 +6,7 @@ import { KALAKRITI_RESPONSIBILITY_LABELS } from "@pi-dash/shared/kalakriti";
 import { KALAKRITI_INVENTORY_LABELS } from "@pi-dash/shared/kalakriti-inventory";
 import { format } from "date-fns";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField } from "@/components/data-table/filter-fields";
 import { DATE_TIME } from "@/lib/date-formats";
@@ -139,6 +140,7 @@ export function InventoryTransactionsTable({
           : row.original.quantity,
       meta: {
         headerTitle: "Change",
+        icon: COLUMN_ICONS.change,
         kind: "count",
         skeleton: <Skeleton className="h-5 w-12" />,
       },
@@ -157,6 +159,7 @@ export function InventoryTransactionsTable({
       cell: ({ row }) => row.original.quantityAfter,
       meta: {
         headerTitle: "Balance",
+        icon: COLUMN_ICONS.stock,
         kind: "count",
         skeleton: <Skeleton className="h-5 w-12" />,
       },

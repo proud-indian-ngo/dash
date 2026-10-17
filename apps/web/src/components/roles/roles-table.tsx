@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createRoleFilterFields,
@@ -154,6 +155,7 @@ export function RolesTable({
       id: "description",
       meta: {
         headerTitle: "Description",
+        icon: COLUMN_ICONS.description,
         kind: "text",
         skeleton: SKELETON_DESCRIPTION,
       },
@@ -191,6 +193,7 @@ export function RolesTable({
       id: "permissionCount",
       meta: {
         headerTitle: "Permissions",
+        icon: COLUMN_ICONS.permissions,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },
@@ -205,7 +208,12 @@ export function RolesTable({
         <DataGridColumnHeader column={column} title="Users" visibility={true} />
       ),
       id: "userCount",
-      meta: { headerTitle: "Users", kind: "count", skeleton: SKELETON_COUNT },
+      meta: {
+        headerTitle: "Users",
+        icon: COLUMN_ICONS.people,
+        kind: "count",
+        skeleton: SKELETON_COUNT,
+      },
       size: 110,
     },
     {

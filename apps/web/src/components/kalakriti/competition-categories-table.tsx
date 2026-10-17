@@ -11,6 +11,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
   createCompetitionCategoryFilterFields,
@@ -156,6 +157,7 @@ export function CompetitionCategoriesTable({
       meta: {
         compact: "primary",
         headerTitle: "Category",
+        icon: COLUMN_ICONS.category,
         kind: "tag",
         skeleton: SKELETON_NAME,
       },
@@ -172,6 +174,7 @@ export function CompetitionCategoriesTable({
       ),
       meta: {
         headerTitle: "Display order",
+        icon: COLUMN_ICONS.displayOrder,
         kind: "count",
         skeleton: SKELETON_VALUE,
       },

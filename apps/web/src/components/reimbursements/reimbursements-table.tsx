@@ -19,6 +19,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
 import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -339,7 +340,12 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="City" visibility={true} />
       ),
       id: "city",
-      meta: { headerTitle: "City", kind: "location", skeleton: SKELETON_TYPE },
+      meta: {
+        headerTitle: "City",
+        icon: COLUMN_ICONS.city,
+        kind: "location",
+        skeleton: SKELETON_TYPE,
+      },
       minSize: 100,
       size: 120,
     },
@@ -356,7 +362,12 @@ export function ReimbursementsTable({
         <DataGridColumnHeader column={column} title="Event" visibility={true} />
       ),
       id: "event",
-      meta: { headerTitle: "Event", kind: "text", skeleton: SKELETON_TYPE },
+      meta: {
+        headerTitle: "Event",
+        icon: COLUMN_ICONS.event,
+        kind: "text",
+        skeleton: SKELETON_TYPE,
+      },
       minSize: 120,
       size: 180,
     },
@@ -382,6 +393,7 @@ export function ReimbursementsTable({
       id: "programme",
       meta: {
         headerTitle: "Programme",
+        icon: COLUMN_ICONS.programme,
         kind: "text",
         skeleton: SKELETON_TYPE,
       },
@@ -508,7 +520,12 @@ export function ReimbursementsTable({
         />
       ),
       id: "submittedAt",
-      meta: { headerTitle: "Submitted", kind: "date", skeleton: SKELETON_DATE },
+      meta: {
+        headerTitle: "Submitted",
+        icon: COLUMN_ICONS.submittedAt,
+        kind: "date",
+        skeleton: SKELETON_DATE,
+      },
       size: 130,
     },
     {

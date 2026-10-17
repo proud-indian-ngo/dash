@@ -20,6 +20,7 @@ import {
 import { getKalakritiFoodStatus } from "@pi-dash/zero/kalakriti-food-rules";
 import { type ReactNode, useEffect } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import {
@@ -321,6 +322,7 @@ export function VolunteersTable({
       },
       meta: {
         headerTitle: "Checked in",
+        icon: COLUMN_ICONS.checkIn,
         kind: "status",
         skeleton: SKELETON_NAME,
       },
@@ -332,7 +334,12 @@ export function VolunteersTable({
         <DataGridColumnHeader column={column} title="Group" visibility={true} />
       ),
       id: "registrationGroup",
-      meta: { headerTitle: "Group", kind: "tag", skeleton: SKELETON_NAME },
+      meta: {
+        headerTitle: "Group",
+        icon: COLUMN_ICONS.group,
+        kind: "tag",
+        skeleton: SKELETON_NAME,
+      },
       size: 160,
     },
     {
@@ -388,6 +395,7 @@ export function VolunteersTable({
       meta: {
         compact: "primary",
         headerTitle: "Roles",
+        icon: COLUMN_ICONS.role,
         kind: "tag",
         skeleton: SKELETON_ROLES,
       },

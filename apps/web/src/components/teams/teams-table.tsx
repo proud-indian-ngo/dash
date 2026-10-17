@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -151,6 +152,7 @@ export function TeamsTable({
       id: "description",
       meta: {
         headerTitle: "Description",
+        icon: COLUMN_ICONS.description,
         kind: "text",
         skeleton: SKELETON_DESC,
       },
@@ -172,6 +174,7 @@ export function TeamsTable({
       meta: {
         compact: "primary",
         headerTitle: "Members",
+        icon: COLUMN_ICONS.people,
         kind: "count",
         skeleton: SKELETON_COUNT,
       },
@@ -194,6 +197,7 @@ export function TeamsTable({
       id: "whatsappGroup",
       meta: {
         headerTitle: "WhatsApp Group",
+        icon: COLUMN_ICONS.whatsappGroup,
         kind: "text",
         skeleton: SKELETON_WA,
       },

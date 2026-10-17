@@ -9,6 +9,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { numberField } from "@/components/data-table/filter-fields";
 import {
@@ -172,6 +173,7 @@ export function GuardiansTable({
       meta: {
         compact: "primary",
         headerTitle: "Assigned Centers",
+        icon: COLUMN_ICONS.center,
         skeleton: SKELETON_NAME,
       },
       size: 260,
@@ -247,6 +249,7 @@ export function GuardiansTable({
       meta: {
         compact: "collapsed",
         headerTitle: "Check-in",
+        icon: COLUMN_ICONS.checkIn,
         kind: "status",
         skeleton: SKELETON_STATUS,
       },

@@ -16,6 +16,7 @@ import {
 import { formatPaise } from "@pi-dash/shared/money";
 import { useEffect, useRef } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { useDataTableGroupBy } from "@/components/data-table/data-table-group";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { Tag } from "@/components/shared/status-badge";
@@ -175,6 +176,7 @@ export function CashBookTab({
       meta: {
         compact: "trailing",
         headerTitle: "Money In",
+        icon: COLUMN_ICONS.moneyIn,
         kind: "amount",
         skeleton: SKELETON,
       },
@@ -197,6 +199,7 @@ export function CashBookTab({
       meta: {
         compact: "trailing",
         headerTitle: "Money Out",
+        icon: COLUMN_ICONS.moneyOut,
         kind: "amount",
         skeleton: SKELETON,
       },
@@ -214,7 +217,12 @@ export function CashBookTab({
       ),
       enableSorting: false,
       id: "balance",
-      meta: { headerTitle: "Balance", kind: "amount", skeleton: SKELETON },
+      meta: {
+        headerTitle: "Balance",
+        icon: COLUMN_ICONS.cashBalance,
+        kind: "amount",
+        skeleton: SKELETON,
+      },
       size: 130,
     },
   ];

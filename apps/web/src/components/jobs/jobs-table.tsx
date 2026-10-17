@@ -5,6 +5,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
 import { createJobFilterFields } from "@/components/jobs/job-filters";
@@ -45,6 +46,7 @@ function createJobColumns(
       meta: {
         compact: "primary",
         headerTitle: "Queue",
+        icon: COLUMN_ICONS.queue,
         kind: "tag",
         skeleton: SKELETON_QUEUE,
       },
@@ -80,6 +82,7 @@ function createJobColumns(
       id: "createdOn",
       meta: {
         headerTitle: "Created",
+        icon: COLUMN_ICONS.createdAt,
         kind: "date",
         skeleton: SKELETON_DATE,
       },
@@ -97,6 +100,7 @@ function createJobColumns(
       id: "startAfter",
       meta: {
         headerTitle: "Scheduled For",
+        icon: COLUMN_ICONS.scheduledAt,
         kind: "date",
         skeleton: SKELETON_DATE,
       },
@@ -114,6 +118,7 @@ function createJobColumns(
       id: "completedOn",
       meta: {
         headerTitle: "Completed At",
+        icon: COLUMN_ICONS.completedAt,
         kind: "date",
         skeleton: SKELETON_DATE,
       },

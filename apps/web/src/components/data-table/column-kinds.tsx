@@ -12,7 +12,7 @@ import {
   TextIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import type {
   DataGridColumnDef,
   DataGridColumnKind,
@@ -35,8 +35,12 @@ const KIND_ICON: Record<DataGridColumnKind, typeof TextIcon> = {
   text: TextIcon,
 };
 
-export function columnKindIcon(kind: DataGridColumnKind) {
-  return KIND_ICON[kind];
+/** The column's header icon: its own `meta.icon`, else its kind's. */
+export function columnIcon<TData extends object>(
+  column: DataGridColumnDef<TData>
+): IconSvgElement | undefined {
+  const kind = column.meta?.kind;
+  return column.meta?.icon ?? (kind ? KIND_ICON[kind] : undefined);
 }
 
 /** Kinds set in Paper Mono, the data font. */
@@ -53,12 +57,12 @@ export const DATA_FONT_CLASS = "font-mono text-xs tabular-nums **:text-xs";
 
 function withHeaderIcon<TData extends object>(
   header: DataGridColumnDef<TData>["header"],
-  kind: DataGridColumnKind
+  svg: IconSvgElement
 ): DataGridColumnDef<TData>["header"] {
   if (typeof header !== "function") {
     return header;
   }
-  const icon = <HugeiconsIcon icon={KIND_ICON[kind]} strokeWidth={2} />;
+  const icon = <HugeiconsIcon icon={svg} strokeWidth={2} />;
   return (context) => {
     const rendered = header(context);
     if (
@@ -72,24 +76,25 @@ function withHeaderIcon<TData extends object>(
 }
 
 /**
- * Turns `meta.kind` into a header icon and, for numbers, dates, IDs and
- * contact details, the data font on the cell.
+ * Turns `meta.icon` or `meta.kind` into a header icon and, for numbers, dates,
+ * IDs and contact details, the data font on the cell.
  */
 export function applyColumnKinds<TData extends object>(
   columns: DataGridColumnDef<TData>[]
 ): DataGridColumnDef<TData>[] {
   return columns.map((column) => {
-    const kind = column.meta?.kind;
-    if (!kind) {
+    const icon = columnIcon(column);
+    if (!icon) {
       return column;
     }
+    const kind = column.meta?.kind;
     return {
       ...column,
-      header: withHeaderIcon(column.header, kind),
+      header: withHeaderIcon(column.header, icon),
       meta: {
         ...column.meta,
         cellClassName: cn(
-          DATA_FONT_KINDS.has(kind) && DATA_FONT_CLASS,
+          kind && DATA_FONT_KINDS.has(kind) && DATA_FONT_CLASS,
           column.meta?.cellClassName
         ),
       },

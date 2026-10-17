@@ -24,6 +24,7 @@ import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { removeFilterPath } from "@/components/data-table/compile-filter-query";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -219,6 +220,7 @@ export function ContributionsTable({
       meta: {
         compact: "primary",
         headerTitle: "Donor",
+        icon: COLUMN_ICONS.donor,
         kind: "text",
         skeleton: SKELETON_NAME,
       },
@@ -314,7 +316,11 @@ export function ContributionsTable({
         />
       ),
       id: "programme",
-      meta: { headerTitle: "Programme", skeleton: SKELETON_NAME },
+      meta: {
+        headerTitle: "Programme",
+        icon: COLUMN_ICONS.programme,
+        skeleton: SKELETON_NAME,
+      },
       size: 200,
     },
     {

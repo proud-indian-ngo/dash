@@ -11,6 +11,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { formatPaise } from "@pi-dash/shared/money";
 import { format } from "date-fns";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -208,6 +209,7 @@ export function ReceiptsTable({
       meta: {
         compact: "primary",
         headerTitle: "Donor",
+        icon: COLUMN_ICONS.donor,
         skeleton: SKELETON_TEXT,
       },
       size: 220,

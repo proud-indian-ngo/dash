@@ -3,6 +3,7 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { type ReactNode } from "react";
 
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { createKalakritiAuditFilterFields } from "@/components/kalakriti/kalakriti-audit-filters";
 import { InlineMetaCell } from "@/components/shared/inline-meta-cell";
@@ -81,6 +82,7 @@ function createColumns(
       meta: {
         compact: "primary",
         headerTitle: "Action",
+        icon: COLUMN_ICONS.action,
         kind: "tag",
         skeleton: BADGE_SKELETON,
       },
@@ -98,7 +100,12 @@ function createColumns(
         />
       ),
       id: "domain",
-      meta: { headerTitle: "Domain", kind: "tag", skeleton: TEXT_SKELETON },
+      meta: {
+        headerTitle: "Domain",
+        icon: COLUMN_ICONS.domain,
+        kind: "tag",
+        skeleton: TEXT_SKELETON,
+      },
       size: 210,
     },
     {
@@ -120,7 +127,12 @@ function createColumns(
         />
       ),
       id: "target",
-      meta: { headerTitle: "Target", kind: "text", skeleton: TEXT_SKELETON },
+      meta: {
+        headerTitle: "Target",
+        icon: COLUMN_ICONS.target,
+        kind: "text",
+        skeleton: TEXT_SKELETON,
+      },
       size: 220,
     },
     {
@@ -139,7 +151,12 @@ function createColumns(
         />
       ),
       id: "reason",
-      meta: { headerTitle: "Reason", kind: "text", skeleton: TEXT_SKELETON },
+      meta: {
+        headerTitle: "Reason",
+        icon: COLUMN_ICONS.reason,
+        kind: "text",
+        skeleton: TEXT_SKELETON,
+      },
       size: 260,
     },
   ];
