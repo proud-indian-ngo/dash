@@ -31,7 +31,7 @@ import {
   trusteeTerm,
 } from "../schema/governance";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Pick<typeof db, "select">;
 
 export class ResolutionError extends Error {}
@@ -353,6 +353,11 @@ export async function issueResolution(input: IssueInput): Promise<void> {
     if (row.status !== "draft") {
       throw new ResolutionError("Only a draft can be issued.");
     }
+    if (row.kind !== "circular") {
+      throw new ResolutionError(
+        "This resolution is on a meeting's agenda and is decided there."
+      );
+    }
     const now = new Date();
     const revisionId = uuidv7();
     await tx.insert(resolutionRevision).values({
@@ -632,44 +637,65 @@ async function decideInTx(
       tally,
     };
   }
-  const now = new Date();
   if (tally.outcome === "failed") {
-    await tx
-      .update(resolution)
-      .set({
-        decidedAt: now,
-        decidedOn: today,
-        outcomeNote: tally.reason,
-        status: "failed",
-        updatedAt: now,
-      })
-      .where(eq(resolution.id, resolutionId));
+    await failInTx(tx, resolutionId, today, tally.reason);
     return { number: null, status: "failed", tally };
   }
-  const register = await loadRegister(tx, today);
-  const problem = effectRegisterProblem(register, row.effect);
-  if (problem) {
-    const note = `Enough trustees signed, but the register change can't be made: ${problem}`;
-    await tx
-      .update(resolution)
-      .set({
-        decidedAt: now,
-        decidedOn: today,
-        outcomeNote: note,
-        status: "failed",
-        updatedAt: now,
-      })
-      .where(eq(resolution.id, resolutionId));
+  const passed = await passInTx(tx, row, today);
+  if (passed.status === "failed") {
     return {
       number: null,
       status: "failed",
-      tally: { ...tally, reason: note },
+      tally: { ...tally, reason: passed.note },
     };
   }
+  return { number: passed.number, status: "passed", tally };
+}
+
+/** Marks a resolution failed with the reason, in the caller's transaction. */
+export async function failInTx(
+  tx: Tx,
+  resolutionId: string,
+  today: string,
+  note: string | null
+): Promise<void> {
+  const now = new Date();
+  await tx
+    .update(resolution)
+    .set({
+      decidedAt: now,
+      decidedOn: today,
+      outcomeNote: note,
+      status: "failed",
+      updatedAt: now,
+    })
+    .where(eq(resolution.id, resolutionId));
+}
+
+/**
+ * Passes a resolution in the caller's transaction: the next number in its
+ * financial year and its register change. A change the register can no
+ * longer take fails it with the reason instead.
+ */
+export async function passInTx(
+  tx: Tx,
+  row: typeof resolution.$inferSelect,
+  today: string
+): Promise<
+  { number: string; status: "passed" } | { note: string; status: "failed" }
+> {
+  const register = await loadRegister(tx, today);
+  const problem = effectRegisterProblem(register, row.effect);
+  if (problem) {
+    const note = `Enough trustees agreed, but the register change can't be made: ${problem}`;
+    await failInTx(tx, row.id, today, note);
+    return { note, status: "failed" };
+  }
+  const now = new Date();
   const fiscalYear = financialYearOf(today).label;
   const sequence = await nextSequence(tx, fiscalYear);
   const number = formatResolutionNumber(fiscalYear, sequence);
-  await applyEffect(tx, resolutionId, row.effect, null);
+  await applyEffect(tx, row.id, row.effect, null);
   await tx
     .update(resolution)
     .set({
@@ -682,8 +708,8 @@ async function decideInTx(
       status: "passed",
       updatedAt: now,
     })
-    .where(eq(resolution.id, resolutionId));
-  return { number, status: "passed", tally };
+    .where(eq(resolution.id, row.id));
+  return { number, status: "passed" };
 }
 
 /** Settles a resolution whose outcome is due (the closing job, and after each response). */

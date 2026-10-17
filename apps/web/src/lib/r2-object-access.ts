@@ -76,7 +76,7 @@ export interface GovernanceDocumentR2ObjectRecord {
   kind: string;
 }
 
-/** A circular's PDF: governance, and the trustees it went to. */
+/** A circular's PDF, or minutes for signing: governance, and the trustees who sign it. */
 export interface ResolutionR2ObjectRecord {
   access: "resolution";
   filename: string;

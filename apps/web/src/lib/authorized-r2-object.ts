@@ -8,9 +8,11 @@ import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import {
   governanceDocument,
   resolution,
+  trustee,
   resolutionResponse,
   resolutionRevision,
 } from "@pi-dash/db/schema/governance";
+import { meeting } from "@pi-dash/db/schema/meetings";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -290,6 +292,30 @@ async function resolveResolutionPdf(
   };
 }
 
+/** The minutes as generated, before the chair signs them. */
+async function resolveMeetingMinutes(
+  ref: AssetRef<"meetingMinutes">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      chairUserId: trustee.userId,
+      key: meeting.minutesObjectKey,
+    })
+    .from(meeting)
+    .leftJoin(trustee, eq(trustee.id, meeting.chairTrusteeId))
+    .where(eq(meeting.id, ref.id))
+    .limit(1);
+  if (!row?.key) {
+    return null;
+  }
+  return {
+    access: "resolution",
+    filename: `minutes-${ref.id.slice(-8)}.pdf`,
+    key: row.key,
+    recipientUserIds: row.chairUserId ? [row.chairUserId] : [],
+  };
+}
+
 async function resolveKalakritiEntryMusic(
   ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
 ): Promise<R2ObjectRecord | null> {
@@ -330,6 +356,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveKalakritiInventoryPhoto(ref);
     case "kalakritiScorecard":
       return resolveKalakritiScorecard(ref);
+    case "meetingMinutes":
+      return resolveMeetingMinutes(ref);
     case "reimbursementAttachment":
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":

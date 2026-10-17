@@ -39,8 +39,10 @@ import {
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import {
+  ensureAmendedDeedFixture,
   ensureComplianceFixtures,
   ensureGovernanceFixtures,
+  ensureMeetingFixtures,
 } from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
@@ -1780,6 +1782,10 @@ async function seed(): Promise<void> {
     managingTrusteeUserId: superAdminUserId,
   });
   await ensureComplianceFixtures();
+  // Version 2 of the deed makes a two-trustee quorum possible for the
+  // meeting specs; it takes effect on 1 Jan 2026.
+  await ensureAmendedDeedFixture();
+  await ensureMeetingFixtures();
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });

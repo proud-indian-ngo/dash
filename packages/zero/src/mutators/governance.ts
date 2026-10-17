@@ -5,12 +5,15 @@ import {
 } from "@pi-dash/shared/compliance";
 import { organisationRegistrationTypeValues } from "@pi-dash/shared/constants";
 import {
+  castingVoteRuleValues,
   DOCUMENT_TITLE_MAX,
   governanceDocumentKindValues,
   newRegisterProblems,
   type OfficeRow,
   officeDateProblem,
+  quorumKindValues,
   type RegisterInput,
+  resolutionThresholdValues,
   type TermRow,
   termDateProblem,
   trusteeCessationBasisValues,
@@ -597,7 +600,54 @@ export const governanceDocumentMutators = {
 
 // ── Deed versions ───────────────────────────────────────────────────────────
 
+const deedVersionInput = z
+  .object({
+    amendmentThreshold: z.enum(resolutionThresholdValues),
+    castingVote: z.enum(castingVoteRuleValues),
+    circularIssuers: z.array(z.enum(trusteeOfficeValues)).min(1),
+    coOptionMaxYears: z.number().int().min(0).max(50),
+    documentId,
+    effectiveFrom: isoDate,
+    electronicCirculation: z.boolean(),
+    id: z.string(),
+    maxTrustees: z.number().int().min(1).max(100),
+    minTrustees: z.number().int().min(1).max(100),
+    noticeDays: z.number().int().min(0).max(365),
+    quorumFloor: z.number().int().min(0).max(100),
+    quorumKind: z.enum(quorumKindValues),
+    quorumRequiredOffice: z.enum(trusteeOfficeValues).nullable(),
+    quorumValue: z.number().int().min(1).max(100),
+    title: z.string().trim().min(1).max(DOCUMENT_TITLE_MAX),
+    videoCountsPresent: z.boolean(),
+  })
+  .refine((v) => v.maxTrustees >= v.minTrustees, {
+    message: "The most trustees can't be fewer than the fewest.",
+  });
+
 export const deedVersionMutators = {
+  /**
+   * Records a registered deed of amendment as the next version. Its rules
+   * apply to meetings and resolutions from its effective date.
+   */
+  create: defineMutator(deedVersionInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    const latest = await tx.run(
+      zql.deedVersion.orderBy("number", "desc").one()
+    );
+    if (latest && toEpoch(args.effectiveFrom) <= latest.effectiveFrom) {
+      throw new Error("A new version takes effect after the one before it.");
+    }
+    await assertDocumentsExist(tx, [args.documentId]);
+    const { documentId: linked, effectiveFrom, id, ...rules } = args;
+    await tx.mutate.deedVersion.insert({
+      ...rules,
+      createdAt: Date.now(),
+      documentId: linked ?? null,
+      effectiveFrom: toEpoch(effectiveFrom),
+      id,
+      number: (latest?.number ?? 0) + 1,
+    });
+  }),
   /** Links the registered deed (or deed of amendment) in the vault to its version. */
   linkDocument: defineMutator(
     z.object({ documentId: z.string().nullable(), id: z.string() }),
@@ -704,7 +754,7 @@ export const organisationRegistrationMutators = {
 
 // ── Resolution drafts ───────────────────────────────────────────────────────
 
-const effectInput = z.discriminatedUnion("type", [
+export const effectInput = z.discriminatedUnion("type", [
   z.object({ type: z.literal("none") }),
   z.object({
     basis: z.enum(trusteeTermBasisValues),
@@ -812,7 +862,10 @@ export const resolutionMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      await requireDraft(tx, args.id);
+      const row = await requireDraft(tx, args.id);
+      if (row.kind === "meeting") {
+        throw new Error("Remove it from the meeting's agenda instead.");
+      }
       await tx.mutate.resolution.delete({ id: args.id });
     }
   ),

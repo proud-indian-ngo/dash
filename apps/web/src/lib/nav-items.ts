@@ -22,6 +22,7 @@ import {
   Certificate01Icon,
   Files01Icon,
   LegalDocument01Icon,
+  MeetingRoomIcon,
   UserMultiple02Icon,
   FileExportIcon,
   HomeIcon,
@@ -154,6 +155,12 @@ const resolutionsNavItem: NavItem = {
   url: "/governance/resolutions",
 };
 
+const meetingsNavItem: NavItem = {
+  icon: MeetingRoomIcon,
+  title: "Meetings",
+  url: "/governance/meetings",
+};
+
 const complianceNavItem: NavItem = {
   icon: Calendar04Icon,
   title: "Compliance",
@@ -185,6 +192,7 @@ function governanceNavItems(permissions: string[]): NavItem[] {
     items.push(
       trusteeRegisterNavItem,
       resolutionsNavItem,
+      meetingsNavItem,
       complianceNavItem,
       governanceDocumentsNavItem
     );

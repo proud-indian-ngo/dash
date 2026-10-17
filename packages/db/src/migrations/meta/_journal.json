@@ -1135,6 +1135,13 @@
       "when": 1792226199950,
       "tag": "0161_governance_compliance",
       "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1792226222073,
+      "tag": "0162_governance_meetings",
+      "breakpoints": true
     }
   ]
 }
