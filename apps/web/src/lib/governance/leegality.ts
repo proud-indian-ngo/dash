@@ -4,7 +4,7 @@ import { env } from "@pi-dash/env/server";
 import z from "zod";
 
 /**
- * Aadhaar eSign through Leegality (governance design, section 5). A
+ * Aadhaar eSign through Leegality (governance-resolutions.md, signing). A
  * trustee signs the circular's latest PDF in Leegality's journey; the
  * signed copy comes back through the same checks as an Acrobat upload.
  * API: `POST /v3.0/sign/request` to start, `GET /v3.3/document/details` for
