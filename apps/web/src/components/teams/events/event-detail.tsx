@@ -87,7 +87,10 @@ import {
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
-import { deriveSocialRecapMode } from "./event-social-fields";
+import {
+  deriveAttendanceMode,
+  deriveSocialRecapMode,
+} from "./event-social-fields";
 import { EventSocialRecap } from "./event-social-recap";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
@@ -749,7 +752,13 @@ function useEventDetailQueries(
   };
 }
 
-function SocialRecapStart({ onStart }: { onStart: () => void }) {
+function SocialRecapStart({
+  onStart,
+  pending,
+}: {
+  onStart: () => void;
+  pending: boolean;
+}) {
   return (
     <Card aria-label="Social recap" role="region" size="sm">
       <CardHeader>
@@ -758,7 +767,13 @@ function SocialRecapStart({ onStart }: { onStart: () => void }) {
           Open this session to record children, notes and photo choices.
         </CardDescription>
         <CardAction>
-          <Button onClick={onStart} size="sm" type="button" variant="outline">
+          <Button
+            disabled={pending}
+            onClick={onStart}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             Start recap
           </Button>
         </CardAction>
@@ -970,6 +985,8 @@ export function EventDetail({
     canManage && !!event.postRsvpPoll && !event.cancelledAt && !isPastEvent;
   const [postPollDialogOpen, setPostPollDialogOpen] = useState(false);
   const [isPostingPoll, setIsPostingPoll] = useState(false);
+  const [openingSession, setOpeningSession] = useState(false);
+  const openingSessionRef = useRef(false);
 
   const handlePostPollClick = () => {
     setPostPollDialogOpen(true);
@@ -1037,13 +1054,30 @@ export function EventDetail({
     isPastEvent,
     isVirtualOccurrence,
   });
-  const startSocialRecap = () => {
+  const attendanceMode = deriveAttendanceMode({
+    canManageAttendance: Boolean(canManageAttendance),
+    canMaterialize: canManage,
+    cancelled: !!event.cancelledAt,
+    existingOccurrenceId: interestSessionId,
+    hasStarted,
+    isVirtualOccurrence,
+  });
+  const openSession = async () => {
     // Someone already materialised this date: open that row instead.
     if (interestSessionId) {
       navigate({ params: { id: interestSessionId }, to: "/events/$id" });
       return;
     }
-    materializeOccurrence();
+    // One click, one occurrence: a second click waits for the first.
+    if (openingSessionRef.current) {
+      return;
+    }
+    openingSessionRef.current = true;
+    setOpeningSession(true);
+    await materializeOccurrence().finally(() => {
+      openingSessionRef.current = false;
+      setOpeningSession(false);
+    });
   };
 
   const immichAlbumUrl = deriveImmichUrl(
@@ -1158,7 +1192,11 @@ export function EventDetail({
   const showInterestRequests =
     !hasStarted && shouldRenderInterestRequests(canManageInterest, interests);
   const showVolunteers =
-    canManageVolunteers || event.members.length > 0 || showInterestRequests;
+    canManageVolunteers ||
+    event.members.length > 0 ||
+    showInterestRequests ||
+    attendanceMode === "open" ||
+    attendanceMode === "locked";
   const detailsProps = {
     approvedCount: socialFacts.approvedCount,
     canManage,
@@ -1221,7 +1259,10 @@ export function EventDetail({
               />
             ) : null}
             {socialRecapMode === "materialize" ? (
-              <SocialRecapStart onStart={startSocialRecap} />
+              <SocialRecapStart
+                onStart={openSession}
+                pending={openingSession}
+              />
             ) : null}
 
             {canAccessPostEventContent ? null : (
@@ -1250,12 +1291,15 @@ export function EventDetail({
                 showVolunteers ? (
                   <EventMembersSection
                     canManage={canManageVolunteers}
-                    canMarkAttendance={
-                      Boolean(canManageAttendance) && hasStarted
-                    }
+                    canMarkAttendance={attendanceMode === "mark"}
                     eventId={event.id}
                     members={event.members}
                     onAddMember={handleAddMemberClick}
+                    onOpenSession={
+                      attendanceMode === "open" ? openSession : undefined
+                    }
+                    openingSession={openingSession}
+                    sessionLocked={attendanceMode === "locked"}
                     onRemoveMember={stableOnRemoveMember5}
                   >
                     {showInterestRequests && interests ? (

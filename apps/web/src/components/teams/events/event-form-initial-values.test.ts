@@ -143,6 +143,29 @@ describe("buildEventDisplayRows", () => {
   });
 });
 
+describe("buildEventDisplayRows on the series' start date", () => {
+  const startDate = new Date(SERIES_START).toISOString().slice(0, 10);
+  const startDateRow = (cancelledAt: number | null) =>
+    makeException({
+      cancelledAt,
+      originalDate: startDate,
+      startTime: SERIES_START,
+    });
+  const parentRows = (cancelledAt: number | null) =>
+    buildEventDisplayRows(
+      [makeSeries(startDateRow(cancelledAt))],
+      new Date(2026, 1, 1)
+    ).filter((row) => row.eventId === "series-1" && !row.isVirtual);
+
+  it("keeps the parent row beside a live legacy row", () => {
+    expect(parentRows(null)).toHaveLength(1);
+  });
+
+  it("drops the first session when its start-date row is cancelled", () => {
+    expect(parentRows(SERIES_START - HOUR)).toHaveLength(0);
+  });
+});
+
 describe("buildRowEditInitialValues", () => {
   it('prefills an edited occurrence\'s own details for "this"', () => {
     const { exceptionRow } = rowsFor();

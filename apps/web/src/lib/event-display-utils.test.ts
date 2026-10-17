@@ -9,6 +9,8 @@ import {
 
 import {
   expandSeriesOccurrences,
+  firstSessionExceptionId,
+  sessionOccDate,
   sortUpcomingFirstThenPast,
 } from "./event-display-utils";
 
@@ -189,5 +191,58 @@ describe("expandSeriesOccurrences", () => {
     }
 
     expect(result.virtualOccs.length).toBe(result.occurrences.length);
+  });
+});
+
+describe("sessionOccDate", () => {
+  const series = {
+    recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    seriesId: null,
+    startTime: Date.UTC(2026, 9, 3, 4, 30),
+  };
+
+  it("shows the series parent itself on its own start date", () => {
+    expect(sessionOccDate(series, "2026-10-03")).toBeUndefined();
+  });
+
+  it("keeps later dates as virtual occurrences", () => {
+    expect(sessionOccDate(series, "2026-10-10")).toBe("2026-10-10");
+  });
+
+  it("leaves standalone events and exceptions alone", () => {
+    expect(
+      sessionOccDate({ ...series, recurrenceRule: null }, "2026-10-03")
+    ).toBe("2026-10-03");
+    expect(sessionOccDate({ ...series, seriesId: "s" }, "2026-10-03")).toBe(
+      "2026-10-03"
+    );
+  });
+});
+
+describe("firstSessionExceptionId", () => {
+  const series = {
+    exceptions: [
+      { id: "exc-later", originalDate: "2026-10-10" },
+      { id: "exc-first", originalDate: "2026-10-03" },
+    ],
+    recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    seriesId: null,
+    startTime: Date.UTC(2026, 9, 3, 4, 30),
+  };
+
+  it("finds a legacy row saved on the series' own start date", () => {
+    expect(firstSessionExceptionId(series)).toBe("exc-first");
+  });
+
+  it("finds nothing without one, or on a row that is not a parent", () => {
+    expect(
+      firstSessionExceptionId({
+        ...series,
+        exceptions: [series.exceptions[0]!],
+      })
+    ).toBeUndefined();
+    expect(
+      firstSessionExceptionId({ ...series, seriesId: "s" })
+    ).toBeUndefined();
   });
 });

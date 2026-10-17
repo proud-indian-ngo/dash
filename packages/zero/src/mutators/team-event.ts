@@ -7,6 +7,7 @@ import {
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -139,6 +140,19 @@ export async function resolveJoinTarget(
       location: existing.location,
       name: existing.name,
       startTime: existing.startTime,
+    };
+  }
+  // The series' first session is the parent row itself.
+  if (args.occDate === seriesStartDate(event.startTime)) {
+    if (event.startTime <= args.now) {
+      throw new Error("Cannot join event that has already started");
+    }
+    return {
+      endTime: event.endTime,
+      eventId: args.eventId,
+      location: event.location,
+      name: event.name,
+      startTime: event.startTime,
     };
   }
   const occStart = computeOccurrenceStart(event.startTime, args.occDate);
@@ -1197,6 +1211,9 @@ export const teamEventMutators = {
       if (existing) {
         throw new Error("Occurrence already materialized");
       }
+      if (args.originalDate === seriesStartDate(series.startTime)) {
+        throw new Error("The first session is the series itself");
+      }
 
       const occStart = computeOccurrenceStart(
         series.startTime,
@@ -1568,6 +1585,7 @@ export const teamEventMutators = {
       }
 
       let movedOccurrenceIds: string[] = [];
+      let newSeriesId: string | undefined;
       if (args.mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
         if (nextGroupId !== undefined) {
@@ -1585,7 +1603,7 @@ export const teamEventMutators = {
         args.originalDate &&
         args.newSeriesId
       ) {
-        await updateSeriesFollowing(
+        newSeriesId = await updateSeriesFollowing(
           tx,
           {
             ...args,
@@ -1597,7 +1615,9 @@ export const teamEventMutators = {
         );
       }
 
-      const writeTarget = resolveSeriesWriteTarget(args, existing);
+      // A split onto a saved first session writes that row, not newSeriesId.
+      const writeTarget =
+        newSeriesId ?? resolveSeriesWriteTarget(args, existing);
       if (args.partners && writeTarget) {
         await replaceEventPartners(
           tx,

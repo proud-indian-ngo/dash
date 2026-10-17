@@ -1,4 +1,5 @@
 import type { ReminderTarget } from "@pi-dash/shared/constants";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 
 import type { TeamEvent } from "../schema";
 import { zql } from "../schema";
@@ -373,17 +374,15 @@ export async function updateSeriesFollowing(
     updatedAt: args.now,
   });
   const newRule = args.recurrenceRule ?? { rrule: rule.rrule };
-  await tx.mutate.teamEvent.insert({
+  const newStart = args.startTime ?? existing.startTime;
+  const series = {
     cancelledAt: null,
     costCentreId: args.costCentreId ?? existing.costCentreId,
-    createdAt: args.now,
-    createdBy: userId,
     description: args.description ?? existing.description ?? null,
     endTime: args.endTime ?? existing.endTime ?? null,
     feedbackDeadline:
       args.feedbackDeadline ?? existing.feedbackDeadline ?? null,
     feedbackEnabled: args.feedbackEnabled ?? existing.feedbackEnabled,
-    id: args.newSeriesId,
     inheritVolunteers:
       args.inheritVolunteers ?? existing.inheritVolunteers ?? false,
     isPublic: args.isPublic ?? existing.isPublic,
@@ -402,8 +401,7 @@ export async function updateSeriesFollowing(
       args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
     programmeId: args.programmeId ?? existing.programmeId,
     seriesId: null,
-    startTime: args.startTime ?? existing.startTime,
-    teamId: existing.teamId,
+    startTime: newStart,
     updatedAt: args.now,
     volunteersNeeded:
       args.volunteersNeeded === undefined
@@ -413,7 +411,51 @@ export async function updateSeriesFollowing(
       args.whatsappGroupId === undefined
         ? (existing.whatsappGroupId ?? null)
         : args.whatsappGroupId || null,
-  });
+  };
+
+  // Saved sessions from the split on belong to the new series, with their
+  // members, attendance, interest and recaps; left behind, the new series
+  // would list the same dates again.
+  const moving = (
+    (await tx.run(zql.teamEvent.where("seriesId", args.id))) as TeamEvent[]
+  ).filter(
+    (e) => e.originalDate !== null && e.originalDate >= args.originalDate
+  );
+  // A live session on the new series' start date is its first session, which
+  // is the series row itself: that row becomes the new series, so nothing it
+  // holds has to move.
+  const firstDate = seriesStartDate(newStart);
+  const promoted = moving.find(
+    (e) => e.originalDate === firstDate && e.cancelledAt === null
+  );
+  const newSeriesId = promoted?.id ?? args.newSeriesId;
+  if (promoted) {
+    await tx.mutate.teamEvent.update({
+      ...series,
+      id: promoted.id,
+      originalDate: promoted.originalDate,
+    });
+  } else {
+    await tx.mutate.teamEvent.insert({
+      ...series,
+      createdAt: args.now,
+      createdBy: userId,
+      id: args.newSeriesId,
+      teamId: existing.teamId,
+    });
+  }
+  await Promise.all(
+    moving
+      .filter((e) => e.id !== promoted?.id)
+      .map((e) =>
+        tx.mutate.teamEvent.update({
+          id: e.id,
+          seriesId: newSeriesId,
+          updatedAt: args.now,
+        })
+      )
+  );
+  return newSeriesId;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import {
   expandSeries,
   parseRecurrenceRule,
   type RecurrenceRule,
+  seriesStartDate,
   type VirtualOccurrence,
 } from "@pi-dash/shared/rrule-expand";
 
@@ -10,6 +11,47 @@ export interface ExpandedOccurrence {
   endTime: number | null;
   isSeriesParent: boolean;
   startTime: number;
+}
+
+/**
+ * The occurrence date an event page shows, or undefined when it shows the
+ * row itself. A series parent is its own first session, so its start date
+ * opens the parent rather than a virtual occurrence.
+ */
+export function sessionOccDate(
+  event: {
+    recurrenceRule: unknown;
+    seriesId: string | null;
+    startTime: number;
+  },
+  occDate: string | undefined
+): string | undefined {
+  if (
+    occDate &&
+    event.recurrenceRule &&
+    !event.seriesId &&
+    occDate === seriesStartDate(event.startTime)
+  ) {
+    return undefined;
+  }
+  return occDate;
+}
+
+/**
+ * A legacy exception row saved on a series' own start date, which earlier
+ * code could create; its interest and records belong to the first session.
+ */
+export function firstSessionExceptionId(event: {
+  exceptions: readonly { id: string; originalDate: string | null }[];
+  recurrenceRule: unknown;
+  seriesId: string | null;
+  startTime: number;
+}): string | undefined {
+  if (!event.recurrenceRule || event.seriesId) {
+    return undefined;
+  }
+  const firstDate = seriesStartDate(event.startTime);
+  return event.exceptions.find((e) => e.originalDate === firstDate)?.id;
 }
 
 export function expandSeriesOccurrences(
@@ -46,17 +88,16 @@ export function expandSeriesOccurrences(
     exceptionDates
   );
 
-  // Occurrence dates are UTC calendar dates, so the series start must be too.
-  const seriesStartDate = new Date(startTime).toISOString().slice(0, 10);
+  const firstDate = seriesStartDate(startTime);
 
   const occurrences: ExpandedOccurrence[] = virtualOccs.map((occ) => ({
     date: occ.date,
     endTime: occ.endTime,
-    isSeriesParent: occ.date === seriesStartDate,
+    isSeriesParent: occ.date === firstDate,
     startTime: occ.startTime,
   }));
 
-  return { occurrences, rule, seriesStartDate, virtualOccs };
+  return { occurrences, rule, seriesStartDate: firstDate, virtualOccs };
 }
 
 export function sortUpcomingFirstThenPast<T extends { startTime: number }>(

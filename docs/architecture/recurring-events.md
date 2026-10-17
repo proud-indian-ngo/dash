@@ -15,7 +15,7 @@ RFC 5545 RRULEs on the `teamEvent` table:
 
 ## Expansion
 
-`expandSeries()` in `packages/shared/src/rrule-expand.ts` turns a rule into virtual occurrences for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest.
+`expandSeries()` in `packages/shared/src/rrule-expand.ts` turns a rule into virtual occurrences for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest. The series' first session is the parent row itself (`seriesStartDate`, its UTC start date): self-join, interest and website sign-ups on that date land on the parent, `materialize` refuses it, and an event link with that `occDate` opens the parent. Older data may still hold an exception row on that date; the parent's page also shows the viewer's interest filed there.
 
 Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
 
@@ -34,11 +34,12 @@ Zero queries sync only rows with `seriesId IS NULL` (parents and standalone even
 | Scope | Edit | Cancel |
 |---|---|---|
 | `this` | Creates or updates an exception | Creates a cancelled exception |
-| `following` | Truncates the series with UNTIL, creates a new series | Truncates UNTIL, cancels exceptions on or after the date |
+| `following` | Truncates the series with UNTIL, starts a new series and moves the saved sessions on or after the date to it | Truncates UNTIL, cancels exceptions on or after the date |
 | `all` | Updates the series parent | Cancels the parent and all exceptions |
 
 - Truncation sets `UNTIL=<splitDate>T000000Z`. Midnight UTC keeps the boundary timezone-clean whatever the series' wall-clock time.
-- Orphaned exceptions: `following` does not move exceptions on or after the split to the new series, and `all` can move the parent's start past existing exceptions. Their dates then no longer match the expansion.
+- A `following` split moves the old series' saved sessions on or after the date to the new series with their members, attendance, interest and recaps, so no date is listed twice. A live saved session on the new series' start date becomes the new series row itself (the first session), keeping everything recorded on it; a cancelled one moves as a start-date row, which cancels the first session in the team table.
+- Orphaned exceptions: `all` can move the parent's start past existing exceptions, and a split that changes the time or weekday leaves moved sessions on dates the new rule no longer produces. Their dates then no longer match the expansion.
 - A programme change applies forward only. `updateSeries` rejects it in `all` scope, so callers split (`following`) or use `this`. Every path that writes an occurrence copies `programmeId` and `costCentreId` from the series: `buildExceptionInsert`, the following-split insert, self-join, both background materialisers; `register-interest-db.ts` copies all columns.
 
 ### Edit form prefill

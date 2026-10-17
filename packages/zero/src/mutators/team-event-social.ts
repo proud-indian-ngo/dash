@@ -151,10 +151,8 @@ async function loadRecapEvent(
   return { event, isTeamLead };
 }
 
+/** A series parent is its own first session, so it takes a recap too. */
 function assertRecapEligible(event: TeamEvent, now: number) {
-  if (event.recurrenceRule && !event.seriesId) {
-    throw new Error("Record the recap on a single session, not the series");
-  }
   if ((event.endTime ?? event.startTime) > now) {
     throw new Error("The recap opens after the event ends");
   }

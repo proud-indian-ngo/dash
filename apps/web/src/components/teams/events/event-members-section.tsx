@@ -150,7 +150,10 @@ export function EventMembersSection({
   eventId,
   members,
   onAddMember,
+  onOpenSession,
   onRemoveMember,
+  openingSession = false,
+  sessionLocked = false,
 }: {
   canManage: boolean;
   canMarkAttendance: boolean;
@@ -158,7 +161,12 @@ export function EventMembersSection({
   eventId: string;
   members: EventRow["members"];
   onAddMember: () => void;
+  /** A past session of a series not saved yet: attendance needs its own row. */
+  onOpenSession?: () => void;
+  /** That session, for someone who can mark attendance but not open it. */
+  sessionLocked?: boolean;
   onRemoveMember: (id: string) => void;
+  openingSession?: boolean;
 }) {
   const zero = useZero();
   const presentCount = members.filter((m) => m.attendance === "present").length;
@@ -192,14 +200,36 @@ export function EventMembersSection({
   return (
     <div className="flex flex-col gap-3">
       {children}
-      {canMarkAttendance || canManage ? (
+      {sessionLocked ? (
+        <p className="text-muted-foreground text-sm">
+          A team lead or someone who can edit events needs to open this session
+          before attendance can be marked.
+        </p>
+      ) : null}
+      {canMarkAttendance || canManage || onOpenSession ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted-foreground text-sm tabular-nums">
             {canMarkAttendance && members.length > 0
               ? `${presentCount} of ${members.length} present`
               : null}
+            {onOpenSession ? "Open this session to mark attendance." : null}
           </p>
           <div className="flex gap-2">
+            {onOpenSession ? (
+              <Button
+                disabled={openingSession}
+                onClick={onOpenSession}
+                size="sm"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={UserGroupIcon}
+                  strokeWidth={2}
+                />
+                Mark attendance
+              </Button>
+            ) : null}
             {canMarkAttendance && members.length > 0 ? (
               <Button onClick={markAllPresent} size="sm" variant="outline">
                 <HugeiconsIcon

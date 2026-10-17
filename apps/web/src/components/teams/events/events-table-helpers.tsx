@@ -98,16 +98,13 @@ function expandSeriesEvent(
   const rows: EventDisplayRow[] = [];
   const { occurrences, seriesStartDate, virtualOccs } = result;
 
-  const exceptionDates = new Set<string>();
-  for (const exc of event.exceptions) {
-    if (exc.originalDate) {
-      exceptionDates.add(exc.originalDate);
-    }
-  }
-
-  // Legacy data may have a materialized exception on the parent's start date,
-  // which causes expandSeries to skip it. Ensure the parent row always exists.
-  if (exceptionDates.has(seriesStartDate)) {
+  // A saved row on the parent's start date makes expandSeries skip it. A live
+  // one (legacy data) still shows the parent; a cancelled one (a "this and
+  // following" split onto a cancelled session) cancels the first session.
+  const startDateRow = event.exceptions.find(
+    (exc) => exc.originalDate === seriesStartDate
+  );
+  if (startDateRow && !startDateRow.cancelledAt) {
     rows.push({
       endTime: event.endTime,
       event,

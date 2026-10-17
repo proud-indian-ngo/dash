@@ -121,6 +121,15 @@ export function expandSeries(
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * The date key of a series' first session: the parent row's own start, as a
+ * UTC calendar date like every occurrence date. A session on this date is the
+ * series parent itself, never an exception row.
+ */
+export function seriesStartDate(seriesStart: number): string {
+  return toISODateUTC(new Date(seriesStart));
+}
+
+/**
  * The occurrence of a series on `occDate` (YYYY-MM-DD, the series' date key),
  * or null when the rule (with its exdates and exclude rules) has no session
  * that day. Exception rows are not consulted.
