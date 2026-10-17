@@ -1,47 +1,47 @@
 # Authorization
 
-> **Load when**: permissions, `assertHasPermission`, `can`, `hasPermission`, roles, role hierarchy, `team_lead`, `resolvePermissions`, `rolePermission` table, UI permission gates.
-> **Related**: `auth.md`, `data-layer.md`
+> **Load when**: permissions, roles, `assertHasPermission`, `assertHasPermissionOrTeamLead`, `can`, `hasPermission`, `assertPermission`, route permission guards, `team_lead`, `resolvePermissions`, `rolePermission`, UI permission gates.
+> **Related**: `auth.md` (sessions and the `_app` session gate), `data-layer.md`, `caching.md`
 
 ## Model
 
-Permissions code-defined in `packages/db/src/permissions.ts`. Synced to `permission` table via `syncPermissions()` — runs on server boot via Nitro plugin `apps/web/server/plugins/sync-permissions.ts`. Roles in `role` table. `rolePermission` join table = roles → permissions.
-
 ```
-role  →  rolePermission  →  permission (code-defined, DB-synced)
+role  →  rolePermission  →  permission
 ```
 
-## Role Hierarchy
+- Permissions are defined in code in `packages/db/src/permissions.ts`. `syncPermissions()` (`packages/db/src/sync-permissions.ts`) writes them to the `permission` table on server boot through the Nitro plugin `apps/web/server/plugins/sync-permissions.ts`.
+- To add one, edit `permissions.ts`; it syncs on boot. Never delete or rename an ID without migrating `rolePermission` rows.
+- Split `{entity}.view` (pickers, queries) from `{entity}.manage` (admin pages) when the admin page shows sensitive data.
 
-Stored in `role` table. Built-in (highest → lowest):
+## Roles
 
-1. **super_admin** — all permissions, including reserved system-only permissions
-2. **admin** and **finance_admin** — code-managed system roles with different operational permissions
-3. **Custom roles** (e.g. `team_lead`) — configurable via role management UI
-4. **volunteer** — baseline for oriented volunteers
-5. **unoriented_volunteer** — minimal, default for new users pre-orientation
+From most to least privileged:
 
-Default for new users + null-role fallback: `unoriented_volunteer`.
+1. `super_admin`: every permission, including reserved ones.
+2. `admin` and `finance_admin`: code-managed system roles (`ADMIN_TIER_ROLES`) with different operational permissions.
+3. Custom roles such as `team_lead`, managed in the role UI.
+4. `volunteer`: oriented volunteers.
+5. `unoriented_volunteer`: the default for new users and the fallback for a null role.
 
-Better Auth admin plugin only knows `admin` vs `volunteer`. Custom roles live in `user.role` and map via `toBetterAuthRole()`: admin-level permissions → `admin`, else `volunteer`.
+`external_user` is a technical role assigned only by its owning workflow (Kalakriti), never through user admin.
+
+Better Auth's admin plugin only knows admin versus user. `toBetterAuthRole()` (`apps/web/src/functions/user-admin.ts`) maps admin-tier roles to `admin` and everything else to `volunteer`; the real role stays in `user.role`.
+
+`requests.export` is reserved for `super_admin`. It is hidden from role management, rejected by custom-role mutations, left out of admin and finance-admin defaults, and stripped from every other role by `syncPermissions()`.
 
 ## Resolution
 
-`resolvePermissions()` in `packages/db/src/queries/resolve-permissions.ts` fetches effective permissions from user's role. In-memory cache: 60 sec. Call `invalidatePermissionCache()` after role/permission changes.
+`resolvePermissions()` (`packages/db/src/queries/resolve-permissions.ts`) returns a role's permissions with a 60-second in-memory cache per instance. Call `invalidatePermissionCache()` after role or permission changes.
 
-## Enforcement Layers
+## Enforcement
 
-| Layer | Mechanism |
+| Layer | Check |
 |---|---|
-| Zero mutators (server) | `assertHasPermission(ctx, "permission.id")` — throws if lacking |
-| Zero mutators (team-scoped) | `assertHasPermissionOrTeamLead()` — team leads allowed team-scoped ops without global perm |
-| Zero queries | `can(ctx, "permission.id")` — boolean for conditional filtering |
-| Route guards | `assertPermission(session, "permission.id")` — server-side route protection |
-| Server functions | `resolvePermissions(userId)` — direct resolution for complex checks |
-| UI | `hasPermission("permission.id")` via `AppContext` — controls visibility |
+| Zero mutators (server pass) | `assertHasPermission(ctx, "id")` throws; `assertIsLoggedIn(ctx)` for any signed-in user |
+| Team-scoped mutators | `assertHasPermissionOrTeamLead()` lets team leads act on their team without the global permission |
+| Zero queries and conditional server checks | `can(ctx, "id")` |
+| Route guards | `beforeLoad: ({ context }) => assertPermission(context, "id")` (`apps/web/src/lib/route-guards.ts`); `assertAnyPermission` for either-of. A denied user is redirected to `/` |
+| Server functions and API routes | `assertServerPermission(session, "id")` or `assertServerAnyPermission` (`apps/web/src/lib/api-auth.ts`) throw; `resolvePermissions(role)` for complex checks |
+| UI | `hasPermission("id")` from `AppContext` controls visibility |
 
-## Permission Conventions
-
-Separate `{entity}.view` (pickers/queries) from `{entity}.manage` (admin pages) when admin page exposes sensitive details. Don't delete/rename IDs without migrating `rolePermission` rows. Adding a permission: edit `packages/db/src/permissions.ts`, auto-syncs on boot.
-
-`requests.export` is reserved for `super_admin`. It is omitted from role-management options, rejected by custom-role mutations, excluded from admin and finance-admin defaults, and removed from every non-super-admin role by `syncPermissions()`.
+The helpers for Zero live in `packages/zero/src/permissions.ts`. Client-side mutator runs are optimistic; the server pass is authoritative. Gate a protected route in `beforeLoad` and its UI action with `hasPermission`, and test `Route.options.beforeLoad` directly with denied and allowed contexts.

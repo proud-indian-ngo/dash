@@ -73,7 +73,7 @@ Tailor the options to the specific issue — don't use generic choices. Use your
 > - Call out things that are *technically fine but fragile* — code that will break when reasonable future changes are made.
 > - If you see a pattern that works now but doesn't scale, say so.
 > - Flag missing tests for any non-trivial logic. Check whether existing tests need updating for changed behavior.
-> - Flag documentation that is now stale or missing due to the changes (README, agent-guide.md, project-structure.md, inline docs).
+> - Flag documentation that is now stale or missing due to the changes (README, agent-guide.md, project-structure.md, the owning docs/architecture chapter, inline docs).
 > - If the diff is incomplete or lacks context, state what assumptions you're making.
 > - Don't nitpick formatting or style unless it obscures meaning.
 > - Group code findings by severity: 🔴 Must Fix, 🟡 Should Fix, 🔵 Nit.

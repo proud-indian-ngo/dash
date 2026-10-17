@@ -1,17 +1,19 @@
 # Shared (`packages/shared`)
 
-> **Load when**: `@pi-dash/shared`, money and paise conversion, `ALLOWED_IMAGE_TYPES`, event reminder presets, `REMINDER_PRESET_MINUTES`, client/server constant boundary, cross-package constants.
+> **Load when**: `@pi-dash/shared`, client/server constant boundary, money and paise helpers, `ALLOWED_IMAGE_TYPES`, upload limits, event reminder presets, `REMINDER_PRESET_MINUTES`, RRULE expansion, volunteer age.
 > **Related**: `data-layer.md`, `editor.md`
 
-Cross-package constants, types, and utilities used by both client and server code.
+Constants, types and pure functions used by both client and server. Each file is imported by path, `@pi-dash/shared/<file>`; there is no barrel.
 
-| File | Contents |
+| File | Holds |
 |---|---|
-| `src/constants.ts` | `ALLOWED_IMAGE_TYPES`, city values, status enums |
-| `src/money.ts` | Paise helpers: `rupeesToPaise` and `tryRupeesToPaise` (exact parsing), `paiseToRupees` (two-decimal text), `formatPaise` (INR display), `sumPaise`, `assertSafePaise`, `paiseSchema` and `positivePaiseSchema` |
-| `src/event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
-| `src/scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, scheduling constants |
-| `src/rrule-expand.ts` | RRULE expansion with exclusion pattern support |
-| `src/volunteer-age.ts` | `MIN_VOLUNTEER_AGE` (18), `isVolunteerAgeEligible` (form, local calendar), `isVolunteerAgeEligibleOnServer` (UTC with one day of slack), `latestVolunteerDob` |
+| `constants.ts` | Upload size limits and allowed MIME types (`ALLOWED_IMAGE_TYPES` and others), city and status value lists |
+| `money.ts` | `rupeesToPaise`, `tryRupeesToPaise`, `paiseToRupees`, `formatPaise`, `sumPaise`, `assertSafePaise`, `paiseSchema`, `positivePaiseSchema` (rules in `data-layer.md`) |
+| `event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
+| `scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, derived message status |
+| `rrule-expand.ts` | `expandSeries`, `findOccurrence`, `parseRecurrenceRule` (`recurring-events.md`) |
+| `volunteer-age.ts` | `MIN_VOLUNTEER_AGE` (18), `isVolunteerAgeEligible` (form, local calendar), `isVolunteerAgeEligibleOnServer` (UTC, one day of slack), `latestVolunteerDob` |
 
-**Import rule**: Client-safe code imports from `@pi-dash/shared`, **not** `@pi-dash/db/schema/shared`. The latter pulls server-only deps into the client bundle.
+Domain modules (income, ledger, receipts, Kalakriti, social API, public events and others) are listed in the owning chapters.
+
+Client code imports from `@pi-dash/shared`, never `@pi-dash/db/schema/shared`, which pulls server-only dependencies into the bundle.

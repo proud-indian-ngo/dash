@@ -42,8 +42,7 @@ import { party } from "./party";
 import { teamEvent } from "./team-event";
 
 /*
- * The books (finance Phase 3, docs/architecture/finance-and-programmes.md
- * section 3.8). `posting`, `ledger_entry`, `account_movement` and
+ * The books (finance Phase 3, docs/architecture/finance-books.md). `posting`, `ledger_entry`, `account_movement` and
  * `movement_allocation` are append-only: rows are written only by the
  * server-side posting engine (packages/db/src/ledger/engine.ts), a database
  * trigger rejects UPDATE and DELETE on them, and a correction is a reversal

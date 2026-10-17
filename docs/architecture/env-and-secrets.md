@@ -1,53 +1,47 @@
-# Environment & Secrets
+# Environment and secrets
 
-> **Load when**: `packages/env`, `.env`, `.env.worktree`, worktree port collision, `BETTER_AUTH_SECRET`, `createEnv`, `@t3-oss/env-core`, env validation, `VITE_*` vars, multi-worktree dev setup.
+> **Load when**: `packages/env`, `.env`, `.env.worktree`, worktree port collisions, `createEnv`, env validation, `VITE_*` variables, multi-worktree setup.
 > **Related**: `monorepo.md`, `data-layer.md`, `auth.md`
 
-## Layered Loading
+The full variable list is in [DEPLOYMENT.md](../../DEPLOYMENT.md#environment-variables). This chapter covers how variables load and validate.
 
-`packages/env/src/index.ts` runs at import-time, before any env validation. Three layers, in order:
+## Loading order
 
-1. **Layer 0 — base `.env`**: `findUp(".env")` from cwd, loaded via `dotenv` + `dotenv-expand` (`load-env-files.ts`).
-2. **Layer 1 — explicit `.env.worktree` override**: `findUp(".env.worktree")`. Overrides base, but never a variable set explicitly in the environment (`DATABASE_URL=... bun run <script>` uses that URL inside a worktree). A variable already in `process.env` whose value is exactly what `.env` or `.env.worktree` gives counts as loaded from that file (Bun pre-loads `.env`, and `--env-file` files, before this runs), so `.env.worktree` still overrides it. `envSource(name)` from `@pi-dash/env` says where a value came from. Skipped if `VITE_E2E` is set — `run-e2e.sh` already injected correct E2E ports and worktree values would clobber them.
-3. **Layer 2 — auto-detected worktree ports**: only runs when `WORKTREE_ID` not set AND `.env.worktree` not found. Triggers `autoDetectWorktreePorts()`.
+`packages/env/src/index.ts` runs on import, before validation:
 
-## Worktree Auto-Detect
+1. Base `.env`, found by walking up from the working directory, loaded with `dotenv` and `dotenv-expand` (`load-env-files.ts`).
+2. `.env.worktree`, written by `bun run worktree:setup`, overrides `.env`. A variable set explicitly in the environment wins over both, so `DATABASE_URL=... bun run <script>` uses that URL. A `process.env` value identical to the file's value counts as loaded from the file, because Bun pre-loads `.env` and `--env-file` files. Skipped when `VITE_E2E` is set, since `run-e2e.sh` already exported E2E ports.
+3. Auto-detected worktree ports, only when neither `WORKTREE_ID` nor `.env.worktree` exists.
 
-Runs in git worktrees that weren't explicitly set up. Goal: make `claude --worktree` and agent `isolation: "worktree"` just work.
+`envSource(name)` from `@pi-dash/env` reports whether a value came from the environment, `.env.worktree` or `.env`. Production has no `.env` files; the host injects variables.
 
-1. Fast path: read `.worktree-id` file if present (1-9 range).
-2. Slow path: `git rev-parse --show-toplevel` + `git worktree list --porcelain`. If current path == main worktree, abort (not in a worktree).
-3. Compute deterministic ID via `cksum` (CRC-32) over toplevel path + newline, mod 9, +1.
-4. Derive ports: `webPort = 3001 + id*10`, `zeroPort = 4848 + id*10`. Set `DEV_WEB_PORT`, `ZERO_PORT`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `ZERO_MUTATE_URL`, `ZERO_QUERY_URL`, `VITE_ZERO_URL`, `ZERO_REPLICA_FILE`, `ZERO_APP_ID` — all with `??=` (don't override).
+## Worktree ports
 
-**Collision warning**: only 9 IDs. Two worktrees have ~11% hash collision chance. For reliable isolation use `bun run worktree:setup <ID>` (writes `.env.worktree`).
+Auto-detection lets `claude --worktree` and agent worktrees run without setup:
 
-## Schema Split
+1. Read `.worktree-id` (1–9) if present. Otherwise compare `git rev-parse --show-toplevel` with the main worktree and, in a linked worktree, take the `cksum` of the path plus newline, mod 9, plus 1. This matches `scripts/worktree-ports.sh`.
+2. With that ID, set `WORKTREE_ID`, `DEV_WEB_PORT` (`3001 + id*10`), `ZERO_PORT` (`4848 + id*10`), `BETTER_AUTH_URL`, `CORS_ORIGIN`, `ZERO_MUTATE_URL`, `ZERO_QUERY_URL`, `VITE_ZERO_URL`, `ZERO_REPLICA_FILE` and `ZERO_APP_ID`. Each uses `??=`, so existing values win.
 
-Two Zod-validated env contracts via `@t3-oss/env-core`:
+Only nine IDs exist, so two auto-detected worktrees collide about 11% of the time. Use `bun run worktree:setup <ID>` for reliable isolation, with `--isolated-db` for a separate database.
 
-- **`packages/env/src/server.ts`** — server-only secrets. Includes `DATABASE_URL`, `BETTER_AUTH_SECRET` (min 32 chars), `DATA_ENCRYPTION_KEY` (optional base64 32-byte key for finance-private fields, see `packages/db/src/encryption.ts`; it also keys the contribution-import hashes, which outside production fall back to a key derived from `BETTER_AUTH_SECRET`. Switching from that fallback to `DATA_ENCRYPTION_KEY`, or changing the production key, silently changes those hashes: re-uploads of files without an external ID column stop being recognised as already imported, and rows with external IDs show as "changed since imported" conflicts. The `h1:` prefix on the hashes names the scheme, not the key, so there is no rotation path; see "Import hashes and the key" in `finance-and-programmes.md`), Resend, R2 credentials, WhatsApp, Immich API keys.
-- **`packages/env/src/web.ts`** — client-visible `VITE_*` vars only. Enforces public/private split at the type level.
+## Server and web contracts
 
-Both import `./index` as a side-effect so tiered loading runs before validation.
+Both use `@t3-oss/env-core` with Zod, treat empty strings as unset, and import `./index` first so loading runs before validation.
 
-**Conditional required**: `DEV_DB_HOST`, `DEV_DB_PASSWORD` required only when `NODE_ENV === "development"`. `RESEND_API_KEY`, `EMAIL_FROM` and `DATA_ENCRYPTION_KEY` required only when `NODE_ENV === "production"`; without the Resend pair, emails are skipped with an `email_not_configured` warning. `RESEND_WEBHOOK_SECRET` is optional; without it `/api/email/webhook` answers 503 and bounces aren't recorded.
+- `@pi-dash/env/server` (`server.ts`): every server variable, including secrets. Server code only; importing it from client code leaks secrets into the bundle.
+- `@pi-dash/env/web` (`web.ts`): `VITE_*` variables only, enforced by `clientPrefix`. Safe for client code.
 
-**Defaults baked into schema**: `GRAVATAR_API_BASE_URL`, `GRAVATAR_TIMEOUT_MS`, `ZERO_MUTATE_FORWARD_COOKIES: "true"`, `APP_NAME: "Proud Indian Dashboard"`.
+Conditional rules:
 
-## `SKIP_VALIDATION` / `VITE_E2E`
+- `DEV_DB_HOST` and `DEV_DB_PASSWORD` are required when `NODE_ENV=development`.
+- `RESEND_API_KEY`, `EMAIL_FROM` and `DATA_ENCRYPTION_KEY` are required when `NODE_ENV=production`. Without the Resend pair, email is skipped with an `email_not_configured` warning.
+- `WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID` is required when `WHATSAPP_CLOUD_ACCESS_TOKEN` is set.
+- `RAZORPAY_KEY_ID` must start `rzp_live_` or `rzp_test_`; `DATA_ENCRYPTION_KEY` must decode to 32 bytes; `SOCIAL_MEDIA_SIGNING_SECRET` needs 32+ characters.
 
-- `SKIP_VALIDATION`: bypass t3-env validation — used by Dockerfile build stage where runtime env isn't present at build time.
-- `VITE_E2E`: short-circuits Layer 1 override. E2E runner injects its own ports.
+`SKIP_VALIDATION=true` bypasses validation. The Docker build stage sets it because runtime variables are absent at build time.
 
-## Dev vs Prod
+## Secret handling
 
-- Dev: `.env` + optional `.env.worktree`. Auto-detect fills gaps.
-- CI/E2E: `.env` + `VITE_E2E=1` + ports from `run-e2e.sh`.
-- Prod: env injected by host (Docker / cloud provider). No `.env` files.
-
-## Import Rule
-
-- Server-only code: `import { env } from "@pi-dash/env/server"`.
-- Client code: `import { env } from "@pi-dash/env/web"` — only `VITE_*` keys exposed.
-- Never import `@pi-dash/env/server` from client code — leaks secrets into bundle.
+- Keep real values in `.env` or the host's environment. `.env.sample` holds names and sample values only.
+- `DATA_ENCRYPTION_KEY` encrypts finance-private fields (`packages/db/src/encryption.ts`) and keys contribution-import and bank-statement hashes. Outside production the hashes fall back to a key derived from `BETTER_AUTH_SECRET`. Changing the key, or moving from the fallback to a real key, silently changes the hashes: re-uploads without an external ID column stop matching, and rows with external IDs show as changed. The `h1:` prefix names the scheme, not the key, so there is no rotation path. See "Import hashes and the key" in `finance-income.md`.
+- Scripts that write encrypted values must run with the production key.

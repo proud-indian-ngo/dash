@@ -20,7 +20,7 @@ import type { NormalizedRow } from "./normalize";
  * scheme as a prefix ("h1:"); the prefix names the algorithm, not the key.
  * A different key (the BETTER_AUTH_SECRET fallback replaced by
  * DATA_ENCRYPTION_KEY, or a new DATA_ENCRYPTION_KEY) changes every hash:
- * see "Import hashes and the key" in docs/architecture/finance-and-programmes.md.
+ * see "Import hashes and the key" in docs/architecture/finance-income.md.
  */
 
 /** A keyed hash of `text` for one purpose, prefixed with the scheme. */

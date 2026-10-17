@@ -44,7 +44,7 @@ import type { EntryInput, MovementInput } from "./rules";
  *   it leaves the main bank account on the payment's date. Payments always
  *   come before the invoice (`vendor-payments.md`: "invoice only after
  *   payment"), so "Payments before the invoice are supplier advances until
- *   allocated" (`finance-and-programmes.md` section 3.6): each payment is a
+ *   allocated" (`finance-books.md`, "Expense posting rules"): each payment is a
  *   `Supplier advances` asset increase, and accepting the invoice reduces
  *   it by the expense it recognises. Without this the books would not
  *   balance between payment and invoice. An invoice larger than the

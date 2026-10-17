@@ -1,596 +1,154 @@
-# Project Structure Reference
+# Project structure
 
-All paths are relative to project root.
+The repository map. Paths are relative to the repository root. Commands, boundaries and the doc routing table are in the agent guide (`.ruler/agent-guide.md`, generated into `AGENTS.md` and `CLAUDE.md`); subsystem detail is in [docs/architecture/](docs/architecture/index.md).
 
-## Command Map
+## Top level
 
-| Command | Purpose |
+| Path | Holds |
 |---|---|
-| `bun run check:types` | TypeScript type check |
-| `bun run check` | Linter (ultracite/Biome) |
-| `bun run fix` | Auto-fix linter issues (ultracite/Biome) |
-| `bun run check:unused` | Find unused exports (knip) |
-| `bun run test:unit` | Run unit tests (Vitest and E2E shell checks) |
-| `bun run db:generate` | Generate Drizzle types |
-| `bun run db:push` | Push schema changes to database |
-| `bun run db:migrate` | Run pending migrations |
-| `bun run zero:generate` | Regenerate Zero schema |
-| `bun run zero:analyze` | Analyze named Zero queries; `ZERO_ANALYZE_PROFILE=events` (default) or `kalakriti` with required `ZERO_ANALYZE_EDITION_ID`; authenticate via environment |
-| `bun run whatsapp:start` | Start WhatsApp gateway container |
-| `bun run whatsapp:stop` | Stop WhatsApp gateway container |
-| `bun run whatsapp:templates status\|submit` | Check or submit the WhatsApp Cloud API templates in `packages/whatsapp/src/templates.ts` (needs `WHATSAPP_CLOUD_*` and the production `APP_URL`) |
-| `cd packages/e2e && bash run-e2e.sh` | Run E2E tests (full stack) |
-| `cd packages/e2e && bash run-e2e.sh tests/foo.spec.ts` | Run specific test files |
-| `cd packages/e2e && E2E_SERVER=dev bash run-e2e.sh tests/foo.spec.ts` | Run E2E against Vite dev instead of the default production build |
-| `bun run test:seed` | Seed E2E test data |
-| `bun run test:e2e` | Run E2E tests via Turborepo |
-| `bun run test:e2e:ui` | Run E2E tests in Playwright UI mode |
-| `bun run analyze` | Bundle analysis (web app) |
-| `bun run ruler:apply` | Apply Ruler config |
-| `bun run worktree:setup <ID>` | Set up worktree with port isolation (ID 1-9) |
-| `bun run worktree:setup <ID> --isolated-db` | Set up worktree with isolated Postgres |
-| `bun run worktree:teardown` | Clean up worktree resources |
-| `bash scripts/worktree-smoke-test.sh` | End-to-end worktree validation |
-| `bash scripts/cloud-setup.sh` | Cloud environment setup (PG upgrade, schema push, seed) |
-| `bun run seed` | Seed all dev data — idempotent, covers all models |
-
-## Fast Lookup Map
-
-### Root Config
-
-| File | Purpose |
-|---|---|
-| `.github/workflows/ci.yml` | CI pipeline (type check, lint, unit tests) |
-| `README.md` | Project overview |
-| `package.json` | Root scripts/workspaces |
+| `apps/web/` | The full-stack TanStack Start app |
+| `packages/` | Shared workspaces (below) |
+| `scripts/` | Seed, worktree, Social token, WhatsApp template and dev scripts |
+| `docs/architecture/` | Architecture chapters |
+| `.ruler/agent-guide.md` | Source of `AGENTS.md` and `CLAUDE.md` |
+| `.github/workflows/ci.yml` | CI: type check, lint, unit tests |
+| `lefthook.yml` | Pre-commit checks and commitlint |
+| `oxlint.config.ts`, `oxfmt.config.ts` | Lint and format config |
 | `turbo.json` | Task orchestration |
-| `packages/db/docker-compose.yml` | PostgreSQL, test DB, and WhatsApp services |
-| `biome.jsonc` | Biome linter config (via ultracite) |
-| `.env.sample` | Env var template |
-| `lefthook.yml` | Git hooks (pre-commit, commitlint) |
+| `Dockerfile`, `docker-compose.prod.yml` | Production build and services |
+| `CONTEXT.md` | Kalakriti glossary |
 
-### Web App Core
-
-| File | Purpose |
-|---|---|
-| `apps/web/src/router.tsx` | App entry / router config |
-| `apps/web/src/routes/__root.tsx` | Root layout |
-| `apps/web/src/routes/_app.tsx` | Authenticated layout (sidebar, breadcrumbs) |
-| `apps/web/src/routes/_auth.tsx` | Unauthenticated guard (pass-through outlet) |
-| `apps/web/src/middleware/auth.ts` | Auth middleware |
-| `apps/web/src/context/app-context.tsx` | App context provider (authenticated user) |
-| `apps/web/src/components/zero-init.tsx` | Zero client initialization |
-| `apps/web/vitest.config.ts` | Unit test config for web app |
-| `apps/web/src/components/data-table/data-table-wrapper.tsx`, `apps/web/src/components/data-table/{column-fill,use-column-fill}.ts` | Shared table rendering and viewport-aware last-unpinned-column fill, separate from persisted preferred widths |
-| `apps/web/vite.config.ts`, `apps/web/src/lib/dev/react-compiler-preset.ts` | Vite build configuration; keeps imperative ReUI sizing renderers outside React Compiler so resized widths and pin offsets stay current |
-| `apps/web/server/middleware/missing-asset.ts`, `apps/web/server/plugins/asset-cache.ts` | Unmatched `/assets/*` requests (chunks from another deploy) get a `no-store` 404 instead of reaching app routes; Nitro's `/assets/**` immutable header stays on successful responses only. Nitro runs `server/middleware` in filename order after its static handler |
-
-### Routes
-
-| Route file | Purpose |
-|---|---|
-| `routes/_app/index.tsx` | Dashboard |
-| `routes/_app/users.tsx` | User management |
-| `routes/_app/reimbursements/route.tsx` | Reimbursements layout |
-| `routes/_app/reimbursements/index.tsx` | Reimbursements list (combined reimbursements + advance payments) |
-| `routes/_app/reimbursements/new.tsx` | Create reimbursement |
-| `routes/_app/reimbursements/$id.tsx` | View/edit reimbursement (resolves type from ID) |
-| `routes/_app/teams/route.tsx` | Teams layout |
-| `routes/_app/teams/index.tsx` | Teams list |
-| `routes/_app/teams/$id.tsx` | Team detail |
-| `routes/_app/events/route.tsx` | Events layout |
-| `routes/_app/events/index.tsx` | Public events list |
-| `routes/_app/events/$id.tsx` | Event detail (updates, photos, members) |
-| `routes/_app/kalakriti/route.tsx` | Kalakriti layout (`kalakriti.view` permission guard) |
-| `routes/_app/kalakriti/index.tsx` | Latest accessible Edition redirect and no-access fallback |
-| `routes/_app/kalakriti/$year/route.tsx` | Edition-scoped container and exact-year access guard |
-| `routes/_app/kalakriti/$year/index.tsx` | Phase-aware role dashboard, Edition header, registration breakdowns and standings |
-| `components/kalakriti/role-dashboard.tsx`, `components/kalakriti/use-dashboard-snapshot.ts` | Scoped action sections and retained server-summary refresh |
-| `functions/kalakriti-dashboard-summary.ts`, `lib/server/kalakriti-dashboard-summary.ts` | Authenticated role aggregates and registration projections |
-| `components/kalakriti/*-stats.tsx`, `people-page-summary.tsx`, `competition-readiness-summary.tsx`, `entry-session-summary.tsx` | Scoped work-page metrics, exception filters, and completion visuals |
-| `lib/kalakriti-competition-page-metrics.ts` | Shared active Competition and scheduled Session counting rules |
-| `lib/kalakriti-dashboard-filter.ts` | Validated dashboard destination tokens translated to visible table filters |
-| `components/kalakriti/{volunteer,guardian,student}-detail-sheet.tsx` | Table-owned person details, Guardian/Student Center details, Student competition entries, and identifier QR codes for every authorized viewer |
-| `components/kalakriti/person-qr-panel.tsx` | Client-rendered JSON QR containing the database record `id` and subject `type` (`student`, `guardian`, or `volunteer`) |
-| `components/kalakriti/{food-table,food-stats,food-meal-undo}.tsx`, `components/kalakriti/food-roster-snapshot.ts`, `lib/kalakriti-food-policy.ts` | Eligible-only Food roster with retained authoritative snapshots, column filters, whole-authorized-roster meal totals, guarded meal undo, and shared page/navigation read policy |
-| `components/kalakriti/scan-dialog.tsx` | Stable sidebar modal with four role-derived scanning activities and pending-write guards |
-| `components/kalakriti/edition-lifecycle-card.tsx`, `packages/zero/src/kalakriti-go-live-readiness.ts` (repository root for package path) | Registration transitions and confirmed, credential-free Go-live readiness |
-| `components/kalakriti/center-scan-dialog.tsx` | Transport panel: continuous QR/manual marking, roster progress, pinned Center stages, and confirmed finalization |
-| `components/kalakriti/operation-scan-panel.tsx` | Live-only volunteer check-in, meals, and scoped Competition attendance with explicit scan contexts |
-| `lib/kalakriti-scan-recording.ts` | Stable nontransport operation arguments and retry keys across activity changes |
-| `components/kalakriti/event-day-qr-scanner.tsx` | Client-only camera decoder with startup failure handling and camera cleanup |
-| `lib/kalakriti-qr-decoder.ts` | Stable lazy decoder entry for camera loading and E2E interception in development and production builds |
-| `components/kalakriti/use-transport-status-snapshot.ts` | Keeps Student/Center transport labels tied to complete, scoped query snapshots without hiding the base table |
-| `routes/_app/kalakriti/$year/transport.tsx` | Scoped Transport directory and table-owned vehicle editing/deletion; Center sheets retain read-only transport |
-| `routes/_app/kalakriti/$year/inventory.tsx` | Edition Inventory Items and Transactions tabs, with role and archived-Edition access guards |
-| `routes/_app/kalakriti/$year/awards.tsx`, `components/kalakriti/awards*` | Published prize roster, recipient/group handovers, filters, summaries, and ID display |
-| `functions/kalakriti-awards.ts`, `packages/shared/src/kalakriti-awards.ts` | Published-recipient projection and shared Awards authority/types |
-| `packages/db/src/schema/kalakriti-awards.ts`, `packages/zero/src/mutators/kalakriti-award.ts` | Versioned prize handovers, durable command receipts, and atomic award/undo |
-| `components/kalakriti/inventory-{items-table,item-dialog,movement-dialog}.tsx` | Item catalog, optional photo, and stock movement forms with item history |
-| `components/kalakriti/inventory-scan-panel.tsx` | Volunteer QR/yearly-ID capture, scanned profile, assigned Competition/role choices, searchable item multiselect, and atomic dispatch/return batches |
-| `lib/kalakriti-inventory-assignment-options.ts` | Deduplicated active Competition and role choices from the scanned Volunteer’s assignments |
-| `lib/kalakriti-inventory-{policy,upload}.ts` | Inventory route/navigation policy and protected item-photo upload helpers |
-| `packages/zero/src/{queries,mutators}/kalakriti-inventory.ts`, `packages/zero/src/kalakriti-inventory-schema.ts` (repository root) | Scoped catalog/history/picker reads and validated, serialized stock commands |
-| `packages/shared/src/kalakriti-inventory.ts` (repository root) | Shared movement types, inventory responsibilities, and photo size limit |
-| `components/kalakriti/transport-table.tsx` | One row per vehicle, unassigned Center placeholders, location/Maps links, pickup times, and retained scan-derived status |
-| `lib/kalakriti-transport-policy.ts` | Transport route/navigation readership and management capabilities |
-| `components/kalakriti/center-transport-section.tsx` | Read-only Center vehicle details and derived Center-stage status |
-| `components/kalakriti/center-edit-dialog.tsx` | Shared Center editor: lifecycle-independent basic details, guarded registration controls, and Guardian/Liaison assignments |
-| `components/kalakriti/center-edit-assignments.tsx` | Editor-only scoped assignment queries and central-volunteer picker loading |
-| `components/kalakriti/center-transport-form-dialog.tsx` | Scoped vehicle creation/editing form; archived Editions remain read-only |
-| `components/kalakriti/entry-music-dialog.tsx` | Staged additions and per-file removals for up to two Entry music files, including after registration closes |
-| `components/kalakriti/entry-music-field.tsx` | Multi-select/drop audio uploads with per-file status, removal, and partial-failure retries |
-| `components/kalakriti/entry-music-upload.ts` | Audio MIME resolution, bounded upload claims, and temporary-object discard helpers |
-| `components/kalakriti/entry-music-playback-dialog.tsx` | Table-owned per-file audio playback and protected download, available independently of music-edit permission |
-| `packages/zero/src/mutators/kalakriti-entry-music-cleanup.ts` (repository root) | Removes child music rows and queues reference-checked cleanup when an Entry or Student is deleted |
-| `lib/dev/api-media-dev-middleware.ts` | Vite-only API media request normalization so Nitro routes native image/audio/video requests to their protected handlers |
-| `routes/api/kalakriti/$year/people/lookup.ts` | Session- and Edition-admin-protected person lookup by database or yearly ID |
-| `packages/shared/src/kalakriti-person-qr.ts` (repository root) | Strict bounded parser for detail-sheet JSON person identifiers |
-| `packages/zero/src/mutators/kalakriti-operation.ts` (repository root) | Live-only recording, scoped operator authorization, retry idempotency, and manual yearly-ID resolution |
-| `routes/_app/kalakriti/$year/centers/index.tsx` | Edition Center list and registration controls |
-| `routes/_app/kalakriti/$year/centers/index.tsx` | Centers directory with a scoped `centerId` search parameter for row-click sheets and notification deep links |
-| `components/kalakriti/center-detail-sheet.tsx` | Center fields, registration/compliance, scoped Guardian/Liaison lists, and lazily loaded read-only transport; actions open table-owned modals |
-| `routes/_app/kalakriti/$year/competitions/route.tsx` | Unified Competition workspace guard: Entry readers retain scoped access; configuration controls use existing manager/lifecycle rules |
-| `routes/_app/kalakriti/$year/competitions/index.tsx` | One row per age-specific Competition, scoped Entries, schedule, create/edit/cancel and inline Entries selection |
-| `routes/_app/kalakriti/$year/competitions/sessions/$id.tsx` | Redirect to the Competition workspace with the age-specific Competition selected |
-| `routes/_app/kalakriti/$year/settings/` | Role-gated Edition details/participation rules, Competition Categories, Venues, and Eligibility tabs |
-| `routes/_app/kalakriti/$year/competitions/{catalog,categories,venues,schedule}.tsx`, `eligibility.tsx` | Redirects to the consolidated Competition workspace and Settings |
-| `routes/_app/kalakriti/$year/guardians.tsx` | Edition Guardian access management |
-| `routes/_app/kalakriti/$year/{guests,judges}.tsx` | Non-login attendee rosters, detail-sheet QR/status display, and many-to-many judge Competition assignments |
-| `packages/zero/src/{mutators,queries}/kalakriti-attendee.ts` (repository root) | Edition-bound attendee commands and administrator/lead-scoped roster reads |
-| `routes/_app/kalakriti/$year/students.tsx` | Authorized-Center-union Student directory with a Center column/filter, explicit-Center registration, and actual-row-Center edit/detail/delete guards |
-| `routes/_app/kalakriti/$year/entries.tsx`, `entries/` | Legacy Entries redirects to the Competition workspace and inline Entries selection, preserving Center search parameters |
-| `routes/_app/kalakriti/$year/food.tsx` | Scoped Student/Volunteer/Guardian/Guest/Judge Food roster with eligibility and served history |
-| `functions/kalakriti-food.ts`, `components/kalakriti/use-food-attendees.ts` | Authenticated no-contact Guest/Judge Food projection, five-second/focus refresh, and snapshot readiness |
-| `routes/_app/kalakriti/$year/audit.tsx` | Edition-wide administrator and assignment-scoped Lead audit trail with stable pagination |
-| `routes/_app/kalakriti/new.tsx` | Create an Edition and protected linked event (`kalakriti.admin` guard) |
-| `routes/kalakriti/$year/schedule.tsx` | Public Competition schedule for open, locked, live, and archived Editions with signup, volunteer-interest, and Edition dashboard calls to action |
-| `routes/_app/vendor-payments/route.tsx` | Vendor payments layout (requests permission guard) |
-| `routes/_app/vendor-payments/index.tsx` | Vendor payments list with DataTableWrapper |
-| `routes/_app/vendor-payments/new.tsx` | New vendor payment form |
-| `routes/_app/vendor-payments/$id.tsx` | Vendor payment detail + transactions |
-| `routes/_app/vendors/route.tsx` | Vendors layout (`assertPermission("vendors.view_all")` guard) |
-| `routes/_app/vendors/index.tsx` | Vendors list; create, edit and delete through `functions/vendors.ts`, approval through Zero |
-| `routes/_app/settings/route.tsx` | Settings layout: nav grouped into You and Organization (`components/settings/settings-layout.tsx`), driven by `lib/settings-sections.ts` |
-| `routes/_app/settings/index.tsx` | Redirects to `/settings/profile` |
-| `routes/_app/settings/{profile,account,notifications,bank-accounts}.tsx` | Personal settings pages |
-| `routes/_app/settings/{general,programmes,projects,org-accounts,integrations,expense-categories,whatsapp-groups,api-tokens,maintenance}.tsx` | Organization settings pages, each guarded by its permission in `beforeLoad`; Integrations (`finance.view` to see, `finance.manage` to save) shows the Razorpay connection, webhook setup, clearing account and notes keys, refunds needing attention or waiting for their payment, the settlement status (latest settlement, lines waiting for their payment, or "Needs RAZORPAY_KEY_SECRET"), and Sync now / Import past payments with the last sync (`components/settings/sections/razorpay-section.tsx`, `razorpay-sync-card.tsx`, `functions/razorpay-settings.ts`); Programmes (`finance.manage`) edits cause-based programmes, their leads and finance-approval thresholds, and the cash-voucher limit in app_config `cash_voucher_limit_paise` (₹1 to ₹10,000, default ₹1,000; `components/settings/sections/cash-voucher-limit-card.tsx`); Projects (`finance.manage`) edits time-boxed projects under a programme; Organisation accounts (`finance.view` to see, `finance.manage` to add, edit or deactivate) lists the bank, cash and gateway clearing accounts income is deposited into, with fund source and FCRA role (no bank details) and the main bank account expenses are paid out of (`org_account.is_main`, at most one), and holds the 80G registration (URN, date of issue, section code) the donations return needs, in app_config `donations_return_registration` (`components/settings/sections/donations-return-section.tsx`) |
-| `routes/_app/settings/roles/route.tsx` | Roles layout |
-| `routes/_app/settings/roles/index.tsx` | Roles list |
-| `routes/_app/settings/roles/$roleId.tsx` | Role detail (permissions) |
-| `routes/_app/scheduled-messages.tsx` | Scheduled WhatsApp messages (`messages.schedule` permission guard) |
-| `routes/_app/whatsapp-groups/$groupId.join.tsx` | Target of the `group_invite` template's button: redirects to the group's invite link (any signed-in user) |
-| `routes/api/whatsapp/cloud/webhook.ts` | WhatsApp Cloud API webhook: subscription check, delivery statuses, auto-reply (`lib/whatsapp-cloud-webhook.ts`) |
-| `routes/_app/donors/` | Donor and sponsor directory (`donors.view`), with identity through Zero and private details through `functions/parties.ts` |
-| `routes/_app/income/` | Income page (`donors.view`, `finance.view`, `donors.manage` or `finance.manage`; managing implies seeing): Contributions and Other income tabs (`?tab=`), this year's stat chips, and `?donor=<partyId>` to open filtered to one donor; contributions are written through Zero with `donors.manage`, other income with `finance.manage`; the "Missing donor details" count comes from `functions/income.ts`; an Imports tab lists CSV imports (`?tab=imports`) and `?batch=<id>` filters contributions to one import; a Settlements tab (`?tab=settlements`, `finance.view` or `finance.manage` only) lists Razorpay and give.do payouts with per-provider "Awaiting settlement", "Settled" and "Fees" for the financial year (`functions/razorpay-settlements.ts`) and a breakdown sheet (`components/income/settlements/`), and each gateway gift's sheet says when it was settled; `import.tsx` is the four-step CSV importer (`donors.manage`) and `imports.$batchId.tsx` the batch page (rows for `donors.view` or `donors.manage`, "Retry unresolved rows" for `donors.manage`, or "Review N payments" for Razorpay batches), both backed by `functions/income-import.ts` and `lib/income-import/`; the Imports tab shows "Waiting: N" across batches and the batch page breaks waiting rows down by reason; `return.tsx` is the donations return readiness page (`/income/return?fy=2026-27`, same four permissions; opened from the Income page menu): summary chips, progress and the checklist from `functions/donations-return.ts` (`getDonationsReturnReadiness`: gift and party IDs with their outcomes and counts only) and the upload and "All gifts" exports (`exportDonationsReturn`, `finance.view_sensitive`, audited as `donations_return.export`; files built in `lib/donations-return-export.ts`), with the rules, codes and columns in `packages/shared/src/donations-return.ts` and the data in `packages/db/src/queries/donations-return.ts`; `bank/index.tsx` is the Bank statements page (`finance.view` or `finance.manage`; `?account=`, `?month=`, `?tab=review|out|matched|ignored|all|unseen`) and `bank/import.tsx` the statement importer (`finance.manage`), both backed by `functions/bank-statements.ts`, `lib/bank-statement/` (mapping, normalising, line hashes, matching rules, server side; bank debit matching in `debit-match.ts` (suggestion and allocation rules) and `debits.ts` (writes and reads), with `packages/db/src/queries/bank-debits.ts`) and `components/income/bank/` (`debit-match.tsx`: a debit's suggestion, Find match, the reconciliation summary and the "Not in bank" list; `in-bank-fact.tsx`'s `PaidFromBank` on reimbursement and vendor payment views) |
-| `routes/api/razorpay/webhook.ts` | Razorpay webhook: verifies `X-Razorpay-Signature`, stages captured payments in `private.import_row` and enqueues `razorpay-sync-payment`, enqueues `razorpay-sync-refund` for `refund.processed`, and `razorpay-sync-settlement` for `settlement.processed` (key secret only); 404 when `RAZORPAY_KEY_ID` or `RAZORPAY_WEBHOOK_SECRET` is unset |
-| `routes/api/receipts/$receiptId.ts` | A donation receipt's PDF, rendered on demand from its frozen snapshot (`donors.receipt`, audited `contribution_receipt.download`). Receipt commands in `functions/contribution-receipts.ts` over `lib/receipts/server.ts`; the Receipts tab, review dialog, sheet and void dialog in `components/income/receipts/`; data in `packages/db/src/queries/contribution-receipts.ts`, rules in `packages/shared/src/receipts.ts`, the PDF in `packages/pdf/src/donation-receipt.tsx`, the email job `send-contribution-receipt` |
-| `routes/_app/finance/books/` | The books (finance Phase 3): `index.tsx` is the Books page (`finance.view` or `finance.manage`; `?year=`, `?account=`, `?tab=cash|income|balance`, `?by=head|programme`) with the accounts and their balances, the cash book, income and expenditure and the balance summary, and the year close and reopen dialogs (`finance.close_year`, `finance.reopen_year`); `opening.tsx` shows the posted opening balances read-only, or the entry form for `finance.post_opening`; `audited.tsx` (`?year=`, book readers and `finance.adjust`) is the year's audited figures (the year-end true-up): the matched document read-only beside the books as they stand, or the entry form for `finance.adjust` (`components/books/audited-figures-form.tsx`, `audited-figures-view.tsx`), with the rules in `packages/shared/src/audited-figures.ts` and the posting in `packages/db/src/ledger/audited-figures.ts`. Components in `components/books/`, server functions in `functions/books.ts` (audited `books.*` actions) over `lib/books/server.ts`; the posting engine, opening balances, year close and income posting (`income-rules.ts` the rules, `income-posting.ts` the diff and sweep for every posted source, `income-runner.ts` against the app database; jobs `ledger-post-source` and `ledger-post-pending` in `packages/jobs/src/handlers/ledger-post.ts`, queued from the web app through `lib/ledger-posting.ts` and from Zero mutators through `packages/zero/src/mutators/ledger-queue.ts`) and expense posting (`expense-rules.ts` the rules, `expense-posting.ts` the facts, watermarks and listing, `expense-heads.ts` one account head per expense category) live in `packages/db/src/ledger/`, the shared arithmetic in `packages/shared/src/ledger.ts`, Zero reads in `packages/zero/src/queries/ledger.ts`; the CA handoff workbook (`exportCaWorkbook`) loads through `packages/db/src/queries/ca-workbook.ts` and is built in `lib/ca-workbook/` (`sheets.ts` rows, `xlsx.ts` writer, `server.ts`) |
-| `routes/_app/income/payout/import.tsx` | give.do payout XLSX upload, review and import; both `donors.manage` and `finance.manage`. `components/income/payout/` uses the existing donor review table; `functions/give-do-payouts.ts` owns permission and audit boundaries; `lib/give-do-payout/` parses the two sheets, validates totals and coordinates the import transaction; `packages/db/src/queries/give-do-payouts.ts` records settlements, preserves evidence and links payments. `queries/contribution-bank-status.ts` in Zero provides finance-only evidence for the Income table's derived Reached bank filter. Synthetic workbook and generator: `packages/e2e/fixtures/give-do/`. |
-| `lib/razorpay/` | Razorpay ingestion: `config.ts` (env and mode), `webhook.ts` (signature and event routing), `payment.ts` (allow-listed flattening, normaliser, fingerprint, batch key, captured check), `notes-keys.ts` (editable notes key setting, client-safe), `rules.ts` (row rules for the import flow), `ingest.ts` (stage, process, sync), `api.ts` (paced API client: fetch and list payments, refunds and settlements and the settlement recon, 429 backoff), `settlement-schema.ts` and `settlement.ts` (reading settlements and recon lines, a day's settlements, and the single-settlement sync), `refund-schema.ts` and `refund.ts` (holding and applying processed refunds), `reconcile.ts` (the reconcile and backfill run: stuck-payment pass, India-day windows, run state in app_config), `after-review.ts` (refund checks after a review run), `worker.ts` (the `razorpay-sync-payment`, `razorpay-sync-refund`, `razorpay-sync-settlement` and `razorpay-reconcile` workers, registered by `server/plugins/jobs.ts`), `settings.ts` (status, Sync now and Import past payments) |
-| `routes/_app/analytics.tsx` | Analytics dashboard with charts, including spending by programme derived from each request's event (`requests.view_all` permission guard) |
-| `routes/_app/jobs.tsx` | Background jobs dashboard (`jobs.manage` permission guard) |
-| `routes/_app/audit-log.tsx` | Immutable user-action audit viewer (`audit_log.view` permission guard) |
-| `routes/_app/social.tsx` | Social page: pipeline runs, posted log with Drop, pause switches, posting rules and social settings (`social.manage` permission guard) |
-| `routes/_app/export.tsx` | CSV data export (reimbursements, advance payments, vendor payments) |
-| `routes/_auth/login.tsx` | Login |
-| `routes/_auth/register.tsx` | Registration (`?eventId=` / `?group=` optional) |
-| `routes/_auth/forgot-password.tsx` | Forgot password |
-| `routes/_auth/reset-password.tsx` | Reset password |
-| `routes/_auth/verify-email.tsx` | Email verification |
-| `routes/unsubscribe.tsx` | Public page behind email unsubscribe links (confirm, undo) |
-| `routes/api/auth/$.ts` | Auth API handler |
-| `routes/api/version.ts` | Public, uncacheable `{ buildId }` of the running build (`lib/build-id.ts`, server-only), polled by `lib/new-version.ts` |
-| `routes/api/zero/query.ts` | Zero query endpoint |
-| `routes/api/zero/mutate.ts` | Zero mutate endpoint |
-| `routes/api/avatar.ts` | Avatar generation |
-| `routes/api/health.ts` | Health check endpoint |
-| `routes/api/email/webhook.ts` | Resend delivery webhook (Svix-signed, `RESEND_WEBHOOK_SECRET`): permanent bounces and spam complaints go to `private.email_suppression` |
-| `routes/api/email/unsubscribe.ts` | RFC 8058 one-click unsubscribe (POST, signed `u`/`t`/`sig`; `resubscribe=1` undoes) |
-| `routes/api/log/ingest.ts` | Client-side log ingestion |
-| `routes/api/immich/thumbnail.$id.ts` | Immich photo thumbnail proxy |
-| `routes/api/immich/original.$id.ts` | Immich photo original image proxy |
-| `routes/api/media/event-photo.$id.ts` | Authorized event-photo signed redirect |
-| `routes/api/public/events.ts` | Public, unauthenticated upcoming-events feed for proudindian.ngo (CORS open to every origin, GET/OPTIONS only, 5-minute public cache, 60-second in-process cache, per-IP rate limit, `from` within 90 days); builder in `@pi-dash/shared/public-events`, query in `@pi-dash/db/queries/public-events` |
-| `routes/api/social/v1/*.ts` | Bearer-token social API for the social-artifacts pipeline (`events`, `events/$id/photos`, `stats`, `posted`, `notify`, `settings`, `runs`, `openapi.json`) plus the token-free HMAC-signed photo proxy `media/$photoId/$variant`; handlers in `lib/social-api/`, token check in `lib/social-api-auth.ts`, shapes in `@pi-dash/shared/social-api`, queries in `@pi-dash/db/queries/social-api`. See `docs/architecture/social-api.md` |
-| `functions/public-session-summary.ts` | Register-page banner lookup for website sign-up links (public, non-Kalakriti sessions only) |
-| `routes/api/kalakriti/$year/schedule.ts` | Public lifecycle-filtered Kalakriti schedule API with an explicit public data allowlist |
-| `routes/api/kalakriti/$year/audit.ts` | Authenticated Edition/domain-scoped Kalakriti audit API with privacy-safe metadata |
-| `routes/api/kalakriti/$year/registration-export.ts` | Authenticated assignment-scoped Student and Competition Entry CSV archive download |
-| `routes/api/media/avatar.$userId.ts` | Authorized avatar signed redirect matched to the current persisted image |
-| `routes/api/media/event-update.ts` | Authorized event editor-media signed redirect matched to persisted Plate content |
-| `routes/api/jobs/index.ts` | Jobs list/create API (GET/POST, `jobs.manage` permission) |
-| `routes/api/jobs/stats.ts` | Queue size stats API |
-| `routes/api/jobs/$id.ts` | Job detail API |
-| `routes/api/jobs/$id/cancel.ts` | Cancel job API |
-| `routes/api/jobs/$id/retry.ts` | Retry failed job API |
-| `routes/api/audit-log.ts` | Permissioned audit ledger query API (server pagination and filters) |
-| `routes/api/attachments/download.ts` | Authorized attachment download proxy |
-
-All route paths above are prefixed with `apps/web/src/`.
-
-External Kalakriti accounts use the technical `external_user` role. They land
-on their active Edition, are excluded from central volunteer pickers and admin
-user management, and cannot query organization-wide Zero data. The linked
-pi-dash event remains read-only outside the Kalakriti module.
-
-### Components
-
-| Directory | Contents |
-|---|---|
-| `components/layout/` | app-sidebar, nav-main, nav-user, team-switcher, breadcrumbs |
-| `components/data-table/` | data-table-wrapper, ReUI Filters adapter (`compile-filter-query`, `use-data-table-filters`, `filter-fields`, `filter-date-editor`, `use-migrate-legacy-filter-params`) |
-| `components/audit/` | audit-log table, row detail sheet, and API response types |
-| `components/social/` | Social page: runs table, posts table (Drop action), social settings (pause switches, posting rules, digest approver, all-time totals), IST formatting |
-| `components/users/` | users-table, user-form, password-form, ban-user-form |
-| `components/reimbursements/` | reimbursements-table, reimbursement-form, reimbursement-detail, reimbursement-stats (unified reimbursements + advance payments); voucher-signed-copy (the Voucher column's voucher and signed-copy links, and Upload signed copy for the claimant, finance and approvers via `reimbursement.attachSignedVoucher`); payment-proof-dialog (Add or Replace payment proof on an approved reimbursement via `reimbursement.addPaymentProof`; `/reimbursements/$id?proof=add` opens it, linked from the Books waiting list); missing-proof-filter-button (the "Missing payment proof · N" count that applies the filter from `lib/payment-proof.ts`); payee-signature (a voucher item's "Signed by" chip with thumbnail, "Collect payee signature" and Re-collect until approval) and collect-payee-signature-dialog (statement, pad, Undo/Clear and confirm: full-screen sheet on phones, dialog on desktop; saves via `reimbursement.collectPayeeSignature`), statement text in `packages/shared/src/payee-signature.ts` |
-| `components/expenses/` | "Charged to" on reimbursements and vendor payments: the form fields (`charged-to-fields.tsx`, schema in `charged-to-schema.ts`), the detail card with finance's change dialog (`charged-to-card.tsx`) and the "Unallocated · N" list filter; the rule is `expenseProgrammeOf` in `packages/shared/src/expense-charge.ts`, the mutator checks in `packages/zero/src/mutators/expense-charge.ts` |
-| `components/teams/` | teams-table, team-detail, team-form-dialog, add-member-dialog |
-| `components/shared/` | user-avatar, user-picker, confirm-dialog, responsive-dialog, responsive-sheet (desktop side sheet and mobile drawer navigation; `forceMobile` takes the drawer on a wide but short touch screen), responsive-action-menu (desktop dropdown and mobile action sheet); signature-pad (pointer-events canvas for finger, pen or mouse; strokes kept as data in `lib/signature-ink.ts`, which also checks there is enough ink and exports the trimmed PNG); void (finance Option B: Void badge, the posted-in-the-books hooks and the Show voided list filter) |
-| `components/editor/` | plate-editor (rich-text with image upload), plate-renderer (read-only) |
-| `components/events/` | public-events-table |
-| `components/kalakriti/` | Edition configuration, assignments, Guardian access, Competition schedule, Student and Entry registration, scoped dashboards and ZIP exports, and scoped audit tables |
-| `components/teams/events/` | events-table, events-table-helpers (RRULE expansion, display row building), event-form-dialog, event-detail, event-details-card, event-attendance-section, event-updates, event-photos, add-event-member-dialog, show-interest-dialog, interest-requests, recurrence-builder (RRULE form UI), edit-scope-dialog (this/following/all scope selection), event-actions-menu, event-social-recap (post-event "Social recap" card), event-partners-field (partners repeater in the event form) |
-| `components/vendors/` | vendors-table, vendor-form-dialog (loads private details, then one audited `saveVendor` writes party, profile, private details and bank account), vendor-detail-sheet (masked account with audited Reveal), vendor-private (`useVendorDetails`, `useCanRevealVendorBank` over `lib/vendor-access.ts`, `VendorAccountNumber`), shared with the payment page's vendor cards |
-| `components/donors/` | donors-table, donor-form-dialog (one audited `saveDonor` server function writes identity, roles and private details in a transaction), donor-detail-sheet (masked identifier, audited Reveal, Giving section), donor-giving-section (lifetime and this-year totals, recent gifts, link to Income), party-row |
-| `components/income/` | contributions-table (Status shows the money's lifecycle only, a stored `receipted` reading Received; a Receipt column for receipt readers: the receipt number, By Razorpay/give.do, Ready to issue, Needs details, Can't issue, Not needed or a dash, via `receipts/receipt-column.ts`, `receipts/contribution-receipt-cell.tsx`, `receipts/use-receipt-readiness.ts` and `receipts/readiness-loader.ts`), contribution-filters (status, receipt, channel, donation type, programme, date, donor, source, missing details), contribution-detail-sheet, contribution-form-dialog (giver picker for donors, sponsors, grantors and intermediaries, labelled with their roles, with inline "New donor", channel-driven reporting mode, project-driven programme, "Save and record another"), contribution-stats (financial-year and per-donor totals), contribution-status, donations-return-page and donations-return-checklist (the readiness page), other-income-table, other-income-form-dialog, income-types, import-batches-table (Imports tab), import/ (import-wizard, upload-step, map-step, review-table) |
-| `components/settings/` | settings-layout (nav + `SettingsPage`), settings-ui (`SettingsCard`, `SettingsRow`, `SettingsListItem`), sections/ (profile, account, banking, programmes, projects, org-accounts, expense-categories, whatsapp-groups, notifications, general, api-tokens, admin-actions) |
-| `components/form/` | form-layout, form-modal, form-actions, form-context, custom-field, input-field, date-field, phone-field, phone-field-lazy, textarea-field, checkbox-field, select-field, combobox-field, add-url-row, line-items-editor, attachments-section, reject-dialog, approve-dialog, payment-screenshot-input and use-payment-screenshot-upload (the payment screenshot upload shared by approval and payment proof); void-dialog (void a posted request or payment with a reason) |
-| `components/login/` | auth-layout (split-panel shell), auth-info-panel (info panels for signup/login), login-form, register-form, forgot-password-form, reset-password-form |
-| `components/stats/` | stats-cards (dashboard stats) |
-| `components/` (root) | loader, default-catch-boundary, default-not-found, theme-toggle, zero-init, dev-tools |
-
-All component paths above are prefixed with `apps/web/src/`.
-
-### Hooks
-
-| File | Purpose |
-|---|---|
-| `hooks/use-active-path.ts` | Current nav view from pathname |
-| `hooks/use-attachment-actions.ts` | Attachment upload/delete actions |
-| `hooks/use-confirm-action.ts` | Confirm→loading→execute→close pattern for destructive actions |
-| `hooks/use-dialog-manager.ts` | Discriminated-union state for managing multiple dialogs |
-| `hooks/use-local-storage.ts` | Generic localStorage with JSON serialization |
-| `hooks/use-table-state.ts` | Table state (pagination, sorting, filters, column persistence) |
-| `hooks/use-unread-notification-count.ts` | Unread notification count (Zero query) |
-
-All hook paths above are prefixed with `apps/web/src/`.
-
-### Server Functions
-
-| File | Purpose |
-|---|---|
-| `functions/get-auth.ts` | Combined session + permissions (single round-trip) |
-| `functions/get-session.ts` | Authenticated user session |
-| `functions/get-permissions.ts` | Resolve permissions for current user's role |
-| `functions/user-admin.ts` | Admin CRUD: create, update, setPassword, delete, setBan |
-| `functions/attachments.ts` | Surface-specific temp attachment signing (including owner/approver invoice scope) plus dedicated avatar and event editor-media upload/delete functions |
-| `functions/event-feedback.ts` | Get authenticated user's feedback for an event (`getMyEventFeedback`) |
-| `functions/export-csv.ts` | CSV data export server function |
-| `functions/immich-upload.ts` | Immich photo upload server function |
-| `functions/role-admin.ts` | Role CRUD and permission assignment server functions |
-| `functions/admin-actions.ts` | Audited maintenance and job triggers |
-| `functions/event-poll.ts` | Audited event RSVP poll command |
-| `functions/social-people.ts` | Ids and names for the Social page (approver candidates, droppers) without syncing user rows (`social.manage` or `users.view`) |
-| `functions/social-api-tokens.ts` | Social API token list, audited create (returns the raw token once) and revoke for Settings → API tokens |
-| `functions/vendor-payment-provision.ts` | What is outstanding of the audit fee provision for an invoice, and how the books split its lines (`requests.approve`, `finance.view`, `finance.manage`; read only) |
-
-All function paths above are prefixed with `apps/web/src/`.
-
-### Lib
-
-| File | Purpose |
-|---|---|
-| `lib/api-auth.ts` | API route auth helpers |
-| `lib/new-version.ts` | Notes the server build at page load, rechecks every 5 minutes and on tab focus, and shows a persistent "new version" toast with Reload when it changes |
-| `lib/chunk-load-error.ts` | Detects failed chunk imports after a deploy and reloads once per chunk per session; used by both error boundaries and the `vite:preloadError` listener in `__root.tsx` |
-| `lib/audit.ts` | Audit actor snapshots, sanitized mutation summaries, and audited-action runners |
-| `lib/auth-client.ts` | Better-auth client with admin plugin |
-| `lib/avatar.ts` | Avatar URL builder (DiceBear) |
-| `lib/validators.ts` | Shared Zod schemas |
-| `lib/form-schemas.ts` | Form-level Zod schemas |
-| `lib/table-utils.ts` | Table state utilities |
-| `lib/errors.ts` | Error handling utilities |
-| `lib/logger.ts` | evlog init (imported at server startup) |
-| `lib/attachment-links.ts` | Generic attachment URL helpers |
-| `lib/reimbursement-types.ts` | Union types, type guards, and normalizer for unified reimbursements module |
-| `lib/stats.ts` | Shared stat computation helpers |
-| `lib/status-badge.ts` | Status → badge variant mapping |
-| `lib/submission-mappers.ts` | Map Zero rows to form/display models |
-| `lib/request-programme.ts` | A request's programme for the request tables, filters and the spending chart, derived by `expenseProgrammeOf` from what it is charged to ("Admin" for organisation) |
-| `lib/save-conflict.ts` | Detects the party save version conflict so donor and vendor forms reload the details |
-| `lib/nav-items.ts` | Nav items by user role |
-| `lib/route-guards.ts` | Route protection utilities |
-| `lib/db-enums.ts` | Database enum type mappings |
-| `lib/team-utils.ts` | Team-related utilities |
-| `lib/immich.ts` | Immich photo service integration |
-| `lib/s3.ts` | S3/R2 client utilities |
-| `lib/rate-limit.ts` | Rate limiting helpers |
-| `lib/social-api-auth.ts` | Social API bearer-token check (sha256 lookup, scopes, per-token rate limit) |
-| `lib/social-media-url.ts` | Sign and verify the social API's 36-hour photo links (`SOCIAL_MEDIA_SIGNING_SECRET`) |
-| `lib/social-api/` | Social API route handlers with injectable dependencies |
-| `lib/csv-export.ts` | CSV export utilities |
-| `lib/kalakriti-registration-export.ts` | Allowlisted Kalakriti registration CSV and ZIP archive generation |
-| `lib/kalakriti-registration-scope-policy.ts` | Canonical assignment-to-registration-scope policy for dashboards and exports |
-| `lib/client-logger.ts` | Client-side logging |
-
-All lib paths above are prefixed with `apps/web/src/`.
-
-### Packages
+## Packages
 
 | Package | Key paths |
 |---|---|
-| `packages/auth/` | `src/index.ts` (auth config), `src/seed-admin.ts` (lightweight admin-only seed), `src/register-event*.ts` (`?eventId=` invite enrollment), `src/register-interest*.ts` (website sign-up interest filed on first email verification, with session materialization), `src/verification-redirect.ts` (event redirect carried through verification emails) |
-| `packages/db/` | `src/kalakriti-orientation.ts` (transactional conditional role promotion and session revocation), `src/schema/` (Drizzle tables), `src/migrations/`, `src/permissions.ts` (code-defined permission registry), `src/queries/resolve-permissions.ts` (resolve user permissions with cache), `src/queries/public-events.ts` (public events feed and register-banner lookups), `src/queries/social-api.ts` and `src/queries/social-api-token.ts` (social API reads, posted log, run reports with 500-row retention, tokens), `src/sync-permissions.ts` (sync permission registry to DB), `docker-compose.yml` (postgres, postgres-test, postgres-migration, whatsapp), `scripts/migrate-legacy-data.ts` |
-| `packages/email/` | `src/mailer.ts` (Resend transport: `sendEmail`, `sendEmailBatch`), `src/webhook.ts` (Resend webhook verification, bounce/complaint → suppression), `src/templates/` (`email-layout`, `theme`, notification-email, verification-email, reset-password-email) |
-| `packages/env/` | `src/server.ts` (server env), `src/web.ts` (client env) |
-| `packages/config/` | Shared TypeScript & tooling config |
-| `packages/shared/` | Client-safe constants and types shared across packages (e.g., `cityValues`, `attachmentTypeValues`, `historyActionValues`, `money` paise conversion and formatting, `event-reminders` presets/formatting, `rrule-expand` series expansion, `vendor-payment` no-invoice reason labels and proof rule) — no heavy dependencies |
-| `packages/design-system/` | `components/ui/` (shadcn), `components/reui/` (custom: data-grid, badge, alert), `hooks/`, `lib/` (theme-provider, utils) |
-| `packages/notifications/` | `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, Kalakriti registration, and Kalakriti schedule), `src/send-message.ts` (core send/bulk send), `src/batching.ts` (hold email and WhatsApp for the batching window; `flush-held-notifications` sends them as the original message or a digest), `src/digest.ts` (`DigestRow` each sender passes; digest heading, rows and WhatsApp text), `src/inbox.ts` (DB insert), `src/email.ts` (per-recipient footer and unsubscribe headers, single and batch send), `src/unsubscribe.ts` (signed unsubscribe links, topic email toggle), `src/topics.ts` (11 topics + `TOPIC_CATALOG`), `src/preferences.ts` (channel preference lookup), `src/helpers.ts` |
-| `packages/jobs/` | pg-boss job queue — `src/boss.ts` (singleton), `src/producer.ts` (explicit-target CLI producer without handlers or schedules), `src/enqueue.ts` (typed `enqueue()` + payload types), `src/handlers/` (job handlers), `src/handlers/r2.ts` (shared R2 S3 client), `src/schedules.ts` (cron schedules), `src/handlers/create-handler.ts` (handler factory), `src/lib/` (shared utils: `reminder-sentinel.ts`, `materialize-occurrences.ts`, `rrule-expand.ts` re-export, `weekly-digest-utils.ts`). `send-scheduled-whatsapp` uses a dedicated dead letter queue (`dead-letter-scheduled-whatsapp`) to avoid hijacking the shared `dead-letter` queue. **Cron schedules**: `process-event-reminders` (every 15 min), `process-post-event-reminders` (hourly), `send-weekly-events-digest` (Monday 7 AM IST), `expire-event-interests` (daily midnight IST), `sync-public-events-deploy` (every 5 min, only when `WEBSITE_DISPATCH_TOKEN` is set), `flush-held-notifications` (every minute), plus existing schedules. **Subpath exports**: `@pi-dash/jobs/enqueue` is a lean entry point (payload types + `enqueue()` only, no handler deps) used by mutators; `@pi-dash/jobs` (barrel) is for server-only code. |
-| `packages/observability/` | `src/index.ts` — `withTaskLog()` (retry + evlog for mutator async tasks), `withFireAndForgetLog()` (fire-and-forget with logging) |
-| `packages/pdf/` | Server-side PDF generation using @react-pdf/renderer. `src/cash-voucher.tsx` (cash voucher), `src/donation-receipt.tsx` (donation receipt), `src/product-pdf.tsx` (fonts, tokens and primitives shared by the receipt and the voucher), `src/kalakriti-id-cards.tsx` (four-per-A4 person cards), `src/kalakriti-id-card-layout.ts` (text fitting), `src/generate-kalakriti-id-cards.tsx` (PDF buffer builder), `assets/` (logos, signature). `scripts/preview-kalakriti-id-cards.ts` generates a five-role sample |
-| `packages/whatsapp/` | `src/client.ts` (GoWA API helpers), `src/groups.ts` (group creation, member management, invite links, `addOrInviteToWhatsAppGroup`), `src/messaging.ts` (GoWA sends), `src/templates.ts` (Cloud API template list and create payloads), `src/template-message.ts` (typed `whatsappTemplate()` builder), `src/cloud.ts` (Cloud API client, live template categories), `src/notify.ts` (`sendWhatsAppNotification`: Cloud API template or GoWA text, send log claims and statuses), `src/phone.ts` (number formatting), `src/preferences.ts`, `src/status.ts` |
-| `packages/zero/` | `src/queries/` (core dashboard domains plus Kalakriti Editions, Centers, eligibility, Competitions, Guardians, students, entries, assignments, schedules, and audit), `src/mutators/` (core dashboard domains plus Kalakriti Edition configuration, access assignments, registration, schedules, notifications, and audit-producing commands), `src/lib/rrule-utils.ts` (RRULE expansion, parsing, form state conversion, exported as `@pi-dash/zero/rrule-utils`), `src/lib/compute-payment-status.ts`, `src/shared-schemas.ts`, `src/vendor-payment-constants.ts`, `src/permissions.ts`, `src/context.ts`, `vitest.config.ts` |
-| `packages/e2e/` | `tests/` (feature specs including the Kalakriti registration and release gates), `pages/` (Page Object Models including Kalakriti Editions, Centers, Students, Competitions, and schedules), `fixtures/` (auth and multi-actor Kalakriti fixtures with console error monitoring), `helpers/` (idempotent seeds and DB-state probes), `global-setup.ts`, `run-e2e.sh` |
+| `auth` | `src/index.ts` (Better Auth config), `src/seed-admin.ts`, `src/register-event*.ts` and `src/register-interest*.ts` (sign-up links), `src/verification-redirect.ts` |
+| `config` | Shared TypeScript and tooling config |
+| `db` | `src/schema/` (Drizzle tables; `src/schema/private/` for server-only data), `src/migrations/`, `src/permissions.ts` (permission registry), `src/queries/`, `src/ledger/` (posting engine), `src/encryption.ts`, `docker-compose.yml`, `scripts/` (migrate, backfill, legacy import) |
+| `design-system` | `components/ui/` (shadcn), `components/reui/` (data grid, badge, alert, filters), `styles.css` (tokens) |
+| `e2e` | `tests/`, `pages/` (page objects), `fixtures/`, `helpers/` (seeds and probes), `global-setup.ts`, `run-e2e.sh` |
+| `editor` | Plate editor and renderer |
+| `email` | `src/mailer.ts` (Resend), `src/webhook.ts` (bounces and complaints), `src/templates/` |
+| `env` | `src/server.ts` and `src/web.ts` environment contracts |
+| `jobs` | `src/boss.ts`, `src/enqueue.ts` (`@pi-dash/jobs/enqueue` is the lean entry for mutators), `src/handlers/`, `src/schedules.ts` |
+| `notifications` | `src/send/` (one sender per domain), `src/send-message.ts`, `src/batching.ts`, `src/digest.ts`, `src/topics.ts`, `src/preferences.ts` |
+| `observability` | `withTaskLog()` and `withFireAndForgetLog()` |
+| `pdf` | Cash vouchers, donation receipts, Kalakriti ID cards (`@react-pdf/renderer`) |
+| `shared` | Client-safe constants, types and rules |
+| `whatsapp` | `src/client.ts` and `src/groups.ts` (GoWA), `src/cloud.ts` and `src/templates.ts` (Cloud API), `src/notify.ts` |
+| `zero` | `src/queries/`, `src/mutators/` (aggregated in `src/queries.ts` and `src/mutators.ts`), generated `src/schema.ts` |
 
-## DB Schema Tables
+## Web app
 
-| Table | Schema file |
+All paths in this section are under `apps/web/`.
+
+| Path | Holds |
 |---|---|
-| `user` | `packages/db/src/schema/auth.ts` |
-| `session` | `packages/db/src/schema/auth.ts` |
-| `account` | `packages/db/src/schema/auth.ts` |
-| `verification` | `packages/db/src/schema/auth.ts` |
-| `bankAccount` | `packages/db/src/schema/bank-account.ts` |
-| `expenseCategory` | `packages/db/src/schema/expense-category.ts` |
-| (shared enums: city, attachment_type, history_action) | `packages/db/src/schema/shared.ts` |
-| `reimbursement` | `packages/db/src/schema/reimbursement.ts` |
-| `reimbursementLineItem` | `packages/db/src/schema/reimbursement.ts` |
-| `reimbursementAttachment` | `packages/db/src/schema/reimbursement.ts` |
-| `reimbursementHistory` | `packages/db/src/schema/reimbursement.ts` |
-| `advancePayment` | `packages/db/src/schema/advance-payment.ts` |
-| `advancePaymentLineItem` | `packages/db/src/schema/advance-payment.ts` |
-| `advancePaymentAttachment` | `packages/db/src/schema/advance-payment.ts` |
-| `advancePaymentHistory` | `packages/db/src/schema/advance-payment.ts` |
-| `party`, `partyRole` | `packages/db/src/schema/party.ts` (identity and roles; synced through Zero) |
-| `partyPrivate`, `partyBankAccount` | `packages/db/src/schema/private/party-private.ts` (contact, ID and bank details in the Postgres schema `private`; never in the Zero schema or the zero-cache replica; identifiers encrypted with `DATA_ENCRYPTION_KEY`) |
-| `team` | `packages/db/src/schema/team.ts` (optional `programmeId`: default programme for the team's events) |
-| `teamMember` | `packages/db/src/schema/team.ts` |
-| `teamEvent` | `packages/db/src/schema/team-event.ts` (`programmeId` required; defaults to the Unallocated holding programme, backfilled from the team in migration 0114) |
-| `teamEventMember` | `packages/db/src/schema/team-event.ts` |
-| `eventInterest` | `packages/db/src/schema/event-interest.ts` |
-| `eventPhoto` | `packages/db/src/schema/event-photo.ts` |
-| `eventImmichAlbum` | `packages/db/src/schema/event-photo.ts` |
-| `eventUpdate` | `packages/db/src/schema/event-update.ts` |
-| `vendor` | `packages/db/src/schema/vendor.ts` |
-| `vendorPayment` | `packages/db/src/schema/vendor.ts` |
-| `vendorPaymentLineItem` | `packages/db/src/schema/vendor.ts` |
-| `vendorPaymentAttachment` | `packages/db/src/schema/vendor.ts` |
-| `vendorPaymentHistory` | `packages/db/src/schema/vendor.ts` |
-| `vendorPaymentTransaction` | `packages/db/src/schema/vendor-payment-transaction.ts` |
-| `vendorPaymentTransactionAttachment` | `packages/db/src/schema/vendor-payment-transaction.ts` |
-| `vendorPaymentTransactionHistory` | `packages/db/src/schema/vendor-payment-transaction.ts` |
-| `role` | `packages/db/src/schema/permission.ts` |
-| `permission` | `packages/db/src/schema/permission.ts` |
-| `rolePermission` | `packages/db/src/schema/permission.ts` |
-| `appConfig` | `packages/db/src/schema/app-config.ts` |
-| `eventFeedback` | `packages/db/src/schema/event-feedback.ts` |
-| `eventFeedbackSubmission` | `packages/db/src/schema/event-feedback.ts` |
-| `whatsappGroup` | `packages/db/src/schema/whatsapp-group.ts` |
-| `eventReminderSent` | `packages/db/src/schema/event-reminder.ts` |
-| `scheduledMessage` | `packages/db/src/schema/scheduled-message.ts` |
-| `scheduledMessageRecipient` | `packages/db/src/schema/scheduled-message.ts` |
-| `auditLog` | `packages/db/src/schema/audit-log.ts` |
-| `socialPost` | `packages/db/src/schema/social-post.ts` |
-| `socialRun` | `packages/db/src/schema/social-run.ts` (`0108_absent_james_howlett.sql`) |
-| `kalakritiInventoryItem`, `kalakritiInventoryTransaction` | `packages/db/src/schema/kalakriti-inventory.ts` (`0099_conscious_expediter.sql`, `0100_fair_norman_osborn.sql`) |
+| `src/router.tsx` | Router entry |
+| `src/routes/` | File-based routes (below) |
+| `src/functions/` | Server functions (`createServerFn`) |
+| `src/components/` | Feature folders (one per area), `shared/`, `form/`, `data-table/`, `layout/` |
+| `src/hooks/` | Shared hooks such as `use-table-state`, `use-confirm-action`, `use-dialog-manager` |
+| `src/lib/` | Utilities, server helpers and feature libraries (`razorpay/`, `bank-statement/`, `income-import/`, `books/`, `social-api/`) |
+| `src/middleware/auth.ts` | Auth middleware |
+| `src/context/app-context.tsx` | Signed-in user, permissions and nav groups |
+| `server/plugins/` | Nitro plugins: logger, jobs worker, permission sync, asset cache |
+| `server/middleware/` | Request logger, security headers, `missing-asset.ts` (no-store 404 for chunks from another deploy) |
 
-## Audit Ledger
+### Routes
 
-- `audit_log.view` is granted to `super_admin` by default and may be assigned to custom roles through the existing role permission UI. The API enforces the permission independently of the page guard.
-- Zero mutation successes insert their audit row in the mutation transaction. Zero denials and failures use a separate final insert because a thrown mutation rolls back its transaction.
-- Non-Zero actions insert `pending` before execution and finalize it once. Initial audit write failure blocks execution; finalization failure after an external effect leaves the row pending and returns an audit-finalization error.
-- Audit metadata is an explicit sanitized summary. Raw request values, errors, free text, contact and banking data, file contents, URLs, object keys, IP addresses, and user agents are not persisted.
-- Migration `0061_jittery_random.sql` must be applied before deploying the application code. Recording begins at deployment; there is no historical backfill, retention cleanup, or product update/delete path for finalized rows.
+| Group | Notable paths |
+|---|---|
+| `__root.tsx` | Root layout and chunk-load error handling |
+| `_auth/` | `login`, `register` (`?eventId=`, `?interestEventId=`), `forgot-password`, `reset-password`, `verify-email` |
+| `_app/` (signed in) | `index` (dashboard), `users`, `reimbursements/`, `vendor-payments/`, `vendors/`, `teams/`, `events/`, `donors/`, `analytics`, `export`, `jobs`, `audit-log`, `social`, `scheduled-messages`, `whatsapp-groups/$groupId.join` |
+| `_app/income/` | Income tabs (`?tab=`), `import`, `imports.$batchId`, `return` (donations return), `bank/` (statements), `payout/import` (give.do) |
+| `_app/finance/books/` | Books page, `opening`, `audited` |
+| `_app/settings/` | Personal pages (profile, account, notifications, bank accounts) and organisation pages, each guarded in `beforeLoad`; `roles/` |
+| `_app/kalakriti/` | `new`, then `$year/` with dashboard, centers, competitions, students, volunteers, guardians, guests, judges, food, transport, inventory, awards, audit and settings |
+| `kalakriti/$year/schedule` | Public competition schedule |
+| `unsubscribe.tsx` | Public page behind email unsubscribe links |
+| `api/` | `auth`, `zero/{query,mutate}`, `attachments`, `media`, `immich`, `jobs`, `audit-log`, `log/ingest`, `health`, `version`, `public/events` (and `openapi.json`), `social/v1`, `kalakriti/$year/*`, `receipts`, `razorpay/webhook`, `email/{webhook,unsubscribe}`, `whatsapp/cloud/webhook` |
 
-## Notifications
+External Kalakriti accounts have the `external_user` role. They land on their active Edition, are hidden from central volunteer pickers and user management, and cannot read organisation-wide Zero data.
 
-- **Package**: `packages/notifications/` — self-owned multi-channel notifications (in-app inbox, email, WhatsApp).
-- **Sending**: Notification functions in `src/send/` (reimbursement, advance-payment, vendor-payment, vendor-payment-transaction, user, submission, team, team-event, event-interest, event-update, event-photo, event-feedback, reminders — pre-event, feedback nudge, attendance, photo upload). Triggered server-side from Zero mutators via `ctx.asyncTasks?.push()` or from pg-boss cron handlers.
-- **Core**: `src/send-message.ts` provides `sendMessage()` and `sendBulkMessage()` with inbox, email, and WhatsApp channels + idempotency keys. `topic` is required on all sends.
-- **Batching**: for every topic not marked `sendImmediately` (Account, Kalakriti Schedule and Transport are), email and WhatsApp are held in `private.held_notification` / `private.held_notification_recipient` for 5 minutes per recipient + topic, then sent by the `flush-held-notifications` cron (every minute) as the original message, or as one digest when there are several. The inbox is written immediately. Sends that go stale within the window (event reminders, updates, cancellations, admin and scheduled messages) pass `immediate: true`.
-- **Inbox**: `src/inbox.ts` inserts to `notification` DB table (idempotent via unique key). Zero syncs to client in real-time. `NotificationInbox` component in sidebar user menu.
-- **Email**: `src/email.ts` sends via Resend with RFC 8058 one-click `List-Unsubscribe` headers and a per-recipient unsubscribe link (`src/unsubscribe.ts`); bulk sends use Resend's batch endpoint. Suppressed addresses (`private.email_suppression`, fed by `/api/email/webhook`) are skipped. Uses Resend config from `packages/env`.
-- **Topics**: 11 granular topics defined in `src/topics.ts` (ACCOUNT, REQUESTS_SUBMISSIONS, REQUESTS_STATUS, TEAMS, EVENTS_SCHEDULE, EVENTS_INTEREST, EVENTS_PHOTOS, EVENTS_FEEDBACK, KALAKRITI_REGISTRATION, KALAKRITI_SCHEDULE, KALAKRITI_TRANSPORT). `TOPIC_CATALOG` provides metadata (description, group, `requiredPermission`) for the settings UI.
-- **Preferences**: Per-topic, per-channel (inbox + email + WhatsApp) toggles stored in `notification_topic_preference` table. Zero mutators (`notificationPreference.upsert`, `notificationPreference.adminUpsert`) handle updates. All preferences checked at send-time from DB. Required topics cannot be disabled (server-side guard). Settings UI filters topics by user permissions via `requiredPermission`.
-- **WhatsApp**: Separate `packages/whatsapp/` package handles the GoWA gateway client, groups, and messaging, and Meta's Cloud API. With `WHATSAPP_CLOUD_ACCESS_TOKEN` and `WHATSAPP_CLOUD_PHONE_NUMBER_ID` set, messages to people go out as the `whatsappTemplate` each sender passes; GoWA (`WHATSAPP_API_URL`) keeps groups, polls and scheduled messages.
-- **Legacy CDN**: `VITE_CDN_URL` identifies historical media references during migration. Current attachments, event photos, avatars, and editor media use authenticated application routes.
-- **Helpers**: `src/helpers.ts` provides `getUserIdsWithPermission`, `getUserName`.
-- **Retention**: `cleanup-notifications` pg-boss cron (daily 2 AM IST) deletes archived >90 days, read >180 days.
-- DO: Add new notification types in `packages/notifications/src/send/`, with a `digest` row (record name, short meta, amount, status, action label, list page) so they read well in a batched digest.
-- DO: Register new env vars in `packages/env/src/server.ts`.
+## Key patterns
 
-## Unit Testing
+### Adding a new table
 
-- **Framework**: Vitest with configs in `apps/web/vitest.config.ts` and `packages/zero/vitest.config.ts`, plus shell regression checks in `packages/e2e/`.
-- **Running**: `bun run test:unit` — runs unit tests across all packages via Turborepo.
-- **What to test**: Business logic, validation schemas, utility functions, stat computations. Not UI components.
-- **Location**: Co-locate test files next to source (e.g., `foo.test.ts` beside `foo.ts`).
-- **Existing tests**: Form schemas, stats helpers, validators, attachment links, submission mappers, permissions, shared schemas.
+Copy an existing table such as `components/reimbursements/` or `components/events/public-events-table.tsx`. The `create-data-table` skill has the full checklist.
 
-## E2E Testing
+1. Export `FooRow` (Zero row plus relations) from the table file. Put the search function and `SKELETON_*` constants at module level.
+2. Build columns in `useMemo<ColumnDef<FooRow>[]>`. Each uses `DataGridColumnHeader` with `visibility` and `meta: { headerTitle, skeleton }`.
+3. The actions column has `id: "actions"`, hiding, resizing, sorting and ordering disabled, and `size` and `minSize` of 52.
+4. Pass the full `tableLayout` (`columnsResizable`, `columnsDraggable`, `columnsVisibility`, `columnsPinnable`) to `DataTableWrapper`, and pin fixed columns with `defaultColumnPinning`.
+5. Filters: pass unfiltered `data` with `filter={{ fields, getValue }}`, defined next to the table. Filter state lives in the `filters` URL param. Server-paginated tables (jobs, audit log, Kalakriti audit) set `applyLocally: false`, omit `getValue` and map `is` rules onto their API params.
+6. Keep the route file a thin shell that runs Zero queries and passes data and callbacks.
+7. Put delete confirmation in a `RowActions` component with `useConfirmAction` and `ConfirmDialog`.
 
-- **When to write E2E tests**: Write E2E tests when adding a major feature (new route/page, new CRUD workflow, new role-gated capability). Minor UI tweaks and refactors do not require E2E tests.
-- **Location**: All E2E tests live in `packages/e2e/tests/` organized by feature (e.g., `auth/`, `authorization/`, `users/`, `reimbursements/`, `teams/`, `events/`, `roles/`, `dashboard/`, `sidebar/`).
-- **Running tests**: `cd packages/e2e && bash run-e2e.sh` starts an isolated, worktree-aware Postgres, seeds data, starts Zero, builds the optimized Nitro app with `NODE_ENV=production`, serves it locally with `NODE_ENV=test`, runs Playwright, then cleans up. Pass test file paths as args for targeted runs (e.g., `bash run-e2e.sh tests/reimbursements/reimbursement-delete.spec.ts`). Set `E2E_SERVER=dev` to use Vite dev instead. Local runs cap the default at four workers; `--workers` overrides it. The runner reports environment-ready, Playwright, and total elapsed times.
-- **Kalakriti scale benchmark**: `tests/performance/kalakriti.spec.ts` uses `helpers/seed-kalakriti-performance.ts` in the isolated test database and `helpers/profile-kalakriti-dashboard.ts` for server aggregate timings. Opt in with `KALAKRITI_PERFORMANCE=true`; query plans and row counts are attached to the Playwright report. See `docs/architecture/e2e-testing.md` for the command.
-- **App scale benchmark**: `tests/performance/app.spec.ts` uses `helpers/seed-app-performance.ts` for Dashboard, Events and financial query profiling, including populated Event detail updates, photo metadata and feedback under admin and volunteer accounts. Opt in with `APP_PERFORMANCE=true`; both benchmarks share `helpers/zero-performance.ts`.
-- **Entry eligibility CPU benchmark**: `apps/web/scripts/profile-entry-eligibility.ts` compares full-list and per-Student indexed eligibility calculations with synthetic data, including index construction. Run with `bun apps/web/scripts/profile-entry-eligibility.ts`; this does not measure browser rendering or Zero hydration.
-- **Two-stack experiment**: `bun run packages/e2e/run-two-stacks.ts` snapshots the working sources into two temporary roots, partitions complete spec files using historical durations, then runs independent app/Zero/Postgres stacks with two workers each and no retries or traces. `partition-specs.ts` preserves cross-role file groups; `stack-workspace.ts` isolates auth, build outputs, and writable Nitro/Vite caches. Logs, JSON reports, and the combined elapsed-time summary remain in the printed temporary directory. The ordinary E2E command remains a single stack.
-- **Timeout**: Each test has a 45s timeout. Use `test.slow()` (triples to 135s) for multi-step CRUD tests.
-- **Projects**: Setup plus seven execution projects — `super_admin`, `admin`, `finance_admin`, `volunteer`, `unoriented_volunteer`, `unauthenticated`, and the one-worker `kalakriti_release_invariants` project for public schedule privacy and singleton live-Edition races. `packages/e2e/project-selection.ts` excludes role-only specs from other role projects while shared multirole specs retain their coverage.
-- **Auth state**: The setup project signs in standard users and active Kalakriti actors with the API `request` fixture, then saves `request.storageState()` under `packages/e2e/.auth/`. Each setup actor has a distinct `192.0.2.x` test client IP so setup does not exhaust the normal browser tests' rate-limit bucket if rate limiting is enabled. Feature tests reuse these sessions; the dormant external actor has no saved session.
-- **Fixtures**: Import `test` and `expect` from `packages/e2e/fixtures/test.ts` for email fixtures, `kalakritiActors`, and `consoleErrors`. The `page` fixture annotates uncaught browser errors when a test needs a page. API-only tests use `request` without starting a browser page. Use plain `@playwright/test` for unauthenticated tests that do not need the shared fixtures.
-- **Page Object Model**: Shared page objects live in `packages/e2e/pages/`. `RequestPage` composes the request list, form, and approval detail objects; Kalakriti page objects cover Edition creation, Centers, students, competitions, entries, and the public schedule. New feature suites should follow the owning domain's existing pattern.
-- **API authorization tests**: `tests/authorization/api-authorization.spec.ts` tests that admin-only Zero mutations are rejected for volunteer users via the `request` fixture and the live `/api/zero/mutate` endpoint.
-- **Social API tokens**: Settings → API tokens (`/settings/api-tokens`) (`settings.app_config`), or the CLI fallback `scripts/social-token.ts` — `bun run social:token create <name> --scopes …`, `list`, `revoke <id>`; both show the raw token once and store only its sha256.
-- **Dev seeding**: `scripts/seed.ts` — comprehensive idempotent seed covering all data models. Run via `bun run seed`. Used by worktree setup and general dev.
-- **E2E seeding**: `packages/e2e/helpers/seed-test-user.ts` creates standard test data plus the idempotent Kalakriti registration-release fixture, including all active role actors and one dormant external actor.
-- **Selectors**: Use accessibility-first selectors (`getByRole`, `getByLabel`, `getByText`). Use `aria-current="date"` via `getByRole("button", { current: "date" })` for calendar today buttons. Avoid CSS class selectors.
-- **Env**: Test credentials live in `packages/e2e/.env.test`. Do not commit real credentials.
-- DO: Add E2E tests for new major features covering the happy path and key error states.
-- DO: Place tests in the appropriate feature subdirectory under `packages/e2e/tests/`.
-- DO: Use page objects from `packages/e2e/pages/` for multi-step user flows.
-- DO: Test both admin and volunteer perspectives when the feature is role-gated.
-- DO NOT: Write E2E tests for trivial UI changes or refactors.
-- DO NOT: Place API authorization tests in `tests/auth/` — use `tests/authorization/` to avoid the volunteer project's `testIgnore: /auth\//` filter.
+### Imports
 
-## Key Patterns
+- Design-system components: `@pi-dash/design-system/components/ui/...` or `/reui/...`, never `src/` paths.
+- Constants the client needs go in `@pi-dash/shared`, imported by file path.
+- Server functions (`createServerFn`), API routes (`routes/api/`) and server-only packages use static imports: TanStack Start already keeps them out of the client bundle. Dynamic `import()` belongs in Zero mutators ([data layer](docs/architecture/data-layer.md#mutators)) and in `React.lazy` for heavy UI.
+- The React Compiler is on, so new code needs no hand-written `useMemo`/`useCallback`. Keep the existing ones where a third-party component or a shared hook needs a stable reference.
 
-### DataTableWrapper
+### Navigation groups
 
-Generic `DataTableWrapper` in `apps/web/src/components/data-table/data-table-wrapper.tsx`. Feature tables are thin wrappers that pass columns, data, and ReUI `filter={{ fields, getValue }}`. ReUI chip filters are the only table filter UI. Search stays `searchFn`. Filter state lives in the `filters` URL param as a `FilterQuery` tree.
+`buildNavGroups()` in `src/lib/nav-items.ts` builds the sidebar groups from the user's permissions. `NavMainGrouped` in `src/components/layout/nav-main.tsx` renders them.
 
-Pass **unfiltered** `data` when using `filter`. Server-paginated tables (jobs, audit log, Kalakriti audit) set `applyLocally: false`, persist the same `?filters=` query, and map `is` rules onto existing API params via `readSelectEquality`. `applyLocally: false` omits Convert to advanced because those APIs do not compile OR or extra `is` rules. Do not run `compileFilterQuery` on the current page. Extra toolbar controls such as `DateRangeFilter` still go through `toolbarFilters` beside the chips. Analytics uses `DataTableFiltersBar` with `allowAdvanced={false}` for the same reason.
+### Post-login redirect
 
-### Adding a New Table
+The login page takes `?redirect=/path`. It is used only when it starts with `/` and not `//`. The `_app` guard sends signed-out users to `/login?redirect=<current>`.
 
-Every feature table follows the same structure. Use existing tables (reimbursements-table, events/public-events-table) as reference.
+### Auth guard
 
-1. **Row type**: Define `export type FooRow = ZeroModel & { ...relations }` at the top of the table component file.
-2. **Search function**: Module-level `function searchFoo(row: FooRow, query: string): boolean` — check relevant text fields against `query.trim().toLowerCase()`.
-3. **Skeletons**: Module-level `const SKELETON_*` for each column, using `<Skeleton className="h-5 w-NN" />`.
-4. **Props interface**: Accept `data`, `isLoading?`, plus any feature-specific props (callbacks, related data). Keep the route file as a thin shell.
-5. **Columns**: `useMemo<ColumnDef<FooRow>[]>` inside the component. Each column should use `DataGridColumnHeader` with `visibility` prop, and include `meta: { headerTitle, skeleton }`.
-6. **Actions column**: `id: "actions"`, `enableHiding: false`, `enableResizing: false`, `enableSorting: false`, `enableColumnOrdering: false`, `size: 52`, `minSize: 52`.
-7. **DataTableWrapper**: Always include the full `tableLayout`:
-   ```tsx
-   tableLayout={{
-     columnsResizable: true,
-     columnsDraggable: true,
-     columnsVisibility: true,
-     columnsPinnable: true,
-   }}
-   ```
-   Use `defaultColumnPinning` to pin non-reorderable columns (e.g., expand on left, actions/interest on right). For ReUI Filters, pass unfiltered `data` plus:
-   ```tsx
-   filter={{
-     fields: createFooFilterFields(data),
-     getValue: getFooFilterValue,
-   }}
-   ```
-   Define `fields` and `getValue` next to the table (see `reimbursement-filters.ts` and `filter-fields.ts`). Do not pre-filter rows in the route. Server-paginated tables must set `applyLocally: false` and omit `getValue`; map equality rules to existing APIs instead.
-8. **Route file**: Thin shell — imports the table component, runs Zero queries in `loader`, passes data + callbacks as props.
-9. **Delete confirmation**: Localize in a `RowActions` component inside the table file using `useConfirmAction` + `ConfirmDialog`. No dialog state at the table level.
+Routes under `_app` require a session. Protected routes also check their permission in `beforeLoad` ([authorization](docs/architecture/authorization.md)).
 
-### Navigation Groups
+### Design tokens
 
-Sidebar nav uses `buildNavGroups()` from `lib/nav-items.ts` to produce grouped nav items by role. `NavMainGrouped` in `components/layout/nav-main.tsx` renders the groups with collapsible sections.
+`packages/design-system/styles.css` maps the shadcn variables onto `@proudindian/design` tokens. Rules are in [design language](docs/architecture/design-language.md).
 
-### Post-Login Redirect
+| Token | Use |
+|---|---|
+| `--primary` | Primary buttons and solid controls (brand blue) |
+| `--sidebar-accent` | Active or selected item; sky is never a fill behind body text |
+| `--brand` | Decorative accent only: indicators, dots, thin rules |
+| `--success`, `--warning`, `--destructive` | Status colours; marigold is never a status colour |
+| `--radius` | `rounded-lg` controls and menus, `rounded-xl` cards and dialogs, `rounded-md` badges |
+| `text-sm` (13px), `text-xs` (12px) | Body and secondary text |
+| `font-sans` (Geist) | Body and UI text |
+| `font-display` (Bricolage Grotesque) | Page titles and stat values, `font-semibold tracking-tight` (weight 600) |
+| `font-mono` (Paper Mono) | IDs, codes, amounts and dates |
 
-Login page accepts `?redirect=/path` search param. Validated before use: must start with `/` and not `//` (open redirect protection). Auth guard redirects to `/login?redirect=<current>` when session is missing.
+### File upload flow
 
-### Form Fields
+1. The client asks a surface-specific signer for an upload URL. Attachment, approval, photo and scheduled-message uploads get a temp key for the current user; avatars and editor media have their own signers.
+2. The client uploads straight to R2.
+3. The owning Zero mutator validates the temp object and copies it to a durable key before committing the row. A raw key is never authorization.
+4. Deleting the temp and replaced objects is queued after commit.
+5. Reads go through `routes/api/attachments/download.ts` or `routes/api/media/*`.
 
-TanStack Form fields in `apps/web/src/components/form/`. Each field component accepts a `form` prop and `name`, handles validation display. Use `form-layout` + `form-actions` for consistent structure.
+Detail: [file uploads](docs/architecture/file-uploads.md).
 
-### Zero Queries
+### Notification flow
 
-Split by domain in `packages/zero/src/queries/`. Each file exports a queries object. Aggregated in `packages/zero/src/queries.ts`. Query patterns: `.one()` for current user, `.all()` for lists, `.related()` for joins.
+1. A Zero mutator changes data and pushes a task with `ctx.asyncTasks?.push()`.
+2. `routes/api/zero/mutate.ts` runs those tasks as logged fire-and-forget work after commit.
+3. A sender in `packages/notifications/src/send/` writes the inbox row and sends or holds email and WhatsApp. New senders need a `digest` row.
+4. Zero syncs the inbox to the client.
 
-### Zero Mutators
+Detail: [notifications](docs/architecture/notifications.md).
 
-Split by domain in `packages/zero/src/mutators/`. Each file exports a mutators object. Aggregated in `packages/zero/src/mutators.ts`. Mutators handle auth checks, cascade operations (line items, attachments), audit history, and trigger notifications via `ctx.asyncTasks`.
+### Structured logging
 
-### Vendor Payment Workflow
-
-Vendors have a two-stage lifecycle: `pending` → `approved`. Each vendor is a party with the `vendor` role; the synced `vendor` row holds name, GSTIN and status, and contact, PAN and bank details live in the private party tables, read and written through `apps/web/src/functions/vendors.ts` and `packages/db/src/queries/vendor-party.ts` (see `docs/architecture/vendor-payments.md`). Anyone with `vendors.create` can create a vendor; new vendors start `pending`. Payments can be created against approved vendors or the user's own pending vendors. The payment form includes an inline "Add New Vendor" dialog that creates a pending vendor and auto-selects it. When an admin approves a vendor payment, the linked vendor is auto-approved if still pending. Admins can approve or unapprove vendors; unapproval is blocked when the vendor has existing payment requests. The `/vendors` admin route is admin-only via `assertPermission("vendors.view_all")` guard.
-
-**Vendor payments** have their own standalone section at `/vendor-payments` (separate from reimbursements). Status lifecycle: `pending` → `approved` → `partially_paid` → `paid` (or `rejected`). The transition from `approved` to `partially_paid`/`paid` happens automatically when payment transactions are approved.
-
-**Payment transactions** (`vendorPaymentTransaction`) are child records of a vendor payment, each representing an actual money transfer. Transactions have their own approval cycle (`pending` → `approved`/`rejected`). When a transaction is approved, `computePaymentStatus()` in `packages/zero/src/lib/compute-payment-status.ts` recalculates the parent vendor payment status comparing approved transaction totals with line-item totals in integer paise. The `requests.record_payment` permission (granted to volunteers by default) controls who can record transactions; `requests.approve` controls transaction approval. Both the VP submitter and admins can record transactions against approved vendor payments.
-
-Components: `apps/web/src/components/vendor-payments/` — detail, form, table, transaction form dialog, transaction section, types. Mutators/queries: `packages/zero/src/mutators/vendor-payment-transaction.ts`, `packages/zero/src/queries/vendor-payment-transaction.ts`. Export: `apps/web/src/functions/export-vendor-payments-csv.ts`.
-
-### Auth Guard
-
-Routes under `_app` layout are authenticated. Auth middleware at `apps/web/src/middleware/auth.ts`. Server functions use session-based auth checks.
-
-### Design System Imports
+Server code logs with evlog wide events, never `console.error`.
 
 ```ts
-import { Button } from "@pi-dash/design-system/components/ui/button"
-import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid"
-```
-
-### Design Tokens
-
-Row and page action menus use `ResponsiveActionMenu` from `@/components/shared/responsive-action-menu`. Pass a contextual `title`, the existing button as `trigger`, and one `actions` array containing stable IDs, labels, optional icons, callbacks or link `render` elements, disabled flags, group keys, and destructive flags. The caller owns permissions and confirmation dialogs. Below the shared 768px mobile breakpoint, actions render in a swipe-dismissable Drawer with separate destructive actions and Cancel; desktop retains DropdownMenu semantics. The scoped CSS module owns safe-area spacing and gesture transitions. Selection releases the menu focus trap before invoking callbacks, without delaying browser-activation-dependent actions. Crossing the breakpoint closes the menu. Theme, filter, column, and editor selection controls keep their existing primitives; the account menu retains its desktop notification submenu and opens a separate mobile inbox.
-
-The shadcn variables in `packages/design-system/styles.css` point at `@proudindian/design` tokens (`theme.css` and `fonts.css`, pinned by git tag). Light mode is white with ink-tinted greys (`color-ui-*`); dark mode is a neutral charcoal (`color-ui-dark-*`). The usage rules are in the brand guide, appendices A1–A2 (product interfaces, not the website's brand style); see `docs/architecture/design-language.md`.
-
-| Token | Usage |
-|---|---|
-| `--primary` | The primary button and solid controls, in brand blue: sky ink with white text in light mode, sky with ink text in dark mode. |
-| `--sidebar-accent` / `--sidebar-accent-foreground` | The active or selected item: sky ink on sky wash (light), sky on charcoal (dark). Sky is never a fill behind body text. |
-| `--brand` / `--brand-foreground` | Decorative brand accent (sky `#4CC0EC`): indicators, dots, thin rules. |
-| `--success` / `--warning` / `--destructive` (+ `-foreground`) | Status dot and text colours from `color-status-*`. Marigold is never a status colour. |
-| `--radius` (~7px) | `rounded-lg` for controls and menus, `rounded-xl` (~10px) for cards and dialogs, `rounded-md` for badges and menu items. Components follow the shadcn `base-nova` style. |
-| `text-sm` (13px) | Body and control text; Tailwind's `text-sm` is redefined to 13px in `styles.css`. `text-xs` (12px) is for secondary text. |
-| `font-sans` (Geist) | Body text, UI elements, form inputs, table cells. |
-| `font-display` (Bricolage Grotesque) | Page titles (`h1`), stat card values. Apply via `font-display font-semibold tracking-tight`; the product weight is 600, not the website's 800. |
-| `font-mono` (Paper Mono) | The data font: IDs, codes, amounts and dates where alignment matters. |
-
-### Server Functions
-
-Use `createServerFn` from TanStack Start. Located in `apps/web/src/functions/`. Auth-guarded via session checks.
-
-### File Upload Flow
-
-Protected temp subfolders: `attachments`, `approval-screenshots`, `photos`,
-`scheduled-messages`. Dedicated avatar/editor signers use `avatars` and
-`updates`.
-
-1. Client calls a surface-specific signer. Protected attachment, approval,
-   photo, and scheduled-message uploads receive a current-user temp key.
-2. Client uploads directly to R2 through the signed PUT URL.
-3. The owning Zero mutator validates and copies a protected temp object to a
-   parent-scoped durable key before committing the database row.
-4. The durable row stores an exact object key or canonical authenticated media
-   URL; a raw key is never authorization.
-5. Temp-source and replaced-object deletion are queued after commit.
-6. Reads use `routes/api/attachments/download.ts`,
-   `routes/api/media/event-photo.$id.ts`,
-   `routes/api/media/avatar.$userId.ts`, or
-   `routes/api/media/event-update.ts`.
-
-Avatar uploads use `getProfilePictureUploadUrl` / `deleteProfilePicture` and
-are scoped to `avatars/{userId}/`. Event editor uploads use
-`getEventEditorUploadUrl` and require update permission or team-lead
-access.
-
-### Notification Flow
-
-1. Zero mutator performs data change (e.g., approve reimbursement)
-2. Mutator pushes async task via `ctx.asyncTasks?.push()` on server
-3. `routes/api/zero/mutate.ts` awaits `beforeCommitTasks` inside the transaction, then starts `asyncTasks` as logged fire-and-forget work after commit
-4. Notification function in `packages/notifications/src/send/` inserts to DB (inbox) + sends email via Resend
-5. Client-side inbox synced in real-time via Zero
-
-### Structured Logging (evlog)
-
-All server-side error logging uses evlog wide events instead of `console.error`. Pattern:
-
-```ts
-import { createRequestLogger } from "evlog";
-
 const log = createRequestLogger();
-log.set({ mutator: "createTeam", teamId, teamName });
+log.set({ mutator: "createTeam", teamId });
 try {
-  // ... work ...
+  // work
 } catch (error) {
   log.error(error instanceof Error ? error : String(error), { step: "notify" });
   throw error;
@@ -599,19 +157,54 @@ try {
 }
 ```
 
-- Logger initialized in `apps/web/src/lib/logger.ts`, imported by `entry-server.ts`.
-- `createRequestLogger()` only accepts `{ method?, path?, requestId? }`. Use `log.set()` for custom context.
-- All mutator async tasks in `packages/zero/src/mutators/` wrap bodies in try/catch/finally with evlog.
-- Fire-and-forget catches in `apps/web/src/functions/` use inline `createRequestLogger()` → `set()` → `error()` → `emit()`.
-- Client-side logging uses `import { log } from "evlog"` — initialized in `apps/web/src/lib/client-logger.ts` and shipped to `/api/log/ingest`.
-- Client-side catch blocks use `log.error({ component, action, ...context, error })` — never `console.error`.
-- Zero mutation results use `handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` — logs via evlog + shows toast.
+- `apps/web/server/plugins/logger.ts` initialises the logger.
+- `createRequestLogger()` accepts only `{ method?, path?, requestId? }`; add context with `log.set()`.
+- Client code uses `log.error({ component, action, error })` from evlog, shipped to `/api/log/ingest` (`src/lib/client-logger.ts`).
+- Zero mutation results go through `handleMutationResult()` in `src/lib/mutation-result.ts`.
 
-## Documentation References (Context7)
+Detail: [observability](docs/architecture/observability.md) and the `add-logging` skill.
 
-Use `mcp__context7__query-docs` with these library IDs to fetch up-to-date documentation.
+### Unit tests
 
-| Library | Context7 Library ID |
+`bun run test:unit` runs every workspace's `test:unit` script through Turborepo, uncached; `test:unit:affected` runs only changed workspaces. CI runs the full set in the `checks` job.
+
+| Runner | Workspaces |
+|---|---|
+| Vitest (`bun --bun vitest run`) | `auth`, `db`, `email`, `env`, `notifications`, `observability`, `shared`, `whatsapp` |
+| `bun test --isolate` | `jobs`, `zero` (`pdf` uses plain `bun test src`) |
+| `bun test` in chunks (`apps/web/test-unit.sh`) | `web`, covering only `src/lib`, `components`, `routes`, `functions` and `hooks` |
+| Named `bun test` files plus a shell test | `e2e` |
+
+Tests sit next to the code as `foo.test.ts` (or `.test.tsx`). `zero` also uses `__tests__/` folders under `src/mutators` and `src/lib`.
+
+`*.db.test.ts` files run against a real, local, migrated and seeded database, each test in a rolled-back transaction. Each file names its opt-in variable at the top: `LEDGER_TEST_DATABASE_URL` for the books, or `CHARGED_TO_`, `SETTLEMENT_`, `GIVE_DO_PAYOUT_` or `RECEIPT_TEST_DATABASE_URL`. Tests skip unless it points at localhost; the web give.do payout test also needs it to equal `DATABASE_URL`. CI sets none of them, so they skip there. A worktree with `--isolated-db` is the safe target.
+
+Never put tests in `packages/db/src/schema/`. `drizzle-kit push` loads every file there, and CI's E2E schema push fails.
+
+`scripts/*.test.ts` belong to no workspace, so `test:unit` skips them. Run them with `bun test scripts/`.
+
+E2E tests are in [E2E testing](docs/architecture/e2e-testing.md).
+
+### Kalakriti results
+
+Schema in `packages/db/src/schema/kalakriti-results.ts`, Live-only audited commands in `packages/zero/src/mutators/kalakriti-result.ts`, ranking and role policy in `packages/shared/src/kalakriti-results.ts`, standings and details in `apps/web/src/functions/kalakriti-results.ts`.
+
+## Legacy data import
+
+`packages/db/scripts/migrate-legacy-data.ts` was the one-time import from the old Laravel/MySQL platform. It reads `proudindian.sql` (not committed), purges existing data first and is safe to re-run. Run it against the `postgres-migration` service, never the dev database:
+
+```bash
+docker compose --env-file .env -f packages/db/docker-compose.yml up -d postgres-migration
+cd packages/db && DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" bun x drizzle-kit push
+DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" ADMIN_EMAIL="..." \
+  bun run packages/db/scripts/migrate-legacy-data.ts
+```
+
+`ADMIN_EMAIL` keeps that user during the purge. Set `OLD_R2_*` and `NEW_R2_*` (account ID, access key, secret, bucket, plus `NEW_R2_KEY_PREFIX`) to copy files; without them, file rows keep the old keys. Remove the service afterwards with `docker compose ... down postgres-migration`.
+
+## Library docs (Context7)
+
+| Library | Context7 ID |
 |---|---|
 | React | `/websites/react_dev` |
 | TanStack Start | `/websites/tanstack_start_framework_react` |
@@ -629,98 +222,9 @@ Use `mcp__context7__query-docs` with these library IDs to fetch up-to-date docum
 | Playwright | `/microsoft/playwright` |
 | Cloudflare R2 | `/llmstxt/developers_cloudflare_r2_llms-full_txt` |
 | evlog | `/hugorcd/evlog` |
-| Biome | `/biomejs/biome` |
 | Turborepo | `/vercel/turborepo` |
 | React Email | `/resend/react-email` |
 | Resend | `/resend/resend-node` |
 | nuqs | `/47ng/nuqs` |
 | dnd-kit | `/clauderic/dnd-kit` |
 | t3-env | `/t3-oss/t3-env` |
-
-## Legacy Data Migration
-
-One-time migration from old Proud Indian platform (Laravel/MySQL) to pi-dash (Postgres).
-
-**Script:** `packages/db/scripts/migrate-legacy-data.ts`
-**SQL dump:** `proudindian.sql` (project root, not committed)
-
-### Setup
-
-```bash
-# 1. Start migration DB
-docker compose --env-file .env -f packages/db/docker-compose.yml up -d postgres-migration
-
-# 2. Push schema to migration DB
-cd packages/db && DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" bun x drizzle-kit push
-```
-
-### Run (DB only, no file copy)
-
-```bash
-DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
-ADMIN_EMAIL="somu@proudindian.ngo" \
-bun run packages/db/scripts/migrate-legacy-data.ts
-```
-
-### Run (with R2 file copy)
-
-```bash
-DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
-ADMIN_EMAIL="somu@proudindian.ngo" \
-OLD_R2_ACCOUNT_ID="..." \
-OLD_R2_ACCESS_KEY="..." \
-OLD_R2_SECRET_ACCESS_KEY="..." \
-OLD_R2_BUCKET_NAME="..." \
-NEW_R2_ACCOUNT_ID="..." \
-NEW_R2_ACCESS_KEY="..." \
-NEW_R2_SECRET_ACCESS_KEY="..." \
-NEW_R2_BUCKET_NAME="..." \
-NEW_R2_KEY_PREFIX="..." \
-bun run packages/db/scripts/migrate-legacy-data.ts
-```
-
-### Verify with web UI
-
-```bash
-# Start Zero cache against migration DB
-cd packages/zero && \
-  PATH="$PWD/node_modules/.bin:$PATH" \
-  ZERO_UPSTREAM_DB="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" \
-  ZERO_REPLICA_FILE="/tmp/pi-dash-migration.db" \
-  zero-cache-dev
-
-# In another terminal — start web app against migration DB
-DATABASE_URL="postgres://postgres:db@1234@localhost:5434/pi-dash-migration" bun run dev:web
-```
-
-### Cleanup
-
-```bash
-docker compose --env-file .env -f packages/db/docker-compose.yml down postgres-migration
-docker volume rm pi-dash_pi-dash_postgres_migration_data
-```
-
-### Env vars
-
-| Var | Required | Purpose |
-|---|---|---|
-| `DATABASE_URL` | yes | Postgres connection string |
-| `ADMIN_EMAIL` | no | Email to preserve during purge (skips deleting this user) |
-| `OLD_R2_*` | no | Old R2 credentials (account ID, access key, secret, bucket) |
-| `NEW_R2_*` | no | New R2 credentials + `NEW_R2_KEY_PREFIX` |
-
-When R2 vars are omitted, file records are created with old object keys but no files are copied. The script is safe to re-run — it purges existing data first.
-
-- **Audit Log scale benchmark**: `packages/e2e/tests/performance/audit.spec.ts` runs `helpers/profile-audit-performance.ts` with `AUDIT_PERFORMANCE=true`. It seeds 50,000 local-only audit rows, profiles the production builders in `apps/web/src/lib/server/audit-log.ts`, and attaches sanitized PostgreSQL plans and authenticated HTTP timings.
-
-- **Kalakriti Audit scale benchmark**: `packages/e2e/tests/performance/kalakriti-audit.spec.ts` runs `helpers/profile-kalakriti-audit.ts` with `KALAKRITI_AUDIT_PERFORMANCE=true`. It profiles 41,000 local-only rows across two Editions using production scope and snapshot builders. `helpers/postgres-performance.ts` sanitizes PostgreSQL plans for both audit benchmarks.
-
-Kalakriti all-person ID-card export: `apps/web/src/routes/api/kalakriti/$year/id-cards.ts` authorizes administrators, `apps/web/src/lib/server/kalakriti-id-card-data.ts` reads the roster, and `apps/web/src/components/kalakriti/id-card-download-button.tsx` downloads it from the Edition dashboard. `apps/web/src/lib/dev/kalakriti-pdf-assets.ts` embeds PDF fonts and logos into the server build.
-
-Blank ID cards use `packages/pdf/src/generate-blank-kalakriti-id-cards.tsx` and `components/kalakriti/blank-id-card-download-dialog.tsx`. Registration uses `components/kalakriti/register-id-card-dialog.tsx`, `register-volunteer-card-dialog.tsx`, and `functions/kalakriti-blank-id-card.ts` under `apps/web/src/`, reusing attendee creation and volunteer enrollment commands.
-
-### Kalakriti results ownership
-
-`packages/db/src/schema/kalakriti-results.ts` stores results, revisions, scorecards, scoring state, and final declarations. `packages/zero/src/mutators/kalakriti-result.ts` owns audited Live-only commands. `packages/shared/src/kalakriti-results.ts` owns Center ranking and result-role policy. `apps/web/src/functions/kalakriti-results.ts` exposes aggregate-only standings and separately authorized result details; the existing Edition overview and Entries detail routes mount the widgets. Protected scorecard signing and typed downloads follow the existing attachment pipeline.
-
-`packages/e2e/tests/kalakriti/results.spec.ts` uses a dedicated fixture and page object in the serialized Kalakriti release-invariants lane.

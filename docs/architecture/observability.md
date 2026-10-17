@@ -1,28 +1,28 @@
 # Observability
 
-> **Load when**: evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, `log.error`, `log.set`, `log.emit`, `/api/log/ingest`, error logging discipline.
+> **Load when**: evlog, `createRequestLogger`, `withTaskLog`, `withFireAndForgetLog`, `log.error`, `log.set`, `log.emit`, `/api/log/ingest`, request logging, error logging discipline.
 > **Related**: `jobs.md`, `notifications.md`
 
-## Server-Side Logging (evlog)
+All logging uses evlog wide events. Never use `console.error`, on the server or the client.
 
-All server-side logging uses **evlog wide events**. **Never `console.error`**.
+## Server logging
 
-| Helper | Location | Purpose |
+| Helper | From | Use |
 |---|---|---|
-| `createRequestLogger()` | `evlog` | Creates wide-event logger; `log.set()` for context, `log.error()` for errors, `log.emit()` to flush |
-| `withTaskLog()` | `packages/observability` | Wraps async tasks with retry (p-retry, 3 attempts) + evlog |
-| `withFireAndForgetLog()` | `packages/observability` | Fire-and-forget with evlog (no retry, no re-throw) |
+| `createRequestLogger()` | `evlog` | One wide event: `log.set()` for context, `log.error()` for errors, `log.emit()` to flush |
+| `withTaskLog()` | `@pi-dash/observability` | In-process retry (p-retry, 3 attempts) with logging. Not for enqueueing; pg-boss has its own retry |
+| `withFireAndForgetLog()` | `@pi-dash/observability` | Fire-and-forget with logging; no retry, no rethrow |
 
-Logger initialized at `apps/web/src/lib/logger.ts`, imported by `entry-server.ts`.
+The logger is initialised in the Nitro plugin `apps/web/server/plugins/logger.ts`.
 
-`withTaskLog()` is for **in-process retry only** — not pg-boss enqueue. pg-boss has its own retry.
+## Request events
 
-## Client-Side Logging
+`apps/web/server/middleware/request-logger.ts` logs each request. It creates the logger before awaiting the handler, because evlog computes `durationMs` from logger creation at emit time and overwrites any manual value. The duration covers handler execution only, not network or response-body transfer. `/api/log/ingest`, `/api/health`, `/api/version` and asset paths are skipped.
 
-Client logger init: `apps/web/src/lib/client-logger.ts`. Errors shipped to `/api/log/ingest`. Client catch blocks use `log.error()` from `evlog` — **never `console.error`**.
+Job handlers log through `createNotifyHandler()` (see `jobs.md`).
 
-## Mutation Results
+## Client logging
 
-`handleMutationResult()` from `apps/web/src/lib/mutation-result.ts` handles Zero mutation server results — logs via evlog + shows toast on error. Never inline `if (res.type === "error") { toast.error(...) }`.
+`apps/web/src/lib/client-logger.ts` initialises the client logger and ships errors to `/api/log/ingest`. Client catch blocks use `log.error()` from `evlog`.
 
-The Nitro request middleware creates its evlog logger before awaiting the handler. evlog computes `durationMs` at emission from logger creation and overwrites a manually set value, so creating it after the handler incorrectly records near-zero durations. The middleware's duration covers successful handler execution; it excludes client/network time and response-body transfer. Health, log ingestion and asset paths retain their existing logging exclusions.
+Zero mutation results go through `handleMutationResult()` (`apps/web/src/lib/mutation-result.ts`), which logs and shows an error toast. Do not inline `if (res.type === "error") toast.error(...)`.

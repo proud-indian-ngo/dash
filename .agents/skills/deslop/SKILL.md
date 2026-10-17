@@ -26,12 +26,10 @@ Before delegating, collect the exact paths reviewers need:
 
 - `AGENTS.md`
 - nearest nested `AGENTS.md` for touched paths when one exists
-  - currently this is especially relevant for `packages/db/src/migrations/AGENTS.md`
 - `project-structure.md`
-- `ARCHITECTURE.md` when touching auth, Zero, jobs, notifications, uploads, routing, or data flow
+- the matching `docs/architecture/` chapter (routed from `AGENTS.md`) when touching auth, Zero, jobs, notifications, uploads, routing, finance, or data flow
 - `DEPLOYMENT.md` when touching env vars, Docker, build steps, services, or deployment behavior
 - nearest `package.json` for each touched app or package
-- any active plan in `docs/plans/` that clearly matches the current work
 - changed files plus enough nearby callers, callees, and sibling files to review them in context
 - relevant source-of-truth files instead of generated outputs
   - routes: edit route source files, never `apps/web/src/routeTree.gen.ts`
@@ -60,11 +58,11 @@ Launch exactly these three focused reviewers as soon as the context bundle is re
 
 Review for drift from repo rules and documented architecture:
 
-- Are we following `AGENTS.md`, any nested `AGENTS.md`, `project-structure.md`, and `ARCHITECTURE.md`?
+- Are we following `AGENTS.md`, any nested `AGENTS.md`, `project-structure.md`, and the matching `docs/architecture/` chapter?
 - Are permissions and auth patterns correct: `assertHasPermission()`, `can()`, route guards, nav gating, and permission IDs from `packages/db/src/permissions.ts`?
 - Are imports using approved surfaces such as `@pi-dash/design-system/...` and `@pi-dash/shared`?
 - Did we edit generated files or skip the real source of truth?
-- Did the change require doc updates in `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, `ARCHITECTURE.md`, or `DEPLOYMENT.md`?
+- Did the change require doc updates in `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, the owning `docs/architecture/` chapter, or `DEPLOYMENT.md`?
 - Did we invent commands instead of using repo scripts from `package.json`?
 
 ### 2. Type safety and source of truth

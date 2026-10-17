@@ -1,312 +1,287 @@
 # Kalakriti Registration
 
-> **Load when**: Kalakriti Edition access, Guardian identity, Center controls, eligibility, Competition configuration, Student or Entry registration, inventory, public schedule, registration dashboards, audit, or exports.
-> **Related**: `data-layer.md`, `auth.md`, `authorization.md`, `notifications.md`, `jobs.md`, `e2e-testing.md`
+> **Load when**: any Kalakriti Edition work.
+> **Related**: `CONTEXT.md` (glossary), `data-layer.md`, `authorization.md`, `notifications.md`, `e2e-testing.md`
 
-## Boundary
+## Boundary and model
 
-Kalakriti is a native Edition-bound module under `/kalakriti/:year`. Better Auth remains the only login system and central volunteers remain normal `user` records, but every Kalakriti business row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement, and vendor-payment workflows without making the generic event domain authoritative for Kalakriti state.
+Kalakriti lives under `/kalakriti/:year`. Logins are Better Auth `user` records, but every Kalakriti row belongs to one `kalakritiEdition`. A linked `teamEvent` exposes the Edition to shared event, reimbursement and vendor-payment workflows without owning Kalakriti state.
 
-Registration writes close at `registration_locked`, while existing-entry music edits follow their separate policy. Sidebar event-day scanning records operations only in `live` Editions; a go-live action remains behind a later release gate. Center transport setup, inventory writes, and forward status tracking are available in nonarchived Editions. Competition results and Center standings are available during Live Editions.
+Code: schema in `packages/db/src/schema/kalakriti*.ts`; commands, queries and pure rules in `packages/zero/src/{mutators,queries}/kalakriti-*` and `packages/zero/src/kalakriti-*`; constants in `packages/shared/src/kalakriti*.ts`.
+
+Invariants:
+
+- Sensitive joins repeat `editionId`, and composite foreign keys stop any row from crossing Editions.
+- A Competition Division (Competition plus Age Category) owns Entries and the Result. A Session only gives a Division a time and Venue; one per Division.
+- Edition and Center row locks serialize quotas, yearly-ID sequences, lifecycle changes, scans, results and stock.
+- Unique indexes enforce one Membership per person, one Student per Division, unique yearly IDs and at most one `live` Edition.
+
+### Lifecycle
+
+```text
+draft -> registration_open <-> registration_locked -> live
+```
+
+`archived` is terminal; no transition command targets it. Opening registration needs `kalakriti-registration-readiness.ts`; going live needs [go-live readiness](#go-live). Transitions are audited.
+
+| Capability | Allowed in |
+| --- | --- |
+| Student and Entry registration | `registration_open` with the Center's control on |
+| Existing-Entry music, transport setup, inventory, Guest/Judge rosters | Any nonarchived lifecycle |
+| Event-day scans, results, awards | `live` |
+| Center name, location, Maps link | Every lifecycle |
+| Archived Edition | Read-only, global administrators only |
 
 ## Identity and access
 
-Global permissions provide the coarse module gates `kalakriti.view` and `kalakriti.admin`. Operational authority is resolved from an active Edition Membership plus typed Responsibility Assignments; responsibilities never become global roles.
+Global permissions `kalakriti.view` and `kalakriti.admin` are coarse gates. Operational authority comes from an active Edition Membership plus typed Responsibility Assignments, which never become global roles.
 
-- Global administrators can access every Edition, including archived Editions.
-- Edition administrators manage the complete active Edition.
-- Volunteer Coordinators manage the volunteer roster and assignments on `/kalakriti/:year/volunteers`. That page owns roster membership, not Overview. **Create volunteer** adds a name-only, no-login membership (no email, phone, or central user). **Add volunteers** enrolls existing central users. Both start Unassigned. **Assign role** on a row or detail sheet grants a responsibility to a central user or a local volunteer. Successful enrollment of a central user automatically changes `unoriented_volunteer` to the oriented `volunteer` role; admin and custom roles remain unchanged. Local volunteers have no login, so assignment does not orient a global role or add a linked-event member. Removing the last role leaves them Unassigned; central volunteers keep linked-event access. **Remove from Edition** archives membership and drops the linked event member when one exists. Coordinators cannot remove an Edition Administrator or another Coordinator from the Edition; an Edition or global administrator must do so.
-- Overall Events Leads and Category Leads receive Competition-category scopes. Lead roles are multi-occupant; assignment uniqueness is per person plus scope, not one occupant per Edition.
-- Liaisons and Guardians receive explicit Center scopes. Overall Liaison Lead is Edition-wide: no Center picker, and the assignment covers every Center. Center Liaison Lead and Liaison Volunteer are per Center. Transit Volunteer and Escort Volunteer are Edition-scoped liaison support roles with no Center picker and no extra operational access; assignment still grants Edition shell access like other volunteer roles.
-- Unassigned volunteer membership is a valid roster state. Edition **access stays fail-closed**: opening the Kalakriti shell still requires Guardian membership, at least one assignment, or global admin. Unassigned volunteers remain visible to roster managers and in the authorized Edition-wide Food roster; they gain no additional Edition access.
+- `apps/web/src/lib/server/kalakriti-edition-access.ts` resolves Edition access; `apps/web/src/lib/kalakriti-registration-scope-policy.ts` turns it into the scopes dashboards and exports share.
+- Every command and Zero query checks Edition and assignment itself. Hidden navigation is not authorization.
+- The shell opens for Guardians, members with an assignment (even without `kalakriti.view`) and global admins. Unassigned membership grants nothing.
+- Lead roles can have several holders; uniqueness is per person plus scope.
 
-Signup via `/register?eventId=` on the linked event, coordinator **Add volunteers**, and **approved public interest** on a Kalakriti-linked event all create the same destination: active unassigned volunteer membership plus `team_event_member` on the linked event. **Create volunteer** and blank volunteer-card registration without email create the same no-login destination without a `user` or linked-event member. A printed volunteer card with an email creates a central user and enrolls that account onto the printed membership. Direct responsibility assignments at every scope apply the same orientation policy to central users, including reactivation and replay of existing active membership. Local volunteers can receive the same responsibilities on their membership; orientation and event-member writes are skipped. Edition creation doesn't enroll its creator, so creation alone doesn't promote anyone. Pending interest, rejected enrollment, unrelated events, and Guardian or external identities never trigger promotion. Removing a responsibility or membership never demotes the global role.
+### Roles and scopes
 
-`packages/db/src/kalakriti-orientation.ts` owns the conditional SQL update: only the persisted `unoriented_volunteer` role with active volunteer membership in a non-archived Edition qualifies. The update and session revocation run inside the enrollment transaction, so failure rolls both back and a concurrent role change isn't overwritten. After commit, callers invalidate the role-permission caches and enqueue the established role-change notification and orientation WhatsApp jobs only when the update changed a row. Zero commands remain inside the central mutation audit boundary; unauthenticated signup remains excluded.
-
-Linked event details are editable from `/events/$id` (name, location, description, schedule, notifications) for `events.edit` / team lead or `kalakriti.admin` / Edition administrator. Generic event volunteer add/remove, cancel, and `isPublic` stay off that page; `isPublic` stays lifecycle-driven. Recurrence and inherit-volunteers do not apply to Edition events.
-
-Edition Membership snapshots remain as historical records after a central user is deleted: the membership's `userId` and creator attribution become null rather than blocking account deletion or erasing the membership. Guardians use the technical `external_user` role and a persistent `kalakritiExternalIdentity` marker. Their yearly profile and access live in Edition Memberships. Edition administrators and global administrators can update an active Guardian's yearly name, email, and phone; dedicated external identities also update login email and phone, while assigned central volunteer accounts keep their login email. Archiving the final active Guardian membership bans the external account and revokes its sessions; exact-email reuse can reactivate the identity for a later Edition. External identities are excluded from central user lists and volunteer pickers. **Assign role** and scoped responsibility pickers include `unoriented_volunteer`, because successful assignment promotes them, and include name-only local volunteers already on the roster. **Add volunteers** also includes unoriented central users and excludes people already on the roster. Assigned members can open their Edition even when their global role lacks `kalakriti.view`. Local volunteers cannot sign in, so assigned roles do not grant dashboard access.
-
-`apps/web/src/lib/server/kalakriti-edition-access.ts` resolves Edition access. `apps/web/src/lib/kalakriti-registration-scope-policy.ts` converts that access into the canonical registration scopes shared by dashboards and exports. Commands and Zero queries perform their own Edition and assignment checks; hidden navigation is never treated as authorization.
-
-## Blank printed cards
-
-Global and Edition admins can download blank Volunteer, Guest, and Judge cards from the dashboard and use **Register ID card** to scan or paste their QR. The normal person QR contract is retained: the printed UUID becomes the new attendee or membership UUID. No issuance record is required, and downloading alone creates no roster records. Registration applies to the selected non-archived edition.
-
-`functions/kalakriti-blank-id-card.ts` preflights administrative access, lifecycle, supported type, and whether the UUID already belongs to a person, including inactive records. Guest/Judge registration reuses attendee creation with `printedCard: true`, which rejects existing IDs under the existing edition lock. Volunteer registration uses `kalakritiAssignment.createLocalVolunteer` with `requirePrintedCardId: true` when email is omitted: name is required, email and phone are optional, and both-empty (or phone-only) contact creates a no-login membership. Entering an email creates a central login user and enrolls that account onto the printed membership id; that path still needs `users.create`. The printed UUID becomes the membership id. Exact card retries are accepted; another membership for that card is rejected. Event-day Scan stays lookup-only: register the blank volunteer card first, then scan it. **Register ID card** lives on the Volunteers dashboard card for global and Edition administrators. Blank-card PDF downloads remain under **ID cards and registration tools**.
-
-The PDF page-count schema, download authorization, duplicate-card mutation guards, and preflight have focused tests. The ID-card E2E spec covers PDF download, registration, and existing-person lookup using the same QR.
-
-## Guests and Judges
-
-The Guests and Judges pages own Edition-bound `kalakritiAttendee` records with required name and phone, optional email, and a stable yearly ID. These people have no login account, external identity, or Edition Membership. Global/Edition administrators manage both rosters in any nonarchived Edition, including Live. Hospitality Leads and Members can read both Guest and Judge rosters, details, and ID cards through active Edition-scoped volunteer assignments. Hospitality Members have read-only roster access. Hospitality Leads can create, view, edit, and archive Guests through their active Edition-scoped volunteer assignment; this does not grant Judge management. Guests retain Archive, which preserves operation history and blocks new scans. Judges use permanent Delete instead: `kalakritiAttendee.delete` removes their Competition assignments and attendee row atomically, but rejects deletion if any check-in or meal history exists, including corrected operations. The old archive command rejects Judges. Deletion retains audit records and reserves the deleted yearly ID.
-
-Volunteer Coordinators and Volunteer Management Volunteers can read both rosters, as well as the Volunteer and Guardian lists, detail sheets, and ID cards. Both roles can register blank Volunteer, Guest, and Judge cards and check in all four non-Student person types. These capabilities do not grant attendee editing/deletion or Guardian invitation, editing, or archiving. Overall Events Leads can read Judges Edition-wide; Competition Category Leads and Competition Coordinators see judges assigned within their existing scopes. Scoped Judge read permissions include detail sheets and identifier QRs; they do not grant check-in or meal recording. Overall Events Leads can add and delete Judges, edit their name/phone/email fields, and replace their Competition assignments in any nonarchived Edition. They cannot modify Guests; Category Leads, Competition Coordinators, Volunteer Coordinators, and Volunteer Management Volunteers cannot edit or delete existing attendees. Mutation authorization uses active, Edition-scoped volunteer assignments and the persisted attendee kind rather than a client-supplied kind. Scoped judge queries also restrict the nested Competition assignments, so a judge shared with another category does not reveal that category's assignments.
-
-Administrators and Overall Events Leads assign competitions through **Assign competitions** in a judge's row menu or detail sheet. `kalakritiJudgeAssignment` is a many-to-many join: one judge can cover multiple competitions and each competition can have multiple judges. Commands validate active Judge kind and same-Edition Competition references; composite foreign keys and a unique attendee/Competition pair prevent cross-Edition and duplicate assignments. Assignment is for the whole Competition, not an age-category Division, and does not create scoring or Competition-attendance permissions.
-
-Attendee QR JSON uses `{"id":"<attendee-record-id>","type":"guest|judge"}` with one concrete type, never contact information. The shared **Check-in** activity accepts Volunteers, Guests, Judges, and Guardians; the server records guests/judges as `attendee_check_in` with an `attendeeId` subject. Guests and judges must check in before breakfast or lunch, cannot receive transport or Student Competition-attendance operations, and use the existing append-only meal correction and retry rules.
-
-Food-only staff receive an authenticated, explicit-column attendee projection rather than full Zero attendee rows, because Zero synchronizes whole rows including contact fields. This projection exposes identity, eligibility, and meal state to Edition-wide administrators/Food staff only; Center-scoped readers do not receive Guest/Judge rows. `functions/kalakriti-food.ts` owns the server projection; `components/kalakriti/use-food-attendees.ts` refreshes every five seconds, on focus, and after meal undo. Its refresh lifecycle participates in Food snapshot readiness so loading does not render false unserved statuses.
-
-Migration `0083_ambitious_cable.sql` adds attendees, judge assignments, and the attendee operation subject/type. Migration `0096_thick_nightmare.sql` adds the Edition's durable `nextJudgeSequence` counter. Creation allocates above both that counter and existing Judge IDs; deletion advances the counter past the deleted ID to reserve legacy allocations too. Both commands hold the Edition row lock, so concurrent creates/deletes cannot reuse a yearly ID. Generate and deploy the matching Zero schema with the migration and application. The `guests-judges.spec.ts` invariant-lane E2E test covers non-login creation, decoded QRs, multiple Competition assignments, Events Lead creation/editing/deletion, assignment cleanup, non-reused yearly IDs, read-only scoped staff access, deletion denial after check-in, QR/manual check-in, meal prerequisites, duplicate serving, undo/re-serving, and archived history.
-
-## Data and command ownership
-
-The Drizzle schema is grouped in `packages/db/src/schema/kalakriti.ts`. Registration commands and queries live under `packages/zero/src/mutators/kalakriti-*` and `packages/zero/src/queries/kalakriti-*`; pure registration rules remain in focused `packages/zero/src/kalakriti-*` modules.
-
-Every sensitive join repeats `editionId`, and composite foreign keys prevent a Center, Age Category, Competition Division, Session, Student, Entry, or Assignment from crossing Edition boundaries. A Competition Division pairs one Competition with one Age Category and owns Entries and future Result ranking; a Competition Session only assigns that Division a time and Venue. PostgreSQL row locks serialize quota, Student-ID sequence, and lifecycle decisions. Unique indexes back duplicate Membership, one-Student-per-Division, one Session per Division, unique volunteer yearly IDs, and one live Edition invariants. Assignment uniqueness is per person plus scope; lead roles including Overall Events Lead may be held by more than one volunteer.
-
-The lifecycle edges exposed by this release are:
-
-```text
-draft -> registration_open <-> registration_locked
-```
-
-Opening or reopening requires a complete readiness snapshot. Center Student and Entry controls are independent, bulk lock closes both controls for every Center, and every explicit reopen is audited. Registration commands require both an open Edition lifecycle and the relevant Center control. Closing Center participation registration, individually or through bulk lock, requires every registered Student to meet the Edition `minTotalCompetitions` floor, including Students with zero Entries. Centers with no Students may close. The Centers directory compliance column applies the same rule.
-
-A Competition may set `musicUploadEnabled`. Guardians, Liaisons, Edition administrators, and global `kalakriti.admin` users can manage up to **two optional audio files per Entry**, each MP3, M4A, or AAC and at most 20 MB. Existing Entry music can be added or removed after Center or Edition registration closes; participant registration and editing remain locked. Music changes require the actor's existing Center/Edition scope, active Center/Competition/Category records, and a nonarchived Edition.
-
-The separate music modal accepts multi-selection and drag-and-drop, shows each file's upload status, and lets the operator retry or remove an individual failed upload without losing successful uploads. Save applies additions and explicit file removals atomically; Cancel leaves persisted files unchanged and cleans staged temporary uploads. The table owns the modal outside its cells so live row updates don't discard staged uploads. Its Music column displays a file count and individual filenames; each filename opens a table-owned playback modal with native audio controls and a protected Download action, independently of music-edit permission.
-
-`kalakritiEntryMusic` owns each file's metadata and Edition-bound Entry reference; scoped Entry queries expose the `musicFiles` relationship. `kalakritiEntry.updateMusic` accepts additions and explicit `removeMusicFileIds`, so saving an older dialog doesn't silently remove files added by another editor. The server serializes writes and checks the resulting file count before claiming objects. Creation, removal, promotion, and delayed reference-checked storage cleanup use individual file records; audit metadata contains identifiers and counts, never filenames or object keys.
-
-New-entry uploads still require open Edition and Center Entry registration. Existing-entry upload signing includes `entryId` and validates its exact Edition, Center, and Division before allowing the post-registration write window. The music flag is not participant eligibility: it can change after Entries exist until the Edition is structurally locked. Turning it off blocks new claims without revoking downloads or the backend's scoped removal permission. Anyone whose registration scope covers the Entry, including Overall Events Leads, Category Leads, and Competition Coordinators, may download. Public schedule and registration export never include music keys, filenames, or binaries.
-
-## Entry music migration
-
-Apply the two generated migrations in order: `0079_mighty_kronos.sql` adds the parent composite unique constraint, and `0080_gray_punisher.sql` adds `kalakriti_entry_music`. The child table has an Edition-composite Entry foreign key, unique object keys, and two unique slots per Entry; the database therefore also rejects a third file independently of the mutator's locked count check.
-
-The application and generated Zero schema must match these migrations. Legacy singleton music columns are no longer part of the current model; existing music files are served through protected playback and download from child records. The repository no longer includes a singleton-to-child data backfill command.
-
-## Public and server-only projections
-
-Every authorized viewer of a Volunteer, Guardian, Student, Guest, or Judge detail sheet sees that person's identifier QR through `components/kalakriti/person-qr-panel.tsx`. The browser renders JSON directly from already-scoped row data: `{"id":"<database-id>","type":"student|guardian|volunteer|guest|judge"}` (one concrete type per payload). `id` is the Student record ID for Students and the Edition Membership record ID for Guardians and volunteers; Guests and Judges use their Attendee record ID. It never uses the yearly display ID. There is no issuance, replacement, secret token, or additional admin gate for these QRs. Opening a sheet never writes credential records.
-
-Guardian sheets show assigned Centers; Student sheets show their Center and registered individual/group competitions, including cancellation status. There is no standalone Credentials page or navigation item. Existing page and query scopes still determine whose details a viewer can access; QR visibility does not make personal records public.
-
-`GET /api/kalakriti/:year/people/lookup?humanId=` accepts the existing yearly or record identifier and returns allowlisted Student, Volunteer, Guardian, Guest, or Judge details without requiring a credential row. The lookup retains its administrator gate and Edition boundary. Scanners parse the JSON and use its `id` to look up the subject, then verify that the stored subject kind matches `type`. An identifier QR is not proof of identity or permission: scanner commands must authorize the operator and validate subject eligibility independently.
-
-The legacy credential table, token hashing, issuance/reissue mutators, and the former PDF card printing flow are removed. The Edition dashboard has a Download ID cards button for global Kalakriti admins and active edition_admin members. `/api/kalakriti/$year/id-cards` repeats that authorization before reading the current roster and returning a private, no-store PDF. The `packages/pdf` renderer uses the existing person QR contract, four cards per A4 page. Retired Centers, inactive memberships, archived attendees, and cancelled/retired competitions are excluded; students without entries are included. JSON QR display and person lookup depend only on Student, Edition Membership, and Attendee records. The person-QR E2E suite covers decoded payloads, stable display, scoped nonadmin visibility, and lookup; former credential routes return 404.
-
-`/api/kalakriti/:year/schedule` is unauthenticated and returns an explicit allowlist: Edition display fields plus Competition, Age Category, Venue, time, and cancellation status. It never returns staffing, contacts, Students, submissions, evidence, music files, or `musicUploadEnabled`. The `/kalakriti/:year/schedule` page also reads the linked event's start time and cancellation server-side (not part of the API allowlist): once the event is cancelled or has started, viewers without Edition access see neither "Show interest" nor the sign-up prompt.
-
-Registration dashboards and `/api/kalakriti/:year/registration-export` resolve the actor and Edition on the server. The export route builds an allowlisted ZIP on the server, returns it as a private non-cacheable attachment, neutralizes spreadsheet formulas, and never sends raw registration rows to the browser. CSV import is intentionally unavailable.
-
-Audit reads apply Edition and responsibility scopes before returning privacy-safe metadata. Mutation audit entries remain Edition-owned and record the actor, domain, action, target, timestamp, reason where required, and structured metadata.
-
-All scan dialogs place manual ID entry in an accessible, initially collapsed section below the camera scanner. Users can expand it to type or paste an ID without starting the camera.
-
-## Center directory
-
-Center Liaison Leads and liaison volunteers with active assignments can view Guardians for their assigned Centers. The Overall Liaison Lead can view Guardians across all Centers in the Edition. Guardian lists and Center links remain scoped to authorized Centers, including when a Guardian serves multiple Centers. Center detail sheets show Guardian names, yearly IDs, callable phone numbers, and email links, with explicit missing-contact states. This read access does not grant Guardian management.
-
-Clicking a Centers table row opens a table-owned detail sheet at `/kalakriti/:year/centers?centerId=...`; there is no individual Center route. The sheet resolves its selected ID against the current authorized directory, so reloads and transport notifications can reopen it without bypassing scope. Deleted or inaccessible IDs show “Center not found,” and live updates refresh the selected Center. The sheet includes basic fields, registration/compliance, authorized Guardian/Liaison lists, and read-only transport; vehicle queries mount only for an authorized open sheet. Edit, registration-control, retirement, and deletion actions close the sheet before opening their table-owned modal.
-
-Guests and Judges use the shared `DataTableWrapper` with column resizing, drag ordering, pinning, visibility, search, pagination, and ReUI filters. Their existing row-click sheets, competition assignments, permission gates, and retained scan/meal statuses are unchanged. Both sidebar modes give every visible item a distinct icon; Kalakriti uses Center buildings, volunteer hearts, Students, competition trophies, Guardian shields, Guest identity cards, Judge scales, transport buses, Food utensils, and audit records.
-
-## Center transport
-
-`/kalakriti/:year/transport` owns vehicle creation, editing, and removal; Center detail sheets show read-only assignments. The directory lists every authorized active Center, one row per vehicle and a placeholder for Centers without assignments. Its Center-rooted `kalakritiTransport.centers` query authorizes roots before expanding nondeleted assignments, with no Student or Entry joins. Center records own optional `location` and HTTPS `googleMapsUrl` fields. The Centers action menu and detail sheet open a shared Edit modal containing basic fields, registration controls, and Guardian/Liaison assignments. Sections save independently; assignment changes apply immediately. Authorized Center administrators can correct name, location, and Maps fields in every Edition lifecycle, including archived Editions and retired Centers, without changing registration or retirement state. Creation, retirement, and deletion retain structural lifecycle locks. Registration controls keep their existing guards; assignments are read-only in the archived modal. Volunteer Coordinators can open Edit for Liaison assignments without gaining basic-field or Guardian writes. Assignment queries and the central-volunteer picker start only while the editor is mounted. Transport assignments own optional `pickupTime` timestamps alongside vehicle number (`vehicleLabel`), driver contacts, capacity, and notes. Pickup times are entered and displayed in the browser's local timezone, explicitly labelled on the page/form. Existing rows retain null location, Maps, and pickup values after migration `0095_young_butterfly.sql`. The table uses retained complete-snapshot status labels and scoped read-only access for Guardians and Center Liaisons. `kalakritiTransport.create`, `update`, and `delete` serialize writes through Edition and Center row locks, reject archived Editions and retired Centers, and audit the commands. Deletion requires confirmation and sets `deletedAt`, preserving the assignment and its history while excluding it from active lists, readiness checks, and pending notifications. Individual vehicle status is read-only. Completing a Center scan stage transactionally projects the derived status to every non-deleted vehicle at that Center and appends status history. Vehicles created later inherit the latest finalized Center status.
-
-The Edition's Transport Lead and global/Edition administrators manage transport Edition-wide. There is no per-Center transport role. Center-scoped Liaisons and Guardians can read their own Center's transport details but cannot create, edit, or delete vehicle assignments. Authorized Center Liaisons can scan Students and finalize Center stages; Guardians cannot. Transport Leads can discover all Edition Centers without gaining Student or Entry registration-write permissions. Assign the Transport Lead through the normal Edition-scoped volunteer assignment workflow.
-
-Vehicle/driver/pickup-time field updates enqueue `notify-kalakriti-transport-changed` after commit with a deterministic assignment/change key. Recipients are the affected Center's active Guardians and Liaisons; transport details are not public schedule data. The root seed creates one planned demo vehicle and its initial history atomically and idempotently, without changing progressed vehicles or archived Editions.
-
-## Inventory
-
-`/kalakriti/:year/inventory` has **Items** and **Transactions** tabs. Items hold an Edition-owned name, optional protected photo, whole-number current quantity, and integer-paise unit price. The Items table shows current stock and estimated INR value using that current price. A new item's opening quantity creates an `initial_inventory` transaction even when the quantity is zero. The item Actions dropdown records purchases and counted-stock adjustments. Primary Dispatch and Return buttons open the same activities as the sidebar Scan menu. A volunteer QR or yearly ID resolves an active Edition Volunteer, then their profile replaces the scanner. A searchable multiselect chooses up to 100 distinct items, each with its own positive quantity and resulting-stock preview. An optional Competition / role menu lists only the scanned Volunteer’s direct active Competition assignments and their other assigned roles. Competition-scoped assignments appear as Competitions; Center, category, and Edition assignments appear as roles. Purpose/notes and the selected Competition or role apply to the whole batch. Transactions and item history show each signed change, resulting balance, responsible Volunteer, optional Competition or role and purpose/notes, time, and recorder. Returns add stock without reconciling an earlier dispatch or tracking custody.
-
-Global `kalakriti.admin` users and active Edition volunteers assigned `edition_admin`, `logistics_lead`, or `logistics_member` can read and write inventory in any nonarchived lifecycle. Only global administrators can read archived Edition inventory, and nobody can change it there. Navigation, route access, Zero queries and mutators, and protected photo reads apply this Edition policy. Form pickers include only active Volunteers from the same Edition. The selected Volunteer’s assignments load after scanning; server mutations reject unassigned Competitions or roles and simultaneous Competition/role selections. A recorded role is stored as a responsibility snapshot, so history remains readable after its assignment is removed. Competition references remain after those records become inactive.
-
-`packages/db/src/schema/kalakriti-inventory.ts` owns `kalakriti_inventory_item` and append-only `kalakriti_inventory_transaction`; generated migration `0099_conscious_expediter.sql` creates them, and `0100_fair_norman_osborn.sql` adds the nullable responsibility snapshot. The `kalakritiInventory` Zero namespace owns separate item, Edition history, item history, Volunteer picker, and selected-Volunteer assignment queries. Catalog reads do not include transaction history; history and picker relationships load only for mounted consumers. Shared types and image limits live in `packages/shared/src/kalakriti-inventory.ts`; `packages/zero/src/kalakriti-inventory-schema.ts` validates command fields.
-
-Purchases and returns add a positive whole quantity; dispatches subtract one and reject insufficient stock. Adjustments set a nonnegative counted quantity, require a reason, preview the signed difference, and reject the command when the current balance differs from the balance shown to the operator. Item creation, catalog edits, movements, archive, and restore serialize through the Edition row lock. `recordBatch` preflights every selected item under that lock before writing any movements, so a failure leaves the entire batch unchanged. Complete identical retries succeed; partial or changed retries fail. Per-line audit metadata contains only a batch anchor identifier, bounded item count, item ID, and changed fields. UUIDv7 transaction IDs make Zero retries idempotent, and each successful stock write records its history and bounded audit metadata in the same transaction. Transactions cannot be edited or deleted. Items can be archived only at zero stock and later restored without losing history. Notes, photo keys, and other free text stay out of audit metadata.
-
-## Event-day operation spine
-
-`packages/zero/src/mutators/kalakriti-operation.ts` owns server-authoritative recording; the client phase performs no optimistic writes. `record` accepts `personQr`, a bounded JSON string containing exactly `{ id, type }`, matching the detail-sheet QR format. It resolves the persisted Student, active Volunteer/Guardian membership, or active Guest/Judge attendee inside the requested Edition, rejects mismatched types, and restricts Guardian subjects to meals. `recordManual` resolves an Edition yearly ID through the same subject and operation rules; neither path uses credential storage or token hashes.
-
-New writes require a `live` Edition and an authorized operator. Edition/global administrators can record all types; other staff are restricted by operation type and their Center or Competition assignment. Attendance additionally requires a valid in-Edition session and the Student's registration in its Division. Transport ordering, volunteer check-in, and meal eligibility are enforced independently of QR possession.
-
-`kalakriti_operation` is append-only and has a unique `operationId`, XOR subjects, and Edition-composite subject/session references. A retry by the original recorder or global administrator is a no-op even if the submitted type or subject changes; another recorder or Edition cannot reuse the key. Replays don't create audit rows or duplicate operations. Student deletion and Entry removal are blocked once their Students have recorded operations. `event_day_operation` audit entries contain only bounded operation metadata. The seed script leaves draft Edition operations empty and adds an idempotent sample pickup only when the demo Edition is live and its sample Student has no history. E2E fixtures exercise idempotent recording against isolated live Editions.
-
-## Role-aware scanning
-
-The Kalakriti sidebar **Scan** button opens a shared modal, not a separate Event day page. Available activities are the union of the operator's active Edition assignments. Administrators see all activities; multiple activities appear as tabs, while single-activity staff do not need a tab selector.
-
-| Activity | Authorized staff | Eligibility |
+| Role | Scope | Capabilities |
 | --- | --- | --- |
-| Transport | Global/Edition administrators, Transport Leads, scoped Center Liaisons | Center roster and current pinned stage |
-| Dispatch / Return | Global/Edition administrators, Logistics Leads/members | Active Edition Volunteer; nonarchived Edition; distinct inventory items with positive quantities |
-| Check-in | Global/Edition administrators, Volunteer Coordinators, Volunteer Management Volunteers, Hospitality Leads/members | Active Volunteer, Guest, or Judge; Guardians are limited to administrators and Volunteer Management roles |
-| Meals | Global/Edition administrators, Food Leads/members | Student pickup, Volunteer/Guest/Judge check-in, or active Guardian Edition registration; selected breakfast/lunch service |
-| Attendance | Global/Edition administrators, Overall Events Leads, assigned Category Leads and Competition Volunteers/Coordinators | Picked-up Student registered in the selected session's Division; valid, uncancelled in-Edition session |
+| Global / Edition administrator | All Editions / one Edition | Everything |
+| Volunteer Coordinator | Edition | Volunteer roster and assignments; Liaison assignments; read people rosters; register blank cards; check in non-Students |
+| Volunteer Management Volunteer | Edition | Same reads, blank cards and check-in; no assignment or login creation |
+| Overall Events Lead | Edition | Categories and Venues; Judge management; attendance; results and finalization |
+| Category Lead | Categories | Read Categories/Venues; scoped Judges, attendance and results |
+| Competition Coordinator / Volunteer | Competition | Scoped attendance; Coordinators also write results |
+| Overall Liaison Lead | All Centers | Read Guardians, Students, Entries, transport and Food; Transport scans |
+| Center Liaison Lead, Liaison Volunteer | Assigned Centers | As above, per Center |
+| Guardian | Assigned Centers | Register Students and Entries; read own Centers' transport and Food |
+| Transport Lead | Edition | Vehicles and Transport scans; sees every Center, no registration writes |
+| Food Lead / Member | Edition | Meal scans and Food roster; Leads undo meals |
+| Logistics Lead / Member | Edition | Inventory, Dispatch and Return |
+| Hospitality Lead / Member | Edition | Read Guests and Judges; Leads manage Guests; check-in |
+| Awards Lead / Member | Edition | Read all Competitions and Entries; award handovers |
 
-The browser tabs are a convenience, not an authorization boundary. Every operation validates role, subject, Edition, eligibility, and session scope on the server. QR input uses person JSON and manual input uses yearly IDs; neither authorizes an operation. Changing scanning activity or session ends the previous camera context, and pending writes cannot change their operation arguments. Archived Editions expose no scanning. Event-day writes require a live Edition; inventory dispatches and returns are available in every nonarchived lifecycle.
+### Volunteer roster and orientation
 
-## Go-live
+`/kalakriti/:year/volunteers` owns the roster. **Create volunteer** adds a name-only local volunteer with no login. **Add volunteers** enrolls central users, including `unoriented_volunteer` users. Linked-event signup (`/register?eventId=`) and approved public interest produce the same active, unassigned membership plus a `team_event_member` row. **Remove from Edition** archives the membership and drops the event member; only administrators can remove an administrator or Coordinator.
 
-The lifecycle action offers **Go live** only from registration-locked Editions. Its blocker list uses the shared go-live readiness helper: registration configuration, closed active-Center controls, active Overall Events/Transport/Food Lead assignments, and transport assignments for active Centers. There is no credential or person-ID readiness gate. Confirmation explains that scanning starts and Center registration controls close; existing person QRs, lookup, and transport setup remain available. The server rechecks readiness and the single-live-Edition constraint in the transition transaction.
+Orientation policy (`packages/db/src/kalakriti-orientation.ts`):
 
-## Student directory
+- Enrolling a central user, or assigning them any responsibility, changes a persisted `unoriented_volunteer` role to `volunteer`. Other roles are untouched.
+- The update and session revocation run in the enrollment transaction. After commit, callers invalidate permission caches and enqueue the role-change notification and orientation WhatsApp only if a row changed.
+- Edition creation, pending or rejected interest, local volunteers and Guardian identities never promote. Removal never demotes.
 
-The Students page uses `kalakritiStudent.visibleForDirectory({ editionId })` to list Students across the viewer's authorized Center union, without requiring a page-level Center selection. ReUI filters cover the seven data columns: Center (stable ID), ID (yearly Student ID), Student (name), Transport status, Date of birth, Gender, and Age Category. Hiding a column does not remove its filter. Transport filtering uses the same retained labels as the displayed column, without treating unknown status as awaiting pickup. Obsolete non-column filter predicates are removed recursively from saved URL expressions; supported filters and their groups survive. Legacy authorized Center links become visible Center filters in the same normalization flow, rather than hidden constraints. Guardian and Liaison access includes all Students in their authorized Centers, not just their own registrations; unrelated Centers and Editions remain inaccessible.
+### Guardians and the linked event
 
-Creation explicitly targets a writable Center and retains its registration, age-category, and quota checks. Viewing, editing, and deletion use the selected Student's actual Center, never the table's filter selection. Transport status continues to use retained authoritative snapshots, and filtering grants no additional permissions.
+- Guardians use the `external_user` role and a `kalakritiExternalIdentity` marker, and are excluded from central user lists and pickers.
+- Archiving a Guardian's last active membership bans the account and revokes sessions. The same email can reactivate it in a later Edition.
+- Deleting a central user nulls the membership's `userId`; the membership stays.
+- On `/events/$id`, the linked event's details are editable, but volunteer add/remove, cancel, recurrence and `isPublic` (lifecycle-driven) are not.
 
-## Guardian yearly-ID allocation
+## Registration
 
-New Guardian memberships receive an immutable yearly ID such as `KALG-2026-0001` in the same transaction as registration. The shared creation funnel locks the Edition before inserting the membership, avoiding foreign-key lock-upgrade races, then allocates from its separate `nextGuardianSequence`. Existing IDs, including archived memberships' IDs, reserve their sequence numbers. Same-Edition retries keep the existing ID; a later-Edition registration receives a new membership and year-specific ID. Migration `0082_guardian_yearly_ids.sql` adds the counter and positive-value constraint.
+- Each Center has separate Student and Entry controls. Commands need an open lifecycle and the relevant control. Bulk lock closes both for every Center; reopens are audited.
+- Closing a Center's registration requires every Student, including those with no Entries, to meet `minTotalCompetitions`. The Centers compliance column uses the same rule.
+- The Students directory (`kalakritiStudent.visibleForDirectory`) lists every Student in the viewer's Center union. Edits use the Student's real Center, never the table filter.
+- Student deletion and Entry removal are blocked once the Student has operations.
 
-Historical Guardian memberships without an allocated ID display a dash in the roster; new memberships receive IDs through the registration transaction.
+### Entry music files
 
-## Food and check-in reporting
+With `musicUploadEnabled`, Guardians, Liaisons and administrators can attach up to two MP3, M4A or AAC files (20 MB each) per Entry.
 
-`/kalakriti/:year/food` lists only currently meal-eligible people: picked-up Students, checked-in active Volunteers/Guests/Judges, and active Guardians. Eligibility is a base roster restriction, not a filter or column. Name, Person ID, Role, Center, Breakfast, and Lunch filters operate on the table; meal cells show green checks for Served and red crosses for Not served, with accessible labels and tooltips. Global/Edition administrators and Food staff see the Edition-wide roster. Guardians and Liaisons see their authorized Center union, including all Centers for Overall Liaison Lead; linked volunteers must intersect that scope, and related Center labels stay within it. Guardians can also see their own meal row without a Center assignment. Read access never grants meal-recording permission, and archived Food views are restricted to global administrators. Registered/eligible/served totals cover the whole authorized roster and do not change with table search or filters. Served totals retain archived history, so they can exceed the number of eligible table rows. The table waits for its first complete snapshot, retains eligible rows and their meal sorting/filter values during synchronization gaps, and removes ineligible or archived rows once a complete update arrives; a scope change discards the retained snapshot.
+- New Entries need open registration. Existing Entries accept music changes in any nonarchived lifecycle; upload signing validates the `entryId`'s Edition, Center and Division.
+- `kalakritiEntry.updateMusic` takes additions plus explicit `removeMusicFileIds`, so a stale dialog cannot drop another editor's files. A locked count check and unique slots both reject a third file.
+- The flag is not eligibility. Turning it off blocks uploads but keeps playback, download and removal for anyone whose scope covers the Entry.
+- Audit metadata never holds filenames or object keys.
 
-Guardian meals reuse the existing membership-subject ledger. Guardian yearly IDs use `KALG-{year}-{sequence}`, alongside Student `KAL-` and Volunteer `KALV-` IDs. The Guardians table, its Yearly ID filter, and the Guardian detail sheet display the existing membership `humanId`; historical memberships without an allocated ID show a dash. Food uses the yearly ID when available and otherwise displays the membership record ID. Guardian QR JSON always identifies the Edition Membership UUID with type `guardian`, and manual meals accept both the yearly ID and the legacy membership UUID. Active Edition registration is sufficient for meals; Guardian check-in is optional. The generic Check-in request resolves Guardian identity to `guardian_check_in`; Guardians cannot receive transport or Competition attendance operations. Served history remains separate from current eligibility.
+## Centers and transport
 
-The Volunteers table displays read-only green checks/red crosses in **Checked in**, derived from effective `volunteer_check_in` operations. Food and check-in displays wait for an initial complete snapshot and retain known values during later synchronization gaps rather than showing false negative statuses.
+### Center detail sheets and editing
 
-Global/Edition administrators and Food Leads can undo an effective breakfast or lunch mark after confirmation, only while the Edition is Live and the client has authoritative connected data. Food Members and scoped readers cannot undo meals. `kalakritiOperation.undoMeal` appends a `meal_correction` record and links the exact original meal to it; it never deletes the original. Stale targets cannot clear a replacement serving, and retries retain their original operation IDs.
+A Centers row opens a sheet at `/kalakriti/:year/centers?centerId=...`, resolved against the authorized directory so links cannot bypass scope. Transport there is read-only.
 
-Undo leaves personal eligibility unchanged and makes that meal available again. A new explicit scanner capture session can allocate a fresh serving ID for a previously confirmed attempt; pending or uncertain attempts retain their original arguments. Continuous camera frames do not automatically re-serve a person when an undo arrives. Migration `0081_uneven_sue_storm.sql` adds the correction enum value.
+The Edit modal saves basic fields, registration controls and Guardian/Liaison assignments separately. Name, `location` and HTTPS `googleMapsUrl` are editable in every lifecycle, including retired Centers. Create, retire and delete keep structural locks. Volunteer Coordinators can edit only Liaison assignments.
 
-## Center-agnostic Entries and arrival
+### Transport directory and pickup times
 
-The Competitions workspace at `/kalakriti/:year/competitions` combines the former Competition catalog and Entries directory, with one row per age-specific Competition. Rows show age category, schedule, Venue and scoped Entry counts. Opening a row selects its Entries on the same route using `?competition=<divisionId>`. The former `/competitions/sessions/$id` URL redirects to this selection. Neither the list nor its Entry detail requires a Center selection before loading. The directory omits Center and arrival columns. Event-detail tables retain Center filtering within the already-authorized data. Guardians and Liaisons see all Entries and eligible Students across their assigned Center union, including multiple Centers; existing administrator and Competition-scoped access remains intact. Creation still selects one authorized Center, and all members must belong to that Center. Existing write and registration/music guards remain authoritative.
+`/kalakriti/:year/transport` lists each authorized active Center with one row per vehicle, or a placeholder. `kalakritiTransport.centers` never joins Students or Entries.
 
-Event-detail **Present** status is derived from effective `venue_arrival` scans and stays recorded after venue departure and return. **Attended** uses effective `competition_attendance` for the Division's actual Competition Session ID, never the Division ID or another Session. Group totals count unique members, with individual member statuses and filters for the displayed data fields. `kalakritiEntry.visibleByDivision` validates the Session/Division/Edition relationship and returns only that Session's attendance, preventing unrelated Competition marks from being exposed.
+- Vehicles hold `vehicleLabel`, driver contacts, capacity, notes and optional `pickupTime`, shown in the browser's timezone.
+- Transport Leads and administrators manage vehicles; Guardians and Liaisons read their own. Writes take Edition and Center locks and reject archived Editions and retired Centers. Delete sets `deletedAt`, which hides the vehicle from lists, readiness and notifications.
+- Field changes notify the Center's Guardians and Liaisons (`notify-kalakriti-transport-changed`).
+- Vehicle status is read-only, projected from [Center stage finalization](#transport-scans-and-status).
 
-## Center scan sessions
+## Guests, Judges and Events Lead Judge management
 
-The Transport activity uses `components/kalakriti/center-scan-dialog.tsx`. Guardians and Food-only staff cannot use Transport. Recording and finalization require a live Edition and connected client. The modal's stable owner lives outside the mobile sidebar sheet so closing navigation does not release the camera.
+`kalakritiAttendee` holds Guests and Judges: name, phone, optional email and a yearly ID, with no login or membership.
 
-A session selects one Center and waits for the complete roster/stage query before pinning its current stage. When only one Center is available, it is selected automatically and shown as plain text rather than a dropdown. Later synchronization gaps pause scanning without resetting that pinned stage. Each Student QR scan or yearly-ID entry marks that Student for that stage, without advancing the Center. The camera remains active between Students, and successful marks show a named toast. Camera startup failures leave manual entry available. Backend duplicate checks prevent repeated marks; operation-ID retries remain safe even after a stage changes.
-
-| Current stage | Operator scans | Status after explicit finalization |
+| Actor | Guests | Judges |
 | --- | --- | --- |
-| `pickup` | Students boarding at their Center | `departed_center` |
-| `venue_arrival` | Students arriving at the event venue | `arrived_at_venue` |
-| `venue_departure` | Students leaving the event venue | `departed_venue` |
-| `drop_off` | Students returning to their Center | `completed` |
+| Administrators | Manage | Manage |
+| Hospitality Lead | Create, edit, archive | Read |
+| Hospitality Member, Volunteer Coordinator, Volunteer Management Volunteer | Read | Read |
+| Overall Events Lead | None | Add, edit, delete, assign |
+| Category Lead, Competition Coordinator | None | Read Judges in scope |
 
-`kalakriti_center_scan_stage` stores one durable stage per Edition/Center/stage, including creator and finalizer attribution. Pickup uses the Center's Student roster and can finish once at least one Student is marked; the confirmation shows how many remain absent. Unmarked Students are excluded from the rest of the trip. Venue arrival, venue departure, and return require every effectively picked-up Student to be marked before finalization. The modal shows marked and missing Students, and the finalization audit records marked and absent counts. There is no departure-from-Center-for-home stage.
+- Guests are archived, which keeps history and blocks scans. Judges are deleted: `kalakritiAttendee.delete` removes assignments and the row, but refuses if any check-in or meal history exists.
+- Judge yearly IDs are never reused. Allocation and deletion advance `nextJudgeSequence` under the Edition lock.
+- `kalakritiJudgeAssignment` links Judges to whole Competitions, many-to-many. It grants no scoring or attendance rights. Scoped queries filter nested assignments, so other categories stay hidden.
 
-`kalakritiCenterScan.record`, `recordManual`, and `finalize` require a pinned `expectedStage` and selected Center. The shared progress helper derives the stage, roster, and completion from scoped Students, effective operations, and finalized stage rows. Edition and Center locks serialize scanning, finalization, and vehicle status projection. Generic operation APIs apply the same current-stage rules to new transport writes, so they cannot bypass Center finalization.
+## Yearly IDs, QR codes and ID cards
 
-Finalization closes the modal and ends scanning; the next real-world checkpoint requires reopening it. If another operator finalizes the Center, the open session stops rather than retargeting its camera. New requests with a stale stage are rejected, while retries of a previously recorded operation remain no-ops. Repeated finalization cannot advance a second stage. Vehicle notifications use the finalized stage ID and assignment ID for deterministic keys.
+| Person | Yearly ID | Allocated |
+| --- | --- | --- |
+| Student | `KAL-{year}-{seq}` | On registration |
+| Volunteer | `KALV-{year}-{seq}` | On enrollment, under the Edition lock |
+| Guardian | `KALG-{year}-{seq}` | In registration, from `nextGuardianSequence` |
+| Guest, Judge | Attendee yearly ID | On creation |
 
-Migration `0078_watery_revanche.sql` adds the stage table and the `venue_arrival` operation / `departed_center` transport-status values. The legacy `arrived_at_center` status remains readable but is not emitted by this workflow. The root seed adds an idempotent open pickup stage without finalizing it or resetting existing progress.
+IDs are immutable and never reused. A later Edition gets a new one.
 
-Student and Center tables expose read-only transport status. Student status follows that Student's effective scans, from awaiting pickup through return to the Center. Center status follows explicit stage finalization, so individual Students can reach a checkpoint before the Center advances. The existing scoped queries supply these records without widening access. Status cells wait for a complete initial query snapshot, retain known labels during later synchronization gaps, and discard labels when the Edition/Center scope changes; base table rows remain visible.
+### Detail-sheet JSON QR codes
 
-## Volunteer yearly IDs
+`components/kalakriti/person-qr-panel.tsx` shows `{"id":"<record-id>","type":"student|guardian|volunteer|guest|judge"}` on every person detail sheet. The `id` is the Student, Edition Membership or Attendee record ID, never the yearly ID or contact details.
 
-Enrollment allocates a stable `KALV-{year}-{sequence}` ID on the volunteer's Edition Membership under the Edition row lock. Reactivation and replay preserve existing IDs, independently of QR payloads. Each Edition's Volunteers table displays that membership's ID in a searchable Yearly ID column; missing IDs display a dash. It uses the existing Edition-scoped roster query, without a separate server projection or changes to the global Users table.
+- There is no credential table, and a QR proves nothing. Scanners check the stored kind matches `type`, then authorize operator and subject separately.
+- `GET /api/kalakriti/:year/people/lookup?humanId=` accepts a yearly or record ID and returns allowlisted details. It is administrator-only and Edition-bound.
 
-Historical volunteer memberships without an allocated ID display a dash in the roster; enrollment and reactivation preserve existing IDs.
+### ID-card PDFs and blank printed cards
 
-## Release verification
+- **Download ID cards** (Edition dashboard, administrators only) calls `/api/kalakriti/$year/id-cards`, which rechecks access and returns a private, no-store PDF, four cards per A4 page. Inactive people, retired Centers and cancelled Competitions are excluded.
+- Blank Volunteer, Guest and Judge cards download from **ID cards and registration tools**.
+- **Register ID card** turns a blank card's printed UUID into the new record's ID. Administrators, Volunteer Coordinators and Volunteer Management Volunteers can use it. `functions/kalakriti-blank-id-card.ts` rejects UUIDs already in use; exact retries succeed.
+- A Volunteer card without an email creates a no-login membership (`createLocalVolunteer` with `requirePrintedCardId`). With an email it creates and enrolls a central user, which needs `users.create`.
+- Scanning is lookup-only, so register a blank card before scanning it.
 
-`packages/e2e/helpers/kalakriti-release-fixture.ts` owns deterministic role and privacy fixtures. The Kalakriti Playwright suite proves Edition creation and linked-event ownership, assignment and Guardian paths, Center controls, Student and individual/group Entry registration, public schedule privacy, scoped exports, direct URL/API denial, dormant Guardian login denial, and concurrent quota and duplicate races.
+## Public schedule, exports and audit
 
-Person QR display, yearly IDs, transport setup, and operation recording have dedicated coverage described above. The Event-day station has isolated live-Edition E2E coverage; camera results are simulated at the decoder boundary while UI, authorization, mutations, and persisted operations remain real. The suite also verifies explicit Center finalization, derived vehicle status, duplicate marks, stale-stage protection, and mobile modal persistence. The remaining operational stations are separate follow-up work.
+- `/api/kalakriti/:year/schedule` is unauthenticated and allowlisted: Edition display fields, Competition, Category, Age Category, Venue, time and cancellation. No staff, contacts, Students or music.
+- Once the linked event starts or is cancelled, the schedule page hides sign-up from outsiders.
+- `/api/kalakriti/:year/registration-export` builds an allowlisted ZIP on the server, private and non-cacheable, with spreadsheet formulas neutralized. There is no CSV import.
+- Kalakriti audit entries are Edition-owned; reads apply Edition and responsibility scopes.
 
-The release gate is:
+## Go-live and event-day operations
 
-```bash
-bun run check:types
-bun run test:unit
-bun run check
-bun run check:unused
-bun run test:e2e
-```
+### Go-live
 
-The release is not ready if any cross-Edition, cross-Center, out-of-scope, public-privacy, dormant-session, or later-phase-exposure check lacks passing evidence.
+**Go live** is offered only from `registration_locked`. `kalakriti-go-live-readiness.ts` blocks it until registration configuration is complete, active Centers' controls are closed, Overall Events, Transport and Food Leads are assigned, and every active Center has a vehicle. The transition rechecks readiness and the single-live rule, and closes every Center's controls.
 
-## Results and Center standings
+### Operation recording
 
-Each Entries event row (Competition Division, with its configured age and gender eligibility) owns one current result. The event Entries table toolbar opens a Results modal for scorecards, awards, and revision history; successful saves and cancellation close it, and reopening starts a fresh form. Closing is blocked during uploads and saves. Published winner and runner-up Entry members and their Centers appear above the event Entries table for authorized result staff; drafts remain hidden from that summary. Scoped Competition Coordinators and Category Leads, Overall Events Leads, and global/Edition administrators save drafts or publish two distinct Entry awards. Each awarded Entry must have at least one member with effective `competition_attendance` for the Division's actual Session. Absent group members do not prevent a group from winning or placing runner-up; individual Entries still require their sole participant to attend. Publication requires one to ten PDF/JPEG/PNG scorecards, each at most 20 MB. Winner-only and no-award publication are unsupported.
+`packages/zero/src/mutators/kalakriti-operation.ts` records on the server only.
 
-`packages/db/src/schema/kalakriti-results.ts` owns current results, immutable result revisions, retained scorecard metadata, the Edition results state, and finalization/reopening history. The Entry composite uniqueness migration must precede the result-table migration. The corresponding Zero schema is generated from Drizzle. `packages/zero/src/mutators/kalakriti-result.ts` runs only on the server inside the central audit boundary. All commands take the Edition row lock, validate current scoped volunteer authority, and compare the expected result or standings version. Revision IDs make retries idempotent; drafts do not contribute points. Published corrections replace both awards atomically and retain old revisions and their scorecards.
+- `record` takes a person QR string of exactly `{ id, type }`; `recordManual` takes a yearly ID. Both reject type mismatches.
+- Writes need a `live` Edition and an operator authorized for that type and scope.
+- `kalakriti_operation` is append-only with a unique `operationId`. A retry by the original recorder is a no-op; nobody else can reuse the key.
+- Guardians can only be checked in or fed. Guests and Judges get no transport or attendance.
 
-The first publication freezes the Edition's existing winner/runner-up point values, defaulting to 10/5. Points count once per Entry, including groups. The dashboard's authenticated `getKalakritiStandings` returns only Center aggregates to everyone with Edition access, including Guardians and Liaisons. It ranks all active Centers by points, then wins, retaining tied ranks. The registration dashboard Competition table replaces its Sessions count with Winner and Runner-up Center names from published results, labeled by age division. Its scoped read-only projection contains no award members or scorecards. `getKalakritiResultDetail` and typed scorecard downloads are separately restricted to scoped result staff. The projections use repeatable-read snapshots and refresh every five seconds, on focus, and after a local mutation. Failed refreshes retain the last display and disable writes.
+### Role-aware scanning
 
-Overall Events Leads and administrators explicitly finalize only when every active, noncancelled Division has both awards and at least two Centers can be ranked. Unscheduled active Divisions also block finalization. Ties affecting first or second place require selecting an order within the tied rank and recording a reason. Finalization records the Center choices and point rules; reopening preserves that history, clears the active declaration, and permits corrections. Live results remain locked until reopened; archived Editions are read-only under the existing global-admin access rule.
+The sidebar **Scan** button opens one modal whose tabs are the union of the operator's activities. Tabs are a convenience; the server decides.
 
-Existing registration/configuration locks and restrictive result references preserve award Entries and their membership. Attendance is append-only and has no general undo path. Live Competition or Session cancellation/restoration is allowed to existing configuration administrators only after withdrawing affected published results and reopening any final declaration. The Competition catalog exposes cancellation while Live. Authorized managers can still correct Competition names, existing Session times, and Venue records; eligibility, Divisions, and create/delete/retire of Competitions stay locked. An event with fewer than two Entries with at least one attended member each blocks finalization until attendance is corrected or an authorized manager cancels the Competition.
+| Activity | Staff | Subject | Lifecycle |
+| --- | --- | --- | --- |
+| Transport | Administrators, Transport Leads, scoped Liaisons | Center roster at the pinned stage | Live |
+| Check-in | Administrators, Volunteer Coordinators, Volunteer Management Volunteers, Hospitality | Volunteers, Guests, Judges; Guardians only by administrators and the two volunteer-management roles | Live |
+| Meals | Administrators, Food | Picked-up Students; checked-in Volunteers, Guests, Judges; active Guardians | Live |
+| Attendance | Administrators, Overall Events Leads, scoped Category Leads and Competition staff | Picked-up Student in the Session's Division; uncancelled Session | Live |
+| Dispatch / Return | Administrators, Logistics | Active Volunteer | Nonarchived |
 
-The root seed adds an idempotent unpublished demo result, revision, scorecard metadata, and results state only while the demo Edition is Draft. As with other seeded attachments, the demo file key is illustrative; it is not a real uploaded scorecard. Finalization history is created by real commands and by the isolated results E2E fixture, never fabricated for the draft demo.
+Manual ID entry sits in a collapsed section under the camera.
 
-The serialized `tests/kalakriti/results.spec.ts` lane covers publication, Center totals, finalization/reopening, scoped authority, attendance, stale versions, and private scorecards. The real R2 upload/retry scenario follows the existing local-only storage test convention; CI exercises the database/UI workflow with a persisted fixture scorecard.
+### Transport scans and status
 
+`components/kalakriti/center-scan-dialog.tsx` picks one Center, waits for its full roster, and pins the current stage. Scans mark Students without advancing the Center.
 
-## Awards handovers
+| Stage | Scans | Center status after finalization |
+| --- | --- | --- |
+| `pickup` | Boarding at the Center | `departed_center` |
+| `venue_arrival` | Arriving at the venue | `arrived_at_venue` |
+| `venue_departure` | Leaving the venue | `departed_venue` |
+| `drop_off` | Back at the Center | `completed` |
 
-`/kalakriti/:year/awards` shows published winner and runner-up recipients to active Awards Leads, Awards Members, and global/Edition administrators. Each Student's prize is tracked separately for each Entry and award type. Group rows expose member actions and atomic whole-group Award/Undo actions, with Pending, Partially awarded, and Awarded status. Search and filters retain the group context; summary counts count recipient awards rather than distinct Students. The default roster order is earliest first publication, using published result revision timestamps so later corrections do not move a Competition to the back of the queue. Manual column sorting overrides this order.
+- Pickup can finalize once one Student is marked; unmarked Students drop out of the trip. Later stages need every picked-up Student.
+- `kalakritiCenterScan` commands require the pinned `expectedStage`, so stale stages fail and finalization cannot skip ahead. Generic operation APIs apply the same rules.
+- Finalization closes the dialog, audits marked and absent counts, and writes status and history to every non-deleted vehicle.
+- Student status follows that Student's scans; Center status follows finalization.
 
-`getKalakritiAwards` returns only published recipients and handover state in a repeatable-read snapshot. It does not expose draft results, scorecards, or contact information. The page refreshes every five seconds, on focus, and after actions. Failed refreshes retain matching-scope content and disable writes. Non-Live Editions are read-only; archived access remains global-admin-only.
+### Volunteer check-in
 
-`kalakriti_award_handover` stores the current per-recipient status and version. An absent row means pending at version zero. `kalakriti_award_command` retains accepted command identities so retries cannot replay an old action after a later undo. The server-only `kalakritiAward.set` mutation resolves active authority, takes the Edition lock, checks published eligibility and all target versions, and atomically applies an explicit desired status. Both Awards roles can award and undo during Live, including after standings finalization. The central immutable audit ledger records distinct award/undo actions, sanitized identifiers, changed fields, and bounded recipient counts.
+Check-in records `volunteer_check_in`, `attendee_check_in` or `guardian_check_in`. Guardians eat without it. The Volunteers table shows a read-only **Checked in** column.
 
-Result saves and withdrawals take the same Edition lock and reject replacing, reclassifying, or removing an award while any affected recipient's prize remains awarded. Staff must undo affected handovers first. Unchanged award slots retain their handovers across scorecard edits. Winner selection, points, and result/finalization authority remain owned by the existing results workflow.
+### Competition attendance, Present and Attended
 
-The root seed adds an idempotent pending handover and command example only when the demo Entry already has a published award in a Live Edition, preserving existing handovers. The serialized Awards E2E fixture exercises real publication and award/undo commands, role boundaries, stale versions, retries, result corrections, filters, and mobile actions.
+- **Scan attendance** on a Competition page locks the scanner to its Session.
+- In group Competitions, one scan also marks teammates who are present; absent ones are skipped. Each new member gets its own operation and audit entry.
+- Attendance is append-only, with no undo.
+- **Present** is effective `venue_arrival`. **Attended** is effective `competition_attendance` for the Division's actual Session, never another Session. `kalakritiEntry.visibleByDivision` returns only that Session's attendance.
+
+### Food roster and meal undo
+
+`/kalakriti/:year/food` lists only currently meal-eligible people.
+
+- Administrators and Food staff see the whole Edition; Guardians and Liaisons see their Centers, and Guardians always see their own row. Reading never grants recording.
+- Guests and Judges reach Food staff through a server projection (`functions/kalakriti-food.ts`), because Zero would sync their contacts.
+- Administrators and Food Leads can undo a meal while Live. `kalakritiOperation.undoMeal` appends a `meal_correction` and never deletes. The meal can then be served again by a fresh scan, not by continuous camera frames.
+
+## Inventory items and stock history
+
+`/kalakriti/:year/inventory` is open to `kalakriti.admin` and `edition_admin`, `logistics_lead` and `logistics_member` assignments in any nonarchived lifecycle.
+
+- Items have a name, optional photo, quantity and paise unit price. Opening stock writes an `initial_inventory` transaction.
+- Purchases and returns add, dispatches subtract and reject shortfalls. Returns do not reconcile against dispatches. Adjustments need a reason and fail if the balance changed since it was shown.
+- Dispatch and Return scan a Volunteer, then take up to 100 items. The optional Competition or role must be one of that Volunteer's assignments and is stored as a snapshot.
+- `recordBatch` preflights every line under the Edition lock, so failure writes nothing.
+- `kalakriti_inventory_transaction` is append-only. Items can be archived only at zero stock.
 
 ## Competition workspace and Settings
 
-Awards Leads and Awards Members can read every Competition and its Entries across their Edition. Configuration, result-writing, and scanning permissions remain unchanged.
+### Competition/Entries workspace
 
-The Competitions route uses the former Entries access policy. Guardians and Liaisons derive their Competition rows from authorized available Divisions and historical Entries. Configuration readers additionally load the existing scoped Competition query so unscheduled, retired and cancelled Competitions remain manageable. Configuration queries start only for configuration readers. Entry counts retain the actor’s authorized Center or Competition scope. Competition Volunteers remain scan-only.
+`/kalakriti/:year/competitions` has one row per Division; `?competition=<divisionId>` opens its Entries on the same route. Old `/entries`, `/competitions/*` and `/eligibility` URLs redirect here or to Settings.
 
-Competition row status is refreshed from an authenticated, scoped server projection every five seconds and on focus. Cancelled/retired state takes priority; otherwise a published result with a winner yields **Winner assigned**, the scheduled end time yields **Finished**, and the first effective participant attendance scan for the actual Session yields **Running**. A scheduled Competition without scans remains **Scheduled**, regardless of its start time. Missing schedules show **Not scheduled**. The projection returns only Division IDs and derived statuses, never participant identities or draft results. Status filters use the same values.
+- Guardians and Liaisons see Entries across their Centers. Awards roles read everything.
+- A new Entry belongs to one Center, and every member must too.
+- Row status comes from a scoped server projection: Cancelled/Retired, Winner assigned, Finished, Running (first attendance scan), Scheduled, Not scheduled.
 
-The Competition editor includes an optional schedule per age-category Division: Venue, start and end in the Edition timezone. `createCompetition` and `updateCompetition` accept optional schedule batches and save Competition rules, Divisions and Sessions within one transaction. Omission preserves Sessions; removal and cancellation use their existing dedicated actions. Validation checks same-Edition ownership, same-Competition Divisions, occupied Divisions, event date, final-batch Venue overlap and final-batch Student Entry overlap. Session audit rows and schedule notifications retain their existing boundaries. After registration locks and while Live, Competition names, existing Session times, and Venue records can change; eligibility, Divisions, and other Competition identity stay locked. Live also permits authorized cancellation/restoration. Venue create and rename remain available until archive; retiring or deleting Venues stays structurally locked. `sequentialPerformances` is a display-only Competition flag (Performances happen one at a time). It is not eligibility or public schedule data, and managers can still change it after registration locks and while Live.
+### Per-Division scheduling
 
-Sequential session pages suggest a running order from a bounded next-slot projection: each Student’s earliest later Session (`startAt >=` this Session’s end). Back-to-back slots are Immediate; later same-day slots follow; Entries with no later Session go last. Groups use the soonest member. The projection returns only `{ studentId, competitionName, startAt, venueName }` for Students already on that page, so Competition Coordinators can see a dancer’s next painting time without syncing the painting roster. Painting and other simultaneous Competitions omit the Next column unless staff turn the flag on.
+The Competition editor sets an optional Venue, start and end per Division. `createCompetition` and `updateCompetition` save rules, Divisions and Sessions in one transaction, checking ownership, the event date, Venue overlap and Student overlap.
 
-Settings has Edition, Categories, Venues and Eligibility tabs under `/kalakriti/:year/settings`. Edition metadata and participation rules moved from Overview, which retains lifecycle controls and downloads. Global/Edition administrators can see every Settings tab. Overall Events Leads and Category Leads retain their previous Categories/Venues access; Category Leads remain read-only. Eligibility and Edition setup repeat their administrator guard. Existing lifecycle rules apply to every mutation. Operational rosters, assignments, Judges, results and scanning stay in their work areas.
+- After registration locks, names, Session times and Venues can still change. Eligibility, Divisions and Competition create, delete and retire stay locked.
+- During Live, a Competition or Session can be cancelled or restored only after withdrawing its published results and reopening finalization.
+- `sequentialPerformances` is display-only. It adds a Next column suggesting running order from each Student's next Session, exposing only `{ studentId, competitionName, startAt, venueName }`.
 
-Old `/entries`, `/entries/$id`, `/competitions/catalog`, `/competitions/schedule`, `/competitions/categories`, `/competitions/venues` and `/eligibility` URLs redirect to canonical destinations. Sidebar and dashboard actions use the new routes. Entries open on the Competitions route using a Division selection in the URL search parameters. Public schedule routes are unchanged.
+### Settings tabs
 
-## Work-page summaries
+`/kalakriti/:year/settings` has Edition, Categories, Venues and Eligibility tabs. Administrators see all; Overall Events Leads manage Categories and Venues; Category Leads read them. Edition and Eligibility repeat the administrator guard.
 
-Kalakriti work pages place a compact, scope-labelled summary above their existing tables. Counts use complete authorized Zero results rather than the filtered or paginated table slice. Exception buttons write the same visible, clearable ReUI filters used by the table. Loading never implies zero; operational summaries retain only matching-scope snapshots and identify stale data.
+## Results, Center standings and finalization
 
-`SummaryMetricCards` renders each metric in its own neutral Card with a distinct theme-token top accent. Competition, people, Food, Transport, Inventory, Entries and readiness summaries share this responsive layout; progress indicators and scope descriptions sit outside the individual cards.
+`packages/zero/src/mutators/kalakriti-result.ts` runs server-only. Each Division has one current result.
 
-Food separates effective meal history from meals served to currently eligible people. Only the latter is divided by the current eligible population. Transport counts Centers independently of vehicle rows and displays each finalized stage separately. Inventory reports active zero-stock items and estimated value with priced-item coverage, without adding unlike quantities. Student participation and Entry attendance preserve the existing compliance and effective-operation rules; group members are deduplicated for distinct-Student summaries.
+- Scoped result staff publish exactly two awards, winner and runner-up; each awarded Entry needs one attended member.
+- Publishing needs one to ten PDF, JPEG or PNG scorecards, 20 MB each.
+- Commands take the Edition lock and compare versions. Corrections keep old revisions.
+- The first publication freezes the point values (default 10/5). Points count once per Entry.
+- `getKalakritiStandings` gives Center aggregates to everyone with Edition access, ranked by points then wins. Result detail and scorecards stay with result staff.
+- Overall Events Leads and administrators finalize when every active Division is scheduled and has both awards and at least two Centers rank. Ties at first or second need an order and reason. Reopening keeps history.
 
-People pages show responsibility or assignment context beside names. Guardian rows include assigned Centers. Center registration labels distinguish saved settings from an Edition lifecycle lock. Local scan actions use the same role and Live-phase gates as the sidebar scanner.
+## Awards handovers and undo
 
-Competition preparation counts exclude cancelled Sessions and inactive Competitions. `getKalakritiCompetitionSummary` resolves identity and access server-side and reuses the bounded Competition aggregate for missing active Judges and published Division results. Public schedule responses include the public Category name and the page provides clearable Venue, Age Category and Category filters. Audit text search remains current-page-only, separate from server-wide domain filters.
+`/kalakriti/:year/awards` shows published recipients to Awards roles and administrators, ordered by first publication.
 
-The shared `DataTableWrapper` renders empty content outside its horizontal scroller and uses a zero-result footer, preserving search, filter clearing, and permitted toolbar actions on mobile. Design decisions and verification are recorded in `.design/kalakriti-dashboards/PAGE_AUDIT.md`.
+- Each Student's prize is tracked per Entry and award; groups can be handled whole.
+- `kalakriti_award_handover` stores status and version; no row means pending. `kalakriti_award_command` stops retries replaying an old action after an undo.
+- `kalakritiAward.set` checks published eligibility and versions under the Edition lock. Both Awards roles can award and undo while Live, even after finalization.
+- Result changes are refused while an affected prize is marked awarded; undo the handover first.
 
-## Role dashboards
+## Role dashboards and work-page summaries
 
-The Edition overview composes a phase-aware role workspace, scoped registration breakdowns, and secondary Center standings. `functions/kalakriti-dashboard-summary.ts` resolves the current user and Edition on every read; `lib/server/kalakriti-dashboard-summary.ts` returns only authorized aggregate sections and the existing registration projections from that same access scope. Food follows effective operation and eligibility rules, inventory flags active zero-quantity items, and scan-only roles receive aggregate context without roster contact fields.
+- The Edition overview shows a phase-aware role workspace, scoped registration breakdowns and Center standings. `lib/server/kalakriti-dashboard-summary.ts` returns only authorized aggregates; `components/kalakriti/role-dashboard.tsx` merges roles and caps Needs attention at five groups.
+- `use-dashboard-snapshot.ts` refreshes on focus, on scanner close and every five seconds while Live. Failures show stale data; denied reads clear it. Loading never shows zero.
+- `lib/kalakriti-dashboard-filter.ts` turns a dashboard link's `dashboardFilter` into visible table filters.
+- Work pages show a `SummaryMetricCards` row counted over the full authorized set, not the filtered slice. Transport stage counts are never summed.
 
-`components/kalakriti/role-dashboard.tsx` combines responsibilities, labels scopes, deduplicates work-area actions, and caps Needs attention at five groups. The existing lifecycle readiness rules supply administrator blockers. Event-day scans require Live; inventory retains nonarchived availability. Awards, Venue, Media and Fundraising roles retain shared Edition context, schedule access and standings.
+## Testing
 
-`use-dashboard-snapshot.ts` refreshes on focus and scanner close, and every five seconds while Live and visible. Transient failures retain the scoped snapshot with a stale notice; denied reads clear it. The route also observes the current volunteer membership to clear retained data when assignments change. Loading and errors never become zero counts.
-
-Dashboard destination tokens are allowlisted in the Students, Volunteers, Food, Transport and Inventory routes. `lib/kalakriti-dashboard-filter.ts` translates `dashboardFilter` into visible, clearable ReUI filter chips, replaces existing filters and removes the token. Student shortfall waits for the Edition minimum. Registration breakdown tables have independent search/filter keys and numeric sort values. The shared Item and Empty components were generated from the official shadcn Base UI Lyra registry using the repository's existing utility and Separator.
-
-Design decisions and navigation flows are recorded in `.design/kalakriti-dashboards/`. The scoped database test runs with `KALAKRITI_DASHBOARD_DB_TEST=1` and rolls back its fixture operations. Role-dashboard E2E coverage uses an isolated Edition fixture.
-
-`dashboard-section-metrics.tsx` uses the installed Base UI Progress composition for completion fractions and four independent transport-stage counts. Centers can appear in every completed stage, so stages are never summed. `center-registration-chart.tsx` compares registered Students against scoped Student totals, showing up to five Centers with the lowest Entry coverage; full details remain in the registration breakdown. Empty denominators render text instead of misleading completed or indeterminate bars. These visuals reuse the same authorized snapshot and add no database reads.
-
-
-## Registration staff and competition scanning
-
-`volunteer_management_volunteer` is an Edition-scoped responsibility. Global/Edition administrators and Volunteer Coordinators can assign it. It grants roster viewing, printed-card registration, and non-Student check-in, but does not grant role assignment, general roster management, or login creation. Existing `users.create` permission is still required to create a login while registering a Volunteer card.
-
-Overall Events Leads can scan competition attendance across their Edition. Competition Category Leads can scan only within assigned categories. Existing Competition Coordinator/Volunteer assignments retain their Competition scope. The competition-detail **Scan attendance** action locks the scanner to that page's session; writes require a live Edition and an active session.
-
-For group competitions, a new attendance recording also marks present teammates in the same entry and session. Presence uses effective venue arrival, matching the table. The transaction preserves absent teammates, skips existing attendance, and records an operation and audit entry for each newly attended member. Existing records are not backfilled. Competition-detail rows include their Center's active Liaison Lead names and phone numbers in the expanded mobile section.
-
-Migration `0103_hard_sinister_six.sql` adds the registration-staff responsibility, its Edition scope constraint, and `guardian_check_in`. Apply it before deploying code that writes these values. The new role requires explicit assignment; existing memberships are unchanged.
+Specs: `packages/e2e/tests/kalakriti/`. The dashboard database test needs `KALAKRITI_DASHBOARD_DB_TEST=1`. Lanes and the release gate: `e2e-testing.md`.

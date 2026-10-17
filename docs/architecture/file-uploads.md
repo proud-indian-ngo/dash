@@ -1,224 +1,110 @@
 # File Uploads
 
-> **Load when**: R2, Cloudflare R2, presigned URL, attachments, Immich, event photos, `immichAssetId`, photo album, S3 presign, `getR2Client`, `ensureImmichAlbum`, `eventImmichAlbum`, S3Client from bun.
+> **Load when**: R2, Cloudflare R2, presigned URL, attachments, Immich, event photos, `immichAssetId`, photo album, `getR2Client`, `ensureImmichAlbum`, `eventImmichAlbum`, payment screenshots, Kalakriti music or scorecards.
 > **Related**: `jobs.md`, `notifications.md`, `env-and-secrets.md`
 
-## Cloudflare R2 (Attachments)
+## R2 attachments
 
-1. Client requests a surface-specific presigned URL. Protected signers create
-   keys under `<prefix>/<surface>/tmp/<userId>/`; callers cannot choose a
-   parent ID or storage subfolder.
-2. Client uploads directly to R2 via presigned PUT.
-3. The owning Zero mutator validates the current user's exact temp prefix and
-   computes a deterministic parent-scoped durable key.
-4. Before the database transaction commits, the server validates stored R2
-   MIME/size metadata, streams the exact source bytes through a bounded writer,
-   and idempotently copies the temp object to the durable key. A zero-length,
-   changed, or oversized stream fails the copy, rolls back the database
-   transaction, and retains the temp source for retry. Attempted durable
-   targets are queued for delayed, reference-checked cleanup on rollback. The
-   transaction holds a shared advisory lock on the temp source and an exclusive
-   advisory lock on the durable target through commit.
-5. After commit, the server enqueues temp-source deletion under an exclusive
-   advisory lock on the same source key. Browser-triggered temp cleanup uses the
-   same lock. Replaced or deleted durable objects are delayed for 30 seconds;
-   the job holds an exclusive lock, rechecks every protected database reference,
-   and deletes only when the key is still unreferenced. Every delete job must
-   select an explicit `temporary-source` or `if-unreferenced` mode; omission is
-   a type error.
-6. Browser reads use typed asset references, never a caller-provided object
-   key. Downloads are authorized against the exact persisted row and streamed through
-   `/api/attachments/download`.
+Every upload surface has its own signer in `apps/web/src/functions/attachments.ts`. There is no generic signer and no generic delete endpoint for persisted objects.
 
-Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-inventory`, `kalakriti-music`, `kalakriti-scorecards`,
-`photos`, `scheduled-messages`. Avatar and editor uploads remain dedicated durable
-signers under `avatars` and `updates`.
+### Upload and claim
 
-Approving a reimbursement or advance payment requires a payment screenshot:
-approval is given only after the claimant has been paid, and the screenshot is
-the payment evidence. The `approve` mutators reject the transition to approved
-unless the call carries a newly uploaded key or the record already holds one.
-A new key must sit under the approver's own
-`<R2_KEY_PREFIX>/approval-screenshots/tmp/<userId>/` folder, and the claim
-checks the stored object's type and size against the approval-screenshot
-limits; a temporary key that no longer exists is refused even when its durable
-target does. Rejecting keeps the stored screenshot, since it is evidence that
-money was paid, and a later re-approval can reuse it; the approve dialog then
-shows it as already attached with an optional Replace. For reimbursements the
-screenshot is never deleted while the claim exists: a replacement at
-re-approval keeps the old file as a plain attachment
-("payment-proof-replaced-<day>.<ext>", the day in India, with "-2" and on
-when the claim already has that name), and resetting to pending clears the
-field but keeps the file the same way ("payment-proof-previous-<day>.<ext>").
-Kept; only approvers can remove it: the edit mutator refuses anyone else
-("Only an approver can remove kept payment proof"). Such kept files stay under
-the approval-screenshots prefix, which the reimbursement's edit and delete
-paths own, so an approver's removal queues its deletion (if-unreferenced) and
-orphan cleanup never sweeps a referenced key. Advance
-payments still delete a replaced or reset screenshot. Editing does not
-need a screenshot, and requests approved before the rule keep their missing
-screenshot until an approver adds it: `reimbursement.addPaymentProof` claims a
-new upload from the same temporary folder into the same durable place and
-field as approval, and a replaced screenshot stays as a plain reimbursement
-attachment instead of being deleted (finance chapter, layer 3-3a).
+1. The client asks the surface's signer for a presigned PUT. Protected signers issue keys under `<R2_KEY_PREFIX>/<surface>/tmp/<userId>/`; callers cannot choose a parent ID or subfolder.
+2. The client uploads directly to R2.
+3. The owning Zero mutator checks the key sits under the current user's exact temp prefix and computes a deterministic, parent-scoped durable key.
+4. Before the transaction commits, the server checks the stored MIME type and size, streams the exact bytes through a bounded writer and copies the object to the durable key (idempotent). A zero-length, changed or oversized stream fails the copy, rolls back the transaction and keeps the temp object for retry. Attempted durable targets are queued for delayed, reference-checked cleanup on rollback.
+5. The transaction holds a shared advisory lock on the temp source and an exclusive one on the durable target through commit.
+6. After commit, temp-source deletion is enqueued under an exclusive lock on the source key. Browser-triggered temp cleanup (`deleteTemporaryUpload`) takes the same lock.
 
-Vendor-payment invoice signing accepts the payment ID only to authorize the
-payment owner or a user with `requests.approve` or `requests.edit_all`; the
-generated key remains under the current user's `attachments/tmp/` prefix.
+### Deletion
 
-Kalakriti Entry music uses a dedicated signer (`getKalakritiEntryMusicUploadUrl`)
-and MIME policy (`audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/x-m4a`, 20 MB).
-Center and Division IDs authorize the upload; they never appear in the temp key.
-New-entry signing requires open registration. Existing-entry signing also accepts
-`entryId`, verifies its exact Edition/Center/Division, and allows scoped music
-changes after registration closes while rejecting archived Editions. The separate
-music modal stages up to two optional files, each independently limited to 20 MB,
-and saves additions/removals in one transaction. Closing it without saving leaves
-persisted files unchanged and cleans temporary uploads. A failed upload can be
-retried individually without re-uploading successful files.
-Durable keys are `<R2_KEY_PREFIX>/kalakriti-music/<editionId>/<entryId>/...`.
-Each child music row owns one file's metadata; downloads use
-`{ id: musicFileId, kind: "kalakritiEntryMusic" }` and live registration-scope
-checks against the owning Entry. Reference-checked cleanup includes child music
-rows and retained legacy singleton references, so backfilled objects stay protected. The playback modal uses the inline disposition; its
-Download action uses attachment disposition. The proxy forwards byte ranges and
-preserves partial-response headers for playback and seeking. Do not add these
-audio types to `ALLOWED_MIME_TYPES`.
+- Replaced or deleted durable objects are deleted after 30 seconds by a job that holds an exclusive lock, rechecks every database reference and deletes only an unreferenced key.
+- Every delete job must name its mode, `temporary-source` or `if-unreferenced`; omitting it is a type error.
+- Reference checks also recognise two historical layouts, `scheduled-messages/scheduled-message-draft/` and invoice attachments under `attachments/<dialogUuid>/`, and retained rows such as Kalakriti music and replaced scorecards.
 
-Kalakriti Inventory accepts one optional item photo from the shared image MIME
-list, limited to 5 MB. A dedicated signer requires inventory write access in a
-nonarchived Edition and places uploads under
-`<R2_KEY_PREFIX>/kalakriti-inventory/tmp/<userId>/`. Item creation or update
-claims the photo transactionally to
-`<R2_KEY_PREFIX>/kalakriti-inventory/<editionId>/<itemId>/...`.
-Downloads use `{ id: itemId, kind: "kalakritiInventoryPhoto" }` and authorize
-against the item's exact current key. Replacement removes the old object only
-after reference-checked cleanup; abandoned temporary uploads expire after 24 hours.
+### Temp prefixes and lifecycle rules
 
-In development, the Vite `/api/` middleware normalizes image, audio, and video
-`Sec-Fetch-Dest` headers so Nitro forwards them to the API handler instead of
-misclassifying them as static assets. Without this workaround, native media
-requests return 404 even though fetching the same URL from JavaScript succeeds.
+Protected temp subfolders: `attachments`, `approval-screenshots`, `kalakriti-inventory`, `kalakriti-music`, `kalakriti-scorecards`, `photos`, `scheduled-messages`.
 
-During the private-storage rollout, the bucket remains publicly reachable only
-for asset families that have not migrated yet. All migrated reads use an exact
-persisted database reference; a raw object key is never authorization. Keys
-containing a `tmp/` path segment are never readable.
+Each `<R2_KEY_PREFIX>/<subfolder>/tmp/` prefix needs a 24-hour expiry rule in Cloudflare. The repository does not manage the bucket, so apply the rules there. They only catch abandoned uploads; successful claims delete the source right after commit.
 
-Avatar and Plate editor uploads have dedicated signers:
+Avatars (`avatars`) and editor images (`updates`) have dedicated durable signers with no temp stage.
 
-- Avatar replacement is owner-only, accepts the shared image MIME list with a
-  5 MB limit, and stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
-- Editor image uploads require `event_updates.create` or lead membership in the
-  event's team, accept the shared image MIME list with a 20 MB limit, and store
-  `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
-- No generic protected signer or generic persisted-object delete endpoint is
-  exposed to the browser.
+### Reads
 
-Configure R2 lifecycle rules that expire these prefixes after 24 hours:
-`<R2_KEY_PREFIX>/attachments/tmp/`,
-`<R2_KEY_PREFIX>/approval-screenshots/tmp/`,
-`<R2_KEY_PREFIX>/kalakriti-inventory/tmp/`,
-`<R2_KEY_PREFIX>/kalakriti-music/tmp/`,
-`<R2_KEY_PREFIX>/kalakriti-scorecards/tmp/`,
-`<R2_KEY_PREFIX>/photos/tmp/`, and
-`<R2_KEY_PREFIX>/scheduled-messages/tmp/`. The repository does not manage the
-bucket, so the rules must be applied in Cloudflare before deploying
-transactional claims. They are a fallback for abandoned uploads; successful
-claims enqueue source deletion immediately after commit.
+Browser reads use typed asset references, never a caller-supplied key. A raw object key never authorises a read, even for durable keys that predate the current `R2_KEY_PREFIX`, and keys with a `tmp/` segment are never readable. During the private-storage rollout the bucket stays publicly reachable only for families not yet migrated; legacy CDN URLs still resolve.
 
-Legacy CDN URLs remain readable. The one-off backfill that rewrote stored media
-references to canonical app URLs ran in production; it is in git history.
+| Route | Authorises |
+|---|---|
+| `/api/attachments/download?id=&kind=` | Owner or `requests.view_all` against the exact row; streams from R2. Scheduled-message references also carry the persisted key, since those attachments live in JSON |
+| `/api/media/event-photo/<photoId>` | Event visibility, membership, uploader, lead or event management; redirects to a 2-minute signed URL |
+| `/api/media/avatar/<userId>?key=` | Any signed-in user, when the key matches that user's `user.image`; 2-minute signed URL |
+| `/api/media/event-update?eventId=&key=` | Event visibility plus access to the owning row: approved updates follow the event, pending updates are author, approver or lead only, feedback is submitter, feedback manager or lead only; 2-minute signed URL |
+| `/api/immich/thumbnail.$id`, `/api/immich/original.$id` | Proxies Immich with the API key server-side |
 
-Reference-checked deletion also recognizes the two historical protected-upload
-layouts: `scheduled-messages/scheduled-message-draft/` and invoice attachments
-under `attachments/<dialogUuid>/`. New uploads never use these layouts.
-Scheduled-message attachments remain referenced and downloadable after delivery;
-replacement or message deletion retires the reference and enqueues cleanup.
+Scheduled WhatsApp delivery signs persisted attachment keys for 15 minutes when the job runs. Notification payloads never include approval screenshots.
 
-During the private-storage rollout, the bucket remains publicly reachable only
-for asset families that have not migrated yet. All migrated reads use an exact
-persisted database reference, even when the durable key predates the current
-`R2_KEY_PREFIX`; a raw object key is never authorization. Keys containing a
-`tmp/` path segment are never readable.
+In development, the Vite `/api/` middleware (`apps/web/src/lib/dev/api-media-dev-middleware.ts`) normalises image, audio and video `Sec-Fetch-Dest` headers. Without it Nitro treats native media requests as static assets and returns 404.
 
-Avatar and Plate editor uploads have dedicated signers:
+## Surfaces
 
-- Avatar replacement is owner-only, accepts the shared image MIME list with a
-  5 MB limit, and stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
-- Editor image uploads require `event_updates.create` or lead membership in the
-  event's team, accept the shared image MIME list with a 20 MB limit, and store
-  `/api/media/event-update?eventId=<id>&key=<key>` in Plate content.
-- The generic attachment signer does not accept the `updates` subfolder.
+### Avatars and editor images
 
-## Immich (Event Photos)
+- Avatar: owner only, shared image MIME list, 5 MB. Stores `/api/media/avatar/<userId>?key=<key>` in `user.image`.
+- Plate editor image: `event_updates.create` or lead of the event's team, shared image MIME list, 20 MB. Stores `/api/media/event-update?eventId=<id>&key=<key>` in the content.
 
-Optional integration for photo album management. Config: `IMMICH_API_KEY`, `VITE_IMMICH_URL`.
+### Payment screenshots
 
-Flow:
+Approving a reimbursement or advance payment requires a payment screenshot, because approval means the claimant has been paid and the screenshot is the evidence.
 
-1. Member uploads photo → stored as event photo record with R2 key.
-2. Lead/admin approves → `immich-sync-photo` pg-boss job enqueued (with `singletonKey: photoId` → no dup processing).
-3. Job: resolves/creates Immich album for event → downloads from R2 → uploads to Immich → persists `immichAssetId` immediately → adds to album → clears R2 key → enqueues delayed, reference-checked R2 cleanup.
-4. Photo deletion enqueues `immich-delete-asset` and/or `delete-r2-object` jobs as needed.
-5. Thumbnails/originals proxied through `/api/immich/thumbnail.$id` and `/api/immich/original.$id`.
-6. The social API (`social-api.md`) serves approved photos through token-free, HMAC-signed `/api/social/v1/media/...` links and backfills `width`, `height` and `taken_at` from Immich. `do_not_use` marks photos social posts must skip.
+- `approve` refuses unless the call carries a new upload or the record already has one. A new key must be under the approver's own `approval-screenshots/tmp/<userId>/` folder and pass the screenshot type and size limits. A temp key that no longer exists is refused even if its durable target does.
+- Rejecting keeps the screenshot; a later re-approval can reuse it, and the dialog shows it as attached with an optional Replace.
+- Reimbursements never lose a screenshot while the claim exists. A replacement keeps the old file as an attachment named `payment-proof-replaced-<day>.<ext>` (India day, `-2` and on for clashes); resetting to pending keeps it as `payment-proof-previous-<day>.<ext>`. Only approvers can remove these ("Only an approver can remove kept payment proof"), which queues an `if-unreferenced` delete.
+- Advance payments still delete a replaced or reset screenshot.
+- `reimbursement.addPaymentProof` lets an approver add proof to a request approved before the rule, through the same claim path. See "Payment proof after approval" in `finance-books.md`.
 
-Implementation:
-- Mutator: `packages/zero/src/mutators/event-photo.ts`
-- Handlers: `packages/jobs/src/handlers/immich-sync-photo.ts`, `immich-delete-asset.ts`, `delete-r2-object.ts`
-- Shared R2 client: `packages/jobs/src/handlers/r2.ts`
+### Vendor-payment invoices
 
-## R2 Client
+The signer takes the payment ID only to authorise the payment owner or a holder of `requests.approve` or `requests.edit_all`. The key stays under the current user's `attachments/tmp/`.
 
-`getR2Client()` in `packages/jobs/src/handlers/r2.ts`. Uses **Bun's native `S3Client`** (not AWS SDK) — smaller, no Node polyfills.
+### Kalakriti Entry music
 
-```ts
-new S3Client({
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  accessKeyId: R2_ACCESS_KEY,
-  secretAccessKey: R2_SECRET_ACCESS_KEY,
-  bucket: R2_BUCKET_NAME,
-});
-```
+- `getKalakritiEntryMusicUploadUrl`: `audio/mpeg`, `audio/mp4`, `audio/aac`, `audio/x-m4a`, 20 MB each. Do not add these to `ALLOWED_MIME_TYPES`.
+- Center and Division IDs authorise the upload but never appear in the temp key. New entries need open registration. With an `entryId`, the signer checks its Edition, Center and Division and allows scoped changes after registration closes, but not in archived Editions.
+- The music modal stages up to two optional files and saves additions and removals in one transaction. Closing without saving cleans the temp uploads; a failed file can be retried alone.
+- Durable keys: `kalakriti-music/<editionId>/<entryId>/...`. Each child music row owns one file. Downloads use `{ id: musicFileId, kind: "kalakritiEntryMusic" }` with live registration-scope checks.
+- Playback uses inline disposition and Download uses attachment. The proxy forwards byte ranges for seeking.
 
-Env vars in `env-and-secrets.md`. Single client shared across handlers — don't instantiate per-call.
+### Kalakriti inventory photos
 
-## Immich Client
+One optional photo per item, shared image MIME list, 5 MB. The signer needs inventory write access in a non-archived Edition. Claims go to `kalakriti-inventory/<editionId>/<itemId>/...`; downloads use `{ id: itemId, kind: "kalakritiInventoryPhoto" }` against the item's current key.
 
-`apps/web/src/lib/immich.ts`. Plain `fetch()` calls to `VITE_IMMICH_URL/api/*` with `x-api-key: IMMICH_API_KEY`. No SDK.
+### Kalakriti scorecards
 
-- `getImmichConfig()` returns `null` if either env var missing → call sites must no-op gracefully.
-- `ensureImmichAlbum(config, eventId, eventName)` — upsert pattern:
-  1. Query `eventImmichAlbum` table for existing mapping.
-  2. If present → return `immichAlbumId`.
-  3. Else → `POST /api/albums` to Immich → insert row with `uuidv7()` PK.
+`getKalakritiScorecardUploadUrl` takes an Edition and Division and needs scoped results authority in a Live, unfinalised Edition. PDF, JPEG or PNG, 20 MB, at most ten per result. Claims go to `kalakriti-scorecards/<editionId>/<divisionId>/...`. Downloads use `{ kind: "kalakritiScorecard", id }` and need current results-management scope; Edition or leaderboard access is not enough. Replaced scorecards stay referenced for revision history.
 
-## Upload Pipeline Ordering
+### Scheduled-message attachments
 
-Photo sync is **ordered** for crash safety:
+They stay referenced and downloadable after delivery. Replacing them or deleting the message retires the reference and enqueues cleanup.
 
-1. Download from R2 to memory/stream.
-2. Upload to Immich → receive `immichAssetId`.
-3. **Persist `immichAssetId` in DB immediately** (before album-add + R2 delete). If worker crashes after this, next retry skips re-upload.
-4. Add asset to Immich album via `PUT /api/albums/:id/assets`.
-5. Clear R2 key from DB (`r2Key = null`).
-6. Delayed, reference-checked R2 cleanup via `delete-r2-object` job enqueue.
+## Immich event photos
 
-`singletonKey: photoId` on `immich-sync-photo` job → pg-boss dedups concurrent enqueues for the same photo.
+Optional. Config: `IMMICH_API_KEY`, `VITE_IMMICH_URL`. `getImmichConfig()` (`apps/web/src/lib/immich.ts`) returns `null` when either is missing, and callers must then do nothing. Calls are plain `fetch()` with `x-api-key`; there is no SDK.
 
-## Asset Proxying
+1. A member uploads a photo, stored as an `event_photo` with an R2 key.
+2. Approval enqueues `immich-sync-photo` with `singletonKey: photoId`.
+3. The job (`packages/jobs/src/handlers/immich-sync-photo.ts`), in this order for crash safety:
+   1. finds or creates the event's album (`event_immich_album`)
+   2. downloads from R2 and uploads to Immich
+   3. stores `immichAssetId` at once, so a retry after a crash skips the re-upload
+   4. adds the asset to the album
+   5. clears `r2Key` and enqueues delayed, reference-checked R2 deletion
+4. Deleting a photo enqueues `immich-delete-asset` and/or `delete-r2-object`.
 
-Protected R2 objects are never exposed directly to clients:
-- Downloads: `/api/attachments/download?id=<rowId>&kind=<assetKind>` — resolves the exact database row, validates owner or `requests.view_all` access, and streams from R2. Scheduled-message references also include the exact persisted key because their attachments are stored in JSON.
-- Event media: `/api/media/event-photo/<photoId>` — validates event visibility, membership, uploader, lead, or event-management access, then redirects to a two-minute signed GET URL.
-- Avatars: `/api/media/avatar/<userId>?key=<key>` — requires a session, matches the key against that user's current `user.image`, then redirects to a two-minute signed GET URL. Any authenticated user may view a matched avatar.
-- Event editor media: `/api/media/event-update?eventId=<id>&key=<key>` — requires normal event visibility, an exact image reference, and access to the owning content row. Approved updates follow event visibility; pending updates remain author/approver/lead-only; feedback remains submitter/feedback-manager/lead-only. Authorized reads redirect to a two-minute signed GET URL.
-- Scheduled WhatsApp delivery signs persisted attachment keys for 15 minutes when the job executes. Notification payloads do not include protected approval screenshots.
-- Immich thumbnails: `/api/immich/thumbnail.$id` + `/api/immich/original.$id` — proxies through the server with API key injected. Client never sees `IMMICH_API_KEY`.
+Leads and holders of `events.manage_photos` can also upload photos and videos straight to Immich with `uploadPhotoToImmich` (`apps/web/src/functions/immich-upload.ts`), skipping R2 and approval.
 
-## Kalakriti scorecards
+The Social API serves approved photos through signed links and backfills size and capture time from Immich; `do_not_use` marks photos social posts must skip. See `social-api.md`.
 
-The dedicated `getKalakritiScorecardUploadUrl` signer accepts an Edition and Division and requires scoped results authority in a Live, unfinalized Edition. PDF, JPEG, and PNG files are limited to 20 MB; each current result references at most ten. Claims use `<R2_KEY_PREFIX>/kalakriti-scorecards/<editionId>/<divisionId>/...` and the existing transactional copy and rollback cleanup pipeline. The temporary prefix requires the same 24-hour expiry rule as other protected uploads.
+## R2 client
 
-Downloads use `{ kind: "kalakritiScorecard", id: scorecardId }` and authorize the exact persisted scorecard against current results-management scope. General Edition/leaderboard access does not grant file access. Removed/replaced scorecards remain referenced for revision history; reference-checked R2 deletion recognizes these retained rows. Cancelling an unsaved upload cleans only its temporary object.
+`getR2Client()` (`packages/jobs/src/handlers/r2.ts`) builds Bun's native `S3Client` for `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, not the AWS SDK. Variables are listed in `env-and-secrets.md`.

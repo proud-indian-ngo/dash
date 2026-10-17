@@ -1,58 +1,151 @@
 # Design language
 
-pi-dash uses the **product** design language of `@proudindian/design` (pi-design), not the playful **brand** language of the website, marketing and print. The two share the logo, the sky colour and the fonts, and almost nothing else. When a request mentions "the brand", "the website look" or "Proud Indian style" for a dashboard screen, apply the product language below.
+The dashboard uses the **product** language of `@proudindian/design` (pi-design), never the playful **brand** language of the website and print. They share only the logo, sky colour and fonts. "The brand" or "Proud Indian style" for a dashboard screen means the product language.
 
 ## Sources of truth
 
 | What | Where |
 |---|---|
-| Product rules (colour, type, shape, density, components, tables) | pi-design brand guide, appendices A1 and A2 (`brand/Proud-Indian-Brand-Guidelines.pdf`, pages 29–31) |
-| Which language a surface uses, and what never crosses over | pi-design `AGENTS.md` |
+| Product rules (colour, type, shape, density, components, tables) | pi-design brand guide appendices A1–A2 (`brand/Proud-Indian-Brand-Guidelines.pdf`, pages 29–31) |
+| Which language a surface uses | pi-design `AGENTS.md` |
 | Token mapping into shadcn | `packages/design-system/styles.css` (`:root`, `.dark`, `@theme inline`) |
 | Status and Tag | `apps/web/src/components/shared/status-badge.tsx` |
 | Tables | `apps/web/src/components/data-table/data-table-wrapper.tsx`, `.agents/skills/create-data-table/SKILL.md` |
 
-## Never in pi-dash
+Token and rule changes start in pi-design; the dashboard then bumps the tag and maps tokens in `styles.css`. Edits under `packages/design-system/components/**` stay class-level, matching shadcn `base-nova`.
 
-These belong to the brand language only:
+## Never in the dashboard
 
-- the `.pi-*` CSS classes (`pi-btn`, `pi-chip`, `pi-card`, `pi-sticker`, …), the `@proudindian/design` React components and `PiRoot`;
-- the `@proudindian/design/css`, `/primitives.css`, `/styles.css` and `/shadcn.css` imports (pi-dash imports only `theme.css` and `fonts.css`);
-- doodles and illustrations, polaroids, tape and tickets;
-- paper backgrounds (`bg-paper`, `bg-surface-paper`), ink offset shadows (`shadow-ink`), pill and 14–26px radii (`rounded-pill`, `rounded-14`);
-- Bricolage Grotesque at weight 800, and display type for anything except page titles, big numbers and dates;
-- marigold or the Donate colour, which is never a status.
+- `.pi-*` classes (`pi-btn`, `pi-chip`, `pi-card`, `pi-sticker`, …), `@proudindian/design` React components, `PiRoot`.
+- Imports of `@proudindian/design/css`, `/primitives.css`, `/styles.css` or `/shadcn.css`. Import only `theme.css` and `fonts.css`.
+- Doodles, illustrations, polaroids, tape, tickets.
+- Paper backgrounds (`bg-paper`, `bg-surface-paper`), ink offset shadows (`shadow-ink`), pill and 14–26px radii (`rounded-pill`, `rounded-14`).
+- Bricolage Grotesque at 800; display type for anything except page titles, big numbers and dates.
+- Marigold or the Donate colour. It is never a status.
+- Hard-coded hex, brand utilities (`bg-sky`, `text-ink`) and Tailwind palette colours (`text-green-600`, `bg-amber-50`).
+- Redrawn or restyled logos. Use the files in `@proudindian/design/logo/` as appendix A1 describes.
 
-## Use instead
+## Tokens
 
-- **Colour.** Use the shadcn utilities (`bg-background`, `bg-card`, `text-muted-foreground`, `border`, `bg-primary`). They already point at the product tokens: white and ink-tinted greys in light mode, neutral charcoal in dark mode. Don't hard-code hex values or reach for brand utilities such as `bg-sky` or `text-ink`. Status colour uses the tokens too, never Tailwind's palette (`text-green-600`, `bg-amber-50`): `text-success-foreground` for done or positive text and icons, `bg-success` for dots and bars, `text-destructive` for negative, and `border-warning/30 bg-warning/10 text-warning-foreground` (`dark:bg-warning-foreground/10`) for a warning notice. The tokens already have dark-mode values, so no `dark:` colour pairs are needed.
-- **State.** The active nav item, tab or toggle is sky ink on sky wash (`bg-sidebar-accent text-sidebar-accent-foreground`). One primary button per screen.
-- **Type.** Geist (`font-sans`) for everything people read, at 13px (`text-sm`). Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), which column `meta.kind` applies automatically.
-- **Status and categories.** `StatusBadge` (soft tint, dot and word, five tones) for anything that can change; `Tag` (grey outline) for fixed labels. Colour never carries meaning alone.
-- **Shape and density.** Theme radii only (`rounded-md`, `rounded-lg`, `rounded-xl`: about 6, 7 and 10px; `StatusBadge` and `Tag` use 5px), hairline borders, no offset shadows. 32px buttons; 36px inputs, selects and date pickers (40px on touch screens), except the 32px table toolbar search; 36px one-line table rows.
-- **Page headers.** Every app page starts with `PageHeader` from `@/components/shared/page-header`: the title, with a `StatusBadge` or `Tag` beside it, then an optional muted line under it. List and form pages use a one-sentence `description` of what the page is for; detail pages use `meta`, short facts such as team, date, requester or city, joined with dots. Actions go on the right: at most one primary button (a list's "Add …" lives here, not in the table toolbar), one or two outline buttons, and everything else in `PageHeaderMenu`, with destructive actions last. On phones the actions wrap under the title.
-- **Sidebar.** The header is the official compact lockup (`@proudindian/design/logo/svg/pi-lockup-compact.svg`, the `-reversed` file in dark mode), linking home, and the symbol alone when collapsed. Rows are 28px (36px on touch screens); hover is a neutral grey and the active item is the one sky ink-on-wash state. Hairlines separate groups in the collapsed rail. Notifications have one entry point, `NotificationBell`: on desktop it sits beside the account and opens the inbox in a popover beside the sidebar; on phones it sits in the top bar and opens a bottom drawer. The account menu doesn't list notifications. Unread notifications show as a dot on the bell, not on the avatar. Notification titles keep a leading emoji for WhatsApp and email; the inbox strips it (`stripLeadingEmoji`) and shows the words.
-- **Menus.** Row and page menus go through `ResponsiveActionMenu`, which requires an icon on every item (a Hugeicons icon, drawn muted) and always puts destructive items last, in red, after a divider. Desktop menus are a solid popover panel with 28px rows (taller on touch screens); phones get the bottom drawer.
-- **Detail sheets.** Every detail sheet starts with `DetailSheetHeader` from `@/components/shared/detail-sheet-header`, which follows the page header's rules: title (with an avatar when there is one), status badge and short facts, then one or two outline buttons and a `PageHeaderMenu`. Sheet actions match the row menu for the same record, so nothing needs the sheet closed first. Actions don't sit at the bottom of the sheet; section-level actions (such as "Add role") stay with their section.
-- **Settings.** One page at `/settings/*`, opened from the account menu (and, for people who can open an Organization section, from **Settings** at the end of the sidebar's Admin group, which opens that section and stays active anywhere under `/settings`), with a nav grouped into **You** and **Organization** (a select on phones). Sections are listed once in `apps/web/src/lib/settings-sections.ts`, which feeds the nav, the breadcrumbs and each page's `PageHeader` (title and one-line description). Inside a section, settings are `SettingsRow`s in a `SettingsCard` (what it is on the left, the control on the right), lists are `SettingsListItem`s in one framed card with an outline "Add …" button above, and channel preferences are a checkbox grid with labelled columns. Forms stay one column, `max-w-md` to `max-w-xl`.
-- **Detail pages.** Say each fact once. Facts that identify the record (team, when, where, privacy) go in the header's `meta`. The main column holds the record's working content in tabs, with the list people act on first (an event's Volunteers), so it is never empty before anything has happened. A count lives in its tab label, not in a stats card as well. The right column is one `Details` card listing the remaining facts as label and value, and it is left out when there are none. Lists inside a page are one framed list (`divide-y rounded-lg border`) of about 44px rows, not a bordered card per row. Build record pages from `@/components/shared/record-detail`: `RecordDetailLayout` (main column and a 20rem right column), `RecordSection` (title with an outline action), `DetailsCard`/`DetailsRow` for the label/value facts, `AttachmentList`, `RejectionNote` and `HistoryCard` (actions read "Invoice submitted", never the stored code). Row actions on members and similar lists go in a `ResponsiveActionMenu`, not text buttons. A page has one filled button: the step that is actually waiting; an admin override of a later status is outline.
-- **Agenda lists.** Time-based lists that aren't tables (the events page) use Upcoming and Past line tabs with counts, one toolbar line (search, then selects, then a date picker), and one framed list with a muted date band (`Fri 16 Oct`, `Today ·`, `Tomorrow ·`) over two-line rows: start time over its duration; the name as the row's link with `Tag`s for repeat ("Weekly") and "Team only"; then team, place (typed address, else the public area and city) and a "Map" link for map URLs; volunteers against the target (amber when short); and the viewer's action as an outline button or status badge, with an "N to review" badge linking to the event for interest reviewers (sessions that haven't started only). On phones the tags move to the second line and long names and places wrap. Show 30 days at a time with "Show next 30 days · N events", not everything at once.
-- **Patterns.** `DataTableWrapper` for tables, `Sheet` from `@/components/shared/responsive-sheet` for detail views, `ResponsiveActionMenu` for row actions, `deferAction` from `@/lib/deferred-actions` for one-click actions that can be undone, and a confirmation dialog for deletes.
-- **Dialogs.** Three widths: `sm:max-w-(--dialog-sm)` (400px) for confirms and one-field prompts, `--dialog-md` (480px) for most forms, `--dialog-lg` (640px) for long or two-column forms; very wide pickers and tables keep their own width. Desktop dialogs are banded: the header sticks above a hairline, the fields scroll, and the footer (a `DialogFooter`, or a form's `FormActions`, styled in `apps/web/src/index.css`) sticks on a grey strip with Cancel then the verb on the right. Page-like dialogs opt out with `data-plain`. Confirm buttons name the thing ("Delete team", not "Delete" or "OK"). Phones keep the bottom drawer.
-- **Motion and hover.** Overlays use the app's curves, never the default `ease`: menus, popovers, selects, comboboxes and tooltips enter in 120ms (tooltips 100ms) on `--ease-out-expo` and leave in 100ms; dialogs take 150ms on the same curve; sheets and the sidebar take 200ms on `--ease-out-sheet` / `--ease-out-expo`. Pages don't animate in on navigation. Tooltips wait 400ms before the first one opens (set on the root `TooltipProvider`), then open instantly while the pointer moves between triggers. Tailwind v4's `hover:` only applies on devices that can hover, so use it rather than raw `:hover` CSS. The global `prefers-reduced-motion` rule in `packages/design-system/styles.css` turns all of this off.
-- **Tips.** `TipStrip` from `@/components/shared/tip-strip` puts one dismissible sentence under a page header, on the info wash with a bulb icon, for something people wouldn't otherwise discover. Use at most one per page, an optional link-style action, and a stable `id`. Dismissal is remembered per person in the browser (`localStorage`); the server renders the tip so it never pushes the page down late. Current tips: reimbursements (bank account), vendor payments (quotation then invoice), events (show interest), team page for leads, users (detail sheet), dashboard on desktop (⌘B).
-- **Casing and verbs.** Actions are sentence case ("Add member", "Create event", "Upload invoice"), as are action dialog and page titles ("New reimbursement", "Edit vendor payment"), form field labels and detail labels ("Expense date", "Account number", "Last updated"), and status badges ("Interest pending"). Names of things keep their case: sidebar items, column headers and page names ("Vendor Payments", "Created By"), and Kalakriti's capitalised domain nouns (Edition, Competition, Category, Session, Division, Entry, Venue, Center, Student, Guardian, Liaison, Judge), so "Add Venue" and "Age Category" keep their capitals. Submit buttons name the thing ("Submit reimbursement", "Save changes", "Add vendor"), never a bare "Submit", "Save" or "Create".
-- **Form actions.** `FormActions` puts Cancel first and the verb last, right-aligned, on full pages and in dialogs alike (dialogs also band it as the sticky footer). Scan panels are the exception: they keep the action on the left, because they sit at the screen edge where toasts appear and each scan is followed by another.
-- **Loading.** Pages show the shape of what's coming, not a spinner: `DetailPageSkeleton` for a record's page and `TableSkeleton` where a table is waiting, from `@/components/shared/page-skeleton`. Small spinners stay for actions in progress and inside dialogs.
-- **Stat chips on phones.** One swipeable row that runs to the screen edge, instead of a stack; wider screens wrap.
-- **Dashboard.** Counts are the same stat chips list pages use, led by "Waiting for you" (warning tint when non-zero) for anyone who reviews, or "My pending" otherwise. Below it, "Waiting for review" shows one row per kind of work (count, ₹ to approve or event names, how long the oldest has waited, amber after a week) linking to the filtered list or the event. The chip and the panel share `countPendingReviews`, so they always agree. Section icons stay muted.
-- **Analytics.** Totals are the shared stat chips. Each panel is a `ChartCard` (sentence-case title, optional one-line note, empty state in the same frame). Rankings (by category, event, submitter, vendor) are `RankedBars`, a list of names with a bar, amount and count, not a bar chart with wrapped axis labels or a donut; real charts use the `--chart-*` tokens, never Tailwind palette colours. Grids of panels set `*:min-w-0` so charts can't widen the page on phones.
-- **Not found and errors.** One centred block for every "nothing here" state, `NotFoundState` from `@/components/shared/not-found-state`: a muted icon tile, a title in the page-title type, one sentence and at most one primary button. Missing records use `RecordNotFound` (the noun and a "Back to …" link to its list); unknown addresses for signed-in people hit the `_app/$` route, so the sidebar stays; page errors use `ErrorState`, which tints the tile red and shows a copyable reference (the same id logged to evlog and PostHog), with the raw message folded away for admins. Outside the app layout, `StandalonePage` frames the block with the compact lockup. No illustrations.
-- **Sign-in screens.** `AuthLayout` (`components/login/auth-layout.tsx`) puts the compact lockup over the form, beside a flat info-wash panel (`bg-info/10`, no illustrations or animation) carrying the welcome text, sign-up steps or the session being joined; phones show the form only. Titles use the page-title type; the verb is "Log in" (two words).
-- **Dates.** One style, from `apps/web/src/lib/date-formats.ts`: `DATE` (`16 Oct 2026`), `DATE_TIME` (`16 Oct 2026, 9:40 am`), `DAY_MONTH`, `DAY_MONTH_TIME` and `TIME`, matching the `en-IN` `Intl` output Kalakriti uses. Lists show minutes; only audit and job detail sheets show seconds (`formatTimestamp(value, { seconds: true })`). Use `ISO_DATE` only for keys, URLs and input values. Don't add ad-hoc format strings or call `toLocaleString()` without these. Immich album names keep their original format so existing albums still match.
-- **Kalakriti pages.** `KalakritiPageHeader` is built on `PageHeader`: kicker (a muted line such as "Kalakriti · 2026", never spaced capitals), title, a one-line `meta` description, and the page's actions (primary on the right). Page counts use `SummaryMetricCards`, which renders the shared stat chips; a chip with `onClick` filters the table, and gap counts (labels with "without", "unassigned", "below minimum", "out of stock" or "gaps") are tinted warning when non-zero. Section headings above the chips are screen-reader only.
-- **Logo.** Use the files from `@proudindian/design/logo/` as appendix A1 describes; never redraw or restyle it.
+- Colour: shadcn utilities (`bg-background`, `bg-card`, `text-muted-foreground`, `border`, `bg-primary`). They carry dark-mode values, so no `dark:` colour pairs.
+- Status colour:
+  - positive text and icons: `text-success-foreground`;
+  - dots and bars: `bg-success`;
+  - negative: `text-destructive`;
+  - warning notice: `border-warning/30 bg-warning/10 text-warning-foreground` (`dark:bg-warning-foreground/10`).
+- Charts: `--chart-*` tokens.
+- Active nav item, tab or toggle: sky ink on sky wash (`bg-sidebar-accent text-sidebar-accent-foreground`). This is the only active state.
+- Type: Geist (`font-sans`) at 13px (`text-sm`) for reading text. Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), applied by column `meta.kind`.
+- Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`, about 6, 7 and 10px). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
+- Sizes: buttons 32px. Inputs, selects and date pickers 36px (40px on touch), except the 32px table toolbar search. One-line table rows 36px.
 
-## Changing the language
+## Status and labels
 
-Product tokens and rules change in pi-design first (tokens and appendices A1–A2), then pi-dash moves to the new tag and maps the tokens in `packages/design-system/styles.css`. Keep `packages/design-system/components/**` edits to class-level styling that matches the shadcn `base-nova` style.
+- `StatusBadge` (soft tint, dot and word, five tones) for anything that can change. `Tag` (grey outline) for fixed labels.
+- Colour never carries meaning alone.
+
+## Copy
+
+- Sentence case for actions ("Add member"), action dialog and page titles ("New reimbursement"), form and detail labels ("Expense date"), and status badges ("Interest pending").
+- Names of things keep their case: sidebar items, column headers, page names ("Vendor Payments", "Created By"), and Kalakriti domain nouns (Edition, Competition, Category, Session, Division, Entry, Venue, Center, Student, Guardian, Liaison, Judge), so "Add Venue" and "Age Category".
+- Submit and confirm buttons name the thing ("Submit reimbursement", "Save changes", "Delete team"), never a bare "Submit", "Save", "Create", "Delete" or "OK".
+- The sign-in verb is "Log in".
+
+## Dates
+
+Use the formats in `apps/web/src/lib/date-formats.ts`: `DATE` (`16 Oct 2026`), `DATE_TIME` (`16 Oct 2026, 9:40 am`), `DAY_MONTH`, `DAY_MONTH_TIME`, `TIME`, matching `en-IN` `Intl` output.
+
+- Lists show minutes. Only audit and job detail sheets show seconds (`formatTimestamp(value, { seconds: true })`).
+- `ISO_DATE` only for keys, URLs and input values.
+- No ad-hoc format strings or bare `toLocaleString()`.
+- Immich album names keep their original format so existing albums still match.
+
+## Layout and navigation
+
+### Page headers
+
+Every app page starts with `PageHeader` (`@/components/shared/page-header`):
+
+- Title, with a `StatusBadge` or `Tag` beside it, then an optional muted line.
+- List and form pages: a one-sentence `description` of the page's purpose. Detail pages: `meta`, short facts (team, date, requester, city) joined with dots.
+- Actions on the right: at most one primary button (a list's "Add …" lives here, not in the table toolbar), one or two outline buttons, everything else in `PageHeaderMenu` with destructive actions last. On phones actions wrap under the title.
+
+`KalakritiPageHeader` builds on `PageHeader`: a muted kicker ("Kalakriti · 2026", never spaced capitals), title, one-line `meta`, actions. Kalakriti page counts use `SummaryMetricCards`: a chip with `onClick` filters the table, and gap counts (labels with "without", "unassigned", "below minimum", "out of stock" or "gaps") tint warning when non-zero. Section headings above the chips are screen-reader only.
+
+### Sidebar
+
+- Header: the compact lockup (`@proudindian/design/logo/svg/pi-lockup-compact.svg`, `-reversed` in dark mode) linking home; the symbol alone when collapsed.
+- Rows 28px (36px on touch). Hover is neutral grey; active is the sky ink-on-wash state. Hairlines separate groups in the collapsed rail.
+- Notifications have one entry point, `NotificationBell`: beside the account on desktop (inbox in a popover), in the top bar on phones (bottom drawer). Unread shows as a dot on the bell, not the avatar. The account menu does not list notifications.
+- Notification titles keep a leading emoji for WhatsApp and email; the inbox strips it with `stripLeadingEmoji`.
+
+### Settings
+
+- One page at `/settings/*`, opened from the account menu, and from **Settings** at the end of the sidebar's Admin group for people who can open an Organization section (it stays active anywhere under `/settings`).
+- Nav grouped into **You** and **Organization** (a select on phones). Sections are listed once in `apps/web/src/lib/settings-sections.ts`, which feeds the nav, breadcrumbs and each section's `PageHeader`.
+- Settings are `SettingsRow`s in a `SettingsCard` (label left, control right). Lists are `SettingsListItem`s in one framed card with an outline "Add …" button above. Channel preferences are a checkbox grid with labelled columns.
+- Forms are one column, `max-w-md` to `max-w-xl`.
+
+### Detail pages
+
+- Say each fact once. Identifying facts (team, when, where, privacy) go in the header `meta`.
+- Main column: working content in tabs, the list people act on first (an event's Volunteers). Counts go in tab labels only.
+- Right column: one `Details` card of label and value, omitted when empty.
+- Lists inside a page: one framed list (`divide-y rounded-lg border`) of about 44px rows, not a card per row. Row actions go in a `ResponsiveActionMenu`, not text buttons.
+- Build from `@/components/shared/record-detail`: `RecordDetailLayout` (main column and a 20rem right column), `RecordSection` (title with an outline action), `DetailsCard`/`DetailsRow`, `AttachmentList`, `RejectionNote`, `HistoryCard` (actions read "Invoice submitted", never the stored code).
+- One filled button per page: the step that is actually waiting. An admin override of a later status is outline.
+
+### Detail sheets
+
+- `Sheet` from `@/components/shared/responsive-sheet`, starting with `DetailSheetHeader` (`@/components/shared/detail-sheet-header`). It follows the page-header rules: title (with avatar if any), status badge, short facts, then one or two outline buttons and a `PageHeaderMenu`.
+- Sheet actions match the record's row menu. None at the sheet bottom; section actions ("Add role") stay with their section.
+
+### Agenda lists
+
+Time-based lists that are not tables (the events page):
+
+- Upcoming and Past line tabs with counts; one toolbar line (search, selects, date picker).
+- One framed list with a muted date band (`Fri 16 Oct`, `Today ·`, `Tomorrow ·`) over two-line rows:
+  - start time over duration;
+  - the name as the row link, with `Tag`s for repeat ("Weekly") and "Team only";
+  - team, place (typed address, else public area and city) and a "Map" link for map URLs;
+  - volunteers against target (amber when short);
+  - the viewer's action as an outline button or status badge, plus an "N to review" badge for interest reviewers (sessions not yet started only).
+- On phones tags move to the second line and long names and places wrap.
+- Show 30 days at a time with "Show next 30 days · N events".
+
+### Dashboard and analytics
+
+- Dashboard counts are the list pages' stat chips, led by "Waiting for you" (warning tint when non-zero) for reviewers, else "My pending".
+- "Waiting for review" shows one row per kind of work (count, ₹ to approve or event names, age of the oldest, amber after a week) linking to the filtered list or event. The chip and panel share `countPendingReviews`. Section icons stay muted.
+- Analytics totals are stat chips. Each panel is a `ChartCard` (sentence-case title, optional note, empty state in the same frame). Rankings use `RankedBars` (name, bar, amount, count), not bar charts with wrapped labels or donuts.
+- Panel grids set `*:min-w-0` so charts cannot widen the page on phones.
+- On phones stat chips are one swipeable row running to the screen edge; wider screens wrap.
+
+## Components
+
+- Tables: `DataTableWrapper`.
+- Menus: `ResponsiveActionMenu` for row and page menus. Every item needs a Hugeicons icon (drawn muted); destructive items go last, in red, after a divider. Permission checks and confirmations stay with the caller, not inside the menu. Desktop: solid popover with 28px rows (taller on touch). Phones: bottom drawer.
+- Undoable one-click actions: `deferAction` from `@/lib/deferred-actions`. Deletes: a confirmation dialog.
+- Dialog widths: `sm:max-w-(--dialog-sm)` (400px) for confirms and one-field prompts, `--dialog-md` (480px) for most forms, `--dialog-lg` (640px) for long or two-column forms. Very wide pickers and tables keep their own width.
+- Desktop dialogs are banded: sticky header above a hairline, scrolling fields, sticky footer (`DialogFooter` or `FormActions`, styled in `apps/web/src/index.css`) on a grey strip. Page-like dialogs opt out with `data-plain`. Phones use the bottom drawer.
+- `FormActions`: Cancel then verb, right-aligned, everywhere except scan panels, which keep the action left (away from toasts, for repeated scans).
+- Loading: `DetailPageSkeleton` and `TableSkeleton` (`@/components/shared/page-skeleton`). Spinners only for actions in progress and inside dialogs.
+- Empty and error states: `NotFoundState` (`@/components/shared/not-found-state`), a muted icon tile, page-title type, one sentence, at most one primary button, no illustrations.
+  - Missing records: `RecordNotFound` (noun and a "Back to …" link).
+  - Unknown addresses for signed-in people hit the `_app/$` route so the sidebar stays.
+  - Page errors: `ErrorState`, red-tinted tile with a copyable reference (the id logged to evlog and PostHog); the raw message is folded away for admins.
+  - Outside the app layout, `StandalonePage` frames the block with the compact lockup.
+- Tips: `TipStrip` (`@/components/shared/tip-strip`), one dismissible sentence under the header for something people would not discover. At most one per page, optional link action, stable `id`. Dismissal is per person in `localStorage`; it is server-rendered so the page does not shift. Current tips: reimbursements (bank account), vendor payments (quotation then invoice), events (show interest), team page for leads, users (detail sheet), desktop dashboard (⌘B).
+- Sign-in screens: `AuthLayout` (`components/login/auth-layout.tsx`), compact lockup over the form beside a flat info-wash panel (`bg-info/10`, no illustrations or animation) with the welcome text, sign-up steps or the session being joined. Phones show the form only. Titles use page-title type.
+
+## Motion and hover
+
+- Overlays use the app curves, never default `ease`:
+  - menus, popovers, selects, comboboxes, tooltips: enter 120ms (tooltips 100ms) on `--ease-out-expo`, leave 100ms;
+  - dialogs: 150ms on `--ease-out-expo`;
+  - sheets and sidebar: 200ms on `--ease-out-sheet` / `--ease-out-expo`.
+- Route changes that change the path crossfade the root for 150ms through the View Transitions API (`defaultViewTransition` in `apps/web/src/router.tsx`, keyframes in `styles.css`), only in browsers that support view-transition types. Pages have no other entrance animation.
+- Tooltips wait 400ms before the first opens (root `TooltipProvider`), then open instantly between triggers.
+- Use Tailwind v4 `hover:` (hover-capable devices only), not raw `:hover` CSS.
+- The global `prefers-reduced-motion` rule in `styles.css` turns all motion off.

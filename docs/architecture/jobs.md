@@ -1,58 +1,85 @@
 # Jobs (`packages/jobs`)
 
-> **Load when**: pg-boss, `enqueue`, job handler, job schedule, cron, retry, DLQ, `singletonKey`, `createNotifyHandler`, `notify-*`, handler registration.
-> **Related**: `notifications.md`, `observability.md`, `data-layer.md`
+> **Load when**: pg-boss, `enqueue`, job handler, job schedule, cron, retry, DLQ, `singletonKey`, `createNotifyHandler`, handler registration, `event_triggers`.
+> **Related**: `notifications.md` (what `notify-*` and WhatsApp jobs deliver), `observability.md`, `data-layer.md`
 
-pg-boss–backed job queue. All async side-effects (notifications, integrations, cleanup). Handlers live in `src/handlers/`.
+pg-boss runs every asynchronous side effect.
 
-| Concept | Location | Notes |
+| Concept | Location |
+|---|---|
+| Lazy-started pg-boss singleton | `src/boss-instance.ts` |
+| Typed `enqueue(name, payload)` and `QUEUE_NAMES` | `src/enqueue.ts` |
+| Payload interfaces and the `JobPayloads` map | `src/types.ts` |
+| Queue options and `boss.work` registration | `src/handlers/index.ts` |
+| `createNotifyHandler()` (request logger, success and error logging) | `src/handlers/create-handler.ts` |
+| Cron schedules | `src/schedules.ts` |
+| CLI producer | `src/producer.ts` |
+
+## Enqueueing
+
+- Use `enqueue()` from `@pi-dash/jobs/enqueue` for side effects. Never call notification, WhatsApp, Immich or R2 handlers directly from server functions, auth hooks or mutators. Account deletion is the one synchronous send ([notifications](notifications.md)).
+- `@pi-dash/jobs/enqueue` is the lean entry: payload types and `enqueue()` only, so mutators never pull in handler code. The `@pi-dash/jobs` barrel is server-only.
+- Wrap side-effect enqueues in `withFireAndForgetLog()` so a pg-boss failure does not fail the main operation. Await `enqueue()` only when enqueueing is the operation.
+- Never use `Date.now()` in idempotency or singleton keys. Pass the mutator's deterministic timestamp.
+- `startJobProducer(databaseUrl)` lets a CLI script enqueue against an explicit database without starting handlers, schedules or migrations. The caller stops it before exit.
+
+## Adding a job
+
+1. Add the payload to `JobPayloads` in `src/types.ts`.
+2. Add the name to `QUEUE_NAMES` in `src/enqueue.ts`. A schedule for a queue that was never created throws at startup, and every schedule after it is skipped.
+3. Register `boss.work` in `src/handlers/index.ts`, with any queue override.
+4. Add a schedule in `src/schedules.ts` if it recurs.
+
+## Queue defaults and overrides
+
+Defaults: 3 retries with backoff from 5 seconds, 15-minute expiry, dead-letter queue `dead-letter`. Notify queues poll every 5 seconds.
+
+| Queue | Override | Why |
 |---|---|---|
-| Queue init | `src/boss-instance.ts` | Singleton pg-boss, lazy-started |
-| Enqueue API | `src/enqueue.ts` | Typed `enqueue(name, payload)` — lean entry for mutators |
-| CLI producer | `src/producer.ts` | `startJobProducer(databaseUrl)` uses an explicitly selected database without starting handlers, schedules, or migrations; the caller stops it before exit |
-| Payload types | `src/types.ts` | All payload interfaces + `JobPayloads` map |
-| Handler registration | `src/handlers/index.ts` | Imports all handlers, registers with pg-boss |
-| Handler wrapper | `src/handlers/create-handler.ts` | `createNotifyHandler()` — adds `createRequestLogger`, success/error logging |
-| Schedules | `src/schedules.ts` | Cron schedules (reminders, polls, cleanup) |
+| `flush-held-notifications` | `exclusive`, no retry, 60 s heartbeat | One flush at a time; unsent claims pass to a later run after a lease (see [batching](notifications.md#batching)) |
+| `generate-cash-voucher` | `stately`, key `voucher-<lineItemId>` | Repeated requests collapse; an edit during a render queues one more |
+| `ledger-post-source` | `stately`, key `type:id` | A burst of edits to one source collapses |
+| `ledger-post-pending` | `singleton`, no retry, 1 h expiry, heartbeat | One sweep at a time; it stops itself after 45 minutes |
+| `razorpay-sync-payment` | `stately`, key = payment ID | Repeated webhook deliveries collapse |
+| `razorpay-sync-refund`, `razorpay-sync-settlement` | `stately`, 8 retries, 1 min doubling to 1 h | Razorpay may not show a refund as processed yet |
+| `razorpay-reconcile` | `exclusive`, no retry, 4 h expiry, heartbeat | Runs never overlap; a dead run fails within minutes |
+| `send-scheduled-whatsapp` | DLQ `dead-letter-scheduled-whatsapp` | Separate dead letters for scheduled messages |
 
-## Handler Categories
+pg-boss cannot change an existing queue's policy, so handlers must stay safe against duplicates.
 
-- `notify-*` — domain notification delivery
-- `process-*` / `remind-*` / `send-*` — event reminders, RSVP polls, digests
-- `immich-*` — photo sync
-- `whatsapp-*` — group management
-- Adding a job: add its payload to `JobPayloads` in `src/types.ts`, its name to `QUEUE_NAMES` in `src/enqueue.ts` (schedules throw at startup for a queue that was never created, and every schedule after it is skipped), `boss.work` in `src/handlers/index.ts`, and the schedule in `src/schedules.ts`.
-- `ensure-fiscal-years` — monthly on the 1st; keeps the current and next fiscal year and their periods present (`packages/db/src/fiscal-years.ts`).
-- `expire-event-interests` — daily at midnight IST; one statement marks every `pending` `event_interest` whose event has started (`team_event.start_time <= now`, the rule that also blocks new interest) as `expired`, with `reviewed_at` set to the run time and `reviewed_by` left null (`packages/db/src/event-interest-expiry.ts`). It notifies no one and writes no audit entries; volunteers see "Not reviewed". Approve, reject and cancel all require `pending`, so an expired request is final.
-- `razorpay-sync-payment` — records one Razorpay Payment Page payment (payload: payment ID and its India day only, the day absent when the webhook could not read the payment and the job fetches it by ID; the payment itself is staged in `private.import_row`). Queue policy `stately` with `singletonKey` = payment ID, so repeated deliveries collapse. Its worker is registered by the web server (`apps/web/server/plugins/jobs.ts` → `apps/web/src/lib/razorpay/worker.ts`) because it runs the contribution import rules that live in the web app; errors are rethrown with name and Postgres code only, so pg-boss never stores donor details. The worker asks for job metadata; when the last retry fails, the payment's row waits with reason `sync_failed`. See `finance-and-programmes.md`
-- `sync-*` — WhatsApp status; `sync-public-events-deploy` (every 5 min, scheduled only when `WEBSITE_DISPATCH_TOKEN` is set, unscheduled otherwise) sends an `events-changed` GitHub `repository_dispatch` to `proud-indian-ngo/website`, whose Actions workflow rebuilds and deploys the site, when the default public events feed changes. The fingerprint is in-memory, so the first run after a restart always deploys; a failed dispatch throws and the next run retries
-- `flush-held-notifications` — every minute; sends email and WhatsApp held for the notification batching window, as the original message or as a digest (`packages/notifications/src/batching.ts`, see `notifications.md`); also trims the WhatsApp Cloud API send log to 90 days. Queue policy `exclusive`, not retried, with a 60-second heartbeat; each run sends only the batches it claimed and stops between groups once it expires, and unsent claims pass to a later run after a 15-minute lease.
-- `generate-*` — cash voucher PDF
-- `delete-*` / `cleanup-*` — R2, stale data, old notifications
+`razorpay-sync-payment` is registered by the web server (`apps/web/server/plugins/jobs.ts`), which owns the import rules. It rethrows errors with name and Postgres code only, so pg-boss never stores donor details; after the last retry the import row waits as `sync_failed`. See `finance-income.md`.
 
-## Idempotency Rule
+## Schedules
 
-**Never use `Date.now()` in notification idempotency keys**. Pass deterministic timestamp from the mutator.
+`src/schedules.ts` holds every cron (IST). The ones with behaviour worth knowing:
 
-Kalakriti lifecycle and schedule commands enqueue post-commit jobs with
-singleton keys derived from the Edition and transition or schedule revision.
-Opening registration separately schedules the 24-hour planned-close reminder;
-the reminder handler rechecks the Edition lifecycle and never closes registration.
-Published Session, Competition label, Venue label, and Age Category label/order
-changes enqueue the same affected-recipient schedule job.
+| Job | When | Does |
+|---|---|---|
+| `flush-held-notifications` | every minute | Sends held email and WhatsApp; trims the WhatsApp send log to 90 days |
+| `send-event-rsvp-polls` | every 15 min | RSVP polls for events with `postRsvpPoll`, at each event's `rsvpPollLeadMinutes` before start (default 3 days) |
+| `expire-event-interests` | daily 00:00 | Marks `pending` interests in started events `expired` |
+| `cleanup-notifications` | daily 02:00 | Deletes archived inbox rows after 90 days, read rows after 180 |
+| `ensure-fiscal-years` | 1st of month | Keeps the current and next fiscal year and periods (`packages/db/src/fiscal-years.ts`) |
+| `razorpay-reconcile` | every 6 h | Only with `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET`, never a test key in production; unscheduled otherwise |
+| `sync-public-events-deploy` | every 5 min | Only with `WEBSITE_DISPATCH_TOKEN`; unscheduled otherwise |
 
-Center vehicle/driver updates enqueue `notify-kalakriti-transport-changed` with
-an assignment/change-ID singleton key. The handler reloads the assignment and
-resolves only that Center's active Guardian and Liaison recipients; delivery
-uses the same change ID for deterministic per-recipient message keys.
+`expire-event-interests` (`packages/db/src/event-interest-expiry.ts`) sets `reviewed_at` to the run time and leaves `reviewed_by` null. It notifies no one and writes no audit entry; volunteers see "Not reviewed". Approve, reject and cancel all require `pending`, so expiry is final.
 
+`sync-public-events-deploy` sends an `events-changed` `repository_dispatch` to `proud-indian-ngo/website` when the default public events feed changes, which rebuilds the site. The fingerprint is in memory, so the first run after a restart always dispatches; a failed dispatch throws and the next run retries.
 
-## Zero DDL trigger compatibility
+## Kalakriti jobs
 
-Worker and CLI producer connections derive their URL through `getJobDatabaseUrl`, retaining existing connection settings and appending `-c event_triggers=off` to PostgreSQL session options. pg-boss owns only the unsynced `pgboss` schema. Never use these connections for application schema migrations or publish the pg-boss schema through Zero. Drizzle and Zero connections retain the original URLs and enabled event triggers.
+- Lifecycle and schedule commands enqueue after commit, with singleton keys from the Edition and the transition or schedule revision.
+- Opening registration schedules the 24-hour planned-close reminder. The reminder rechecks the lifecycle and never closes registration itself.
+- Published Session, Competition, Venue and Age Category label or order changes enqueue the same affected-recipient schedule job.
+- Center vehicle or driver changes enqueue `notify-kalakriti-transport-changed` keyed by the change ID. The handler reloads the assignment and sends only to that Center's active Guardians and Liaisons, reusing the change ID in per-recipient message keys.
 
-On PostgreSQL 18.3 with Zero 1.9, Zero's DDL-start trigger emits a transactional logical message before a standalone `DROP INDEX CONCURRENTLY`. PostgreSQL then rejects the drop with SQLSTATE `0A000`, “DROP INDEX CONCURRENTLY must be first action in transaction”. pg-boss can issue this during background index migration repair or cleanup after reindexing, causing repeated `jobs/error` logs. The error does not identify a failed application job.
+## Database connection and Zero event triggers
 
-A disposable reproduction using Zero's installed `createEventFunctionStatements` and `createEventTriggerStatements` confirmed: the index drop succeeds before those triggers are installed, fails afterward, and succeeds with event triggers off on that connection. A separate connection still has the setting on and emits Zero DDL events for application-table changes. This is session-scoped; do not set it in the shared database URL, on the database role, or globally.
+Worker and CLI producer connections use `getJobDatabaseUrl` (`src/database-url.ts`), which appends `-c event_triggers=off` to the session options. Drizzle and Zero keep the original URL with triggers on.
 
-The setting requires PostgreSQL 17+ and superuser or suitable SET privilege. Current Compose and production use PostgreSQL 18. See [PostgreSQL's setting documentation](https://www.postgresql.org/docs/18/runtime-config-client.html#GUC-EVENT-TRIGGERS). Deploying the application recreates the dedicated job pool with the option; it does not require a database restart or a Zero upgrade. After deployment, inspect pg-boss maintenance status and confirm the repeated error stops rather than suppressing its log.
+Why: Zero's DDL-start trigger emits a transactional logical message before a standalone `DROP INDEX CONCURRENTLY`, which PostgreSQL then rejects (`0A000`, "must be first action in transaction"). pg-boss issues such drops during index maintenance, which caused repeated `jobs/error` logs unrelated to any application job.
+
+- pg-boss owns only the unsynced `pgboss` schema. Never run application migrations over these connections or publish `pgboss` through Zero.
+- Keep the setting session-scoped. Do not put it in the shared database URL, on the role or globally.
+- It needs PostgreSQL 17+ and superuser or SET privilege. Compose and production run PostgreSQL 18.

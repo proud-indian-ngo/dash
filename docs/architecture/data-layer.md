@@ -1,131 +1,138 @@
-# Data Layer — Zero + Drizzle
+# Data layer: Zero and Drizzle
 
-> **Load when**: Zero mutators/queries, Drizzle schema, sync behavior, connection pool, SSR loaders, IndexedDB, `ZeroProvider`, real-time sync flow, optimistic updates.
-> **Related**: `auth.md`, `authorization.md`, `jobs.md`
+> **Load when**: Zero mutators or queries, Drizzle schema, sync, connection pools, SSR loaders and route preloads, IndexedDB, `ZeroProvider`, optimistic updates, money columns, jsonb.
+> **Related**: `auth.md`, `authorization.md`, `jobs.md`, `.agents/skills/query-performance/SKILL.md`, `docs/query-performance-audit.md`
 
 ## IDs
 
-All entity PKs = **UUIDv7** via `uuidv7` npm package. Generated app-side before insert. UUIDv7 embeds millisecond timestamp → time-ordered, B-tree-friendly. Never `crypto.randomUUID()` or `gen_random_uuid()`.
+Every primary key is a UUIDv7 from the `uuidv7` package, generated in the app before insert. They are time-ordered and B-tree friendly. Never use `crypto.randomUUID()` or `gen_random_uuid()`.
 
-## Schema Generation
+## Schema
 
-Drizzle = source of truth. Zero client-side schema **generated**:
+Drizzle is the source of truth. `bun run zero:generate` generates the Zero schema from the barrel:
 
 ```
-packages/db/src/schema/*.ts  →  drizzle-zero generate  →  packages/zero/src/schema.ts
+packages/db/src/schema/index.ts  →  drizzle-zero generate  →  packages/zero/src/schema.ts
 ```
 
-Command: `bun run zero:generate` (`drizzle-zero generate -f -s ../db/src/schema/index.ts -o src/schema.ts`). Tables that must never reach the browser (`social_api_token`, everything under `packages/db/src/schema/private/`) are left out of that barrel. The `private/` tables also live in the Postgres schema `private`, which zero-cache's publication (scoped to `public`) never replicates; drizzle-kit migrates them through `schemaFilter` in `drizzle.config.ts`. Vendor contact, PAN and bank details are among them: the synced `vendor` row carries only name, GSTIN and approval status, and the rest loads through server functions (`vendor-payments.md`).
+- Tables that must never reach the browser are left out of the barrel: `social_api_token` and everything under `packages/db/src/schema/private/`.
+- `private/` tables also live in the Postgres schema `private`, which zero-cache's publication (scoped to `public`) never replicates. drizzle-kit migrates them through `schemaFilter` in `drizzle.config.ts`.
+- Example: the synced `vendor` row carries only name, GSTIN and approval status; contact, PAN and bank details load through server functions (`vendor-payments.md`).
+- Every new table gets idempotent seed records in `scripts/seed.ts`. Transient queue and log tables (held notifications, email batch snapshots, the WhatsApp send log) are exempt.
 
-**jsonb columns.** Import `jsonb` from `packages/db/src/schema/jsonb.ts`, never from `drizzle-orm/pg-core`. With the Bun SQL driver, Drizzle's built-in column JSON-encodes the value and Bun encodes it again, so objects land as jsonb strings; Drizzle reads hide this, but Zero syncs the raw column and clients get a string. The local type sends `$1::text::jsonb`. Raw SQL follows the same rule: bind JSON as `${JSON.stringify(value)}::text::jsonb`, not `::jsonb`, which Bun also double-encodes. Migration `0110` unwrapped rows written before the fix.
+### jsonb
+
+Import `jsonb` from `packages/db/src/schema/jsonb.ts`, never from `drizzle-orm/pg-core`. With the Bun SQL driver, Drizzle's built-in column JSON-encodes the value and Bun encodes it again, so objects land as jsonb strings. Drizzle reads hide this, but Zero syncs the raw column and clients get a string. The local type sends `$1::text::jsonb`. In raw SQL, bind JSON as `${JSON.stringify(value)}::text::jsonb`, not `::jsonb`.
+
+### Money
+
+- Integer paise in `bigint` columns named `*_paise` (Drizzle `bigint(..., { mode: "number" })`, TS fields `*Paise`). Read and synced as `number`.
+- Validate inputs with `paiseSchema` or `positivePaiseSchema` from `@pi-dash/shared/money` (reject fractions and values outside the safe-integer range).
+- Forms take rupee text and convert with `rupeesToPaise` (exact string arithmetic, at most two decimals). Display with `formatPaise`. Total with `sumPaise`, which throws outside the safe range.
+- PostgreSQL returns `sum()` over `bigint` as a numeric string; convert with `Number` and check it (see `sumToPaise` in the financial export).
+- Never divide by 100 to compute. Divide only to compare with a rupee value a person typed, as the table amount filters do.
 
 ## Mutators
 
-Defined once in `packages/zero/src/mutators/` via `defineMutator()`. Each gets `{ tx, ctx, args }`:
+Defined in `packages/zero/src/mutators/` with `defineMutator()`, split by domain and aggregated in `packages/zero/src/mutators.ts`. Each receives:
 
-- **`tx`** — read (`tx.run(zql...)`) + write (`tx.mutate.<table>.insert/update/delete`)
-- **`ctx`** — typed `Context` (`packages/zero/src/context.ts`): `userId`, `role`, optional `asyncTasks[]`
-- **`args`** — Zod-validated input
+- `tx`: reads (`tx.run(zql...)`) and writes (`tx.mutate.<table>.insert/update/delete`);
+- `ctx`: `Context` from `packages/zero/src/context.ts` (`userId`, `role`, `permissions`, optional `asyncTasks`);
+- `args`: Zod-validated input.
 
-Same code, two environments:
+The same code runs twice:
 
-| Env | Behavior |
+| Where | Behaviour |
 |---|---|
-| **Client** (browser) | Optimistic — applies to local SQLite replica. `ctx.asyncTasks` undefined. |
-| **Server** (`/api/zero/mutate`) | Authoritative — Postgres via `zeroDrizzle`. Route handler populates `ctx.asyncTasks`; mutators push notification/WhatsApp tasks. Post-commit: handler runs tasks via `withTaskLog`. |
+| Client | Optimistic, against the local replica. `ctx.asyncTasks` is undefined |
+| Server (`/api/zero/mutate`) | Authoritative, against Postgres through `zeroDrizzle`. The handler supplies `ctx.asyncTasks`; mutators push notification and WhatsApp tasks, which run after commit through `withTaskLog` |
 
-Split by domain (`bank-account.ts`, `reimbursement.ts`, `team.ts`). Aggregated in `packages/zero/src/mutators.ts`.
+Because mutators ship to the client, server-only packages (`@pi-dash/jobs`, `@pi-dash/notifications`, `@pi-dash/db`, `@pi-dash/env/server`, `drizzle-orm`, `bun`) are loaded with dynamic `import()` behind the `tx.location === "server"` check. A static import would leak them into the client bundle.
+
+Permission helpers (`assertIsLoggedIn`, `assertHasPermission`, `assertHasPermissionOrTeamLead`, `can`) live in `packages/zero/src/permissions.ts`; see `authorization.md`. Checks that need rows the client may not hold (for example, that a referenced donor, account or fund is active) run only on the server pass.
 
 ## Queries
 
-Defined in `packages/zero/src/queries/` via `defineQueries()`. Client: local SQLite replica, instant reads. Server: `/api/zero/query` → Postgres.
+Defined in `packages/zero/src/queries/` with `defineQueries()`. The client reads its local replica instantly; the server resolves through `/api/zero/query`. Query-side authorization is authoritative.
 
-## Permissions (mutator-level)
+## Sync
 
-`packages/zero/src/permissions.ts` exports assertion fns (`assertIsLoggedIn`, `assertIsAdmin`) — throw on fail. Called at top of server-side mutator exec. Client-side: no-ops (optimistic trusts UI). Deeper: see `authorization.md`.
+1. Postgres runs with `wal_level=logical` (Docker Compose).
+2. `zero-cache` tails the WAL through `ZERO_UPSTREAM_DB` (unpooled).
+3. Clients connect to `zero-cache` over WebSocket (`VITE_ZERO_URL`) and keep a local replica for instant reads and optimistic writes.
+4. Server mutations: client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients.
 
-## Connection Pool
+`ZeroProvider` is set up in `apps/web/src/components/zero-init.tsx` with the schema, mutators, user context (`userId`, `role`, `permissions`) and `storageKey="pi-dash"`, which namespaces IndexedDB.
 
-Two pools, both cached on `globalThis` — survive Vite SSR HMR (without this, each reload leaks a pool → `max_connections` exhausted):
+## Connection pools
 
-- **Drizzle pool** (`packages/db/src/index.ts`): Bun SQL, `max: 20`, `application_name: "pi-dash"`. Drizzle ORM + Better Auth (via Drizzle adapter).
-- **pg-boss pool** (`packages/jobs/src/boss.ts`): `pg` module, `max: 10`, `application_name: "pi-dash-jobs"`. Job queue. `startWorker` guard = no duplicate instances on HMR.
-- **Zero Cache**: separate, via `ZERO_UPSTREAM_DB` (unpooled, logical replication). Not part of either pool.
+Both pools are cached on `globalThis` so Vite SSR HMR does not leak a pool per reload and exhaust `max_connections`.
 
-## Data Sync
+| Pool | Where | Settings | Used by |
+|---|---|---|---|
+| Drizzle | `packages/db/src/index.ts` | Bun SQL, `max: 20`, `application_name=pi-dash` | Drizzle and Better Auth |
+| pg-boss | `packages/jobs/src/boss.ts` | `pg`, `max: 10`, `application_name=pi-dash-jobs` | Job queue; `startWorker` guard prevents duplicate workers on HMR |
 
-Zero = real-time sync via Postgres logical replication:
+zero-cache connects separately through `ZERO_UPSTREAM_DB`.
 
-1. Postgres runs `wal_level=logical` (Docker Compose).
-2. `zero-cache` process connects via `ZERO_UPSTREAM_DB`, tails WAL.
-3. Client → `zero-cache` via WebSocket (`VITE_ZERO_URL`).
-4. Client maintains local SQLite replica → instant reads, optimistic writes.
-5. Server mutations: client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients.
+## Connection errors and logout
 
-Zero client init: `apps/web/src/components/zero-init.tsx` via `<ZeroProvider>`. Receives schema, mutators, user context (userId + role), `storageKey="pi-dash"` (namespaces IndexedDB).
+- `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` watches `useConnectionState()`. Individual queries do no error handling.
+- `error`: debounced toast. `needs-auth`: redirect to `/login` with the current path.
+- Logout calls `zero.delete()` (best effort) before `authClient.signOut()` to clear IndexedDB.
 
-## Money
+## Route preloads
 
-Money columns are integer paise in `bigint` columns named `*_paise` (Drizzle `bigint(..., { mode: "number" })`, TS fields `*Paise`). Drizzle reads them as JavaScript numbers, Zero syncs them as `number`, and mutators and server functions accept them as `number` validated by `paiseSchema` or `positivePaiseSchema` from `@pi-dash/shared/money`, which reject fractions and anything outside the safe-integer range. Forms keep rupee text inputs and convert with `rupeesToPaise` (exact string arithmetic, at most two decimals) when they submit; displays use `formatPaise`; totals use `sumPaise`, which throws if a sum leaves the safe range. PostgreSQL returns `sum()` over a `bigint` column as a numeric string, so server code converts it with `Number` and checks it (see `sumToPaise` in the financial export). Never divide by 100 to compute; divide only to compare against something a person typed in rupees, as the table amount filters do.
+- Loaders call `preloadRouteQuery` (`apps/web/src/lib/route-preload.ts`) with the optional Zero instance, query and abort signal. It uses `zero.preload()` without materialising objects, keeps cached data for five minutes, and releases its reference on completion, abort or a 30-second timeout. It does nothing during SSR without Zero.
+- Mounted query hooks hold their own references, so releasing a preload does not unsubscribe the page.
+- Router preloading is intent-based (hover, focus) in every environment. Showing a sidebar link starts no query.
+- Broad query results are deliberate: they enable instant local filtering and warm navigation. Visible row count alone does not prove overfetching, but route preloads must never retain references indefinitely.
+- Kalakriti access guards dedupe only concurrent browser requests by session, lookup kind and year. Settled results are not cached and SSR bypasses the shared state.
 
-## SSR Loaders
+## Query shapes
 
-Route loaders use `preloadRouteQuery` from `apps/web/src/lib/route-preload.ts`, passing the optional Zero instance, query and loader abort signal. It uses `zero.preload()` to sync ahead of navigation without materializing JS objects, retains cached data for five minutes, and releases its reference on completion, abort or a 30-second timeout. It does nothing during SSR when Zero is absent. Mounted query hooks own separate references, so releasing a preload does not unsubscribe the page.
+Rules for changing relationships, preloads and indexes are in `.agents/skills/query-performance/SKILL.md`; measurements and rejected hypotheses are in `docs/query-performance-audit.md`. Current deliberate shapes:
 
-Router preloading uses intent (hover/focus) in development, production and E2E. Broad query results are intentional for instant local filtering and warm navigation; visible row count alone does not establish overfetching. Zero deduplicates overlapping rows, but every active query still has lifecycle and execution costs. Route preloads must not retain references indefinitely.
+### Events and teams
 
-Kalakriti Students and Entries preload their existing page queries on route intent. Students warms the directory, visible Centers and Edition metadata; Entries warms visible Entries and available divisions. Merely displaying their sidebar links does not request these datasets. Center-dependent form options still load from the mounted page, once its authorized Center selection is known.
+- Team detail preloads only the Team query. Its event-history subscription starts when the authorised Team component renders.
+- Event detail subscribes to aggregate feedback only for feedback managers. Participants fetch their own feedback through a server function.
+- `reimbursement.byEvent` and `vendorPayment.byEvent` are summary projections (line items, submitter, plus vendor for vendor payments) shared by event metrics and the Expenses tab.
+- Reimbursement and vendor payment `all` and `byId` nest the event's `programme` (requests store none of their own); `byCurrentUser` omits it.
+- `teamEvent.byTeam` loads each event's `programme` and `partners`, and each edited occurrence's own, for the events table and edit prefill.
+- The notification inbox query is served by the `(user_id, archived, created_at DESC, id ASC)` index.
 
-Kalakriti access guards deduplicate only concurrent browser requests by authenticated session, lookup kind and year. Settled results are not cached, and server rendering bypasses shared state. Server-side authentication and query permissions remain authoritative.
+### Income
 
-## Query Performance Verification
+- All income queries share one root guard, `canSeeIncome` (`packages/zero/src/queries/income.ts`): `donors.view`, `finance.view`, `donors.manage` or `finance.manage`. Party directory queries use the same four so manage-only roles can pick givers.
+- `contribution.list` relates party, programme, org account, fund and `importBatch`, newest first, bounded at 5,000 rows so this year's stat chips always see the whole year. Its `project` relation joins only for `finance.view`, because project rows carry sponsor and budget terms.
+- `contribution.byParty` returns one donor's bare rows for the donor sheet.
+- The record form reads `orgAccount.active` and `fund.active` (names only; bank details never sync) and loads projects only for `finance.view`.
+- `importBatch.list` and `importBatch.byId` sync batch settings and counts. Import rows, external identities and collection events are in the `private` schema and read only through `apps/web/src/functions/income-import.ts`.
 
-Run `bun run zero:analyze` with `ZERO_CACHE_URL` and the appropriate authentication environment. The default `ZERO_ANALYZE_PROFILE=events` preserves the event query suite and optional `ZERO_ANALYZE_EVENT_ID`. Set `ZERO_ANALYZE_PROFILE=kalakriti` and `ZERO_ANALYZE_EDITION_ID` to profile Entries, available divisions, the Students directory and Food memberships/students for a specific edition. The script runs named queries sequentially and prints timings, row counts and plans without requesting record contents. Authentication uses `COOKIE` or `ZERO_AUTH_TOKEN`; production inspection also requires `ZERO_ADMIN_PASSWORD`. Do not place their values in reports.
+### Kalakriti
 
-Food membership queries short-circuit global-admin access before evaluating Center-scoped authorization alternatives. They still require an existing Edition, retain active registrations or effective meal history, and apply the same filters to related operations, assignments and Guardian Centers. Scoped readers continue through the full authorization predicates.
+- Students and Entries preload their page queries on route intent. Students warms the directory, visible Centers and Edition metadata; Entries warms visible Entries and available divisions. Center-dependent form options load once the page knows the authorised Center selection.
+- Entries keep the full root dataset and Entry Center labels but do not join each member Student to its Center; the registration picker gets Student Center labels from its own query.
+- Readiness reads Divisions through the Edition's flat `competitionDivisions` relation. Clone-source and Competition-page queries keep nested Divisions because they use them.
+- The Student detail sheet uses `kalakritiEntry.visibleByCenter` (members, Division age category, Competition) for participation and `kalakritiStudent.visibleByCenter` for transport status only. Both share root authorisation with the broader queries.
+- The registration Student picker (`visibleForEntries`) keeps all authorised Students with assigned age category, Center and transport operations, without Entry memberships or derived age categories.
+- Food membership queries short-circuit global admins before Center-scoped predicates, still require an existing Edition, and keep active registrations or effective meal history. Assignment and Guardian links authorise through `whereExists("center", foodCenter)`; the related Center expansion reuses that link.
 
-Kalakriti assignment relationships use the non-partial `(membership_id, edition_id, id)` index added in migration 0084. It supports per-membership filtering and stable ordering in Zero’s replica; the responsibility-specific partial unique indexes do not cover that access path. On the 600-assignment local fixture, this reduced assignment scans from 180,300 to 600 without changing synced results. Migration 0085 adds Center/responsibility and Competition/responsibility access paths for restricted permission lookups. These reduced assignment scans substantially in the scoped fixture, with unchanged read counts and no material local latency improvement; their benefit is reduced SQLite work rather than a demonstrated page-load speedup.
+Indexes that serve these paths:
 
-Entries retain the full root dataset and Entry Center labels, but no longer join each member Student to its Center. Entry consumers do not read that nested relation; the registration picker obtains Student Center labels from its separate Student query. On the 3,000-Entry fixture, removing the unused relation reduced reads from 39,000 to 36,000 while retaining 9,103 synced rows.
+| Table | Index | Serves |
+|---|---|---|
+| Assignments | `(membership_id, edition_id, id)` | Per-membership filter and order (the partial unique indexes do not) |
+| Assignments | Center/responsibility, Competition/responsibility, `(competition_category_id, responsibility, id)` | Restricted permission and category-authority lookups |
+| Entry members | `(student_id, edition_id, id)` | Directory's per-Student expansion |
+| Operations | `(student_id, edition_id, type, id)` | Entries' per-Student operation expansion |
+| Entries | `(edition_id, created_at DESC, id ASC)` | Edition filter with newest-first order |
 
-Compare server hydration separately from end-to-end hydration, and distinguish active subscriptions from inactive queries retained by TTL. Use identical data, account and navigation sequences for before/after comparisons. Profile restricted roles separately because permission predicates can produce different plans. Add indexes or reduce query graphs only when measured plans justify doing so. See [Zero's query guidance](https://zero.rocicorp.dev/docs/queries) and [analyzer documentation](https://zero.rocicorp.dev/docs/debug/analyze-query-cli).
+## Measuring
 
-Event detail enables aggregate feedback subscriptions only for feedback managers. Ordinary participants fetch their own feedback through the existing server function, so they do not run an aggregate query that can only return an empty result. Query-side authorization remains authoritative.
+Run `bun run zero:analyze` (`packages/zero/scripts/analyze.ts`) with `ZERO_CACHE_URL` and `COOKIE` or `ZERO_AUTH_TOKEN`; production also needs `ZERO_ADMIN_PASSWORD`. Never put these values in reports.
 
-Kalakriti readiness syncs Divisions through the Edition's direct `competitionDivisions` relation. Its lifecycle checks consume that flat list, so readiness does not also expand each Competition's Divisions. Clone-source and Competition-page queries retain their nested Divisions because their consumers use them.
-
-The Student detail sheet uses `kalakritiEntry.visibleByCenter` with a participation projection: members, Division age category and Competition data. It shares root authorization with the full Entries queries, which retain their broader relationships. Center-wide Entry roots and the main Students/Entries local datasets remain intact.
-
-The same sheet uses `kalakritiStudent.visibleByCenter` for transport status only. That projection retains all authorized Center Student roots and transport operations; displayed identity and age category come from the existing directory row. Directory, picker and compliance queries retain their broader data.
-
-The registration Student picker (`visibleForEntries`) retains all authorized Students with their assigned age category, Center and transport operations. It does not expand Entry memberships or derived age categories: eligibility uses the separately loaded Entries and assigned age category. Directory and compliance projections remain broader.
-
-Migration `0089_bouncy_mandarin.sql` indexes Entry members by `(student_id, edition_id, id)` for the directory's per-Student expansion. Local analyzer plans use it to filter and return ID order without a temporary sort. It preserves the existing student-only index and query relationships.
-
-Food membership expansions authorize each assignment or Guardian link through `whereExists("center", foodCenter)`. Their related Center expansion uses that same link without repeating the authorization predicate. Removing Center authority removes the parent link and its Center from the result.
-
-Migration `0090_lovely_domino.sql` adds `(competition_category_id, responsibility, id)` on assignments for category-authority lookups. It complements the membership-leading category uniqueness constraint. The local Eligibility benchmark demonstrated fewer assignment scans with unchanged results, not a material latency improvement.
-
-Migration `0091_sudden_sally_floyd.sql` adds `(student_id, edition_id, type, id)` on operations. Entries' per-Student operation expansion can filter by Edition/type and return ID order without a temporary sort. The six measured Entries scopes scan 80% fewer operation rows with unchanged read/synced counts; analyzer timings were essentially unchanged. Existing operation indexes remain in place.
-
-Migration `0092_tearful_multiple_man.sql` adds `(edition_id, created_at DESC, id ASC)` on Entries to serve the Edition filter and newest-first ordering without a full-list temporary sort. It preserves existing Center and Division access paths. A separate entry-leading member index remains experimental because the fixture has only one member per Entry.
-
-## Connection Errors
-
-Global monitor: `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` via `useConnectionState()`. Individual queries = no error handling. On `error`: debounced toast. On `needs-auth` (401/403): redirect `/login` with current path.
-
-Logout: `zero.delete()` (best-effort) before `authClient.signOut()` → clears IndexedDB cache.
-
-## View Transitions
-
-Route navs use View Transitions API (`defaultViewTransition: true` in `apps/web/src/router.tsx`). Animations: `packages/design-system/styles.css`, `::view-transition-old(root)` / `::view-transition-new(root)`, 150ms expo-out fade. Disabled under `prefers-reduced-motion: reduce`. Firefox etc fall back to instant nav.
-
-
-The notification history index in migration 0088 follows `(user_id, archived, created_at DESC, id ASC)`. It supports the inbox/badge query's owner filter, active-only predicate and newest-50 ordering without changing the query or its cached results. The 10,000-row experiment reduced scans from 7,500 to 50; total hydration did not consistently improve. Existing indexes remain in place.
-
-
-Event expense queries (`reimbursement.byEvent` and `vendorPayment.byEvent`) use a summary projection: line items and submitter, plus vendor for Vendor Payments. Event metrics and the Expenses tab share these queries. They retain Event and owner filters but omit unused detail relationships; full financial list and detail queries remain broader. The full reimbursement and vendor payment projections `all` and `byId` nest the event's `programme`, which the Programme column, filter, request header and analytics show (requests store no programme of their own); `byCurrentUser` loads the event without it. `teamEvent.byTeam` loads each event's `programme` and `partners`, and each edited occurrence's own, for the team page's events table and its edit form prefill.
-
-Income queries (`packages/zero/src/queries/income.ts`) share one root guard, `canSeeIncome`: `donors.view`, `finance.view`, `donors.manage` or `finance.manage`, since managing implies seeing; the party directory queries use the same four so the giver picker works for manage-only roles. `contribution.list` relates party, programme, org account and fund for the Income table and is bounded at 5,000 rows newest first, several years at the trust's volume, so this year's stat chips always see the whole year; its `project` relation joins only for `finance.view`, because full project rows carry sponsor and budget terms, while `contribution.byParty` returns one donor's bare rows for the donor sheet. The record form reads its pickers from `orgAccount.active` and `fund.active` under the same income guard (names only; bank details never sync) and loads projects only for `finance.view`. Mutators check references (an active donor, sponsor, grantor or intermediary role, active account and fund, project/programme agreement) only in the server run, since the optimistic client run may not hold the referenced rows. `contribution.list` also relates its `importBatch`, so the table can filter by import; `importBatch.list` and `importBatch.byId` sync batch settings and counts under the same income guard, while import rows, external identities and collection events live in the `private` schema and are read only through `functions/income-import.ts`.
-
-Team detail preloads only the Team query. Its existing event-history subscription starts when the authorized Team component renders, so a denied Team does not warm an unused public-event history. Query shapes and Zero's consumer-owned caching are unchanged.
+- `ZERO_ANALYZE_PROFILE=events` (default, optional `ZERO_ANALYZE_EVENT_ID`) or `kalakriti` with `ZERO_ANALYZE_EDITION_ID` (Entries, available divisions, Students directory, Food).
+- It runs named queries in sequence and prints timings, row counts and plans, never record contents.
+- Compare server hydration separately from total hydration, and active subscriptions separately from TTL-retained queries. Use identical data, account and navigation for before and after, and profile restricted roles separately. Add indexes or trim graphs only when measured plans justify it. See Zero's [query guidance](https://zero.rocicorp.dev/docs/queries) and [analyzer docs](https://zero.rocicorp.dev/docs/debug/analyze-query-cli).

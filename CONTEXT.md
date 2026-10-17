@@ -1,6 +1,6 @@
 # Pi-dash Domain Language
 
-This file records the canonical language for pi-dash business contexts. It currently defines the Kalakriti context so its rewrite uses one vocabulary across schema, code, UI, and tests.
+This file records the canonical language for pi-dash business contexts. It defines the Kalakriti and Finance contexts so each uses one vocabulary across schema, code, UI, and tests.
 
 ## Kalakriti
 
@@ -95,3 +95,81 @@ _Avoid_: Stock edit, transaction edit
 **Lifecycle State**:
 One of `draft`, `registration_open`, `registration_locked`, `live`, or `archived`, controlling which Edition operations are legal.
 _Avoid_: Status when referring to registration controls or operational state
+
+## Finance
+
+**Party**:
+One person or organisation the trust deals with, holding roles such as donor, sponsor, intermediary or vendor.
+_Avoid_: Donor record, contact, customer
+
+**Contribution**:
+A gift from a Party into an Organisation account, or in kind, with its channel, fund, donation type and Form 113 reporting mode.
+_Avoid_: Payment, transaction, other income
+
+**Programme**:
+The top-level unit of work by cause that carries money, optionally split into time-boxed Projects.
+_Avoid_: Team, cost centre
+
+**Fund**:
+The pot an entry belongs to, such as the default General Fund (Domestic) or the restricted Corpus Fund.
+_Avoid_: Account, programme
+
+**Account head**:
+A line in the chart of accounts typed income, expense, asset, liability or fund; each expense category maps to its own head.
+_Avoid_: Category, expense category, ledger
+
+**Organisation account**:
+A place the trust's money sits: a bank, cash, gateway clearing or fixed deposit account.
+_Avoid_: Bank account when the kind is not bank, a claimant's saved bank account
+
+**Clearing account**:
+A gateway clearing Organisation account where Razorpay or give.do gifts wait until a Settlement pays them out to the bank.
+_Avoid_: Razorpay account, bank account
+
+**Posting**:
+One source action written to the books, idempotent on source, revision and action, holding Ledger entries and Account movements.
+_Avoid_: Journal entry, transaction
+
+**Ledger entry**:
+A recognition-book line: an income, expense, asset, liability or fund effect against an Account head, Fund and Programme.
+_Avoid_: Movement, journal line
+
+**Account movement**:
+A cash-book line: money into or out of one Organisation account on a bank value date. Never summed with Ledger entries.
+_Avoid_: Transaction, entry, statement line
+
+**Movement allocation**:
+The append-only link from an Account movement to the Statement line that reconciles it.
+_Avoid_: Statement allocation, match
+
+**Reversal**:
+A Posting that flips every effect and direction of an earlier one; the only way to correct the books.
+_Avoid_: Edit, delete, adjustment
+
+**Waiting to post**:
+A source that should be in the books but cannot post yet, with a reason such as a closed year or a missing bank account.
+_Avoid_: Pending, failed
+
+**Settlement**:
+A gateway's final payout of a batch of gifts and refunds from a Clearing account, with net amount and UTR.
+_Avoid_: Payout, transfer
+
+**Statement line**:
+One row of an imported bank statement, matched to what it paid or received.
+_Avoid_: Transaction, Account movement
+
+**Statement allocation**:
+A reviewer's releasable link from a debit Statement line to the reimbursement, vendor payment, bank charge or tax payment it paid.
+_Avoid_: Movement allocation, posting
+
+**Charged to**:
+The work an expense served: an event, a Programme (with optional Project) or the organisation, shown as "Admin".
+_Avoid_: Expense category, Account head, cost centre
+
+**Donation receipt**:
+A numbered receipt the dashboard issues for a direct gift, with an 80G line when the donor qualifies.
+_Avoid_: Form 114 certificate, Razorpay or give.do receipt
+
+**Donations return**:
+The yearly Form 113 filing of received gifts by donor, from which the portal generates Form 114 certificates.
+_Avoid_: 10BD, receipts

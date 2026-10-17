@@ -1,78 +1,59 @@
-# Review Guidelines
+# Review guidelines
 
-Use this file for project-specific and workflow-specific code review guidance.
+Project-specific guidance for code review.
 
-## Review priorities
+## Code priorities
 
-Review in this order:
+In order:
 
-1. **Correctness** — Logic errors, off-by-ones, race conditions, unhandled edge cases, incorrect assumptions about data shape or nullability.
-2. **Security** — Injection vectors, auth gaps, secrets in code, unsafe deserialization, missing input validation, SSRF/XSS/CSRF risks.
-3. **Reliability** — Missing error handling, swallowed exceptions, resource leaks, unbounded operations (no timeouts, no limits), silent failures.
-4. **Performance** — N+1 queries, unnecessary allocations in hot paths, missing indexes implied by query patterns, blocking event loop.
-5. **Maintainability** — Confusing naming, god functions, tight coupling, missing types or overly loose types (`any`, type assertions without justification), dead code.
-6. **Test Coverage** — Non-trivial logic added or changed without corresponding tests. New branches, edge cases, or error paths that are not exercised. Existing tests that should be updated to cover changed behavior. Missing E2E tests for major features such as new routes, CRUD workflows, or role-gated capabilities. Do not demand tests for trivial glue code, pure config, or simple pass-throughs.
-7. **Documentation** — `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, or inline doc comments that are stale or incomplete because of reviewed changes. New env vars, routes, commands, patterns, or architectural decisions that should be documented. Missing or outdated JSDoc on public APIs. Do not flag missing docs for internal helpers or obvious code.
+1. **Correctness:** logic errors, off-by-ones, races, unhandled edge cases, wrong assumptions about data shape or nullability.
+2. **Security:** injection, auth gaps, secrets in code, missing input validation, SSRF/XSS/CSRF.
+3. **Reliability:** swallowed errors, resource leaks, unbounded operations, silent failures.
+4. **Performance:** N+1 queries, missing indexes implied by query patterns, hot-path allocations, blocking the event loop.
+5. **Maintainability:** confusing names, god functions, tight coupling, `any` or unjustified type assertions, dead code.
+6. **Tests:**
+   - Non-trivial logic or new branches without tests.
+   - Existing tests that no longer match the behaviour.
+   - Missing E2E coverage for new routes, CRUD flows or role-gated capabilities.
+   - Don't ask for tests of glue code or config.
+7. **Docs:**
+   - `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, the owning `docs/architecture/` chapter or JSDoc left stale by the change.
+   - New env vars, routes, commands or decisions that went undocumented.
+   - Docs that break the rules in the agent guide's Documentation section: appended history, copied facts, or a doc pushed over its word budget.
 
-## Feature and UX review priorities
+## Feature and UX priorities
 
-Review changes from user's perspective, not only developer's perspective.
+Describe every finding as what the user experiences.
 
-1. **Missing UI states** — Every view should handle loading, empty, error, and populated states. Check 0 items, long text, large numbers, and unexpected data shapes. Check for skeleton or placeholder states during data fetches.
-2. **UX flow completeness** — If user can create something, check whether they can also edit and delete it. Check destructive confirmations, undo or recovery paths, happy path completeness, and dead ends where user gets stuck.
-3. **Form validation and error messages** — Validate all user inputs. Error messages should be user-friendly and specific, not vague. Validation timing should make sense. Required fields should be marked.
-4. **Accessibility** — Check keyboard navigation, screen reader support, focus management, touch target size, and color contrast.
-5. **Consistency with existing patterns** — Compare with similar features in codebase. Check component composition, naming conventions, and interaction patterns.
-6. **Edge cases and resilience** — Check slow connections, double submits, navigation-away mid-action, concurrent edits, and optimistic updates with rollback.
-7. **Responsive and cross-context behavior** — Check mobile viewports and behavior across screen sizes.
-
-For Feature/UX issues, always describe user-visible consequence — what user experiences, not only what code does wrong.
+1. **Missing states:** loading, empty, error, populated; zero items, long text, large numbers.
+2. **Flow completeness:**
+   - Whatever can be created can also be edited and deleted.
+   - Destructive actions are confirmed.
+   - The user never reaches a dead end.
+3. **Validation:** specific, friendly messages; sensible timing; required fields marked.
+4. **Accessibility:** keyboard navigation, screen readers, focus, touch targets, contrast.
+5. **Consistency:** matches similar features in the codebase.
+6. **Resilience:** slow connections, double submits, navigating away mid-action, concurrent edits, optimistic rollback.
+7. **Responsive:** mobile viewports.
 
 ## Reviewer rules
 
-- Never say "looks good" unless you genuinely found zero issues. Default to suspicion.
-- For every issue, state **what** is wrong, **why** it matters, and **how** to fix it.
-- Call out code that works now but is fragile under reasonable future changes.
-- If a pattern works now but does not scale, say so.
-- Flag missing tests for any non-trivial logic. Check whether existing tests need updates for changed behavior.
-- Flag stale or missing docs caused by reviewed changes.
-- If diff is incomplete or lacks context, state assumptions clearly.
-- Do not nitpick formatting or style unless it obscures meaning.
-- Group code findings by severity: 🔴 Must Fix, 🟡 Should Fix, 🔵 Nit.
-- Group feature and UX findings separately under 🟣 Feature/UX.
+- Default to suspicion. Say "looks good" only if you found nothing.
+- For each issue, state what is wrong, why it matters and how to fix it.
+- Flag code that works now but is fragile or won't scale.
+- State your assumptions when the diff lacks context.
+- Don't nitpick formatting.
+- Group code findings as 🔴 Must Fix, 🟡 Should Fix and 🔵 Nit, and put feature and UX findings under 🟣 Feature/UX.
 
-## Project-local custom skill conformance
+## Project skills to enforce
 
-This repo has project-local custom skills in `.agents/skills/` that are **not** installed via `skills-lock.json`. Treat these as authoritative local implementation guides when reviewing matching work. If a change touches one of these areas and does not follow the skill's required patterns, flag it.
+The local skills in `.agents/skills/` (not installed via `skills-lock.json`) are authoritative. When a diff falls in a skill's area, review it against that skill and name the skill in the finding. Don't add requirements the skill doesn't state.
 
-### Skills to enforce during review
-
-1. **`add-logging`**
-   - Applies to added or modified error handling, `try/catch`, structured logging, `evlog`, server function logging, and fire-and-forget operations.
-   - Flag missing or weak logging, especially client `catch` blocks that should call `log.error()` and server-side changes that should follow structured logging patterns.
-
-2. **`create-data-table`**
-   - Applies to data-table work: columns, row actions, filters, sorting, pagination, layout, responsiveness, and table consistency work.
-   - Flag tables that do not use `DataTableWrapper`, miss standard column metadata, skip standard header patterns, or diverge from established table interactions.
-
-3. **`create-dialog`**
-   - Applies to dialogs, modals, alert dialogs, confirmation dialogs, and overlay/z-index issues.
-   - Flag missing `DialogTitle` / `DialogDescription`, inconsistent confirmation patterns, missing loading states, or form dialogs that skip reset/remount patterns.
-
-4. **`create-form`**
-   - Applies to any form, including dialog forms, validation work, auth forms, settings forms, and field behavior fixes.
-   - Flag forms that use ad hoc `useState` instead of `useForm`, skip Zod validation, skip `FormLayout` / `FormActions`, use raw field markup instead of shared field components, or bypass `handleMutationResult()` for Zero mutations.
-
-5. **`e2e-testing`**
-   - Applies when changes add major features such as new routes/pages, CRUD workflows, or role-gated capabilities.
-   - Flag missing E2E coverage for major features, bad selector strategy, ignoring shared fixtures/page objects, or tests placed in wrong directories.
-
-6. **`zero-patterns`**
-   - Applies to Zero query hooks, Zero-derived loading states, sync-state handling, and data-derived UI computations.
-   - Flag loading UI gated on `result.type === "unknown"`, derived values gated on loading state, unstable refs passed into `ZeroProvider` boundaries, or missed bundling rules around mutators.
-
-### Review rule for custom skills
-
-- When a diff clearly matches one of skills above, review against that skill's checklist and patterns, not only generic engineering taste.
-- If a change should have used one of these project-local skills and did not follow it, call that out explicitly in finding and name relevant skill.
-- Do not invent requirements beyond skill guidance; enforce actual local patterns, not generic preference.
+| Skill | Applies to | Flag |
+|---|---|---|
+| `add-logging` | error handling, `try/catch`, evlog, server functions, fire-and-forget | missing or weak logging; client `catch` blocks without `log.error()` |
+| `create-data-table` | tables: columns, row actions, filters, pagination, layout | no `DataTableWrapper`, missing column metadata, non-standard headers or interactions |
+| `create-dialog` | dialogs, alerts, confirmations, overlay z-index | missing `DialogTitle`/`DialogDescription`, inconsistent confirmations, no loading state, form dialogs without reset/remount |
+| `create-form` | any form | ad hoc `useState`, no Zod, no `FormLayout`/`FormActions`, raw field markup, Zero mutations without `handleMutationResult()` |
+| `e2e-testing` | new routes, CRUD flows, role-gated capabilities | missing E2E coverage, weak selectors, ignored fixtures or page objects, wrong directories |
+| `zero-patterns` | Zero query hooks, loading and sync states | loading UI gated on `result.type === "unknown"`, derived values gated on loading, unstable refs into `ZeroProvider`, mutator bundling mistakes |
