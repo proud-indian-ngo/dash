@@ -90,7 +90,7 @@ function DateInputPicker({
             aria-describedby={ariaDescribedBy}
             aria-invalid={ariaInvalid}
             className={cn(
-              "border-control dark:border-control h-9 w-full justify-between font-normal pointer-coarse:h-10",
+              "border-control dark:border-control dark:aria-invalid:border-destructive hover:not-disabled:not-aria-invalid:not-focus-visible:border-control-strong h-9 w-full justify-between font-normal pointer-coarse:h-10",
               !value && "text-muted-foreground"
             )}
             disabled={disabled}

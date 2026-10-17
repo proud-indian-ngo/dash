@@ -17,11 +17,12 @@ import {
 import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { format } from "date-fns";
 import { useState } from "react";
 import z from "zod";
 
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -34,23 +35,33 @@ import { getPhotoThumbnailUrl, isVideoPhoto } from "./photo-utils";
 
 const DIGITS_RE = /^\d+$/;
 
-export const socialRecapFormSchema = z.object({
-  childrenAttended: z
-    .string()
-    .trim()
-    .min(1, "Enter how many children came")
-    .regex(DIGITS_RE, "Use a whole number")
-    .refine(
-      (value) => Number(value) <= CHILDREN_ATTENDED_MAX,
-      `At most ${CHILDREN_ATTENDED_MAX}`
-    ),
-  socialNotes: z
-    .string()
-    .max(
-      SOCIAL_NOTES_MAX_LENGTH,
-      `Keep it under ${SOCIAL_NOTES_MAX_LENGTH} characters`
-    ),
-});
+export const socialRecapFormSchema = z
+  .object({
+    childrenAttended: z.string().trim(),
+    noChildren: z.boolean(),
+    socialNotes: z
+      .string()
+      .max(
+        SOCIAL_NOTES_MAX_LENGTH,
+        `Keep it under ${SOCIAL_NOTES_MAX_LENGTH} characters`
+      ),
+  })
+  .superRefine(({ childrenAttended, noChildren }, ctx) => {
+    if (noChildren) {
+      return;
+    }
+    let message: string | null = null;
+    if (childrenAttended === "") {
+      message = "Enter how many children came";
+    } else if (!DIGITS_RE.test(childrenAttended)) {
+      message = "Use a whole number";
+    } else if (Number(childrenAttended) > CHILDREN_ATTENDED_MAX) {
+      message = `At most ${CHILDREN_ATTENDED_MAX}`;
+    }
+    if (message) {
+      ctx.addIssue({ code: "custom", message, path: ["childrenAttended"] });
+    }
+  });
 
 type SocialRecapFormValues = z.infer<typeof socialRecapFormSchema>;
 
@@ -152,6 +163,9 @@ function VolunteersAttended({ presentCount }: { presentCount: number }) {
   );
 }
 
+const selectNoChildren = (state: { values: SocialRecapFormValues }) =>
+  state.values.noChildren;
+
 function RecapForm({
   event,
   isReady,
@@ -166,12 +180,16 @@ function RecapForm({
     defaultValues: {
       childrenAttended:
         event.childrenAttended === null ? "" : String(event.childrenAttended),
+      // A ready recap with no count was saved as an event without children.
+      noChildren: isReady && event.childrenAttended === null,
       socialNotes: event.socialNotes ?? "",
     } satisfies SocialRecapFormValues,
     onSubmit: async ({ value }) => {
       const res = await zero.mutate(
         mutators.teamEvent.saveSocialRecap({
-          childrenAttended: Number(value.childrenAttended.trim()),
+          childrenAttended: value.noChildren
+            ? null
+            : Number(value.childrenAttended.trim()),
           eventId: event.id,
           markReady: true,
           now: Date.now(),
@@ -190,17 +208,25 @@ function RecapForm({
     },
     validators: { onSubmit: socialRecapFormSchema },
   });
+  const noChildren = useSelector(form.store, selectNoChildren);
 
   return (
     <FormLayout className="flex flex-col gap-4" form={form}>
-      <InputField
-        className="max-w-32"
-        inputMode="numeric"
-        isRequired
-        label="Children attended"
-        name="childrenAttended"
-        placeholder="0"
+      <CheckboxField
+        description="For events like a lake cleanup or a volunteer meetup. The posts leave the children count out."
+        label="No children at this event"
+        name="noChildren"
       />
+      {noChildren ? null : (
+        <InputField
+          className="max-w-32"
+          inputMode="numeric"
+          isRequired
+          label="Children attended"
+          name="childrenAttended"
+          placeholder="0"
+        />
+      )}
       <TextareaField
         description={`One line for the post, up to ${SOCIAL_NOTES_MAX_LENGTH} characters.`}
         label="What happened"
@@ -287,9 +313,13 @@ export function EventSocialRecap({
               <dt className="text-muted-foreground text-xs">
                 Children attended
               </dt>
-              <dd className="font-mono tabular-nums">
-                {event.childrenAttended ?? 0}
-              </dd>
+              {event.childrenAttended === null ? (
+                <dd className="text-muted-foreground">No children</dd>
+              ) : (
+                <dd className="font-mono tabular-nums">
+                  {event.childrenAttended}
+                </dd>
+              )}
             </div>
             <div>
               <dt className="text-muted-foreground text-xs">

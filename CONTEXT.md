@@ -1,6 +1,6 @@
 # Pi-dash Domain Language
 
-This file records the canonical language for pi-dash business contexts. It defines the Kalakriti and Finance contexts so each uses one vocabulary across schema, code, UI, and tests.
+The canonical terms for the Kalakriti and Finance contexts, used alike in schema, code, UI and tests.
 
 ## Kalakriti
 
@@ -17,7 +17,7 @@ An edition-owned grouping of related Competitions overseen by assigned Category 
 _Avoid_: Event category
 
 **Competition**:
-A contest definition containing its participation mode, gender eligibility, and group rules.
+A contest definition with its eligibility and group rules.
 _Avoid_: Event, activity
 
 **Competition Division**:
@@ -93,7 +93,7 @@ An immutable edition-owned purchase, dispatch, return, adjustment, or reversal t
 _Avoid_: Stock edit, transaction edit
 
 **Lifecycle State**:
-One of `draft`, `registration_open`, `registration_locked`, `live`, or `archived`, controlling which Edition operations are legal.
+The Edition's stage, which controls which operations are legal.
 _Avoid_: Status when referring to registration controls or operational state
 
 ## Finance

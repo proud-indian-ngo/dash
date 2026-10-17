@@ -60,7 +60,11 @@ const EVENT_PROPERTIES: Record<keyof SocialEvent, SchemaObject> = {
   },
   attendance: nullable(
     objectSchema({
-      children: count,
+      children: {
+        ...nullable(count),
+        description:
+          "Null for an event without children, such as a cleanup drive or a volunteer meetup; leave the children count out of the post.",
+      },
       hours: { minimum: 0, type: "number" },
       volunteers: { ...count, description: "Volunteers checked in present." },
     })
