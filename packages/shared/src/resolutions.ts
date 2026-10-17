@@ -1,5 +1,5 @@
 /**
- * Circular resolutions (governance phase 2): templates, the pass and fail
+ * Circular resolutions: templates, the pass and fail
  * rules, numbering and the signature page layout. Pure, so the server, the
  * pages and the closing job agree. Dates are `yyyy-MM-dd` strings.
  */
@@ -452,7 +452,7 @@ export const RESOLUTION_TEXT_MAX = 20_000;
 export const OBJECTION_REASON_MAX = 1000;
 /** Default days between issue and the response date. */
 export const DEFAULT_RESPONSE_DAYS = 7;
-/** Signing or objecting needs a sign-in this recent (design section 2). */
+/** Signing or objecting needs a sign-in this recent, so shared laptops can't vote. */
 export const VOTE_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
 /** The refusal the client recognises to ask for the password again. */
 export const VOTE_REAUTH_MESSAGE =
