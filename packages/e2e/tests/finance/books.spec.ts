@@ -390,15 +390,13 @@ test.describe("Books (treasurer)", () => {
       railAccount(page, fixture.bankName).getByTestId("books-account-balance")
     ).toHaveText("₹700.00", { timeout: 15_000 });
 
-    // Not in income and expenditure.
+    // Not in income and expenditure (searched, so a later page can't hide it).
     await page.getByRole("tab", { name: "Income & expenditure" }).click();
-    await expect(page.getByTestId("income-expenditure")).toBeVisible();
-    await expect(
-      page
-        .getByTestId("income-expenditure")
-        .getByRole("row")
-        .filter({ hasText: "Corpus donations" })
-    ).toHaveCount(0);
+    const incomeExpenditure = page.getByTestId("income-expenditure");
+    await incomeExpenditure
+      .getByPlaceholder("Search...")
+      .fill("Corpus donations");
+    await expect(incomeExpenditure).toContainText("Nothing matches.");
 
     // The Corpus Fund shows it among the year's additions.
     await page.getByRole("tab", { name: "Balance summary" }).click();
@@ -548,10 +546,14 @@ test.describe("Books (treasurer)", () => {
     );
     await page.keyboard.press("Escape");
 
-    // The expense is under its category's own head.
+    // The expense is under its category's own head. Searched, since the
+    // table pages and other specs' heads can push this one off page one.
     await page.getByRole("tab", { name: "Income & expenditure" }).click();
-    const headRow = page
-      .getByTestId("income-expenditure")
+    const incomeExpenditure = page.getByTestId("income-expenditure");
+    await incomeExpenditure
+      .getByPlaceholder("Search...")
+      .fill(fixture.categoryName);
+    const headRow = incomeExpenditure
       .getByRole("row")
       .filter({ hasText: fixture.categoryName });
     await expect(headRow).toContainText("₹425.00", { timeout: 15_000 });
@@ -571,7 +573,9 @@ test.describe("Books (treasurer)", () => {
 
     // An edit after posting reverses and reposts the reimbursement.
     await books("edit-claim", fixture.claimId);
-    await page.goto("/finance/books?tab=income");
+    await page.goto(
+      `/finance/books?tab=income&ieSearch=${encodeURIComponent(fixture.categoryName)}`
+    );
     await waitForZeroReady(page);
     await postPending(page);
     await expect
