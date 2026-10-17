@@ -12,6 +12,7 @@ import { zql } from "../schema";
 const UNTIL_RE = /UNTIL=\d{8}T\d{6}Z/;
 const DASH_RE = /-/g;
 const COLON_RE = /:/g;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Build a truncated RRULE string ending the second before splitDate starts
@@ -198,13 +199,24 @@ export function buildUpdateFields(args: UpdateArgs) {
 /**
  * The submitted fields for the saved session a series edit came from: what
  * the series gets, minus what belongs to the series (roster inheritance and
- * the group, which follows its own rules).
+ * the group, which follows its own rules). Times come along only while the
+ * series still starts on the session's date; otherwise the session keeps
+ * its own and stays a distinct session rather than landing on the series'
+ * first slot.
  */
-export function sessionFieldsFrom(args: UpdateArgs, sessionId: string) {
+export function sessionFieldsFrom(
+  args: UpdateArgs,
+  session: { id: string; originalDate: string | null }
+) {
+  const keepsDate =
+    args.startTime !== undefined &&
+    seriesStartDate(args.startTime) === session.originalDate;
   return buildUpdateFields({
     ...args,
-    id: sessionId,
+    endTime: keepsDate ? args.endTime : undefined,
+    id: session.id,
     inheritVolunteers: undefined,
+    startTime: keepsDate ? args.startTime : undefined,
     whatsappGroupId: undefined,
   });
 }
@@ -223,6 +235,8 @@ type ZeroRunFn = BivariantZeroRun["bivarianceHack"];
 // Structural type for the tx parameter from defineMutator.
 // Catches typos (tx.mutat) while avoiding dependency on Zero's deep internal types.
 export interface Tx {
+  /** The server's Drizzle transaction; absent on the client. */
+  dbTransaction?: { wrappedTransaction: unknown };
   location: string;
   mutate: {
     teamEvent: {
@@ -369,7 +383,8 @@ async function saveUpcomingSessionsBefore(
   args: { now: number; splitDate: string; userId: string }
 ) {
   const rule = parseRecurrenceRule(series.recurrenceRule);
-  if (!rule || tx.location !== "server") {
+  const transaction = tx.dbTransaction?.wrappedTransaction;
+  if (!rule || tx.location !== "server" || !transaction) {
     return;
   }
   const splitStart = Date.parse(`${args.splitDate}T00:00:00Z`);
@@ -377,14 +392,17 @@ async function saveUpcomingSessionsBefore(
   const savedDates = new Set(
     saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
   );
+  // Sessions under way count: their group still matters until they end.
   const upcoming = expandSeries(
     rule,
     series.startTime,
     series.endTime,
-    args.now,
+    args.now - DAY_MS,
     splitStart - 1,
     savedDates
-  ).filter((occ) => occ.startTime > args.now && occ.date !== firstDate);
+  ).filter(
+    (occ) => (occ.endTime ?? occ.startTime) > args.now && occ.date !== firstDate
+  );
   if (upcoming.length === 0) {
     return;
   }
@@ -393,25 +411,27 @@ async function saveUpcomingSessionsBefore(
         zql.teamEventMember.where("eventId", series.id)
       )) as TeamEventMember[])
     : [];
-  for (const occ of upcoming) {
-    const id = uuidv7();
-    await tx.mutate.teamEvent.insert(
-      buildExceptionInsert(id, series, occ.date, args.userId, args.now, {
-        ...(occ.endTime === null ? {} : { endTime: occ.endTime }),
-        startTime: occ.startTime,
-      })
-    );
-    await Promise.all(
-      volunteers.map((member) =>
-        tx.mutate.teamEventMember.insert({
-          addedAt: member.addedAt,
-          eventId: id,
-          id: uuidv7(),
-          userId: member.userId,
-        })
-      )
-    );
-  }
+  // In SQL, so a date the RSVP-poll materialiser saved meanwhile is skipped
+  // rather than failing the edit on the (series, date) unique index.
+  const { saveSeriesSessions } = await import("@pi-dash/db/series-sessions");
+  await saveSeriesSessions(
+    transaction as Parameters<typeof saveSeriesSessions>[0],
+    upcoming.map((occ) => ({
+      ...buildExceptionInsert(
+        uuidv7(),
+        series,
+        occ.date,
+        args.userId,
+        args.now,
+        {
+          ...(occ.endTime === null ? {} : { endTime: occ.endTime }),
+          startTime: occ.startTime,
+        }
+      ),
+      reminderTarget: series.reminderTarget,
+    })),
+    volunteers
+  );
 }
 
 export async function updateSeriesFollowing(
@@ -534,7 +554,7 @@ export async function updateSeriesFollowing(
     moving.map((e) =>
       tx.mutate.teamEvent.update({
         ...(e.originalDate === args.originalDate
-          ? sessionFieldsFrom(args, e.id)
+          ? sessionFieldsFrom(args, e)
           : {}),
         id: e.id,
         seriesId: args.newSeriesId,

@@ -96,6 +96,32 @@ interface JoinTarget {
 }
 
 /**
+ * Whether any session of a series has started, or money is charged to it:
+ * from then on a programme change applies forward only.
+ */
+async function seriesHasStarted(
+  tx: Tx,
+  series: Pick<TeamEvent, "id" | "startTime">,
+  now: number
+): Promise<boolean> {
+  if (series.startTime <= now) {
+    return true;
+  }
+  const sessions = (await tx.run(
+    zql.teamEvent.where("seriesId", series.id)
+  )) as TeamEvent[];
+  if (sessions.some((s) => s.startTime <= now)) {
+    return true;
+  }
+  const ids = [series.id, ...sessions.map((s) => s.id)];
+  const [claim, payment] = await Promise.all([
+    tx.run(zql.reimbursement.where("eventId", "IN", ids).one()),
+    tx.run(zql.vendorPayment.where("eventId", "IN", ids).one()),
+  ]);
+  return Boolean(claim ?? payment);
+}
+
+/**
  * The scope a series edit or cancel really has. "This and following" on the
  * series' own start date is every session, so it is "all": splitting there
  * would leave an empty series before the first session.
@@ -1604,34 +1630,33 @@ export const teamEventMutators = {
         args.whatsappGroupId
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
-      // From the start date every session is still to come, so the
-      // programme may change for all of them.
+      // Programme changes are future-effective: once a series has started,
+      // "all" would rewrite past sessions, so it is refused. Before that,
+      // every session is still to come.
       if (
-        args.mode === "all" &&
+        mode === "all" &&
         args.programmeId !== undefined &&
-        args.programmeId !== existing.programmeId
+        args.programmeId !== existing.programmeId &&
+        (await seriesHasStarted(tx, existing, args.now))
       ) {
-        // Programme changes are future-effective: past occurrences keep theirs.
         throw new Error(
-          "Change the programme for this and following occurrences instead"
+          'Past sessions keep their programme. Open a later session and edit "This and following" to change it from there.'
         );
       }
 
       let movedOccurrenceIds: string[] = [];
       if (mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
-        // Edited from a saved start-date row: that session takes the edit.
-        if (args.mode === "following" && args.originalDate) {
-          const session = (await tx.run(
+        // A live start-date row is the first session, so it takes the edit.
+        if (existing.recurrenceRule && !existing.seriesId) {
+          const first = (await tx.run(
             zql.teamEvent
               .where("seriesId", args.id)
-              .where("originalDate", args.originalDate)
+              .where("originalDate", seriesStartDate(existing.startTime))
               .one()
           )) as TeamEvent | undefined;
-          if (session) {
-            await tx.mutate.teamEvent.update(
-              sessionFieldsFrom(args, session.id)
-            );
+          if (first && !first.cancelledAt) {
+            await tx.mutate.teamEvent.update(sessionFieldsFrom(args, first));
           }
         }
         if (nextGroupId !== undefined) {

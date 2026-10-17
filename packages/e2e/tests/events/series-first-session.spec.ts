@@ -25,6 +25,7 @@ async function fixture<T>(
 interface Fixture {
   firstDate: string;
   splitDate: string;
+  splitStart: number;
   pastDate: string;
   seriesId: string;
   splitId: string;
@@ -37,7 +38,7 @@ interface Inspection {
   past: { attendance: (string | null)[]; id: string } | null;
   series: { childrenAttended: number | null; recapReady: boolean };
   seriesRows: number;
-  split: { members: number; seriesId: string | null };
+  split: { members: number; seriesId: string | null; startTime: number | null };
 }
 
 test.describe("A series' first session and its saved sessions", () => {
@@ -152,7 +153,11 @@ test.describe("A series' first session and its saved sessions", () => {
     expect(state.oldRule).toBe(`FREQ=WEEKLY;UNTIL=${dayBefore}T235959Z`);
     // The split day's row and the one after moved; its volunteer stayed on it.
     const newSeriesId = state.newSeries?.id;
-    expect(state.split).toEqual({ members: 1, seriesId: newSeriesId });
+    expect(state.split).toEqual({
+      members: 1,
+      seriesId: newSeriesId,
+      startTime: fx.splitStart,
+    });
     expect(state.later.seriesId).toBe(newSeriesId);
     expect(state.newSeries?.members).toBe(0);
 
@@ -177,5 +182,34 @@ test.describe("A series' first session and its saved sessions", () => {
     await expect(
       scopeDialog.getByRole("button", { name: "This and following events" })
     ).toHaveCount(0);
+
+    // All events from there moves the series an hour later, and the
+    // start-date row, its first session, moves with it.
+    await scopeDialog
+      .getByRole("button", { name: "All events in the series" })
+      .click();
+    const allDialog = page.getByRole("dialog", { name: "Edit event" });
+    await expect(
+      allDialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
+    await allDialog
+      .getByRole("button", { exact: true, name: "Start time" })
+      .click();
+    const picker = page.getByRole("dialog").last();
+    const nextHour = (new Date(fx.splitStart).getHours() + 1) % 12 || 12;
+    await picker
+      .getByRole("button", { exact: true, name: String(nextHour) })
+      .first()
+      .click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await allDialog.getByRole("button", { name: "Save changes" }).click();
+    await expect(allDialog).toBeHidden({ timeout: 10_000 });
+    await expect
+      .poll(
+        async () =>
+          (await fixture<Inspection>("inspect", fx.pastDate)).split.startTime
+      )
+      .toBe(fx.splitStart + 60 * 60 * 1000);
   });
 });

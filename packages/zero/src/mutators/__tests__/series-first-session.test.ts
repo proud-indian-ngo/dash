@@ -1,4 +1,17 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
+// Sessions saved before a split go through SQL on the server; capture them.
+const sqlSaved: { sessions: Row[]; volunteers: Row[] }[] = [];
+mock.module("@pi-dash/db/series-sessions", () => ({
+  saveSeriesSessions: async (
+    _tx: unknown,
+    sessions: Row[],
+    volunteers: Row[]
+  ) => {
+    sqlSaved.push({ sessions, volunteers });
+    return sessions.map((session) => session.id);
+  },
+}));
 
 import {
   matchesScope,
@@ -48,6 +61,7 @@ function createDb(exceptions: Row[] = []) {
     ],
   };
   const tx = {
+    dbTransaction: { wrappedTransaction: {} },
     location: "server",
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [
@@ -287,7 +301,8 @@ describe("this and following", () => {
     expect(row(db, "before")?.whatsappGroupId).toBe("g-1");
   });
 
-  it("saves the old series' upcoming sessions with its group before handing it over", async () => {
+  const handOver = async (now: number) => {
+    sqlSaved.length = 0;
     const db = createDb();
     (db.tables.teamEventMember as Row[]).push({
       addedAt: NOW - DAY,
@@ -300,26 +315,68 @@ describe("this and following", () => {
       {
         id: "series-1",
         newSeriesId: "series-2",
-        now: NOW,
+        now,
         originalDate: split.date,
         startTime: split.start,
       },
       { ...series, inheritVolunteers: true, whatsappGroupId: "g-1" } as never,
       "lead-1"
     );
-    // 3 Oct is the series row itself; 10 Oct was unsaved and is now saved
-    // on the group with the series' volunteer.
-    const saved = db.tables.teamEvent?.filter((e) => e.seriesId === "series-1");
-    expect(saved).toHaveLength(1);
-    expect(saved?.[0]).toMatchObject({
+    return db;
+  };
+
+  it("saves the old series' upcoming sessions with its group before handing it over", async () => {
+    const db = await handOver(NOW);
+    // 3 Oct is the series row itself; 10 Oct was unsaved and is saved now,
+    // on the group, with the series' volunteer and no recap.
+    expect(sqlSaved).toHaveLength(1);
+    expect(sqlSaved[0]?.sessions).toHaveLength(1);
+    expect(sqlSaved[0]?.sessions[0]).toMatchObject({
       originalDate: "2026-10-10",
+      seriesId: "series-1",
       whatsappGroupId: "g-1",
     });
-    expect(saved?.[0]).not.toHaveProperty("childrenAttended");
-    expect(
-      db.tables.teamEventMember?.filter((m) => m.eventId === saved?.[0]?.id)
-    ).toMatchObject([{ userId: "vol-1" }]);
+    expect(sqlSaved[0]?.sessions[0]).not.toHaveProperty("childrenAttended");
+    expect(sqlSaved[0]?.volunteers).toMatchObject([{ userId: "vol-1" }]);
     expect(row(db, "series-2")?.whatsappGroupId).toBe("g-1");
+  });
+
+  it("saves a session under way too, but not one that has ended", async () => {
+    // 10 Oct, 11:00 IST: that session (10:00 to 12:00) is under way.
+    await handOver(Date.UTC(2026, 9, 10, 5, 30));
+    expect(sqlSaved[0]?.sessions.map((r) => r.originalDate)).toEqual([
+      "2026-10-10",
+    ]);
+    // 10 Oct, 13:00 IST: it has ended, and nothing else comes before 17 Oct.
+    await handOver(Date.UTC(2026, 9, 10, 7, 30));
+    expect(sqlSaved).toEqual([]);
+  });
+
+  it("keeps the split-day row's own times when the new series moves its first date", async () => {
+    const db = createDb([
+      session("on-split", split.date, { endTime: split.start + 7_200_000 }),
+    ]);
+    const sunday = split.start + DAY;
+    await updateSeriesFollowing(
+      db.tx as never,
+      {
+        endTime: sunday + 7_200_000,
+        id: "series-1",
+        name: "Sunday class",
+        newSeriesId: "series-2",
+        now: NOW,
+        originalDate: split.date,
+        startTime: sunday,
+      },
+      series as never,
+      "lead-1"
+    );
+    expect(row(db, "on-split")).toMatchObject({
+      name: "Sunday class",
+      seriesId: "series-2",
+      startTime: split.start,
+    });
+    expect(row(db, "series-2")?.startTime).toBe(sunday);
   });
 });
 
@@ -344,7 +401,12 @@ describe("this and following on the series' start date", () => {
         { id: "tm-1", role: "lead", teamId: "team-1", userId: "lead-1" },
       ],
       costCentre: [{ active: true, code: "BLR", id: "cc-1", name: "BLR" }],
-      programme: [{ active: true, id: "p-1" }],
+      programme: [
+        { active: true, id: "p-1" },
+        { active: true, id: "p-2" },
+      ],
+      reimbursement: [],
+      vendorPayment: [],
     };
     const update = (table: string) => async (row: Row) => {
       Object.assign(
@@ -423,5 +485,55 @@ describe("this and following on the series' start date", () => {
       recurrenceRule: { rrule: "FREQ=WEEKLY" },
     });
     expect(d.tables.teamEvent?.[1]?.cancelledAt).toBe(NOW);
+  });
+
+  // What the scope dialog sends for "All events": no originalDate.
+  const editAll = (d: ReturnType<typeof db>, now: number, extra: Row) =>
+    teamEventMutators.updateSeries.fn({
+      args: { id: "series-1", mode: "all", now, ...extra },
+      ctx,
+      tx: d.tx,
+    } as never);
+
+  it("moves a live start-date row with an All events time change", async () => {
+    const d = db();
+    const later = FIRST + 3_600_000;
+    await editAll(d, NOW, { endTime: later + 7_200_000, startTime: later });
+    expect(d.tables.teamEvent?.[0]?.startTime).toBe(later);
+    expect(d.tables.teamEvent?.[1]).toMatchObject({
+      endTime: later + 7_200_000,
+      startTime: later,
+    });
+  });
+
+  it("lets All events change the programme until the series starts", async () => {
+    const d = db();
+    await editAll(d, NOW, { programmeId: "p-2" });
+    expect(d.tables.teamEvent?.[0]?.programmeId).toBe("p-2");
+    expect(d.tables.teamEvent?.[1]?.programmeId).toBe("p-2");
+  });
+
+  it("refuses an All events programme change once the series has started", async () => {
+    const started = FIRST + 3_600_000;
+    await expect(
+      editAll(db(), started, { programmeId: "p-2" })
+    ).rejects.toThrow("Past sessions keep their programme");
+    // Also through "following" on the start date, which becomes "all".
+    await expect(
+      editAll(db(), started, {
+        mode: "following",
+        newSeriesId: "series-2",
+        originalDate: "2026-10-03",
+        programmeId: "p-2",
+      })
+    ).rejects.toThrow("Past sessions keep their programme");
+  });
+
+  it("refuses it before the start once money is charged to a session", async () => {
+    const d = db();
+    d.tables.reimbursement?.push({ eventId: "first-row", id: "r-1" });
+    await expect(editAll(d, NOW, { programmeId: "p-2" })).rejects.toThrow(
+      "Past sessions keep their programme"
+    );
   });
 });

@@ -107,6 +107,7 @@ async function setup(email: string) {
   return {
     firstDate: utcDate(start),
     splitDate: utcDate(start + 35 * DAY),
+    splitStart: start + 35 * DAY,
     pastDate: utcDate(start + 7 * DAY),
     seriesId: ID.series,
     splitId: ID.split,
@@ -122,6 +123,7 @@ async function inspect(pastDate: string) {
       recurrenceRule: teamEvent.recurrenceRule,
       seriesId: teamEvent.seriesId,
       socialCompletedAt: teamEvent.socialCompletedAt,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(eq(teamEvent.teamId, ID.team));
@@ -159,6 +161,7 @@ async function inspect(pastDate: string) {
     split: {
       members: membersOf(ID.split).length,
       seriesId: byId(ID.split)?.seriesId ?? null,
+      startTime: byId(ID.split)?.startTime.getTime() ?? null,
     },
   };
 }

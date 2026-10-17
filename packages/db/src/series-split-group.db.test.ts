@@ -8,8 +8,9 @@ import { expect, it } from "vitest";
 import * as schema from "./schema";
 import { user } from "./schema/auth";
 import { team } from "./schema/team";
-import { teamEvent } from "./schema/team-event";
+import { teamEvent, teamEventMember } from "./schema/team-event";
 import { whatsappGroup } from "./schema/whatsapp-group";
+import { saveSeriesSessions } from "./series-sessions";
 
 /**
  * A "this and following" split against the real
@@ -127,6 +128,69 @@ it.skipIf(!localDatabase)(
         .from(teamEvent)
         .where(eq(teamEvent.id, next));
       expect(row?.group).toBe(ids.group);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "saving sessions before a split skips a date someone saved meanwhile",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { ids } = await seriesWithGroup(tx);
+      const day = 86_400_000;
+      const at = (offset: number) => NOW.getTime() + offset;
+      const session = (id: string, date: string, start: number) => ({
+        cancelledAt: null,
+        createdAt: NOW.getTime(),
+        createdBy: ids.user,
+        endTime: start + 7_200_000,
+        feedbackDeadline: null,
+        id,
+        name: "Weekly class",
+        originalDate: date,
+        recurrenceRule: null,
+        reminderIntervals: [60],
+        seriesId: ids.series,
+        startTime: start,
+        teamId: ids.team,
+        updatedAt: NOW.getTime(),
+        whatsappGroupId: ids.group,
+      });
+      // The RSVP-poll materialiser got to the first date first.
+      await tx.insert(teamEvent).values({
+        createdAt: NOW,
+        createdBy: ids.user,
+        id: uuidv7(),
+        name: "Weekly class",
+        originalDate: "2026-10-21",
+        seriesId: ids.series,
+        startTime: new Date(at(7 * day)),
+        teamId: ids.team,
+        updatedAt: NOW,
+      });
+      const fresh = uuidv7();
+      const inserted = await saveSeriesSessions(
+        tx,
+        [
+          session(uuidv7(), "2026-10-21", at(7 * day)),
+          session(fresh, "2026-10-28", at(14 * day)),
+        ],
+        [{ addedAt: NOW.getTime(), userId: ids.user }]
+      );
+      expect(inserted).toEqual([fresh]);
+      const members = await tx
+        .select({ eventId: teamEventMember.eventId })
+        .from(teamEventMember)
+        .where(eq(teamEventMember.userId, ids.user));
+      expect(members).toEqual([{ eventId: fresh }]);
+      const [saved] = await tx
+        .select({
+          group: teamEvent.whatsappGroupId,
+          reminders: teamEvent.reminderIntervals,
+        })
+        .from(teamEvent)
+        .where(eq(teamEvent.id, fresh));
+      expect(saved).toEqual({ group: ids.group, reminders: [60] });
     });
   }
 );
