@@ -29,7 +29,7 @@ import {
 import { jsonb } from "./jsonb";
 
 /**
- * Board meetings (governance phase 5): notice, agenda, attendance, votes
+ * Board meetings: notice, agenda, attendance, votes
  * and minutes. Quorum and results are computed per agenda item by the deed
  * in force on the meeting's date (packages/shared/src/meetings.ts).
  */

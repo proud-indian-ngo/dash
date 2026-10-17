@@ -1,5 +1,5 @@
 /**
- * Board meetings (governance phase 5): notice, quorum per agenda item, and
+ * Board meetings: notice, quorum per agenda item, and
  * the result of a vote, by the deed in force on the meeting's date.
  * Pure, so the meeting page and the server agree.
  */
