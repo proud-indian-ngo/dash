@@ -140,29 +140,50 @@ async function fileFinalCopy(
       validationReport: report,
     }));
   await setFinalDocument(resolutionId, documentId);
+  await fileArchiveCopy({
+    bytes,
+    documentId,
+    log: { resolutionId },
+    objectKey,
+    archiveKey: resolutionKey(resolutionId, "final-ltv.pdf"),
+  });
+}
+
+/**
+ * Makes a signed vault document's long-term copy (revocation data and a
+ * document timestamp), renewed yearly. A failure is logged and left due
+ * today, so the yearly job retries it; the signed original is already safe.
+ */
+export async function fileArchiveCopy(input: {
+  archiveKey: string;
+  bytes: Uint8Array;
+  documentId: string;
+  /** Identifiers for the log line. */
+  log: Record<string, string>;
+  /** The signed original, which stands in until the copy is made. */
+  objectKey: string;
+}): Promise<void> {
   try {
-    const archived = await finalizeForArchive(bytes);
-    const archiveKey = resolutionKey(resolutionId, "final-ltv.pdf");
+    const archived = await finalizeForArchive(input.bytes);
     const s3 = await getS3();
-    await s3.write(archiveKey, archived, { type: "application/pdf" });
-    await setArchiveCopy(documentId, {
-      objectKey: archiveKey,
+    await s3.write(input.archiveKey, archived, { type: "application/pdf" });
+    await setArchiveCopy(input.documentId, {
+      objectKey: input.archiveKey,
       renewOn: addDays(todayInKolkata(), ARCHIVE_RENEW_DAYS),
       sha256: sha256Of(archived),
     });
   } catch (error) {
     const log = createRequestLogger({
       method: "POST",
-      path: "governance/fileFinalCopy",
+      path: "governance/fileArchiveCopy",
     });
-    log.set({ event: "archive_copy_failed", resolutionId });
+    log.set({ event: "archive_copy_failed", ...input.log });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
-    // Due today, so the yearly job retries it at its next run.
-    await setArchiveCopy(documentId, {
-      objectKey,
+    await setArchiveCopy(input.documentId, {
+      objectKey: input.objectKey,
       renewOn: todayInKolkata(),
-      sha256,
+      sha256: sha256Of(input.bytes),
     }).catch(() => undefined);
   }
 }

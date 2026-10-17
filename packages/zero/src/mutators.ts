@@ -43,6 +43,12 @@ import { kalakritiOperationMutators } from "./mutators/kalakriti-operation";
 import { kalakritiResultMutators } from "./mutators/kalakriti-result";
 import { kalakritiStudentMutators } from "./mutators/kalakriti-student";
 import { kalakritiTransportMutators } from "./mutators/kalakriti-transport";
+import {
+  agendaItemMutators,
+  agendaVoteMutators,
+  meetingAttendanceMutators,
+  meetingMutators,
+} from "./mutators/meetings";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
 import { reimbursementMutators } from "./mutators/reimbursement";
@@ -58,6 +64,8 @@ import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 export const mutators = defineMutators({
   accountHead: accountHeadMutators,
   advancePayment: advancePaymentMutators,
+  agendaItem: agendaItemMutators,
+  agendaVote: agendaVoteMutators,
   appConfig: appConfigMutators,
   bankAccount: bankAccountMutators,
   budget: budgetMutators,
@@ -88,6 +96,8 @@ export const mutators = defineMutators({
   kalakritiResult: kalakritiResultMutators,
   kalakritiStudent: kalakritiStudentMutators,
   kalakritiTransport: kalakritiTransportMutators,
+  meeting: meetingMutators,
+  meetingAttendance: meetingAttendanceMutators,
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
   orgAccount: orgAccountMutators,

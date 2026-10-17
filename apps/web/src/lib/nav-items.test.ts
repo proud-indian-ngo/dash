@@ -290,6 +290,7 @@ describe("Governance navigation", () => {
     expect(titles(["governance.view"])).toEqual([
       "Trustee register",
       "Resolutions",
+      "Meetings",
       "Compliance",
       "Documents",
       "Registrations",

@@ -134,6 +134,7 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM governance_document WHERE archive_object_key LIKE"
       );
+      expect(statement).toContain("FROM meeting WHERE minutes_object_key LIKE");
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

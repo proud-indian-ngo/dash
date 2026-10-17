@@ -1170,6 +1170,13 @@
       "when": 1792423978654,
       "tag": "0166_governance_compliance",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1792423999480,
+      "tag": "0167_governance_meetings",
+      "breakpoints": true
     }
   ]
 }

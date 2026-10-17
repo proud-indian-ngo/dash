@@ -104,6 +104,8 @@ import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$y
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
 import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
+import { Route as AppGovernanceMeetingsIndexRouteImport } from './routes/_app/governance/meetings/index'
+import { Route as AppGovernanceMeetingsMeetingIdRouteImport } from './routes/_app/governance/meetings/$meetingId'
 import { Route as AppGovernanceResolutionsIndexRouteImport } from './routes/_app/governance/resolutions/index'
 import { Route as AppGovernanceResolutionsResolutionIdRouteImport } from './routes/_app/governance/resolutions/$resolutionId'
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
@@ -643,6 +645,18 @@ const AppFinanceBooksOpeningRoute = AppFinanceBooksOpeningRouteImport.update({
   path: '/finance/books/opening',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGovernanceMeetingsIndexRoute =
+  AppGovernanceMeetingsIndexRouteImport.update({
+    id: '/meetings/',
+    path: '/meetings/',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceMeetingsMeetingIdRoute =
+  AppGovernanceMeetingsMeetingIdRouteImport.update({
+    id: '/meetings/$meetingId',
+    path: '/meetings/$meetingId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppGovernanceResolutionsIndexRoute =
   AppGovernanceResolutionsIndexRouteImport.update({
     id: '/resolutions/',
@@ -1070,6 +1084,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1108,6 +1123,7 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
   '/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -1211,6 +1227,7 @@ export interface FileRoutesByTo {
   '/api/jobs': typeof ApiJobsIndexRoute
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1248,6 +1265,7 @@ export interface FileRoutesByTo {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books': typeof AppFinanceBooksIndexRoute
+  '/governance/meetings': typeof AppGovernanceMeetingsIndexRoute
   '/governance/resolutions': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
@@ -1368,6 +1386,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/_app/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/_app/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/_app/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
@@ -1406,6 +1425,7 @@ export interface FileRoutesById {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/_app/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/_app/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
   '/_app/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
@@ -1525,6 +1545,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/settings'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
     | '/income/bank/import'
     | '/income/imports/$batchId'
@@ -1563,6 +1584,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books/'
+    | '/governance/meetings/'
     | '/governance/resolutions/'
     | '/income/bank/'
     | '/kalakriti/$year/'
@@ -1666,6 +1688,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
     | '/income/bank/import'
     | '/income/imports/$batchId'
@@ -1703,6 +1726,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books'
+    | '/governance/meetings'
     | '/governance/resolutions'
     | '/income/bank'
     | '/kalakriti/$year'
@@ -1822,6 +1846,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/settings'
     | '/_app/finance/books/audited'
     | '/_app/finance/books/opening'
+    | '/_app/governance/meetings/$meetingId'
     | '/_app/governance/resolutions/$resolutionId'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
@@ -1860,6 +1885,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/_app/finance/books/'
+    | '/_app/governance/meetings/'
     | '/_app/governance/resolutions/'
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
@@ -2598,6 +2624,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFinanceBooksOpeningRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/governance/meetings/': {
+      id: '/_app/governance/meetings/'
+      path: '/meetings'
+      fullPath: '/governance/meetings/'
+      preLoaderRoute: typeof AppGovernanceMeetingsIndexRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/meetings/$meetingId': {
+      id: '/_app/governance/meetings/$meetingId'
+      path: '/meetings/$meetingId'
+      fullPath: '/governance/meetings/$meetingId'
+      preLoaderRoute: typeof AppGovernanceMeetingsMeetingIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
     '/_app/governance/resolutions/': {
       id: '/_app/governance/resolutions/'
       path: '/resolutions'
@@ -3054,7 +3094,9 @@ interface AppGovernanceRouteRouteChildren {
   AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
   AppGovernanceSigningHelperRoute: typeof AppGovernanceSigningHelperRoute
   AppGovernanceIndexRoute: typeof AppGovernanceIndexRoute
+  AppGovernanceMeetingsMeetingIdRoute: typeof AppGovernanceMeetingsMeetingIdRoute
   AppGovernanceResolutionsResolutionIdRoute: typeof AppGovernanceResolutionsResolutionIdRoute
+  AppGovernanceMeetingsIndexRoute: typeof AppGovernanceMeetingsIndexRoute
   AppGovernanceResolutionsIndexRoute: typeof AppGovernanceResolutionsIndexRoute
 }
 
@@ -3065,8 +3107,10 @@ const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
   AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,
   AppGovernanceSigningHelperRoute: AppGovernanceSigningHelperRoute,
   AppGovernanceIndexRoute: AppGovernanceIndexRoute,
+  AppGovernanceMeetingsMeetingIdRoute: AppGovernanceMeetingsMeetingIdRoute,
   AppGovernanceResolutionsResolutionIdRoute:
     AppGovernanceResolutionsResolutionIdRoute,
+  AppGovernanceMeetingsIndexRoute: AppGovernanceMeetingsIndexRoute,
   AppGovernanceResolutionsIndexRoute: AppGovernanceResolutionsIndexRoute,
 }
 
