@@ -1,3 +1,8 @@
+import {
+  COMPLIANCE_NOTE_MAX,
+  COMPLIANCE_TITLE_MAX,
+  fiscalYearLabel,
+} from "@pi-dash/shared/compliance";
 import { organisationRegistrationTypeValues } from "@pi-dash/shared/constants";
 import {
   DOCUMENT_TITLE_MAX,
@@ -809,6 +814,148 @@ export const resolutionMutators = {
       assertHasPermission(ctx, "governance.manage");
       await requireDraft(tx, args.id);
       await tx.mutate.resolution.delete({ id: args.id });
+    }
+  ),
+};
+
+// ── Compliance calendar ─────────────────────────────────────────────────────
+
+async function requireItem(tx: Tx, id: string) {
+  const item = await tx.run(zql.complianceItem.where("id", id).one());
+  if (!item) {
+    throw new Error("Item not found");
+  }
+  return item;
+}
+
+export const complianceItemMutators = {
+  /** An item added by hand, outside the templates. */
+  create: defineMutator(
+    z.object({
+      dueOn: isoDate,
+      id: z.string(),
+      note: z.string().trim().max(COMPLIANCE_NOTE_MAX).nullable().optional(),
+      ownerUserId: z.string().nullable().optional(),
+      title: z.string().trim().min(1).max(COMPLIANCE_TITLE_MAX),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const now = Date.now();
+      await tx.mutate.complianceItem.insert({
+        createdAt: now,
+        dueOn: toEpoch(args.dueOn),
+        fiscalYear: fiscalYearLabel(args.dueOn),
+        id: args.id,
+        note: args.note ?? null,
+        ownerUserId: args.ownerUserId ?? null,
+        sourceKey: null,
+        status: "open",
+        templateId: null,
+        title: args.title,
+        updatedAt: now,
+      });
+    }
+  ),
+  /** Done, with the filing or record that proves it: an item never closes on a click. */
+  close: defineMutator(
+    z.object({
+      evidenceDocumentId: z.string(),
+      id: z.string(),
+      note: z.string().trim().max(COMPLIANCE_NOTE_MAX).nullable().optional(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const item = await requireItem(tx, args.id);
+      if (item.status !== "open") {
+        throw new Error("This item is already closed.");
+      }
+      await assertDocumentsExist(tx, [args.evidenceDocumentId]);
+      const now = Date.now();
+      await tx.mutate.complianceItem.update({
+        closedAt: now,
+        closedBy: ctx.userId,
+        evidenceDocumentId: args.evidenceDocumentId,
+        id: args.id,
+        note: args.note === undefined ? (item.note ?? null) : args.note,
+        status: "done",
+        updatedAt: now,
+      });
+    }
+  ),
+  /** Not needed this time, with the reason. */
+  waive: defineMutator(
+    z.object({
+      id: z.string(),
+      note: z.string().trim().min(1).max(COMPLIANCE_NOTE_MAX),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const item = await requireItem(tx, args.id);
+      if (item.status !== "open") {
+        throw new Error("This item is already closed.");
+      }
+      const now = Date.now();
+      await tx.mutate.complianceItem.update({
+        closedAt: now,
+        closedBy: ctx.userId,
+        id: args.id,
+        note: args.note,
+        status: "waived",
+        updatedAt: now,
+      });
+    }
+  ),
+  reopen: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      await requireItem(tx, args.id);
+      await tx.mutate.complianceItem.update({
+        closedAt: null,
+        closedBy: null,
+        evidenceDocumentId: null,
+        id: args.id,
+        status: "open",
+        updatedAt: Date.now(),
+      });
+    }
+  ),
+  assign: defineMutator(
+    z.object({ id: z.string(), ownerUserId: z.string().nullable() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      await requireItem(tx, args.id);
+      await tx.mutate.complianceItem.update({
+        id: args.id,
+        ownerUserId: args.ownerUserId,
+        updatedAt: Date.now(),
+      });
+    }
+  ),
+};
+
+export const complianceTemplateMutators = {
+  /** Owner and on/off; the rule itself comes from the default calendar. */
+  update: defineMutator(
+    z.object({
+      active: z.boolean(),
+      id: z.string(),
+      ownerUserId: z.string().nullable(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const template = await tx.run(
+        zql.complianceTemplate.where("id", args.id).one()
+      );
+      if (!template) {
+        throw new Error("Template not found");
+      }
+      await tx.mutate.complianceTemplate.update({
+        active: args.active,
+        id: args.id,
+        ownerUserId: args.ownerUserId,
+        updatedAt: Date.now(),
+      });
     }
   ),
 };

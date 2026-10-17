@@ -38,7 +38,10 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
-import { ensureGovernanceFixtures } from "@pi-dash/db/seed-governance";
+import {
+  ensureComplianceFixtures,
+  ensureGovernanceFixtures,
+} from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
@@ -1776,6 +1779,7 @@ async function seed(): Promise<void> {
     jointManagingTrusteeUserId: adminUserId,
     managingTrusteeUserId: superAdminUserId,
   });
+  await ensureComplianceFixtures();
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });

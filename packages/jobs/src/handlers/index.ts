@@ -10,6 +10,10 @@ import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
+import {
+  handleGenerateComplianceItems,
+  handleRemindComplianceItems,
+} from "./compliance";
 import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
@@ -585,6 +589,16 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "retimestamp-governance-archives",
     NOTIFY_POLL,
     withDefaultOutput((jobs) => handleRetimestampGovernanceArchives(jobs))
+  );
+  await boss.work(
+    "generate-compliance-items",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleGenerateComplianceItems(jobs))
+  );
+  await boss.work(
+    "remind-compliance-items",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRemindComplianceItems(jobs))
   );
   await boss.work(
     "remind-trustee-terms",
