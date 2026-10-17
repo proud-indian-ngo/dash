@@ -129,6 +129,7 @@ Time-based lists that are not tables (the events page):
 - Undoable one-click actions: `deferAction` from `@/lib/deferred-actions`. Deletes: a confirmation dialog.
 - Dialog widths: `sm:max-w-(--dialog-sm)` for confirms and one-field prompts, `--dialog-md` for most forms, `--dialog-lg` for long or two-column forms. Very wide pickers and tables keep their own width.
 - Desktop dialogs are banded: sticky header above a hairline, scrolling fields, sticky footer (`DialogFooter` or `FormActions`, styled in `apps/web/src/index.css`) on a grey strip. Page-like dialogs opt out with `data-plain`. Phones use the bottom drawer.
+- Field outlines use `--control` (checkboxes and off switches `--control-strong`). Text fields, selects, comboboxes and date pickers darken to `--control-strong` on hover unless disabled, invalid or focused. An invalid field keeps its label neutral; its red outline and the message below carry the error.
 - `FormActions`: Cancel then verb, right-aligned, everywhere except scan panels, which keep the action left (away from toasts, for repeated scans).
 - Loading: `DetailPageSkeleton` and `TableSkeleton` (`@/components/shared/page-skeleton`). Spinners only for actions in progress and inside dialogs.
 - Empty and error states: `NotFoundState` (`@/components/shared/not-found-state`), a muted icon tile, page-title type, one sentence, at most one primary button, no illustrations.

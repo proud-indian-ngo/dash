@@ -14,6 +14,7 @@ import {
   type FieldValidatorConfig,
   type FormFieldApi,
   type FormInstance,
+  fieldErrorProps,
   useResolvedForm,
 } from "./form-context";
 import type { SelectOption } from "./select-field";
@@ -46,6 +47,7 @@ function ComboboxFieldControl({
   isRequired,
   options,
   placeholder,
+  submitted,
 }: {
   disabled: boolean;
   emptyMessage: string;
@@ -54,6 +56,7 @@ function ComboboxFieldControl({
   isRequired: boolean;
   options: SelectOption[];
   placeholder: string;
+  submitted: boolean;
 }) {
   const items = options.map((o) => o.value);
   const labels = new Map(options.map((o) => [o.value, o.label]));
@@ -74,6 +77,7 @@ function ComboboxFieldControl({
       value={value}
     >
       <ComboboxInput
+        {...fieldErrorProps(field, submitted)}
         aria-required={isRequired}
         className="w-full"
         id={id ?? field.name}
@@ -121,7 +125,7 @@ export function ComboboxField({
       name={name}
       validators={validators}
     >
-      {(field) => (
+      {(field, submitted) => (
         <ComboboxFieldControl
           disabled={disabled}
           emptyMessage={emptyMessage}
@@ -130,6 +134,7 @@ export function ComboboxField({
           isRequired={isRequired}
           options={options}
           placeholder={placeholder}
+          submitted={submitted}
         />
       )}
     </CustomField>
