@@ -423,3 +423,35 @@ export async function ensureDevPolicyExamples(
     })
     .onConflictDoNothing();
 }
+
+/**
+ * For E2E: the Joint Managing Trustee's declaration for the year, naming
+ * the vendor of the seeded vendor payment, so the approver's warning can be
+ * checked without making a declaration's PDF.
+ */
+export async function ensureDeclarationFixture(
+  vendorName: string
+): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(conflictDeclaration)
+    .values({
+      createdAt: now,
+      declaredAt: now,
+      declaredBy: null,
+      documentId: null,
+      fiscalYear: fiscalYearLabel(todayInKolkata()),
+      id: "01930000-0000-7000-8000-00000000d522",
+      interests: [
+        {
+          nature: "Event supplies",
+          party: vendorName,
+          relationship: "Brother's firm",
+        },
+      ],
+      nothingToDeclare: false,
+      trusteeId: T.jointManagingTrustee,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+}
