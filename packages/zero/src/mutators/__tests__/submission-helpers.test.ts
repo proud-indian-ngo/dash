@@ -157,27 +157,58 @@ describe("assertCanModify", () => {
 });
 
 describe("assertCanDelete", () => {
-  it("passes for admin regardless of status", () => {
+  it("passes for delete_all holders regardless of status", () => {
     expect(() =>
-      assertCanDelete({ status: "approved", userId: "user-1" }, "admin-1", true)
+      assertCanDelete(
+        { status: "approved", userId: "user-1" },
+        "admin-1",
+        true,
+        false
+      )
     ).not.toThrow();
   });
 
-  it("passes for owner with pending status", () => {
+  it("passes for owner with delete_own and pending status", () => {
     expect(() =>
-      assertCanDelete({ status: "pending", userId: "user-1" }, "user-1", false)
+      assertCanDelete(
+        { status: "pending", userId: "user-1" },
+        "user-1",
+        false,
+        true
+      )
     ).not.toThrow();
+  });
+
+  it("throws for owner without delete_own", () => {
+    expect(() =>
+      assertCanDelete(
+        { status: "pending", userId: "user-1" },
+        "user-1",
+        false,
+        false
+      )
+    ).toThrow("Unauthorized");
   });
 
   it("throws for owner with non-pending status", () => {
     expect(() =>
-      assertCanDelete({ status: "approved", userId: "user-1" }, "user-1", false)
+      assertCanDelete(
+        { status: "approved", userId: "user-1" },
+        "user-1",
+        false,
+        true
+      )
     ).toThrow("Unauthorized");
   });
 
-  it("throws for non-owner non-admin", () => {
+  it("throws for non-owner without delete_all", () => {
     expect(() =>
-      assertCanDelete({ status: "pending", userId: "user-1" }, "user-2", false)
+      assertCanDelete(
+        { status: "pending", userId: "user-1" },
+        "user-2",
+        false,
+        true
+      )
     ).toThrow("Unauthorized");
   });
 });

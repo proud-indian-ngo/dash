@@ -32,6 +32,7 @@ import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import type { SelectOption } from "@/components/form/select-field";
 import { SelectField } from "@/components/form/select-field";
+import { useApp } from "@/context/app-context";
 import type { Attachment } from "@/lib/form-schemas";
 import { cityOptions } from "@/lib/form-schemas";
 import type { RequestType } from "@/lib/reimbursement-types";
@@ -213,6 +214,7 @@ export function StandardReimbursementFields({
     "StandardReimbursementFields"
   );
   const submitted = useFormSubmitted(resolvedForm);
+  const { hasPermission } = useApp();
 
   function renderBankAccountField() {
     if (bankAccountOptions.length > 0) {
@@ -261,6 +263,15 @@ export function StandardReimbursementFields({
         <p className="text-muted-foreground text-sm">
           {claimantName} has no saved bank account or UPI. They need to add one
           in Settings &rarr; Bank accounts before you can raise this for them.
+        </p>
+      );
+    }
+
+    if (!hasPermission("bank_accounts.manage_own")) {
+      return (
+        <p className="text-muted-foreground text-sm">
+          No bank account or UPI saved, and your role can't add one. Ask an
+          admin to help.
         </p>
       );
     }

@@ -232,7 +232,12 @@ export const advancePaymentMutators = {
         zql.advancePayment.where("id", args.id).one()
       );
       assertEntityExists(entity, "Advance payment");
-      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      assertCanDelete(
+        entity,
+        userId,
+        can(ctx, "requests.delete_all"),
+        can(ctx, "requests.delete_own")
+      );
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: advancePaymentApprovalKeyPrefixes(args.id),
         meta: {

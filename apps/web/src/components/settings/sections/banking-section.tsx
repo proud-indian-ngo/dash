@@ -20,6 +20,7 @@ import {
 } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Tag } from "@/components/shared/status-badge";
+import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import {
@@ -29,10 +30,12 @@ import {
 
 function BankAccountListRow({
   account,
+  canManage,
   onDelete,
   onSetDefault,
 }: {
   account: BankAccount;
+  canManage: boolean;
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
 }) {
@@ -42,31 +45,33 @@ function BankAccountListRow({
   return (
     <SettingsListItem
       actions={
-        <>
-          {account.isDefault ? null : (
+        canManage ? (
+          <>
+            {account.isDefault ? null : (
+              <Button
+                onClick={handleSetDefault}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Set default
+              </Button>
+            )}
             <Button
-              onClick={handleSetDefault}
-              size="sm"
+              aria-label="Delete account"
+              onClick={handleDelete}
+              size="icon-sm"
               type="button"
               variant="ghost"
             >
-              Set default
+              <HugeiconsIcon
+                className="size-4"
+                icon={Delete02Icon}
+                strokeWidth={2}
+              />
             </Button>
-          )}
-          <Button
-            aria-label="Delete account"
-            onClick={handleDelete}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={Delete02Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        </>
+          </>
+        ) : undefined
       }
       detail={
         <span className="font-mono tabular-nums">
@@ -94,6 +99,8 @@ function addedLabel(value: BankAccountFormValues): string {
 
 export function BankingSection() {
   const zero = useZero();
+  const { hasPermission } = useApp();
+  const canManage = hasPermission("bank_accounts.manage_own");
   const [accounts] = useQuery(queries.bankAccount.bankAccountsByCurrentUser());
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -178,6 +185,7 @@ export function BankingSection() {
           {accountList.map((account) => (
             <BankAccountListRow
               account={account}
+              canManage={canManage}
               key={account.id}
               onDelete={handleDeleteRequest}
               onSetDefault={handleSetDefault}
@@ -186,37 +194,45 @@ export function BankingSection() {
         </SettingsCard>
       ) : (
         <p className="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm">
-          No bank accounts or UPI yet. Add one below so reimbursements can be
-          paid.
+          {canManage
+            ? "No bank accounts or UPI yet. Add one below so reimbursements can be paid."
+            : "No bank accounts or UPI yet."}
         </p>
       )}
 
-      <FormLayout className="flex max-w-md flex-col gap-4" form={form}>
-        <h2 className="text-sm font-medium">Add a bank account or UPI</h2>
-        <p className="text-muted-foreground -mt-2 text-sm">
-          Add bank details, a UPI ID or number, or both. Finance pays by
-          whichever suits them.
+      {canManage ? (
+        <FormLayout className="flex max-w-md flex-col gap-4" form={form}>
+          <h2 className="text-sm font-medium">Add a bank account or UPI</h2>
+          <p className="text-muted-foreground -mt-2 text-sm">
+            Add bank details, a UPI ID or number, or both. Finance pays by
+            whichever suits them.
+          </p>
+          <InputField
+            description="As on your bank account or UPI app"
+            label="Account name"
+            name="accountName"
+          />
+          <InputField label="Account number" name="accountNumber" />
+          <InputField
+            className="uppercase"
+            label="IFSC code"
+            name="ifscCode"
+            placeholder="ABCD0123456"
+          />
+          <InputField
+            description="A UPI ID, or the mobile number linked to UPI"
+            label="UPI ID or mobile number"
+            name="upiId"
+            placeholder="name@okhdfc or 9876543210"
+          />
+          <FormActions submitLabel="Add account" submittingLabel="Adding..." />
+        </FormLayout>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          Your role can't add or change bank accounts. Ask an admin if you need
+          to.
         </p>
-        <InputField
-          description="As on your bank account or UPI app"
-          label="Account name"
-          name="accountName"
-        />
-        <InputField label="Account number" name="accountNumber" />
-        <InputField
-          className="uppercase"
-          label="IFSC code"
-          name="ifscCode"
-          placeholder="ABCD0123456"
-        />
-        <InputField
-          description="A UPI ID, or the mobile number linked to UPI"
-          label="UPI ID or mobile number"
-          name="upiId"
-          placeholder="name@okhdfc or 9876543210"
-        />
-        <FormActions submitLabel="Add account" submittingLabel="Adding..." />
-      </FormLayout>
+      )}
 
       <ConfirmDialog
         confirmLabel="Delete account"

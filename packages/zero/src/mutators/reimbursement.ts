@@ -849,8 +849,8 @@ export const reimbursementMutators = {
    * details become one of the new claimant's saved accounts (cleared when
    * they have none). Vouchers print the claimant as "Claimed by", so any
    * voucher and signed copy are unlinked (the files stay among the
-   * attachments) and an approved request queues fresh ones. Expenses aren't
-   * posted to the books yet; once they are, this must reverse and repost.
+   * attachments) and an approved request queues fresh ones. A posted request
+   * is reversed and reposted, because the payout memo names the claimant.
    */
   changeClaimant: defineMutator(
     changeClaimantSchema,
@@ -1086,7 +1086,12 @@ export const reimbursementMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
-      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      assertCanDelete(
+        entity,
+        userId,
+        can(ctx, "requests.delete_all"),
+        can(ctx, "requests.delete_own")
+      );
       await assertDeletable(tx, entity, [ledgerSource(args.id)]);
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),

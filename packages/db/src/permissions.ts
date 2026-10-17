@@ -271,7 +271,7 @@ export const PERMISSIONS = [
   {
     category: "events",
     description:
-      "Toggle feedback, set deadline, view anonymous responses (also granted to team leads)",
+      "View anonymous feedback responses (also granted to team leads)",
     id: "events.manage_feedback",
     name: "Manage Feedback",
   },
@@ -519,6 +519,7 @@ export const VOLUNTEER_BASELINE_PERMISSIONS: readonly PermissionId[] = [
 /** Minimal permissions for unoriented volunteers (pre-orientation signup default) */
 export const UNORIENTED_VOLUNTEER_PERMISSIONS: readonly PermissionId[] = [
   "events.view_own",
+  "bank_accounts.manage_own",
 ];
 
 /** External users only enter Kalakriti through an active Edition membership. */
