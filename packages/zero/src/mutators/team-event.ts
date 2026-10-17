@@ -28,7 +28,9 @@ import {
   cancelSeriesFollowing,
   cancelSeriesThis,
   ISO_DATE_RE,
+  changedSeriesArgs,
   moveSeriesOccurrencesToGroup,
+  moveSeriesSessionsToProgramme,
   sessionFieldsFrom,
   type Tx,
   updateSeriesAll,
@@ -115,8 +117,21 @@ async function seriesHasStarted(
   }
   const ids = [series.id, ...sessions.map((s) => s.id)];
   const [claim, payment] = await Promise.all([
-    tx.run(zql.reimbursement.where("eventId", "IN", ids).one()),
-    tx.run(zql.vendorPayment.where("eventId", "IN", ids).one()),
+    // Rejected and voided requests charge nothing.
+    tx.run(
+      zql.reimbursement
+        .where("eventId", "IN", ids)
+        .where("status", "!=", "rejected")
+        .where("voidedAt", "IS", null)
+        .one()
+    ),
+    tx.run(
+      zql.vendorPayment
+        .where("eventId", "IN", ids)
+        .where("status", "!=", "rejected")
+        .where("voidedAt", "IS", null)
+        .one()
+    ),
   ]);
   return Boolean(claim ?? payment);
 }
@@ -1646,17 +1661,41 @@ export const teamEventMutators = {
 
       let movedOccurrenceIds: string[] = [];
       if (mode === "all") {
+        const changes = changedSeriesArgs(args, existing);
+        // As the series was before this edit.
+        const before = {
+          programmeId: existing.programmeId,
+          startDate: seriesStartDate(existing.startTime),
+        };
         await updateSeriesAll(tx, args, buildUpdateFields(args));
-        // A live start-date row is the first session, so it takes the edit.
         if (existing.recurrenceRule && !existing.seriesId) {
+          // A live start-date row is the first session: it takes what the
+          // edit changed, keeping its own details otherwise.
           const first = (await tx.run(
             zql.teamEvent
               .where("seriesId", args.id)
-              .where("originalDate", seriesStartDate(existing.startTime))
+              .where("originalDate", before.startDate)
               .one()
           )) as TeamEvent | undefined;
           if (first && !first.cancelledAt) {
-            await tx.mutate.teamEvent.update(sessionFieldsFrom(args, first));
+            // A moved start keeps the series' end with it.
+            await tx.mutate.teamEvent.update(
+              sessionFieldsFrom(
+                changes.startTime === undefined
+                  ? changes
+                  : { ...changes, endTime: args.endTime },
+                first
+              )
+            );
+          }
+          // Only reachable before the series starts (guarded above).
+          if (changes.programmeId !== undefined && before.programmeId) {
+            await moveSeriesSessionsToProgramme(tx, {
+              fromProgrammeId: before.programmeId,
+              now: args.now,
+              seriesId: args.id,
+              toProgrammeId: changes.programmeId,
+            });
           }
         }
         if (nextGroupId !== undefined) {

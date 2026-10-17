@@ -531,9 +531,70 @@ describe("this and following on the series' start date", () => {
 
   it("refuses it before the start once money is charged to a session", async () => {
     const d = db();
-    d.tables.reimbursement?.push({ eventId: "first-row", id: "r-1" });
+    d.tables.reimbursement?.push({
+      eventId: "first-row",
+      id: "r-1",
+      status: "pending",
+      voidedAt: null,
+    });
     await expect(editAll(d, NOW, { programmeId: "p-2" })).rejects.toThrow(
       "Past sessions keep their programme"
     );
+  });
+
+  it("lets a rejected or voided claim pass", async () => {
+    const d = db();
+    d.tables.reimbursement?.push(
+      { eventId: "first-row", id: "r-1", status: "rejected", voidedAt: null },
+      { eventId: "series-1", id: "r-2", status: "approved", voidedAt: NOW }
+    );
+    await editAll(d, NOW, { programmeId: "p-2" });
+    expect(d.tables.teamEvent?.[0]?.programmeId).toBe("p-2");
+  });
+
+  it("moves saved sessions still on the old programme with an All events change", async () => {
+    const d = db();
+    d.tables.teamEvent?.push(
+      {
+        id: "later",
+        originalDate: "2026-10-10",
+        programmeId: "p-1",
+        seriesId: "series-1",
+        startTime: FIRST + 7 * 86_400_000,
+      },
+      {
+        id: "own",
+        originalDate: "2026-10-17",
+        programmeId: "p-own",
+        seriesId: "series-1",
+        startTime: FIRST + 14 * 86_400_000,
+      }
+    );
+    await editAll(d, NOW, { programmeId: "p-2" });
+    const programmeOf = (id: string) =>
+      d.tables.teamEvent?.find((e) => e.id === id)?.programmeId;
+    expect(programmeOf("later")).toBe("p-2");
+    expect(programmeOf("own")).toBe("p-own");
+  });
+
+  it("keeps the start-date row's own details when All events renames the series", async () => {
+    const d = db();
+    Object.assign(d.tables.teamEvent?.[1] ?? {}, {
+      location: "Own hall",
+      startTime: FIRST + 1_800_000,
+    });
+    // The dialog submits every field, prefilled from the series row.
+    await editAll(d, NOW, {
+      endTime: series.endTime,
+      location: series.location,
+      name: "Weekly class, renamed",
+      programmeId: "p-1",
+      startTime: FIRST,
+    });
+    expect(d.tables.teamEvent?.[1]).toMatchObject({
+      location: "Own hall",
+      name: "Weekly class, renamed",
+      startTime: FIRST + 1_800_000,
+    });
   });
 });

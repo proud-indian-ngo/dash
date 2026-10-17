@@ -221,6 +221,61 @@ export function sessionFieldsFrom(
   });
 }
 
+/**
+ * The part of an "All events" edit that really changes the series: the
+ * dialog submits every field prefilled from the series row, so only values
+ * that differ from that row's count. Sessions saved with their own details
+ * then keep them unless the series' value for that detail changed.
+ */
+export function changedSeriesArgs(
+  args: UpdateArgs,
+  before: TeamEvent
+): UpdateArgs {
+  const changed: Record<string, unknown> = { id: args.id, now: args.now };
+  for (const [key, value] of Object.entries(buildUpdateFields(args))) {
+    if (key === "id" || key === "updatedAt") {
+      continue;
+    }
+    const previous = (before as unknown as Record<string, unknown>)[key];
+    if (JSON.stringify(value ?? null) !== JSON.stringify(previous ?? null)) {
+      changed[key] = value;
+    }
+  }
+  return changed as unknown as UpdateArgs;
+}
+
+/**
+ * "All events" changing the programme before the series starts: saved
+ * sessions still on the old programme follow, as the group does; one given
+ * its own programme keeps it. Returns the moved ids.
+ */
+export async function moveSeriesSessionsToProgramme(
+  tx: Tx,
+  args: {
+    fromProgrammeId: string;
+    now: number;
+    seriesId: string;
+    toProgrammeId: string;
+  }
+): Promise<string[]> {
+  const sessions = (await tx.run(
+    zql.teamEvent.where("seriesId", args.seriesId)
+  )) as TeamEvent[];
+  const following = sessions.filter(
+    (session) => session.programmeId === args.fromProgrammeId
+  );
+  await Promise.all(
+    following.map((session) =>
+      tx.mutate.teamEvent.update({
+        id: session.id,
+        programmeId: args.toProgrammeId,
+        updatedAt: args.now,
+      })
+    )
+  );
+  return following.map((session) => session.id);
+}
+
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 abstract class BivariantZeroMutation {
@@ -384,8 +439,11 @@ async function saveUpcomingSessionsBefore(
 ) {
   const rule = parseRecurrenceRule(series.recurrenceRule);
   const transaction = tx.dbTransaction?.wrappedTransaction;
-  if (!rule || tx.location !== "server" || !transaction) {
+  if (!rule || tx.location !== "server") {
     return;
+  }
+  if (!transaction) {
+    throw new Error("Server transaction is unavailable");
   }
   const splitStart = Date.parse(`${args.splitDate}T00:00:00Z`);
   const firstDate = seriesStartDate(series.startTime);
@@ -416,20 +474,12 @@ async function saveUpcomingSessionsBefore(
   const { saveSeriesSessions } = await import("@pi-dash/db/series-sessions");
   await saveSeriesSessions(
     transaction as Parameters<typeof saveSeriesSessions>[0],
-    upcoming.map((occ) => ({
-      ...buildExceptionInsert(
-        uuidv7(),
-        series,
-        occ.date,
-        args.userId,
-        args.now,
-        {
-          ...(occ.endTime === null ? {} : { endTime: occ.endTime }),
-          startTime: occ.startTime,
-        }
-      ),
-      reminderTarget: series.reminderTarget,
-    })),
+    upcoming.map((occ) =>
+      buildExceptionInsert(uuidv7(), series, occ.date, args.userId, args.now, {
+        ...(occ.endTime === null ? {} : { endTime: occ.endTime }),
+        startTime: occ.startTime,
+      })
+    ),
     volunteers
   );
 }
