@@ -236,6 +236,17 @@ describe("buildSocialEvents", () => {
     expect(event?.socialNotes).toBe("Great turnout.");
   });
 
+  it("reports null children for a completed event without children", () => {
+    const [event] = buildSocialEvents(
+      [row({ childrenAttended: null, socialCompletedAt: SAT + 3 * HOUR })],
+      WINDOW,
+      BASE_URL,
+      new Map()
+    );
+
+    expect(event?.attendance?.children).toBeNull();
+  });
+
   it("prefers cancelled over completed", () => {
     const [event] = buildSocialEvents(
       [row({ cancelledAt: SAT, socialCompletedAt: SAT })],

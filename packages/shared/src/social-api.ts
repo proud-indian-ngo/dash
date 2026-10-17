@@ -41,7 +41,12 @@ export interface SocialPartner {
 
 export interface SocialEvent {
   area: string;
-  attendance: { children: number; hours: number; volunteers: number } | null;
+  attendance: {
+    /** Null when the lead marked the event as having no children. */
+    children: number | null;
+    hours: number;
+    volunteers: number;
+  } | null;
   /** The event's cost centre code (`BLR`). */
   city: string;
   /** The cost centre's name ("Bangalore"). */
@@ -359,7 +364,7 @@ export function buildSocialEvents(
       area: toPublicArea(row.publicArea, row.cityName),
       attendance: completed
         ? {
-            children: row.childrenAttended ?? 0,
+            children: row.childrenAttended,
             hours: sessionHours(occ.startTime, occ.endTime),
             volunteers: own.presentVolunteers,
           }

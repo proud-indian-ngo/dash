@@ -23,7 +23,11 @@ async function fixture<T>(
 }
 
 interface SocialEvent {
-  attendance: { children: number; hours: number; volunteers: number } | null;
+  attendance: {
+    children: number | null;
+    hours: number;
+    volunteers: number;
+  } | null;
   id: string;
   photos: { count: number | null };
   socialNotes: string | null;
@@ -118,6 +122,28 @@ test.describe("Social recap", () => {
         [fx.usablePhotoId, false],
         [fx.photoId, true],
       ]);
+
+      // An event without children, like a cleanup drive, sends no count.
+      await recap.getByRole("button", { name: "Edit" }).click();
+      await recap
+        .getByRole("switch", { name: "No children at this event" })
+        .click();
+      await expect(recap.getByLabel("Children attended")).toHaveCount(0);
+      await recap.getByRole("button", { name: "Save recap" }).click();
+      await expect(recap.getByText("No children")).toBeVisible({
+        timeout: 10_000,
+      });
+
+      await expect
+        .poll(async () => {
+          const res = await request.get(
+            `/api/social/v1/events?from=${fx.from}&to=${fx.to}`,
+            { headers: { Authorization: `Bearer ${fx.token}` } }
+          );
+          const { events } = (await res.json()) as { events: SocialEvent[] };
+          return events.find((e) => e.id === fx.eventId)?.attendance;
+        })
+        .toEqual({ children: null, hours: 2, volunteers: 1 });
     } finally {
       await fixture("cleanup");
     }
