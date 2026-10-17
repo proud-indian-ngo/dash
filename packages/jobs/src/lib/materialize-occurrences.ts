@@ -15,6 +15,7 @@ export type SeriesParent = Awaited<
 function querySeriesParents() {
   return db
     .select({
+      costCentreId: teamEvent.costCentreId,
       createdBy: teamEvent.createdBy,
       description: teamEvent.description,
       endTime: teamEvent.endTime,
@@ -72,6 +73,9 @@ async function materializeOccurrence(
     .insert(teamEvent)
     .values({
       cancelledAt: null,
+      // The series' cost centre: occurrences of a Mumbai series once fell
+      // back to Bangalore because this was not copied.
+      costCentreId: parent.costCentreId,
       createdAt: new Date(now),
       createdBy: parent.createdBy,
       description: parent.description,

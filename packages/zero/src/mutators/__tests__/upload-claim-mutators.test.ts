@@ -35,6 +35,10 @@ beforeEach(() => {
   mock.clearAllMocks();
 });
 
+/** Reads nothing, and no cost centres (a request then has none). */
+const noCostCentres = (query: { ast: { table: string } }) =>
+  Promise.resolve(query.ast.table === "costCentre" ? [] : undefined);
+
 describe("server mutator upload claims", () => {
   it("claims a reimbursement attachment under its request", async () => {
     const insertAttachment = mock();
@@ -47,7 +51,7 @@ describe("server mutator upload claims", () => {
         reimbursementHistory: { insert: mock() },
         reimbursementLineItem: { insert: mock() },
       },
-      run: mock().mockResolvedValue(undefined),
+      run: mock(noCostCentres),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-receipt.pdf";
 
@@ -122,7 +126,7 @@ describe("server mutator upload claims", () => {
         advancePaymentHistory: { insert: mock() },
         advancePaymentLineItem: { insert: mock() },
       },
-      run: mock().mockResolvedValue(undefined),
+      run: mock(noCostCentres),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-advance.pdf";
 
@@ -165,9 +169,11 @@ describe("server mutator upload claims", () => {
         vendorPaymentHistory: { insert: mock() },
         vendorPaymentLineItem: { insert: mock() },
       },
-      run: mock()
-        .mockResolvedValueOnce({ createdBy: "user-1", status: "approved" })
-        .mockResolvedValueOnce(undefined),
+      run: mock((query: { ast: { table: string } }) =>
+        query.ast.table === "vendor"
+          ? Promise.resolve({ createdBy: "user-1", status: "approved" })
+          : noCostCentres(query)
+      ),
     };
     const sourceKey = "app/attachments/tmp/user-1/upload-id-quote.pdf";
 

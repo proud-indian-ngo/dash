@@ -1,9 +1,9 @@
-import { cityValues } from "@pi-dash/shared/constants";
 import z from "zod";
 
 import {
   chargedToFormFields,
   refineChargedTo,
+  refineRequestCity,
 } from "@/components/expenses/charged-to-schema";
 import {
   attachmentSchema,
@@ -13,7 +13,8 @@ import {
 
 const vendorPaymentBaseFields = {
   attachments: z.array(attachmentSchema),
-  city: z.enum(cityValues, { message: "City is required" }),
+  /** Asked only without an event, when there is a choice (`refineRequestCity`). */
+  costCentreId: z.string().optional(),
   ...chargedToFormFields,
   lineItems: z
     .array(lineItemSchema)
@@ -21,12 +22,20 @@ const vendorPaymentBaseFields = {
   title: z.string().min(1, "Title is required"),
 };
 
-export const vendorPaymentFormSchema = z
-  .object({
-    ...vendorPaymentBaseFields,
-    vendorId: z.string().min(1, "Vendor is required"),
-  })
-  .superRefine(refineChargedTo);
+const vendorPaymentFields = z.object({
+  ...vendorPaymentBaseFields,
+  vendorId: z.string().min(1, "Vendor is required"),
+});
+
+/** The vendor payment form; `asksCity` when the "City" picker shows. */
+export function createVendorPaymentFormSchema(asksCity = false) {
+  return vendorPaymentFields.superRefine((value, context) => {
+    refineChargedTo(value, context);
+    refineRequestCity(value, context, asksCity);
+  });
+}
+
+export const vendorPaymentFormSchema = createVendorPaymentFormSchema();
 
 export type VendorPaymentFormValues = z.infer<typeof vendorPaymentFormSchema>;
 
@@ -35,7 +44,7 @@ export function getVendorPaymentDefaultValues(): VendorPaymentFormValues {
     attachments: [],
     // Most payments are for an event; the submitter switches otherwise.
     chargedTo: "event",
-    city: "bangalore",
+    costCentreId: undefined,
     eventId: undefined,
     lineItems: [newLineItem()],
     title: "",

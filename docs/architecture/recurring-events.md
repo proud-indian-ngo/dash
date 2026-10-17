@@ -34,7 +34,7 @@ Form and label helpers are in `packages/zero/src/lib/rrule-utils.ts` (`@pi-dash/
 
 - Expands each series over its own range, `[startTime, UNTIL ?? caller's rangeEnd]`. Bounded series show every occurrence; unbounded ones stop at the caller's range end.
 - Applies no range filter to exceptions: every non-cancelled exception renders. Series edits can orphan exceptions (see below), and this keeps them visible.
-- An exception row keeps `event` as the series parent (for `seriesId`, recurrence and edit scopes) and carries the occurrence as `exception`. Name, location, city, visibility, search and filters read `getRowDetails(row)`, the occurrence's own record.
+- An exception row keeps `event` as the series parent (for `seriesId`, recurrence and edit scopes) and carries the occurrence as `exception`. Name, location, city (cost centre), visibility, search and filters read `getRowDetails(row)`, the occurrence's own record.
 
 ## Edit and cancel scope
 
@@ -48,7 +48,7 @@ Form and label helpers are in `packages/zero/src/lib/rrule-utils.ts` (`@pi-dash/
 
 - `buildTruncatedRRule` (`packages/zero/src/mutators/team-event-series.ts`) sets `UNTIL=<splitDate>T000000Z`. Midnight UTC keeps the boundary timezone-clean whatever the series' wall-clock time.
 - Orphaned exceptions: `following` does not move exceptions on or after the split to the new series, and `all` can move the parent's start past existing exceptions. Their dates then no longer match the expansion.
-- A programme change applies forward only. `updateSeries` rejects it in `all` scope, so callers split (`following`) or use `this`. Every path that writes an occurrence copies `programmeId` from the series: `buildExceptionInsert`, the following-split insert, self-join, both background materialisers; `register-interest-db.ts` copies all columns.
+- A programme change applies forward only. `updateSeries` rejects it in `all` scope, so callers split (`following`) or use `this`. Every path that writes an occurrence copies `programmeId` and `costCentreId` from the series: `buildExceptionInsert`, the following-split insert, self-join, both background materialisers; `register-interest-db.ts` copies all columns.
 
 ### Edit form prefill
 
@@ -92,3 +92,10 @@ All honour `inheritVolunteers`. The "Inherit volunteers" checkbox shows only whe
 - an exception without `publicArea` inherits the parent's;
 - a cancelled or private parent hides all its occurrences; Kalakriti-managed events are never listed;
 - exception rows load only when they start in the window or replace a date in it.
+
+Cities are cost centres (`finance-and-programmes.md`):
+
+- `?city=` takes an active cost centre code in any case (`BLR`); without it every active centre lists. An unknown or inactive code is a 400 naming the active codes. `bangalore` and `bengaluru` are deprecated aliases of `BLR` until the website moves to codes (`normalisePublicCityCode`). Active codes come from `getPublicCostCentres` (`packages/db/src/queries/public-events.ts`), cached as `caching.md` describes.
+- Each event's `city` is the code and `cityName` the centre's name. The area label appends that name ("Iblur, Bangalore") unless the public area already names the city (Bangalore and Bengaluru, Mumbai and Bombay count as one).
+- Inactive centres' events never list, and the register page shows no session summary for a sign-up link to one.
+- `/api/public/openapi.json` is built per request from the active codes; a database failure returns 500.

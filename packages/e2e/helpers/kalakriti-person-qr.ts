@@ -17,6 +17,7 @@ import {
   kalakritiStudent,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 
 const fixture = {
@@ -93,7 +94,7 @@ async function setup(actorEmail: string) {
   const now = new Date();
   const humanId = `KAL-${fixture.year}-0001`;
   await db.insert(teamEvent).values({
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
     createdBy: actor.id,
     description: "Kalakriti credential E2E fixture",

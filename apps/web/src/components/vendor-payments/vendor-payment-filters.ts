@@ -1,4 +1,5 @@
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 
 import {
   dateField,
@@ -7,7 +8,10 @@ import {
   selectField,
 } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
-import { cityOptions } from "@/lib/form-schemas";
+import {
+  cityFilterOptions,
+  LEGACY_CITY_FILTER_PARAM,
+} from "@/lib/cost-centre-filter";
 import {
   requestProgrammeId,
   requestProgrammeName,
@@ -30,7 +34,7 @@ const STATUS_OPTIONS = [
 ];
 
 const LEGACY_VENDOR_PAYMENT_FILTER_PARAMS = [
-  { param: "city", path: "city" },
+  LEGACY_CITY_FILTER_PARAM,
   { param: "status", path: "status" },
 ] as const;
 
@@ -48,7 +52,8 @@ export function getVendorPaymentFilterValue(
   const [key] = path;
   switch (key) {
     case "city":
-      return row.city;
+      // The event's cost centre for a payment on an event, else its own.
+      return requestCostCentreId(row);
     case "createdBy":
       return row.userId;
     case "event":
@@ -71,10 +76,11 @@ export function getVendorPaymentFilterValue(
 }
 
 export function createVendorPaymentFilterFields(
-  rows: readonly VendorPaymentWithRelations[]
+  rows: readonly VendorPaymentWithRelations[],
+  activeCostCentres: readonly { id: string; name: string }[]
 ): FilterField[] {
   return [
-    selectField("city", "City", cityOptions),
+    selectField("city", "City", cityFilterOptions(activeCostCentres)),
     selectField("status", "Status", STATUS_OPTIONS),
     selectField(
       "vendor",

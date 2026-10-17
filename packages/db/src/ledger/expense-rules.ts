@@ -237,6 +237,12 @@ export interface ExpenseChargeFacts {
   chargedProgrammeId: string | null;
   chargedProjectId: string | null;
   chargedTo: ExpenseChargedTo;
+  /**
+   * The document's cost centre (`requestCostCentreId`): its event's when it
+   * has one, else its own; null on older requests that never recorded a
+   * city. Frozen on its expense and payment entries when it posts.
+   */
+  costCentreId: string | null;
   eventId: string | null;
   /** The event's current programme, when charged to an event. */
   eventProgrammeId: string | null;
@@ -264,6 +270,7 @@ function dimensionsOf(charge: ExpenseChargeFacts, partyId: string | null) {
     event: { programmeId: charge.eventProgrammeId },
   });
   return {
+    costCentreId: charge.costCentreId,
     eventId: charge.chargedTo === "event" ? charge.eventId : null,
     fundId: GENERAL_FUND_ID,
     partyId,
@@ -430,6 +437,7 @@ export function reimbursementPlan(
   ): EntryInput => ({
     accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.claimsPayable,
     amountPaise,
+    costCentreId: claim.charge.costCentreId,
     economicOn,
     effect,
     fundId: GENERAL_FUND_ID,
@@ -631,8 +639,9 @@ export function provisionOutstanding(
  * expense under the provision's expense head. Still one target per line:
  * the split is the books' arithmetic, not a second choice. The provision
  * decrease carries the vendor and the General Fund (where the provision
- * was raised) but no programme: it is not spending of the year. Null when
- * a line has no head, or names a head that is not a provision.
+ * was raised) but no programme or cost centre: it is not spending of the
+ * year. Null when a line has no head, or names a head that is not a
+ * provision.
  */
 function vendorInvoiceEntries(vp: VendorPaymentFacts): EntryInput[] | null {
   const plain = vp.lines.filter((l) => !l.provisionHeadId);
@@ -762,6 +771,7 @@ export function vendorPaymentPlan(vp: VendorPaymentFacts | null): SourcePlan {
   entries.push({
     accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
     amountPaise: expensePaise,
+    costCentreId: vp.charge.costCentreId,
     effect: "decrease",
     fundId: GENERAL_FUND_ID,
     memo: vp.title,
@@ -795,6 +805,8 @@ const PAYABLE_REQUEST_STATUSES: readonly string[] = [
 
 export interface VendorPaymentTransactionFacts extends PayingAccountFacts {
   amountPaise: number;
+  /** Its request's cost centre (`requestCostCentreId`). */
+  costCentreId: string | null;
   id: string;
   /** Bank debits matched to it (layer 3-3b). */
   matches: BankMatchFacts[];
@@ -869,6 +881,7 @@ export function vendorPaymentTransactionPlan(
         entries: cash.movements.map((m) => ({
           accountHeadId: LEDGER_ACCOUNT_HEAD_IDS.supplierAdvances,
           amountPaise: m.amountPaise,
+          costCentreId: payment.costCentreId,
           economicOn: m.occurredOn ?? cashOn,
           effect: "increase" as const,
           fundId: GENERAL_FUND_ID,

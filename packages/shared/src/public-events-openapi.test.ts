@@ -19,13 +19,16 @@ interface Schema {
   required: string[];
 }
 
-const spec = buildPublicEventsOpenApi(`${BASE_URL}/`);
+const CENTRES = [{ code: "BLR", name: "Bangalore" }];
+const spec = buildPublicEventsOpenApi(`${BASE_URL}/`, CENTRES);
 const eventSchema = spec.components.schemas.PublicEvent as unknown as Schema;
 
 function row(overrides: Partial<PublicEventSourceRow>): PublicEventSourceRow {
   return {
     cancelledAt: null,
-    city: "bangalore",
+    city: "BLR",
+    cityActive: true,
+    cityName: "Bangalore",
     description: "Help children with maths. ".repeat(20),
     endTime: null,
     id: "019a0000-0000-7000-8000-000000000001",
@@ -75,9 +78,9 @@ describe("buildPublicEventsOpenApi", () => {
       [
         row({ id: "with-programme" }),
         row({ id: "no-programme", teamName: "Ops" }),
-        row({ city: "mumbai", id: "mumbai", publicArea: null }),
+        row({ id: "no-area", publicArea: null }),
       ],
-      { city: "bangalore", from: NOW, limit: 20, to: NOW + 30 * DAY },
+      { cities: ["BLR"], from: NOW, limit: 20, to: NOW + 30 * DAY },
       BASE_URL
     );
 
@@ -93,6 +96,22 @@ describe("buildPublicEventsOpenApi", () => {
         (key) => !eventSchema.required.includes(key)
       )
     ).toEqual(["programme"]);
+  });
+
+  it("offers the active cost centre codes, and the deprecated aliases", () => {
+    const city = spec.paths["/api/public/events"].get.parameters.find(
+      (p) => p.name === "city"
+    );
+    expect(city?.schema).toEqual({
+      anyOf: [
+        { enum: ["BLR"], type: "string" },
+        expect.objectContaining({
+          deprecated: true,
+          enum: ["bangalore", "bengaluru"],
+        }),
+      ],
+    });
+    expect(eventSchema.properties.city?.enum).toEqual(["BLR"]);
   });
 
   it("takes its limits from the feed's constants", () => {

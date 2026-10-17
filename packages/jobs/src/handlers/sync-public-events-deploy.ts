@@ -1,4 +1,7 @@
-import { getPublicEvents } from "@pi-dash/db/queries/public-events";
+import {
+  getPublicCostCentres,
+  getPublicEvents,
+} from "@pi-dash/db/queries/public-events";
 import { env } from "@pi-dash/env/server";
 import {
   type PublicEvent,
@@ -68,10 +71,14 @@ export function createPublicEventsDeployCheck(deps: PublicEventsDeployDeps) {
 }
 
 const checkPublicEventsDeploy = createPublicEventsDeployCheck({
-  // The website's default request: Bengaluru, next 30 days.
-  fetchEvents: () =>
+  // The website's default request: every active cost centre, next 30 days.
+  fetchEvents: async () =>
     getPublicEvents(
-      parsePublicEventsQuery(new URLSearchParams(), Date.now()),
+      parsePublicEventsQuery(
+        new URLSearchParams(),
+        Date.now(),
+        (await getPublicCostCentres()).map((c) => c.code)
+      ),
       env.BETTER_AUTH_URL
     ),
   postHook: (token) => postWebsiteDispatch(token),

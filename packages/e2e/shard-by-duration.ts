@@ -70,8 +70,11 @@ const testLines = listOutput
   .split("\n")
   .map((l) => l.trim())
   .filter((l) => l.startsWith("[") && l.includes("›"))
-  // Skip setup project tests — they run as dependencies, not in shards
-  .filter((l) => !l.startsWith("[setup]"));
+  // Skip setup project tests — they run as dependencies, not in shards — and
+  // setup's teardown (exclusive_last), which runs in every shard anyway.
+  .filter(
+    (l) => !(l.startsWith("[setup]") || l.startsWith("[exclusive_last]"))
+  );
 
 if (testLines.length === 0) {
   console.error("No tests found from --list output. Raw output:");

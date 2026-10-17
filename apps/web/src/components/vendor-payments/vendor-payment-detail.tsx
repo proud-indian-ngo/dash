@@ -8,12 +8,12 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { PAST_APPROVAL_STATUSES } from "@pi-dash/zero/vendor-payment-constants";
 import { useZero } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
-import capitalize from "lodash/capitalize";
 import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
@@ -38,6 +38,7 @@ import {
   VoidBadge,
 } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -124,6 +125,7 @@ function VendorPaymentLineItemsTable({
 }
 
 function VendorPaymentHeader({
+  cityName,
   label,
   onApprove,
   onEdit,
@@ -136,6 +138,8 @@ function VendorPaymentHeader({
   showResetAction,
   tone,
 }: {
+  /** Its cost centre's name: the event's for a payment on an event. */
+  cityName: string;
   label: string;
   onApprove: () => void;
   onEdit?: () => void;
@@ -220,7 +224,7 @@ function VendorPaymentHeader({
           <RequesterMeta key="requester" user={request.user} />
         ) : null,
         request.vendor ? request.vendor.name : null,
-        request.city ? capitalize(request.city) : null,
+        cityName ? <span key="city">{cityName}</span> : null,
         request.event ? (
           <Link
             className="text-primary font-medium underline-offset-2 hover:underline"
@@ -249,6 +253,7 @@ export function VendorPaymentDetail({
 }: VendorPaymentDetailProps) {
   const zero = useZero();
   const { hasPermission } = useApp();
+  const costCentres = useCostCentres();
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [voidOpen, setVoidOpen] = useState(false);
@@ -357,6 +362,7 @@ export function VendorPaymentDetail({
     <AppErrorBoundary level="section">
       <div className="flex flex-col gap-6">
         <VendorPaymentHeader
+          cityName={costCentres.nameOf(requestCostCentreId(request))}
           label={label}
           onApprove={stableOnApprove0}
           onEdit={voided ? undefined : onEdit}

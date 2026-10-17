@@ -31,10 +31,8 @@ import {
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import type { SelectOption } from "@/components/form/select-field";
-import { SelectField } from "@/components/form/select-field";
 import { useApp } from "@/context/app-context";
 import type { Attachment } from "@/lib/form-schemas";
-import { cityOptions } from "@/lib/form-schemas";
 import type { RequestType } from "@/lib/reimbursement-types";
 
 import { isSameBankAccount } from "./default-bank-account";
@@ -50,6 +48,11 @@ interface StandardReimbursementFieldsProps {
   bankAccountOptions: { label: string; value: string }[];
   bankAccountsStatus: "loading" | "complete" | "error";
   categoryList: ExpenseCategory[];
+  /**
+   * The "City" choices; empty hides the picker (one active centre, or an
+   * event-linked claim, which takes its event's city).
+   */
+  cityOptions: SelectOption[];
   /** Set when raising for someone else: whose accounts are listed. */
   claimantName?: string;
   currentChargeProgramme?: CurrentChargeProgramme | null;
@@ -198,6 +201,7 @@ export function StandardReimbursementFields({
   bankAccountsKey,
   bankAccountsStatus,
   categoryList,
+  cityOptions,
   claimantName,
   currentChargeProgramme,
   disableBankAccountSelection,
@@ -288,13 +292,16 @@ export function StandardReimbursementFields({
     <>
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField isRequired label="Title" name="title" />
-        <SelectField
-          isRequired
-          label="City"
-          name="city"
-          options={cityOptions}
-          placeholder="Select city"
-        />
+        {cityOptions.length > 0 ? (
+          <ComboboxField
+            emptyMessage="No matching cities."
+            isRequired
+            label="City"
+            name="costCentreId"
+            options={cityOptions}
+            placeholder="Search cities"
+          />
+        ) : null}
         {requestType === "reimbursement" ? (
           <DateField
             isRequired

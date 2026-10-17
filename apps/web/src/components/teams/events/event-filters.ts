@@ -12,7 +12,7 @@ import {
   getEventStatusKey,
   getRowDetails,
 } from "@/components/teams/events/events-table-helpers";
-import { cityOptions } from "@/lib/form-schemas";
+import { cityFilterOptions } from "@/lib/cost-centre-filter";
 
 const EVENT_STATUS_OPTIONS = [
   { label: "Upcoming", value: "upcoming" },
@@ -41,7 +41,7 @@ export function getEventFilterValue(
   const [key] = path;
   switch (key) {
     case "city":
-      return getRowDetails(row).city;
+      return getRowDetails(row).costCentreId;
     case "members":
       return row.members.length;
     case "programme":
@@ -60,13 +60,14 @@ export function getEventFilterValue(
 }
 
 export function createEventFilterFields(
-  rows: readonly EventDisplayRow[]
+  rows: readonly EventDisplayRow[],
+  activeCostCentres: readonly { id: string; name: string }[]
 ): FilterField[] {
   return [
     selectField("status", "Status", EVENT_STATUS_OPTIONS),
     selectField("visibility", "Visibility", EVENT_VISIBILITY_OPTIONS),
     selectField("recurrence", "Recurrence", EVENT_RECURRENCE_OPTIONS),
-    selectField("city", "City", cityOptions),
+    selectField("city", "City", cityFilterOptions(activeCostCentres)),
     selectField(
       "programme",
       "Programme",

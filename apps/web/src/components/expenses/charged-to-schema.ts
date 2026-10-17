@@ -62,3 +62,22 @@ export function chargedToPayload(value: {
       return { chargedTo: value.chargedTo };
   }
 }
+
+/**
+ * A request's "City" (cost centre) is asked only without an event (an
+ * event-linked request takes its event's) and only when there is a choice
+ * (several active centres, or an inactive one the request already holds).
+ */
+export function refineRequestCity(
+  value: { chargedTo?: ExpenseChargedTo; costCentreId?: string },
+  ctx: z.RefinementCtx,
+  asksCity: boolean
+) {
+  if (asksCity && value.chargedTo !== "event" && !value.costCentreId) {
+    ctx.addIssue({
+      code: "custom",
+      message: "City is required",
+      path: ["costCentreId"],
+    });
+  }
+}

@@ -28,7 +28,7 @@ Volunteers aged 18 or over can register at `/register` and verify their email. A
 - Notifications and WhatsApp: in-app inbox, email and WhatsApp with per-topic preferences and digests. See [notifications](docs/architecture/notifications.md) and [jobs](docs/architecture/jobs.md).
 - Social and public APIs: the bearer-token Social API and Social page, and the public upcoming-events feed used by proudindian.ngo. See [social API](docs/architecture/social-api.md).
 - Audit log: immutable history of user actions, visible with `audit_log.view`.
-- Settings: profile, account, notifications and bank accounts for everyone; organisation settings, roles, integrations, API tokens and maintenance by permission.
+- Settings: profile, account, notifications and bank accounts for everyone; organisation settings (programmes, projects, cost centres shown to volunteers as City), roles, integrations, API tokens and maintenance by permission.
 
 ## Getting started
 

@@ -24,7 +24,7 @@ function baseEvent(overrides: Partial<TeamEvent>): TeamEvent {
   return {
     cancelledAt: null,
     childrenAttended: null,
-    city: "bangalore",
+    costCentreId: "cc-blr",
     createdAt: 0,
     createdBy: "user-1",
     description: "Series description",
@@ -71,7 +71,7 @@ function partner(id: string, name: string): EventPartner {
 function makeException(overrides: Partial<ExceptionRow> = {}): ExceptionRow {
   return {
     ...baseEvent({
-      city: "mumbai",
+      costCentreId: "cc-mum",
       description: "Own description",
       endTime: OCC_START + 3 * HOUR,
       id: "exception-1",
@@ -132,7 +132,7 @@ describe("buildEventDisplayRows", () => {
     const details = getRowDetails(exceptionRow);
     expect(details.name).toBe("Renamed session");
     expect(details.location).toBe("Own hall");
-    expect(details.city).toBe("mumbai");
+    expect(details.costCentreId).toBe("cc-mum");
     expect(details.isPublic).toBe(false);
     expect(searchDisplayRow(exceptionRow, "renamed")).toBe(true);
     expect(searchDisplayRow(exceptionRow, "weekly class")).toBe(false);
@@ -148,7 +148,7 @@ describe("buildRowEditInitialValues", () => {
     const { exceptionRow } = rowsFor();
     const values = buildRowEditInitialValues(exceptionRow, "this");
     expect(values).toMatchObject({
-      city: "mumbai",
+      costCentreId: "cc-mum",
       description: "Own description",
       endTime: OCC_START + 3 * HOUR,
       id: "exception-1",
@@ -196,7 +196,7 @@ describe("buildRowEditInitialValues", () => {
       const { exceptionRow } = rowsFor();
       const values = buildRowEditInitialValues(exceptionRow, scope);
       expect(values).toMatchObject({
-        city: "bangalore",
+        costCentreId: "cc-blr",
         description: "Series description",
         id: "exception-1",
         isPublic: true,
@@ -275,7 +275,7 @@ describe("buildScopedEditInitialValues", () => {
         scope
       );
       expect(values).toMatchObject({
-        city: "bangalore",
+        costCentreId: "cc-blr",
         description: "Series description",
         id: "series-1",
         isPublic: true,
@@ -341,7 +341,7 @@ describe("buildRowDuplicateInitialValues", () => {
   it("copies what an edited occurrence's row shows", () => {
     const { exceptionRow } = rowsFor();
     expect(buildRowDuplicateInitialValues(exceptionRow)).toMatchObject({
-      city: "mumbai",
+      costCentreId: "cc-mum",
       location: "Own hall",
       name: "Copy of Renamed session",
       programmeId: "programme-own",

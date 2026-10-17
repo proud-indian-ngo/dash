@@ -18,6 +18,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { S3Client } from "bun";
 import { eq } from "drizzle-orm";
 
@@ -160,7 +161,7 @@ async function setup(kind: FixtureKind, actorEmail: string) {
   }
   const now = new Date();
   await db.insert(teamEvent).values({
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
     createdBy: actor.id,
     description: "Kalakriti Competition Entry E2E fixture",

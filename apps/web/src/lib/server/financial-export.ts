@@ -5,7 +5,11 @@ import {
   advancePaymentLineItem,
 } from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
-import { programme, project } from "@pi-dash/db/schema/finance-dimensions";
+import {
+  costCentre,
+  programme,
+  project,
+} from "@pi-dash/db/schema/finance-dimensions";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -19,6 +23,7 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import {
   ADMIN_PROGRAMME_LABEL,
   EXPENSE_CHARGED_TO_LABELS,
@@ -103,11 +108,13 @@ interface RawChargeRow {
   chargedProgrammeId?: string | null;
   chargedProjectId?: string | null;
   chargedTo?: ExpenseChargedTo | null;
+  eventCostCentreId?: string | null;
+  eventId?: string | null;
   eventProgrammeId?: string | null;
 }
 
 interface RawResultRow extends RawChargeRow {
-  city: string | null;
+  costCentreId: string | null;
   createdAt: Date;
   createdBy: string | null;
   email: string;
@@ -120,20 +127,36 @@ interface RawResultRow extends RawChargeRow {
 }
 
 interface DimensionNames {
+  costCentres: Map<string, string>;
   programmes: Map<string, string>;
   projects: Map<string, string>;
 }
 
-/** Programme and project names by id, for the Programme and Project columns. */
+/**
+ * Cost centre, programme and project names by id, for the City, Programme
+ * and Project columns. Inactive cost centres keep their names (Mumbai).
+ */
 async function loadDimensionNames(): Promise<DimensionNames> {
-  const [programmes, projects] = await Promise.all([
+  const [costCentres, programmes, projects] = await Promise.all([
+    db.select({ id: costCentre.id, name: costCentre.name }).from(costCentre),
     db.select({ id: programme.id, name: programme.name }).from(programme),
     db.select({ id: project.id, name: project.name }).from(project),
   ]);
   return {
+    costCentres: new Map(costCentres.map((row) => [row.id, row.name])),
     programmes: new Map(programmes.map((row) => [row.id, row.name])),
     projects: new Map(projects.map((row) => [row.id, row.name])),
   };
+}
+
+/** The City column: the event's cost centre for a request on an event, else its own. */
+function cityCell(row: RawResultRow, names: DimensionNames): string {
+  const id = requestCostCentreId({
+    costCentreId: row.costCentreId,
+    event: { costCentreId: row.eventCostCentreId },
+    eventId: row.eventId ?? null,
+  });
+  return id ? (names.costCentres.get(id) ?? "") : "";
 }
 
 /**
@@ -192,7 +215,7 @@ async function queryRequestRows(
       );
 
   const selectFields: Record<string, AnyPgColumn | ReturnType<typeof sum>> = {
-    city: mainTable.city,
+    costCentreId: mainTable.costCentreId,
     createdAt: mainTable.createdAt,
     createdBy: user.name,
     email: user.email,
@@ -208,7 +231,7 @@ async function queryRequestRows(
     user.name,
     user.email,
     mainTable.status,
-    mainTable.city,
+    mainTable.costCentreId,
     mainTable.submittedAt,
     mainTable.createdAt,
   ];
@@ -221,11 +244,15 @@ async function queryRequestRows(
     selectFields.chargedProgrammeId = config.chargeCols.chargedProgrammeId;
     selectFields.chargedProjectId = config.chargeCols.chargedProjectId;
     selectFields.eventProgrammeId = teamEvent.programmeId;
+    selectFields.eventId = config.chargeCols.eventId;
+    selectFields.eventCostCentreId = teamEvent.costCentreId;
     groupByFields.push(
       config.chargeCols.chargedTo,
       config.chargeCols.chargedProgrammeId,
       config.chargeCols.chargedProjectId,
-      teamEvent.programmeId
+      config.chargeCols.eventId,
+      teamEvent.programmeId,
+      teamEvent.costCentreId
     );
   }
 
@@ -291,7 +318,7 @@ async function queryRequestRows(
     attachments,
     rows: results.map((result) => ({
       attachments: attachmentsByRecord.get(result.id) ?? [],
-      city: result.city ?? "",
+      city: cityCell(result, names),
       createdAt: result.createdAt.toISOString(),
       createdBy: result.createdBy ?? "",
       email: result.email,

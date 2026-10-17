@@ -22,6 +22,7 @@ import {
   chargedToPayload,
   refineChargedTo,
 } from "@/components/expenses/charged-to-schema";
+import { useRequestCity } from "@/components/expenses/use-request-city";
 import { ComboboxField } from "@/components/form/combobox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -81,7 +82,12 @@ function ChangeChargedToForm({
 }) {
   const zero = useZero();
   const [events] = useQuery(queries.teamEvent.allAccessible());
-  const eventOptions = events.map((e) => ({
+  // Not an event in a closed city, unless the request is already on it.
+  const { listsEvent } = useRequestCity(
+    { eventId: request.eventId ?? null },
+    true
+  );
+  const eventOptions = events.filter(listsEvent).map((e) => ({
     label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
     value: e.id,
   }));

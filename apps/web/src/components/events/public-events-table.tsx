@@ -13,8 +13,13 @@ export type PublicEventRow = TeamEvent & {
   team: { id: string; name: string } | undefined;
 };
 
+/** A cost centre's name ("City"), or "" while the centres load. */
+export type CityNameOf = (costCentreId: string | null | undefined) => string;
+
 export interface PublicDisplayRow {
-  city: string | null;
+  /** The event's cost centre name ("City"), or "" while it loads. */
+  cityName: string;
+  costCentreId: string | null;
   endTime: number | null;
   eventId: string;
   isPublic: boolean | null;
@@ -47,12 +52,14 @@ export function rowMapUrl(row: Pick<PublicDisplayRow, "location">) {
  * and a bare map link falls back to the area and city.
  */
 export function rowPlace(
-  row: Pick<PublicDisplayRow, "city" | "location" | "publicArea">
+  row: Pick<PublicDisplayRow, "cityName" | "location" | "publicArea">
 ): string | null {
   if (row.location && !rowMapUrl(row)) {
     return row.location;
   }
-  return row.city ? toPublicArea(row.publicArea, row.city) : row.publicArea;
+  return row.cityName
+    ? toPublicArea(row.publicArea, row.cityName)
+    : row.publicArea;
 }
 
 export function selectUpcomingPublicKalakritiEvent(
@@ -80,9 +87,13 @@ export function selectUpcomingPublicKalakritiEvent(
   return soonest;
 }
 
-export function toPublicDisplayRow(event: PublicEventRow): PublicDisplayRow {
+export function toPublicDisplayRow(
+  event: PublicEventRow,
+  cityNameOf: CityNameOf
+): PublicDisplayRow {
   return {
-    city: event.city ?? null,
+    cityName: cityNameOf(event.costCentreId),
+    costCentreId: event.costCentreId ?? null,
     endTime: event.endTime ?? null,
     eventId: event.id,
     isPublic: event.isPublic ?? null,
@@ -113,14 +124,15 @@ export function rowMatchesPublicFilters(
   if (filter === "public" && !row.isPublic) {
     return false;
   }
-  if (cityFilter !== "all" && row.city !== cityFilter) {
+  // The city filter holds a cost centre id.
+  if (cityFilter !== "all" && row.costCentreId !== cityFilter) {
     return false;
   }
   const query = search.trim().toLowerCase();
   if (!query) {
     return true;
   }
-  return [row.name, row.location, rowPlace(row), row.team?.name, row.city]
+  return [row.name, row.location, rowPlace(row), row.team?.name, row.cityName]
     .join(" ")
     .toLowerCase()
     .includes(query);
@@ -186,6 +198,7 @@ function expandSeriesRows(
 
 export function buildPublicDisplayRows(
   data: PublicEventRow[],
+  cityNameOf: CityNameOf,
   rangeStart = Date.now() - 4 * 7 * 24 * 60 * 60 * 1000,
   rangeEnd = addWeeks(new Date(), 4).getTime()
 ): PublicDisplayRow[] {
@@ -193,7 +206,8 @@ export function buildPublicDisplayRows(
 
   for (const event of data) {
     const base = {
-      city: event.city,
+      cityName: cityNameOf(event.costCentreId),
+      costCentreId: event.costCentreId,
       endTime: event.endTime,
       eventId: event.id,
       isPublic: event.isPublic,

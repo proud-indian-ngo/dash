@@ -22,6 +22,8 @@ import { DATE_TIME } from "@/lib/date-formats";
 
 interface ColumnCallbacks {
   canCancelPast: boolean;
+  /** A cost centre's name, shown as the event's "City". */
+  cityNameOf: (costCentreId: string | null | undefined) => string;
   canCreate: boolean;
   canManage: boolean;
   onCancelEvent: (row: EventDisplayRow) => void;
@@ -74,7 +76,7 @@ function EventActionsCell({
   onEditEvent,
   onSelectEvent,
   row,
-}: ColumnCallbacks & { row: EventDisplayRow }) {
+}: Omit<ColumnCallbacks, "cityNameOf"> & { row: EventDisplayRow }) {
   const handleCancel = useEventCallback(() => onCancelEvent(row));
   const handleDuplicate = useEventCallback(() => onDuplicateEvent(row));
   const handleEdit = useEventCallback(() => onEditEvent(row));
@@ -98,6 +100,7 @@ function EventActionsCell({
 
 export function createEventsTableColumns({
   canCancelPast,
+  cityNameOf,
   canCreate,
   canManage,
   onCancelEvent,
@@ -202,10 +205,10 @@ export function createEventsTableColumns({
       size: 140,
     },
     {
-      accessorFn: (row) => getRowDetails(row).city,
+      accessorFn: (row) => cityNameOf(getRowDetails(row).costCentreId),
       cell: ({ row }) => (
-        <span className="text-muted-foreground truncate text-sm capitalize">
-          {getRowDetails(row.original).city || "\u2014"}
+        <span className="text-muted-foreground truncate text-sm">
+          {cityNameOf(getRowDetails(row.original).costCentreId) || "\u2014"}
         </span>
       ),
       header: ({ column }) => (

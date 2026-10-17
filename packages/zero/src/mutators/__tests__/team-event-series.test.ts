@@ -41,7 +41,7 @@ describe("buildTruncatedRRule", () => {
 const SERIES_BASE = {
   cancelledAt: null,
   childrenAttended: null,
-  city: "bangalore" as const,
+  costCentreId: "cc-blr",
   createdAt: NOW,
   createdBy: "user-1",
   description: "Team standup",
@@ -102,6 +102,18 @@ describe("buildExceptionInsert", () => {
     ).toBe("prog-2");
   });
 
+  it("copies the series' cost centre unless the exception picks another", () => {
+    expect(
+      buildExceptionInsert("exc-1", SERIES_BASE, "2026-04-15", "u", NOW)
+        .costCentreId
+    ).toBe("cc-blr");
+    expect(
+      buildExceptionInsert("exc-1", SERIES_BASE, "2026-04-15", "u", NOW, {
+        costCentreId: "cc-mum",
+      }).costCentreId
+    ).toBe("cc-mum");
+  });
+
   it("clears a public area to null on update", () => {
     expect(buildUpdateFields({ id: "e", now: NOW, publicArea: "" })).toEqual(
       expect.objectContaining({ publicArea: null })
@@ -122,7 +134,7 @@ describe("buildExceptionInsert", () => {
     expect(result.name).toBe("Weekly Meeting");
     expect(result.description).toBe("Team standup");
     expect(result.location).toBe("Office");
-    expect(result.city).toBe("bangalore");
+    expect(result.costCentreId).toBe("cc-blr");
     expect(result.startTime).toBe(NOW);
     expect(result.endTime).toBe(NOW + 3_600_000);
     expect(result.isPublic).toBe(false);
@@ -314,7 +326,7 @@ describe("buildUpdateFields", () => {
 
   it("includes all fields when fully specified", () => {
     const result = buildUpdateFields({
-      city: "mumbai",
+      costCentreId: "cc-mum",
       description: "desc",
       endTime: NOW + 2000,
       feedbackDeadline: NOW + 86_400_000,
@@ -335,7 +347,7 @@ describe("buildUpdateFields", () => {
     expect(result.name).toBe("Full Update");
     expect(result.description).toBe("desc");
     expect(result.location).toBe("loc");
-    expect(result.city).toBe("mumbai");
+    expect(result.costCentreId).toBe("cc-mum");
     expect(result.startTime).toBe(NOW + 1000);
     expect(result.endTime).toBe(NOW + 2000);
     expect(result.isPublic).toBe(true);

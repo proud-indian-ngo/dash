@@ -10,6 +10,7 @@ import {
 } from "../../queries/query-scope-test-utils";
 import {
   accountHeadMutators,
+  costCentreMutators,
   orgAccountInputSchema,
   orgAccountMutators,
   programmeMutators,
@@ -21,6 +22,7 @@ type Row = Record<string, unknown>;
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [],
+    costCentre: [],
     ledgerEntry: [],
     orgAccount: [],
     programme: [],
@@ -45,7 +47,23 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       Object.assign(current, row);
     },
   });
+  const locks: string[] = [];
   const tx = {
+    // The server's row locks (the active cost centres before deactivating).
+    dbTransaction: {
+      wrappedTransaction: {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: async (mode: string) => {
+                locks.push(mode);
+                return [];
+              },
+            }),
+          }),
+        }),
+      },
+    },
     location: "server",
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
@@ -61,7 +79,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       return query.format.singular ? result[0] : result;
     },
   };
-  return { tables, tx, writes };
+  return { locks, tables, tx, writes };
 }
 
 function run(
@@ -458,5 +476,94 @@ describe("organisation account mutators", () => {
     await expect(
       run(orgAccountMutators.update, db, financeCtx, account())
     ).rejects.toThrow("Organisation account not found");
+  });
+});
+
+describe("cost centre mutators", () => {
+  const centre = (over: Row = {}) => ({
+    active: true,
+    code: "BLR",
+    id: "cc-blr",
+    name: "Bangalore",
+    stateUt: "Karnataka",
+    ...over,
+  });
+
+  it("needs finance.manage", async () => {
+    const db = createDb();
+    await expect(
+      run(costCentreMutators.create, db, { permissions: [] }, centre())
+    ).rejects.toThrow();
+  });
+
+  it("adds one with a unique code and name", async () => {
+    const db = createDb({ costCentre: [centre()] });
+    await expect(
+      run(costCentreMutators.create, db, financeCtx, centre({ id: "cc-2" }))
+    ).rejects.toThrow("Code BLR is already used");
+    await run(
+      costCentreMutators.create,
+      db,
+      financeCtx,
+      centre({ code: "PNQ", id: "cc-pnq", name: "Pune", stateUt: null })
+    );
+    expect(db.tables.costCentre?.find((c) => c.id === "cc-pnq")).toMatchObject({
+      active: true,
+      code: "PNQ",
+      name: "Pune",
+    });
+  });
+
+  it("refuses the codes the public feed reads as Bangalore", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        costCentreMutators.create,
+        db,
+        financeCtx,
+        centre({ code: "BENGALURU", id: "cc-x", name: "X" })
+      )
+    ).rejects.toThrow("Code BENGALURU is reserved");
+  });
+
+  it("renames, but never changes the code", async () => {
+    const db = createDb({ costCentre: [centre()] });
+    await run(
+      costCentreMutators.update,
+      db,
+      financeCtx,
+      centre({ name: "Bengaluru" })
+    );
+    expect(db.tables.costCentre?.[0]).toMatchObject({ name: "Bengaluru" });
+    await expect(
+      run(costCentreMutators.update, db, financeCtx, centre({ code: "BLX" }))
+    ).rejects.toThrow("A cost centre's code can't be changed");
+  });
+
+  it("keeps the last active centre active, and reactivates", async () => {
+    const db = createDb({
+      costCentre: [
+        centre(),
+        centre({ active: false, code: "MUM", id: "cc-mum", name: "Mumbai" }),
+      ],
+    });
+    await expect(
+      run(costCentreMutators.update, db, financeCtx, centre({ active: false }))
+    ).rejects.toThrow("At least one cost centre must stay active");
+    // Read under a lock on the active rows, so two deactivations can't race.
+    expect(db.locks).toEqual(["update"]);
+    await run(
+      costCentreMutators.update,
+      db,
+      financeCtx,
+      centre({ active: true, code: "MUM", id: "cc-mum", name: "Mumbai" })
+    );
+    await run(
+      costCentreMutators.update,
+      db,
+      financeCtx,
+      centre({ active: false })
+    );
+    expect(db.tables.costCentre?.map((c) => c.active)).toEqual([false, true]);
   });
 });

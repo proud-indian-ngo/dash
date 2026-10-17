@@ -13,7 +13,6 @@ test.describe.skip("New advance payment form", () => {
 
   test("renders form fields (no Expense Date)", async ({ page }) => {
     await expect(reimbursements.form.getTitleInput()).toBeVisible();
-    await expect(reimbursements.form.getCityInput()).toBeVisible();
     await expect(page.getByText("Bank Account")).toBeVisible({
       timeout: 15_000,
     });
@@ -45,7 +44,6 @@ test.describe.skip("New advance payment form", () => {
 
     const errors = reimbursements.form.getFieldErrors();
     await expect(errors.filter({ hasText: "Title is required" })).toBeVisible();
-    await expect(errors.filter({ hasText: "City is required" })).toBeVisible();
   });
 
   test("remove line item button removes a line item", async () => {

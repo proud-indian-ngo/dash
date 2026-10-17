@@ -339,6 +339,39 @@ The results, two-file music (`0079`, `0080`) and credential-removal migrations a
 
 Event triggers are disabled only on the pg-boss connections, which needs PostgreSQL 17+ and superuser or SET privilege for `event_triggers`. Never disable them on `DATABASE_URL`, `ZERO_UPSTREAM_DB`, a role, a database or globally; Zero needs schema changes. See [jobs.md](docs/architecture/jobs.md).
 
+### Cost centres
+
+`0155_cost_centres` to `0157_drop_city` swap `city` for `cost_centre_id`, dropping columns the old build reads ([Database setup](#database-setup)).
+
+Before deploying, list Mumbai-series occurrences saved as Bangalore. The backfill fixes `fixed_by_backfill` rows (see the `0156` header); fix others by hand once deployed:
+
+```sql
+SELECT c.id, p.name AS series, c.original_date,
+  (c.created_at = c.updated_at AND p.updated_at <= c.created_at) AS fixed_by_backfill
+FROM team_event c JOIN team_event p ON p.id = c.series_id
+WHERE c.city = 'bangalore' AND p.city = 'mumbai';
+```
+
+Then count requests whose city isn't their event's:
+
+```sql
+WITH event_city AS (
+  SELECT e.id, CASE WHEN e.city = 'bangalore' AND p.city = 'mumbai'
+      AND e.created_at = e.updated_at AND p.updated_at <= e.created_at
+    THEN 'mumbai' ELSE e.city::text END AS city
+  FROM team_event e LEFT JOIN team_event p ON p.id = e.series_id
+)
+SELECT
+  (SELECT count(*) FROM reimbursement r JOIN event_city e ON e.id = r.event_id
+     WHERE r.city::text <> e.city) AS reimbursements,
+  (SELECT count(*) FROM vendor_payment v JOIN event_city e ON e.id = v.event_id
+     WHERE v.city::text <> e.city) AS vendor_payments;
+```
+
+The migration's own counts: `SELECT value FROM app_config WHERE key = 'cost_centre_backfill';`.
+
+The next posting run reposts every expense posting (rules version 3).
+
 ### Already applied in production (October 2026)
 
 - Vendor parties (`0116_vendor_parties.sql`): vendor details encrypted into `party_private` and `party_bank_account`. `drop_vendor_legacy_details` stops with `vendor_legacy_details still has rows` if any remain; the backfill script is in git history.

@@ -24,7 +24,7 @@ import {
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { cityValues } from "@pi-dash/shared/constants";
+import { LEGACY_CITY_COST_CENTRE_IDS } from "@pi-dash/shared/cost-centre";
 import type { EventInterest } from "@pi-dash/zero/schema";
 import {
   addDays,
@@ -38,7 +38,6 @@ import {
   startOfMonth,
   subDays,
 } from "date-fns";
-import capitalize from "lodash/capitalize";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import React, { useMemo, useState } from "react";
 
@@ -54,6 +53,7 @@ import {
   toPublicDisplayRow,
 } from "@/components/events/public-events-table";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import { DATE, ISO_DATE } from "@/lib/date-formats";
 
 /** Days of events each tab shows before "Show more". */
@@ -193,10 +193,14 @@ export function EventsAgenda({
       "all"
     )
   );
-  const [city, setCity] = useQueryState(
+  const [cityParam, setCity] = useQueryState(
     "city",
     parseAsString.withDefault("all")
   );
+  // A cost centre id; an old link's "bangalore" still works.
+  const city = LEGACY_CITY_COST_CENTRE_IDS[cityParam] ?? cityParam;
+  const costCentres = useCostCentres();
+  const cityNameOf = costCentres.nameOf;
   const [search, setSearch] = useQueryState("s", parseAsString.withDefault(""));
   const [from, setFrom] = useQueryState("from", parseAsString);
   const [windows, setWindows] = useState(1);
@@ -215,12 +219,13 @@ export function EventsAgenda({
     () =>
       buildPublicDisplayRows(
         data,
+        cityNameOf,
         subDays(anchor, span).getTime(),
         addDays(anchor, span).getTime()
       ).filter((row) =>
         rowMatchesPublicFilters(row, show, city, search, myTeamIds)
       ),
-    [anchor, city, data, myTeamIds, search, show, span]
+    [anchor, city, cityNameOf, data, myTeamIds, search, show, span]
   );
   const upcoming = rows
     .filter((row) => isUpcoming(row, anchor))
@@ -246,27 +251,27 @@ export function EventsAgenda({
             subDays(anchor, span + WINDOW_DAYS).getTime(),
             subDays(anchor, span).getTime() - 1,
           ];
-    return buildPublicDisplayRows(data, start, end)
+    return buildPublicDisplayRows(data, cityNameOf, start, end)
       .filter((row) =>
         rowMatchesPublicFilters(row, show, city, search, myTeamIds)
       )
       .filter((row) => isUpcoming(row, anchor) === (when === "upcoming"))
       .length;
-  }, [anchor, city, data, myTeamIds, search, show, span, when]);
+  }, [anchor, city, cityNameOf, data, myTeamIds, search, show, span, when]);
 
-  const hasMultipleCities =
-    new Set(data.map((event) => event.city).filter(Boolean)).size > 1;
+  // Offered only with several active cost centres.
+  const hasMultipleCities = costCentres.active.length > 1;
 
   const featured = useMemo(() => {
     const event = selectUpcomingPublicKalakritiEvent(data, now);
     if (!event) {
       return null;
     }
-    const row = toPublicDisplayRow(event);
+    const row = toPublicDisplayRow(event, cityNameOf);
     return rowMatchesPublicFilters(row, show, city, search, myTeamIds)
       ? row
       : null;
-  }, [city, data, myTeamIds, now, search, show]);
+  }, [city, cityNameOf, data, myTeamIds, now, search, show]);
   const showFeatured = Boolean(featured) && when === "upcoming" && !from;
 
   const datesWithEvents = useMemo(
@@ -274,6 +279,7 @@ export function EventsAgenda({
       new Set(
         buildPublicDisplayRows(
           data,
+          cityNameOf,
           subDays(startOfMonth(pickerMonth), 7).getTime(),
           addDays(endOfMonth(pickerMonth), 7).getTime()
         )
@@ -282,7 +288,7 @@ export function EventsAgenda({
           )
           .map((row) => format(row.startTime, ISO_DATE))
       ),
-    [city, data, myTeamIds, pickerMonth, search, show]
+    [city, cityNameOf, data, myTeamIds, pickerMonth, search, show]
   );
 
   const handleWhenChange = useEventCallback((value: unknown) => {
@@ -376,14 +382,14 @@ export function EventsAgenda({
             <Select onValueChange={handleCityChange} value={city}>
               <SelectTrigger aria-label="City" className="h-8">
                 <SelectValue>
-                  {city === "all" ? "All cities" : capitalize(city)}
+                  {city === "all" ? "All cities" : cityNameOf(city)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All cities</SelectItem>
-                {cityValues.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {capitalize(value)}
+                {costCentres.active.map((centre) => (
+                  <SelectItem key={centre.id} value={centre.id}>
+                    {centre.name}
                   </SelectItem>
                 ))}
               </SelectContent>

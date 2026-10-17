@@ -3,6 +3,7 @@ const roleOnlySpecs = {
   super_admin: [
     "events/event-create.spec.ts",
     "events/event-programme.spec.ts",
+    "settings/cost-centres.spec.ts",
     "settings/programmes.spec.ts",
     "settings/projects.spec.ts",
     "settings/org-accounts.spec.ts",
@@ -84,6 +85,16 @@ const specPattern = (file: string) =>
 
 export const releaseInvariantPatterns = releaseInvariantSpecs.map(specPattern);
 
+/**
+ * Specs that change state every other spec relies on, such as a second
+ * active cost centre (every event and request form then asks for a city).
+ * They run in the `exclusive_last` project, setup's teardown: after every
+ * other project, with one worker.
+ */
+const exclusiveLastSpecs = ["settings/cost-centre-activation.spec.ts"];
+
+export const exclusiveLastPatterns = exclusiveLastSpecs.map(specPattern);
+
 export function testIgnoreForRole(
   role: RoleProject,
   existing: RegExp[]
@@ -91,6 +102,7 @@ export function testIgnoreForRole(
   return [
     ...existing,
     ...releaseInvariantPatterns,
+    ...exclusiveLastPatterns,
     ...Object.entries(roleOnlySpecs).flatMap(([owner, files]) =>
       owner === role ? [] : files.map(specPattern)
     ),

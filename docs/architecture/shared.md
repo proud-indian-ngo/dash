@@ -7,7 +7,7 @@ Constants, types and pure functions used by both client and server. Each file is
 
 | File | Holds |
 |---|---|
-| `constants.ts` | Upload size limits and allowed MIME types (`ALLOWED_IMAGE_TYPES` and others), city and status value lists |
+| `constants.ts` | Upload size limits and allowed MIME types (`ALLOWED_IMAGE_TYPES` and others), fixed reference IDs (`COST_CENTRE_IDS`), status value lists |
 | `money.ts` | `rupeesToPaise`, `tryRupeesToPaise`, `paiseToRupees`, `formatPaise`, `sumPaise`, `assertSafePaise`, `paiseSchema`, `positivePaiseSchema` (rules in `data-layer.md`) |
 | `event-reminders.ts` | `REMINDER_PRESET_MINUTES`, `RSVP_POLL_LEAD_PRESET_MINUTES`, `DEFAULT_RSVP_POLL_LEAD_MINUTES` |
 | `scheduled-message.ts` | `MAX_RECIPIENT_RETRIES`, derived message status |

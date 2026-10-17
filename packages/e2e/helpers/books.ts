@@ -52,6 +52,7 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { and, asc, eq, gte, isNull, like, lte, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -501,6 +502,7 @@ async function expenseFixture(run: string) {
   const vendorPaymentId = uuidv7();
   const vendorPaymentTitle = `E2E books vendor payment ${run}`;
   await db.insert(vendorPayment).values({
+    costCentreId: COST_CENTRE_IDS.bangalore,
     chargedTo: "organisation",
     createdAt: now,
     id: vendorPaymentId,
@@ -658,6 +660,7 @@ async function provisionFixture(run: string, yearLabel: string) {
   const vendorPaymentId = uuidv7();
   const amountPaise = 15_000;
   await db.insert(vendorPayment).values({
+    costCentreId: COST_CENTRE_IDS.bangalore,
     chargedTo: "organisation",
     createdAt: now,
     id: vendorPaymentId,

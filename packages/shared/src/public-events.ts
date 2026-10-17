@@ -1,4 +1,4 @@
-import { type City, cityValues } from "./constants";
+import { normalisePublicCityCode } from "./cost-centre";
 import {
   expandSeries,
   findOccurrence,
@@ -21,7 +21,10 @@ export type PublicProgramme = (typeof publicProgrammeValues)[number];
 
 export interface PublicEvent {
   area: string;
+  /** The event's cost centre code (`BLR`). */
   city: string;
+  /** The cost centre's name ("Bangalore"). */
+  cityName: string;
   endTime: string;
   /** Event id; for a virtual occurrence of a recurring series, the series id. */
   id: string;
@@ -43,7 +46,12 @@ export interface PublicEventsResponse {
 /** Source row for one `team_event`. Only the columns the feed may read. */
 export interface PublicEventSourceRow {
   cancelledAt: number | null;
+  /** The event's cost centre code. */
   city: string;
+  /** Whether that cost centre is active; inactive ones are never listed. */
+  cityActive: boolean;
+  /** The cost centre's name, for the area label. */
+  cityName: string;
   description: string | null;
   endTime: number | null;
   id: string;
@@ -59,7 +67,8 @@ export interface PublicEventSourceRow {
 }
 
 export interface PublicEventsQuery {
-  city: City;
+  /** Cost centre codes to list: the one asked for, else every active one. */
+  cities: string[];
   /** Window start, epoch ms (never before "now"). */
   from: number;
   limit: number;
@@ -78,16 +87,12 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const INTEGER_RE = /^\d+$/;
 const INDIA_TIMEZONE = "Asia/Kolkata";
 
-const CITY_LABELS: Record<City, string> = {
-  bangalore: "Bengaluru",
-  mumbai: "Mumbai",
-};
-
-// Names an admin may already have typed into the area.
-const CITY_ALIASES: Record<City, RegExp> = {
-  bangalore: /\b(bengaluru|bangalore)\b/i,
-  mumbai: /\b(mumbai|bombay)\b/i,
-};
+// Other names of a city an admin may already have typed into the area.
+const CITY_NAME_ALIASES: readonly (readonly string[])[] = [
+  ["bangalore", "bengaluru"],
+  ["mumbai", "bombay"],
+];
+const REGEX_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g;
 
 export class PublicEventsQueryError extends Error {}
 
@@ -128,15 +133,23 @@ function parseFrom(raw: string | null, now: number): number {
   return Math.max(parsed, now);
 }
 
-/** Parse and clamp query params. Throws `PublicEventsQueryError` on bad input. */
+/**
+ * Parse and clamp query params against the active cost centre codes.
+ * `city` is a cost centre code (any case; `bangalore` and `bengaluru` are
+ * deprecated aliases of `BLR`); without it, every active centre is listed.
+ * Throws `PublicEventsQueryError` on bad input, naming the active codes for
+ * an unknown or inactive one.
+ */
 export function parsePublicEventsQuery(
   params: URLSearchParams,
-  now: number
+  now: number,
+  activeCodes: readonly string[]
 ): PublicEventsQuery {
-  const rawCity = params.get("city") || "bangalore";
-  if (!(cityValues as readonly string[]).includes(rawCity)) {
+  const rawCity = params.get("city")?.trim();
+  const city = rawCity ? normalisePublicCityCode(rawCity) : null;
+  if (city !== null && !activeCodes.includes(city)) {
     throw new PublicEventsQueryError(
-      `city must be one of ${cityValues.join(", ")}`
+      `city must be one of ${activeCodes.join(", ")}`
     );
   }
   const from = parseFrom(params.get("from"), now);
@@ -152,7 +165,12 @@ export function parsePublicEventsQuery(
     PUBLIC_EVENTS_DEFAULT_LIMIT,
     PUBLIC_EVENTS_MAX_LIMIT
   );
-  return { city: rawCity as City, from, limit, to: from + days * DAY_MS };
+  return {
+    cities: city === null ? [...activeCodes] : [city],
+    from,
+    limit,
+    to: from + days * DAY_MS,
+  };
 }
 
 const HTML_TAG_RE = /<[^>]*>/g;
@@ -209,18 +227,30 @@ export function toPublicSummary(description: string | null): string {
   return `${base.replace(TRAILING_PUNCTUATION_RE, "")}…`;
 }
 
-/** Coarse public area: the admin-set `publicArea` plus the city, never the raw location. */
-export function toPublicArea(publicArea: string | null, city: string): string {
-  const cityLabel = CITY_LABELS[city as City] ?? city;
+/** Whether an area already names the city, by its name or a known other name. */
+function mentionsCity(area: string, cityName: string): boolean {
+  const name = cityName.trim().toLowerCase();
+  const names = CITY_NAME_ALIASES.find((group) => group.includes(name)) ?? [
+    name,
+  ];
+  return names.some((n) =>
+    new RegExp(`\\b${n.replace(REGEX_SPECIAL_RE, "\\$&")}\\b`, "i").test(area)
+  );
+}
+
+/**
+ * Coarse public area: the admin-set `publicArea` plus the city (its cost
+ * centre's name), never the raw location.
+ */
+export function toPublicArea(
+  publicArea: string | null,
+  cityName: string
+): string {
   const area = publicArea?.trim();
   if (!area) {
-    return cityLabel;
+    return cityName;
   }
-  const alias = CITY_ALIASES[city as City];
-  const mentionsCity = alias
-    ? alias.test(area)
-    : area.toLowerCase().includes(cityLabel.toLowerCase());
-  return mentionsCity ? area : `${area}, ${cityLabel}`;
+  return mentionsCity(area, cityName) ? area : `${area}, ${cityName}`;
 }
 
 const PROGRAMME_KEYWORDS: [PublicProgramme, RegExp][] = [
@@ -392,8 +422,9 @@ function toPublicEvent(
   const { row } = occ;
   const programme = toPublicProgramme(row.teamName, row.managementDomain);
   return {
-    area: toPublicArea(row.publicArea, row.city),
+    area: toPublicArea(row.publicArea, row.cityName),
     city: row.city,
+    cityName: row.cityName,
     // The contract requires an end time; open-ended events end when they start.
     endTime: new Date(occ.endTime ?? occ.startTime).toISOString(),
     id: occ.id,
@@ -407,11 +438,15 @@ function toPublicEvent(
   };
 }
 
-function isListed(row: PublicEventSourceRow, city: City): boolean {
+function isListed(
+  row: PublicEventSourceRow,
+  cities: readonly string[]
+): boolean {
   return (
     row.isPublic &&
     row.cancelledAt === null &&
-    row.city === city &&
+    row.cityActive &&
+    cities.includes(row.city) &&
     // Kalakriti runs its own Center-based registration; not on the website.
     row.managementDomain !== "kalakriti"
   );
@@ -419,7 +454,7 @@ function isListed(row: PublicEventSourceRow, city: City): boolean {
 
 /**
  * Turn standalone events, series parents and their exception rows into the public feed:
- * public, non-cancelled occurrences in the city that start inside the window, sorted by
+ * public, non-cancelled occurrences in the asked cities (active cost centres) that start inside the window, sorted by
  * start time. A cancelled or private series hides every occurrence, including exceptions.
  */
 export function buildPublicEvents(
@@ -429,7 +464,7 @@ export function buildPublicEvents(
 ): PublicEvent[] {
   return expandEventOccurrences(rows, {
     from: query.from,
-    isListed: (row) => isListed(row, query.city),
+    isListed: (row) => isListed(row, query.cities),
     to: query.to,
   })
     .slice(0, query.limit)
@@ -455,13 +490,19 @@ export function summarizePublicSession(
   occDate: string | undefined,
   now: number
 ): PublicSessionSummary | null {
-  if (!event?.isPublic || event.managementDomain === "kalakriti") {
+  // Nothing the feed would not show: not private, Kalakriti or an inactive
+  // cost centre's.
+  if (
+    !event?.isPublic ||
+    event.managementDomain === "kalakriti" ||
+    !event.cityActive
+  ) {
     return null;
   }
   const summary = (row: PublicEventSourceRow, startTime: number) => ({
     area: toPublicArea(
       row.publicArea?.trim() ? row.publicArea : event.publicArea,
-      row.city
+      row.cityName
     ),
     name: row.name,
     open:

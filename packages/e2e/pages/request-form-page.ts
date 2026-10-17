@@ -49,8 +49,17 @@ export class RequestFormPage {
     await this.getTitleInput().fill(title);
   }
 
+  /**
+   * Picks the request's city when the form asks for it: only with several
+   * active cost centres. With one (the usual case) the form has no City
+   * field and the request takes that centre.
+   */
   async selectCity(cityName: string): Promise<void> {
-    await this.getCityInput().click();
+    const city = this.getCityInput();
+    if (!(await city.isVisible())) {
+      return;
+    }
+    await city.click();
     await this.page.getByRole("option", { name: cityName }).click();
   }
 

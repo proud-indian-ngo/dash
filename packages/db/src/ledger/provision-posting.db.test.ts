@@ -1,5 +1,6 @@
 import type { BalanceSheetLine } from "@pi-dash/shared/audited-figures";
 import {
+  COST_CENTRE_IDS,
   GENERAL_FUND_ID,
   LEDGER_ACCOUNT_HEAD_IDS,
 } from "@pi-dash/shared/constants";
@@ -30,11 +31,12 @@ import { party } from "../schema/party";
 import { vendor, vendorPayment, vendorPaymentLineItem } from "../schema/vendor";
 import { vendorPaymentTransaction } from "../schema/vendor-payment-transaction";
 import { loadBalanceSheetLines, postAuditedFigures } from "./audited-figures";
-import { type LedgerTx, reverse } from "./engine";
+import { type LedgerTx, post, reverse } from "./engine";
 import { vendorPaymentProvisionView } from "./expense-posting";
 import {
   type IncomeSource,
   listIncomeSources,
+  planIncomeSource,
   postIncomeSource,
   relatedIncomeSources,
 } from "./income-posting";
@@ -233,6 +235,7 @@ async function addInvoice(
   const paymentId = uuidv7();
   await tx.insert(vendorPayment).values({
     chargedTo: "organisation",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: NOW,
     id,
     invoiceDate: input.acceptedOn,
@@ -768,6 +771,89 @@ it.skipIf(!localDatabase)(
         "2027-04-02",
         "2027-05-01",
       ]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reposts provision-charged invoices once for their cost centre (rules version 3) without moving their split",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const a = await addInvoice(tx, ids, {
+        acceptedOn: "2026-06-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-06-05",
+      });
+      const b = await addInvoice(tx, ids, {
+        acceptedOn: "2026-07-10",
+        amountPaise: 5000_00,
+        paidOn: "2026-07-01",
+      });
+      // As rules version 2 posted them: the same entries, no cost centre.
+      const sources = [
+        paymentSource(a.paymentId),
+        paymentSource(b.paymentId),
+        invoiceSource(a.id),
+        invoiceSource(b.id),
+      ];
+      for (const source of sources) {
+        const plan = await planIncomeSource(tx, source);
+        if (plan.kind !== "post") {
+          throw new Error("expected a posting");
+        }
+        for (const part of plan.parts) {
+          await post(
+            tx,
+            {
+              ...part,
+              entries: part.entries.map((e) => ({ ...e, costCentreId: null })),
+              ...source,
+            },
+            { actorId: null, now: NOW }
+          );
+        }
+      }
+      expect(await splitOf(tx, a.id)).toEqual([[5000_00, 0]]);
+      expect(await splitOf(tx, b.id)).toEqual([[2500_00, 2500_00]]);
+
+      // Each payment's advance and each invoice reverse and repost once;
+      // the money stays.
+      for (const source of sources) {
+        expect(await run(tx, source)).toMatchObject({
+          posted: 1,
+          reversed: 1,
+          status: "posted",
+        });
+      }
+      expect(await splitOf(tx, a.id)).toEqual([[5000_00, 0]]);
+      expect(await splitOf(tx, b.id)).toEqual([[2500_00, 2500_00]]);
+      expect(await provisionOn(tx, YEAR_END)).toBe(0);
+      await expectSound(tx, DAYS);
+      // The expense and advance entries now name the cost centre; the
+      // provision decrease, like its programme, does not.
+      const standing = await tx
+        .select({
+          accountHeadId: ledgerEntry.accountHeadId,
+          costCentreId: ledgerEntry.costCentreId,
+        })
+        .from(ledgerEntry)
+        .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+        .where(and(eq(posting.sourceId, b.id), eq(posting.sourceRevision, 2)));
+      expect(standing.length).toBeGreaterThan(2);
+      for (const entry of standing) {
+        expect(entry.costCentreId).toBe(
+          entry.accountHeadId === H.auditFeesPayable
+            ? null
+            : COST_CENTRE_IDS.bangalore
+        );
+      }
+      for (const source of sources) {
+        expect(await run(tx, source)).toMatchObject({
+          posted: 0,
+          reversed: 0,
+        });
+      }
     });
   }
 );

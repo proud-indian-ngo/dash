@@ -6,9 +6,20 @@ import {
   type PublicSessionSummary,
   summarizePublicSession,
 } from "@pi-dash/shared/public-events";
-import { and, eq, gte, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+} from "drizzle-orm";
 
 import { db } from "..";
+import { costCentre } from "../schema/finance-dimensions";
 import { team } from "../schema/team";
 import { teamEvent } from "../schema/team-event";
 
@@ -16,7 +27,9 @@ import { teamEvent } from "../schema/team-event";
 // groups or the raw `location` column.
 const sourceColumns = {
   cancelledAt: teamEvent.cancelledAt,
-  city: teamEvent.city,
+  city: costCentre.code,
+  cityActive: costCentre.active,
+  cityName: costCentre.name,
   description: teamEvent.description,
   endTime: teamEvent.endTime,
   id: teamEvent.id,
@@ -40,7 +53,8 @@ function selectSource() {
   return db
     .select(sourceColumns)
     .from(teamEvent)
-    .innerJoin(team, eq(team.id, teamEvent.teamId));
+    .innerJoin(team, eq(team.id, teamEvent.teamId))
+    .innerJoin(costCentre, eq(costCentre.id, teamEvent.costCentreId));
 }
 
 type SourceSelect = Awaited<ReturnType<typeof selectSource>>[number];
@@ -55,6 +69,17 @@ function toSourceRow(row: SourceSelect): PublicEventSourceRow {
   };
 }
 
+/** The active cost centres the feed lists, by code. */
+export async function getPublicCostCentres(): Promise<
+  { code: string; name: string }[]
+> {
+  return await db
+    .select({ code: costCentre.code, name: costCentre.name })
+    .from(costCentre)
+    .where(eq(costCentre.active, true))
+    .orderBy(asc(costCentre.code));
+}
+
 /** Load the public, upcoming events feed for proudindian.ngo. */
 export async function getPublicEvents(
   query: PublicEventsQuery,
@@ -64,7 +89,9 @@ export async function getPublicEvents(
     eq(teamEvent.isPublic, true),
     isNull(teamEvent.cancelledAt),
     isNull(teamEvent.seriesId),
-    eq(teamEvent.city, query.city),
+    // Asked for, and active: an inactive cost centre's events never list.
+    inArray(costCentre.code, query.cities),
+    eq(costCentre.active, true),
     // Kalakriti runs its own Center-based registration; not on the website.
     isNull(teamEvent.managementDomain)
   );

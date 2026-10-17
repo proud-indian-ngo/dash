@@ -8,6 +8,10 @@ import {
 } from "@pi-dash/design-system/components/ui/select";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import {
+  type CostCentreRequest,
+  requestCostCentreId,
+} from "@pi-dash/shared/cost-centre";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -21,12 +25,13 @@ import { useDataTableFilters } from "@/components/data-table/use-data-table-filt
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatsCards } from "@/components/stats/stats-cards";
+import { useCostCentres } from "@/hooks/use-cost-centres";
+import { LEGACY_CITY_FILTER_PARAM } from "@/lib/cost-centre-filter";
 import {
   dateRangeSearchParams,
   filterByDateRange,
   resolveDateRange,
 } from "@/lib/date-range";
-import { cityOptions } from "@/lib/form-schemas";
 import { assertPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import {
@@ -103,9 +108,7 @@ export const Route = createFileRoute("/_app/analytics")({
   },
 });
 
-const LEGACY_ANALYTICS_FILTER_PARAMS = [
-  { param: "city", path: "city" },
-] as const;
+const LEGACY_ANALYTICS_FILTER_PARAMS = [LEGACY_CITY_FILTER_PARAM] as const;
 
 function AnalyticsPage() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
@@ -139,19 +142,15 @@ function AnalyticsPage() {
   const createdAtAccessor = (item: { createdAt: number | null }) =>
     item.createdAt;
 
-  const allCities = new Set(
-    [...reimbursements, ...advancePayments, ...vendorPayments]
-      .map((item) => (item as { city: string | null }).city)
-      .filter(Boolean)
-  );
-  const hasMultipleCities = allCities.size > 1;
-
-  const cityAccessor = (item: { city: string | null }) => item.city;
-  const filterByCity = <T extends { city: string | null }>(items: T[]): T[] => {
+  // Offered only with several active cost centres; the filter holds one's id.
+  const costCentres = useCostCentres();
+  const hasMultipleCities = costCentres.active.length > 1;
+  const filterByCity = <T extends CostCentreRequest>(items: T[]): T[] => {
     if (!cityFilter) {
       return items;
     }
-    return items.filter((item) => cityAccessor(item) === cityFilter);
+    // A request on an event counts under the event's city.
+    return items.filter((item) => requestCostCentreId(item) === cityFilter);
   };
 
   const filteredReimbursements = filterByCity(
@@ -215,15 +214,14 @@ function AnalyticsPage() {
               >
                 <SelectTrigger aria-label="City" className="h-8">
                   <SelectValue>
-                    {cityOptions.find((option) => option.value === cityFilter)
-                      ?.label ?? "All cities"}
+                    {costCentres.nameOf(cityFilter) || "All cities"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All cities</SelectItem>
-                  {cityOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {costCentres.active.map((centre) => (
+                    <SelectItem key={centre.id} value={centre.id}>
+                      {centre.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

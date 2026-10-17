@@ -1086,6 +1086,27 @@
       "when": 1792211989094,
       "tag": "0154_unoriented_bank_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1792212989094,
+      "tag": "0155_cost_centres",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1792212990094,
+      "tag": "0156_backfill_cost_centres",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1792212991094,
+      "tag": "0157_drop_city",
+      "breakpoints": true
     }
   ]
 }

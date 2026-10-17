@@ -1,4 +1,7 @@
-import { getPublicEvents } from "@pi-dash/db/queries/public-events";
+import {
+  getPublicCostCentres,
+  getPublicEvents,
+} from "@pi-dash/db/queries/public-events";
 import { env } from "@pi-dash/env/server";
 import {
   parsePublicEventsQuery,
@@ -56,6 +59,9 @@ export interface PublicEventsHandlerDeps {
   baseUrl: string;
   cache: TtlCache<PublicEventsResponse>;
   checkRateLimit: typeof checkRateLimit;
+  /** The active cost centres, cached like the events (`activeCodes`). */
+  centresCache: TtlCache<CostCentreCodes>;
+  getPublicCostCentres: typeof getPublicCostCentres;
   getPublicEvents: typeof getPublicEvents;
   now: () => number;
 }
@@ -70,13 +76,54 @@ export const createPublicEventsCache = () =>
     ttlMs: CACHE_TTL_MS,
   });
 
+/** The active codes and when they were read. */
+export interface CostCentreCodes {
+  codes: string[];
+  readAt: number;
+}
+
+// Refreshed after a minute; kept for a day so a failed refresh can fall
+// back to the last codes read.
+const CODES_KEEP_MS = 24 * 60 * 60_000;
+
+export const createCostCentresCache = () =>
+  createTtlCache<CostCentreCodes>({ maxEntries: 1, ttlMs: CODES_KEEP_MS });
+
 const defaultHandlerDeps: PublicEventsHandlerDeps = {
   baseUrl: env.BETTER_AUTH_URL,
   cache: createPublicEventsCache(),
+  centresCache: createCostCentresCache(),
   checkRateLimit,
+  getPublicCostCentres,
   getPublicEvents,
   now: Date.now,
 };
+
+/** The active cost centre codes, from the cache for up to a minute. */
+async function activeCodes(
+  deps: PublicEventsHandlerDeps,
+  now: number
+): Promise<string[]> {
+  const cached = deps.centresCache.get("active", now);
+  if (cached && now - cached.readAt < CACHE_TTL_MS) {
+    return cached.codes;
+  }
+  try {
+    const codes = (await deps.getPublicCostCentres()).map((c) => c.code);
+    deps.centresCache.set("active", { codes, readAt: now }, now);
+    return codes;
+  } catch (error) {
+    // The website keeps working on the last codes read.
+    if (cached) {
+      const log = createRequestLogger({ method: "GET", path: PATH });
+      log.set({ warning: "cost centres unavailable; serving the last codes" });
+      log.error(error instanceof Error ? error : String(error));
+      log.emit();
+      return cached.codes;
+    }
+    throw error;
+  }
+}
 
 export async function handlePublicEventsRequest(
   request: Request,
@@ -94,9 +141,25 @@ export async function handlePublicEventsRequest(
 
   const now = deps.now();
   const params = new URL(request.url).searchParams;
+  const unavailable = (error: unknown, fields: Record<string, unknown>) => {
+    const log = createRequestLogger({ method: "GET", path: PATH });
+    log.set(fields);
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
+    return Response.json(
+      { error: "Events are unavailable right now" },
+      { headers: noStore, status: 500 }
+    );
+  };
+  let codes: string[];
+  try {
+    codes = await activeCodes(deps, now);
+  } catch (error) {
+    return unavailable(error, { step: "cost-centres" });
+  }
   let query: ReturnType<typeof parsePublicEventsQuery>;
   try {
-    query = parsePublicEventsQuery(params, now);
+    query = parsePublicEventsQuery(params, now, codes);
   } catch (error) {
     if (error instanceof PublicEventsQueryError) {
       return Response.json(
@@ -109,7 +172,7 @@ export async function handlePublicEventsRequest(
 
   // `from` defaults to now, so key on the raw param rather than the timestamp.
   const cacheKey = [
-    query.city,
+    query.cities.join(","),
     params.get("from") ?? "",
     query.to - query.from,
     query.limit,
@@ -130,14 +193,11 @@ export async function handlePublicEventsRequest(
       },
     });
   } catch (error) {
-    const log = createRequestLogger({ method: "GET", path: PATH });
-    log.set({ city: query.city, from: query.from, to: query.to });
-    log.error(error instanceof Error ? error : String(error));
-    log.emit();
-    return Response.json(
-      { error: "Events are unavailable right now" },
-      { headers: noStore, status: 500 }
-    );
+    return unavailable(error, {
+      cities: query.cities,
+      from: query.from,
+      to: query.to,
+    });
   }
 }
 

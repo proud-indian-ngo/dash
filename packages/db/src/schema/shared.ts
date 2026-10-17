@@ -1,6 +1,5 @@
 import {
   attachmentTypeValues,
-  cityValues,
   expenseChargedToValues,
   historyActionValues,
   reminderTargetValues,
@@ -8,8 +7,6 @@ import {
 import { pgEnum } from "drizzle-orm/pg-core";
 
 // Shared Postgres enums
-// Postgres enum name is "reimbursement_city" from initial migration (0006)
-export const cityEnum = pgEnum("reimbursement_city", cityValues);
 export const attachmentTypeEnum = pgEnum(
   "attachment_type",
   attachmentTypeValues

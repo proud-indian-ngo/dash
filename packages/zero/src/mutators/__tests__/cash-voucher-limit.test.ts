@@ -22,6 +22,9 @@ function createDb(
   seed: Partial<Record<string, Row[]>> = {}
 ) {
   const tables: Record<string, Row[]> = {
+    costCentre: [
+      { active: true, code: "BLR", id: "cc-blr", name: "Bangalore" },
+    ],
     appConfig: [],
     reimbursement: [],
     reimbursementAttachment: [],
@@ -290,7 +293,7 @@ describe("reimbursement.create voucher fields", () => {
   const args = (lineItems: Row[]) => ({
     attachments: [],
     chargedTo: "organisation",
-    city: "bangalore",
+    costCentreId: "cc-blr",
     expenseDate: new Date("2026-10-01").getTime(),
     id: "request-2",
     lineItems,
@@ -377,7 +380,7 @@ describe("reimbursement voucher payee", () => {
         args: createSchema.parse({
           attachments: [],
           chargedTo: "organisation",
-          city: "bangalore",
+          costCentreId: "cc-blr",
           expenseDate: new Date("2026-10-01").getTime(),
           id: "request-3",
           lineItems: [
@@ -409,7 +412,7 @@ describe("reimbursement voucher payee", () => {
       args: createSchema.parse({
         attachments: [],
         chargedTo: "organisation",
-        city: "bangalore",
+        costCentreId: "cc-blr",
         expenseDate: new Date("2026-10-01").getTime(),
         id: "request-3",
         lineItems: [
@@ -487,7 +490,7 @@ describe("reimbursement.update and existing vouchers", () => {
       file("att-signed", SIGNED_KEY),
     ],
     chargedTo: "organisation",
-    city: "bangalore",
+    costCentreId: "cc-blr",
     expenseDate: EXPENSE_DATE,
     id: "request-1",
     lineItems: [

@@ -42,7 +42,10 @@ export interface SocialPartner {
 export interface SocialEvent {
   area: string;
   attendance: { children: number; hours: number; volunteers: number } | null;
+  /** The event's cost centre code (`BLR`). */
   city: string;
+  /** The cost centre's name ("Bangalore"). */
+  cityName: string;
   /** "HH:mm" in India. */
   endTime: string;
   /**
@@ -224,7 +227,8 @@ export function sessionHours(
 
 /** Public, website-managed rows; cancelled ones stay so the pipeline can drop posts. */
 function isSocialListed(row: SocialEventSourceRow): boolean {
-  return row.isPublic && row.managementDomain === null;
+  // An inactive cost centre's events (Mumbai, closed) are left out.
+  return row.isPublic && row.managementDomain === null && row.cityActive;
 }
 
 /** Social feed id of a virtual occurrence: `${seriesId}:${occDate}`. */
@@ -308,8 +312,8 @@ function expandExdatedOccurrences(
 }
 
 /**
- * Social events for a window: every public, non-Kalakriti occurrence in both
- * cities, including cancelled ones (status "cancelled") and occurrences the
+ * Social events for a window: every public, non-Kalakriti occurrence in every
+ * active cost centre, including cancelled ones (status "cancelled") and occurrences the
  * series' exdates removed (also "cancelled"). `facts` is keyed by
  * materialised `team_event` id; a virtual occurrence reads its series
  * parent's interests and partners, an exception row uses its own partners
@@ -352,7 +356,7 @@ export function buildSocialEvents(
         ? factsFor(parent.id).partners
         : own.partners;
     return {
-      area: toPublicArea(row.publicArea, row.city),
+      area: toPublicArea(row.publicArea, row.cityName),
       attendance: completed
         ? {
             children: row.childrenAttended ?? 0,
@@ -361,6 +365,7 @@ export function buildSocialEvents(
           }
         : null,
       city: row.city,
+      cityName: row.cityName,
       endTime: toIndiaTime(occ.endTime ?? occ.startTime),
       id:
         occ.virtual && occ.occDate

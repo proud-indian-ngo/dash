@@ -3,6 +3,7 @@ import {
   Briefcase01Icon,
   FolderLibraryIcon,
   Key01Icon,
+  Location01Icon,
   NotificationIcon,
   PlugSocketIcon,
   SecurityLockIcon,
@@ -92,6 +93,15 @@ export const SETTINGS_SECTIONS = [
     icon: FolderLibraryIcon,
     label: "Projects",
     path: "/settings/projects",
+    permission: "finance.manage",
+  },
+  {
+    description:
+      "Where the work happens, shown to volunteers as City: picked on events and on requests without an event, and listed on the public events feed by code.",
+    group: "organization",
+    icon: Location01Icon,
+    label: "Cost centres",
+    path: "/settings/cost-centres",
     permission: "finance.manage",
   },
   {

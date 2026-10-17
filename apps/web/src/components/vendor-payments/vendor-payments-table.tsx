@@ -8,6 +8,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { formatPaise } from "@pi-dash/shared/money";
 import { formatNoInvoice } from "@pi-dash/shared/vendor-payment";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -46,6 +47,7 @@ import {
 } from "@/components/vendor-payments/vendor-payment-filters";
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -76,7 +78,11 @@ const SKELETON_STATUS = <Skeleton className="h-6 w-16" />;
 const SKELETON_TOTAL = <Skeleton className="h-5 w-20" />;
 const SKELETON_USER = USER_CELL_SKELETON;
 
-function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
+function searchVendorPayment(
+  row: VendorPaymentWithRelations,
+  query: string,
+  cityOf: (row: VendorPaymentWithRelations) => string
+): boolean {
   const q = query.toLowerCase();
   if (!q) {
     return true;
@@ -84,6 +90,7 @@ function searchFn(row: VendorPaymentWithRelations, query: string): boolean {
   return [
     row.title,
     row.vendor?.name,
+    cityOf(row),
     row.status,
     row.user?.name,
     row.invoiceNumber,
@@ -192,9 +199,17 @@ export function VendorPaymentsTable({
   toolbarActions,
 }: VendorPaymentsTableProps) {
   useMigrateLegacyVendorPaymentFilterParams();
+  const costCentres = useCostCentres();
+  /** "City": the event's cost centre for a payment on an event, else its own. */
+  const cityOf = (row: VendorPaymentWithRelations) =>
+    costCentres.nameOf(requestCostCentreId(row));
   const filterFields = useMemo(
-    () => createVendorPaymentFilterFields(data),
-    [data]
+    () => createVendorPaymentFilterFields(data, costCentres.active),
+    [data, costCentres.active]
+  );
+  const searchFn = useEventCallback(
+    (row: VendorPaymentWithRelations, query: string) =>
+      searchVendorPayment(row, query, cityOf)
   );
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
@@ -293,10 +308,10 @@ export function VendorPaymentsTable({
       size: 180,
     },
     {
-      accessorFn: (row) => row.city,
+      accessorFn: (row) => cityOf(row),
       cell: ({ row }) => (
-        <span className="text-muted-foreground truncate text-sm capitalize">
-          {row.original.city}
+        <span className="text-muted-foreground truncate text-sm">
+          {cityOf(row.original)}
         </span>
       ),
       header: ({ column }) => (

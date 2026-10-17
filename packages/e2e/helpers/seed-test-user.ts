@@ -20,7 +20,7 @@ import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
-import { orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import { costCentre, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
 import { contribution } from "@pi-dash/db/schema/income";
 import { party, partyRole } from "@pi-dash/db/schema/party";
 import { role, rolePermission } from "@pi-dash/db/schema/permission";
@@ -40,9 +40,10 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
-import { eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { seedKalakritiReleaseFixture } from "./kalakriti-release-fixture";
@@ -856,7 +857,6 @@ async function ensureReimbursement(
   const now = new Date();
   await db.insert(reimbursement).values({
     chargedTo: "event",
-    city: "bangalore",
     createdAt: now,
     eventId,
     expenseDate: "2026-01-15",
@@ -915,7 +915,6 @@ async function ensureUpcomingEventReimbursement(
   const now = new Date();
   await db.insert(reimbursement).values({
     chargedTo: "event",
-    city: "bangalore",
     createdAt: now,
     eventId,
     expenseDate: "2026-01-15",
@@ -1004,7 +1003,6 @@ async function ensureEventVendorPayment(
 
   await db.insert(vendorPayment).values({
     chargedTo: "event",
-    city: "bangalore",
     createdAt: now,
     eventId,
     id: SEED_VENDOR_PAYMENT_ID,
@@ -1051,7 +1049,7 @@ async function ensureExportVendorPayment(userId: string): Promise<void> {
   const createdAt = new Date("2026-07-01T00:00:00.000Z");
   await db.insert(vendorPayment).values({
     chargedTo: "organisation",
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt,
     id: SEED_EXPORT_VENDOR_PAYMENT_ID,
     invoiceDate: "2026-01-20",
@@ -1692,7 +1690,7 @@ async function ensureFilterTestEvents(
       const id = uuidv7();
       await db.insert(teamEvent).values({
         cancelledAt: e.cancelled ? now : undefined,
-        city: e.city,
+        costCentreId: COST_CENTRE_IDS[e.city],
         createdAt: subDays(now, 7),
         createdBy: adminUserId,
         description: `${e.name} — E2E filter test event`,
@@ -1720,6 +1718,12 @@ async function ensureFilterTestEvents(
 async function seed(): Promise<void> {
   await syncPermissions();
   await ensureFinanceDimensions();
+  // Cost centres a spec added and left active (a run stopped part way)
+  // would make every event and request form ask for a city: close them.
+  await db
+    .update(costCentre)
+    .set({ active: false, updatedAt: new Date() })
+    .where(and(like(costCentre.code, "E2E%"), eq(costCentre.active, true)));
   await verifyReservedPermissionSync();
   log("Synced roles and permissions");
 

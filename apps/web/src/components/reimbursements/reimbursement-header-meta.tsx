@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
-import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
 import { DATE } from "@/lib/date-formats";
@@ -10,12 +9,16 @@ import {
 } from "@/lib/reimbursement-types";
 import { requestProgrammeHeader } from "@/lib/request-programme";
 
-/** The facts shown under a request's title, for `PageHeader`'s `meta`. */
+/**
+ * The facts shown under a request's title, for `PageHeader`'s `meta`.
+ * `cityName` is its cost centre's name: the event's for a claim on an event.
+ */
 export function reimbursementHeaderMeta(
-  request: RequestDetailData
+  request: RequestDetailData,
+  cityName: string
 ): ReactNode[] {
   return [
-    request.city ? capitalize(request.city) : null,
+    cityName ? <span key="city">{cityName}</span> : null,
     isReimbursement(request) && request.event ? (
       <Link
         className="text-primary font-medium underline-offset-2 hover:underline"

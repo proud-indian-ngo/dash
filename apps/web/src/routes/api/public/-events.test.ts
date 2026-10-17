@@ -2,6 +2,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 mock.module("@pi-dash/db/queries/public-events", () => ({
+  getPublicCostCentres: mock(),
   getPublicEvents: mock(),
 }));
 
@@ -9,6 +10,7 @@ import type { PublicEvent } from "@pi-dash/shared/public-events";
 
 import {
   clientIp,
+  createCostCentresCache,
   createPublicEventsCache,
   handlePublicEventsPreflight,
   handlePublicEventsRequest,
@@ -19,8 +21,9 @@ const NOW = Date.UTC(2026, 9, 8);
 const URL_BASE = "https://dash.proudindian.ngo/api/public/events";
 
 const sampleEvent: PublicEvent = {
-  area: "Iblur, Bengaluru",
-  city: "bangalore",
+  area: "Iblur, Bangalore",
+  city: "BLR",
+  cityName: "Bangalore",
   endTime: "2026-10-10T07:00:00.000Z",
   id: "019a0000-0000-7000-8000-000000000001",
   name: "Maths class",
@@ -41,15 +44,21 @@ function createDeps(overrides: Partial<PublicEventsHandlerDeps> = {}) {
     remaining: 59,
     resetAt: NOW + 60_000,
   }));
+  const getPublicCostCentres = mock(async () => [
+    { code: "BLR", name: "Bangalore" },
+    { code: "DEL", name: "Delhi" },
+  ]);
   const deps: PublicEventsHandlerDeps = {
     baseUrl: "https://dash.proudindian.ngo",
     cache: createPublicEventsCache(),
+    centresCache: createCostCentresCache(),
     checkRateLimit,
+    getPublicCostCentres,
     getPublicEvents,
     now: () => NOW,
     ...overrides,
   };
-  return { checkRateLimit, deps, getPublicEvents };
+  return { checkRateLimit, deps, getPublicCostCentres, getPublicEvents };
 }
 
 const request = (query = "", headers: Record<string, string> = {}) =>
@@ -66,9 +75,10 @@ describe("handlePublicEventsRequest", () => {
       events: [sampleEvent],
       generatedAt: "2026-10-08T00:00:00.000Z",
     });
+    // Without a city: every active cost centre.
     expect(getPublicEvents).toHaveBeenCalledWith(
       {
-        city: "bangalore",
+        cities: ["BLR", "DEL"],
         from: NOW,
         limit: 20,
         to: NOW + 30 * 24 * 60 * 60 * 1000,
@@ -116,11 +126,40 @@ describe("handlePublicEventsRequest", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();
   });
 
+  it("lists one cost centre by its code, in any case, or the deprecated alias", async () => {
+    for (const city of ["BLR", "blr", "bangalore", "bengaluru"]) {
+      const { deps, getPublicEvents } = createDeps();
+      const response = await handlePublicEventsRequest(
+        request(`?city=${city}`),
+        deps
+      );
+      expect(response.status).toBe(200);
+      expect(getPublicEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ cities: ["BLR"] }),
+        "https://dash.proudindian.ngo"
+      );
+    }
+  });
+
+  it("refuses an unknown or inactive code with the active codes", async () => {
+    for (const city of ["MUM", "mumbai", "delhi"]) {
+      const { deps } = createDeps();
+      const response = await handlePublicEventsRequest(
+        request(`?city=${city}`),
+        deps
+      );
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "city must be one of BLR, DEL",
+      });
+    }
+  });
+
   it("rejects bad query params with 400 and no caching", async () => {
     const { deps, getPublicEvents } = createDeps();
 
     const response = await handlePublicEventsRequest(
-      request("?city=delhi", { origin: "https://proudindian.ngo" }),
+      request("?city=pune", { origin: "https://proudindian.ngo" }),
       deps
     );
 
@@ -157,16 +196,20 @@ describe("handlePublicEventsRequest", () => {
 
   it("serves repeat requests from the in-process cache", async () => {
     let now = NOW;
-    const { deps, getPublicEvents } = createDeps({ now: () => now });
+    const { deps, getPublicCostCentres, getPublicEvents } = createDeps({
+      now: () => now,
+    });
 
     await handlePublicEventsRequest(request(), deps);
     now += 30_000;
     const cached = await handlePublicEventsRequest(request(), deps);
-    await handlePublicEventsRequest(request("?city=mumbai"), deps);
+    await handlePublicEventsRequest(request("?city=del"), deps);
     now += 31_000;
     await handlePublicEventsRequest(request(), deps);
 
     expect(getPublicEvents).toHaveBeenCalledTimes(3);
+    // The active cost centres are cached for as long.
+    expect(getPublicCostCentres).toHaveBeenCalledTimes(2);
     await expect(cached.json()).resolves.toMatchObject({
       generatedAt: "2026-10-08T00:00:00.000Z",
     });
@@ -181,6 +224,43 @@ describe("handlePublicEventsRequest", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(getPublicEvents).not.toHaveBeenCalled();
+  });
+
+  it("keeps serving on the last codes when the cost centres can't be read", async () => {
+    let now = NOW;
+    let failing = false;
+    const { deps, getPublicEvents } = createDeps({
+      getPublicCostCentres: mock(async () => {
+        if (failing) {
+          throw new Error("db down");
+        }
+        return [{ code: "BLR", name: "Bangalore" }];
+      }),
+      now: () => now,
+    });
+    await handlePublicEventsRequest(request(), deps);
+    failing = true;
+    now += 61_000;
+    const response = await handlePublicEventsRequest(request(), deps);
+    expect(response.status).toBe(200);
+    expect(getPublicEvents).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cities: ["BLR"] }),
+      "https://dash.proudindian.ngo"
+    );
+  });
+
+  it("hides an error reading the cost centres", async () => {
+    const { deps, getPublicEvents } = createDeps({
+      getPublicCostCentres: mock(async () => {
+        throw new Error("connection refused at 10.0.0.5");
+      }),
+    });
+
+    const response = await handlePublicEventsRequest(request(), deps);
+
+    expect(response.status).toBe(500);
+    expect(await response.text()).not.toContain("10.0.0.5");
     expect(getPublicEvents).not.toHaveBeenCalled();
   });
 

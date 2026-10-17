@@ -1,13 +1,13 @@
 # Finance and programmes
 
-> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, expense "Charged to", approval policy, budgets, advance settlement, in-kind, FCRA and FC-4, retention.
+> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, expense "Charged to", cost centres (City), approval policy, budgets, advance settlement, in-kind, FCRA and FC-4, retention.
 > **Related**: `authorization.md`, `data-layer.md`, `jobs.md`, `reimbursements.md`, `vendor-payments.md`, `cash-vouchers.md`
 
 The dashboard keeps the trust's operational financial record year-round, organised by programme: expenses, income, donors, receipts and a single-entry set of books. The CA keeps the statutory books and takes year-end exports from the dashboard. The ledger starts at the cutover, 1 April 2026.
 
 | Chapter | Covers |
 |---|---|
-| This one | Status, decisions, dimensions, Charged to, deferred work, data protection |
+| This one | Status, decisions, dimensions, Charged to, cost centres, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursement lifecycle, payouts by bank or UPI, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, contributions and other income, CSV imports, Razorpay, give.do payouts, Reached bank |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit matching, debit matching and bank charges |
@@ -20,11 +20,11 @@ The dashboard keeps the trust's operational financial record year-round, organis
 | Layer | Scope | State |
 |---|---|---|
 | Phase 0 | Cutover contracts (`finance-ledger-cutover.md`) | Drafted; founder and CA sign-off pending |
-| Phase 1 | Dimensions, bigint paise, parties and private data, vendors as parties, programmes on teams and events, Charged to | Shipped |
+| Phase 1 | Dimensions and cost centres, bigint paise, parties and private data, vendors as parties, programmes on teams and events, Charged to | Shipped |
 | Phase 2 (2, 3a–3f) | Contributions and other income, CSV imports, Razorpay ingestion with refunds and settlements, bank statement lines, donations return readiness and export, give.do payouts, Reached bank | Shipped |
 | Phase 3 (3-1 to 3-5) | Posting engine and books, income posting, expense posting, bank debit matching, CA workbook, audited figures | Shipped |
 | Phase 4 (part) | Donation receipts | Shipped |
-| Later | Filing tracking and Form 114 delivery, approval policy, budgets, cost centres on requests, TDS, GST, grants, FCRA and FC-4, outcomes, DPDP rights log, FY audit pack | Deferred |
+| Later | Filing tracking and Form 114 delivery, approval policy, budgets, TDS, GST, grants, FCRA and FC-4, outcomes, DPDP rights log, FY audit pack | Deferred |
 
 The founder confirmed the rules marked "founder decision" below; the CA may still review any of them.
 
@@ -56,7 +56,7 @@ Tables in `packages/db/src/schema/finance-dimensions.ts`, mutators in `packages/
 | `programme` | Code, name, cause, lead, optional `finance_threshold_paise` (stored, not enforced). Seeded: Education, Arts and culture, Community support, and the "Unallocated" holder |
 | `project` | Under one programme; kind (class, edition, drive, engagement, other), dates, optional sponsor, intermediary and quoted budget. Syncs only to `finance.view` |
 | `fund` | Source (domestic, fcra), restriction. General Fund (Domestic) is the default; the restricted Corpus Fund is reference data |
-| `cost_centre` | Replaces the city enum (Bangalore; Mumbai inactive). Requests still use `city` |
+| `cost_centre` | Code, name, state/UT, active; see "Cost centres" below |
 | `account_head` | Type income, expense, asset, liability or fund, parent, `tally_ledger_name` |
 | `org_account` | Kind `bank`, `cash`, `gateway_clearing` or `deposit` (fixed deposit: no donations or statement imports), fund source, FCRA role, `is_main`. Deactivated, never deleted. No bank details yet |
 | `fiscal_year`, `fiscal_period` | The monthly `ensure-fiscal-years` job keeps the current and next year present |
@@ -91,6 +91,18 @@ One target per request. Advance payments carry none and show "—".
 - The claimant picks on the form (default Event) while pending. Finance (`finance.manage`, or `requests.approve` with `requests.view_all`) changes it later via `setChargedTo`, never on a rejected request or their own. Once posted, `setChargedTo` refuses and the card shows "In the books".
 - Legacy requests without an event went to the submitter's team programme when unambiguous, else to Unallocated. Finance clears them with the "Unallocated · N" button ("To clear" filter).
 
+## Cost centres
+
+`cost_centre` holds where the work happens. Volunteer screens call it "City"; Settings, the Books, the CA workbook and finance views say "Cost centre". Bangalore (`BLR`) is active and Mumbai (`MUM`) inactive, since that chapter closed.
+
+- `team_event`, `reimbursement`, `advance_payment` and `vendor_payment` carry `cost_centre_id` (`ON DELETE RESTRICT`). It is required on events, defaulting to Bangalore's fixed ID (`COST_CENTRE_IDS`); the app always sets it.
+- A request takes its event's cost centre, as Programme follows Charged to: on an event it stores none, else it stores its own. `requestCostCentreId` (`packages/shared/src/cost-centre.ts`) is the rule for every reader: tables, filters, details, the financial-year export and expense posting. Checks: a reimbursement has `event_id IS NULL OR cost_centre_id IS NULL`; a vendor payment has exactly one of an event or its own. Advance payments keep their own, null on old rows.
+- Picking: event and request forms offer active centres and hide the picker when only one is active; a request on an event has none (`use-request-city.ts`). Without a pick a new record takes the only active centre; with several the server asks "Choose the city". Mutators check through `pickCostCentreId` (`packages/zero/src/mutators/cost-centre-pick.ts`): a new pick must be an existing active centre, and keeping the current one is always allowed, so an old Mumbai record stays Mumbai. The event picker on requests hides inactive centres' events unless the request is already on one.
+- Re-charging (`setChargedTo`) has no city picker: moving onto an event clears the request's own centre; moving off keeps the event's (`costCentreAfterRecharge`).
+- Inactive centres are hidden from pickers, the City filters on the events, reimbursements, vendor payments and analytics pages (`apps/web/src/lib/cost-centre-filter.ts` keeps old `?city=bangalore` links working), the public agenda's city select (shown only with several active), the public feed (`recurring-events.md`) and the Social API. Old records keep their label in details, the CA workbook and the financial-year export, whose "City" header stays as a CSV contract.
+- Settings → Cost centres (`/settings/cost-centres`, `finance.manage`, `costCentreMutators`) adds (name, code, state/UT), renames, and deactivates or reactivates. A centre is never deleted, its code never changes (the public feed uses it), and the last active one can't be deactivated.
+- Every path that materialises an occurrence copies the series' centre (`recurring-events.md`); Kalakriti's linked technical event takes Bangalore's. Expense entries carry it (`finance-books.md`).
+
 ## Claim for others
 
 See "Claim for others" in [reimbursements.md](reimbursements.md).
@@ -124,7 +136,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 
 ### Other deferred work
 
-- Requests: `cost_centre_id` instead of `city`, frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on reimbursements still sync).
+- Requests: frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on reimbursements still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
 - Grants (`grant_agreement`, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
 - Outcomes: `event_outcome` counts service contacts, never unique children; volunteer minutes valued by `volunteer_hour_value_paise`, never posted.

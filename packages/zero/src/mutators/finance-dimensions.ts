@@ -12,12 +12,17 @@ import {
   projectKindValues,
   projectStatusValues,
 } from "@pi-dash/shared/constants";
+import { DEPRECATED_PUBLIC_CITY_ALIASES } from "@pi-dash/shared/cost-centre";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
+import {
+  type LockableKalakritiTx,
+  requireServerTransaction,
+} from "./kalakriti-row-locks";
 
 const code = z
   .string()
@@ -441,9 +446,37 @@ export const fundMutators = {
   }),
 };
 
+/** Codes the public feed reads as aliases of BLR can't name a cost centre. */
+const RESERVED_COST_CENTRE_CODES = new Set(
+  Object.keys(DEPRECATED_PUBLIC_CITY_ALIASES).map((alias) =>
+    alias.toUpperCase()
+  )
+);
+
+/** On the server, locks the active cost centres to the end of the transaction. */
+async function lockActiveCostCentres(tx: Tx): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const [{ costCentre }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/finance-dimensions"),
+    import("drizzle-orm"),
+  ]);
+  await requireServerTransaction(tx as unknown as LockableKalakritiTx)
+    .select({ id: costCentre.id })
+    .from(costCentre)
+    .where(eq(costCentre.active, true))
+    .for("update");
+}
+
 export const costCentreMutators = {
   create: defineMutator(costCentreInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "finance.manage");
+    if (RESERVED_COST_CENTRE_CODES.has(args.code)) {
+      throw new Error(
+        `Code ${args.code} is reserved: the website's events feed reads it as Bangalore`
+      );
+    }
     await assertCodeAndNameFree(args, {
       byCode: () =>
         tx.run(
@@ -477,6 +510,22 @@ export const costCentreMutators = {
     if (!existing) {
       throw new Error("Cost centre not found");
     }
+    // The code is what the public events feed and the website use, and
+    // records point at the centre, so it never changes once created.
+    if (args.code !== existing.code) {
+      throw new Error("A cost centre's code can't be changed");
+    }
+    const active = args.active ?? existing.active ?? true;
+    if (existing.active !== false && !active) {
+      // Two deactivations at once must not both see the other as active.
+      await lockActiveCostCentres(tx);
+      const others = await tx.run(
+        zql.costCentre.where("active", true).where("id", "!=", args.id)
+      );
+      if (others.length === 0) {
+        throw new Error("At least one cost centre must stay active");
+      }
+    }
     await assertCodeAndNameFree(args, {
       byCode: () =>
         tx.run(
@@ -494,7 +543,7 @@ export const costCentreMutators = {
         ),
     });
     await tx.mutate.costCentre.update({
-      active: args.active ?? existing.active ?? true,
+      active,
       code: args.code,
       id: args.id,
       name: args.name,

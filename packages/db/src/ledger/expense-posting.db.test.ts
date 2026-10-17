@@ -1,4 +1,7 @@
-import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+import {
+  COST_CENTRE_IDS,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
 import { SQL } from "bun";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -548,6 +551,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: event ? "event" : "organisation",
+        costCentreId: event ? null : COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         eventId: event?.id ?? null,
         id: vpId,
@@ -693,6 +697,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: "organisation",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         id: vpId,
         invoiceDate: "2026-07-15",
@@ -973,6 +978,7 @@ it.skipIf(!localDatabase)(
       const vpId = uuidv7();
       await tx.insert(vendorPayment).values({
         chargedTo: "organisation",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         createdAt: NOW,
         id: vpId,
         reviewedAt: NOW,

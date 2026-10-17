@@ -28,13 +28,13 @@ import {
 import { InputField } from "@/components/form/input-field";
 import { LineItemsEditor } from "@/components/form/line-items-editor";
 import type { SelectOption } from "@/components/form/select-field";
-import { SelectField } from "@/components/form/select-field";
 import { VendorFormDialog } from "@/components/vendors/vendor-form-dialog";
 import type { Attachment } from "@/lib/form-schemas";
-import { cityOptions } from "@/lib/form-schemas";
 
 interface VendorPaymentFieldsProps {
   categoryList: ExpenseCategory[];
+  /** The "City" choices; empty hides the picker (see `useRequestCity`). */
+  cityOptions: SelectOption[];
   currentChargeProgramme?: CurrentChargeProgramme | null;
   eventOptions: SelectOption[];
   isEdit: boolean;
@@ -111,6 +111,7 @@ function VendorSelectField({
 
 export function VendorPaymentFields({
   categoryList,
+  cityOptions,
   currentChargeProgramme,
   eventOptions,
   isEdit,
@@ -126,13 +127,16 @@ export function VendorPaymentFields({
     <>
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField isRequired label="Title" name="title" />
-        <SelectField
-          isRequired
-          label="City"
-          name="city"
-          options={cityOptions}
-          placeholder="Select city"
-        />
+        {cityOptions.length > 0 ? (
+          <ComboboxField
+            emptyMessage="No matching cities."
+            isRequired
+            label="City"
+            name="costCentreId"
+            options={cityOptions}
+            placeholder="Search cities"
+          />
+        ) : null}
         <CustomField<string | undefined>
           isRequired
           label="Vendor"

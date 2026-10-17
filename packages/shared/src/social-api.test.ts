@@ -32,7 +32,9 @@ function row(overrides: Partial<SocialEventSourceRow>): SocialEventSourceRow {
   return {
     cancelledAt: null,
     childrenAttended: null,
-    city: "bangalore",
+    city: "BLR",
+    cityActive: true,
+    cityName: "Bengaluru",
     description: "Weekly spoken English.",
     endTime: SAT + 2 * HOUR,
     id: "019a0000-0000-7000-8000-000000000001",
@@ -157,7 +159,8 @@ describe("buildSocialEvents", () => {
     expect(event).toEqual({
       area: "Bellandur, Bengaluru",
       attendance: null,
-      city: "bangalore",
+      city: "BLR",
+      cityName: "Bengaluru",
       endTime: "12:00",
       id: "019a0000-0000-7000-8000-000000000001",
       name: "Spoken English Class",
@@ -177,10 +180,16 @@ describe("buildSocialEvents", () => {
     });
   });
 
-  it("includes both cities, past dates and cancelled events, but not private or Kalakriti ones", () => {
+  it("includes every active cost centre, past dates and cancelled events, but not private, Kalakriti or inactive centres' ones", () => {
     const events = buildSocialEvents(
       [
-        row({ city: "mumbai", id: "mumbai" }),
+        row({ city: "DEL", cityName: "Delhi", id: "delhi" }),
+        row({
+          city: "MUM",
+          cityActive: false,
+          cityName: "Mumbai",
+          id: "mumbai",
+        }),
         row({ cancelledAt: SAT - DAY, id: "cancelled" }),
         row({ id: "private", isPublic: false }),
         row({ id: "kalakriti", managementDomain: "kalakriti" }),
@@ -193,7 +202,7 @@ describe("buildSocialEvents", () => {
 
     expect(events.map((e) => [e.id, e.status])).toEqual([
       ["cancelled", "cancelled"],
-      ["mumbai", "scheduled"],
+      ["delhi", "scheduled"],
     ]);
   });
 

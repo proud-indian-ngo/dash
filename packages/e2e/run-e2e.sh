@@ -317,9 +317,22 @@ if [ $# -gt 0 ]; then
 else
   echo "Running all Playwright tests..."
 fi
+# The exclusive_last project (setup's teardown) doesn't pull in setup, so a
+# run naming only its specs would reuse stale auth state. Whenever spec files
+# are named, global-setup.ts is named too (a no-op for other specs, whose
+# projects depend on setup anyway).
+PW_ARGS=("$@")
+for arg in "$@"; do
+  case "$arg" in
+    *.spec.ts | tests/*)
+      PW_ARGS+=("global-setup.ts")
+      break
+      ;;
+  esac
+done
 set +e
 TEST_STARTED=$SECONDS
-bunx playwright test --config packages/e2e/playwright.config.ts "$@"
+bunx playwright test --config packages/e2e/playwright.config.ts "${PW_ARGS[@]}"
 EXIT_CODE=$?
 echo "Playwright finished in $((SECONDS - TEST_STARTED))s."
 exit $EXIT_CODE

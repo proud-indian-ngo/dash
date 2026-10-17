@@ -8,6 +8,7 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -45,6 +46,7 @@ import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
+import { useCostCentres } from "@/hooks/use-cost-centres";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -162,14 +164,18 @@ function RowActions({
   );
 }
 
-function searchReimbursement(row: RequestRow, query: string): boolean {
+function searchReimbursement(
+  row: RequestRow,
+  query: string,
+  cityOf: (row: RequestRow) => string
+): boolean {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;
   }
   return [
     row.title,
-    row.city,
+    cityOf(row),
     row.status,
     row.user?.name,
     "event" in row ? row.event?.name : "",
@@ -283,6 +289,11 @@ export function ReimbursementsTable({
     }
   });
 
+  const costCentres = useCostCentres();
+  /** "City": the event's cost centre for a claim on an event, else its own. */
+  const cityOf = (row: RequestRow) =>
+    costCentres.nameOf(requestCostCentreId(row));
+
   const columns: DataGridColumnDef<RequestRow>[] = [
     {
       accessorFn: (row) => row.title,
@@ -322,10 +333,10 @@ export function ReimbursementsTable({
       size: 150,
     },
     {
-      accessorFn: (row) => row.city,
+      accessorFn: (row) => cityOf(row),
       cell: ({ row }) => (
-        <span className="text-muted-foreground truncate text-sm capitalize">
-          {row.original.city}
+        <span className="text-muted-foreground truncate text-sm">
+          {cityOf(row.original)}
         </span>
       ),
       header: ({ column }) => (
@@ -565,8 +576,11 @@ export function ReimbursementsTable({
     }
   });
   const filterFields = useMemo(
-    () => createReimbursementFilterFields(data),
-    [data]
+    () => createReimbursementFilterFields(data, costCentres.active),
+    [data, costCentres.active]
+  );
+  const stableSearch = useEventCallback((row: RequestRow, query: string) =>
+    searchReimbursement(row, query, cityOf)
   );
 
   return (
@@ -587,7 +601,7 @@ export function ReimbursementsTable({
         groupBy={STATUS_GROUP_BY}
         isLoading={isLoading}
         onRowClick={stableOnRowClick2}
-        searchFn={searchReimbursement}
+        searchFn={stableSearch}
         searchPlaceholder="Search reimbursements..."
         totals={TOTAL_COLUMNS}
         storageKey="reimbursements_table_state_v1"

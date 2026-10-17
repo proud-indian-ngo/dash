@@ -42,7 +42,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
-import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
+import { COST_CENTRE_IDS, PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -657,7 +657,7 @@ async function seedReimbursements(
 
   const reimbursements = [
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       expenseDate: past(10),
       items: [
         { amountPaise: 150000, cat: travelCat, desc: "Bus pass - monthly" },
@@ -669,7 +669,7 @@ async function seedReimbursements(
       userId: v1,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       expenseDate: past(5),
       items: [
         {
@@ -684,7 +684,7 @@ async function seedReimbursements(
       userId: v2,
     },
     {
-      city: "mumbai" as const,
+      costCentreId: COST_CENTRE_IDS.mumbai,
       expenseDate: past(2),
       items: [
         {
@@ -698,7 +698,7 @@ async function seedReimbursements(
       userId: leadId,
     },
     {
-      city: "bangalore" as const,
+      costCentreId: COST_CENTRE_IDS.bangalore,
       expenseDate: past(20),
       items: [
         {
@@ -724,7 +724,7 @@ async function seedReimbursements(
         bankAccountNumber: "1234567890",
         chargedProgrammeId: PROGRAMME_IDS.unallocated,
         chargedTo: "programme",
-        city: r.city,
+        costCentreId: r.costCentreId,
         createdAt: subDays(r.expenseDate, 2),
         expenseDate: r.expenseDate.toISOString().split("T")[0],
         id,
@@ -802,7 +802,7 @@ async function seedAdvancePayments(
     bankAccountIfscCode: "HDFC0002345",
     bankAccountName: "Priya Savings",
     bankAccountNumber: "2001200034005601",
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: past(7),
     id,
     reviewedAt: past(3),
@@ -916,6 +916,7 @@ async function seedVendors(
   // Vendor Payment for QuickPrint — approved, partially paid
   const vpId = uuidv7();
   await db.insert(vendorPayment).values({
+    costCentreId: COST_CENTRE_IDS.bangalore,
     chargedProgrammeId: PROGRAMME_IDS.unallocated,
     chargedTo: "programme",
     createdAt: past(15),
@@ -1008,6 +1009,7 @@ async function seedVendors(
   // Second vendor payment — pending
   const vp2Id = uuidv7();
   await db.insert(vendorPayment).values({
+    costCentreId: COST_CENTRE_IDS.bangalore,
     chargedTo: "organisation",
     createdAt: past(3),
     id: vp2Id,

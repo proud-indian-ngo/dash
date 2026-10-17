@@ -43,7 +43,7 @@ packages/e2e/
 
 ## Browser projects
 
-`playwright.config.ts` defines `setup` plus seven browser projects, all Desktop Chrome:
+`playwright.config.ts` defines `setup`, its teardown `exclusive_last` and seven browser projects, all Desktop Chrome:
 
 | Project | Storage state | Notes |
 |---|---|---|
@@ -54,11 +54,16 @@ packages/e2e/
 | `finance_admin` | `finance_admin` | Ignores `users/` |
 | `volunteer` | `volunteer` | Ignores `users/` |
 | `unoriented_volunteer` | `unoriented_volunteer` | Also ignores `reimbursements/` and `teams/`; dedicated coverage in `tests/roles/unoriented-volunteer-flows.spec.ts` and `tests/authorization/` |
-| `unauthenticated` | none | Only `tests/auth/` |
+| `unauthenticated` | none | Only `tests/auth/`; depends on `setup` so the teardown waits for it |
+| `exclusive_last` | `super_admin` | One worker, after every other project. Specs listed in `project-selection.ts` |
 
 Every authenticated project ignores `tests/auth/`, so API authorization specs belong in `tests/authorization/`.
 
 `project-selection.ts` keeps a role-only file out of the other role projects. Add a file to a role's list only when every test in it is gated to that role. Release-invariant specs are excluded from all role projects.
+
+## Specs that run last, alone
+
+Some state reaches every spec on the stack: a second active cost centre makes every event and request form ask for a city. Such specs go in `exclusiveLastSpecs` (`project-selection.ts`) and run in `exclusive_last`, the teardown of `setup`, which Playwright starts once every project depending on `setup` has finished. Role projects ignore these files. It has no dependencies, so a failure elsewhere doesn't skip it, but `unauthenticated` is now skipped when setup fails. A teardown doesn't pull in setup, so `run-e2e.sh` adds `global-setup.ts` whenever spec files are named. `shard-by-duration.ts` leaves `[exclusive_last]` rows out, as it does `[setup]`, since the teardown runs in every shard. Other cost centre specs add their centres inactive and run in parallel; seeding deactivates any `E2E…` centre a stopped run left active.
 
 ## Global setup and auth
 

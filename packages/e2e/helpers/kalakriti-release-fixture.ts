@@ -23,6 +23,7 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 
 import {
@@ -225,7 +226,7 @@ export async function seedKalakritiReleaseFixture(
   const fixture = KALAKRITI_RELEASE_FIXTURE_IDS;
   await db.insert(teamEvent).values([
     {
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: globalAdminId,
       description: "Kalakriti role fixture",
@@ -238,7 +239,7 @@ export async function seedKalakritiReleaseFixture(
       updatedAt: now,
     },
     {
-      city: "bangalore",
+      costCentreId: COST_CENTRE_IDS.bangalore,
       createdAt: now,
       createdBy: globalAdminId,
       description: "Kalakriti cross-edition role fixture",

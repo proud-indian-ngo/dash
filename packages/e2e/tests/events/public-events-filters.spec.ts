@@ -69,9 +69,11 @@ test.describe("Events agenda", () => {
     );
   });
 
-  test("City narrows to one city", async ({ page }) => {
-    await pick(page, "City", "Bangalore");
-    await expect(page).toHaveURL(/city=bangalore/);
+  test("an old city link still narrows to that city", async ({ page }) => {
+    // With one active cost centre there is no City picker; an old link's
+    // city=bangalore filters to the cost centre that replaced it.
+    await page.goto("/events?city=bangalore");
+    await waitForZeroReady(page);
     await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
     await expect(eventLink(page, UPCOMING_PRIVATE)).toBeHidden();
   });
@@ -118,9 +120,6 @@ test.describe("Events agenda", () => {
     await waitForZeroReady(page);
     await expect(page.getByRole("combobox", { name: "Show" })).toHaveText(
       /Public/
-    );
-    await expect(page.getByRole("combobox", { name: "City" })).toHaveText(
-      /Bangalore/
     );
     await expect(eventLink(page, UPCOMING_PUBLIC)).toBeVisible();
   });

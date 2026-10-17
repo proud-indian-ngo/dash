@@ -1,5 +1,6 @@
 import { writeSync } from "node:fs";
 
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq, sql } from "drizzle-orm";
 
 import { TOPICS } from "../../notifications/src/topics";
@@ -308,7 +309,7 @@ export async function seedAppPerformance() {
               teamId: id(1),
               createdBy: admin.id,
               name: `Synthetic performance event ${index + 1}`,
-              city: "bangalore" as const,
+              costCentreId: COST_CENTRE_IDS.bangalore,
               isPublic: index % 2 === 0,
               feedbackEnabled: index === 0,
               startTime,
@@ -373,7 +374,7 @@ export async function seedAppPerformance() {
         teamId: leadTeamId,
         createdBy: volunteer.id,
         name: "Synthetic lead queue event 2191",
-        city: "bangalore",
+        costCentreId: COST_CENTRE_IDS.bangalore,
         isPublic: false,
         startTime: new Date("2191-01-01T08:00:00.000Z"),
         endTime: new Date("2191-01-01T09:00:00.000Z"),
@@ -465,7 +466,6 @@ export async function seedAppPerformance() {
               userId: ownerId(index),
               title: `Synthetic reimbursement ${index + 1}`,
               expenseDate: day,
-              city: "bangalore" as const,
               status: "pending" as const,
               submittedAt: now,
               createdAt: now,
@@ -521,7 +521,7 @@ export async function seedAppPerformance() {
             id: advanceId(start + offset),
             userId: ownerId(start + offset),
             title: `Synthetic advance ${start + offset + 1}`,
-            city: "bangalore" as const,
+            costCentreId: COST_CENTRE_IDS.bangalore,
             status: "pending" as const,
             submittedAt: now,
             createdAt: now,
@@ -585,7 +585,6 @@ export async function seedAppPerformance() {
               vendorId: id(5000 + (index % approvedVendorCount)),
               userId: ownerId(index),
               title: `Synthetic vendor payment ${index + 1}`,
-              city: "bangalore" as const,
               status: "pending" as const,
               submittedAt: now,
               createdAt: now,

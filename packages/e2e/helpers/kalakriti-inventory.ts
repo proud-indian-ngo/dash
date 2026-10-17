@@ -12,6 +12,7 @@ import {
   kalakritiInventoryTransaction,
 } from "@pi-dash/db/schema/kalakriti-inventory";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -65,7 +66,7 @@ async function setup(adminEmail: string, memberEmail: string) {
     teamId: team.id,
     name: `Kalakriti ${year}`,
     description: "Isolated inventory E2E",
-    city: "bangalore",
+    costCentreId: COST_CENTRE_IDS.bangalore,
     managementDomain: "kalakriti",
     isPublic: false,
     startTime: new Date(`${year}-11-21T04:30:00Z`),

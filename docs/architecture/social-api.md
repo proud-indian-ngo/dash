@@ -35,12 +35,13 @@ Routes live in `apps/web/src/routes/api/social/v1/`, handlers with injectable de
 
 `from` and `to` are India dates, inclusive, at most 120 days counting both ends; `from` may be in the past. Impossible dates are a 400.
 
-`getSocialEvents` (`packages/db/src/queries/social-api.ts`) loads the same rows as the public feed, but in both cities, without clamping `from` to now and including cancelled rows. Both share `expandEventOccurrences` (`@pi-dash/shared/public-events`); `buildSocialEvents` (`@pi-dash/shared/social-api`) maps occurrences.
+`getSocialEvents` (`packages/db/src/queries/social-api.ts`) loads the same rows as the public feed, in every active cost centre, without clamping `from` to now and including cancelled rows. Both share `expandEventOccurrences` (`@pi-dash/shared/public-events`); `buildSocialEvents` (`@pi-dash/shared/social-api`) maps occurrences.
 
 - `id` is the row id for standalone events and exceptions, and `{seriesId}:{occDate}` for a virtual occurrence (`virtualSocialEventId`, `parseVirtualSocialEventId`). Once materialised, the occurrence's id becomes the exception row id.
 - `status` is `cancelled` when the row or series is cancelled or the occurrence is in `recurrence_rule.exdates` with no replacing exception; `completed` when `social_completed_at` is set (never on a virtual occurrence); otherwise `scheduled`. `excludeRules` dates never appear.
 - "Cancel this and following" overwrites the RRULE's `UNTIL`, so the removed occurrences vanish from the feed. The pipeline treats a vanished occurrence as dropped.
 - `volunteers.needed` comes from `volunteers_needed`, falling back to the series parent. `approved` and `waitlisted` count `approved` and `pending` `event_interest` rows on the materialised row, or the parent for virtual occurrences.
+- `city` and `cityName` are the cost centre's code and name, with the area label built as in the public feed (`recurring-events.md`).
 - `partners` come from `event_partner`: an exception's own if it has any, otherwise the parent's.
 - `attendance` (children, checked-in volunteers, hours to one decimal), `photos.count` and `socialNotes` stay null until `social_completed_at` is set. `photos.consentCleared` is always false until a consent process exists.
 

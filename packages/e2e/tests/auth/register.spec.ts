@@ -465,7 +465,7 @@ test.describe("Public website sign-up links", () => {
         "Register URL public event"
       );
       await expect(page.getByTestId("register-event-banner")).toContainText(
-        "Iblur, Bengaluru"
+        "Iblur, Bangalore"
       );
       await expect(page.getByTestId("auth-event-info-panel")).toContainText(
         "Join Register URL public event"

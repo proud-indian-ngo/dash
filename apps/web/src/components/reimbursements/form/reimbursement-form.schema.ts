@@ -1,11 +1,11 @@
 import { DEFAULT_CASH_VOUCHER_LIMIT_PAISE } from "@pi-dash/shared/cash-voucher";
-import { cityValues } from "@pi-dash/shared/constants";
 import { startOfDay } from "date-fns";
 import z from "zod";
 
 import {
   chargedToFormFields,
   refineChargedTo,
+  refineRequestCity,
 } from "@/components/expenses/charged-to-schema";
 import {
   addVoucherPayeeIssues,
@@ -22,12 +22,8 @@ const baseFields = {
   // A saved account has bank details, UPI or both; the picker fills these.
   bankAccountNumber: z.string().optional(),
   bankAccountUpiId: z.string().optional(),
-  city: z
-    .enum(cityValues)
-    .optional()
-    .refine((value): value is "bangalore" | "mumbai" => value !== undefined, {
-      message: "City is required",
-    }),
+  /** Asked only without an event, when there is a choice (`refineRequestCity`). */
+  costCentreId: z.string().optional(),
   eventId: z.string().optional(),
   lineItems: z
     .array(lineItemSchema)
@@ -49,12 +45,17 @@ const reimbursementRequestFields = z.object({
   type: z.literal("reimbursement"),
 });
 
-/** The reimbursement form, checking voucher payees against `voucherLimitPaise`. */
+/**
+ * The reimbursement form, checking voucher payees against
+ * `voucherLimitPaise`, and the city when `asksCity`.
+ */
 export function createReimbursementRequestFormSchema(
-  voucherLimitPaise: number = DEFAULT_CASH_VOUCHER_LIMIT_PAISE
+  voucherLimitPaise: number = DEFAULT_CASH_VOUCHER_LIMIT_PAISE,
+  asksCity = false
 ) {
   return reimbursementRequestFields.superRefine((value, context) => {
     refineChargedTo(value, context);
+    refineRequestCity(value, context, asksCity);
     addVoucherPayeeIssues(value.lineItems, voucherLimitPaise, context);
   });
 }
@@ -62,16 +63,28 @@ export function createReimbursementRequestFormSchema(
 export const reimbursementRequestFormSchema =
   createReimbursementRequestFormSchema();
 
-export const advancePaymentRequestFormSchema = z.object({
+const advancePaymentRequestFields = z.object({
   ...baseFields,
   type: z.literal("advance_payment"),
 });
 
+export function createAdvancePaymentRequestFormSchema(asksCity = false) {
+  return advancePaymentRequestFields.superRefine((value, context) =>
+    refineRequestCity(value, context, asksCity)
+  );
+}
+
+export const advancePaymentRequestFormSchema =
+  createAdvancePaymentRequestFormSchema();
+
 /** Either request form, with the cash-voucher limit in force. */
-export function createRequestFormSchema(voucherLimitPaise: number) {
+export function createRequestFormSchema(
+  voucherLimitPaise: number,
+  asksCity = false
+) {
   return z.discriminatedUnion("type", [
-    createReimbursementRequestFormSchema(voucherLimitPaise),
-    advancePaymentRequestFormSchema,
+    createReimbursementRequestFormSchema(voucherLimitPaise, asksCity),
+    createAdvancePaymentRequestFormSchema(asksCity),
   ]);
 }
 
@@ -88,7 +101,7 @@ export function getDefaultValues(type: RequestType): RequestFormValues {
     bankAccountName: "",
     bankAccountNumber: "",
     bankAccountUpiId: "",
-    city: undefined as "bangalore" | "mumbai" | undefined,
+    costCentreId: undefined as string | undefined,
     lineItems: [newLineItem()],
     title: "",
   };
