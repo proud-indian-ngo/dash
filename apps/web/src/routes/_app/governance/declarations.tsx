@@ -191,21 +191,21 @@ function DeclareDialog({
 
   const handleSubmit = useEventCallback(async () => {
     setBusy(true);
-    try {
-      await submit({ data: { interests: rows } });
-      toast.success(
-        rows.length === 0
-          ? `Declared: no interests for ${fiscalYear}`
-          : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`
-      );
-      onClose();
-    } catch (error) {
-      toast.error("The declaration wasn't saved", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setBusy(false);
-    }
+    await submit({ data: { interests: rows } })
+      .then(() => {
+        toast.success(
+          rows.length === 0
+            ? `Declared: no interests for ${fiscalYear}`
+            : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`
+        );
+        onClose();
+      })
+      .catch((error: unknown) => {
+        toast.error("The declaration wasn't saved", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setBusy(false));
   });
 
   return (
