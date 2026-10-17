@@ -28,10 +28,13 @@ function errorText(error: unknown): string | undefined {
  */
 export function EsignSection({
   onVote,
+  onWaiting,
   resolutionId,
 }: {
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
+  /** Called when a signature started earlier is still with Leegality. */
+  onWaiting: () => void;
   resolutionId: string;
 }) {
   const loadStatus = useServerFn(getEsignStatusFn);
@@ -56,6 +59,11 @@ export function EsignSection({
   }, [refresh]);
 
   const waiting = status?.latest?.status === "pending";
+  useEffect(() => {
+    if (waiting) {
+      onWaiting();
+    }
+  }, [waiting, onWaiting]);
   // While Leegality has the circular, the webhook settles it; look again now and then.
   useEffect(() => {
     if (!waiting) {
@@ -129,6 +137,12 @@ export function EsignSection({
         Leegality receives the circular to do this.
       </p>
       {failed ? <p className="text-destructive text-sm">{failed}</p> : null}
+      {waiting ? (
+        <p className="text-sm">
+          Waiting for Leegality. Your signature appears here a moment after you
+          sign there.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <Button
           disabled={busy !== null}
@@ -141,9 +155,9 @@ export function EsignSection({
             icon={FingerPrintIcon}
             strokeWidth={2}
           />
-          {busy === "start"
-            ? "Opening Leegality..."
-            : "Sign with Aadhaar eSign"}
+          {busy === "start" ? "Opening Leegality..." : null}
+          {busy !== "start" && waiting ? "Open Leegality again" : null}
+          {busy !== "start" && !waiting ? "Sign with Aadhaar eSign" : null}
         </Button>
         {waiting ? (
           <Button
@@ -156,12 +170,6 @@ export function EsignSection({
           </Button>
         ) : null}
       </div>
-      {waiting ? (
-        <p className="text-muted-foreground text-xs">
-          Waiting for Leegality. Your signature appears here a moment after you
-          sign there.
-        </p>
-      ) : null}
     </div>
   );
 }

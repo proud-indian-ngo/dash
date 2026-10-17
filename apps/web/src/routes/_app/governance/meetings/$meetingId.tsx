@@ -314,17 +314,18 @@ function MeetingView({
             ) : null}
           </>
         }
-        description={`${formatStartsAt(meeting.startsAt)} · ${meeting.place || MEETING_MODE_LABELS[meeting.mode ?? "hybrid"]}`}
+        description={[
+          formatStartsAt(meeting.startsAt),
+          MEETING_MODE_LABELS[meeting.mode ?? "hybrid"],
+          meeting.place,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         title={meeting.title}
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
         <MeetingStatusBadge status={status} />
-        {meeting.noticeSentAt ? (
-          <span className="text-muted-foreground">
-            Notice sent {formatStartsAt(meeting.noticeSentAt)}
-          </span>
-        ) : null}
         {status === "cancelled" && meeting.cancelledReason ? (
           <span className="text-muted-foreground">
             Cancelled: {meeting.cancelledReason}
@@ -333,7 +334,7 @@ function MeetingView({
       </div>
 
       {problem && canManage ? (
-        <p className="text-warning-foreground mt-4 rounded-md border p-3 text-sm">
+        <p className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 mt-4 rounded-md border p-3 text-sm">
           {problem} Move the meeting to a later day to send the notice.
         </p>
       ) : null}
@@ -341,11 +342,6 @@ function MeetingView({
       <div className="mt-6 flex flex-col gap-6">
         <section className="rounded-md border p-4">
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Fact label="Starts">{formatStartsAt(meeting.startsAt)}</Fact>
-            <Fact label="Where">
-              {MEETING_MODE_LABELS[meeting.mode ?? "hybrid"]}
-              {meeting.place ? `, ${meeting.place}` : ""}
-            </Fact>
             <Fact label="Under">
               {version
                 ? `Deed version ${version.number}, in force from ${formatIso(version.effectiveFrom)}`

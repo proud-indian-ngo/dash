@@ -598,6 +598,18 @@ function structuralWarnings(input: RegisterInput): RegisterWarning[] {
   return warnings;
 }
 
+const displayDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+
+/** "3 Apr 2026", for dates inside messages. */
+function formatDay(isoDate: string): string {
+  return displayDate.format(new Date(`${isoDate}T00:00:00Z`));
+}
+
 /** Terms whose last day falls within 90 days of a date, and what their end does to the board. */
 function endingWarnings(input: RegisterInput, on: string): RegisterWarning[] {
   const warnings: RegisterWarning[] = [];
@@ -612,7 +624,7 @@ function endingWarnings(input: RegisterInput, on: string): RegisterWarning[] {
     const when = days === 0 ? "today" : `in ${days} days`;
     warnings.push({
       code: "term_ending_soon",
-      message: `${name}'s term ends ${when} (last day ${last}).`,
+      message: `${name}'s term ends ${when} (last day ${formatDay(last)}).`,
       rowIds: [term.id],
       severity: "warning",
       trusteeId: term.trusteeId,
@@ -621,7 +633,7 @@ function endingWarnings(input: RegisterInput, on: string): RegisterWarning[] {
     if (after < input.rules.minTrustees) {
       warnings.push({
         code: "term_end_below_minimum",
-        message: `When ${name}'s term ends, the board falls to ${pluralTrustees(after)}, below the deed's minimum of ${input.rules.minTrustees}. Appoint or reappoint before ${nextDay(last)}.`,
+        message: `When ${name}'s term ends, the board falls to ${pluralTrustees(after)}, below the deed's minimum of ${input.rules.minTrustees}. Appoint or reappoint before ${formatDay(nextDay(last))}.`,
         rowIds: [term.id],
         severity: "error",
         trusteeId: term.trusteeId,
