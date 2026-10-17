@@ -98,6 +98,7 @@ The social keys (`SOCIAL_MANAGE_CONFIG_KEYS`) are the approver, the all-time ove
 
 - Shown on ended, non-cancelled, non-Kalakriti single session rows to people who can mark attendance. A past virtual occurrence offers "Start recap", which materialises the row.
 - "Mark recap ready" stamps `social_completed_at`. Undo clears it and keeps the figures.
+- "No children at this event" (cleanups, volunteer meetups) saves `children_attended` as null, so a ready recap with a null count means no children, and the API sends `attendance.children: null`. A typed 0 means children were expected but none came.
 
 ### Event form
 
