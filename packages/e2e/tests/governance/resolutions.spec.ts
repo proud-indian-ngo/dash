@@ -158,8 +158,11 @@ test.describe("circular resolutions (Managing Trustee)", () => {
       .click();
     await dialog.getByRole("button", { name: "Record resolution" }).click();
     await expect(page.getByText("Resolution recorded")).toBeVisible();
+    await expect(dialog).toBeHidden();
+    // Earlier runs' circulars sort first, so find the row by its number.
+    await page.getByPlaceholder("Search resolutions...").fill(number);
     await expect(
-      page.getByRole("row", { name: new RegExp(number) })
+      page.getByRole("row").filter({ hasText: number }).first()
     ).toContainText("recorded from paper");
   });
 });

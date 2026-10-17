@@ -1,16 +1,12 @@
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { fiscalYearLabel } from "@pi-dash/shared/compliance";
@@ -27,6 +23,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { selectField } from "@/components/data-table/filter-fields";
 import { governanceDocumentHref } from "@/components/governance/evidence";
 import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
@@ -53,13 +51,50 @@ export const Route = createFileRoute("/_app/governance/declarations")({
 
 const EMPTY: DeclaredInterest = { nature: "", party: "", relationship: "" };
 
+interface TrusteeDeclarationRow {
+  declared: boolean;
+  documentId: string | null;
+  id: string;
+  /** The declared parties, "None", or null before declaring. */
+  interests: string | null;
+  name: string;
+}
+
+const filterFields: FilterField[] = [
+  selectField("status", "Status", [
+    { label: "Declared", value: "declared" },
+    { label: "Not yet", value: "not_yet" },
+  ]),
+];
+
+function getFilterValue(row: TrusteeDeclarationRow, path: string[]): unknown {
+  if (path[0] === "status") {
+    return row.declared ? "declared" : "not_yet";
+  }
+  return;
+}
+
+function searchTrustee(row: TrusteeDeclarationRow, query: string): boolean {
+  return [row.name, row.interests ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .includes(query.trim().toLowerCase());
+}
+
+function getRowId(row: TrusteeDeclarationRow) {
+  return row.id;
+}
+
+const SKELETON_TEXT = <Skeleton className="h-5 w-36" />;
+const SKELETON_BADGE = <Skeleton className="h-5.5 w-20" />;
+
 function DeclarationsPage() {
   const { hasPermission } = useApp();
   const canSee =
     hasPermission("governance.view") || hasPermission("governance.manage");
   const today = todayIso();
   const fiscalYear = fiscalYearLabel(today);
-  const { input } = useRegister(today);
+  const { input, isLoading } = useRegister(today);
   const [mineTrustees] = useQuery(queries.trustee.me());
   const [all] = useQuery(queries.conflictDeclaration.all());
   const [mine] = useQuery(queries.conflictDeclaration.mine());
@@ -70,9 +105,115 @@ function DeclarationsPage() {
   const thisYear = new Map(
     all.filter((d) => d.fiscalYear === fiscalYear).map((d) => [d.trusteeId, d])
   );
+  const rows: TrusteeDeclarationRow[] = board.map((m) => {
+    const d = thisYear.get(m.trustee.id);
+    return {
+      declared: Boolean(d),
+      documentId: d?.documentId ?? null,
+      id: m.trustee.id,
+      interests: d
+        ? d.interests.map((i) => i.party).join(", ") || "None"
+        : null,
+      name: m.trustee.legalName,
+    };
+  });
+
+  const columns: DataGridColumnDef<TrusteeDeclarationRow>[] = [
+    {
+      accessorFn: (row) => row.name,
+      cell: ({ row }) => (
+        <span className="truncate font-medium">{row.original.name}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Trustee"
+          visibility={true}
+        />
+      ),
+      id: "name",
+      meta: {
+        compact: "primary",
+        headerTitle: "Trustee",
+        kind: "person",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 220,
+    },
+    {
+      accessorFn: (row) => (row.declared ? "declared" : "not_yet"),
+      cell: ({ row }) =>
+        row.original.declared ? (
+          <StatusBadge tone="success">Declared</StatusBadge>
+        ) : (
+          <StatusBadge tone="warning">Not yet</StatusBadge>
+        ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title={fiscalYear}
+          visibility={true}
+        />
+      ),
+      id: "status",
+      meta: {
+        compact: "trailing",
+        headerTitle: fiscalYear,
+        kind: "status",
+        skeleton: SKELETON_BADGE,
+      },
+      size: 130,
+    },
+    {
+      accessorFn: (row) => row.interests ?? "",
+      cell: ({ row }) => (
+        <span className="truncate">{row.original.interests ?? "—"}</span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Interests"
+          visibility={true}
+        />
+      ),
+      id: "interests",
+      meta: { headerTitle: "Interests", skeleton: SKELETON_TEXT },
+      size: 320,
+    },
+    {
+      accessorFn: (row) => (row.documentId ? 1 : 0),
+      cell: ({ row }) =>
+        row.original.documentId ? (
+          <a
+            className="text-primary text-sm underline-offset-4 hover:underline"
+            href={governanceDocumentHref(row.original.documentId)}
+            rel="noreferrer"
+            target="_blank"
+          >
+            PDF
+          </a>
+        ) : (
+          "—"
+        ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Declaration"
+          visibility={true}
+        />
+      ),
+      id: "declaration",
+      meta: {
+        headerTitle: "Declaration",
+        kind: "link",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 130,
+    },
+  ];
 
   return (
-    <div className="app-container mx-auto max-w-5xl px-2 py-6 sm:px-4">
+    <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
         actions={
           isTrustee ? (
@@ -104,55 +245,29 @@ function DeclarationsPage() {
         </section>
       ) : null}
       {canSee ? (
-        <div className="mt-6 rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Trustee</TableHead>
-                <TableHead>{fiscalYear}</TableHead>
-                <TableHead>Interests</TableHead>
-                <TableHead>Declaration</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {board.map((m) => {
-                const d = thisYear.get(m.trustee.id);
-                return (
-                  <TableRow key={m.trustee.id}>
-                    <TableCell className="font-medium">
-                      {m.trustee.legalName}
-                    </TableCell>
-                    <TableCell>
-                      {d ? (
-                        <StatusBadge tone="success">Declared</StatusBadge>
-                      ) : (
-                        <StatusBadge tone="warning">Not yet</StatusBadge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {d
-                        ? d.interests.map((i) => i.party).join(", ") || "None"
-                        : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {d?.documentId ? (
-                        <a
-                          className="text-primary text-sm underline-offset-4 hover:underline"
-                          href={governanceDocumentHref(d.documentId)}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          PDF
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div className="mt-6">
+          <DataTableWrapper
+            columns={columns}
+            compactOnMobile
+            data={rows}
+            emptyMessage={
+              rows.length === 0
+                ? "No trustees in office."
+                : "No trustees match."
+            }
+            filter={{ fields: filterFields, getValue: getFilterValue }}
+            getRowId={getRowId}
+            isLoading={isLoading}
+            searchFn={searchTrustee}
+            searchPlaceholder="Search trustees..."
+            storageKey="governance_declarations_table_state_v1"
+            tableLayout={{
+              columnsDraggable: true,
+              columnsPinnable: true,
+              columnsResizable: true,
+              columnsVisibility: true,
+            }}
+          />
         </div>
       ) : null}
       {!(canSee || isTrustee) ? (

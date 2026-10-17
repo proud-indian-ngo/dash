@@ -1,7 +1,6 @@
 import { Download04Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { GovernanceValidationReport } from "@pi-dash/db/schema/governance";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import {
   Button,
   buttonVariants,
@@ -21,6 +20,7 @@ import { toast } from "sonner";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { recheckGovernanceDocument } from "@/functions/governance";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
@@ -45,28 +45,35 @@ export interface VaultDocument {
   validationReport: GovernanceValidationReport | null;
 }
 
-const STATUS_LABEL: Record<GovernanceValidationReport["status"], string> = {
+type SignatureStatus = GovernanceValidationReport["status"];
+
+export const SIGNATURE_STATUS_LABELS: Record<SignatureStatus, string> = {
   invalid: "Signature problem",
   no_signatures: "No signatures",
   unavailable: "Not checked",
   valid: "Signatures valid",
 };
 
-export function ReportBadge({
-  report,
-}: {
-  report: GovernanceValidationReport | null;
-}) {
-  if (!report || report.email) {
-    return <span className="text-muted-foreground text-sm">—</span>;
-  }
-  if (report.status === "valid") {
-    return <Badge variant="secondary">{STATUS_LABEL.valid}</Badge>;
-  }
-  if (report.status === "invalid") {
-    return <Badge variant="destructive">{STATUS_LABEL.invalid}</Badge>;
-  }
-  return <Badge variant="outline">{STATUS_LABEL[report.status]}</Badge>;
+const SIGNATURE_STATUS_TONES: Record<SignatureStatus, StatusTone> = {
+  invalid: "danger",
+  no_signatures: "neutral",
+  unavailable: "neutral",
+  valid: "success",
+};
+
+/** The signature check's outcome, or null for an email or an unchecked file. */
+export function signatureStatus(
+  report: GovernanceValidationReport | null
+): SignatureStatus | null {
+  return report && !report.email ? report.status : null;
+}
+
+export function ReportBadge({ status }: { status: SignatureStatus }) {
+  return (
+    <StatusBadge tone={SIGNATURE_STATUS_TONES[status]}>
+      {SIGNATURE_STATUS_LABELS[status]}
+    </StatusBadge>
+  );
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -111,7 +118,9 @@ export function DocumentDetailSheet({
     setChecking(true);
     await recheck({ data: { id: document.id } })
       .then((result) => {
-        toast.success(`Checked: ${STATUS_LABEL[result.status].toLowerCase()}`);
+        toast.success(
+          `Checked: ${SIGNATURE_STATUS_LABELS[result.status].toLowerCase()}`
+        );
       })
       .catch((error: unknown) => {
         log.error({
@@ -135,6 +144,7 @@ export function DocumentDetailSheet({
     );
   }
   const report = document.validationReport;
+  const status = signatureStatus(report);
   const href = getProtectedAttachmentHref(
     { id: document.id, kind: "governanceDocument" },
     "inline"
@@ -177,7 +187,7 @@ export function DocumentDetailSheet({
               ) : null}
             </span>
           }
-          badge={<ReportBadge report={report} />}
+          badge={status ? <ReportBadge status={status} /> : undefined}
           meta={[
             GOVERNANCE_DOCUMENT_KIND_LABELS[document.kind],
             formatIso(document.datedOn),
