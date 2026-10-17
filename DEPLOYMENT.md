@@ -166,7 +166,9 @@ For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy 
 
 ### Signing service
 
-`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents and adds the signature fields to circulars; without it, signed circulars can't be accepted. Extra trust roots go in `services/signing/roots/`.
+`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents and prepares, signs and finalises circulars; without it, signed circulars can't be accepted. On the service, `SIGNING_TSA_URL` names the timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+
+The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`), so that must be the address trustees use. Publish the helper by pushing a tag `signing-helper-vX.Y.Z`. Before trustees enrol, confirm the HyperSecu PKCS#11 library path on a Windows laptop (the installer defaults to `C:\Windows\System32\castle.dll` and takes `-Module`).
 
 ### WhatsApp gateway (optional)
 
