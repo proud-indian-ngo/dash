@@ -12,12 +12,16 @@ import {
 } from "@pi-dash/design-system/components/ui/table";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
-import { RESOLUTION_TEMPLATES } from "@pi-dash/shared/resolutions";
+import {
+  RESOLUTION_TEMPLATES,
+  resolutionTemplateKeyValues,
+} from "@pi-dash/shared/resolutions";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
+import z from "zod";
 
 import { HistoricalResolutionDialog } from "@/components/governance/historical-resolution-dialog";
 import {
@@ -45,6 +49,10 @@ export const Route = createFileRoute("/_app/governance/resolutions/")({
   component: ResolutionsPage,
   head: () => ({
     meta: [{ title: `Resolutions | ${env.VITE_APP_NAME}` }],
+  }),
+  // A calendar item opens the new-circular form with its annual-pack template.
+  validateSearch: z.object({
+    template: z.enum(resolutionTemplateKeyValues).optional(),
   }),
 });
 
@@ -79,7 +87,11 @@ function ResolutionsPage() {
     (canSee ? allResult.type : mineResult.type) !== "complete";
   const { trustees } = useRegister(todayIso());
   const navigate = useNavigate();
-  const [creating, setCreating] = useState<string | null>(null);
+  const { template: startTemplate } = Route.useSearch();
+  const [creating, setCreating] = useState<string | null>(() =>
+    startTemplate && canManage ? uuidv7() : null
+  );
+  const startKey = startTemplate ?? "ordinary";
   const [recording, setRecording] = useState(false);
 
   const openCreate = useEventCallback(() => setCreating(uuidv7()));
@@ -222,10 +234,13 @@ function ResolutionsPage() {
             <ResolutionDraftForm
               draftId={creating}
               initial={draftValuesFrom({
-                body: RESOLUTION_TEMPLATES.ordinary.text,
+                body: RESOLUTION_TEMPLATES[startKey].text,
                 effect: { type: "none" },
-                templateKey: "ordinary",
-                title: "",
+                templateKey: startKey,
+                title:
+                  startKey === "ordinary"
+                    ? ""
+                    : RESOLUTION_TEMPLATES[startKey].title,
               })}
               mode="create"
               onCancel={() => setCreating(null)}

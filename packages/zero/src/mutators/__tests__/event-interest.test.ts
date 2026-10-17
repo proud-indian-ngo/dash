@@ -1,5 +1,11 @@
 import { describe, expect, it, mock } from "bun:test";
 
+// The safeguarding gate has its own tests; these fakes answer queries in order.
+mock.module("../safeguarding", () => ({
+  assertSafeguardingAcknowledged: async () => undefined,
+  assertSafeToJoinEvent: async () => undefined,
+}));
+
 import z from "zod";
 
 const uuidv7Mock = mock();

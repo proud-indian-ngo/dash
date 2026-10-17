@@ -84,6 +84,13 @@ export interface ResolutionR2ObjectRecord {
   recipientUserIds: readonly string[];
 }
 
+/** A published policy version: everyone signed in reads it to acknowledge it. */
+export interface PolicyR2ObjectRecord {
+  access: "policy";
+  filename: string;
+  key: string;
+}
+
 export interface KalakritiInventoryPhotoR2ObjectRecord {
   access: "kalakritiInventoryPhoto";
   editionId: string;
@@ -92,6 +99,7 @@ export interface KalakritiInventoryPhotoR2ObjectRecord {
 }
 
 export type R2ObjectRecord =
+  | PolicyR2ObjectRecord
   | EventPhotoR2ObjectRecord
   | GovernanceDocumentR2ObjectRecord
   | ResolutionR2ObjectRecord
@@ -207,6 +215,8 @@ export async function authorizeR2Object(
     allowed = await deps.canReadKalakritiScorecard(session, record);
   } else if (record.access === "governanceDocument") {
     allowed = await canReadGovernanceDocument(session, record, deps);
+  } else if (record.access === "policy") {
+    allowed = true;
   } else if (record.access === "resolution") {
     allowed =
       record.recipientUserIds.includes(session.user.id) ||
