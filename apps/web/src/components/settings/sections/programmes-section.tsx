@@ -23,6 +23,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { CashVoucherLimitCard } from "@/components/settings/sections/cash-voucher-limit-card";
+import { VolunteerHourValueCard } from "@/components/settings/sections/volunteer-hour-value-card";
 import {
   SettingsCard,
   SettingsListItem,
@@ -355,6 +356,8 @@ export function ProgrammesSection() {
           </SettingsRow>
         )}
       </SettingsCard>
+
+      <VolunteerHourValueCard />
 
       <CashVoucherLimitCard />
 

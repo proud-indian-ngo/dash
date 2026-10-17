@@ -6,6 +6,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
@@ -15,10 +20,11 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQueryStates } from "nuqs";
+import { parseAsStringLiteral, useQueryState, useQueryStates } from "nuqs";
 import { lazy, Suspense } from "react";
 
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
+import { OutcomesView } from "@/components/analytics/outcomes-view";
 import { readSelectEquality } from "@/components/data-table/compile-filter-query";
 import { selectDataTableView } from "@/components/data-table/data-table-view-tabs";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -109,6 +115,7 @@ export const Route = createFileRoute("/_app/analytics")({
 });
 
 const LEGACY_ANALYTICS_FILTER_PARAMS = [LEGACY_CITY_FILTER_PARAM] as const;
+const ANALYTICS_TABS = ["spending", "outcomes"] as const;
 
 function AnalyticsPage() {
   const [reimbursements, r1] = useQuery(queries.reimbursement.all());
@@ -126,6 +133,13 @@ function AnalyticsPage() {
   const anyComplete =
     r1.type === "complete" || r2.type === "complete" || r3.type === "complete";
 
+  const [tab, setTab] = useQueryState(
+    "tab",
+    parseAsStringLiteral(ANALYTICS_TABS).withDefault("spending")
+  );
+  const handleTabChange = useEventCallback((value: unknown) =>
+    setTab(value as (typeof ANALYTICS_TABS)[number])
+  );
   const [dateParams] = useQueryStates(dateRangeSearchParams);
   useMigrateLegacyFilterParams(LEGACY_ANALYTICS_FILTER_PARAMS);
   const { query, setQuery } = useDataTableFilters();
@@ -230,37 +244,59 @@ function AnalyticsPage() {
             <DateRangeFilter />
           </>
         }
-        description="Where the money goes: requests, vendors and events over time."
+        description={
+          tab === "outcomes"
+            ? "Children reached and volunteer time, from the events teams record."
+            : "Where the money goes: requests, vendors and events over time."
+        }
         title="Analytics"
       />
 
-      <div className="mt-4">
-        <StatsCards isLoading={isLoading} items={stats} />
-      </div>
+      <Tabs className="mt-4" onValueChange={handleTabChange} value={tab}>
+        <TabsList>
+          <TabsTrigger value="spending">Spending</TabsTrigger>
+          <TabsTrigger value="outcomes">Outcomes</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <Suspense
-        fallback={
-          <div className="mt-6 grid animate-pulse gap-4 lg:grid-cols-2">
-            {["a", "b", "c", "d"].map((key) => (
-              <div className="bg-muted/50 h-80 rounded-xl" key={key} />
-            ))}
+      {tab === "outcomes" ? (
+        <div className="mt-4">
+          <OutcomesView
+            costCentreId={cityFilter ?? null}
+            dateRange={dateRange}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="mt-4">
+            <StatsCards isLoading={isLoading} items={stats} />
           </div>
-        }
-      >
-        {Boolean(anyComplete) && (
-          <>
-            <div className="mt-6 grid gap-4 *:min-w-0 lg:grid-cols-2">
-              <SubmissionTrendsChart data={trendData} />
-              <ApprovalTimeChart data={approvalTimeData} />
-              <ProgrammeSpendingChart data={programmeData} />
-              <CategoryBreakdownChart data={categoryData} />
-              <EventSpendingChart data={eventData} />
-              <TopSubmittersChart data={submitterData} />
-              <TopVendorsChart data={vendorData} />
-            </div>
-          </>
-        )}
-      </Suspense>
+
+          <Suspense
+            fallback={
+              <div className="mt-6 grid animate-pulse gap-4 lg:grid-cols-2">
+                {["a", "b", "c", "d"].map((key) => (
+                  <div className="bg-muted/50 h-80 rounded-xl" key={key} />
+                ))}
+              </div>
+            }
+          >
+            {Boolean(anyComplete) && (
+              <>
+                <div className="mt-6 grid gap-4 *:min-w-0 lg:grid-cols-2">
+                  <SubmissionTrendsChart data={trendData} />
+                  <ApprovalTimeChart data={approvalTimeData} />
+                  <ProgrammeSpendingChart data={programmeData} />
+                  <CategoryBreakdownChart data={categoryData} />
+                  <EventSpendingChart data={eventData} />
+                  <TopSubmittersChart data={submitterData} />
+                  <TopVendorsChart data={vendorData} />
+                </div>
+              </>
+            )}
+          </Suspense>
+        </>
+      )}
     </div>
   );
 }
