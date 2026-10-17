@@ -58,7 +58,7 @@ People save where they want to be paid in Settings → Bank accounts (`bank_acco
   - UPI IDs are lower-cased.
   - Mobiles lose `+91`, a leading `0`, spaces and dashes, and must be 10 digits starting 6 to 9. Custom 8 or 9 digit UPI numbers are refused because they look like account numbers.
 - Account numbers and UPI handles are each unique per person. The first entry becomes the default, and deleting the default promotes the oldest remaining one. Entries can't be edited; delete and add again.
-- `bankAccount.create`, `delete` and `setDefault` need `bank_accounts.manage_own` and act only on your own entries; nobody manages another person's. Without the permission, Settings → Bank accounts lists entries read-only and the reimbursement form doesn't offer to add one.
+- `bankAccount.create`, `delete` and `setDefault` need `bank_accounts.manage_own` and act only on your own entries; nobody manages another person's. Volunteers and unoriented volunteers hold it by default. Without the permission, Settings → Bank accounts lists entries read-only and the reimbursement form doesn't offer to add one.
 
 ### What a request stores
 

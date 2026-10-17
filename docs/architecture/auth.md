@@ -99,6 +99,6 @@ Settings > Roles (`routes/_app/settings/roles/`, `components/roles/`, `apps/web/
 
 ### Orientation
 
-New sign-ups get `unoriented_volunteer`, which grants only `events.view_own`. They join the orientation WhatsApp group, and the team member picker leaves them out (the event member picker drops only inactive users).
+New sign-ups get `unoriented_volunteer`, which grants only `events.view_own` and `bank_accounts.manage_own`. They join the orientation WhatsApp group, and the team member picker leaves them out (the event member picker drops only inactive users).
 
 An admin with `users.edit` orients a volunteer by changing their role to `volunteer` on `/users`. The orientation job then adds them to the all-volunteers group and removes them from the orientation group. Kalakriti enrolment, or a Kalakriti responsibility, also promotes `unoriented_volunteer` to `volunteer` ([volunteer roster and orientation](kalakriti-registration.md#volunteer-roster-and-orientation)). Nothing demotes automatically.
