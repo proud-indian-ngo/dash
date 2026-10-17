@@ -1,5 +1,5 @@
 /**
- * The compliance calendar (governance phase 4): what is due when. Pure, so
+ * The compliance calendar: what is due when. Pure, so
  * the generating job, the page and the tests agree. Dates are `yyyy-MM-dd`.
  */
 
