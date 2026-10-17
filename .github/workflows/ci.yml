@@ -302,7 +302,9 @@ jobs:
           retention-days: 14
 
   e2e-status:
-    if: always()
+    # Skip when the run is cancelled (a newer push or base change supersedes
+    # it); the newer run reports the result. A real E2E failure still fails.
+    if: ${{ !cancelled() }}
     needs: [e2e]
     runs-on: ubuntu-latest
     steps:
