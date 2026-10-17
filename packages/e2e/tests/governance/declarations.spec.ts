@@ -3,7 +3,8 @@ import { expect, test } from "../../fixtures/test";
 /**
  * Declarations of interests, the policy register and the annual pack
  * against the seeded board: the super admin is Asha Rao, a trustee in
- * office. The seeded vendor payment "E2E Event Vendor Payment" is pending.
+ * office. The seeded vendor payment "E2E Event Vendor Payment" is pending,
+ * and Vikram Menon's seeded declaration names its vendor.
  * The child-safeguarding gate itself is covered by unit tests: publishing a
  * gating version here would hold back every other spec's volunteers.
  */
@@ -15,9 +16,25 @@ test.describe("declarations and policies (super admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
   });
 
+  test("the approver is warned about a declared related party", async ({
+    page,
+  }) => {
+    // Seeded: Vikram Menon declared an interest in the vendor.
+    await page.goto(VENDOR_PAYMENT);
+    await expect(
+      page.getByText("Vikram Menon declared an interest in E2E Event Vendor", {
+        exact: false,
+      })
+    ).toBeVisible({ timeout: 20_000 });
+  });
+
   test("a trustee declares an interest and the approver is warned", async ({
     page,
   }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Declaring stores the declaration's PDF in R2, which CI does not have"
+    );
     test.slow();
     await page.goto("/governance/declarations");
     await expect(

@@ -41,6 +41,7 @@ import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
 import {
   ensureAmendedDeedFixture,
   ensureComplianceFixtures,
+  ensureDeclarationFixture,
   ensureGovernanceFixtures,
   ensureMeetingFixtures,
   ensurePolicyFixtures,
@@ -1851,6 +1852,7 @@ async function seed(): Promise<void> {
   await ensureAmendedDeedFixture();
   await ensureMeetingFixtures();
   await ensurePolicyFixtures();
+  await ensureDeclarationFixture("E2E Event Vendor");
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });
