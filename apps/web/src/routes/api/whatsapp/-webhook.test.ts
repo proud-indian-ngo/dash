@@ -172,4 +172,15 @@ describe("POST /api/whatsapp/webhook", () => {
     expect(response.status).toBe(400);
     expect(processPollVote).not.toHaveBeenCalled();
   });
+
+  it("refuses a body declared over 1 MB before signature verification", async () => {
+    const body = JSON.stringify(delivery());
+    const request = requestOf(body);
+    request.headers.set("content-length", String(1024 * 1024 + 1));
+
+    const response = await post(request);
+
+    expect(response.status).toBe(413);
+    expect(processPollVote).not.toHaveBeenCalled();
+  });
 });

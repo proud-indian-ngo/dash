@@ -4,6 +4,7 @@ import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 
+import { readRequestBody } from "@/lib/read-request-body";
 import {
   processWhatsAppPollVoteWebhook,
   whatsAppPollVoteWebhookSchema,
@@ -36,24 +37,21 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
         const signature = request.headers.get("x-hub-signature-256");
         log.set({ hasSignature: !!signature });
 
-        let rawBody: string;
-        try {
-          rawBody = await Promise.race([
-            request.text(),
-            new Promise<string>((_, reject) => {
-              setTimeout(() => {
-                reject(new Error("whatsapp_webhook_body_timeout"));
-              }, 3000);
-            }),
-          ]);
-        } catch (error) {
-          log.error(error instanceof Error ? error : String(error));
+        const body = await readRequestBody(request);
+        if (!body.ok) {
+          log.warn(`whatsapp_webhook_body_${body.reason}`);
           log.emit();
           return Response.json(
-            { error: "Failed to read webhook body" },
-            { status: 408 }
+            {
+              error:
+                body.reason === "too_large"
+                  ? "Body too large"
+                  : "Failed to read webhook body",
+            },
+            { status: body.reason === "too_large" ? 413 : 408 }
           );
         }
+        const rawBody = body.text;
 
         if (!(signature && isValidSignature(rawBody, signature))) {
           log.warn("invalid_webhook_signature");

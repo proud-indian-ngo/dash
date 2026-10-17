@@ -9,6 +9,8 @@ import {
 import { createRequestLogger } from "evlog";
 import * as z from "zod";
 
+import { readRequestBody } from "@/lib/read-request-body";
+
 /**
  * What someone gets when they message the notification number. Replies
  * aren't read, so this points them somewhere that is.
@@ -238,7 +240,28 @@ export async function handleCloudWebhookPost(
     return Response.json({ error: "Not configured" }, { status: 404 });
   }
 
-  const rawBody = await request.text();
+  const body = await readRequestBody(request);
+  if (!body.ok) {
+    log.warn(`whatsapp_cloud_webhook_body_${body.reason}`);
+    log.emit();
+    return Response.json(
+      {
+        error:
+          body.reason === "too_large"
+            ? "Body too large"
+            : "Failed to read webhook body",
+      },
+      {
+        status:
+          body.reason === "too_large"
+            ? 413
+            : body.reason === "timeout"
+              ? 408
+              : 400,
+      }
+    );
+  }
+  const rawBody = body.text;
   const signature = request.headers.get("x-hub-signature-256");
   if (!isValidCloudSignature(rawBody, signature, appSecret)) {
     log.warn("invalid_webhook_signature");

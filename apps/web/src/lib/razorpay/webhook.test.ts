@@ -1,11 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createHmac } from "node:crypto";
 
-import {
-  readWebhookBody,
-  routeRazorpayEvent,
-  verifyRazorpaySignature,
-} from "./webhook";
+import { routeRazorpayEvent, verifyRazorpaySignature } from "./webhook";
 
 const SECRET = "whsec-test";
 const sign = (body: string, secret = SECRET) =>
@@ -81,7 +77,6 @@ describe("verifyRazorpaySignature", () => {
     ).toBe(false);
   });
 });
-
 describe("routeRazorpayEvent", () => {
   it("stages the captured payment of payment.captured and order.paid", () => {
     for (const name of ["payment.captured", "order.paid"]) {
@@ -273,89 +268,5 @@ describe("routeRazorpayEvent", () => {
       reason: "unhandled_event",
     });
     expect(routeRazorpayEvent([1, 2])).toMatchObject({ action: "ignore" });
-  });
-});
-
-describe("readWebhookBody", () => {
-  const streamOf = (chunks: string[], { endless = false } = {}) => {
-    let cancelled = false;
-    let i = 0;
-    const stream = new ReadableStream<Uint8Array>({
-      cancel: () => {
-        cancelled = true;
-      },
-      pull: (controller) => {
-        if (endless) {
-          controller.enqueue(new Uint8Array(64 * 1024));
-          return;
-        }
-        const chunk = chunks[i];
-        i += 1;
-        if (chunk === undefined) {
-          controller.close();
-        } else {
-          controller.enqueue(new TextEncoder().encode(chunk));
-        }
-      },
-    });
-    return { stream, wasCancelled: () => cancelled };
-  };
-  const requestOf = (body: BodyInit | null, headers: HeadersInit = {}) =>
-    new Request("http://localhost/api/razorpay/webhook", {
-      body,
-      headers,
-      method: "POST",
-      ...(body instanceof ReadableStream ? { duplex: "half" } : {}),
-    } as RequestInit);
-
-  it("reads a body within the limit, multi-byte characters intact", async () => {
-    const { stream } = streamOf(['{"name":"Āsha', ' ₹"}']);
-    expect(await readWebhookBody(requestOf(stream))).toEqual({
-      ok: true,
-      text: '{"name":"Āsha ₹"}',
-    });
-  });
-
-  it("refuses a declared Content-Length over the limit without reading", async () => {
-    const { stream, wasCancelled } = streamOf(["{}"]);
-    const result = await readWebhookBody(
-      requestOf(stream, { "content-length": String(1024 * 1024 + 1) })
-    );
-    expect(result).toEqual({ ok: false, reason: "too_large" });
-    expect(wasCancelled()).toBe(false);
-  });
-
-  it("stops reading once an undeclared body passes the limit", async () => {
-    const { stream, wasCancelled } = streamOf([], { endless: true });
-    const result = await readWebhookBody(requestOf(stream), {
-      maxBytes: 200 * 1024,
-    });
-    expect(result).toEqual({ ok: false, reason: "too_large" });
-    expect(wasCancelled()).toBe(true);
-  });
-
-  it("reports a read the client aborted, instead of throwing", async () => {
-    const aborted = new ReadableStream<Uint8Array>({
-      pull: () => Promise.reject(new Error("client went away")),
-    });
-    expect(await readWebhookBody(requestOf(aborted))).toEqual({
-      ok: false,
-      reason: "aborted",
-    });
-  });
-
-  it("gives up on a body that stalls, and cancels the stream", async () => {
-    let cancelled = false;
-    const stalled = new ReadableStream<Uint8Array>({
-      cancel: () => {
-        cancelled = true;
-      },
-      pull: () => new Promise(() => undefined),
-    });
-    const result = await readWebhookBody(requestOf(stalled), {
-      timeoutMs: 20,
-    });
-    expect(result).toEqual({ ok: false, reason: "timeout" });
-    expect(cancelled).toBe(true);
   });
 });

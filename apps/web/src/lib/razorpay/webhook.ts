@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import {
+  MAX_SIGNED_WEBHOOK_BODY_BYTES,
+  readRequestBody,
+  type RequestBody,
+} from "../read-request-body";
+import {
   isCapturedPayment,
   type RazorpayPayment,
   razorpayPaymentSchema,
@@ -17,11 +22,9 @@ const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
 const PAYMENT_ID = /^pay_\w{1,40}$/;
 
 /** Razorpay's deliveries are a few kilobytes; anything over this is refused. */
-export const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024;
+export const MAX_WEBHOOK_BODY_BYTES = MAX_SIGNED_WEBHOOK_BODY_BYTES;
 
-export type WebhookBody =
-  | { ok: true; text: string }
-  | { ok: false; reason: "aborted" | "timeout" | "too_large" };
+export type WebhookBody = RequestBody;
 
 /**
  * Reads the raw body, refusing it as soon as it passes `maxBytes`: at once
@@ -34,51 +37,7 @@ export async function readWebhookBody(
   request: Request,
   { maxBytes = MAX_WEBHOOK_BODY_BYTES, timeoutMs = 3000 } = {}
 ): Promise<WebhookBody> {
-  const declared = Number(request.headers.get("content-length") ?? "");
-  if (Number.isFinite(declared) && declared > maxBytes) {
-    return { ok: false, reason: "too_large" };
-  }
-  if (!request.body) {
-    return { ok: true, text: "" };
-  }
-  const reader = request.body.getReader();
-  const stop = () => {
-    reader.cancel().catch(() => undefined);
-  };
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timedOut = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
-  });
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const next = await Promise.race([
-        reader.read().catch(() => "aborted" as const),
-        timedOut,
-      ]);
-      if (next === "aborted") {
-        stop();
-        return { ok: false, reason: "aborted" };
-      }
-      if (next === "timeout") {
-        stop();
-        return { ok: false, reason: "timeout" };
-      }
-      if (next.done) {
-        break;
-      }
-      size += next.value.byteLength;
-      if (size > maxBytes) {
-        stop();
-        return { ok: false, reason: "too_large" };
-      }
-      chunks.push(next.value);
-    }
-  } finally {
-    clearTimeout(timer);
-  }
-  return { ok: true, text: Buffer.concat(chunks).toString("utf8") };
+  return readRequestBody(request, { maxBytes, timeoutMs });
 }
 
 /**
