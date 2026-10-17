@@ -62,13 +62,13 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Signing service
 
-`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the roots in `services/signing/roots/`. It also adds the empty signature fields to circulars ([resolutions](governance-resolutions.md#signatures)). Without it, uploads are stored unchecked and can be checked later.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Without it, uploads are stored unchecked and can be checked later.
 
 ## Not built yet
 
-### Signing
+### Aadhaar eSign
 
-Browsers can't reach PKCS#11 tokens, so signing is deferred: the sidecar prepares an empty field, a local Rust helper opened by a `pidash-sign://` link signs on the token (PIN in its own window, never stored), and the sidecar embeds the signature with a DigiCert timestamp (PAdES B-T). Final documents get revocation data and a document timestamp (B-LTA), renewed yearly. Fallbacks: Acrobat download and upload, and Leegality Aadhaar eSign (about ₹25 per signature; Leegality sees the full PDF).
+A fallback to the DSC through Leegality (about ₹25 per signature; Leegality sees the full PDF), checked like any other signed copy.
 
 ### Meetings
 
