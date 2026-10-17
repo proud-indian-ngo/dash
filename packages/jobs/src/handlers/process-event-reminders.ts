@@ -237,11 +237,21 @@ async function sendParticipantReminders(
   }
 }
 
-async function processRemindersForEvent(
+export async function processRemindersForEvent(
   params: ProcessParams
 ): Promise<{ sent: number; skipped: number }> {
   let sent = 0;
   let skipped = 0;
+
+  const dueIntervals = params.intervals.filter((intervalMinutes) => {
+    const reminderTime = params.startTime - intervalMinutes * 60 * 1000;
+    return (
+      reminderTime >= params.windowStart.getTime() && reminderTime <= params.now
+    );
+  });
+  if (dueIntervals.length === 0) {
+    return { sent, skipped };
+  }
 
   const sendToGroup =
     params.reminderTarget === "group" || params.reminderTarget === "both";
@@ -281,16 +291,7 @@ async function processRemindersForEvent(
     : [];
 
   const intervalResults = await Promise.all(
-    params.intervals.map(async (intervalMinutes) => {
-      const reminderTime = params.startTime - intervalMinutes * 60 * 1000;
-
-      if (
-        reminderTime < params.windowStart.getTime() ||
-        reminderTime > params.now
-      ) {
-        return { sent: 0, skipped: 0 };
-      }
-
+    dueIntervals.map(async (intervalMinutes) => {
       const isNew = await tryInsertReminderSent(
         params.eventId,
         params.instanceDate,
