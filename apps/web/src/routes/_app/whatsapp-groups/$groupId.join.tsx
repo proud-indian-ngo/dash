@@ -89,11 +89,7 @@ function JoinGroupPage() {
 
   const retry = async () => {
     setRetrying(true);
-    try {
-      await router.invalidate();
-    } finally {
-      setRetrying(false);
-    }
+    await router.invalidate().finally(() => setRetrying(false));
   };
 
   return (

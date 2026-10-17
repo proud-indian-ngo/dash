@@ -184,32 +184,33 @@ function SettingsForm({
       const notesKeys = Object.fromEntries(
         NOTES_FIELDS.map((field) => [field, splitNotesKeys(value[field])])
       ) as NotesKeys;
-      try {
-        const result = await save({
-          data: {
-            ...(value.clearingAccountId
-              ? { clearingAccountId: value.clearingAccountId }
-              : {}),
-            notesKeys,
-          },
+      await save({
+        data: {
+          ...(value.clearingAccountId
+            ? { clearingAccountId: value.clearingAccountId }
+            : {}),
+          notesKeys,
+        },
+      })
+        .then((result) => {
+          toast.success("Razorpay settings saved", {
+            description:
+              result.requeuedCount > 0 || result.attachedBatchCount > 0
+                ? "Payments that were waiting for the account are being recorded now."
+                : undefined,
+          });
+          onSaved();
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "updateRazorpaySettings",
+            component: "RazorpaySection",
+            error: error instanceof Error ? error.message : String(error),
+          });
+          toast.error("Couldn't save the Razorpay settings", {
+            description: error instanceof Error ? error.message : undefined,
+          });
         });
-        toast.success("Razorpay settings saved", {
-          description:
-            result.requeuedCount > 0 || result.attachedBatchCount > 0
-              ? "Payments that were waiting for the account are being recorded now."
-              : undefined,
-        });
-        onSaved();
-      } catch (error) {
-        log.error({
-          action: "updateRazorpaySettings",
-          component: "RazorpaySection",
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Couldn't save the Razorpay settings", {
-          description: error instanceof Error ? error.message : undefined,
-        });
-      }
     },
     validators: { onSubmit: formSchema },
   });

@@ -70,23 +70,23 @@ export function ApproveDialog({
     async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       setSubmitting(true);
-      try {
-        const confirmed = await onConfirm(message, screenshotKey ?? undefined);
-        if (confirmed) {
-          cleanup();
-          onOpenChange(false);
-        }
-      } catch (error) {
-        log.error({
-          action: "confirm",
-          component: "ApproveDialog",
-          entityId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error(`Couldn't approve ${entityLabel} — try again`);
-      } finally {
-        setSubmitting(false);
-      }
+      await onConfirm(message, screenshotKey ?? undefined)
+        .then((confirmed) => {
+          if (confirmed) {
+            cleanup();
+            onOpenChange(false);
+          }
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "confirm",
+            component: "ApproveDialog",
+            entityId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          toast.error(`Couldn't approve ${entityLabel} — try again`);
+        })
+        .finally(() => setSubmitting(false));
     }
   );
   const stableOnMessageChange1 = useEventCallback(

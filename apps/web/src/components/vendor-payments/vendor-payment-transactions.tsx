@@ -139,47 +139,43 @@ export function VendorPaymentTransactions({
       return;
     }
     setDeleteLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.vendorPaymentTransaction.delete({ id: deletingId })
-      ).server;
-      handleMutationResult(res, {
-        entityId: deletingId,
-        errorMsg: "Couldn't delete transaction",
-        mutation: "vendorPaymentTransaction.delete",
-        successMsg: "Transaction deleted",
-      });
-      if (res.type !== "error") {
-        setDeletingId(null);
-      }
-    } finally {
-      setDeleteLoading(false);
-    }
+    await zero
+      .mutate(mutators.vendorPaymentTransaction.delete({ id: deletingId }))
+      .server.then((res) => {
+        handleMutationResult(res, {
+          entityId: deletingId,
+          errorMsg: "Couldn't delete transaction",
+          mutation: "vendorPaymentTransaction.delete",
+          successMsg: "Transaction deleted",
+        });
+        if (res.type !== "error") {
+          setDeletingId(null);
+        }
+      })
+      .finally(() => setDeleteLoading(false));
   });
   const handleVoidTransaction = useEventCallback(async (reason: string) => {
     if (!voidingId) {
       return;
     }
     setVoidLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.vendorPaymentTransaction.void({ id: voidingId, reason })
-      ).server;
-      handleMutationResult(res, {
-        entityId: voidingId,
-        errorMsg: getMutationResultErrorMessage(
-          res.type === "error" ? res.error : undefined,
-          "Couldn't void the payment"
-        ),
-        mutation: "vendorPaymentTransaction.void",
-        successMsg: "Payment voided",
-      });
-      if (res.type !== "error") {
-        setVoidingId(null);
-      }
-    } finally {
-      setVoidLoading(false);
-    }
+    await zero
+      .mutate(mutators.vendorPaymentTransaction.void({ id: voidingId, reason }))
+      .server.then((res) => {
+        handleMutationResult(res, {
+          entityId: voidingId,
+          errorMsg: getMutationResultErrorMessage(
+            res.type === "error" ? res.error : undefined,
+            "Couldn't void the payment"
+          ),
+          mutation: "vendorPaymentTransaction.void",
+          successMsg: "Payment voided",
+        });
+        if (res.type !== "error") {
+          setVoidingId(null);
+        }
+      })
+      .finally(() => setVoidLoading(false));
   });
   const handleVoidOpenChange = useEventCallback((open: boolean) => {
     if (!open) {

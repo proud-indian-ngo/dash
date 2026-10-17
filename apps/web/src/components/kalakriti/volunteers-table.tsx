@@ -18,7 +18,7 @@ import {
   type KalakritiResponsibility,
 } from "@pi-dash/shared/kalakriti";
 import { getKalakritiFoodStatus } from "@pi-dash/zero/kalakriti-food-rules";
-import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
@@ -245,11 +245,8 @@ export function VolunteersTable({
     complete: statusSnapshotComplete,
     getStatus: volunteerCheckInLabel,
   });
-  const getFilterValue = useCallback(
-    (row: VolunteerRosterItem, path: string[]) =>
-      getVolunteerFilterValue(row, path, labels),
-    [labels]
-  );
+  const getFilterValue = (row: VolunteerRosterItem, path: string[]) =>
+    getVolunteerFilterValue(row, path, labels);
   const columns: DataGridColumnDef<VolunteerRosterItem>[] = [
     {
       accessorKey: "snapshotName",
@@ -430,10 +427,7 @@ export function VolunteersTable({
   );
 
   const { query, setQuery } = useDataTableFilters();
-  const normalizedQuery = useMemo(
-    () => removeObsoleteVolunteerFilters(query),
-    [query]
-  );
+  const normalizedQuery = removeObsoleteVolunteerFilters(query);
   const needsFilterMigration =
     JSON.stringify(query) !== JSON.stringify(normalizedQuery);
   useEffect(() => {

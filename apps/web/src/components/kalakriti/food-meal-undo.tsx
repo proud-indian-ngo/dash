@@ -124,14 +124,16 @@ export function FoodMealUndo({
         }
       };
       const result = await recordUndo();
-      try {
-        await onMealSettled?.();
-      } catch {
-        log.error({
-          component: "FoodMealUndo",
-          action: "refreshFood",
-          error: "Food refresh failed",
-        });
+      if (onMealSettled) {
+        try {
+          await onMealSettled();
+        } catch {
+          log.error({
+            component: "FoodMealUndo",
+            action: "refreshFood",
+            error: "Food refresh failed",
+          });
+        }
       }
       pending.current = false;
       return result;

@@ -132,26 +132,35 @@ export function LoginForm() {
       return;
     }
     setResending(true);
-    try {
-      await authClient.sendVerificationEmail({
-        // Website sign-ups keep their event (and interest request) on resend.
-        callbackURL: eventRedirect
-          ? formatEventRedirect(eventRedirect)
-          : "/login",
-        email: unverifiedEmail,
-      });
-      toast.success("Verification email sent — check your inbox");
-    } catch (error) {
-      log.error({
-        action: "resendVerification",
-        component: "LoginForm",
-        email: unverifiedEmail,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error("Couldn't resend verification email");
-    } finally {
-      setResending(false);
-    }
+    // Website sign-ups keep their event (and interest request) on resend.
+    const callbackURL = eventRedirect
+      ? formatEventRedirect(eventRedirect)
+      : "/login";
+    await authClient
+      .sendVerificationEmail({ callbackURL, email: unverifiedEmail })
+      .then(({ error }) => {
+        if (error) {
+          log.error({
+            action: "resendVerification",
+            component: "LoginForm",
+            email: unverifiedEmail,
+            error: error.message ?? error.statusText,
+          });
+          toast.error("Couldn't resend verification email");
+          return;
+        }
+        toast.success("Verification email sent — check your inbox");
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "resendVerification",
+          component: "LoginForm",
+          email: unverifiedEmail,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Couldn't resend verification email");
+      })
+      .finally(() => setResending(false));
   });
 
   if (isPending) {

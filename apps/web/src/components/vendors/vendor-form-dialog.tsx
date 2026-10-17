@@ -115,37 +115,38 @@ function VendorForm({
         toast.error(check.error.issues[0]?.message ?? "Check the form");
         return;
       }
-      try {
-        const result = await save({ data: check.data });
-        toast.success(isEdit ? "Vendor updated" : "Vendor created");
-        if (!isEdit) {
-          onCreated?.(result.vendorId);
-        }
-        onSaved?.(result.vendorId);
-        onOpenChange(false);
-      } catch (error) {
-        log.error({
-          action: isEdit ? "vendor.update" : "vendor.create",
-          caughtError: error instanceof Error ? error.message : String(error),
-          component: "VendorFormDialog",
-          mode,
-        });
-        if (isSaveConflict(error)) {
-          toast.error("Someone else changed this vendor", {
-            description:
-              "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
-          });
-          onConflict();
-          return;
-        }
-        toast.error(
-          isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
-          {
-            description:
-              error instanceof Error ? error.message : "Something went wrong",
+      await save({ data: check.data })
+        .then((result) => {
+          toast.success(isEdit ? "Vendor updated" : "Vendor created");
+          if (!isEdit) {
+            onCreated?.(result.vendorId);
           }
-        );
-      }
+          onSaved?.(result.vendorId);
+          onOpenChange(false);
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: isEdit ? "vendor.update" : "vendor.create",
+            caughtError: error instanceof Error ? error.message : String(error),
+            component: "VendorFormDialog",
+            mode,
+          });
+          if (isSaveConflict(error)) {
+            toast.error("Someone else changed this vendor", {
+              description:
+                "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
+            });
+            onConflict();
+            return;
+          }
+          toast.error(
+            isEdit ? "Couldn't update vendor" : "Couldn't create vendor",
+            {
+              description:
+                error instanceof Error ? error.message : "Something went wrong",
+            }
+          );
+        });
     },
     validators: { onChange: formSchema, onSubmit: formSchema },
   });

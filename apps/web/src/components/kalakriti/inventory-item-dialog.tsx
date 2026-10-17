@@ -12,7 +12,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -74,6 +74,100 @@ interface Props {
   open: boolean;
 }
 
+async function saveInventoryItem(
+  zero: ReturnType<typeof useZero>,
+  {
+    command,
+    editionId,
+    item,
+    onOpenChange,
+    pendingUploadKey,
+    unmounted,
+    value,
+  }: Omit<Props, "open"> & {
+    command: {
+      itemId: string;
+      transactionId: string;
+      auditEntryId: string;
+      now: number;
+    };
+    pendingUploadKey: RefObject<string | null>;
+    unmounted: RefObject<boolean>;
+    value: {
+      name: string;
+      openingQuantity: number;
+      unitPriceRupees: number;
+      photo: File | null;
+      removePhoto: boolean;
+    };
+  }
+) {
+  const { itemId, transactionId, auditEntryId, now } = command;
+  try {
+    const photo = value.photo
+      ? await uploadKalakritiInventoryPhoto(value.photo, editionId)
+      : value.removePhoto
+        ? null
+        : undefined;
+    if (photo?.objectKey) {
+      pendingUploadKey.current = photo.objectKey;
+      if (unmounted.current) {
+        await discardTemporaryInventoryPhoto(photo.objectKey);
+        pendingUploadKey.current = null;
+        return;
+      }
+    }
+    const shared = {
+      editionId,
+      itemId,
+      auditEntryId,
+      now,
+      name: value.name.trim(),
+      unitPricePaise: Math.round(value.unitPriceRupees * 100),
+    };
+    const result = item
+      ? await zero.mutate(
+          mutators.kalakritiInventory.update({ ...shared, photo })
+        ).server
+      : await zero.mutate(
+          mutators.kalakritiInventory.create({
+            ...shared,
+            openingQuantity: value.openingQuantity,
+            transactionId,
+            photo: photo ?? null,
+          })
+        ).server;
+    handleMutationResult(result, {
+      mutation: item
+        ? "kalakritiInventory.update"
+        : "kalakritiInventory.create",
+      entityId: itemId,
+      successMsg: item ? "Item updated" : "Item created",
+      errorMsg: item ? "Failed to update item" : "Failed to create item",
+    });
+    if (result.type !== "error") {
+      pendingUploadKey.current = null;
+      onOpenChange(false);
+    } else if (pendingUploadKey.current) {
+      await discardTemporaryInventoryPhoto(pendingUploadKey.current);
+      pendingUploadKey.current = null;
+    }
+  } catch (error) {
+    if (pendingUploadKey.current) {
+      await discardTemporaryInventoryPhoto(pendingUploadKey.current);
+      pendingUploadKey.current = null;
+    }
+    log.error({
+      component: "InventoryItemDialog",
+      action: item ? "updateItem" : "createItem",
+      editionId,
+      itemId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    toast.error("Failed to save item");
+  }
+}
+
 function ItemForm({ editionId, item, onOpenChange }: Omit<Props, "open">) {
   const zero = useZero();
   const [command] = useState(() => ({
@@ -102,70 +196,15 @@ function ItemForm({ editionId, item, onOpenChange }: Omit<Props, "open">) {
     },
     validators: { onChange: itemSchema, onSubmit: itemSchema },
     onSubmit: async ({ value }) => {
-      const { itemId, transactionId, auditEntryId, now } = command;
-      try {
-        const photo = value.photo
-          ? await uploadKalakritiInventoryPhoto(value.photo, editionId)
-          : value.removePhoto
-            ? null
-            : undefined;
-        if (photo?.objectKey) {
-          pendingUploadKey.current = photo.objectKey;
-          if (unmounted.current) {
-            await discardTemporaryInventoryPhoto(photo.objectKey);
-            pendingUploadKey.current = null;
-            return;
-          }
-        }
-        const shared = {
-          editionId,
-          itemId,
-          auditEntryId,
-          now,
-          name: value.name.trim(),
-          unitPricePaise: Math.round(value.unitPriceRupees * 100),
-        };
-        const result = item
-          ? await zero.mutate(
-              mutators.kalakritiInventory.update({ ...shared, photo })
-            ).server
-          : await zero.mutate(
-              mutators.kalakritiInventory.create({
-                ...shared,
-                openingQuantity: value.openingQuantity,
-                transactionId,
-                photo: photo ?? null,
-              })
-            ).server;
-        handleMutationResult(result, {
-          mutation: item
-            ? "kalakritiInventory.update"
-            : "kalakritiInventory.create",
-          entityId: itemId,
-          successMsg: item ? "Item updated" : "Item created",
-          errorMsg: item ? "Failed to update item" : "Failed to create item",
-        });
-        if (result.type !== "error") {
-          pendingUploadKey.current = null;
-          onOpenChange(false);
-        } else if (pendingUploadKey.current) {
-          await discardTemporaryInventoryPhoto(pendingUploadKey.current);
-          pendingUploadKey.current = null;
-        }
-      } catch (error) {
-        if (pendingUploadKey.current) {
-          await discardTemporaryInventoryPhoto(pendingUploadKey.current);
-          pendingUploadKey.current = null;
-        }
-        log.error({
-          component: "InventoryItemDialog",
-          action: item ? "updateItem" : "createItem",
-          editionId,
-          itemId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Failed to save item");
-      }
+      await saveInventoryItem(zero, {
+        command,
+        editionId,
+        item,
+        onOpenChange,
+        pendingUploadKey,
+        unmounted,
+        value,
+      });
     },
   });
 

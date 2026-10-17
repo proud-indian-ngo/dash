@@ -189,24 +189,21 @@ export function MapStep({
       }
       setError(null);
       onBusyChange(true);
-      try {
-        onReviewed(
-          await review({
-            data: {
-              batchId: batch.batchId,
-              dateFormat: value.dateFormat,
-              defaultChannel: value.defaultChannel,
-              mapping,
-            },
-          })
-        );
-      } catch (caught) {
-        setError(
-          caught instanceof Error ? caught.message : "The review failed."
-        );
-      } finally {
-        onBusyChange(false);
-      }
+      await review({
+        data: {
+          batchId: batch.batchId,
+          dateFormat: value.dateFormat,
+          defaultChannel: value.defaultChannel,
+          mapping,
+        },
+      })
+        .then(onReviewed)
+        .catch((caught: unknown) => {
+          setError(
+            caught instanceof Error ? caught.message : "The review failed."
+          );
+        })
+        .finally(() => onBusyChange(false));
     },
   });
 

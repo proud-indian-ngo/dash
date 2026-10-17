@@ -46,32 +46,32 @@ export function usePostPending() {
   const [posting, setPosting] = useState(false);
   const post = useEventCallback(async () => {
     setPosting(true);
-    try {
-      const result = await run();
-      const parts = [
-        plural(result.posted, "posting", "postings"),
-        ...(result.reversed > 0
-          ? [plural(result.reversed, "reversal", "reversals")]
-          : []),
-        ...(result.waiting > 0 ? [`${result.waiting} still waiting`] : []),
-      ];
-      toast.success(
-        result.posted + result.reversed === 0
-          ? "The books are up to date"
-          : `Posted: ${parts.join(", ")}`,
-        result.remaining > 0
-          ? {
-              description: `${plural(result.remaining, "record continues", "records continue")} posting in the background.`,
-            }
-          : undefined
-      );
-    } catch (error) {
-      toast.error("Couldn't post the waiting records", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-    } finally {
-      setPosting(false);
-    }
+    await run()
+      .then((result) => {
+        const parts = [
+          plural(result.posted, "posting", "postings"),
+          ...(result.reversed > 0
+            ? [plural(result.reversed, "reversal", "reversals")]
+            : []),
+          ...(result.waiting > 0 ? [`${result.waiting} still waiting`] : []),
+        ];
+        toast.success(
+          result.posted + result.reversed === 0
+            ? "The books are up to date"
+            : `Posted: ${parts.join(", ")}`,
+          result.remaining > 0
+            ? {
+                description: `${plural(result.remaining, "record continues", "records continue")} posting in the background.`,
+              }
+            : undefined
+        );
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't post the waiting records", {
+          description: error instanceof Error ? error.message : undefined,
+        });
+      })
+      .finally(() => setPosting(false));
   });
   return { post, posting };
 }

@@ -144,117 +144,110 @@ export function TransportTable({
       })),
     [rows, snapshot.labels]
   );
-  const columns = useMemo<DataGridColumnDef<TransportRow>[]>(() => {
-    const textColumns = fields.map(
-      ([key, title]): DataGridColumnDef<TransportRow> => ({
-        id: key,
-        accessorFn: (row) => getValue(row, key),
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title={title}
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => {
-          const value = getValue(row.original, key);
-          if (key === "status" && value === undefined)
-            return <Skeleton className="h-5 w-24" />;
-          if (
-            key === "googleMapsUrl" &&
-            typeof value === "string" &&
-            value.startsWith("https://")
-          )
-            return (
-              <a
-                className="text-primary underline"
-                href={value}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Google Maps
-              </a>
-            );
-          return value || "—";
-        },
-        meta: {
-          ...(key === "center" || key === "status"
-            ? { compact: "primary" as const }
-            : {}),
-          headerTitle: title,
-          skeleton: <Skeleton className="h-5 w-28" />,
-        },
-        size: 180,
-      })
-    );
-    textColumns.splice(3, 0, {
-      id: "pickupTime",
-      accessorFn: (row) => row.assignment?.pickupTime,
+  const columns = fields.map(
+    ([key, title]): DataGridColumnDef<TransportRow> => ({
+      id: key,
+      accessorFn: (row) => getValue(row, key),
       header: ({ column }) => (
-        <DataGridColumnHeader
-          column={column}
-          title="Pickup time"
-          visibility={true}
-        />
+        <DataGridColumnHeader column={column} title={title} visibility={true} />
       ),
-      cell: ({ row }) =>
-        row.original.assignment?.pickupTime == null
-          ? "—"
-          : format(new Date(row.original.assignment.pickupTime), TIME),
+      cell: ({ row }) => {
+        const value = getValue(row.original, key);
+        if (key === "status" && value === undefined)
+          return <Skeleton className="h-5 w-24" />;
+        if (
+          key === "googleMapsUrl" &&
+          typeof value === "string" &&
+          value.startsWith("https://")
+        )
+          return (
+            <a
+              className="text-primary underline"
+              href={value}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Maps
+            </a>
+          );
+        return value || "—";
+      },
       meta: {
-        headerTitle: "Pickup time",
-        kind: "date",
+        ...(key === "center" || key === "status"
+          ? { compact: "primary" as const }
+          : {}),
+        headerTitle: title,
         skeleton: <Skeleton className="h-5 w-28" />,
       },
-      size: 210,
+      size: 180,
+    })
+  );
+  columns.splice(3, 0, {
+    id: "pickupTime",
+    accessorFn: (row) => row.assignment?.pickupTime,
+    header: ({ column }) => (
+      <DataGridColumnHeader
+        column={column}
+        title="Pickup time"
+        visibility={true}
+      />
+    ),
+    cell: ({ row }) =>
+      row.original.assignment?.pickupTime == null
+        ? "—"
+        : format(new Date(row.original.assignment.pickupTime), TIME),
+    meta: {
+      headerTitle: "Pickup time",
+      kind: "date",
+      skeleton: <Skeleton className="h-5 w-28" />,
+    },
+    size: 210,
+  });
+  if (canManage)
+    columns.push({
+      id: "actions",
+      size: 52,
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      meta: {
+        cellClassName: "text-center",
+        enableColumnOrdering: false,
+        headerTitle: "",
+        skeleton: <Skeleton className="size-7" />,
+      },
+      cell: ({ row }) => (
+        <ResponsiveActionMenu
+          title={`${row.original.assignment?.vehicleLabel ?? row.original.center.name} actions`}
+          trigger={
+            <RowActionsButton
+              aria-label={`Actions for ${row.original.assignment?.vehicleLabel ?? row.original.center.name}`}
+            />
+          }
+          actions={[
+            {
+              id: "add",
+              icon: PlusSignIcon,
+              label: "Add vehicle",
+              onSelect: () => onAdd(row.original),
+            },
+            !!row.original.assignment && {
+              id: "edit",
+              icon: Edit02Icon,
+              label: "Edit vehicle",
+              onSelect: () => onEdit(row.original),
+            },
+            !!row.original.assignment && {
+              id: "delete",
+              icon: Delete02Icon,
+              label: "Delete vehicle",
+              onSelect: () => onDelete(row.original),
+              destructive: true,
+            },
+          ]}
+        />
+      ),
     });
-    if (canManage)
-      textColumns.push({
-        id: "actions",
-        size: 52,
-        enableHiding: false,
-        enableResizing: false,
-        enableSorting: false,
-        meta: {
-          cellClassName: "text-center",
-          enableColumnOrdering: false,
-          headerTitle: "",
-          skeleton: <Skeleton className="size-7" />,
-        },
-        cell: ({ row }) => (
-          <ResponsiveActionMenu
-            title={`${row.original.assignment?.vehicleLabel ?? row.original.center.name} actions`}
-            trigger={
-              <RowActionsButton
-                aria-label={`Actions for ${row.original.assignment?.vehicleLabel ?? row.original.center.name}`}
-              />
-            }
-            actions={[
-              {
-                id: "add",
-                icon: PlusSignIcon,
-                label: "Add vehicle",
-                onSelect: () => onAdd(row.original),
-              },
-              !!row.original.assignment && {
-                id: "edit",
-                icon: Edit02Icon,
-                label: "Edit vehicle",
-                onSelect: () => onEdit(row.original),
-              },
-              !!row.original.assignment && {
-                id: "delete",
-                icon: Delete02Icon,
-                label: "Delete vehicle",
-                onSelect: () => onDelete(row.original),
-                destructive: true,
-              },
-            ]}
-          />
-        ),
-      });
-    return textColumns;
-  }, [canManage, onAdd, onEdit, onDelete]);
   return (
     <DataTableWrapper
       columns={columns}

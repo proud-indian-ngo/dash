@@ -33,6 +33,11 @@
       "groupName": "bun"
     },
     {
+      "description": "babel-plugin-react-compiler 1.0 reads Babel 7 ASTs; under Babel 8 it skips components with destructuring defaults",
+      "matchPackageNames": ["@babel/core"],
+      "allowedVersions": "<8"
+    },
+    {
       "description": "Keep Postgres Docker images in sync across compose files",
       "matchPackageNames": ["postgres"],
       "groupName": "postgres"

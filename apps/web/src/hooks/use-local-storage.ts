@@ -16,6 +16,19 @@ const defaultDeserialize = <T>(value: string): T | undefined => {
 
 const defaultSerialize = <T>(value: T): string => JSON.stringify(value);
 
+function readStoredValue<T>(
+  key: string,
+  initialValue: T,
+  deserialize: (value: string) => T | undefined
+): T {
+  try {
+    const item = window.localStorage.getItem(key);
+    return item === null ? initialValue : (deserialize(item) ?? initialValue);
+  } catch {
+    return initialValue;
+  }
+}
+
 export function useLocalStorage<T>(
   key: string | undefined,
   initialValue: T,
@@ -29,12 +42,7 @@ export function useLocalStorage<T>(
       return initialValue;
     }
 
-    try {
-      const item = window.localStorage.getItem(key);
-      return item === null ? initialValue : (deserialize(item) ?? initialValue);
-    } catch {
-      return initialValue;
-    }
+    return readStoredValue(key, initialValue, deserialize);
   });
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: initialValue identity changes should not force storage re-read.
@@ -43,14 +51,7 @@ export function useLocalStorage<T>(
       return;
     }
 
-    try {
-      const item = window.localStorage.getItem(key);
-      setStoredValue(
-        item === null ? initialValue : (deserialize(item) ?? initialValue)
-      );
-    } catch {
-      setStoredValue(initialValue);
-    }
+    setStoredValue(readStoredValue(key, initialValue, deserialize));
   }, [key, deserialize]);
 
   useEffect(() => {

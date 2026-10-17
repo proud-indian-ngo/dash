@@ -335,25 +335,23 @@ export function VendorPaymentDetail({
   const handleOpenVoid = useEventCallback(() => setVoidOpen(true));
   const handleVoid = useEventCallback(async (reason: string) => {
     setVoidLoading(true);
-    try {
-      const res = await zero.mutate(
-        mutators.vendorPayment.void({ id: request.id, reason })
-      ).server;
-      handleMutationResult(res, {
-        entityId: request.id,
-        errorMsg: getMutationResultErrorMessage(
-          res.type === "error" ? res.error : undefined,
-          "Couldn't void the vendor payment"
-        ),
-        mutation: "vendorPayment.void",
-        successMsg: "Vendor payment voided",
-      });
-      if (res.type !== "error") {
-        setVoidOpen(false);
-      }
-    } finally {
-      setVoidLoading(false);
-    }
+    await zero
+      .mutate(mutators.vendorPayment.void({ id: request.id, reason }))
+      .server.then((res) => {
+        handleMutationResult(res, {
+          entityId: request.id,
+          errorMsg: getMutationResultErrorMessage(
+            res.type === "error" ? res.error : undefined,
+            "Couldn't void the vendor payment"
+          ),
+          mutation: "vendorPayment.void",
+          successMsg: "Vendor payment voided",
+        });
+        if (res.type !== "error") {
+          setVoidOpen(false);
+        }
+      })
+      .finally(() => setVoidLoading(false));
   });
   const stableOnApprove0 = useEventCallback(() => setApproveOpen(true));
   const stableOnReject1 = useEventCallback(() => setRejectOpen(true));

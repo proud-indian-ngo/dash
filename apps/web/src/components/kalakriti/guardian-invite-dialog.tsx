@@ -50,6 +50,8 @@ function GuardianInviteForm({
   const form = useForm({
     defaultValues: { email: "", name: "", password: "", phone: "" },
     onSubmit: async ({ value }) => {
+      const password = value.password || undefined;
+      const phone = value.phone || undefined;
       try {
         const result = await inviteKalakritiGuardian({
           data: {
@@ -57,8 +59,8 @@ function GuardianInviteForm({
             editionId,
             email: value.email,
             name: value.name,
-            password: value.password || undefined,
-            phone: value.phone || undefined,
+            password,
+            phone,
           },
         });
         if (result.status === "requires_confirmation") {
@@ -66,11 +68,11 @@ function GuardianInviteForm({
           onRequiresConfirmation(value, result.existingName);
           return;
         }
-        toast.success(
-          result.status === "created"
-            ? "Guardian invited"
-            : "Existing account assigned as Guardian"
-        );
+        if (result.status === "created") {
+          toast.success("Guardian invited");
+        } else {
+          toast.success("Existing account assigned as Guardian");
+        }
         onOpenChange(false);
       } catch (caughtError) {
         const message =

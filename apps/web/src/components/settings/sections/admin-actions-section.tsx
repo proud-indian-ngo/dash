@@ -40,10 +40,9 @@ export function AdminActionsSection() {
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger scan");
-    } finally {
-      setScanningGroups(false);
-      setScanConfirmOpen(false);
     }
+    setScanningGroups(false);
+    setScanConfirmOpen(false);
   });
 
   const handleR2DryRun = useEventCallback(async () => {
@@ -60,9 +59,8 @@ export function AdminActionsSection() {
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger dry run");
-    } finally {
-      setR2Cleaning(false);
     }
+    setR2Cleaning(false);
   });
 
   const handleR2Cleanup = useEventCallback(async () => {
@@ -77,10 +75,9 @@ export function AdminActionsSection() {
         error: getErrorMessage(error),
       });
       toast.error("Couldn't trigger cleanup");
-    } finally {
-      setR2Cleaning(false);
-      setR2CleanupConfirmOpen(false);
     }
+    setR2Cleaning(false);
+    setR2CleanupConfirmOpen(false);
   });
   const handleExpireInterests = useEventCallback(async () => {
     setExpiringInterests(true);
@@ -94,10 +91,9 @@ export function AdminActionsSection() {
         error: getErrorMessage(error),
       });
       toast.error("Couldn't start expiry");
-    } finally {
-      setExpiringInterests(false);
-      setExpiryConfirmOpen(false);
     }
+    setExpiringInterests(false);
+    setExpiryConfirmOpen(false);
   });
   const openExpiryConfirm = useEventCallback(() => setExpiryConfirmOpen(true));
 

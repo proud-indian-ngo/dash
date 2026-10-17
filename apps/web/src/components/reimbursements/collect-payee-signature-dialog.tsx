@@ -120,8 +120,7 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
     if (!enough || saving) {
       return;
     }
-    setSaving(true);
-    try {
+    const save = async () => {
       const blob = await signaturePngBlob(strokes);
       if (blob.size > PAYEE_SIGNATURE_MAX_BYTES) {
         toast.error(
@@ -168,19 +167,21 @@ export function CollectPayeeSignatureDialog(props: CollectPayeeSignatureProps) {
       }
       toast.success("Signature saved");
       onOpenChange(false);
-    } catch (error) {
-      log.error({
-        action: "collectPayeeSignature",
-        component: "CollectPayeeSignatureDialog",
-        lineItemId: props.lineItemId,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      toast.error(
-        "Couldn't save the signature. Check the connection and try again"
-      );
-    } finally {
-      setSaving(false);
-    }
+    };
+    setSaving(true);
+    await save()
+      .catch((error: unknown) => {
+        log.error({
+          action: "collectPayeeSignature",
+          component: "CollectPayeeSignatureDialog",
+          lineItemId: props.lineItemId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        toast.error(
+          "Couldn't save the signature. Check the connection and try again"
+        );
+      })
+      .finally(() => setSaving(false));
   });
 
   const description = `Hand the phone to ${props.payeeName} to read and sign.`;

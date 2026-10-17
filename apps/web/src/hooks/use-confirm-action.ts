@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useState } from "react";
 
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -34,34 +35,30 @@ export function useConfirmAction<TPayload = void>(
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
-
-  const trigger = useCallback((p?: TPayload) => {
+  const trigger = (p?: TPayload) => {
     setPayload(p === undefined ? (null as TPayload | null) : p);
     setIsOpen(true);
-  }, []);
+  };
 
-  const cancel = useCallback(() => {
+  const cancel = () => {
     setIsOpen(false);
     setIsLoading(false);
     setPayload(null);
-  }, []);
+  };
 
-  const confirm = useCallback(async () => {
+  // `options` stays this render's value across the await. Zero can re-render
+  // mid-flight with stale derived values (a successMsg built from a count that
+  // drops to 0), so do not read options through a ref here.
+  const confirm = useEventCallback(async () => {
     if (!isOpen) {
       return;
     }
-    // Snapshot before await — Zero reactivity can re-render the component
-    // mid-flight, overwriting optionsRef.current with stale derived values
-    // (e.g. successMsg built from pendingPhotos.length which becomes 0).
-    const snapshot = optionsRef.current;
     const typedPayload = payload as TPayload;
     setIsLoading(true);
-    const res = await snapshot.onConfirm(typedPayload);
+    const res = await options.onConfirm(typedPayload);
     setIsLoading(false);
 
-    const { mutationMeta } = snapshot;
+    const { mutationMeta } = options;
     if (mutationMeta) {
       const entityId =
         typeof mutationMeta.entityId === "function"
@@ -77,14 +74,14 @@ export function useConfirmAction<TPayload = void>(
 
     if (res.type === "error") {
       if (!mutationMeta) {
-        snapshot.onError?.(res.error?.message);
+        options.onError?.(res.error?.message);
       }
     } else {
-      snapshot.onSuccess?.();
+      options.onSuccess?.();
       setIsOpen(false);
       setPayload(null);
     }
-  }, [isOpen, payload]);
+  });
 
   return {
     cancel,

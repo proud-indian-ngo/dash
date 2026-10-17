@@ -57,23 +57,23 @@ export function useCaWorkbookDownload() {
   const [downloading, setDownloading] = useState(false);
   const download = useEventCallback(async (fiscalYearId: string) => {
     setDownloading(true);
-    try {
-      const file = await run({ data: { fiscalYearId } });
-      saveBase64(file.base64, file.filename);
-      toast.success("CA workbook downloaded");
-    } catch (error) {
-      log.error({
-        action: "books.caWorkbook.export",
-        caughtError: error instanceof Error ? error.message : String(error),
-        component: "BooksPage",
-      });
-      toast.error("Couldn't build the CA workbook", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong",
-      });
-    } finally {
-      setDownloading(false);
-    }
+    await run({ data: { fiscalYearId } })
+      .then((file) => {
+        saveBase64(file.base64, file.filename);
+        toast.success("CA workbook downloaded");
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "books.caWorkbook.export",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "BooksPage",
+        });
+        toast.error("Couldn't build the CA workbook", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setDownloading(false));
   });
   return { download, downloading };
 }

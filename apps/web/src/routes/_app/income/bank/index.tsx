@@ -482,9 +482,8 @@ function BankStatementsPage() {
       toast.error("Couldn't find matches", {
         description: errorMessage(error),
       });
-    } finally {
-      setFinding(false);
     }
+    setFinding(false);
   });
   const openImport = useEventCallback(() =>
     navigate({

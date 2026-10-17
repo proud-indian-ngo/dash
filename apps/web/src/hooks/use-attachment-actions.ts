@@ -23,13 +23,14 @@ export const useAttachmentActions = ({
     const attachmentId = attachment.id;
     setDeletingIds((prev) => new Set(prev).add(attachmentId));
 
+    const temporaryKey =
+      attachment.type === "file" && isTemporaryR2Key(attachment.objectKey)
+        ? attachment.objectKey
+        : null;
     try {
-      if (
-        attachment.type === "file" &&
-        isTemporaryR2Key(attachment.objectKey)
-      ) {
+      if (temporaryKey) {
         await deleteAsset({
-          data: { key: attachment.objectKey },
+          data: { key: temporaryKey },
         });
       }
 
@@ -43,13 +44,12 @@ export const useAttachmentActions = ({
         error: error instanceof Error ? error.message : String(error),
       });
       toast.error("Couldn't delete attachment");
-    } finally {
-      setDeletingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(attachmentId);
-        return next;
-      });
     }
+    setDeletingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(attachmentId);
+      return next;
+    });
   };
 
   return {

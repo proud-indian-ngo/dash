@@ -5,7 +5,6 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -183,122 +182,107 @@ export function FoodTable({
     statusSnapshotComplete
   );
   const rows = snapshot?.rows ?? EMPTY_ROWS;
-  const fields = useMemo(() => createFoodFilterFields(rows), [rows]);
-  const columns = useMemo<DataGridColumnDef<EligibleFoodRow>[]>(
-    () => [
-      {
-        id: "name",
-        accessorKey: "name",
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Name"
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => (
-          <span className="font-medium" data-testid="row-title">
-            {row.original.name}
-          </span>
-        ),
-        meta: {
-          compact: "primary",
-          headerTitle: "Name",
-          kind: "text",
-          skeleton,
-        },
-        size: 220,
+  const fields = createFoodFilterFields(rows);
+  const columns: DataGridColumnDef<EligibleFoodRow>[] = [
+    {
+      id: "name",
+      accessorKey: "name",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Name" visibility={true} />
+      ),
+      cell: ({ row }) => (
+        <span className="font-medium" data-testid="row-title">
+          {row.original.name}
+        </span>
+      ),
+      meta: {
+        compact: "primary",
+        headerTitle: "Name",
+        kind: "text",
+        skeleton,
       },
-      {
-        id: "humanId",
-        accessorFn: (row) => row.humanId ?? row.id,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Person ID"
-            visibility={true}
-          />
-        ),
-        meta: { headerTitle: "Person ID", kind: "id", skeleton },
-        size: 220,
+      size: 220,
+    },
+    {
+      id: "humanId",
+      accessorFn: (row) => row.humanId ?? row.id,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Person ID"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Person ID", kind: "id", skeleton },
+      size: 220,
+    },
+    {
+      id: "role",
+      accessorFn: (row) => ROLE_LABELS[row.kind],
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Role" visibility={true} />
+      ),
+      meta: {
+        compact: "primary",
+        headerTitle: "Role",
+        kind: "tag",
+        skeleton,
       },
-      {
-        id: "role",
-        accessorFn: (row) => ROLE_LABELS[row.kind],
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Role"
-            visibility={true}
-          />
-        ),
-        meta: {
-          compact: "primary",
-          headerTitle: "Role",
-          kind: "tag",
-          skeleton,
-        },
-        size: 130,
-      },
-      {
-        id: "centers",
-        accessorFn: foodCenterNames,
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title="Center"
-            visibility={true}
-          />
-        ),
-        meta: { headerTitle: "Center", kind: "text", skeleton },
-        size: 240,
-      },
-      ...(
-        [
-          ["breakfast", "Breakfast"],
-          ["lunch", "Lunch"],
-        ] as const
-      ).map(([id, title]): DataGridColumnDef<EligibleFoodRow> => ({
-        id,
-        accessorFn: (row) => row[id],
-        header: ({ column }) => (
-          <DataGridColumnHeader
-            column={column}
-            title={title}
-            visibility={true}
-          />
-        ),
-        cell: ({ row }) => {
-          const targetOperationId = effectiveMealId(row.original, id);
-          return onUndoMeal &&
-            row.original[id] === "Served" &&
-            targetOperationId ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={undoDisabled}
-              aria-label={`Undo ${id} for ${row.original.name}`}
-              onClick={() =>
-                onUndoMeal({
-                  personName: row.original.name,
-                  meal: id,
-                  targetOperationId,
-                })
-              }
-            >
-              <FoodMealStatus label={row.original[id]} />
-            </Button>
-          ) : (
+      size: 130,
+    },
+    {
+      id: "centers",
+      accessorFn: foodCenterNames,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Center"
+          visibility={true}
+        />
+      ),
+      meta: { headerTitle: "Center", kind: "text", skeleton },
+      size: 240,
+    },
+    ...(
+      [
+        ["breakfast", "Breakfast"],
+        ["lunch", "Lunch"],
+      ] as const
+    ).map(([id, title]): DataGridColumnDef<EligibleFoodRow> => ({
+      id,
+      accessorFn: (row) => row[id],
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title={title} visibility={true} />
+      ),
+      cell: ({ row }) => {
+        const targetOperationId = effectiveMealId(row.original, id);
+        return onUndoMeal &&
+          row.original[id] === "Served" &&
+          targetOperationId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={undoDisabled}
+            aria-label={`Undo ${id} for ${row.original.name}`}
+            onClick={() =>
+              onUndoMeal({
+                personName: row.original.name,
+                meal: id,
+                targetOperationId,
+              })
+            }
+          >
             <FoodMealStatus label={row.original[id]} />
-          );
-        },
-        meta: { compact: "trailing", headerTitle: title, skeleton },
-        size: 170,
-      })),
-    ],
-    [onUndoMeal, undoDisabled]
-  );
+          </Button>
+        ) : (
+          <FoodMealStatus label={row.original[id]} />
+        );
+      },
+      meta: { compact: "trailing", headerTitle: title, skeleton },
+      size: 170,
+    })),
+  ];
   return (
     <DataTableWrapper
       columns={columns}

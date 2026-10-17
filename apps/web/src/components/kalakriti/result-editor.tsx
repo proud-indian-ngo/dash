@@ -54,6 +54,64 @@ interface FailedFile {
   error: string;
 }
 
+async function saveResult(
+  zero: ReturnType<typeof useZero>,
+  {
+    editingDetail,
+    onSaved,
+    stagedKeys,
+    status,
+    value,
+  }: {
+    editingDetail: KalakritiResultDetail;
+    onSaved: () => Promise<void>;
+    stagedKeys: Set<string>;
+    status: "draft" | "published";
+    value: {
+      winnerEntryId: string;
+      runnerUpEntryId: string;
+      scorecardIds: string[];
+      uploads: ScorecardClaim[];
+    };
+  }
+) {
+  try {
+    const result = await zero.mutate(
+      mutators.kalakritiResult.save({
+        editionId: editingDetail.editionId,
+        divisionId: editingDetail.divisionId,
+        resultId: editingDetail.resultId ?? uuidv7(),
+        revisionId: uuidv7(),
+        expectedVersion: editingDetail.version,
+        now: Date.now(),
+        status,
+        winnerEntryId: value.winnerEntryId || null,
+        runnerUpEntryId: value.runnerUpEntryId || null,
+        scorecardIds: value.scorecardIds,
+        uploads: value.uploads,
+      })
+    ).server;
+    handleMutationResult(result, {
+      mutation: "kalakritiResult.save",
+      entityId: editingDetail.divisionId,
+      successMsg: status === "published" ? "Results published" : "Draft saved",
+      errorMsg: "Could not save results",
+    });
+    if (result.type !== "error") {
+      stagedKeys.clear();
+      await onSaved();
+    }
+  } catch (error) {
+    log.error({
+      component: "ResultEditor",
+      action: "save",
+      divisionId: editingDetail.divisionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    toast.error("Could not save results");
+  }
+}
+
 export function ResultEditor({
   detail,
   writable,
@@ -132,44 +190,15 @@ export function ResultEditor({
       }
       setFormError(null);
       setBusy(true);
-      try {
-        const result = await zero.mutate(
-          mutators.kalakritiResult.save({
-            editionId: editingDetail.editionId,
-            divisionId: editingDetail.divisionId,
-            resultId: editingDetail.resultId ?? uuidv7(),
-            revisionId: uuidv7(),
-            expectedVersion: editingDetail.version,
-            now: Date.now(),
-            status,
-            winnerEntryId: value.winnerEntryId || null,
-            runnerUpEntryId: value.runnerUpEntryId || null,
-            scorecardIds: value.scorecardIds,
-            uploads: value.uploads,
-          })
-        ).server;
-        handleMutationResult(result, {
-          mutation: "kalakritiResult.save",
-          entityId: editingDetail.divisionId,
-          successMsg:
-            status === "published" ? "Results published" : "Draft saved",
-          errorMsg: "Could not save results",
-        });
-        if (result.type !== "error") {
-          stagedKeys.current.clear();
-          await onSaved();
-        }
-      } catch (error) {
-        log.error({
-          component: "ResultEditor",
-          action: "save",
-          divisionId: editingDetail.divisionId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        toast.error("Could not save results");
-      } finally {
+      await saveResult(zero, {
+        editingDetail,
+        onSaved,
+        stagedKeys: stagedKeys.current,
+        status,
+        value,
+      }).finally(() => {
         if (mounted.current) setBusy(false);
-      }
+      });
     },
   });
 
@@ -233,13 +262,15 @@ export function ResultEditor({
           divisionId: editingDetail.divisionId,
           error: error instanceof Error ? error.message : String(error),
         });
+        const message =
+          error instanceof Error ? error.message : "Upload failed";
         if (mounted.current)
           setFailures((previous) => [
             ...previous,
             {
               id: retryId ?? uuidv7(),
               file,
-              error: error instanceof Error ? error.message : "Upload failed",
+              error: message,
             },
           ]);
       }

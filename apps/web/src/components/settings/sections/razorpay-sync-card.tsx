@@ -133,13 +133,12 @@ function ImportPastForm({
       to: today,
     } as z.input<typeof rangeSchema>,
     onSubmit: async ({ value }) => {
+      const data = {
+        from: localDateToIso(value.from) ?? "",
+        to: localDateToIso(value.to) ?? "",
+      };
       try {
-        const result = await importPast({
-          data: {
-            from: localDateToIso(value.from) ?? "",
-            to: localDateToIso(value.to) ?? "",
-          },
-        });
+        const result = await importPast({ data });
         toast.success("Importing past payments", {
           description: `${count(result.days, "day", "days")} from Razorpay, one day at a time.`,
         });
@@ -212,24 +211,24 @@ export function RazorpaySyncCard({
 
   const handleSync = useEventCallback(async () => {
     setStarting(true);
-    try {
-      await syncNow();
-      toast.success("Syncing with Razorpay");
-      onChanged();
-    } catch (error) {
-      log.error({
-        action: "syncRazorpayNow",
-        component: "RazorpaySyncCard",
-        error: error instanceof Error ? error.message : String(error),
-      });
-      toast.error("Couldn't start the sync", {
-        description: error instanceof Error ? error.message : undefined,
-      });
-      // Another run may be holding the queue: show it.
-      onChanged();
-    } finally {
-      setStarting(false);
-    }
+    await syncNow()
+      .then(() => {
+        toast.success("Syncing with Razorpay");
+        onChanged();
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "syncRazorpayNow",
+          component: "RazorpaySyncCard",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error("Couldn't start the sync", {
+          description: error instanceof Error ? error.message : undefined,
+        });
+        // Another run may be holding the queue: show it.
+        onChanged();
+      })
+      .finally(() => setStarting(false));
   });
 
   const unavailable =

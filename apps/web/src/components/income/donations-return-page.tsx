@@ -301,27 +301,27 @@ export function DonationsReturnPage() {
   const [exporting, setExporting] = useState<"upload" | "all" | null>(null);
   const runExport = useEventCallback(async (file: "upload" | "all") => {
     setExporting(file);
-    try {
-      const result = await exportFile({ data: { file, financialYear } });
-      saveText(result.csv, result.filename);
-      toast.success(
-        file === "upload"
-          ? "Return file downloaded. Check it against the portal's template before uploading."
-          : "All gifts downloaded"
-      );
-    } catch (error) {
-      log.error({
-        action: "donationsReturn.export",
-        caughtError: error instanceof Error ? error.message : String(error),
-        component: "DonationsReturnPage",
-      });
-      toast.error("Couldn't export the donations return", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong",
-      });
-    } finally {
-      setExporting(null);
-    }
+    await exportFile({ data: { file, financialYear } })
+      .then((result) => {
+        saveText(result.csv, result.filename);
+        toast.success(
+          file === "upload"
+            ? "Return file downloaded. Check it against the portal's template before uploading."
+            : "All gifts downloaded"
+        );
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "donationsReturn.export",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DonationsReturnPage",
+        });
+        toast.error("Couldn't export the donations return", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setExporting(null));
   });
   const exportUpload = useEventCallback(() => runExport("upload"));
   const exportAll = useEventCallback(() => runExport("all"));

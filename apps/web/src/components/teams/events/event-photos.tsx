@@ -12,7 +12,7 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import "yet-another-react-lightbox/plugins/thumbnails.css";
 import Lightbox, { type Slide } from "yet-another-react-lightbox";
@@ -300,6 +300,26 @@ export function EventPhotos({
       },
     });
   });
+  const deleteAction = useConfirmAction<string>({
+    mutationMeta: {
+      entityId: (id) => id,
+      errorMsg: "Failed to delete",
+      mutation: "eventPhoto.delete",
+      successMsg: "Deleted",
+    },
+    onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
+  });
+
+  const deleteAlbumAction = useConfirmAction({
+    mutationMeta: {
+      entityId: () => eventId,
+      errorMsg: "Failed to delete album",
+      mutation: "eventImmichAlbum.deleteAlbum",
+      successMsg: "Album and all photos deleted",
+    },
+    onConfirm: () =>
+      zero.mutate(mutators.eventImmichAlbum.deleteAlbum({ eventId })).server,
+  });
   const stableOnClick0 = useEventCallback(() => fileInputRef.current?.click());
   const stableOnChange1 = useEventCallback(
     (e: { target: { files: FileList | null } }) => handleUpload(e.target.files)
@@ -342,26 +362,6 @@ export function EventPhotos({
   const handleApprove = useEventCallback((id: string) => decide(id, "approve"));
   const handleReject = useEventCallback((id: string) => decide(id, "reject"));
 
-  const deleteAction = useConfirmAction<string>({
-    mutationMeta: {
-      entityId: (id) => id,
-      errorMsg: "Failed to delete",
-      mutation: "eventPhoto.delete",
-      successMsg: "Deleted",
-    },
-    onConfirm: (id) => zero.mutate(mutators.eventPhoto.delete({ id })).server,
-  });
-
-  const deleteAlbumAction = useConfirmAction({
-    mutationMeta: {
-      entityId: () => eventId,
-      errorMsg: "Failed to delete album",
-      mutation: "eventImmichAlbum.deleteAlbum",
-      successMsg: "Album and all photos deleted",
-    },
-    onConfirm: () =>
-      zero.mutate(mutators.eventImmichAlbum.deleteAlbum({ eventId })).server,
-  });
   const handleDelete = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
@@ -371,39 +371,30 @@ export function EventPhotos({
   const handleLightboxDelete = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
-  const renderSlideFooter = useCallback(
-    ({ slide }: { slide: Slide }) =>
-      isPhotoSlide(slide) ? (
-        <LightboxFooter
-          onApprove={handleApprove}
-          onDelete={handleLightboxDelete}
-          onReject={handleReject}
-          slide={slide}
-        />
-      ) : null,
-    [handleApprove, handleLightboxDelete, handleReject]
-  );
-  const renderThumbnail = useCallback(
-    ({ slide }: { slide: Slide }) =>
-      isPhotoSlide(slide) ? (
-        <img
-          alt=""
-          className="size-full object-cover"
-          height={64}
-          src={slide.thumbnailSrc}
-          width={64}
-        />
-      ) : null,
-    []
-  );
-  const lightboxOn = useMemo(
-    () => ({ view: handleLightboxView }),
-    [handleLightboxView]
-  );
-  const lightboxRender = useMemo(
-    () => ({ slideFooter: renderSlideFooter, thumbnail: renderThumbnail }),
-    [renderSlideFooter, renderThumbnail]
-  );
+  const renderSlideFooter = ({ slide }: { slide: Slide }) =>
+    isPhotoSlide(slide) ? (
+      <LightboxFooter
+        onApprove={handleApprove}
+        onDelete={handleLightboxDelete}
+        onReject={handleReject}
+        slide={slide}
+      />
+    ) : null;
+  const renderThumbnail = ({ slide }: { slide: Slide }) =>
+    isPhotoSlide(slide) ? (
+      <img
+        alt=""
+        className="size-full object-cover"
+        height={64}
+        src={slide.thumbnailSrc}
+        width={64}
+      />
+    ) : null;
+  const lightboxOn = { view: handleLightboxView };
+  const lightboxRender = {
+    slideFooter: renderSlideFooter,
+    thumbnail: renderThumbnail,
+  };
 
   return (
     <div className="flex flex-col gap-6">

@@ -4,7 +4,6 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { MouseEvent, ReactNode } from "react";
-import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { getStateBadge } from "@/components/jobs/job-detail-sheet";
@@ -228,10 +227,7 @@ export function JobsTable({
   rowCount,
   toolbarActions,
 }: JobsTableProps) {
-  const filterFields = useMemo(
-    () => createJobFilterFields(queueOptions),
-    [queueOptions]
-  );
+  const filterFields = createJobFilterFields(queueOptions);
   const columns = createJobColumns(onView, onCancel, onRetry);
   const stableGetRowId0 = useEventCallback((row: { id: string }) => row.id);
 

@@ -67,32 +67,32 @@ export function PaymentProofDialog({
         return;
       }
       setSubmitting(true);
-      try {
-        const res = await zero.mutate(
+      await zero
+        .mutate(
           mutators.reimbursement.addPaymentProof({
             approvalScreenshotKey: screenshotKey,
             id: reimbursementId,
             keptAttachmentId: replacing ? uuidv7() : undefined,
             replacing,
           })
-        ).server;
-        handleMutationResult(res, {
-          entityId: reimbursementId,
-          errorMsg: getMutationResultErrorMessage(
-            res.type === "error" ? res.error : undefined,
-            "Couldn't save the payment proof"
-          ),
-          mutation: "reimbursement.addPaymentProof",
-          successMsg: replacing
-            ? "Payment proof replaced"
-            : "Payment proof added",
-        });
-        if (res.type !== "error") {
-          close();
-        }
-      } finally {
-        setSubmitting(false);
-      }
+        )
+        .server.then((res) => {
+          handleMutationResult(res, {
+            entityId: reimbursementId,
+            errorMsg: getMutationResultErrorMessage(
+              res.type === "error" ? res.error : undefined,
+              "Couldn't save the payment proof"
+            ),
+            mutation: "reimbursement.addPaymentProof",
+            successMsg: replacing
+              ? "Payment proof replaced"
+              : "Payment proof added",
+          });
+          if (res.type !== "error") {
+            close();
+          }
+        })
+        .finally(() => setSubmitting(false));
     }
   );
 

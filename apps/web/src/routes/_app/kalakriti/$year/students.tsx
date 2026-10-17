@@ -5,7 +5,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { parseAsString, useQueryState } from "nuqs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { z } from "zod";
 
@@ -89,7 +89,7 @@ function KalakritiStudentsPage() {
   const [students, studentsResult] = useQuery(
     queries.kalakritiStudent.visibleForDirectory({ editionId: edition.id })
   );
-  const rows = useMemo(() => [...students], [students]);
+  const rows = [...students];
   const [createOpen, setCreateOpen] = useState(false);
   const [createAttempt, setCreateAttempt] = useState(0);
   const [createCenterId, setCreateCenterId] = useState<string | null>(null);
@@ -134,15 +134,11 @@ function KalakritiStudentsPage() {
     categoriesResult,
     studentsResult,
   ].some((result) => result.type !== "complete");
-  const permissions = useMemo(
-    () =>
-      studentDirectoryPermissions(
-        selectableCenters,
-        lifecycle,
-        ageCategories.length,
-        referenceDataLoading
-      ),
-    [selectableCenters, lifecycle, ageCategories.length, referenceDataLoading]
+  const permissions = studentDirectoryPermissions(
+    selectableCenters,
+    lifecycle,
+    ageCategories.length,
+    referenceDataLoading
   );
   const writableCenters = selectableCenters.filter(
     (center) => permissions[center.id]?.canManage
@@ -171,10 +167,7 @@ function KalakritiStudentsPage() {
     const next = createDashboardFilterQuery("students", value, minimumEntries);
     if (next) void setQuery(next);
   };
-  const normalizedQuery = useMemo(
-    () => removeObsoleteStudentFilters(query),
-    [query]
-  );
+  const normalizedQuery = removeObsoleteStudentFilters(query);
   const needsFilterMigration =
     JSON.stringify(query) !== JSON.stringify(normalizedQuery);
   const consumedLink = useRef<string | null>(null);

@@ -62,6 +62,19 @@ function KalakritiAuditRoute() {
   );
 }
 
+async function fetchAudit(
+  year: number,
+  params: URLSearchParams
+): Promise<AuditResponse> {
+  const response = await fetch(
+    `/api/kalakriti/${year}/audit?${params.toString()}`
+  );
+  if (!response.ok) {
+    throw new Error(`Audit request failed with ${response.status}`);
+  }
+  return (await response.json()) as AuditResponse;
+}
+
 function KalakritiAuditPage({
   access,
   scope,
@@ -165,13 +178,7 @@ function KalakritiAuditPage({
     }
     const loadAudit = async () => {
       try {
-        const response = await fetch(
-          `/api/kalakriti/${access.edition.year}/audit?${params.toString()}`
-        );
-        if (!response.ok) {
-          throw new Error(`Audit request failed with ${response.status}`);
-        }
-        const result = (await response.json()) as AuditResponse;
+        const result = await fetchAudit(access.edition.year, params);
         if (cancelled) {
           return;
         }

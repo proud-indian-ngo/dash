@@ -245,12 +245,10 @@ export function WhatsAppGroupPickerDialog({
       .filter((g) => selected.has(g.jid))
       .map((g) => ({ jid: g.jid, name: g.name }));
     setSubmitting(true);
-    try {
-      await onAdd(selectedGroups);
-    } finally {
+    await onAdd(selectedGroups).finally(() => {
       setSubmitting(false);
       onOpenChange(false);
-    }
+    });
   });
   const stableOnClick1 = useEventCallback(() => onOpenChange(false));
 

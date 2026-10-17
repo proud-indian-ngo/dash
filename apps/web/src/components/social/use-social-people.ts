@@ -49,10 +49,9 @@ export function useSocialPeople(ids: readonly (string | null | undefined)[]) {
   const [people, setPeople] = useState<SocialPeople | null>(null);
 
   const refresh = useEventCallback(async (requested: string) => {
+    const requestedIds = requested ? requested.split(",") : [];
     try {
-      const data = await load({
-        data: { ids: requested ? requested.split(",") : [] },
-      });
+      const data = await load({ data: { ids: requestedIds } });
       setPeople(buildSocialPeople(data));
     } catch (error) {
       log.error({

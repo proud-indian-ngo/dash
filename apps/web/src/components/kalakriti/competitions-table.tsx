@@ -12,7 +12,6 @@ import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/d
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import {
@@ -213,10 +212,7 @@ export function CompetitionsTable({
   onDetails: (competition: CompetitionTableRow) => void;
   toolbarActions?: ReactNode;
 }) {
-  const filterFields = useMemo(
-    () => createCompetitionFilterFields(data),
-    [data]
-  );
+  const filterFields = createCompetitionFilterFields(data);
   const columns: DataGridColumnDef<CompetitionTableRow>[] = [
     {
       accessorKey: "name",

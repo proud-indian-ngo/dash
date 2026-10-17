@@ -83,6 +83,9 @@ export function EventUpdates({
     !showMyPendingSection;
 
   const handleCreate = useEventCallback(async (content: string) => {
+    const successMsg = isAdminOrLead
+      ? "Update posted"
+      : "Update submitted for approval";
     setSaving(true);
     try {
       const now = Date.now();
@@ -94,13 +97,13 @@ export function EventUpdates({
         entityId: id,
         errorMsg: "Failed to post update",
         mutation: "eventUpdate.create",
-        successMsg: isAdminOrLead
-          ? "Update posted"
-          : "Update submitted for approval",
+        successMsg,
       });
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
+    setSaving(false);
   });
 
   const decide = useEventCallback(
@@ -143,14 +146,6 @@ export function EventUpdates({
   });
 
   const handleReject = useEventCallback((id: string) => decide(id, "reject"));
-  const stableOnDelete0 = useEventCallback((id: string) =>
-    deleteAction.trigger(id)
-  );
-  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
-    if (!open) {
-      deleteAction.cancel();
-    }
-  });
   const deleteAction = useConfirmAction<string>({
     onConfirm: (id) => zero.mutate(mutators.eventUpdate.delete({ id })).server,
     onError: (msg) => {
@@ -162,6 +157,14 @@ export function EventUpdates({
       toast.error("Couldn't delete update");
     },
     onSuccess: () => toast.success("Update removed"),
+  });
+  const stableOnDelete0 = useEventCallback((id: string) =>
+    deleteAction.trigger(id)
+  );
+  const stableOnOpenChange1 = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
   });
 
   return (
@@ -415,9 +418,11 @@ function UpdateTimeline({
       if (res.type !== "error") {
         setEditingId(null);
       }
-    } finally {
+    } catch (error) {
       setSaving(false);
+      throw error;
     }
+    setSaving(false);
   });
 
   return (
@@ -471,12 +476,9 @@ function PendingUpdateCard({
       return;
     }
     setSaving(true);
-    try {
-      await onEdit(update.id, content);
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
+    await onEdit(update.id, content)
+      .then(() => setEditing(false))
+      .finally(() => setSaving(false));
   });
   const stableOnClick6 = useEventCallback(() => setEditing(true));
   const stableOnCancel7 = useEventCallback(() => setEditing(false));

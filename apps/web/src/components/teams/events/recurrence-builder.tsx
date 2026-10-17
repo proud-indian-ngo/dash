@@ -17,7 +17,7 @@ import {
   rruleToFormState,
 } from "@pi-dash/zero/rrule-utils";
 import { format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
 import { DATE_TIME } from "@/lib/date-formats";
@@ -388,6 +388,32 @@ function ExclusionBadge({
   );
 }
 
+function previewOccurrences(
+  state: RRuleFormState,
+  frequency: string,
+  startTime: Date,
+  excludeRules: string[]
+): { date: string; startTime: number }[] {
+  try {
+    const rrule = formStateToRRule(
+      { ...state, frequency: frequency as RRuleFormState["frequency"] },
+      startTime
+    );
+    const now = startTime.getTime();
+    const farFuture = now + 365 * 24 * 60 * 60 * 1000;
+    return expandSeries(
+      { excludeRules: excludeRules.length ? excludeRules : undefined, rrule },
+      now,
+      null,
+      now,
+      farFuture
+    ).slice(0, 5);
+  } catch {
+    // Invalid RRULE — no preview
+    return [];
+  }
+}
+
 function OccurrencePreview({
   excludeRules,
   frequency,
@@ -403,25 +429,7 @@ function OccurrencePreview({
     return null;
   }
 
-  let dates: { date: string; startTime: number }[] = [];
-  try {
-    const rrule = formStateToRRule(
-      { ...state, frequency: frequency as RRuleFormState["frequency"] },
-      startTime
-    );
-    const now = startTime.getTime();
-    const farFuture = now + 365 * 24 * 60 * 60 * 1000;
-    dates = expandSeries(
-      { excludeRules: excludeRules.length ? excludeRules : undefined, rrule },
-      now,
-      null,
-      now,
-      farFuture
-    ).slice(0, 5);
-  } catch {
-    // Invalid RRULE — no preview
-  }
-
+  const dates = previewOccurrences(state, frequency, startTime, excludeRules);
   if (dates.length === 0) {
     return null;
   }
@@ -465,27 +473,24 @@ export function RecurrenceBuilder({
   const [frequency, setFrequency] = useState(value ? state.frequency : "");
   const [excludeRules, setExcludeRules] = useState<string[]>(excludeRulesProp);
 
-  // Use ref to avoid onChange in effect deps (it's a new closure each render from TanStack Form)
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const onExcludeRulesChangeRef = useRef(onExcludeRulesChange);
-  onExcludeRulesChangeRef.current = onExcludeRulesChange;
+  // Stable, so onChange (a new closure each render from TanStack Form) stays out of effect deps
+  const emitChange = useEventCallback((rrule: string) => onChange(rrule));
 
   useEffect(() => {
     if (!frequency) {
-      onChangeRef.current("");
+      emitChange("");
       return;
     }
     const rrule = formStateToRRule(
       { ...state, frequency: frequency as RRuleFormState["frequency"] },
       startTime
     );
-    onChangeRef.current(rrule);
-  }, [state, frequency, startTime]);
+    emitChange(rrule);
+  }, [emitChange, state, frequency, startTime]);
 
   const handleExcludeRulesChange = useEventCallback((rules: string[]) => {
     setExcludeRules(rules);
-    onExcludeRulesChangeRef.current?.(rules);
+    onExcludeRulesChange?.(rules);
   });
   const stableOnValueChange7 = useEventCallback((v: string | null) => {
     setFrequency(v ?? "");
@@ -496,6 +501,9 @@ export function RecurrenceBuilder({
       handleExcludeRulesChange([]);
     }
   });
+  const updateState = useEventCallback((patch: Partial<RRuleFormState>) => {
+    setState((prev) => ({ ...prev, ...patch }));
+  });
   const stableOnChange8 = useEventCallback((interval: number) =>
     updateState({ interval })
   );
@@ -505,9 +513,6 @@ export function RecurrenceBuilder({
   const stableOnChange10 = useEventCallback((bySetPos: number | undefined) =>
     updateState({ bySetPos })
   );
-  const updateState = useEventCallback((patch: Partial<RRuleFormState>) => {
-    setState((prev) => ({ ...prev, ...patch }));
-  });
 
   return (
     <div className="space-y-3">

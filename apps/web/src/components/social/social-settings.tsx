@@ -67,6 +67,18 @@ export function isValidOverride(value: string): boolean {
   return trimmed === "" || NON_NEGATIVE_NUMBER_RE.test(trimmed);
 }
 
+async function writeChangedOverrides(
+  writeConfig: ReturnType<typeof useConfigWriter>,
+  values: Record<OverrideField, string>,
+  initial: Record<OverrideField, string>
+) {
+  for (const { field } of OVERRIDE_FIELDS) {
+    if (values[field].trim() !== initial[field]) {
+      await writeConfig(SOCIAL_ALL_TIME_CONFIG_KEYS[field], values[field]);
+    }
+  }
+}
+
 function ApproverPicker({ value }: { value: string }) {
   const people = useSocialPeople([value]);
   const writeConfig = useConfigWriter();
@@ -141,15 +153,9 @@ function AllTimeOverrides({
       return;
     }
     setSaving(true);
-    try {
-      for (const { field } of OVERRIDE_FIELDS) {
-        if (values[field].trim() !== initial[field]) {
-          await writeConfig(SOCIAL_ALL_TIME_CONFIG_KEYS[field], values[field]);
-        }
-      }
-    } finally {
-      setSaving(false);
-    }
+    await writeChangedOverrides(writeConfig, values, initial).finally(() =>
+      setSaving(false)
+    );
   });
 
   return (

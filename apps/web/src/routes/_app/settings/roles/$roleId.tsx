@@ -21,7 +21,7 @@ import { useForm } from "@tanstack/react-form";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { FormActions } from "@/components/form/form-actions";
@@ -139,7 +139,7 @@ function RoleEditPage() {
 
   const isSystemRole = roleData ? ADMIN_TIER_ROLES.has(roleData.id) : false;
 
-  const loadData = useCallback(async () => {
+  const loadData = useEventCallback(async () => {
     try {
       const [r, perms] = await Promise.all([
         fetchRole({ data: { roleId } }),
@@ -156,14 +156,13 @@ function RoleEditPage() {
         roleId,
       });
       toast.error("Couldn't load role");
-    } finally {
-      setLoading(false);
     }
-  }, [fetchRole, fetchPermissions, roleId]);
+    setLoading(false);
+  });
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, roleId]);
 
   const formKey = roleData ? `role-form-${roleData.id}` : "role-form-loading";
 

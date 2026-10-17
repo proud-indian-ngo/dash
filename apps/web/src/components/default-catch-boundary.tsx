@@ -16,6 +16,8 @@ import { StandalonePage } from "@/components/shared/not-found-state";
 import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
+const loadPosthog = () => import("@/lib/posthog");
+
 export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
   const router = useRouter();
   const isRoot = useMatch({
@@ -43,7 +45,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
       traceId,
     });
     if (error instanceof Error) {
-      import("@/lib/posthog")
+      loadPosthog()
         .then(({ captureException }) => captureException(error, { traceId }))
         .catch(() => {
           // Non-critical

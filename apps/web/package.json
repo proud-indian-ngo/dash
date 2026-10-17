@@ -62,7 +62,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.7",
+    "@babel/core": "^7.29.0",
     "@pi-dash/config": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.4",
     "@tanstack/devtools-vite": "^0.8.5",

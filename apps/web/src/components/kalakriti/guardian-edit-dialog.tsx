@@ -40,13 +40,14 @@ function GuardianEditForm({
       phone: guardian.snapshotPhone ?? "",
     },
     onSubmit: async ({ value }) => {
+      const phone = value.phone || undefined;
       try {
         await updateKalakritiGuardian({
           data: {
             email: value.email,
             membershipId: guardian.id,
             name: value.name,
-            phone: value.phone || undefined,
+            phone,
           },
         });
         toast.success("Guardian details updated");

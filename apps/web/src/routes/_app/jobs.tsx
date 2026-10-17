@@ -88,6 +88,18 @@ function fetchStatsData(signal: AbortSignal) {
   });
 }
 
+async function postJobAction(
+  id: string,
+  action: "cancel" | "retry",
+  fallbackError: string
+): Promise<void> {
+  const res = await fetch(`/api/jobs/${id}/${action}`, { method: "POST" });
+  if (!res.ok) {
+    const data = await safeJson(res);
+    throw new Error((data.error as string | undefined) ?? fallbackError);
+  }
+}
+
 function JobsRouteComponent() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -205,29 +217,23 @@ function JobsRouteComponent() {
       return;
     }
     setIsCancelling(true);
-    try {
-      const res = await fetch(`/api/jobs/${cancelTarget.id}/cancel`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await safeJson(res);
-        throw new Error((data.error as string | undefined) ?? "Cancel failed");
-      }
-      toast.success("Job cancelled");
-      setCancelTarget(null);
-      setRefreshKey((k) => k + 1);
-    } catch (error) {
-      log.error({
-        action: "cancelJob",
-        component: "JobsRoute",
-        error: error instanceof Error ? error.message : String(error),
-        jobId: cancelTarget.id,
-        queue: cancelTarget.name,
-      });
-      toast.error(getErrorMessage(error));
-    } finally {
-      setIsCancelling(false);
-    }
+    await postJobAction(cancelTarget.id, "cancel", "Cancel failed")
+      .then(() => {
+        toast.success("Job cancelled");
+        setCancelTarget(null);
+        setRefreshKey((k) => k + 1);
+      })
+      .catch((error) => {
+        log.error({
+          action: "cancelJob",
+          component: "JobsRoute",
+          error: error instanceof Error ? error.message : String(error),
+          jobId: cancelTarget.id,
+          queue: cancelTarget.name,
+        });
+        toast.error(getErrorMessage(error));
+      })
+      .finally(() => setIsCancelling(false));
   });
 
   const handleRetryRequest = useEventCallback((job: JobRow) => {
@@ -239,29 +245,23 @@ function JobsRouteComponent() {
       return;
     }
     setIsRetrying(true);
-    try {
-      const res = await fetch(`/api/jobs/${retryTarget.id}/retry`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await safeJson(res);
-        throw new Error((data.error as string | undefined) ?? "Retry failed");
-      }
-      toast.success("Queued for retry");
-      setRetryTarget(null);
-      setRefreshKey((k) => k + 1);
-    } catch (error) {
-      log.error({
-        action: "retryJob",
-        component: "JobsRoute",
-        error: error instanceof Error ? error.message : String(error),
-        jobId: retryTarget.id,
-        queue: retryTarget.name,
-      });
-      toast.error(getErrorMessage(error));
-    } finally {
-      setIsRetrying(false);
-    }
+    await postJobAction(retryTarget.id, "retry", "Retry failed")
+      .then(() => {
+        toast.success("Queued for retry");
+        setRetryTarget(null);
+        setRefreshKey((k) => k + 1);
+      })
+      .catch((error) => {
+        log.error({
+          action: "retryJob",
+          component: "JobsRoute",
+          error: error instanceof Error ? error.message : String(error),
+          jobId: retryTarget.id,
+          queue: retryTarget.name,
+        });
+        toast.error(getErrorMessage(error));
+      })
+      .finally(() => setIsRetrying(false));
   });
 
   return (

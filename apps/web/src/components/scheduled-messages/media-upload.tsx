@@ -13,7 +13,7 @@ import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
 import { MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES } from "@pi-dash/shared/constants";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -103,54 +103,53 @@ export function MediaUpload({ onChange, value }: MediaUploadProps) {
   const deleteUpload = useServerFn(deleteTemporaryUpload);
   const [isUploading, setIsUploading] = useState(false);
   const valueRef = useRef(value);
-  valueRef.current = value;
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   const remainingSlots = Math.max(MAX_MEDIA_FILES - value.length, 0);
 
-  const uploadFiles = useCallback(
-    async (files: File[]) => {
-      const currentRemaining = Math.max(
-        MAX_MEDIA_FILES - valueRef.current.length,
-        0
+  const uploadFiles = async (files: File[]) => {
+    const currentRemaining = Math.max(
+      MAX_MEDIA_FILES - valueRef.current.length,
+      0
+    );
+    if (files.length === 0 || currentRemaining <= 0) {
+      return;
+    }
+
+    setIsUploading(true);
+    const filesToUpload = files.slice(0, currentRemaining);
+    const uploaded: MediaAttachment[] = [];
+
+    await Promise.all(
+      filesToUpload.map(async (file) => {
+        try {
+          const attachment = await uploadSingleFile(file, getUploadUrl);
+          uploaded.push(attachment);
+        } catch (error) {
+          log.error({
+            action: "uploadFile",
+            component: "MediaUpload",
+            fileName: file.name,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          toast.error(`Failed to upload ${file.name}`);
+        }
+      })
+    );
+
+    if (uploaded.length > 0) {
+      onChange([...valueRef.current, ...uploaded]);
+      toast.success(
+        uploaded.length === 1
+          ? "File uploaded"
+          : `${uploaded.length} files uploaded`
       );
-      if (files.length === 0 || currentRemaining <= 0) {
-        return;
-      }
+    }
 
-      setIsUploading(true);
-      const filesToUpload = files.slice(0, currentRemaining);
-      const uploaded: MediaAttachment[] = [];
-
-      await Promise.all(
-        filesToUpload.map(async (file) => {
-          try {
-            const attachment = await uploadSingleFile(file, getUploadUrl);
-            uploaded.push(attachment);
-          } catch (error) {
-            log.error({
-              action: "uploadFile",
-              component: "MediaUpload",
-              fileName: file.name,
-              message: error instanceof Error ? error.message : String(error),
-            });
-            toast.error(`Failed to upload ${file.name}`);
-          }
-        })
-      );
-
-      if (uploaded.length > 0) {
-        onChange([...valueRef.current, ...uploaded]);
-        toast.success(
-          uploaded.length === 1
-            ? "File uploaded"
-            : `${uploaded.length} files uploaded`
-        );
-      }
-
-      setIsUploading(false);
-    },
-    [getUploadUrl, onChange]
-  );
+    setIsUploading(false);
+  };
 
   const [{ isDragging }, uploadActions] = useFileUpload({
     accept: MEDIA_ACCEPT,
@@ -178,10 +177,14 @@ export function MediaUpload({ onChange, value }: MediaUploadProps) {
   });
 
   const removeAttachment = useEventCallback(async (index: number) => {
+    const attachment = value[index];
+    const temporaryKey =
+      attachment && isTemporaryR2Key(attachment.r2Key)
+        ? attachment.r2Key
+        : null;
     try {
-      const attachment = value[index];
-      if (attachment && isTemporaryR2Key(attachment.r2Key)) {
-        await deleteUpload({ data: { key: attachment.r2Key } });
+      if (temporaryKey) {
+        await deleteUpload({ data: { key: temporaryKey } });
       }
       onChange(value.filter((_, i) => i !== index));
     } catch (error) {

@@ -206,33 +206,34 @@ function DonorForm({
         toast.error(check.error.issues[0]?.message ?? "Check the form");
         return;
       }
-      try {
-        const result = await save({ data: check.data });
-        toast.success(isEdit ? "Donor updated" : "Donor created");
-        onSaved(result.partyId);
-        onOpenChange(false);
-      } catch (error) {
-        log.error({
-          action: isEdit ? "donor.update" : "donor.create",
-          caughtError: error instanceof Error ? error.message : String(error),
-          component: "DonorFormDialog",
-        });
-        if (isSaveConflict(error)) {
-          toast.error("Someone else changed this donor", {
-            description:
-              "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
+      await save({ data: check.data })
+        .then((result) => {
+          toast.success(isEdit ? "Donor updated" : "Donor created");
+          onSaved(result.partyId);
+          onOpenChange(false);
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: isEdit ? "donor.update" : "donor.create",
+            caughtError: error instanceof Error ? error.message : String(error),
+            component: "DonorFormDialog",
           });
-          onConflict();
-          return;
-        }
-        toast.error(
-          isEdit ? "Couldn't update donor" : "Couldn't create donor",
-          {
-            description:
-              error instanceof Error ? error.message : "Something went wrong",
+          if (isSaveConflict(error)) {
+            toast.error("Someone else changed this donor", {
+              description:
+                "The latest details are loaded and your unsaved changes were discarded. Re-enter them and save again.",
+            });
+            onConflict();
+            return;
           }
-        );
-      }
+          toast.error(
+            isEdit ? "Couldn't update donor" : "Couldn't create donor",
+            {
+              description:
+                error instanceof Error ? error.message : "Something went wrong",
+            }
+          );
+        });
     },
     validators: { onChange: formSchema, onSubmit: formSchema },
   });

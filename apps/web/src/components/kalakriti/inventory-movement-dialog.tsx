@@ -80,6 +80,9 @@ function MovementForm({
     validators: { onChange: schema, onSubmit: schema },
     onSubmit: async ({ value }) => {
       const { transactionId, auditEntryId, now } = command;
+      const expectedQuantity =
+        action === "adjustment" ? item.quantity : undefined;
+      const notes = value.notes.trim() || null;
       try {
         const result = await zero.mutate(
           mutators.kalakritiInventory.record({
@@ -90,11 +93,10 @@ function MovementForm({
             now,
             type: action,
             quantity: value.quantity,
-            expectedQuantity:
-              action === "adjustment" ? item.quantity : undefined,
+            expectedQuantity,
             volunteerMembershipId: null,
             competitionId: null,
-            notes: value.notes.trim() || null,
+            notes,
           })
         ).server;
         handleMutationResult(result, {

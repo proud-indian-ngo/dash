@@ -6,7 +6,7 @@ import type {
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { log } from "evlog";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
@@ -33,6 +33,51 @@ function mutationKey(entry: KalakritiAwardEntry, studentId?: string) {
   return `${entry.divisionId}:${entry.entryId}:${entry.award}:${studentId ?? "group"}`;
 }
 
+async function setAwarded(
+  zero: ReturnType<typeof useZero>,
+  editionId: string | undefined,
+  entry: KalakritiAwardEntry,
+  awarded: boolean,
+  member: KalakritiAwardMember | undefined
+) {
+  try {
+    const targets = member ? [member] : entry.members;
+    const result = await zero.mutate(
+      mutators.kalakritiAward.set({
+        award: entry.award,
+        awarded,
+        commandId: uuidv7(),
+        divisionId: entry.divisionId,
+        editionId: editionId ?? "",
+        entryId: entry.entryId,
+        expectedVersions: targets.map((target) => ({
+          studentId: target.studentId,
+          version: target.version,
+        })),
+        now: Date.now(),
+        ...(member ? { studentId: member.studentId } : {}),
+      })
+    ).server;
+    handleMutationResult(result, {
+      mutation: "kalakritiAward.set",
+      entityId: entry.entryId,
+      successMsg: awarded ? "Prize awarded" : "Prize handover undone",
+      errorMsg: awarded ? "Could not award prize" : "Could not undo handover",
+    });
+  } catch (mutationError) {
+    log.error({
+      action: "setAwarded",
+      component: "AwardsWorkspace",
+      entryId: entry.entryId,
+      error:
+        mutationError instanceof Error
+          ? mutationError.message
+          : String(mutationError),
+    });
+    toast.error(awarded ? "Could not award prize" : "Could not undo handover");
+  }
+}
+
 export function AwardsWorkspace({
   access,
 }: {
@@ -42,10 +87,8 @@ export function AwardsWorkspace({
   const { user } = useApp();
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [selection, setSelection] = useState<StudentSelection | null>(null);
-  const load = useCallback(
-    () => getKalakritiAwards({ data: { year: access.edition.year } }),
-    [access.edition.year]
-  );
+  const load = () =>
+    getKalakritiAwards({ data: { year: access.edition.year } });
   const { data, error, fresh, refresh } = useResultSnapshot(
     dashboardAccessKey(access, user.id),
     load
@@ -70,72 +113,27 @@ export function AwardsWorkspace({
   const counts = awardRecipientCounts(entries);
   const canWrite = Boolean(data?.canWrite && fresh);
 
-  const isPending = useCallback(
-    (entry: KalakritiAwardEntry) => {
-      const prefix = `${entry.divisionId}:${entry.entryId}:${entry.award}:`;
-      return [...pending].some((key) => key.startsWith(prefix));
-    },
-    [pending]
-  );
+  const isPending = (entry: KalakritiAwardEntry) => {
+    const prefix = `${entry.divisionId}:${entry.entryId}:${entry.award}:`;
+    return [...pending].some((key) => key.startsWith(prefix));
+  };
 
-  const mutate = useCallback(
-    async (
-      entry: KalakritiAwardEntry,
-      awarded: boolean,
-      member?: KalakritiAwardMember
-    ) => {
-      if (!canWrite || isPending(entry)) return;
-      const key = mutationKey(entry, member?.studentId);
-      setPending((current) => new Set(current).add(key));
-      try {
-        const targets = member ? [member] : entry.members;
-        const result = await zero.mutate(
-          mutators.kalakritiAward.set({
-            award: entry.award,
-            awarded,
-            commandId: uuidv7(),
-            divisionId: entry.divisionId,
-            editionId: editionId ?? "",
-            entryId: entry.entryId,
-            expectedVersions: targets.map((target) => ({
-              studentId: target.studentId,
-              version: target.version,
-            })),
-            now: Date.now(),
-            ...(member ? { studentId: member.studentId } : {}),
-          })
-        ).server;
-        handleMutationResult(result, {
-          mutation: "kalakritiAward.set",
-          entityId: entry.entryId,
-          successMsg: awarded ? "Prize awarded" : "Prize handover undone",
-          errorMsg: awarded
-            ? "Could not award prize"
-            : "Could not undo handover",
-        });
-      } catch (mutationError) {
-        log.error({
-          action: "setAwarded",
-          component: "AwardsWorkspace",
-          entryId: entry.entryId,
-          error:
-            mutationError instanceof Error
-              ? mutationError.message
-              : String(mutationError),
-        });
-        toast.error(
-          awarded ? "Could not award prize" : "Could not undo handover"
-        );
-      }
-      await refresh();
-      setPending((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-    },
-    [canWrite, editionId, isPending, refresh, zero]
-  );
+  const mutate = async (
+    entry: KalakritiAwardEntry,
+    awarded: boolean,
+    member?: KalakritiAwardMember
+  ) => {
+    if (!canWrite || isPending(entry)) return;
+    const key = mutationKey(entry, member?.studentId);
+    setPending((current) => new Set(current).add(key));
+    await setAwarded(zero, editionId, entry, awarded, member);
+    await refresh();
+    setPending((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-4">

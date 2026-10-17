@@ -108,6 +108,51 @@ export function RegisterVolunteerCardDialog({
   );
 }
 
+async function registerLocalVolunteer(
+  zero: ReturnType<typeof useZero>,
+  {
+    editionId,
+    name,
+    onClose,
+    onPendingChange,
+    phone,
+    printedCardId,
+  }: {
+    editionId: string;
+    name: string;
+    onClose: () => void;
+    onPendingChange: (pending: boolean) => void;
+    phone: string | null;
+    printedCardId: string;
+  }
+) {
+  try {
+    const result = await zero.mutate(
+      mutators.kalakritiAssignment.createLocalVolunteer({
+        auditEntryId: uuidv7(),
+        editionId,
+        membershipId: printedCardId,
+        name,
+        now: Date.now(),
+        requirePrintedCardId: true,
+        snapshotEmail: null,
+        snapshotPhone: phone,
+      })
+    ).server;
+    handleMutationResult(result, {
+      entityId: printedCardId,
+      errorMsg: "Failed to create volunteer",
+      mutation: "kalakritiAssignment.createLocalVolunteer",
+      successMsg: "Volunteer card registered",
+    });
+    if (result.type !== "error") {
+      onClose();
+    }
+  } finally {
+    onPendingChange(false);
+  }
+}
+
 function RegisterVolunteerCardForm({
   editionId,
   isPending,
@@ -179,9 +224,8 @@ function RegisterVolunteerCardForm({
       );
       setSubmitError(message);
       toast.error(message);
-    } finally {
-      onPendingChange(false);
     }
+    onPendingChange(false);
   });
 
   const form = useForm({
@@ -197,31 +241,14 @@ function RegisterVolunteerCardForm({
       setSubmitError(null);
 
       if (!email) {
-        try {
-          const result = await zero.mutate(
-            mutators.kalakritiAssignment.createLocalVolunteer({
-              auditEntryId: uuidv7(),
-              editionId,
-              membershipId: printedCardId,
-              name: value.name.trim(),
-              now: Date.now(),
-              requirePrintedCardId: true,
-              snapshotEmail: null,
-              snapshotPhone: phone,
-            })
-          ).server;
-          handleMutationResult(result, {
-            entityId: printedCardId,
-            errorMsg: "Failed to create volunteer",
-            mutation: "kalakritiAssignment.createLocalVolunteer",
-            successMsg: "Volunteer card registered",
-          });
-          if (result.type !== "error") {
-            onClose();
-          }
-        } finally {
-          onPendingChange(false);
-        }
+        await registerLocalVolunteer(zero, {
+          editionId,
+          name: value.name.trim(),
+          onClose,
+          onPendingChange,
+          phone,
+          printedCardId,
+        });
         return;
       }
 
@@ -234,6 +261,7 @@ function RegisterVolunteerCardForm({
         return;
       }
 
+      const userPhone = phone ?? undefined;
       let userId: string;
       try {
         userId = await createUser({
@@ -241,7 +269,7 @@ function RegisterVolunteerCardForm({
             email,
             name: value.name.trim(),
             password: value.password,
-            phone: phone ?? undefined,
+            phone: userPhone,
             role: "volunteer",
           },
         });
@@ -284,9 +312,8 @@ function RegisterVolunteerCardForm({
         );
         setSubmitError(message);
         toast.error(message);
-      } finally {
-        onPendingChange(false);
       }
+      onPendingChange(false);
     },
   });
 
