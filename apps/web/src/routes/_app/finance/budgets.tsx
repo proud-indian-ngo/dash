@@ -20,6 +20,7 @@ import {
   budgetUse,
   budgetYearView,
 } from "@pi-dash/shared/budgets";
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { epochDayToIso, todayInKolkata } from "@pi-dash/shared/income";
 import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -136,6 +137,11 @@ function BudgetsPage() {
   const programmeNames = new Map(programmes.map((p) => [p.id, p.name]));
   const projectNames = new Map(projects.map((p) => [p.id, p.name]));
   const headName = (id: string) => headNames.get(id) ?? "Account head";
+  const retired = new Set(
+    programmes
+      .filter((p) => p.active === false || p.id === PROGRAMME_IDS.unallocated)
+      .map((p) => p.id)
+  );
   const programmeName = (id: string | null) =>
     id ? (programmeNames.get(id) ?? "Programme") : "No programme";
 
@@ -154,6 +160,7 @@ function BudgetsPage() {
       key: h.accountHeadId,
       label: headName(h.accountHeadId),
     })),
+    retired: retired.has(s.programmeId),
     scope: { programmeId: s.programmeId, projectId: s.projectId },
   }));
   if (view.unbudgeted.length > 0) {
@@ -170,6 +177,7 @@ function BudgetsPage() {
         key: `${l.programmeId ?? ""}:${l.accountHeadId}`,
         label: `${programmeName(l.programmeId)} · ${headName(l.accountHeadId)}`,
       })),
+      retired: false,
       scope: null,
     });
   }
@@ -284,7 +292,12 @@ function BudgetsPage() {
                 icon: PercentCircleIcon,
                 label: "Used",
                 tone: used?.over ? "danger" : "neutral",
-                value: used?.percent == null ? "—" : `${used.percent}%`,
+                value:
+                  used?.percent == null
+                    ? used?.over
+                      ? "Over"
+                      : "—"
+                    : `${used.percent}%`,
               },
             ]}
           />

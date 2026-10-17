@@ -8,6 +8,11 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@pi-dash/design-system/components/ui/tooltip";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { budgetUse } from "@pi-dash/shared/budgets";
@@ -40,6 +45,8 @@ export interface BudgetRow {
   kind: "programme" | "project" | "unbudgeted";
   label: string;
   lines: BudgetBreakdownLine[];
+  /** The programme is retired or Unallocated: no new budgets, only edits. */
+  retired: boolean;
   scope: BudgetScopeChoice | null;
 }
 
@@ -282,11 +289,24 @@ export function BudgetsTable({
       // counted in Unbudgeted, so it is muted here.
       cell: ({ row }) =>
         row.original.kind === "programme" && !row.original.hasBudget ? (
-          <span
-            className="text-muted-foreground"
-            title="Counted in Unbudgeted: this programme has no budget of its own"
-          >
-            {formatPaise(row.original.actualPaise)}
+          <span className="text-muted-foreground">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    className="focus-visible:ring-ring/50 cursor-help rounded outline-none focus-visible:ring-3"
+                    type="button"
+                  />
+                }
+              >
+                {formatPaise(row.original.actualPaise)}
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                Counted in Unbudgeted: this programme has no budget of its own.
+              </TooltipContent>
+            </Tooltip>
+            {/* Tooltips don't open on touch; phones get a caption. */}
+            <span className="block text-xs md:hidden">In Unbudgeted</span>
           </span>
         ) : (
           formatPaise(row.original.actualPaise)
@@ -399,7 +419,9 @@ function RowActions({
   row: BudgetRow;
 }) {
   const { scope } = row;
-  if (!scope) {
+  // A retired programme's budgets can still be edited or removed, but it
+  // takes no new ones.
+  if (!scope || (row.retired && !row.hasBudget)) {
     return null;
   }
   return (
@@ -411,13 +433,14 @@ function RowActions({
           label: row.hasBudget ? "Edit budget" : "Set budget",
           onSelect: () => onEdit({ kind: "scope", scope }),
         },
-        row.kind === "programme" && {
-          icon: PlusSignIcon,
-          id: "project",
-          label: "Set project budget",
-          onSelect: () =>
-            onEdit({ kind: "pick", programmeId: scope.programmeId }),
-        },
+        row.kind === "programme" &&
+          !row.retired && {
+            icon: PlusSignIcon,
+            id: "project",
+            label: "Set project budget",
+            onSelect: () =>
+              onEdit({ kind: "pick", programmeId: scope.programmeId }),
+          },
       ]}
       title={row.label}
       trigger={

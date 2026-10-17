@@ -136,6 +136,33 @@ describe("budget.save", () => {
     }
   });
 
+  it("edits and removes a retired programme's standing budget", async () => {
+    const standing = () =>
+      createDb({
+        budget: [
+          {
+            fiscalYearId: "fy-1",
+            id: "b-old",
+            programmeId: "prog-old",
+            projectId: null,
+          },
+        ],
+        budgetLine: [{ ...line("h-travel"), budgetId: "b-old" }],
+      });
+    const edited = standing();
+    await save(edited, {
+      id: "b-old",
+      lines: [line("h-travel", 5000)],
+      programmeId: "prog-old",
+    });
+    expect(edited.tables.budgetLine?.[0]?.amountPaise).toBe(5000);
+
+    const removed = standing();
+    await save(removed, { id: "b-old", lines: [], programmeId: "prog-old" });
+    expect(removed.tables.budget).toEqual([]);
+    expect(removed.tables.budgetLine).toEqual([]);
+  });
+
   it("removes the budget when every head is blank", async () => {
     const db = createDb({
       budget: [
