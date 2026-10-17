@@ -70,48 +70,48 @@ export function MeetingMinutesPanel({
   });
   const handleGenerate = useEventCallback(async () => {
     setGenerating(true);
-    try {
-      const out = await generate({ data: { id: meeting.id } });
-      toast.success(
-        out.fieldsPrepared
-          ? "Minutes ready for the chair to sign"
-          : "Minutes ready. The signing service is off, so the chair draws the signature box in Acrobat."
-      );
-    } catch (error) {
-      toast.error("Couldn't make the minutes", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setGenerating(false);
-    }
+    await generate({ data: { id: meeting.id } })
+      .then((out) => {
+        toast.success(
+          out.fieldsPrepared
+            ? "Minutes ready for the chair to sign"
+            : "Minutes ready. The signing service is off, so the chair draws the signature box in Acrobat."
+        );
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't make the minutes", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setGenerating(false));
   });
   const handleUpload = useEventCallback(async () => {
     if (!file) {
       return;
     }
     setUploading(true);
-    try {
-      const { key, presignedUrl } = await presign({
-        data: { fileName: file.name, fileSize: file.size, id: meeting.id },
-      });
-      const put = await fetch(presignedUrl, {
-        body: file,
-        headers: { "Content-Type": "application/pdf" },
-        method: "PUT",
-      });
-      if (!put.ok) {
-        throw new Error("The upload didn't go through. Try again.");
-      }
-      await submit({ data: { id: meeting.id, tempKey: key } });
-      toast.success("Signed minutes filed in the vault");
-      setFile(null);
-    } catch (error) {
-      toast.error("The signed minutes weren't accepted", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setUploading(false);
-    }
+    await presign({
+      data: { fileName: file.name, fileSize: file.size, id: meeting.id },
+    })
+      .then(async ({ key, presignedUrl }) => {
+        const put = await fetch(presignedUrl, {
+          body: file,
+          headers: { "Content-Type": "application/pdf" },
+          method: "PUT",
+        });
+        if (!put.ok) {
+          throw new Error("The upload didn't go through. Try again.");
+        }
+        await submit({ data: { id: meeting.id, tempKey: key } });
+        toast.success("Signed minutes filed in the vault");
+        setFile(null);
+      })
+      .catch((error: unknown) => {
+        toast.error("The signed minutes weren't accepted", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setUploading(false));
   });
 
   return (

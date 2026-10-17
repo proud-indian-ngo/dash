@@ -560,23 +560,23 @@ function ItemVotes({
   });
   const handleDecide = useEventCallback(async () => {
     setBusy(true);
-    try {
-      const out = await decide({ data: { id: meeting.id, itemId: item.id } });
-      if (out.outcome === "passed") {
-        toast.success(`Passed as ${out.number ?? "a resolution"}`);
-      } else if (out.outcome === "failed") {
-        toast.success("Recorded: not passed");
-      } else {
-        toast.warning("No decision: the meeting isn't quorate for this item");
-      }
-      setConfirming(false);
-    } catch (error) {
-      toast.error("Couldn't record the decision", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setBusy(false);
-    }
+    await decide({ data: { id: meeting.id, itemId: item.id } })
+      .then((out) => {
+        if (out.outcome === "passed") {
+          toast.success(`Passed as ${out.number ?? "a resolution"}`);
+        } else if (out.outcome === "failed") {
+          toast.success("Recorded: not passed");
+        } else {
+          toast.warning("No decision: the meeting isn't quorate for this item");
+        }
+        setConfirming(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't record the decision", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setBusy(false));
   });
 
   if (!context.canRecord && votes.length === 0 && !item.outcome) {
