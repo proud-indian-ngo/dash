@@ -1,20 +1,15 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
-import {
-  type DeedRules,
-  GOVERNANCE_PAGE_PERMISSIONS,
-  RESOLUTION_THRESHOLD_LABELS,
-  TRUSTEE_OFFICE_LABELS,
-} from "@pi-dash/shared/governance";
+import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { deedRuleLines } from "@/components/governance/deed-rules";
 import { DeedVersionDialog } from "@/components/governance/deed-version-dialog";
 import {
   type DocumentOption,
@@ -29,6 +24,7 @@ import {
   useRegister,
 } from "@/components/governance/register-data";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
   getMutationResultErrorMessage,
@@ -52,35 +48,6 @@ export const Route = createFileRoute("/_app/governance/deed")({
     );
   },
 });
-
-function quorumText(rules: DeedRules): string {
-  const office = rules.quorumRequiredOffice
-    ? `, including the ${TRUSTEE_OFFICE_LABELS[rules.quorumRequiredOffice]}`
-    : "";
-  if (rules.quorumKind === "fixed") {
-    return `${rules.quorumValue} trustees present and voting${office}`;
-  }
-  return `${rules.quorumValue}% of the trustees in office, never fewer than ${rules.quorumFloor}${office}`;
-}
-
-function castingText(rules: DeedRules): string {
-  if (rules.castingVote === "chair") {
-    return "The chair of the meeting";
-  }
-  if (rules.castingVote === "co_founders") {
-    return "The Co-Founders";
-  }
-  return "None";
-}
-
-function Rule({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="text-sm">{value}</dd>
-    </div>
-  );
-}
 
 function LinkDeed({
   documents,
@@ -131,87 +98,127 @@ function LinkDeed({
   );
 }
 
-function VersionCard({
+function RegisteredCopy({ version }: { version: DeedVersionView }) {
+  if (!version.documentId) {
+    return (
+      <StatusBadge tone="warning">Registered copy not in the vault</StatusBadge>
+    );
+  }
+  return (
+    <a
+      className="text-primary text-sm underline-offset-4 hover:underline"
+      href={governanceDocumentHref(version.documentId)}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {version.documentTitle ?? "Registered document"}
+    </a>
+  );
+}
+
+/** The rules of the version in force today, in full. */
+function RulesInForce({ version }: { version: DeedVersionView }) {
+  return (
+    <section
+      aria-labelledby="rules-in-force"
+      className="flex flex-col gap-4 rounded-lg border p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-col">
+          <h2 className="text-base font-semibold" id="rules-in-force">
+            Rules in force
+          </h2>
+          <span className="text-muted-foreground text-sm">
+            Version {version.number}: {version.title}, from{" "}
+            {formatIso(version.effectiveFrom)}
+          </span>
+        </div>
+        <StatusBadge tone="success">In force today</StatusBadge>
+      </div>
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {deedRuleLines(version.rules).map((line) => (
+          <div className="flex flex-col gap-0.5" key={line.label}>
+            <dt className="text-muted-foreground text-xs">{line.label}</dt>
+            <dd className="text-sm">{line.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/** One version in the history: what it changed from the version before. */
+function HistoryEntry({
   canManage,
   documents,
-  inForce,
+  isInForce,
+  previous,
+  today,
   version,
 }: {
   canManage: boolean;
   documents: readonly DocumentOption[];
-  inForce: boolean;
+  isInForce: boolean;
+  previous: DeedVersionView | null;
+  today: string;
   version: DeedVersionView;
 }) {
-  const { rules } = version;
+  const before = previous ? deedRuleLines(previous.rules) : [];
+  const changes = previous
+    ? deedRuleLines(version.rules).filter(
+        (line, i) => line.value !== before[i]?.value
+      )
+    : [];
+  let summary = "Original deed";
+  if (previous) {
+    summary = changes.length === 1 ? "1 change" : `${changes.length} changes`;
+  }
   return (
-    <section className="flex flex-col gap-4 rounded-md border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-col">
-          <h2 className="text-base font-semibold">
+    <li className="flex flex-col gap-3 px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col">
+          <h3 className="text-sm font-medium">
             Version {version.number}: {version.title}
-          </h2>
-          <span className="text-muted-foreground text-sm">
-            In force from {formatIso(version.effectiveFrom)}
+          </h3>
+          <span className="text-muted-foreground text-xs">
+            From {formatIso(version.effectiveFrom)} · {summary}
           </span>
         </div>
-        <span className="flex items-center gap-2">
-          {inForce ? <Badge variant="secondary">In force today</Badge> : null}
-          {version.documentId ? (
-            <a
-              className="text-primary text-sm underline-offset-4 hover:underline"
-              href={governanceDocumentHref(version.documentId)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {version.documentTitle ?? "Registered document"}
-            </a>
-          ) : (
-            <Badge className="text-warning-foreground" variant="outline">
-              Registered copy not in the vault
-            </Badge>
-          )}
+        <span className="flex flex-wrap items-center gap-2">
+          {isInForce ? (
+            <StatusBadge tone="success">In force</StatusBadge>
+          ) : null}
+          {version.effectiveFrom > today ? (
+            <StatusBadge tone="info">Not yet in force</StatusBadge>
+          ) : null}
+          {previous ? null : <Tag>Original</Tag>}
+          <RegisteredCopy version={version} />
         </span>
       </div>
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Rule
-          label="Board size"
-          value={`${rules.minTrustees} to ${rules.maxTrustees} trustees`}
-        />
-        <Rule label="Quorum at meetings" value={quorumText(rules)} />
-        <Rule label="Casting vote" value={castingText(rules)} />
-        <Rule
-          label="Meeting notice"
-          value={`At least ${rules.noticeDays} days, with an agenda`}
-        />
-        <Rule
-          label="Circulars issued by"
-          value={rules.circularIssuers
-            .map((office) => TRUSTEE_OFFICE_LABELS[office])
-            .join(", then ")}
-        />
-        <Rule
-          label="Circulation by email and electronic signatures"
-          value={rules.electronicCirculation ? "Allowed" : "Not provided for"}
-        />
-        <Rule
-          label="Video attendance counts as present"
-          value={rules.videoCountsPresent ? "Yes" : "Not provided for"}
-        />
-        <Rule
-          label="Co-option"
-          value={`Up to ${rules.coOptionMaxYears} years at a time`}
-        />
-        <Rule
-          label="Amending the deed"
-          value={`${RESOLUTION_THRESHOLD_LABELS[rules.amendmentThreshold]}, with the Income-tax Commissioner's prior approval`}
-        />
-      </dl>
+      {changes.length > 0 ? (
+        <dl className="flex flex-col gap-2">
+          {changes.map((line) => (
+            <div className="flex flex-col gap-0.5" key={line.label}>
+              <dt className="text-muted-foreground text-xs">{line.label}</dt>
+              <dd className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                <del className="text-muted-foreground">
+                  {before.find((b) => b.label === line.label)?.value}
+                </del>
+                <span aria-hidden="true" className="text-muted-foreground">
+                  →
+                </span>
+                <ins className="no-underline">{line.value}</ins>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       {canManage ? (
         <div className="max-w-md">
           <LinkDeed documents={documents} version={version} />
         </div>
       ) : null}
-    </section>
+    </li>
   );
 }
 
@@ -223,6 +230,9 @@ function DeedPage() {
   const canManage = hasPermission("governance.manage");
   const [adding, setAdding] = useState(false);
   const latest = deedVersions.at(-1);
+  const newestFirst = deedVersions
+    .map((version, i) => ({ previous: deedVersions[i - 1] ?? null, version }))
+    .reverse();
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
@@ -238,19 +248,29 @@ function DeedPage() {
             </Button>
           ) : null
         }
-        description="The rules pi-dash checks the register, resolutions and meetings against. A registered deed of amendment adds a version; earlier decisions keep the rules of their date."
+        description="The rules the dashboard checks the register, resolutions and meetings against. A registered deed of amendment adds a version; earlier decisions keep the rules of their date."
         title="Trust deed"
       />
-      <div className="mt-6 flex flex-col gap-4">
-        {deedVersions.map((version) => (
-          <VersionCard
-            canManage={canManage}
-            documents={documents}
-            inForce={inForce?.id === version.id}
-            key={version.id}
-            version={version}
-          />
-        ))}
+      <div className="mt-6 flex flex-col gap-6">
+        {inForce ? <RulesInForce version={inForce} /> : null}
+        <section aria-labelledby="deed-history" className="flex flex-col gap-2">
+          <h2 className="text-base font-semibold" id="deed-history">
+            History
+          </h2>
+          <ul className="divide-y rounded-lg border">
+            {newestFirst.map(({ previous, version }) => (
+              <HistoryEntry
+                canManage={canManage}
+                documents={documents}
+                isInForce={inForce?.id === version.id}
+                key={version.id}
+                previous={previous}
+                today={today}
+                version={version}
+              />
+            ))}
+          </ul>
+        </section>
       </div>
       {latest ? (
         <DeedVersionDialog

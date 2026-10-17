@@ -1,15 +1,10 @@
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
+import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
@@ -29,6 +24,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { selectField } from "@/components/data-table/filter-fields";
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
@@ -50,6 +47,7 @@ import {
   useGovernanceDocuments,
 } from "@/components/governance/register-data";
 import { PageHeader } from "@/components/shared/page-header";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +55,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
   getMutationResultErrorMessage,
@@ -229,39 +229,97 @@ function RegistrationForm({
   );
 }
 
-function validity(registration: Registration, today: string) {
+type Validity = "expired" | "no_expiry" | "renew" | "valid";
+
+interface RegistrationRow extends Registration {
+  validity: Validity;
+}
+
+const VALIDITY_LABELS: Record<Validity, string> = {
+  expired: "Expired",
+  no_expiry: "No expiry",
+  renew: "Renew soon",
+  valid: "Valid",
+};
+
+const VALIDITY_TONES: Record<Validity, StatusTone> = {
+  expired: "danger",
+  no_expiry: "neutral",
+  renew: "warning",
+  valid: "success",
+};
+
+function validityOf(registration: Registration, today: string): Validity {
   if (!registration.validTo) {
-    return <Badge variant="secondary">No expiry</Badge>;
+    return "no_expiry";
   }
   if (registration.validTo < today) {
-    return <Badge variant="destructive">Expired</Badge>;
+    return "expired";
   }
   if (registration.validTo <= addDays(today, 180)) {
-    return (
-      <Badge className="text-warning-foreground" variant="outline">
-        Renew by {formatIso(registration.validTo)}
-      </Badge>
-    );
+    return "renew";
   }
-  return <Badge variant="secondary">Valid</Badge>;
+  return "valid";
 }
+
+const filterFields: FilterField[] = [
+  selectField("type", "Registration", typeOptions),
+  selectField(
+    "validity",
+    "Status",
+    Object.entries(VALIDITY_LABELS).map(([value, label]) => ({
+      label,
+      value,
+    }))
+  ),
+];
+
+function getFilterValue(row: RegistrationRow, path: string[]): unknown {
+  switch (path[0]) {
+    case "type":
+      return row.type;
+    case "validity":
+      return row.validity;
+    default:
+      return;
+  }
+}
+
+function searchRegistration(row: RegistrationRow, query: string): boolean {
+  return [REGISTRATION_TYPE_LABELS[row.type], row.number, row.scopeNote ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .includes(query.trim().toLowerCase());
+}
+
+function getRowId(row: RegistrationRow) {
+  return row.id;
+}
+
+const SKELETON_TEXT = <Skeleton className="h-5 w-32" />;
+const SKELETON_BADGE = <Skeleton className="h-5.5 w-20" />;
 
 function RegistrationsPage() {
   const { hasPermission } = useApp();
   const canManage =
     hasPermission("governance.manage") || hasPermission("finance.manage");
-  const [rows] = useQuery(queries.organisationRegistration.all());
+  const [rows, result] = useQuery(queries.organisationRegistration.all());
+  const isLoading = rows.length === 0 && result.type !== "complete";
   const { documents } = useGovernanceDocuments();
-  const registrations: Registration[] = rows.map((r) => ({
-    certificateDocumentId: r.certificateDocumentId ?? null,
-    id: r.id,
-    issuedOn: epochToIso(r.issuedOn),
-    number: r.number,
-    scopeNote: r.scopeNote ?? null,
-    type: r.type,
-    validFrom: epochToIso(r.validFrom),
-    validTo: epochToIso(r.validTo),
-  }));
+  const today = todayIso();
+  const registrations: RegistrationRow[] = rows.map((r) => {
+    const registration: Registration = {
+      certificateDocumentId: r.certificateDocumentId ?? null,
+      id: r.id,
+      issuedOn: epochToIso(r.issuedOn),
+      number: r.number,
+      scopeNote: r.scopeNote ?? null,
+      type: r.type,
+      validFrom: epochToIso(r.validFrom),
+      validTo: epochToIso(r.validTo),
+    };
+    return { ...registration, validity: validityOf(registration, today) };
+  });
   const [editing, setEditing] = useState<Registration | null>(null);
   const [open, setOpen] = useState(false);
   const openCreate = useEventCallback(() => {
@@ -272,7 +330,154 @@ function RegistrationsPage() {
     setOpen(false);
     setEditing(null);
   });
-  const today = todayIso();
+  const openEdit = useEventCallback((registration: Registration) => {
+    setEditing(registration);
+    setOpen(true);
+  });
+
+  const columns: DataGridColumnDef<RegistrationRow>[] = [
+    {
+      accessorFn: (row) => REGISTRATION_TYPE_LABELS[row.type],
+      cell: ({ row }) => (
+        <span className="truncate font-medium">
+          {REGISTRATION_TYPE_LABELS[row.original.type]}
+        </span>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Registration"
+          visibility={true}
+        />
+      ),
+      id: "type",
+      meta: {
+        compact: "primary",
+        headerTitle: "Registration",
+        kind: "text",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 200,
+    },
+    {
+      accessorFn: (row) => row.number,
+      cell: ({ row }) => row.original.number,
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Number"
+          visibility={true}
+        />
+      ),
+      id: "number",
+      meta: {
+        compact: "primary",
+        headerTitle: "Number",
+        kind: "id",
+        skeleton: SKELETON_TEXT,
+      },
+      size: 200,
+    },
+    {
+      accessorFn: (row) => row.validTo ?? "",
+      cell: ({ row }) =>
+        row.original.validFrom || row.original.validTo
+          ? `${formatIso(row.original.validFrom)} to ${formatIso(row.original.validTo)}`
+          : "—",
+      header: ({ column }) => (
+        <DataGridColumnHeader column={column} title="Valid" visibility={true} />
+      ),
+      id: "valid",
+      meta: { headerTitle: "Valid", kind: "date", skeleton: SKELETON_TEXT },
+      size: 240,
+    },
+    {
+      accessorFn: (row) => row.validity,
+      cell: ({ row }) => (
+        <StatusBadge tone={VALIDITY_TONES[row.original.validity]}>
+          {row.original.validity === "renew"
+            ? `Renew by ${formatIso(row.original.validTo)}`
+            : VALIDITY_LABELS[row.original.validity]}
+        </StatusBadge>
+      ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Status"
+          visibility={true}
+        />
+      ),
+      id: "validity",
+      meta: {
+        compact: "trailing",
+        headerTitle: "Status",
+        kind: "status",
+        skeleton: SKELETON_BADGE,
+      },
+      size: 170,
+    },
+    {
+      accessorFn: (row) => (row.certificateDocumentId ? 1 : 0),
+      cell: ({ row }) =>
+        row.original.certificateDocumentId ? (
+          <EvidenceLink
+            documentId={row.original.certificateDocumentId}
+            documents={documents}
+          />
+        ) : (
+          "—"
+        ),
+      header: ({ column }) => (
+        <DataGridColumnHeader
+          column={column}
+          title="Certificate"
+          visibility={true}
+        />
+      ),
+      id: "certificate",
+      meta: {
+        headerTitle: "Certificate",
+        kind: "link",
+        skeleton: SKELETON_TEXT,
+        stopRowClick: true,
+      },
+      size: 220,
+    },
+    ...(canManage
+      ? [
+          {
+            cell: ({ row }) => (
+              <ResponsiveActionMenu
+                actions={[
+                  {
+                    icon: Edit02Icon,
+                    id: "edit",
+                    label: "Edit",
+                    onSelect: () => openEdit(row.original),
+                  },
+                ]}
+                title={`${REGISTRATION_TYPE_LABELS[row.original.type]} actions`}
+                trigger={<RowActionsButton />}
+              />
+            ),
+            enableHiding: false,
+            enableResizing: false,
+            enableSorting: false,
+            header: "",
+            id: "actions",
+            meta: {
+              cellClassName: "text-center",
+              enableColumnOrdering: false,
+              headerTitle: "",
+              skeleton: <Skeleton className="size-7" />,
+              stopRowClick: true,
+            },
+            minSize: 52,
+            size: 52,
+          } satisfies DataGridColumnDef<RegistrationRow>,
+        ]
+      : []),
+  ];
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -293,62 +498,29 @@ function RegistrationsPage() {
         title="Registrations"
       />
       <div className="mt-6">
-        {registrations.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No registrations recorded yet.
-          </p>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Registration</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Valid</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Certificate</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {registrations.map((registration) => (
-                  <TableRow
-                    className={canManage ? "cursor-pointer" : undefined}
-                    key={registration.id}
-                    onClick={
-                      canManage
-                        ? () => {
-                            setEditing(registration);
-                            setOpen(true);
-                          }
-                        : undefined
-                    }
-                  >
-                    <TableCell className="font-medium">
-                      {REGISTRATION_TYPE_LABELS[registration.type]}
-                    </TableCell>
-                    <TableCell>{registration.number}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {registration.validFrom || registration.validTo
-                        ? `${formatIso(registration.validFrom)} to ${formatIso(registration.validTo)}`
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{validity(registration, today)}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {registration.certificateDocumentId ? (
-                        <EvidenceLink
-                          documentId={registration.certificateDocumentId}
-                          documents={documents}
-                        />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        <DataTableWrapper
+          columns={columns}
+          compactOnMobile
+          data={registrations}
+          emptyMessage={
+            registrations.length === 0
+              ? "No registrations recorded yet."
+              : "No registrations match."
+          }
+          filter={{ fields: filterFields, getValue: getFilterValue }}
+          getRowId={getRowId}
+          isLoading={isLoading}
+          onRowClick={canManage ? openEdit : undefined}
+          searchFn={searchRegistration}
+          searchPlaceholder="Search registrations..."
+          storageKey="governance_registrations_table_state_v1"
+          tableLayout={{
+            columnsDraggable: true,
+            columnsPinnable: true,
+            columnsResizable: true,
+            columnsVisibility: true,
+          }}
+        />
       </div>
       <Dialog
         onOpenChange={(next) => (next ? setOpen(true) : close())}

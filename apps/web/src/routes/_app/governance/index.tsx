@@ -1,15 +1,19 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
-import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
+import {
+  boardOn,
+  GOVERNANCE_PAGE_PERMISSIONS,
+  quorumFor,
+} from "@pi-dash/shared/governance";
 import { queries } from "@pi-dash/zero/queries";
 import { createFileRoute } from "@tanstack/react-router";
+import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 
+import { quorumText } from "@/components/governance/deed-rules";
 import {
   isoToDate,
   type RegisterTrustee,
@@ -22,6 +26,7 @@ import { RegisterWarnings } from "@/components/governance/register-warnings";
 import { TrusteeDetailSheet } from "@/components/governance/trustee-detail-sheet";
 import { TrusteeFormDialog } from "@/components/governance/trustee-form-dialog";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { assertAnyPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
@@ -45,7 +50,9 @@ export const Route = createFileRoute("/_app/governance/")({
 function TrusteeRegisterPage() {
   const { hasPermission } = useApp();
   const canManage = hasPermission("governance.manage");
-  const [asOf, setAsOf] = useState(todayIso);
+  const today = todayIso();
+  const [on, setOn] = useQueryState("on", parseAsString);
+  const asOf = on && isoToDate(on) ? on : today;
   const { inForce, input, isLoading, trustees } = useRegister(asOf);
   const { documents } = useGovernanceDocuments();
 
@@ -85,15 +92,13 @@ function TrusteeRegisterPage() {
       setEditing(null);
     }
   });
-  const handleAsOf = useEventCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (event.target.value && isoToDate(event.target.value)) {
-        setAsOf(event.target.value);
-      }
-    }
+  const handleDateChange = useEventCallback((iso: string | null) =>
+    setOn(iso === today ? null : iso)
   );
-  const resetAsOf = useEventCallback(() => setAsOf(todayIso()));
-  const isToday = asOf === todayIso();
+  const board = boardOn(input, asOf);
+  const quorum = quorumFor(input.rules, board.length);
+  const { maxTrustees, minTrustees } = input.rules;
+  const outOfRange = board.length < minTrustees || board.length > maxTrustees;
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -113,38 +118,41 @@ function TrusteeRegisterPage() {
         description="Who is a trustee, in which offices, and on what evidence, on any date since the deed was registered."
         title="Trustee register"
       />
-      <div className="mt-6 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="register-as-of">Board on</Label>
-          <Input
-            className="w-44"
-            id="register-as-of"
-            max="2100-12-31"
-            min="2019-03-16"
-            onChange={handleAsOf}
-            type="date"
-            value={asOf}
-          />
-        </div>
-        {isToday ? null : (
-          <Button onClick={resetAsOf} type="button" variant="ghost">
-            Back to today
-          </Button>
-        )}
-        {inForce ? (
-          <p className="text-muted-foreground pb-2 text-sm">
-            Rules: deed version {inForce.number}
-          </p>
-        ) : null}
-      </div>
-      <div className="mt-4">
+      <StatsCards
+        className="mt-6"
+        isLoading={isLoading}
+        items={[
+          {
+            description: `of ${minTrustees} to ${maxTrustees}`,
+            hint: "The deed in force on this date sets the board's smallest and largest size.",
+            label: "Trustees",
+            tone: outOfRange ? "danger" : "neutral",
+            value: board.length,
+          },
+          {
+            description: "present",
+            hint: `A meeting is quorate with ${quorumText(input.rules)}.`,
+            label: "Quorum",
+            tone: quorum > board.length ? "warning" : "neutral",
+            value: quorum,
+          },
+          {
+            href: "/governance/deed",
+            label: "Deed version",
+            value: inForce?.number ?? "—",
+          },
+        ]}
+      />
+      <div className="mt-4 empty:hidden">
         <RegisterWarnings input={input} on={asOf} />
       </div>
-      <div className="mt-6">
+      <div className="mt-4">
         <RegisterTable
           input={input}
           isLoading={isLoading}
+          isToday={asOf === today}
           on={asOf}
+          onDateChange={handleDateChange}
           onView={handleView}
         />
       </div>

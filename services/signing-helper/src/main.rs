@@ -1,4 +1,4 @@
-//! pidash-sign: signs pi-dash governance documents with a DSC token.
+//! pidash-sign: signs Proud Indian governance documents with a DSC token.
 //!
 //! The browser opens `pidash-sign://sign?job=<token>&server=<origin>` (or
 //! `enrol`). The helper fetches the job from the server it was installed for,
@@ -24,7 +24,7 @@ fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "Usage: pidash-sign <pidash-sign://...> | list | --version\n\
-                 Opened from pi-dash when you sign a circular or enrol your DSC."
+                 Opened from the dashboard when you sign a circular or enrol your DSC."
             );
             return ExitCode::from(2);
         }

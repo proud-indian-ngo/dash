@@ -368,8 +368,8 @@ export function TrusteeDetailSheet({
           }
           meta={[
             trustee.userId
-              ? "Linked to a pi-dash account"
-              : "No pi-dash account",
+              ? "Linked to a dashboard account"
+              : "No dashboard account",
           ]}
           title={trustee.legalName}
         />
