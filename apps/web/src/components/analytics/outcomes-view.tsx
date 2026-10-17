@@ -71,7 +71,9 @@ function useOutcomes(filters: {
     key: string;
     outcomes: Outcomes;
   } | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Like results, a failure belongs to the filters it was for: changing them
+  // shows loading, not the old error.
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const { costCentreId, from, programmeId, teamId, to } = filters;
   const key = JSON.stringify([costCentreId, from, programmeId, teamId, to]);
@@ -81,12 +83,12 @@ function useOutcomes(filters: {
       .then((outcomes) => {
         if (!cancelled) {
           setLoaded({ key, outcomes });
-          setFailed(false);
+          setFailedKey(null);
         }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setFailed(true);
+          setFailedKey(key);
         }
         log.error({
           action: "analytics.outcomes",
@@ -99,11 +101,11 @@ function useOutcomes(filters: {
     };
   }, [attempt, costCentreId, from, key, load, programmeId, teamId, to]);
   const retry = useEventCallback(() => {
-    setFailed(false);
+    setFailedKey(null);
     setAttempt((n) => n + 1);
   });
   return {
-    failed,
+    failed: failedKey === key,
     retry,
     // Filter options don't depend on the filters, so the last ones stay.
     options: loaded?.outcomes,

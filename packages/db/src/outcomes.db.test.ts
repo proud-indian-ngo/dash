@@ -352,7 +352,8 @@ it.skipIf(!localDatabase)(
         ...unsavedSessionRows(parents, { from: null, to: null }, NOW.getTime()),
       ];
       // Saved: the parent and the third session. Unsaved and over: the
-      // second and the fourth (today's started 28 days on, an hour ago).
+      // second and the fourth, a week ago. The fifth starts at NOW and
+      // hasn't ended, so it isn't held yet.
       expect(summarizeOutcomes(rows, null).totals).toMatchObject({
         children: 12,
         events: 4,
