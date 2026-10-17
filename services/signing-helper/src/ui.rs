@@ -10,7 +10,7 @@ pub fn ask_pin(what: &str) -> Option<String> {
     if headless() {
         return std::env::var("PIDASH_SIGN_PIN").ok();
     }
-    tinyfiledialogs::password_box("pi-dash signing", &format!("{what}\n\nEnter your DSC token PIN:"))
+    tinyfiledialogs::password_box("Proud Indian signing", &format!("{what}\n\nEnter your DSC token PIN:"))
         .filter(|pin| !pin.is_empty())
 }
 
@@ -20,7 +20,7 @@ pub fn info(message: &str) {
         return;
     }
     tinyfiledialogs::message_box_ok(
-        "pi-dash signing",
+        "Proud Indian signing",
         message,
         tinyfiledialogs::MessageBoxIcon::Info,
     );
@@ -32,7 +32,7 @@ pub fn error(message: &str) {
         return;
     }
     tinyfiledialogs::message_box_ok(
-        "pi-dash signing",
+        "Proud Indian signing",
         message,
         tinyfiledialogs::MessageBoxIcon::Error,
     );

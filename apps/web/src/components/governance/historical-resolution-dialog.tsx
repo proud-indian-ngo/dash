@@ -122,7 +122,7 @@ function HistoricalForm({ onDone }: { onDone: () => void }) {
 }
 
 /**
- * A resolution passed on paper before pi-dash, recorded with its number so
+ * A resolution passed on paper before the dashboard, recorded with its number so
  * the series continues from it. It changes nothing in the register.
  */
 export function HistoricalResolutionDialog({

@@ -55,8 +55,9 @@ test.describe("board meetings (super admin)", () => {
     page,
   }) => {
     test.slow();
-    await page.goto("/governance/meetings");
-    await page.getByRole("row", { name: new RegExp(SEEDED_MEETING) }).click();
+    // The seeded meeting is dated 10 Oct 2026, so it sits under Past.
+    await page.goto("/governance/meetings?when=past");
+    await page.getByRole("link", { exact: true, name: SEEDED_MEETING }).click();
     await expect(
       page.getByRole("heading", { level: 1, name: SEEDED_MEETING })
     ).toBeVisible();

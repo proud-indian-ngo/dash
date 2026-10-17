@@ -38,7 +38,7 @@ export interface JobReply {
 const GONE: JobReply = {
   body: {
     message:
-      "This signing link has expired or was already used. Start again in pi-dash.",
+      "This signing link has expired or was already used. Start again in the dashboard.",
   },
   status: 404,
 };
@@ -60,7 +60,7 @@ function commonName(distinguishedName: string): string | null {
   return line ? line.trim().slice(3) : null;
 }
 
-/** What pi-dash keeps of a certificate, or null when it can't sign for us. */
+/** What the dashboard keeps of a certificate, or null when it can't sign for us. */
 export function certificateFacts(
   derBase64: string,
   chain: string[],
@@ -154,7 +154,7 @@ async function completeEnrolment(
   await closeJob(job.id, { ok: true });
   return {
     body: {
-      message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in pi-dash. You can sign circulars with it now.`,
+      message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign circulars with it now.`,
     },
     status: 200,
   };
@@ -199,8 +199,8 @@ async function completeSignature(
       body: {
         message:
           decision.status === "passed"
-            ? `Signed. The resolution passed as ${decision.number ?? ""}. You can return to pi-dash.`
-            : "Signed. Your signature is on the circular. You can return to pi-dash.",
+            ? `Signed. The resolution passed as ${decision.number ?? ""}. You can return to the dashboard.`
+            : "Signed. Your signature is on the circular. You can return to the dashboard.",
         status: decision.status,
       },
       status: 200,

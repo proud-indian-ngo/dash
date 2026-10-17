@@ -126,7 +126,7 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
             contentType: "application/pdf",
             datedOn: today,
             kind: "declaration",
-            note: `Confirmed in pi-dash by ${member.trustee.legalName}.`,
+            note: `Confirmed in the dashboard by ${member.trustee.legalName}.`,
             objectKey,
             originalFilename: `declaration-${fiscalYear}.pdf`,
             sha256,

@@ -1,4 +1,4 @@
-# Installs the pi-dash signing helper on Windows (no administrator rights).
+# Installs the Proud Indian signing helper on Windows (no administrator rights).
 #
 #   & ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/proud-indian-ngo/dash/master/services/signing-helper/install/install-windows.ps1))) -Server https://dash.example.org
 #
@@ -29,11 +29,11 @@ Remove-Item $Zip
 $Exe = Join-Path $Dir "pidash-sign.exe"
 $Key = "HKCU:\Software\Classes\pidash-sign"
 New-Item -Force -Path "$Key\shell\open\command" | Out-Null
-Set-ItemProperty -Path $Key -Name "(Default)" -Value "URL:pi-dash signing"
+Set-ItemProperty -Path $Key -Name "(Default)" -Value "URL:Proud Indian signing"
 Set-ItemProperty -Path $Key -Name "URL Protocol" -Value ""
 Set-ItemProperty -Path "$Key\shell\open\command" -Name "(Default)" -Value "`"$Exe`" `"%1`""
 
 if (-not (Test-Path $Module)) {
   Write-Warning "The token driver wasn't found at $Module. Install the HyperSecu (ePass) driver, or edit $ConfigDir\config.json."
 }
-Write-Host "Installed $($Release.tag_name). Plug in your DSC token and return to pi-dash."
+Write-Host "Installed $($Release.tag_name). Plug in your DSC token and return to the dashboard."

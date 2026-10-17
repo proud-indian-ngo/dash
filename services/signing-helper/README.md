@@ -1,6 +1,6 @@
 # pidash-sign
 
-The pi-dash signing helper signs governance documents with a trustee's DSC token (HyperSecu HYP2003 or any PKCS#11 token). How signing works: [resolutions](../../docs/architecture/governance-resolutions.md#signing).
+The signing helper signs governance documents with a trustee's DSC token (HyperSecu HYP2003 or any PKCS#11 token). How signing works: [resolutions](../../docs/architecture/governance-resolutions.md#signing).
 
 It handles `pidash-sign://sign?job=<token>&server=<origin>` and `pidash-sign://enrol?...` links, refuses any server but the one in its config, and asks for the PIN in its own window.
 
