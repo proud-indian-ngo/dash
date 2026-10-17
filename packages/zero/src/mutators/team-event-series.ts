@@ -51,7 +51,7 @@ export function buildExceptionInsert(
     programmeId: string;
     reminderIntervals: number[] | null;
     reminderTarget: string;
-    whatsappGroupId: string;
+    whatsappGroupId: string | null;
     inheritVolunteers: boolean;
     cancelledAt: number | null;
     volunteersNeeded: number | null;
@@ -97,8 +97,11 @@ export function buildExceptionInsert(
     updatedAt: now,
     // Null inherits the parent's figure in the social API.
     volunteersNeeded: overrides.volunteersNeeded ?? null,
+    // Undefined inherits the series' group; null or "" means none.
     whatsappGroupId:
-      overrides.whatsappGroupId ?? series.whatsappGroupId ?? null,
+      overrides.whatsappGroupId === undefined
+        ? (series.whatsappGroupId ?? null)
+        : overrides.whatsappGroupId || null,
   };
 }
 
@@ -123,7 +126,7 @@ export interface UpdateArgs {
   rsvpPollLeadMinutes?: number;
   startTime?: number;
   volunteersNeeded?: number | null;
-  whatsappGroupId?: string;
+  whatsappGroupId?: string | null;
 }
 
 export function buildUpdateFields(args: UpdateArgs) {
@@ -244,7 +247,7 @@ export async function updateSeriesThis(
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
     volunteersNeeded?: number | null;
-    whatsappGroupId?: string;
+    whatsappGroupId?: string | null;
   },
   existing: TeamEvent,
   userId: string
@@ -309,7 +312,7 @@ export async function updateSeriesFollowing(
     programmeId?: string;
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
-    whatsappGroupId?: string;
+    whatsappGroupId?: string | null;
     inheritVolunteers?: boolean;
     recurrenceRule?: RecurrenceRuleValue;
     volunteersNeeded?: number | null;
@@ -368,7 +371,10 @@ export async function updateSeriesFollowing(
       args.volunteersNeeded === undefined
         ? existing.volunteersNeeded
         : args.volunteersNeeded,
-    whatsappGroupId: args.whatsappGroupId ?? existing.whatsappGroupId ?? null,
+    whatsappGroupId:
+      args.whatsappGroupId === undefined
+        ? (existing.whatsappGroupId ?? null)
+        : args.whatsappGroupId || null,
   });
 }
 

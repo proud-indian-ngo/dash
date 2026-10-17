@@ -9,6 +9,11 @@ import {
   can,
 } from "../permissions";
 import { type Schema, zql } from "../schema";
+import {
+  assertWhatsAppGroupAvailable,
+  pushAddGroupMembersTask,
+  whatsappGroupChange,
+} from "./whatsapp-group-link";
 
 /** A team may only point at an active programme. */
 async function assertProgrammeSelectable(
@@ -110,6 +115,12 @@ export const teamMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.create");
       await assertProgrammeSelectable(tx, args.programmeId);
+      if (args.whatsappGroupId) {
+        await assertWhatsAppGroupAvailable(tx, args.whatsappGroupId, {
+          id: args.id,
+          type: "team",
+        });
+      }
       const now = Date.now();
       await tx.mutate.team.insert({
         createdAt: now,
@@ -367,7 +378,8 @@ export const teamMutators = {
       name: z.string().min(1),
       now: z.number(),
       programmeId: z.string().nullable().optional(),
-      whatsappGroupId: z.string().optional(),
+      // Undefined leaves the group alone; null removes it.
+      whatsappGroupId: z.string().nullable().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.edit");
@@ -381,6 +393,16 @@ export const teamMutators = {
       ) {
         await assertProgrammeSelectable(tx, args.programmeId ?? undefined);
       }
+      const nextGroupId = whatsappGroupChange(
+        existing.whatsappGroupId,
+        args.whatsappGroupId
+      );
+      if (nextGroupId) {
+        await assertWhatsAppGroupAvailable(tx, nextGroupId, {
+          id: args.id,
+          type: "team",
+        });
+      }
       await tx.mutate.team.update({
         description: args.description,
         id: args.id,
@@ -390,7 +412,7 @@ export const teamMutators = {
             ? existing.programmeId
             : args.programmeId,
         updatedAt: args.now,
-        whatsappGroupId: args.whatsappGroupId,
+        ...(nextGroupId !== undefined && { whatsappGroupId: nextGroupId }),
       });
 
       if (tx.location === "server") {
@@ -399,6 +421,17 @@ export const teamMutators = {
         const updatedAt = args.now;
         const members = await tx.run(zql.teamMember.where("teamId", teamId));
         const memberIds = members.map((m) => m.userId);
+        // A new or switched group gets the current members; the old group
+        // keeps its members, and removing the group removes no one.
+        if (nextGroupId) {
+          pushAddGroupMembersTask(ctx, {
+            entityId: teamId,
+            entityType: "team",
+            groupId: nextGroupId,
+            mutator: "updateTeam",
+            userIds: memberIds,
+          });
+        }
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");

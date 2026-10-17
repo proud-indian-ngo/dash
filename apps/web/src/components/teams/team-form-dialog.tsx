@@ -153,7 +153,7 @@ export function TeamFormDialog({
             name: trimmedName,
             now: Date.now(),
             programmeId: programmeId || null,
-            whatsappGroupId: whatsappGroupId || undefined,
+            whatsappGroupId: whatsappGroupId || null,
           })
         )
       : zero.mutate(

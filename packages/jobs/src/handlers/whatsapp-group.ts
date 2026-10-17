@@ -1,6 +1,6 @@
 import { db } from "@pi-dash/db";
-import { team } from "@pi-dash/db/schema/team";
-import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { team, teamMember } from "@pi-dash/db/schema/team";
+import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import {
@@ -18,16 +18,35 @@ import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 import { uuidv7 } from "uuidv7";
 
-import type {
-  WhatsAppAddMemberPayload,
-  WhatsAppAddMembersPayload,
-  WhatsAppAddMemberTeamPayload,
-  WhatsAppCreateGroupPayload,
-  WhatsAppManageOrientationPayload,
-  WhatsAppRemoveFromAllGroupsPayload,
-  WhatsAppRemoveMemberPayload,
-  WhatsAppRemoveMemberTeamPayload,
+import {
+  enqueue,
+  type WhatsAppAddMemberPayload,
+  type WhatsAppAddMembersPayload,
+  type WhatsAppAddMemberTeamPayload,
+  type WhatsAppCreateGroupPayload,
+  type WhatsAppManageOrientationPayload,
+  type WhatsAppRemoveFromAllGroupsPayload,
+  type WhatsAppRemoveMemberPayload,
+  type WhatsAppRemoveMemberTeamPayload,
 } from "../enqueue";
+
+/** The people on a team or event, who belong in its WhatsApp group. */
+async function listEntityMemberIds(
+  entityType: WhatsAppCreateGroupPayload["entityType"],
+  entityId: string
+): Promise<string[]> {
+  const rows =
+    entityType === "team"
+      ? await db
+          .select({ userId: teamMember.userId })
+          .from(teamMember)
+          .where(eq(teamMember.teamId, entityId))
+      : await db
+          .select({ userId: teamEventMember.userId })
+          .from(teamEventMember)
+          .where(eq(teamEventMember.eventId, entityId));
+  return [...new Set(rows.map((row) => row.userId))];
+}
 
 export async function handleWhatsAppCreateGroup(
   jobs: Job<WhatsAppCreateGroupPayload>[]
@@ -74,7 +93,33 @@ export async function handleWhatsAppCreateGroup(
           .where(eq(teamEvent.id, entityId));
       }
 
-      log.set({ event: "job_complete", groupId, jid });
+      // The group starts with only the creator. Members who joined before
+      // it was linked get added or invited by the add-members job. A failure
+      // here is logged, not thrown: a retry would create a second group.
+      let userIds: string[] = [];
+      try {
+        userIds = (await listEntityMemberIds(entityType, entityId)).filter(
+          (id) => id !== creatorUserId
+        );
+        if (userIds.length > 0) {
+          await enqueue(
+            "whatsapp-add-members",
+            { groupId, userIds },
+            {
+              singletonKey: `whatsapp-link-${entityType}-${entityId}-${groupId}`,
+            }
+          );
+        }
+      } catch (error) {
+        log.error(error instanceof Error ? error : new Error(String(error)));
+      }
+
+      log.set({
+        event: "job_complete",
+        groupId,
+        jid,
+        memberCount: userIds.length,
+      });
       log.emit();
     })
   );
