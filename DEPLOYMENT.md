@@ -109,6 +109,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 |---|---|---|
 | `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Unset stores governance documents unchecked, to check later |
 | `SIGNING_SERVICE_TOKEN` | No | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
+| `LEEGALITY_API_URL`, `LEEGALITY_AUTH_TOKEN`, `LEEGALITY_PROFILE_ID`, `LEEGALITY_PRIVATE_SALT` | No | All four turn on Aadhaar eSign: API base (`https://app1.leegality.com/api`, or `sandbox.` for testing), API token, workflow ID (webhook at `/api/leegality/webhook`) and webhook salt |
 
 ### Observability
 
