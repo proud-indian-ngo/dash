@@ -8,8 +8,8 @@ In order: correctness, security, reliability, performance, maintainability, test
 
 - Missing E2E coverage for new routes, CRUD flows or role-gated capabilities. Don't ask for tests of glue code or config.
 - `README.md`, `.ruler/agent-guide.md`, `project-structure.md`, the owning `docs/architecture/` chapter or JSDoc left stale by the change.
-- New env vars, routes, commands or decisions that went undocumented.
-- Docs that break the rules in the agent guide's Documentation section: appended history, copied facts, or a doc pushed over its word budget.
+- New env vars, commands, cross-file rules, gotchas or decisions that went undocumented.
+- Docs that break the rules in the agent guide's Documentation section: lines that restate what the code shows (file, route or field lists, UI copy, function narration), appended history, copied facts, or a doc pushed over its word budget.
 
 ## Feature and UX priorities
 
