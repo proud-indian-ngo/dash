@@ -19,14 +19,14 @@ A reimbursement repays someone who spent their own money on Proud Indian's work.
 | Approve or reject from another status | `rejected` / `approved` | the other | `requests.approve` and `requests.edit_all_statuses` | Reject refused while a bank debit is matched |
 | Reset to pending | `approved` / `rejected` | `pending` | `requests.edit_all_statuses` | Refused while a bank debit is matched; the screenshot is kept as an attachment |
 | Void | any | flag set | `requests.void` | Needs a reason; refused while a bank debit is matched |
-| Delete | `pending` (owner) or any (`requests.delete_all`) | gone | Owner, or `requests.delete_all` | Refused once posted, voided or matched |
+| Delete | `pending` (owner) or any (`requests.delete_all`) | gone | Owner with `requests.delete_own`, or `requests.delete_all` | Refused once posted, voided or matched |
 | Change claimant | any | same | `requests.create_for_others` | Needs a reason |
 | Change Charged to | `pending` / `approved` | same | `finance.manage`, or `requests.approve` with `requests.view_all` | Never your own request; refused once posted |
 
 - Mutators live in `packages/zero/src/mutators/reimbursement.ts`. Every one refuses a voided request; voiding twice changes nothing.
 - Each transition writes a `reimbursement_history` row and queues posting. The books then post, repost or reverse it; see "Expense posting rules" in [finance-books.md](finance-books.md).
 - Role defaults (`packages/db/src/permissions.ts`): volunteers can create, view, edit and delete their own requests. `admin` and `finance_admin` can view, edit and delete everyone's. Only `finance_admin` and `super_admin` can approve, void and claim for others. `requests.edit_all_statuses` is left out of both admin roles, so by default only `super_admin` holds it.
-- The `delete` mutator lets the owner delete a pending request without checking `requests.delete_own`.
+- The same delete rule (`assertCanDelete`) covers advance payments, vendor payments and vendor payment transactions. The UI shows Delete only when it applies.
 - The detail page offers **Void** only once the request is in the books. An unposted request is deleted instead. Voiding is covered under "Voiding" in [finance-books.md](finance-books.md).
 - Matched bank debits block un-approving. Unmatch the line first; see [finance-bank-statements.md](finance-bank-statements.md).
 
@@ -58,7 +58,7 @@ People save where they want to be paid in Settings → Bank accounts (`bank_acco
   - UPI IDs are lower-cased.
   - Mobiles lose `+91`, a leading `0`, spaces and dashes, and must be 10 digits starting 6 to 9. Custom 8 or 9 digit UPI numbers are refused because they look like account numbers.
 - Account numbers and UPI handles are each unique per person. The first entry becomes the default, and deleting the default promotes the oldest remaining one. Entries can't be edited; delete and add again.
-- `bankAccount.create`, `delete` and `setDefault` check only that you are signed in and own the entry. `bank_accounts.manage_own` is granted to volunteers but enforced nowhere.
+- `bankAccount.create`, `delete` and `setDefault` need `bank_accounts.manage_own` and act only on your own entries; nobody manages another person's. Without the permission, Settings → Bank accounts lists entries read-only and the reimbursement form doesn't offer to add one.
 
 ### What a request stores
 

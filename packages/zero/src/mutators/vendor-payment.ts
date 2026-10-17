@@ -564,7 +564,12 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
-      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      assertCanDelete(
+        entity,
+        userId,
+        can(ctx, "requests.delete_all"),
+        can(ctx, "requests.delete_own")
+      );
       // Neither the request nor any of its payments may stand in the books.
       await assertDeletable(tx, entity, [
         ledgerSource(args.id),

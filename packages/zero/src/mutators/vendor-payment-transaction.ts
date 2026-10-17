@@ -449,7 +449,12 @@ export const vendorPaymentTransactionMutators = {
         );
       }
 
-      assertCanDelete(entity, userId, can(ctx, "requests.delete_all"));
+      assertCanDelete(
+        entity,
+        userId,
+        can(ctx, "requests.delete_all"),
+        can(ctx, "requests.delete_own")
+      );
       if (parentVp) {
         assertNotVoided(parentVp);
       }

@@ -71,6 +71,7 @@ export function VendorPaymentTransactions({
   const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(request.status as string);
   const canEditAll = hasPermission("requests.edit_all") && !isInvoiceLocked;
   const canDeleteAll = hasPermission("requests.delete_all") && !isInvoiceLocked;
+  const canDeleteOwn = hasPermission("requests.delete_own");
   const isAwaitingApproval = request.status === "pending";
   const showRecordButton =
     !requestVoided &&
@@ -294,7 +295,8 @@ export function VendorPaymentTransactions({
                   // In the books or voided: kept as the record, so voided
                   // instead of deleted.
                   const canDeleteTxn =
-                    !(voided || posted) && (ownerCanModify || canDeleteAll);
+                    !(voided || posted) &&
+                    ((ownerCanModify && canDeleteOwn) || canDeleteAll);
                   return (
                     <TransactionRow
                       badge={badge}

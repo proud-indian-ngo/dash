@@ -407,13 +407,21 @@ export function assertCanModify(
   }
 }
 
+/**
+ * `requests.delete_all` deletes any request; otherwise the owner needs
+ * `requests.delete_own` and the request must still be pending.
+ */
 export function assertCanDelete(
   entity: { userId: string | null; status: string | null },
   userId: string,
-  hasDeleteAll: boolean
+  hasDeleteAll: boolean,
+  hasDeleteOwn: boolean
 ) {
   if (
-    !(hasDeleteAll || (entity.userId === userId && entity.status === "pending"))
+    !(
+      hasDeleteAll ||
+      (hasDeleteOwn && entity.userId === userId && entity.status === "pending")
+    )
   ) {
     throw new Error("Unauthorized");
   }

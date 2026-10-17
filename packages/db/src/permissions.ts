@@ -271,7 +271,7 @@ export const PERMISSIONS = [
   {
     category: "events",
     description:
-      "Toggle feedback, set deadline, view anonymous responses (also granted to team leads)",
+      "View anonymous feedback responses (also granted to team leads)",
     id: "events.manage_feedback",
     name: "Manage Feedback",
   },

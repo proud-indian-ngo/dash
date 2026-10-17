@@ -159,7 +159,8 @@ function ReimbursementsRouteComponent() {
         description="Money spent on Proud Indian work, claimed back or paid in advance."
         title="Reimbursements"
       />
-      {hasPermission("requests.create") ? (
+      {hasPermission("requests.create") &&
+      hasPermission("bank_accounts.manage_own") ? (
         <TipStrip
           action={
             <Link

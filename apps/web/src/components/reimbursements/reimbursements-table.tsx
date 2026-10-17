@@ -196,6 +196,7 @@ export function ReimbursementsTable({
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
   const canDeleteAll = hasPermission("requests.delete_all");
+  const canDeleteOwn = hasPermission("requests.delete_own");
   const canVoid = hasPermission("requests.void");
   const zero = useZero();
   const review = useRowReview<RequestRow>();
@@ -502,7 +503,8 @@ export function ReimbursementsTable({
       cell: ({ row }) => {
         const r = row.original;
         const isOwner = r.userId === currentUserId;
-        const canDelete = canDeleteAll || (isOwner && r.status === "pending");
+        const canDelete =
+          canDeleteAll || (canDeleteOwn && isOwner && r.status === "pending");
         const voided = isVoided(r);
         const posted = postedIds?.has(r.id) ?? false;
         const canEdit =
