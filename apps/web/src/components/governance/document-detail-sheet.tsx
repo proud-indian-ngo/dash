@@ -107,22 +107,22 @@ export function DocumentDetailSheet({
       return;
     }
     setChecking(true);
-    try {
-      const result = await recheck({ data: { id: document.id } });
-      toast.success(`Checked: ${STATUS_LABEL[result.status].toLowerCase()}`);
-    } catch (error) {
-      log.error({
-        action: "governanceDocument.recheck",
-        caughtError: error instanceof Error ? error.message : String(error),
-        component: "DocumentDetailSheet",
-      });
-      toast.error("Couldn't check the signatures", {
-        description:
-          error instanceof Error ? error.message : "Something went wrong",
-      });
-    } finally {
-      setChecking(false);
-    }
+    await recheck({ data: { id: document.id } })
+      .then((result) => {
+        toast.success(`Checked: ${STATUS_LABEL[result.status].toLowerCase()}`);
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "governanceDocument.recheck",
+          caughtError: error instanceof Error ? error.message : String(error),
+          component: "DocumentDetailSheet",
+        });
+        toast.error("Couldn't check the signatures", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setChecking(false));
   });
 
   if (!document) {
