@@ -16,7 +16,7 @@ import type { CellIssue } from "./normalize";
  */
 
 export interface DonorOptionView {
-  /** For an existing donor proposed by email or phone: the details it lacks that this row has. */
+  /** For an existing donor proposed by email, phone or name: the details it lacks that this row has. */
   fills: PartyFillField[];
   label: string;
   reason: MatchReason;

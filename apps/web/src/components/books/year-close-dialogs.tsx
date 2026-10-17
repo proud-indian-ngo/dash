@@ -12,6 +12,7 @@ import type {
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { useForm } from "@tanstack/react-form";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
@@ -50,6 +51,10 @@ const CHECK_LABELS: Record<CloseCheckId, { fail: string; pass: string }> = {
   clearing_balances: {
     fail: "Clearing balances at year end",
     pass: "Clearing balances at year end",
+  },
+  open_bank_lines: {
+    fail: "Bank lines still open",
+    pass: "Every bank line matched or explained",
   },
   opening_balances: {
     fail: "Opening balances not posted",
@@ -108,6 +113,24 @@ function CheckRow({ check }: { check: CloseCheck }) {
             {detail}
           </span>
         ))}
+        {check.accounts?.map((account) => (
+          <Link
+            className="text-muted-foreground block underline-offset-4 hover:underline"
+            key={account.orgAccountId}
+            search={{ account: account.orgAccountId, tab: account.tab }}
+            to="/income/bank"
+          >
+            {account.detail}
+          </Link>
+        ))}
+        {check.id === "open_bank_lines" && !check.ok ? (
+          <span className="text-muted-foreground mt-1 block">
+            Match each line, or mark money out as bank charges, a tax payment or
+            a transfer (money out can't be ignored), and ignore money in that
+            needs no record. A line waiting for a claim clears once the claim is
+            approved and matched to it.
+          </span>
+        ) : null}
       </span>
     </li>
   );

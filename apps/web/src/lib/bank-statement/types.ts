@@ -177,6 +177,7 @@ export interface LinkCandidatesResponse {
 
 export interface BankStatementSummaryResponse {
   closing: { balancePaise: number; valueOn: string } | null;
+  /** Credit and debit counts are of lines from 1 Apr 2026. */
   creditCount: number;
   creditsMatchedCount: number;
   /** Bank debit reconciliation (layer 3-3b). */
@@ -186,7 +187,7 @@ export interface BankStatementSummaryResponse {
     debitCount: number;
     debitsMatchedCount: number;
     needsClaimCount: number;
-    /** Open debits from 1 Apr 2026, less what their allocations explain. */
+    /** Open debits, less what their allocations explain. */
     unexplainedPaise: number;
   };
   giveDoClearingPaise: number;

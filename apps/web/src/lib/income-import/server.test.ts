@@ -171,6 +171,7 @@ mock.module("@pi-dash/db/queries/income-import", () => ({
     byPhone: new Map(),
   }),
   findContributorsByIdentifier: async () => new Map(),
+  findContributorsByName: async () => new Map(),
   findDuplicateCandidates: async () => [],
   findExternalIdentities: async () => storedIdentities,
   findPartyDetailGaps: async (ids: string[]) =>

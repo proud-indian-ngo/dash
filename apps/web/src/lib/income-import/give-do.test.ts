@@ -241,6 +241,7 @@ describe("give.do rows", () => {
       existingContributions: [],
       identities: new Map(),
       idMatches: new Map(),
+      nameMatches: new Map(),
       phoneMatches: new Map(),
     });
     expect(classified.map((c) => c.category)).toEqual([

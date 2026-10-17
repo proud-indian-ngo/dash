@@ -37,7 +37,8 @@ const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 /** "E2E Income Donor", seeded by seed-test-user. */
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 
-async function setup(run: string) {
+/** A bank account of this run, with nothing recorded against it. */
+async function account(run: string) {
   const now = new Date();
   const accountId = uuidv7();
   const accountName = `E2E Statement Bank ${run}`;
@@ -48,6 +49,12 @@ async function setup(run: string) {
     name: accountName,
     updatedAt: now,
   });
+  return { accountId, accountName };
+}
+
+async function setup(run: string) {
+  const now = new Date();
+  const { accountId, accountName } = await account(run);
   await db.insert(gatewaySettlement).values({
     amountPaise: 397_500,
     createdAt: now,
@@ -244,7 +251,9 @@ async function debitAllocations(accountId: string) {
 
 const [action, arg = ""] = process.argv.slice(2);
 let result: unknown;
-if (action === "setup") {
+if (action === "account") {
+  result = await account(arg);
+} else if (action === "setup") {
   result = await setup(arg);
 } else if (action === "lines") {
   result = await lines(arg);

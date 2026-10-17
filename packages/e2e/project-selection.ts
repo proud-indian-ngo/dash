@@ -87,11 +87,15 @@ export const releaseInvariantPatterns = releaseInvariantSpecs.map(specPattern);
 
 /**
  * Specs that change state every other spec relies on, such as a second
- * active cost centre (every event and request form then asks for a city).
+ * active cost centre (every event and request form then asks for a city)
+ * or a closed financial year (its imports and line actions are refused).
  * They run in the `exclusive_last` project, setup's teardown: after every
  * other project, with one worker.
  */
-const exclusiveLastSpecs = ["settings/cost-centre-activation.spec.ts"];
+const exclusiveLastSpecs = [
+  "settings/cost-centre-activation.spec.ts",
+  "finance/books-year-close.spec.ts",
+];
 
 export const exclusiveLastPatterns = exclusiveLastSpecs.map(specPattern);
 

@@ -138,7 +138,7 @@ async function lockSource(tx: LedgerTx, source: IncomeSource) {
  * being posted or recorded as waiting. Taken first, before any period row
  * is read, so the order is always this lock, then the year rows.
  */
-async function shareYearCloseLock(tx: LedgerTx) {
+export async function shareYearCloseLock(tx: LedgerTx) {
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock_shared(hashtextextended('ledger:year_close', 0))`
   );

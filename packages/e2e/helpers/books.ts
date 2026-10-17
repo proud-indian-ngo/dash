@@ -53,7 +53,17 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
-import { and, asc, eq, gte, isNull, like, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  like,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -399,12 +409,46 @@ async function closeAfterPosting(
           lte(ledgerSourceState.economicOn, year.endsOn)
         )
       );
+    // Open bank lines other specs leave in the year are moved out of it for
+    // the close, in one statement just before it, and put back by ID before
+    // commit, so specs running alongside never see them change. The
+    // ledger's DB tests cover that check.
+    const outside = new Date(`${year.startsOn}T00:00:00Z`);
+    outside.setUTCDate(outside.getUTCDate() - 1);
+    const moved = (await tx.execute(sql`
+      update ${statementLine} l
+      set value_on = ${outside.toISOString().slice(0, 10)}::date
+      from (
+        select id, value_on from ${statementLine}
+        where match_status = 'unmatched'
+          and value_on between ${year.startsOn}::date and ${year.endsOn}::date
+        for update
+      ) old
+      where l.id = old.id
+      returning old.id, old.value_on::text as "valueOn"`)) as unknown as {
+      id: string;
+      valueOn: string;
+    }[];
     const checklist = await yearCloseChecklist(tx, year.id, dayAfter);
     // Shown when the close refuses, to say which check held it up.
     process.stderr.write(
       `close-year checklist: ${JSON.stringify(checklist.checks)}\n`
     );
-    return await closeYear(tx, year.id, { actorId, now: dayAfter });
+    const closed = await closeYear(tx, year.id, { actorId, now: dayAfter });
+    const idsByDay = new Map<string, string[]>();
+    for (const line of moved) {
+      idsByDay.set(line.valueOn, [
+        ...(idsByDay.get(line.valueOn) ?? []),
+        line.id,
+      ]);
+    }
+    for (const [valueOn, ids] of idsByDay) {
+      await tx
+        .update(statementLine)
+        .set({ valueOn })
+        .where(inArray(statementLine.id, ids));
+    }
+    return closed;
   });
 }
 
