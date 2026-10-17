@@ -852,6 +852,7 @@ function DataTableWrapperBase<TData extends object>({
   const renderGroupRow = useEventCallback((row: DataGridRow<TData>) =>
     activeGroupBy ? (
       <DataTableGroupHeader
+        expanded={row.getIsExpanded()}
         groupBy={activeGroupBy}
         row={row}
         table={table}

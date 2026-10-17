@@ -99,18 +99,20 @@ export function splitGroupExpanded(
 }
 
 export function DataTableGroupHeader<TData extends object>({
+  expanded: open,
   groupBy,
   row,
   table,
   totals,
 }: {
+  /** Passed in: TanStack keeps `row` stable on toggle, so React Compiler would cache a read of it. */
+  expanded: boolean;
   groupBy: DataTableGroupBy<TData>;
   row: DataGridRow<TData>;
   table: DataGridTableInstance<TData>;
   totals?: readonly string[];
 }) {
   const value = String(row.groupingValue ?? "");
-  const open = row.getIsExpanded();
   const leafRows = row.getLeafRows();
   const sums = totals?.length ? sumColumns(leafRows, totals) : null;
   const name = groupBy.formatValue?.(value) ?? value;
