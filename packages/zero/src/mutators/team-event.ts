@@ -29,6 +29,7 @@ import {
   cancelSeriesThis,
   ISO_DATE_RE,
   moveSeriesOccurrencesToGroup,
+  sessionFieldsFrom,
   type Tx,
   updateSeriesAll,
   updateSeriesFollowing,
@@ -92,6 +93,23 @@ interface JoinTarget {
   location: string | null;
   name: string;
   startTime: number;
+}
+
+/**
+ * The scope a series edit or cancel really has. "This and following" on the
+ * series' own start date is every session, so it is "all": splitting there
+ * would leave an empty series before the first session.
+ */
+function seriesScope(
+  args: { mode: "this" | "following" | "all"; originalDate?: string },
+  existing: Pick<TeamEvent, "recurrenceRule" | "seriesId" | "startTime">
+): "this" | "following" | "all" {
+  return args.mode === "following" &&
+    existing.recurrenceRule &&
+    !existing.seriesId &&
+    args.originalDate === seriesStartDate(existing.startTime)
+    ? "all"
+    : args.mode;
 }
 
 /** Resolve (materializing if needed) the event row a volunteer joins. */
@@ -708,10 +726,11 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      const mode = seriesScope(args, existing);
 
       // Team leads without events.cancel cannot cancel materialized (past) events
       if (isTeamLead && !can(ctx, "events.cancel")) {
-        if (args.mode === "all") {
+        if (mode === "all") {
           const exceptions = (await tx.run(
             zql.teamEvent.where("seriesId", args.id)
           )) as TeamEvent[];
@@ -719,18 +738,18 @@ export const teamEventMutators = {
             throw new Error("Cannot cancel a series with past events");
           }
         } else if (
-          (args.mode === "this" || args.mode === "following") &&
+          (mode === "this" || mode === "following") &&
           existing.startTime <= args.now
         ) {
           throw new Error("Cannot cancel an event that has already started");
         }
       }
 
-      if (args.mode === "all") {
+      if (mode === "all") {
         await cancelSeriesAll(tx, args);
-      } else if (args.mode === "this") {
+      } else if (mode === "this") {
         await cancelSeriesThis(tx, args, existing, ctx.userId);
-      } else if (args.mode === "following" && args.originalDate) {
+      } else if (mode === "following" && args.originalDate) {
         await cancelSeriesFollowing(
           tx,
           { ...args, originalDate: args.originalDate },
@@ -1563,9 +1582,10 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+      const mode = seriesScope(args, existing);
 
       if (
-        args.mode === "this" &&
+        mode === "this" &&
         !existing.seriesId &&
         existing.recurrenceRule &&
         args.originalDate &&
@@ -1573,7 +1593,7 @@ export const teamEventMutators = {
       ) {
         await assertEventIdAvailable(tx, args.newExceptionId);
       }
-      if (args.mode === "following" && args.originalDate && args.newSeriesId) {
+      if (mode === "following" && args.originalDate && args.newSeriesId) {
         await assertEventIdAvailable(tx, args.newSeriesId);
       }
 
@@ -1584,6 +1604,8 @@ export const teamEventMutators = {
         args.whatsappGroupId
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
+      // From the start date every session is still to come, so the
+      // programme may change for all of them.
       if (
         args.mode === "all" &&
         args.programmeId !== undefined &&
@@ -1596,8 +1618,22 @@ export const teamEventMutators = {
       }
 
       let movedOccurrenceIds: string[] = [];
-      if (args.mode === "all") {
+      if (mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
+        // Edited from a saved start-date row: that session takes the edit.
+        if (args.mode === "following" && args.originalDate) {
+          const session = (await tx.run(
+            zql.teamEvent
+              .where("seriesId", args.id)
+              .where("originalDate", args.originalDate)
+              .one()
+          )) as TeamEvent | undefined;
+          if (session) {
+            await tx.mutate.teamEvent.update(
+              sessionFieldsFrom(args, session.id)
+            );
+          }
+        }
         if (nextGroupId !== undefined) {
           movedOccurrenceIds = await moveSeriesOccurrencesToGroup(tx, {
             fromGroupId: existing.whatsappGroupId ?? null,
@@ -1606,10 +1642,10 @@ export const teamEventMutators = {
             toGroupId: nextGroupId,
           });
         }
-      } else if (args.mode === "this") {
+      } else if (mode === "this") {
         await updateSeriesThis(tx, args, existing, ctx.userId);
       } else if (
-        args.mode === "following" &&
+        mode === "following" &&
         args.originalDate &&
         args.newSeriesId
       ) {
@@ -1625,7 +1661,7 @@ export const teamEventMutators = {
         );
       }
 
-      const writeTarget = resolveSeriesWriteTarget(args, existing);
+      const writeTarget = resolveSeriesWriteTarget({ ...args, mode }, existing);
       if (args.partners && writeTarget) {
         await replaceEventPartners(
           tx,

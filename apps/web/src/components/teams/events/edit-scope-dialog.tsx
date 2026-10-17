@@ -1,5 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 
 import {
   Dialog,
@@ -18,6 +19,23 @@ const SCOPE_LABELS: Record<EditScope, string> = {
 };
 
 const ALL_SCOPES: EditScope[] = ["this", "following", "all"];
+const FIRST_SESSION_SCOPES: EditScope[] = ["this", "all"];
+
+/**
+ * The scopes offered for a session of a series. On the series' own start
+ * date "this and following" is every session, so only "All events" is
+ * offered (the server treats a split there as "all" too).
+ */
+export function seriesEditScopes(
+  seriesStart: number | undefined,
+  occDate: string | null | undefined
+): EditScope[] {
+  return seriesStart !== undefined &&
+    occDate &&
+    occDate === seriesStartDate(seriesStart)
+    ? FIRST_SESSION_SCOPES
+    : ALL_SCOPES;
+}
 
 interface EditScopeDialogProps {
   /** Scope options shown but not selectable yet. */

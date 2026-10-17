@@ -1,6 +1,12 @@
 import type { ReminderTarget } from "@pi-dash/shared/constants";
+import {
+  expandSeries,
+  parseRecurrenceRule,
+  seriesStartDate,
+} from "@pi-dash/shared/rrule-expand";
+import { uuidv7 } from "uuidv7";
 
-import type { TeamEvent } from "../schema";
+import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
 const UNTIL_RE = /UNTIL=\d{8}T\d{6}Z/;
@@ -189,6 +195,20 @@ export function buildUpdateFields(args: UpdateArgs) {
   };
 }
 
+/**
+ * The submitted fields for the saved session a series edit came from: what
+ * the series gets, minus what belongs to the series (roster inheritance and
+ * the group, which follows its own rules).
+ */
+export function sessionFieldsFrom(args: UpdateArgs, sessionId: string) {
+  return buildUpdateFields({
+    ...args,
+    id: sessionId,
+    inheritVolunteers: undefined,
+    whatsappGroupId: undefined,
+  });
+}
+
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 abstract class BivariantZeroMutation {
@@ -334,6 +354,66 @@ export async function updateSeriesThis(
   }
 }
 
+/**
+ * Before a split hands the WhatsApp group to the new series, save the old
+ * series' upcoming sessions up to the split day with that group, so their
+ * reminders, polls and joins keep it. Saved like the materialisers do
+ * (series fields, no recap; the series' volunteers when it passes them on).
+ * Past unsaved sessions stay unsaved, and the series row keeps its own first
+ * session. Server only: the rows take server-made ids.
+ */
+async function saveUpcomingSessionsBefore(
+  tx: Tx,
+  series: TeamEvent,
+  saved: readonly TeamEvent[],
+  args: { now: number; splitDate: string; userId: string }
+) {
+  const rule = parseRecurrenceRule(series.recurrenceRule);
+  if (!rule || tx.location !== "server") {
+    return;
+  }
+  const splitStart = Date.parse(`${args.splitDate}T00:00:00Z`);
+  const firstDate = seriesStartDate(series.startTime);
+  const savedDates = new Set(
+    saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+  );
+  const upcoming = expandSeries(
+    rule,
+    series.startTime,
+    series.endTime,
+    args.now,
+    splitStart - 1,
+    savedDates
+  ).filter((occ) => occ.startTime > args.now && occ.date !== firstDate);
+  if (upcoming.length === 0) {
+    return;
+  }
+  const volunteers = series.inheritVolunteers
+    ? ((await tx.run(
+        zql.teamEventMember.where("eventId", series.id)
+      )) as TeamEventMember[])
+    : [];
+  for (const occ of upcoming) {
+    const id = uuidv7();
+    await tx.mutate.teamEvent.insert(
+      buildExceptionInsert(id, series, occ.date, args.userId, args.now, {
+        ...(occ.endTime === null ? {} : { endTime: occ.endTime }),
+        startTime: occ.startTime,
+      })
+    );
+    await Promise.all(
+      volunteers.map((member) =>
+        tx.mutate.teamEventMember.insert({
+          addedAt: member.addedAt,
+          eventId: id,
+          id: uuidv7(),
+          userId: member.userId,
+        })
+      )
+    );
+  }
+}
+
 export async function updateSeriesFollowing(
   tx: Tx,
   args: {
@@ -371,6 +451,16 @@ export async function updateSeriesFollowing(
   const rule = existing.recurrenceRule as RecurrenceRuleValue & {
     rrule: string;
   };
+  const saved = (await tx.run(
+    zql.teamEvent.where("seriesId", args.id)
+  )) as TeamEvent[];
+  if (existing.whatsappGroupId) {
+    await saveUpcomingSessionsBefore(tx, existing, saved, {
+      now: args.now,
+      splitDate: args.originalDate,
+      userId,
+    });
+  }
   // The WhatsApp group follows the continuing series. The old row lets go of
   // it first: a group belongs to one series row at a time.
   await tx.mutate.teamEvent.update({
@@ -435,14 +525,17 @@ export async function updateSeriesFollowing(
   // The split day's row lands on the new series' start date, where it stands
   // for the first session. A session still on the old series' group takes
   // the new series' group; one given its own group keeps it.
-  const moving = (
-    (await tx.run(zql.teamEvent.where("seriesId", args.id))) as TeamEvent[]
-  ).filter(
+  // The split day's row is the session the edit came from, so it takes the
+  // submitted fields too.
+  const moving = saved.filter(
     (e) => e.originalDate !== null && e.originalDate >= args.originalDate
   );
   await Promise.all(
     moving.map((e) =>
       tx.mutate.teamEvent.update({
+        ...(e.originalDate === args.originalDate
+          ? sessionFieldsFrom(args, e.id)
+          : {}),
         id: e.id,
         seriesId: args.newSeriesId,
         updatedAt: args.now,

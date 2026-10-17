@@ -198,6 +198,7 @@ describe("this and following", () => {
       db.tx as never,
       {
         id: "series-1",
+        location: "New hall",
         name: "Weekly class, new room",
         newSeriesId: "series-2",
         now: NOW,
@@ -227,15 +228,19 @@ describe("this and following", () => {
       startTime: split.start,
       teamId: "team-1",
     });
-    // The split day's row keeps its own edits and recap, now as the new
-    // series' start-date row.
+    // The split day's row is the session the edit came from: it takes the
+    // submitted fields and keeps its recap, now as the new series'
+    // start-date row. Later rows keep their own details.
     expect(row(db, "on-split")).toMatchObject({
       childrenAttended: 12,
-      name: "Own edit",
+      location: "New hall",
+      name: "Weekly class, new room",
       originalDate: split.date,
       seriesId: "series-2",
+      startTime: split.start,
     });
     expect(row(db, "after")?.seriesId).toBe("series-2");
+    expect(row(db, "after")).not.toHaveProperty("location");
     expect(row(db, "before")?.seriesId).toBe("series-1");
     expect(row(db, "series-1")?.recurrenceRule).toEqual({
       rrule: "FREQ=WEEKLY;UNTIL=20261016T235959Z",
@@ -280,5 +285,143 @@ describe("this and following", () => {
     expect(row(db, "own-group")?.whatsappGroupId).toBe("g-own");
     // Past sessions keep their stored group for history.
     expect(row(db, "before")?.whatsappGroupId).toBe("g-1");
+  });
+
+  it("saves the old series' upcoming sessions with its group before handing it over", async () => {
+    const db = createDb();
+    (db.tables.teamEventMember as Row[]).push({
+      addedAt: NOW - DAY,
+      eventId: "series-1",
+      id: "m-1",
+      userId: "vol-1",
+    });
+    await updateSeriesFollowing(
+      db.tx as never,
+      {
+        id: "series-1",
+        newSeriesId: "series-2",
+        now: NOW,
+        originalDate: split.date,
+        startTime: split.start,
+      },
+      { ...series, inheritVolunteers: true, whatsappGroupId: "g-1" } as never,
+      "lead-1"
+    );
+    // 3 Oct is the series row itself; 10 Oct was unsaved and is now saved
+    // on the group with the series' volunteer.
+    const saved = db.tables.teamEvent?.filter((e) => e.seriesId === "series-1");
+    expect(saved).toHaveLength(1);
+    expect(saved?.[0]).toMatchObject({
+      originalDate: "2026-10-10",
+      whatsappGroupId: "g-1",
+    });
+    expect(saved?.[0]).not.toHaveProperty("childrenAttended");
+    expect(
+      db.tables.teamEventMember?.filter((m) => m.eventId === saved?.[0]?.id)
+    ).toMatchObject([{ userId: "vol-1" }]);
+    expect(row(db, "series-2")?.whatsappGroupId).toBe("g-1");
+  });
+});
+
+describe("this and following on the series' start date", () => {
+  const db = () => {
+    const tables: Record<string, Row[]> = {
+      eventPartner: [],
+      teamEvent: [
+        { ...series, programmeId: "p-1" },
+        {
+          cancelledAt: null,
+          id: "first-row",
+          name: "Weekly class",
+          originalDate: "2026-10-03",
+          seriesId: "series-1",
+          startTime: FIRST,
+          teamId: "team-1",
+        },
+      ],
+      teamEventMember: [],
+      teamMember: [
+        { id: "tm-1", role: "lead", teamId: "team-1", userId: "lead-1" },
+      ],
+      costCentre: [{ active: true, code: "BLR", id: "cc-1", name: "BLR" }],
+      programme: [{ active: true, id: "p-1" }],
+    };
+    const update = (table: string) => async (row: Row) => {
+      Object.assign(
+        tables[table]?.find((item) => item.id === row.id) ?? {},
+        row
+      );
+    };
+    const insert = (table: string) => async (row: Row) => {
+      tables[table]?.push({ ...row });
+    };
+    const tx = {
+      location: "client",
+      mutate: Object.fromEntries(
+        Object.keys(tables).map((table) => [
+          table,
+          {
+            delete: async () => {},
+            insert: insert(table),
+            update: update(table),
+          },
+        ])
+      ),
+      run: async (query: { ast: ScopeAst; format: { singular: boolean } }) => {
+        const result = (tables[query.ast.table] ?? []).filter((r) =>
+          matchesScope(
+            r as ScopeRow,
+            query.ast.where,
+            tables as unknown as ScopeTables
+          )
+        );
+        return query.format.singular ? result[0] : result;
+      },
+    };
+    return { tables, tx };
+  };
+
+  it("edits the whole series and the start-date row instead of splitting", async () => {
+    const d = db();
+    await teamEventMutators.updateSeries.fn({
+      args: {
+        id: "series-1",
+        location: "New hall",
+        mode: "following",
+        newSeriesId: "series-2",
+        now: NOW,
+        originalDate: "2026-10-03",
+      },
+      ctx,
+      tx: d.tx,
+    } as never);
+    expect(d.tables.teamEvent?.map((e) => e.id)).toEqual([
+      "series-1",
+      "first-row",
+    ]);
+    expect(d.tables.teamEvent?.[0]).toMatchObject({
+      location: "New hall",
+      recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    });
+    expect(d.tables.teamEvent?.[1]?.location).toBe("New hall");
+  });
+
+  it("cancels the whole series instead of truncating it", async () => {
+    const d = db();
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "following",
+        now: NOW,
+        originalDate: "2026-10-03",
+      },
+      ctx: { ...ctx, permissions: ["events.cancel"] },
+      tx: d.tx,
+    } as never);
+    expect(d.tables.teamEvent?.[0]).toMatchObject({
+      cancelledAt: NOW,
+      recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    });
+    expect(d.tables.teamEvent?.[1]?.cancelledAt).toBe(NOW);
   });
 });

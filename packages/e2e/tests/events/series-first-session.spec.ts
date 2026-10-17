@@ -164,5 +164,18 @@ test.describe("A series' first session and its saved sessions", () => {
       .getByRole("link", { name: "Open this session" })
       .click({ timeout: 15_000 });
     await page.waitForURL(`**/events/${fx.splitId}`, { timeout: 15_000 });
+
+    // On the new series' start date "this and following" is every session,
+    // so only "This event" and "All events" are offered.
+    await page.getByRole("button", { exact: true, name: "Edit" }).click({
+      timeout: 15_000,
+    });
+    const scopeDialog = page.getByRole("dialog");
+    await expect(
+      scopeDialog.getByRole("button", { name: "All events in the series" })
+    ).toBeVisible();
+    await expect(
+      scopeDialog.getByRole("button", { name: "This and following events" })
+    ).toHaveCount(0);
   });
 });

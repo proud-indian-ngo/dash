@@ -68,7 +68,7 @@ import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
-import { EditScopeDialog } from "./edit-scope-dialog";
+import { EditScopeDialog, seriesEditScopes } from "./edit-scope-dialog";
 import {
   EventDetailsCard,
   EventLocation,
@@ -384,7 +384,12 @@ function useScopeDialogs(
   };
 }
 
-type EventStatus = "upcoming" | "in-progress" | "completed" | "cancelled";
+type EventStatus =
+  | "upcoming"
+  | "in-progress"
+  | "completed"
+  | "cancelled"
+  | "first-session-cancelled";
 
 const STATUS_CONFIG: Record<
   EventStatus,
@@ -395,6 +400,11 @@ const STATUS_CONFIG: Record<
 > = {
   cancelled: { label: "Cancelled", tone: "neutral" },
   completed: { label: "Completed", tone: "success" },
+  // A series page whose first session was cancelled: the series runs on.
+  "first-session-cancelled": {
+    label: "First session cancelled",
+    tone: "neutral",
+  },
   "in-progress": { label: "In progress", tone: "info" },
   upcoming: { label: "Upcoming", tone: "info" },
 };
@@ -1020,7 +1030,9 @@ export function EventDetail({
   // cancelled, cancels it): the parent's page points there and takes no
   // join, interest, attendance or recap of its own.
   const firstRow = isVirtualOccurrence ? undefined : startDateRow(event);
-  const status = firstRow?.cancelled ? "cancelled" : eventState.status;
+  const status: EventStatus = firstRow?.cancelled
+    ? "first-session-cancelled"
+    : eventState.status;
   const canCancel = hasStarted ? canCancelPast : canManage;
   const canEdit = canEditProp ?? canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
@@ -1103,6 +1115,12 @@ export function EventDetail({
         isPastEvent,
         isVirtualOccurrence,
       });
+  // A saved session on the series' start date: "this and following" is
+  // the whole series there.
+  const scopes = seriesEditScopes(
+    event.seriesId ? parentEvent?.startTime : event.startTime,
+    scopeOccDate
+  );
   const attendanceMode = firstRow
     ? null
     : deriveAttendanceMode({
@@ -1385,6 +1403,7 @@ export function EventDetail({
         onOpenChange={setEditScopeDialogOpen}
         onSelect={handleEditScopeSelect}
         open={editScopeDialogOpen}
+        scopes={scopes}
         title="Edit recurring event"
       />
 
@@ -1392,6 +1411,7 @@ export function EventDetail({
         onOpenChange={setCancelScopeDialogOpen}
         onSelect={handleCancelScopeSelect}
         open={cancelScopeDialogOpen}
+        scopes={scopes}
         title="Cancel recurring event"
       />
 

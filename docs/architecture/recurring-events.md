@@ -15,17 +15,19 @@ RFC 5545 RRULEs on the `teamEvent` table:
 
 ## Expansion
 
-`expandSeries()` in `packages/shared/src/rrule-expand.ts` turns a rule into virtual occurrences for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest. ### First session
+`expandSeries()` in `packages/shared/src/rrule-expand.ts` turns a rule into virtual occurrences for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest.
+
+Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
+
+### First session
 
 The series' first session is the parent row itself (`seriesStartDate`, its UTC start date), unless a saved row sits on that date (a start-date row):
 
 - No start-date row: self-join, interest and website sign-ups on that date (or on the parent without a date) land on the parent, `materialize` refuses the date, and an event link with that `occDate` opens the parent, where attendance and the recap are recorded.
 - A live start-date row (made by a `following` split, or by older code): it is the first session. Joins, interest and sign-ups for the date resolve to it, a start-date `occDate` link opens it, and the parent's page shows "Open this session" instead of join, interest, attendance or the recap.
-- A cancelled start-date row: the first session is cancelled. The parent's page shows it as cancelled, and joins for the date are refused.
+- A cancelled start-date row: the first session is cancelled. The parent's page shows "First session cancelled", and joins for the date are refused.
 
 `startDateRow` (`apps/web/src/lib/event-display-utils.ts`) finds the row for the page.
-
-Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
 
 ## Team page display
 
@@ -47,8 +49,9 @@ Zero queries sync only rows with `seriesId IS NULL` (parents and standalone even
 | `all` | Updates the series parent | Cancels the parent and all exceptions |
 
 - Truncation sets `UNTIL` to the second before the split date starts in UTC (`<day before>T235959Z`). UNTIL is inclusive, so this keeps a session at exactly midnight UTC on the split date off the old series, whatever the series' wall-clock time.
-- A `following` split inserts the new series row with an empty roster, then moves the old series' saved sessions on or after the date to it with their own members, edits, attendance, interest, recaps and cancellation, so no date is listed twice. The split day's row becomes the new series' start-date row (see First session).
-- The WhatsApp group follows the continuing series: the old row's group is cleared before the new row takes it (`team_event_whatsappGroupId_uidx` allows one series row per group), moved sessions still on the old group take the new one, and their members are added to it when the group changes. Sessions left on the old series keep their stored group.
+- `following` on the series' own start date is every session, so `updateSeries` and `cancelSeries` treat it as `all` (the scope dialogs offer only "This event" and "All events" there), and an edit also applies to a saved start-date row.
+- A `following` split inserts the new series row with an empty roster, then moves the old series' saved sessions on or after the date to it with their own members, attendance, interest, recaps and cancellation, so no date is listed twice. The split day's row becomes the new series' start-date row ([first session](#first-session)) and takes the submitted fields, since the edit came from it; later rows keep their own details.
+- The WhatsApp group follows the continuing series: the old row's group is cleared before the new row takes it (`team_event_whatsappGroupId_uidx` allows one series row per group). First, on the server, the old series' upcoming unsaved sessions before the split day are saved with that group (series fields, no recap, the series' volunteers when it passes them on), so their reminders, polls and joins keep it; past unsaved sessions stay unsaved. Moved sessions still on the old group take the new one, and their members are added to it when the group changes. Sessions left on the old series keep their stored group. A series whose own first session is still upcoming at the split loses the group on that session, since the series row is that session.
 - Orphaned exceptions: `all` can move the parent's start past existing exceptions, and a split that changes the time or weekday leaves moved sessions on dates the new rule no longer produces. Their dates then no longer match the expansion.
 - A programme change applies forward only. `updateSeries` rejects it in `all` scope, so callers split (`following`) or use `this`. Every path that writes an occurrence copies `programmeId` and `costCentreId` from the series: `buildExceptionInsert`, the following-split insert, self-join, both background materialisers; `register-interest-db.ts` copies all columns.
 
