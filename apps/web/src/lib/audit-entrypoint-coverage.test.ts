@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "startEsignFn",
+  "checkEsignFn",
   "submitConflictDeclarationFn",
   "sendMeetingNoticeFn",
   "decideAgendaItemFn",
@@ -73,6 +75,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "getEsignStatusFn",
   "getPaymentGovernanceWarnings",
   "getMinutesUploadUrl",
   "getSigningJobStatus",
@@ -123,6 +126,9 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/jobs/$id/cancel.ts",
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",
+  // Leegality webhook: verified by its MAC; it records an eSign signature
+  // through runAuditedAction in the name of the trustee who started it.
+  "routes/api/leegality/webhook.ts",
   "routes/api/log/ingest.ts",
   // Machine token API: posted is audited in its handler; notify only enqueues
   // a digest; runs stores the pipeline's own run report (scheduled-job telemetry).

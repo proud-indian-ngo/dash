@@ -113,6 +113,19 @@ export const env = createEnv({
       ),
     /** Signing secret (`whsec_…`) of the Resend webhook for bounces and complaints; unset disables `/api/email/webhook`. */
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
+    /**
+     * Leegality API base, `https://sandbox.leegality.com/api` or
+     * `https://app1.leegality.com/api`. With LEEGALITY_AUTH_TOKEN,
+     * LEEGALITY_PROFILE_ID and LEEGALITY_PRIVATE_SALT it turns on Aadhaar
+     * eSign for circulars; unset hides it.
+     */
+    LEEGALITY_API_URL: z.url().optional(),
+    /** Leegality API auth token (`X-Auth-Token`), from Dashboard > API settings. */
+    LEEGALITY_AUTH_TOKEN: z.string().min(1).optional(),
+    /** ID of the Leegality workflow (Aadhaar eSign, one signer) that circulars go through. */
+    LEEGALITY_PROFILE_ID: z.string().min(1).optional(),
+    /** Leegality private salt: verifies webhooks (HMAC-SHA1 of the document ID). */
+    LEEGALITY_PRIVATE_SALT: z.string().min(1).optional(),
     /** Shared bearer token for the internal signing service (services/signing). */
     SIGNING_SERVICE_TOKEN: z.string().min(16).optional(),
     /** Internal URL of the signing service; unset stores signed PDFs without a signature check. */

@@ -13,6 +13,8 @@ import {
 } from "@pi-dash/db/queries/resolutions";
 import { setArchiveCopy } from "@pi-dash/db/queries/signing";
 import { env } from "@pi-dash/env/server";
+import { enqueue } from "@pi-dash/jobs/enqueue";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { addDays, DOCUMENT_TITLE_MAX } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { createRequestLogger } from "evlog";
@@ -31,12 +33,12 @@ const resolutionKey = (resolutionId: string, name: string) =>
  * Takes a PDF a trustee signed (uploaded from Acrobat, or finished by the
  * signing service for the helper), checks it against the latest copy,
  * stores it and records the assent. Passing files the final copy in the
- * vault and makes its long-term copy.
+ * vault and makes its long-term copy; a decision notifies everyone.
  */
 export async function acceptSignedPdf(input: {
   /** For the helper: the enrolled certificate the signature must come from. */
   expectedCertificateSha256?: string;
-  method: "acrobat_upload" | "dsc_helper";
+  method: "acrobat_upload" | "dsc_helper" | "esign";
   resolutionId: string;
   trustee: { id: string; legalName: string };
   uploaded: Uint8Array;
@@ -99,6 +101,16 @@ export async function acceptSignedPdf(input: {
   });
   if (decision.status === "passed") {
     await fileFinalCopy(input.resolutionId, objectKey, input.uploaded, report);
+  }
+  if (decision.status !== "issued") {
+    withFireAndForgetLog(
+      { handler: "resolution:decided", resolutionId: input.resolutionId },
+      async () => {
+        await enqueue("notify-resolution-decided", {
+          resolutionId: input.resolutionId,
+        });
+      }
+    );
   }
   return decision;
 }

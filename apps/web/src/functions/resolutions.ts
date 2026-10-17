@@ -372,7 +372,6 @@ export const submitSignedResolutionFn = createServerFn({ method: "POST" })
             userId: session.user.id,
           });
           await s3.delete(tempKey).catch(() => undefined);
-          enqueueDecided(decision, data.id);
           return { number: decision.number, status: decision.status };
         })
     );

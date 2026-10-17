@@ -93,6 +93,7 @@ import { Route as ApiEmailWebhookRouteImport } from './routes/api/email/webhook'
 import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
+import { Route as ApiLeegalityWebhookRouteImport } from './routes/api/leegality/webhook'
 import { Route as ApiLogIngestRouteImport } from './routes/api/log/ingest'
 import { Route as ApiMediaEventUpdateRouteImport } from './routes/api/media/event-update'
 import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
@@ -593,6 +594,11 @@ const ApiJobsStatsRoute = ApiJobsStatsRouteImport.update({
   path: '/api/jobs/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLeegalityWebhookRoute = ApiLeegalityWebhookRouteImport.update({
+  id: '/api/leegality/webhook',
+  path: '/api/leegality/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiLogIngestRoute = ApiLogIngestRouteImport.update({
   id: '/api/log/ingest',
   path: '/api/log/ingest',
@@ -1074,6 +1080,7 @@ export interface FileRoutesByFullPath {
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
+  '/api/leegality/webhook': typeof ApiLeegalityWebhookRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
@@ -1221,6 +1228,7 @@ export interface FileRoutesByTo {
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
+  '/api/leegality/webhook': typeof ApiLeegalityWebhookRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
@@ -1380,6 +1388,7 @@ export interface FileRoutesById {
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
+  '/api/leegality/webhook': typeof ApiLeegalityWebhookRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
   '/api/media/event-update': typeof ApiMediaEventUpdateRoute
   '/api/public/events': typeof ApiPublicEventsRoute
@@ -1541,6 +1550,7 @@ export interface FileRouteTypes {
     | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
+    | '/api/leegality/webhook'
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
@@ -1688,6 +1698,7 @@ export interface FileRouteTypes {
     | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
+    | '/api/leegality/webhook'
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
@@ -1846,6 +1857,7 @@ export interface FileRouteTypes {
     | '/api/email/webhook'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
+    | '/api/leegality/webhook'
     | '/api/log/ingest'
     | '/api/media/event-update'
     | '/api/public/events'
@@ -1950,6 +1962,7 @@ export interface RootRouteChildren {
   ApiEmailWebhookRoute: typeof ApiEmailWebhookRoute
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
   ApiJobsStatsRoute: typeof ApiJobsStatsRoute
+  ApiLeegalityWebhookRoute: typeof ApiLeegalityWebhookRoute
   ApiLogIngestRoute: typeof ApiLogIngestRoute
   ApiMediaEventUpdateRoute: typeof ApiMediaEventUpdateRoute
   ApiPublicEventsRoute: typeof ApiPublicEventsRoute
@@ -2570,6 +2583,13 @@ declare module '@tanstack/react-router' {
       path: '/api/jobs/stats'
       fullPath: '/api/jobs/stats'
       preLoaderRoute: typeof ApiJobsStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/leegality/webhook': {
+      id: '/api/leegality/webhook'
+      path: '/api/leegality/webhook'
+      fullPath: '/api/leegality/webhook'
+      preLoaderRoute: typeof ApiLeegalityWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/log/ingest': {
@@ -3549,6 +3569,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEmailWebhookRoute: ApiEmailWebhookRoute,
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,
   ApiJobsStatsRoute: ApiJobsStatsRoute,
+  ApiLeegalityWebhookRoute: ApiLeegalityWebhookRoute,
   ApiLogIngestRoute: ApiLogIngestRoute,
   ApiMediaEventUpdateRoute: ApiMediaEventUpdateRoute,
   ApiPublicEventsRoute: ApiPublicEventsRoute,
