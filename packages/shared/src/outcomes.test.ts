@@ -7,6 +7,7 @@ import {
   summarizeOutcomes,
   unsavedSessionRows,
 } from "./outcomes";
+import { expandSeries, seriesStartDate } from "./rrule-expand";
 
 const row = (overrides: Partial<OutcomeGroupRow>): OutcomeGroupRow => ({
   children: 0,
@@ -164,5 +165,70 @@ describe("unsavedSessionRows", () => {
     expect(
       unsavedSessionRows([parent], { from: null, to: start - DAY }, now)
     ).toEqual([]);
+  });
+});
+
+describe("unsavedSessionRows on long-running series", () => {
+  const HOUR = 3_600_000;
+  const DAY = 24 * HOUR;
+  const start = Date.UTC(2021, 0, 2, 23, 30);
+  const now = Date.UTC(2026, 9, 18, 6);
+  const range = { from: now - 30 * DAY, to: now };
+
+  it.each([
+    "FREQ=WEEKLY",
+    "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,SU",
+    "FREQ=WEEKLY;INTERVAL=3;BYDAY=MO,TH",
+    "FREQ=DAILY;INTERVAL=3",
+    "FREQ=MONTHLY;BYDAY=1SA",
+    "FREQ=WEEKLY;COUNT=400",
+  ])("counts the same sessions as expanding %s from its start", (rrule) => {
+    const rule = { exdates: ["2026-10-10"], rrule };
+    const expected = expandSeries(
+      rule,
+      start,
+      start + 2 * HOUR,
+      range.from,
+      range.to,
+      new Set([seriesStartDate(start)])
+    ).filter((occ) => (occ.endTime ?? occ.startTime) <= now).length;
+    const rows = unsavedSessionRows(
+      [
+        {
+          endTime: start + 2 * HOUR,
+          programmeId: "p",
+          programmeName: "P",
+          recurrenceRule: rule,
+          savedDates: [],
+          startTime: start,
+          teamId: "t",
+          teamName: "T",
+        },
+      ],
+      range,
+      now
+    );
+    expect(rows[0]?.events ?? 0).toBe(expected);
+    expect(expected).toBeGreaterThan(0);
+  });
+
+  it("skips a series whose rule ended before the range", () => {
+    const rows = unsavedSessionRows(
+      [
+        {
+          endTime: null,
+          programmeId: "p",
+          programmeName: "P",
+          recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20250101T235959Z" },
+          savedDates: [],
+          startTime: start,
+          teamId: "t",
+          teamName: "T",
+        },
+      ],
+      range,
+      now
+    );
+    expect(rows).toEqual([]);
   });
 });

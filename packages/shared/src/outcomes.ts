@@ -54,6 +54,50 @@ export interface OutcomeGroupRow {
   withoutRecap: number;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const UNTIL_RE = /UNTIL=(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/;
+const FREQ_RE = /FREQ=(DAILY|WEEKLY)(?:;|$)/;
+const INTERVAL_RE = /INTERVAL=(\d+)/;
+
+/** The rule's UNTIL as epoch ms, or null when it runs on. */
+function ruleUntil(rrule: string): number | null {
+  const m = UNTIL_RE.exec(rrule);
+  if (!m) {
+    return null;
+  }
+  const [, y, mo, d, h = "23", mi = "59", sec = "59"] = m;
+  return Date.UTC(
+    Number(y),
+    Number(mo) - 1,
+    Number(d),
+    Number(h),
+    Number(mi),
+    Number(sec)
+  );
+}
+
+/**
+ * A series start moved forward by whole periods to just before `from`, so
+ * expanding a series that began years ago doesn't walk every week since.
+ * Only for daily and weekly rules without COUNT or exclude rules, where a
+ * shift of whole periods keeps the same dates and times from `from` on.
+ */
+function sessionStartNear(
+  rule: { excludeRules?: string[]; rrule: string },
+  start: number,
+  from: number
+): number {
+  const freq = FREQ_RE.exec(rule.rrule)?.[1];
+  if (!freq || rule.rrule.includes("COUNT=") || rule.excludeRules?.length) {
+    return start;
+  }
+  const interval = Number(INTERVAL_RE.exec(rule.rrule)?.[1] ?? 1);
+  const period = (freq === "DAILY" ? 1 : 7) * interval * DAY_MS;
+  // One period short of `from`, so the week holding `from` is whole.
+  const periods = Math.floor((from - start) / period) - 1;
+  return periods > 0 ? start + periods * period : start;
+}
+
 /** A series parent considered for its unsaved past sessions. */
 export interface OutcomeSeriesParent {
   endTime: number | null;
@@ -92,10 +136,17 @@ export function unsavedSessionRows(
     if (from > to) {
       continue;
     }
+    const until = ruleUntil(rule.rrule);
+    if (until !== null && until < from) {
+      continue;
+    }
+    const start = sessionStartNear(rule, parent.startTime, from);
     const held = expandSeries(
       rule,
-      parent.startTime,
-      parent.endTime,
+      start,
+      parent.endTime === null
+        ? null
+        : start + (parent.endTime - parent.startTime),
       from,
       to,
       excluded
