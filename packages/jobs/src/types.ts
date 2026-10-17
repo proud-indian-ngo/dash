@@ -493,6 +493,11 @@ export interface CleanupStaleScheduledRecipientsPayload {
   triggeredAt: string;
 }
 
+/** A board meeting whose notice went out. */
+export interface NotifyMeetingPayload {
+  meetingId: string;
+}
+
 /** A resolution that was issued or decided. */
 export interface NotifyResolutionPayload {
   resolutionId: string;
@@ -761,6 +766,7 @@ export interface JobPayloads {
   "remind-stale-requests": RemindStaleRequestsPayload;
   "remind-trustee-terms": Record<string, never>;
   "notify-resolution-issued": NotifyResolutionPayload;
+  "notify-meeting-notice": NotifyMeetingPayload;
   "notify-resolution-decided": NotifyResolutionPayload;
   "close-due-resolutions": Record<string, never>;
   "retimestamp-governance-archives": Record<string, never>;

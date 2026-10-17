@@ -3,6 +3,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "sendMeetingNoticeFn",
+  "decideAgendaItemFn",
+  "markMeetingHeldFn",
+  "generateMinutesFn",
+  "submitSignedMinutesFn",
   "startDscSigningFn",
   "startDscEnrolmentFn",
   "recordHistoricalResolutionFn",
@@ -67,6 +72,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "getMinutesUploadUrl",
   "getSigningJobStatus",
   "getMyDscStatus",
   "getResolutionSignUploadUrl",

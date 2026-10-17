@@ -180,8 +180,12 @@ export function effectFrom(
   }
 }
 
-/** Creates or edits a draft circular. */
+/**
+ * Creates or edits a draft circular. With `agenda`, creates a resolution
+ * on a meeting's agenda instead, to be decided there.
+ */
 export function ResolutionDraftForm({
+  agenda,
   draftId,
   initial,
   mode,
@@ -189,6 +193,7 @@ export function ResolutionDraftForm({
   onSaved,
   trustees,
 }: {
+  agenda?: { itemId: string; meetingId: string };
   draftId: string;
   initial: DraftValues;
   mode: "create" | "update";
@@ -233,6 +238,31 @@ export function ResolutionDraftForm({
         templateKey: value.templateKey,
         title: value.title.trim(),
       };
+      if (agenda) {
+        const added = await zero.mutate(
+          mutators.agendaItem.add({
+            id: agenda.itemId,
+            meetingId: agenda.meetingId,
+            resolution: {
+              body: args.body,
+              effect: args.effect,
+              id: args.id,
+              templateKey: args.templateKey,
+            },
+            title: args.title,
+          })
+        ).server;
+        handleMutationResult(added, {
+          entityId: agenda.itemId,
+          errorMsg: `Couldn't add it to the agenda: ${getMutationResultErrorMessage(added.type === "error" ? added.error : undefined, "something went wrong")}`,
+          mutation: "agendaItem.add",
+          successMsg: "Added to the agenda",
+        });
+        if (added.type !== "error") {
+          onSaved(draftId);
+        }
+        return;
+      }
       const outcome = await zero.mutate(
         mode === "create"
           ? mutators.resolution.createDraft(args)
@@ -253,6 +283,10 @@ export function ResolutionDraftForm({
     },
   });
   const cancel = useEventCallback(onCancel);
+  let submitLabel = mode === "create" ? "Create draft" : "Save draft";
+  if (agenda) {
+    submitLabel = "Add to agenda";
+  }
   const trusteeOptions = trustees.map((t) => ({
     label: t.legalName,
     value: t.id,
@@ -278,7 +312,11 @@ export function ResolutionDraftForm({
                 {template.description}
               </p>
               <TextareaField
-                description="Separate paragraphs with a blank line. The text can't change once the circular is issued."
+                description={
+                  agenda
+                    ? "Separate paragraphs with a blank line. The text can change until the meeting decides it."
+                    : "Separate paragraphs with a blank line. The text can't change once the circular is issued."
+                }
                 isRequired
                 label="Text"
                 name="body"
@@ -382,7 +420,7 @@ export function ResolutionDraftForm({
       <FormActions
         disableWhenInvalid={false}
         onCancel={cancel}
-        submitLabel={mode === "create" ? "Create draft" : "Save draft"}
+        submitLabel={submitLabel}
         submittingLabel="Saving..."
       />
     </FormLayout>

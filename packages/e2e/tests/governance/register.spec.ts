@@ -46,20 +46,25 @@ test.describe("trustee register (super admin)", () => {
       page.getByRole("heading", { name: "On the board (2)" })
     ).toBeVisible();
     await expect(board.getByText("Rahul Das")).toBeHidden();
-    await expect(
-      page.getByText("no meeting can be quorate", { exact: false })
-    ).toBeVisible();
     const vikram = board.getByRole("row", { name: /Vikram Menon/ });
     await expect(vikram).toContainText("Joint Managing Trustee");
     await expect(vikram).toContainText("Secretary");
 
-    await page.getByRole("link", { name: "Trust deed" }).click();
+    // Before version 2 of the deed (1 Jan 2026), a quorum of five can't be
+    // met by the four trustees then in office.
+    await page.getByLabel("Board on", { exact: true }).fill("2025-12-31");
     await expect(
-      page.getByRole("heading", { name: /Version 1: Trust deed/ })
+      page.getByText("no meeting can be quorate", { exact: false })
     ).toBeVisible();
-    await expect(page.getByText("Circulars issued by")).toBeVisible();
+
+    await page.getByRole("link", { name: "Trust deed" }).click();
+    const version1 = page.locator("section").filter({
+      has: page.getByRole("heading", { name: /Version 1: Trust deed/ }),
+    });
+    await expect(version1).toBeVisible();
+    await expect(version1.getByText("Circulars issued by")).toBeVisible();
     await expect(
-      page.getByText(
+      version1.getByText(
         "5 trustees present and voting, including the Managing Trustee"
       )
     ).toBeVisible();

@@ -221,3 +221,48 @@ export async function notifyComplianceDue(options: {
     whatsappTemplate: null,
   });
 }
+
+/**
+ * A board meeting has been convened: the notice goes to every trustee in
+ * office on its date and to everyone who runs governance.
+ */
+export async function notifyMeetingNotice(notice: {
+  meetingId: string;
+  /** "20 Oct 2026, 10:00", in India time. */
+  startsAt: string;
+  title: string;
+  userIds: string[];
+  where: string;
+}): Promise<void> {
+  const path = `/governance/meetings/${notice.meetingId}`;
+  const paragraphs = [
+    `A board meeting has been called: "${notice.title}", on ${notice.startsAt} (${notice.where}).`,
+    "The agenda is on the meeting's page. If you can't attend, tell the secretary so the minutes record your leave of absence; you can also send your written views on a resolution.",
+  ];
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the agenda",
+    ctaUrl: `${env.APP_URL}${path}`,
+    heading: "Notice of a board meeting",
+    paragraphs,
+  });
+  await Promise.all(
+    notice.userIds.map((userId) =>
+      sendMessage({
+        body: paragraphs.join(" "),
+        clickAction: path,
+        digest: {
+          actionLabel: "Open",
+          meta: notice.startsAt,
+          name: notice.title,
+          status: { label: "Meeting", tone: "info" },
+        },
+        emailHtml,
+        idempotencyKey: `meeting-notice-${notice.meetingId}-${userId}`,
+        title: `Board meeting: ${notice.title}`,
+        to: userId,
+        topic: TOPICS.GOVERNANCE,
+        whatsappTemplate: null,
+      })
+    )
+  );
+}

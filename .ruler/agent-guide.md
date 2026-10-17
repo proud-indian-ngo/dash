@@ -89,6 +89,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Governance: trustee register, deed versions, vault, signing service | `governance.md` |
 | Circular resolutions, DSC signing helper, long-term copies | `governance-resolutions.md` |
 | Compliance calendar | `governance-compliance.md` |
+| Board meetings and minutes | `governance-meetings.md` |
 | Plate editor, shared constants | `editor.md`, `shared.md` |
 
 ## Documentation

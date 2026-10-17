@@ -106,12 +106,20 @@ export interface DeedVersionView {
   title: string;
 }
 
-/** The register, deed versions and the rules in force on a date, from Zero. */
-export function useRegister(on: string) {
-  const [trusteeRows, trusteeResult] = useQuery(queries.trustee.all());
-  const [deedRows, deedResult] = useQuery(queries.deedVersion.all());
-  const trustees = trusteeRows.map(toRegisterTrustee);
-  const deedVersions: DeedVersionView[] = deedRows.map((d) => ({
+type DeedVersionRow = ReturnType<typeof useDeedRows>[number];
+
+function useDeedRows() {
+  const [rows] = useQuery(queries.deedVersion.all());
+  return rows;
+}
+
+/** A synced deed version row as the shared rules read it. */
+export function toDeedVersionView(
+  d: Omit<DeedVersionRow, "document"> & {
+    document?: { title: string } | null;
+  }
+): DeedVersionView {
+  return {
     documentId: d.documentId ?? null,
     documentTitle: d.document?.title ?? null,
     effectiveFrom: epochToIso(d.effectiveFrom),
@@ -133,7 +141,15 @@ export function useRegister(on: string) {
       videoCountsPresent: d.videoCountsPresent,
     },
     title: d.title,
-  }));
+  };
+}
+
+/** The register, deed versions and the rules in force on a date, from Zero. */
+export function useRegister(on: string) {
+  const [trusteeRows, trusteeResult] = useQuery(queries.trustee.all());
+  const [deedRows, deedResult] = useQuery(queries.deedVersion.all());
+  const trustees = trusteeRows.map(toRegisterTrustee);
+  const deedVersions = deedRows.map(toDeedVersionView);
   const inForce = deedVersionOn(deedVersions, on);
   const input: RegisterInput<RegisterTrustee> = {
     offices: trustees.flatMap((t) => t.offices),

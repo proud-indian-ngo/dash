@@ -1,4 +1,6 @@
+import { DEED_VERSION_1, deedVersionOn } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
+import { kolkataInstant } from "@pi-dash/shared/meetings";
 
 import { db } from ".";
 import {
@@ -6,7 +8,14 @@ import {
   generateComplianceItems,
 } from "./queries/compliance";
 import { ensureGovernanceReferenceData } from "./queries/governance";
-import { trustee, trusteeOffice, trusteeTerm } from "./schema/governance";
+import {
+  deedVersion,
+  resolution,
+  trustee,
+  trusteeOffice,
+  trusteeTerm,
+} from "./schema/governance";
+import { agendaItem, meeting, meetingAttendance } from "./schema/meetings";
 
 /**
  * A fictional board shaped like the real one at design time
@@ -174,4 +183,139 @@ export async function ensureGovernanceFixtures(options: {
 export async function ensureComplianceFixtures(): Promise<void> {
   await ensureComplianceTemplates();
   await generateComplianceItems(todayInKolkata());
+}
+
+/**
+ * A planned amendment for the E2E board: a quorum of half the trustees in
+ * office (never fewer than two, the Managing Trustee among them), with video
+ * counting as present, from 1 Jan 2026. Version 1 can't be quorate with this
+ * board, so meeting specs need it. Not in the dev seed.
+ */
+export const DEED_VERSION_2_ID = "01930000-0000-7000-8000-00000000d002";
+
+export async function ensureAmendedDeedFixture(): Promise<void> {
+  const { rules } = DEED_VERSION_1;
+  await db
+    .insert(deedVersion)
+    .values({
+      amendmentThreshold: rules.amendmentThreshold,
+      castingVote: rules.castingVote,
+      circularIssuers: [...rules.circularIssuers],
+      coOptionMaxYears: rules.coOptionMaxYears,
+      createdAt: new Date(),
+      documentId: null,
+      effectiveFrom: "2026-01-01",
+      electronicCirculation: rules.electronicCirculation,
+      id: DEED_VERSION_2_ID,
+      maxTrustees: rules.maxTrustees,
+      minTrustees: rules.minTrustees,
+      noticeDays: rules.noticeDays,
+      number: 2,
+      quorumFloor: 2,
+      quorumKind: "fraction",
+      quorumRequiredOffice: "managing_trustee",
+      quorumValue: 50,
+      title: "Deed of amendment (planned), 2026",
+      videoCountsPresent: true,
+    })
+    .onConflictDoNothing();
+}
+
+export const MEETING_SEED_IDS = {
+  meeting: "01930000-0000-7000-8000-00000000d401",
+  resolution: "01930000-0000-7000-8000-00000000d411",
+} as const;
+
+/**
+ * A board meeting on 10 Oct 2026 whose notice has gone out: the three
+ * trustees in office that day on the attendance list (all absent until
+ * marked), a resolution to approve the budget and a discussion item. Specs
+ * take it through attendance, votes, the decision and the minutes.
+ */
+export async function ensureMeetingFixtures(): Promise<void> {
+  const meetingOn = "2026-10-10";
+  const versions = await db.select().from(deedVersion);
+  const inForce = deedVersionOn(versions, meetingOn);
+  const now = new Date();
+  const created = await db
+    .insert(meeting)
+    .values({
+      chairTrusteeId: T.managingTrustee,
+      createdAt: now,
+      deedVersionId: inForce?.id ?? null,
+      id: MEETING_SEED_IDS.meeting,
+      mode: "hybrid",
+      noticeSentAt: new Date(kolkataInstant("2026-10-01", "09:00")),
+      place: "Registered office, Bengaluru",
+      startsAt: new Date(kolkataInstant(meetingOn, "10:00")),
+      status: "convened",
+      title: "Board meeting, October 2026",
+      updatedAt: now,
+    })
+    .onConflictDoNothing()
+    .returning({ id: meeting.id });
+  if (created.length === 0) {
+    return;
+  }
+  await db
+    .insert(meetingAttendance)
+    .values(
+      [
+        { offices: ["managing_trustee"], trusteeId: T.managingTrustee },
+        { offices: ["secretary"], trusteeId: T.jointManagingTrustee },
+        { offices: ["vice_president"], trusteeId: T.formerVicePresident },
+      ].map((a, index) => ({
+        id: `01930000-0000-7000-8000-00000000d42${String(index)}`,
+        meetingId: MEETING_SEED_IDS.meeting,
+        offices: a.offices as (
+          | "managing_trustee"
+          | "secretary"
+          | "vice_president"
+        )[],
+        presence: "absent" as const,
+        trusteeId: a.trusteeId,
+      }))
+    )
+    .onConflictDoNothing();
+  await db
+    .insert(resolution)
+    .values({
+      body: "RESOLVED THAT the budget for 2027-28, as placed before the Board, be and is hereby approved.",
+      createdAt: now,
+      effect: { type: "none" },
+      historical: false,
+      id: MEETING_SEED_IDS.resolution,
+      kind: "meeting",
+      status: "draft",
+      templateKey: "ordinary",
+      title: "Approve the budget for 2027-28",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(agendaItem)
+    .values([
+      {
+        createdAt: now,
+        id: "01930000-0000-7000-8000-00000000d431",
+        kind: "resolution" as const,
+        meetingId: MEETING_SEED_IDS.meeting,
+        position: 1,
+        resolutionId: MEETING_SEED_IDS.resolution,
+        title: "Approve the budget for 2027-28",
+        updatedAt: now,
+      },
+      {
+        createdAt: now,
+        id: "01930000-0000-7000-8000-00000000d432",
+        kind: "discussion" as const,
+        meetingId: MEETING_SEED_IDS.meeting,
+        notes: "The secretary reported on the year's programmes.",
+        position: 2,
+        resolutionId: null,
+        title: "Programme review",
+        updatedAt: now,
+      },
+    ])
+    .onConflictDoNothing();
 }

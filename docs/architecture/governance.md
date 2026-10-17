@@ -52,7 +52,7 @@ The pending amendment sets quorum to half the trustees in office with a floor of
 
 ## Deed versions
 
-Version 1 has a fixed ID and is ensured on every server start. A version applies to decisions on or after its effective date. `quorum_value` is a head count for `fixed` quorum and a percentage of trustees in office for `fraction`. The registered deed or deed of amendment in the vault links to its version.
+Version 1 has a fixed ID and is ensured on every server start. A version applies to decisions on or after its effective date. `quorum_value` is a head count for `fixed` quorum and a percentage of trustees in office for `fraction`. The registered deed or deed of amendment in the vault links to its version. A registered amendment becomes the next version, starting from the rules of the one before, and must take effect after it.
 
 ## Vault and registrations
 
@@ -69,10 +69,6 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 ### Aadhaar eSign
 
 A fallback to the DSC through Leegality (about ₹25 per signature; Leegality sees the full PDF), checked like any other signed copy.
-
-### Meetings
-
-Notice by the deed's days; quorum and result per agenda item, by the deed in force that day; absentee written votes count toward the result, not quorum; the chair's casting vote; minutes signed by the chair; circulars since the last meeting noted.
 
 ### Declarations and policies
 
