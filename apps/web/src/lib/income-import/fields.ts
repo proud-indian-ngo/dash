@@ -11,6 +11,7 @@ import type {
 
 export const IMPORT_FIELD_KEYS = [
   "donorName",
+  "donorKind",
   "email",
   "phone",
   "idType",
@@ -54,6 +55,7 @@ export const IMPORT_FIELD_LABELS: Record<ImportFieldKey, string> = {
   country: "Country",
   currency: "Currency",
   donationType: "Donation type",
+  donorKind: "Donor type",
   donorName: "Donor name",
   email: "Email",
   externalId: "External donation ID",
@@ -89,6 +91,7 @@ const SYNONYMS: Record<ImportFieldKey, readonly string[]> = {
   country: ["country"],
   currency: ["currency", "donationcurrency", "currencycode"],
   donationType: ["donationtype", "type", "category"],
+  donorKind: ["donortype", "donorkind"],
   donorName: [
     "name",
     "donorname",
@@ -357,7 +360,7 @@ export const WEAK_IDENTITY_WARNING =
   "No external donation ID or transaction ID column is mapped, so rows are told apart only by date, amount, donor name and reference. Two identical gifts (same donor, date and amount, and no reference) will be treated as one: the second is marked already imported and not added. Map an ID column if the file has one.";
 
 /** Bumped whenever parsing or normalisation changes what a row turns into. */
-export const IMPORT_PARSER_VERSION = 2;
+export const IMPORT_PARSER_VERSION = 3;
 
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 5000;

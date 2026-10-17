@@ -91,6 +91,7 @@ export const REVIEW_ROW_STATUS_LABELS: Record<ReviewCategory, string> = {
 export const MATCH_REASON_LABELS: Record<MatchReason, string> = {
   email: "same email",
   id_number: "same ID number",
+  name: "same name",
   phone: "same phone",
 };
 

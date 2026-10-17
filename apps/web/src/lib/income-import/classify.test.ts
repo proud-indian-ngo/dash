@@ -26,6 +26,7 @@ function row(overrides: Partial<NormalizedRow> = {}): NormalizedRow {
     city: "",
     country: "IN",
     donationType: "voluntary",
+    donorKind: "person",
     donorName: "Asha Rao",
     email: "",
     externalId: "",
@@ -64,6 +65,7 @@ const emptyContext = (): ClassifyContext => ({
   existingContributions: [],
   identities: new Map(),
   idMatches: new Map(),
+  nameMatches: new Map(),
   phoneMatches: new Map(),
 });
 
@@ -507,6 +509,65 @@ describe("planRows", () => {
       planRows(classified, { [r.id]: { contribution: "import" } }).get(r.id)
         ?.action
     ).toBe("import");
+  });
+});
+
+describe("name proposals", () => {
+  it("proposes an existing donor with the same name and never picks it", () => {
+    const context = emptyContext();
+    context.nameMatches = new Map([
+      ["goodera", [{ name: "Goodera", partyId: "p-g" }]],
+    ]);
+    const r = input(row({ donorName: "  GOODERA ", externalId: "N1" }));
+    const [result] = classifyRows([r], context);
+    expect(result?.category).toBe("needs_review");
+    expect(result?.donor).toEqual({ kind: "undecided" });
+    expect(result?.donorOptions).toEqual([
+      { kind: "existing", name: "Goodera", partyId: "p-g", reason: "name" },
+    ]);
+    expect(planRows([result!], {}).get(r.id)).toEqual({
+      action: "skip",
+      reason: "undecided",
+    });
+    expect(
+      planRows([result!], { [r.id]: { donor: "party:p-g" } }).get(r.id)
+    ).toEqual({
+      action: "import",
+      donor: { kind: "existing", partyId: "p-g" },
+      fill: true,
+    });
+  });
+
+  it("proposes an earlier row with the same name, and choosing it makes one new donor", () => {
+    const a = input(row({ donorName: "Nextgen", externalId: "N2" }));
+    const b = input(row({ donorName: "nextgen", externalId: "N3" }));
+    const classified = classifyRows([a, b], emptyContext());
+    expect(classified[0]?.category).toBe("new_donor");
+    expect(classified[1]?.category).toBe("needs_review");
+    expect(classified[1]?.donorOptions).toEqual([
+      { kind: "row", reason: "name", rowId: a.id, rowNumber: a.rowNumber },
+    ]);
+    const joined = planRows(classified, { [b.id]: { donor: `row:${a.id}` } });
+    expect(joined.get(b.id)).toEqual({
+      action: "import",
+      donor: { key: `row:${a.id}`, kind: "new" },
+      fill: false,
+    });
+    expect(summarizePlans(joined.values()).newDonors).toBe(1);
+    const apart = planRows(classified, { [b.id]: { donor: "new" } });
+    expect(summarizePlans(apart.values()).newDonors).toBe(2);
+  });
+
+  it("does not offer a row whose different ID number makes it another donor", () => {
+    const a = input(
+      row({ externalId: "N4", idNumber: "ABCDE1234F", idType: "pan" })
+    );
+    const b = input(
+      row({ externalId: "N5", idNumber: "ABCDE5678G", idType: "pan" })
+    );
+    const classified = classifyRows([a, b], emptyContext());
+    expect(classified[1]?.category).toBe("new_donor");
+    expect(classified[1]?.donorOptions).toEqual([]);
   });
 });
 

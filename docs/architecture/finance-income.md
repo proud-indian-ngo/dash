@@ -60,7 +60,8 @@ Each upload is an `import_batch` (synced; settings and counts only). Rows sit in
 
 - Non-UTF-8 files are refused. The mapping is remembered per source.
 - Rows are classified on every review and again inside the import transaction. A known identity with the same payload links; a changed payload is a conflict, never overwritten. Without an external ID column a fingerprint (date, amount, donor name, reference) stands in, so two identical gifts without a reference become one.
-- A donor is picked automatically only on an exact stored identifier (narrowed by ID type and last four characters, then decrypted; there is no blind index). Shared identifiers and email or phone matches are proposals; undecided rows are skipped. Accepting a proposal can fill only the donor's empty fields.
+- A donor is picked automatically only on an exact stored identifier (narrowed by ID type and last four characters, then decrypted; there is no blind index). Shared identifiers and email, phone or name matches are proposals; undecided rows are skipped. A name matches an existing contributor's display or legal name, or an earlier row, ignoring case and spacing; rows with different ID numbers are never proposed. Choosing an earlier row makes both one new donor. Accepting an existing donor can fill only its empty fields.
+- An optional Donor type column makes the new donor an organisation (organisation, organization, org, company, trust) or a person (person, individual); blank is a person, anything else a cell error. It stays out of the payload hash, so re-uploading a file with the column added links rather than conflicts.
 - A reference match, or the same donor, day and amount, is a possible duplicate the reviewer must confirm.
 - Rows are validated against the donor form's rules at review, so an importable row can't fail at save.
 - Each donor gets one `collection_event` per batch.
@@ -93,7 +94,7 @@ The Razorpay account takes only donations (founder), so every captured payment i
 - `POST /api/razorpay/webhook` verifies the signature over the raw body, stages captured payments in that India day's batch, and queues `razorpay-sync-payment` keyed by payment ID.
 - Staging keeps allow-listed payment fields only (no card, bank or VPA) and only the notes whose keys match the configured notes keys. Decision: a notes key added later can't be read from payments staged before it.
 - A redelivery is found by payment ID or external identity (`import_row.external_id` survives retention), so a payment is never staged twice.
-- The job classifies the payment with the CSV rules: India date of capture, voluntary, General Fund, fee net of GST, donor from the notes. An exact PAN match or a new donor imports at once; email or phone matches and possible duplicates wait for review. Non-INR and never-captured payments are errors; a payment refunded since capture is recorded and its refunds apply separately.
+- The job classifies the payment with the CSV rules: India date of capture, voluntary, General Fund, fee net of GST, donor from the notes. An exact PAN match or a new donor imports at once; email, phone or name matches and possible duplicates wait for review. Non-INR and never-captured payments are errors; a payment refunded since capture is recorded and its refunds apply separately.
 - Payments without a usable clearing account wait; saving one re-queues them.
 - Webhooks and jobs are outside the audit ledger.
 

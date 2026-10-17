@@ -7,8 +7,8 @@ import type { CellIssue, NormalizedRow } from "./normalize";
  * what already exists. Pure, so the review step and the import run use the
  * same rules and both can be unit-tested. Automatic decisions follow design
  * 3.9: an external identity seen before links or conflicts, an exact ID
- * number picks the donor, and email, phone or amount-and-date matches are
- * only proposals.
+ * number picks the donor, and email, phone, name or amount-and-date matches
+ * are only proposals.
  */
 
 export const REVIEW_CATEGORIES = [
@@ -23,7 +23,7 @@ export const REVIEW_CATEGORIES = [
 ] as const;
 export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
-export type MatchReason = "email" | "id_number" | "phone";
+export type MatchReason = "email" | "id_number" | "name" | "phone";
 
 export type DonorOption =
   | { kind: "existing"; name: string; partyId: string; reason: MatchReason }
@@ -85,6 +85,8 @@ export interface ClassifyContext {
   identities: ReadonlyMap<string, ExistingIdentity>;
   /** Keyed by `idMatchKey`; only exact matches of a stored identifier. */
   idMatches: ReadonlyMap<string, readonly PartyRef[]>;
+  /** Keyed by `foldName` of the display or legal name. */
+  nameMatches: ReadonlyMap<string, readonly PartyRef[]>;
   phoneMatches: ReadonlyMap<string, readonly PartyRef[]>;
 }
 
@@ -115,6 +117,10 @@ export interface ClassifiedRow {
 
 export const idMatchKey = (idType: string, idNumber: string) =>
   `${idType}:${idNumber}`;
+
+/** A donor name compared without case or extra spaces. */
+export const foldName = (name: string) =>
+  name.toLowerCase().replaceAll(/\s+/g, " ").trim();
 
 function unique<T>(items: readonly T[], keyOf: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -164,6 +170,7 @@ function findDuplicate(
 interface FileDonor {
   email: string;
   idKey: string | null;
+  name: string;
   phone: string;
   rowId: string;
   rowNumber: number;
@@ -279,6 +286,7 @@ export function classifyRows(
         reason: "id_number" as const,
       }));
     } else {
+      const name = foldName(row.donorName);
       const contactParties = [
         ...(row.email ? (context.emailMatches.get(row.email) ?? []) : []).map(
           (p) => ({ ...p, reason: "email" as const })
@@ -286,21 +294,36 @@ export function classifyRows(
         ...(row.phone ? (context.phoneMatches.get(row.phone) ?? []) : []).map(
           (p) => ({ ...p, reason: "phone" as const })
         ),
+        ...(context.nameMatches.get(name) ?? []).map((p) => ({
+          ...p,
+          reason: "name" as const,
+        })),
       ];
       options = unique(contactParties, (p) => p.partyId).map((p) => ({
         kind: "existing" as const,
         ...p,
       }));
-      const sameContact = fileDonors.filter(
-        (d) =>
-          (!idKey || !d.idKey) &&
-          ((row.email && d.email === row.email) ||
-            (row.phone && d.phone === row.phone))
+      // Rows sharing an ID number are one donor, so only the first is offered.
+      const sameDonor = unique(
+        fileDonors.filter(
+          (d) =>
+            (!idKey || !d.idKey) &&
+            ((row.email && d.email === row.email) ||
+              (row.phone && d.phone === row.phone) ||
+              d.name === name)
+        ),
+        (d) => d.idKey ?? d.rowId
       );
-      for (const d of sameContact) {
+      for (const d of sameDonor) {
+        let reason: Exclude<MatchReason, "id_number"> = "name";
+        if (row.email && d.email === row.email) {
+          reason = "email";
+        } else if (row.phone && d.phone === row.phone) {
+          reason = "phone";
+        }
         options.push({
           kind: "row",
-          reason: row.email && d.email === row.email ? "email" : "phone",
+          reason,
           rowId: d.rowId,
           rowNumber: d.rowNumber,
         });
@@ -312,6 +335,7 @@ export function classifyRows(
     fileDonors.push({
       email: row.email,
       idKey,
+      name: foldName(row.donorName),
       phone: row.phone,
       rowId: input.id,
       rowNumber: input.rowNumber,
@@ -362,7 +386,7 @@ export interface RowDecision {
   /** Only for rows with donor options. */
   donor?: DonorChoice;
   /**
-   * With an existing donor proposed by email or phone: add the row's ID
+   * With an existing donor proposed by email, phone or name: add the row's ID
    * number, address, email or phone where that donor has none. On unless
    * turned off.
    */
@@ -431,9 +455,9 @@ function resolveDonor(
 }
 
 /**
- * Whether the reviewer accepted an existing donor proposed by email or phone
- * on this row and left "Fill missing details" on. ID-number matches already
- * hold the identifier, so they never fill.
+ * Whether the reviewer accepted an existing donor proposed by email, phone
+ * or name on this row and left "Fill missing details" on. ID-number matches
+ * already hold the identifier, so they never fill.
  */
 export function fillsChosenDonor(
   row: Pick<ClassifiedRow, "donor" | "donorOptions" | "sameDonorAs">,

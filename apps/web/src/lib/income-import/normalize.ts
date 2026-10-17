@@ -2,6 +2,7 @@ import type {
   ContributionChannel,
   DonationType,
   PartyIdType,
+  PartyKind,
 } from "@pi-dash/shared/constants";
 import {
   type ChannelAccount,
@@ -57,6 +58,8 @@ export interface NormalizedRow {
   city: string;
   country: string;
   donationType: DonationType;
+  /** Person unless the file's Donor type cell says organisation. */
+  donorKind: PartyKind;
   donorName: string;
   email: string;
   externalId: string;
@@ -259,6 +262,16 @@ const DONATION_TYPE_ALIASES: Record<string, DonationType> = {
   voluntary: "voluntary",
 };
 
+const DONOR_KIND_ALIASES: Record<string, PartyKind> = {
+  company: "organisation",
+  individual: "person",
+  org: "organisation",
+  organisation: "organisation",
+  organization: "organisation",
+  person: "person",
+  trust: "organisation",
+};
+
 const CHANNEL_ALIASES: Record<string, ContributionChannel> = {
   bank: "neft",
   banktransfer: "neft",
@@ -429,6 +442,20 @@ export function normalizeRow(
     }
   }
 
+  let donorKind: PartyKind = "person";
+  if (get("donorKind") !== "") {
+    const mapped = DONOR_KIND_ALIASES[key(get("donorKind"))];
+    if (mapped) {
+      donorKind = mapped;
+    } else {
+      errors.push({
+        field: "donorKind",
+        message:
+          "Unknown donor type; use person, individual, organisation, company or trust",
+      });
+    }
+  }
+
   let channel = options.defaultChannel;
   let channelFromFile = false;
   if (get("channel") !== "") {
@@ -492,6 +519,7 @@ export function normalizeRow(
     city: get("city"),
     country,
     donationType,
+    donorKind,
     donorName,
     email,
     externalId: get("externalId"),
@@ -538,7 +566,7 @@ export function donorSaveInput(
     id: options.id,
     idNumber: withId ? row.idNumber : "",
     idType: withId ? row.idType : "none",
-    kind: "person",
+    kind: row.donorKind,
     legalName: "",
     mode: "create",
     nationality: "",

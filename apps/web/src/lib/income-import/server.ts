@@ -11,6 +11,7 @@ import {
   findChannelRuleContext,
   findBatchByFileHash,
   findContributorsByContact,
+  findContributorsByName,
   findContributorsByIdentifier,
   findDuplicateCandidates,
   findExternalIdentities,
@@ -68,6 +69,7 @@ import {
   classifyRows,
   donorChoiceValue,
   type ExistingIdentity,
+  foldName,
   planRows,
   type ReviewCategory,
   type RowDecision,
@@ -536,10 +538,15 @@ async function classifyBatch(
     rows.map((r) => r.phone),
     executor
   );
+  const nameMatches = await findContributorsByName(
+    rows.map((r) => foldName(r.donorName)),
+    executor
+  );
   const partyIds = [
     ...[...idMatches.values()].flat(),
     ...[...contact.byEmail.values()].flat(),
     ...[...contact.byPhone.values()].flat(),
+    ...[...nameMatches.values()].flat(),
   ].map((p) => p.partyId);
   const dates = rows
     .map((r) => r.receivedOn)
@@ -575,6 +582,7 @@ async function classifyBatch(
     existingContributions,
     identities,
     idMatches,
+    nameMatches,
     phoneMatches: contact.byPhone,
   });
   const proposed = classified.flatMap((row) =>

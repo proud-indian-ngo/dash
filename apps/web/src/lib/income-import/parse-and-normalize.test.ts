@@ -334,6 +334,59 @@ describe("normalizeRow", () => {
     ).toMatchObject({ idNumber: "", idType: "none" });
   });
 
+  it("reads an optional donor type and saves the donor as that kind", () => {
+    const withKind = { ...mapping, Kind: "donorKind" } as const;
+    const read = (Kind: string) =>
+      normalizeRow(
+        {
+          Amount: "10",
+          Channel: "",
+          Date: "01/10/2026",
+          Email: "",
+          Kind,
+          Name: "Goodera",
+          PAN: "",
+          Phone: "",
+          Type: "",
+        },
+        withKind,
+        options
+      );
+    expect(read("").row.donorKind).toBe("person");
+    expect(read("Individual").row.donorKind).toBe("person");
+    for (const value of [
+      "Organisation",
+      "organization",
+      "ORG",
+      "Company",
+      "Trust",
+    ]) {
+      expect(read(value).row.donorKind).toBe("organisation");
+    }
+    const org = read("Organisation");
+    expect(org.errors).toEqual([]);
+    const donor = donorSaveInput(org.row, {
+      id: "0190a000-0000-7000-8000-000000000001",
+      withId: true,
+    });
+    expect(donor.kind).toBe("organisation");
+    expect(saveDonorSchema.safeParse(donor).success).toBe(true);
+    expect(read("Society").errors).toEqual([
+      {
+        field: "donorKind",
+        message:
+          "Unknown donor type; use person, individual, organisation, company or trust",
+      },
+    ]);
+  });
+
+  it("maps a Donor type header to the donor type field", () => {
+    expect(suggestMapping(["Donor Type", "Name"], null)).toEqual({
+      "Donor Type": "donorKind",
+      Name: "donorName",
+    });
+  });
+
   it("errors on a missing name, a bad amount, a future date or an unknown type", () => {
     const result = normalizeRow(
       {

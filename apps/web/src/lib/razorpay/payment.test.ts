@@ -323,6 +323,7 @@ describe("donor rules for Razorpay payments (shared classification)", () => {
     existingContributions: [],
     identities: new Map(),
     idMatches: new Map(),
+    nameMatches: new Map(),
     phoneMatches: new Map(),
   };
   const input = (p: RazorpayPayment, rowNumber = 1): ClassifyRowInput => {
