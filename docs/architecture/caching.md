@@ -11,6 +11,7 @@ Every cache and limiter is in memory in one process. There is no Redis or shared
 | Permissions by role | server process | 60 s | `invalidatePermissionCache(roleId)` |
 | Rate-limit counters | server process | window (default 60 s) | lost on restart or HMR |
 | Public events responses | server process | 60 s, at most 100 keys | expiry only |
+| Public events active cost centre codes | server process | 60 s; last codes kept 1 day if a refresh fails | expiry only |
 
 ## Auth cache
 
@@ -42,6 +43,6 @@ Limits per minute:
 
 For the public feed, the client IP is `cf-connecting-ip` (production is reachable only through Cloudflare), else the right-most `x-forwarded-for` hop. With neither, all requests share `unknown` and a warning is logged once.
 
-`/api/public/events` also keeps a 60-second response cache (`apps/web/src/lib/ttl-cache.ts`, at most 100 entries) keyed by city, raw `from`, window and limit.
+`/api/public/events` also keeps a 60-second response cache (`apps/web/src/lib/ttl-cache.ts`, at most 100 entries) keyed by the cost centre codes asked for (every active code without `city`), raw `from`, window and limit. The active codes are refreshed every 60 seconds (`centresCache`, one entry); if the database can't be read, the last codes serve for up to a day with a warning. Responses carry `Cache-Control: public, max-age=300, stale-while-revalidate=3600`, so a centre deactivated in Settings can linger at Cloudflare and in browsers after it leaves the server's cache. `/api/public/openapi.json` is sent with `public, max-age=300`.
 
 Better Auth has its own limits in `packages/auth/src/auth.ts`, separate from this limiter: 100/min by default; sign-in and email verification 10/min; sign-up, forgot and reset password 5/min.

@@ -1,6 +1,6 @@
 -- Cost centres replace the city enum (docs/architecture/finance-and-
--- programmes.md, "Cost centres"). 0154 added the nullable cost_centre_id
--- columns; this fills them from the old city, and 0156 drops the city
+-- programmes.md, "Cost centres"). 0155 added the nullable cost_centre_id
+-- columns; this fills them from the old city, and 0157 drops the city
 -- columns and the reimbursement_city enum.
 --
 -- Rules:

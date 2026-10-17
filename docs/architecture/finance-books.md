@@ -114,6 +114,7 @@ Rules in `packages/db/src/ledger/expense-rules.ts`; facts in `expense-posting.ts
 - Cutover follows the money (founder decision): money that all left before 1 April 2026 is history and posts nothing, even if approved later; money on both sides waits for the CA (`bank_debit_across_cutover`). A request paid partly before the cutover waits ("Paid partly before 1 Apr 2026").
 - Waits about the money (`no_payment_proof`, `bank_debit_across_cutover`, `match_exceeds_amount`, `pick_paying_account`) reverse what stands, so bank money is never counted twice. Other waits leave it. Reimbursements also wait for a missing approval day (`no_approval_day`); a zero total posts nothing.
 - Expense sources repost only the changed part: a match moves `cash` and `settle`, never the expense entries. Edits after posting, resets, rejected payments and deletes reverse and repost by revision.
+- Cost centre: entries carry the document's (`requestCostCentreId`), frozen at posting like the programme: each expense line (a provision's excess included), the reimbursement's `settle` part, and the `Supplier advances` decrease and increases. The `Audit fees payable` decrease, money movements and income entries carry none. A vendor payment's watermark includes its request's event, so changing an event's cost centre reposts its requests and their payments. Tests: `packages/db/src/ledger/cost-centre-posting.db.test.ts`.
 
 ### Payment proof after approval
 

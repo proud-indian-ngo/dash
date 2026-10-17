@@ -46,7 +46,7 @@ Adding or replacing the payment screenshot on an approved request is a separate 
 - A request has one `expense_date` for all its lines, stored as a date. The form and the mutator both refuse a future date.
 - Each `reimbursement_line_item` has an amount in paise (`bigint`), an expense category, an optional description and a sort order. A line can opt into a cash voucher with a payee; see [cash-vouchers.md](cash-vouchers.md).
 - Attachments (receipts, files or URLs) belong to the request, not to a line. Uploads go through `getRequestUploadUrl` (`apps/web/src/functions/attachments.ts`); see [file-uploads.md](file-uploads.md).
-- The request also records a `city` (Bangalore or Mumbai), which the form requires.
+- The request records a City (cost centre): its event's when it is on one, else its own. See "Cost centres" in [finance-and-programmes.md](finance-and-programmes.md).
 - Expense categories (`expense_category`) are managed in Settings → Expense categories with `settings.expense_categories`. Each category posts under its own `EXPENSE_<NAME>` account head; see "Account heads" in [finance-and-programmes.md](finance-and-programmes.md). A category used by any line item can't be deleted, because the foreign key restricts it.
 
 ## Payouts: bank accounts and UPI
