@@ -412,11 +412,11 @@ export async function matchedYearTouched(
 
 /** The bank debit figures of one account, for its reconciliation summary. */
 export interface DebitSummary {
-  /** Open debits (not matched in full, not ignored), those waiting for a claim included. */
+  /** Open debits (not matched in full, not ignored) from the cutover, those waiting for a claim included. */
   attentionCount: number;
   debitCount: number;
   debitsMatchedCount: number;
-  /** Open debits marked "Needs a claim". */
+  /** Open debits from the cutover marked "Needs a claim". */
   needsClaimCount: number;
   /** Open debits from the cutover, less what their allocations already explain. */
   unexplainedPaise: number;
@@ -430,8 +430,8 @@ export async function debitSummary(
     select
       count(*)::int as debits,
       count(*) filter (where l.match_status = 'matched')::int as matched,
-      count(*) filter (where l.match_status = 'unmatched')::int as open,
-      count(*) filter (where l.match_status = 'unmatched' and l.needs_claim_at is not null)::int as needs_claim,
+      count(*) filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date)::int as open,
+      count(*) filter (where l.match_status = 'unmatched' and l.value_on >= ${LEDGER_CUTOVER_ON}::date and l.needs_claim_at is not null)::int as needs_claim,
       coalesce(sum(l.amount_paise - coalesce((
           select sum(a.amount_paise) from ${statementAllocation} a
           where a.statement_line_id = l.id and a.released_at is null), 0))

@@ -181,7 +181,7 @@ export interface BankStatementSummaryResponse {
   creditsMatchedCount: number;
   /** Bank debit reconciliation (layer 3-3b). */
   debits: {
-    /** Open debits: not matched in full or ignored. */
+    /** Open debits from 1 Apr 2026: not matched in full or ignored. */
     attentionCount: number;
     debitCount: number;
     debitsMatchedCount: number;

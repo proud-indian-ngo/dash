@@ -3,6 +3,7 @@ import type {
   StatementLineMatchKind,
 } from "@pi-dash/shared/constants";
 import { CONTRIBUTION_RECEIVED_STATUSES } from "@pi-dash/shared/income";
+import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 import {
   and,
   asc,
@@ -680,7 +681,7 @@ export interface StatementSummary {
   giveDoClearingPaise: number;
   lineCount: number;
   suggestionCount: number;
-  /** Unmatched credits: what is left to review. */
+  /** Unmatched credits from the cutover: what is left to review. */
   unmatchedCount: number;
 }
 
@@ -694,7 +695,7 @@ export async function statementSummary(
       creditsMatched: sql<number>`count(*) filter (where ${statementLine.direction} = 'credit' and ${statementLine.matchStatus} = 'matched')::int`,
       lines: sql<number>`count(*)::int`,
       suggestions: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.suggestedKind} is not null)::int`,
-      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit')::int`,
+      unmatched: sql<number>`count(*) filter (where ${statementLine.matchStatus} = 'unmatched' and ${statementLine.direction} = 'credit' and ${statementLine.valueOn} >= ${LEDGER_CUTOVER_ON}::date)::int`,
     })
     .from(statementLine)
     .where(eq(statementLine.orgAccountId, orgAccountId));
