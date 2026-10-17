@@ -28,6 +28,8 @@ export const getAuth = createServerFn({ method: "GET" })
         step: "resolve-permissions",
       });
       log.emit();
-      return { permissions: [] as string[], session: context.session };
+      // Rethrow: empty permissions would read as access denied, and the
+      // client would cache that lockout for five minutes.
+      throw error;
     }
   });

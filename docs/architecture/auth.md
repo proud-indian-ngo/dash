@@ -14,7 +14,7 @@ Better Auth is configured in `packages/auth/src/auth.ts`.
 ## Session flow
 
 1. A volunteer signs up (or an admin creates the account), verifies email and signs in.
-2. The `_app` layout's `beforeLoad` calls `getCachedAuth()`, which returns session and permissions together and caches them on the client (`caching.md`). With no session it redirects to `/login` with the full current location. `_app` has an infinite `staleTime`, so `beforeLoad` reruns only when invalidated.
+2. The `_app` layout's `beforeLoad` calls `getCachedAuth()`, which returns session and permissions together and caches them on the client (`caching.md`). With no session it redirects to `/login` with the full current location. If the permissions can't be read it throws to the error screen, whose retry asks again; it never treats the user as having none. `_app` has an infinite `staleTime`, so `beforeLoad` reruns only when invalidated.
 3. Server functions and API routes call `requireSession(request)` (`apps/web/src/lib/api-auth.ts`).
 4. zero-cache forwards cookies to `/api/zero/mutate` and `/api/zero/query`. The app validates the session cookie and builds the Zero context. There is no separate JWT.
 
