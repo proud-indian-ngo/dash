@@ -1,7 +1,7 @@
-import { text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { user } from "../auth";
-import { trustee } from "../governance";
+import { resolution, signingCertificate, trustee } from "../governance";
 import { privateSchema } from "./party-private";
 
 /**
@@ -34,3 +34,57 @@ export const trusteePrivate = privateSchema.table("trustee_private", {
     onDelete: "set null",
   }),
 });
+
+export const signingJobKindEnum = privateSchema.enum("signing_job_kind", [
+  "enrol",
+  "sign",
+]);
+export const signingJobStatusEnum = privateSchema.enum("signing_job_status", [
+  "pending",
+  "completed",
+  "failed",
+]);
+
+/**
+ * One `pidash-sign://` link: the helper fetches it with the one-time token
+ * (only its hash is kept), signs on the trustee's token and posts back.
+ * Expires in 15 minutes. Server only: it holds the signing state's key.
+ */
+export const signingJob = privateSchema.table(
+  "signing_job",
+  {
+    /** sha256 of the PDF the signature extends; refuses a stale finish. */
+    basedOnSha256: text("based_on_sha256"),
+    certificateId: uuid("certificate_id").references(
+      () => signingCertificate.id,
+      { onDelete: "restrict" }
+    ),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").notNull(),
+    /** A message for the person, when it failed. */
+    error: text("error"),
+    expiresAt: timestamp("expires_at").notNull(),
+    fieldName: text("field_name"),
+    id: uuid("id").primaryKey(),
+    kind: signingJobKindEnum("kind").notNull(),
+    resolutionId: uuid("resolution_id").references(() => resolution.id, {
+      onDelete: "restrict",
+    }),
+    /** R2 key of the signing service's state between start and finish. */
+    stateObjectKey: text("state_object_key"),
+    status: signingJobStatusEnum("status").default("pending").notNull(),
+    /** The signed attributes the token signs, base64. */
+    toSign: text("to_sign"),
+    tokenHash: text("token_hash").notNull(),
+    trusteeId: uuid("trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    uniqueIndex("signing_job_token_uidx").on(t.tokenHash),
+    index("signing_job_user_idx").on(t.userId, t.createdAt),
+  ]
+);

@@ -48,6 +48,7 @@ import { Route as AppGovernanceIndexRouteImport } from './routes/_app/governance
 import { Route as AppGovernanceDeedRouteImport } from './routes/_app/governance/deed'
 import { Route as AppGovernanceDocumentsRouteImport } from './routes/_app/governance/documents'
 import { Route as AppGovernanceRegistrationsRouteImport } from './routes/_app/governance/registrations'
+import { Route as AppGovernanceSigningHelperRouteImport } from './routes/_app/governance/signing-helper'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
 import { Route as AppIncomeReturnRouteImport } from './routes/_app/income/return'
@@ -133,6 +134,7 @@ import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiSigningJobsTokenRouteImport } from './routes/api/signing/jobs/$token'
 import { Route as ApiSocialV1EventsRouteImport } from './routes/api/social/v1/events'
 import { Route as ApiSocialV1NotifyRouteImport } from './routes/api/social/v1/notify'
 import { Route as ApiSocialV1OpenapiDotjsonRouteImport } from './routes/api/social/v1/openapi[.]json'
@@ -351,6 +353,12 @@ const AppGovernanceRegistrationsRoute =
   AppGovernanceRegistrationsRouteImport.update({
     id: '/registrations',
     path: '/registrations',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceSigningHelperRoute =
+  AppGovernanceSigningHelperRouteImport.update({
+    id: '/signing-helper',
+    path: '/signing-helper',
     getParentRoute: () => AppGovernanceRouteRoute,
   } as any)
 const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
@@ -794,6 +802,11 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSigningJobsTokenRoute = ApiSigningJobsTokenRouteImport.update({
+  id: '/api/signing/jobs/$token',
+  path: '/api/signing/jobs/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSocialV1EventsRoute = ApiSocialV1EventsRouteImport.update({
   id: '/api/social/v1/events',
   path: '/api/social/v1/events',
@@ -975,6 +988,7 @@ export interface FileRoutesByFullPath {
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
+  '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1056,6 +1070,7 @@ export interface FileRoutesByFullPath {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1112,6 +1127,7 @@ export interface FileRoutesByTo {
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
+  '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1190,6 +1206,7 @@ export interface FileRoutesByTo {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1261,6 +1278,7 @@ export interface FileRoutesById {
   '/_app/governance/deed': typeof AppGovernanceDeedRoute
   '/_app/governance/documents': typeof AppGovernanceDocumentsRoute
   '/_app/governance/registrations': typeof AppGovernanceRegistrationsRoute
+  '/_app/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/_app/income/import': typeof AppIncomeImportRoute
   '/_app/income/return': typeof AppIncomeReturnRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1342,6 +1360,7 @@ export interface FileRoutesById {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1412,6 +1431,7 @@ export interface FileRouteTypes {
     | '/governance/deed'
     | '/governance/documents'
     | '/governance/registrations'
+    | '/governance/signing-helper'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1493,6 +1513,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1549,6 +1570,7 @@ export interface FileRouteTypes {
     | '/governance/deed'
     | '/governance/documents'
     | '/governance/registrations'
+    | '/governance/signing-helper'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1627,6 +1649,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1697,6 +1720,7 @@ export interface FileRouteTypes {
     | '/_app/governance/deed'
     | '/_app/governance/documents'
     | '/_app/governance/registrations'
+    | '/_app/governance/signing-helper'
     | '/_app/income/import'
     | '/_app/income/return'
     | '/_app/kalakriti/new'
@@ -1778,6 +1802,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1844,6 +1869,7 @@ export interface RootRouteChildren {
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
+  ApiSigningJobsTokenRoute: typeof ApiSigningJobsTokenRoute
   ApiSocialV1EventsRoute: typeof ApiSocialV1EventsRouteWithChildren
   ApiSocialV1NotifyRoute: typeof ApiSocialV1NotifyRoute
   ApiSocialV1OpenapiDotjsonRoute: typeof ApiSocialV1OpenapiDotjsonRoute
@@ -2129,6 +2155,13 @@ declare module '@tanstack/react-router' {
       path: '/registrations'
       fullPath: '/governance/registrations'
       preLoaderRoute: typeof AppGovernanceRegistrationsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/signing-helper': {
+      id: '/_app/governance/signing-helper'
+      path: '/signing-helper'
+      fullPath: '/governance/signing-helper'
+      preLoaderRoute: typeof AppGovernanceSigningHelperRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/income/': {
@@ -2726,6 +2759,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signing/jobs/$token': {
+      id: '/api/signing/jobs/$token'
+      path: '/api/signing/jobs/$token'
+      fullPath: '/api/signing/jobs/$token'
+      preLoaderRoute: typeof ApiSigningJobsTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/social/v1/events': {
       id: '/api/social/v1/events'
       path: '/api/social/v1/events'
@@ -2934,6 +2974,7 @@ interface AppGovernanceRouteRouteChildren {
   AppGovernanceDeedRoute: typeof AppGovernanceDeedRoute
   AppGovernanceDocumentsRoute: typeof AppGovernanceDocumentsRoute
   AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
+  AppGovernanceSigningHelperRoute: typeof AppGovernanceSigningHelperRoute
   AppGovernanceIndexRoute: typeof AppGovernanceIndexRoute
   AppGovernanceResolutionsResolutionIdRoute: typeof AppGovernanceResolutionsResolutionIdRoute
   AppGovernanceResolutionsIndexRoute: typeof AppGovernanceResolutionsIndexRoute
@@ -2943,6 +2984,7 @@ const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
   AppGovernanceDeedRoute: AppGovernanceDeedRoute,
   AppGovernanceDocumentsRoute: AppGovernanceDocumentsRoute,
   AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,
+  AppGovernanceSigningHelperRoute: AppGovernanceSigningHelperRoute,
   AppGovernanceIndexRoute: AppGovernanceIndexRoute,
   AppGovernanceResolutionsResolutionIdRoute:
     AppGovernanceResolutionsResolutionIdRoute,
@@ -3356,6 +3398,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
+  ApiSigningJobsTokenRoute: ApiSigningJobsTokenRoute,
   ApiSocialV1EventsRoute: ApiSocialV1EventsRouteWithChildren,
   ApiSocialV1NotifyRoute: ApiSocialV1NotifyRoute,
   ApiSocialV1OpenapiDotjsonRoute: ApiSocialV1OpenapiDotjsonRoute,

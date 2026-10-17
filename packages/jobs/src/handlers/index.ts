@@ -114,6 +114,7 @@ import {
   handleNotifyResolutionDecided,
   handleNotifyResolutionIssued,
 } from "./resolutions";
+import { handleRetimestampGovernanceArchives } from "./retimestamp-governance-archives";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendContributionReceipt } from "./send-contribution-receipt";
@@ -579,6 +580,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "close-due-resolutions",
     NOTIFY_POLL,
     withDefaultOutput((jobs) => handleCloseDueResolutions(jobs))
+  );
+  await boss.work(
+    "retimestamp-governance-archives",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRetimestampGovernanceArchives(jobs))
   );
   await boss.work(
     "remind-trustee-terms",

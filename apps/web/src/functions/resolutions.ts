@@ -1,11 +1,5 @@
 import { db } from "@pi-dash/db";
 import {
-  findGovernanceDocumentBySha256,
-  insertGovernanceDocument,
-  trusteeNamesForMatching,
-} from "@pi-dash/db/queries/governance";
-import {
-  currentRevision,
   declareConflict,
   type Decision,
   effectRegisterProblem,
@@ -14,10 +8,8 @@ import {
   loadRegister,
   recordHistoricalResolution,
   recordObjection,
-  recordSignature,
   ResolutionError,
   responseFor,
-  setFinalDocument,
   withdrawResolution,
 } from "@pi-dash/db/queries/resolutions";
 import { trustee } from "@pi-dash/db/schema/governance";
@@ -42,11 +34,11 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { acceptSignedPdf } from "@/lib/governance/accept-signature";
 import {
   assertOwnSignedUpload,
   assertRecentSignIn,
   CircularError,
-  checkSignedUpload,
   circularReference,
   fieldRequests,
   planIssue,
@@ -56,7 +48,6 @@ import {
   prepareSignatureFields,
   SigningServiceError,
   signingServiceConfigured,
-  validateSignedPdf,
 } from "@/lib/governance/signing-service";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
@@ -365,13 +356,6 @@ export const submitSignedResolutionFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const response = await responseFor(data.id, me.id);
-          const revision = await currentRevision(data.id);
-          if (!(response && revision)) {
-            throw new CircularError(
-              "You weren't a trustee in office when this was issued."
-            );
-          }
           const s3 = await getS3();
           const uploadedFile = s3.file(tempKey);
           if (!(await uploadedFile.exists())) {
@@ -380,85 +364,19 @@ export const submitSignedResolutionFn = createServerFn({ method: "POST" })
             );
           }
           const uploaded = new Uint8Array(await uploadedFile.arrayBuffer());
-          const current = new Uint8Array(
-            await s3.file(revision.latestObjectKey).arrayBuffer()
-          );
-          const [report, currentReport, names] = await Promise.all([
-            validateSignedPdf(uploaded),
-            validateSignedPdf(current),
-            trusteeNamesForMatching(),
-          ]);
-          const signature = checkSignedUpload({
-            current,
-            fieldName: response.fieldName,
-            report,
-            signedBefore: currentReport.signatures.length,
-            trustee: {
-              id: me.id,
-              names: names.find((n) => n.id === me.id)?.names ?? [me.legalName],
-            },
-            uploaded,
-          });
-          const sha256 = sha256Of(uploaded);
-          const objectKey = resolutionKey(
-            data.id,
-            `signed-${String(currentReport.signatures.length + 1)}.pdf`
-          );
-          await s3.write(objectKey, uploaded, { type: "application/pdf" });
-          await s3.delete(tempKey).catch(() => undefined);
-          const decision = await recordSignature({
-            basedOnSha256: revision.latestSha256,
-            createdBy: session.user.id,
+          const decision = await acceptSignedPdf({
             method: "acrobat_upload",
-            objectKey,
             resolutionId: data.id,
-            sha256,
-            signature: { ...signature, matchedTrusteeId: me.id },
-            today: todayInKolkata(),
-            trusteeId: me.id,
+            trustee: me,
+            uploaded,
+            userId: session.user.id,
           });
-          if (decision.status === "passed") {
-            await fileFinalCopy(data.id, objectKey, uploaded, report);
-          }
+          await s3.delete(tempKey).catch(() => undefined);
           enqueueDecided(decision, data.id);
           return { number: decision.number, status: decision.status };
         })
     );
   });
-
-/** The fully signed PDF goes into the vault and becomes the register's evidence. */
-async function fileFinalCopy(
-  resolutionId: string,
-  objectKey: string,
-  bytes: Uint8Array,
-  report: Awaited<ReturnType<typeof validateSignedPdf>>
-): Promise<void> {
-  const row = await getResolution(resolutionId);
-  if (!row) {
-    return;
-  }
-  const sha256 = sha256Of(bytes);
-  const existing = await findGovernanceDocumentBySha256(sha256);
-  const documentId =
-    existing?.id ??
-    (await insertGovernanceDocument({
-      contentType: "application/pdf",
-      datedOn: row.decidedOn ?? todayInKolkata(),
-      kind: "resolution",
-      note: `Passed by circulation as ${row.number ?? ""}.`,
-      objectKey,
-      originalFilename: `${(row.number ?? "resolution").replaceAll("/", "-")}.pdf`,
-      sha256,
-      sizeBytes: bytes.byteLength,
-      sourceFormat: "signed_pdf",
-      title: `${row.number ?? ""} ${row.title}`
-        .trim()
-        .slice(0, DOCUMENT_TITLE_MAX),
-      uploadedBy: row.draftedBy,
-      validationReport: report,
-    }));
-  await setFinalDocument(resolutionId, documentId);
-}
 
 // ── Withdraw ────────────────────────────────────────────────────────────────
 

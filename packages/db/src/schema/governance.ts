@@ -154,6 +154,16 @@ export const governanceDocument = pgTable(
     uploadedBy: text("uploaded_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    /**
+     * The long-term copy: the file with revocation data and a document
+     * timestamp (PAdES B-LTA), re-timestamped yearly. The original file never
+     * changes; this copy extends it.
+     */
+    archiveObjectKey: text("archive_object_key"),
+    archiveSha256: text("archive_sha256"),
+    archivedAt: timestamp("archived_at"),
+    /** When the archive copy needs its next document timestamp. */
+    archiveRenewOn: date("archive_renew_on"),
     validatedAt: timestamp("validated_at"),
     validationReport:
       jsonb("validation_report").$type<GovernanceValidationReport>(),
@@ -477,6 +487,46 @@ export const resolutionSignature = pgTable(
   ]
 );
 
+/** A trustee's DSC (or eSign identity), read from their token by the helper. */
+export const signingCertificate = pgTable(
+  "signing_certificate",
+  {
+    /** CA certificates the token holds, DER in base64, for the signature's chain. */
+    chain: jsonb("chain").$type<string[]>().notNull(),
+    /** The certificate, DER in base64. Public. */
+    der: text("der").notNull(),
+    enrolledAt: timestamp("enrolled_at").notNull(),
+    id: uuid("id").primaryKey(),
+    issuer: text("issuer").notNull(),
+    method: signatureMethodEnum("method").default("dsc_helper").notNull(),
+    notAfter: timestamp("not_after").notNull(),
+    notBefore: timestamp("not_before").notNull(),
+    revokedAt: timestamp("revoked_at"),
+    serial: text("serial").notNull(),
+    sha256: text("sha256").notNull(),
+    subject: text("subject").notNull(),
+    trusteeId: uuid("trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    uniqueIndex("signing_certificate_trustee_sha_uidx").on(
+      t.trusteeId,
+      t.sha256
+    ),
+  ]
+);
+
+export const signingCertificateRelations = relations(
+  signingCertificate,
+  ({ one }) => ({
+    trustee: one(trustee, {
+      fields: [signingCertificate.trusteeId],
+      references: [trustee.id],
+    }),
+  })
+);
+
 export const resolutionRelations = relations(resolution, ({ many, one }) => ({
   finalDocument: one(governanceDocument, {
     fields: [resolution.finalDocumentId],
@@ -534,6 +584,7 @@ export const resolutionSignatureRelations = relations(
 );
 
 export const trusteeRelations = relations(trustee, ({ one, many }) => ({
+  certificates: many(signingCertificate),
   offices: many(trusteeOffice),
   terms: many(trusteeTerm),
   user: one(user, { fields: [trustee.userId], references: [user.id] }),

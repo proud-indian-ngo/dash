@@ -95,3 +95,92 @@ export async function prepareSignatureFields(
   }
   return new Uint8Array(await response.arrayBuffer());
 }
+
+async function post(
+  path: string,
+  body: BodyInit,
+  contentType: string,
+  fetchImpl: typeof fetch
+): Promise<Response> {
+  if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
+    throw new SigningServiceError(
+      "Signing with the DSC helper needs the signing service, which isn't set up here."
+    );
+  }
+  const response = await fetchImpl(new URL(path, env.SIGNING_SERVICE_URL), {
+    body,
+    headers: {
+      Authorization: `Bearer ${env.SIGNING_SERVICE_TOKEN}`,
+      "Content-Type": contentType,
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(60_000),
+  }).catch(() => null);
+  if (!response) {
+    throw new SigningServiceError("The signing service couldn't be reached.");
+  }
+  if (!response.ok) {
+    const detail = await response
+      .json()
+      .then((b: { detail?: unknown }) =>
+        typeof b.detail === "string" ? b.detail : null
+      )
+      .catch(() => null);
+    throw new SigningServiceError(
+      detail ?? `The signing service answered ${response.status}.`
+    );
+  }
+  return response;
+}
+
+/** Reserves the signature in the trustee's field; returns what the token signs. */
+export async function startRemoteSignature(
+  input: {
+    certificate: string;
+    chain: string[];
+    fieldName: string;
+    pdf: Uint8Array;
+  },
+  fetchImpl: typeof fetch = fetch
+): Promise<{ state: string; toSign: string }> {
+  const response = await post(
+    "/sign/start",
+    JSON.stringify({
+      certificate: input.certificate,
+      chain: input.chain,
+      fieldName: input.fieldName,
+      pdf: Buffer.from(input.pdf).toString("base64"),
+    }),
+    "application/json",
+    fetchImpl
+  );
+  return (await response.json()) as { state: string; toSign: string };
+}
+
+/** Writes the token's signature (with a TSA timestamp) into the PDF. */
+export async function finishRemoteSignature(
+  input: { signature: string; state: string },
+  fetchImpl: typeof fetch = fetch
+): Promise<Uint8Array> {
+  const response = await post(
+    "/sign/finish",
+    JSON.stringify(input),
+    "application/json",
+    fetchImpl
+  );
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+/** Revocation data and a document timestamp: the long-term copy (PAdES B-LTA). */
+export async function finalizeForArchive(
+  pdf: Uint8Array,
+  fetchImpl: typeof fetch = fetch
+): Promise<Uint8Array> {
+  const response = await post(
+    "/finalize",
+    new Blob([new Uint8Array(pdf)], { type: "application/pdf" }),
+    "application/pdf",
+    fetchImpl
+  );
+  return new Uint8Array(await response.arrayBuffer());
+}
