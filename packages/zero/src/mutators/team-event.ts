@@ -27,6 +27,7 @@ import {
   cancelSeriesFollowing,
   cancelSeriesThis,
   ISO_DATE_RE,
+  moveSeriesOccurrencesToGroup,
   type Tx,
   updateSeriesAll,
   updateSeriesFollowing,
@@ -350,14 +351,25 @@ async function assertEventGroupChange(
   return next;
 }
 
-/** Add or invite an event's current members to the group it was given. */
+/**
+ * Add or invite the members of an event, and of any occurrence rows that
+ * moved with it, to the group it was given, in one task.
+ */
 async function pushEventGroupMembersTask(
   tx: Tx,
   ctx: MutatorCtx,
-  args: { eventId: string; groupId: string; mutator: string }
+  args: {
+    eventId: string;
+    groupId: string;
+    mutator: string;
+    occurrenceIds: string[];
+  }
 ): Promise<void> {
   const members = (await tx.run(
-    zql.teamEventMember.where("eventId", args.eventId)
+    zql.teamEventMember.where("eventId", "IN", [
+      args.eventId,
+      ...args.occurrenceIds,
+    ])
   )) as TeamEventMember[];
   pushAddGroupMembersTask(ctx, {
     entityId: args.eventId,
@@ -1555,8 +1567,17 @@ export const teamEventMutators = {
         );
       }
 
+      let movedOccurrenceIds: string[] = [];
       if (args.mode === "all") {
         await updateSeriesAll(tx, args, buildUpdateFields(args));
+        if (nextGroupId !== undefined) {
+          movedOccurrenceIds = await moveSeriesOccurrencesToGroup(tx, {
+            fromGroupId: existing.whatsappGroupId ?? null,
+            now: args.now,
+            seriesId: args.id,
+            toGroupId: nextGroupId,
+          });
+        }
       } else if (args.mode === "this") {
         await updateSeriesThis(tx, args, existing, ctx.userId);
       } else if (
@@ -1592,6 +1613,7 @@ export const teamEventMutators = {
           eventId: writeTarget,
           groupId: nextGroupId,
           mutator: "updateTeamEventSeries",
+          occurrenceIds: movedOccurrenceIds,
         });
       }
     }

@@ -385,3 +385,123 @@ describe("teamEvent WhatsApp group", () => {
     );
   });
 });
+
+describe("teamEvent.updateSeries 'all' moves saved occurrences", () => {
+  const series = {
+    endTime: null,
+    id: "s1",
+    managementDomain: null,
+    name: "Series",
+    programmeId: "p1",
+    recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    seriesId: null,
+    startTime: NOW + 1000,
+    teamId: "t1",
+  };
+  const occurrence = (id: string, whatsappGroupId: string | null) => ({
+    ...series,
+    id,
+    originalDate: "2027-01-02",
+    recurrenceRule: null,
+    seriesId: "s1",
+    whatsappGroupId,
+  });
+
+  async function runAll(
+    seriesGroupId: string | null,
+    occurrences: Row[],
+    whatsappGroupId: string | null,
+    members: Row[] = []
+  ) {
+    const { tx, writes } = fakeTx({
+      teamEvent: [
+        { ...series, whatsappGroupId: seriesGroupId },
+        ...occurrences,
+      ],
+      teamEventMember: members,
+    });
+    const { asyncTasks, ctx } = adminCtx(["events.edit"]);
+    await teamEventMutators.updateSeries.fn({
+      args: { id: "s1", mode: "all", now: NOW, whatsappGroupId },
+      ctx,
+      tx,
+    } as unknown as Parameters<typeof teamEventMutators.updateSeries.fn>[0]);
+    const groupWrites = Object.fromEntries(
+      writes
+        .filter((w) => w.table === "teamEvent" && w.op === "update")
+        .map((w) => [w.value.id, w.value.whatsappGroupId])
+    );
+    return { asyncTasks, groupWrites };
+  }
+
+  it("moves inherited occurrences and leaves custom ones", async () => {
+    const { groupWrites } = await runAll(
+      "g1",
+      [occurrence("o1", "g1"), occurrence("o2", "g9")],
+      "g2"
+    );
+    expect(groupWrites).toEqual({ o1: "g2", s1: "g2" });
+  });
+
+  it("moves occurrences without a group when the series had none", async () => {
+    const { groupWrites } = await runAll(
+      null,
+      [occurrence("o1", null), occurrence("o2", "g9")],
+      "g2"
+    );
+    expect(groupWrites).toEqual({ o1: "g2", s1: "g2" });
+  });
+
+  it("clears inherited occurrences when the group is removed", async () => {
+    const { asyncTasks, groupWrites } = await runAll(
+      "g1",
+      [occurrence("o1", "g1"), occurrence("o2", "g9")],
+      null,
+      [{ eventId: "o1", id: "em1", userId: "u1" }]
+    );
+    expect(groupWrites).toEqual({ o1: null, s1: null });
+    expect(addMembersTasks(asyncTasks)).toHaveLength(0);
+  });
+
+  it("adds the series' and moved occurrences' members in one task", async () => {
+    const { asyncTasks } = await runAll(
+      "g1",
+      [occurrence("o1", "g1"), occurrence("o2", "g9")],
+      "g2",
+      [
+        { eventId: "s1", id: "em1", userId: "u1" },
+        { eventId: "o1", id: "em2", userId: "u1" },
+        { eventId: "o1", id: "em3", userId: "u2" },
+        { eventId: "o2", id: "em4", userId: "u3" },
+      ]
+    );
+    const tasks = addMembersTasks(asyncTasks);
+    expect(tasks).toHaveLength(1);
+    await tasks[0]?.fn();
+    expect(enqueueMock).toHaveBeenCalledWith(
+      "whatsapp-add-members",
+      { groupId: "g2", userIds: ["u1", "u2"] },
+      expect.objectContaining({ singletonKey: "whatsapp-link-event-s1-g2" })
+    );
+  });
+
+  it("touches no occurrence when the group is unchanged", async () => {
+    const { asyncTasks, groupWrites } = await runAll(
+      "g1",
+      [occurrence("o1", "g1")],
+      "g1",
+      [{ eventId: "o1", id: "em1", userId: "u1" }]
+    );
+    expect(groupWrites).toEqual({ s1: "g1" });
+    expect(addMembersTasks(asyncTasks)).toHaveLength(0);
+  });
+
+  it("isn't refused for a group an occurrence of the same series uses", async () => {
+    const { groupWrites } = await runAll(
+      "g1",
+      [occurrence("o1", "g1"), occurrence("o2", "g2")],
+      "g2"
+    );
+    expect(groupWrites).toEqual({ o1: "g2", s1: "g2" });
+  });
+});
