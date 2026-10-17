@@ -22,7 +22,7 @@ import { governanceDocument } from "./governance";
 import { jsonb } from "./jsonb";
 
 /**
- * The compliance calendar (governance phase 4). Templates say what recurs;
+ * The compliance calendar. Templates say what recurs;
  * a daily job creates one item per occurrence, idempotently by source key.
  * An item closes only with evidence from the governance vault.
  */
