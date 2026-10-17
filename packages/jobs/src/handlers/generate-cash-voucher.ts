@@ -8,6 +8,8 @@ import {
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { env } from "@pi-dash/env/server";
+import { paiseToWords } from "@pi-dash/pdf/amount-to-words";
+import { generateCashVoucherPdf } from "@pi-dash/pdf/generate-voucher";
 import {
   CASH_VOUCHER_LIMIT_CONFIG_KEY,
   parseCashVoucherLimit,
@@ -249,10 +251,6 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   const voucherNumber = `CV-${year}-${seqVal.padStart(4, "0")}`;
 
   log.set({ voucherNumber });
-
-  const { generateCashVoucherPdf } =
-    await import("@pi-dash/pdf/generate-voucher");
-  const { paiseToWords } = await import("@pi-dash/pdf/amount-to-words");
 
   const pdfBuffer = await generateCashVoucherPdf({
     amountInWords: paiseToWords(amountPaise),

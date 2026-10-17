@@ -16,6 +16,8 @@ import {
 } from "@pi-dash/notifications/send/user";
 import { TOPICS } from "@pi-dash/notifications/topics";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import { getAllGroupJidsForUser } from "@pi-dash/whatsapp/groups";
+import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -532,9 +534,6 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
         // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
         // Best-effort: enqueue failure must not block user deletion.
         try {
-          const { getUserPhone } = await import("@pi-dash/whatsapp/users");
-          const { getAllGroupJidsForUser } =
-            await import("@pi-dash/whatsapp/groups");
           const [phone, groupJids] = await Promise.all([
             getUserPhone(data.userId),
             getAllGroupJidsForUser(data.userId),

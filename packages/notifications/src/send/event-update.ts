@@ -5,7 +5,7 @@ import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { formatEventDate, getUserIdsWithPermission } from "../helpers";
@@ -198,16 +198,10 @@ export async function notifyEventUpdatePending({
   });
 
   // Find team leads + users with event_updates.approve permission
-  const { and: drizzleAnd, eq: drizzleEq } = await import("drizzle-orm");
   const leadUserIds = await db
     .selectDistinct({ userId: teamMember.userId })
     .from(teamMember)
-    .where(
-      drizzleAnd(
-        drizzleEq(teamMember.teamId, teamId),
-        drizzleEq(teamMember.role, "lead")
-      )
-    );
+    .where(and(eq(teamMember.teamId, teamId), eq(teamMember.role, "lead")));
   const adminUserIds = await getUserIdsWithPermission("event_updates.approve");
   const allUserIds = [
     ...new Set([...leadUserIds.map((l) => l.userId), ...adminUserIds]),
