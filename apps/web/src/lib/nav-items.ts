@@ -153,12 +153,26 @@ const trusteeRegisterNavItem: NavItem = {
 
 const resolutionsNavItem: NavItem = {
   icon: TaskDone01Icon,
+  subItems: [
+    {
+      isHidden: true,
+      title: "Resolution",
+      url: "/governance/resolutions/$resolutionId",
+    },
+  ],
   title: "Resolutions",
   url: "/governance/resolutions",
 };
 
 const meetingsNavItem: NavItem = {
   icon: MeetingRoomIcon,
+  subItems: [
+    {
+      isHidden: true,
+      title: "Meeting",
+      url: "/governance/meetings/$meetingId",
+    },
+  ],
   title: "Meetings",
   url: "/governance/meetings",
 };

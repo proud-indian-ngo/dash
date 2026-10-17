@@ -37,6 +37,15 @@ async function choose(scope: Locator, label: string, option: string) {
   );
 }
 
+/** Attendance and votes are one tap on a segmented control. */
+async function tap(scope: Locator, group: string, option: string) {
+  const button = scope
+    .getByRole("group", { name: group })
+    .getByRole("button", { exact: true, name: option });
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+}
+
 test.describe("board meetings (super admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
@@ -56,16 +65,16 @@ test.describe("board meetings (super admin)", () => {
     ).toBeVisible();
 
     const attendance = page.getByRole("region", { name: "Attendance" });
-    await choose(attendance, "Attendance of Asha Rao", "Present");
-    await choose(attendance, "Attendance of Vikram Menon", "On video");
+    await tap(attendance, "Attendance of Asha Rao", "Present");
+    await tap(attendance, "Attendance of Vikram Menon", "On video");
 
     const agenda = page.getByRole("region", { name: "Agenda" });
     const item = agenda.getByRole("listitem").filter({
       hasText: "Approve the budget for 2027-28",
     });
-    await choose(item, "Vote of Asha Rao", "For");
-    await choose(item, "Vote of Vikram Menon", "Against");
-    await expect(item.getByText("met (2 of 2 needed)")).toBeVisible();
+    await tap(item, "Vote of Asha Rao", "For");
+    await tap(item, "Vote of Vikram Menon", "Against");
+    await expect(item.getByText("Quorum met · 2 of 2")).toBeVisible();
     await expect(item.getByText("1 for, 1 against")).toBeVisible();
 
     await choose(item, "The chair's casting vote", "For");

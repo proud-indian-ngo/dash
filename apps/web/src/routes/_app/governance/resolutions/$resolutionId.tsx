@@ -13,14 +13,6 @@ import {
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
@@ -33,7 +25,6 @@ import {
   effectSubject,
   RESOLUTION_TEMPLATES,
   type ResolutionEffect,
-  SIGNATURE_METHOD_LABELS,
   tallyCircular,
 } from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -55,6 +46,7 @@ import {
   ResolutionDraftForm,
 } from "@/components/governance/resolution-draft-form";
 import { ResolutionResponsePanel } from "@/components/governance/resolution-response-panel";
+import { ResolutionSignatures } from "@/components/governance/resolution-signatures";
 import { ResolutionStatusBadge } from "@/components/governance/resolution-status";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -65,12 +57,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
   issueResolutionFn,
   withdrawResolutionFn,
 } from "@/functions/resolutions";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
 import {
@@ -121,6 +113,7 @@ function ResolutionPage() {
   const { hasPermission, user } = useApp();
   const canManage = hasPermission("governance.manage");
   const [row, result] = useQuery(queries.resolution.byId({ id: resolutionId }));
+  useRecordTitle(row?.title);
   const today = todayIso();
   const { trustees } = useRegister(today);
   const zero = useZero();
@@ -344,95 +337,53 @@ function ResolutionPage() {
         <p className="text-muted-foreground mt-3 text-sm">{row.validityNote}</p>
       ) : null}
 
-      {mine &&
-      row.status === "issued" &&
-      mine.response === "pending" &&
-      !mine.conflictDeclared ? (
-        <div className="mt-6">
-          <ResolutionResponsePanel
-            fieldsPrepared={fieldsPrepared}
-            resolutionId={row.id}
-          />
-        </div>
-      ) : null}
+      <div
+        className={
+          tally
+            ? "mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start"
+            : "mt-6"
+        }
+      >
+        <section className="flex flex-col gap-3 rounded-md border p-4">
+          <h2 className="text-base font-semibold">Text</h2>
+          {paragraphs(row.body).map((p, i) => (
+            <p className="text-sm leading-relaxed" key={`p${String(i)}`}>
+              {p}
+            </p>
+          ))}
+          {effectLine ? (
+            <p className="text-muted-foreground border-t pt-3 text-sm">
+              When it passes, the register records: {effectLine}
+            </p>
+          ) : null}
+        </section>
 
-      <section className="mt-6 flex flex-col gap-3 rounded-md border p-4">
-        <h2 className="text-base font-semibold">Text</h2>
-        {paragraphs(row.body).map((p, i) => (
-          <p className="text-sm leading-relaxed" key={`p${String(i)}`}>
-            {p}
-          </p>
-        ))}
-        {effectLine ? (
-          <p className="text-muted-foreground border-t pt-3 text-sm">
-            When it passes, the register records: {effectLine}
-          </p>
-        ) : null}
-      </section>
-
-      {tally ? (
-        <section className="mt-6 flex flex-col gap-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-base font-semibold">Responses</h2>
-            <p className="text-muted-foreground text-sm">
-              {
+        {tally ? (
+          <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+            <ResolutionSignatures
+              assents={tally.assents}
+              needed={tally.needed}
+              objections={tally.objections}
+              responses={responses}
+              thresholdLabel={
                 RESOLUTION_THRESHOLD_LABELS[
                   row.threshold ?? "majority_in_office"
                 ]
               }
-              : {tally.assents} of {tally.needed} signatures
-              {tally.objections > 0 ? `, ${tally.objections} objected` : ""}
-            </p>
+              userId={user.id}
+            />
+            {mine &&
+            row.status === "issued" &&
+            mine.response === "pending" &&
+            !mine.conflictDeclared ? (
+              <ResolutionResponsePanel
+                fieldsPrepared={fieldsPrepared}
+                resolutionId={row.id}
+              />
+            ) : null}
           </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Trustee</TableHead>
-                  <TableHead>Response</TableHead>
-                  <TableHead>Signature</TableHead>
-                  <TableHead>Note</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {responses.map((r) => {
-                  let label = "Waiting";
-                  let tone: "neutral" | "success" | "danger" | "warning" =
-                    "neutral";
-                  if (r.conflictDeclared) {
-                    label = "Conflict declared";
-                    tone = "warning";
-                  } else if (r.response === "assent") {
-                    label = "Signed";
-                    tone = "success";
-                  } else if (r.response === "objection") {
-                    label = "Objected";
-                    tone = "danger";
-                  }
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">
-                        {r.trustee?.legalName}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge tone={tone}>{label}</StatusBadge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {r.signature
-                          ? `${SIGNATURE_METHOD_LABELS[r.signature.method]} · ${r.signature.signerName ?? ""}${r.signature.signingTime ? ` · ${formatTimestamp(new Date(r.signature.signingTime).toISOString())}` : ""}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {r.reason ?? r.conflictNote ?? ""}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </section>
-      ) : null}
+        ) : null}
+      </div>
 
       <Dialog onOpenChange={setEditing} open={editing}>
         <DialogContent className="sm:max-w-(--dialog-lg)">

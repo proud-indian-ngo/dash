@@ -63,7 +63,13 @@ test.describe("compliance calendar (super admin)", () => {
     await expect(
       page.getByRole("heading", { name: "Compliance calendar" })
     ).toBeVisible();
-    await expect(page.getByText(/^TDS return \(Q\d\)$/).first()).toBeVisible();
+    // The seeded calendar runs 400 days ahead, so later months always hold
+    // items, folded by month until opened.
+    const later = page.getByRole("region", { name: "Later" });
+    await later.getByRole("button").first().click();
+    await expect(
+      later.locator("[data-testid^='compliance-item-']").first()
+    ).toBeVisible();
 
     const title = `E2E one-off filing ${stamp}`;
     await addItem(page, title);

@@ -51,10 +51,12 @@ import {
   todayIso,
   useRegister,
 } from "@/components/governance/register-data";
+import { SegmentedChoice } from "@/components/governance/segmented-choice";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { useApp } from "@/context/app-context";
 import { markMeetingHeldFn, sendMeetingNoticeFn } from "@/functions/meetings";
+import { useRecordTitle } from "@/hooks/use-record-title";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -78,6 +80,14 @@ export const Route = createFileRoute("/_app/governance/meetings/$meetingId")({
 const officeText = (offices: readonly TrusteeOffice[] | null | undefined) =>
   (offices ?? []).map((o) => TRUSTEE_OFFICE_LABELS[o]).join(", ");
 
+/** Attendance labels short enough for one row of buttons. */
+const PRESENCE_SHORT: Record<Presence, string> = {
+  absent: "Absent",
+  absent_with_leave: "Leave",
+  in_person: "Present",
+  video: "Video",
+};
+
 function Fact({
   label,
   children,
@@ -99,6 +109,7 @@ function MeetingPage() {
   const canManage = hasPermission("governance.manage");
   const canSee = canManage || hasPermission("governance.view");
   const [row, result] = useMeetingDetail(meetingId);
+  useRecordTitle(row?.title);
 
   if (!row) {
     return (
@@ -412,18 +423,23 @@ function MeetingView({
                         <span>{name}</span>
                         <span className="text-muted-foreground text-xs">
                           {officeText(a.offices) || "Trustee"}
+                          {canRecord && !a.markedAt ? " · not marked" : ""}
                         </span>
                       </span>
                       {canRecord ? (
-                        <PlainSelect
-                          className="w-48"
+                        <SegmentedChoice
                           label={`Attendance of ${name}`}
-                          onChange={(value) => setPresence(a.id, value)}
+                          onChange={(value) => {
+                            if (value) {
+                              setPresence(a.id, value);
+                            }
+                          }}
                           options={presenceValues.map((value) => ({
                             label: PRESENCE_LABELS[value],
+                            short: PRESENCE_SHORT[value],
                             value,
                           }))}
-                          value={a.presence ?? "absent"}
+                          value={a.markedAt ? (a.presence ?? "absent") : null}
                         />
                       ) : (
                         <span className="text-muted-foreground">

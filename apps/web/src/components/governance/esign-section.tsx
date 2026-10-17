@@ -122,8 +122,8 @@ export function EsignSection({
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="text-sm font-medium">Or sign with Aadhaar eSign</h3>
-      <p className="text-sm">
+      <h3 className="text-sm font-medium">Aadhaar eSign</h3>
+      <p className="text-muted-foreground text-sm">
         No token needed: Leegality opens in a new tab, you confirm with the OTP
         sent to your Aadhaar-linked mobile, and your signature comes back here.
         Leegality receives the circular to do this.
@@ -134,7 +134,7 @@ export function EsignSection({
           disabled={busy !== null}
           onClick={handleStart}
           type="button"
-          variant={waiting ? "outline" : "default"}
+          variant="outline"
         >
           <HugeiconsIcon
             className="size-4"

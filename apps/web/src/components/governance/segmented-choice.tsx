@@ -1,0 +1,45 @@
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@pi-dash/design-system/components/ui/toggle-group";
+
+/**
+ * One tap per mark while the meeting runs: attendance and votes. Tapping the
+ * chosen option again clears it, when `onChange` accepts null.
+ */
+export function SegmentedChoice<T extends string>({
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: T | null) => void;
+  options: readonly { label: string; short?: string; value: T }[];
+  value: T | null;
+}) {
+  return (
+    <ToggleGroup
+      aria-label={label}
+      className="overflow-hidden rounded-md"
+      onValueChange={(next: string[]) => {
+        const picked = options.find((o) => o.value === next[0]);
+        onChange(picked ? picked.value : null);
+      }}
+      size="sm"
+      value={value ? [value] : []}
+      variant="outline"
+    >
+      {options.map((option) => (
+        <ToggleGroupItem
+          aria-label={option.label}
+          className="aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground px-2.5 text-xs"
+          key={option.value}
+          value={option.value}
+        >
+          {option.short ?? option.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
