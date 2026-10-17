@@ -33,6 +33,11 @@ import {
   type LockableKalakritiTx,
 } from "./kalakriti-row-locks";
 import { buildUpdateFields } from "./team-event-series";
+import {
+  assertWhatsAppGroupAvailable,
+  pushAddGroupMembersTask,
+  whatsappGroupChange,
+} from "./whatsapp-group-link";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -109,7 +114,8 @@ export const kalakritiEditionUpdateLinkedEventSchema = z.object({
     .refine((n) => RSVP_POLL_LEAD_PRESET_MINUTES.includes(n))
     .optional(),
   startTime: z.number().optional(),
-  whatsappGroupId: z.string().optional(),
+  // Undefined leaves the group alone; null removes it.
+  whatsappGroupId: z.string().nullable().optional(),
 });
 
 export const kalakritiEditionTransitionSchema = z.object({
@@ -929,8 +935,10 @@ export const kalakritiEditionMutators = {
         | {
             id: string;
             name: string;
+            seriesId: string | null;
             startTime: number;
             teamId: string;
+            whatsappGroupId: string | null;
           }
         | undefined;
       if (!existingEvent) {
@@ -956,6 +964,16 @@ export const kalakritiEditionMutators = {
         existingEvent.startTime,
         editionRow?.plannedRegistrationCloseAt
       );
+      const nextGroupId = whatsappGroupChange(
+        existingEvent.whatsappGroupId,
+        args.whatsappGroupId
+      );
+      if (nextGroupId) {
+        await assertWhatsAppGroupAvailable(tx, nextGroupId, {
+          seriesRootId: existingEvent.seriesId ?? existingEvent.id,
+          type: "event",
+        });
+      }
 
       await (tx as EditionTx).mutate.teamEvent.update(
         buildUpdateFields({
@@ -998,6 +1016,19 @@ export const kalakritiEditionMutators = {
         targetId: existingEvent.id,
         targetType: "event",
       });
+
+      if (tx.location === "server" && nextGroupId) {
+        const members = (await tx.run(
+          zql.teamEventMember.where("eventId", existingEvent.id)
+        )) as { userId: string }[];
+        pushAddGroupMembersTask(ctx, {
+          entityId: existingEvent.id,
+          entityType: "event",
+          groupId: nextGroupId,
+          mutator: "updateKalakritiLinkedEvent",
+          userIds: members.map((m) => m.userId),
+        });
+      }
     }
   ),
 

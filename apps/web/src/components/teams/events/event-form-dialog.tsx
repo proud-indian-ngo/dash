@@ -286,7 +286,7 @@ function buildUpdateMutatorArgs(
       initial: initialValues,
       omitUnchanged: initialValues.seriesId !== null,
     }),
-    whatsappGroupId: value.whatsappGroupId || undefined,
+    whatsappGroupId: value.whatsappGroupId || null,
   };
 }
 
@@ -336,7 +336,7 @@ function buildUpdateSeriesArgs(
       initial: initialValues,
       omitUnchanged: editScope === "this",
     }),
-    whatsappGroupId: value.whatsappGroupId || undefined,
+    whatsappGroupId: value.whatsappGroupId || null,
   };
   if (editScope === "this") {
     return { ...base, newExceptionId: uuidv7(), originalDate };
@@ -423,7 +423,7 @@ function getMutation(
             ? { rsvpPollLeadMinutes: Number(value.rsvpPollLeadMinutes) }
             : {}),
           startTime: getStartTimeEpoch(value),
-          whatsappGroupId: value.whatsappGroupId || undefined,
+          whatsappGroupId: value.whatsappGroupId || null,
         })
       ),
       mutationName: "kalakritiEdition.updateLinkedEvent",

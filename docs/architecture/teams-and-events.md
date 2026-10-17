@@ -31,11 +31,11 @@ A team lead is a `teamMember` row with `role: "lead"`. It is unrelated to the cu
 
 `team.whatsappGroupId` points at a `whatsappGroup` row. The team form can link an existing group or tick "create a group".
 
-- Create enqueues `whatsapp-create-group`. It creates the group in GoWA with only the creator's phone, stores the `whatsappGroup` row and links it to the team. Existing members are not added.
+- Create enqueues `whatsapp-create-group`. It creates the group in GoWA with only the creator's phone, stores the `whatsappGroup` row, links it, then enqueues `whatsapp-add-members` for everyone else already on the team.
+- Linking or switching a group enqueues `whatsapp-add-members` for the current members. The old group keeps its members.
 - Adding a member enqueues `whatsapp-add-member-team`; removing enqueues `whatsapp-remove-member-team`. Both look up the team's current group when the job runs.
-- Linking or switching a group does not back-fill current members. Only later adds and removes sync.
-- The picker hides groups already linked to another team or event. The server does not enforce one owner per group.
-- The form sends an empty choice as `undefined`, which Zero treats as "unchanged", so a linked group can't be cleared from the form.
+- "None" sends `whatsappGroupId: null`, which unlinks the group and removes no one; `undefined` leaves it unchanged.
+- One owner per group: when the group changes, the server pass refuses a group used by another team or event, or by an app-wide group. Why: removing a member would remove them from the other owner's group. An event's own series shares its group. Links made before this rule keep working until changed (`whatsapp-group-link.ts`).
 
 Invites instead of adds on the Cloud API, group JIDs and join links are in [notifications](notifications.md#group-invites).
 
@@ -69,7 +69,7 @@ An event (`teamEvent`) belongs to one team. It is created from the team page and
 
 Kalakriti-managed events reject most of these mutators; their volunteers are managed from the Edition ([Kalakriti](kalakriti-registration.md)).
 
-Creating an event that does not start in the past notifies the team (`notify-event-created`). Editing notifies members. Ticking "create a group" works as for teams, with `entityType: "event"`.
+Creating an event that does not start in the past notifies the team (`notify-event-created`). Editing notifies members. Ticking "create a group", linking, switching, "None" and the one-owner rule work as for teams, with `entityType: "event"`. The event's own `teamEventMember` rows are added; team members are not.
 
 ### Members and self-join
 
@@ -133,7 +133,7 @@ Leads and editors enable feedback per event (`feedbackEnabled`), with an optiona
 - The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open.
 - Only event members can submit, once each, up to 5,000 characters, with no new images. They can edit their response until the deadline.
 - Anonymity: `eventFeedback` holds the text and no user. `eventFeedbackSubmission` links user to response and is never synced to clients; duplicate and ownership checks run on the server pass only. Members read their own response through `getMyEventFeedback` (`apps/web/src/functions/event-feedback.ts`).
-- `events.manage_feedback` reads every event's responses; a lead reads their teams'. Nobody sees who wrote what.
+- `events.manage_feedback` grants only reading every event's responses; a lead reads their teams'. Nobody sees who wrote what.
 - Turning feedback on after an event has ended notifies members at once. Turning it on earlier sends nothing at the end; the hourly feedback nudge covers that.
 
 ### Event schedules

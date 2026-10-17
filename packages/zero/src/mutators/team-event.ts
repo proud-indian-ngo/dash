@@ -38,6 +38,11 @@ import {
   teamEventSocialMutators,
   volunteersNeededSchema,
 } from "./team-event-social";
+import {
+  assertWhatsAppGroupAvailable,
+  pushAddGroupMembersTask,
+  whatsappGroupChange,
+} from "./whatsapp-group-link";
 
 const reminderIntervalsSchema = z
   .array(z.number().refine((n) => REMINDER_PRESET_MINUTES.includes(n)))
@@ -323,6 +328,43 @@ async function assertProgrammeChange(
   if (programme.active === false) {
     throw new Error("Choose an active programme");
   }
+}
+
+/**
+ * The group an event edit moves to (undefined when unchanged, null when
+ * removed), refusing a group another team or event already uses.
+ */
+async function assertEventGroupChange(
+  tx: Tx,
+  existing: Pick<TeamEvent, "id" | "seriesId" | "whatsappGroupId">,
+  requested: string | null | undefined
+): Promise<string | null | undefined> {
+  const next = whatsappGroupChange(existing.whatsappGroupId, requested);
+  if (next) {
+    await assertWhatsAppGroupAvailable(tx, next, {
+      seriesRootId: existing.seriesId ?? existing.id,
+      type: "event",
+    });
+  }
+  return next;
+}
+
+/** Add or invite an event's current members to the group it was given. */
+async function pushEventGroupMembersTask(
+  tx: Tx,
+  ctx: MutatorCtx,
+  args: { eventId: string; groupId: string; mutator: string }
+): Promise<void> {
+  const members = (await tx.run(
+    zql.teamEventMember.where("eventId", args.eventId)
+  )) as TeamEventMember[];
+  pushAddGroupMembersTask(ctx, {
+    entityId: args.eventId,
+    entityType: "event",
+    groupId: args.groupId,
+    mutator: args.mutator,
+    userIds: members.map((m) => m.userId),
+  });
 }
 
 export const teamEventMutators = {
@@ -751,6 +793,12 @@ export const teamEventMutators = {
       }
 
       await assertEventIdAvailable(tx, args.id);
+      if (args.whatsappGroupId) {
+        await assertWhatsAppGroupAvailable(tx, args.whatsappGroupId, {
+          seriesRootId: args.id,
+          type: "event",
+        });
+      }
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
         city: args.city,
@@ -1298,7 +1346,8 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       startTime: z.number().optional(),
       volunteersNeeded: volunteersNeededSchema,
-      whatsappGroupId: z.string().optional(),
+      // Undefined leaves the group alone; null removes it.
+      whatsappGroupId: z.string().nullable().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -1327,6 +1376,11 @@ export const teamEventMutators = {
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
       await assertProgrammeChange(tx, existing.programmeId, args.programmeId);
+      const nextGroupId = await assertEventGroupChange(
+        tx,
+        existing,
+        args.whatsappGroupId
+      );
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
       if (args.partners) {
@@ -1350,6 +1404,17 @@ export const teamEventMutators = {
           zql.teamEventMember.where("eventId", eventId)
         )) as TeamEventMember[];
         const eventMemberIds = eventMembers.map((m) => m.userId);
+        // A new or switched group gets the current members; the old group
+        // keeps its members, and removing the group removes no one.
+        if (nextGroupId) {
+          pushAddGroupMembersTask(ctx, {
+            entityId: eventId,
+            entityType: "event",
+            groupId: nextGroupId,
+            mutator: "updateTeamEvent",
+            userIds: eventMemberIds,
+          });
+        }
 
         ctx.asyncTasks?.push({
           fn: async () => {
@@ -1432,7 +1497,8 @@ export const teamEventMutators = {
       rsvpPollLeadMinutes: rsvpPollLeadMinutesSchema,
       startTime: z.number().optional(),
       volunteersNeeded: volunteersNeededSchema,
-      whatsappGroupId: z.string().optional(),
+      // Undefined leaves the group alone; null removes it.
+      whatsappGroupId: z.string().nullable().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
@@ -1466,6 +1532,11 @@ export const teamEventMutators = {
       }
 
       await assertProgrammeChange(tx, existing.programmeId, args.programmeId);
+      const nextGroupId = await assertEventGroupChange(
+        tx,
+        existing,
+        args.whatsappGroupId
+      );
       if (
         args.mode === "all" &&
         args.programmeId !== undefined &&
@@ -1498,15 +1569,23 @@ export const teamEventMutators = {
         );
       }
 
-      const partnerTarget = resolveSeriesWriteTarget(args, existing);
-      if (args.partners && partnerTarget) {
+      const writeTarget = resolveSeriesWriteTarget(args, existing);
+      if (args.partners && writeTarget) {
         await replaceEventPartners(
           tx,
-          partnerTarget,
+          writeTarget,
           existing.teamId,
           args.partners,
           args.now
         );
+      }
+
+      if (tx.location === "server" && nextGroupId && writeTarget) {
+        await pushEventGroupMembersTask(tx, ctx, {
+          eventId: writeTarget,
+          groupId: nextGroupId,
+          mutator: "updateTeamEventSeries",
+        });
       }
     }
   ),
