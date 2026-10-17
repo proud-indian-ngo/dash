@@ -23,6 +23,7 @@ Each chapter covers one subsystem. Agents route to chapters through the agent gu
 | [finance-ledger-cutover](finance-ledger-cutover.md) | Ledger cutover: opening balances, backfill, posting rules and CA handoff |
 | [governance](governance.md) | Trustee register, deed versions, documents vault and registrations; the design for Aadhaar eSign, meetings, declarations and policies |
 | [governance compliance](governance-compliance.md) | The compliance calendar: filings and renewals, reminders, closing with evidence |
+| [governance meetings](governance-meetings.md) | Board meetings: notice, attendance, quorum and votes per item, minutes signed by the chair |
 | [governance resolutions](governance-resolutions.md) | Circular resolutions: issue, responses, signing with the DSC helper or Acrobat, numbering, register changes and long-term copies |
 | [jobs](jobs.md) | pg-boss handlers, schedules and retries |
 | [kalakriti-registration](kalakriti-registration.md) | Kalakriti Editions, registration, event-day operations, results and awards |
