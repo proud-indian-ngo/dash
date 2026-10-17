@@ -179,31 +179,31 @@ function MeetingView({
 
   const handleNotice = useEventCallback(async () => {
     setBusy(true);
-    try {
-      const out = await sendNotice({ data: { id: meeting.id } });
-      toast.success(`Notice sent to ${out.trustees} trustees`);
-      setNoticing(false);
-    } catch (error) {
-      toast.error("The notice didn't go out", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setBusy(false);
-    }
+    await sendNotice({ data: { id: meeting.id } })
+      .then((out) => {
+        toast.success(`Notice sent to ${out.trustees} trustees`);
+        setNoticing(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("The notice didn't go out", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setBusy(false));
   });
   const handleClose = useEventCallback(async () => {
     setBusy(true);
-    try {
-      await markHeld({ data: { id: meeting.id } });
-      toast.success("Meeting closed. Make the minutes next.");
-      setClosing(false);
-    } catch (error) {
-      toast.error("Couldn't close the meeting", {
-        description: errorText(error, "Something went wrong"),
-      });
-    } finally {
-      setBusy(false);
-    }
+    await markHeld({ data: { id: meeting.id } })
+      .then(() => {
+        toast.success("Meeting closed. Make the minutes next.");
+        setClosing(false);
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't close the meeting", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setBusy(false));
   });
   const handleCancel = useEventCallback(async () => {
     const out = await zero.mutate(
