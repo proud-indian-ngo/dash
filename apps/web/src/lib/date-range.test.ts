@@ -28,6 +28,16 @@ describe("resolveDateRange", () => {
     expect(range.to?.getMonth()).toBe(2);
   });
 
+  it("includes the whole end day of a custom range", () => {
+    const range = resolveDateRange("custom", "2026-01-01", "2026-03-31");
+    const items = [
+      { id: "end-day-evening", ts: new Date(2026, 2, 31, 18, 30).getTime() },
+      { id: "next-day", ts: new Date(2026, 3, 1).getTime() },
+    ];
+    const result = filterByDateRange(items, range, (item) => item.ts);
+    expect(result.map((item) => item.id)).toEqual(["end-day-evening"]);
+  });
+
   it("falls back to null for invalid custom dates", () => {
     const range = resolveDateRange("custom", "garbage", "also-garbage");
     expect(range.from).toBeNull();
