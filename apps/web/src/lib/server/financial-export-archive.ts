@@ -6,7 +6,7 @@ import type { StoredExportAttachment } from "./financial-export";
 
 export interface FinancialExportArchiveAttachment {
   path: string;
-  stream: ReadableStream<Uint8Array>;
+  stream: () => ReadableStream<Uint8Array>;
 }
 
 const CONTROL_CHARACTERS = /\p{Cc}/gu;
@@ -86,78 +86,86 @@ export function createFinancialExportArchiveStream(
   attachments: FinancialExportArchiveAttachment[],
   onError?: (error: unknown) => void
 ): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      let settled = false;
-      const fail = (error: unknown) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        onError?.(error);
-        controller.error(error);
-      };
-      const zip = new Zip((error, chunk, final) => {
-        if (error) {
-          fail(error);
-          return;
-        }
-        if (settled) {
-          return;
-        }
-        if (chunk.length > 0) {
-          controller.enqueue(chunk);
-        }
-        if (final) {
-          settled = true;
-          controller.close();
-        }
-      });
+  let cancelled = false;
+  let activeReader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
-      const pipeStream = async (
-        reader: ReadableStreamDefaultReader<Uint8Array>,
-        zipEntry: ZipPassThrough
-      ): Promise<void> => {
-        const result = await reader.read();
-        if (result.done) {
-          zipEntry.push(new Uint8Array(), true);
-          return;
-        }
-        zipEntry.push(result.value);
-        await pipeStream(reader, zipEntry);
-      };
-
-      const addAttachment = async (index: number): Promise<void> => {
-        const attachment = attachments[index];
-        if (!attachment) {
-          return;
-        }
-        const zipEntry = new ZipPassThrough(attachment.path);
-        zip.add(zipEntry);
-        const reader = attachment.stream.getReader();
+  async function* generateArchive(): AsyncGenerator<Uint8Array, void> {
+    const chunks: Uint8Array[] = [];
+    // These synchronous ZIP entries emit only while add/push/end is running.
+    const zip = new Zip((error, chunk) => {
+      if (error) {
+        throw error;
+      }
+      if (chunk.length > 0) {
+        chunks.push(chunk);
+      }
+    });
+    try {
+      for (const csvFile of csvFiles) {
+        const entry = new ZipDeflate(csvFile.filename, { level: 6 });
+        zip.add(entry);
+        entry.push(strToU8(buildCsv(csvFile.headers, csvFile.rows)), true);
+        yield* chunks.splice(0);
+      }
+      for (const attachment of attachments) {
+        const entry = new ZipPassThrough(attachment.path);
+        zip.add(entry);
+        const reader = attachment.stream().getReader();
+        activeReader = reader;
         try {
-          await pipeStream(reader, zipEntry);
+          while (!cancelled) {
+            const result = await reader.read();
+            if (cancelled) {
+              return;
+            }
+            entry.push(result.value ?? new Uint8Array(), result.done);
+            yield* chunks.splice(0);
+            if (result.done) {
+              break;
+            }
+          }
         } finally {
+          activeReader = undefined;
           reader.releaseLock();
         }
-        await addAttachment(index + 1);
-      };
+      }
+      zip.end();
+      yield* chunks.splice(0);
+    } finally {
+      zip.terminate();
+    }
+  }
 
-      const runArchive = async (): Promise<void> => {
-        for (const csvFile of csvFiles) {
-          const zipEntry = new ZipDeflate(csvFile.filename, { level: 6 });
-          zip.add(zipEntry);
-          zipEntry.push(strToU8(buildCsv(csvFile.headers, csvFile.rows)), true);
+  const archive = generateArchive();
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        try {
+          const result = await archive.next();
+          if (cancelled) {
+            return;
+          }
+          if (result.done) {
+            controller.close();
+          } else {
+            controller.enqueue(result.value);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            controller.error(error);
+            onError?.(error);
+          }
         }
-        await addAttachment(0);
-        zip.end();
-      };
-      runArchive().catch((error: unknown) => {
-        if (!settled) {
-          zip.terminate();
+      },
+      async cancel(reason) {
+        cancelled = true;
+        try {
+          await activeReader?.cancel(reason);
+        } finally {
+          await archive.return();
         }
-        fail(error);
-      });
+      },
     },
-  });
+    { highWaterMark: 0 }
+  );
 }

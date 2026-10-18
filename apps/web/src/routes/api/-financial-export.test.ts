@@ -159,11 +159,15 @@ describe("financial export API", () => {
     });
     const deps = dependencies(data);
     const s3 = deps.getS3();
+    const file = s3.file("app/attachments/receipt.pdf");
+    s3.file = mock(() => file);
     deps.getS3 = mock(() => s3);
     const response = await handleFinancialExportRequest(
       new Request(exportUrl),
       deps
     );
+    expect(file.stat).toHaveBeenCalledTimes(1);
+    expect(file.stream).not.toHaveBeenCalled();
     const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
 
     expect(s3.file).toHaveBeenCalledWith("app/attachments/receipt.pdf");

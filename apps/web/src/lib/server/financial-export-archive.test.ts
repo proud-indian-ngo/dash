@@ -67,11 +67,11 @@ describe("financial export archive", () => {
     const stream = createFinancialExportArchiveStream(csvFiles, [
       {
         path: "attachments/reimbursements/request-1_Travel/receipt.pdf",
-        stream: byteStream("receipt bytes"),
+        stream: () => byteStream("receipt bytes"),
       },
       {
         path: "attachments/advance-payments/request-2_Advance/invoice.png",
-        stream: byteStream("image bytes"),
+        stream: () => byteStream("image bytes"),
       },
     ]);
     const archive = unzipSync(
@@ -101,11 +101,12 @@ describe("financial export archive", () => {
       [
         {
           path: "attachments/reimbursements/request-1/file.pdf",
-          stream: new ReadableStream({
-            start(controller) {
-              controller.error(new Error("R2 stream failed"));
-            },
-          }),
+          stream: () =>
+            new ReadableStream({
+              start(controller) {
+                controller.error(new Error("R2 stream failed"));
+              },
+            }),
         },
       ],
       onError
@@ -115,5 +116,85 @@ describe("financial export archive", () => {
       "R2 stream failed"
     );
     expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not drain attachments while the download is paused", async () => {
+    let reads = 0;
+    const source = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        reads += 1;
+        controller.enqueue(new Uint8Array(64 * 1024));
+        if (reads === 100) {
+          controller.close();
+        }
+      },
+    });
+    const archive = createFinancialExportArchiveStream(
+      [],
+      [{ path: "large.pdf", stream: () => source }]
+    );
+    const reader = archive.getReader();
+    await reader.read();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reads).toBeLessThan(5);
+    await reader.cancel();
+  });
+
+  it("cancels an attachment read when the download disconnects", async () => {
+    const cancel = mock();
+    let signalRead: () => void = () => undefined;
+    const reading = new Promise<void>((resolve) => {
+      signalRead = resolve;
+    });
+    const source = new ReadableStream<Uint8Array>(
+      {
+        cancel,
+        start(controller) {
+          controller.enqueue(new Uint8Array([1]));
+        },
+        pull() {
+          signalRead();
+        },
+      },
+      { highWaterMark: 0 }
+    );
+    const nextStream = mock(() => byteStream("next"));
+    const onError = mock();
+    const archive = createFinancialExportArchiveStream(
+      [],
+      [
+        { path: "stalled.pdf", stream: () => source },
+        { path: "next.pdf", stream: nextStream },
+      ],
+      onError
+    );
+    const reader = archive.getReader();
+    await reader.read();
+    await reader.read();
+    const pending = reader.read();
+    await reading;
+    await reader.cancel("disconnected");
+    await pending;
+    expect(cancel).toHaveBeenCalledWith("disconnected");
+    expect(source.locked).toBe(false);
+    expect(nextStream).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("opens no attachment streams when cancelled before reading", async () => {
+    const open = mock(() => byteStream("unread"));
+    const archive = createFinancialExportArchiveStream(
+      [],
+      [{ path: "unread.pdf", stream: open }]
+    );
+    await archive.cancel();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("produces a valid empty archive", async () => {
+    const stream = createFinancialExportArchiveStream([], []);
+    expect(
+      unzipSync(new Uint8Array(await new Response(stream).arrayBuffer()))
+    ).toEqual({});
   });
 });

@@ -71,7 +71,7 @@ async function preflightAttachments(
   return await mapWithConcurrency(paths, 8, async ({ attachment, path }) => {
     const file = s3.file(attachment.objectKey);
     await file.stat();
-    return { path, stream: file.stream() };
+    return { path, stream: () => file.stream() };
   });
 }
 
