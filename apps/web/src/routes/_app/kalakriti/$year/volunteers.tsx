@@ -397,6 +397,9 @@ function KalakritiVolunteersPage() {
       }
     }
   );
+  const refreshMetadata = useEventCallback(() => {
+    setMetadataRetry((value) => value + 1);
+  });
   const retryMetadata = useEventCallback(() => {
     setRosterMetadata({
       editionId: edition.id,
@@ -551,6 +554,7 @@ function KalakritiVolunteersPage() {
                 volunteerRows.flatMap((row) => (row.userId ? [row.userId] : []))
               )
             }
+            onAdded={refreshMetadata}
             onOpenChange={handleAddOpenChange}
             open={addOpen}
             pickerState={pickerState}
@@ -566,6 +570,7 @@ function KalakritiVolunteersPage() {
             editionId={edition.id}
             initialUserId={assignUserId}
             isGlobalAdmin={isGlobalAdmin}
+            onAssignmentsChanged={refreshMetadata}
             onOpenChange={handleAssignOpenChange}
             open={assignOpen}
             pickerState={assignmentPickerState}

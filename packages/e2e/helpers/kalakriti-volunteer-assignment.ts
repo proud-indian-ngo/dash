@@ -63,6 +63,7 @@ async function setup(email: string, initialRole: string) {
     id: uuidv7(),
     isActive: true,
     name: "Kalakriti Orientation Volunteer",
+    registrationGroup: "Orientation cohort",
     role: initialRole,
   });
   await db.insert(teamEvent).values({

@@ -29,6 +29,7 @@ export function KalakritiAddVolunteersDialog({
   editionId,
   excludeUserIds,
   onOpenChange,
+  onAdded,
   open,
   pickerState,
   users,
@@ -36,6 +37,7 @@ export function KalakritiAddVolunteersDialog({
   editionId: string;
   excludeUserIds?: ReadonlySet<string>;
   onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
   open: boolean;
   pickerState: "error" | "idle" | "loading" | "ready";
   users: readonly PickerUser[];
@@ -47,7 +49,10 @@ export function KalakritiAddVolunteersDialog({
     }
     onOpenChange(nextOpen);
   });
-  const handleAdded = useEventCallback(() => onOpenChange(false));
+  const handleAdded = useEventCallback(() => {
+    onAdded();
+    onOpenChange(false);
+  });
   const handleCancel = useEventCallback(() => onOpenChange(false));
 
   return (

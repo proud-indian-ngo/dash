@@ -63,6 +63,12 @@ test("automatically orients an added volunteer and assigns a role without manual
       role: "unoriented_volunteer",
     });
     await editionPage.addVolunteers(VOLUNTEER_NAME);
+    const search = page.getByPlaceholder("Search volunteers...", {
+      exact: true,
+    });
+    await search.fill("Orientation cohort");
+    await expect(page.getByText(VOLUNTEER_NAME, { exact: true })).toBeVisible();
+    await search.clear();
     expect(await fixture("state")).toEqual({
       assignments: [],
       eventMember: true,
