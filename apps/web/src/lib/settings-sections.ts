@@ -79,7 +79,7 @@ export const SETTINGS_SECTIONS = [
   },
   {
     description:
-      "Causes that events and money belong to, with each programme's lead and approval threshold, and the cash-voucher limit.",
+      "Causes that events and money belong to, with each programme's lead and approval threshold, the value of a volunteer hour and the cash-voucher limit.",
     group: "organization",
     icon: Briefcase01Icon,
     label: "Programmes",
