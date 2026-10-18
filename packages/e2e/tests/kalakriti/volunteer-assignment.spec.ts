@@ -79,7 +79,12 @@ test("automatically orients an added volunteer and assigns a role without manual
     });
     await search.fill("Orientation cohort");
     await expect(page.getByText(VOLUNTEER_NAME, { exact: true })).toBeVisible();
+    // The search reaches the URL after a debounce, and each URL change re-runs
+    // the Edition route's access check. Let the clear's navigation start
+    // before server functions are aborted below, or that check fails too.
+    await expect(page).toHaveURL(/search=Orientation/);
     await search.clear();
+    await expect(page).not.toHaveURL(/search=/);
 
     await page.bringToFront();
     await page.route("**/_serverFn/**", (route) => route.abort("failed"));
