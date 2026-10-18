@@ -843,10 +843,13 @@ export async function cancelSeriesFollowing(
   )) as TeamEvent[];
   await Promise.all(
     exceptions.map(async (exc) => {
+      // A session that has started stays, as an orphaned exception when
+      // keyed past the cut, as cancelling all does.
       if (
         exc.originalDate &&
         exc.originalDate >= args.originalDate &&
-        !exc.cancelledAt
+        !exc.cancelledAt &&
+        exc.startTime > args.now
       ) {
         await tx.mutate.teamEvent.update({
           cancelledAt: args.now,

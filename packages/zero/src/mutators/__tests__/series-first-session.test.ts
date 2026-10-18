@@ -925,6 +925,31 @@ describe("a lead cancelling one session or the following ones", () => {
     });
   });
 
+  it("keeps a later session held early when cancelling this and following", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held-early",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+      {
+        cancelledAt: null,
+        id: "later",
+        originalDate: "2026-11-07",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-11-07T04:30:00Z"),
+      },
+    ]);
+    await cancel(db, "following", "2026-10-24");
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261023T235959Z",
+    });
+    expect(row(db, "held-early")?.cancelledAt).toBeNull();
+    expect(row(db, "later")?.cancelledAt).toBe(AFTER_THIRD);
+  });
+
   it("refuses a session that has started, unsaved or saved", async () => {
     const db = createDb([
       {
