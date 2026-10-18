@@ -1,8 +1,13 @@
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
-import { isExternalUser } from "../permissions";
+import type { Context } from "../context";
+import { can, isExternalUser } from "../permissions";
 import { zql } from "../schema";
+
+function canReadScheduledMessages(ctx: Context | null): boolean {
+  return Boolean(ctx && !isExternalUser(ctx) && can(ctx, "messages.schedule"));
+}
 
 export const scheduledMessageQueries = {
   all: defineQuery(({ ctx }) => {
@@ -10,7 +15,9 @@ export const scheduledMessageQueries = {
       .related("creator")
       .related("recipients")
       .orderBy("scheduledAt", "desc");
-    return isExternalUser(ctx) ? query.where("id", "__never_match__") : query;
+    return canReadScheduledMessages(ctx)
+      ? query
+      : query.where("id", "__never_match__");
   }),
   byId: defineQuery(z.object({ id: z.string() }), ({ args, ctx }) => {
     const query = zql.scheduledMessage
@@ -18,7 +25,9 @@ export const scheduledMessageQueries = {
       .related("recipients")
       .where("id", args.id);
     return (
-      isExternalUser(ctx) ? query.where("id", "__never_match__") : query
+      canReadScheduledMessages(ctx)
+        ? query
+        : query.where("id", "__never_match__")
     ).one();
   }),
 };

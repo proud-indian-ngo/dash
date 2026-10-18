@@ -46,15 +46,6 @@ export const eventPhotoQueries = {
         .related("uploader")
         .orderBy("createdAt", "desc")
   ),
-  byEvent: defineQuery(
-    z.object({ eventId: z.string() }),
-    ({ args: { eventId }, ctx }) =>
-      zql.eventPhoto
-        .where("eventId", eventId)
-        .whereExists("event", (event) => restrictToAccessibleEvents(event, ctx))
-        .related("uploader")
-        .orderBy("createdAt", "desc")
-  ),
   /** Current user's own pending photos. Auth-safe: uses ctx.userId. */
   myPendingByEvent: defineQuery(
     z.object({ eventId: z.string() }),

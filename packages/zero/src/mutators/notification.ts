@@ -1,15 +1,18 @@
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertIsLoggedIn } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
+
+type Tx = Transaction<Schema>;
 
 export const notificationMutators = {
   archive: defineMutator(
     z.object({ id: z.string().uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      await assertOwnNotification(tx, args.id, ctx.userId);
       await tx.mutate.notification.update({
         archived: true,
         id: args.id,
@@ -36,6 +39,7 @@ export const notificationMutators = {
     z.object({ id: z.string().uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      await assertOwnNotification(tx, args.id, ctx.userId);
       await tx.mutate.notification.update({ id: args.id, read: true });
     }
   ),
@@ -44,7 +48,22 @@ export const notificationMutators = {
     z.object({ id: z.string().uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      await assertOwnNotification(tx, args.id, ctx.userId);
       await tx.mutate.notification.update({ id: args.id, read: false });
     }
   ),
 };
+
+async function assertOwnNotification(
+  tx: Tx,
+  id: string,
+  userId: string
+): Promise<void> {
+  const notification = await tx.run(zql.notification.where("id", id).one());
+  if (!notification) {
+    throw new Error("Notification not found");
+  }
+  if (notification.userId !== userId) {
+    throw new Error("Forbidden");
+  }
+}

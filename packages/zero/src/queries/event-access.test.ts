@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { queries as registeredQueries } from "../queries";
 import { eventInterestQueries } from "./event-interest";
 import { eventImmichAlbumQueries, eventPhotoQueries } from "./event-photo";
 import { eventUpdateQueries } from "./event-update";
@@ -49,13 +50,11 @@ describe("generic event query access", () => {
     const args = { eventId: "event-1" };
     const queries = [
       eventUpdateQueries.approvedByEvent.fn({ args, ctx: externalContext }),
-      eventUpdateQueries.byEvent.fn({ args, ctx: externalContext }),
       eventUpdateQueries.myPendingByEvent.fn({
         args,
         ctx: externalContext,
       }),
       eventPhotoQueries.approvedByEvent.fn({ args, ctx: externalContext }),
-      eventPhotoQueries.byEvent.fn({ args, ctx: externalContext }),
       eventPhotoQueries.myPendingByEvent.fn({ args, ctx: externalContext }),
       eventImmichAlbumQueries.byEvent.fn({ args, ctx: externalContext }),
     ];
@@ -65,5 +64,49 @@ describe("generic event query access", () => {
         '"value":"00000000-0000-0000-0000-000000000000"'
       );
     }
+  });
+
+  it("does not register broad all-status event content queries", () => {
+    expect(Object.keys(eventUpdateQueries)).not.toContain("byEvent");
+    expect(Object.keys(eventPhotoQueries)).not.toContain("byEvent");
+    expect(Object.keys(registeredQueries.eventUpdate)).not.toContain("byEvent");
+    expect(Object.keys(registeredQueries.eventPhoto)).not.toContain("byEvent");
+  });
+
+  it("retains approved, own-pending, and manager-pending scopes", () => {
+    const args = { eventId: "event-1" };
+    const viewer = {
+      permissions: ["events.view_own"],
+      role: "volunteer",
+      userId: "reader",
+    };
+
+    const approvedUpdate = queryAst(
+      eventUpdateQueries.approvedByEvent.fn({ args, ctx: viewer })
+    );
+    const ownPendingUpdate = queryAst(
+      eventUpdateQueries.myPendingByEvent.fn({ args, ctx: viewer })
+    );
+    const managerPendingUpdate = queryAst(
+      eventUpdateQueries.pendingByEvent.fn({ args, ctx: viewer })
+    );
+    const approvedPhoto = queryAst(
+      eventPhotoQueries.approvedByEvent.fn({ args, ctx: viewer })
+    );
+    const ownPendingPhoto = queryAst(
+      eventPhotoQueries.myPendingByEvent.fn({ args, ctx: viewer })
+    );
+    const managerPendingPhoto = queryAst(
+      eventPhotoQueries.pendingByEvent.fn({ args, ctx: viewer })
+    );
+
+    expect(approvedUpdate).toContain('"value":"approved"');
+    expect(ownPendingUpdate).toContain('"value":"pending"');
+    expect(ownPendingUpdate).toContain('"value":"reader"');
+    expect(managerPendingUpdate).toContain('"value":"lead"');
+    expect(approvedPhoto).toContain('"value":"approved"');
+    expect(ownPendingPhoto).toContain('"value":"pending"');
+    expect(ownPendingPhoto).toContain('"value":"reader"');
+    expect(managerPendingPhoto).toContain('"value":"lead"');
   });
 });

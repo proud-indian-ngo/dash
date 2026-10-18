@@ -92,15 +92,14 @@ export class ListPage {
   }
 
   /**
-   * Opens the row action menu and clicks a menu item in one atomic sequence.
+   * Opens an action menu and clicks a menu item in one atomic sequence.
    * This avoids the race condition where the dropdown closes between
-   * openRowActionMenu() and clickMenuItem() due to re-renders.
+   * opening the menu and clicking its item due to re-renders.
    */
-  async openRowActionAndClick(
-    row: Locator,
+  async openActionAndClick(
+    trigger: Locator,
     menuItemName: string
   ): Promise<void> {
-    const trigger = row.getByTestId("row-actions");
     const menuItem = this.page.getByRole("menuitem", { name: menuItemName });
 
     const tryClick = async (attempt: number): Promise<boolean> => {
@@ -138,5 +137,12 @@ export class ListPage {
     // Final attempt — let it fail with a clear error
     await trigger.click();
     await menuItem.click();
+  }
+
+  async openRowActionAndClick(
+    row: Locator,
+    menuItemName: string
+  ): Promise<void> {
+    await this.openActionAndClick(row.getByTestId("row-actions"), menuItemName);
   }
 }

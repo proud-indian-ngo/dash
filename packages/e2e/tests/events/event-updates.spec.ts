@@ -6,6 +6,7 @@ import {
   openSeededTeam,
   openSeededTeamEvent,
 } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 test.describe("Event updates CRUD (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -72,8 +73,11 @@ test.describe("Event updates CRUD (admin)", () => {
     // ---- EDIT UPDATE ----
     // The page header has its own Edit (for the event); the update's actions
     // sit in its "Update actions" menu.
-    await page.getByRole("button", { name: "Update actions" }).first().click();
-    await page.getByRole("menuitem", { exact: true, name: "Edit" }).click();
+    const list = new ListPage(page);
+    const updateActions = page
+      .getByRole("button", { name: "Update actions" })
+      .first();
+    await list.openActionAndClick(updateActions, "Edit");
 
     // The composer stays on the page, so pick the editor holding this update
     const editEditor = page
@@ -93,8 +97,7 @@ test.describe("Event updates CRUD (admin)", () => {
     await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
 
     // ---- DELETE UPDATE ----
-    await page.getByRole("button", { name: "Update actions" }).first().click();
-    await page.getByRole("menuitem", { exact: true, name: "Delete" }).click();
+    await list.openActionAndClick(updateActions, "Delete");
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();
