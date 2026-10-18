@@ -2,19 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import z from "zod";
 
-const uploadSchema = z
-  .object({
-    caption: z.string().optional(),
-    eventId: z.string(),
-    id: z.string(),
-    immichAssetId: z.string().optional(),
-    mimeType: z.string().optional(),
-    now: z.number(),
-    r2Key: z.string().optional(),
-  })
-  .refine((d) => d.r2Key || d.immichAssetId, {
-    message: "Either r2Key or immichAssetId must be provided",
-  });
+import { eventPhotoUploadSchema } from "../event-photo";
 
 const approveSchema = z.object({
   id: z.string(),
@@ -38,7 +26,7 @@ const deleteSchema = z.object({
 describe("eventPhoto mutator schemas", () => {
   describe("upload", () => {
     it("accepts valid input with r2Key", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         caption: "Team photo",
         eventId: "evt-1",
         id: "photo-1",
@@ -50,30 +38,33 @@ describe("eventPhoto mutator schemas", () => {
     });
 
     it("accepts valid input with immichAssetId", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         caption: "Team photo",
         eventId: "evt-1",
         id: "photo-1",
         immichAssetId: "asset-uuid-123",
+        immichUploadReceipt: "receipt",
         mimeType: "image/jpeg",
         now: 1_700_000_000_000,
       });
       expect(result.success).toBe(true);
     });
 
-    it("accepts with both r2Key and immichAssetId", () => {
-      const result = uploadSchema.safeParse({
+    it("rejects with both r2Key and Immich source fields", () => {
+      const result = eventPhotoUploadSchema.safeParse({
         eventId: "evt-1",
         id: "photo-1",
         immichAssetId: "asset-uuid-123",
+        immichUploadReceipt: "receipt",
+        mimeType: "image/jpeg",
         now: 1_700_000_000_000,
         r2Key: "photos/event/photo.jpg",
       });
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
 
     it("accepts minimal valid input with r2Key", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         eventId: "evt-1",
         id: "photo-1",
         now: 1_700_000_000_000,
@@ -83,7 +74,7 @@ describe("eventPhoto mutator schemas", () => {
     });
 
     it("rejects when neither r2Key nor immichAssetId provided", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         caption: "Photo without source",
         eventId: "evt-1",
         id: "photo-1",
@@ -93,8 +84,25 @@ describe("eventPhoto mutator schemas", () => {
       expect(result.success).toBe(false);
     });
 
+    it("rejects a bare Immich asset ID or missing direct-upload MIME type", () => {
+      const base = {
+        eventId: "evt-1",
+        id: "photo-1",
+        immichAssetId: "asset-uuid-123",
+        now: 1_700_000_000_000,
+      };
+
+      expect(eventPhotoUploadSchema.safeParse(base).success).toBe(false);
+      expect(
+        eventPhotoUploadSchema.safeParse({
+          ...base,
+          immichUploadReceipt: "receipt",
+        }).success
+      ).toBe(false);
+    });
+
     it("rejects missing eventId", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         id: "photo-1",
         now: 1_700_000_000_000,
         r2Key: "photos/event/photo.jpg",
@@ -103,7 +111,7 @@ describe("eventPhoto mutator schemas", () => {
     });
 
     it("rejects missing now", () => {
-      const result = uploadSchema.safeParse({
+      const result = eventPhotoUploadSchema.safeParse({
         eventId: "evt-1",
         id: "photo-1",
         r2Key: "photos/event/photo.jpg",

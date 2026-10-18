@@ -91,11 +91,14 @@ describe("event photo URLs", () => {
 
   it("prefers Immich URLs when an asset has both storage references", () => {
     const photo = createPhoto({
+      id: "photo/one",
       immichAssetId: "immich-1",
       r2Key: "events/photo.jpg",
     });
 
-    expect(getPhotoThumbnailUrl(photo)).toBe("/api/immich/thumbnail/immich-1");
-    expect(getPhotoLightboxUrl(photo)).toBe("/api/immich/original/immich-1");
+    expect(getPhotoThumbnailUrl(photo)).toBe(
+      "/api/immich/thumbnail/photo%2Fone"
+    );
+    expect(getPhotoLightboxUrl(photo)).toBe("/api/immich/original/photo%2Fone");
   });
 });

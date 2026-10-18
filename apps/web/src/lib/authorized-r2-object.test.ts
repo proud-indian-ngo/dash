@@ -35,6 +35,7 @@ mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
 
 import {
   type AuthorizedR2ObjectDeps,
+  resolveAuthorizedEventPhoto,
   resolveAuthorizedR2Object,
 } from "./authorized-r2-object";
 import { R2ObjectAccessError } from "./r2-object-access";
@@ -312,5 +313,29 @@ describe("resolveAuthorizedR2Object", () => {
         })
       )
     ).rejects.toEqual(new R2ObjectAccessError(403, "Forbidden"));
+  });
+});
+
+describe("resolveAuthorizedEventPhoto", () => {
+  it("authorizes an Immich-only photo through its parent event", async () => {
+    queryMocks.eventPhoto.mockResolvedValue({
+      caption: null,
+      eventId: "event-1",
+      immichAssetId: "immich-asset-1",
+      r2Key: null,
+      status: "approved",
+      uploadedBy: "uploader",
+    });
+    queryMocks.teamEvent.mockResolvedValue({
+      isPublic: true,
+      teamId: "team-1",
+    });
+
+    await expect(
+      resolveAuthorizedEventPhoto(session, "photo-1")
+    ).resolves.toEqual({
+      immichAssetId: "immich-asset-1",
+      r2Key: null,
+    });
   });
 });

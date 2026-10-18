@@ -799,7 +799,20 @@ describe("server mutator upload claims", () => {
 
   it("does not delete an event-photo key outside the owning event", async () => {
     const ctx = serverContext();
+    const select = () => ({
+      from: () => ({
+        where: () => ({
+          for: async () => [
+            {
+              immichAssetId: null,
+              r2Key: "app/photos/other-event/photo.jpg",
+            },
+          ],
+        }),
+      }),
+    });
     const tx = {
+      dbTransaction: { wrappedTransaction: { select } },
       location: "server",
       mutate: { eventPhoto: { delete: mock() } },
       run: mock()

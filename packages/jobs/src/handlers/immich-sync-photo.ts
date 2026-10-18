@@ -111,12 +111,17 @@ export async function processImmichSync(data: ImmichSyncPhotoPayload) {
     return;
   }
 
-  // Retry resilience: if photo already has an immichAssetId, skip upload
+  // The row is the sync state. A retry may find an uploaded asset that still
+  // needs to be added to the album and have its R2 source cleaned up.
   const currentPhoto = await db.query.eventPhoto.findFirst({
-    columns: { immichAssetId: true },
+    columns: { immichAssetId: true, r2Key: true },
     where: (t, { eq: e }) => e(t.id, photoId),
   });
-  if (currentPhoto?.immichAssetId) {
+  if (!currentPhoto) {
+    emitLog("photo_missing", { eventId, photoId });
+    return;
+  }
+  if (currentPhoto.immichAssetId && !currentPhoto.r2Key) {
     emitLog("already_synced", {
       immichAssetId: currentPhoto.immichAssetId,
       photoId,
@@ -144,38 +149,47 @@ export async function processImmichSync(data: ImmichSyncPhotoPayload) {
     immichKey
   );
 
-  // Download from R2
-  const s3 = getR2Client();
-  const file = s3.file(r2Key);
-  const buffer = await file.arrayBuffer();
-  const blob = new Blob([buffer]);
+  let assetId = currentPhoto.immichAssetId;
+  if (!assetId) {
+    // Download from R2
+    const s3 = getR2Client();
+    const file = s3.file(r2Key);
+    const buffer = await file.arrayBuffer();
+    const blob = new Blob([buffer]);
 
-  // Upload to Immich
-  const filename = r2Key.split("/").pop() ?? r2Key;
-  const formData = new FormData();
-  formData.append("assetData", blob, filename);
-  const nowIso = new Date().toISOString();
-  formData.append("fileCreatedAt", nowIso);
-  formData.append("fileModifiedAt", nowIso);
+    // Upload to Immich
+    const filename = r2Key.split("/").pop() ?? r2Key;
+    const formData = new FormData();
+    formData.append("assetData", blob, filename);
+    const nowIso = new Date().toISOString();
+    formData.append("fileCreatedAt", nowIso);
+    formData.append("fileModifiedAt", nowIso);
 
-  const uploadRes = await fetch(`${immichUrl}/api/assets`, {
-    body: formData,
-    headers: { "x-api-key": immichKey },
-    method: "POST",
-  });
-  if (!uploadRes.ok) {
-    throw new Error(
-      `Immich upload failed: ${uploadRes.status} ${await uploadRes.text()}`
-    );
+    const uploadRes = await fetch(`${immichUrl}/api/assets`, {
+      body: formData,
+      headers: { "x-api-key": immichKey },
+      method: "POST",
+    });
+    if (!uploadRes.ok) {
+      throw new Error(
+        `Immich upload failed: ${uploadRes.status} ${await uploadRes.text()}`
+      );
+    }
+    const uploadData = (await uploadRes.json()) as { id: string };
+    assetId = uploadData.id;
+
+    // Persist assetId immediately so retries resume after the upload step.
+    const persisted = await db
+      .update(eventPhoto)
+      .set({ immichAssetId: assetId })
+      .where(eq(eventPhoto.id, photoId))
+      .returning({ id: eventPhoto.id });
+
+    if (persisted.length === 0) {
+      await enqueue("immich-delete-asset", { immichAssetId: assetId });
+      return;
+    }
   }
-  const uploadData = (await uploadRes.json()) as { id: string };
-  const assetId = uploadData.id;
-
-  // Persist assetId immediately so retries skip the upload step
-  await db
-    .update(eventPhoto)
-    .set({ immichAssetId: assetId })
-    .where(eq(eventPhoto.id, photoId));
 
   // Add to album
   const addRes = await fetch(`${immichUrl}/api/albums/${albumId}/assets`, {

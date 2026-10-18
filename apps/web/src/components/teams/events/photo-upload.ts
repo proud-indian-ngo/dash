@@ -104,6 +104,7 @@ export async function uploadSinglePhoto({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("eventId", eventId);
+    formData.append("photoId", photoId);
     if (occDate) {
       formData.append("occDate", occDate);
     }
@@ -116,6 +117,7 @@ export async function uploadSinglePhoto({
         eventId,
         id: photoId,
         immichAssetId: result.immichAssetId,
+        immichUploadReceipt: result.immichUploadReceipt,
         mimeType: file.type,
         now,
       })

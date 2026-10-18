@@ -37,15 +37,18 @@ export interface ScheduledMessageR2ObjectRecord {
   key: string;
 }
 
-export interface EventPhotoR2ObjectRecord {
-  access: "eventPhoto";
+export interface EventPhotoAccessRecord {
   eventId: string;
   eventIsPublic: boolean;
-  filename: string;
-  key: string;
   status: "approved" | "pending" | "rejected";
   teamId: string;
   uploadedBy: string;
+}
+
+export interface EventPhotoR2ObjectRecord extends EventPhotoAccessRecord {
+  access: "eventPhoto";
+  filename: string;
+  key: string;
 }
 
 export interface KalakritiEntryMusicR2ObjectRecord {
@@ -125,16 +128,16 @@ async function canReadScheduledMessageObject(
   return permissions.includes("messages.schedule");
 }
 
-async function canReadEventPhoto(
+export async function authorizeEventPhoto(
   session: SessionLike,
-  record: EventPhotoR2ObjectRecord,
+  record: EventPhotoAccessRecord,
   deps: R2ObjectAccessDeps
-): Promise<boolean> {
+): Promise<void> {
   const isOwnPending =
     record.status === "pending" && record.uploadedBy === session.user.id;
   const isApprovedPublic = record.status === "approved" && record.eventIsPublic;
   if (isOwnPending || isApprovedPublic) {
-    return true;
+    return;
   }
 
   const permissions = await deps.resolvePermissions(getRole(session));
@@ -143,15 +146,17 @@ async function canReadEventPhoto(
     permissions.includes("events.manage_photos") ||
     (await deps.isTeamLead(record.teamId, session.user.id))
   ) {
-    return true;
+    return;
   }
   if (record.status !== "approved") {
-    return false;
+    throw new R2ObjectAccessError(403, "Forbidden");
   }
   if (await deps.isEventMember(record.eventId, session.user.id)) {
-    return true;
+    return;
   }
-  return deps.isTeamMember(record.teamId, session.user.id);
+  if (!(await deps.isTeamMember(record.teamId, session.user.id))) {
+    throw new R2ObjectAccessError(403, "Forbidden");
+  }
 }
 
 export async function authorizeR2Object(
@@ -162,7 +167,7 @@ export async function authorizeR2Object(
   if (isTemporaryR2Key(record.key)) {
     throw new R2ObjectAccessError(404, "Object not found");
   }
-  let allowed: boolean;
+  let allowed: boolean | undefined;
   if (record.access === "request") {
     allowed = await canReadRequestObject(session, record, deps);
   } else if (record.access === "scheduledMessage") {
@@ -174,9 +179,9 @@ export async function authorizeR2Object(
   } else if (record.access === "kalakritiScorecard") {
     allowed = await deps.canReadKalakritiScorecard(session, record);
   } else {
-    allowed = await canReadEventPhoto(session, record, deps);
+    await authorizeEventPhoto(session, record, deps);
   }
-  if (!allowed) {
+  if (allowed === false) {
     throw new R2ObjectAccessError(403, "Forbidden");
   }
   return { filename: record.filename, key: record.key };
