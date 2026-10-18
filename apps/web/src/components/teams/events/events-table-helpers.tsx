@@ -1,5 +1,8 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import type { VirtualOccurrence } from "@pi-dash/shared/rrule-expand";
+import {
+  seriesStartDate,
+  type VirtualOccurrence,
+} from "@pi-dash/shared/rrule-expand";
 import { rruleToLabel } from "@pi-dash/zero/rrule-utils";
 import type {
   EventInterest,
@@ -247,15 +250,11 @@ export function applyOccurrenceDate(
   endTime: number | null,
   occDate: string
 ): { startTime: number; endTime: number | null } {
-  const seriesStart = new Date(startTime);
-  const occStart = new Date(occDate);
-  occStart.setHours(
-    seriesStart.getHours(),
-    seriesStart.getMinutes(),
-    seriesStart.getSeconds(),
-    seriesStart.getMilliseconds()
-  );
-  const newStart = occStart.getTime();
+  // Occurrence dates are UTC date keys, so the series' UTC time of day goes
+  // on the key, as the server does; local hours would shift a session
+  // before 05:30 IST by a day.
+  const firstDay = Date.parse(`${seriesStartDate(startTime)}T00:00:00Z`);
+  const newStart = Date.parse(`${occDate}T00:00:00Z`) + (startTime - firstDay);
   const duration = endTime === null ? null : endTime - startTime;
   const newEnd = duration === null ? null : newStart + duration;
   return { endTime: newEnd, startTime: newStart };
