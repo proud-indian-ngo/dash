@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { expandSeries } from "@pi-dash/shared/rrule-expand";
 
+import { formStateToRRule, rruleToFormState } from "../../lib/rrule-utils";
 import {
   buildExceptionInsert,
   buildTruncatedRRule,
@@ -22,6 +23,14 @@ describe("buildTruncatedRRule", () => {
       "2026-06-01"
     );
     expect(result).toBe("FREQ=MONTHLY;BYDAY=1SA;UNTIL=20260531T235959Z");
+  });
+
+  it("drops COUNT, so a later edit keeps the series ended", () => {
+    const cut = buildTruncatedRRule("FREQ=WEEKLY;COUNT=10", "2026-04-15");
+    expect(cut).toBe("FREQ=WEEKLY;UNTIL=20260414T235959Z");
+    const form = rruleToFormState(cut);
+    expect(form).toMatchObject({ endType: "until", until: "2026-04-14" });
+    expect(formStateToRRule(form)).toBe("FREQ=WEEKLY;UNTIL=20260414T235959Z");
   });
 
   it("crosses year and leap-day boundaries", () => {

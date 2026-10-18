@@ -28,6 +28,7 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
 import { sumPaise } from "@pi-dash/shared/money";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -273,7 +274,7 @@ type EventDialog =
 function useScopeDialogs(
   isOccurrence: boolean,
   isRecurring: boolean,
-  scopeOccDate: string | undefined,
+  cancelOccDate: string | undefined,
   event: EventRow,
   dialog: ReturnType<typeof useDialogManager<EventDialog>>
 ) {
@@ -309,7 +310,7 @@ function useScopeDialogs(
         event,
         cancelScopeRef.current,
         isRecurring,
-        scopeOccDate,
+        cancelOccDate,
         cancelReason
       ),
     onError: (msg) => {
@@ -319,7 +320,7 @@ function useScopeDialogs(
         error: msg,
         mutation: "teamEvent.cancel",
       });
-      toast.error("Couldn't cancel event");
+      toast.error(msg ?? "Couldn't cancel event");
       cancelScopeRef.current = null;
     },
     onSuccess: () => {
@@ -330,7 +331,7 @@ function useScopeDialogs(
     },
   });
 
-  const handleCancelClick = isOccurrence
+  const handleCancelClick = isRecurring
     ? () => setCancelScopeDialogOpen(true)
     : () => cancelAction.trigger();
 
@@ -958,6 +959,13 @@ export function EventDetail({
 
   const { isVirtualOccurrence, isRecurring, isOccurrence, scopeOccDate } =
     deriveRecurrenceState(event, occDate);
+  // The series row's own page stands for its first session when cancelling,
+  // so cancelling never hides the sessions already held.
+  const cancelOccDate =
+    scopeOccDate ??
+    (event.recurrenceRule && !event.seriesId
+      ? seriesStartDate(event.startTime)
+      : undefined);
   // An already-materialized row for this date takes the interest instead.
   const interestSessionId = isVirtualOccurrence
     ? event.exceptions.find((e) => e.originalDate === occDate)?.id
@@ -1012,7 +1020,7 @@ export function EventDetail({
   } = useScopeDialogs(
     isOccurrence,
     isRecurring,
-    scopeOccDate ?? undefined,
+    cancelOccDate ?? undefined,
     event,
     dialog
   );
@@ -1117,10 +1125,9 @@ export function EventDetail({
       });
   // A saved session on the series' start date: "this and following" is
   // the whole series there.
-  const scopes = seriesEditScopes(
-    event.seriesId ? parentEvent?.startTime : event.startTime,
-    scopeOccDate
-  );
+  const seriesStart = event.seriesId ? parentEvent?.startTime : event.startTime;
+  const scopes = seriesEditScopes(seriesStart, scopeOccDate);
+  const cancelScopes = seriesEditScopes(seriesStart, cancelOccDate);
   const attendanceMode = firstRow
     ? null
     : deriveAttendanceMode({
@@ -1408,10 +1415,11 @@ export function EventDetail({
       />
 
       <EditScopeDialog
+        allLabel="All upcoming events"
         onOpenChange={setCancelScopeDialogOpen}
         onSelect={handleCancelScopeSelect}
         open={cancelScopeDialogOpen}
-        scopes={scopes}
+        scopes={cancelScopes}
         title="Cancel recurring event"
       />
 

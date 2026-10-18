@@ -38,6 +38,8 @@ export function seriesEditScopes(
 }
 
 interface EditScopeDialogProps {
+  /** Label for "all" where it means less than every event (cancelling). */
+  allLabel?: string;
   /** Scope options shown but not selectable yet. */
   disabledScopes?: EditScope[];
   onOpenChange: (open: boolean) => void;
@@ -50,10 +52,12 @@ interface EditScopeDialogProps {
 
 function ScopeButton({
   disabled,
+  label,
   onSelect,
   scope,
 }: {
   disabled: boolean;
+  label: string;
   onSelect: (scope: EditScope) => void;
   scope: EditScope;
 }) {
@@ -66,12 +70,13 @@ function ScopeButton({
       onClick={handleClick}
       variant="outline"
     >
-      {SCOPE_LABELS[scope]}
+      {label}
     </Button>
   );
 }
 
 export function EditScopeDialog({
+  allLabel,
   disabledScopes,
   onOpenChange,
   onSelect,
@@ -93,6 +98,9 @@ export function EditScopeDialog({
             <ScopeButton
               disabled={disabledScopes?.includes(scope) ?? false}
               key={scope}
+              label={
+                scope === "all" && allLabel ? allLabel : SCOPE_LABELS[scope]
+              }
               onSelect={onSelect}
               scope={scope}
             />

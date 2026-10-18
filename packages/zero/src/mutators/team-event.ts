@@ -706,6 +706,10 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      // Cancelling the series row would hide every session, held ones too.
+      if (existing.recurrenceRule && !existing.seriesId) {
+        throw new Error("Choose which sessions of the series to cancel");
+      }
 
       if (
         existing.startTime <= args.now &&
@@ -793,25 +797,29 @@ export const teamEventMutators = {
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
       const mode = seriesScope(args, existing);
 
-      // Team leads without events.cancel cannot cancel materialized (past) events
-      if (isTeamLead && !can(ctx, "events.cancel")) {
-        if (mode === "all") {
-          const exceptions = (await tx.run(
-            zql.teamEvent.where("seriesId", args.id)
-          )) as TeamEvent[];
-          if (exceptions.some((e) => e.startTime <= args.now)) {
-            throw new Error("Cannot cancel a series with past events");
-          }
-        } else if (
-          (mode === "this" || mode === "following") &&
-          existing.startTime <= args.now
-        ) {
-          throw new Error("Cannot cancel an event that has already started");
-        }
+      // Team leads without events.cancel cannot cancel an event that has
+      // started. "All" never cancels a started session, so it stays open.
+      if (
+        isTeamLead &&
+        !can(ctx, "events.cancel") &&
+        mode !== "all" &&
+        existing.startTime <= args.now
+      ) {
+        throw new Error("Cannot cancel an event that has already started");
       }
 
+      // The rows whose members hear of it and whose RSVP polls close.
+      let cancelledIds = [args.id];
+      let notifiedIds = [args.id];
       if (mode === "all") {
-        await cancelSeriesAll(tx, args);
+        const result = await cancelSeriesAll(tx, args, existing);
+        cancelledIds = result.cancelledIds;
+        // Unsaved sessions dropped from the rule had the series' volunteers
+        // only when they inherit them.
+        notifiedIds =
+          result.ruleCut && existing.inheritVolunteers
+            ? [args.id, ...cancelledIds]
+            : cancelledIds;
       } else if (mode === "this") {
         await cancelSeriesThis(tx, args, existing, ctx.userId);
       } else if (mode === "following" && args.originalDate) {
@@ -822,17 +830,23 @@ export const teamEventMutators = {
         );
       }
 
-      // Notification for cancel (all modes)
-      if (tx.location === "server") {
+      // One notice to the members of every cancelled session; started
+      // sessions kept by "all" send nothing.
+      if (tx.location === "server" && notifiedIds.length > 0) {
         const eventId = args.id;
         const eventName = existing.name;
         const { teamId } = existing;
         const cancelledAt = args.now;
         const { reason } = args;
         const eventMembers = (await tx.run(
-          zql.teamEventMember.where("eventId", eventId)
+          zql.teamEventMember.where("eventId", "IN", notifiedIds)
         )) as TeamEventMember[];
-        const eventMemberIds = eventMembers.map((m) => m.userId);
+        const eventMemberIds = [...new Set(eventMembers.map((m) => m.userId))];
+        const polls = (
+          cancelledIds.length > 0
+            ? await tx.run(zql.teamEvent.where("id", "IN", cancelledIds))
+            : []
+        ) as TeamEvent[];
 
         ctx.asyncTasks?.push({
           fn: async () => {
@@ -849,14 +863,14 @@ export const teamEventMutators = {
               },
               { traceId: ctx.traceId }
             );
-            await enqueue(
-              "close-rsvp-poll-on-cancel",
-              {
-                eventId,
-                eventName,
-                reason,
-              },
-              { traceId: ctx.traceId }
+            await Promise.all(
+              polls.map((poll) =>
+                enqueue(
+                  "close-rsvp-poll-on-cancel",
+                  { eventId: poll.id, eventName: poll.name, reason },
+                  { traceId: ctx.traceId }
+                )
+              )
             );
           },
           meta: { eventId, eventName, mutator: "cancelSeriesEvent", teamId },

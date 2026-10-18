@@ -35,7 +35,7 @@ Routes live in `apps/web/src/routes/api/social/v1/`, handlers in `apps/web/src/l
 `getSocialEvents` loads the same rows as the public feed, via the shared `expandEventOccurrences`, but does not clamp `from` to now and keeps cancelled rows.
 
 - A virtual occurrence's id is `{seriesId}:{occDate}`. Once materialised, its id becomes the exception row id.
-- "Cancel this and following" overwrites the RRULE's `UNTIL`, so the removed occurrences vanish from the feed. The pipeline treats a vanished occurrence as dropped.
+- "This and following" and "All upcoming events" cancels overwrite the RRULE's `UNTIL`, so the removed occurrences vanish from the feed. The pipeline treats a vanished occurrence as dropped.
 - Attendance, photo count and notes stay null until `social_completed_at` is set. `photos.consentCleared` is always false until a consent process exists.
 
 ### Photos and signed links
