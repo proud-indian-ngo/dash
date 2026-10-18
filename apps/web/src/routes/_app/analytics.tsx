@@ -49,6 +49,7 @@ import {
   computeSubmitterData,
   computeTrendData,
   computeVendorData,
+  spentAt,
 } from "@/lib/stats";
 
 const SubmissionTrendsChart = lazy(() =>
@@ -153,9 +154,6 @@ function AnalyticsPage() {
     dateParams.to
   );
 
-  const createdAtAccessor = (item: { createdAt: number | null }) =>
-    item.createdAt;
-
   // Offered only with several active cost centres; the filter holds one's id.
   const costCentres = useCostCentres();
   const hasMultipleCities = costCentres.active.length > 1;
@@ -168,13 +166,13 @@ function AnalyticsPage() {
   };
 
   const filteredReimbursements = filterByCity(
-    filterByDateRange(reimbursements, dateRange, createdAtAccessor)
+    filterByDateRange(reimbursements, dateRange, spentAt)
   );
   const filteredAdvancePayments = filterByCity(
-    filterByDateRange(advancePayments, dateRange, createdAtAccessor)
+    filterByDateRange(advancePayments, dateRange, spentAt)
   );
   const filteredVendorPayments = filterByCity(
-    filterByDateRange(vendorPayments, dateRange, createdAtAccessor)
+    filterByDateRange(vendorPayments, dateRange, spentAt)
   );
   const allFiltered = [
     ...filteredReimbursements,
@@ -183,7 +181,7 @@ function AnalyticsPage() {
   ];
 
   const stats = computeSubmissionStats(allFiltered, Invoice01Icon);
-  // Zero query results include createdAt, lineItems.category, and user relations
+  // Zero query results include the spend dates, lineItems.category, and user relations
   // which satisfy WithAnalyticsData, but the union of three query types doesn't overlap cleanly
   const analyticsData = allFiltered as unknown as Parameters<
     typeof computeTrendData

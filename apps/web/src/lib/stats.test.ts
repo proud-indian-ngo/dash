@@ -1,5 +1,6 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 
+import { filterByDateRange, resolveDateRange } from "./date-range";
 import {
   byStatus,
   computeApprovalTimeData,
@@ -8,6 +9,7 @@ import {
   computeProgrammeData,
   computeSubmitterData,
   computeTrendData,
+  spentAt,
   sumAmounts,
   sumTotal,
 } from "./stats";
@@ -144,6 +146,84 @@ describe("computeTrendData", () => {
     const weekWithData = result.find((r) => r.count > 0);
     expect(weekWithData?.count).toBe(2);
     expect(weekWithData?.amount).toBe(300);
+  });
+});
+
+describe("spending by expense date", () => {
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  // Submitted 10 April 2026 for an expense on 20 March 2026 (UTC midnight, as Zero sends a date).
+  const claim = {
+    ...makeItem({ amount: 500, createdAt: new Date(2026, 3, 10).getTime() }),
+    expenseDate: Date.UTC(2026, 2, 20),
+  };
+
+  it("dates a claim by its expense date, not its submission", () => {
+    expect(spentAt(claim)).toBe(new Date(2026, 2, 20).getTime());
+  });
+
+  it("lands under a March range, not an April one", () => {
+    const march = resolveDateRange("custom", "2026-03-01", "2026-03-31");
+    const april = resolveDateRange("custom", "2026-04-01", "2026-04-30");
+    expect(filterByDateRange([claim], march, spentAt)).toHaveLength(1);
+    expect(filterByDateRange([claim], april, spentAt)).toHaveLength(0);
+  });
+
+  it("lands in the financial year of the expense", () => {
+    setSystemTime(new Date(2026, 4, 15));
+    const thisYear = resolveDateRange("fiscal_year", "", "");
+    const lastYear = resolveDateRange("last_fiscal_year", "", "");
+    expect(filterByDateRange([claim], thisYear, spentAt)).toHaveLength(0);
+    expect(filterByDateRange([claim], lastYear, spentAt)).toHaveLength(1);
+  });
+
+  it("buckets the trend by expense month", () => {
+    const result = computeTrendData(
+      [claim],
+      new Date(2026, 0, 1),
+      new Date(2026, 5, 30)
+    );
+    expect(result.find((r) => r.period === "Mar 2026")?.amount).toBe(500);
+    expect(result.find((r) => r.period === "Apr 2026")?.count).toBe(0);
+  });
+
+  it("dates a vendor payment by its invoice, else its first approved payment", () => {
+    const createdAt = new Date(2026, 4, 1).getTime();
+    const paidOn = new Date(2026, 3, 5).getTime();
+    const transactions = [
+      { status: "rejected", transactionDate: paidOn - 1, voidedAt: null },
+      { status: "approved", transactionDate: paidOn + 1, voidedAt: paidOn },
+      { status: "approved", transactionDate: paidOn, voidedAt: null },
+    ];
+    expect(
+      spentAt({ createdAt, invoiceDate: Date.UTC(2026, 3, 2), transactions })
+    ).toBe(new Date(2026, 3, 2).getTime());
+    expect(spentAt({ createdAt, invoiceDate: null, transactions })).toBe(
+      paidOn
+    );
+    expect(spentAt({ createdAt, invoiceDate: null, transactions: [] })).toBe(
+      createdAt
+    );
+  });
+
+  it("ignores a rejected invoice's date", () => {
+    const paidOn = new Date(2026, 3, 5).getTime();
+    expect(
+      spentAt({
+        createdAt: new Date(2026, 4, 1).getTime(),
+        invoiceDate: Date.UTC(2026, 3, 20),
+        invoiceRejectionReason: "Wrong vendor",
+        transactions: [
+          { status: "approved", transactionDate: paidOn, voidedAt: null },
+        ],
+      })
+    ).toBe(paidOn);
+  });
+
+  it("falls back to when an advance was raised", () => {
+    expect(spentAt({ createdAt: 123 })).toBe(123);
   });
 });
 

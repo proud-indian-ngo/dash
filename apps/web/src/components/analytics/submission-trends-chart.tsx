@@ -39,7 +39,7 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
     <ChartCard
       empty={data.length === 0}
       emptyMessage="Nothing in this period."
-      title="Submission trends"
+      title="Spending over time"
     >
       <ChartContainer className="h-[300px] w-full" config={chartConfig}>
         <ComposedChart data={data}>
