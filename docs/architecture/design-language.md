@@ -38,7 +38,9 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 - Type: Geist (`font-sans`) at 13px (`text-sm`) for reading text. Page titles, big numbers and dates use `font-display font-semibold` (Bricolage 600). Amounts, dates, counts, IDs and emails in tables use Paper Mono (`font-mono`), applied by column `meta.kind`.
 - Table header icons: a column that means a domain concept (Programme, Center, Vendor) sets `meta.icon` from `COLUMN_ICONS`, so the concept looks the same in every table. Other columns get their `meta.kind` icon.
 - Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
-- Sizes: buttons 32px. Inputs, selects and date pickers 36px (40px on touch), except the 32px table toolbar search. One-line table rows 36px.
+- Sizes: buttons 32px. Inputs, selects and date pickers 36px, except the 32px table toolbar search. One-line table rows 36px.
+- Touch (`pointer-coarse:`) raises controls to at least 36px: buttons, icon buttons, inputs and tab lists 40px, small buttons 36px, calendar days 40px. Size touch targets this way, not with phone breakpoints, so tablets get them too.
+- Sideways scrollers (tab lists, view tabs) hide their scrollbar and use `scroll-fade-x`, which fades an edge only while there is more to scroll.
 
 ## Status and labels
 

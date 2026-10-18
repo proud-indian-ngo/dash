@@ -226,6 +226,46 @@
   animation: blur-in 200ms var(--ease-out-expo) both;
 }
 
+/*
+ * Fades the edges of a sideways scroller toward the content it hides. The
+ * scroll timeline only runs while the element actually scrolls, so short
+ * lists get no fade, and browsers without scroll timelines get none either.
+ */
+@property --scroll-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --scroll-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes scroll-fade-x {
+  from {
+    --scroll-fade-start: 0px;
+    --scroll-fade-end: 2rem;
+  }
+  to {
+    --scroll-fade-start: 2rem;
+    --scroll-fade-end: 0px;
+  }
+}
+
+@utility scroll-fade-x {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--scroll-fade-start),
+    #000 calc(100% - var(--scroll-fade-end)),
+    transparent
+  );
+  animation: scroll-fade-x linear both;
+  animation-timeline: scroll(self inline);
+}
+
 @utility animate-badge-pulse {
   animation: badge-pulse 200ms var(--ease-out-expo) both;
 }

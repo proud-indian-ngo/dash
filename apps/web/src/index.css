@@ -5,6 +5,8 @@
 /* Base UI's iOS scroll lock positions drawer backdrops against the body. */
 body {
   position: relative;
+  /* viewport-fit=cover draws under the notch; keep content out of it in landscape. */
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 
 /* z-index scale: use these tokens instead of raw numbers.

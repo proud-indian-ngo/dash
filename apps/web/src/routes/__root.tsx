@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         charSet: "utf-8",
       },
       {
-        content: "width=device-width, initial-scale=1",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
         name: "viewport",
       },
       {

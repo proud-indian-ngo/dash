@@ -207,11 +207,15 @@ export function DataTableViewTabs({
     // Scrolls sideways on phones. The 2px of bottom padding, taken back by
     // the margin, keeps the active underline from being clipped.
     <Tabs
-      className="-mb-0.5 [scrollbar-width:none] overflow-x-auto overscroll-x-contain pb-0.5 [&::-webkit-scrollbar]:hidden"
+      className="scroll-fade-x -mb-0.5 [scrollbar-width:none] overflow-x-auto overscroll-x-contain pb-0.5 [&::-webkit-scrollbar]:hidden"
       onValueChange={handleChange}
       value={active}
     >
-      <TabsList aria-label="Views" className="h-8 gap-3 px-0" variant="line">
+      <TabsList
+        aria-label="Views"
+        className="h-8 gap-3 px-0 pointer-coarse:h-10"
+        variant="line"
+      >
         <ViewTab count={total} label="All" value={ALL_VIEW} />
         {views.map((view) => (
           <ViewTab
@@ -254,9 +258,11 @@ function ViewTab({
   value: string;
 }) {
   return (
+    // Phones drop empty views (unless selected) so the ones with rows fit.
     <TabsTrigger
       aria-label={`${label} ${count}`}
-      className="flex-none px-0"
+      className="flex-none px-0 max-md:data-empty:not-data-active:hidden"
+      data-empty={count === 0 || undefined}
       value={value}
     >
       {label}
