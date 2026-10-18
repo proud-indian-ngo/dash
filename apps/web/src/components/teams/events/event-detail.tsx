@@ -71,6 +71,7 @@ import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import {
   EditScopeDialog,
+  pageSeriesStart,
   seriesCancelScopes,
   seriesEditScopes,
 } from "./edit-scope-dialog";
@@ -1127,9 +1128,8 @@ export function EventDetail({
         isPastEvent,
         isVirtualOccurrence,
       });
-  // A saved session on the series' start date: "this and following" is
-  // the whole series there.
-  const seriesStart = event.seriesId ? parentEvent?.startTime : event.startTime;
+  // On the series' start date "this and following" is the whole series.
+  const seriesStart = pageSeriesStart(event, parentEvent, isVirtualOccurrence);
   const scopes = seriesEditScopes(seriesStart, scopeOccDate);
   const cancelScopes = seriesCancelScopes(
     seriesStart,
