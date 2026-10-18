@@ -205,7 +205,7 @@ function VendorForm({
         />
         <InputField
           isRequired
-          label="IFSC Code"
+          label="IFSC code"
           name="bankAccountIfscCode"
           placeholder="SBIN0001234"
         />
@@ -213,14 +213,14 @@ function VendorForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField
-          label="GST Number"
+          label="GST number"
           name="gstNumber"
           placeholder="22AAAAA0000A1Z5"
         />
         <InputField
           description={panHint}
           disabled={!identifiersAvailable}
-          label="PAN Number"
+          label="PAN"
           name="panNumber"
           placeholder="ABCDE1234F"
         />

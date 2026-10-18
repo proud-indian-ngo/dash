@@ -36,7 +36,7 @@ test.describe("Event interest flow (volunteer)", () => {
     await dialog
       .getByLabel("Message (optional)")
       .fill("I would like to volunteer!");
-    await dialog.getByRole("button", { name: "Submit Interest" }).click();
+    await dialog.getByRole("button", { name: "Submit interest" }).click();
     await expect(dialog).toBeHidden({ timeout: 5000 });
 
     const cancel = page.getByRole("button", { name: "Cancel Interest" });

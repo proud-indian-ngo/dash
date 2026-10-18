@@ -126,7 +126,7 @@ export function RegisterForm() {
           Create your account
         </h2>
         <p className="text-muted-foreground text-sm">
-          Enter your details below to create your account
+          Enter your details below to create your account.
         </p>
       </div>
       <FormLayout className="space-y-4" form={form}>

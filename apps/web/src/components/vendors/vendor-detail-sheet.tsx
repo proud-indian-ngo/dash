@@ -119,7 +119,7 @@ export function VendorDetailSheet({
                       ) : null
                     }
                   />
-                  <DetailRow label="IFSC Code" value={bank?.ifscCode} />
+                  <DetailRow label="IFSC code" value={bank?.ifscCode} />
                 </div>
               </div>
             </>
@@ -128,10 +128,10 @@ export function VendorDetailSheet({
           <div className="grid gap-4">
             <h3 className="text-sm font-medium">Tax details</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="GST Number" value={vendor.gstNumber} />
+              <DetailRow label="GST number" value={vendor.gstNumber} />
               {state.kind === "ready" ? (
                 <DetailRow
-                  label="PAN Number"
+                  label="PAN"
                   value={
                     details?.hasPan ? maskedAccount(details.panLast4) : null
                   }

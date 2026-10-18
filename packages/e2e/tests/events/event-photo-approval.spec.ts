@@ -12,7 +12,7 @@ async function openPhotos(page: Page) {
 }
 
 const pendingHeading = (page: Page, count: number) =>
-  page.getByText(`Pending Approval (${count})`, { exact: true });
+  page.getByText(`Pending approval (${count})`, { exact: true });
 
 test.describe("Event photo approval (admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {

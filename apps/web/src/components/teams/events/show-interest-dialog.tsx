@@ -126,7 +126,7 @@ export function ShowInterestDialog({
               Cancel
             </Button>
             <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Submitting..." : "Submit Interest"}
+              {isSubmitting ? "Submitting..." : "Submit interest"}
             </Button>
           </DialogFooter>
         </form>

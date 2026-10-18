@@ -683,7 +683,6 @@ function EventFormContent({
             inputMode="numeric"
             label="Volunteers needed"
             name="volunteersNeeded"
-            placeholder="0"
           />
           <EventPartnersField />
         </>

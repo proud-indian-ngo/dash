@@ -92,7 +92,7 @@ async function selectOrCreateVendor(page: Page, vendorNamePrefix: string) {
   await dialog
     .getByRole("textbox", { name: "Account Number" })
     .fill(uniqueSuffix.slice(-10).padStart(10, "1"));
-  await dialog.getByRole("textbox", { name: "IFSC Code" }).fill("SBIN0001234");
+  await dialog.getByRole("textbox", { name: "IFSC code" }).fill("SBIN0001234");
   await clickUntilDialogCloses(dialog, /Add vendor/i);
   await waitForZeroReady(page);
 

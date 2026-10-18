@@ -8,6 +8,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { mutators } from "@pi-dash/zero/mutators";
 import type { TeamEventMember, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
@@ -15,6 +16,8 @@ import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
 
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { DATE } from "@/lib/date-formats";
@@ -93,14 +96,14 @@ function EventMemberRow({
         Added {format(new Date(member.addedAt), DATE)}
       </span>
       {canMarkAttendance ? (
-        <div className="flex gap-1">
+        <div className="flex gap-1 pointer-coarse:gap-2">
           <Button
             aria-label={`Mark ${displayName} present`}
-            className={
-              member.attendance === "present"
-                ? "bg-success/10 text-success hover:bg-success/20"
-                : ""
-            }
+            className={cn(
+              "pointer-coarse:size-10",
+              member.attendance === "present" &&
+                "bg-success/10 text-success hover:bg-success/20"
+            )}
             onClick={markAllPresent}
             size="icon-sm"
             variant={member.attendance === "present" ? "secondary" : "ghost"}
@@ -113,6 +116,7 @@ function EventMemberRow({
           </Button>
           <Button
             aria-label={`Mark ${displayName} absent`}
+            className="pointer-coarse:size-10"
             onClick={stableOnClick1}
             size="icon-sm"
             variant={member.attendance === "absent" ? "destructive" : "ghost"}
@@ -126,14 +130,21 @@ function EventMemberRow({
         </div>
       ) : null}
       {canManage ? (
-        <Button
-          aria-label={`Remove ${displayName}`}
-          onClick={stableOnClick2}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <HugeiconsIcon className="size-4" icon={UserRemoveIcon} />
-        </Button>
+        <ResponsiveActionMenu
+          actions={[
+            {
+              destructive: true,
+              icon: UserRemoveIcon,
+              id: "remove",
+              label: "Remove from event",
+              onSelect: stableOnClick2,
+            },
+          ]}
+          title={displayName}
+          trigger={
+            <RowActionsButton aria-label={`Actions for ${displayName}`} />
+          }
+        />
       ) : null}
     </li>
   );

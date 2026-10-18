@@ -619,6 +619,18 @@ function EventTabs(props: EventTabsProps) {
     return null;
   }
 
+  // A lone Volunteers list gets a heading; a single tab reads as a control.
+  if (tabs.length === 1 && activeTab === "volunteers") {
+    return (
+      <section aria-labelledby="event-volunteers-heading">
+        <h2 className="mb-3 text-sm font-medium" id="event-volunteers-heading">
+          Volunteers ({memberCount})
+        </h2>
+        {members}
+      </section>
+    );
+  }
+
   return (
     <Tabs onValueChange={handleTabChange} value={activeTab}>
       <TabsList className="max-w-full [scrollbar-width:none] justify-start overflow-x-auto">
@@ -1339,20 +1351,6 @@ export function EventDetail({
 
             {firstRow ? <FirstSessionNotice row={firstRow} /> : null}
 
-            {socialRecapMode === "form" ? (
-              <EventSocialRecap
-                approvedPhotos={approvedPhotos}
-                event={event}
-                presentCount={presentCount}
-              />
-            ) : null}
-            {socialRecapMode === "materialize" ? (
-              <SocialRecapStart
-                onStart={openSession}
-                pending={openingSession}
-              />
-            ) : null}
-
             {canAccessPostEventContent ? null : (
               <p className="text-muted-foreground text-sm">
                 {getPostEventContentMessage(isPastEvent)}
@@ -1403,6 +1401,21 @@ export function EventDetail({
                 canAccessPostEventContent ? canManage : showUpcomingExpenses
               }
             />
+
+            {/* After the tabs so attendance, which the recap counts, comes first */}
+            {socialRecapMode === "form" ? (
+              <EventSocialRecap
+                approvedPhotos={approvedPhotos}
+                event={event}
+                presentCount={presentCount}
+              />
+            ) : null}
+            {socialRecapMode === "materialize" ? (
+              <SocialRecapStart
+                onStart={openSession}
+                pending={openingSession}
+              />
+            ) : null}
           </div>
 
           {showDetails ? (
@@ -1513,7 +1526,7 @@ export function EventDetail({
       </AlertDialog>
 
       <ConfirmDialog
-        confirmLabel="Remove"
+        confirmLabel="Remove volunteer"
         description="Are you sure you want to remove this volunteer from the event?"
         loading={removeMember.isLoading}
         loadingLabel="Removing..."
