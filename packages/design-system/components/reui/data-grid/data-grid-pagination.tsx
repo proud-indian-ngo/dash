@@ -230,11 +230,13 @@ function DataGridPaginationControls({
                   <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
                 </Button>
 
-                {renderEllipsisPrevButton()}
+                <span className="hidden items-center space-x-1 sm:flex">
+                  {renderEllipsisPrevButton()}
 
-                {renderPageButtons()}
+                  {renderPageButtons()}
 
-                {renderEllipsisNextButton()}
+                  {renderEllipsisNextButton()}
+                </span>
 
                 <Button
                   size="icon-sm"

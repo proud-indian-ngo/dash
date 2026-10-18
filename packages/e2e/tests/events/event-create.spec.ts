@@ -138,7 +138,7 @@ test.describe("Create event (admin)", () => {
     await expect(page.getByText("Recurrence")).toBeVisible();
   });
 
-  test("mobile drawer scrolls to form actions", async ({ page }) => {
+  test("mobile drawer keeps its form actions in view", async ({ page }) => {
     await page.setViewportSize({ height: 932, width: 430 });
 
     await page.getByRole("button", { name: "Create event" }).click();
@@ -151,11 +151,10 @@ test.describe("Create event (admin)", () => {
       name: "Create event",
     });
 
-    await expect(createButton).not.toBeInViewport();
-
+    // The actions are pinned while the fields scroll under them.
+    await expect(createButton).toBeInViewport();
     await dialog.hover();
     await page.mouse.wheel(0, 1600);
-
     await expect(createButton).toBeInViewport();
   });
 });
