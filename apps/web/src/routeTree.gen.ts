@@ -37,6 +37,7 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
+import { Route as ApiClearCacheRouteImport } from './routes/api/clear-cache'
 import { Route as ApiFinancialExportRouteImport } from './routes/api/financial-export'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
@@ -289,6 +290,11 @@ const ApiAuditLogRoute = ApiAuditLogRouteImport.update({
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
   id: '/api/avatar',
   path: '/api/avatar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiClearCacheRoute = ApiClearCacheRouteImport.update({
+  id: '/api/clear-cache',
+  path: '/api/clear-cache',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFinancialExportRoute = ApiFinancialExportRouteImport.update({
@@ -926,6 +932,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
@@ -1060,6 +1067,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
@@ -1200,6 +1208,7 @@ export interface FileRoutesById {
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
   '/api/avatar': typeof ApiAvatarRoute
+  '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
@@ -1346,6 +1355,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/clear-cache'
     | '/api/financial-export'
     | '/api/health'
     | '/api/version'
@@ -1480,6 +1490,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/clear-cache'
     | '/api/financial-export'
     | '/api/health'
     | '/api/version'
@@ -1619,6 +1630,7 @@ export interface FileRouteTypes {
     | '/_auth/verify-email'
     | '/api/audit-log'
     | '/api/avatar'
+    | '/api/clear-cache'
     | '/api/financial-export'
     | '/api/health'
     | '/api/version'
@@ -1743,6 +1755,7 @@ export interface RootRouteChildren {
   UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
+  ApiClearCacheRoute: typeof ApiClearCacheRoute
   ApiFinancialExportRoute: typeof ApiFinancialExportRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiVersionRoute: typeof ApiVersionRoute
@@ -1979,6 +1992,13 @@ declare module '@tanstack/react-router' {
       path: '/api/avatar'
       fullPath: '/api/avatar'
       preLoaderRoute: typeof ApiAvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/clear-cache': {
+      id: '/api/clear-cache'
+      path: '/api/clear-cache'
+      fullPath: '/api/clear-cache'
+      preLoaderRoute: typeof ApiClearCacheRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/financial-export': {
@@ -3190,6 +3210,7 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
+  ApiClearCacheRoute: ApiClearCacheRoute,
   ApiFinancialExportRoute: ApiFinancialExportRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiVersionRoute: ApiVersionRoute,

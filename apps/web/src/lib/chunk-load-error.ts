@@ -74,3 +74,17 @@ export function reloadForChunkError(
   reload();
   return true;
 }
+
+/**
+ * The chunk error screen's Reload. A plain reload can reuse a broken chunk the
+ * browser cached as immutable (a download cut off on a weak connection), so
+ * clear the HTTP cache first. Reloads even if clearing fails.
+ */
+export async function reloadClearingCache(): Promise<void> {
+  try {
+    await fetch("/api/clear-cache", { cache: "no-store" });
+  } catch {
+    // Offline or blocked: the plain reload below is still the best attempt.
+  }
+  window.location.reload();
+}

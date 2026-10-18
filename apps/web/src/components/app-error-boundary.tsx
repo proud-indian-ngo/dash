@@ -11,7 +11,11 @@ import {
   ErrorState,
 } from "@/components/shared/error-state";
 import { AppContext } from "@/context/app-context";
-import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
+import {
+  isChunkLoadError,
+  reloadClearingCache,
+  reloadForChunkError,
+} from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
 type Level = "root" | "section" | "inline";
@@ -19,9 +23,9 @@ type Level = "root" | "section" | "inline";
 // React.lazy caches a failed import, so resetting the boundary cannot recover
 // from a chunk error; only a full reload can.
 function useRetry({ error, resetErrorBoundary }: FallbackProps) {
-  return useEventCallback(() => {
+  return useEventCallback(async () => {
     if (isChunkLoadError(error)) {
-      window.location.reload();
+      await reloadClearingCache();
       return;
     }
     resetErrorBoundary();

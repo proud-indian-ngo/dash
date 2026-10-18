@@ -150,7 +150,7 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 The production container listens internally on port 3000 with a health check at `/api/health`; local development uses 3001. Dokploy routes the domain through Traefik to container port 3000. Do not publish the web port directly: the app trusts the final forwarded IP supplied by that proxy.
 
-Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. If an upstream cache retained a bad `/assets/*` response, purge those entries.
+Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. The error screen's Reload first calls `/api/clear-cache`, whose `Clear-Site-Data: "cache"` drops a chunk the browser cached broken; phones have no hard-refresh shortcut. Proxies must pass that header through. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 
 ### Zero cache
 
