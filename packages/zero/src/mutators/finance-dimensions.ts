@@ -17,6 +17,7 @@ import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
+import { requirePrivateUserLoader } from "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
 import {
@@ -149,11 +150,18 @@ async function assertNameFree(tx: Tx, args: { id: string; name: string }) {
   }
 }
 
-async function assertLeadEligible(tx: Tx, leadUserId: string | null) {
+async function assertLeadEligible(
+  tx: Tx,
+  ctx: Parameters<typeof requirePrivateUserLoader>[0],
+  leadUserId: string | null
+) {
   if (!leadUserId) {
     return;
   }
-  const lead = await tx.run(zql.user.where("id", leadUserId).one());
+  if (tx.location !== "server") {
+    return;
+  }
+  const lead = await requirePrivateUserLoader(ctx)(leadUserId);
   if (!lead || lead.role === "external_user" || lead.banned) {
     throw new Error("Programme lead must be an active internal user");
   }
@@ -216,7 +224,7 @@ export const programmeMutators = {
             .one()
         ),
     });
-    await assertLeadEligible(tx, args.leadUserId ?? null);
+    await assertLeadEligible(tx, ctx, args.leadUserId ?? null);
     const now = Date.now();
     await tx.mutate.programme.insert({
       active: args.active ?? true,
@@ -262,6 +270,7 @@ export const programmeMutators = {
     });
     await assertLeadEligible(
       tx,
+      ctx,
       args.leadUserId === undefined ? existing.leadUserId : args.leadUserId
     );
     await tx.mutate.programme.update({

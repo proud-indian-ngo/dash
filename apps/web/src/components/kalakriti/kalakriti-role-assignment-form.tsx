@@ -307,6 +307,7 @@ export function KalakritiRoleAssignmentForm({
   initialUserId,
   isGlobalAdmin,
   onAssigned,
+  onAssignmentsChanged,
   onCancel,
   users,
 }: {
@@ -318,6 +319,7 @@ export function KalakritiRoleAssignmentForm({
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
   onAssigned?: () => void;
+  onAssignmentsChanged?: () => void;
   onCancel?: () => void;
   users: readonly PickerUser[];
 }) {
@@ -382,9 +384,13 @@ export function KalakritiRoleAssignmentForm({
               "Failed to assign role. Earlier assignments may have succeeded.",
             mutation: "kalakritiAssignment.assignRole",
           });
-          if (result.type === "error") return;
+          if (result.type === "error") {
+            onAssignmentsChanged?.();
+            return;
+          }
         }
       }
+      onAssignmentsChanged?.();
       toast.success("Role assigned");
       onAssigned?.();
       form.reset();

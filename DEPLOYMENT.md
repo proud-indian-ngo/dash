@@ -35,6 +35,7 @@ Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` pa
 |---|---|---|
 | `VITE_ZERO_URL` | Yes | Public zero-cache URL that browsers connect to; build argument too |
 | `ZERO_UPSTREAM_DB` | Yes (zero-cache) | Unpooled PostgreSQL URL for logical replication |
+| `ZERO_APP_PUBLICATIONS` | Yes (zero-cache) | Must be `pi_dash_public`; excludes private user fields and auth tables |
 | `ZERO_MUTATE_URL`, `ZERO_QUERY_URL` | Yes (zero-cache) | Web app's `/api/zero/mutate` and `/api/zero/query` |
 | `ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES` | No | Forward session cookies |
 | `ZERO_ADMIN_PASSWORD` | Prod | zero-cache admin password |
@@ -154,6 +155,8 @@ Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chu
 ### Zero cache
 
 zero-cache runs separately (the `rocicorp/zero` image in production, `npx zero-cache` elsewhere) with the `ZERO_*` variables set. It replicates from Postgres and serves WebSockets on port 4848; browsers connect through `VITE_ZERO_URL`.
+
+The migrator prepares `pi_dash_public` from the generated Zero schema after database migrations. Custom starts must run `bun packages/zero/scripts/prepare-publication.ts` against the upstream database and set `ZERO_APP_PUBLICATIONS=pi_dash_public`. The client schema alone cannot hide columns. Changing publications rebuilds the replica and can cause replication downtime; allow initialization to finish before serving traffic. Old clients requiring removed private fields must reload. Never retain a broader publication alongside this one.
 
 For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`.
 

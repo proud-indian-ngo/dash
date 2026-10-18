@@ -1,4 +1,3 @@
-import type { User } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import z from "zod";
 
@@ -7,11 +6,12 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import type { AdminSetUserBanInput } from "@/functions/user-admin";
+import type { AdminUser } from "@/functions/user-admin-reads";
 
 interface BanUserFormProps {
   onCancel: () => void;
   onSubmit: (input: AdminSetUserBanInput) => Promise<void>;
-  user: User;
+  user: AdminUser;
 }
 
 const banUserSchema = z.object({

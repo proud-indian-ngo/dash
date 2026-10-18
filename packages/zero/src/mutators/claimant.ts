@@ -1,6 +1,6 @@
 import type { Transaction } from "@rocicorp/zero";
 
-import type { Context } from "../context";
+import { type Context, requirePrivateUserLoader } from "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
 
@@ -41,19 +41,20 @@ export async function resolveClaimant(
     return { claimantId, forOthers: false };
   }
   assertHasPermission(ctx, "requests.create_for_others");
-  await assertEligibleClaimant(tx, claimantId);
+  await assertEligibleClaimant(tx, ctx, claimantId);
   return { claimantId, forOthers: true };
 }
 
 /** An active, internal user; the server decides, the client can't see all. */
 export async function assertEligibleClaimant(
   tx: Tx,
+  ctx: Context,
   claimantId: string
 ): Promise<void> {
   if (tx.location !== "server") {
     return;
   }
-  const claimant = await tx.run(zql.user.where("id", claimantId).one());
+  const claimant = await requirePrivateUserLoader(ctx)(claimantId);
   if (!claimant || claimant.role === "external_user" || !claimant.isActive) {
     throw new Error("Choose an active member as the claimant");
   }

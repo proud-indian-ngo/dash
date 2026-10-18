@@ -58,6 +58,7 @@
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/email-delivery.ts",
         "helpers/public-events-feed.ts",
+        "helpers/publication-columns.ts",
         "helpers/register-url-options.ts",
         "helpers/role-dashboard-fixture.ts",
         "helpers/seed-dev-data.ts",

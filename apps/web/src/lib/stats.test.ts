@@ -67,9 +67,9 @@ function makeItem(overrides: {
   amount?: number;
   category?: string;
   createdAt?: number;
-  email?: string;
   name?: string;
   status?: string;
+  userId?: string;
 }) {
   return {
     createdAt: overrides.createdAt ?? Date.now(),
@@ -81,7 +81,7 @@ function makeItem(overrides: {
     ],
     status: overrides.status ?? "approved",
     user: {
-      email: overrides.email ?? "test@example.com",
+      id: overrides.userId ?? "user-1",
       name: overrides.name ?? "Test User",
     },
   };
@@ -264,27 +264,40 @@ describe("computeCategoryData", () => {
 });
 
 describe("computeSubmitterData", () => {
-  it("groups by user email and sorts by amount", () => {
+  it("groups by user ID and sorts by amount", () => {
     const items = [
-      makeItem({ amount: 100, email: "a@test.com", name: "Alice" }),
-      makeItem({ amount: 500, email: "b@test.com", name: "Bob" }),
-      makeItem({ amount: 200, email: "a@test.com", name: "Alice" }),
+      makeItem({ amount: 100, name: "Alice", userId: "user-a" }),
+      makeItem({ amount: 500, name: "Bob", userId: "user-b" }),
+      makeItem({ amount: 200, name: "Alice", userId: "user-a" }),
     ];
     const result = computeSubmitterData(items);
     expect(result).toHaveLength(2);
-    expect(result.at(0)?.email).toBe("b@test.com");
+    expect(result.at(0)?.userId).toBe("user-b");
     expect(result.at(0)?.amount).toBe(500);
-    expect(result.at(1)?.email).toBe("a@test.com");
+    expect(result.at(1)?.userId).toBe("user-a");
     expect(result.at(1)?.amount).toBe(300);
     expect(result.at(1)?.count).toBe(2);
   });
 
   it("limits to top 10", () => {
     const items = Array.from({ length: 15 }, (_, i) =>
-      makeItem({ amount: 100, email: `user${i}@test.com` })
+      makeItem({ amount: 100, userId: `user-${i}` })
     );
     const result = computeSubmitterData(items);
     expect(result).toHaveLength(10);
+  });
+
+  it("keeps users with the same name separate", () => {
+    const result = computeSubmitterData([
+      makeItem({ amount: 100, name: "Same Name", userId: "user-a" }),
+      makeItem({ amount: 200, name: "Same Name", userId: "user-b" }),
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((item) => item.userId).sort()).toEqual([
+      "user-a",
+      "user-b",
+    ]);
   });
 
   it("skips items with no user", () => {

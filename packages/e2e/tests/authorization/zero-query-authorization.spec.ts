@@ -1,9 +1,20 @@
-import type { Page } from "@playwright/test";
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import { request as playwrightRequest, type Page } from "@playwright/test";
+
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
+
+const execFileAsync = promisify(execFile);
+const PUBLICATION_COLUMNS_HELPER_PATH = path.resolve(
+  import.meta.dirname,
+  "../../helpers/publication-columns.ts"
+);
 
 const ZERO_AUTH_PROTECTED_EVENT_ID = "e2e00000-0000-4000-8000-000000000201";
 const ZERO_AUTH_LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000202";
+const ZERO_AUTH_LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
 const ZERO_AUTH_PROTECTED_INTEREST_ID = "e2e00000-0000-0000-0000-000000000301";
 const ZERO_AUTH_PROTECTED_UPDATE_ID = "e2e00000-0000-0000-0000-000000000302";
 const ZERO_AUTH_PROTECTED_PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
@@ -77,6 +88,200 @@ function expectGloballyScopedAst(
   expect(astText).not.toContain("__never_match__");
   expect(astText).not.toContain(protectedFixtureId);
 }
+
+const PRIVATE_USER_COLUMNS = [
+  "banExpires",
+  "banned",
+  "banReason",
+  "createdAt",
+  "dob",
+  "email",
+  "emailVerified",
+  "gender",
+  "isActive",
+  "isOnWhatsapp",
+  "partyId",
+  "phone",
+  "registrationGroup",
+  "updatedAt",
+] as const;
+const PUBLIC_USER_COLUMNS = ["id", "image", "name", "role"] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function collectUserRows(
+  parts: unknown,
+  rows: Record<string, unknown>[]
+): void {
+  if (!Array.isArray(parts)) {
+    return;
+  }
+  for (const part of parts) {
+    if (!(isRecord(part) && Array.isArray(part.rowsPatch))) {
+      continue;
+    }
+    for (const patch of part.rowsPatch) {
+      if (
+        isRecord(patch) &&
+        patch.op === "put" &&
+        patch.tableName === "user" &&
+        isRecord(patch.value)
+      ) {
+        rows.push(patch.value);
+      }
+    }
+  }
+}
+
+function watchSyncedUserRows(page: Page) {
+  const errors: string[] = [];
+  const rows: Record<string, unknown>[] = [];
+
+  page.on("websocket", (socket) => {
+    let pokeChunks: string[] = [];
+
+    socket.on("framereceived", ({ payload }) => {
+      if (typeof payload !== "string") {
+        pokeChunks.push(payload.subarray(1).toString("utf8"));
+        return;
+      }
+
+      let message: unknown;
+      try {
+        message = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(message)) {
+        return;
+      }
+
+      if (message[0] === "pokeStart") {
+        pokeChunks = [];
+      } else if (message[0] === "pokePart") {
+        collectUserRows([message[1]], rows);
+      } else if (message[0] === "pokeEnd" && pokeChunks.length > 0) {
+        try {
+          collectUserRows(JSON.parse(pokeChunks.join("")), rows);
+        } catch (error) {
+          errors.push(String(error));
+        }
+        pokeChunks = [];
+      }
+    });
+  });
+
+  return { errors, rows };
+}
+
+test.describe("Zero public user projection", () => {
+  test("publishes only the public user columns", async ({
+    page: _page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin only");
+
+    const { stdout } = await execFileAsync(
+      "bun",
+      ["run", PUBLICATION_COLUMNS_HELPER_PATH],
+      { env: process.env }
+    );
+    const columns = JSON.parse(stdout.trim()) as string[];
+
+    expect(columns.sort()).toEqual(["id", "image", "name", "role"].sort());
+  });
+
+  test("sends only public user columns over the Zero websocket", async ({
+    page,
+  }) => {
+    const capture = watchSyncedUserRows(page);
+    await page.goto("/");
+    await waitForZeroReady(page);
+
+    await expect.poll(() => capture.rows.length).toBeGreaterThan(0);
+    expect(capture.errors).toEqual([]);
+    for (const row of capture.rows) {
+      expect(row).toHaveProperty("id");
+      expect(row).toHaveProperty("name");
+      expect(
+        Object.keys(row).every((key) =>
+          PUBLIC_USER_COLUMNS.includes(
+            key as (typeof PUBLIC_USER_COLUMNS)[number]
+          )
+        )
+      ).toBe(true);
+      for (const column of PRIVATE_USER_COLUMNS) {
+        expect(row).not.toHaveProperty(column);
+      }
+    }
+  });
+});
+
+test.describe("private user reads", () => {
+  test("a volunteer can load their own private hover details", async ({
+    page,
+    volunteerEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+
+    await page.goto(`/teams/${ZERO_AUTH_LEAD_TEAM_ID}`);
+    const self = page.getByLabel("View Test Volunteer's profile").first();
+    await expect(self).toBeVisible({ timeout: 15_000 });
+    await self.hover();
+    await expect(page.getByText(volunteerEmail)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("admin endpoint returns private users and rejects a volunteer replay", async ({
+    page,
+    volunteerEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin only");
+
+    let adminUsersRequest: null | {
+      headers: Record<string, string>;
+      url: string;
+    } = null;
+    page.on("response", async (response) => {
+      if (!response.url().includes("/_serverFn/")) {
+        return;
+      }
+      const body = await response.text().catch(() => "");
+      if (body.includes(volunteerEmail)) {
+        const headers = await response.request().allHeaders();
+        delete headers.cookie;
+        adminUsersRequest = { headers, url: response.url() };
+      }
+    });
+
+    await page.goto("/users");
+    await page.getByPlaceholder("Search users...").fill(volunteerEmail);
+    await expect(page.getByText(volunteerEmail)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect.poll(() => adminUsersRequest).not.toBeNull();
+
+    const volunteer = await playwrightRequest.newContext({
+      baseURL: testInfo.project.use.baseURL as string,
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/volunteer.json"
+      ),
+    });
+    try {
+      const replay = await volunteer.get(adminUsersRequest!.url, {
+        headers: adminUsersRequest!.headers,
+      });
+      const body = await replay.text();
+      expect(body).toContain("Forbidden");
+      expect(body).not.toContain(volunteerEmail);
+    } finally {
+      await volunteer.dispose();
+    }
+  });
+});
 
 test.describe("Zero query API authorization — volunteer", () => {
   test.beforeEach(({ page: _page }, testInfo) => {

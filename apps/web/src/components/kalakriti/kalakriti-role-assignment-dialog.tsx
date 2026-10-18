@@ -30,6 +30,7 @@ export function KalakritiRoleAssignmentDialog({
   initialUserId,
   isGlobalAdmin,
   onOpenChange,
+  onAssignmentsChanged,
   open,
   pickerState,
   users,
@@ -44,6 +45,7 @@ export function KalakritiRoleAssignmentDialog({
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
   onOpenChange: (open: boolean) => void;
+  onAssignmentsChanged: () => void;
   open: boolean;
   pickerState: "error" | "idle" | "loading" | "ready";
   users: readonly PickerUser[];
@@ -81,6 +83,7 @@ export function KalakritiRoleAssignmentDialog({
           initialUserId={initialUserId}
           isGlobalAdmin={isGlobalAdmin}
           onAssigned={handleAssigned}
+          onAssignmentsChanged={onAssignmentsChanged}
           onCancel={handleCancel}
           pickerState={pickerState}
           users={users}
@@ -102,6 +105,7 @@ function KalakritiRoleAssignmentDialogBody({
   initialUserId,
   isGlobalAdmin,
   onAssigned,
+  onAssignmentsChanged,
   onCancel,
   pickerState,
   users,
@@ -117,6 +121,7 @@ function KalakritiRoleAssignmentDialogBody({
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
   onAssigned: () => void;
+  onAssignmentsChanged: () => void;
   onCancel: () => void;
   pickerState: "error" | "idle" | "loading" | "ready";
   users: readonly PickerUser[];
@@ -156,6 +161,7 @@ function KalakritiRoleAssignmentDialogBody({
       isGlobalAdmin={isGlobalAdmin}
       key={`${formKey}:${initialUserId ?? "new"}`}
       onAssigned={onAssigned}
+      onAssignmentsChanged={onAssignmentsChanged}
       onCancel={onCancel}
       users={users}
     />

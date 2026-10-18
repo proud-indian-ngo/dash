@@ -197,6 +197,7 @@ done
 # Migrate schema (run from packages/db so relative config path resolves)
 echo "Migrating test database..."
 (cd packages/db && DATABASE_URL="$TEST_DB_URL" SKIP_VALIDATION=true bun run scripts/migrate.ts)
+(cd packages/zero && ZERO_UPSTREAM_DB="$TEST_DB_URL" bun run scripts/prepare-publication.ts)
 
 # Seed test users (run from e2e package for workspace dep resolution)
 echo "Seeding test users..."
@@ -205,6 +206,7 @@ echo "Seeding test users..."
 # Export env overrides for the test web server and zero-cache
 export DATABASE_URL="$TEST_DB_URL"
 export ZERO_UPSTREAM_DB="$TEST_DB_URL"
+export ZERO_APP_PUBLICATIONS=pi_dash_public
 export ZERO_CVR_DB="$TEST_DB_URL"
 export ZERO_CHANGE_DB="$TEST_DB_URL"
 export ZERO_REPLICA_FILE="$REPLICA_FILE"

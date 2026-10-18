@@ -9,9 +9,11 @@ Every primary key is a UUIDv7 from the `uuidv7` package, generated in the app be
 
 ## Schema
 
-Drizzle is the source of truth. `bun run zero:generate` generates `packages/zero/src/schema.ts` from the barrel, `packages/db/src/schema/index.ts`.
+Drizzle is the source of truth. `bun run zero:generate` generates the client schema through `packages/zero/drizzle-zero.config.ts`, which explicitly selects synced tables and columns.
 
 - Tables that must never reach the browser are left out of the barrel: `social_api_token` and everything under `packages/db/src/schema/private/`.
+- User relations sync only `id`, `name`, `image`, and `role`. Authentication accounts, sessions, and verification records are excluded. Private fields use authorized server reads, including transaction-scoped mutation validation and contact snapshots.
+- The `pi_dash_public` PostgreSQL publication enforces the generated schema's table and column allow-list. TypeScript schema omission alone does **not** restrict replication. Preparation runs before development, CI and production Zero startup; regenerate and prepare it after schema changes. Never combine it with a broader publication. See [deployment](../../DEPLOYMENT.md#zero-cache) for cutover.
 - `private/` tables also live in the Postgres schema `private`, which zero-cache's publication (scoped to `public`) never replicates. drizzle-kit migrates them through `schemaFilter` in `drizzle.config.ts`.
 - Every new table gets idempotent seed records in `scripts/seed.ts`. Transient queue and log tables (held notifications, email batch snapshots, the WhatsApp send log) are exempt.
 

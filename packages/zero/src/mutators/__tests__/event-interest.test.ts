@@ -298,6 +298,14 @@ describe("Kalakriti event interest", () => {
     await eventInterestMutators.approve.fn({
       args: { id: "interest-1", now: 1_700_000_000_000 },
       ctx: {
+        loadPrivateUser: async () => ({
+          banned: false,
+          email: "volunteer@example.com",
+          isActive: true,
+          name: "Volunteer One",
+          phone: null,
+          role: "unoriented_volunteer",
+        }),
         permissions: ["events.manage_interest"],
         role: "admin",
         userId: "admin-1",
@@ -327,6 +335,47 @@ describe("Kalakriti event interest", () => {
         userId: "volunteer-1",
       })
     );
+  });
+
+  it("fails closed before enrollment without the private user loader", async () => {
+    const write = mock();
+    const results = [
+      {
+        eventId: "event-1",
+        id: "interest-1",
+        status: "pending",
+        userId: "volunteer-1",
+      },
+      {
+        id: "event-1",
+        managementDomain: "kalakriti",
+        teamId: "team-1",
+      },
+      undefined,
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      { id: "volunteer-1", name: "Volunteer", role: "volunteer" },
+    ];
+
+    await expect(
+      eventInterestMutators.approve.fn({
+        args: { id: "interest-1", now: 1_700_000_000_000 },
+        ctx: {
+          permissions: ["events.manage_interest"],
+          role: "admin",
+          userId: "admin-1",
+        },
+        tx: {
+          location: "server",
+          mutate: {
+            eventInterest: { update: write },
+            kalakritiEditionMembership: { insert: write, update: write },
+            teamEventMember: { insert: write },
+          },
+          run: mock(async () => results.shift()),
+        },
+      } as never)
+    ).rejects.toThrow("Private user loader is required");
+    expect(write).not.toHaveBeenCalled();
   });
 });
 

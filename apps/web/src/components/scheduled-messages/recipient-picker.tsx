@@ -21,9 +21,14 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
+import {
+  getWhatsappRecipientCandidates,
+  type PrivateUserCandidate,
+} from "@/functions/users-for-picker";
 
 export interface Recipient {
   id: string;
@@ -96,9 +101,34 @@ function SelectedRecipientBadge({
 export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
   const [open, setOpen] = useState(false);
   const [groups] = useQuery(queries.whatsappGroup.all());
-  const [users] = useQuery(queries.user.whatsappUsers());
+  const [userCandidates, setUserCandidates] = useState<{
+    state: "error" | "loading" | "ready";
+    users: PrivateUserCandidate[];
+  }>({ state: "loading", users: [] });
 
-  const whatsappUsers = users ?? [];
+  useEffect(() => {
+    if (!open) return;
+
+    let active = true;
+    getWhatsappRecipientCandidates()
+      .then((users) => {
+        if (active) setUserCandidates({ state: "ready", users });
+      })
+      .catch((error) => {
+        if (!active) return;
+        log.error({
+          action: "loadWhatsappRecipientCandidates",
+          component: "RecipientPicker",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setUserCandidates({ state: "error", users: [] });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open]);
+
   const selectedIds = new Set(value.map((r) => r.id));
 
   const handleSelect = useEventCallback((recipient: Recipient) => {
@@ -112,10 +142,16 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
   const handleRemove = useEventCallback((id: string) => {
     onChange(value.filter((r) => r.id !== id));
   });
+  const handleOpenChange = useEventCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      setUserCandidates({ state: "loading", users: [] });
+    }
+    setOpen(nextOpen);
+  });
 
   return (
     <div className="flex flex-col gap-2">
-      <Popover onOpenChange={setOpen} open={open}>
+      <Popover onOpenChange={handleOpenChange} open={open}>
         <PopoverTrigger
           render={
             <Button
@@ -157,9 +193,9 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
                   })}
                 </CommandGroup>
               )}
-              {whatsappUsers.length > 0 && (
+              {userCandidates.users.length > 0 && (
                 <CommandGroup heading="Users">
-                  {whatsappUsers.map((user) => {
+                  {userCandidates.users.map((user) => {
                     const recipient: Recipient = {
                       id: user.id,
                       label: user.name,
@@ -179,6 +215,19 @@ export function RecipientPicker({ onChange, value }: RecipientPickerProps) {
                   })}
                 </CommandGroup>
               )}
+              {userCandidates.state === "loading" ? (
+                <p
+                  className="text-muted-foreground px-3 py-2 text-sm"
+                  role="status"
+                >
+                  Loading people...
+                </p>
+              ) : null}
+              {userCandidates.state === "error" ? (
+                <p className="text-destructive px-3 py-2 text-sm" role="alert">
+                  People could not be loaded. Close and reopen to retry.
+                </p>
+              ) : null}
             </CommandList>
           </Command>
         </PopoverContent>

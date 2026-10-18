@@ -7,6 +7,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import "../context";
+import { requirePrivateUserLoader } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -113,9 +114,21 @@ export const eventInterestMutators = {
             "Cancelled Kalakriti events cannot enroll volunteers"
           );
         }
-        const volunteer = await tx.run(
+        const publicVolunteer = await tx.run(
           zql.user.where("id", interest.userId).one()
         );
+        const volunteer =
+          tx.location === "server"
+            ? await requirePrivateUserLoader(ctx)(interest.userId)
+            : publicVolunteer
+              ? {
+                  email: null,
+                  isActive: true,
+                  name: publicVolunteer.name,
+                  phone: null,
+                  role: publicVolunteer.role,
+                }
+              : null;
         if (!volunteer?.isActive) {
           throw new Error("Active volunteer not found");
         }

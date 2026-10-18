@@ -11,7 +11,7 @@ export function TopSubmittersChart({ data }: { data: SubmitterDataPoint[] }) {
     >
       <RankedBars
         countNoun="request"
-        items={data.map((d) => ({ ...d, key: d.email || d.name }))}
+        items={data.map((d) => ({ ...d, key: d.userId }))}
       />
     </ChartCard>
   );

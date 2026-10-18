@@ -869,7 +869,7 @@ export const reimbursementMutators = {
       }
       const previousClaimantId = entity.userId;
       const { title } = entity;
-      await assertEligibleClaimant(tx, args.userId);
+      await assertEligibleClaimant(tx, ctx, args.userId);
       const bank = await claimantBankFields(
         tx,
         args.userId,

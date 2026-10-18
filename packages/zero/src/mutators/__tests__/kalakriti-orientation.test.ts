@@ -47,6 +47,20 @@ describe("Kalakriti orientation", () => {
   ] as const) {
     it(`fails closed on ${failure} Kalakriti interest approval`, async () => {
       const { tx, ctx, sql } = setup();
+      ctx.loadPrivateUser = async () =>
+        failure === "missing-user"
+          ? null
+          : {
+              banned: false,
+              email: "volunteer@example.com",
+              isActive: failure !== "inactive",
+              name: "Volunteer",
+              phone: null,
+              role:
+                failure === "external-role"
+                  ? "external_user"
+                  : "unoriented_volunteer",
+            };
       const write = mock();
       const results = [
         {

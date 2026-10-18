@@ -12,7 +12,8 @@ import { queries } from "@pi-dash/zero/queries";
 import type { Programme } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -29,6 +30,10 @@ import {
   SettingsListItem,
   SettingsRow,
 } from "@/components/settings/settings-ui";
+import {
+  getProgrammeLeadCandidates,
+  type PrivateUserCandidate,
+} from "@/functions/users-for-picker";
 import {
   formatPaiseCompact,
   isValidRupeesInput,
@@ -66,11 +71,13 @@ const thresholdSchema = z.object({
 
 function ProgrammeForm({
   initialValues,
+  leadCandidatesState,
   leadOptions,
   onCancel,
   onSubmit,
 }: {
   initialValues: ProgrammeFormValues;
+  leadCandidatesState: "error" | "loading" | "ready";
   leadOptions: { label: string; value: string }[];
   onCancel: () => void;
   onSubmit: (values: ProgrammeFormValues) => void | Promise<void>;
@@ -100,6 +107,14 @@ function ProgrammeForm({
           name="cause"
         />
         <ComboboxField
+          description={
+            leadCandidatesState === "loading"
+              ? "Loading eligible people..."
+              : leadCandidatesState === "error"
+                ? "Programme leads could not be loaded. Close and reopen this form to retry."
+                : undefined
+          }
+          disabled={leadCandidatesState !== "ready"}
           emptyMessage="No matching people."
           label="Programme lead"
           name="leadUserId"
@@ -228,8 +243,42 @@ export function ProgrammesSection() {
   const zero = useZero();
   const [programmes] = useQuery(queries.programme.all());
   const [configs] = useQuery(queries.appConfig.all());
-  const [users] = useQuery(queries.programme.leadCandidates());
   const [inlineMode, setInlineMode] = useState<InlineMode>(null);
+  const [leadCandidates, setLeadCandidates] = useState<{
+    state: "error" | "loading" | "ready";
+    users: PrivateUserCandidate[];
+  }>({ state: "loading", users: [] });
+
+  const candidateLoadKey =
+    inlineMode?.kind === "create"
+      ? "create"
+      : inlineMode?.kind === "edit"
+        ? `edit:${inlineMode.programme.id}`
+        : "list";
+
+  useEffect(() => {
+    let active = true;
+    getProgrammeLeadCandidates()
+      .then((users) => {
+        if (active) setLeadCandidates({ state: "ready", users });
+      })
+      .catch((error) => {
+        if (!active) return;
+        log.error({
+          action: "loadProgrammeLeadCandidates",
+          component: "ProgrammesSection",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setLeadCandidates((previous) => ({
+          state: "error",
+          users: previous.users,
+        }));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [candidateLoadKey]);
 
   const programmeList = programmes ?? [];
   const configured = configs?.find(
@@ -239,10 +288,10 @@ export function ProgrammesSection() {
   const defaultThresholdPaise = Number.isFinite(parsedDefault)
     ? parsedDefault
     : DEFAULT_FINANCE_THRESHOLD_PAISE;
-  const userNames = new Map((users ?? []).map((u) => [u.id, u.name]));
+  const userNames = new Map(leadCandidates.users.map((u) => [u.id, u.name]));
   const leadOptions = [
     { label: "No lead", value: NO_LEAD },
-    ...(users ?? []).map((u) => ({ label: u.name, value: u.id })),
+    ...leadCandidates.users.map((u) => ({ label: u.name, value: u.id })),
   ];
 
   const toMutatorArgs = (id: string, values: ProgrammeFormValues) => ({
@@ -319,14 +368,24 @@ export function ProgrammesSection() {
     }
   });
 
-  const openCreate = useEventCallback(() => setInlineMode({ kind: "create" }));
+  const openCreate = useEventCallback(() => {
+    setLeadCandidates((previous) => ({
+      state: "loading",
+      users: previous.users,
+    }));
+    setInlineMode({ kind: "create" });
+  });
   const openThreshold = useEventCallback(() =>
     setInlineMode({ kind: "threshold" })
   );
   const cancelInline = useEventCallback(() => setInlineMode(null));
-  const handleEditRequest = useEventCallback((programme: Programme) =>
-    setInlineMode({ kind: "edit", programme })
-  );
+  const handleEditRequest = useEventCallback((programme: Programme) => {
+    setLeadCandidates((previous) => ({
+      state: "loading",
+      users: previous.users,
+    }));
+    setInlineMode({ kind: "edit", programme });
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -393,6 +452,7 @@ export function ProgrammesSection() {
                 leadUserId: NO_LEAD,
                 name: "",
               }}
+              leadCandidatesState={leadCandidates.state}
               leadOptions={leadOptions}
               onCancel={cancelInline}
               onSubmit={handleCreate}
@@ -417,6 +477,7 @@ export function ProgrammesSection() {
                   name: programme.name,
                 }}
                 key={`edit-${programme.id}`}
+                leadCandidatesState={leadCandidates.state}
                 leadOptions={leadOptions}
                 onCancel={cancelInline}
                 onSubmit={handleUpdate}

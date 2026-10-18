@@ -1,9 +1,9 @@
-import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 
+import type { AdminUser } from "@/functions/user-admin-reads";
 import { DATE } from "@/lib/date-formats";
 
-export const searchUser = (user: User, query: string): boolean => {
+export const searchUser = (user: AdminUser, query: string): boolean => {
   const q = query.trim().toLowerCase();
   if (!q) {
     return true;

@@ -1,4 +1,3 @@
-import type { User } from "@pi-dash/zero/schema";
 import { useForm } from "@tanstack/react-form";
 import z from "zod";
 
@@ -6,11 +5,12 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import type { AdminSetUserPasswordInput } from "@/functions/user-admin";
+import type { AdminUser } from "@/functions/user-admin-reads";
 
 interface PasswordFormProps {
   onCancel: () => void;
   onSubmit: (input: AdminSetUserPasswordInput) => Promise<void>;
-  user: User;
+  user: AdminUser;
 }
 
 const passwordFields = {

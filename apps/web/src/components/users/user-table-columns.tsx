@@ -1,6 +1,5 @@
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
@@ -24,15 +23,18 @@ import {
   SKELETON_UPDATED_AT,
   SKELETON_WHATSAPP,
 } from "@/components/users/user-table-skeletons";
+import type { AdminUser } from "@/functions/user-admin-reads";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 
 export function createUserColumns(
-  renderActions: (row: User) => ReactNode
-): DataGridColumnDef<User>[] {
+  renderActions: (row: AdminUser) => ReactNode
+): DataGridColumnDef<AdminUser>[] {
   return [
     {
       accessorFn: (row) => row.name,
-      cell: ({ row }) => <UserCell user={row.original} />,
+      cell: ({ row }) => (
+        <UserCell secondaryValue={row.original.email} user={row.original} />
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader column={column} title="User" visibility={true} />
       ),

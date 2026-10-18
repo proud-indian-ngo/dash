@@ -5,7 +5,26 @@ import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
 import { kalakritiAssignmentMutators } from "../kalakriti-assignment";
 import { createOrientationSql } from "./orientation-tx";
 
+let latestRunResult: unknown;
 const adminContext = {
+  loadPrivateUser: async (id: string) => {
+    if (
+      !latestRunResult ||
+      typeof latestRunResult !== "object" ||
+      !("role" in latestRunResult)
+    ) {
+      return null;
+    }
+    const row = latestRunResult as Record<string, unknown>;
+    return {
+      banned: (row.banned as boolean | null | undefined) ?? false,
+      email: (row.email as string | undefined) ?? `${id}@example.com`,
+      isActive: (row.isActive as boolean | undefined) ?? true,
+      name: (row.name as string | undefined) ?? "Volunteer",
+      phone: (row.phone as string | null | undefined) ?? null,
+      role: row.role as string,
+    };
+  },
   permissions: ["kalakriti.admin"],
   role: "admin",
   userId: "admin-1",
@@ -41,6 +60,7 @@ function createTx(
   results: unknown[],
   location: "client" | "server" = "server"
 ) {
+  latestRunResult = undefined;
   const spies = createMutationSpies();
   const lockedCenters: unknown[][] = [
     [{ editionId: "edition-1", id: "center-1", retiredAt: null }],
@@ -108,6 +128,7 @@ function createTx(
       run: mock(async () => {
         if (results.length > 0) {
           const row = results.shift();
+          latestRunResult = row;
           if (row && typeof row === "object" && "kind" in row)
             lastMembership = row as Record<string, unknown>;
           return row;
@@ -170,6 +191,27 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     expect(spies.insertMembership).not.toHaveBeenCalled();
   });
 
+  it("fails closed on the server without the private user loader", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      { id: "volunteer-1", name: "Volunteer", role: "volunteer" },
+    ]);
+    const { loadPrivateUser: _loadPrivateUser, ...contextWithoutLoader } =
+      adminContext;
+
+    await expect(
+      kalakritiAssignmentMutators.assignVolunteer.fn({
+        args: assignArgs,
+        ctx: contextWithoutLoader,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignVolunteer.fn
+      >[0])
+    ).rejects.toThrow("Private user loader is required");
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
+    expect(spies.insertMembership).not.toHaveBeenCalled();
+  });
+
   it("creates membership, assignment, and linked event member together", async () => {
     const { tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
@@ -199,6 +241,8 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       expect.objectContaining({
         id: "membership-new",
         kind: "volunteer",
+        snapshotEmail: "volunteer@example.com",
+        snapshotPhone: "+919999999999",
         state: "active",
         userId: "volunteer-1",
       })
@@ -216,6 +260,55 @@ describe("kalakritiAssignment.assignVolunteer", () => {
       })
     );
     expect(spies.insertAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses public identity with null contacts for optimistic enrollment", async () => {
+    const { tx, spies } = createTx(
+      [
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        {
+          id: "volunteer-1",
+          name: "Volunteer One",
+          role: "volunteer",
+        },
+        undefined,
+        undefined,
+        [],
+        undefined,
+        {
+          eventDate: "2027-11-21",
+          id: "edition-1",
+          lifecycle: "draft",
+          nextVolunteerSequence: 1,
+          teamEventId: "event-1",
+          year: 2027,
+        },
+        {
+          editionId: "edition-1",
+          humanId: null,
+          id: "membership-new",
+          kind: "volunteer",
+          state: "active",
+        },
+      ],
+      "client"
+    );
+
+    await kalakritiAssignmentMutators.assignVolunteer.fn({
+      args: assignArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiAssignmentMutators.assignVolunteer.fn
+    >[0]);
+
+    expect(spies.insertMembership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        snapshotEmail: null,
+        snapshotName: "Volunteer One",
+        snapshotPhone: null,
+      })
+    );
   });
 
   it("does not duplicate the linked event member for another role", async () => {
@@ -550,6 +643,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         userId: "volunteer-1",
       },
       ctx: {
+        loadPrivateUser: adminContext.loadPrivateUser,
         permissions: ["kalakriti.view"],
         role: "volunteer",
         userId: "coordinator-1",
@@ -603,6 +697,7 @@ describe("kalakritiAssignment.assignLiaison", () => {
         userId: "volunteer-1",
       },
       ctx: {
+        loadPrivateUser: adminContext.loadPrivateUser,
         permissions: ["kalakriti.view"],
         role: "volunteer",
         userId: "coordinator-1",
@@ -750,6 +845,7 @@ describe("Kalakriti Competition assignments", () => {
         userId: "volunteer-1",
       },
       ctx: {
+        loadPrivateUser: adminContext.loadPrivateUser,
         permissions: ["kalakriti.view"],
         role: "volunteer",
         userId: "coordinator-1",

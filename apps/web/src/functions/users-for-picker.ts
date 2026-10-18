@@ -16,12 +16,28 @@ import {
   isNull,
   ne,
   notInArray,
+  or,
 } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
+import { assertServerPermission } from "@/lib/api-auth";
 import { canAccessKalakritiVolunteerPicker } from "@/lib/kalakriti-volunteer-picker-policy";
 import { authMiddleware } from "@/middleware/auth";
+
+export interface PrivateUserCandidate {
+  id: string;
+  name: string;
+}
+
+interface PrivateCandidateReadContext {
+  session?: { user: { id: string; role?: string | null } } | null;
+}
+
+interface PrivateCandidateReadDeps {
+  assertPermission: typeof assertServerPermission;
+  listCandidates: () => Promise<PrivateUserCandidate[]>;
+}
 
 export interface PickerUser {
   email: string;
@@ -118,6 +134,66 @@ export const getClaimantsForPicker = createServerFn({ method: "GET" })
       .where(and(eq(user.isActive, true), ne(user.role, "external_user")))
       .orderBy(user.name);
   });
+
+async function listWhatsappRecipientCandidates(): Promise<
+  PrivateUserCandidate[]
+> {
+  return await db
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(and(eq(user.isOnWhatsapp, true), ne(user.role, "external_user")))
+    .orderBy(user.name);
+}
+
+export async function getWhatsappRecipientCandidatesWithDeps(
+  context: PrivateCandidateReadContext,
+  deps: PrivateCandidateReadDeps
+): Promise<PrivateUserCandidate[]> {
+  await deps.assertPermission(context.session, "messages.schedule");
+  return await deps.listCandidates();
+}
+
+/** Minimal user rows for the scheduled-message recipient picker. */
+export const getWhatsappRecipientCandidates = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<PrivateUserCandidate[]> =>
+    getWhatsappRecipientCandidatesWithDeps(context, {
+      assertPermission: assertServerPermission,
+      listCandidates: listWhatsappRecipientCandidates,
+    })
+  );
+
+async function listProgrammeLeadCandidates(): Promise<PrivateUserCandidate[]> {
+  return await db
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(
+      and(
+        eq(user.isActive, true),
+        or(isNull(user.banned), eq(user.banned, false)),
+        ne(user.role, "external_user")
+      )
+    )
+    .orderBy(user.name);
+}
+
+export async function getProgrammeLeadCandidatesWithDeps(
+  context: PrivateCandidateReadContext,
+  deps: PrivateCandidateReadDeps
+): Promise<PrivateUserCandidate[]> {
+  await deps.assertPermission(context.session, "finance.manage");
+  return await deps.listCandidates();
+}
+
+/** Minimal active internal-user rows for the programme lead picker. */
+export const getProgrammeLeadCandidates = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<PrivateUserCandidate[]> =>
+    getProgrammeLeadCandidatesWithDeps(context, {
+      assertPermission: assertServerPermission,
+      listCandidates: listProgrammeLeadCandidates,
+    })
+  );
 
 async function loadKalakritiVolunteerPickerUsers(
   editionId: string,

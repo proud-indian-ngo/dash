@@ -6,18 +6,8 @@ import { zql } from "../schema";
 export const userQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "users.view")
-      ? zql.user
-          .where("role", "!=", "external_user")
-          .orderBy("createdAt", "desc")
+      ? zql.user.where("role", "!=", "external_user").orderBy("name", "asc")
       : zql.user.where("id", ctx?.userId)
   ),
   one: defineQuery(({ ctx }) => zql.user.where("id", ctx?.userId).one()),
-  whatsappUsers: defineQuery(({ ctx }) =>
-    ctx !== null && can(ctx, "users.view")
-      ? zql.user
-          .where("isOnWhatsapp", true)
-          .where("role", "!=", "external_user")
-          .orderBy("name", "asc")
-      : zql.user.where("id", ctx?.userId).where("isOnWhatsapp", true)
-  ),
 };

@@ -35,6 +35,8 @@ async function fixture<T>(
 }
 
 test("automatically orients an added volunteer and assigns a role without manual orientation", async ({
+  baseURL,
+  browser,
   page,
   superAdminEmail,
 }, testInfo) => {
@@ -45,6 +47,10 @@ test("automatically orients an added volunteer and assigns a role without manual
   test.slow();
   const { year } = await fixture<{ year: number }>("setup", superAdminEmail);
   const editionPage = new KalakritiEditionPage(page);
+  const secondContext = await browser.newContext({
+    baseURL,
+    storageState: await page.context().storageState(),
+  });
 
   try {
     await editionPage.gotoVolunteers(year);
@@ -62,7 +68,33 @@ test("automatically orients an added volunteer and assigns a role without manual
       membershipState: null,
       role: "unoriented_volunteer",
     });
-    await editionPage.addVolunteers(VOLUNTEER_NAME);
+    const secondPage = await secondContext.newPage();
+    const secondEditionPage = new KalakritiEditionPage(secondPage);
+    await secondEditionPage.gotoVolunteers(year);
+    await waitForZeroReady(secondPage);
+    await secondEditionPage.addVolunteers(VOLUNTEER_NAME);
+
+    const search = page.getByPlaceholder("Search volunteers...", {
+      exact: true,
+    });
+    await search.fill("Orientation cohort");
+    await expect(page.getByText(VOLUNTEER_NAME, { exact: true })).toBeVisible();
+    await search.clear();
+
+    await page.bringToFront();
+    await page.route("**/_serverFn/**", (route) => route.abort("failed"));
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    const refreshAlert = page.getByRole("alert").filter({
+      hasText: "Volunteer details couldn't be refreshed",
+    });
+    await expect(refreshAlert).toBeVisible();
+    await expect(page.getByText(VOLUNTEER_NAME, { exact: true })).toBeVisible();
+    await page.unroute("**/_serverFn/**");
+    await refreshAlert
+      .getByRole("button", { name: "Retry", exact: true })
+      .click();
+    await expect(refreshAlert).toHaveCount(0);
+
     expect(await fixture("state")).toEqual({
       assignments: [],
       eventMember: true,
@@ -96,6 +128,7 @@ test("automatically orients an added volunteer and assigns a role without manual
     });
   } finally {
     await page.goto("about:blank");
+    await secondContext.close();
     await fixture("cleanup");
   }
 });

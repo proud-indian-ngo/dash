@@ -44,8 +44,9 @@ ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=source /app/node_modules node_modules
 COPY --from=source /app/packages/db packages/db
+COPY --from=source /app/packages/zero packages/zero
 COPY --from=source /app/package.json package.json
-CMD ["bun", "run", "packages/db/scripts/migrate.ts"]
+CMD ["sh", "-c", "bun run packages/db/scripts/migrate.ts && bun run packages/zero/scripts/prepare-publication.ts"]
 
 # Stage 3: Production
 FROM oven/bun:1.4.3-slim AS production
