@@ -849,7 +849,7 @@ export const teamEventMutators = {
         // Unsaved sessions dropped from the rule had the series' volunteers
         // only when they inherit them.
         notifiedIds =
-          result.ruleCut && existing.inheritVolunteers
+          result.droppedUnsaved && existing.inheritVolunteers
             ? [args.id, ...cancelledIds]
             : cancelledIds;
       } else if (mode === "this") {

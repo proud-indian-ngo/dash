@@ -13,6 +13,7 @@ import { zql } from "../schema";
 const DASH_RE = /-/g;
 const COLON_RE = /:/g;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DROP_HORIZON_MS = 10 * 366 * DAY_MS;
 
 /**
  * Build a truncated RRULE string ending the second before splitDate starts
@@ -673,13 +674,14 @@ function lastStartedUnsavedDate(
  * unsaved occurrence. The series row and started sessions stay live with
  * their attendance and recaps; a started saved session keyed after the new
  * UNTIL stays as an orphaned exception. Returns the rows it cancelled and
- * whether unsaved sessions were dropped from the rule.
+ * whether the cut dropped unsaved sessions. Refuses when it would cancel
+ * nothing.
  */
 export async function cancelSeriesAll(
   tx: Tx,
   args: { id: string; now: number },
   existing: TeamEvent
-): Promise<{ cancelledIds: string[]; ruleCut: boolean }> {
+): Promise<{ cancelledIds: string[]; droppedUnsaved: boolean }> {
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
@@ -698,7 +700,7 @@ export async function cancelSeriesAll(
     const live = exceptions.filter((e) => !e.cancelledAt).map((e) => e.id);
     await cancel(args.id);
     await Promise.all(live.map(cancel));
-    return { cancelledIds: [args.id, ...live], ruleCut: false };
+    return { cancelledIds: [args.id, ...live], droppedUnsaved: false };
   }
 
   // The series row is the first session unless a saved row stands for it.
@@ -721,19 +723,37 @@ export async function cancelSeriesAll(
         .slice(0, 10)
     : first;
   const rule = parseRecurrenceRule(existing.recurrenceRule);
+  const splitStart = Date.parse(`${splitDate}T00:00:00Z`);
   // Only cut a rule that still runs past the split, so UNTIL never moves out.
   const ruleCut =
     rule !== null &&
     rrulestr(rule.rrule, { dtstart: new Date(existing.startTime) }).after(
-      new Date(Date.parse(`${splitDate}T00:00:00Z`)),
+      new Date(splitStart),
       true
     ) !== null;
+  // Whether the cut drops a session that has no row: the rule's dates past
+  // the split less its exclusions and saved dates. Rules are at most daily,
+  // so the horizon stays under the expansion cap.
+  const savedDates = new Set(
+    exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+  );
+  const droppedUnsaved =
+    rule !== null &&
+    ruleCut &&
+    expandSeries(
+      rule,
+      existing.startTime,
+      existing.endTime ?? null,
+      splitStart,
+      splitStart + DROP_HORIZON_MS,
+      savedDates
+    ).length > 0;
   // Saved sessions go by their own start, so a session moved later than the
   // cut is cancelled and one moved earlier that has started stays.
   const upcoming = exceptions
     .filter((e) => !e.cancelledAt && e.startTime > args.now)
     .map((e) => e.id);
-  if (!ruleCut && upcoming.length === 0) {
+  if (!droppedUnsaved && upcoming.length === 0) {
     throw new Error("This series has no upcoming sessions.");
   }
   if (rule && ruleCut) {
@@ -747,7 +767,7 @@ export async function cancelSeriesAll(
     });
   }
   await Promise.all(upcoming.map(cancel));
-  return { cancelledIds: upcoming, ruleCut };
+  return { cancelledIds: upcoming, droppedUnsaved };
 }
 
 export async function cancelSeriesThis(

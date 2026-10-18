@@ -831,6 +831,27 @@ describe("cancel all upcoming sessions", () => {
     ).toBe(false);
   });
 
+  it("tells the series' volunteers only when an unsaved session is dropped", async () => {
+    // After the cut, 24 October is excluded and 31 October is saved.
+    const db = createDb([session("last", "2026-10-31")]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      inheritVolunteers: true,
+      recurrenceRule: {
+        exdates: ["2026-10-24"],
+        rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z",
+      },
+    });
+    db.tables.teamEventMember?.push(
+      member("series-1", "vol-1"),
+      member("last", "vol-2")
+    );
+    await cancelAll(db, AFTER_THIRD);
+
+    expect(row(db, "last")?.cancelledAt).toBe(AFTER_THIRD);
+    const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
+    expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+  });
+
   it("refuses a series it already ended, sending nothing", async () => {
     const db = createDb([session("past", "2026-10-10")]);
     Object.assign(db.tables.teamEvent?.[0] ?? {}, {
