@@ -147,9 +147,9 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 ### Web app
 
-The production container listens on port 3000 with a health check at `/api/health`; local development uses 3001.
+The production container listens internally on port 3000 with a health check at `/api/health`; local development uses 3001. Dokploy routes the domain through Traefik to container port 3000. Do not publish the web port directly: the app trusts the final forwarded IP supplied by that proxy.
 
-Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. If Cloudflare ever cached a bad `/assets/*` response, purge `/assets/*`.
+Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 
 ### Zero cache
 
@@ -193,8 +193,9 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] WhatsApp gateway paired and Immich reachable, if used
 - [ ] Social pipeline, if used: `SOCIAL_MEDIA_SIGNING_SECRET` set, token created with `bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`, and app_config `social_approver_user_id` names the digest recipient ([social-api.md](docs/architecture/social-api.md))
 - [ ] Website rebuilds, if wanted: `WEBSITE_DISPATCH_TOKEN` set; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
-- [ ] Cloudflare respects origin `Cache-Control` on `/assets/*`
-- [ ] The origin is reachable only through Cloudflare: `/api/public/events` rate-limits by `cf-connecting-ip`, which a direct client could forge
+- [ ] Any upstream cache respects origin `Cache-Control` on `/assets/*`
+- [ ] Dokploy routes the web domain through Traefik to container port 3000; no web host port is published
+- [ ] Traefik retains its default forwarding behavior: `forwardedHeaders.insecure` and `forwardedHeaders.notAppendXForwardedFor` are false. The public feed and log ingestion trust its final `X-Forwarded-For` entry, never `cf-connecting-ip`
 
 ## Backups and restore
 
