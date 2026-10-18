@@ -236,7 +236,7 @@ function RecentActivityList({ activities }: { activities: ActivityItem[] }) {
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-medium">{activity.title}</p>
                 {statusInfo ? (
-                  <StatusBadge tone={statusInfo.tone}>
+                  <StatusBadge className="shrink-0" tone={statusInfo.tone}>
                     {statusInfo.label}
                   </StatusBadge>
                 ) : null}

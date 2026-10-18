@@ -2,7 +2,6 @@ import {
   CheckmarkCircle02Icon,
   Delete02Icon,
   Edit02Icon,
-  MoreVerticalIcon,
   MultiplicationSignCircleIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -23,6 +22,7 @@ import {
 } from "@/components/editor/editor-skeletons";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
@@ -177,15 +177,16 @@ export function EventUpdates({
             key="create"
             onSave={handleCreate}
             saving={saving}
+            submitLabel="Post update"
           />
         </Suspense>
       ) : null}
 
-      {/* Pending Approval section — visible to admins/leads */}
+      {/* Pending approval section — visible to admins/leads */}
       {showPendingSection ? (
         <div className="flex flex-col gap-3">
           <h3 className="text-sm font-medium">
-            Pending Approval ({pendingUpdates.length})
+            Pending approval ({pendingUpdates.length})
           </h3>
           {pendingUpdates.map((update) => (
             <PendingUpdateCard
@@ -202,11 +203,11 @@ export function EventUpdates({
         </div>
       ) : null}
 
-      {/* Your Pending Updates section — visible to non-admin authors */}
+      {/* Your pending updates section — visible to non-admin authors */}
       {showMyPendingSection ? (
         <div className="flex flex-col gap-3">
           <h3 className="text-sm font-medium">
-            Your Pending Updates ({pendingUpdates.length})
+            Your pending updates ({pendingUpdates.length})
           </h3>
           {pendingUpdates.map((update) => (
             <PendingUpdateCard
@@ -322,21 +323,7 @@ function TimelineItem({
             <div className="ml-auto">
               <ResponsiveActionMenu
                 title="Update actions"
-                trigger={
-                  <Button
-                    aria-label="Update actions"
-                    className="size-7"
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <HugeiconsIcon
-                      className="size-3.5"
-                      icon={MoreVerticalIcon}
-                      strokeWidth={2}
-                    />
-                  </Button>
-                }
+                trigger={<RowActionsButton aria-label="Update actions" />}
                 actions={[
                   canEdit && {
                     id: "edit",
@@ -371,6 +358,7 @@ function TimelineItem({
               onCancel={stableOnCancel4}
               onSave={stableOnSave5}
               saving={saving}
+              submitLabel="Save changes"
             />
           ) : (
             <PlateRenderer
@@ -488,51 +476,36 @@ function PendingUpdateCard({
 
   return (
     <div className="border-warning/30 bg-warning/5 rounded-lg border p-4">
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex items-start gap-2">
         {update.author ? (
           <UserHoverCard user={update.author}>
-            <div className="flex items-center gap-2">
-              <UserAvatar
-                className="size-6"
-                fallbackClassName="text-xs"
-                user={update.author}
-              />
-              <span className="text-sm font-medium">{update.author.name}</span>
-            </div>
+            <UserAvatar
+              className="size-6"
+              fallbackClassName="text-xs"
+              user={update.author}
+            />
           </UserHoverCard>
         ) : (
-          <div className="flex items-center gap-2">
-            <div className="bg-muted size-6 rounded-full" />
-            <span className="text-sm font-medium">Unknown</span>
-          </div>
+          <div className="bg-muted size-6 shrink-0 rounded-full" />
         )}
-        <span className="text-muted-foreground text-xs">
-          {format(new Date(update.createdAt), DATE_TIME)}
-        </span>
-        <StatusBadge tone="warning">Pending</StatusBadge>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-medium">
+            {update.author?.name ?? "Unknown"}
+          </span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-muted-foreground text-xs">
+              {format(new Date(update.createdAt), DATE_TIME)}
+            </span>
+            <StatusBadge tone="warning">Pending</StatusBadge>
+          </div>
+        </div>
 
         {editing ? null : (
-          <div className="ml-auto flex items-center gap-1">
-            {onEdit ? (
-              <Button
-                aria-label="Edit"
-                className="size-7"
-                onClick={stableOnClick6}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="text-muted-foreground size-4"
-                  icon={MoreVerticalIcon}
-                  strokeWidth={2}
-                />
-              </Button>
-            ) : null}
+          <div className="flex shrink-0 items-center gap-1 pointer-coarse:gap-2">
             {onApprove ? (
               <Button
                 aria-label="Approve"
-                className="size-7"
+                className="size-7 pointer-coarse:size-10"
                 onClick={stableOnApprove}
                 size="icon"
                 type="button"
@@ -548,7 +521,7 @@ function PendingUpdateCard({
             {onReject ? (
               <Button
                 aria-label="Reject"
-                className="size-7"
+                className="size-7 pointer-coarse:size-10"
                 onClick={stableOnReject}
                 size="icon"
                 type="button"
@@ -561,22 +534,25 @@ function PendingUpdateCard({
                 />
               </Button>
             ) : null}
-            {onDelete ? (
-              <Button
-                aria-label="Delete"
-                className="size-7"
-                onClick={stableOnDelete}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="text-muted-foreground size-4"
-                  icon={Delete02Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-            ) : null}
+            <ResponsiveActionMenu
+              actions={[
+                onEdit && {
+                  icon: Edit02Icon,
+                  id: "edit",
+                  label: "Edit",
+                  onSelect: stableOnClick6,
+                },
+                onDelete && {
+                  destructive: true,
+                  icon: Delete02Icon,
+                  id: "delete",
+                  label: "Delete",
+                  onSelect: stableOnDelete,
+                },
+              ]}
+              title="Update actions"
+              trigger={<RowActionsButton aria-label="Update actions" />}
+            />
           </div>
         )}
       </div>
@@ -591,6 +567,7 @@ function PendingUpdateCard({
             onCancel={stableOnCancel7}
             onSave={handleSave}
             saving={saving}
+            submitLabel="Save changes"
           />
         ) : (
           <PlateRenderer

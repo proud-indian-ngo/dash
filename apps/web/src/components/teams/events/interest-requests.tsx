@@ -89,10 +89,10 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
         </div>
       )}
       {interest.status === "pending" ? (
-        <div className="flex gap-1">
+        <div className="flex gap-1 pointer-coarse:gap-2">
           <Button
             aria-label={`Approve ${interest.user?.name ?? "request"}`}
-            className="border-success/20 bg-success/10 text-success hover:bg-success/20"
+            className="border-success/20 bg-success/10 text-success hover:bg-success/20 pointer-coarse:size-10"
             onClick={handleApprove}
             size="icon-sm"
             variant="outline"
@@ -106,6 +106,7 @@ function InterestRow({ interest }: { interest: InterestWithUser }) {
           </Button>
           <Button
             aria-label={`Reject ${interest.user?.name ?? "request"}`}
+            className="pointer-coarse:size-10"
             onClick={handleReject}
             size="icon-sm"
             variant="destructive"

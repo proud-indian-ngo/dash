@@ -8,7 +8,7 @@ import {
   addWeeks,
   format,
   isToday,
-  startOfWeek,
+  startOfDay,
   subWeeks,
 } from "date-fns";
 import { type MouseEvent, useState } from "react";
@@ -26,9 +26,8 @@ export function MobileWeekStrip({
   onMonthChange,
   selectedDate,
 }: MobileWeekStripProps) {
-  const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  );
+  // Seven days from today, so the next week shows without a tap.
+  const [weekStart, setWeekStart] = useState(() => startOfDay(new Date()));
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -54,7 +53,12 @@ export function MobileWeekStrip({
 
   return (
     <div className="flex items-center gap-1">
-      <Button onClick={handlePrev} size="icon" variant="ghost">
+      <Button
+        aria-label="Previous week"
+        onClick={handlePrev}
+        size="icon"
+        variant="ghost"
+      >
         <HugeiconsIcon icon={ArrowLeftIcon} size={16} strokeWidth={2} />
       </Button>
       <div className="flex flex-1 justify-between">
@@ -99,7 +103,12 @@ export function MobileWeekStrip({
           );
         })}
       </div>
-      <Button onClick={handleNext} size="icon" variant="ghost">
+      <Button
+        aria-label="Next week"
+        onClick={handleNext}
+        size="icon"
+        variant="ghost"
+      >
         <HugeiconsIcon icon={ArrowRightIcon} size={16} strokeWidth={2} />
       </Button>
     </div>

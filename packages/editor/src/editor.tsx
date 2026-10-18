@@ -100,6 +100,8 @@ export interface EditorProps {
   onSave: (content: string) => void;
   placeholder?: string;
   saving?: boolean;
+  /** Names what the button does ("Post update"), never a bare "Save". */
+  submitLabel: string;
 }
 
 export function PlateEditor({
@@ -109,6 +111,7 @@ export function PlateEditor({
   saving,
   onImageUpload,
   placeholder = "Write something...",
+  submitLabel,
   className,
 }: EditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -205,12 +208,13 @@ export function PlateEditor({
             aria-label="Editor formatting"
             className="flex-wrap gap-0.5 border-x-0 border-t-0 p-1"
           >
-            <ToolbarGroup>
+            {/* Phones keep one row: bold, italic, lists, link and image */}
+            <ToolbarGroup className="max-md:hidden!">
               <UndoToolbarButton />
               <RedoToolbarButton />
             </ToolbarGroup>
 
-            <ToolbarGroup>
+            <ToolbarGroup className="max-md:hidden!">
               <InsertToolbarButton />
               <TurnIntoToolbarButton />
             </ToolbarGroup>
@@ -223,18 +227,24 @@ export function PlateEditor({
                 <HugeiconsIcon icon={TextItalicIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton
+                className="max-md:hidden"
                 nodeType={KEYS.underline}
                 tooltip="Underline (⌘+U)"
               >
                 <HugeiconsIcon icon={TextUnderlineIcon} />
               </MarkToolbarButton>
               <MarkToolbarButton
+                className="max-md:hidden"
                 nodeType={KEYS.strikethrough}
                 tooltip="Strikethrough (⌘+⇧+M)"
               >
                 <HugeiconsIcon icon={TextStrikethroughIcon} />
               </MarkToolbarButton>
-              <MarkToolbarButton nodeType={KEYS.code} tooltip="Code (⌘+E)">
+              <MarkToolbarButton
+                className="max-md:hidden"
+                nodeType={KEYS.code}
+                tooltip="Code (⌘+E)"
+              >
                 <HugeiconsIcon icon={SourceCodeIcon} />
               </MarkToolbarButton>
             </ToolbarGroup>
@@ -242,13 +252,11 @@ export function PlateEditor({
             <ToolbarGroup>
               <ListToolbarButton nodeType={KEYS.ulClassic} />
               <ListToolbarButton nodeType={KEYS.olClassic} />
-              <ToggleToolbarButton />
+              <ToggleToolbarButton className="max-md:hidden" />
             </ToolbarGroup>
 
             <ToolbarGroup>
               <LinkToolbarButton />
-              <TableToolbarButton />
-              <EmojiToolbarButton />
               {Boolean(onImageUpload) && (
                 <>
                   <ToolbarButton
@@ -269,13 +277,18 @@ export function PlateEditor({
               )}
             </ToolbarGroup>
 
-            <ToolbarGroup>
+            <ToolbarGroup className="max-md:hidden!">
+              <TableToolbarButton />
+              <EmojiToolbarButton />
+            </ToolbarGroup>
+
+            <ToolbarGroup className="max-md:hidden!">
               <OutdentToolbarButton />
               <IndentToolbarButton />
             </ToolbarGroup>
           </FixedToolbar>
 
-          <EditorContainer className="min-h-64">
+          <EditorContainer className="min-h-32 md:min-h-64">
             <Editor
               className="px-6 py-3 text-base"
               placeholder={placeholder}
@@ -284,17 +297,24 @@ export function PlateEditor({
           </EditorContainer>
         </div>
 
-        <SaveBar onCancel={onCancel} onSave={handleSave} saving={saving} />
+        <SaveBar
+          label={submitLabel}
+          onCancel={onCancel}
+          onSave={handleSave}
+          saving={saving}
+        />
       </Plate>
     </div>
   );
 }
 
 function SaveBar({
+  label,
   onCancel,
   onSave,
   saving,
 }: {
+  label: string;
   onCancel?: () => void;
   onSave: () => void;
   saving?: boolean;
@@ -309,7 +329,7 @@ function SaveBar({
         size="sm"
         type="button"
       >
-        {saving ? "Saving…" : "Save"}
+        {saving ? "Saving…" : label}
       </Button>
       {Boolean(onCancel) && (
         <Button

@@ -87,9 +87,14 @@ export function getReimbursementFilterValue(
   }
 }
 
+/**
+ * `canViewAll` adds the reviewer filters (To clear, Payment proof, Created
+ * by), which mean nothing to someone who sees only their own requests.
+ */
 export function createReimbursementFilterFields(
   rows: readonly RequestRow[],
-  activeCostCentres: readonly { id: string; name: string }[]
+  activeCostCentres: readonly { id: string; name: string }[],
+  canViewAll: boolean
 ): FilterField[] {
   return [
     selectField("status", "Status", STATUS_OPTIONS),
@@ -115,24 +120,31 @@ export function createReimbursementFilterFields(
         (row) => (isReimbursement(row) ? requestProgrammeName(row) : "")
       )
     ),
-    selectField(TO_CLEAR_FILTER.path, TO_CLEAR_FILTER.label, [
-      { label: TO_CLEAR_FILTER.optionLabel, value: TO_CLEAR_FILTER.value },
-    ]),
-    selectField(MISSING_PROOF_FILTER.path, MISSING_PROOF_FILTER.label, [
-      {
-        label: MISSING_PROOF_FILTER.optionLabel,
-        value: MISSING_PROOF_FILTER.value,
-      },
-    ]),
-    selectField(
-      "createdBy",
-      "Created by",
-      optionsFromRows(
-        rows,
-        (row) => row.userId,
-        (row) => row.user?.name ?? row.userId
-      )
-    ),
+    ...(canViewAll
+      ? [
+          selectField(TO_CLEAR_FILTER.path, TO_CLEAR_FILTER.label, [
+            {
+              label: TO_CLEAR_FILTER.optionLabel,
+              value: TO_CLEAR_FILTER.value,
+            },
+          ]),
+          selectField(MISSING_PROOF_FILTER.path, MISSING_PROOF_FILTER.label, [
+            {
+              label: MISSING_PROOF_FILTER.optionLabel,
+              value: MISSING_PROOF_FILTER.value,
+            },
+          ]),
+          selectField(
+            "createdBy",
+            "Created by",
+            optionsFromRows(
+              rows,
+              (row) => row.userId,
+              (row) => row.user?.name ?? row.userId
+            )
+          ),
+        ]
+      : []),
     numberField("total", "Total"),
     dateField("expenseDate", "Expense date"),
     dateField("submittedAt", "Submitted"),

@@ -219,7 +219,7 @@ function WelcomeDashboard() {
             events and express your interest.
           </p>
           <Button nativeButton={false} render={<Link to="/events" />}>
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} />
+            <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} />
             Browse events
           </Button>
         </CardContent>

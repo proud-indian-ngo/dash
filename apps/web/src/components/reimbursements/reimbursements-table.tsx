@@ -595,7 +595,8 @@ export function ReimbursementsTable({
   });
   const filterFields = createReimbursementFilterFields(
     data,
-    costCentres.active
+    costCentres.active,
+    hasPermission("requests.view_all")
   );
   const stableSearch = useEventCallback((row: RequestRow, query: string) =>
     searchReimbursement(row, query, cityOf)

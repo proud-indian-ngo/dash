@@ -24,7 +24,8 @@ export function AuthLayout({ children, panel }: AuthLayoutProps) {
             src={lockupReversed}
           />
         </a>
-        <div className="flex flex-1 items-center justify-center">
+        {/* Phones top-align the form so no empty band sits above the title */}
+        <div className="flex flex-1 items-start justify-center pt-6 md:items-center md:pt-0">
           <div className="w-full max-w-sm">{children}</div>
         </div>
       </div>

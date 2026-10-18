@@ -96,7 +96,7 @@ test.describe("Event feedback — volunteer", () => {
       const feedbackText = `E2E anonymous feedback ${Date.now()}`;
       await editor.click();
       await page.keyboard.type(feedbackText);
-      await panel.getByRole("button", { name: "Save" }).click();
+      await panel.getByRole("button", { name: "Submit feedback" }).click();
       await expect(page.getByText("Feedback submitted")).toBeVisible({
         timeout: 10_000,
       });
@@ -116,7 +116,7 @@ test.describe("Event feedback — volunteer", () => {
     await page.keyboard.type(updatedText);
 
     // Save the update
-    await panel.getByRole("button", { name: "Save" }).click();
+    await panel.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Feedback updated")).toBeVisible({
       timeout: 10_000,
     });

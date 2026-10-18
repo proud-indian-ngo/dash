@@ -59,8 +59,8 @@ test.describe("Event updates CRUD (admin)", () => {
     await editor.click();
     await page.keyboard.type("This is an E2E test update");
 
-    // Save — admin posts are auto-approved
-    await page.getByRole("button", { name: "Save" }).click();
+    // Post — admin posts are auto-approved
+    await page.getByRole("button", { name: "Post update" }).click();
     await expect(page.getByText("Update posted")).toBeVisible({
       timeout: 10_000,
     });
@@ -88,8 +88,7 @@ test.describe("Event updates CRUD (admin)", () => {
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Updated E2E test content");
 
-    // The composer's Save comes first; the edited update's Save is last
-    await page.getByRole("button", { name: "Save" }).last().click();
+    await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Update saved")).toBeVisible({
       timeout: 10_000,
     });
@@ -130,8 +129,8 @@ test.describe("Event update approval (admin)", () => {
     await expect(updatesTab).toBeVisible({ timeout: 10_000 });
     await updatesTab.click();
 
-    // Verify the "Pending Approval" section is visible
-    await expect(page.getByText("Pending Approval")).toBeVisible({
+    // Verify the "Pending approval" section is visible
+    await expect(page.getByText("Pending approval")).toBeVisible({
       timeout: 10_000,
     });
 
@@ -146,13 +145,17 @@ test.describe("Event update approval (admin)", () => {
     // Approve, then Undo: the update returns and the save never runs
     await page.getByRole("button", { name: "Approve" }).click();
     await expect(page.getByText("Update approved")).toBeVisible();
-    await expect(page.getByText("Pending Approval")).toBeHidden();
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect(page.getByText("Pending Approval")).toBeVisible();
+    await expect(page.getByText("Pending approval")).toBeHidden();
+    // The toast's Undo, not the editor toolbar's
+    await page
+      .locator("[data-sonner-toast]")
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect(page.getByText("Pending approval")).toBeVisible();
     await page.waitForTimeout(6000);
     await page.reload();
     await page.getByRole("tab", { name: /Updates/ }).click();
-    await expect(page.getByText("Pending Approval")).toBeVisible({
+    await expect(page.getByText("Pending approval")).toBeVisible({
       timeout: 10_000,
     });
 
@@ -163,7 +166,7 @@ test.describe("Event update approval (admin)", () => {
     });
 
     // Pending section should disappear, update should now be in the timeline
-    await expect(page.getByText("Pending Approval")).toBeHidden({
+    await expect(page.getByText("Pending approval")).toBeHidden({
       timeout: 10_000,
     });
     await expect(page.getByText("pending update from a volunteer")).toBeVisible(

@@ -71,12 +71,16 @@ function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
         </span>
       </th>
       {cells.map((cell) => (
-        <td className="w-14 text-center sm:w-20" key={cell.channel}>
+        <td
+          className="w-14 text-center last:pr-3 sm:w-20 sm:last:pr-0"
+          key={cell.channel}
+        >
           {topic.channels.includes(cell.channel) ? (
             <Checkbox
               aria-label={`${topic.group} ${topic.topicName} ${cell.label}`}
               checked={cell.checked}
-              className="align-middle"
+              // Grow the hit area to the whole 56x44 cell, not just the box.
+              className="mx-auto after:-inset-x-5 after:-inset-y-3.5"
               disabled={topic.required}
               id={`${topic.topicId}-${cell.channel}`}
               onCheckedChange={cell.onChange}
@@ -145,7 +149,10 @@ export function NotificationPreferenceGrid({
             <th className="w-14 py-2 text-xs font-medium sm:w-20" scope="col">
               Email
             </th>
-            <th className="w-14 py-2 text-xs font-medium sm:w-20" scope="col">
+            <th
+              className="w-14 py-2 pr-3 text-xs font-medium sm:w-20 sm:pr-0"
+              scope="col"
+            >
               WhatsApp
             </th>
           </tr>

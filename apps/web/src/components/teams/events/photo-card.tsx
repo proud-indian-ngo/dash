@@ -9,6 +9,8 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { EventPhoto, User } from "@pi-dash/zero/schema";
 import type React from "react";
 
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 
@@ -123,8 +125,8 @@ export function PhotoCard({
         </StatusBadge>
       ) : null}
 
-      {/* Hover action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+      {/* Hover action buttons; touch screens get a row menu instead */}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 pointer-coarse:hidden [@media(hover:hover)]:group-hover:opacity-100">
         {onApprove ? (
           <Button
             aria-label="Approve"
@@ -167,6 +169,38 @@ export function PhotoCard({
             />
           </Button>
         ) : null}
+      </div>
+      <div className="absolute top-2 right-2 hidden pointer-coarse:block">
+        <ResponsiveActionMenu
+          actions={[
+            onApprove && {
+              icon: CheckmarkCircle02Icon,
+              id: "approve",
+              label: "Approve",
+              onSelect: onApprove,
+            },
+            onReject && {
+              icon: Cancel01Icon,
+              id: "reject",
+              label: "Reject",
+              onSelect: onReject,
+            },
+            canDelete && {
+              destructive: true,
+              icon: Delete02Icon,
+              id: "delete",
+              label: "Delete",
+              onSelect: onDelete,
+            },
+          ]}
+          title={isVideo ? "Video" : "Photo"}
+          trigger={
+            <RowActionsButton
+              aria-label={isVideo ? "Video actions" : "Photo actions"}
+              className="bg-background/80 hover:bg-background"
+            />
+          }
+        />
       </div>
     </div>
   );

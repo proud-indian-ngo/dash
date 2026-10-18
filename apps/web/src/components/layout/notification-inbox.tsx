@@ -138,7 +138,8 @@ function NotificationItem({
       <div className="flex flex-shrink-0 items-start gap-0.5 self-center pr-3">
         <Tooltip>
           <TooltipTrigger
-            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2"
+            aria-label={n.read ? "Mark as unread" : "Mark as read"}
+            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2 pointer-coarse:p-3"
             onClick={stableOnClick2}
             type="button"
           >
@@ -154,7 +155,8 @@ function NotificationItem({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger
-            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2"
+            aria-label="Archive"
+            className="text-muted-foreground hover:bg-accent hover:text-accent-foreground p-2 pointer-coarse:p-3"
             onClick={stableOnClick3}
             type="button"
           >
@@ -292,7 +294,8 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
         </div>
         <Tooltip>
           <TooltipTrigger
-            className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-2 disabled:pointer-events-none disabled:opacity-50"
+            aria-label="Mark all as read"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-2 disabled:pointer-events-none disabled:opacity-50 pointer-coarse:p-3"
             disabled={!hasUnread}
             onClick={handleMarkAllRead}
             type="button"

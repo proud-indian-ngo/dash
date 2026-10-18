@@ -77,9 +77,9 @@ const toolbarButtonVariants = cva(
     },
     variants: {
       size: {
-        default: "h-9 min-w-9 px-2",
+        default: "h-9 min-w-9 px-2 pointer-coarse:h-10 pointer-coarse:min-w-10",
         lg: "h-10 min-w-10 px-2.5",
-        sm: "h-8 min-w-8 px-1.5",
+        sm: "h-8 min-w-8 px-1.5 pointer-coarse:h-10 pointer-coarse:min-w-10",
       },
       variant: {
         default: "bg-transparent",
@@ -297,6 +297,8 @@ type TooltipProps<T extends React.ElementType> = {
   tooltipTriggerProps?: React.ComponentPropsWithoutRef<typeof TooltipTrigger>;
 } & React.ComponentProps<T>;
 
+const SHORTCUT_SUFFIX = / \(.+\)$/;
+
 function withTooltip<T extends React.ElementType>(Component: T) {
   return function ExtendComponent({
     tooltip,
@@ -311,7 +313,16 @@ function withTooltip<T extends React.ElementType>(Component: T) {
       setMounted(true);
     }, []);
 
-    const component = <Component {...(props as React.ComponentProps<T>)} />;
+    // Icon-only buttons are named by their tooltip, without the shortcut.
+    const ariaLabel =
+      typeof tooltip === "string"
+        ? tooltip.replace(SHORTCUT_SUFFIX, "")
+        : undefined;
+    const component = (
+      <Component
+        {...({ "aria-label": ariaLabel, ...props } as React.ComponentProps<T>)}
+      />
+    );
 
     if (tooltip && mounted) {
       return (

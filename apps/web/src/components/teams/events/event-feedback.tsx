@@ -348,6 +348,7 @@ function EventFeedbackParticipant({
           onCancel={stableOnCancel1}
           onSave={handleUpdate}
           saving={saving}
+          submitLabel="Save changes"
         />
       </Suspense>
     );
@@ -374,6 +375,7 @@ function EventFeedbackParticipant({
           key="create"
           onSave={handleSubmit}
           saving={saving}
+          submitLabel="Submit feedback"
         />
       </Suspense>
     </div>

@@ -155,11 +155,9 @@ function CategorySelect({
             className="flex flex-1 items-center text-left"
             data-slot="select-value"
           >
-            {
-              categoryOptions.find(
-                (option) => option.value === field.state.value
-              )?.label
-            }
+            {categoryOptions.find(
+              (option) => option.value === field.state.value
+            )?.label ?? <span className="text-muted-foreground">Category</span>}
           </span>
         </SelectTrigger>
         <SelectContent>

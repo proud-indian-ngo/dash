@@ -468,7 +468,7 @@ export function EventPhotos({
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">
-              Pending Approval ({pendingPhotos.length})
+              Pending approval ({pendingPhotos.length})
             </p>
             <Button onClick={handleApproveAll} size="sm">
               Approve all
@@ -492,7 +492,7 @@ export function EventPhotos({
       {showMyPendingSection ? (
         <div className="flex flex-col gap-3 rounded-lg border p-4">
           <p className="text-sm font-medium">
-            Your Pending Media ({myPendingPhotos.length})
+            Your pending media ({myPendingPhotos.length})
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {myPendingPhotos.map((photo, i) => (

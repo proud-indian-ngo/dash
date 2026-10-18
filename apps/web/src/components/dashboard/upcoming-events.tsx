@@ -114,19 +114,19 @@ function UpcomingEventsList({ items }: { items: UpcomingItem[] }) {
             <p className="truncate text-sm font-medium">{item.name}</p>
             {Boolean(item.isPublic) && <Tag>Public</Tag>}
           </div>
-          <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
-            <span>{format(item.startTime, DATE_TIME)}</span>
+          <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">
+            <span className="whitespace-nowrap">
+              {format(item.startTime, DATE_TIME)}
+            </span>
             {Boolean(item.team) && (
-              <>
-                <span>&middot;</span>
-                <span>{item.team?.name}</span>
-              </>
+              <span className="whitespace-nowrap">
+                &middot; {item.team?.name}
+              </span>
             )}
             {item.interestCount > 0 && (
-              <>
-                <span>&middot;</span>
-                <span>{item.interestCount} interested</span>
-              </>
+              <span className="whitespace-nowrap">
+                &middot; {item.interestCount} interested
+              </span>
             )}
           </div>
         </Link>
