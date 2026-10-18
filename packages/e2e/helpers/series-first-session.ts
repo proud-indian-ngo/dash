@@ -8,7 +8,8 @@ import { eq } from "drizzle-orm";
  * A weekly series on its own team whose first session was four weeks ago,
  * led by the given user, who is also its volunteer (copied to each saved
  * session). Two upcoming sessions are saved: one in a week (the split point
- * for "this and following") and the one after.
+ * for "this and following") and the one after. `record` gives the first
+ * session a recap and saves the second with the volunteer present.
  */
 const ID = {
   lead: "019f0000-0050-7000-8000-000000005001",
@@ -16,6 +17,8 @@ const ID = {
   split: "019f0000-0050-7000-8000-000000005003",
   splitMember: "019f0000-0050-7000-8000-000000005004",
   later: "019f0000-0050-7000-8000-000000005005",
+  past: "019f0000-0050-7000-8000-000000005007",
+  pastMember: "019f0000-0050-7000-8000-000000005008",
   series: "019f0000-0050-7000-8000-000000005006",
   team: "019f0000-0050-7000-8000-000000005000",
 } as const;
@@ -114,9 +117,46 @@ async function setup(email: string) {
   };
 }
 
+async function record() {
+  const series = await db.query.teamEvent.findFirst({
+    columns: { createdBy: true, startTime: true },
+    where: eq(teamEvent.id, ID.series),
+  });
+  if (!series) {
+    throw new Error("Run setup first");
+  }
+  const now = new Date();
+  const at = series.startTime.getTime() + 7 * DAY;
+  await db
+    .update(teamEvent)
+    .set({ childrenAttended: 9, socialCompletedAt: now })
+    .where(eq(teamEvent.id, ID.series));
+  await db.insert(teamEvent).values({
+    createdAt: now,
+    createdBy: series.createdBy,
+    endTime: new Date(at + 2 * HOUR),
+    id: ID.past,
+    name: "Series E2E class",
+    originalDate: utcDate(at),
+    seriesId: ID.series,
+    startTime: new Date(at),
+    teamId: ID.team,
+    updatedAt: now,
+  });
+  await db.insert(teamEventMember).values({
+    addedAt: now,
+    attendance: "present",
+    eventId: ID.past,
+    id: ID.pastMember,
+    userId: series.createdBy,
+  });
+  return { recorded: true };
+}
+
 async function inspect(pastDate: string) {
   const rows = await db
     .select({
+      cancelledAt: teamEvent.cancelledAt,
       childrenAttended: teamEvent.childrenAttended,
       id: teamEvent.id,
       originalDate: teamEvent.originalDate,
@@ -142,7 +182,15 @@ async function inspect(pastDate: string) {
   );
   const byId = (id: string) => rows.find((r) => r.id === id);
   const newSeries = rows.find((r) => r.seriesId === null && r.id !== ID.series);
+  const cancelled = (row: { cancelledAt: Date | null } | undefined) =>
+    row?.cancelledAt != null;
   return {
+    cancelled: {
+      later: cancelled(byId(ID.later)),
+      past: cancelled(past),
+      series: cancelled(byId(ID.series)),
+      split: cancelled(byId(ID.split)),
+    },
     later: { seriesId: byId(ID.later)?.seriesId ?? null },
     newSeries: newSeries
       ? { id: newSeries.id, members: membersOf(newSeries.id).length }
@@ -173,6 +221,8 @@ if (action === "cleanup") {
   result = { cleaned: true };
 } else if (action === "setup" && argument) {
   result = await setup(argument);
+} else if (action === "record") {
+  result = await record();
 } else if (action === "inspect" && argument) {
   result = await inspect(argument);
 } else {

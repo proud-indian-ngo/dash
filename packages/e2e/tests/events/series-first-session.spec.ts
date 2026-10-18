@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { clickPageAction } from "../../helpers/page-header";
 
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
@@ -11,7 +12,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "inspect" | "setup",
+  action: "cleanup" | "inspect" | "record" | "setup",
   arg?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -32,6 +33,7 @@ interface Fixture {
 }
 
 interface Inspection {
+  cancelled: { later: boolean; past: boolean; series: boolean; split: boolean };
   later: { seriesId: string | null };
   newSeries: { id: string; members: number } | null;
   oldRule: string | null;
@@ -211,5 +213,50 @@ test.describe("A series' first session and its saved sessions", () => {
           (await fixture<Inspection>("inspect", fx.pastDate)).split.startTime
       )
       .toBe(fx.splitStart + 60 * 60 * 1000);
+  });
+
+  test("All upcoming events cancels the sessions ahead and keeps the ones held", async ({
+    page,
+    superAdminEmail,
+  }) => {
+    // A fresh series whose first session has a recap and whose second is
+    // saved with attendance; two upcoming sessions are saved.
+    fx = await fixture<Fixture>("setup", superAdminEmail);
+    await fixture("record");
+
+    await page.goto(`/events/${fx.splitId}`);
+    await waitForZeroReady(page);
+    await clickPageAction(page, "Cancel event");
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "All upcoming events" })
+      .click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Cancel event" })
+      .click();
+    await page.waitForURL("**/teams/**", { timeout: 15_000 });
+
+    await expect
+      .poll(
+        async () =>
+          (await fixture<Inspection>("inspect", fx.pastDate)).cancelled
+      )
+      .toEqual({ later: true, past: false, series: false, split: true });
+    const state = await fixture<Inspection>("inspect", fx.pastDate);
+    expect(state.series).toEqual({ childrenAttended: 9, recapReady: true });
+    expect(state.past?.attendance).toEqual(["present"]);
+    // The series ends after its last started session, before the split day.
+    const until = /UNTIL=(\d{8})T235959Z$/.exec(state.oldRule ?? "")?.[1];
+    expect(until && until < fx.splitDate.replaceAll("-", "")).toBe(true);
+
+    // The series page still shows the held first session, not a cancellation.
+    await page.goto(`/events/${fx.seriesId}`);
+    await waitForZeroReady(page);
+    await expect(
+      page
+        .getByRole("region", { name: "Social recap" })
+        .getByText(/Recap ready ·/)
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -1408,6 +1408,7 @@ export function EventDetail({
       />
 
       <EditScopeDialog
+        allLabel="All upcoming events"
         onOpenChange={setCancelScopeDialogOpen}
         onSelect={handleCancelScopeSelect}
         open={cancelScopeDialogOpen}

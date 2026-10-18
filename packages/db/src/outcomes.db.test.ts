@@ -364,3 +364,62 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+it.skipIf(!localDatabase)(
+  "keeps the held sessions of a series whose upcoming sessions were cancelled",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { event, ids } = await seed(tx);
+      const isoDate = (offset: number) => at(offset).toISOString().slice(0, 10);
+      // "All upcoming" cancelled after the 7 October session: the rule ends
+      // that day, the next saved session is cancelled, the rest stay live.
+      const parent = await event(
+        {
+          childrenAttended: 5,
+          endTime: at(-28 * DAY + HOUR),
+          recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20261007T235959Z" },
+          startTime: at(-28 * DAY),
+          ...recap,
+        },
+        ["present"]
+      );
+      await event(
+        {
+          childrenAttended: 7,
+          endTime: at(-14 * DAY + HOUR),
+          originalDate: isoDate(-14 * DAY),
+          seriesId: parent,
+          startTime: at(-14 * DAY),
+          ...recap,
+        },
+        ["present"]
+      );
+      await event(
+        {
+          cancelledAt: at(-3 * DAY),
+          endTime: at(7 * DAY + HOUR),
+          originalDate: isoDate(7 * DAY),
+          seriesId: parent,
+          startTime: at(7 * DAY),
+        },
+        ["present"]
+      );
+
+      const filters = { now: NOW, programmeId: ids.programme };
+      const parents = await loadOutcomeSeriesParents(filters, tx);
+      expect(parents).toHaveLength(1);
+      const rows = [
+        ...(await loadOutcomeRows(filters, tx)),
+        ...unsavedSessionRows(parents, { from: null, to: null }, NOW.getTime()),
+      ];
+      // The parent and the third session, saved; the second and fourth,
+      // unsaved. Nothing after 7 October.
+      expect(summarizeOutcomes(rows, null).totals).toMatchObject({
+        children: 12,
+        events: 4,
+        volunteerHours: 2,
+        withoutRecap: 2,
+      });
+    });
+  }
+);

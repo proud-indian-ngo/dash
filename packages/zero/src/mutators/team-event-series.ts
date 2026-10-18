@@ -4,6 +4,7 @@ import {
   parseRecurrenceRule,
   seriesStartDate,
 } from "@pi-dash/shared/rrule-expand";
+import { rrulestr } from "rrule";
 import { uuidv7 } from "uuidv7";
 
 import type { TeamEvent, TeamEventMember } from "../schema";
@@ -622,29 +623,99 @@ export async function updateSeriesFollowing(
 // cancelSeries per-mode helpers
 // ---------------------------------------------------------------------------
 
+/** The date key of the latest session of a series that has started, if any. */
+function lastStartedDate(
+  series: TeamEvent,
+  exceptions: readonly TeamEvent[],
+  now: number
+): string | null {
+  const rule = parseRecurrenceRule(series.recurrenceRule);
+  const savedDates = new Set(
+    exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+  );
+  const virtual = rule
+    ? expandSeries(
+        rule,
+        series.startTime,
+        series.endTime ?? null,
+        series.startTime,
+        now,
+        savedDates
+      ).filter((occ) => occ.startTime <= now)
+    : [];
+  // The series row is its first session even where the rule skips its date.
+  const first = seriesStartDate(series.startTime);
+  const dates = [
+    ...(series.startTime <= now && !savedDates.has(first) ? [first] : []),
+    ...virtual.map((occ) => occ.date),
+    ...exceptions.flatMap((e) =>
+      e.originalDate && !e.cancelledAt && e.startTime <= now
+        ? [e.originalDate]
+        : []
+    ),
+  ].sort();
+  return dates.at(-1) ?? null;
+}
+
+/**
+ * Cancel every upcoming session of a series. A series with no started
+ * session is cancelled whole. Otherwise it ends after the last session that
+ * has started: the rule is truncated after that day and saved sessions after
+ * it are cancelled, while the series row and earlier sessions stay live with
+ * their attendance and recaps. Returns the rows it cancelled and whether
+ * unsaved sessions were dropped from the rule.
+ */
 export async function cancelSeriesAll(
   tx: Tx,
-  args: { id: string; now: number }
-) {
-  await tx.mutate.teamEvent.update({
-    cancelledAt: args.now,
-    id: args.id,
-    updatedAt: args.now,
-  });
+  args: { id: string; now: number },
+  existing: TeamEvent
+): Promise<{ cancelledIds: string[]; ruleCut: boolean }> {
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
-  await Promise.all(
-    exceptions.map(async (exc) => {
-      if (!exc.cancelledAt) {
-        await tx.mutate.teamEvent.update({
-          cancelledAt: args.now,
-          id: exc.id,
-          updatedAt: args.now,
-        });
-      }
-    })
-  );
+  const lastStarted = lastStartedDate(existing, exceptions, args.now);
+  const cancel = (id: string) =>
+    tx.mutate.teamEvent.update({
+      cancelledAt: args.now,
+      id,
+      updatedAt: args.now,
+    });
+
+  if (!lastStarted) {
+    const live = exceptions.filter((e) => !e.cancelledAt).map((e) => e.id);
+    await cancel(args.id);
+    await Promise.all(live.map(cancel));
+    return { cancelledIds: [args.id, ...live], ruleCut: false };
+  }
+
+  const splitDate = new Date(Date.parse(`${lastStarted}T00:00:00Z`) + DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+  const rule = parseRecurrenceRule(existing.recurrenceRule);
+  // Only cut a rule that still runs past the split, so UNTIL never moves out.
+  const ruleCut =
+    rule !== null &&
+    rrulestr(rule.rrule, { dtstart: new Date(existing.startTime) }).after(
+      new Date(Date.parse(`${splitDate}T00:00:00Z`)),
+      true
+    ) !== null;
+  if (rule && ruleCut) {
+    await tx.mutate.teamEvent.update({
+      id: args.id,
+      recurrenceRule: {
+        ...rule,
+        rrule: buildTruncatedRRule(rule.rrule, splitDate),
+      },
+      updatedAt: args.now,
+    });
+  }
+  const upcoming = exceptions
+    .filter(
+      (e) => e.originalDate && e.originalDate >= splitDate && !e.cancelledAt
+    )
+    .map((e) => e.id);
+  await Promise.all(upcoming.map(cancel));
+  return { cancelledIds: upcoming, ruleCut };
 }
 
 export async function cancelSeriesThis(

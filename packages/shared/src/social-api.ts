@@ -264,8 +264,9 @@ export function parseVirtualSocialEventId(
  * Occurrences a listed series' RRULE produces inside the window but its
  * `exdates` removed (and no exception row replaced). They are reported as
  * cancelled so the pipeline can drop posts already scheduled for them.
- * Occurrences removed by truncating the RRULE ("cancel following") cannot be
- * reconstructed, because the truncation overwrites the original UNTIL.
+ * Occurrences removed by truncating the RRULE (cancelling "following" or all
+ * upcoming) cannot be reconstructed, because the truncation overwrites the
+ * original UNTIL.
  */
 function expandExdatedOccurrences(
   rows: readonly SocialEventSourceRow[],

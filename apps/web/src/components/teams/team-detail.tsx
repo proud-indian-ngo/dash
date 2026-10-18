@@ -501,6 +501,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
 
         {/* Cancel Scope Dialog */}
         <EditScopeDialog
+          allLabel="All upcoming events"
           onOpenChange={setCancelScopeDialogOpen}
           onSelect={handleCancelScopeSelect}
           open={cancelScopeDialogOpen}
