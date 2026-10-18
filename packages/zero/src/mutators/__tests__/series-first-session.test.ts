@@ -852,6 +852,22 @@ describe("cancel all upcoming sessions", () => {
     expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
   });
 
+  it("counts a distant unsaved session as dropped", async () => {
+    const db = createDb();
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      inheritVolunteers: true,
+      recurrenceRule: { rrule: "FREQ=YEARLY;INTERVAL=11" },
+    });
+    db.tables.teamEventMember?.push(member("series-1", "vol-1"));
+    await cancelAll(db, AFTER_THIRD);
+
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=YEARLY;INTERVAL=11;UNTIL=20261003T235959Z",
+    });
+    const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
+    expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["vol-1"]]);
+  });
+
   it("refuses a series it already ended, sending nothing", async () => {
     const db = createDb([session("past", "2026-10-10")]);
     Object.assign(db.tables.teamEvent?.[0] ?? {}, {

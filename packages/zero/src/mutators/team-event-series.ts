@@ -1,6 +1,7 @@
 import type { ReminderTarget } from "@pi-dash/shared/constants";
 import {
   expandSeries,
+  firstOccurrenceDateFrom,
   parseRecurrenceRule,
   seriesStartDate,
 } from "@pi-dash/shared/rrule-expand";
@@ -13,7 +14,6 @@ import { zql } from "../schema";
 const DASH_RE = /-/g;
 const COLON_RE = /:/g;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DROP_HORIZON_MS = 10 * 366 * DAY_MS;
 
 /**
  * Build a truncated RRULE string ending the second before splitDate starts
@@ -454,9 +454,7 @@ async function saveUpcomingSessionsBefore(
   }
   const splitStart = Date.parse(`${args.splitDate}T00:00:00Z`);
   const firstDate = seriesStartDate(series.startTime);
-  const savedDates = new Set(
-    saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-  );
+  const savedDates = savedDateSet(saved);
   // Sessions under way count: their group still matters until they end.
   const upcoming = expandSeries(
     rule,
@@ -629,6 +627,13 @@ export async function updateSeriesFollowing(
 // cancelSeries per-mode helpers
 // ---------------------------------------------------------------------------
 
+/** The dates a series' saved rows hold, cancelled ones included. */
+function savedDateSet(saved: readonly TeamEvent[]): Set<string> {
+  return new Set(
+    saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+  );
+}
+
 /**
  * The date key of the latest started session that has no row of its own:
  * the first session (the series row, or a live start-date row standing for
@@ -640,9 +645,7 @@ function lastStartedUnsavedDate(
   now: number
 ): string | null {
   const rule = parseRecurrenceRule(series.recurrenceRule);
-  const savedDates = new Set(
-    exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-  );
+  const savedDates = savedDateSet(exceptions);
   const virtual =
     rule && series.startTime <= now
       ? expandSeries(
@@ -731,23 +734,17 @@ export async function cancelSeriesAll(
       new Date(splitStart),
       true
     ) !== null;
-  // Whether the cut drops a session that has no row: the rule's dates past
-  // the split less its exclusions and saved dates. Rules are at most daily,
-  // so the horizon stays under the expansion cap.
-  const savedDates = new Set(
-    exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-  );
+  // Whether the cut drops a session that has no row: a rule date past the
+  // split that isn't excluded or saved.
   const droppedUnsaved =
     rule !== null &&
     ruleCut &&
-    expandSeries(
+    firstOccurrenceDateFrom(
       rule,
       existing.startTime,
-      existing.endTime ?? null,
       splitStart,
-      splitStart + DROP_HORIZON_MS,
-      savedDates
-    ).length > 0;
+      savedDateSet(exceptions)
+    ) !== null;
   // Saved sessions go by their own start, so a session moved later than the
   // cut is cancelled and one moved earlier that has started stays.
   const upcoming = exceptions
