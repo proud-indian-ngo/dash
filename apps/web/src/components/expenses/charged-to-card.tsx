@@ -145,7 +145,7 @@ function ChangeChargedToForm({
       <FormActions
         cancelLabel="Cancel"
         onCancel={handleCancel}
-        submitLabel="Save"
+        submitLabel="Save charge"
         submittingLabel="Saving..."
       />
     </FormLayout>

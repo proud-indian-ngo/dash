@@ -25,13 +25,15 @@ export function AccountsRail({
 }) {
   return (
     <nav aria-label="Accounts" data-testid="books-accounts">
-      {/* Cards above the books on narrower screens; a rail beside them on wide ones. */}
-      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:block xl:gap-0 xl:divide-y xl:rounded-lg xl:border">
+      {/* Phones: one swipeable row of cards bleeding to the screen edge, like
+          the stat chips. Cards above the books on mid screens; a rail beside
+          them on wide ones. */}
+      <ul className="flex [scrollbar-width:none] gap-2 overflow-x-auto max-sm:-mx-2 max-sm:px-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:block xl:gap-0 xl:divide-y xl:rounded-lg xl:border [&::-webkit-scrollbar]:hidden">
         {accounts.map((account) => {
           const selected = account.id === selectedId;
           return (
             <li
-              className="rounded-lg border xl:rounded-none xl:border-0"
+              className="rounded-lg border max-sm:w-64 max-sm:shrink-0 xl:rounded-none xl:border-0"
               key={account.id}
             >
               <button

@@ -60,7 +60,10 @@ test.describe("Expense Categories settings (admin)", () => {
     const categoryRow = dialog
       .locator("[data-slot='settings-list-item']")
       .filter({ hasText: categoryName });
-    await categoryRow.getByRole("button", { name: "Edit category" }).click();
+    await categoryRow
+      .getByRole("button", { name: `Actions for ${categoryName}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
     await expect(dialog.getByText("Edit category")).toBeVisible();
 
     await expect(dialog.getByLabel("Name")).toHaveValue(categoryName, {
@@ -92,7 +95,10 @@ test.describe("Expense Categories settings (admin)", () => {
     const categoryRow = dialog
       .locator("[data-slot='settings-list-item']")
       .filter({ hasText: categoryName });
-    await categoryRow.getByRole("button", { name: "Delete category" }).click();
+    await categoryRow
+      .getByRole("button", { name: `Actions for ${categoryName}` })
+      .click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
 
     const confirmDialog = page.getByRole("alertdialog");
     await expect(confirmDialog).toBeVisible();

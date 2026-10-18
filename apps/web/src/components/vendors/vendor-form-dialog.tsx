@@ -199,11 +199,15 @@ function VendorForm({
         <InputField
           description={accountHint}
           disabled={!identifiersAvailable}
+          autoComplete="off"
+          inputMode="numeric"
           isRequired={!storedBank}
           label="Account number"
           name="bankAccountNumber"
         />
         <InputField
+          autoCapitalize="characters"
+          autoComplete="off"
           isRequired
           label="IFSC code"
           name="bankAccountIfscCode"
@@ -213,11 +217,15 @@ function VendorForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField
+          autoCapitalize="characters"
+          autoComplete="off"
           label="GST number"
           name="gstNumber"
           placeholder="22AAAAA0000A1Z5"
         />
         <InputField
+          autoCapitalize="characters"
+          autoComplete="off"
           description={panHint}
           disabled={!identifiersAvailable}
           label="PAN"

@@ -1,5 +1,6 @@
 import {
   Delete02Icon,
+  MoreHorizontalIcon,
   PencilEdit01Icon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
@@ -24,6 +25,7 @@ import {
   SettingsListItem,
 } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const categorySchema = z.object({
@@ -90,34 +92,38 @@ function ExpenseCategoryDisplayRow({
   return (
     <SettingsListItem
       actions={
-        <>
-          <Button
-            aria-label="Edit category"
-            onClick={handleEdit}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={PencilEdit01Icon}
-              strokeWidth={2}
-            />
-          </Button>
-          <Button
-            aria-label="Delete category"
-            onClick={handleDelete}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={Delete02Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        </>
+        <ResponsiveActionMenu
+          actions={[
+            {
+              icon: PencilEdit01Icon,
+              id: "edit",
+              label: "Edit",
+              onSelect: handleEdit,
+            },
+            {
+              destructive: true,
+              icon: Delete02Icon,
+              id: "delete",
+              label: "Delete",
+              onSelect: handleDelete,
+            },
+          ]}
+          title={category.name}
+          trigger={
+            <Button
+              aria-label={`Actions for ${category.name}`}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <HugeiconsIcon
+                className="size-4"
+                icon={MoreHorizontalIcon}
+                strokeWidth={2}
+              />
+            </Button>
+          }
+        />
       }
       detail={category.description || undefined}
     >

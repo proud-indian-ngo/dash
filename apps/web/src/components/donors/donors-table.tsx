@@ -129,6 +129,7 @@ export function DonorsTable({
       ),
       id: "roles",
       meta: {
+        compact: "primary",
         headerTitle: "Roles",
         icon: COLUMN_ICONS.role,
         kind: "text",

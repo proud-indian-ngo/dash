@@ -422,6 +422,7 @@ export function ReimbursementsTable({
       ),
       id: "createdBy",
       meta: {
+        compact: "primary",
         headerTitle: "Created By",
         kind: "person",
         skeleton: SKELETON_CREATED_BY,
@@ -496,6 +497,7 @@ export function ReimbursementsTable({
       ),
       id: "expenseDate",
       meta: {
+        compact: "primary",
         headerTitle: "Expense Date",
         kind: "date",
         skeleton: SKELETON_DATE,

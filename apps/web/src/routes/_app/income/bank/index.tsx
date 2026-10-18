@@ -533,7 +533,7 @@ function BankStatementsPage() {
             </>
           ) : null
         }
-        description="Lines imported from bank statements: money in matched to Razorpay settlements, donations and give.do payouts, money out to claims, vendor payments and bank charges. A line never becomes a donation by itself."
+        description="Imported bank lines, matched to settlements, donations, payouts, claims and vendor payments. A line never becomes a donation by itself."
         title="Bank statements"
       />
       {noBanks ? (
@@ -544,7 +544,7 @@ function BankStatementsPage() {
         />
       ) : (
         <div className="mt-4 grid gap-4 *:min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Select
               onValueChange={(value) => {
                 setAccount(value as string);
@@ -553,7 +553,10 @@ function BankStatementsPage() {
               }}
               value={accountId ?? ""}
             >
-              <SelectTrigger aria-label="Bank account" className="w-64">
+              <SelectTrigger
+                aria-label="Bank account"
+                className="w-full sm:w-64"
+              >
                 <SelectValue placeholder="Bank account">
                   {(() => {
                     const bank = banks.find((b) => b.id === accountId);
@@ -576,7 +579,7 @@ function BankStatementsPage() {
               }}
               value={month}
             >
-              <SelectTrigger aria-label="Month" className="w-40">
+              <SelectTrigger aria-label="Month" className="w-full sm:w-40">
                 <SelectValue placeholder="All months">
                   {month === ALL_MONTHS ? "All months" : monthLabel(month)}
                 </SelectValue>

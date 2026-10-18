@@ -433,7 +433,7 @@ function CandidateRow({
       />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium">{doc.title}</span>
-        <span className="text-muted-foreground truncate text-xs">
+        <span className="text-muted-foreground truncate text-xs max-md:break-words max-md:whitespace-normal">
           {KIND_LABELS[doc.kind]} · {doc.payee || "—"} · {formatIsoDate(doc.on)}
           {doc.reference ? ` · ${doc.reference}` : ""}
         </span>
@@ -555,8 +555,8 @@ export function FindDebitMatchDialog({
               : ""}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2">
             <div className="relative sm:col-span-2">
               <HugeiconsIcon
                 className="text-muted-foreground absolute top-2.5 left-2.5 size-4"
@@ -623,7 +623,7 @@ export function FindDebitMatchDialog({
               />
             </div>
           </div>
-          <ScrollArea className="max-h-72">
+          <ScrollArea className="max-h-72 min-w-0">
             {loading && documents.length === 0 ? (
               <div className="grid gap-2">
                 {["a", "b", "c"].map((k) => (

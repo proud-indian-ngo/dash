@@ -12,7 +12,10 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import { budgetUse } from "@pi-dash/shared/budgets";
 import { formatPaise } from "@pi-dash/shared/money";
 
-import { DataTableExpandButton } from "@/components/data-table/data-table-compact";
+import {
+  DataTableExpandButton,
+  useCompactTable,
+} from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
@@ -119,6 +122,31 @@ function SpentBar({
         {percent === null ? (over ? "Over" : "—") : `${percent}%`}
       </span>
     </div>
+  );
+}
+
+/**
+ * Phone cards show only the actual as the row's amount, so it carries the
+ * budget too ("₹0.00 of ₹45,000.00"); the table has a Budget column.
+ */
+function ActualOfBudget({
+  actualPaise,
+  budgetPaise,
+}: {
+  actualPaise: number;
+  budgetPaise: number | null;
+}) {
+  const compact = useCompactTable();
+  if (!compact || budgetPaise === null) {
+    return formatPaise(actualPaise);
+  }
+  return (
+    <>
+      {formatPaise(actualPaise)}
+      <span className="text-muted-foreground block text-xs">
+        of {formatPaise(budgetPaise)}
+      </span>
+    </>
   );
 }
 
@@ -309,7 +337,10 @@ export function BudgetsTable({
             </span>
           </span>
         ) : (
-          formatPaise(row.original.actualPaise)
+          <ActualOfBudget
+            actualPaise={row.original.actualPaise}
+            budgetPaise={row.original.budgetPaise}
+          />
         ),
       enableSorting: false,
       header: ({ column }) => (

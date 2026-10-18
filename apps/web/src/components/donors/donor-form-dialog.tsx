@@ -284,7 +284,12 @@ function DonorForm({
         <InputField label="Address line 2" name="addressLine2" />
         <InputField label="City" name="city" />
         <InputField label="State" name="state" />
-        <InputField label="PIN code" name="pincode" />
+        <InputField
+          autoComplete="postal-code"
+          inputMode="numeric"
+          label="PIN code"
+          name="pincode"
+        />
         <InputField
           description="Two-letter code, for example IN."
           label="Country"
@@ -301,6 +306,8 @@ function DonorForm({
           options={idTypeOptions}
         />
         <InputField
+          autoCapitalize="characters"
+          autoComplete="off"
           description={idHint}
           disabled={!context.identifiersAvailable}
           label="ID number"

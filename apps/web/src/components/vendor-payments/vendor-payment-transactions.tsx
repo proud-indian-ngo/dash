@@ -2,6 +2,7 @@ import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   Delete02Icon,
+  MoreHorizontalIcon,
   PencilEdit01Icon,
   PlusSignIcon,
   UnavailableIcon,
@@ -24,6 +25,7 @@ import { VoidDialog } from "@/components/form/void-dialog";
 import { PaidFromBank } from "@/components/income/bank/in-bank-fact";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { RecordSection } from "@/components/shared/record-detail";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
@@ -265,58 +267,42 @@ export function VendorPaymentTransactions({
 
         {/* Transactions table */}
         {transactions.length > 0 ? (
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/40 text-muted-foreground border-b text-xs">
-                  <th className="px-3 py-2 text-right font-medium">Amount</th>
-                  <th className="px-3 py-2 text-left font-medium">
-                    Description
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">Date</th>
-                  <th className="px-3 py-2 text-left font-medium">Method</th>
-                  <th className="px-3 py-2 text-left font-medium">Status</th>
-                  <th className="px-3 py-2 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => {
-                  const badge = getStatusBadge(t.status);
-                  const voided = requestVoided || isVoided(t);
-                  const posted = postedIds.has(t.id);
-                  const isPending = t.status === "pending" && !voided;
-                  const { canEdit, canDelete } = getTransactionActions({
-                    canDeleteAll,
-                    canDeleteOwn,
-                    canEditAll,
-                    isInvoiceLocked,
-                    isPending,
-                    isPosted: posted,
-                    isRecorder: t.userId === user.id,
-                    isVoided: voided,
-                  });
-                  return (
-                    <TransactionRow
-                      badge={badge}
-                      canApprove={canReviewPayments}
-                      canDeleteTxn={canDelete}
-                      canEditTxn={canEdit}
-                      canVoidTxn={canVoid && posted && !voided}
-                      isPending={isPending}
-                      isVoided={voided}
-                      key={t.id}
-                      onApprove={handleApproveTransaction}
-                      onDelete={setDeletingId}
-                      onEdit={setEditingTransaction}
-                      onReject={setRejectingId}
-                      onVoid={setVoidingId}
-                      transaction={t}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="divide-y rounded-lg border">
+            {transactions.map((t) => {
+              const badge = getStatusBadge(t.status);
+              const voided = requestVoided || isVoided(t);
+              const posted = postedIds.has(t.id);
+              const isPending = t.status === "pending" && !voided;
+              const { canEdit, canDelete } = getTransactionActions({
+                canDeleteAll,
+                canDeleteOwn,
+                canEditAll,
+                isInvoiceLocked,
+                isPending,
+                isPosted: posted,
+                isRecorder: t.userId === user.id,
+                isVoided: voided,
+              });
+              return (
+                <TransactionRow
+                  badge={badge}
+                  canApprove={canReviewPayments}
+                  canDeleteTxn={canDelete}
+                  canEditTxn={canEdit}
+                  canVoidTxn={canVoid && posted && !voided}
+                  isPending={isPending}
+                  isVoided={voided}
+                  key={t.id}
+                  onApprove={handleApproveTransaction}
+                  onDelete={setDeletingId}
+                  onEdit={setEditingTransaction}
+                  onReject={setRejectingId}
+                  onVoid={setVoidingId}
+                  transaction={t}
+                />
+              );
+            })}
+          </ul>
         ) : (
           <p className="text-muted-foreground rounded-lg border border-dashed py-6 text-center text-sm">
             {isAwaitingApproval
@@ -427,18 +413,27 @@ function TransactionRow({
   const handleDelete = useEventCallback(() => onDelete(transaction.id));
   const handleVoid = useEventCallback(() => onVoid(transaction.id));
 
+  const facts = [
+    transaction.transactionDate
+      ? format(transaction.transactionDate, DATE)
+      : null,
+    transaction.paymentMethod,
+    transaction.description,
+  ].filter(Boolean);
+
   return (
-    <tr className="border-b last:border-0">
-      <td className="px-3 py-2 text-right tabular-nums">
-        {formatPaise(transaction.amountPaise)}
-      </td>
-      <td className="text-muted-foreground px-3 py-2">
-        {transaction.description ?? "—"}
-      </td>
-      <td className="text-muted-foreground px-3 py-2">
-        {transaction.transactionDate
-          ? format(transaction.transactionDate, DATE)
-          : "—"}
+    <li className="flex items-start gap-3 px-3 py-2.5">
+      <div className="grid min-w-0 flex-1 gap-0.5 text-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-medium tabular-nums">
+            {formatPaise(transaction.amountPaise)}
+          </span>
+          <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
+          {voided ? <VoidBadge /> : null}
+        </div>
+        {facts.length > 0 ? (
+          <p className="text-muted-foreground text-xs">{facts.join(" · ")}</p>
+        ) : null}
         {transaction.status === "approved" && !voided ? (
           <PaidFromBank
             amountPaise={transaction.amountPaise}
@@ -446,100 +441,82 @@ function TransactionRow({
             kind="vendor_payment_transaction"
           />
         ) : null}
-      </td>
-      <td className="text-muted-foreground px-3 py-2">
-        {transaction.paymentMethod ?? "—"}
-      </td>
-      <td className="px-3 py-2">
-        <span className="inline-flex items-center gap-1">
-          <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
-          {voided ? <VoidBadge /> : null}
-        </span>
-      </td>
-      <td className="px-3 py-2 text-right">
-        <div className="flex items-center justify-end gap-1">
-          {canApprove && isPending ? (
-            <>
-              <Button
-                aria-label="Approve transaction"
-                onClick={handleApprove}
-                size="icon"
-                title="Approve"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="text-success-foreground size-4"
-                  icon={CheckmarkCircle01Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-              <Button
-                aria-label="Reject transaction"
-                onClick={handleReject}
-                size="icon"
-                title="Reject"
-                type="button"
-                variant="ghost"
-              >
-                <HugeiconsIcon
-                  className="text-destructive size-4"
-                  icon={Cancel01Icon}
-                  strokeWidth={2}
-                />
-              </Button>
-            </>
-          ) : null}
-          {canEditTxn ? (
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {canApprove && isPending ? (
+          <>
             <Button
-              aria-label="Edit transaction"
-              onClick={handleEdit}
+              aria-label="Approve transaction"
+              onClick={handleApprove}
               size="icon"
-              title="Edit"
+              title="Approve"
               type="button"
               variant="ghost"
             >
               <HugeiconsIcon
-                className="text-muted-foreground size-4"
-                icon={PencilEdit01Icon}
+                className="text-success-foreground size-4"
+                icon={CheckmarkCircle01Icon}
                 strokeWidth={2}
               />
             </Button>
-          ) : null}
-          {canVoidTxn ? (
             <Button
-              aria-label="Void payment"
-              onClick={handleVoid}
+              aria-label="Reject transaction"
+              onClick={handleReject}
               size="icon"
-              title="Void"
+              title="Reject"
               type="button"
               variant="ghost"
             >
               <HugeiconsIcon
                 className="text-destructive size-4"
-                icon={UnavailableIcon}
+                icon={Cancel01Icon}
                 strokeWidth={2}
               />
             </Button>
-          ) : null}
-          {canDeleteTxn ? (
-            <Button
-              aria-label="Delete transaction"
-              onClick={handleDelete}
-              size="icon"
-              title="Delete"
-              type="button"
-              variant="ghost"
-            >
-              <HugeiconsIcon
-                className="text-muted-foreground size-4"
-                icon={Delete02Icon}
-                strokeWidth={2}
-              />
-            </Button>
-          ) : null}
-        </div>
-      </td>
-    </tr>
+          </>
+        ) : null}
+        {canEditTxn || canVoidTxn || canDeleteTxn ? (
+          <ResponsiveActionMenu
+            actions={[
+              canEditTxn && {
+                icon: PencilEdit01Icon,
+                id: "edit",
+                label: "Edit payment",
+                onSelect: handleEdit,
+              },
+              canVoidTxn && {
+                destructive: true,
+                icon: UnavailableIcon,
+                id: "void",
+                label: "Void payment",
+                onSelect: handleVoid,
+              },
+              canDeleteTxn && {
+                destructive: true,
+                icon: Delete02Icon,
+                id: "delete",
+                label: "Delete payment",
+                onSelect: handleDelete,
+              },
+            ]}
+            title={`Payment of ${formatPaise(transaction.amountPaise)}`}
+            trigger={
+              <Button
+                aria-label="Payment actions"
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={MoreHorizontalIcon}
+                  strokeWidth={2}
+                />
+              </Button>
+            }
+          />
+        ) : null}
+      </div>
+    </li>
   );
 }

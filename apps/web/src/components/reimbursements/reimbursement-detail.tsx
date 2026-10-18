@@ -658,7 +658,7 @@ function VoucherCell({
         <span className="text-muted-foreground text-xs">Pending...</span>
         {canApprove ? (
           <Button
-            className="ml-1 h-auto px-1.5 py-0.5 text-xs"
+            className="ml-1 h-auto px-1.5 py-0.5 text-xs pointer-coarse:h-8 pointer-coarse:px-2.5"
             disabled={isGenerating}
             onClick={handleGenerate}
             size="sm"
@@ -675,7 +675,7 @@ function VoucherCell({
   if (canApprove && isApproved && isQualifying) {
     return (
       <Button
-        className="h-auto px-2 py-1 text-xs"
+        className="h-auto px-2 py-1 text-xs pointer-coarse:h-8"
         disabled={isGenerating}
         onClick={handleGenerate}
         size="sm"
@@ -722,6 +722,13 @@ function PaidToLine({
   );
 }
 
+/**
+ * On phones each line item stacks: category and amount, then the description
+ * lines, then the voucher, instead of four squeezed columns.
+ */
+const LINE_ITEM_STACK =
+  "max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:px-3 max-md:py-2.5";
+
 function LineItemsTable({
   canApprove,
   generatingVoucherId,
@@ -760,8 +767,8 @@ function LineItemsTable({
     <RecordSection title="Line items">
       {request.lineItems.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead>
+          <table className="w-full text-sm max-md:block">
+            <thead className="max-md:hidden">
               <tr className="bg-muted/40 text-muted-foreground border-b text-xs">
                 <th className="px-3 py-2 text-left font-medium">Category</th>
                 <th className="px-3 py-2 text-left font-medium">Description</th>
@@ -771,11 +778,16 @@ function LineItemsTable({
                 ) : null}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="max-md:block">
               {request.lineItems.map((item) => (
-                <tr className="border-b last:border-0" key={item.id}>
-                  <td className="px-3 py-2">{item.category?.name}</td>
-                  <td className="text-muted-foreground px-3 py-2">
+                <tr
+                  className={`border-b last:border-0 ${LINE_ITEM_STACK}`}
+                  key={item.id}
+                >
+                  <td className="px-3 py-2 max-md:p-0 max-md:font-medium">
+                    {item.category?.name}
+                  </td>
+                  <td className="text-muted-foreground px-3 py-2 max-md:col-span-full max-md:p-0">
                     {item.description}
                     <PaidToLine claimantName={request.user?.name} item={item} />
                     {isReimb ? (
@@ -789,11 +801,14 @@ function LineItemsTable({
                       />
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums max-md:col-start-2 max-md:row-start-1 max-md:p-0">
                     {formatPaise(item.amountPaise)}
                   </td>
                   {showVoucherCol ? (
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 max-md:col-span-full max-md:flex max-md:items-center max-md:gap-2 max-md:p-0">
+                      <span className="text-muted-foreground text-xs md:hidden">
+                        Voucher
+                      </span>
                       <VoucherCell
                         attachments={isReimb ? request.attachments : []}
                         canApprove={canApprove}
@@ -811,18 +826,18 @@ function LineItemsTable({
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="bg-muted/40 border-t">
+            <tfoot className="max-md:block">
+              <tr className={`bg-muted/40 border-t ${LINE_ITEM_STACK}`}>
                 <td
-                  className="px-3 py-2 font-medium"
+                  className="px-3 py-2 font-medium max-md:p-0"
                   colSpan={showVoucherCol ? 2 : 2}
                 >
                   Total
                 </td>
-                <td className="px-3 py-2 text-right font-medium tabular-nums">
+                <td className="px-3 py-2 text-right font-medium tabular-nums max-md:p-0">
                   {formatPaise(total)}
                 </td>
-                {showVoucherCol ? <td /> : null}
+                {showVoucherCol ? <td className="max-md:hidden" /> : null}
               </tr>
             </tfoot>
           </table>

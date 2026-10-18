@@ -317,7 +317,6 @@ export function VendorsTable({
       ),
       id: "pendingAmount",
       meta: {
-        compact: "trailing",
         headerTitle: "Pending Amount",
         kind: "amount",
         skeleton: SKELETON_AMOUNT,
