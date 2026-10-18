@@ -3,11 +3,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@pi-dash/design-system/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -19,7 +14,8 @@ import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
 import { useState } from "react";
 
-import { DAY_MONTH, ISO_DATE } from "@/lib/date-formats";
+import { ResponsivePicker } from "@/components/shared/responsive-picker";
+import { DATE, DAY_MONTH, ISO_DATE } from "@/lib/date-formats";
 import { DATE_PRESETS, dateRangeSearchParams } from "@/lib/date-range";
 
 interface RangeSelection {
@@ -35,14 +31,13 @@ function parseUrlDate(str: string): Date | undefined {
   return isValid(d) ? d : undefined;
 }
 
-function formatRangeLabel(fromStr: string, toStr: string, includeYear = false) {
+function formatRangeLabel(fromStr: string, toStr: string) {
   const from = parseUrlDate(fromStr);
   const to = parseUrlDate(toStr);
   if (!(from && to)) {
     return null;
   }
-  const toFormat = includeYear ? "MMM d, yyyy" : "MMM d";
-  return `${format(from, DAY_MONTH)} \u2013 ${format(to, toFormat)}`;
+  return `${format(from, DAY_MONTH)} \u2013 ${format(to, DATE)}`;
 }
 
 export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
@@ -60,6 +55,8 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
     }
   );
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const handlePresetChange = useEventCallback((value: string | null) => {
     if (!value) {
       return;
@@ -67,6 +64,7 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
     onChange?.();
     if (value === "custom") {
       setParams({ from: params.from, range: "custom", to: params.to });
+      setPickerOpen(true);
       return;
     }
     setParams({ from: "", range: value, to: "" });
@@ -89,14 +87,10 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
   const activePreset = DATE_PRESETS.find((p) => p.key === params.range);
   const isCustom = params.range === "custom";
 
-  function getDisplayLabel() {
-    if (isCustom) {
-      return formatRangeLabel(params.from, params.to, true) ?? "Custom range";
-    }
-    return activePreset?.label ?? "All time";
-  }
-
-  const displayLabel = getDisplayLabel();
+  // The dates show once, on the picker button beside the select.
+  const displayLabel = isCustom
+    ? "Custom range"
+    : (activePreset?.label ?? "All time");
 
   return (
     <div className="flex items-center gap-2">
@@ -120,22 +114,22 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
       </Select>
 
       {isCustom && (
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button size="sm" variant="outline">
-                {formatRangeLabel(params.from, params.to) ?? "Pick dates"}
-              </Button>
-            }
+        <ResponsivePicker
+          onOpenChange={setPickerOpen}
+          open={pickerOpen}
+          title="Custom range"
+          trigger={
+            <Button size="sm" variant="outline">
+              {formatRangeLabel(params.from, params.to) ?? "Pick dates"}
+            </Button>
+          }
+        >
+          <Calendar
+            mode="range"
+            onSelect={handleCustomRangeSelect}
+            selected={customRange}
           />
-          <PopoverContent align="end" className="w-auto p-0">
-            <Calendar
-              mode="range"
-              onSelect={handleCustomRangeSelect}
-              selected={customRange}
-            />
-          </PopoverContent>
-        </Popover>
+        </ResponsivePicker>
       )}
     </div>
   );
