@@ -19,14 +19,17 @@ import { uuidv7 } from "uuidv7";
  * - `admin-request <title> <email>`: a pending reimbursement charged to the
  *   organisation, owned by that user, so another user (finance) can change
  *   what it is charged to; nobody may re-charge their own request.
+ * - `expense-dated <title> <email> <yyyy-MM-dd>`: the same, for an expense on
+ *   that day, submitted now.
  */
 
-const [action, title = "", email = ""] = process.argv.slice(2);
+const [action, title = "", email = "", expenseDay = ""] = process.argv.slice(2);
 
 async function insertRequest(
   charge:
     | { chargedProgrammeId: string; chargedTo: "programme" }
-    | { chargedTo: "organisation" }
+    | { chargedTo: "organisation" },
+  expenseDate = new Date().toISOString().slice(0, 10)
 ) {
   const [owner] = await db
     .select({ id: user.id })
@@ -46,7 +49,7 @@ async function insertRequest(
     ...charge,
     costCentreId: COST_CENTRE_IDS.bangalore,
     createdAt: now,
-    expenseDate: now.toISOString().slice(0, 10),
+    expenseDate,
     id,
     status: "pending",
     submittedAt: now,
@@ -75,6 +78,8 @@ if (action === "legacy-unallocated") {
   });
 } else if (action === "admin-request") {
   result = await insertRequest({ chargedTo: "organisation" });
+} else if (action === "expense-dated") {
+  result = await insertRequest({ chargedTo: "organisation" }, expenseDay);
 } else {
   throw new Error(`Unknown action ${action}`);
 }

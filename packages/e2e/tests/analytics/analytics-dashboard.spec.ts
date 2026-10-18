@@ -1,4 +1,10 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+
+const execFileAsync = promisify(execFile);
 
 test.describe("Analytics dashboard (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
@@ -33,6 +39,35 @@ test.describe("Analytics dashboard (admin)", () => {
     await expect(
       page.getByRole("region", { name: "Spending by programme" })
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("spending counts under the expense date, not the submission", async ({
+    page,
+    superAdminEmail,
+  }) => {
+    // A day nothing else is dated on, so the range holds only this claim.
+    const day = "2001-01-15";
+    await execFileAsync(
+      "bun",
+      [
+        "run",
+        path.resolve(import.meta.dirname, "../../helpers/charged-to.ts"),
+        "expense-dated",
+        `E2E Backdated ${Date.now()}`,
+        superAdminEmail,
+        day,
+      ],
+      { env: process.env }
+    );
+    await page.goto(`/analytics?range=custom&from=${day}&to=${day}`);
+    await waitForZeroReady(page);
+    const total = page
+      .locator("[data-slot='stat-chip']")
+      .filter({ hasText: "Total" });
+    await expect(total.locator("[data-slot='stat-value']")).not.toHaveText(
+      "0",
+      { timeout: 15_000 }
+    );
   });
 
   test("chart containers render after data loads", async ({ page }) => {

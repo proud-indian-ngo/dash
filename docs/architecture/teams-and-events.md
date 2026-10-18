@@ -159,5 +159,5 @@ Settings > WhatsApp groups registers groups by name and JID for teams, events, s
 | Page | Who | Notes |
 |---|---|---|
 | Home (`/`) | Every signed-in user; each panel follows its permission or team leadership | People without `requests.view_own` get a welcome card; `external_user` is redirected to `/kalakriti` |
-| Analytics (`/analytics`) | `requests.view_all` | Spending tab: reimbursements, advances and vendor payments. Outcomes tab: events held, children reached, volunteer hours and their value, with coverage notes and a breakdown by programme or team ([rules](finance-and-programmes.md#outcomes)) |
+| Analytics (`/analytics`) | `requests.view_all` | Spending tab: reimbursements, advances and vendor payments, dated by when the money was spent (`spentAt`): a claim's expense date, a vendor payment's invoice date else its first approved payment, an advance's submission. The home dashboard's spend totals use the same date. Outcomes tab: events held, children reached, volunteer hours and their value, with coverage notes and a breakdown by programme or team ([rules](finance-and-programmes.md#outcomes)) |
 | Scheduled messages (`/scheduled-messages`) | `messages.schedule` | Each recipient is a `send-scheduled-whatsapp` job delayed to `scheduledAt`; a message with pending recipients must be cancelled before deletion |

@@ -45,7 +45,7 @@ import {
   resolveDateRange,
 } from "@/lib/date-range";
 import { preloadRouteQuery } from "@/lib/route-preload";
-import { sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
+import { spentAt, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
 
 // biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
@@ -279,22 +279,21 @@ function OrientedDashboard() {
     dateParams.to
   );
 
-  const createdAtAccessor = (item: { createdAt: number | null }) =>
-    item.createdAt;
+  // Spend counts under the date the money was spent, as on Analytics.
   const filteredReimbursements = filterByDateRange(
     reimbursements,
     dateRange,
-    createdAtAccessor
+    spentAt
   );
   const filteredAdvancePayments = filterByDateRange(
     advancePayments,
     dateRange,
-    createdAtAccessor
+    spentAt
   );
   const filteredVendorPayments = filterByDateRange(
     vendorPayments,
     dateRange,
-    createdAtAccessor
+    spentAt
   );
 
   // Pending work uses unfiltered data: it's actionable regardless of age.
