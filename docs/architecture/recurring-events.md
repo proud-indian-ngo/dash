@@ -17,6 +17,8 @@ RFC 5545 RRULEs on the `teamEvent` table:
 
 `expandSeries()` in `packages/shared/src/rrule-expand.ts` turns a rule into virtual occurrences for a range. Virtual occurrences have no rows. An occurrence becomes an exception row only when someone edits it, cancels it, adds a member or shows interest.
 
+Recurrence validation runs both when a team-event mutation accepts a rule and immediately before expansion. Rules may be daily, weekly, monthly or yearly, with one time per date; compound recurrence sets and sub-daily frequencies are rejected because occurrence identity is an ISO date. Rule text, excluded dates and exclusion rules are size-bounded. Expansion also fails explicitly when a requested range would produce more than 10,000 dates instead of returning a partial series.
+
 Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
 
 ### First session

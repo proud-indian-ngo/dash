@@ -7,7 +7,14 @@ import {
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
-import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
+import {
+  MAX_EXCLUDE_RULE_LENGTH,
+  MAX_EXCLUDE_RULES,
+  MAX_EXDATES,
+  MAX_RECURRENCE_RULE_LENGTH,
+  seriesStartDate,
+  validateRecurrenceRule,
+} from "@pi-dash/shared/rrule-expand";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -363,9 +370,26 @@ async function pushCreateServerTasks(
 
 const recurrenceRuleSchema = z
   .object({
-    excludeRules: z.array(z.string().max(100)).max(10).optional(),
-    exdates: z.array(z.string()).optional(),
-    rrule: z.string(),
+    excludeRules: z
+      .array(z.string().min(1).max(MAX_EXCLUDE_RULE_LENGTH))
+      .max(MAX_EXCLUDE_RULES)
+      .optional(),
+    exdates: z
+      .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+      .max(MAX_EXDATES)
+      .optional(),
+    rrule: z.string().min(1).max(MAX_RECURRENCE_RULE_LENGTH),
+  })
+  .superRefine((rule, ctx) => {
+    try {
+      validateRecurrenceRule(rule);
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          error instanceof Error ? error.message : "Invalid recurrence rule",
+      });
+    }
   })
   .optional();
 
