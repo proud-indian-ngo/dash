@@ -6,11 +6,11 @@ import { expect, type Locator } from "@playwright/test";
  */
 export async function pickDate(scope: Locator, label: string, date: Date) {
   const page = scope.page();
-  const dialogs = page.getByRole("dialog");
-  const openBefore = await dialogs.count();
   await scope.getByRole("button", { exact: true, name: label }).click();
-  await expect(dialogs).toHaveCount(openBefore + 1);
+  // The topmost dialog: the popover, or on phones the picker drawer (which
+  // makes the drawer it opened from inert, so dialogs are not counted).
   const popup = page.getByRole("dialog").last();
+  await expect(popup.getByRole("grid").first()).toBeVisible();
   const day = popup.locator(
     `button[data-day="${date.toLocaleDateString("en-US")}"]`
   );
@@ -19,6 +19,9 @@ export async function pickDate(scope: Locator, label: string, date: Date) {
     await popup.getByRole("button", { name: step }).click();
   }
   await day.click();
-  await page.keyboard.press("Escape");
-  await expect(dialogs).toHaveCount(openBefore);
+  // Date-time pickers stay open for the time; plain date pickers close.
+  if (await day.isVisible()) {
+    await page.keyboard.press("Escape");
+  }
+  await expect(day).toBeHidden();
 }
