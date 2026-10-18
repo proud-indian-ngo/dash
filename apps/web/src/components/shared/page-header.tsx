@@ -66,13 +66,19 @@ export function PageHeader({
           </div>
         ) : null}
         {metaItems.length > 0 ? (
-          <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm tabular-nums">
-            {metaItems.map((item, index) => (
-              <span className="flex items-center gap-2" key={index}>
-                {index > 0 ? <span aria-hidden="true">·</span> : null}
-                {item}
-              </span>
-            ))}
+          // Every item carries its separator in the gap before it; the
+          // container clips the ones that land at the start of a line.
+          <div className="text-muted-foreground -mx-1 overflow-hidden px-1 py-1 text-sm tabular-nums">
+            <div className="-ml-4 flex flex-wrap items-center gap-y-1">
+              {metaItems.map((item, index) => (
+                <span className="relative flex items-center pl-4" key={index}>
+                  <span aria-hidden="true" className="absolute left-1.5">
+                    ·
+                  </span>
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

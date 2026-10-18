@@ -69,6 +69,12 @@ export function Dialog({
   );
 }
 
+function definedProps<T extends Record<string, string | undefined>>(props: T) {
+  return Object.fromEntries(
+    Object.entries(props).filter(([, value]) => value !== undefined)
+  );
+}
+
 interface DialogContentProps extends Omit<
   ComponentProps<typeof DesktopDialogContent>,
   "children"
@@ -89,12 +95,22 @@ export function DialogContent({
   if (isMobile) {
     return (
       <DrawerContent
-        aria-label={props["aria-label"]}
-        aria-labelledby={props["aria-labelledby"]}
-        aria-describedby={props["aria-describedby"]}
-        className={cn("max-h-[90vh] overflow-hidden", className)}
+        // Pass only the names the caller set: an explicit undefined would
+        // replace Base UI's link to the drawer title, leaving it unnamed.
+        {...definedProps({
+          "aria-describedby": props["aria-describedby"],
+          "aria-label": props["aria-label"],
+          "aria-labelledby": props["aria-labelledby"],
+        })}
+        // The drawer caps itself at 80vh; dialogs get more room, measured
+        // against the visible viewport.
+        className={cn(
+          "overflow-hidden data-[swipe-direction=down]:max-h-[90dvh]",
+          className
+        )}
       >
         <div
+          data-slot="drawer-scroll"
           className={cn(
             "grid min-h-0 flex-1 touch-pan-y gap-4 overflow-y-auto overscroll-contain p-4 [-webkit-overflow-scrolling:touch]",
             bodyClassName

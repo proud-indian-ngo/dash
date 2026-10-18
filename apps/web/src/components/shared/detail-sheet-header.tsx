@@ -53,16 +53,22 @@ export function DetailSheetHeader({
             <SheetDescription className="sr-only">Details</SheetDescription>
           )}
           {hasFacts ? (
-            <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm tabular-nums">
-              {badge}
-              {metaItems.map((item, index) => (
-                <span className="flex items-center gap-2" key={index}>
-                  {index > 0 || badge ? (
-                    <span aria-hidden="true">·</span>
-                  ) : null}
-                  {item}
-                </span>
-              ))}
+            // Separators sit in the gap before each fact; the container clips
+            // the ones that land at the start of a line.
+            <div className="text-muted-foreground -mx-1 mt-0.5 overflow-hidden px-1 py-1 text-sm tabular-nums">
+              <div className="-ml-4 flex flex-wrap items-center gap-y-1">
+                {badge ? (
+                  <span className="flex items-center pl-4">{badge}</span>
+                ) : null}
+                {metaItems.map((item, index) => (
+                  <span className="relative flex items-center pl-4" key={index}>
+                    <span aria-hidden="true" className="absolute left-1.5">
+                      ·
+                    </span>
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
