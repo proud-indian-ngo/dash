@@ -841,3 +841,65 @@ describe("cancel all upcoming sessions", () => {
     expect(enqueued).toEqual([]);
   });
 });
+
+describe("a lead cancelling one session or the following ones", () => {
+  // Between the 17 and 24 October sessions: the series row has started.
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const cancel = (
+    db: ReturnType<typeof createDb>,
+    mode: "this" | "following",
+    originalDate: string
+  ) =>
+    teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode,
+        newExceptionId: "cancelled-row",
+        now: AFTER_THIRD,
+        originalDate,
+      },
+      ctx: { ...ctx, asyncTasks: [], traceId: "t" },
+      tx: db.tx,
+    } as never);
+  const row = (db: ReturnType<typeof createDb>, id: string) =>
+    db.tables.teamEvent?.find((e) => e.id === id);
+
+  it("cancels an upcoming unsaved session of a started series", async () => {
+    const db = createDb();
+    await cancel(db, "this", "2026-10-24");
+    expect(row(db, "cancelled-row")).toMatchObject({
+      cancelledAt: AFTER_THIRD,
+      originalDate: "2026-10-24",
+    });
+  });
+
+  it("cancels this and following from an upcoming date", async () => {
+    const db = createDb();
+    await cancel(db, "following", "2026-10-24");
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261023T235959Z",
+    });
+  });
+
+  it("refuses a session that has started, unsaved or saved", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held-early",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+    ]);
+    await expect(cancel(db, "this", "2026-10-17")).rejects.toThrow(
+      "Cannot cancel an event that has already started"
+    );
+    await expect(cancel(db, "following", "2026-10-31")).rejects.toThrow(
+      "Cannot cancel an event that has already started"
+    );
+    expect(row(db, "cancelled-row")).toBeUndefined();
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+  });
+});

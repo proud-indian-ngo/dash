@@ -56,7 +56,7 @@ An event (`teamEvent`) belongs to one team. This chapter covers one-time events;
 |---|---|---|
 | Create | `events.create` | A start in the past needs `events.create_backdated` or lead |
 | Edit | `events.edit` | Also toggles feedback and sets its deadline |
-| Cancel | `events.cancel` | A lead without the permission cannot cancel an event that has started |
+| Cancel | `events.cancel` | A lead without the permission cannot cancel an event that has started; for a series, the session cancelled ("This event", or the first of "This and following") counts, not the series row |
 | Add or remove members | `events.manage_members` | |
 | Mark attendance | `events.manage_attendance` | Only after start |
 | Approve or reject photos, delete any photo, delete the Immich album | `events.manage_photos` | |

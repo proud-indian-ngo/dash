@@ -160,6 +160,34 @@ function seriesScope(
     : args.mode;
 }
 
+/**
+ * The start of the session a "this" or "following" cancel targets: a saved
+ * row for the date by its own start, otherwise the series' time of day on
+ * that date. A saved row or standalone event targets itself.
+ */
+async function targetSessionStart(
+  tx: Tx,
+  existing: TeamEvent,
+  date: string | undefined
+): Promise<number> {
+  if (!date || existing.seriesId || !existing.recurrenceRule) {
+    return existing.startTime;
+  }
+  const saved = (await tx.run(
+    zql.teamEvent
+      .where("seriesId", existing.id)
+      .where("originalDate", date)
+      .one()
+  )) as TeamEvent | undefined;
+  if (saved) {
+    return saved.startTime;
+  }
+  const firstDay = Date.parse(
+    `${seriesStartDate(existing.startTime)}T00:00:00Z`
+  );
+  return Date.parse(`${date}T00:00:00Z`) + (existing.startTime - firstDay);
+}
+
 /** Resolve (materializing if needed) the event row a volunteer joins. */
 export async function resolveJoinTarget(
   tx: Tx,
@@ -797,13 +825,14 @@ export const teamEventMutators = {
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
       const mode = seriesScope(args, existing);
 
-      // Team leads without events.cancel cannot cancel an event that has
-      // started. "All" never cancels a started session, so it stays open.
+      // Team leads without events.cancel cannot cancel a session that has
+      // started, judged by the session the cancel starts from. "All" never
+      // cancels a started session, so it stays open.
       if (
         isTeamLead &&
         !can(ctx, "events.cancel") &&
         mode !== "all" &&
-        existing.startTime <= args.now
+        (await targetSessionStart(tx, existing, args.originalDate)) <= args.now
       ) {
         throw new Error("Cannot cancel an event that has already started");
       }
