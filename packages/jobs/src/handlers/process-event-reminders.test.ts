@@ -43,6 +43,7 @@ const windowStart = new Date(now - 16 * 60 * 1000);
 
 function params(
   overrides: {
+    instanceDate?: string | null;
     intervals?: number[];
     startTime?: number;
   } = {}
@@ -51,7 +52,7 @@ function params(
     eventId: "event-1",
     eventName: "Community visit",
     eventWhatsappGroupId: "group-1",
-    instanceDate: null,
+    instanceDate: overrides.instanceDate ?? null,
     intervals: overrides.intervals ?? [0],
     location: "Bengaluru",
     now,
@@ -134,5 +135,13 @@ describe("processRemindersForEvent", () => {
     expect(mocks.tryInsertReminderSent).toHaveBeenCalledTimes(2);
     expect(mocks.notifyEventReminderGroup).toHaveBeenCalledTimes(1);
     expect(mocks.notifyEventReminder).toHaveBeenCalledTimes(1);
+  });
+
+  it("threads the recurring occurrence date to participant reminders", async () => {
+    await processRemindersForEvent(params({ instanceDate: "2026-10-18" }));
+
+    expect(mocks.notifyEventReminder).toHaveBeenCalledWith(
+      expect.objectContaining({ instanceDate: "2026-10-18" })
+    );
   });
 });

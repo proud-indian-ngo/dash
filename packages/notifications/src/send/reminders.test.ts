@@ -83,6 +83,10 @@ describe("ops reports on WhatsApp", () => {
 });
 
 describe("notifyEventReminder", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("fills the template details like the other event messages", async () => {
     await notifyEventReminder({
       eventId: "event-1",
@@ -98,5 +102,30 @@ describe("notifyEventReminder", () => {
         params: { details: "on Sun, 18 Oct, 6:00 pm at Cubbon Park" },
       },
     });
+  });
+
+  it("uses one stable idempotency key per recurring occurrence", async () => {
+    const send = (instanceDate: string) =>
+      notifyEventReminder({
+        eventId: "series-1",
+        eventName: "Weekly cleanup",
+        instanceDate,
+        intervalMinutes: 60,
+        location: null,
+        startTime: Date.UTC(2026, 9, 18, 12, 30),
+        userId: "user-1",
+      });
+
+    await send("2026-10-18");
+    await send("2026-10-25");
+    await send("2026-10-18");
+
+    expect(
+      mocks.sendMessage.mock.calls.map(([options]) => options.idempotencyKey)
+    ).toEqual([
+      "event-reminder-series-1-2026-10-18-60-user-1",
+      "event-reminder-series-1-2026-10-25-60-user-1",
+      "event-reminder-series-1-2026-10-18-60-user-1",
+    ]);
   });
 });

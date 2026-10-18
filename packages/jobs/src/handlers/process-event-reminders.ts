@@ -219,6 +219,7 @@ async function sendParticipantReminders(
       notifyEventReminder({
         eventId: params.eventId,
         eventName: params.eventName,
+        instanceDate: params.instanceDate,
         intervalMinutes,
         location: params.location,
         startTime: params.startTime,
