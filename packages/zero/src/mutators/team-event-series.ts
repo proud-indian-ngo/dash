@@ -628,8 +628,12 @@ export async function updateSeriesFollowing(
 // cancelSeries per-mode helpers
 // ---------------------------------------------------------------------------
 
-/** The date key of the latest session of a series that has started, if any. */
-function lastStartedDate(
+/**
+ * The date key of the latest started session that has no row of its own:
+ * the first session (the series row, or a live start-date row standing for
+ * it) or an unsaved occurrence. Other saved sessions go by their own start.
+ */
+function lastStartedUnsavedDate(
   series: TeamEvent,
   exceptions: readonly TeamEvent[],
   now: number
@@ -648,27 +652,27 @@ function lastStartedDate(
         savedDates
       ).filter((occ) => occ.startTime <= now)
     : [];
-  // The series row is its first session even where the rule skips its date.
+  // The first session counts even where the rule skips its date.
   const first = seriesStartDate(series.startTime);
+  const startDateRow = exceptions.find((e) => e.originalDate === first);
+  const firstStarted = startDateRow
+    ? !startDateRow.cancelledAt && startDateRow.startTime <= now
+    : series.startTime <= now;
   const dates = [
-    ...(series.startTime <= now && !savedDates.has(first) ? [first] : []),
+    ...(firstStarted ? [first] : []),
     ...virtual.map((occ) => occ.date),
-    ...exceptions.flatMap((e) =>
-      e.originalDate && !e.cancelledAt && e.startTime <= now
-        ? [e.originalDate]
-        : []
-    ),
   ].sort();
   return dates.at(-1) ?? null;
 }
 
 /**
  * Cancel every upcoming session of a series. A series with no started
- * session is cancelled whole. Otherwise it ends after the last session that
- * has started: the rule is truncated after that day and saved sessions that
- * haven't started are cancelled, while the series row and started sessions
- * stay live with their attendance and recaps. Returns the rows it cancelled and whether
- * unsaved sessions were dropped from the rule.
+ * session is cancelled whole. Otherwise saved sessions that haven't started
+ * are cancelled, and the rule ends after the last started first session or
+ * unsaved occurrence. The series row and started sessions stay live with
+ * their attendance and recaps; a started saved session keyed after the new
+ * UNTIL stays as an orphaned exception. Returns the rows it cancelled and
+ * whether unsaved sessions were dropped from the rule.
  */
 export async function cancelSeriesAll(
   tx: Tx,
@@ -678,7 +682,10 @@ export async function cancelSeriesAll(
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
-  const lastStarted = lastStartedDate(existing, exceptions, args.now);
+  const lastStarted = lastStartedUnsavedDate(existing, exceptions, args.now);
+  const savedStarted = exceptions.some(
+    (e) => !e.cancelledAt && e.startTime <= args.now
+  );
   const cancel = (id: string) =>
     tx.mutate.teamEvent.update({
       cancelledAt: args.now,
@@ -686,7 +693,7 @@ export async function cancelSeriesAll(
       updatedAt: args.now,
     });
 
-  if (!lastStarted) {
+  if (!(lastStarted || savedStarted)) {
     const live = exceptions.filter((e) => !e.cancelledAt).map((e) => e.id);
     await cancel(args.id);
     await Promise.all(live.map(cancel));
@@ -706,9 +713,12 @@ export async function cancelSeriesAll(
     );
   }
 
-  const splitDate = new Date(Date.parse(`${lastStarted}T00:00:00Z`) + DAY_MS)
-    .toISOString()
-    .slice(0, 10);
+  // With only saved sessions started, no unsaved one is kept.
+  const splitDate = lastStarted
+    ? new Date(Date.parse(`${lastStarted}T00:00:00Z`) + DAY_MS)
+        .toISOString()
+        .slice(0, 10)
+    : first;
   const rule = parseRecurrenceRule(existing.recurrenceRule);
   // Only cut a rule that still runs past the split, so UNTIL never moves out.
   const ruleCut =

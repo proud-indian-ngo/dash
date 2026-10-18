@@ -731,6 +731,24 @@ describe("cancel all upcoming sessions", () => {
     expect(row(db, "series-1")?.cancelledAt ?? null).toBeNull();
   });
 
+  it("cuts the rule after the last started unsaved session, not a saved one held early", async () => {
+    const db = createDb([
+      session("early", "2026-10-31", {
+        startTime: Date.parse("2026-10-18T04:30:00Z"),
+      }),
+    ]);
+    await cancelAll(db, AFTER_THIRD);
+
+    // The unsaved 24 October session is cut; 31 October stays as a held
+    // saved session past UNTIL.
+    const rule = row(db, "series-1")?.recurrenceRule as { rrule: string };
+    expect(rule).toEqual({ rrule: "FREQ=WEEKLY;UNTIL=20261017T235959Z" });
+    expect(
+      expandSeries(rule, FIRST, null, AFTER_THIRD, AFTER_THIRD + 30 * 864e5)
+    ).toEqual([]);
+    expect(row(db, "early")?.cancelledAt).toBeNull();
+  });
+
   it("refuses when a session moved before an upcoming first session has started", async () => {
     // An All events edit moved the series to start 3 October; a session
     // saved for 26 September has been held.
