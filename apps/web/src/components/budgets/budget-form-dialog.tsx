@@ -224,11 +224,7 @@ function BudgetAmountsForm({
           </p>
         )}
       </form.Subscribe>
-      {/* The desktop footer band, pinned while the heads scroll. The
-          global band rule in index.css only matches actions placed straight
-          in the dialog body, not inside a form. */}
       <FormActions
-        className="md:bg-dialog-footer md:sticky md:-bottom-5 md:z-10 md:-mx-5 md:-mb-5 md:border-t md:px-5 md:py-3"
         disableWhenInvalid={false}
         onCancel={cancel}
         submitLabel="Save budget"

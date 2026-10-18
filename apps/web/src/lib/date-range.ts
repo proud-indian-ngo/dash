@@ -1,4 +1,5 @@
 import {
+  endOfDay,
   endOfMonth,
   isValid,
   parseISO,
@@ -98,7 +99,8 @@ export function resolveDateRange(
     const from = parseISO(fromStr);
     const to = parseISO(toStr);
     if (isValid(from) && isValid(to)) {
-      return { from, to };
+      // The picker stores whole days: the range runs to the end of `to`.
+      return { from, to: endOfDay(to) };
     }
     return { from: null, to: null };
   }

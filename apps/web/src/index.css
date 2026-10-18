@@ -27,14 +27,21 @@ body:has(.yarl__root) [data-slot="alert-dialog-content"] {
 /*
  * A form's actions inside a desktop dialog become its footer band: pinned to
  * the bottom while the fields scroll, Cancel then the verb on the right.
- * Only actions that end the dialog are banded, so mid-dialog actions (scan
- * panels) never cover content. Page-like dialogs opt out with data-plain.
+ * The actions may sit in the body, in the form that closes it, or in that
+ * form's whole-form fieldset. Only actions that end the dialog are banded,
+ * so mid-dialog actions (scan panels) never cover content. Page-like dialogs
+ * opt out with data-plain.
  */
-[data-slot="dialog-content"]:not([data-plain])
-  > [data-slot="dialog-body"]
-  > :is(
-    [data-slot="form-actions"],
-    :last-child > [data-slot="form-actions"]
-  ):last-child {
+:is(
+    [data-slot="dialog-content"]:not([data-plain]) > [data-slot="dialog-body"],
+    [data-slot="dialog-content"]:not([data-plain])
+      > [data-slot="dialog-body"]
+      > form:last-child,
+    [data-slot="dialog-content"]:not([data-plain])
+      > [data-slot="dialog-body"]
+      > form:last-child
+      > fieldset:last-child
+  )
+  > [data-slot="form-actions"]:last-child {
   @apply bg-dialog-footer sticky -bottom-5 z-10 -mx-5 -mb-5 justify-end border-t px-5 py-3;
 }
