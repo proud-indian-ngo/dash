@@ -123,7 +123,7 @@ export const PERMISSIONS = [
   // ── Users ──
   {
     category: "users",
-    description: "See full user list in Zero queries",
+    description: "View the user directory and contact details",
     id: "users.view",
     name: "View Users",
   },

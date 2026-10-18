@@ -7,21 +7,21 @@ import {
 } from "@pi-dash/design-system/components/ui/hover-card";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format } from "date-fns";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
+import {
+  getUserHoverDetails,
+  type UserHoverDetails,
+} from "@/functions/user-hover-details";
 import { DATE } from "@/lib/date-formats";
 
 interface UserHoverCardUser {
-  createdAt?: null | number | string;
-  email?: null | string;
-  gender?: null | string;
   id: string;
   image?: null | string;
   name: string;
-  phone?: null | string;
   role?: null | string;
 }
 
@@ -51,12 +51,33 @@ export function UserHoverCard({
   const { hasPermission, user: appUser } = useApp();
   const canSeeFullDetails =
     hasPermission("users.view") || user.id === appUser.id;
+  const [details, setDetails] = useState<null | UserHoverDetails>(null);
+  const requestVersion = useRef(0);
   const stableOnClick0 = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
+  const handleOpenChange = useEventCallback((open: boolean) => {
+    requestVersion.current += 1;
+    const request = requestVersion.current;
+    setDetails(null);
+    if (!(open && canSeeFullDetails)) {
+      return;
+    }
+    getUserHoverDetails({ data: { userId: user.id } })
+      .then((result) => {
+        if (requestVersion.current === request) {
+          setDetails(result);
+        }
+      })
+      .catch(() => {
+        if (requestVersion.current === request) {
+          setDetails(null);
+        }
+      });
+  });
 
   return (
-    <HoverCard>
+    <HoverCard onOpenChange={handleOpenChange}>
       <HoverCardTrigger
         aria-label={`View ${user.name}'s profile`}
         render={
@@ -76,14 +97,14 @@ export function UserHoverCard({
           <div className="min-w-0 space-y-1.5">
             <div>
               <p className="truncate text-sm font-medium">{user.name}</p>
-              {canSeeFullDetails && user.email ? (
+              {details?.email ? (
                 <p className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                  {details.email}
                 </p>
               ) : null}
             </div>
             <div className="space-y-1">
-              {canSeeFullDetails && user.phone ? (
+              {details?.phone ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
                     className="text-muted-foreground size-3.5 shrink-0"
@@ -91,7 +112,7 @@ export function UserHoverCard({
                     strokeWidth={2}
                   />
                   <span className="text-muted-foreground truncate text-xs">
-                    {user.phone}
+                    {details.phone}
                   </span>
                 </div>
               ) : null}
@@ -100,7 +121,7 @@ export function UserHoverCard({
                   <Tag>{user.role.replace(/_/g, " ")}</Tag>
                 </div>
               ) : null}
-              {canSeeFullDetails && user.createdAt ? (
+              {details?.createdAt ? (
                 <div className="flex items-center gap-1.5">
                   <HugeiconsIcon
                     className="text-muted-foreground size-3.5 shrink-0"
@@ -108,7 +129,7 @@ export function UserHoverCard({
                     strokeWidth={2}
                   />
                   <span className="text-muted-foreground text-xs">
-                    Joined {format(new Date(user.createdAt), DATE)}
+                    Joined {format(new Date(details.createdAt), DATE)}
                   </span>
                 </div>
               ) : null}

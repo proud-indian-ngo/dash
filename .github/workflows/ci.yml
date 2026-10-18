@@ -218,6 +218,9 @@ jobs:
       - name: Push schema to test database
         run: cd packages/db && bunx drizzle-kit push
 
+      - name: Restrict Zero replication
+        run: bun packages/zero/scripts/prepare-publication.ts
+
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
@@ -245,6 +248,7 @@ jobs:
         run: |
           docker run -d --name zero-cache --network host \
             -e ZERO_UPSTREAM_DB="$ZERO_UPSTREAM_DB" \
+            -e ZERO_APP_PUBLICATIONS=pi_dash_public \
             -e ZERO_CVR_DB="$ZERO_UPSTREAM_DB" \
             -e ZERO_CHANGE_DB="$ZERO_UPSTREAM_DB" \
             -e ZERO_REPLICA_FILE="$ZERO_REPLICA_FILE" \

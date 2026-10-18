@@ -1,12 +1,12 @@
 import { MAX_RECIPIENT_RETRIES } from "@pi-dash/shared/scheduled-message";
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import "../context";
-import type { Context } from "../context";
+import { type Context, requirePrivateUserLoader } from "../context";
 import { assertHasPermission } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
 import {
   claimUploadedR2ObjectKey,
   createR2ClaimOptions,
@@ -68,6 +68,28 @@ function claimScheduledMessageAttachments(
   }));
 }
 
+async function resolveRecipientAddress(
+  tx: Pick<Transaction<Schema>, "run">,
+  ctx: Context,
+  recipient: { id: string; type: "group" | "user" }
+): Promise<string> {
+  if (recipient.type === "group") {
+    const group = (await tx.run(
+      zql.whatsappGroup.where("id", recipient.id).one()
+    )) as { jid: string } | undefined;
+    if (!group) {
+      throw new Error(`WhatsApp group ${recipient.id} not found`);
+    }
+    return group.jid;
+  }
+
+  const recipientUser = await requirePrivateUserLoader(ctx)(recipient.id);
+  if (!recipientUser?.phone) {
+    throw new Error(`User ${recipient.id} has no phone`);
+  }
+  return recipientUser.phone;
+}
+
 export const scheduledMessageMutators = {
   cancel: defineMutator(
     z.object({ id: z.string() }),
@@ -114,6 +136,12 @@ export const scheduledMessageMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "messages.schedule");
+      if (
+        tx.location === "server" &&
+        args.recipients.some((recipient) => recipient.type === "user")
+      ) {
+        requirePrivateUserLoader(ctx);
+      }
 
       const now = Date.now();
       const attachments = claimScheduledMessageAttachments(
@@ -159,12 +187,22 @@ export const scheduledMessageMutators = {
         const { scheduledAt } = args;
 
         for (const row of recipientRows) {
+          let targetAddress: string | undefined;
+          let targetAddressError: unknown;
+          if (row.type === "user") {
+            try {
+              targetAddress = await resolveRecipientAddress(tx, ctx, {
+                id: row.recipientId,
+                type: row.type,
+              });
+            } catch (error) {
+              targetAddressError = error;
+            }
+          }
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-
-                let targetAddress: string;
                 if (row.type === "group") {
                   const group = await tx.run(
                     zql.whatsappGroup.where("id", row.recipientId).one()
@@ -176,13 +214,12 @@ export const scheduledMessageMutators = {
                   }
                   targetAddress = group.jid;
                 } else {
-                  const usr = await tx.run(
-                    zql.user.where("id", row.recipientId).one()
-                  );
-                  if (!usr?.phone) {
-                    throw new Error(`User ${row.recipientId} has no phone`);
+                  if (targetAddressError) {
+                    throw targetAddressError;
                   }
-                  targetAddress = usr.phone;
+                  if (!targetAddress) {
+                    throw new Error("Recipient address unavailable");
+                  }
                 }
 
                 await enqueue(
@@ -303,13 +340,10 @@ export const scheduledMessageMutators = {
           }
           targetAddress = group.jid;
         } else {
-          const usr = await tx.run(
-            zql.user.where("id", recipientRecipientId).one()
-          );
-          if (!usr?.phone) {
-            throw new Error(`User ${recipientRecipientId} has no phone`);
-          }
-          targetAddress = usr.phone;
+          targetAddress = await resolveRecipientAddress(tx, ctx, {
+            id: recipientRecipientId,
+            type: "user",
+          });
         }
 
         ctx.asyncTasks?.push({
@@ -360,6 +394,12 @@ export const scheduledMessageMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "messages.schedule");
+      if (
+        tx.location === "server" &&
+        args.recipients.some((recipient) => recipient.type === "user")
+      ) {
+        requirePrivateUserLoader(ctx);
+      }
 
       const existing = await tx.run(
         zql.scheduledMessage.where("id", args.id).one()
@@ -444,12 +484,22 @@ export const scheduledMessageMutators = {
         const { scheduledAt } = args;
 
         for (const row of recipientRows) {
+          let targetAddress: string | undefined;
+          let targetAddressError: unknown;
+          if (row.type === "user") {
+            try {
+              targetAddress = await resolveRecipientAddress(tx, ctx, {
+                id: row.recipientId,
+                type: row.type,
+              });
+            } catch (error) {
+              targetAddressError = error;
+            }
+          }
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-
-                let targetAddress: string;
                 if (row.type === "group") {
                   const group = await tx.run(
                     zql.whatsappGroup.where("id", row.recipientId).one()
@@ -461,13 +511,12 @@ export const scheduledMessageMutators = {
                   }
                   targetAddress = group.jid;
                 } else {
-                  const usr = await tx.run(
-                    zql.user.where("id", row.recipientId).one()
-                  );
-                  if (!usr?.phone) {
-                    throw new Error(`User ${row.recipientId} has no phone`);
+                  if (targetAddressError) {
+                    throw targetAddressError;
                   }
-                  targetAddress = usr.phone;
+                  if (!targetAddress) {
+                    throw new Error("Recipient address unavailable");
+                  }
                 }
 
                 await enqueue(

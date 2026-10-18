@@ -89,7 +89,25 @@ function run(
   ctx: Row | undefined,
   args: Row
 ) {
-  return mutator.fn({ args, ctx, tx: db.tx } as never);
+  const context = ctx
+    ? {
+        ...ctx,
+        loadPrivateUser: async (id: string) => {
+          const row = db.tables.user?.find((user) => user.id === id);
+          return row
+            ? {
+                banned: (row.banned as boolean | null | undefined) ?? false,
+                email: (row.email as string | undefined) ?? `${id}@example.com`,
+                isActive: (row.isActive as boolean | undefined) ?? true,
+                name: (row.name as string | undefined) ?? id,
+                phone: (row.phone as string | null | undefined) ?? null,
+                role: row.role as string,
+              }
+            : null;
+        },
+      }
+    : undefined;
+  return mutator.fn({ args, ctx: context, tx: db.tx } as never);
 }
 
 const financeCtx = {
@@ -169,6 +187,21 @@ describe("programme mutators", () => {
       programme({ leadUserId: "ok-1" })
     );
     expect(db.writes).toHaveLength(1);
+  });
+
+  it("fails closed without the server private user loader", async () => {
+    const db = createDb({
+      user: [{ banned: false, id: "lead-1", role: "volunteer" }],
+    });
+
+    await expect(
+      programmeMutators.create.fn({
+        args: programme({ leadUserId: "lead-1" }),
+        ctx: financeCtx,
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("Private user loader is required");
+    expect(db.writes).toEqual([]);
   });
 
   it("keeps existing values for omitted fields on update", async () => {

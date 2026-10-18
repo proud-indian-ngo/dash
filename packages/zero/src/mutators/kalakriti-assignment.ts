@@ -10,7 +10,11 @@ import {
 import { defineMutator } from "@rocicorp/zero";
 import z from "zod";
 
-import type { Context } from "../context";
+import {
+  type Context,
+  type MutationPrivateUser,
+  requirePrivateUserLoader,
+} from "../context";
 import {
   ensureVolunteerHumanId,
   type VolunteerIdTx,
@@ -209,11 +213,11 @@ interface AssignmentMembershipRow {
 }
 
 interface AssignableVolunteer {
-  email: string;
-  isActive: boolean;
-  name: string;
-  phone: string | null;
-  role: string | null;
+  email: MutationPrivateUser["email"] | null;
+  isActive: MutationPrivateUser["isActive"];
+  name: MutationPrivateUser["name"];
+  phone: MutationPrivateUser["phone"];
+  role: MutationPrivateUser["role"];
 }
 
 interface AssignmentEdition {
@@ -296,11 +300,24 @@ async function assertAssignmentCompetitionScope(
 
 async function getRosterVolunteer(
   tx: AssignmentTx,
+  ctx: Context,
   userId: string
 ): Promise<AssignableVolunteer | undefined> {
-  const volunteer = (await tx.run(zql.user.where("id", userId).one())) as
-    | AssignableVolunteer
+  const publicVolunteer = (await tx.run(zql.user.where("id", userId).one())) as
+    | { name: string; role: string }
     | undefined;
+  const volunteer =
+    tx.location === "server"
+      ? await requirePrivateUserLoader(ctx)(userId)
+      : publicVolunteer
+        ? {
+            email: null,
+            isActive: true,
+            name: publicVolunteer.name,
+            phone: null,
+            role: publicVolunteer.role,
+          }
+        : undefined;
   if (!volunteer && tx.location === "client") {
     return;
   }
@@ -359,7 +376,7 @@ async function assignVolunteerResponsibility(
   let volunteer: AssignableVolunteer | undefined;
   let membership: AssignmentMembershipRow | undefined;
   if (args.userId) {
-    volunteer = await getRosterVolunteer(tx, args.userId);
+    volunteer = await getRosterVolunteer(tx, ctx, args.userId);
     if (!volunteer) {
       return;
     }
@@ -583,7 +600,11 @@ export const kalakritiAssignmentMutators = {
             );
         }
         // biome-ignore lint/performance/noAwaitInLoops: enrollment writes must stay sequential per volunteer
-        const volunteer = await getRosterVolunteer(tx, volunteerArgs.userId);
+        const volunteer = await getRosterVolunteer(
+          tx,
+          ctx,
+          volunteerArgs.userId
+        );
         if (!volunteer) {
           if (tx.location === "client") {
             continue;

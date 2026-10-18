@@ -201,6 +201,7 @@ services:
     environment:
       TZ: Asia/Kolkata
       ZERO_UPSTREAM_DB: *db-url
+      ZERO_APP_PUBLICATIONS: pi_dash_public
       ZERO_CVR_DB: *db-url
       ZERO_CHANGE_DB: *db-url
       ZERO_REPLICA_FILE: /data/zero.db

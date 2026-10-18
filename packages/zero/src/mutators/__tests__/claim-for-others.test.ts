@@ -99,9 +99,28 @@ function createDb(
 }
 
 function context(userId: string, permissions: string[]) {
+  const privateUsers: Record<string, Record<string, unknown>> = {
+    asha: { isActive: true, name: "Asha", role: "finance_admin" },
+    gone: { isActive: false, name: "Gone", role: "volunteer" },
+    guest: { isActive: true, name: "Guest", role: "external_user" },
+    meena: { isActive: true, name: "Meena", role: "volunteer" },
+    nobank: { isActive: true, name: "Nobank", role: "volunteer" },
+    ravi: { isActive: true, name: "Ravi", role: "volunteer" },
+  };
   return {
     asyncTasks: [] as AsyncTask[],
     enqueue,
+    loadPrivateUser: async (id: string) => {
+      const privateUser = privateUsers[id];
+      return privateUser
+        ? {
+            banned: false,
+            email: `${id}@example.com`,
+            phone: null,
+            ...privateUser,
+          }
+        : null;
+    },
     permissions,
     role: "finance_admin",
     traceId: "trace-1",
@@ -182,6 +201,24 @@ describe("reimbursement.create for someone else", () => {
         tx: db.tx,
       } as never)
     ).rejects.toThrow("Unauthorized");
+    expect(db.rows("reimbursement")).toHaveLength(0);
+  });
+
+  it("fails closed on the server without the private user loader", async () => {
+    const db = createDb();
+    const { loadPrivateUser: _loadPrivateUser, ...ctx } = financeCtx();
+
+    await expect(
+      reimbursementMutators.create.fn({
+        args: {
+          ...createArgs,
+          claimantBankAccountId: "acct-ravi",
+          claimantUserId: "ravi",
+        },
+        ctx,
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("Private user loader is required");
     expect(db.rows("reimbursement")).toHaveLength(0);
   });
 

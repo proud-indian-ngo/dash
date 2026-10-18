@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { db } from "@pi-dash/db";
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
@@ -7,7 +8,7 @@ import { createRequestLogger } from "evlog";
 import { requireSession } from "@/lib/api-auth";
 
 const TRAILING_SLASHES_REGEX = /\/+$/;
-const AVATAR_CACHE_CONTROL = "private, max-age=31536000, immutable";
+const AVATAR_CACHE_CONTROL = "private, max-age=300";
 const toVariant = (value: number): string =>
   `variant${value.toString().padStart(2, "0")}`;
 const createVariantRange = (start: number, end: number): string[] =>
@@ -187,41 +188,80 @@ const fetchProfileAvatarUrl = async (
   }
 };
 
+interface AvatarUser {
+  email: string;
+  gender: null | string;
+}
+
+interface AvatarSession {
+  user: { id: string };
+}
+
+export interface AvatarHandlerDeps {
+  findUser: (userId: string) => Promise<AvatarUser | undefined>;
+  requireSession: (
+    request: Request
+  ) => Promise<{ session: AvatarSession } | { error: Response }>;
+  resolveAvatarUrl: (avatarUser: AvatarUser) => Promise<string>;
+}
+
+const defaultHandlerDeps: AvatarHandlerDeps = {
+  findUser: (userId) =>
+    db.query.user.findFirst({
+      columns: { email: true, gender: true },
+      where: (table, { eq }) => eq(table.id, userId),
+    }),
+  requireSession,
+  resolveAvatarUrl: async (avatarUser) => {
+    const normalizedEmail = normalizeEmail(avatarUser.email);
+    if (!normalizedEmail) {
+      throw new Error("Avatar user has no email");
+    }
+    const profileIdentifier = hashSha256(normalizedEmail);
+    return (
+      (await fetchProfileAvatarUrl(profileIdentifier)) ??
+      buildFallbackAvatarUrl(
+        normalizedEmail,
+        normalizeGender(avatarUser.gender)
+      )
+    );
+  },
+};
+
+export async function handleAvatarRequest(
+  request: Request,
+  deps = defaultHandlerDeps
+): Promise<Response> {
+  const authResult = await deps.requireSession(request);
+  if ("error" in authResult) {
+    return authResult.error;
+  }
+
+  const userId = new URL(request.url).searchParams.get("userId")?.trim();
+  if (!userId || userId.length > 128) {
+    return Response.json({ error: "Missing userId" }, { status: 400 });
+  }
+
+  const avatarUser = await deps.findUser(userId);
+  if (!avatarUser) {
+    return Response.json({ error: "Avatar not found" }, { status: 404 });
+  }
+  const avatarUrl = await deps.resolveAvatarUrl(avatarUser);
+
+  return new Response(null, {
+    headers: {
+      "Cache-Control": AVATAR_CACHE_CONTROL,
+      Location: avatarUrl,
+      Vary: "Cookie",
+    },
+    status: 302,
+  });
+}
+
 export const Route = createFileRoute("/api/avatar")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const { error } = await requireSession(request);
-        if (error) {
-          return error;
-        }
-
-        const requestUrl = new URL(request.url);
-        const normalizedEmail = normalizeEmail(
-          requestUrl.searchParams.get("email")
-        );
-        const normalizedGender = normalizeGender(
-          requestUrl.searchParams.get("gender")
-        );
-
-        if (!normalizedEmail) {
-          return Response.json({ error: "Missing email" }, { status: 400 });
-        }
-
-        const profileIdentifier = hashSha256(normalizedEmail);
-        const avatarUrl =
-          (await fetchProfileAvatarUrl(profileIdentifier)) ??
-          buildFallbackAvatarUrl(normalizedEmail, normalizedGender);
-
-        return new Response(null, {
-          headers: {
-            "Cache-Control": AVATAR_CACHE_CONTROL,
-            Location: avatarUrl,
-            Vary: "Cookie",
-          },
-          status: 302,
-        });
-      },
+      GET: async ({ request }) => handleAvatarRequest(request),
     },
   },
 });

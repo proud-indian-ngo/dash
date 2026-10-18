@@ -4,24 +4,7 @@ import {
   parseAvatarMediaKey,
 } from "@pi-dash/shared/media-url";
 
-type AvatarGender = null | string | undefined;
-
-const normalizeGender = (
-  gender: AvatarGender
-): "female" | "male" | undefined => {
-  if (!gender) {
-    return;
-  }
-
-  const normalizedGender = gender.trim().toLowerCase();
-  if (normalizedGender === "male" || normalizedGender === "female") {
-    return normalizedGender;
-  }
-};
-
 export const resolveAvatarSrc = (user: {
-  email?: null | string;
-  gender?: AvatarGender;
   id?: string;
   image?: null | string;
 }): string | undefined => {
@@ -34,26 +17,13 @@ export const resolveAvatarSrc = (user: {
       return buildAvatarMediaUrl(user.id, key);
     }
   }
-  return user.image || buildAvatarUrl(user.email, user.gender);
+  return user.image || buildAvatarUrl(user.id);
 };
 
-export const buildAvatarUrl = (
-  email?: null | string,
-  gender?: AvatarGender
-): string | undefined => {
-  const normalizedEmail = email?.trim().toLowerCase();
-
-  if (!normalizedEmail) {
+export const buildAvatarUrl = (userId?: string): string | undefined => {
+  const normalizedUserId = userId?.trim();
+  if (!normalizedUserId) {
     return;
   }
-
-  const params = new URLSearchParams({
-    email: normalizedEmail,
-  });
-  const normalizedGender = normalizeGender(gender);
-  if (normalizedGender) {
-    params.set("gender", normalizedGender);
-  }
-
-  return `/api/avatar?${params.toString()}`;
+  return `/api/avatar?${new URLSearchParams({ userId: normalizedUserId })}`;
 };

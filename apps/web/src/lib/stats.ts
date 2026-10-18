@@ -104,8 +104,8 @@ export interface CategoryDataPoint {
 export interface SubmitterDataPoint {
   amount: number;
   count: number;
-  email: string;
   name: string;
+  userId: string;
 }
 
 export interface VendorDataPoint {
@@ -157,7 +157,7 @@ interface WithAnalyticsData extends WithStatusAndLineItems, SpendDates {
     amountPaise: number;
     category: { name: string } | undefined;
   }[];
-  user: { email: string; name: string | null } | undefined;
+  user: { id: string; name: string | null } | undefined;
 }
 
 export function computeTrendData(
@@ -256,7 +256,7 @@ export function computeSubmitterData(
 ): SubmitterDataPoint[] {
   const map = new Map<
     string,
-    { name: string; email: string; amount: number; count: number }
+    { name: string; userId: string; amount: number; count: number }
   >();
 
   for (const item of items) {
@@ -264,12 +264,12 @@ export function computeSubmitterData(
     if (!user) {
       continue;
     }
-    const { email } = user;
-    const name = user.name ?? email;
-    const existing = map.get(email) ?? { amount: 0, count: 0, email, name };
+    const { id: userId } = user;
+    const name = user.name ?? "Unknown user";
+    const existing = map.get(userId) ?? { amount: 0, count: 0, name, userId };
     existing.amount += sumAmounts(item.lineItems);
     existing.count += 1;
-    map.set(email, existing);
+    map.set(userId, existing);
   }
 
   return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);

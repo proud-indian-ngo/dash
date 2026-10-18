@@ -1,8 +1,8 @@
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import type { User } from "@pi-dash/zero/schema";
 
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { useMigrateLegacyFilterParams } from "@/components/data-table/use-migrate-legacy-filter-params";
+import type { AdminUser } from "@/functions/user-admin-reads";
 
 const ACTIVE_OPTIONS = [
   { label: "Active", value: "yes" },
@@ -32,7 +32,7 @@ const LEGACY_USER_FILTER_PARAMS = [
   { param: "banned", path: "banned" },
 ] as const;
 
-export function getUserFilterValue(row: User, path: string[]): unknown {
+export function getUserFilterValue(row: AdminUser, path: string[]): unknown {
   const [key] = path;
   switch (key) {
     case "active":

@@ -1,15 +1,18 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@pi-dash/design-system/components/reui/alert";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
-import { queries } from "@pi-dash/zero/queries";
-import type { User } from "@pi-dash/zero/schema";
-import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FormModal } from "@/components/form/form-modal";
@@ -32,9 +35,11 @@ import {
   setUserPasswordAdmin,
   updateUserAdmin,
 } from "@/functions/user-admin";
+import { type AdminUser, getAdminUsers } from "@/functions/user-admin-reads";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
-import { preloadRouteQuery } from "@/lib/route-preload";
+
+const USERS_REFRESH_INTERVAL_MS = 30_000;
 
 export const Route = createFileRoute("/_app/users")({
   beforeLoad: ({ context }) => assertPermission(context, "users.manage"),
@@ -42,9 +47,6 @@ export const Route = createFileRoute("/_app/users")({
   head: () => ({
     meta: [{ title: `Users | ${env.VITE_APP_NAME}` }],
   }),
-  loader: ({ abortController, context }) => {
-    preloadRouteQuery(context.zero, queries.user.all(), abortController.signal);
-  },
 });
 
 function UsersRouteComponent() {
@@ -53,10 +55,13 @@ function UsersRouteComponent() {
   const setUserBan = useServerFn(setUserBanAdmin);
   const setPassword = useServerFn(setUserPasswordAdmin);
   const deleteUser = useServerFn(deleteUserAdmin);
-  const [usersData, queryResult] = useQuery(queries.user.all());
-  const isLoading = usersData.length === 0 && queryResult.type !== "complete";
-
-  const allUsers = (usersData ?? []) as User[];
+  const loadUsers = useServerFn(getAdminUsers);
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [hasLoadedUsers, setHasLoadedUsers] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
+  const [usersLoadError, setUsersLoadError] = useState(false);
+  const usersRequestSequence = useRef(0);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const selectedUser = selectedUserId
     ? (allUsers.find((u) => u.id === selectedUserId) ?? null)
@@ -65,6 +70,64 @@ function UsersRouteComponent() {
   const [roleSelectOptions, setRoleSelectOptions] = useState<
     { label: string; value: string }[]
   >([]);
+
+  const refreshUsers = useEventCallback(async () => {
+    const requestSequence = usersRequestSequence.current + 1;
+    usersRequestSequence.current = requestSequence;
+    setIsRefreshingUsers(true);
+    if (!hasLoadedUsers) {
+      setIsLoading(true);
+    }
+    try {
+      const users = await loadUsers();
+      if (requestSequence === usersRequestSequence.current) {
+        setAllUsers(users);
+        setHasLoadedUsers(true);
+        setIsLoading(false);
+        setIsRefreshingUsers(false);
+        setUsersLoadError(false);
+      }
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      if (requestSequence === usersRequestSequence.current) {
+        if (errorMessage === "Unauthorized" || errorMessage === "Forbidden") {
+          setAllUsers([]);
+          setHasLoadedUsers(false);
+        }
+        setIsLoading(false);
+        setIsRefreshingUsers(false);
+        setUsersLoadError(true);
+      }
+      log.error({
+        action: "getAdminUsers",
+        component: "UsersRoute",
+        error: errorMessage,
+      });
+    }
+  });
+
+  useEffect(() => {
+    void refreshUsers();
+    const refreshVisibleUsers = () => {
+      if (document.visibilityState === "visible") {
+        void refreshUsers();
+      }
+    };
+    const refreshInterval = window.setInterval(
+      refreshVisibleUsers,
+      USERS_REFRESH_INTERVAL_MS
+    );
+    window.addEventListener("focus", refreshVisibleUsers);
+    return () => {
+      usersRequestSequence.current = usersRequestSequence.current + 1;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", refreshVisibleUsers);
+    };
+  }, [refreshUsers]);
+
+  const retryUsers = useEventCallback(() => {
+    void refreshUsers();
+  });
 
   useEffect(() => {
     getRoleOptions()
@@ -89,6 +152,7 @@ function UsersRouteComponent() {
     async (value: CreateUserFormValues) => {
       try {
         await createUser({ data: value });
+        await refreshUsers();
         toast.success("User created!");
         setCreateModalOpen(false);
       } catch (error) {
@@ -107,6 +171,7 @@ function UsersRouteComponent() {
     async (value: EditUserFormValues) => {
       try {
         await updateUser({ data: value });
+        await refreshUsers();
         toast.success("Changes saved");
       } catch (error) {
         log.error({
@@ -130,6 +195,7 @@ function UsersRouteComponent() {
             userId,
           },
         });
+        await refreshUsers();
         toast.success("Password updated!");
       } catch (error) {
         log.error({
@@ -151,6 +217,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
+      await refreshUsers();
       toast.success("User removed");
     } catch (error) {
       log.error({
@@ -175,6 +242,7 @@ function UsersRouteComponent() {
             userId,
           },
         });
+        await refreshUsers();
         toast.success("User has been banned");
       } catch (error) {
         log.error({
@@ -197,6 +265,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
+      await refreshUsers();
       toast.success("User has been unbanned");
     } catch (error) {
       log.error({
@@ -244,20 +313,49 @@ function UsersRouteComponent() {
       </TipStrip>
 
       <div className="mt-4 grid gap-6 *:min-w-0">
-        <StatsCards isLoading={isLoading} items={computeUserStats(allUsers)} />
-        <UsersTable
-          detailUser={selectedUser}
-          isLoading={isLoading}
-          onBanUser={handleBanUser}
-          onDelete={handleDeleteUser}
-          onDetailOpenChange={stableOnOpenChange2}
-          onRowClick={stableOnRowClick0}
-          onSetPassword={handleResetPassword}
-          onUnbanUser={handleUnbanUser}
-          onUpdateUser={handleUpdateUser}
-          roleOptions={roleSelectOptions}
-          users={allUsers}
-        />
+        {usersLoadError ? (
+          <Alert variant="destructive">
+            <AlertTitle>
+              {hasLoadedUsers
+                ? "Users couldn't be refreshed"
+                : "Users couldn't be loaded"}
+            </AlertTitle>
+            <AlertDescription>
+              Check your connection and try again.
+            </AlertDescription>
+            <AlertAction>
+              <Button
+                disabled={isRefreshingUsers}
+                onClick={retryUsers}
+                size="sm"
+                variant="outline"
+              >
+                {isRefreshingUsers ? "Retrying..." : "Retry"}
+              </Button>
+            </AlertAction>
+          </Alert>
+        ) : null}
+        {hasLoadedUsers || !usersLoadError ? (
+          <>
+            <StatsCards
+              isLoading={isLoading}
+              items={computeUserStats(allUsers)}
+            />
+            <UsersTable
+              detailUser={selectedUser}
+              isLoading={isLoading}
+              onBanUser={handleBanUser}
+              onDelete={handleDeleteUser}
+              onDetailOpenChange={stableOnOpenChange2}
+              onRowClick={stableOnRowClick0}
+              onSetPassword={handleResetPassword}
+              onUnbanUser={handleUnbanUser}
+              onUpdateUser={handleUpdateUser}
+              roleOptions={roleSelectOptions}
+              users={allUsers}
+            />
+          </>
+        ) : null}
       </div>
 
       <FormModal

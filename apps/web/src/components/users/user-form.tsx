@@ -1,4 +1,3 @@
-import type { User } from "@pi-dash/zero/schema";
 import { type FormValidateOrFn, useForm } from "@tanstack/react-form";
 import z from "zod";
 
@@ -9,6 +8,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
+import type { AdminUser } from "@/functions/user-admin-reads";
 import { optionalDate } from "@/lib/validators";
 
 const defaultRoleOptions: SelectOption[] = [
@@ -53,7 +53,7 @@ export type CreateUserFormValues = z.infer<typeof createUserFormSchema>;
 export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 type UserFormValues = CreateUserFormValues | EditUserFormValues;
 
-export const toEditUserFormValues = (user: User): EditUserFormValues => ({
+export const toEditUserFormValues = (user: AdminUser): EditUserFormValues => ({
   dob: user.dob === null ? undefined : new Date(user.dob),
   email: user.email,
   emailVerified: Boolean(user.emailVerified),

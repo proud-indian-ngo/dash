@@ -34,6 +34,10 @@ import {
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
 import {
+  getKalakritiRosterUserMetadata,
+  type KalakritiRosterUserMetadata,
+} from "@/functions/kalakriti-roster-user-metadata";
+import {
   getKalakritiAddVolunteersForPicker,
   getKalakritiVolunteersForPicker,
   type PickerUser,
@@ -53,6 +57,12 @@ interface PickerData {
   editionId: string;
   state: "error" | "ready";
   users: PickerUser[];
+}
+
+interface RosterMetadataData {
+  editionId: string;
+  rows: KalakritiRosterUserMetadata[];
+  state: "error" | "loading" | "ready";
 }
 
 interface AssignmentScope {
@@ -121,6 +131,9 @@ function KalakritiVolunteersPage() {
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
+  const [metadataRetry, setMetadataRetry] = useState(0);
+  const [rosterMetadata, setRosterMetadata] =
+    useState<RosterMetadataData | null>(null);
   const [roster, rosterResult] = useQuery(
     queries.kalakritiAssignment.roster({ editionId: edition.id })
   );
@@ -151,6 +164,34 @@ function KalakritiVolunteersPage() {
   const pickerReady = pickerIsCurrent && pickerData?.state === "ready";
   const pickerState = pickerIsCurrent ? pickerData.state : "loading";
   const pickerUsers = pickerIsCurrent ? pickerData.users : [];
+
+  useEffect(() => {
+    let active = true;
+    getKalakritiRosterUserMetadata({ data: { editionId: edition.id } })
+      .then((rows) => {
+        if (active) {
+          setRosterMetadata({ editionId: edition.id, rows, state: "ready" });
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        log.error({
+          action: "loadRosterUserMetadata",
+          component: "KalakritiVolunteersPage",
+          editionId: edition.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setRosterMetadata({
+          editionId: edition.id,
+          rows: [],
+          state: "error",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [edition.id, metadataRetry]);
 
   useEffect(() => {
     if (!assignOpen || assignmentPickerReady) return;
@@ -246,6 +287,18 @@ function KalakritiVolunteersPage() {
       ).server,
   });
 
+  const metadataIsCurrent = rosterMetadata?.editionId === edition.id;
+  const metadataState = metadataIsCurrent ? rosterMetadata.state : "loading";
+  const registrationGroups = useMemo(
+    () =>
+      new Map(
+        (metadataIsCurrent ? rosterMetadata.rows : []).map((row) => [
+          row.userId,
+          row.registrationGroup,
+        ])
+      ),
+    [metadataIsCurrent, rosterMetadata]
+  );
   const volunteerRows = useMemo<VolunteerRosterItem[]>(
     () =>
       roster.map((membership) => ({
@@ -265,7 +318,9 @@ function KalakritiVolunteersPage() {
         })),
         humanId: membership.humanId,
         operations: membership.operations,
-        registrationGroup: membership.user?.registrationGroup ?? null,
+        registrationGroup: membership.userId
+          ? (registrationGroups.get(membership.userId) ?? null)
+          : null,
         id: membership.id,
         snapshotEmail: membership.snapshotEmail,
         snapshotName: membership.snapshotName,
@@ -273,13 +328,14 @@ function KalakritiVolunteersPage() {
         userId: membership.userId,
         userRole: membership.user?.role ?? null,
       })),
-    [roster, centers, competitionCategories, competitions]
+    [roster, centers, competitionCategories, competitions, registrationGroups]
   );
   const selectedVolunteer =
     volunteerRows.find((volunteer) => volunteer.id === selectedVolunteerId) ??
     null;
   const isLoading =
-    volunteerRows.length === 0 && rosterResult.type !== "complete";
+    metadataState === "loading" ||
+    (volunteerRows.length === 0 && rosterResult.type !== "complete");
   const unassigned = volunteerRows.filter(
     (row) => row.assignments.length === 0
   ).length;
@@ -341,6 +397,14 @@ function KalakritiVolunteersPage() {
       }
     }
   );
+  const retryMetadata = useEventCallback(() => {
+    setRosterMetadata({
+      editionId: edition.id,
+      rows: [],
+      state: "loading",
+    });
+    setMetadataRetry((value) => value + 1);
+  });
   const handleAssignFromSheet = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
       setSelectedVolunteerId(null);
@@ -357,6 +421,21 @@ function KalakritiVolunteersPage() {
         </Button>
       </div>
     );
+  }
+
+  if (metadataState === "error") {
+    return (
+      <div className="flex min-h-32 flex-col items-center justify-center gap-3 text-center">
+        <p role="alert">Volunteer details could not be loaded.</p>
+        <Button onClick={retryMetadata} type="button" variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (metadataState === "loading" && rosterResult.type !== "error") {
+    return <TableSkeleton />;
   }
 
   return (

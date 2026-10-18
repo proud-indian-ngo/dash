@@ -1,4 +1,3 @@
-import type { User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
@@ -7,6 +6,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import type { AdminUser } from "@/functions/user-admin-reads";
 import { DATE } from "@/lib/date-formats";
 
 import { UserEmailDelivery } from "./user-email-delivery";
@@ -16,7 +16,7 @@ interface UserDetailSheetProps {
   actions?: ReactNode;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  user: User | null;
+  user: AdminUser | null;
 }
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {

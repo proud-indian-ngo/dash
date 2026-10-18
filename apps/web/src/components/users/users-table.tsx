@@ -9,7 +9,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import type { User } from "@pi-dash/zero/schema";
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { useState } from "react";
@@ -37,6 +36,7 @@ import {
 import { UserNotificationsForm } from "@/components/users/user-notifications-form";
 import { searchUser } from "@/components/users/user-search";
 import { createUserColumns } from "@/components/users/user-table-columns";
+import type { AdminUser } from "@/functions/user-admin-reads";
 import { authClient } from "@/lib/auth-client";
 
 type RowFormKind = "ban" | "delete" | "edit" | "notifications" | "password";
@@ -47,7 +47,7 @@ type RowFormAction = {
 
 interface UsersTableProps {
   /** The user whose detail sheet is open; its header reuses the row actions. */
-  detailUser?: User | null;
+  detailUser?: AdminUser | null;
   isLoading?: boolean;
   onBanUser: (
     userId: string,
@@ -56,13 +56,13 @@ interface UsersTableProps {
   ) => Promise<void>;
   onDelete: (userId: string) => Promise<void>;
   onDetailOpenChange?: (open: boolean) => void;
-  onRowClick?: (user: User) => void;
+  onRowClick?: (user: AdminUser) => void;
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUnbanUser: (userId: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   roleOptions?: { label: string; value: string }[];
   toolbarActions?: ReactNode;
-  users: User[];
+  users: AdminUser[];
 }
 
 interface UserActionsMenuProps {
@@ -70,7 +70,7 @@ interface UserActionsMenuProps {
   isDeleting: boolean;
   onOpenForm: (kind: RowFormKind) => void;
   onUnbanUser: () => Promise<void>;
-  user: User;
+  user: AdminUser;
 }
 
 interface UserRowActionDialogsProps {
@@ -86,7 +86,7 @@ interface UserRowActionDialogsProps {
   onSetPassword: (userId: string, newPassword: string) => Promise<void>;
   onUpdateUser: (value: EditUserFormValues) => Promise<void>;
   roleOptions?: { label: string; value: string }[];
-  user: User;
+  user: AdminUser;
 }
 
 interface UserRowActionsProps {
@@ -95,7 +95,7 @@ interface UserRowActionsProps {
   onOpenForm: (userId: string, kind: RowFormKind) => void;
   onSetBanningUserId: Dispatch<SetStateAction<string | null>>;
   onUnbanUser: (userId: string) => Promise<void>;
-  user: User;
+  user: AdminUser;
 }
 
 interface UserActionsCellProps {
@@ -104,7 +104,7 @@ interface UserActionsCellProps {
   onOpenForm: (userId: string, kind: RowFormKind) => void;
   onSetBanningUserId: Dispatch<SetStateAction<string | null>>;
   onUnbanUser: (userId: string) => Promise<void>;
-  user: User;
+  user: AdminUser;
 }
 
 const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
@@ -551,13 +551,13 @@ export function UsersTable({
     }
   );
 
-  const handleFilteredDataChange = useEventCallback((filtered: User[]) => {
+  const handleFilteredDataChange = useEventCallback((filtered: AdminUser[]) => {
     if (activeRowForm && !filtered.some((u) => u.id === activeRowForm.userId)) {
       setActiveRowForm(null);
     }
   });
 
-  const renderActions = useEventCallback((user: User) => (
+  const renderActions = useEventCallback((user: AdminUser) => (
     <UserActionsCell
       isBanning={banningUserId === user.id}
       isDeleting={isDeleting}
@@ -573,7 +573,7 @@ export function UsersTable({
 
   return (
     <>
-      <DataTableWrapper<User>
+      <DataTableWrapper<AdminUser>
         columns={columns}
         data={users}
         defaultColumnVisibility={DEFAULT_COLUMN_VISIBILITY}

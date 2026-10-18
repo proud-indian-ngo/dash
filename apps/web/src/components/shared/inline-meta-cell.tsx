@@ -47,18 +47,25 @@ export function InlineMetaCell({
   );
 }
 
-/** A person in a table row: small avatar, name, and email in the data font. */
+/** A person in a table row with an optional caller-provided detail. */
 export function UserCell({
+  secondaryValue,
   user,
 }: {
-  user: Parameters<typeof UserAvatar>[0]["user"];
+  secondaryValue?: ReactNode;
+  user: {
+    id: string;
+    image?: null | string;
+    name: string;
+    role?: null | string;
+  };
 }) {
   return (
     <InlineMetaCell
       leading={<UserAvatar className="size-6 shrink-0" user={user} />}
       mono
       primary={user.name}
-      secondary={user.email}
+      secondary={secondaryValue}
     />
   );
 }
