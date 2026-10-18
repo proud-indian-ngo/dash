@@ -306,6 +306,28 @@ describe("handleCloudWebhookPost", () => {
     expect(response.status).toBe(400);
   });
 
+  it("refuses and cancels an undeclared body that grows past 1 MB", async () => {
+    const { deps } = createDeps();
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel: () => {
+        cancelled = true;
+      },
+      pull: (controller) => {
+        controller.enqueue(new Uint8Array(256 * 1024));
+      },
+    });
+    const request = new Request(
+      "https://dash.example.org/api/whatsapp/cloud/webhook",
+      { body, duplex: "half", method: "POST" } as RequestInit
+    );
+
+    const response = await handleCloudWebhookPost(request, config, deps);
+
+    expect(response.status).toBe(413);
+    expect(cancelled).toBe(true);
+  });
+
   it("acknowledges an unsupported payload with 200", async () => {
     const { deps, recordStatus } = createDeps();
     const response = await handleCloudWebhookPost(
