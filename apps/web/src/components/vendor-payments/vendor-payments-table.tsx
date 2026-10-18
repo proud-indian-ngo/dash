@@ -304,6 +304,7 @@ export function VendorPaymentsTable({
       ),
       id: "vendor",
       meta: {
+        compact: "primary",
         headerTitle: "Vendor",
         icon: COLUMN_ICONS.vendor,
         kind: "text",

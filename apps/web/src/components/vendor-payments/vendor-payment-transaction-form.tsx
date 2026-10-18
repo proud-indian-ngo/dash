@@ -135,7 +135,12 @@ function TransactionFormContent({
     <FormLayout form={form}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <InputField isRequired label="Amount" name="amount" />
+          <InputField
+            inputMode="decimal"
+            isRequired
+            label="Amount"
+            name="amount"
+          />
           {remainingPaise !== undefined && (
             <p className="text-muted-foreground mt-1 text-xs">
               Remaining: {formatPaise(remainingPaise)}
@@ -152,7 +157,12 @@ function TransactionFormContent({
         ) : null}
       </div>
 
-      <CustomField<Attachment[]> label="Attachments" name="attachments">
+      {/* AttachmentsSection shows its own "Attachments" title. */}
+      <CustomField<Attachment[]>
+        hideLabel
+        label="Attachments"
+        name="attachments"
+      >
         {(field) => (
           <AttachmentsSection
             fileDownloadKind="vendorPaymentTransactionAttachment"

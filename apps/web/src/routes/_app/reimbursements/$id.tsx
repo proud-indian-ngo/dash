@@ -213,7 +213,7 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
                 </Button>
               }
               description="Update submission details."
-              title={`Edit ${typeLabel}`}
+              title={`Edit ${typeLabel.toLowerCase()}`}
             />
             <div className="mt-6">
               <ReimbursementForm

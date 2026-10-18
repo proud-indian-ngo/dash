@@ -146,7 +146,9 @@ export function DonationReceiptsSection() {
               {RECEIPT_ISSUER_LABELS[policy.issuer]}
             </span>
           }
-          detail={policy.note}
+          // The note is the point of the row, so it wraps instead of
+          // truncating.
+          detail={<span className="whitespace-normal">{policy.note}</span>}
           key={policy.issuer}
         >
           {policy.channels}

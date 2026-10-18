@@ -166,7 +166,12 @@ function OtherIncomeForm({
           maxDate={new Date()}
           name="receivedOn"
         />
-        <InputField isRequired label="Amount (₹)" name="amount" />
+        <InputField
+          inputMode="decimal"
+          isRequired
+          label="Amount (₹)"
+          name="amount"
+        />
         <ComboboxField
           emptyMessage="No active accounts."
           isRequired

@@ -605,6 +605,7 @@ function ContributionForm({
           <InputField
             description={fromLine ? "From the bank line." : undefined}
             disabled={refundLocked || fromLine !== null}
+            inputMode="decimal"
             isRequired
             label="Amount (₹)"
             name="amount"
@@ -850,7 +851,7 @@ function ContributionForm({
             );
           }}
         </form.Subscribe>
-        <FormSectionHeading>Reference</FormSectionHeading>
+        <FormSectionHeading>Reference and notes</FormSectionHeading>
         <div className="grid gap-4">
           <InputField
             description={

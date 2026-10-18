@@ -212,8 +212,15 @@ export function BankingSection() {
             label="Account name"
             name="accountName"
           />
-          <InputField label="Account number" name="accountNumber" />
           <InputField
+            autoComplete="off"
+            inputMode="numeric"
+            label="Account number"
+            name="accountNumber"
+          />
+          <InputField
+            autoCapitalize="characters"
+            autoComplete="off"
             className="uppercase"
             label="IFSC code"
             name="ifscCode"

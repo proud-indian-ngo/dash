@@ -380,16 +380,21 @@ export function StatementLineItem({
   const credit = line.direction === "credit";
   return (
     <li
-      className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start md:gap-6"
+      className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start md:gap-6"
       data-line-id={line.id}
       data-testid="statement-line"
     >
-      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-        <span className="text-muted-foreground font-mono text-sm whitespace-nowrap">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5 md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-3">
+        {/* Phones put the date on its own small line so the narration, the
+            main matching clue, gets the width. */}
+        <span className="text-muted-foreground font-mono text-sm whitespace-nowrap max-md:col-span-full max-md:text-xs">
           {formatReceivedOn(line.valueOn)}
         </span>
         <div className="min-w-0">
-          <div className="truncate text-sm" title={line.narration ?? undefined}>
+          <div
+            className="truncate text-sm max-md:line-clamp-2 max-md:break-words max-md:whitespace-normal"
+            title={line.narration ?? undefined}
+          >
             {line.narration || "—"}
           </div>
           {line.reference ? (
@@ -413,14 +418,17 @@ export function StatementLineItem({
           {formatPaise(line.amountPaise)}
         </span>
       </div>
-      <Outcome
-        actions={actions}
-        canManage={canManage}
-        canRecord={canRecord}
-        line={line}
-        suggestions={suggestions}
-      />
-      <div className="flex justify-end">
+      <div className="min-w-0 max-md:col-span-full max-md:row-start-2">
+        <Outcome
+          actions={actions}
+          canManage={canManage}
+          canRecord={canRecord}
+          line={line}
+          suggestions={suggestions}
+        />
+      </div>
+      {/* Phones keep the menu beside the line, not on a row of its own. */}
+      <div className="flex justify-end max-md:-mt-1 max-md:-mr-2">
         {canManage ? (
           <LineMenu actions={actions} canRecord={canRecord} line={line} />
         ) : null}

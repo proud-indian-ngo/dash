@@ -45,7 +45,10 @@ export function StepsHeader({ current }: { current: StepId }) {
       ? STEPS.length
       : STEPS.findIndex((s) => s.id === current);
   return (
-    <ol aria-label="Import steps" className="flex flex-wrap gap-x-6 gap-y-2">
+    <ol
+      aria-label="Import steps"
+      className="flex flex-wrap gap-x-6 gap-y-2 max-md:gap-x-3"
+    >
       {STEPS.map((step, i) => (
         <li
           aria-current={i === index ? "step" : undefined}
@@ -73,7 +76,10 @@ export function StepsHeader({ current }: { current: StepId }) {
               i + 1
             )}
           </span>
-          {step.label}
+          {/* Phones name only the current step; the circles show progress. */}
+          <span className={cn(i !== index && "max-md:sr-only")}>
+            {step.label}
+          </span>
         </li>
       ))}
     </ol>
@@ -254,7 +260,7 @@ export function ImportWizard({
     summary !== null && summary.imports + summary.links + summary.repeats > 0;
 
   return (
-    <div className="grid gap-6 pb-24">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 pb-24">
       {initialReview ? null : <StepsHeader current={step} />}
       {batch && step !== "upload" ? (
         <p className="text-muted-foreground text-sm">
@@ -284,7 +290,7 @@ export function ImportWizard({
         />
       ) : null}
       {step === "review" && review ? (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
           {summary ? (
             <p className="text-sm" data-testid="import-review-summary">
               {reviewSummaryLine(summary)}

@@ -20,6 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
+import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { formatPaise } from "@pi-dash/shared/money";
 import { useState } from "react";
 
@@ -166,6 +167,31 @@ function MessagesCell({ row }: { row: ReviewRowView }) {
   );
 }
 
+function StatusCell({
+  readOnly,
+  row,
+}: {
+  readOnly: boolean;
+  row: ReviewRowView;
+}) {
+  return (
+    <div className="grid gap-1">
+      {readOnly ? (
+        <StatusBadge tone={IMPORT_ROW_OUTCOME_TONES[row.outcome]}>
+          {row.outcome === "linked_existing" && row.repeatOf
+            ? REVIEW_ROW_STATUS_LABELS.repeated_in_file
+            : IMPORT_ROW_OUTCOME_LABELS[row.outcome]}
+        </StatusBadge>
+      ) : (
+        <StatusBadge tone={CATEGORY_TONES[row.category]}>
+          {REVIEW_ROW_STATUS_LABELS[row.category]}
+        </StatusBadge>
+      )}
+      <MessagesCell row={row} />
+    </div>
+  );
+}
+
 function ChoiceSelect({
   label,
   onChange,
@@ -289,6 +315,46 @@ function DecisionCell({
   );
 }
 
+/** A phone row: donor and amount, then row number and date, status, decision. */
+function ReviewRowCard({
+  decision,
+  onDecide,
+  readOnly,
+  row,
+  showDecisions,
+}: {
+  decision: RowDecision | undefined;
+  onDecide?: (rowId: string, decision: RowDecision) => void;
+  readOnly: boolean;
+  row: ReviewRowView;
+  showDecisions: boolean;
+}) {
+  return (
+    <li
+      className="grid grid-cols-[minmax(0,1fr)] gap-2 px-3 py-3"
+      data-row-number={row.rowNumber}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 text-sm">
+          <DonorCell row={row} />
+        </div>
+        <span className="shrink-0 font-mono text-sm tabular-nums">
+          {row.amountPaise === null ? "—" : formatPaise(row.amountPaise)}
+        </span>
+      </div>
+      <p className="text-muted-foreground truncate text-xs">
+        Row {row.rowNumber}
+        {row.receivedOn ? ` · ${formatDate(row.receivedOn)}` : ""}
+        {row.reference ? ` · Ref ${row.reference}` : ""}
+      </p>
+      <StatusCell readOnly={readOnly} row={row} />
+      {showDecisions && onDecide ? (
+        <DecisionCell decision={decision} onDecide={onDecide} row={row} />
+      ) : null}
+    </li>
+  );
+}
+
 /**
  * Rows of a batch grouped by what they would do, with per-row choices for
  * the ones that need review. Read-only on the batch page.
@@ -319,9 +385,10 @@ export function ReviewTable({
   );
   const showDecisions =
     !readOnly && Boolean(onDecide) && tab !== "error" && tab !== "done";
+  const isMobile = useIsMobile();
 
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs
           onValueChange={(value) => {
@@ -351,82 +418,89 @@ export function ReviewTable({
           Show only rows with issues
         </label>
       </div>
-      <div className="ring-border rounded-lg ring-1">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-14">Row</TableHead>
-              <TableHead>Donor</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Received on</TableHead>
-              <TableHead>Status</TableHead>
-              {showDecisions ? <TableHead>Decision</TableHead> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.slice(0, limit).map((row) => (
-              <TableRow data-row-number={row.rowNumber} key={row.rowId}>
-                <TableCell className="text-muted-foreground align-top tabular-nums">
-                  {row.rowNumber}
-                </TableCell>
-                <TableCell className="max-w-64 align-top">
-                  <DonorCell row={row} />
-                  {row.reference ? (
-                    <div className="text-muted-foreground truncate text-xs">
-                      Ref {row.reference}
-                    </div>
-                  ) : null}
-                </TableCell>
-                <TableCell className="text-right align-top tabular-nums">
-                  {row.amountPaise === null
-                    ? "—"
-                    : formatPaise(row.amountPaise)}
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap">
-                  {row.receivedOn ? formatDate(row.receivedOn) : "—"}
-                </TableCell>
-                <TableCell className="max-w-80 align-top whitespace-normal">
-                  <div className="grid gap-1">
-                    {readOnly ? (
-                      <StatusBadge tone={IMPORT_ROW_OUTCOME_TONES[row.outcome]}>
-                        {row.outcome === "linked_existing" && row.repeatOf
-                          ? REVIEW_ROW_STATUS_LABELS.repeated_in_file
-                          : IMPORT_ROW_OUTCOME_LABELS[row.outcome]}
-                      </StatusBadge>
-                    ) : (
-                      <StatusBadge tone={CATEGORY_TONES[row.category]}>
-                        {REVIEW_ROW_STATUS_LABELS[row.category]}
-                      </StatusBadge>
-                    )}
-                    <MessagesCell row={row} />
-                  </div>
-                </TableCell>
-                {showDecisions ? (
-                  <TableCell className="align-top">
-                    {onDecide ? (
-                      <DecisionCell
-                        decision={decisions?.[row.rowId]}
-                        onDecide={onDecide}
-                        row={row}
-                      />
+      {isMobile ? (
+        <ul className="divide-y rounded-lg border">
+          {visible.slice(0, limit).map((row) => (
+            <ReviewRowCard
+              decision={decisions?.[row.rowId]}
+              key={row.rowId}
+              onDecide={onDecide}
+              readOnly={readOnly}
+              row={row}
+              showDecisions={showDecisions}
+            />
+          ))}
+          {visible.length === 0 ? (
+            <li className="text-muted-foreground py-8 text-center text-sm">
+              No rows here.
+            </li>
+          ) : null}
+        </ul>
+      ) : (
+        <div className="ring-border rounded-lg ring-1">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-14">Row</TableHead>
+                <TableHead>Donor</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Received on</TableHead>
+                <TableHead>Status</TableHead>
+                {showDecisions ? <TableHead>Decision</TableHead> : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.slice(0, limit).map((row) => (
+                <TableRow data-row-number={row.rowNumber} key={row.rowId}>
+                  <TableCell className="text-muted-foreground align-top tabular-nums">
+                    {row.rowNumber}
+                  </TableCell>
+                  <TableCell className="max-w-64 align-top">
+                    <DonorCell row={row} />
+                    {row.reference ? (
+                      <div className="text-muted-foreground truncate text-xs">
+                        Ref {row.reference}
+                      </div>
                     ) : null}
                   </TableCell>
-                ) : null}
-              </TableRow>
-            ))}
-            {visible.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  className="text-muted-foreground py-8 text-center"
-                  colSpan={showDecisions ? 6 : 5}
-                >
-                  No rows here.
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
-      </div>
+                  <TableCell className="text-right align-top tabular-nums">
+                    {row.amountPaise === null
+                      ? "—"
+                      : formatPaise(row.amountPaise)}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
+                    {row.receivedOn ? formatDate(row.receivedOn) : "—"}
+                  </TableCell>
+                  <TableCell className="max-w-80 align-top whitespace-normal">
+                    <StatusCell readOnly={readOnly} row={row} />
+                  </TableCell>
+                  {showDecisions ? (
+                    <TableCell className="align-top">
+                      {onDecide ? (
+                        <DecisionCell
+                          decision={decisions?.[row.rowId]}
+                          onDecide={onDecide}
+                          row={row}
+                        />
+                      ) : null}
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+              {visible.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    className="text-muted-foreground py-8 text-center"
+                    colSpan={showDecisions ? 6 : 5}
+                  >
+                    No rows here.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </div>
+      )}
       {visible.length > limit ? (
         <Button
           className="justify-self-center"

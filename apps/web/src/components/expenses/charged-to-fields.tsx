@@ -90,7 +90,15 @@ function ChargedToToggle({
           size="sm"
           value={value}
         >
-          {EXPENSE_CHARGED_TO_LABELS[value]}
+          {value === "organisation" ? (
+            // "(admin)" wraps the segment onto two lines on phones; the
+            // hint under the toggle explains it there.
+            <>
+              Organisation<span className="max-sm:sr-only"> (admin)</span>
+            </>
+          ) : (
+            EXPENSE_CHARGED_TO_LABELS[value]
+          )}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>

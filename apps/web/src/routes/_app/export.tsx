@@ -105,7 +105,7 @@ function StatusCheckbox<T extends string>({
 
   return (
     <Label
-      className="hover:bg-muted/50 flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 font-normal"
+      className="hover:bg-muted/50 flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2.5 font-normal pointer-coarse:h-10 pointer-coarse:px-3"
       htmlFor={id}
     >
       <Checkbox
