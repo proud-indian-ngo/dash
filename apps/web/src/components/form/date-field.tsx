@@ -2,17 +2,13 @@ import { Calendar01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@pi-dash/design-system/components/ui/popover";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { DATE } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
@@ -45,6 +41,7 @@ interface DateInputPickerProps {
   onChange: (value: Date | undefined) => void;
   placeholder: string;
   startMonth: Date;
+  title: string;
   value: Date | undefined;
 }
 
@@ -59,6 +56,7 @@ function DateInputPicker({
   onChange,
   placeholder,
   startMonth,
+  title,
   value,
 }: DateInputPickerProps) {
   const [month, setMonth] = useState<Date>(value ?? maxDate ?? new Date());
@@ -83,46 +81,46 @@ function DateInputPicker({
   });
 
   return (
-    <Popover onOpenChange={stableOnOpenChange0} open={isOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            aria-describedby={ariaDescribedBy}
-            aria-invalid={ariaInvalid}
-            className={cn(
-              "border-control dark:border-control dark:aria-invalid:border-destructive hover:not-disabled:not-aria-invalid:not-focus-visible:border-control-strong h-9 w-full justify-between font-normal pointer-coarse:h-10",
-              !value && "text-muted-foreground"
-            )}
-            disabled={disabled}
-            id={id}
-            type="button"
-            variant="outline"
-          >
-            {value === undefined ? placeholder : format(value, DATE)}
-            <HugeiconsIcon
-              className="size-4 opacity-60"
-              icon={Calendar01Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
+    <ResponsivePicker
+      onOpenChange={stableOnOpenChange0}
+      open={isOpen}
+      title={title}
+      trigger={
+        <Button
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          className={cn(
+            "border-control dark:border-control dark:aria-invalid:border-destructive hover:not-disabled:not-aria-invalid:not-focus-visible:border-control-strong h-9 w-full justify-between font-normal pointer-coarse:h-10",
+            !value && "text-muted-foreground"
+          )}
+          disabled={disabled}
+          id={id}
+          type="button"
+          variant="outline"
+        >
+          {value === undefined ? placeholder : format(value, DATE)}
+          <HugeiconsIcon
+            className="size-4 opacity-60"
+            icon={Calendar01Icon}
+            strokeWidth={2}
+          />
+        </Button>
+      }
+    >
+      <Calendar
+        autoFocus
+        captionLayout="dropdown"
+        defaultMonth={value}
+        disabled={maxDate ? { after: maxDate } : undefined}
+        endMonth={endMonth}
+        mode="single"
+        month={month}
+        onMonthChange={setMonth}
+        onSelect={stableOnSelect1}
+        selected={value}
+        startMonth={startMonth}
       />
-      <PopoverContent align="start" className="w-auto p-0">
-        <Calendar
-          autoFocus
-          captionLayout="dropdown"
-          defaultMonth={value}
-          disabled={maxDate ? { after: maxDate } : undefined}
-          endMonth={endMonth}
-          mode="single"
-          month={month}
-          onMonthChange={setMonth}
-          onSelect={stableOnSelect1}
-          selected={value}
-          startMonth={startMonth}
-        />
-      </PopoverContent>
-    </Popover>
+    </ResponsivePicker>
   );
 }
 
@@ -173,6 +171,7 @@ export function DateField({
             onChange={field.handleChange}
             placeholder={placeholder}
             startMonth={startMonth}
+            title={label}
             value={field.state.value}
           />
         );

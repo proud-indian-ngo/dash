@@ -2,21 +2,14 @@ import { Calendar01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@pi-dash/design-system/components/ui/popover";
-import {
-  ScrollArea,
-  ScrollBar,
-} from "@pi-dash/design-system/components/ui/scroll-area";
+import { ScrollArea } from "@pi-dash/design-system/components/ui/scroll-area";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { DATE_TIME } from "@/lib/date-formats";
 
 import { CustomField } from "./custom-field";
@@ -103,6 +96,7 @@ interface DateTimePickerProps {
   onBlur: () => void;
   onChange: (value: Date | undefined) => void;
   placeholder: string;
+  title: string;
   value: Date | undefined;
 }
 
@@ -116,6 +110,7 @@ function DateTimePicker({
   onBlur,
   onChange,
   placeholder,
+  title,
   value,
 }: DateTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -176,102 +171,100 @@ function DateTimePicker({
   ];
 
   return (
-    <Popover onOpenChange={setIsOpen} open={isOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            aria-describedby={ariaDescribedBy}
-            aria-invalid={ariaInvalid}
-            className={cn(
-              "border-control dark:border-control dark:aria-invalid:border-destructive hover:not-disabled:not-aria-invalid:not-focus-visible:border-control-strong h-9 w-full justify-between font-normal pointer-coarse:h-10",
-              !value && "text-muted-foreground"
-            )}
-            disabled={disabled}
-            id={id}
-            onBlur={onBlur}
-            type="button"
-            variant="outline"
-          >
-            {value === undefined ? placeholder : format(value, DATE_TIME)}
-            <HugeiconsIcon
-              className="size-4 opacity-60"
-              icon={Calendar01Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        }
-      />
-      <PopoverContent align="start" className="w-auto p-0">
-        <div className="sm:flex">
-          <Calendar
-            autoFocus
-            captionLayout="dropdown"
-            defaultMonth={value}
-            disabled={disabledDates.length > 0 ? disabledDates : undefined}
-            mode="single"
-            month={month}
-            onMonthChange={setMonth}
-            onSelect={handleDateSelect}
-            selected={value}
+    <ResponsivePicker
+      onOpenChange={setIsOpen}
+      open={isOpen}
+      title={title}
+      trigger={
+        <Button
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
+          className={cn(
+            "border-control dark:border-control dark:aria-invalid:border-destructive hover:not-disabled:not-aria-invalid:not-focus-visible:border-control-strong h-9 w-full justify-between font-normal pointer-coarse:h-10",
+            !value && "text-muted-foreground"
+          )}
+          disabled={disabled}
+          id={id}
+          onBlur={onBlur}
+          type="button"
+          variant="outline"
+        >
+          {value === undefined ? placeholder : format(value, DATE_TIME)}
+          <HugeiconsIcon
+            className="size-4 opacity-60"
+            icon={Calendar01Icon}
+            strokeWidth={2}
           />
-          <div
-            className={cn(
-              "flex flex-col divide-y sm:h-[300px] sm:flex-row sm:divide-x sm:divide-y-0",
-              !hasDate && "pointer-events-none opacity-40"
-            )}
-          >
-            <ScrollArea className="w-64 sm:w-auto" ref={hourRef}>
-              <div className="flex p-2 sm:flex-col">
-                {HOURS.map((hour) => (
-                  <TimeButton
-                    disabled={!hasDate}
-                    isSelected={currentHour === hour}
-                    key={hour}
-                    onTimeChange={handleTimeChange}
-                    type="hour"
-                    value={hour.toString()}
-                  >
-                    {hour}
-                  </TimeButton>
-                ))}
-              </div>
-              <ScrollBar className="sm:hidden" orientation="horizontal" />
-            </ScrollArea>
-            <ScrollArea className="w-64 sm:w-auto" ref={minuteRef}>
-              <div className="flex p-2 sm:flex-col">
-                {MINUTES.map((minute) => (
-                  <TimeButton
-                    disabled={!hasDate}
-                    isSelected={currentMinute === minute}
-                    key={minute}
-                    onTimeChange={handleTimeChange}
-                    type="minute"
-                    value={minute.toString()}
-                  >
-                    {minute.toString().padStart(2, "0")}
-                  </TimeButton>
-                ))}
-              </div>
-              <ScrollBar className="sm:hidden" orientation="horizontal" />
-            </ScrollArea>
-            <div className="flex p-2 sm:flex-col">
-              {(["AM", "PM"] as const).map((ampm) => (
+        </Button>
+      }
+    >
+      <div className="sm:flex">
+        <Calendar
+          autoFocus
+          captionLayout="dropdown"
+          defaultMonth={value}
+          disabled={disabledDates.length > 0 ? disabledDates : undefined}
+          mode="single"
+          month={month}
+          onMonthChange={setMonth}
+          onSelect={handleDateSelect}
+          selected={value}
+        />
+        <div
+          className={cn(
+            "flex flex-col divide-y sm:h-[300px] sm:flex-row sm:divide-x sm:divide-y-0",
+            !hasDate && "pointer-events-none opacity-40"
+          )}
+        >
+          <ScrollArea className="w-full sm:w-auto" ref={hourRef}>
+            <div className="grid grid-cols-6 gap-1 p-2 sm:flex sm:flex-col sm:gap-0">
+              {HOURS.map((hour) => (
                 <TimeButton
                   disabled={!hasDate}
-                  isSelected={currentAmPm === ampm}
-                  key={ampm}
+                  isSelected={currentHour === hour}
+                  key={hour}
                   onTimeChange={handleTimeChange}
-                  type="ampm"
-                  value={ampm}
+                  type="hour"
+                  value={hour.toString()}
                 >
-                  {ampm}
+                  {hour}
                 </TimeButton>
               ))}
             </div>
+          </ScrollArea>
+          <ScrollArea className="w-full sm:w-auto" ref={minuteRef}>
+            <div className="grid grid-cols-6 gap-1 p-2 sm:flex sm:flex-col sm:gap-0">
+              {MINUTES.map((minute) => (
+                <TimeButton
+                  disabled={!hasDate}
+                  isSelected={currentMinute === minute}
+                  key={minute}
+                  onTimeChange={handleTimeChange}
+                  type="minute"
+                  value={minute.toString()}
+                >
+                  {minute.toString().padStart(2, "0")}
+                </TimeButton>
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="flex p-2 sm:flex-col">
+            {(["AM", "PM"] as const).map((ampm) => (
+              <TimeButton
+                disabled={!hasDate}
+                isSelected={currentAmPm === ampm}
+                key={ampm}
+                onTimeChange={handleTimeChange}
+                type="ampm"
+                value={ampm}
+              >
+                {ampm}
+              </TimeButton>
+            ))}
           </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </ResponsivePicker>
   );
 }
 
@@ -316,6 +309,7 @@ export function DateTimeField({
             onBlur={field.handleBlur}
             onChange={field.handleChange}
             placeholder={placeholder}
+            title={label}
             value={field.state.value}
           />
         );
