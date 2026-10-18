@@ -642,16 +642,17 @@ function lastStartedUnsavedDate(
   const savedDates = new Set(
     exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
   );
-  const virtual = rule
-    ? expandSeries(
-        rule,
-        series.startTime,
-        series.endTime ?? null,
-        series.startTime,
-        now,
-        savedDates
-      ).filter((occ) => occ.startTime <= now)
-    : [];
+  const virtual =
+    rule && series.startTime <= now
+      ? expandSeries(
+          rule,
+          series.startTime,
+          series.endTime ?? null,
+          series.startTime,
+          now,
+          savedDates
+        ).filter((occ) => occ.startTime <= now)
+      : [];
   // The first session counts even where the rule skips its date.
   const first = seriesStartDate(series.startTime);
   const startDateRow = exceptions.find((e) => e.originalDate === first);
