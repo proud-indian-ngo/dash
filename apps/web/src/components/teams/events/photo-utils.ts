@@ -29,7 +29,7 @@ export function getR2MediaUrl(photoId: string): string {
  */
 export function getPhotoThumbnailUrl(photo: EventPhoto): string | null {
   if (photo.immichAssetId) {
-    return `/api/immich/thumbnail/${photo.immichAssetId}`;
+    return `/api/immich/thumbnail/${encodeURIComponent(photo.id)}`;
   }
   if (photo.r2Key) {
     if (isVideoPhoto(photo)) {
@@ -42,7 +42,7 @@ export function getPhotoThumbnailUrl(photo: EventPhoto): string | null {
 
 export function getPhotoLightboxUrl(photo: EventPhoto): string {
   if (photo.immichAssetId) {
-    return `/api/immich/original/${photo.immichAssetId}`;
+    return `/api/immich/original/${encodeURIComponent(photo.id)}`;
   }
   if (photo.r2Key) {
     return getR2MediaUrl(photo.id);

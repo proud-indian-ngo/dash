@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { user } from "@pi-dash/db/schema/auth";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -10,6 +11,7 @@ import { mustGetMutator } from "@rocicorp/zero";
 import { handleMutateRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { createFileRoute } from "@tanstack/react-router";
+import { eq } from "drizzle-orm";
 
 import { buildSessionContext, requireSession } from "@/lib/api-auth";
 import {
@@ -17,6 +19,7 @@ import {
   resolveZeroAuditSummary,
   runZeroAuditedMutation,
 } from "@/lib/audit";
+import { verifyImmichUploadReceipt } from "@/lib/immich-upload-receipt";
 import { copyR2Object } from "@/lib/r2-upload-claim";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -64,6 +67,7 @@ export const Route = createFileRoute("/api/zero/mutate")({
           role,
           traceId,
           userId,
+          verifyImmichUploadReceipt,
         };
 
         try {
@@ -92,6 +96,22 @@ export const Route = createFileRoute("/api/zero/mutate")({
                           "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
                           [r2Key]
                         );
+                      },
+                      loadPrivateUser: async (id: string) => {
+                        const [privateUser] =
+                          await tx.dbTransaction.wrappedTransaction
+                            .select({
+                              banned: user.banned,
+                              email: user.email,
+                              isActive: user.isActive,
+                              name: user.name,
+                              phone: user.phone,
+                              role: user.role,
+                            })
+                            .from(user)
+                            .where(eq(user.id, id))
+                            .limit(1);
+                        return privateUser ?? null;
                       },
                       rollbackTasks,
                     };

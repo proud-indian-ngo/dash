@@ -9,6 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
@@ -17,6 +18,7 @@ import {
   getImmichConfig,
   uploadAssetToImmich,
 } from "@/lib/immich";
+import { createImmichUploadReceipt } from "@/lib/immich-upload-receipt";
 import { authMiddleware } from "@/middleware/auth";
 
 const MEDIA_MIME_TYPES = new Set([
@@ -56,40 +58,51 @@ function buildImmichAlbumName(
   return `${event.name} - ${format(eventDate, "MMMM d, yyyy")}`;
 }
 
+export function validateImmichUploadInput(input: unknown) {
+  if (!(input instanceof FormData)) {
+    throw new Error("Expected FormData");
+  }
+  const file = input.get("file");
+  const eventId = input.get("eventId");
+  const occDate = input.get("occDate");
+  const photoId = input.get("photoId");
+  if (
+    !(file instanceof Blob) ||
+    typeof eventId !== "string" ||
+    typeof photoId !== "string"
+  ) {
+    throw new Error("Missing file, eventId, or photoId");
+  }
+  if (!z.string().uuid().safeParse(photoId).success) {
+    throw new Error("Invalid photoId");
+  }
+  const mime = file.type;
+  const { size } = file;
+  if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
+    throw new Error("Invalid occurrence date");
+  }
+  if (!MEDIA_MIME_TYPES.has(mime)) {
+    throw new Error("Unsupported file type");
+  }
+  const maxSize = VIDEO_MIME_TYPES.has(mime)
+    ? MAX_VIDEO_SIZE_BYTES
+    : MAX_IMAGE_SIZE_BYTES;
+  if (size > maxSize) {
+    const limit = VIDEO_MIME_TYPES.has(mime) ? "500 MB" : "20 MB";
+    throw new Error(`File exceeds ${limit} limit`);
+  }
+  return {
+    eventId,
+    file,
+    mimeType: mime,
+    occDate: typeof occDate === "string" ? occDate : undefined,
+    photoId,
+  };
+}
+
 export const uploadPhotoToImmich = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: unknown) => {
-    if (!(input instanceof FormData)) {
-      throw new Error("Expected FormData");
-    }
-    const file = input.get("file");
-    const eventId = input.get("eventId");
-    const occDate = input.get("occDate");
-    if (!(file instanceof Blob) || typeof eventId !== "string") {
-      throw new Error("Missing file or eventId");
-    }
-    const mime = file.type;
-    const { size } = file;
-    if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
-      throw new Error("Invalid occurrence date");
-    }
-    if (!MEDIA_MIME_TYPES.has(mime)) {
-      throw new Error("Unsupported file type");
-    }
-    const maxSize = VIDEO_MIME_TYPES.has(mime)
-      ? MAX_VIDEO_SIZE_BYTES
-      : MAX_IMAGE_SIZE_BYTES;
-    if (size > maxSize) {
-      const limit = VIDEO_MIME_TYPES.has(mime) ? "500 MB" : "20 MB";
-      throw new Error(`File exceeds ${limit} limit`);
-    }
-    return {
-      eventId,
-      file,
-      mimeType: mime,
-      occDate: typeof occDate === "string" ? occDate : undefined,
-    };
-  })
+  .validator(validateImmichUploadInput)
   .handler(async ({ context, data }) => {
     const log = createRequestLogger({
       method: "POST",
@@ -113,7 +126,7 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
         target: { id: data.eventId, type: "event" },
       },
       async () => {
-        const { file, eventId, occDate } = data;
+        const { file, eventId, mimeType, occDate, photoId } = data;
         log.set({
           eventId,
           fileName: file.name,
@@ -122,12 +135,6 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
           role: session.user.role,
           userId: session.user.id,
         });
-
-        // Verify Immich is configured
-        const config = await getImmichConfig();
-        if (!config) {
-          return { error: "Immich not configured" } as const;
-        }
 
         // Look up event
         const event = await db.query.teamEvent.findFirst({
@@ -138,6 +145,9 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
         }
         if (event.managementDomain === "kalakriti") {
           return { error: "Manage this event from Kalakriti" } as const;
+        }
+        if (event.startTime > new Date(Date.now())) {
+          return { error: "Cannot upload photos before event starts" } as const;
         }
 
         log.set({ eventName: event.name, teamId: event.teamId });
@@ -165,6 +175,13 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
           } as const;
         }
 
+        // External work starts only after the event and current authority have
+        // both been checked.
+        const config = await getImmichConfig();
+        if (!config) {
+          return { error: "Immich not configured" } as const;
+        }
+
         try {
           const albumId = await ensureImmichAlbum(
             config,
@@ -179,7 +196,16 @@ export const uploadPhotoToImmich = createServerFn({ method: "POST" })
           await addAssetToAlbum(config, albumId, assetId);
 
           log.emit();
-          return { immichAssetId: assetId } as const;
+          return {
+            immichAssetId: assetId,
+            immichUploadReceipt: createImmichUploadReceipt({
+              assetId,
+              eventId,
+              mimeType,
+              photoId,
+              userId: session.user.id,
+            }),
+          } as const;
         } catch (err) {
           log.error(err instanceof Error ? err : String(err), {
             step: "immich-upload",

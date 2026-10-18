@@ -4,6 +4,7 @@ const hoisted = <T>(factory: () => T): T => factory();
 
 const mocks = hoisted(() => ({
   enqueue: mock(),
+  eventImmichAlbumFindFirst: mock(),
   eventPhotoFindFirst: mock(),
   fetch: mock(),
   file: mock(),
@@ -11,13 +12,14 @@ const mocks = hoisted(() => ({
   setValues: [] as unknown[],
   teamEventFindFirst: mock(),
   update: mock(),
+  updateReturningRows: [{ id: "photo-1" }] as { id: string }[],
 }));
 
 mock.module("@pi-dash/db", () => ({
   db: {
     insert: mocks.insert,
     query: {
-      eventImmichAlbum: { findFirst: mock() },
+      eventImmichAlbum: { findFirst: mocks.eventImmichAlbumFindFirst },
       eventPhoto: { findFirst: mocks.eventPhotoFindFirst },
       teamEvent: { findFirst: mocks.teamEventFindFirst },
     },
@@ -44,7 +46,12 @@ const { processImmichSync } = await import("./immich-sync-photo");
 beforeEach(() => {
   mock.clearAllMocks();
   mocks.setValues.length = 0;
-  mocks.eventPhotoFindFirst.mockResolvedValue(null);
+  mocks.updateReturningRows = [{ id: "photo-1" }];
+  mocks.eventImmichAlbumFindFirst.mockResolvedValue(null);
+  mocks.eventPhotoFindFirst.mockResolvedValue({
+    immichAssetId: null,
+    r2Key: "app/photos/event-1/photo.jpg",
+  });
   mocks.teamEventFindFirst.mockResolvedValue(null);
   mocks.file.mockReturnValue({ arrayBuffer: async () => new ArrayBuffer(1) });
   mocks.insert.mockReturnValue({
@@ -57,7 +64,11 @@ beforeEach(() => {
   mocks.update.mockReturnValue({
     set: (values: unknown) => {
       mocks.setValues.push(values);
-      return { where: async () => undefined };
+      return {
+        where: () => ({
+          returning: async () => mocks.updateReturningRows,
+        }),
+      };
     },
   });
   mocks.fetch
@@ -92,5 +103,90 @@ describe("processImmichSync", () => {
     expect(mocks.update.mock.invocationCallOrder.at(-1)).toBeLessThan(
       mocks.enqueue.mock.invocationCallOrder[0] ?? 0
     );
+  });
+
+  it("resumes album association after upload without uploading twice", async () => {
+    const r2Key = "app/photos/event-1/photo.jpg";
+    mocks.eventImmichAlbumFindFirst.mockResolvedValue({
+      immichAlbumId: "album-1",
+    });
+    mocks.eventPhotoFindFirst
+      .mockResolvedValueOnce({ immichAssetId: null, r2Key })
+      .mockResolvedValueOnce({ immichAssetId: "asset-1", r2Key });
+    mocks.fetch
+      .mockReset()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: "asset-1" }), { status: 200 })
+      )
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    await expect(
+      processImmichSync({
+        eventId: "event-1",
+        eventName: "Event",
+        photoId: "photo-1",
+        r2Key,
+      })
+    ).rejects.toThrow("Immich addToAlbum failed: 503 unavailable");
+
+    await processImmichSync({
+      eventId: "event-1",
+      eventName: "Event",
+      photoId: "photo-1",
+      r2Key,
+    });
+
+    expect(mocks.file).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch).toHaveBeenCalledTimes(3);
+    expect(
+      mocks.fetch.mock.calls.filter(([url]) =>
+        String(url).endsWith("/api/assets")
+      )
+    ).toHaveLength(1);
+    expect(mocks.setValues).toEqual([
+      { immichAssetId: "asset-1" },
+      { r2Key: null },
+    ]);
+    expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("queues uploaded asset cleanup when the photo is deleted during upload", async () => {
+    mocks.updateReturningRows = [];
+
+    await processImmichSync({
+      eventId: "event-1",
+      eventName: "Event",
+      photoId: "photo-1",
+      r2Key: "app/photos/event-1/photo.jpg",
+    });
+
+    expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueue).toHaveBeenCalledWith("immich-delete-asset", {
+      immichAssetId: "asset-1",
+    });
+    expect(
+      mocks.fetch.mock.calls.some(([url]) =>
+        String(url).includes("/api/albums/album-1/assets")
+      )
+    ).toBe(false);
+    expect(mocks.setValues).toEqual([{ immichAssetId: "asset-1" }]);
+  });
+
+  it("does no external work after the photo row is deleted", async () => {
+    mocks.eventPhotoFindFirst.mockResolvedValue(null);
+
+    await processImmichSync({
+      eventId: "event-1",
+      eventName: "Event",
+      photoId: "photo-1",
+      r2Key: "app/photos/event-1/photo.jpg",
+    });
+
+    expect(mocks.eventImmichAlbumFindFirst).not.toHaveBeenCalled();
+    expect(mocks.file).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.enqueue).not.toHaveBeenCalled();
   });
 });

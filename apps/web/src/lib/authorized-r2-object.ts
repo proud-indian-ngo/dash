@@ -24,7 +24,9 @@ import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
 import { and, eq } from "drizzle-orm";
 
 import {
+  authorizeEventPhoto,
   authorizeR2Object,
+  type EventPhotoAccessRecord,
   type R2ObjectAccessDeps,
   R2ObjectAccessError,
   type R2ObjectRecord,
@@ -45,6 +47,21 @@ import {
 
 interface SessionLike {
   user: { id: string; role?: null | string };
+}
+
+interface EventPhotoRecord extends EventPhotoAccessRecord {
+  caption: null | string;
+  immichAssetId: null | string;
+  r2Key: null | string;
+}
+
+export interface ResolvedEventPhoto {
+  immichAssetId: null | string;
+  r2Key: null | string;
+}
+
+export interface AuthorizedEventPhotoDeps extends R2ObjectAccessDeps {
+  findEventPhoto: (photoId: string) => Promise<EventPhotoRecord | null>;
 }
 
 export interface AuthorizedR2ObjectDeps extends R2ObjectAccessDeps {
@@ -79,6 +96,45 @@ const requestRecord = (
         ownerUserIds,
       }
     : null;
+
+async function findEventPhoto(
+  photoId: string
+): Promise<EventPhotoRecord | null> {
+  const photo = await db.query.eventPhoto.findFirst({
+    where: eq(eventPhoto.id, photoId),
+  });
+  if (!photo) {
+    return null;
+  }
+  const event = await db.query.teamEvent.findFirst({
+    where: eq(teamEvent.id, photo.eventId),
+  });
+  return event
+    ? {
+        caption: photo.caption,
+        eventId: photo.eventId,
+        eventIsPublic: event.isPublic,
+        immichAssetId: photo.immichAssetId,
+        r2Key: photo.r2Key,
+        status: photo.status,
+        teamId: event.teamId,
+        uploadedBy: photo.uploadedBy,
+      }
+    : null;
+}
+
+export async function resolveAuthorizedEventPhoto(
+  session: SessionLike,
+  photoId: string,
+  deps: AuthorizedEventPhotoDeps = defaultAuthorizedEventPhotoDeps
+): Promise<ResolvedEventPhoto> {
+  const record = await deps.findEventPhoto(photoId);
+  if (!record) {
+    throw new R2ObjectAccessError(404, "Object not found");
+  }
+  await authorizeEventPhoto(session, record, deps);
+  return { immichAssetId: record.immichAssetId, r2Key: record.r2Key };
+}
 
 type AssetRef<K extends AttachmentAssetRef["kind"]> = Extract<
   AttachmentAssetRef,
@@ -116,27 +172,20 @@ async function resolveAdvancePaymentApprovalScreenshot(
 async function resolveEventPhoto(
   ref: AssetRef<"eventPhoto">
 ): Promise<R2ObjectRecord | null> {
-  const photo = await db.query.eventPhoto.findFirst({
-    where: eq(eventPhoto.id, ref.id),
-  });
+  const photo = await findEventPhoto(ref.id);
   if (!photo?.r2Key) {
     return null;
   }
-  const event = await db.query.teamEvent.findFirst({
-    where: eq(teamEvent.id, photo.eventId),
-  });
-  return event
-    ? {
-        access: "eventPhoto",
-        eventId: photo.eventId,
-        eventIsPublic: event.isPublic,
-        filename: photo.caption ?? filenameFromKey(photo.r2Key),
-        key: photo.r2Key,
-        status: photo.status,
-        teamId: event.teamId,
-        uploadedBy: photo.uploadedBy,
-      }
-    : null;
+  return {
+    access: "eventPhoto",
+    eventId: photo.eventId,
+    eventIsPublic: photo.eventIsPublic,
+    filename: photo.caption ?? filenameFromKey(photo.r2Key),
+    key: photo.r2Key,
+    status: photo.status,
+    teamId: photo.teamId,
+    uploadedBy: photo.uploadedBy,
+  };
 }
 
 async function resolveReimbursementAttachment(
@@ -319,6 +368,11 @@ export const defaultR2ObjectAccessDeps: R2ObjectAccessDeps = {
     return !!member;
   },
   resolvePermissions,
+};
+
+const defaultAuthorizedEventPhotoDeps: AuthorizedEventPhotoDeps = {
+  ...defaultR2ObjectAccessDeps,
+  findEventPhoto,
 };
 
 const defaultAuthorizedR2ObjectDeps: AuthorizedR2ObjectDeps = {

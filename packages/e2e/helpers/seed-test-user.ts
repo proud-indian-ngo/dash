@@ -790,6 +790,10 @@ const ZERO_AUTH_PROTECTED_UPDATE_CONTENT = JSON.stringify([
 const ZERO_AUTH_PROTECTED_INTEREST_ID = "e2e00000-0000-0000-0000-000000000301";
 const ZERO_AUTH_PROTECTED_UPDATE_ID = "e2e00000-0000-0000-0000-000000000302";
 const ZERO_AUTH_PROTECTED_PHOTO_ID = "e2e00000-0000-0000-0000-000000000303";
+const ZERO_AUTH_APPROVED_IMMICH_PHOTO_ID =
+  "e2e00000-0000-0000-0000-000000000308";
+const ZERO_AUTH_PENDING_IMMICH_ASSET_ID =
+  "a2e00000-0000-0000-0000-000000000303";
 const ZERO_AUTH_LEAD_FEEDBACK_ID = "e2e00000-0000-0000-0000-000000000304";
 const ZERO_AUTH_LEAD_FEEDBACK_SUBMISSION_ID =
   "e2e00000-0000-0000-0000-000000000305";
@@ -1249,17 +1253,37 @@ async function ensureZeroQueryAuthorizationFixtures(
 
   await db
     .insert(eventPhoto)
-    .values({
-      caption: "Protected pending photo fixture",
-      createdAt: now,
-      eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
-      id: ZERO_AUTH_PROTECTED_PHOTO_ID,
-      mimeType: "image/jpeg",
-      r2Key: "e2e/zero-query-protected-photo.jpg",
-      status: "pending",
-      uploadedBy: volunteerUserId,
-    })
+    .values([
+      {
+        caption: "Protected pending photo fixture",
+        createdAt: now,
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        id: ZERO_AUTH_PROTECTED_PHOTO_ID,
+        immichAssetId: ZERO_AUTH_PENDING_IMMICH_ASSET_ID,
+        mimeType: "image/jpeg",
+        r2Key: "e2e/zero-query-protected-photo.jpg",
+        status: "pending",
+        uploadedBy: volunteerUserId,
+      },
+      {
+        caption: "Protected approved Immich photo fixture",
+        createdAt: now,
+        eventId: ZERO_AUTH_PROTECTED_EVENT_ID,
+        id: ZERO_AUTH_APPROVED_IMMICH_PHOTO_ID,
+        mimeType: "image/jpeg",
+        status: "approved",
+        uploadedBy: adminUserId,
+      },
+    ])
     .onConflictDoNothing();
+  await db
+    .update(eventPhoto)
+    .set({ immichAssetId: ZERO_AUTH_PENDING_IMMICH_ASSET_ID })
+    .where(eq(eventPhoto.id, ZERO_AUTH_PROTECTED_PHOTO_ID));
+  await db
+    .update(eventPhoto)
+    .set({ immichAssetId: null })
+    .where(eq(eventPhoto.id, ZERO_AUTH_APPROVED_IMMICH_PHOTO_ID));
 
   await db
     .insert(eventFeedback)

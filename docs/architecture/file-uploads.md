@@ -32,7 +32,7 @@ Avatars and editor images have dedicated durable signers with no temp stage.
 
 Browser reads use typed asset references, never a caller-supplied key. A raw object key never authorises a read, and keys with a `tmp/` segment are never readable. During the private-storage rollout the bucket stays publicly reachable only for families not yet migrated.
 
-`/api/attachments/download` and `/api/media/*` check access against the owning row, then stream or redirect to a short-lived signed URL. The `/api/immich/*` proxies need only a session and keep the Immich API key server-side.
+`/api/attachments/download`, `/api/media/*` and `/api/immich/*` check access against the owning row, then stream or redirect to a short-lived signed URL. Event-photo routes take the photo row ID; they never accept an R2 key or Immich asset ID from the caller. Immich proxies keep the API key server-side.
 
 Scheduled WhatsApp delivery signs persisted attachment keys when the job runs. Notification payloads never include approval screenshots.
 
@@ -73,10 +73,12 @@ Optional. `getImmichConfig()` (`apps/web/src/lib/immich.ts`) returns `null` when
 
 1. A member uploads a photo, stored as an `event_photo` with an R2 key.
 2. Approval enqueues `immich-sync-photo`, keyed by photo.
-3. The job stores `immichAssetId` straight after the upload, so a retry after a crash skips the re-upload. It then adds the asset to the event's album, clears `r2Key` and enqueues reference-checked R2 deletion.
-4. Deleting a photo enqueues Immich and R2 deletion.
+3. The job stores `immichAssetId` straight after upload. Retries resume album association while `r2Key` remains, then clear it and enqueue reference-checked R2 deletion. A row deleted during upload instead queues asset cleanup.
+4. Photo deletion locks and rereads the row so it queues cleanup for any concurrently stored asset ID. Immich deletion skips assets still referenced by another photo because Immich deduplicates uploads.
 
-Leads and holders of `events.manage_photos` can also upload straight to Immich with `uploadPhotoToImmich`, skipping R2 and approval.
+Leads and photo managers can upload straight to Immich. The server returns a ten-minute signed receipt bound to the asset, event, photo, user and MIME type. The mutator requires that receipt and rechecks current authority; bare asset IDs cannot create references.
+
+The Immich reference check does not serialize external uploads. An identical upload awaiting its photo-row insert can still race with deletion; closing that gap needs a durable pending-asset claim spanning both systems. Abandoned direct uploads can also leave unreferenced assets.
 
 The Social API serves approved photos through signed links; `do_not_use` marks photos social posts must skip. See `social-api.md`.
 
