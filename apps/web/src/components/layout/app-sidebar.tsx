@@ -250,7 +250,12 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         <SidebarRail />
       </Sidebar>
       <MobileTabBar
-        groups={visibleNavGroups}
+        // Inside Kalakriti, Overview is the home; the Dashboard link stays in Menu.
+        groups={
+          inKalakritiNav
+            ? visibleNavGroups.filter((group) => group.label === "Kalakriti")
+            : visibleNavGroups
+        }
         onScan={inKalakritiNav ? openScan : undefined}
         preferredUrls={
           inKalakritiNav
