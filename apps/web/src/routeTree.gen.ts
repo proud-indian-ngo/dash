@@ -43,6 +43,7 @@ import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
+import { Route as AppFinanceBudgetsRouteImport } from './routes/_app/finance/budgets'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
 import { Route as AppIncomeReturnRouteImport } from './routes/_app/income/return'
@@ -319,6 +320,11 @@ const AppEventsIdRoute = AppEventsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AppEventsRouteRoute,
+} as any)
+const AppFinanceBudgetsRoute = AppFinanceBudgetsRouteImport.update({
+  id: '/finance/budgets',
+  path: '/finance/budgets',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
   id: '/',
@@ -926,6 +932,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
+  '/finance/budgets': typeof AppFinanceBudgetsRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1057,6 +1064,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/version': typeof ApiVersionRoute
   '/events/$id': typeof AppEventsIdRoute
+  '/finance/budgets': typeof AppFinanceBudgetsRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1199,6 +1207,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
+  '/_app/finance/budgets': typeof AppFinanceBudgetsRoute
   '/_app/income/import': typeof AppIncomeImportRoute
   '/_app/income/return': typeof AppIncomeReturnRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1343,6 +1352,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year'
     | '/settings/roles'
     | '/events/$id'
+    | '/finance/budgets'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1474,6 +1484,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/version'
     | '/events/$id'
+    | '/finance/budgets'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1615,6 +1626,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year'
     | '/_app/settings/roles'
     | '/_app/events/$id'
+    | '/_app/finance/budgets'
     | '/_app/income/import'
     | '/_app/income/return'
     | '/_app/kalakriti/new'
@@ -2010,6 +2022,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/events/$id'
       preLoaderRoute: typeof AppEventsIdRouteImport
       parentRoute: typeof AppEventsRouteRoute
+    }
+    '/_app/finance/budgets': {
+      id: '/_app/finance/budgets'
+      path: '/finance/budgets'
+      fullPath: '/finance/budgets'
+      preLoaderRoute: typeof AppFinanceBudgetsRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/income/': {
       id: '/_app/income/'
@@ -3087,6 +3106,7 @@ interface AppRouteChildren {
   AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppFinanceBudgetsRoute: typeof AppFinanceBudgetsRoute
   AppFinanceBooksAuditedRoute: typeof AppFinanceBooksAuditedRoute
   AppFinanceBooksOpeningRoute: typeof AppFinanceBooksOpeningRoute
   AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
@@ -3112,6 +3132,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppFinanceBudgetsRoute: AppFinanceBudgetsRoute,
   AppFinanceBooksAuditedRoute: AppFinanceBooksAuditedRoute,
   AppFinanceBooksOpeningRoute: AppFinanceBooksOpeningRoute,
   AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,

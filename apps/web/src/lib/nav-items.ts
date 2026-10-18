@@ -11,6 +11,7 @@ import {
   JusticeScale01Icon,
   Megaphone01Icon,
   PaintBoardIcon,
+  PiggyBankIcon,
   Restaurant01Icon,
   StudentIcon,
   TransactionIcon,
@@ -148,6 +149,12 @@ const booksNavItem: NavItem = {
   ],
   title: "Books",
   url: "/finance/books",
+};
+
+const budgetsNavItem: NavItem = {
+  icon: PiggyBankIcon,
+  title: "Budgets",
+  url: "/finance/budgets",
 };
 
 const teamsNavItem: NavItem = {
@@ -424,6 +431,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (hasAny(permissions, ...BOOKS_PAGE_PERMISSIONS)) {
     items.push(booksNavItem);
   }
+  if (has(permissions, "finance.view")) {
+    items.push(budgetsNavItem);
+  }
   if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
@@ -480,6 +490,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (hasAny(permissions, ...BOOKS_PAGE_PERMISSIONS)) {
     financeItems.push(booksNavItem);
+  }
+  if (has(permissions, "finance.view")) {
+    financeItems.push(budgetsNavItem);
   }
   if (financeItems.length > 0) {
     groups.push({ items: financeItems, label: "Finance" });

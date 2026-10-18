@@ -22,6 +22,7 @@ type Row = Record<string, unknown>;
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     accountHead: [],
+    budget: [],
     costCentre: [],
     ledgerEntry: [],
     orgAccount: [],
@@ -268,6 +269,17 @@ describe("moving a project to another programme", () => {
         run(projectMutators.update, db, financeCtx, move)
       ).rejects.toThrow("Expenses are charged to this project");
     }
+  });
+
+  it("refuses while the project has a budget", async () => {
+    const db = createDb({
+      budget: [{ id: "b-1", programmeId: "prog-1", projectId: "proj-1" }],
+      programme: programmes,
+      project: [project()],
+    });
+    await expect(
+      run(projectMutators.update, db, financeCtx, move)
+    ).rejects.toThrow("This project has a budget");
   });
 
   it("moves a project nothing is charged to", async () => {
