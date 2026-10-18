@@ -103,6 +103,7 @@ Advance payments are discontinued. Existing records stay as history and never po
 `/export` downloads a ZIP from `GET /api/financial-export` (data in `apps/web/src/lib/server/financial-export.ts`).
 
 - It covers one April to March year. Vendor payment files are not included.
+- Attachments are preflighted before the response, then opened one at a time as the download reads. A cancelled download cancels its active attachment read.
 - Reimbursements are picked by expense date, advances by submission date and vendor payments by invoice date.
 - The CSVs carry no payout details.
 - It needs `requests.export`, which is reserved for `super_admin` (see [authorization.md](authorization.md)).
