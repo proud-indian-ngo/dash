@@ -11,11 +11,15 @@ import type { NavGroup } from "@/lib/nav-items";
 
 const MAX_TABS = 4;
 
-/** Focused task pages (forms and import wizards) own the bottom edge for their actions. */
+/** Focused task pages (forms, import wizards, a record in edit mode) own the bottom edge for their actions. */
 const TASK_PATH = /\/(?:new|import)$/;
 
-export function isTaskPath(pathname: string): boolean {
-  return TASK_PATH.test(pathname);
+export function isTaskPage(pathname: string, search: unknown): boolean {
+  const mode =
+    typeof search === "object" && search !== null && "mode" in search
+      ? search.mode
+      : undefined;
+  return TASK_PATH.test(pathname) || mode === "edit";
 }
 
 /**
@@ -77,7 +81,7 @@ export function MobileTabBar({
   preferredUrls: readonly string[];
 }) {
   const { openMobile, setOpenMobile } = useSidebar();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const tabs = pickTabItems(groups, preferredUrls, onScan ? 3 : MAX_TABS);
   const activePath = useActivePath(
     groups.flatMap((group) =>
@@ -88,7 +92,7 @@ export function MobileTabBar({
     (item) => activePath === (item.matchPath ?? item.url)
   );
 
-  if (isTaskPath(pathname)) {
+  if (isTaskPage(pathname, search)) {
     return null;
   }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import type { NavGroup } from "@/lib/nav-items";
 
-import { isTaskPath, pickTabItems } from "./mobile-tab-bar";
+import { isTaskPage, pickTabItems } from "./mobile-tab-bar";
 
 const groups: NavGroup[] = [
   { items: [{ title: "Dashboard", url: "/" }] },
@@ -50,11 +50,13 @@ describe("pickTabItems", () => {
   });
 });
 
-describe("isTaskPath", () => {
-  it("matches form and import pages only", () => {
-    expect(isTaskPath("/reimbursements/new")).toBe(true);
-    expect(isTaskPath("/income/bank/import")).toBe(true);
-    expect(isTaskPath("/reimbursements")).toBe(false);
-    expect(isTaskPath("/income/imports/123")).toBe(false);
+describe("isTaskPage", () => {
+  it("matches form and import pages, and records in edit mode", () => {
+    expect(isTaskPage("/reimbursements/new", {})).toBe(true);
+    expect(isTaskPage("/income/bank/import", {})).toBe(true);
+    expect(isTaskPage("/reimbursements/123", { mode: "edit" })).toBe(true);
+    expect(isTaskPage("/reimbursements/123", {})).toBe(false);
+    expect(isTaskPage("/reimbursements", {})).toBe(false);
+    expect(isTaskPage("/income/imports/123", {})).toBe(false);
   });
 });
