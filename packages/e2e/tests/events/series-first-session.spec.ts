@@ -34,6 +34,7 @@ interface Fixture {
 
 interface Inspection {
   cancelled: { later: boolean; past: boolean; series: boolean; split: boolean };
+  firstRow: { cancelled: boolean } | null;
   later: { seriesId: string | null };
   newSeries: { id: string; members: number } | null;
   oldRule: string | null;
@@ -258,5 +259,40 @@ test.describe("A series' first session and its saved sessions", () => {
         .getByRole("region", { name: "Social recap" })
         .getByText(/Recap ready ·/)
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("This event from the series row cancels only its first session", async ({
+    page,
+  }) => {
+    await page.goto(`/events/${fx.seriesId}`);
+    await waitForZeroReady(page);
+    await clickPageAction(page, "Cancel event");
+    const scopeDialog = page.getByRole("dialog");
+    await expect(
+      scopeDialog.getByRole("button", { name: "This and following events" })
+    ).toHaveCount(0);
+    await scopeDialog.getByRole("button", { name: "This event only" }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Cancel event" })
+      .click();
+    await page.waitForURL("**/teams/**", { timeout: 15_000 });
+
+    await expect
+      .poll(
+        async () => (await fixture<Inspection>("inspect", fx.pastDate)).firstRow
+      )
+      .toEqual({ cancelled: true });
+    const state = await fixture<Inspection>("inspect", fx.pastDate);
+    expect(state.cancelled.series).toBe(false);
+    expect(state.cancelled.past).toBe(false);
+
+    await page.goto(`/events/${fx.seriesId}`);
+    await waitForZeroReady(page);
+    await expect(page.getByText("First session cancelled").first()).toBeVisible(
+      {
+        timeout: 15_000,
+      }
+    );
   });
 });

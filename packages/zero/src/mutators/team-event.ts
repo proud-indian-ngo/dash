@@ -706,6 +706,10 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      // Cancelling the series row would hide every session, held ones too.
+      if (existing.recurrenceRule && !existing.seriesId) {
+        throw new Error("Choose which sessions of the series to cancel");
+      }
 
       if (
         existing.startTime <= args.now &&

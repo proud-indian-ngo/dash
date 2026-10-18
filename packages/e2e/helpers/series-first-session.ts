@@ -184,13 +184,22 @@ async function inspect(pastDate: string) {
   const newSeries = rows.find((r) => r.seriesId === null && r.id !== ID.series);
   const cancelled = (row: { cancelledAt: Date | null } | undefined) =>
     row?.cancelledAt != null;
+  const seriesRow = byId(ID.series);
+  const firstRow = seriesRow
+    ? rows.find(
+        (r) =>
+          r.seriesId === ID.series &&
+          r.originalDate === utcDate(seriesRow.startTime.getTime())
+      )
+    : undefined;
   return {
     cancelled: {
       later: cancelled(byId(ID.later)),
       past: cancelled(past),
-      series: cancelled(byId(ID.series)),
+      series: cancelled(seriesRow),
       split: cancelled(byId(ID.split)),
     },
+    firstRow: firstRow ? { cancelled: cancelled(firstRow) } : null,
     later: { seriesId: byId(ID.later)?.seriesId ?? null },
     newSeries: newSeries
       ? { id: newSeries.id, members: membersOf(newSeries.id).length }

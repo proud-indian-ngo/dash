@@ -767,6 +767,48 @@ describe("cancel all upcoming sessions", () => {
     expect(enqueued).toEqual([]);
   });
 
+  it("cancels only the first session with This event from the series row", async () => {
+    const db = createDb([session("next", "2026-10-10")]);
+    db.tables.teamEventMember?.push(member("series-1", "lead-1"));
+    enqueued.length = 0;
+    const asyncTasks: { fn: () => Promise<void> }[] = [];
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "this",
+        newExceptionId: "first-cancel",
+        now: NOW,
+        originalDate: "2026-10-03",
+      },
+      ctx: { ...ctx, asyncTasks, traceId: "t" },
+      tx: db.tx,
+    } as never);
+    await Promise.all(asyncTasks.map((task) => task.fn()));
+
+    // A cancelled start-date row: the first session is cancelled.
+    expect(row(db, "first-cancel")).toMatchObject({
+      cancelledAt: NOW,
+      originalDate: "2026-10-03",
+      seriesId: "series-1",
+    });
+    expect(row(db, "series-1")?.cancelledAt ?? null).toBeNull();
+    expect(row(db, "next")?.cancelledAt).toBeNull();
+    const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
+    expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["lead-1"]]);
+  });
+
+  it("refuses a plain cancel of the series row", async () => {
+    const db = createDb();
+    await expect(
+      teamEventMutators.cancel.fn({
+        args: { id: "series-1", now: NOW },
+        ctx: { ...ctx, permissions: ["events.cancel"] },
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("Choose which sessions of the series to cancel");
+    expect(row(db, "series-1")?.cancelledAt ?? null).toBeNull();
+  });
+
   it("cancels the whole series before its first session", async () => {
     const db = createDb([session("next", "2026-10-10")]);
     db.tables.teamEventMember?.push(member("series-1", "lead-1"));

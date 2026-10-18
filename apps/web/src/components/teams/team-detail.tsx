@@ -7,6 +7,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { getRefCurrent } from "@pi-dash/design-system/hooks/get-ref-current";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type {
@@ -170,6 +171,15 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
     (row: EventDisplayRow) => {
       if (row.seriesId) {
         setCancelScopeRow(row);
+        setCancelScopeDialogOpen(true);
+      } else if (row.event.recurrenceRule) {
+        // The series' own line is its first session; cancelling the row
+        // itself would hide every session, held ones too.
+        setCancelScopeRow({
+          ...row,
+          originalDate: seriesStartDate(row.event.startTime),
+          seriesId: row.event.id,
+        });
         setCancelScopeDialogOpen(true);
       } else {
         cancelEvent.trigger(row);

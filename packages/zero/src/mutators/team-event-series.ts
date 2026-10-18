@@ -763,7 +763,28 @@ export async function cancelSeriesThis(
       id: args.id,
       updatedAt: args.now,
     });
-  } else if (args.originalDate && args.newExceptionId) {
+    return;
+  }
+  if (!args.originalDate) {
+    return;
+  }
+  // A saved row for the date (a live start-date row for the first session)
+  // is cancelled itself; otherwise a cancelled row is saved for the date.
+  const saved = (await tx.run(
+    zql.teamEvent
+      .where("seriesId", args.id)
+      .where("originalDate", args.originalDate)
+      .one()
+  )) as TeamEvent | undefined;
+  if (saved) {
+    if (!saved.cancelledAt) {
+      await tx.mutate.teamEvent.update({
+        cancelledAt: args.now,
+        id: saved.id,
+        updatedAt: args.now,
+      });
+    }
+  } else if (args.newExceptionId) {
     await tx.mutate.teamEvent.insert(
       buildExceptionInsert(
         args.newExceptionId,
