@@ -13,7 +13,9 @@ function isSenderAddress(value: string): boolean {
 
 export const env = createEnv({
   emptyStringAsUndefined: true,
-  runtimeEnv: process.env,
+  // A copy: emptyStringAsUndefined deletes empty keys from the object it is
+  // given, and a later loadEnvFiles would then refill them from .env.
+  runtimeEnv: { ...process.env },
   server: {
     ADMIN_EMAIL: z.email().optional(),
     ADMIN_PASSWORD: z.string().min(8).optional(),

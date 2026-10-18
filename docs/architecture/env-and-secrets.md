@@ -10,7 +10,7 @@ The full variable list is in [DEPLOYMENT.md](../../DEPLOYMENT.md#environment-var
 `packages/env/src/index.ts` runs on import, before validation:
 
 1. Base `.env`, found by walking up from the working directory.
-2. `.env.worktree`, written by `bun run worktree:setup`, overrides `.env`. A variable set explicitly in the environment wins over both, so `DATABASE_URL=... bun run <script>` uses that URL. A `process.env` value identical to the file's value counts as loaded from the file, because Bun pre-loads `.env` and `--env-file` files. Skipped when `VITE_E2E` is set, since `run-e2e.sh` already exported E2E ports.
+2. `.env.worktree`, written by `bun run worktree:setup`, overrides `.env`. A variable set explicitly in the environment wins over both, even when empty, so `DATABASE_URL=... bun run <script>` uses that URL and `run-e2e.sh` can blank secrets such as `RESEND_API_KEY`. A `process.env` value identical to the file's value counts as loaded from the file, because Bun pre-loads `.env` and `--env-file` files. Skipped when `VITE_E2E` is set, since `run-e2e.sh` already exported E2E ports.
 3. Auto-detected worktree ports, only when neither `WORKTREE_ID` nor `.env.worktree` exists.
 
 `envSource(name)` reports where a value came from. Production has no `.env` files; the host injects variables.
