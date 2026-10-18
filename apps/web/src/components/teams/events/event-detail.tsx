@@ -319,7 +319,7 @@ function useScopeDialogs(
         error: msg,
         mutation: "teamEvent.cancel",
       });
-      toast.error("Couldn't cancel event");
+      toast.error(msg ?? "Couldn't cancel event");
       cancelScopeRef.current = null;
     },
     onSuccess: () => {

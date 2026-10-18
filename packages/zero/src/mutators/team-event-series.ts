@@ -10,7 +10,6 @@ import { uuidv7 } from "uuidv7";
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
 
-const UNTIL_RE = /UNTIL=\d{8}T\d{6}Z/;
 const DASH_RE = /-/g;
 const COLON_RE = /:/g;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -20,7 +19,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * (UTC). UNTIL is inclusive, so pinning it to 00:00:00Z of the split date
  * would keep a session at exactly midnight UTC on the old series. Every
  * occurrence keyed on or after splitDate leaves the old series; earlier ones
- * stay. TZ-clean regardless of the series' wall-clock time.
+ * stay. TZ-clean regardless of the series' wall-clock time. A COUNT is
+ * dropped, since UNTIL now ends the rule.
  */
 export function buildTruncatedRRule(
   rruleStr: string,
@@ -32,10 +32,15 @@ export function buildTruncatedRRule(
     .slice(0, 19)
     .replace(DASH_RE, "")
     .replace(COLON_RE, "")}Z`;
-  if (rruleStr.includes("UNTIL=")) {
-    return rruleStr.replace(UNTIL_RE, until);
+  // RFC 5545 forbids COUNT with UNTIL, and the form reads COUNT first.
+  const parts = rruleStr.split(";").filter((p) => !p.startsWith("COUNT="));
+  const untilAt = parts.findIndex((p) => p.startsWith("UNTIL="));
+  if (untilAt === -1) {
+    parts.push(until);
+  } else {
+    parts[untilAt] = until;
   }
-  return `${rruleStr};${until}`;
+  return parts.join(";");
 }
 
 export type RecurrenceRuleValue = {
@@ -660,9 +665,9 @@ function lastStartedDate(
 /**
  * Cancel every upcoming session of a series. A series with no started
  * session is cancelled whole. Otherwise it ends after the last session that
- * has started: the rule is truncated after that day and saved sessions after
- * it are cancelled, while the series row and earlier sessions stay live with
- * their attendance and recaps. Returns the rows it cancelled and whether
+ * has started: the rule is truncated after that day and saved sessions that
+ * haven't started are cancelled, while the series row and started sessions
+ * stay live with their attendance and recaps. Returns the rows it cancelled and whether
  * unsaved sessions were dropped from the rule.
  */
 export async function cancelSeriesAll(
@@ -688,6 +693,19 @@ export async function cancelSeriesAll(
     return { cancelledIds: [args.id, ...live], ruleCut: false };
   }
 
+  // The series row is the first session unless a saved row stands for it.
+  // When it is still ahead but a session moved before it has started, it can
+  // neither stay live nor be cancelled without hiding that session.
+  const first = seriesStartDate(existing.startTime);
+  if (
+    existing.startTime > args.now &&
+    !exceptions.some((e) => e.originalDate === first)
+  ) {
+    throw new Error(
+      "A session of this series has started before its first session. Cancel the upcoming sessions one at a time."
+    );
+  }
+
   const splitDate = new Date(Date.parse(`${lastStarted}T00:00:00Z`) + DAY_MS)
     .toISOString()
     .slice(0, 10);
@@ -709,10 +727,10 @@ export async function cancelSeriesAll(
       updatedAt: args.now,
     });
   }
+  // Saved sessions go by their own start, so a session moved later than the
+  // cut is cancelled and one moved earlier that has started stays.
   const upcoming = exceptions
-    .filter(
-      (e) => e.originalDate && e.originalDate >= splitDate && !e.cancelledAt
-    )
+    .filter((e) => !e.cancelledAt && e.startTime > args.now)
     .map((e) => e.id);
   await Promise.all(upcoming.map(cancel));
   return { cancelledIds: upcoming, ruleCut };

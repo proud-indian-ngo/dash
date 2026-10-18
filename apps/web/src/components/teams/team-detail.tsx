@@ -155,7 +155,7 @@ function useCancelEventScope(zero: ReturnType<typeof useZero>) {
         error: msg,
         mutation: "teamEvent.cancel",
       });
-      toast.error("Failed to cancel event");
+      toast.error(msg ?? "Failed to cancel event");
       cancelScopeRef.current = null;
       setCancelScopeRow(null);
     },

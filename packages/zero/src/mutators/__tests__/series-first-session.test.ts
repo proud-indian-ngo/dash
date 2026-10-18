@@ -713,6 +713,42 @@ describe("cancel all upcoming sessions", () => {
     ).toEqual(["next"]);
   });
 
+  it("cancels a saved session moved past the cut by its own start", async () => {
+    const db = createDb([
+      // Keyed 10 October, rescheduled to 21 October: still ahead.
+      session("moved", "2026-10-10", {
+        startTime: Date.parse("2026-10-21T04:30:00Z"),
+      }),
+      // Keyed 31 October, held early on 18 October: it has started.
+      session("early", "2026-10-31", {
+        startTime: Date.parse("2026-10-18T04:30:00Z"),
+      }),
+    ]);
+    await cancelAll(db, AFTER_THIRD);
+
+    expect(row(db, "moved")?.cancelledAt).toBe(AFTER_THIRD);
+    expect(row(db, "early")?.cancelledAt).toBeNull();
+    expect(row(db, "series-1")?.cancelledAt ?? null).toBeNull();
+  });
+
+  it("refuses when a session moved before an upcoming first session has started", async () => {
+    // An All events edit moved the series to start 3 October; a session
+    // saved for 26 September has been held.
+    const db = createDb([
+      session("orphan", "2026-09-26", {
+        startTime: Date.parse("2026-09-26T04:30:00Z"),
+      }),
+    ]);
+    await expect(cancelAll(db, NOW)).rejects.toThrow(
+      "Cancel the upcoming sessions one at a time"
+    );
+    expect(row(db, "series-1")?.cancelledAt ?? null).toBeNull();
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+    expect(enqueued).toEqual([]);
+  });
+
   it("cancels the whole series before its first session", async () => {
     const db = createDb([session("next", "2026-10-10")]);
     db.tables.teamEventMember?.push(member("series-1", "lead-1"));
