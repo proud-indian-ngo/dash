@@ -16,6 +16,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
+  useSidebar,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
@@ -28,6 +29,8 @@ export interface NavItem {
   isHidden?: boolean;
   /** The path this item stays active under, when it differs from `url`. */
   matchPath?: string;
+  /** Label for the phone tab bar, when `title` is too long for it. */
+  shortTitle?: string;
   subItems?: NavItem[];
   title: string;
   url: string;
@@ -41,6 +44,7 @@ function NavMenuItem({
   item: NavItem;
 }) {
   const { pathname } = useLocation();
+  const { setOpenMobile } = useSidebar();
   const isActive = activePath === (item.matchPath ?? item.url);
   const [submenuOpen, setSubmenuOpen] = useState(isActive);
 
@@ -55,6 +59,8 @@ function NavMenuItem({
           aria-current={pathname === item.url ? "page" : undefined}
           className={item.subItems ? "pr-8" : undefined}
           isActive={isActive}
+          // The phone drawer closes once a destination is chosen.
+          onClick={() => setOpenMobile(false)}
           render={<Link to={item.url} />}
           tooltip={item.title}
         >
@@ -88,6 +94,7 @@ function NavMenuItem({
                         }
                         className="data-active:font-medium"
                         isActive={pathname === subItem.url}
+                        onClick={() => setOpenMobile(false)}
                         render={<Link to={subItem.url} />}
                       >
                         {subItem.title}

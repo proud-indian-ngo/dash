@@ -88,6 +88,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: env.VITE_APP_NAME,
         name: "apple-mobile-web-app-title",
       },
+      // Browser chrome matches the page background in each scheme.
+      {
+        content: "#ffffff",
+        media: "(prefers-color-scheme: light)",
+        name: "theme-color",
+      },
+      {
+        content: "#161618",
+        media: "(prefers-color-scheme: dark)",
+        name: "theme-color",
+      },
     ],
   }),
 });
@@ -148,7 +159,12 @@ function RootDocument() {
                   <Outlet />
                 </ZeroInit>
               </NuqsAdapter>
-              <Toaster richColors />
+              <Toaster
+                mobileOffset={{
+                  bottom: "calc(1rem + var(--mobile-tab-bar-height, 0px))",
+                }}
+                richColors
+              />
             </TooltipProvider>
           </AppErrorBoundary>
         </ThemeProvider>

@@ -200,7 +200,7 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     const liaison = new KalakritiScanPage(await liaisonContext.newPage());
     await liaison.installDecoder();
     await liaison.goto(data.year, "students");
-    await liaison.openFromMobileSidebar();
+    await liaison.openFromTabBar();
     const assertIncomplete = async (stage: string) => {
       await expect(
         liaison.dialog.getByRole("button", {

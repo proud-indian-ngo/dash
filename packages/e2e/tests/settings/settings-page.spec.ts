@@ -9,8 +9,8 @@ test.describe("Settings page", () => {
     const sidebar = page.locator("[data-sidebar='sidebar']");
     if (!(await sidebar.isVisible())) {
       await page
-        .getByRole("button", { name: "Toggle Sidebar" })
-        .first()
+        .getByRole("navigation", { name: "Main" })
+        .getByRole("button", { name: "Menu" })
         .click();
     }
     await page.getByRole("button", { name: "Account menu" }).click();
