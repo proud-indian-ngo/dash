@@ -7,6 +7,7 @@ import {
   REMINDER_PRESET_MINUTES,
   RSVP_POLL_LEAD_PRESET_MINUTES,
 } from "@pi-dash/shared/event-reminders";
+import { seriesStartDate } from "@pi-dash/shared/rrule-expand";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -27,7 +28,10 @@ import {
   cancelSeriesFollowing,
   cancelSeriesThis,
   ISO_DATE_RE,
+  changedSeriesArgs,
   moveSeriesOccurrencesToGroup,
+  moveSeriesSessionsToProgramme,
+  sessionFieldsFrom,
   type Tx,
   updateSeriesAll,
   updateSeriesFollowing,
@@ -93,6 +97,62 @@ interface JoinTarget {
   startTime: number;
 }
 
+/**
+ * Whether any session of a series has started, or money is charged to it:
+ * from then on a programme change applies forward only.
+ */
+async function seriesHasStarted(
+  tx: Tx,
+  series: Pick<TeamEvent, "id" | "startTime">,
+  now: number
+): Promise<boolean> {
+  if (series.startTime <= now) {
+    return true;
+  }
+  const sessions = (await tx.run(
+    zql.teamEvent.where("seriesId", series.id)
+  )) as TeamEvent[];
+  if (sessions.some((s) => s.startTime <= now)) {
+    return true;
+  }
+  const ids = [series.id, ...sessions.map((s) => s.id)];
+  const [claim, payment] = await Promise.all([
+    // Rejected and voided requests charge nothing.
+    tx.run(
+      zql.reimbursement
+        .where("eventId", "IN", ids)
+        .where("status", "!=", "rejected")
+        .where("voidedAt", "IS", null)
+        .one()
+    ),
+    tx.run(
+      zql.vendorPayment
+        .where("eventId", "IN", ids)
+        .where("status", "!=", "rejected")
+        .where("voidedAt", "IS", null)
+        .one()
+    ),
+  ]);
+  return Boolean(claim ?? payment);
+}
+
+/**
+ * The scope a series edit or cancel really has. "This and following" on the
+ * series' own start date is every session, so it is "all": splitting there
+ * would leave an empty series before the first session.
+ */
+function seriesScope(
+  args: { mode: "this" | "following" | "all"; originalDate?: string },
+  existing: Pick<TeamEvent, "recurrenceRule" | "seriesId" | "startTime">
+): "this" | "following" | "all" {
+  return args.mode === "following" &&
+    existing.recurrenceRule &&
+    !existing.seriesId &&
+    args.originalDate === seriesStartDate(existing.startTime)
+    ? "all"
+    : args.mode;
+}
+
 /** Resolve (materializing if needed) the event row a volunteer joins. */
 export async function resolveJoinTarget(
   tx: Tx,
@@ -105,7 +165,13 @@ export async function resolveJoinTarget(
     now: number;
   }
 ): Promise<JoinTarget> {
-  if (!args.occDate) {
+  // Without a date, a series parent means its first session.
+  const occDate =
+    args.occDate ??
+    (event.recurrenceRule && !event.seriesId
+      ? seriesStartDate(event.startTime)
+      : undefined);
+  if (!occDate) {
     if (event.startTime <= args.now) {
       throw new Error("Cannot join event that has already started");
     }
@@ -120,16 +186,18 @@ export async function resolveJoinTarget(
   if (!event.recurrenceRule) {
     throw new Error("Event is not a recurring series");
   }
-  if (!args.materializedId) {
-    throw new Error("materializedId required for virtual occurrence");
-  }
+  // A saved row for the date takes it, the start date included: there it
+  // stands for the first session.
   const existing = (await tx.run(
     zql.teamEvent
       .where("seriesId", args.eventId)
-      .where("originalDate", args.occDate)
+      .where("originalDate", occDate)
       .one()
   )) as TeamEvent | undefined;
   if (existing) {
+    if (existing.cancelledAt) {
+      throw new Error("This session was cancelled");
+    }
     if (existing.startTime <= args.now) {
       throw new Error("Cannot join event that has already started");
     }
@@ -141,7 +209,23 @@ export async function resolveJoinTarget(
       startTime: existing.startTime,
     };
   }
-  const occStart = computeOccurrenceStart(event.startTime, args.occDate);
+  // The series' first session is the parent row itself.
+  if (occDate === seriesStartDate(event.startTime)) {
+    if (event.startTime <= args.now) {
+      throw new Error("Cannot join event that has already started");
+    }
+    return {
+      endTime: event.endTime,
+      eventId: args.eventId,
+      location: event.location,
+      name: event.name,
+      startTime: event.startTime,
+    };
+  }
+  if (!args.materializedId) {
+    throw new Error("materializedId required for virtual occurrence");
+  }
+  const occStart = computeOccurrenceStart(event.startTime, occDate);
   if (occStart <= args.now) {
     throw new Error("Cannot join event that has already started");
   }
@@ -162,7 +246,7 @@ export async function resolveJoinTarget(
     isPublic: event.isPublic,
     location: event.location,
     name: event.name,
-    originalDate: args.occDate,
+    originalDate: occDate,
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: event.postRsvpPoll,
     programmeId: event.programmeId,
@@ -683,10 +767,11 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      const mode = seriesScope(args, existing);
 
       // Team leads without events.cancel cannot cancel materialized (past) events
       if (isTeamLead && !can(ctx, "events.cancel")) {
-        if (args.mode === "all") {
+        if (mode === "all") {
           const exceptions = (await tx.run(
             zql.teamEvent.where("seriesId", args.id)
           )) as TeamEvent[];
@@ -694,18 +779,18 @@ export const teamEventMutators = {
             throw new Error("Cannot cancel a series with past events");
           }
         } else if (
-          (args.mode === "this" || args.mode === "following") &&
+          (mode === "this" || mode === "following") &&
           existing.startTime <= args.now
         ) {
           throw new Error("Cannot cancel an event that has already started");
         }
       }
 
-      if (args.mode === "all") {
+      if (mode === "all") {
         await cancelSeriesAll(tx, args);
-      } else if (args.mode === "this") {
+      } else if (mode === "this") {
         await cancelSeriesThis(tx, args, existing, ctx.userId);
-      } else if (args.mode === "following" && args.originalDate) {
+      } else if (mode === "following" && args.originalDate) {
         await cancelSeriesFollowing(
           tx,
           { ...args, originalDate: args.originalDate },
@@ -1197,6 +1282,9 @@ export const teamEventMutators = {
       if (existing) {
         throw new Error("Occurrence already materialized");
       }
+      if (args.originalDate === seriesStartDate(series.startTime)) {
+        throw new Error("The first session is the series itself");
+      }
 
       const occStart = computeOccurrenceStart(
         series.startTime,
@@ -1535,9 +1623,10 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.edit", isTeamLead);
+      const mode = seriesScope(args, existing);
 
       if (
-        args.mode === "this" &&
+        mode === "this" &&
         !existing.seriesId &&
         existing.recurrenceRule &&
         args.originalDate &&
@@ -1545,7 +1634,7 @@ export const teamEventMutators = {
       ) {
         await assertEventIdAvailable(tx, args.newExceptionId);
       }
-      if (args.mode === "following" && args.originalDate && args.newSeriesId) {
+      if (mode === "following" && args.originalDate && args.newSeriesId) {
         await assertEventIdAvailable(tx, args.newSeriesId);
       }
 
@@ -1556,20 +1645,59 @@ export const teamEventMutators = {
         args.whatsappGroupId
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
+      // Programme changes are future-effective: once a series has started,
+      // "all" would rewrite past sessions, so it is refused. Before that,
+      // every session is still to come.
       if (
-        args.mode === "all" &&
+        mode === "all" &&
         args.programmeId !== undefined &&
-        args.programmeId !== existing.programmeId
+        args.programmeId !== existing.programmeId &&
+        (await seriesHasStarted(tx, existing, args.now))
       ) {
-        // Programme changes are future-effective: past occurrences keep theirs.
         throw new Error(
-          "Change the programme for this and following occurrences instead"
+          'Past sessions keep their programme. Open a later session and edit "This and following" to change it from there.'
         );
       }
 
       let movedOccurrenceIds: string[] = [];
-      if (args.mode === "all") {
+      if (mode === "all") {
+        const changes = changedSeriesArgs(args, existing);
+        // As the series was before this edit.
+        const before = {
+          programmeId: existing.programmeId,
+          startDate: seriesStartDate(existing.startTime),
+        };
         await updateSeriesAll(tx, args, buildUpdateFields(args));
+        if (existing.recurrenceRule && !existing.seriesId) {
+          // A live start-date row is the first session: it takes what the
+          // edit changed, keeping its own details otherwise.
+          const first = (await tx.run(
+            zql.teamEvent
+              .where("seriesId", args.id)
+              .where("originalDate", before.startDate)
+              .one()
+          )) as TeamEvent | undefined;
+          if (first && !first.cancelledAt) {
+            // A moved start keeps the series' end with it.
+            await tx.mutate.teamEvent.update(
+              sessionFieldsFrom(
+                changes.startTime === undefined
+                  ? changes
+                  : { ...changes, endTime: args.endTime },
+                first
+              )
+            );
+          }
+          // Only reachable before the series starts (guarded above).
+          if (changes.programmeId !== undefined && before.programmeId) {
+            await moveSeriesSessionsToProgramme(tx, {
+              fromProgrammeId: before.programmeId,
+              now: args.now,
+              seriesId: args.id,
+              toProgrammeId: changes.programmeId,
+            });
+          }
+        }
         if (nextGroupId !== undefined) {
           movedOccurrenceIds = await moveSeriesOccurrencesToGroup(tx, {
             fromGroupId: existing.whatsappGroupId ?? null,
@@ -1578,14 +1706,14 @@ export const teamEventMutators = {
             toGroupId: nextGroupId,
           });
         }
-      } else if (args.mode === "this") {
+      } else if (mode === "this") {
         await updateSeriesThis(tx, args, existing, ctx.userId);
       } else if (
-        args.mode === "following" &&
+        mode === "following" &&
         args.originalDate &&
         args.newSeriesId
       ) {
-        await updateSeriesFollowing(
+        movedOccurrenceIds = await updateSeriesFollowing(
           tx,
           {
             ...args,
@@ -1597,7 +1725,7 @@ export const teamEventMutators = {
         );
       }
 
-      const writeTarget = resolveSeriesWriteTarget(args, existing);
+      const writeTarget = resolveSeriesWriteTarget({ ...args, mode }, existing);
       if (args.partners && writeTarget) {
         await replaceEventPartners(
           tx,

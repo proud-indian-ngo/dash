@@ -1,13 +1,13 @@
 # Finance and programmes
 
-> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, cost centres, deferred finance work, FCRA, retention.
+> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, cost centres, budgets, outcomes, volunteer hour value, deferred finance work, FCRA, retention.
 > **Related**: `authorization.md`, `data-layer.md`, `reimbursements.md`, `vendor-payments.md`, `cash-vouchers.md`
 
 The dashboard keeps the trust's operational financial record year-round, organised by programme: expenses, income, donors, receipts and a single-entry set of books. The CA keeps the statutory books and takes year-end exports from the dashboard. The ledger starts at the cutover, 1 April 2026.
 
 | Chapter | Covers |
 |---|---|
-| This one | Decisions, dimensions, Charged to, cost centres, deferred work, data protection |
+| This one | Decisions, dimensions, Charged to, cost centres, budgets, outcomes, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursements, payouts, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, income, imports, Razorpay, give.do payouts, Reached bank |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
@@ -88,6 +88,27 @@ One target per request. Advance payments carry none.
 
 See "Claim for others" in [reimbursements.md](reimbursements.md).
 
+## Budgets
+
+Finance → Budgets (`/finance/budgets`) sets a year's budget for a programme, and optionally for a project under it, split by expense head, and shows it against the books (founder decisions).
+
+- `budget` (fiscal year, programme, optional project, note) is unique per year, programme and project; a composite foreign key keeps the project under the programme. `budget_line` holds one amount per head in paise; a head without a line has no budget, and ₹0 is a budget. Saving with every head blank removes the budget. A project with a budget can't move to another programme. A project's quoted budget (the amount quoted to a sponsor) is a separate field and plays no part here.
+- Budgetable heads are the expense heads expense categories post to, so the heads claims and vendor payments are booked to, plus `In-kind consumed` and `Gateway charges`, which post with a programme (founder decision; `budgetableHeadIds`). Spend on other expense heads (bank charges, depreciation) shows as unbudgeted. A head a budget already holds stays on it. New budgets need an active programme, never Unallocated.
+- Reading needs `finance.view` (budgets sync only to it); setting needs `finance.manage` through the audited `budget.save` mutator.
+- Actual is the expense the books recognise: entries on expense heads by economic date within the year, net of reversals, the same figures as Books → Income & expenditure. Actuals are never stored: `loadBudgetActuals` (`packages/db/src/queries/budget-actuals.ts`) sums them in SQL per programme, project and head.
+- `budgetYearView` (`packages/shared/src/budgets.ts`) lays them out without double counting. A programme budget's actual is all its spend, projects included, on every head; a head with spend and no line shows as unbudgeted within it. A project budget's actual is that project's spend only, nested under its programme and never added to the totals. Spend in a programme without a programme budget, or with no programme, is in the Unbudgeted group, so budgeted plus unbudgeted spend is the year's expenditure. A programme shown only for its project budgets has its actual muted, since Unbudgeted counts it.
+- Spend above the budget, by any amount, shows in red only. Approvals, claims and vendor payments are never warned or blocked.
+
+## Outcomes
+
+Analytics → Outcomes ([teams and events](teams-and-events.md#other-pages)) derives impact from events already recorded; nothing is entered for it (founder decision). `loadOutcomeRows` (`packages/db/src/queries/outcomes.ts`) aggregates in SQL and `summarizeOutcomes` (`packages/shared/src/outcomes.ts`) rolls the rows up.
+
+- **Events held**: saved event rows that have ended (or started, without an end time), are not cancelled and are not Kalakriti-managed: standalone events, series parents (a parent is its series' first session, on its own times) and saved occurrences. Where older data holds an exception row on its series' own start date, that row stands for the first session and the parent is not counted; if that row is cancelled, neither is. A parent whose own start date its rule or exdates exclude still counts as a session. Kalakriti's linked event is a technical record whose people live in the Edition. The range filters on the start time; programme, team and city are the event's own.
+- **Children reached**: the sum of `children_attended` over events with a completed social recap; undoing a recap drops its children until it is marked ready again. These are child contacts, never unique children: a child at weekly classes counts each time.
+- **Volunteer hours**: per event, members marked present × start to end. Attendance is counted per event before the join, so members never multiply children. Events without an end time add no hours.
+- **Value of volunteer time**: hours × `app_config.volunteer_hour_value_paise`, which `finance.manage` sets in Settings → Programmes. Blank means not set, and the tile asks for it. It is for reports only and is never posted to the books.
+- **Coverage**: the page counts held events without a recap (`social_completed_at` unset; their children are not counted), without any attendance marked, and without an end time, so a low figure is not read as low impact. A recap that records no children is complete. Past sessions of a live series that nobody saved count as events held with no recap and no attendance: `unsavedSessionRows` expands the series rule (skipping saved dates, exdates and exclude rules) and takes programme, team and city from the series.
+
 ## Planned and deferred
 
 Kept from the agreed design; none of this is built unless stated.
@@ -98,10 +119,6 @@ Kept from the agreed design; none of this is built unless stated.
 - Creator, claimant and identifiable beneficiary can't approve or pay their own request; lead and finance must be different people; an approver may also pay. Nothing approves automatically.
 - Planned `approval_step` table and permissions `finance.approve_lead`, `finance.approve`, `finance.confirm_payment`. Today approval uses `requests.approve`.
 - A team lead may move an event between programmes until an expense links to it; after that only `finance.manage`.
-
-### Budgets
-
-`budget` and `budget_line` by fiscal year, scope and account head, measuring recognised cost at first. Fund and programme views are alternative cuts, never summed.
 
 ### In-kind
 
@@ -116,7 +133,6 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 - Requests: frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on reimbursements still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
 - Grants (agreements, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
-- Outcomes: `event_outcome` counts service contacts, never unique children; volunteer minutes valued by `volunteer_hour_value_paise`, never posted.
 - Exports: an FY audit pack replacing `/export`, donor statements.
 
 ### FCRA and FC-4

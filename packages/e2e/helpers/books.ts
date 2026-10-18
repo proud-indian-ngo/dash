@@ -27,6 +27,8 @@ import {
   fiscalYear,
   fund,
   orgAccount,
+  programme,
+  project,
 } from "@pi-dash/db/schema/finance-dimensions";
 import {
   gatewaySettlement,
@@ -132,6 +134,12 @@ import { uuidv7 } from "uuidv7";
  *   approval. Reports what the approval picker should show as outstanding.
  * - `void-auditor-invoices`: voids every E2E auditor invoice and posts the
  *   reversals (cleanup: the provision stands whole for the next test).
+ * - `budget-fixture <run>`: Finance → Budgets. A programme of this run
+ *   with one project, an expense category of this run, and two approved
+ *   reimbursements with payment proof in FY 2027-28, posted at once: 1,000
+ *   charged to the programme and 600 to its project, out of whichever bank
+ *   account is main (never changing it). FY 2027-28 because the books specs freeze and close
+ *   FY 2026-27 while other specs run; nothing freezes the later year.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -658,6 +666,112 @@ async function voidAuditorInvoices() {
   return { voided: open.length };
 }
 
+async function budgetFixture(run: string) {
+  const now = new Date();
+  const userId = await anyUserId();
+  const programmeId = uuidv7();
+  const projectId = uuidv7();
+  const categoryId = uuidv7();
+  const names = {
+    category: `E2E Budget Category ${run}`,
+    programme: `E2E Budget Programme ${run}`,
+    project: `E2E Budget Project ${run}`,
+  };
+  const code = run
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(-10)
+    .toUpperCase();
+  await db.transaction(async (tx) => {
+    // The claims are paid out of the main bank account. Other specs set
+    // their own as main while they post, so this one never changes it: it
+    // only adds one when none exists.
+    const [main] = await tx
+      .select({ id: orgAccount.id })
+      .from(orgAccount)
+      .where(eq(orgAccount.isMain, true))
+      .limit(1);
+    if (!main) {
+      await tx
+        .insert(orgAccount)
+        .values({
+          createdAt: now,
+          id: uuidv7(),
+          isMain: true,
+          kind: "bank",
+          name: `E2E Budget Bank ${run}`,
+          updatedAt: now,
+        })
+        .onConflictDoNothing();
+    }
+    await tx.insert(programme).values({
+      code: `B${code}`,
+      createdAt: now,
+      id: programmeId,
+      name: names.programme,
+      updatedAt: now,
+    });
+    await tx.insert(project).values({
+      code: `BP${code}`,
+      createdAt: now,
+      id: projectId,
+      name: names.project,
+      programmeId,
+      updatedAt: now,
+    });
+    await tx.insert(expenseCategory).values({
+      createdAt: now,
+      id: categoryId,
+      name: names.category,
+      updatedAt: now,
+    });
+  });
+  const claim = async (
+    amountPaise: number,
+    chargedProjectId: string | null
+  ) => {
+    const id = uuidv7();
+    await db.insert(reimbursement).values({
+      approvalScreenshotKey: `attachments/approval-screenshots/reimbursements/${id}/approval-screenshots/e2e-proof.png`,
+      chargedProgrammeId: programmeId,
+      chargedProjectId,
+      chargedTo: "programme",
+      costCentreId: COST_CENTRE_IDS.bangalore,
+      createdAt: now,
+      expenseDate: "2027-05-08",
+      id,
+      reviewedAt: new Date("2027-05-10T05:00:00Z"),
+      reviewedBy: userId,
+      status: "approved",
+      title: `E2E budget claim ${run}`,
+      updatedAt: now,
+      userId,
+    });
+    await db.insert(reimbursementLineItem).values({
+      amountPaise,
+      categoryId,
+      createdAt: now,
+      description: `E2E budget claim ${run}`,
+      id: uuidv7(),
+      reimbursementId: id,
+      sortOrder: 0,
+      updatedAt: now,
+    });
+    await postIncomeSourceNow({ sourceId: id, sourceType: "reimbursement" });
+    const [entry] = await db
+      .select({ id: ledgerEntry.id })
+      .from(ledgerEntry)
+      .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+      .where(eq(posting.sourceId, id))
+      .limit(1);
+    if (!entry) {
+      throw new Error("The budget fixture's claim did not post");
+    }
+  };
+  await claim(100_000, null);
+  await claim(60_000, projectId);
+  return names;
+}
+
 async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
   await auditedFixture(yearLabel);
@@ -1110,6 +1224,8 @@ if (action === "close-year") {
 } else if (action === "gift") {
   const [, accountId, day] = process.argv.slice(2);
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
+} else if (action === "budget-fixture") {
+  result = await budgetFixture(label);
 } else if (action === "expense-fixture") {
   result = await expenseFixture(label);
 } else if (action === "edit-claim") {

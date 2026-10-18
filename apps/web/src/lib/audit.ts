@@ -80,6 +80,8 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "key",
   "kind",
   "leadUserId",
+  // A budget's lines: the field name only, never the amounts.
+  "lines",
   "parentId",
   "programmeId",
   // A vendor invoice's lines charged to a provision at approval: the head

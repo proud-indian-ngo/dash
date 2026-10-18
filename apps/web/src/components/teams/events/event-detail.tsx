@@ -6,7 +6,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
-import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Button,
+  buttonVariants,
+} from "@pi-dash/design-system/components/ui/button";
 import {
   Card,
   CardAction,
@@ -28,7 +31,7 @@ import { sumPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
@@ -59,12 +62,13 @@ import {
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDialogManager } from "@/hooks/use-dialog-manager";
 import { DATE_TIME } from "@/lib/date-formats";
+import { startDateRow } from "@/lib/event-display-utils";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
-import { EditScopeDialog } from "./edit-scope-dialog";
+import { EditScopeDialog, seriesEditScopes } from "./edit-scope-dialog";
 import {
   EventDetailsCard,
   EventLocation,
@@ -87,7 +91,10 @@ import {
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import { EventMembersSection } from "./event-members-section";
 import { EventPhotos } from "./event-photos";
-import { deriveSocialRecapMode } from "./event-social-fields";
+import {
+  deriveAttendanceMode,
+  deriveSocialRecapMode,
+} from "./event-social-fields";
 import { EventSocialRecap } from "./event-social-recap";
 import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
@@ -377,7 +384,12 @@ function useScopeDialogs(
   };
 }
 
-type EventStatus = "upcoming" | "in-progress" | "completed" | "cancelled";
+type EventStatus =
+  | "upcoming"
+  | "in-progress"
+  | "completed"
+  | "cancelled"
+  | "first-session-cancelled";
 
 const STATUS_CONFIG: Record<
   EventStatus,
@@ -388,6 +400,11 @@ const STATUS_CONFIG: Record<
 > = {
   cancelled: { label: "Cancelled", tone: "neutral" },
   completed: { label: "Completed", tone: "success" },
+  // A series page whose first session was cancelled: the series runs on.
+  "first-session-cancelled": {
+    label: "First session cancelled",
+    tone: "neutral",
+  },
   "in-progress": { label: "In progress", tone: "info" },
   upcoming: { label: "Upcoming", tone: "info" },
 };
@@ -749,7 +766,13 @@ function useEventDetailQueries(
   };
 }
 
-function SocialRecapStart({ onStart }: { onStart: () => void }) {
+function SocialRecapStart({
+  onStart,
+  pending,
+}: {
+  onStart: () => void;
+  pending: boolean;
+}) {
   return (
     <Card aria-label="Social recap" role="region" size="sm">
       <CardHeader>
@@ -758,9 +781,49 @@ function SocialRecapStart({ onStart }: { onStart: () => void }) {
           Open this session to record children, notes and photo choices.
         </CardDescription>
         <CardAction>
-          <Button onClick={onStart} size="sm" type="button" variant="outline">
+          <Button
+            disabled={pending}
+            onClick={onStart}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             Start recap
           </Button>
+        </CardAction>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function FirstSessionNotice({
+  row,
+}: {
+  row: { cancelled: boolean; id: string };
+}) {
+  if (row.cancelled) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        This series' first session was cancelled.
+      </p>
+    );
+  }
+  return (
+    <Card aria-label="First session" role="region" size="sm">
+      <CardHeader>
+        <CardTitle>First session</CardTitle>
+        <CardDescription>
+          This series' first session is saved as its own session, with its
+          volunteers, attendance and recap.
+        </CardDescription>
+        <CardAction>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            params={{ id: row.id }}
+            to="/events/$id"
+          >
+            Open this session
+          </Link>
         </CardAction>
       </CardHeader>
     </Card>
@@ -961,15 +1024,28 @@ export function EventDetail({
     materializeOccurrence
   );
 
-  const { status, isPastEvent, hasStarted, canAccessPostEventContent } =
-    deriveEventState(event, isVirtualOccurrence);
+  const eventState = deriveEventState(event, isVirtualOccurrence);
+  const { isPastEvent, hasStarted, canAccessPostEventContent } = eventState;
+  // A saved row on the series' start date is the first session (or, when
+  // cancelled, cancels it): the parent's page points there and takes no
+  // join, interest, attendance or recap of its own.
+  const firstRow = isVirtualOccurrence ? undefined : startDateRow(event);
+  const status: EventStatus = firstRow?.cancelled
+    ? "first-session-cancelled"
+    : eventState.status;
   const canCancel = hasStarted ? canCancelPast : canManage;
   const canEdit = canEditProp ?? canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
   const canPostPoll =
-    canManage && !!event.postRsvpPoll && !event.cancelledAt && !isPastEvent;
+    canManage &&
+    !!event.postRsvpPoll &&
+    !event.cancelledAt &&
+    !isPastEvent &&
+    !firstRow;
   const [postPollDialogOpen, setPostPollDialogOpen] = useState(false);
   const [isPostingPoll, setIsPostingPoll] = useState(false);
+  const [openingSession, setOpeningSession] = useState(false);
+  const openingSessionRef = useRef(false);
 
   const handlePostPollClick = () => {
     setPostPollDialogOpen(true);
@@ -1028,22 +1104,49 @@ export function EventDetail({
     parentEvent,
     editScope
   );
-  const socialRecapMode = deriveSocialRecapMode({
-    canManageAttendance,
-    // teamEvent.materialize requires events.edit or team lead.
-    canMaterialize: canManage,
-    event,
-    existingOccurrenceId: interestSessionId,
-    isPastEvent,
-    isVirtualOccurrence,
-  });
-  const startSocialRecap = () => {
+  const socialRecapMode = firstRow
+    ? null
+    : deriveSocialRecapMode({
+        canManageAttendance,
+        // teamEvent.materialize requires events.edit or team lead.
+        canMaterialize: canManage,
+        event,
+        existingOccurrenceId: interestSessionId,
+        isPastEvent,
+        isVirtualOccurrence,
+      });
+  // A saved session on the series' start date: "this and following" is
+  // the whole series there.
+  const scopes = seriesEditScopes(
+    event.seriesId ? parentEvent?.startTime : event.startTime,
+    scopeOccDate
+  );
+  const attendanceMode = firstRow
+    ? null
+    : deriveAttendanceMode({
+        canManageAttendance: Boolean(canManageAttendance),
+        canMaterialize: canManage,
+        cancelled: !!event.cancelledAt,
+        existingOccurrenceId: interestSessionId,
+        hasStarted,
+        isVirtualOccurrence,
+      });
+  const openSession = async () => {
     // Someone already materialised this date: open that row instead.
     if (interestSessionId) {
       navigate({ params: { id: interestSessionId }, to: "/events/$id" });
       return;
     }
-    materializeOccurrence();
+    // One click, one occurrence: a second click waits for the first.
+    if (openingSessionRef.current) {
+      return;
+    }
+    openingSessionRef.current = true;
+    setOpeningSession(true);
+    await materializeOccurrence().finally(() => {
+      openingSessionRef.current = false;
+      setOpeningSession(false);
+    });
   };
 
   const immichAlbumUrl = deriveImmichUrl(
@@ -1158,7 +1261,11 @@ export function EventDetail({
   const showInterestRequests =
     !hasStarted && shouldRenderInterestRequests(canManageInterest, interests);
   const showVolunteers =
-    canManageVolunteers || event.members.length > 0 || showInterestRequests;
+    canManageVolunteers ||
+    event.members.length > 0 ||
+    showInterestRequests ||
+    attendanceMode === "open" ||
+    attendanceMode === "locked";
   const detailsProps = {
     approvedCount: socialFacts.approvedCount,
     canManage,
@@ -1179,18 +1286,20 @@ export function EventDetail({
           canPostPoll={canPostPoll}
           event={event}
           interestActions={
-            <InterestSection
-              canManage={canManage}
-              canManageInterest={canManageInterest}
-              dialog={dialog}
-              event={event}
-              hasStarted={hasStarted}
-              isMember={isMember}
-              isTeamMember={isTeamMember}
-              myInterest={myInterest}
-              onJoinAsMember={handleJoinAsMember}
-              onLeaveEvent={stableOnLeaveEvent4}
-            />
+            firstRow ? null : (
+              <InterestSection
+                canManage={canManage}
+                canManageInterest={canManageInterest}
+                dialog={dialog}
+                event={event}
+                hasStarted={hasStarted}
+                isMember={isMember}
+                isTeamMember={isTeamMember}
+                myInterest={myInterest}
+                onJoinAsMember={handleJoinAsMember}
+                onLeaveEvent={stableOnLeaveEvent4}
+              />
+            )
           }
           onCancel={handleCancelClick}
           onDuplicate={stableOnDuplicate3}
@@ -1213,6 +1322,8 @@ export function EventDetail({
               </p>
             ) : null}
 
+            {firstRow ? <FirstSessionNotice row={firstRow} /> : null}
+
             {socialRecapMode === "form" ? (
               <EventSocialRecap
                 approvedPhotos={approvedPhotos}
@@ -1221,7 +1332,10 @@ export function EventDetail({
               />
             ) : null}
             {socialRecapMode === "materialize" ? (
-              <SocialRecapStart onStart={startSocialRecap} />
+              <SocialRecapStart
+                onStart={openSession}
+                pending={openingSession}
+              />
             ) : null}
 
             {canAccessPostEventContent ? null : (
@@ -1250,12 +1364,15 @@ export function EventDetail({
                 showVolunteers ? (
                   <EventMembersSection
                     canManage={canManageVolunteers}
-                    canMarkAttendance={
-                      Boolean(canManageAttendance) && hasStarted
-                    }
+                    canMarkAttendance={attendanceMode === "mark"}
                     eventId={event.id}
                     members={event.members}
                     onAddMember={handleAddMemberClick}
+                    onOpenSession={
+                      attendanceMode === "open" ? openSession : undefined
+                    }
+                    openingSession={openingSession}
+                    sessionLocked={attendanceMode === "locked"}
                     onRemoveMember={stableOnRemoveMember5}
                   >
                     {showInterestRequests && interests ? (
@@ -1286,6 +1403,7 @@ export function EventDetail({
         onOpenChange={setEditScopeDialogOpen}
         onSelect={handleEditScopeSelect}
         open={editScopeDialogOpen}
+        scopes={scopes}
         title="Edit recurring event"
       />
 
@@ -1293,6 +1411,7 @@ export function EventDetail({
         onOpenChange={setCancelScopeDialogOpen}
         onSelect={handleCancelScopeSelect}
         open={cancelScopeDialogOpen}
+        scopes={scopes}
         title="Cancel recurring event"
       />
 

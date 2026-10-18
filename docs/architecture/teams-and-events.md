@@ -76,7 +76,7 @@ Creating an event that does not start in the past notifies the team. Event Whats
 
 ### Attendance
 
-Attendance is set per member row, only after the event starts. For a series, attendance lives on each materialised occurrence, since only occurrence rows have members.
+Attendance is set per member row, only after the event starts. For a series, the first session's attendance lives on the parent row, or on its start-date row when one exists ([first session](recurring-events.md#first-session)); every later session's lives on its materialised occurrence. On a past session not yet saved, the Volunteers tab offers "Mark attendance" to people who can open it (`events.edit` or a lead), which materialises it as the social recap does; others see a hint that a lead or editor must open it first.
 
 ### Interest
 
@@ -159,5 +159,5 @@ Settings > WhatsApp groups registers groups by name and JID for teams, events, s
 | Page | Who | Notes |
 |---|---|---|
 | Home (`/`) | Every signed-in user; each panel follows its permission or team leadership | People without `requests.view_own` get a welcome card; `external_user` is redirected to `/kalakriti` |
-| Analytics (`/analytics`) | `requests.view_all` | Spending over reimbursements, advances and vendor payments |
+| Analytics (`/analytics`) | `requests.view_all` | Spending tab: reimbursements, advances and vendor payments. Outcomes tab: events held, children reached, volunteer hours and their value, with coverage notes and a breakdown by programme or team ([rules](finance-and-programmes.md#outcomes)) |
 | Scheduled messages (`/scheduled-messages`) | `messages.schedule` | Each recipient is a `send-scheduled-whatsapp` job delayed to `scheduledAt`; a message with pending recipients must be cancelled before deletion |

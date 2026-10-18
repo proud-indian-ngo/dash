@@ -3,7 +3,7 @@ import { env } from "@pi-dash/env/web";
 import { queries } from "@pi-dash/zero/queries";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { RecordNotFound } from "@/components/shared/not-found-state";
@@ -14,6 +14,7 @@ import { applyOccurrenceDate } from "@/components/teams/events/events-table-help
 import type { TeamDetailData } from "@/components/teams/team-detail";
 import { useApp } from "@/context/app-context";
 import { useRecordTitle } from "@/hooks/use-record-title";
+import { sessionOccDate, startDateRow } from "@/lib/event-display-utils";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
 
@@ -214,7 +215,7 @@ export const Route = createFileRoute("/_app/events/$id")({
 
 function EventDetailRouteComponent() {
   const { id } = Route.useParams();
-  const { occDate } = Route.useSearch();
+  const { occDate: occDateParam } = Route.useSearch();
   const { session } = Route.useRouteContext();
   const { hasPermission } = useApp();
 
@@ -303,6 +304,14 @@ function EventDetailRouteComponent() {
   const isTeamMember =
     team?.members.some((m) => m.userId === session.user.id) ?? false;
 
+  // The series parent's own date is its first session, not a virtual one.
+  const occDate = sessionOccDate(event, occDateParam);
+  // A link to the start date opens the saved row there when one is live,
+  // as sign-ups on that date land on it.
+  const firstRow = startDateRow(event);
+  if (occDateParam && !occDate && firstRow && !firstRow.cancelled) {
+    return <Navigate params={{ id: firstRow.id }} replace to="/events/$id" />;
+  }
   const { displayEvent } = deriveDisplayEvent(event, occDate);
 
   const seriesParent = deriveSeriesParent(event, parentEvent, displayEvent);
