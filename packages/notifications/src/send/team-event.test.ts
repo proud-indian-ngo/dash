@@ -97,6 +97,11 @@ describe("event WhatsApp templates", () => {
     expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
       body: "The upcoming sessions of Weekly class have been cancelled.",
       title: "❌ Upcoming sessions cancelled",
+      whatsappTemplate: {
+        name: "event_upcoming_sessions_cancelled",
+        params: { event: "Weekly class" },
+        path: "teams/team-1",
+      },
     });
   });
 
@@ -113,7 +118,10 @@ describe("event WhatsApp templates", () => {
     expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
       body: "The Weekly class session on Sat, 24 Oct, 10:00 am has been cancelled.",
       title: "❌ Session cancelled",
-      whatsappTemplate: { name: "event_cancelled" },
+      whatsappTemplate: {
+        name: "event_session_cancelled",
+        params: { event: "Weekly class", when: "Sat, 24 Oct, 10:00 am" },
+      },
     });
   });
 
@@ -131,6 +139,10 @@ describe("event WhatsApp templates", () => {
     expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
       body: "The Weekly class sessions from Sat, 24 Oct, 10:00 am onwards have been cancelled.",
       title: "❌ Sessions cancelled",
+      whatsappTemplate: {
+        name: "event_sessions_cancelled_from",
+        params: { event: "Weekly class", when: "Sat, 24 Oct, 10:00 am" },
+      },
     });
   });
 });

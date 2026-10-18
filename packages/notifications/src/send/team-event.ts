@@ -4,7 +4,10 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
-import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
+import {
+  type WhatsAppTemplateMessage,
+  whatsappTemplate,
+} from "@pi-dash/whatsapp/template-message";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
@@ -92,30 +95,54 @@ interface EventCancelledOptions {
   teamId: string;
 }
 
-/** The heading and sentence for what a cancel covered. */
+/** The heading, sentence and WhatsApp template for what a cancel covered. */
 function cancelledCopy(
   eventName: string,
   seriesEnded: boolean | undefined,
-  sessionStart: number | undefined
-): { body: string; heading: string } {
+  sessionStart: number | undefined,
+  teamPath: string
+): { body: string; heading: string; template: WhatsAppTemplateMessage } {
   if (sessionStart !== undefined) {
     const when = formatEventWhen(sessionStart);
     return seriesEnded
       ? {
           body: `The ${eventName} sessions from ${when} onwards have been cancelled.`,
           heading: "Sessions cancelled",
+          template: whatsappTemplate(
+            "event_sessions_cancelled_from",
+            { event: eventName, when },
+            teamPath
+          ),
         }
       : {
           body: `The ${eventName} session on ${when} has been cancelled.`,
           heading: "Session cancelled",
+          template: whatsappTemplate(
+            "event_session_cancelled",
+            { event: eventName, when },
+            teamPath
+          ),
         };
   }
   return seriesEnded
     ? {
         body: `The upcoming sessions of ${eventName} have been cancelled.`,
         heading: "Upcoming sessions cancelled",
+        template: whatsappTemplate(
+          "event_upcoming_sessions_cancelled",
+          { event: eventName },
+          teamPath
+        ),
       }
-    : { body: `${eventName} has been cancelled.`, heading: "Event cancelled" };
+    : {
+        body: `${eventName} has been cancelled.`,
+        heading: "Event cancelled",
+        template: whatsappTemplate(
+          "event_cancelled",
+          { event: eventName },
+          teamPath
+        ),
+      };
 }
 
 export async function notifyAddedToEvent({
@@ -349,7 +376,12 @@ export async function notifyEventCancelled({
   seriesEnded,
   sessionStart,
 }: EventCancelledOptions): Promise<void> {
-  const { body, heading } = cancelledCopy(eventName, seriesEnded, sessionStart);
+  const { body, heading, template } = cancelledCopy(
+    eventName,
+    seriesEnded,
+    sessionStart,
+    `/teams/${teamId}`
+  );
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
@@ -370,10 +402,6 @@ export async function notifyEventCancelled({
     title: `❌ ${heading}`,
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
-    whatsappTemplate: whatsappTemplate(
-      "event_cancelled",
-      { event: eventName },
-      `/teams/${teamId}`
-    ),
+    whatsappTemplate: template,
   });
 }
