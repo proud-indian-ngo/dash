@@ -41,9 +41,19 @@ export const vendorPaymentTransactionQueries = {
         "createdAt",
         "desc"
       );
-      return isExternalUser(ctx)
-        ? query.where("id", "__never_match__")
-        : query.where("vendorPaymentId", vendorPaymentId);
+      if (ctx === null || isExternalUser(ctx)) {
+        return query.where("id", "__never_match__");
+      }
+
+      const paymentTransactions = query.where(
+        "vendorPaymentId",
+        vendorPaymentId
+      );
+      return can(ctx, "requests.view_all")
+        ? paymentTransactions
+        : paymentTransactions.whereExists("vendorPayment", (payment) =>
+            payment.where("userId", ctx.userId)
+          );
     }
   ),
 };
