@@ -161,8 +161,9 @@ function AppLayout() {
         <ZeroConnectionMonitor onConnected={handleConnected} />
         <LogIdentitySync />
         <AppSidebar />
+        {/* Clip, not scroll: a stray hit area or shadow at the edge must not pan the phone page sideways. */}
         <SidebarInset
-          className="min-w-0"
+          className="min-w-0 overflow-x-clip"
           data-zero-ready={zeroConnected || undefined}
           id="main"
           tabIndex={-1}

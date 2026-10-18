@@ -174,11 +174,11 @@ function DataGridPaginationControls({
     <div
       data-slot="data-grid-pagination"
       className={cn(
-        "flex grow flex-col flex-wrap items-center justify-between gap-2.5 py-2.5 sm:flex-row sm:py-0",
+        "flex grow flex-wrap items-center justify-between gap-2.5 py-1 sm:py-0",
         mergedProps?.className
       )}
     >
-      <div className="order-2 flex flex-wrap items-center space-x-2.5 pb-2.5 sm:order-1 sm:pb-0">
+      <div className="order-2 hidden flex-wrap items-center space-x-2.5 sm:order-1 sm:flex">
         {isLoading ? (
           mergedProps?.sizesSkeleton
         ) : (
@@ -207,16 +207,16 @@ function DataGridPaginationControls({
           </>
         )}
       </div>
-      <div className="order-1 flex flex-col items-center justify-center gap-2.5 pt-2.5 sm:order-2 sm:flex-row sm:justify-end sm:pt-0">
+      <div className="order-1 flex w-full items-center justify-between gap-2.5 sm:order-2 sm:w-auto sm:justify-end">
         {isLoading ? (
           mergedProps?.infoSkeleton
         ) : (
           <>
-            <div className="text-muted-foreground text-xs order-2 text-nowrap sm:order-1" aria-live="polite" aria-atomic="true">
+            <div className="text-muted-foreground text-xs text-nowrap" aria-live="polite" aria-atomic="true">
               {paginationInfo}
             </div>
             {pageCount > 1 && (
-              <nav aria-label="Pagination" className="order-1 flex items-center space-x-1 sm:order-2">
+              <nav aria-label="Pagination" className="flex items-center space-x-1">
                 <Button
                   size="icon-sm"
                   variant="ghost"
