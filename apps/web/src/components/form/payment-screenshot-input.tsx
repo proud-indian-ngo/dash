@@ -43,7 +43,7 @@ export function PaymentScreenshotInput({
       accept="image/jpeg,image/png,image/webp"
       aria-describedby={describedBy}
       aria-required={required}
-      className="file:bg-muted text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
+      className="file:bg-muted w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
       disabled={upload.uploading}
       id={id}
       onChange={upload.handleFileChange}

@@ -92,9 +92,15 @@ export function DialogContent({
         aria-label={props["aria-label"]}
         aria-labelledby={props["aria-labelledby"]}
         aria-describedby={props["aria-describedby"]}
-        className={cn("max-h-[90vh] overflow-hidden", className)}
+        // The drawer caps itself at 80vh; dialogs get more room, measured
+        // against the visible viewport.
+        className={cn(
+          "overflow-hidden data-[swipe-direction=down]:max-h-[90dvh]",
+          className
+        )}
       >
         <div
+          data-slot="drawer-scroll"
           className={cn(
             "grid min-h-0 flex-1 touch-pan-y gap-4 overflow-y-auto overscroll-contain p-4 [-webkit-overflow-scrolling:touch]",
             bodyClassName

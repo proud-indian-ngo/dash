@@ -28,6 +28,19 @@ body {
   }
 }
 
+/*
+ * The same band in a phone drawer: the closing actions stay pinned above the
+ * home indicator while the fields scroll.
+ */
+:is(
+    [data-slot="drawer-scroll"],
+    [data-slot="drawer-scroll"] > form:last-child,
+    [data-slot="drawer-scroll"] > form:last-child > fieldset:last-child
+  )
+  > :is([data-slot="form-actions"], [data-slot="drawer-footer"]):last-child {
+  @apply bg-popover sticky -bottom-4 z-10 -mx-4 -mb-4 flex-row flex-wrap border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] *:flex-1;
+}
+
 /* Alert dialogs must render above YARL lightbox (z-index: var(--z-lightbox)) */
 body:has(.yarl__root) [data-slot="alert-dialog-overlay"],
 body:has(.yarl__root) [data-slot="alert-dialog-content"] {

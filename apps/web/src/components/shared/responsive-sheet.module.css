@@ -71,6 +71,9 @@
 .popup {
   box-sizing: border-box;
   width: 100%;
+  /* A wide child (a table, a long word) must not widen the sheet past the screen. */
+  min-width: 0;
+  max-width: 100%;
   outline: 0;
   will-change: transform;
   transform: translateY(var(--drawer-swipe-movement-y, 0px));
@@ -87,6 +90,7 @@
 
 .panel {
   position: relative;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background-color: var(--background);
@@ -152,6 +156,13 @@
 .thumb {
   width: 100%;
   background-color: color-mix(in oklch, var(--foreground) 40%, transparent);
+}
+
+/* Touch screens show their own thin overlay scrollbar; the track would sit on the content. */
+@media (pointer: coarse) {
+  .scrollbar {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
