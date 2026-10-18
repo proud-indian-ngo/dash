@@ -13,7 +13,11 @@ import { useEffect, useRef } from "react";
 
 import { ErrorState } from "@/components/shared/error-state";
 import { StandalonePage } from "@/components/shared/not-found-state";
-import { isChunkLoadError, reloadForChunkError } from "@/lib/chunk-load-error";
+import {
+  isChunkLoadError,
+  reloadClearingCache,
+  reloadForChunkError,
+} from "@/lib/chunk-load-error";
 import { getErrorReference } from "@/lib/error-reference";
 
 const loadPosthog = () => import("@/lib/posthog");
@@ -55,7 +59,7 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
 
   const retry = useEventCallback(async () => {
     if (chunkLoadFailed) {
-      window.location.reload();
+      await reloadClearingCache();
       return;
     }
     await router.invalidate();
