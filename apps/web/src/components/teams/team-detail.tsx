@@ -33,6 +33,7 @@ import { AddMemberDialog } from "@/components/teams/add-member-dialog";
 import type { EditScope } from "@/components/teams/events/edit-scope-dialog";
 import {
   EditScopeDialog,
+  seriesCancelScopes,
   seriesEditScopes,
 } from "@/components/teams/events/edit-scope-dialog";
 import { EventFormDialog } from "@/components/teams/events/event-form-dialog";
@@ -515,9 +516,11 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           onOpenChange={setCancelScopeDialogOpen}
           onSelect={handleCancelScopeSelect}
           open={cancelScopeDialogOpen}
-          scopes={seriesEditScopes(
+          scopes={seriesCancelScopes(
             cancelScopeRow?.event.startTime,
-            cancelScopeRow?.originalDate
+            cancelScopeRow?.originalDate,
+            !!cancelScopeRow &&
+              getRowDetails(cancelScopeRow).startTime <= Date.now()
           )}
           title="Cancel recurring event"
         />

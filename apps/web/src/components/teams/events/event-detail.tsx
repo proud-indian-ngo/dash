@@ -69,7 +69,11 @@ import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
-import { EditScopeDialog, seriesEditScopes } from "./edit-scope-dialog";
+import {
+  EditScopeDialog,
+  seriesCancelScopes,
+  seriesEditScopes,
+} from "./edit-scope-dialog";
 import {
   EventDetailsCard,
   EventLocation,
@@ -1127,7 +1131,11 @@ export function EventDetail({
   // the whole series there.
   const seriesStart = event.seriesId ? parentEvent?.startTime : event.startTime;
   const scopes = seriesEditScopes(seriesStart, scopeOccDate);
-  const cancelScopes = seriesEditScopes(seriesStart, cancelOccDate);
+  const cancelScopes = seriesCancelScopes(
+    seriesStart,
+    cancelOccDate,
+    hasStarted
+  );
   const attendanceMode = firstRow
     ? null
     : deriveAttendanceMode({

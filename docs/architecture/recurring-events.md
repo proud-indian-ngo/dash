@@ -47,7 +47,7 @@ The series' first session is the parent row itself (`seriesStartDate`, its UTC s
 | Scope | Edit | Cancel |
 |---|---|---|
 | `this` | Creates or updates an exception | Creates a cancelled exception |
-| `following` | Truncates the series with UNTIL, starts a new series and moves the saved sessions on or after the date to it | Truncates UNTIL, cancels saved sessions keyed on or after the date that haven't started; a started one stays as an orphaned exception |
+| `following` | Truncates the series with UNTIL, starts a new series and moves the saved sessions on or after the date to it | Truncates UNTIL, cancels saved sessions keyed on or after the date that haven't started; a started one stays as an orphaned exception. Refused ("This session has started. Cancel from a later session.") when the session on the date, or an unsaved one after it, has started, and the scope dialog doesn't offer it on a started session |
 | `all` | Updates the series parent | Cancels the upcoming sessions ("All upcoming events"; see below) |
 
 - Truncation sets `UNTIL` to the second before the split date starts in UTC (`<day before>T235959Z`). UNTIL is inclusive, so this keeps a session at exactly midnight UTC on the split date off the old series, whatever the series' wall-clock time.

@@ -851,12 +851,31 @@ export async function cancelSeriesFollowing(
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
+  const savedDates = savedDateSet(exceptions);
+  const splitStart = Date.parse(`${args.originalDate}T00:00:00Z`);
+  // A cancel never drops a session that has started: the live saved row on
+  // the date, or an unsaved session on or after it.
+  const splitRow = exceptions.find((e) => e.originalDate === args.originalDate);
+  if (
+    (splitRow && !splitRow.cancelledAt && splitRow.startTime <= args.now) ||
+    (splitStart <= args.now &&
+      expandSeries(
+        rule,
+        existing.startTime,
+        existing.endTime ?? null,
+        splitStart,
+        args.now,
+        savedDates
+      ).length > 0)
+  ) {
+    throw new Error("This session has started. Cancel from a later session.");
+  }
   const droppedUnsaved =
     firstOccurrenceDateFrom(
       rule,
       existing.startTime,
-      Date.parse(`${args.originalDate}T00:00:00Z`),
-      savedDateSet(exceptions)
+      splitStart,
+      savedDates
     ) !== null;
   await tx.mutate.teamEvent.update({
     id: args.id,

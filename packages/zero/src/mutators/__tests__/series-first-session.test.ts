@@ -1057,3 +1057,51 @@ describe("who hears of a one-session or this-and-following cancel", () => {
     expect(pollCloses()).toEqual(["later"]);
   });
 });
+
+describe("this and following from a started session", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const cancelFollowing = (db: ReturnType<typeof createDb>, date: string) =>
+    teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "following",
+        now: AFTER_THIRD,
+        originalDate: date,
+      },
+      // A fresh context: `can` caches the permission set on it.
+      ctx: {
+        asyncTasks: [],
+        permissions: ["events.cancel"],
+        role: "admin",
+        traceId: "t",
+        userId: "admin-1",
+      },
+      tx: db.tx,
+    } as never);
+
+  it("refuses an unsaved started session, even with events.cancel", async () => {
+    const db = createDb();
+    await expect(cancelFollowing(db, "2026-10-17")).rejects.toThrow(
+      "This session has started. Cancel from a later session."
+    );
+    expect(db.tables.teamEvent?.[0]?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+  });
+
+  it("refuses a saved session on the date that has started", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "moved-earlier",
+        originalDate: "2026-10-24",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+    ]);
+    await expect(cancelFollowing(db, "2026-10-24")).rejects.toThrow(
+      "This session has started."
+    );
+    expect(db.tables.teamEvent?.[1]?.cancelledAt).toBeNull();
+  });
+});
