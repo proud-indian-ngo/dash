@@ -38,4 +38,38 @@ export default defineConfig({
     "unicorn/no-thenable": "off",
     "unicorn/no-useless-spread": "off",
   },
+  overrides: [
+    {
+      // Phones get bottom drawers through the shared wrappers.
+      files: ["apps/web/src/**"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            paths: [
+              {
+                name: "@pi-dash/design-system/components/ui/dialog",
+                message:
+                  "Use @/components/shared/responsive-dialog so phones get a drawer.",
+              },
+              {
+                name: "@pi-dash/design-system/components/ui/alert-dialog",
+                message:
+                  "Use @/components/shared/responsive-alert-dialog so phones get a drawer.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        "apps/web/src/components/shared/responsive-dialog.tsx",
+        "apps/web/src/components/shared/responsive-alert-dialog.tsx",
+        // Phones get a full-height sheet: a drawer swipe would fight the pen.
+        "apps/web/src/components/reimbursements/collect-payee-signature-dialog.tsx",
+      ],
+      rules: { "no-restricted-imports": "off" },
+    },
+  ],
 });
