@@ -169,7 +169,7 @@ test("configures a Competition and its schedule from the Competition workspace",
       .first()
       .getByTestId("row-actions")
       .click();
-    await page.getByRole("menuitem", { name: "Cancel Competition" }).click();
+    await page.getByRole("menuitem", { name: "Call off Competition" }).click();
     const cancel = page.getByRole("alertdialog", {
       name: "Cancel Solo Dance?",
     });

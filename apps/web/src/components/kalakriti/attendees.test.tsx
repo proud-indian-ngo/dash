@@ -72,7 +72,7 @@ describe("attendee UI", () => {
         const negative = renderToStaticMarkup(
           <AttendeeStatus row={{ ...row, operations: [] }} type={type} ready />
         );
-        expect(negative).toContain("text-destructive");
+        expect(negative).toContain("text-muted-foreground inline-flex");
         expect(negative).toContain("<svg");
         expect(negative).toContain(
           `aria-label="${type === "attendee_check_in" ? "Not checked in" : "Not served"}"`

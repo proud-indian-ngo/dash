@@ -33,7 +33,8 @@ import { getInventoryAssignmentOptions } from "@/lib/kalakriti-inventory-assignm
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { EventDayQrScanner } from "./event-day-qr-scanner";
-import { ManualScanEntry } from "./manual-scan-entry";
+import { ManualScanEntry, normalizeManualScanId } from "./manual-scan-entry";
+import { ScanResultCard, useScanResult } from "./scan-result-card";
 
 const batchFormSchema = z.object({
   selection: z.string(),
@@ -69,6 +70,7 @@ export function InventoryScanPanel({
     connection.name === "connected" &&
     edition?.id === editionId &&
     edition.lifecycle !== "archived";
+  const { result: lastScan, show } = useScanResult();
   const scan = useEventCallback((value: string) => {
     if (!ready || volunteer) return;
     let person: ReturnType<typeof parseKalakritiPersonQr>;
@@ -82,18 +84,30 @@ export function InventoryScanPanel({
         error: "Invalid volunteer QR",
         errorType: error instanceof Error ? error.name : "unknown",
       });
-      toast.error("Scan a valid volunteer QR code", {
-        id: "inventory-scan-invalid",
-      });
+      show(
+        {
+          subject: `invalid:${value}`,
+          tone: "error",
+          title: "Not a person QR code",
+          detail: "Scan the QR code on a Volunteer's ID card.",
+        },
+        "camera"
+      );
       return;
     }
     if (
       person.type !== "volunteer" ||
       !volunteers.some((row) => row.id === person.id)
     ) {
-      toast.error("Scan an active volunteer from this Edition", {
-        id: "inventory-scan-invalid",
-      });
+      show(
+        {
+          subject: `not-volunteer:${person.id}`,
+          tone: "error",
+          title: "Not an active Volunteer",
+          detail: "Scan an active Volunteer from this Edition.",
+        },
+        "camera"
+      );
       return;
     }
     setVolunteerId(person.id);
@@ -103,13 +117,21 @@ export function InventoryScanPanel({
     validators: { onChange: manualSchema, onSubmit: manualSchema },
     onSubmit: ({ value }) => {
       if (!ready) return;
+      const humanId = normalizeManualScanId(value.humanId);
       const person = volunteers.find(
-        (row) =>
-          row.humanId?.toLowerCase() === value.humanId.trim().toLowerCase()
+        (row) => row.humanId?.toUpperCase() === humanId
       );
       if (person) setVolunteerId(person.id);
       else
-        toast.error("No active volunteer with this yearly ID in this Edition");
+        show(
+          {
+            subject: `not-volunteer:${humanId}`,
+            tone: "error",
+            title: humanId,
+            detail: "No active Volunteer with this yearly ID in this Edition.",
+          },
+          "manual"
+        );
     },
   });
   if (edition?.lifecycle === "archived")
@@ -156,29 +178,18 @@ export function InventoryScanPanel({
         <Loader />
       ) : (
         <div className="space-y-3">
-          <div className="space-y-2">
-            <h3 className="mb-2 text-sm font-medium">Scan volunteer QR</h3>
-            {ready ? <EventDayQrScanner onScan={scan} /> : null}
-          </div>
-          <ManualScanEntry>
-            <FormLayout form={form}>
-              <InputField
-                autoComplete="off"
-                isRequired
-                label="Volunteer yearly ID"
-                name="humanId"
-                placeholder="Enter the ID on the volunteer card"
-                disabled={!ready}
-              />
-              <FormActions
-                // Scan panels sit at the screen edge where toasts appear;
-                // keep the action left so a toast never covers the next scan.
-                className="justify-start"
-                submitLabel="Find volunteer"
-                disabled={!ready}
-              />
-            </FormLayout>
-          </ManualScanEntry>
+          <h3 className="text-sm font-medium max-md:sr-only">
+            Scan volunteer QR
+          </h3>
+          {ready ? <EventDayQrScanner onScan={scan} /> : null}
+          <ScanResultCard result={lastScan} />
+          <ManualScanEntry
+            disabled={!ready}
+            form={form}
+            label="Volunteer yearly ID"
+            placeholder={`KALV-${year}-0001`}
+            submitLabel="Find volunteer"
+          />
         </div>
       )}
     </div>
@@ -354,6 +365,7 @@ function InventoryBatchForm({
                     <InputField
                       name={`items[${index}].quantity`}
                       label={`${item?.name ?? "Unavailable item"} quantity`}
+                      inputMode="numeric"
                       type="number"
                       min={1}
                       max={

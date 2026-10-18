@@ -43,7 +43,7 @@ mock.module("@rocicorp/zero/react", () => ({
   useZero: () => ({}),
   useConnectionState: () => ({ name: online ? "connected" : "disconnected" }),
 }));
-mock.module("@pi-dash/design-system/components/ui/dialog", () => ({
+mock.module("@/components/shared/responsive-dialog", () => ({
   Dialog: pass,
   DialogContent: pass,
   DialogHeader: pass,
@@ -73,9 +73,6 @@ mock.module("@/components/kalakriti/event-day-qr-scanner", () => ({
       Camera couldn't start. Enter the yearly ID manually instead.
     </p>
   ),
-}));
-mock.module("@/components/kalakriti/manual-scan-entry", () => ({
-  ManualScanEntry: pass,
 }));
 mock.module("@/components/shared/confirm-dialog", () => ({
   ConfirmDialog: () => null,

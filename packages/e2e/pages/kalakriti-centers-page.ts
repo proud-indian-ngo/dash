@@ -89,7 +89,7 @@ export class KalakritiCentersPage {
       name: "Student registration",
     });
     const participation = dialog.getByRole("switch", {
-      name: "Event participation registration",
+      name: "Participation registration",
     });
     if ((await students.isChecked()) !== options.students) {
       await students.click();

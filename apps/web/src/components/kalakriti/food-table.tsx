@@ -1,4 +1,4 @@
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { MinusSignIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -137,12 +137,12 @@ export function FoodMealStatus({
       className={
         label === "Served"
           ? "text-success-foreground inline-flex"
-          : "text-destructive inline-flex"
+          : "text-muted-foreground inline-flex"
       }
     >
       <HugeiconsIcon
         aria-hidden="true"
-        icon={label === "Served" ? Tick02Icon : Cancel01Icon}
+        icon={label === "Served" ? Tick02Icon : MinusSignIcon}
         className="size-5"
         strokeWidth={2}
       />

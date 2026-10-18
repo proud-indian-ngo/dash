@@ -64,7 +64,7 @@ function Guardians({
                   <dd>
                     {guardian.phone ? (
                       <a
-                        className="text-primary underline"
+                        className="text-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
                         href={`tel:${guardian.phone}`}
                       >
                         {guardian.phone}
@@ -79,7 +79,7 @@ function Guardians({
                   <dd className="break-all">
                     {guardian.email ? (
                       <a
-                        className="text-primary underline"
+                        className="text-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
                         href={`mailto:${guardian.email}`}
                       >
                         {guardian.email}
@@ -212,7 +212,7 @@ function CenterSheetDetails({
           <dd>
             {center.googleMapsUrl?.startsWith("https://") ? (
               <a
-                className="text-primary underline"
+                className="text-primary underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
                 href={center.googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"

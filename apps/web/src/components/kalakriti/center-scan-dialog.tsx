@@ -1,6 +1,10 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
+  Progress,
+  ProgressLabel,
+} from "@pi-dash/design-system/components/ui/progress";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -16,14 +20,17 @@ import { useConnectionState, useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 import z from "zod";
 
-import { FormActions } from "@/components/form/form-actions";
-import { FormLayout } from "@/components/form/form-layout";
-import { InputField } from "@/components/form/input-field";
 import { EventDayQrScanner } from "@/components/kalakriti/event-day-qr-scanner";
-import { ManualScanEntry } from "@/components/kalakriti/manual-scan-entry";
+import {
+  ManualScanEntry,
+  normalizeManualScanId,
+} from "@/components/kalakriti/manual-scan-entry";
+import {
+  ScanResultCard,
+  useScanResult,
+} from "@/components/kalakriti/scan-result-card";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -31,7 +38,10 @@ import {
   createEventDayRecordingLedger,
   type StudentTransportCheckpoint,
 } from "@/lib/kalakriti-event-day-recording";
-import { handleMutationResult } from "@/lib/mutation-result";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 
 const STAGE_LABELS: Record<StudentTransportCheckpoint, string> = {
   pickup: "Pickup",
@@ -88,7 +98,7 @@ export function CenterScanPanel({
   return (
     <div className="space-y-4">
       {availableCenters.length === 1 ? (
-        <div className="space-y-2">
+        <div className="flex items-baseline gap-2">
           <p className="text-sm font-medium">Center</p>
           <p>{availableCenters[0]!.name}</p>
         </div>
@@ -199,7 +209,7 @@ async function recordStudent(
   humanId: string | undefined,
   editionId: string,
   centerId: string
-) {
+): Promise<string | null> {
   try {
     const response = humanId
       ? await zero.mutate(
@@ -220,9 +230,12 @@ async function recordStudent(
         ? "kalakritiCenterScan.recordManual"
         : "kalakritiCenterScan.record",
       errorMsg: "Student could not be marked",
-      successMsg: `${student.name} marked`,
+      showErrorToast: false,
     });
     attempt.finish(response.type !== "error");
+    return response.type === "error"
+      ? getMutationResultErrorMessage(response.error, "Try again.")
+      : null;
   } catch (error) {
     attempt.finish(false);
     log.error({
@@ -234,7 +247,7 @@ async function recordStudent(
       error: "Student scan request failed",
       errorType: error instanceof Error ? error.name : "unknown",
     });
-    toast.error("Student could not be marked. Try again.");
+    return "The request failed. Try again.";
   }
 }
 
@@ -271,45 +284,90 @@ function ActiveCenterScanSession({
   const busyRef = useRef(false);
   const [recording, setRecording] = useState(false);
 
+  const { result, show } = useScanResult();
+
   const record = useEventCallback(
-    async ({ personId, humanId }: { personId?: string; humanId?: string }) => {
+    async ({
+      personId,
+      humanId,
+    }: {
+      personId?: string;
+      humanId?: string;
+    }): Promise<boolean> => {
       if (!canRecord || !sessionStage || busyRef.current || endedRef.current)
-        return;
+        return false;
+      const source = humanId ? "manual" : "camera";
       const student = progress.roster.find((candidate) =>
         personId ? candidate.id === personId : candidate.humanId === humanId
       );
       if (!student) {
-        toast.error("Student is not registered at this Center", {
-          id: "center-scan-student",
-        });
-        return;
+        show(
+          {
+            subject: `unknown:${personId ?? humanId}`,
+            tone: "error",
+            title: humanId ?? "Student not found",
+            detail: "Not registered at this Center.",
+          },
+          source
+        );
+        return false;
       }
+      const subject = `student:${student.id}`;
+      const alreadyMarked = {
+        subject,
+        tone: "repeat",
+        title: student.name,
+        detail: `${student.humanId} · Already marked`,
+      } as const;
       if (
         progress.scannedStudents.some(
           (candidate) => candidate.id === student.id
         )
       ) {
-        if (humanId) toast.message(`${student.name} is already marked`);
-        return;
+        show(alreadyMarked, source);
+        return false;
       }
       const attempt = ledger.begin({
         editionId,
         centerId,
         expectedStage: sessionStage,
-        subjectKey: `student:${student.id}`,
+        subjectKey: subject,
       });
       if (attempt.status !== "ready") {
-        if (humanId && attempt.status === "recorded")
-          toast.message(`${student.name} is already marked`);
-        return;
+        if (attempt.status === "recorded") show(alreadyMarked, source);
+        return false;
       }
       busyRef.current = true;
       setRecording(true);
       onBusyChange(true);
-      await recordStudent(zero, attempt, student, humanId, editionId, centerId);
+      const error = await recordStudent(
+        zero,
+        attempt,
+        student,
+        humanId,
+        editionId,
+        centerId
+      );
+      show(
+        error
+          ? {
+              subject,
+              tone: "error",
+              title: `${student.name} not marked`,
+              detail: error,
+            }
+          : {
+              subject,
+              tone: "success",
+              title: student.name,
+              detail: `${student.humanId} · Marked for ${STAGE_LABELS[sessionStage].toLowerCase()}`,
+            },
+        source
+      );
       busyRef.current = false;
       setRecording(false);
       onBusyChange(false);
+      return error === null;
     }
   );
   const handleScan = useEventCallback(async (value: string) => {
@@ -325,13 +383,27 @@ function ActiveCenterScanSession({
         centerId,
         error: "Invalid person QR",
       });
-      toast.error("Scan a valid Student QR code", {
-        id: "center-scan-invalid",
-      });
+      show(
+        {
+          subject: `invalid:${value}`,
+          tone: "error",
+          title: "Not a person QR code",
+          detail: "Scan the QR code on a Student's ID card.",
+        },
+        "camera"
+      );
       return;
     }
     if (person.type !== "student") {
-      toast.error("Scan a Student QR code", { id: "center-scan-invalid" });
+      show(
+        {
+          subject: `wrong-type:${person.id}`,
+          tone: "error",
+          title: "Not a Student QR code",
+          detail: "Transport marks Students only.",
+        },
+        "camera"
+      );
       return;
     }
     await record({ personId: person.id });
@@ -340,7 +412,9 @@ function ActiveCenterScanSession({
     defaultValues: { humanId: "" },
     validators: { onChange: manualSchema, onSubmit: manualSchema },
     onSubmit: async ({ value }) => {
-      await record({ humanId: value.humanId.trim() });
+      // Clear the field after a mark so the next ID can be typed straight away.
+      if (await record({ humanId: normalizeManualScanId(value.humanId) }))
+        form.reset();
     },
   });
   const finishAction = useConfirmAction<{ stage: StudentTransportCheckpoint }>({
@@ -429,59 +503,48 @@ function ActiveCenterScanSession({
               Scan again when you're ready for the next part of the trip.
             </p>
           ) : null}
-          {sessionStage === "pickup" && !sessionChanged ? (
-            <p className="text-muted-foreground text-sm">
-              Mark everyone traveling before finishing pickup; unmarked Students
-              won't continue to later stages.
-            </p>
-          ) : null}
           {progress.stage && !sessionChanged ? (
             <div aria-live="polite">
-              <p>
-                {progress.scannedStudents.length} of {progress.roster.length}{" "}
-                Students marked
-              </p>
-              <progress
+              <Progress
                 aria-label="Stage progress"
-                className="w-full"
+                aria-valuetext={`${progress.scannedStudents.length} of ${progress.roster.length} Students marked`}
                 max={Math.max(progress.roster.length, 1)}
                 value={progress.scannedStudents.length}
-              />
+              >
+                <ProgressLabel>
+                  {progress.scannedStudents.length} of {progress.roster.length}{" "}
+                  Students marked
+                </ProgressLabel>
+              </Progress>
             </div>
           ) : null}
           {progress.stage && !sessionChanged && progress.roster.length === 0 ? (
             <p>No Students are registered at this Center.</p>
           ) : null}
           <div className="space-y-3">
-            <div className="space-y-2">
-              <h3 className="mb-2 text-sm font-medium">Scan Student QR</h3>
-              {canRecord ? <EventDayQrScanner onScan={handleScan} /> : null}
-            </div>
-            <ManualScanEntry>
-              <FormLayout form={form}>
-                <fieldset className="space-y-3" disabled={disabled}>
-                  <InputField
-                    autoComplete="off"
-                    isRequired
-                    label="Yearly ID"
-                    name="humanId"
-                    placeholder={`KAL-${year}-0001`}
-                  />
-                  <FormActions
-                    // Scan panels sit at the screen edge where toasts appear;
-                    // keep the action left so a toast never covers the next scan.
-                    className="justify-start"
-                    submitLabel="Mark Student"
-                    submittingLabel="Marking..."
-                    disabled={disabled}
-                  />
-                </fieldset>
-              </FormLayout>
-            </ManualScanEntry>
+            <h3 className="text-sm font-medium max-md:sr-only">
+              Scan Student QR
+            </h3>
+            {canRecord ? <EventDayQrScanner onScan={handleScan} /> : null}
+            <ScanResultCard result={result} />
+            <ManualScanEntry
+              disabled={disabled}
+              form={form}
+              label="Yearly ID"
+              placeholder={`KAL-${year}-0001`}
+              submitLabel="Mark Student"
+              submittingLabel="Marking..."
+            />
           </div>
           {progress.stage && !sessionChanged ? (
             <>
               <h3 className="text-sm font-medium">Missing Students</h3>
+              {sessionStage === "pickup" ? (
+                <p className="text-muted-foreground text-sm">
+                  Mark everyone traveling before finishing pickup; unmarked
+                  Students won't continue to later stages.
+                </p>
+              ) : null}
               {progress.missingStudents.length ? (
                 <ul className="max-h-44 overflow-y-auto">
                   {progress.missingStudents.map((student) => (

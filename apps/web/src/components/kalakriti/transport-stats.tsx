@@ -39,12 +39,15 @@ export function TransportStats({
   complete,
   scopeKey,
   scopeLabel,
+  showStages,
   onReviewMissing,
 }: {
   centers: readonly TransportCenter[];
   complete: boolean;
   scopeKey: string;
   scopeLabel: string;
+  /** Stages are only finalized on event day; before it every bar reads 0. */
+  showStages: boolean;
   onReviewMissing: () => void;
 }) {
   const current = useMemo(
@@ -89,7 +92,7 @@ export function TransportStats({
           { label: "Assigned vehicles", value: counts?.vehicles },
         ]}
       />
-      {counts ? (
+      {counts && showStages ? (
         <div className="space-y-3">
           <p className="text-muted-foreground text-xs">
             Finalized stages across active Centers. Each stage has its own

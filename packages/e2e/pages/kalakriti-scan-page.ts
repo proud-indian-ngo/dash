@@ -75,13 +75,7 @@ export class KalakritiScanPage {
     ).toContainText(name);
   }
   async manual(humanId: string) {
-    const input = this.dialog.getByLabel("Yearly ID");
-    if (!(await input.isVisible())) {
-      await this.dialog
-        .getByRole("button", { name: "Enter ID manually", exact: true })
-        .click();
-    }
-    await input.fill(humanId);
+    await this.dialog.getByLabel("Yearly ID").fill(humanId);
     await this.dialog
       .getByRole("button", { name: "Mark Student", exact: true })
       .click();

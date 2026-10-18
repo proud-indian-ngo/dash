@@ -174,6 +174,10 @@ Go-live is offered only from `registration_locked`. It is blocked until registra
 
 The Scan modal's tabs are the union of the operator's activities. Tabs are a convenience; the server decides.
 
+- Phones get a full-height sheet: an activity select (remembered per device), the camera, a last-result card and the typed-ID field, always open.
+- The card replaces toasts. Camera frames of the subject already on the card never replace it with "already recorded"; typed IDs always do.
+- Server lookups match `humanId` exactly, so the client upper-cases typed yearly IDs and lower-cases record UUIDs first.
+
 | Activity | Staff | Subject | Lifecycle |
 | --- | --- | --- | --- |
 | Transport | Administrators, Transport Leads, scoped Liaisons | Center roster at the pinned stage | Live |

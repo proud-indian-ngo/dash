@@ -366,14 +366,14 @@ describe("Food table", () => {
     expect(cell(granted, "lunch")).not.toContain("button");
     expect(cell(food(data), "breakfast")).not.toContain("button");
   });
-  it("renders accessible green checks and red crosses with tooltip labels", () => {
+  it("renders accessible green checks and muted dashes with tooltip labels", () => {
     for (const label of ["Served", "Not served"] as const) {
       const html = renderToStaticMarkup(<FoodMealStatus label={label} />);
       expect(html).toContain(`aria-label="${label}"`);
       expect(html).toContain(`title="${label}"`);
       expect(html).toContain('role="img"');
       expect(html).toContain(
-        label === "Served" ? "text-success-foreground" : "text-destructive"
+        label === "Served" ? "text-success-foreground" : "text-muted-foreground"
       );
     }
   });
@@ -416,7 +416,7 @@ describe("Food table", () => {
 });
 
 describe("Volunteer Checked in column", () => {
-  it("shows accessible read-only check/cross icons without duplicating the column", () => {
+  it("shows accessible read-only check/dash icons without duplicating the column", () => {
     const checked = volunteerTable([mark("volunteer_check_in")]);
     const unchecked = volunteerTable([]);
     expect(
@@ -424,7 +424,7 @@ describe("Volunteer Checked in column", () => {
     ).toHaveLength(1);
     for (const [result, label, color] of [
       [checked, "Checked in", "text-success-foreground"],
-      [unchecked, "Not checked in", "text-destructive"],
+      [unchecked, "Not checked in", "text-muted-foreground"],
     ] as const) {
       expect(result.markup).toContain(`aria-label="${label}"`);
       expect(result.markup).toContain(`title="${label}"`);

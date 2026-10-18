@@ -127,12 +127,6 @@ async function manual(
   humanId: string,
   button: string
 ) {
-  const manualToggle = scanner.dialog.getByRole("button", {
-    name: "Enter ID manually",
-    exact: true,
-  });
-  if ((await manualToggle.getAttribute("aria-expanded")) !== "true")
-    await manualToggle.click();
   await scanner.dialog.getByLabel("Yearly ID").fill(humanId);
   await scanner.dialog
     .getByRole("button", { name: button, exact: true })
@@ -180,14 +174,8 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     const food = await openScanner(foodContext, data.year);
     await expect(food.dialog.getByRole("tab")).toHaveCount(0);
     await expect(
-      food.dialog.getByRole("button", { name: "Record meal", exact: true })
-    ).toHaveCount(0);
-    await expect(
       food.dialog.getByRole("button", { name: "Record check-in", exact: true })
     ).toHaveCount(0);
-    await food.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
     await expect(
       food.dialog.getByRole("button", { name: "Record meal", exact: true })
     ).toBeVisible();
@@ -201,27 +189,9 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         name: "Record check-in",
         exact: true,
       })
-    ).toHaveCount(0);
-    await hospitality.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
-    await expect(
-      hospitality.dialog.getByRole("button", {
-        name: "Record check-in",
-        exact: true,
-      })
     ).toBeVisible();
     const attendance = await openScanner(attendanceContext, data.year);
     await expect(attendance.dialog.getByRole("tab")).toHaveCount(0);
-    await expect(
-      attendance.dialog.getByRole("button", {
-        name: "Record attendance",
-        exact: true,
-      })
-    ).toHaveCount(0);
-    await attendance.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
     await expect(attendance.dialog.getByLabel("Yearly ID")).toBeDisabled();
     await expect(
       attendance.dialog.getByRole("button", {
@@ -448,15 +418,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         name: "Record attendance",
         exact: true,
       })
-    ).toHaveCount(0);
-    await admin.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
-    await expect(
-      admin.dialog.getByRole("button", {
-        name: "Record attendance",
-        exact: true,
-      })
     ).toBeDisabled();
     await chooseSession(admin, "Station Singing");
     holdOperations = true;
@@ -537,12 +498,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     const recorded = await state();
     await admin.holdFrame();
     await fixture("close");
-    await expect(
-      admin.dialog.getByRole("button", { name: "Record meal", exact: true })
-    ).toHaveCount(0);
-    await admin.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
     await expect(
       admin.dialog.getByRole("button", {
         name: "Record meal",

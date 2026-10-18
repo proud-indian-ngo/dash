@@ -56,7 +56,7 @@ test("configures Age Categories with shared Center limits", async ({
     await overlapDialog.getByLabel("Display order").fill("1");
     await expect(page.getByText("Age range overlaps Junior")).toBeVisible();
     await expect(
-      overlapDialog.getByRole("button", { name: "Create Category" })
+      overlapDialog.getByRole("button", { name: "Create Age Category" })
     ).toBeDisabled();
     await overlapDialog.getByRole("button", { name: "Cancel" }).click();
 

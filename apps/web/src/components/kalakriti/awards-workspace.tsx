@@ -142,15 +142,11 @@ export function AwardsWorkspace({
         title="Awards"
         meta={
           <p>
-            Hand over prizes to winners once their Competition's results are
-            published.
+            Hand over prizes to published Competition winners and runners-up.
+            Each Student is tracked separately, including group Entry members.
           </p>
         }
       />
-      <p className="text-muted-foreground max-w-3xl text-sm">
-        Hand over prizes for published Competition winners and runners-up. Each
-        student is tracked separately, including members of group entries.
-      </p>
       <SummaryMetricCards
         label="Award handover summary"
         metrics={[

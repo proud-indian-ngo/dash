@@ -1,6 +1,6 @@
 import {
   Archive02Icon,
-  Cancel01Icon,
+  MinusSignIcon,
   Delete02Icon,
   Edit02Icon,
   Tick02Icon,
@@ -71,12 +71,12 @@ export function AttendeeStatus({
         className={
           yes
             ? "text-success-foreground inline-flex"
-            : "text-destructive inline-flex"
+            : "text-muted-foreground inline-flex"
         }
       >
         <HugeiconsIcon
           aria-hidden="true"
-          icon={yes ? Tick02Icon : Cancel01Icon}
+          icon={yes ? Tick02Icon : MinusSignIcon}
           className="size-5"
           strokeWidth={2}
         />

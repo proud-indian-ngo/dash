@@ -93,11 +93,6 @@ export class KalakritiInventoryPage {
     const input = dialog.getByRole("textbox", {
       name: "Volunteer yearly ID",
     });
-    if (!(await input.isVisible())) {
-      await dialog
-        .getByRole("button", { name: "Enter ID manually", exact: true })
-        .click();
-    }
     await input.fill(humanId);
     await dialog.getByRole("button", { name: "Find volunteer" }).click();
     const profile = dialog.getByRole("region", { name: "Scanned volunteer" });

@@ -1,4 +1,9 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { parseKalakritiPersonQr } from "@pi-dash/shared/kalakriti-person-qr";
 import { useForm } from "@tanstack/react-form";
@@ -22,7 +27,6 @@ import { validateBlankIdCard } from "@/functions/kalakriti-blank-id-card";
 
 import { AttendeeFormDialog } from "./attendee-form-dialog";
 import { EventDayQrScanner } from "./event-day-qr-scanner";
-import { ManualScanEntry } from "./manual-scan-entry";
 import { RegisterVolunteerCardDialog } from "./register-volunteer-card-dialog";
 
 const manualQrSchema = z.object({
@@ -194,14 +198,29 @@ export function RegisterIdCardDialog({
               {error}
             </p>
           ) : null}
-          <ManualScanEntry>
-            <ManualQrForm
-              disabled={checking}
-              key={formKey}
-              onCancel={() => handleOpenChange(false)}
-              onScan={handleScan}
-            />
-          </ManualScanEntry>
+          {/* Pasting a QR value is a rare admin fallback, so it stays folded. */}
+          <Collapsible>
+            <CollapsibleTrigger
+              render={
+                <Button
+                  className="w-full justify-between"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              Enter ID manually
+              <span aria-hidden="true">+</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <ManualQrForm
+                disabled={checking}
+                key={formKey}
+                onCancel={() => handleOpenChange(false)}
+                onScan={handleScan}
+              />
+            </CollapsibleContent>
+          </Collapsible>
         </DialogContent>
       </Dialog>
       {registration?.type === "guest" || registration?.type === "judge" ? (

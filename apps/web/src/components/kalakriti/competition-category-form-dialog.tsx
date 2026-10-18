@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -16,6 +9,13 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const categorySchema = z.object({
@@ -90,6 +90,7 @@ function CategoryForm({
         isRequired
         label="Display order"
         name="sortOrder"
+        inputMode="numeric"
         type="number"
       />
       <FormActions

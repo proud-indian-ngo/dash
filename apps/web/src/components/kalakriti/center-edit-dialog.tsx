@@ -4,7 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
+} from "@/components/shared/responsive-dialog";
 
 import { CenterEditAssignments } from "./center-edit-assignments";
 import { CenterDetailsForm } from "./center-form-dialog";
@@ -34,7 +34,7 @@ export function CenterEditDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl md:max-h-[85dvh] md:overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Center</DialogTitle>
           <DialogDescription>

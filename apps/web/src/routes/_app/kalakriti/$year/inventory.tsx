@@ -1,12 +1,5 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import {
   Tabs,
   TabsList,
   TabsTrigger,
@@ -35,6 +28,13 @@ import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-heade
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import {
@@ -80,7 +80,7 @@ function ItemHistory({
   );
   return (
     <Dialog onOpenChange={onOpenChange} open={true}>
-      <DialogContent className="max-h-[90dvh] max-w-[95vw] overflow-auto sm:max-w-[95vw]">
+      <DialogContent className="md:max-h-[90dvh] md:max-w-[95vw] md:overflow-auto">
         <DialogHeader>
           <DialogTitle>{item.name} history</DialogTitle>
           <DialogDescription>

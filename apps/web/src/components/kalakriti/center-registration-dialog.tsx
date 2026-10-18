@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -16,6 +9,13 @@ import z from "zod";
 import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -129,7 +129,7 @@ export function CenterRegistrationForm({
       />
       <CheckboxField
         description="Allows competition participation entries for registered students."
-        label="Event participation registration"
+        label="Participation registration"
         name="competitionEntryRegistrationEnabled"
       />
       <form.Subscribe selector={selectRegistrationValues}>
@@ -177,8 +177,8 @@ export function CenterRegistrationDialog({
         <DialogHeader>
           <DialogTitle>Registration controls</DialogTitle>
           <DialogDescription>
-            Student and event participation registration are controlled
-            independently for {center ? center.name : "this Center"}.
+            Student and participation registration are controlled independently
+            for {center ? center.name : "this Center"}.
           </DialogDescription>
         </DialogHeader>
         {center ? (

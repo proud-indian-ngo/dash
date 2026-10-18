@@ -15,11 +15,12 @@ import { format } from "date-fns";
 import { useMemo } from "react";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
+import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
-import { TIME } from "@/lib/date-formats";
+import { DAY_MONTH_TIME } from "@/lib/date-formats";
 
 import type { CenterTransportAssignment } from "./center-transport-section";
 import { useTransportStatusSnapshot } from "./use-transport-status-snapshot";
@@ -113,6 +114,32 @@ function searchTransport(row: TransportRow, query: string) {
     .includes(query.trim().toLowerCase());
 }
 
+function PickupTime({ value }: { value: number }) {
+  const compact = useCompactTable();
+  const time = format(new Date(value), DAY_MONTH_TIME);
+  return compact ? `Pickup ${time}` : time;
+}
+
+function DriverPhone({
+  driverName,
+  phone,
+}: {
+  driverName: string | null;
+  phone: string | null;
+}) {
+  const compact = useCompactTable();
+  // A phone card skips the line rather than showing a lone dash.
+  if (!phone) return compact ? null : "—";
+  return (
+    <a
+      className="text-primary underline-offset-4 hover:underline"
+      href={`tel:${phone.replaceAll(/[^\d+]/g, "")}`}
+    >
+      {compact && driverName ? `${driverName} · ${phone}` : phone}
+    </a>
+  );
+}
+
 export function TransportTable({
   centers,
   complete,
@@ -171,12 +198,23 @@ export function TransportTable({
               Google Maps
             </a>
           );
+        if (key === "driverPhone")
+          return (
+            <DriverPhone
+              driverName={row.original.assignment?.driverName ?? null}
+              phone={typeof value === "string" && value ? value : null}
+            />
+          );
         return value || "—";
       },
       meta: {
-        ...(key === "center" || key === "status"
+        // Phone cards lead with what a Guardian checks on the day: when the
+        // vehicle comes, which one, and how to call its driver.
+        ...(key === "center" || key === "vehicleLabel" || key === "driverPhone"
           ? { compact: "primary" as const }
-          : {}),
+          : key === "status"
+            ? { compact: "trailing" as const }
+            : {}),
         headerTitle: title,
         ...(key === "center" ? { icon: COLUMN_ICONS.center } : {}),
         skeleton: <Skeleton className="h-5 w-28" />,
@@ -195,10 +233,13 @@ export function TransportTable({
       />
     ),
     cell: ({ row }) =>
-      row.original.assignment?.pickupTime == null
-        ? "—"
-        : format(new Date(row.original.assignment.pickupTime), TIME),
+      row.original.assignment?.pickupTime == null ? (
+        "—"
+      ) : (
+        <PickupTime value={row.original.assignment.pickupTime} />
+      ),
     meta: {
+      compact: "primary",
       headerTitle: "Pickup time",
       kind: "date",
       skeleton: <Skeleton className="h-5 w-28" />,

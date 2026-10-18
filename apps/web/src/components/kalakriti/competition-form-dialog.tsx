@@ -8,13 +8,6 @@ import {
   ComboboxList,
   useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   hasValidKalakritiGroupRules,
@@ -38,6 +31,13 @@ import {
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { previewCompetitionSchedules } from "@/lib/kalakriti-competition-schedule";
 import { formatEditionDateTime } from "@/lib/kalakriti-schedule-time";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -348,13 +348,14 @@ function CompetitionForm({
             isRequired
             label="Minimum group size"
             name="minimumGroupSize"
+            inputMode="numeric"
             type="number"
           />
           <InputField
-            description="Use 1 for an individual Competition."
             isRequired
             label="Maximum group size"
             name="maximumGroupSize"
+            inputMode="numeric"
             type="number"
           />
         </div>

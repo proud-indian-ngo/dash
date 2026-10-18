@@ -1377,9 +1377,6 @@ test("Guardian yearly IDs remain stable on invite retry and support legacy and y
       await cell(food, rowFor(food, "Union Guardian"), "Person ID")
     ).toHaveText(guardian.humanId!);
     await scanner.open();
-    await scanner.dialog
-      .getByRole("button", { name: "Enter ID manually", exact: true })
-      .click();
     const manual = scanner.dialog.getByLabel("Yearly ID");
     await manual.fill(guardian.humanId!);
     await scanner.dialog

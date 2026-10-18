@@ -1,11 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
@@ -15,6 +8,13 @@ import { toast } from "sonner";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { blankIdCardPagesSchema } from "@/lib/kalakriti-blank-id-cards";
 
 interface BlankIdCardDownloadFormProps {
@@ -119,6 +119,7 @@ function BlankIdCardDownloadForm({
         min={0}
         name="volunteerPages"
         step={1}
+        inputMode="numeric"
         type="number"
       />
       <InputField
@@ -127,6 +128,7 @@ function BlankIdCardDownloadForm({
         min={0}
         name="guestPages"
         step={1}
+        inputMode="numeric"
         type="number"
       />
       <InputField
@@ -135,6 +137,7 @@ function BlankIdCardDownloadForm({
         min={0}
         name="judgePages"
         step={1}
+        inputMode="numeric"
         type="number"
       />
       <FormActions

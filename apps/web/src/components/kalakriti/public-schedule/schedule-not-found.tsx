@@ -1,18 +1,25 @@
+import { Calendar03Icon } from "@hugeicons/core-free-icons";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Link } from "@tanstack/react-router";
+
+import {
+  NotFoundState,
+  StandalonePage,
+} from "@/components/shared/not-found-state";
+
 export function ScheduleNotFound() {
   return (
-    <main className="bg-background text-foreground grid min-h-svh place-items-center px-4">
-      <div className="max-w-md text-center">
-        <p className="text-muted-foreground text-sm font-medium tracking-[0.16em] uppercase">
-          Kalakriti
-        </p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-          Schedule not available
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          This edition does not have a public schedule yet. Check the year in
-          the address or try again later.
-        </p>
-      </div>
-    </main>
+    <StandalonePage>
+      <NotFoundState
+        actions={
+          <Button nativeButton={false} render={<Link to="/" />}>
+            Go to the dashboard
+          </Button>
+        }
+        description="This Edition doesn't have a public schedule yet. Check the year in the address or try again later."
+        icon={Calendar03Icon}
+        title="Schedule not available"
+      />
+    </StandalonePage>
   );
 }

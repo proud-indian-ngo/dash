@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
@@ -20,6 +13,13 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import type { CenterTransportAssignment } from "@/components/kalakriti/center-transport-section";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 function formatLocalDateTime(timestamp: number): string {
@@ -171,22 +171,28 @@ function TransportForm({
   return (
     <FormLayout form={form}>
       <InputField
+        autoCapitalize="characters"
+        autoCorrect="off"
         autoFocus
         isRequired
         label="Vehicle number"
         name="vehicleLabel"
         placeholder="KA 01 AB 1234"
+        spellCheck={false}
       />
       <InputField
+        autoCapitalize="words"
         isRequired
         label="Driver name"
         name="driverName"
         placeholder="Driver name"
       />
       <InputField
+        autoComplete="off"
         label="Driver phone"
         name="driverPhone"
         placeholder="Optional"
+        type="tel"
       />
       <InputField
         inputMode="numeric"

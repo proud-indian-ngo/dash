@@ -29,7 +29,7 @@ export function CenterRegistrationChart({ centers }: { centers: Center[] }) {
         <p className="text-muted-foreground text-xs">
           {visible.length < centers.length
             ? `Showing ${visible.length} of ${centers.length} visible Centers`
-            : `${centers.length} visible Centers`}
+            : `${centers.length} visible ${centers.length === 1 ? "Center" : "Centers"}`}
         </p>
       </div>
       <ol className="grid gap-3">
@@ -51,7 +51,7 @@ export function CenterRegistrationChart({ centers }: { centers: Center[] }) {
                 </ProgressLabel>
                 <span className="text-muted-foreground ml-auto text-xs tabular-nums">
                   {center.registeredStudents} with an Entry / {center.students}{" "}
-                  Students
+                  {center.students === 1 ? "Student" : "Students"}
                 </span>
               </Progress>
             )}

@@ -10,20 +10,20 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { formatPaise } from "@pi-dash/shared/money";
+import { useState } from "react";
+
+import { COLUMN_ICONS } from "@/components/data-table/column-icons";
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@pi-dash/design-system/components/ui/dialog";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { formatPaise } from "@pi-dash/shared/money";
-
-import { COLUMN_ICONS } from "@/components/data-table/column-icons";
-import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
-import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+} from "@/components/shared/responsive-dialog";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { getKalakritiInventoryPhotoUrl } from "@/lib/kalakriti-inventory-upload";
 
@@ -44,26 +44,24 @@ function searchItem(row: InventoryItem, query: string): boolean {
 
 function InventoryPhotoPreview({ item }: { item: InventoryItem }) {
   const src = getKalakritiInventoryPhotoUrl(item.id);
+  const [open, setOpen] = useState(false);
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            aria-label={`Preview photo of ${item.name}`}
-            className="size-9 shrink-0 p-0"
-            size="icon"
-            variant="ghost"
-          >
-            <img
-              alt=""
-              className="size-9 rounded object-cover"
-              loading="lazy"
-              src={src}
-            />
-          </Button>
-        }
-      />
-      <DialogContent className="max-h-[90dvh] overflow-auto sm:max-w-4xl">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        aria-label={`Preview photo of ${item.name}`}
+        className="size-9 shrink-0 p-0"
+        onClick={() => setOpen(true)}
+        size="icon"
+        variant="ghost"
+      >
+        <img
+          alt=""
+          className="size-9 rounded object-cover"
+          loading="lazy"
+          src={src}
+        />
+      </Button>
+      <DialogContent className="sm:max-w-4xl md:max-h-[90dvh] md:overflow-auto">
         <DialogHeader>
           <DialogTitle>{item.name} photo</DialogTitle>
           <DialogDescription className="sr-only">

@@ -1,3 +1,5 @@
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -54,7 +56,8 @@ function NewKalakritiEditionRoute() {
       eventDate: undefined as Date | undefined,
       name: "",
       registrationCloseDate: undefined as Date | undefined,
-      registrationCloseTime: "",
+      // Most Editions close registration at the end of the day.
+      registrationCloseTime: "23:45",
       teamId: "",
       year: "",
     },
@@ -109,6 +112,11 @@ function NewKalakritiEditionRoute() {
         size="sm"
         variant="ghost"
       >
+        <HugeiconsIcon
+          data-icon="inline-start"
+          icon={ArrowLeft01Icon}
+          strokeWidth={2}
+        />
         Back to Kalakriti
       </Button>
       <PageHeader
@@ -119,7 +127,13 @@ function NewKalakritiEditionRoute() {
 
       <FormLayout className="mt-8 space-y-6" form={form} showSubmitError>
         <div className="grid gap-4 sm:grid-cols-2">
-          <InputField isRequired label="Year" name="year" placeholder="2028" />
+          <InputField
+            inputMode="numeric"
+            isRequired
+            label="Year"
+            name="year"
+            placeholder="2028"
+          />
           <InputField
             isRequired
             label="Edition name"

@@ -578,7 +578,7 @@ function KalakritiCentersPage() {
       />
       <ConfirmDialog
         confirmLabel="Lock all registrations"
-        description="Close student and event participation registration for every Center in this Edition? Individual Centers can be reopened later with an audited confirmation."
+        description="Close Student and participation registration for every Center in this Edition? Individual Centers can be reopened later with an audited confirmation."
         loading={lockAllAction.isLoading}
         loadingLabel="Locking..."
         onConfirm={lockAllAction.confirm}

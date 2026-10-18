@@ -1,12 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
@@ -14,6 +6,13 @@ import { type ReactNode, useCallback, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getKalakritiResultDetail } from "@/functions/kalakriti-results";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -116,20 +115,20 @@ export function ResultSection({
         </section>
       ) : null}
       {children(
-        <DialogTrigger render={<Button type="button" />}>
+        <Button type="button" onClick={() => handleOpenChange(true)}>
           {!detail.canWrite
             ? "View results"
             : detail.status === "published"
               ? "Edit results"
               : "Assign results"}
-        </DialogTrigger>
+        </Button>
       )}
       <DialogContent className="sm:max-w-(--dialog-md)" showCloseButton={!busy}>
         <DialogHeader>
           <DialogTitle>Results</DialogTitle>
           <DialogDescription>
             Upload judge scorecards and assign the winner and runner-up for this
-            event.
+            Competition.
           </DialogDescription>
         </DialogHeader>
         <StatusBadge
