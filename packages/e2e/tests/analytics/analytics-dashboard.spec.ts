@@ -74,7 +74,7 @@ test.describe("Analytics dashboard (admin)", () => {
     await expect(
       page
         .getByRole("region", { name: "Spending by category" })
-        .or(page.getByRole("region", { name: "Submission trends" }))
+        .or(page.getByRole("region", { name: "Spending over time" }))
         .first()
     ).toBeVisible({ timeout: 15_000 });
   });

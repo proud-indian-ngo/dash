@@ -1,6 +1,31 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 
 import { filterByDateRange, resolveDateRange } from "./date-range";
+
+describe("rolling presets", () => {
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  it("start at the start of the day, so a spend dated that day counts", () => {
+    setSystemTime(new Date(2026, 4, 15, 14, 30));
+    const items = [
+      { ts: new Date(2026, 4, 8).getTime() },
+      { ts: new Date(2026, 3, 15).getTime() },
+      { ts: new Date(2026, 1, 15).getTime() },
+    ];
+    for (const [key, expected] of [
+      ["7d", 1],
+      ["30d", 2],
+      ["3m", 3],
+    ] as const) {
+      const range = resolveDateRange(key, "", "");
+      expect(filterByDateRange(items, range, (i) => i.ts)).toHaveLength(
+        expected
+      );
+    }
+  });
+});
 
 describe("resolveDateRange", () => {
   it("returns null range for 'all' preset", () => {

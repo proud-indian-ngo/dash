@@ -16,6 +16,7 @@ import {
 
 import type { StatItem } from "@/components/stats/stats-cards";
 import { DAY_MONTH } from "@/lib/date-formats";
+import { epochToLocalDate } from "@/lib/local-date";
 import {
   type ChargedRequest,
   requestProgrammeName,
@@ -113,16 +114,15 @@ export interface VendorDataPoint {
   name: string;
 }
 
-/**
- * The dates a spend record carries. Zero holds a `date` column as UTC
- * midnight of the day.
- */
+/** The dates a spend record carries; `date` columns arrive as UTC midnight. */
 export interface SpendDates {
   createdAt: number | null;
   /** A reimbursement's expense date, as the claimant entered it. */
   expenseDate?: number;
   /** A vendor payment's invoice date. */
   invoiceDate?: number | null;
+  /** Set while the vendor payment's invoice is rejected. */
+  invoiceRejectionReason?: string | null;
   /** A vendor payment's payments. */
   transactions?: readonly {
     status: string | null;
@@ -131,26 +131,20 @@ export interface SpendDates {
   }[];
 }
 
-/** Local midnight of the calendar day Zero sends as UTC midnight. */
-function localDay(utcMidnight: number): number {
-  const day = new Date(utcMidnight);
-  return new Date(
-    day.getUTCFullYear(),
-    day.getUTCMonth(),
-    day.getUTCDate()
-  ).getTime();
-}
-
 /**
  * When the money was spent, which spend by date filters and buckets on: a
- * reimbursement's expense date; a vendor payment's invoice date, else its
- * first approved payment. Advances record no expense date, so they, and a
- * vendor payment with neither, fall back to when they were raised.
+ * reimbursement's expense date; a vendor payment's invoice date (unless the
+ * invoice was rejected), else its first approved payment. Advances record no
+ * expense date, so they, and a vendor payment with neither, fall back to when
+ * they were raised.
  */
 export function spentAt(item: SpendDates): number | null {
-  const day = item.expenseDate ?? item.invoiceDate;
-  if (day !== undefined && day !== null) {
-    return localDay(day);
+  const day =
+    item.expenseDate ??
+    (item.invoiceRejectionReason ? undefined : item.invoiceDate);
+  const local = epochToLocalDate(day);
+  if (local) {
+    return local.getTime();
   }
   const paid = (item.transactions ?? [])
     .filter((t) => t.status === "approved" && t.voidedAt === null)

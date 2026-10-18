@@ -3,6 +3,7 @@ import {
   endOfMonth,
   isValid,
   parseISO,
+  startOfDay,
   startOfMonth,
   subDays,
   subMonths,
@@ -44,12 +45,18 @@ export const DATE_PRESETS: Preset[] = [
     label: "All time",
   },
   {
-    getRange: () => ({ from: subDays(new Date(), 7), to: new Date() }),
+    getRange: () => ({
+      from: startOfDay(subDays(new Date(), 7)),
+      to: new Date(),
+    }),
     key: "7d",
     label: "Last 7 days",
   },
   {
-    getRange: () => ({ from: subDays(new Date(), 30), to: new Date() }),
+    getRange: () => ({
+      from: startOfDay(subDays(new Date(), 30)),
+      to: new Date(),
+    }),
     key: "30d",
     label: "Last 30 days",
   },
@@ -62,7 +69,10 @@ export const DATE_PRESETS: Preset[] = [
     label: "This month",
   },
   {
-    getRange: () => ({ from: subMonths(new Date(), 3), to: new Date() }),
+    getRange: () => ({
+      from: startOfDay(subMonths(new Date(), 3)),
+      to: new Date(),
+    }),
     key: "3m",
     label: "Last 3 months",
   },

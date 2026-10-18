@@ -208,6 +208,20 @@ describe("spending by expense date", () => {
     );
   });
 
+  it("ignores a rejected invoice's date", () => {
+    const paidOn = new Date(2026, 3, 5).getTime();
+    expect(
+      spentAt({
+        createdAt: new Date(2026, 4, 1).getTime(),
+        invoiceDate: Date.UTC(2026, 3, 20),
+        invoiceRejectionReason: "Wrong vendor",
+        transactions: [
+          { status: "approved", transactionDate: paidOn, voidedAt: null },
+        ],
+      })
+    ).toBe(paidOn);
+  });
+
   it("falls back to when an advance was raised", () => {
     expect(spentAt({ createdAt: 123 })).toBe(123);
   });
