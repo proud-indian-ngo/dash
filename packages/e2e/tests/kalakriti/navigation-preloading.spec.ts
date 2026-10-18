@@ -113,7 +113,7 @@ function isEditionAccessRequest(request: Request) {
   );
 }
 
-function isEditionPickerRequest(request: Request) {
+function isEditionDataRequest(request: Request) {
   if (request.method() !== "GET") return false;
   const url = new URL(request.url());
   return (
@@ -333,9 +333,9 @@ test("volunteer pickers load only when their dialogs open", async ({
     testInfo.project.name !== "super_admin",
     "Volunteer roster needs an admin"
   );
-  const pickerRequests: Request[] = [];
+  const editionRequests: Request[] = [];
   page.on("request", (request) => {
-    if (isEditionPickerRequest(request)) pickerRequests.push(request);
+    if (isEditionDataRequest(request)) editionRequests.push(request);
   });
 
   await page.goto(`/kalakriti/${YEAR}/volunteers`);
@@ -344,15 +344,22 @@ test("volunteer pickers load only when their dialogs open", async ({
     page.getByRole("heading", { name: "Volunteers", exact: true })
   ).toBeVisible();
   await page.waitForTimeout(750);
-  expect(pickerRequests).toHaveLength(0);
+  expect(editionRequests).toHaveLength(1);
+  const rosterRequest = editionRequests[0];
+  const rosterBody = await (await rosterRequest.response())?.text();
+  expect(rosterBody).toContain('"registrationGroup"');
+  expect(rosterBody).toContain('"userId"');
+  expect(rosterBody).not.toContain('"email"');
+  const rosterPath = new URL(rosterRequest.url()).pathname;
 
   await page.getByRole("button", { name: "Add volunteers" }).click();
   const addDialog = page.getByRole("dialog", { name: "Add volunteers" });
   await expect(
     addDialog.getByPlaceholder("Search central volunteers...")
   ).toBeVisible();
-  expect(pickerRequests).toHaveLength(1);
-  const addPickerPath = new URL(pickerRequests[0].url()).pathname;
+  expect(editionRequests).toHaveLength(2);
+  const addPickerPath = new URL(editionRequests[1].url()).pathname;
+  expect(addPickerPath).not.toBe(rosterPath);
 
   await addDialog.getByRole("button", { name: "Cancel" }).click();
   await expect(addDialog).toBeHidden();
@@ -360,7 +367,7 @@ test("volunteer pickers load only when their dialogs open", async ({
   await expect(
     addDialog.getByPlaceholder("Search central volunteers...")
   ).toBeVisible();
-  expect(pickerRequests).toHaveLength(1);
+  expect(editionRequests).toHaveLength(2);
   await addDialog.getByRole("button", { name: "Cancel" }).click();
 
   await page.getByTestId("row-actions").first().click();
@@ -369,8 +376,9 @@ test("volunteer pickers load only when their dialogs open", async ({
   await expect(
     roleDialog.getByPlaceholder("Search volunteers...")
   ).toBeVisible();
-  expect(pickerRequests).toHaveLength(2);
-  expect(new URL(pickerRequests[1].url()).pathname).not.toBe(addPickerPath);
+  expect(editionRequests).toHaveLength(3);
+  expect(new URL(editionRequests[2].url()).pathname).not.toBe(addPickerPath);
+  expect(new URL(editionRequests[2].url()).pathname).not.toBe(rosterPath);
 });
 
 test("restricted access still allows assigned pages and denies another user", async ({
