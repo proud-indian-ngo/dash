@@ -529,8 +529,12 @@ function DataTableWrapperBase<TData extends object>({
     [columnPinning, reuseExistingExpand, showExpand]
   );
   const [groupColumnId, setGroupColumnId] = useDataTableGroupBy();
+  // Phone cards already show status, and grouped rows' inline review
+  // buttons don't fit a card, so grouping is a wider-screen view.
   const activeGroupBy =
-    groupBy && groupColumnId === groupBy.columnId ? groupBy : undefined;
+    groupBy && !isCompact && groupColumnId === groupBy.columnId
+      ? groupBy
+      : undefined;
   const tableColumnVisibility = useMemo(() => {
     const visibility = isCompact
       ? overlayCompactVisibility(columnVisibility, compactPartition, showExpand)
@@ -940,20 +944,23 @@ function DataTableWrapperBase<TData extends object>({
                       {toolbarFilters}
                     </div>
                     <CardAction className="relative col-auto row-auto flex max-w-full shrink-0 flex-wrap items-center gap-1 self-auto justify-self-auto">
-                      <DataGridColumnVisibility
-                        table={table}
-                        trigger={
-                          <Button size="sm" variant="outline">
-                            <HugeiconsIcon
-                              aria-hidden="true"
-                              icon={FilterHorizontalIcon}
-                              strokeWidth={2}
-                            />
-                            Columns
-                          </Button>
-                        }
-                      />
-                      {groupBy ? (
+                      {/* Phone cards pick their own facts, so there are no columns to show or hide. */}
+                      {isCompact ? null : (
+                        <DataGridColumnVisibility
+                          table={table}
+                          trigger={
+                            <Button size="sm" variant="outline">
+                              <HugeiconsIcon
+                                aria-hidden="true"
+                                icon={FilterHorizontalIcon}
+                                strokeWidth={2}
+                              />
+                              Columns
+                            </Button>
+                          }
+                        />
+                      )}
+                      {groupBy && !isCompact ? (
                         <Button
                           aria-pressed={Boolean(activeGroupBy)}
                           className="aria-pressed:border-brand/50 aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground aria-pressed:hover:bg-sidebar-accent dark:aria-pressed:border-brand/50 dark:aria-pressed:bg-sidebar-accent dark:aria-pressed:hover:bg-sidebar-accent"
@@ -1002,7 +1009,8 @@ function DataTableWrapperBase<TData extends object>({
                       totals={totals}
                     />
                   ) : null}
-                  <ScrollBar orientation="horizontal" />
+                  {/* Phone cards fit the width; a sub-pixel overflow must not draw a scrollbar strip. */}
+                  {isCompact ? null : <ScrollBar orientation="horizontal" />}
                 </ScrollArea>
               </CardContent>
 

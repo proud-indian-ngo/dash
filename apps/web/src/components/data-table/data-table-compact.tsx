@@ -94,11 +94,21 @@ export function DataTableCompactPrimaryCell<TData extends object>({
         {children}
         {additionalPrimaryIds.map((id) => {
           const cell = row.getAllCells().find((item) => item.column.id === id);
-          return cell ? (
-            <div className="text-muted-foreground min-w-0 text-xs" key={id}>
+          if (!cell) {
+            return null;
+          }
+          const meta = cell.column.columnDef.meta;
+          // A bare number ("4") means nothing without its column name.
+          const label = meta?.kind === "count" ? meta.headerTitle : undefined;
+          return (
+            <div
+              className="text-muted-foreground flex min-w-0 items-baseline gap-1 text-xs"
+              key={id}
+            >
+              {label ? <span>{label}</span> : null}
               <table.FlexRender cell={cell} />
             </div>
-          ) : null;
+          );
         })}
       </div>
       {trailingIds.length > 0 ? (

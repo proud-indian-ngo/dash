@@ -128,7 +128,7 @@ Time-based lists that are not tables (the events page):
 
 ## Components
 
-- Tables: `DataTableWrapper`.
+- Tables: `DataTableWrapper`. Phones get cards: columns marked `compact: "primary"` stack under the first one (a count reads with its column name, "Members 4"), and the rest fold into the row. Pick the primary facts a person scans for (who, when, how much). Columns and Group by are wider-screen tools; phone view tabs skip empty statuses.
 - Menus: `ResponsiveActionMenu` for row and page menus. Every item needs a Hugeicons icon (drawn muted); destructive items go last, in red, after a divider. Permission checks and confirmations stay with the caller, not inside the menu. Desktop: solid popover with 28px rows (taller on touch). Phones: bottom drawer.
 - Undoable one-click actions: `deferAction` from `@/lib/deferred-actions`. Deletes: a confirmation dialog.
 - Dialog widths: `sm:max-w-(--dialog-sm)` for confirms and one-field prompts, `--dialog-md` for most forms, `--dialog-lg` for long or two-column forms. Very wide pickers and tables keep their own width.
