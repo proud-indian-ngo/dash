@@ -65,7 +65,10 @@ jobs:
 
   prepare-shards:
     runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shards.outputs.shards }}
     env:
+      E2E_SHARDS: "8"
       TURBO_TELEMETRY_DISABLED: "1"
       SKIP_VALIDATION: "true"
       BASE_URL: "http://localhost:3099"
@@ -90,7 +93,10 @@ jobs:
             e2e-durations-master
             e2e-durations-
       - name: Generate shard lists
-        run: bun run packages/e2e/shard-by-duration.ts 4
+        id: shards
+        run: |
+          bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
+          echo "shards=$(jq -cn --argjson n "$E2E_SHARDS" '[range(1; $n + 1)]')" >> "$GITHUB_OUTPUT"
       - name: Upload shard lists
         uses: actions/upload-artifact@v7
         with:
@@ -117,11 +123,11 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    needs: [checks, prepare-shards]
+    needs: prepare-shards
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.prepare-shards.outputs.shards) }}
     services:
       postgres:
         image: postgres:18

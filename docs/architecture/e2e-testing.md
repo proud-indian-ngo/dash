@@ -56,7 +56,7 @@ Specs that touch the database-wide single-live-Edition constraint run only in `k
 
 ## CI sharding
 
-CI splits E2E across four shards with `shard-by-duration.ts`, which bin-packs project-qualified cases by the timings in `.test-durations.json` (cached per branch, falling back to `master`). `duration-reporter.ts` records the timings and CI saves them back. Sharding leaves out `[setup]` and `[exclusive_last]` rows, since they run in every shard.
+CI splits E2E across the shard count set by `E2E_SHARDS` in the `prepare-shards` job (eight) with `shard-by-duration.ts`, which bin-packs project-qualified cases by the timings in `.test-durations.json` (cached per branch, falling back to `master`). `duration-reporter.ts` records the timings and CI saves them back. Locally it adds to the existing file and drops entries for tests that moved, were renamed or no longer exist. Sharding leaves out `[setup]` and `[exclusive_last]` rows, since they run in every shard.
 
 ## Two-stack run
 
