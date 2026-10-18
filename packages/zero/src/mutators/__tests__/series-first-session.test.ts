@@ -972,3 +972,81 @@ describe("a lead cancelling one session or the following ones", () => {
     });
   });
 });
+
+describe("who hears of a one-session or this-and-following cancel", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  async function cancel(
+    db: ReturnType<typeof createDb>,
+    mode: "this" | "following",
+    originalDate: string
+  ) {
+    enqueued.length = 0;
+    const asyncTasks: { fn: () => Promise<void> }[] = [];
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode,
+        newExceptionId: "cancelled-row",
+        now: AFTER_THIRD,
+        originalDate,
+      },
+      ctx: { ...ctx, asyncTasks, traceId: "t" },
+      tx: db.tx,
+    } as never);
+    await Promise.all(asyncTasks.map((task) => task.fn()));
+  }
+  const notices = () =>
+    enqueued.filter((j) => j.name === "notify-event-cancelled");
+  const pollCloses = () =>
+    enqueued
+      .filter((j) => j.name === "close-rsvp-poll-on-cancel")
+      .map((j) => j.payload.eventId);
+  function seriesWithLaterSession(inheritVolunteers: boolean) {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "later",
+        name: "Weekly class",
+        originalDate: "2026-11-07",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-11-07T04:30:00Z"),
+      },
+    ]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, { inheritVolunteers });
+    db.tables.teamEventMember?.push(
+      { eventId: "series-1", id: "m-1", userId: "vol-1" },
+      { eventId: "later", id: "m-2", userId: "vol-2" }
+    );
+    return db;
+  }
+
+  it("this and following tells the cancelled sessions' members and closes their polls", async () => {
+    await cancel(seriesWithLaterSession(false), "following", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+    expect(notices()[0]?.payload.seriesEnded).toBe(true);
+    expect(pollCloses()).toEqual(["later"]);
+  });
+
+  it("this and following also tells the series' volunteers when it passes them on", async () => {
+    await cancel(seriesWithLaterSession(true), "following", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([
+      ["vol-1", "vol-2"],
+    ]);
+    expect(pollCloses()).toEqual(["later"]);
+  });
+
+  it("an unsaved session tells only inherited volunteers and leaves the series row's poll", async () => {
+    await cancel(seriesWithLaterSession(false), "this", "2026-10-24");
+    expect(enqueued).toEqual([]);
+
+    await cancel(seriesWithLaterSession(true), "this", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-1"]]);
+    expect(pollCloses()).toEqual([]);
+  });
+
+  it("a saved session tells its own members and closes its poll", async () => {
+    await cancel(seriesWithLaterSession(true), "this", "2026-11-07");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+    expect(pollCloses()).toEqual(["later"]);
+  });
+});

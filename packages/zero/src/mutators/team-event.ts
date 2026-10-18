@@ -35,6 +35,7 @@ import {
   cancelSeriesFollowing,
   cancelSeriesThis,
   ISO_DATE_RE,
+  type SeriesCancelResult,
   changedSeriesArgs,
   moveSeriesOccurrencesToGroup,
   moveSeriesSessionsToProgramme,
@@ -837,30 +838,32 @@ export const teamEventMutators = {
         throw new Error("Cannot cancel an event that has already started");
       }
 
-      // The rows whose members hear of it and whose RSVP polls close.
-      let cancelledIds = [args.id];
-      let notifiedIds = [args.id];
+      let result: SeriesCancelResult = {
+        cancelledIds: [],
+        droppedUnsaved: false,
+      };
+      // Whether earlier sessions stay live, so only later ones are cancelled.
       let seriesEnded = false;
       if (mode === "all") {
-        const result = await cancelSeriesAll(tx, args, existing);
-        cancelledIds = result.cancelledIds;
-        // The series row stays live when started sessions are kept.
-        seriesEnded = !cancelledIds.includes(args.id);
-        // Unsaved sessions dropped from the rule had the series' volunteers
-        // only when they inherit them.
-        notifiedIds =
-          result.droppedUnsaved && existing.inheritVolunteers
-            ? [args.id, ...cancelledIds]
-            : cancelledIds;
+        result = await cancelSeriesAll(tx, args, existing);
+        seriesEnded = !result.cancelledIds.includes(args.id);
       } else if (mode === "this") {
-        await cancelSeriesThis(tx, args, existing, ctx.userId);
+        result = await cancelSeriesThis(tx, args, existing, ctx.userId);
       } else if (mode === "following" && args.originalDate) {
-        await cancelSeriesFollowing(
+        result = await cancelSeriesFollowing(
           tx,
           { ...args, originalDate: args.originalDate },
           existing
         );
+        seriesEnded = true;
       }
+      const { cancelledIds } = result;
+      // Unsaved sessions dropped had the series' volunteers only when they
+      // inherit them.
+      const notifiedIds =
+        result.droppedUnsaved && existing.inheritVolunteers
+          ? [args.id, ...cancelledIds]
+          : cancelledIds;
 
       // One notice to the members of every cancelled session; started
       // sessions kept by "all" send nothing.
