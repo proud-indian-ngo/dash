@@ -152,7 +152,7 @@ test.describe("User row actions (admin)", () => {
   test("Reset password opens dialog", async ({ page }) => {
     const dialog = page.getByRole("dialog");
     await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
-    await expect(dialog.getByText(/Reset Password/)).toBeVisible();
+    await expect(dialog.getByText(/Reset password for/)).toBeVisible();
     await expect(
       dialog.getByRole("textbox", { name: /^New password/ })
     ).toBeVisible();

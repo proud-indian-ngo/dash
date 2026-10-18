@@ -87,7 +87,8 @@ Every app page starts with `PageHeader` (`@/components/shared/page-header`):
 
 - One page at `/settings/*`, opened from the account menu, and from **Settings** at the end of the sidebar's Admin group for people who can open an Organization section (it stays active anywhere under `/settings`).
 - Nav grouped into **You** and **Organization** (a select on phones). Sections are listed once in `apps/web/src/lib/settings-sections.ts`, which feeds the nav, breadcrumbs and each section's `PageHeader`.
-- Settings are `SettingsRow`s in a `SettingsCard` (label left, control right). Lists are `SettingsListItem`s in one framed card with an outline "Add …" button above. Channel preferences are a checkbox grid with labelled columns.
+- Settings are `SettingsRow`s in a `SettingsCard` (label left, control right). A row holding a switch or checkbox is `inline`: the whole row is its label and the control stays beside the text on phones. Lists are `SettingsListItem`s in one framed card with an outline "Add …" button above, row actions in a `ResponsiveActionMenu`. Channel preferences are a checkbox grid with labelled columns; phones show labelled checkboxes under each topic.
+- A long form ends in `SaveBar`, which pins above the phone tab bar with an unsaved-changes summary while the form is dirty.
 - Forms are one column, `max-w-md` to `max-w-xl`.
 
 ### Detail pages

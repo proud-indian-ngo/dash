@@ -9,7 +9,10 @@ import {
 describe("social formatting", () => {
   it("shows times in India time", () => {
     expect(formatIndiaDateTime(Date.parse("2026-10-11T04:30:00Z"))).toBe(
-      "11 Oct 2026, 10:00 IST"
+      "11 Oct 2026, 10:00 am IST"
+    );
+    expect(formatIndiaDateTime(Date.parse("2026-10-11T09:39:00Z"))).toBe(
+      "11 Oct 2026, 3:09 pm IST"
     );
   });
 

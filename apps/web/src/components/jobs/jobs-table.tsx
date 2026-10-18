@@ -81,6 +81,7 @@ function createJobColumns(
       ),
       id: "createdOn",
       meta: {
+        compact: "primary",
         headerTitle: "Created",
         icon: COLUMN_ICONS.createdAt,
         kind: "date",

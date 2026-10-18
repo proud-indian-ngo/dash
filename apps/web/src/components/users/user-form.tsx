@@ -151,6 +151,7 @@ export function UserForm(props: UserFormProps) {
 
         {props.mode === "create" ? (
           <InputField
+            autoComplete="new-password"
             isRequired
             label="Password"
             name="password"

@@ -15,10 +15,13 @@ import {
   SOCIAL_RULES_CONFIG_KEY,
   SOCIAL_RULES_DEFAULTS,
 } from "@pi-dash/shared/social-api";
+import { format, parse } from "date-fns";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 
+import { SaveBar } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { TIME } from "@/lib/date-formats";
 
 import {
   formToRules,
@@ -130,7 +133,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
     <form className="grid gap-4" noValidate onSubmit={handleSubmit}>
       <p className="text-muted-foreground text-sm">
         When each kind of post is built and posted, its limits and copy. Leave a
-        field empty to use the default shown in it. Times are IST, 24-hour.
+        field empty to use the default shown in it. Times are IST.
       </p>
       {parsed.error ? (
         <div
@@ -177,6 +180,10 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
                       const id = domId(key);
                       const error = errors.fields[key];
                       const fallback = ruleDefault(kind, field);
+                      const shownDefault =
+                        type === "time"
+                          ? format(parse(fallback, "HH:mm", new Date()), TIME)
+                          : fallback.replace(/\.$/, "");
                       return (
                         <div
                           className={
@@ -196,6 +203,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
                               setValue(key, event.target.value)
                             }
                             placeholder={fallback}
+                            type={type === "time" ? "time" : "text"}
                             value={form.values[key] ?? ""}
                           />
                           {error ? (
@@ -211,7 +219,7 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
                               className="text-muted-foreground text-xs"
                               id={`${id}-help`}
                             >
-                              Default: {fallback}.{hint ? ` ${hint}` : ""}
+                              Default: {shownDefault}.{hint ? ` ${hint}` : ""}
                             </p>
                           )}
                         </div>
@@ -256,19 +264,25 @@ export function SocialRulesSettings({ stored }: { stored: string }) {
           ))}
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={saving} type="submit" variant="outline">
-          Save rules
-        </Button>
-        <Button
-          disabled={saving || !stored.trim()}
-          onClick={() => setConfirmReset(true)}
-          type="button"
-          variant="ghost"
-        >
-          Reset to defaults
-        </Button>
-      </div>
+      <SaveBar dirty={dirty}>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            disabled={saving || !stored.trim()}
+            onClick={() => setConfirmReset(true)}
+            type="button"
+            variant="ghost"
+          >
+            Reset to defaults
+          </Button>
+          <Button
+            disabled={saving}
+            type="submit"
+            variant={dirty ? "default" : "outline"}
+          >
+            Save rules
+          </Button>
+        </div>
+      </SaveBar>
       <ConfirmDialog
         confirmLabel="Reset rules"
         description="Every posting rule goes back to the pipeline default."

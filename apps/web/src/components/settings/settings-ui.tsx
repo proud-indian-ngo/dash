@@ -39,18 +39,30 @@ export function SettingsCard({
   );
 }
 
-/** One setting: what it is on the left, its control on the right. */
+/**
+ * One setting: what it is on the left, its control on the right. `inline`
+ * keeps a switch or checkbox beside the text on phones and makes the whole
+ * row its label, so tapping anywhere on it toggles the control.
+ */
 export function SettingsRow({
   children,
   description,
+  inline = false,
   title,
 }: {
   children: ReactNode;
   description?: ReactNode;
+  inline?: boolean;
   title: ReactNode;
 }) {
+  const Root = inline ? "label" : "div";
   return (
-    <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+    <Root
+      className={cn(
+        "flex gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6",
+        inline ? "cursor-pointer items-center justify-between" : "flex-col"
+      )}
+    >
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{title}</p>
         {description ? (
@@ -58,6 +70,38 @@ export function SettingsRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
+    </Root>
+  );
+}
+
+/**
+ * The save row at the end of a long form. While there are unsaved changes it
+ * pins to the bottom of the screen, above the phone tab bar, with a summary.
+ */
+export function SaveBar({
+  children,
+  dirty,
+  summary = "Unsaved changes",
+}: {
+  children: ReactNode;
+  dirty: boolean;
+  summary?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-end gap-x-4 gap-y-2",
+        dirty &&
+          "bg-background sticky bottom-(--mobile-tab-bar-height) z-10 border-t py-3 max-md:-mx-4 max-md:px-4"
+      )}
+      data-slot="save-bar"
+    >
+      {dirty ? (
+        <p className="text-muted-foreground mr-auto text-sm" role="status">
+          {summary}
+        </p>
+      ) : null}
+      {children}
     </div>
   );
 }

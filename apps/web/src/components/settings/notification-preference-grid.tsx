@@ -1,6 +1,7 @@
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import type { NotificationChannel } from "@pi-dash/notifications/topics";
 
 import { groupBy, NOTIFICATION_GROUP_ORDER } from "@/lib/notification-helpers";
@@ -20,6 +21,8 @@ export interface TopicPreference {
 }
 
 interface TopicPreferenceRowProps {
+  /** Phones: the channels sit under the title as labelled checkboxes. */
+  stacked: boolean;
   onToggle: (
     topicId: string,
     channel: PreferenceChannel,
@@ -28,7 +31,11 @@ interface TopicPreferenceRowProps {
   topic: TopicPreference;
 }
 
-function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
+function TopicPreferenceRow({
+  onToggle,
+  stacked,
+  topic,
+}: TopicPreferenceRowProps) {
   const handleInboxChange = useEventCallback((checked: boolean) =>
     onToggle(topic.topicId, "inbox", checked)
   );
@@ -44,30 +51,64 @@ function TopicPreferenceRow({ onToggle, topic }: TopicPreferenceRowProps) {
       channel: "inbox",
       checked: topic.inboxEnabled,
       label: "in-app",
+      title: "Inbox",
       onChange: handleInboxChange,
     },
     {
       channel: "email",
       checked: topic.emailEnabled,
       label: "email",
+      title: "Email",
       onChange: handleEmailChange,
     },
     {
       channel: "whatsapp",
       checked: topic.whatsappEnabled,
       label: "WhatsApp",
+      title: "WhatsApp",
       onChange: handleWhatsappChange,
     },
   ] as const;
+  const description = topic.required
+    ? "Required, can't be turned off."
+    : topic.description;
+
+  if (stacked) {
+    return (
+      <div className="grid gap-2 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium">{topic.topicName}</p>
+          <p className="text-muted-foreground text-xs">{description}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {cells.map((cell) =>
+            topic.channels.includes(cell.channel) ? (
+              <label
+                className="flex h-9 cursor-pointer items-center gap-2 rounded-md border px-2.5 text-sm has-disabled:cursor-not-allowed pointer-coarse:h-10"
+                key={cell.channel}
+              >
+                <Checkbox
+                  aria-label={`${topic.group} ${topic.topicName} ${cell.label}`}
+                  checked={cell.checked}
+                  disabled={topic.required}
+                  id={`${topic.topicId}-${cell.channel}`}
+                  onCheckedChange={cell.onChange}
+                />
+                {cell.title}
+              </label>
+            ) : null
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <tr className="border-t">
       <th className="py-2.5 pr-2 pl-4 text-left font-normal" scope="row">
         <span className="block text-sm font-medium">{topic.topicName}</span>
         <span className="text-muted-foreground block text-xs">
-          {topic.required
-            ? "Required, can't be turned off."
-            : topic.description}
+          {description}
         </span>
       </th>
       {cells.map((cell) => (
@@ -115,6 +156,7 @@ export function NotificationPreferenceGrid({
 }) {
   const groupedTopics = groupBy([...topics], (t) => t.group);
   const handleToggle = onToggle;
+  const isMobile = useIsMobile();
   if (isLoading) {
     return (
       <div className="divide-y rounded-lg border">
@@ -131,6 +173,38 @@ export function NotificationPreferenceGrid({
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="divide-y overflow-hidden rounded-lg border">
+        {NOTIFICATION_GROUP_ORDER.map((groupName) => {
+          const items = groupedTopics.get(groupName);
+          if (!items || items.length === 0) {
+            return null;
+          }
+          return (
+            <section
+              aria-label={groupName}
+              className="divide-y"
+              key={groupName}
+            >
+              <h3 className="text-muted-foreground bg-muted/40 px-4 py-1.5 text-xs font-medium">
+                {groupName}
+              </h3>
+              {items.map((topic) => (
+                <TopicPreferenceRow
+                  key={topic.topicId}
+                  onToggle={handleToggle}
+                  stacked
+                  topic={topic}
+                />
+              ))}
+            </section>
+          );
+        })}
       </div>
     );
   }
@@ -177,6 +251,7 @@ export function NotificationPreferenceGrid({
                 <TopicPreferenceRow
                   key={topic.topicId}
                   onToggle={handleToggle}
+                  stacked={false}
                   topic={topic}
                 />
               ))}

@@ -46,7 +46,7 @@ function submitButtonLabel(submitting: boolean, isEdit: boolean): string {
   if (submitting) {
     return isEdit ? "Saving..." : "Creating...";
   }
-  return isEdit ? "Save" : "Create";
+  return isEdit ? "Save changes" : "Create team";
 }
 
 interface TeamFormDialogProps {

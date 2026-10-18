@@ -28,7 +28,7 @@ export async function createTeamViaDialog(
       await dialog.getByLabel("Description").fill(description);
     }
 
-    await clickUntilDialogCloses(dialog, "Create");
+    await clickUntilDialogCloses(dialog, "Create team");
     await page.getByPlaceholder("Search teams...").fill(teamName);
 
     const rowTitle = page

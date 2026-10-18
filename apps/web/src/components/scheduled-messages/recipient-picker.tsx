@@ -88,7 +88,7 @@ function SelectedRecipientBadge({
       {recipient.label}
       <button
         aria-label={`Remove ${recipient.label}`}
-        className="hover:bg-muted-foreground/20 ml-0.5 rounded-full p-0.5"
+        className="hover:bg-muted-foreground/20 relative ml-0.5 rounded-full p-0.5 pointer-coarse:after:absolute pointer-coarse:after:-inset-2"
         onClick={handleRemove}
         type="button"
       >

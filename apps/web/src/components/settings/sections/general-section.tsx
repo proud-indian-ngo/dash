@@ -89,6 +89,7 @@ export function GeneralSection() {
       <SettingsCard>
         <SettingsRow
           description="Stops every notification on every channel (email, inbox, WhatsApp) for everyone."
+          inline
           title="Turn off all notifications"
         >
           <Switch

@@ -421,7 +421,7 @@ function UserRowActionDialogs({
         onOpenChange={stableOnOpenChange10}
         open={isPasswordOpen}
         size="md"
-        title={`Reset Password: ${user.name}`}
+        title={`Reset password for ${user.name}`}
       >
         {isPasswordOpen ? (
           <PasswordForm
@@ -455,7 +455,7 @@ function UserRowActionDialogs({
         onOpenChange={stableOnOpenChange16}
         open={isNotificationsOpen}
         size="md"
-        title={`Notifications: ${user.name}`}
+        title={`Notifications for ${user.name}`}
       >
         {isNotificationsOpen ? (
           <UserNotificationsForm
@@ -568,7 +568,10 @@ export function UsersTable({
     />
   ));
 
-  const columns = createUserColumns(renderActions);
+  const roleNames = new Map(
+    (roleOptions ?? []).map((option) => [option.value, option.label])
+  );
+  const columns = createUserColumns(renderActions, roleNames);
   const stableGetRowId18 = useEventCallback((user: { id: string }) => user.id);
 
   return (
@@ -615,6 +618,10 @@ export function UsersTable({
         }
         onOpenChange={(open) => onDetailOpenChange?.(open)}
         open={Boolean(detailUser)}
+        roleName={
+          roleOptions?.find((option) => option.value === detailUser?.role)
+            ?.label
+        }
         user={detailUser}
       />
       {activeUser ? (
