@@ -69,6 +69,12 @@ export function Dialog({
   );
 }
 
+function definedProps<T extends Record<string, string | undefined>>(props: T) {
+  return Object.fromEntries(
+    Object.entries(props).filter(([, value]) => value !== undefined)
+  );
+}
+
 interface DialogContentProps extends Omit<
   ComponentProps<typeof DesktopDialogContent>,
   "children"
@@ -89,9 +95,13 @@ export function DialogContent({
   if (isMobile) {
     return (
       <DrawerContent
-        aria-label={props["aria-label"]}
-        aria-labelledby={props["aria-labelledby"]}
-        aria-describedby={props["aria-describedby"]}
+        // Pass only the names the caller set: an explicit undefined would
+        // replace Base UI's link to the drawer title, leaving it unnamed.
+        {...definedProps({
+          "aria-describedby": props["aria-describedby"],
+          "aria-label": props["aria-label"],
+          "aria-labelledby": props["aria-labelledby"],
+        })}
         // The drawer caps itself at 80vh; dialogs get more room, measured
         // against the visible viewport.
         className={cn(
