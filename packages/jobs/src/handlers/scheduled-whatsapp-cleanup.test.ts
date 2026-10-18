@@ -4,13 +4,18 @@ const hoisted = <T>(factory: () => T): T => factory();
 
 const mocks = hoisted(() => ({
   enqueue: mock(),
+  execute: mock(),
   select: mock(),
   sendMedia: mock(),
   update: mock(),
 }));
 
 mock.module("@pi-dash/db", () => ({
-  db: { select: mocks.select, update: mocks.update },
+  db: {
+    execute: mocks.execute,
+    select: mocks.select,
+    update: mocks.update,
+  },
 }));
 mock.module("@pi-dash/whatsapp/messaging", () => ({
   sendWhatsAppGroupMessage: mock(),
@@ -39,6 +44,7 @@ const limitedQuery = (rows: unknown[]) => ({
 
 beforeEach(() => {
   mock.clearAllMocks();
+  mocks.execute.mockResolvedValue([{ cleanedUp: 1, messagesAffected: 1 }]);
   mocks.update.mockReturnValue({
     set: () => ({ where: async () => undefined }),
   });
@@ -91,19 +97,9 @@ describe("scheduled WhatsApp attachment retention", () => {
   });
 
   it("does not delete attachments when stale recipients become terminal", async () => {
-    mocks.select.mockReturnValueOnce({
-      from: () => ({
-        innerJoin: () => ({
-          where: async () => [
-            { id: "recipient-1", scheduledMessageId: "message-1" },
-          ],
-        }),
-      }),
-    });
-
     await handleCleanupStaleScheduledRecipients([{ data: {} }] as never);
 
-    expect(mocks.update).toHaveBeenCalled();
+    expect(mocks.execute).toHaveBeenCalledTimes(1);
     expect(mocks.enqueue).not.toHaveBeenCalled();
   });
 });

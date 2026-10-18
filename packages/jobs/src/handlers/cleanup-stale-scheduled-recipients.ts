@@ -3,13 +3,58 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
-import { and, eq, lt } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 import type { CleanupStaleScheduledRecipientsPayload } from "../enqueue";
 
 const STALE_THRESHOLD_DAYS = 7;
+const STALE_ERROR = "Stale: never delivered";
+
+interface CleanupSummary extends Record<string, unknown> {
+  cleanedUp: number;
+  messagesAffected: number;
+}
+
+export function staleScheduledRecipientsQuery(
+  threshold: Date,
+  updatedAt: Date
+) {
+  return sql<CleanupSummary>`
+    WITH updated AS (
+      UPDATE ${scheduledMessageRecipient}
+      SET
+        error = ${STALE_ERROR},
+        status = ${"failed"},
+        updated_at = ${updatedAt}
+      FROM ${scheduledMessage}
+      WHERE ${scheduledMessageRecipient.scheduledMessageId} = ${scheduledMessage.id}
+        AND ${scheduledMessageRecipient.status} = ${"pending"}
+        AND ${scheduledMessage.scheduledAt} < ${threshold}
+      RETURNING ${scheduledMessageRecipient.scheduledMessageId} AS scheduled_message_id
+    )
+    SELECT
+      count(*)::int AS "cleanedUp",
+      count(DISTINCT scheduled_message_id)::int AS "messagesAffected"
+    FROM updated
+  `;
+}
+
+async function cleanupStaleScheduledRecipients(
+  now: Date
+): Promise<CleanupSummary> {
+  const threshold = new Date(
+    now.getTime() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
+  );
+  const [summary] = await db.execute<CleanupSummary>(
+    staleScheduledRecipientsQuery(threshold, now)
+  );
+  return {
+    cleanedUp: Number(summary?.cleanedUp ?? 0),
+    messagesAffected: Number(summary?.messagesAffected ?? 0),
+  };
+}
 
 export async function handleCleanupStaleScheduledRecipients(
   _jobs: Job<CleanupStaleScheduledRecipientsPayload>[]
@@ -19,58 +64,21 @@ export async function handleCleanupStaleScheduledRecipients(
     path: "cleanup-stale-scheduled-recipients",
   });
 
-  const threshold = new Date(
-    Date.now() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
+  const { cleanedUp, messagesAffected } = await cleanupStaleScheduledRecipients(
+    new Date()
   );
 
-  // Find all pending recipients whose parent scheduledAt is older than threshold
-  const staleRecipients = await db
-    .select({
-      id: scheduledMessageRecipient.id,
-      scheduledMessageId: scheduledMessageRecipient.scheduledMessageId,
-    })
-    .from(scheduledMessageRecipient)
-    .innerJoin(
-      scheduledMessage,
-      eq(scheduledMessageRecipient.scheduledMessageId, scheduledMessage.id)
-    )
-    .where(
-      and(
-        eq(scheduledMessageRecipient.status, "pending"),
-        lt(scheduledMessage.scheduledAt, threshold)
-      )
-    );
-
-  log.set({ staleCount: staleRecipients.length });
-
-  if (staleRecipients.length === 0) {
+  log.set({ staleCount: cleanedUp });
+  if (cleanedUp === 0) {
     log.set({ event: "no_stale_recipients" });
     log.emit();
     return;
   }
 
-  // Mark all stale recipients as failed
-  await Promise.all(
-    staleRecipients.map(async (recipient) => {
-      await db
-        .update(scheduledMessageRecipient)
-        .set({
-          error: "Stale: never delivered",
-          status: "failed",
-          updatedAt: new Date(),
-        })
-        .where(eq(scheduledMessageRecipient.id, recipient.id));
-    })
-  );
-
-  const affectedMessageIds = [
-    ...new Set(staleRecipients.map((r) => r.scheduledMessageId)),
-  ];
-
   log.set({
-    cleanedUp: staleRecipients.length,
+    cleanedUp,
     event: "job_complete",
-    messagesAffected: affectedMessageIds.length,
+    messagesAffected,
   });
   log.emit();
 }
