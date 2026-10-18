@@ -16,7 +16,7 @@ import type { Job } from "pg-boss";
 
 import type { ProcessEventRemindersPayload } from "../enqueue";
 import { materializePastOccurrences } from "../lib/materialize-occurrences";
-import { tryInsertReminderSent } from "../lib/reminder-sentinel";
+import { withReminderClaim } from "../lib/reminder-sentinel";
 
 // 1-min buffer over the 15-min cron interval to prevent gaps from scheduling jitter.
 // Idempotency table prevents double-sends, so overlap is safe.
@@ -82,10 +82,21 @@ export async function handleProcessEventReminders(
   const onPartialFailure = (info: {
     eventId: string;
     failureCount: number;
+    instanceDate: string | null;
     intervalMinutes: number;
     totalMembers: number;
   }) => {
-    log.set({ event: "partial_failure", ...info });
+    const failureLog = createRequestLogger({
+      method: "JOB",
+      path: "process-event-reminders",
+    });
+    failureLog.set({ event: "partial_failure", ...info });
+    failureLog.error(
+      new Error(
+        `${info.failureCount} of ${info.totalMembers} participant reminders failed`
+      )
+    );
+    failureLog.emit();
   };
 
   const eventResults = await Promise.all(
@@ -186,6 +197,7 @@ interface ProcessParams {
   onPartialFailure: (info: {
     eventId: string;
     failureCount: number;
+    instanceDate: string | null;
     intervalMinutes: number;
     totalMembers: number;
   }) => void;
@@ -232,9 +244,14 @@ async function sendParticipantReminders(
     params.onPartialFailure({
       eventId: params.eventId,
       failureCount: failures.length,
+      instanceDate: params.instanceDate,
       intervalMinutes,
       totalMembers: members.length,
     });
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      `Participant reminder delivery failed for event ${params.eventId}`
+    );
   }
 }
 
@@ -260,61 +277,63 @@ export async function processRemindersForEvent(
     params.reminderTarget === "participants" ||
     params.reminderTarget === "both";
 
-  // Resolve group JID once (event group > team group fallback)
-  const groupJid = sendToGroup
-    ? await resolveGroupJid(
-        params.eventWhatsappGroupId ?? params.teamWhatsappGroupId
-      )
-    : null;
-
-  if (sendToGroup && !groupJid) {
-    const log = createRequestLogger({
-      method: "JOB",
-      path: "process-event-reminders",
-    });
-    log.set({
-      event: "no_group_for_target",
-      eventId: params.eventId,
-      eventWhatsappGroupId: params.eventWhatsappGroupId,
-      reminderTarget: params.reminderTarget,
-      teamWhatsappGroupId: params.teamWhatsappGroupId,
-    });
-    log.warn("Reminder target includes group but no WhatsApp group found");
-    log.emit();
-  }
-
-  // Fetch members once for all intervals
-  const members = sendToParticipants
-    ? await db
-        .select({ userId: teamEventMember.userId })
-        .from(teamEventMember)
-        .where(eq(teamEventMember.eventId, params.eventId))
-    : [];
-
   const intervalResults = await Promise.all(
     dueIntervals.map(async (intervalMinutes) => {
-      const isNew = await tryInsertReminderSent(
+      const claimed = await withReminderClaim(
         params.eventId,
         params.instanceDate,
-        intervalMinutes
+        intervalMinutes,
+        async () => {
+          const groupJid = sendToGroup
+            ? await resolveGroupJid(
+                params.eventWhatsappGroupId ?? params.teamWhatsappGroupId
+              )
+            : null;
+
+          if (sendToGroup && !groupJid) {
+            const log = createRequestLogger({
+              method: "JOB",
+              path: "process-event-reminders",
+            });
+            log.set({
+              event: "no_group_for_target",
+              eventId: params.eventId,
+              eventWhatsappGroupId: params.eventWhatsappGroupId,
+              intervalMinutes,
+              reminderTarget: params.reminderTarget,
+              teamWhatsappGroupId: params.teamWhatsappGroupId,
+            });
+            log.warn(
+              "Reminder target includes group but no WhatsApp group found"
+            );
+            log.emit();
+          }
+
+          const members = sendToParticipants
+            ? await db
+                .select({ userId: teamEventMember.userId })
+                .from(teamEventMember)
+                .where(eq(teamEventMember.eventId, params.eventId))
+            : [];
+
+          if (sendToParticipants) {
+            await sendParticipantReminders(params, members, intervalMinutes);
+          }
+
+          if (groupJid) {
+            await notifyEventReminderGroup({
+              eventId: params.eventId,
+              eventName: params.eventName,
+              groupJid,
+              intervalMinutes,
+              location: params.location,
+              startTime: params.startTime,
+            });
+          }
+        }
       );
-      if (!isNew) {
+      if (!claimed) {
         return { sent: 0, skipped: 1 };
-      }
-
-      if (groupJid) {
-        await notifyEventReminderGroup({
-          eventId: params.eventId,
-          eventName: params.eventName,
-          groupJid,
-          intervalMinutes,
-          location: params.location,
-          startTime: params.startTime,
-        });
-      }
-
-      if (sendToParticipants) {
-        await sendParticipantReminders(params, members, intervalMinutes);
       }
       return { sent: 1, skipped: 0 };
     })
