@@ -235,6 +235,9 @@ export RAZORPAY_KEY_SECRET=""
 export WHATSAPP_API_URL=""
 export WHATSAPP_AUTH_USER=""
 export WHATSAPP_AUTH_PASS=""
+# Never send real email; with no key the mailer skips sends.
+export RESEND_API_KEY=""
+export EMAIL_FROM=""
 
 # Build against the isolated test URLs while Zero starts. Never serve an old
 # build after source or build-time environment changes.

@@ -75,4 +75,13 @@ describe("loadEnvFiles", () => {
     expect(env.DATABASE_URL).toBe(BASE_URL);
     expect(sources.get("APP_NAME")).toBe("environment");
   });
+
+  it("keeps an explicit empty value over .env", () => {
+    // The E2E runner blanks secrets such as RAZORPAY_KEY_SECRET this way.
+    const env: Record<string, string | undefined> = { DEV_DB_HOST: "" };
+    const sources = loadEnvFiles(env, { base: BASE });
+    expect(env.DEV_DB_HOST).toBe("");
+    expect(env.DATABASE_URL).toBe("postgres://postgres:postgres@/pi-dash");
+    expect(sources.get("DEV_DB_HOST")).toBe("environment");
+  });
 });

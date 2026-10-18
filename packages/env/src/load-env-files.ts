@@ -63,13 +63,24 @@ export function loadEnvFiles(
     }
   }
 
-  // Layer 0: .env fills what is not set. dotenv-expand keeps values already
-  // in the target and expands references against them.
+  // Layer 0: .env fills what is not set, and references expand against the
+  // environment. Explicit variables stay out of the expansion because
+  // dotenv-expand replaces an empty value with the file's.
+  const baseFills: Record<string, string> = {};
+  for (const [key, value] of Object.entries(baseParsed)) {
+    if (!explicit.has(key)) {
+      baseFills[key] = value;
+    }
+  }
   const afterBase = definedOnly(env);
-  expand({ parsed: { ...baseParsed }, processEnv: afterBase });
+  expand({ parsed: baseFills, processEnv: afterBase });
   for (const key of Object.keys(baseParsed)) {
-    env[key] = afterBase[key];
-    sources.set(key, explicit.has(key) ? "environment" : ".env");
+    if (explicit.has(key)) {
+      sources.set(key, "environment");
+    } else {
+      env[key] = afterBase[key];
+      sources.set(key, ".env");
+    }
   }
 
   // Layer 1: .env.worktree overrides .env, but not explicit variables. As
