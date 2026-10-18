@@ -33,14 +33,15 @@ import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 
 export function NavUser() {
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
   const zero = useZero();
   const { user } = useApp();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const stableOnClick1 = useEventCallback(() =>
-    navigate({ to: "/settings/profile" })
-  );
+  const stableOnClick1 = useEventCallback(() => {
+    setOpenMobile(false);
+    navigate({ to: "/settings/profile" });
+  });
   const stableOnClick2 = useEventCallback(async () => {
     try {
       await zero.delete();

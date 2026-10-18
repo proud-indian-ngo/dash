@@ -49,7 +49,7 @@ export class KalakritiScanPage {
   }
   async open(center?: string) {
     if ((this.page.viewportSize()?.width ?? 1024) < 768)
-      await this.openFromMobileSidebar();
+      await this.openFromTabBar();
     else
       await this.page
         .getByRole("button", { name: "Scan", exact: true })
@@ -57,13 +57,9 @@ export class KalakritiScanPage {
     await expect(this.dialog).toBeVisible();
     if (center) await this.selectCenter(center);
   }
-  async openFromMobileSidebar() {
+  async openFromTabBar() {
     await this.page
-      .getByRole("button", { name: "Toggle Sidebar", exact: true })
-      .last()
-      .click();
-    await this.page
-      .getByRole("dialog")
+      .getByRole("navigation", { name: "Main" })
       .getByRole("button", { name: "Scan", exact: true })
       .click();
     await expect(this.dialog).toBeVisible();

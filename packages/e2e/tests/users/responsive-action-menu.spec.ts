@@ -121,7 +121,10 @@ test("on phones the top-bar bell opens notifications", async ({
   await expect(notifications).toBeHidden();
 
   // The account menu no longer duplicates it.
-  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await page
+    .getByRole("navigation", { name: "Main" })
+    .getByRole("button", { name: "Menu" })
+    .click();
   await page.getByRole("button", { name: "Account menu" }).click();
   const actions = page.getByRole("dialog", { name: "Account actions" });
   await expect(actions).toBeVisible();

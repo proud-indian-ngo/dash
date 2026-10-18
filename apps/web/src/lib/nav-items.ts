@@ -46,6 +46,7 @@ export interface NavGroup {
 
 const homeNavItem: NavItem = {
   icon: HomeIcon,
+  shortTitle: "Home",
   title: "Dashboard",
   url: "/",
 };
@@ -93,6 +94,7 @@ const reimbursementsNavItem: NavItem = {
       url: "/reimbursements/$id",
     },
   ],
+  shortTitle: "Claims",
   title: "Reimbursements",
   url: "/reimbursements",
 };

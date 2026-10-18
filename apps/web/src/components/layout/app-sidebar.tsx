@@ -18,6 +18,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useState, type ComponentProps } from "react";
 
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
+import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { NavUser } from "@/components/layout/nav-user";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { useApp } from "@/context/app-context";
@@ -189,7 +190,17 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
     year: activeEdition?.year,
   });
 
-  if (!shouldUseKalakritiNav(pathname, user.role)) {
+  const inKalakritiNav = shouldUseKalakritiNav(pathname, user.role);
+  const kalakritiBase = activeEdition ? `/kalakriti/${activeEdition.year}` : "";
+  const openScan =
+    canViewEventDay && activeEdition
+      ? () => {
+          setOpenMobile(false);
+          setScanEditionId(activeEdition.id);
+        }
+      : undefined;
+
+  if (!inKalakritiNav) {
     visibleNavGroups = showKalakriti
       ? withKalakritiNavItem(navGroups)
       : navGroups.flatMap((group) => {
@@ -224,18 +235,10 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
           <NavMainGrouped groups={visibleNavGroups} />
         </SidebarContent>
         <SidebarFooter>
-          {canViewEventDay &&
-          activeEdition &&
-          shouldUseKalakritiNav(pathname, user.role) ? (
+          {openScan && inKalakritiNav ? (
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="Scan"
-                  onClick={() => {
-                    setOpenMobile(false);
-                    setScanEditionId(activeEdition.id);
-                  }}
-                >
+                <SidebarMenuButton tooltip="Scan" onClick={openScan}>
                   <HugeiconsIcon icon={QrCodeScanIcon} strokeWidth={2} />
                   <span>Scan</span>
                 </SidebarMenuButton>
@@ -246,6 +249,19 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+      <MobileTabBar
+        groups={visibleNavGroups}
+        onScan={inKalakritiNav ? openScan : undefined}
+        preferredUrls={
+          inKalakritiNav
+            ? [
+                kalakritiBase,
+                `${kalakritiBase}/students`,
+                `${kalakritiBase}/competitions`,
+              ]
+            : ["/", "/events", "/reimbursements", "/teams"]
+        }
+      />
     </>
   );
 }

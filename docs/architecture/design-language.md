@@ -77,6 +77,7 @@ Every app page starts with `PageHeader` (`@/components/shared/page-header`):
 
 - Header: the compact lockup (`@proudindian/design/logo/svg/pi-lockup-compact.svg`, `-reversed` in dark mode) linking home; the symbol alone when collapsed.
 - Rows 28px (36px on touch). Hover is neutral grey; active is the sky ink-on-wash state. Hairlines separate groups in the collapsed rail.
+- Phones have no sidebar toggle. The top bar shows the compact lockup, and `MobileTabBar` holds up to four destinations from the person's nav (Home, Events, Claims, Teams; in Kalakriti Overview, Students, Competitions, plus Scan for event-day roles) and Menu, which opens the sidebar as a drawer that closes on navigation. Form and import pages (`/new`, `/import`) hide the bar so their actions own the bottom edge. Anything fixed to the bottom on phones, toasts included, sits above `--mobile-tab-bar-height`.
 - Notifications have one entry point, `NotificationBell`: beside the account on desktop (inbox in a popover), in the top bar on phones (bottom drawer). Unread shows as a dot on the bell, not the avatar. The account menu does not list notifications.
 - Notification titles keep a leading emoji for WhatsApp and email; the inbox strips it with `stripLeadingEmoji`.
 

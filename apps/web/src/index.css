@@ -16,6 +16,14 @@ body {
   --z-overlay: 50;
   --z-lightbox: 9999;
   --z-alert-over-lightbox: 10000;
+  --mobile-tab-bar-height: 0px;
+}
+
+/* Page content and toasts clear the phone tab bar while it is shown. */
+@media (width < 48rem) {
+  body:has([data-slot="mobile-tab-bar"]) {
+    --mobile-tab-bar-height: calc(3.5rem + 1px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Alert dialogs must render above YARL lightbox (z-index: var(--z-lightbox)) */

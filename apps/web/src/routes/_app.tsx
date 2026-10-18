@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppProvider, useApp } from "@/context/app-context";
@@ -168,7 +169,11 @@ function AppLayout() {
         >
           <header className="flex h-12 shrink-0 items-center">
             <div className="flex h-full flex-1 items-center justify-between px-2 sm:px-4">
-              <div className="flex items-center gap-2">
+              {/* Phones navigate with the tab bar; the logo takes the toggle's place. */}
+              <div className="flex items-center md:hidden">
+                <SidebarBrand />
+              </div>
+              <div className="hidden items-center gap-2 md:flex">
                 <SidebarToggle />
                 <Separator
                   className="mr-2 self-stretch!"
@@ -182,7 +187,7 @@ function AppLayout() {
               </div>
             </div>
           </header>
-          <div className="flex min-w-0 flex-1 flex-col gap-4 px-2 pb-4 sm:px-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 px-2 pb-[calc(1rem+var(--mobile-tab-bar-height))] sm:px-4">
             <Outlet />
           </div>
         </SidebarInset>
