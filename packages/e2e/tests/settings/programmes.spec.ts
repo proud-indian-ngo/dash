@@ -29,6 +29,12 @@ test.describe("Programmes settings (admin)", () => {
     await expect(main.getByText("New programme")).toBeVisible();
     await main.getByLabel("Name").fill(name);
     await main.getByLabel("Code").fill(code);
+    const leadPicker = main.getByLabel("Programme lead");
+    await expect(leadPicker).toBeEnabled();
+    await leadPicker.click();
+    const leadOption = page.getByRole("option").nth(1);
+    const leadName = (await leadOption.innerText()).trim();
+    await leadOption.click();
     await main.getByLabel("Finance approval threshold (₹)").fill("25000");
     await main.getByRole("button", { name: "Save" }).click();
 
@@ -48,6 +54,16 @@ test.describe("Programmes settings (admin)", () => {
     await expect(main.getByText(`${name} Edited`)).toBeVisible({
       timeout: 10_000,
     });
+
+    await page.reload();
+    const reloadedRow = page
+      .getByRole("main")
+      .locator("[data-slot='settings-list-item']")
+      .filter({ hasText: `${name} Edited` });
+    await expect(reloadedRow).toContainText(`Lead: ${leadName}`, {
+      timeout: 10_000,
+    });
+    await expect(reloadedRow).not.toContainText("Lead set (user not loaded)");
   });
 
   test("updates the default approval threshold", async ({ page }) => {

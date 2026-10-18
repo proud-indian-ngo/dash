@@ -198,6 +198,7 @@ interface AvatarSession {
 }
 
 export interface AvatarHandlerDeps {
+  fetchImage: (url: URL, options: RequestInit) => Promise<Response>;
   findUser: (userId: string) => Promise<AvatarUser | undefined>;
   requireSession: (
     request: Request
@@ -206,6 +207,7 @@ export interface AvatarHandlerDeps {
 }
 
 const defaultHandlerDeps: AvatarHandlerDeps = {
+  fetchImage: (url, options) => fetch(url, options),
   findUser: (userId) =>
     db.query.user.findFirst({
       columns: { email: true, gender: true },
@@ -246,16 +248,65 @@ export async function handleAvatarRequest(
   if (!avatarUser) {
     return Response.json({ error: "Avatar not found" }, { status: 404 });
   }
-  const avatarUrl = await deps.resolveAvatarUrl(avatarUser);
+  try {
+    const avatarUrl = new URL(await deps.resolveAvatarUrl(avatarUser));
+    const isGravatar =
+      (avatarUrl.hostname === "gravatar.com" ||
+        avatarUrl.hostname.endsWith(".gravatar.com")) &&
+      avatarUrl.pathname.startsWith("/avatar/");
+    const isDicebear =
+      avatarUrl.hostname === "api.dicebear.com" &&
+      avatarUrl.pathname === "/9.x/notionists/png";
+    if (
+      avatarUrl.protocol !== "https:" ||
+      avatarUrl.username ||
+      avatarUrl.password ||
+      avatarUrl.port ||
+      !(isGravatar || isDicebear)
+    ) {
+      throw new Error("Unsupported avatar image URL");
+    }
 
-  return new Response(null, {
-    headers: {
-      "Cache-Control": AVATAR_CACHE_CONTROL,
-      Location: avatarUrl,
-      Vary: "Cookie",
-    },
-    status: 302,
-  });
+    const upstream = await deps.fetchImage(avatarUrl, {
+      redirect: "error",
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(10_000)]),
+    });
+    const contentType = upstream.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      .toLowerCase();
+    if (
+      !upstream.ok ||
+      !upstream.body ||
+      !contentType ||
+      ![
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/gif",
+        "image/avif",
+      ].includes(contentType)
+    ) {
+      await upstream.body?.cancel();
+      throw new Error("Invalid avatar image response");
+    }
+
+    return new Response(upstream.body, {
+      headers: {
+        "Cache-Control": AVATAR_CACHE_CONTROL,
+        "Content-Type": contentType,
+        Vary: "Cookie",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    const log = createRequestLogger({ method: "GET", path: "/api/avatar" });
+    log.set({ avatarUserId: userId, userId: authResult.session.user.id });
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
+    return Response.json({ error: "Failed to fetch avatar" }, { status: 502 });
+  }
 }
 
 export const Route = createFileRoute("/api/avatar")({

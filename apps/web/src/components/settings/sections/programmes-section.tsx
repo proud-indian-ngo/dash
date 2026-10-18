@@ -254,11 +254,9 @@ export function ProgrammesSection() {
       ? "create"
       : inlineMode?.kind === "edit"
         ? `edit:${inlineMode.programme.id}`
-        : null;
+        : "list";
 
   useEffect(() => {
-    if (!candidateLoadKey) return;
-
     let active = true;
     getProgrammeLeadCandidates()
       .then((users) => {
@@ -271,7 +269,10 @@ export function ProgrammesSection() {
           component: "ProgrammesSection",
           error: error instanceof Error ? error.message : String(error),
         });
-        setLeadCandidates({ state: "error", users: [] });
+        setLeadCandidates((previous) => ({
+          state: "error",
+          users: previous.users,
+        }));
       });
 
     return () => {
@@ -368,7 +369,10 @@ export function ProgrammesSection() {
   });
 
   const openCreate = useEventCallback(() => {
-    setLeadCandidates({ state: "loading", users: [] });
+    setLeadCandidates((previous) => ({
+      state: "loading",
+      users: previous.users,
+    }));
     setInlineMode({ kind: "create" });
   });
   const openThreshold = useEventCallback(() =>
@@ -376,7 +380,10 @@ export function ProgrammesSection() {
   );
   const cancelInline = useEventCallback(() => setInlineMode(null));
   const handleEditRequest = useEventCallback((programme: Programme) => {
-    setLeadCandidates({ state: "loading", users: [] });
+    setLeadCandidates((previous) => ({
+      state: "loading",
+      users: previous.users,
+    }));
     setInlineMode({ kind: "edit", programme });
   });
 

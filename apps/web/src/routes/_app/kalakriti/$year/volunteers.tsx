@@ -1,4 +1,10 @@
 import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@pi-dash/design-system/components/reui/alert";
+import {
   createFilterQuery,
   createFilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
@@ -15,7 +21,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import { z } from "zod";
 
@@ -70,6 +76,8 @@ interface AssignmentScope {
   name: string;
   retiredAt?: number | null;
 }
+
+const ROSTER_METADATA_REFRESH_INTERVAL_MS = 30_000;
 
 export const Route = createFileRoute("/_app/kalakriti/$year/volunteers")({
   validateSearch: z
@@ -131,9 +139,11 @@ function KalakritiVolunteersPage() {
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
-  const [metadataRetry, setMetadataRetry] = useState(0);
   const [rosterMetadata, setRosterMetadata] =
     useState<RosterMetadataData | null>(null);
+  const [metadataRefreshError, setMetadataRefreshError] = useState(false);
+  const [metadataRefreshing, setMetadataRefreshing] = useState(false);
+  const metadataRequestSequence = useRef(0);
   const [roster, rosterResult] = useQuery(
     queries.kalakritiAssignment.roster({ editionId: edition.id })
   );
@@ -164,34 +174,72 @@ function KalakritiVolunteersPage() {
   const pickerReady = pickerIsCurrent && pickerData?.state === "ready";
   const pickerState = pickerIsCurrent ? pickerData.state : "loading";
   const pickerUsers = pickerIsCurrent ? pickerData.users : [];
+  const rosterUserIdsKey = useMemo(
+    () =>
+      JSON.stringify(
+        [
+          ...new Set(
+            roster.flatMap((member) => (member.userId ? [member.userId] : []))
+          ),
+        ].sort()
+      ),
+    [roster]
+  );
 
-  useEffect(() => {
-    let active = true;
-    getKalakritiRosterUserMetadata({ data: { editionId: edition.id } })
-      .then((rows) => {
-        if (active) {
-          setRosterMetadata({ editionId: edition.id, rows, state: "ready" });
-        }
-      })
-      .catch((error) => {
-        if (!active) return;
+  const loadRosterMetadata = useEventCallback(async () => {
+    const editionId = edition.id;
+    const requestSequence = metadataRequestSequence.current + 1;
+    metadataRequestSequence.current = requestSequence;
+    setMetadataRefreshing(true);
+    try {
+      const rows = await getKalakritiRosterUserMetadata({
+        data: { editionId },
+      });
+      if (requestSequence === metadataRequestSequence.current) {
+        setRosterMetadata({ editionId, rows, state: "ready" });
+        setMetadataRefreshError(false);
+        setMetadataRefreshing(false);
+      }
+    } catch (error) {
+      if (requestSequence === metadataRequestSequence.current) {
         log.error({
           action: "loadRosterUserMetadata",
           component: "KalakritiVolunteersPage",
-          editionId: edition.id,
+          editionId,
           error: error instanceof Error ? error.message : String(error),
         });
-        setRosterMetadata({
-          editionId: edition.id,
-          rows: [],
-          state: "error",
-        });
-      });
+        setMetadataRefreshError(true);
+        setRosterMetadata((previous) =>
+          previous?.editionId === editionId && previous.state === "ready"
+            ? previous
+            : { editionId, rows: [], state: "error" }
+        );
+        setMetadataRefreshing(false);
+      }
+    }
+  });
+
+  useEffect(() => {
+    void loadRosterMetadata();
+    const refreshVisibleMetadata = () => {
+      if (document.visibilityState === "visible") {
+        void loadRosterMetadata();
+      }
+    };
+    const refreshInterval = window.setInterval(
+      refreshVisibleMetadata,
+      ROSTER_METADATA_REFRESH_INTERVAL_MS
+    );
+    window.addEventListener("focus", refreshVisibleMetadata);
+    document.addEventListener("visibilitychange", refreshVisibleMetadata);
 
     return () => {
-      active = false;
+      metadataRequestSequence.current += 1;
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", refreshVisibleMetadata);
+      document.removeEventListener("visibilitychange", refreshVisibleMetadata);
     };
-  }, [edition.id, metadataRetry]);
+  }, [edition.id, loadRosterMetadata, rosterUserIdsKey]);
 
   useEffect(() => {
     if (!assignOpen || assignmentPickerReady) return;
@@ -398,15 +446,15 @@ function KalakritiVolunteersPage() {
     }
   );
   const refreshMetadata = useEventCallback(() => {
-    setMetadataRetry((value) => value + 1);
+    void loadRosterMetadata();
   });
   const retryMetadata = useEventCallback(() => {
-    setRosterMetadata({
-      editionId: edition.id,
-      rows: [],
-      state: "loading",
-    });
-    setMetadataRetry((value) => value + 1);
+    setRosterMetadata((previous) =>
+      previous?.editionId === edition.id && previous.state === "ready"
+        ? previous
+        : { editionId: edition.id, rows: [], state: "loading" }
+    );
+    void loadRosterMetadata();
   });
   const handleAssignFromSheet = useEventCallback(
     (volunteer: VolunteerRosterItem) => {
@@ -464,6 +512,26 @@ function KalakritiVolunteersPage() {
           </p>
         }
       />
+
+      {metadataRefreshError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Volunteer details couldn't be refreshed</AlertTitle>
+          <AlertDescription>
+            The current roster is still available. Check your connection and try
+            again.
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              disabled={metadataRefreshing}
+              onClick={retryMetadata}
+              size="sm"
+              variant="outline"
+            >
+              {metadataRefreshing ? "Retrying..." : "Retry"}
+            </Button>
+          </AlertAction>
+        </Alert>
+      ) : null}
 
       {rosterResult.type === "complete" ? (
         <PeoplePageSummary
