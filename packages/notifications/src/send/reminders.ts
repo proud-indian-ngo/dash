@@ -355,6 +355,7 @@ export async function notifyPhotoApprovalReminder({
 interface EventReminderOptions {
   eventId: string;
   eventName: string;
+  instanceDate?: string | null;
   intervalMinutes: number;
   location: string | null;
   startTime: number;
@@ -365,6 +366,7 @@ export async function notifyEventReminder({
   userId,
   eventName,
   eventId,
+  instanceDate,
   intervalMinutes,
   location,
   startTime,
@@ -388,7 +390,7 @@ export async function notifyEventReminder({
       name: eventName,
     },
     emailHtml,
-    idempotencyKey: `event-reminder-${eventId}-${intervalMinutes}-${userId}`,
+    idempotencyKey: `event-reminder-${eventId}${instanceDate ? `-${instanceDate}` : ""}-${intervalMinutes}-${userId}`,
     // "Starts in 30 min" is wrong five minutes later.
     immediate: true,
     title: "⏰ Coming up!",
