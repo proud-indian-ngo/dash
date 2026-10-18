@@ -180,7 +180,7 @@ describe("handlePublicEventsRequest", () => {
     });
 
     const response = await handlePublicEventsRequest(
-      request("", { "cf-connecting-ip": "203.0.113.7" }),
+      request("", { "x-forwarded-for": "203.0.113.7" }),
       deps
     );
 
@@ -291,7 +291,7 @@ describe("handlePublicEventsPreflight", () => {
 });
 
 describe("clientIp", () => {
-  it("prefers Cloudflare's header, then our proxy's right-most hop", () => {
+  it("ignores Cloudflare headers and uses Traefik's right-most hop", () => {
     expect(
       clientIp(
         request("", {
@@ -299,10 +299,19 @@ describe("clientIp", () => {
           "x-forwarded-for": "1.1.1.1",
         })
       )
-    ).toBe("203.0.113.7");
+    ).toBe("1.1.1.1");
     expect(
       clientIp(request("", { "x-forwarded-for": "6.6.6.6, 203.0.113.9" }))
     ).toBe("203.0.113.9");
+    expect(clientIp(request("", { "cf-connecting-ip": "203.0.113.7" }))).toBe(
+      "unknown"
+    );
+    expect(clientIp(request("", { "x-forwarded-for": "6.6.6.6, " }))).toBe(
+      "unknown"
+    );
+    expect(clientIp(request("", { "x-forwarded-for": " 2001:db8::7 " }))).toBe(
+      "2001:db8::7"
+    );
     expect(clientIp(request())).toBe("unknown");
   });
 });

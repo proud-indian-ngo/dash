@@ -26,10 +26,7 @@ const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" };
 let warnedUnknownIp = false;
 
 /**
- * Client IP for rate limiting. Production is only reachable through
- * Cloudflare (see DEPLOYMENT.md), which sets `cf-connecting-ip`. Otherwise use
- * the right-most `x-forwarded-for` hop, the one appended by our own proxy;
- * left-most entries are client-controlled.
+ * Use the proxy-derived rate-limit identity, or a shared bucket when absent.
  */
 export function clientIp(request: Request): string {
   const ip = trustedClientIp(request);

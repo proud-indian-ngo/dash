@@ -136,7 +136,10 @@ describe("handleLogIngestRequest", () => {
     });
 
     const response = await handleLogIngestRequest(
-      request("[]", { "cf-connecting-ip": "203.0.113.7" }),
+      request("[]", {
+        "cf-connecting-ip": "198.51.100.10",
+        "x-forwarded-for": "198.51.100.11, 203.0.113.7",
+      }),
       deps
     );
 
@@ -144,6 +147,27 @@ describe("handleLogIngestRequest", () => {
     expect(readBody).not.toHaveBeenCalled();
     expect(deps.checkRateLimit).toHaveBeenCalledWith(
       "log-ingest:203.0.113.7",
+      60
+    );
+  });
+
+  it("keeps forged Cloudflare headers in the shared unknown-IP bucket", async () => {
+    const { deps, checkRateLimit } = createDeps();
+    for (const ip of ["198.51.100.10", "198.51.100.11"]) {
+      await handleLogIngestRequest(
+        request("[]", { "cf-connecting-ip": ip }),
+        deps
+      );
+    }
+    expect(checkRateLimit).toHaveBeenCalledTimes(2);
+    expect(deps.checkRateLimit).toHaveBeenNthCalledWith(
+      1,
+      "log-ingest:unknown",
+      60
+    );
+    expect(deps.checkRateLimit).toHaveBeenNthCalledWith(
+      2,
+      "log-ingest:unknown",
       60
     );
   });
