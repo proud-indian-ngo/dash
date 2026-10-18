@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import type { Attachment } from "@/lib/form-schemas";
+import { localDateToEpoch } from "@/lib/local-date";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { invoiceFormSchema } from "@/lib/vendor-payment-invoice-schema";
 
@@ -106,12 +107,7 @@ function InvoiceFormContent({
       const parsed = invoiceFormSchema.parse(value);
       const mutatorName = mode === "submit" ? "submitInvoice" : "updateInvoice";
       const isInvoice = parsed.kind === "invoice";
-      // Zero represents Postgres date columns as UTC midnight.
-      const invoiceDate = Date.UTC(
-        parsed.invoiceDate.getFullYear(),
-        parsed.invoiceDate.getMonth(),
-        parsed.invoiceDate.getDate()
-      );
+      const invoiceDate = localDateToEpoch(parsed.invoiceDate);
 
       const args =
         parsed.kind === "invoice"
