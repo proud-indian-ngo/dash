@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { epochToLocalDate, localDateToIso } from "./local-date";
+import {
+  epochToLocalDate,
+  localDateToEpoch,
+  localDateToIso,
+} from "./local-date";
 
 describe("local date helpers", () => {
   it("round-trips a UTC-midnight epoch to the same calendar day", () => {
@@ -25,5 +29,25 @@ describe("local date helpers", () => {
     expect(epochToLocalDate(null)).toBeUndefined();
     expect(epochToLocalDate(undefined)).toBeUndefined();
     expect(localDateToIso(undefined)).toBeNull();
+  });
+
+  it("writes a picked day as that day's UTC midnight east of UTC", () => {
+    const tz = process.env.TZ;
+    process.env.TZ = "Asia/Kolkata";
+    try {
+      // The picker's 16 Oct is local midnight, 18:30 UTC on 15 Oct.
+      const picked = new Date(2026, 9, 16);
+      expect(picked.toISOString()).toBe("2026-10-15T18:30:00.000Z");
+      expect(localDateToEpoch(picked)).toBe(Date.UTC(2026, 9, 16));
+      expect(localDateToIso(epochToLocalDate(localDateToEpoch(picked)))).toBe(
+        "2026-10-16"
+      );
+    } finally {
+      if (tz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = tz;
+      }
+    }
   });
 });

@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
 import { useRecordTitle } from "@/hooks/use-record-title";
+import { epochToLocalDate } from "@/lib/local-date";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
 import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
@@ -69,7 +70,7 @@ function useResolvedRequest(id: string): {
       isLoading: false,
       resolved: {
         data: { ...reimbursement, type: "reimbursement" } as RequestDetailData,
-        expenseDate: new Date(reimbursement.expenseDate),
+        expenseDate: epochToLocalDate(reimbursement.expenseDate),
         type: "reimbursement",
       },
     };

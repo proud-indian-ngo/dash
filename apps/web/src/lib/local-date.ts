@@ -15,6 +15,11 @@ export function epochToLocalDate(
   return new Date(Number(y), Number(m) - 1, Number(d));
 }
 
+/** The UTC-midnight epoch Zero writes to a `date` column for a local Date. */
+export function localDateToEpoch(value: Date): number {
+  return Date.UTC(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
 /** The ISO calendar day (yyyy-MM-dd) of a local Date, or null when unset. */
 export function localDateToIso(value: Date | undefined): string | null {
   return value ? format(value, "yyyy-MM-dd") : null;

@@ -21,6 +21,10 @@ Drizzle is the source of truth. `bun run zero:generate` generates the client sch
 
 Import `jsonb` from `packages/db/src/schema/jsonb.ts`, never from `drizzle-orm/pg-core`. With the Bun SQL driver, Drizzle's built-in column JSON-encodes the value and Bun encodes it again, so objects land as jsonb strings. Drizzle reads hide this, but Zero syncs the raw column and clients get a string. The local type sends `$1::text::jsonb`. In raw SQL, bind JSON as `${JSON.stringify(value)}::text::jsonb`, not `::jsonb`.
 
+### Dates
+
+Zero syncs a Postgres `date` column as the epoch of UTC midnight. A date picker's value is local midnight, which in India is 18:30 UTC the day before, so passing `getTime()` to a mutator stores the previous day. Convert with `localDateToEpoch` (or `localDateToIso` for a string argument) and read back with `epochToLocalDate`, all in `apps/web/src/lib/local-date.ts`. Mutators compare such a day with `todayInKolkata`, not `Date.now()`.
+
 ### Money
 
 - Integer paise in `bigint` columns named `*_paise`, read and synced as `number`.

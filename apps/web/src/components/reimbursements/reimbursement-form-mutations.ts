@@ -4,6 +4,7 @@ import type { useZero } from "@rocicorp/zero/react";
 
 import { chargedToPayload } from "@/components/expenses/charged-to-schema";
 import { toLineItemsPayload } from "@/lib/form-schemas";
+import { localDateToEpoch } from "@/lib/local-date";
 
 import {
   bankAccountFormFields,
@@ -15,7 +16,7 @@ function requireDate(value: Date | undefined, field: string): number {
   if (!value) {
     throw new Error(`${field} is required`);
   }
-  return value.getTime();
+  return localDateToEpoch(value);
 }
 
 type BankFieldValues = Pick<

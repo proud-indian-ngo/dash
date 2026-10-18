@@ -143,7 +143,10 @@ export const createSchema = z.object({
   eventId: z.string().optional(),
   expenseDate: z
     .number()
-    .refine((n) => n <= Date.now(), "Expense date cannot be in the future"),
+    .refine(
+      (n) => expenseDay(n) <= todayInKolkata(),
+      "Expense date cannot be in the future"
+    ),
   id: z.string(),
   lineItems: z.array(reimbursementLineItemSchema),
   title: z.string().min(1),
