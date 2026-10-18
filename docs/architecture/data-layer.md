@@ -59,7 +59,7 @@ The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the p
 ## Connection errors and logout
 
 - `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` watches `useConnectionState()`. Individual queries do no error handling.
-- `error`: debounced toast. `needs-auth`: redirect to `/login` with the current path.
+- `error`: reconnect, since Zero itself stops retrying and some server errors are transient (a reload racing the previous connection can drop shared query work); after 10 reconnects in a minute, a debounced toast. `needs-auth`: redirect to `/login` with the current path.
 - Logout calls `zero.delete()` (best effort) before `authClient.signOut()` to clear IndexedDB.
 
 ## Route preloads

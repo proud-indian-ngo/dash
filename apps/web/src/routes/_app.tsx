@@ -4,7 +4,7 @@ import {
   SidebarProvider,
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
-import { useConnectionState } from "@rocicorp/zero/react";
+import { useConnectionState, useZero } from "@rocicorp/zero/react";
 import {
   createFileRoute,
   Outlet,
@@ -87,6 +87,11 @@ const showSyncErrorToast = debounce(
   { leading: true, trailing: false }
 );
 
+// Zero stops retrying in `error`, but some server errors are transient (a
+// reload racing the previous page's connection can drop shared query work, in
+// bursts), so reconnect, up to a limit per minute, before telling the user.
+const MAX_ERROR_RECONNECTS_PER_MINUTE = 10;
+
 function extractReason(state: { reason?: unknown }): string {
   return typeof state.reason === "string"
     ? state.reason
@@ -94,8 +99,10 @@ function extractReason(state: { reason?: unknown }): string {
 }
 
 function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
+  const zero = useZero();
   const state = useConnectionState();
   const prevName = useRef<string | null>(null);
+  const errorReconnectTimes = useRef<number[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -121,11 +128,22 @@ function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
         message: `Zero connection: ${state.name}`,
         reason: extractReason(state),
       });
-      showSyncErrorToast();
+      const now = Date.now();
+      errorReconnectTimes.current = errorReconnectTimes.current.filter(
+        (time) => now - time < 60_000
+      );
+      if (
+        errorReconnectTimes.current.length < MAX_ERROR_RECONNECTS_PER_MINUTE
+      ) {
+        errorReconnectTimes.current.push(now);
+        zero.connection.connect();
+      } else {
+        showSyncErrorToast();
+      }
     }
 
     prevName.current = state.name;
-  }, [state, navigate, onConnected]);
+  }, [state, navigate, onConnected, zero]);
 
   return null;
 }
