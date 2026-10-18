@@ -870,8 +870,15 @@ export const teamEventMutators = {
           : cancelledIds;
 
       // One notice to the members of every cancelled session; started
-      // sessions kept by "all" send nothing.
-      if (tx.location === "server" && notifiedIds.length > 0) {
+      // sessions kept by "all" send nothing, and neither does a started
+      // session cancelled with "this" (one that didn't happen).
+      const startedSession =
+        sessionStart !== undefined && sessionStart <= args.now;
+      if (
+        tx.location === "server" &&
+        notifiedIds.length > 0 &&
+        !startedSession
+      ) {
         const eventId = args.id;
         const eventName = existing.name;
         const { teamId } = existing;

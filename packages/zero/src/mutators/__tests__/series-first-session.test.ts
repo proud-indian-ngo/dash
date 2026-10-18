@@ -1137,3 +1137,49 @@ describe("this and following with nothing left to cancel", () => {
     });
   });
 });
+
+describe("this event on a session that has started", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const admin = (asyncTasks: { fn: () => Promise<void> }[]) => ({
+    asyncTasks,
+    permissions: ["events.cancel"],
+    role: "admin",
+    traceId: "t",
+    userId: "admin-1",
+  });
+
+  it("lets events.cancel mark it cancelled without a notice or poll close", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held",
+        originalDate: "2026-10-17",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-17T04:30:00Z"),
+      },
+    ]);
+    db.tables.teamEventMember?.push({
+      eventId: "held",
+      id: "m-held",
+      userId: "vol-1",
+    });
+    enqueued.length = 0;
+    const asyncTasks: { fn: () => Promise<void> }[] = [];
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "this",
+        now: AFTER_THIRD,
+        originalDate: "2026-10-17",
+      },
+      ctx: admin(asyncTasks),
+      tx: db.tx,
+    } as never);
+    await Promise.all(asyncTasks.map((task) => task.fn()));
+
+    expect(db.tables.teamEvent?.find((e) => e.id === "held")?.cancelledAt).toBe(
+      AFTER_THIRD
+    );
+    expect(enqueued).toEqual([]);
+  });
+});
