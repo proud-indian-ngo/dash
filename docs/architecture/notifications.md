@@ -33,6 +33,12 @@ Email:
 
 WhatsApp goes only to users with a verified `whatsappStatus` and the topic enabled. `sync-whatsapp-status`, enqueued on sign-up or phone change, records whether the phone is on WhatsApp.
 
+### Event reminder claims
+
+Pre-event reminders and post-event nudges claim their event and interval before recipient reads or delivery. A thrown read or delivery releases only that attempt's claim, so the cron can retry while the event remains in its eligibility window. Participant fan-out waits for every attempt, then fails the run if any delivery failed.
+
+This is bounded retry protection, not durable delivery state. A process crash can leave a stale claim, a retry outside the cron eligibility window is skipped, and an ambiguous GoWA result can still deliver more than once. This fix adds no durable job state or schema change; addressing those cases requires one.
+
 ## Batching
 
 Email and WhatsApp DMs are held for a short window and sent together, so a burst of activity reaches each person as one message. The inbox is never held. Code: `packages/notifications/src/batching.ts`.

@@ -14,7 +14,33 @@ import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 import type { ProcessPostEventRemindersPayload } from "../enqueue";
-import { tryInsertReminderSent } from "../lib/reminder-sentinel";
+import { withReminderClaim } from "../lib/reminder-sentinel";
+
+async function settleDeliveries(
+  deliveries: Promise<void>[],
+  message: string
+): Promise<void> {
+  const results = await Promise.allSettled(deliveries);
+  const errors = results.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : []
+  );
+  if (errors.length > 0) {
+    throw new AggregateError(errors, message);
+  }
+}
+
+async function withFailureLog<T>(
+  log: ReturnType<typeof createRequestLogger>,
+  operation: Promise<T>
+): Promise<T> {
+  try {
+    return await operation;
+  } catch (error) {
+    log.error(error instanceof Error ? error : String(error));
+    log.emit();
+    throw error;
+  }
+}
 
 export async function handleProcessPostEventReminders(
   _jobs: Job<ProcessPostEventRemindersPayload>[]
@@ -48,7 +74,7 @@ export async function handleProcessPostEventReminders(
 
 // ── Feedback Nudge (6-7h after endTime) ──────────────────────────────────────
 
-async function processFeedbackNudges(now: number): Promise<number> {
+export async function processFeedbackNudges(now: number): Promise<number> {
   const log = createRequestLogger({
     method: "JOB",
     path: "process-post-event-reminders/feedback",
@@ -73,46 +99,44 @@ async function processFeedbackNudges(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  const results: number[] = await Promise.all(
-    events.map(async (event) => {
-      if (
-        !(await tryInsertReminderSent(
+  const results: number[] = await withFailureLog(
+    log,
+    Promise.all(
+      events.map(async (event) => {
+        let hasRecipients = false;
+        const claimed = await withReminderClaim(
           event.id,
           null,
-          POST_EVENT_SENTINELS.feedbackNudge
-        ))
-      ) {
-        return 0;
-      }
+          POST_EVENT_SENTINELS.feedbackNudge,
+          async () => {
+            const members = await db
+              .select({ userId: teamEventMember.userId })
+              .from(teamEventMember)
+              .where(eq(teamEventMember.eventId, event.id));
 
-      const members = await db
-        .select({ userId: teamEventMember.userId })
-        .from(teamEventMember)
-        .where(eq(teamEventMember.eventId, event.id));
+            const submitted = await db
+              .select({ userId: eventFeedbackSubmission.userId })
+              .from(eventFeedbackSubmission)
+              .where(eq(eventFeedbackSubmission.eventId, event.id));
 
-      const submitted = await db
-        .select({ userId: eventFeedbackSubmission.userId })
-        .from(eventFeedbackSubmission)
-        .where(eq(eventFeedbackSubmission.eventId, event.id));
-
-      const submittedSet = new Set(submitted.map((r) => r.userId));
-      const pending = members.filter((m) => !submittedSet.has(m.userId));
-
-      if (pending.length === 0) {
-        return 0;
-      }
-
-      await Promise.allSettled(
-        pending.map((m) =>
-          notifyFeedbackNudge({
-            eventId: event.id,
-            eventName: event.name,
-            userId: m.userId,
-          })
-        )
-      );
-      return 1;
-    })
+            const submittedSet = new Set(submitted.map((r) => r.userId));
+            const pending = members.filter((m) => !submittedSet.has(m.userId));
+            hasRecipients = pending.length > 0;
+            await settleDeliveries(
+              pending.map((m) =>
+                notifyFeedbackNudge({
+                  eventId: event.id,
+                  eventName: event.name,
+                  userId: m.userId,
+                })
+              ),
+              `Feedback nudge delivery failed for event ${event.id}`
+            );
+          }
+        );
+        return claimed && hasRecipients ? 1 : 0;
+      })
+    )
   );
   const sent = results.reduce((total, count) => total + count, 0);
 
@@ -123,7 +147,7 @@ async function processFeedbackNudges(now: number): Promise<number> {
 
 // ── Attendance Not Marked (24-25h after endTime) ─────────────────────────────
 
-async function processAttendanceReminders(now: number): Promise<number> {
+export async function processAttendanceReminders(now: number): Promise<number> {
   const log = createRequestLogger({
     method: "JOB",
     path: "process-post-event-reminders/attendance",
@@ -150,56 +174,61 @@ async function processAttendanceReminders(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  const results: number[] = await Promise.all(
-    events.map(async (event) => {
-      const markedMembers = await db
-        .select({ id: teamEventMember.id })
-        .from(teamEventMember)
-        .where(
-          and(
-            eq(teamEventMember.eventId, event.id),
-            isNotNull(teamEventMember.attendance)
-          )
-        )
-        .limit(1);
-
-      if (markedMembers.length > 0) {
-        return 0;
-      }
-
-      if (
-        !(await tryInsertReminderSent(
+  const results: number[] = await withFailureLog(
+    log,
+    Promise.all(
+      events.map(async (event) => {
+        let hasRecipients = false;
+        const claimed = await withReminderClaim(
           event.id,
           null,
-          POST_EVENT_SENTINELS.attendanceReminder
-        ))
-      ) {
-        return 0;
-      }
+          POST_EVENT_SENTINELS.attendanceReminder,
+          async () => {
+            const markedMembers = await db
+              .select({ id: teamEventMember.id })
+              .from(teamEventMember)
+              .where(
+                and(
+                  eq(teamEventMember.eventId, event.id),
+                  isNotNull(teamEventMember.attendance)
+                )
+              )
+              .limit(1);
 
-      const leads = await db
-        .select({ userId: teamMember.userId })
-        .from(teamMember)
-        .where(
-          and(eq(teamMember.teamId, event.teamId), eq(teamMember.role, "lead"))
+            if (markedMembers.length > 0) {
+              return;
+            }
+
+            const leads = await db
+              .select({ userId: teamMember.userId })
+              .from(teamMember)
+              .where(
+                and(
+                  eq(teamMember.teamId, event.teamId),
+                  eq(teamMember.role, "lead")
+                )
+              );
+
+            const recipientIds = new Set([
+              event.createdBy,
+              ...leads.map((l) => l.userId),
+            ]);
+            hasRecipients = recipientIds.size > 0;
+            await settleDeliveries(
+              Array.from(recipientIds).map((userId) =>
+                notifyAttendanceNotMarked({
+                  eventId: event.id,
+                  eventName: event.name,
+                  userId,
+                })
+              ),
+              `Attendance reminder delivery failed for event ${event.id}`
+            );
+          }
         );
-
-      const recipientIds = new Set([
-        event.createdBy,
-        ...leads.map((l) => l.userId),
-      ]);
-
-      await Promise.allSettled(
-        Array.from(recipientIds).map((userId) =>
-          notifyAttendanceNotMarked({
-            eventId: event.id,
-            eventName: event.name,
-            userId,
-          })
-        )
-      );
-      return 1;
-    })
+        return claimed && hasRecipients ? 1 : 0;
+      })
+    )
   );
   const sent = results.reduce((total, count) => total + count, 0);
 
@@ -210,7 +239,7 @@ async function processAttendanceReminders(now: number): Promise<number> {
 
 // ── Photo Upload Nudge (24-25h after endTime) ────────────────────────────────
 
-async function processPhotoNudges(now: number): Promise<number> {
+export async function processPhotoNudges(now: number): Promise<number> {
   const log = createRequestLogger({
     method: "JOB",
     path: "process-post-event-reminders/photos",
@@ -235,44 +264,46 @@ async function processPhotoNudges(now: number): Promise<number> {
 
   log.set({ candidateEvents: events.length });
 
-  const results: number[] = await Promise.all(
-    events.map(async (event) => {
-      const photos = await db
-        .select({ id: eventPhoto.id })
-        .from(eventPhoto)
-        .where(eq(eventPhoto.eventId, event.id))
-        .limit(1);
-
-      if (photos.length > 0) {
-        return 0;
-      }
-
-      if (
-        !(await tryInsertReminderSent(
+  const results: number[] = await withFailureLog(
+    log,
+    Promise.all(
+      events.map(async (event) => {
+        let hasRecipients = false;
+        const claimed = await withReminderClaim(
           event.id,
           null,
-          POST_EVENT_SENTINELS.photoNudge
-        ))
-      ) {
-        return 0;
-      }
+          POST_EVENT_SENTINELS.photoNudge,
+          async () => {
+            const photos = await db
+              .select({ id: eventPhoto.id })
+              .from(eventPhoto)
+              .where(eq(eventPhoto.eventId, event.id))
+              .limit(1);
 
-      const members = await db
-        .select({ userId: teamEventMember.userId })
-        .from(teamEventMember)
-        .where(eq(teamEventMember.eventId, event.id));
+            if (photos.length > 0) {
+              return;
+            }
 
-      if (members.length === 0) {
-        return 0;
-      }
+            const members = await db
+              .select({ userId: teamEventMember.userId })
+              .from(teamEventMember)
+              .where(eq(teamEventMember.eventId, event.id));
 
-      await notifyPhotoUploadNudge({
-        eventId: event.id,
-        eventName: event.name,
-        userIds: members.map((m) => m.userId),
-      });
-      return 1;
-    })
+            hasRecipients = members.length > 0;
+            if (!hasRecipients) {
+              return;
+            }
+
+            await notifyPhotoUploadNudge({
+              eventId: event.id,
+              eventName: event.name,
+              userIds: members.map((m) => m.userId),
+            });
+          }
+        );
+        return claimed && hasRecipients ? 1 : 0;
+      })
+    )
   );
   const sent = results.reduce((total, count) => total + count, 0);
 

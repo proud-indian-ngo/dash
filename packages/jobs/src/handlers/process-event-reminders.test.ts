@@ -3,15 +3,35 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 const hoisted = <T>(factory: () => T): T => factory();
 
 const mocks = hoisted(() => ({
-  notifyEventReminder: mock(async () => undefined),
-  notifyEventReminderGroup: mock(async () => undefined),
+  claimed: new Set<string>(),
+  memberRows: [{ userId: "user-1" }],
+  notifyEventReminder: mock(
+    async (_input: { userId: string }): Promise<void> => undefined
+  ),
+  notifyEventReminderGroup: mock(async (): Promise<void> => undefined),
+  released: [] as string[],
   select: mock(),
-  tryInsertReminderSent: mock(
+  withReminderClaim: mock(
     async (
-      _eventId: string,
-      _instanceDate: string | null,
-      _intervalMinutes: number
-    ) => true
+      eventId: string,
+      instanceDate: string | null,
+      intervalMinutes: number,
+      operation: () => Promise<void>
+    ) => {
+      const key = `${eventId}:${instanceDate ?? "none"}:${intervalMinutes}`;
+      if (mocks.claimed.has(key)) {
+        return false;
+      }
+      mocks.claimed.add(key);
+      try {
+        await operation();
+        return true;
+      } catch (error) {
+        mocks.claimed.delete(key);
+        mocks.released.push(key);
+        throw error;
+      }
+    }
   ),
 }));
 
@@ -33,7 +53,7 @@ mock.module("../lib/materialize-occurrences", () => ({
   materializePastOccurrences: mock(async () => 0),
 }));
 mock.module("../lib/reminder-sentinel", () => ({
-  tryInsertReminderSent: mocks.tryInsertReminderSent,
+  withReminderClaim: mocks.withReminderClaim,
 }));
 
 const { processRemindersForEvent } = await import("./process-event-reminders");
@@ -66,13 +86,15 @@ function params(
 
 beforeEach(() => {
   mock.clearAllMocks();
-  mocks.tryInsertReminderSent.mockResolvedValue(true);
+  mocks.claimed.clear();
+  mocks.memberRows = [{ userId: "user-1" }];
+  mocks.released.length = 0;
   mocks.select.mockImplementation((selection: Record<string, unknown>) => ({
     from: () => ({
       where: () =>
         "jid" in selection
           ? { limit: async () => [{ jid: "group@g.us" }] }
-          : Promise.resolve([{ userId: "user-1" }]),
+          : Promise.resolve(mocks.memberRows),
     }),
   }));
 });
@@ -91,7 +113,7 @@ describe("processRemindersForEvent", () => {
       Array.from({ length: 365 }, () => ({ sent: 0, skipped: 0 }))
     );
     expect(mocks.select).not.toHaveBeenCalled();
-    expect(mocks.tryInsertReminderSent).not.toHaveBeenCalled();
+    expect(mocks.withReminderClaim).not.toHaveBeenCalled();
     expect(mocks.notifyEventReminder).not.toHaveBeenCalled();
     expect(mocks.notifyEventReminderGroup).not.toHaveBeenCalled();
   });
@@ -103,7 +125,7 @@ describe("processRemindersForEvent", () => {
 
     expect(result).toEqual({ sent: 0, skipped: 0 });
     expect(mocks.select).not.toHaveBeenCalled();
-    expect(mocks.tryInsertReminderSent).not.toHaveBeenCalled();
+    expect(mocks.withReminderClaim).not.toHaveBeenCalled();
   });
 
   it("includes both time boundaries and excludes an older interval", async () => {
@@ -112,8 +134,10 @@ describe("processRemindersForEvent", () => {
     );
 
     expect(result).toEqual({ sent: 2, skipped: 0 });
-    expect(mocks.select).toHaveBeenCalledTimes(2);
-    expect(mocks.tryInsertReminderSent.mock.calls).toEqual([
+    expect(mocks.select).toHaveBeenCalledTimes(4);
+    expect(
+      mocks.withReminderClaim.mock.calls.map((call) => call.slice(0, 3))
+    ).toEqual([
       ["event-1", null, 0],
       ["event-1", null, 16],
     ]);
@@ -122,9 +146,7 @@ describe("processRemindersForEvent", () => {
   });
 
   it("keeps sent and skipped counts when a due sentinel already exists", async () => {
-    mocks.tryInsertReminderSent.mockImplementation(
-      async (_eventId, _instanceDate, intervalMinutes) => intervalMinutes === 16
-    );
+    mocks.claimed.add("event-1:none:0");
 
     const result = await processRemindersForEvent(
       params({ intervals: [0, 16, 17] })
@@ -132,7 +154,7 @@ describe("processRemindersForEvent", () => {
 
     expect(result).toEqual({ sent: 1, skipped: 1 });
     expect(mocks.select).toHaveBeenCalledTimes(2);
-    expect(mocks.tryInsertReminderSent).toHaveBeenCalledTimes(2);
+    expect(mocks.withReminderClaim).toHaveBeenCalledTimes(2);
     expect(mocks.notifyEventReminderGroup).toHaveBeenCalledTimes(1);
     expect(mocks.notifyEventReminder).toHaveBeenCalledTimes(1);
   });
@@ -143,5 +165,43 @@ describe("processRemindersForEvent", () => {
     expect(mocks.notifyEventReminder).toHaveBeenCalledWith(
       expect.objectContaining({ instanceDate: "2026-10-18" })
     );
+  });
+
+  it("releases a partial failure, retries participants before the group, then dedupes", async () => {
+    mocks.memberRows = [{ userId: "user-1" }, { userId: "user-2" }];
+    mocks.notifyEventReminder.mockImplementation(async ({ userId }) => {
+      if (userId === "user-1") {
+        throw new Error("temporary participant failure");
+      }
+    });
+    const onPartialFailure = mock();
+    const request = { ...params(), onPartialFailure };
+
+    await expect(processRemindersForEvent(request)).rejects.toThrow(
+      "Participant reminder delivery failed"
+    );
+    expect(mocks.notifyEventReminder).toHaveBeenCalledTimes(2);
+    expect(onPartialFailure).toHaveBeenCalledWith({
+      eventId: "event-1",
+      failureCount: 1,
+      instanceDate: null,
+      intervalMinutes: 0,
+      totalMembers: 2,
+    });
+    expect(mocks.notifyEventReminderGroup).not.toHaveBeenCalled();
+    expect(mocks.released).toEqual(["event-1:none:0"]);
+
+    mocks.notifyEventReminder.mockResolvedValue(undefined);
+    await expect(processRemindersForEvent(request)).resolves.toEqual({
+      sent: 1,
+      skipped: 0,
+    });
+    expect(mocks.notifyEventReminderGroup).toHaveBeenCalledTimes(1);
+
+    await expect(processRemindersForEvent(request)).resolves.toEqual({
+      sent: 0,
+      skipped: 1,
+    });
+    expect(mocks.notifyEventReminderGroup).toHaveBeenCalledTimes(1);
   });
 });
