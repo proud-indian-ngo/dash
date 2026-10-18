@@ -85,6 +85,8 @@ interface EventCancelledOptions {
   eventId: string;
   eventMemberIds: string[];
   eventName: string;
+  /** A series that ended: only its upcoming sessions were cancelled. */
+  seriesEnded?: boolean;
   teamId: string;
 }
 
@@ -316,15 +318,22 @@ export async function notifyEventCancelled({
   teamId,
   eventId,
   cancelledAt,
+  seriesEnded,
 }: EventCancelledOptions): Promise<void> {
+  const heading = seriesEnded
+    ? "Upcoming sessions cancelled"
+    : "Event cancelled";
+  const body = seriesEnded
+    ? `The upcoming sessions of ${eventName} have been cancelled.`
+    : `${eventName} has been cancelled.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
-    heading: "Event cancelled",
-    paragraphs: [`${eventName} has been cancelled.`],
+    heading,
+    paragraphs: [body],
   });
   await sendBulkMessage({
-    body: `${eventName} has been cancelled.`,
+    body,
     clickAction: `/teams/${teamId}`,
     digest: {
       list: { label: "View events", path: "/events" },
@@ -334,7 +343,7 @@ export async function notifyEventCancelled({
     emailHtml,
     idempotencyKey: `event-cancelled-${eventId}-${cancelledAt}`,
     immediate: true,
-    title: "❌ Event cancelled",
+    title: `❌ ${heading}`,
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
     whatsappTemplate: whatsappTemplate(

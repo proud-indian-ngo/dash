@@ -265,6 +265,8 @@ export interface NotifyEventCancelledPayload {
   eventMemberIds: string[];
   eventName: string;
   reason?: string;
+  /** A series that ended: only its upcoming sessions were cancelled. */
+  seriesEnded?: boolean;
   teamId: string;
 }
 export interface NotifyAddedToEventPayload {

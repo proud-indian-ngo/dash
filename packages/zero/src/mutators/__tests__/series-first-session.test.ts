@@ -706,6 +706,7 @@ describe("cancel all upcoming sessions", () => {
     const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
     expect(notices).toHaveLength(1);
     expect(notices[0]?.payload.eventMemberIds).toEqual(["lead-1", "vol-2"]);
+    expect(notices[0]?.payload.seriesEnded).toBe(true);
     expect(
       enqueued
         .filter((j) => j.name === "close-rsvp-poll-on-cancel")
@@ -824,6 +825,10 @@ describe("cancel all upcoming sessions", () => {
         .filter((j) => j.name === "close-rsvp-poll-on-cancel")
         .map((j) => j.payload.eventId)
     ).toEqual(["series-1", "next"]);
+    expect(
+      enqueued.find((j) => j.name === "notify-event-cancelled")?.payload
+        .seriesEnded
+    ).toBe(false);
   });
 
   it("sends nothing again for a series it already ended", async () => {

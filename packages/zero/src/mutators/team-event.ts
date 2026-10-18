@@ -840,9 +840,12 @@ export const teamEventMutators = {
       // The rows whose members hear of it and whose RSVP polls close.
       let cancelledIds = [args.id];
       let notifiedIds = [args.id];
+      let seriesEnded = false;
       if (mode === "all") {
         const result = await cancelSeriesAll(tx, args, existing);
         cancelledIds = result.cancelledIds;
+        // The series row stays live when started sessions are kept.
+        seriesEnded = !cancelledIds.includes(args.id);
         // Unsaved sessions dropped from the rule had the series' volunteers
         // only when they inherit them.
         notifiedIds =
@@ -888,6 +891,7 @@ export const teamEventMutators = {
                 eventMemberIds,
                 eventName,
                 reason,
+                seriesEnded,
                 teamId,
               },
               { traceId: ctx.traceId }

@@ -83,4 +83,20 @@ describe("event WhatsApp templates", () => {
       },
     });
   });
+
+  it("says only the upcoming sessions are cancelled when a series ends", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      seriesEnded: true,
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The upcoming sessions of Weekly class have been cancelled.",
+      title: "❌ Upcoming sessions cancelled",
+    });
+  });
 });
