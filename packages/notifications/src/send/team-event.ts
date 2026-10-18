@@ -87,7 +87,35 @@ interface EventCancelledOptions {
   eventName: string;
   /** A series that ended: only its upcoming sessions were cancelled. */
   seriesEnded?: boolean;
+  /** For a series: the session cancelled, or the first of those cancelled. */
+  sessionStart?: number;
   teamId: string;
+}
+
+/** The heading and sentence for what a cancel covered. */
+function cancelledCopy(
+  eventName: string,
+  seriesEnded: boolean | undefined,
+  sessionStart: number | undefined
+): { body: string; heading: string } {
+  if (sessionStart !== undefined) {
+    const when = formatEventWhen(sessionStart);
+    return seriesEnded
+      ? {
+          body: `The ${eventName} sessions from ${when} onwards have been cancelled.`,
+          heading: "Sessions cancelled",
+        }
+      : {
+          body: `The ${eventName} session on ${when} has been cancelled.`,
+          heading: "Session cancelled",
+        };
+  }
+  return seriesEnded
+    ? {
+        body: `The upcoming sessions of ${eventName} have been cancelled.`,
+        heading: "Upcoming sessions cancelled",
+      }
+    : { body: `${eventName} has been cancelled.`, heading: "Event cancelled" };
 }
 
 export async function notifyAddedToEvent({
@@ -319,13 +347,9 @@ export async function notifyEventCancelled({
   eventId,
   cancelledAt,
   seriesEnded,
+  sessionStart,
 }: EventCancelledOptions): Promise<void> {
-  const heading = seriesEnded
-    ? "Upcoming sessions cancelled"
-    : "Event cancelled";
-  const body = seriesEnded
-    ? `The upcoming sessions of ${eventName} have been cancelled.`
-    : `${eventName} has been cancelled.`;
+  const { body, heading } = cancelledCopy(eventName, seriesEnded, sessionStart);
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,

@@ -99,4 +99,38 @@ describe("event WhatsApp templates", () => {
       title: "❌ Upcoming sessions cancelled",
     });
   });
+
+  it("names the session's date in India time for one session", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      sessionStart: Date.UTC(2026, 9, 24, 4, 30),
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The Weekly class session on Sat, 24 Oct, 10:00 am has been cancelled.",
+      title: "❌ Session cancelled",
+      whatsappTemplate: { name: "event_cancelled" },
+    });
+  });
+
+  it("names the first date for this and following", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      seriesEnded: true,
+      sessionStart: Date.UTC(2026, 9, 24, 4, 30),
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The Weekly class sessions from Sat, 24 Oct, 10:00 am onwards have been cancelled.",
+      title: "❌ Sessions cancelled",
+    });
+  });
 });

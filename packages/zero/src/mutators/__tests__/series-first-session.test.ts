@@ -1023,7 +1023,10 @@ describe("who hears of a one-session or this-and-following cancel", () => {
   it("this and following tells the cancelled sessions' members and closes their polls", async () => {
     await cancel(seriesWithLaterSession(false), "following", "2026-10-24");
     expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
-    expect(notices()[0]?.payload.seriesEnded).toBe(true);
+    expect(notices()[0]?.payload).toMatchObject({
+      seriesEnded: true,
+      sessionStart: Date.parse("2026-10-24T04:30:00Z"),
+    });
     expect(pollCloses()).toEqual(["later"]);
   });
 
@@ -1041,6 +1044,10 @@ describe("who hears of a one-session or this-and-following cancel", () => {
 
     await cancel(seriesWithLaterSession(true), "this", "2026-10-24");
     expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-1"]]);
+    expect(notices()[0]?.payload).toMatchObject({
+      seriesEnded: false,
+      sessionStart: Date.parse("2026-10-24T04:30:00Z"),
+    });
     expect(pollCloses()).toEqual([]);
   });
 

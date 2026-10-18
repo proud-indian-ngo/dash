@@ -829,11 +829,15 @@ export const teamEventMutators = {
       // Team leads without events.cancel cannot cancel a session that has
       // started, judged by the session the cancel starts from. "All" never
       // cancels a started session, so it stays open.
+      const sessionStart =
+        mode === "all"
+          ? undefined
+          : await targetSessionStart(tx, existing, args.originalDate);
       if (
         isTeamLead &&
         !can(ctx, "events.cancel") &&
-        mode !== "all" &&
-        (await targetSessionStart(tx, existing, args.originalDate)) <= args.now
+        sessionStart !== undefined &&
+        sessionStart <= args.now
       ) {
         throw new Error("Cannot cancel an event that has already started");
       }
@@ -895,6 +899,7 @@ export const teamEventMutators = {
                 eventName,
                 reason,
                 seriesEnded,
+                sessionStart,
                 teamId,
               },
               { traceId: ctx.traceId }
