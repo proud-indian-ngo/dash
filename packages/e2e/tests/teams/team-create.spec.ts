@@ -42,7 +42,7 @@ test.describe("Create team dialog (admin)", () => {
     await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue("");
 
     await expect(
-      dialog.getByRole("button", { exact: true, name: "Create" })
+      dialog.getByRole("button", { exact: true, name: "Create team" })
     ).toBeDisabled();
   });
 

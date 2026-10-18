@@ -207,7 +207,7 @@ export function MediaUpload({ onChange, value }: MediaUploadProps) {
       </div>
 
       <button
-        aria-label="Drop files here or click to browse"
+        aria-label="Add attachments"
         className={cn(
           "rounded-lg border border-dashed p-4 text-center transition-colors",
           isDragging

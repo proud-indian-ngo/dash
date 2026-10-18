@@ -251,6 +251,7 @@ function ExportRouteComponent() {
         <SettingsCard title="What to export">
           <SettingsRow
             description="Claims paid back to volunteers, with their receipts."
+            inline
             title="Reimbursements"
           >
             <Checkbox
@@ -262,6 +263,7 @@ function ExportRouteComponent() {
           </SettingsRow>
           <SettingsRow
             description="Money paid out before an expense, with its settlement."
+            inline
             title="Advance payments"
           >
             <Checkbox
@@ -273,6 +275,7 @@ function ExportRouteComponent() {
           </SettingsRow>
           <SettingsRow
             description="Payments to vendors, with quotations and invoices."
+            inline
             title="Vendor payments"
           >
             <Checkbox
@@ -285,6 +288,7 @@ function ExportRouteComponent() {
           {includeVendorPayments ? (
             <SettingsRow
               description="Each recorded payment as a separate CSV."
+              inline
               title="Include payment transactions"
             >
               <Checkbox

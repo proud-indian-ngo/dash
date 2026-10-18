@@ -1,5 +1,10 @@
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
@@ -15,6 +20,7 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 
 export function AdminActionsSection() {
+  const navigate = useNavigate();
   const scanWhatsAppGroups = useServerFn(triggerWhatsAppGroupScan);
   const r2Cleanup = useServerFn(triggerR2Cleanup);
   const expireInterests = useServerFn(triggerEventInterestExpiry);
@@ -26,13 +32,30 @@ export function AdminActionsSection() {
   const [expiringInterests, setExpiringInterests] = useState(false);
   const [expiryConfirmOpen, setExpiryConfirmOpen] = useState(false);
 
+  /** A toast action opening Jobs filtered to the queue just triggered. */
+  const viewJobAction = (queue: string) => ({
+    label: "View job",
+    onClick: () =>
+      navigate({
+        search: {
+          filters: createFilterQuery([
+            createFilterRule({
+              id: "queue",
+              operator: "is",
+              path: ["queue"],
+              value: queue,
+            }),
+          ]),
+        } as never,
+        to: "/jobs",
+      }),
+  });
+
   const handleScanGroups = useEventCallback(async () => {
     setScanningGroups(true);
     try {
       await scanWhatsAppGroups();
-      toast.success(
-        "Scan started — results will come through as a notification"
-      );
+      toast.success("Scan started. Results come through as a notification.");
     } catch (error) {
       log.error({
         action: "triggerWhatsAppGroupScan",
@@ -49,9 +72,9 @@ export function AdminActionsSection() {
     setR2Cleaning(true);
     try {
       await r2Cleanup({ data: { dryRun: true } });
-      toast.success(
-        "Dry run started — check Jobs page for orphan list in output"
-      );
+      toast.success("Dry run started. The job output lists orphaned files.", {
+        action: viewJobAction("cleanup-r2-orphans"),
+      });
     } catch (error) {
       log.error({
         action: "triggerR2DryRun",
@@ -67,7 +90,9 @@ export function AdminActionsSection() {
     setR2Cleaning(true);
     try {
       await r2Cleanup({ data: { dryRun: false } });
-      toast.success("Cleanup started — orphaned files will be deleted");
+      toast.success("Cleanup started. Orphaned files will be deleted.", {
+        action: viewJobAction("cleanup-r2-orphans"),
+      });
     } catch (error) {
       log.error({
         action: "triggerR2Cleanup",
@@ -83,7 +108,9 @@ export function AdminActionsSection() {
     setExpiringInterests(true);
     try {
       await expireInterests();
-      toast.success("Expiry started — check the Jobs page for the count");
+      toast.success("Expiry started. The job output has the count.", {
+        action: viewJobAction("expire-event-interests"),
+      });
     } catch (error) {
       log.error({
         action: "triggerEventInterestExpiry",
@@ -130,6 +157,7 @@ export function AdminActionsSection() {
             {r2Cleaning ? "Running..." : "Dry run"}
           </Button>
           <Button
+            className="ml-4"
             disabled={r2Cleaning}
             onClick={stableOnClick1}
             size="sm"

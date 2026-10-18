@@ -72,12 +72,19 @@ export function AccountSection() {
       <FormLayout className="flex max-w-md flex-col gap-4" form={form}>
         <h2 className="text-sm font-medium">Change password</h2>
         <InputField
+          autoComplete="current-password"
           label="Current password"
           name="currentPassword"
           type="password"
         />
-        <InputField label="New password" name="newPassword" type="password" />
         <InputField
+          autoComplete="new-password"
+          label="New password"
+          name="newPassword"
+          type="password"
+        />
+        <InputField
+          autoComplete="new-password"
           label="Confirm new password"
           name="confirmPassword"
           type="password"

@@ -47,6 +47,7 @@ export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
   return (
     <FormLayout className="grid gap-3" form={form}>
       <InputField
+        autoComplete="new-password"
         isRequired
         label="New password"
         name="newPassword"
@@ -54,6 +55,7 @@ export function PasswordForm({ onCancel, onSubmit, user }: PasswordFormProps) {
       />
 
       <InputField
+        autoComplete="new-password"
         isRequired
         label="Confirm new password"
         name="confirmPassword"

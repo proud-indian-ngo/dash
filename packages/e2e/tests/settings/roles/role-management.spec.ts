@@ -128,16 +128,17 @@ test.describe("Role management (super_admin)", () => {
     await roleRow.click();
     await page.waitForURL(/\/settings\/roles\//, { timeout: 10_000 });
 
-    const reimbursementsGroup = page
-      .getByRole("button", { name: /Reimbursements/i })
-      .first();
-    if (
-      await reimbursementsGroup.isVisible({ timeout: 5000 }).catch(() => false)
-    ) {
-      await reimbursementsGroup.click();
-    }
-
+    await expect(page.getByRole("heading", { name: roleName })).toBeVisible({
+      timeout: 10_000,
+    });
+    // Groups start collapsed on phones; expand the one holding the permission.
     const permissionCheckbox = page.locator("[id='perm-requests.approve']");
+    if (!(await permissionCheckbox.isVisible())) {
+      await page
+        .getByRole("button", { name: /Reimbursements/i })
+        .first()
+        .click();
+    }
     await expect(permissionCheckbox).toBeVisible({ timeout: 5000 });
     await page
       .getByText("Approve/Reject Reimbursements", { exact: true })

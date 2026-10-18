@@ -220,6 +220,7 @@ function createColumns(
       ),
       id: "kind",
       meta: {
+        compact: "primary",
         headerTitle: "Kind",
         icon: COLUMN_ICONS.kind,
         kind: "tag",
@@ -254,7 +255,6 @@ function createColumns(
       ),
       id: "event",
       meta: {
-        compact: "primary",
         headerTitle: "Event",
         icon: COLUMN_ICONS.event,
         kind: "text",

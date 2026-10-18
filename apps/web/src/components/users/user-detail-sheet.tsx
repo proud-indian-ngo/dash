@@ -16,10 +16,15 @@ interface UserDetailSheetProps {
   actions?: ReactNode;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  /** Display name of the user's role, from the roles list. */
+  roleName?: string;
   user: AdminUser | null;
 }
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
+  if (!value) {
+    return null;
+  }
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-muted-foreground text-xs">{label}</span>
@@ -32,6 +37,7 @@ export function UserDetailSheet({
   actions,
   onOpenChange,
   open,
+  roleName,
   user,
 }: UserDetailSheetProps) {
   return (
@@ -80,7 +86,7 @@ export function UserDetailSheet({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <DetailRow
                     label="Role"
-                    value={user.role ? capitalize(user.role) : null}
+                    value={roleName ?? user.role ?? null}
                   />
                 </div>
               </div>

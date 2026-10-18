@@ -30,6 +30,10 @@ function searchAuditRow(row: AuditLogRow, query: string): boolean {
     .includes(normalized);
 }
 
+export function outcomeLabel(outcome: AuditLogRow["outcome"]): string {
+  return outcome.charAt(0).toUpperCase() + outcome.slice(1);
+}
+
 export function outcomeTone(outcome: AuditLogRow["outcome"]): StatusTone {
   switch (outcome) {
     case "success":
@@ -66,7 +70,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     cell: ({ row }) => (
       <InlineMetaCell
         primary={row.original.actorName}
-        secondary={row.original.actorRole}
+        secondary={row.original.actorRoleName ?? row.original.actorRole}
       />
     ),
     enableSorting: false,
@@ -74,7 +78,12 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
       <DataGridColumnHeader column={column} title="Actor" visibility={true} />
     ),
     id: "actor",
-    meta: { headerTitle: "Actor", kind: "person", skeleton: SKELETON_TEXT },
+    meta: {
+      compact: "primary",
+      headerTitle: "Actor",
+      kind: "person",
+      skeleton: SKELETON_TEXT,
+    },
     size: 180,
   },
   {
@@ -123,7 +132,7 @@ const columns: DataGridColumnDef<AuditLogRow>[] = [
     accessorFn: (row) => row.outcome,
     cell: ({ row }) => (
       <StatusBadge tone={outcomeTone(row.original.outcome)}>
-        {row.original.outcome}
+        {outcomeLabel(row.original.outcome)}
       </StatusBadge>
     ),
     enableSorting: false,

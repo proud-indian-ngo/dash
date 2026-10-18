@@ -281,15 +281,17 @@ export function WhatsAppGroupPickerDialog({
             type="button"
             variant="outline"
           >
-            Cancel
+            {error ? "Close" : "Cancel"}
           </Button>
-          <Button
-            disabled={selected.size === 0 || submitting}
-            onClick={handleAdd}
-            type="button"
-          >
-            {submitting ? "Adding..." : addButtonLabel(selected.size)}
-          </Button>
+          {error ? null : (
+            <Button
+              disabled={selected.size === 0 || submitting}
+              onClick={handleAdd}
+              type="button"
+            >
+              {submitting ? "Adding..." : addButtonLabel(selected.size)}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

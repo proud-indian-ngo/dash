@@ -256,7 +256,7 @@ function SettingsForm({
         </div>
       </SettingsCard>
       {canManage ? (
-        <FormActions submitLabel="Save" submittingLabel="Saving..." />
+        <FormActions submitLabel="Save settings" submittingLabel="Saving..." />
       ) : null}
     </FormLayout>
   );

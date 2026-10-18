@@ -1,5 +1,6 @@
 import { expect, test } from "../../fixtures/test";
 import { openSettingsPage } from "../../helpers/settings";
+import { ListPage } from "../../pages/list-page";
 
 function openWhatsAppGroups(page: import("@playwright/test").Page) {
   return openSettingsPage(page, "/settings/whatsapp-groups", "WhatsApp groups");
@@ -19,7 +20,7 @@ test.describe("WhatsApp Groups (admin)", () => {
     await expect(
       dialog
         .getByText("No WhatsApp groups yet.")
-        .or(dialog.getByRole("button", { name: "Edit group" }).first())
+        .or(dialog.getByTestId("row-actions").first())
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -156,7 +157,7 @@ test.describe("WhatsApp Groups (admin)", () => {
     const groupRow = settingsDialog
       .locator("[data-slot='settings-list-item']")
       .filter({ hasText: groupName! });
-    await groupRow.getByRole("button", { name: "Edit group" }).click();
+    await new ListPage(page).openRowActionAndClick(groupRow, "Edit");
     await expect(
       settingsDialog.getByText("Edit group", { exact: true })
     ).toBeVisible();
@@ -180,7 +181,7 @@ test.describe("WhatsApp Groups (admin)", () => {
     const updatedRow = settingsDialog
       .locator("[data-slot='settings-list-item']")
       .filter({ hasText: updatedName });
-    await updatedRow.getByRole("button", { name: "Delete group" }).click();
+    await new ListPage(page).openRowActionAndClick(updatedRow, "Delete");
 
     const alertDialog = page.getByRole("alertdialog");
     await expect(alertDialog.getByText("Delete group?")).toBeVisible();

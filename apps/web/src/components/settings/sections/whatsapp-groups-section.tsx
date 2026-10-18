@@ -20,6 +20,8 @@ import {
   SettingsListItem,
 } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
+import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { useApp } from "@/context/app-context";
 import { checkWhatsAppConfiguration } from "@/functions/whatsapp-groups";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -47,34 +49,27 @@ function WhatsAppGroupDisplayRow({
   return (
     <SettingsListItem
       actions={
-        <>
-          <Button
-            aria-label="Edit group"
-            onClick={handleEdit}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={PencilEdit01Icon}
-              strokeWidth={2}
-            />
-          </Button>
-          <Button
-            aria-label="Delete group"
-            onClick={handleDelete}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <HugeiconsIcon
-              className="size-4"
-              icon={Delete02Icon}
-              strokeWidth={2}
-            />
-          </Button>
-        </>
+        <ResponsiveActionMenu
+          actions={[
+            {
+              icon: PencilEdit01Icon,
+              id: "edit",
+              label: "Edit",
+              onSelect: handleEdit,
+            },
+            {
+              destructive: true,
+              icon: Delete02Icon,
+              id: "delete",
+              label: "Delete",
+              onSelect: handleDelete,
+            },
+          ]}
+          title={group.name}
+          trigger={
+            <RowActionsButton aria-label={`Actions for ${group.name}`} />
+          }
+        />
       }
       detail={
         <>

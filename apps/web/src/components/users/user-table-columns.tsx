@@ -5,6 +5,7 @@ import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
+import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { UserCell } from "@/components/shared/inline-meta-cell";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import {
@@ -26,8 +27,28 @@ import {
 import type { AdminUser } from "@/functions/user-admin-reads";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 
+/**
+ * The role tag. On phone cards it also carries the account state when that
+ * needs attention, since the Active column is left off the card.
+ */
+function RoleCell({ name, user }: { name: string; user: AdminUser }) {
+  const compact = useCompactTable();
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <Tag>{name}</Tag>
+      {compact && user.banned ? (
+        <StatusBadge tone="danger">Banned</StatusBadge>
+      ) : null}
+      {compact && !user.isActive ? (
+        <StatusBadge tone="neutral">Inactive</StatusBadge>
+      ) : null}
+    </span>
+  );
+}
+
 export function createUserColumns(
-  renderActions: (row: AdminUser) => ReactNode
+  renderActions: (row: AdminUser) => ReactNode,
+  roleNames: ReadonlyMap<string, string>
 ): DataGridColumnDef<AdminUser>[] {
   return [
     {
@@ -50,11 +71,14 @@ export function createUserColumns(
     {
       accessorFn: (row) => row.role ?? "volunteer",
       cell: ({ row }) => {
-        const roleName = row.original.role ?? "volunteer";
-        return roleName === "admin" ? (
-          <Tag>Admin</Tag>
-        ) : (
-          <Tag className="capitalize">{roleName.replace(/_/g, " ")}</Tag>
+        const roleId = row.original.role ?? "volunteer";
+        return (
+          <RoleCell
+            name={
+              roleNames.get(roleId) ?? capitalize(roleId.replace(/_/g, " "))
+            }
+            user={row.original}
+          />
         );
       },
       header: ({ column }) => (
@@ -62,6 +86,7 @@ export function createUserColumns(
       ),
       id: "role",
       meta: {
+        compact: "primary",
         headerTitle: "Role",
         icon: COLUMN_ICONS.role,
         kind: "tag",
@@ -136,7 +161,6 @@ export function createUserColumns(
       ),
       id: "active",
       meta: {
-        compact: "primary",
         headerTitle: "Active",
         icon: COLUMN_ICONS.active,
         kind: "status",

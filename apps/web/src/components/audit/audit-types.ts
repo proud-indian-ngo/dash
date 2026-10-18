@@ -4,6 +4,8 @@ export interface AuditLogRow {
   action: string;
   actorName: string;
   actorRole: string;
+  /** The role's display name; null when the role no longer exists. */
+  actorRoleName: string | null;
   actorUserId: string;
   attemptedAt: string;
   completedAt: string | null;

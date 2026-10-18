@@ -1,6 +1,18 @@
 import { db } from "@pi-dash/db";
 import { auditLog } from "@pi-dash/db/schema/audit-log";
-import { and, desc, eq, gte, ilike, lt, or, type SQL, sql } from "drizzle-orm";
+import { role } from "@pi-dash/db/schema/permission";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  ilike,
+  lt,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 
 import type { AuditLogQuery } from "../audit-query";
 
@@ -48,8 +60,9 @@ export function buildAuditLogQueries({
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   return {
     entries: db
-      .select()
+      .select({ ...getTableColumns(auditLog), actorRoleName: role.name })
       .from(auditLog)
+      .leftJoin(role, eq(role.id, auditLog.actorRole))
       .where(where)
       .orderBy(desc(auditLog.attemptedAt), desc(auditLog.id))
       .limit(limit)

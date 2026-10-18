@@ -5,6 +5,7 @@ import { Button } from "@pi-dash/design-system/components/ui/button";
 import type { JobRow } from "@/components/jobs/job-stats";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { PageHeaderMenu } from "@/components/shared/page-header";
+import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { formatTimestamp } from "@/lib/date-formats";
@@ -36,14 +37,13 @@ function getStateBadge(state: string): { label: string; tone: StatusTone } {
   }
 }
 
+/** A label and value; omitted when there is no value. */
 function DetailRow({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-sm">{value}</span>
-    </div>
-  );
+  return value ? <DetailsRow label={label}>{value}</DetailsRow> : null;
 }
+
+const timestamp = (value: string | null) =>
+  formatTimestamp(value, { fallback: "", seconds: true }) || null;
 
 export { getStateBadge };
 
@@ -105,42 +105,25 @@ export function JobDetailSheet({
         />
 
         <div className="flex flex-col gap-6 px-6 pb-6">
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <h3 className="text-sm font-medium">Details</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <DetailRow label="Queue" value={job.name} />
-              <DetailRow label="State" value={job.state} />
+            {/* Queue, state and created time are in the header. */}
+            <dl className="flex flex-col gap-2.5">
               <DetailRow label="Priority" value={String(job.priority)} />
               <DetailRow
-                label="Created"
-                value={formatTimestamp(job.createdOn, { seconds: true })}
-              />
-              <DetailRow
-                label="Started"
-                value={formatTimestamp(job.startedOn, { seconds: true })}
-              />
-              <DetailRow
-                label="Completed"
-                value={formatTimestamp(job.completedOn, { seconds: true })}
-              />
-              <DetailRow
                 label="Scheduled for"
-                value={formatTimestamp(job.startAfter, { seconds: true })}
+                value={timestamp(job.startAfter)}
               />
-            </div>
-          </div>
-
-          {job.state === "failed" && (
-            <div className="grid gap-4">
-              <h3 className="text-sm font-medium">Error Info</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <DetailRow label="Started" value={timestamp(job.startedOn)} />
+              <DetailRow label="Completed" value={timestamp(job.completedOn)} />
+              {job.state === "failed" ? (
                 <DetailRow
-                  label="Retry count"
-                  value={`${job.retryCount} / ${job.retryLimit}`}
+                  label="Retries"
+                  value={`${job.retryCount} of ${job.retryLimit}`}
                 />
-              </div>
-            </div>
-          )}
+              ) : null}
+            </dl>
+          </div>
 
           {Boolean(job.output) && (
             <div className="grid gap-4">
