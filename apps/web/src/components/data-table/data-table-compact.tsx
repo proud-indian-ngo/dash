@@ -90,26 +90,31 @@ export function DataTableCompactPrimaryCell<TData extends object>({
       className="flex items-start justify-between gap-3"
       data-compact-primary=""
     >
-      <div className="grid min-w-0 gap-0.5">
+      <div className="grid min-w-0 gap-1">
         {children}
-        {additionalPrimaryIds.map((id) => {
-          const cell = row.getAllCells().find((item) => item.column.id === id);
-          if (!cell) {
-            return null;
-          }
-          const meta = cell.column.columnDef.meta;
-          // A bare number ("4") means nothing without its column name.
-          const label = meta?.kind === "count" ? meta.headerTitle : undefined;
-          return (
-            <div
-              className="text-muted-foreground flex min-w-0 items-baseline gap-1 text-xs"
-              key={id}
-            >
-              {label ? <span>{label}</span> : null}
-              <table.FlexRender cell={cell} />
-            </div>
-          );
-        })}
+        {additionalPrimaryIds.length > 0 ? (
+          // The extra facts share one wrapping line under the title.
+          <div className="text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {additionalPrimaryIds.map((id) => {
+              const cell = row
+                .getAllCells()
+                .find((item) => item.column.id === id);
+              if (!cell) {
+                return null;
+              }
+              const meta = cell.column.columnDef.meta;
+              // A bare number ("4") means nothing without its column name.
+              const label =
+                meta?.kind === "count" ? meta.headerTitle : undefined;
+              return (
+                <div className="flex min-w-0 items-baseline gap-1" key={id}>
+                  {label ? <span>{label}</span> : null}
+                  <table.FlexRender cell={cell} />
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
       {trailingIds.length > 0 ? (
         <div className="flex shrink-0 items-center gap-3">
