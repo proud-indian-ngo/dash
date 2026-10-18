@@ -1,4 +1,18 @@
-import { rrulestr } from "rrule";
+import { RRule, RRuleSet, rrulestr } from "rrule";
+
+export const MAX_RECURRENCE_RULE_LENGTH = 1000;
+export const MAX_EXCLUDE_RULE_LENGTH = 100;
+export const MAX_EXCLUDE_RULES = 10;
+export const MAX_EXDATES = 1000;
+
+const MAX_EXPANSION_OCCURRENCES = 10_000;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const SUPPORTED_FREQUENCIES = new Set([
+  RRule.YEARLY,
+  RRule.MONTHLY,
+  RRule.WEEKLY,
+  RRule.DAILY,
+]);
 
 export interface RecurrenceRule {
   /** RRULE strings defining recurring dates to exclude (e.g. FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3 skips every 3rd Saturday). */
@@ -17,6 +31,141 @@ export interface VirtualOccurrence {
   endTime: number | null;
   /** Epoch ms start time (series time-of-day applied to this date). */
   startTime: number;
+}
+
+function isISODate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && toISODateUTC(parsed) === value;
+}
+
+function parseSupportedRRule(
+  value: string,
+  dtstart: Date,
+  label: string
+): RRule {
+  // RRule's constructor eagerly builds the cartesian product of BYHOUR,
+  // BYMINUTE and BYSECOND. Inspect each input line with its structured parser
+  // before constructing the rule so an unsupported multiplier cannot allocate
+  // that timeset first.
+  for (const line of value.split(/\r?\n/)) {
+    if (!line.trim()) {
+      continue;
+    }
+    let lineOptions: ReturnType<typeof RRule.parseString>;
+    try {
+      lineOptions = RRule.parseString(line);
+    } catch (error) {
+      const detail = error instanceof Error ? `: ${error.message}` : "";
+      throw new Error(`Invalid ${label}${detail}`);
+    }
+    const { byhour, byminute, bysecond } = lineOptions;
+    if (
+      [byhour, byminute, bysecond].some(
+        (part) => Array.isArray(part) && part.length > 1
+      )
+    ) {
+      throw new Error(`${label} must produce at most one time per date`);
+    }
+  }
+
+  let parsed: RRule | RRuleSet;
+  try {
+    parsed = rrulestr(value, { dtstart });
+  } catch (error) {
+    const detail = error instanceof Error ? `: ${error.message}` : "";
+    throw new Error(`Invalid ${label}${detail}`);
+  }
+
+  if (parsed instanceof RRuleSet) {
+    throw new Error(`${label} must contain exactly one RRULE`);
+  }
+
+  const { freq, interval, count } = parsed.origOptions;
+  if (freq === undefined || !SUPPORTED_FREQUENCIES.has(freq)) {
+    throw new Error(`${label} frequency must be daily or less frequent`);
+  }
+
+  const normalizedInterval = interval ?? 1;
+  if (
+    typeof normalizedInterval !== "number" ||
+    !Number.isFinite(normalizedInterval) ||
+    !Number.isInteger(normalizedInterval) ||
+    normalizedInterval < 1
+  ) {
+    throw new Error(`${label} interval must be a positive integer`);
+  }
+
+  if (
+    count !== null &&
+    count !== undefined &&
+    (typeof count !== "number" ||
+      !Number.isFinite(count) ||
+      !Number.isInteger(count) ||
+      count < 1)
+  ) {
+    throw new Error(`${label} count must be a positive integer`);
+  }
+
+  return parsed;
+}
+
+interface ParsedRecurrenceRule {
+  excludeRules: RRule[];
+  rrule: RRule;
+}
+
+function parseValidatedRecurrenceRule(
+  rule: RecurrenceRule,
+  dtstart: Date
+): ParsedRecurrenceRule {
+  if (!Number.isFinite(dtstart.getTime())) {
+    throw new Error("Recurrence start time must be a valid date");
+  }
+  if (!rule.rrule || rule.rrule.length > MAX_RECURRENCE_RULE_LENGTH) {
+    throw new Error(
+      `Recurrence rule must be at most ${MAX_RECURRENCE_RULE_LENGTH} characters`
+    );
+  }
+  if ((rule.excludeRules?.length ?? 0) > MAX_EXCLUDE_RULES) {
+    throw new Error(
+      `Recurrence rule may have at most ${MAX_EXCLUDE_RULES} exclusion rules`
+    );
+  }
+  if ((rule.exdates?.length ?? 0) > MAX_EXDATES) {
+    throw new Error(
+      `Recurrence rule may have at most ${MAX_EXDATES} excluded dates`
+    );
+  }
+  if (rule.exdates?.some((date) => !isISODate(date))) {
+    throw new Error("Excluded dates must use valid YYYY-MM-DD dates");
+  }
+
+  const rrule = parseSupportedRRule(rule.rrule, dtstart, "recurrence rule");
+  const excludeRules = (rule.excludeRules ?? []).map((excludeRule) => {
+    if (!excludeRule || excludeRule.length > MAX_EXCLUDE_RULE_LENGTH) {
+      throw new Error(
+        `Exclusion rule must be at most ${MAX_EXCLUDE_RULE_LENGTH} characters`
+      );
+    }
+    return parseSupportedRRule(excludeRule, dtstart, "exclusion rule");
+  });
+
+  return { excludeRules, rrule };
+}
+
+/**
+ * Reject recurrence shapes the dashboard cannot safely represent or expand.
+ * Occurrence identity is date-based, so a rule may produce only one time on
+ * any date.
+ */
+export function validateRecurrenceRule(
+  rule: RecurrenceRule,
+  dtstart = new Date(0)
+): void {
+  parseValidatedRecurrenceRule(rule, dtstart);
 }
 
 /** Narrow an `unknown` JSON column value to `RecurrenceRule | null`. */
@@ -50,6 +199,28 @@ function toISODateUTC(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function boundedBetween(
+  rule: RRule,
+  rangeStart: Date,
+  rangeEnd: Date,
+  label: string
+): Date[] {
+  let exceededLimit = false;
+  const dates = rule.between(rangeStart, rangeEnd, true, (_date, index) => {
+    if (index >= MAX_EXPANSION_OCCURRENCES) {
+      exceededLimit = true;
+      return false;
+    }
+    return true;
+  });
+  if (exceededLimit) {
+    throw new Error(
+      `${label} produces more than ${MAX_EXPANSION_OCCURRENCES} dates in the requested range`
+    );
+  }
+  return dates;
+}
+
 /**
  * Expand a series RRULE into virtual occurrences within [rangeStart, rangeEnd].
  *
@@ -69,21 +240,26 @@ export function expandSeries(
   exceptionDates: ReadonlySet<string> = new Set()
 ): VirtualOccurrence[] {
   const dtstart = new Date(seriesStart);
-  const rrule = rrulestr(rule.rrule, { dtstart });
+  const start = new Date(rangeStart);
+  const end = new Date(rangeEnd);
+  if (
+    !Number.isFinite(seriesStart) ||
+    !Number.isFinite(rangeStart) ||
+    !Number.isFinite(rangeEnd) ||
+    rangeStart > rangeEnd
+  ) {
+    throw new Error("Recurrence expansion requires a valid date range");
+  }
+  const parsedRule = parseValidatedRecurrenceRule(rule, dtstart);
   const exdateSet = new Set(rule.exdates ?? []);
 
-  for (const excludeRule of rule.excludeRules ?? []) {
-    const exRule = rrulestr(excludeRule, { dtstart });
-    for (const d of exRule.between(
-      new Date(rangeStart),
-      new Date(rangeEnd),
-      true
-    )) {
+  for (const exRule of parsedRule.excludeRules) {
+    for (const d of boundedBetween(exRule, start, end, "Exclusion rule")) {
       exdateSet.add(toISODateUTC(d));
     }
   }
 
-  const dates = rrule.between(new Date(rangeStart), new Date(rangeEnd), true);
+  const dates = boundedBetween(parsedRule.rrule, start, end, "Recurrence rule");
 
   const duration = seriesEnd === null ? null : seriesEnd - seriesStart;
   const seriesDate = new Date(seriesStart);

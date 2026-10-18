@@ -5,6 +5,7 @@ import {
   findOccurrence,
   parseRecurrenceRule,
   type RecurrenceRule,
+  validateRecurrenceRule,
 } from "./rrule-expand";
 
 describe("parseRecurrenceRule", () => {
@@ -217,6 +218,106 @@ describe("expandSeries", () => {
     );
 
     expect(result).toHaveLength(3);
+  });
+
+  it("preserves an explicit DTSTART with a normal weekly rule", () => {
+    const result = expandSeries(
+      {
+        rrule:
+          "DTSTART:20260406T100000Z\nRRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;COUNT=3",
+      },
+      seriesStart,
+      seriesEnd,
+      Date.UTC(2026, 3, 1),
+      Date.UTC(2026, 4, 31)
+    );
+
+    expect(result.map((occurrence) => occurrence.date)).toEqual([
+      "2026-04-06",
+      "2026-04-20",
+      "2026-05-04",
+    ]);
+  });
+
+  it("rejects unsafe rules at the expansion boundary", () => {
+    const rangeStart = Date.UTC(2026, 3, 6);
+    const rangeEnd = Date.UTC(2026, 3, 13);
+
+    expect(() =>
+      expandSeries(
+        { rrule: "FREQ=SECONDLY" },
+        seriesStart,
+        seriesEnd,
+        rangeStart,
+        rangeEnd
+      )
+    ).toThrow("frequency must be daily or less frequent");
+    expect(() =>
+      expandSeries(
+        { rrule: "FREQ=DAILY;INTERVAL=0" },
+        seriesStart,
+        seriesEnd,
+        rangeStart,
+        rangeEnd
+      )
+    ).toThrow("interval must be a positive integer");
+    expect(() =>
+      expandSeries(
+        { rrule: "FREQ=DAILY;BYHOUR=9,10" },
+        seriesStart,
+        seriesEnd,
+        rangeStart,
+        rangeEnd
+      )
+    ).toThrow("at most one time per date");
+    expect(() =>
+      expandSeries(
+        { rrule: "RRULE:FREQ=WEEKLY\nRRULE:FREQ=DAILY" },
+        seriesStart,
+        seriesEnd,
+        rangeStart,
+        rangeEnd
+      )
+    ).toThrow("exactly one RRULE");
+  });
+
+  it("fails explicitly instead of truncating oversized expansions", () => {
+    expect(() =>
+      expandSeries(
+        { rrule: "FREQ=DAILY" },
+        Date.UTC(1900, 0, 1),
+        null,
+        Date.UTC(1900, 0, 1),
+        Date.UTC(2100, 0, 1)
+      )
+    ).toThrow("more than 10000 dates");
+  });
+});
+
+describe("validateRecurrenceRule", () => {
+  it("validates exclusion rules and excluded calendar dates", () => {
+    expect(() =>
+      validateRecurrenceRule({
+        excludeRules: ["FREQ=MINUTELY"],
+        rrule: "FREQ=WEEKLY",
+      })
+    ).toThrow("exclusion rule frequency must be daily or less frequent");
+    expect(() =>
+      validateRecurrenceRule({
+        exdates: ["2026-02-30"],
+        rrule: "FREQ=WEEKLY",
+      })
+    ).toThrow("valid YYYY-MM-DD dates");
+  });
+
+  it("rejects a large time multiplier before rule construction", () => {
+    const repeated = Array.from({ length: 145 }, () => "0").join(",");
+    const rrule = `FREQ=DAILY;BYHOUR=${repeated};BYMINUTE=${repeated};BYSECOND=${repeated}`;
+
+    expect(rrule.length).toBeLessThan(1000);
+    expect(() => validateRecurrenceRule({ rrule })).toThrow(
+      "at most one time per date"
+    );
   });
 });
 
