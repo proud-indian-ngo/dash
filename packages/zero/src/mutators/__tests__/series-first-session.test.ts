@@ -1105,3 +1105,35 @@ describe("this and following from a started session", () => {
     expect(db.tables.teamEvent?.[1]?.cancelledAt).toBeNull();
   });
 });
+
+describe("this and following with nothing left to cancel", () => {
+  it("refuses from a cancelled last session", async () => {
+    const db = createDb([
+      {
+        cancelledAt: NOW,
+        id: "last",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-31T04:30:00Z"),
+      },
+    ]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z" },
+    });
+    await expect(
+      teamEventMutators.cancelSeries.fn({
+        args: {
+          id: "series-1",
+          mode: "following",
+          now: Date.UTC(2026, 9, 20, 6),
+          originalDate: "2026-10-31",
+        },
+        ctx: { ...ctx, asyncTasks: [], traceId: "t" },
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("No upcoming sessions to cancel from this date.");
+    expect(db.tables.teamEvent?.[0]?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z",
+    });
+  });
+});

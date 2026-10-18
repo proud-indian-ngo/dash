@@ -877,14 +877,6 @@ export async function cancelSeriesFollowing(
       splitStart,
       savedDates
     ) !== null;
-  await tx.mutate.teamEvent.update({
-    id: args.id,
-    recurrenceRule: {
-      ...rule,
-      rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
-    },
-    updatedAt: args.now,
-  });
   // A session that has started stays, as an orphaned exception when keyed
   // past the cut, as cancelling all does.
   const cancelledIds = exceptions
@@ -896,6 +888,17 @@ export async function cancelSeriesFollowing(
         exc.startTime > args.now
     )
     .map((exc) => exc.id);
+  if (!droppedUnsaved && cancelledIds.length === 0) {
+    throw new Error("No upcoming sessions to cancel from this date.");
+  }
+  await tx.mutate.teamEvent.update({
+    id: args.id,
+    recurrenceRule: {
+      ...rule,
+      rrule: buildTruncatedRRule(rule.rrule, args.originalDate),
+    },
+    updatedAt: args.now,
+  });
   await Promise.all(
     cancelledIds.map((id) =>
       tx.mutate.teamEvent.update({
