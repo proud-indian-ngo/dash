@@ -32,7 +32,7 @@ export function CenterTransportSection({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="font-display text-xl font-semibold">Transport</h3>
+        <h3 className="font-medium">Transport</h3>
         <p className="text-muted-foreground text-sm">
           Manage vehicles and drivers from the Transport page.
         </p>
@@ -51,7 +51,17 @@ export function CenterTransportSection({
                 </h4>
                 <CardDescription>
                   Driver: {assignment.driverName}
-                  {assignment.driverPhone ? ` · ${assignment.driverPhone}` : ""}
+                  {assignment.driverPhone ? (
+                    <>
+                      {" · "}
+                      <a
+                        className="text-primary underline-offset-4 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center"
+                        href={`tel:${assignment.driverPhone.replaceAll(/[^\d+]/g, "")}`}
+                      >
+                        {assignment.driverPhone}
+                      </a>
+                    </>
+                  ) : null}
                 </CardDescription>
               </div>
               <StatusBadge
@@ -68,16 +78,16 @@ export function CenterTransportSection({
                   : "Unknown"}
               </StatusBadge>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-muted-foreground text-sm">
-                Capacity: {assignment.capacity}
-                {assignment.notes ? ` · ${assignment.notes}` : ""}
-              </p>
-              <p className="text-muted-foreground text-sm">
+            <CardContent className="text-muted-foreground space-y-1 text-sm">
+              <p>
                 Pickup:{" "}
                 {assignment.pickupTime == null
                   ? "Not scheduled"
                   : format(new Date(assignment.pickupTime), DATE_TIME)}
+              </p>
+              <p>
+                Capacity: {assignment.capacity}
+                {assignment.notes ? ` · ${assignment.notes}` : ""}
               </p>
             </CardContent>
           </Card>

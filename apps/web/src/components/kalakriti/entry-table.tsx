@@ -360,7 +360,7 @@ export function EntryTable({
         compact: "primary",
         headerTitle: "Participants",
         icon: COLUMN_ICONS.people,
-        kind: "count",
+        kind: "person",
         skeleton: <Skeleton className="h-5 w-40" />,
       },
       size: 210,

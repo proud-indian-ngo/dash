@@ -1,4 +1,4 @@
-import { Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { MinusSignIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { useCompactTable } from "@/components/data-table/data-table-compact";
@@ -38,12 +38,12 @@ function EntryStatusIcon({
       className={
         label === positive
           ? "text-success-foreground inline-flex"
-          : "text-destructive inline-flex"
+          : "text-muted-foreground inline-flex"
       }
     >
       <HugeiconsIcon
         aria-hidden="true"
-        icon={label === positive ? Tick02Icon : Cancel01Icon}
+        icon={label === positive ? Tick02Icon : MinusSignIcon}
         className="size-4"
         strokeWidth={2}
       />

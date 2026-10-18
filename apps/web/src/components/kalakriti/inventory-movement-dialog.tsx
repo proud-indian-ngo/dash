@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { KALAKRITI_INVENTORY_LABELS } from "@pi-dash/shared/kalakriti-inventory";
 import { inventoryMovementFieldsSchema } from "@pi-dash/zero/kalakriti-inventory-schema";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -20,6 +13,13 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import type { InventoryItem } from "./inventory-types";
@@ -132,6 +132,7 @@ function MovementForm({
         min={action === "adjustment" ? 0 : 1}
         name="quantity"
         step={1}
+        inputMode="numeric"
         type="number"
       />
       {action === "adjustment" ? (

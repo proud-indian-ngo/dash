@@ -2,17 +2,17 @@ import {
   Button,
   buttonVariants,
 } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { log } from "evlog";
+import { useEffect, useRef, useState } from "react";
+
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
-import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { log } from "evlog";
-import { useEffect, useRef, useState } from "react";
-
+} from "@/components/shared/responsive-dialog";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
 export function EntryMusicPlaybackDialog({

@@ -1,11 +1,4 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { isTemporaryR2Key } from "@pi-dash/shared/asset-ref";
 import {
@@ -29,6 +22,13 @@ import {
   type EntryMusicClaim,
   EntryMusicUploadField,
 } from "@/components/kalakriti/entry-music-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { deleteTemporaryUpload } from "@/functions/attachments";
 import { handleMutationResult } from "@/lib/mutation-result";
 

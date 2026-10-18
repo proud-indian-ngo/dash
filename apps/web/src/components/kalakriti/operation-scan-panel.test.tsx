@@ -56,12 +56,9 @@ mock.module("./event-day-qr-scanner", () => ({
     return <p>Camera fallback available</p>;
   },
 }));
-mock.module("./manual-scan-entry", () => ({
-  ManualScanEntry: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
 mock.module("@/lib/mutation-result", () => ({
+  getMutationResultErrorMessage: (_error: unknown, fallback: string) =>
+    fallback,
   handleMutationResult: () => undefined,
 }));
 mock.module("evlog", () => ({ log: { error: () => undefined } }));

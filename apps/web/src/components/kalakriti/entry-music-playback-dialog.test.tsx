@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 const passthrough = ({ children }: { children?: ReactNode }) => (
   <div>{children}</div>
 );
-mock.module("@pi-dash/design-system/components/ui/dialog", () => ({
+mock.module("@/components/shared/responsive-dialog", () => ({
   Dialog: passthrough,
   DialogContent: passthrough,
   DialogHeader: passthrough,

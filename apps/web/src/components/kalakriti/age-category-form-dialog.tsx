@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { findKalakritiAgeCategoryOverlap } from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -17,6 +10,13 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 const ageCategoryValuesSchema = z
@@ -173,18 +173,21 @@ function AgeCategoryForm({
           isRequired
           label="Minimum age"
           name="minimumAge"
+          inputMode="numeric"
           type="number"
         />
         <InputField
           isRequired
           label="Maximum age"
           name="maximumAge"
+          inputMode="numeric"
           type="number"
         />
         <InputField
           isRequired
           label="Display order"
           name="sortOrder"
+          inputMode="numeric"
           type="number"
         />
       </div>
@@ -194,6 +197,7 @@ function AgeCategoryForm({
           isRequired
           label="Male Students per Center"
           name="maleStudentLimit"
+          inputMode="numeric"
           type="number"
         />
         <InputField
@@ -201,6 +205,7 @@ function AgeCategoryForm({
           isRequired
           label="Female Students per Center"
           name="femaleStudentLimit"
+          inputMode="numeric"
           type="number"
         />
       </div>
@@ -210,6 +215,7 @@ function AgeCategoryForm({
           isRequired
           label="Total Competition limit"
           name="maxTotalCompetitions"
+          inputMode="numeric"
           type="number"
         />
         <InputField
@@ -217,12 +223,13 @@ function AgeCategoryForm({
           isRequired
           label="Per-category limit"
           name="maxCompetitionsPerCategory"
+          inputMode="numeric"
           type="number"
         />
       </div>
       <FormActions
         onCancel={handleCancel}
-        submitLabel={category ? "Save Category" : "Create Category"}
+        submitLabel={category ? "Save Age Category" : "Create Age Category"}
         submittingLabel={category ? "Saving..." : "Creating..."}
       />
     </FormLayout>

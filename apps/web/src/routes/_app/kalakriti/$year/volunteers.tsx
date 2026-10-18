@@ -498,7 +498,7 @@ function KalakritiVolunteersPage() {
           canManage ? (
             <>
               <Button onClick={handleCreateOpen} type="button">
-                Create volunteer
+                Add local volunteer
               </Button>
               <Button onClick={handleAddOpen} type="button" variant="outline">
                 Add volunteers

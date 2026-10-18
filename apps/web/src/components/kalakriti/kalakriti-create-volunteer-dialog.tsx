@@ -33,7 +33,7 @@ export function KalakritiCreateVolunteerDialog({
     <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-md)">
         <DialogHeader>
-          <DialogTitle>Create volunteer</DialogTitle>
+          <DialogTitle>Add local volunteer</DialogTitle>
           <DialogDescription>
             Add this person to the Edition roster without email, phone, or a
             login. They can receive roles but cannot sign in.

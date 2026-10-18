@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { ScanActivity } from "@/lib/kalakriti-event-day-policy";
 const pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
-mock.module("@pi-dash/design-system/components/ui/dialog", () => ({
+mock.module("@/components/shared/responsive-dialog", () => ({
   Dialog: pass,
   DialogContent: pass,
   DialogHeader: pass,

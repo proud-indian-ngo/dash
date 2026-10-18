@@ -1,10 +1,3 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { ALLOWED_IMAGE_TYPES } from "@pi-dash/shared/constants";
 import { inventoryItemFieldsSchema } from "@pi-dash/zero/kalakriti-inventory-schema";
@@ -22,6 +15,13 @@ import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import {
   discardTemporaryInventoryPhoto,
   getKalakritiInventoryPhotoUrl,
@@ -218,6 +218,7 @@ function ItemForm({ editionId, item, onOpenChange }: Omit<Props, "open">) {
           min={0}
           name="openingQuantity"
           step={1}
+          inputMode="numeric"
           type="number"
         />
       )}
@@ -227,6 +228,7 @@ function ItemForm({ editionId, item, onOpenChange }: Omit<Props, "open">) {
         min={0}
         name="unitPriceRupees"
         step="0.01"
+        inputMode="decimal"
         type="number"
       />
       <CustomField<File | null> label="Photo" name="photo">

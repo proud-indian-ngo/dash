@@ -52,8 +52,11 @@ function CompletionBar({
 
 export function DashboardSectionMetrics({
   section,
+  showStages = true,
 }: {
   section: KalakritiDashboardSection;
+  /** Transport stages only move on event day; before it every bar is 0. */
+  showStages?: boolean;
 }) {
   const metrics = new Map(section.metrics.map((metric) => [metric.id, metric]));
   const isTransport = section.id === "transport";
@@ -105,7 +108,7 @@ export function DashboardSectionMetrics({
           ))}
         </div>
       ) : null}
-      {isTransport ? (
+      {isTransport && showStages ? (
         <div className="flex flex-col gap-3">
           <p className="text-muted-foreground text-xs">
             Finalized stages across active Centers. A Center can complete each

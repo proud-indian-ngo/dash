@@ -194,8 +194,12 @@ export class KalakritiEditionPage {
   }
 
   async createLocalVolunteer(volunteerName: string) {
-    await this.page.getByRole("button", { name: "Create volunteer" }).click();
-    const dialog = this.page.getByRole("dialog", { name: "Create volunteer" });
+    await this.page
+      .getByRole("button", { name: "Add local volunteer" })
+      .click();
+    const dialog = this.page.getByRole("dialog", {
+      name: "Add local volunteer",
+    });
     await dialog
       .getByRole("textbox", { name: "Name", exact: true })
       .fill(volunteerName);

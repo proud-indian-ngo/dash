@@ -1,11 +1,4 @@
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { normalizeKalakritiStudentName } from "@pi-dash/shared/kalakriti";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -26,6 +19,13 @@ import type {
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,

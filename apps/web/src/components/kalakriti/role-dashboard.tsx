@@ -59,6 +59,12 @@ import type {
   KalakritiDashboardSummary,
 } from "@/lib/server/kalakriti-dashboard-summary";
 
+const EVENT_DAY_SECTIONS = new Set<KalakritiDashboardSection["id"]>([
+  "attendance",
+  "hospitality",
+  "food",
+]);
+
 const snapshotTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   hour: "numeric",
   minute: "2-digit",
@@ -284,10 +290,19 @@ export function RoleDashboard({
     )
   );
   const remainingActions = [...scans, ...actions].filter(
-    (action) => !usedActionIds.has(action.id)
+    (action) => !usedActionIds.has(action.id) && !action.unavailable
   );
   const hasVolunteersSection = sections.some(
     (section) => section.id === "volunteers"
+  );
+  // Before Live, the event-day sections can only show zeros and disabled scan
+  // buttons, so they fold into one card that says when they open.
+  const isLive = edition.lifecycle === "live";
+  const waitingSections = isLive
+    ? []
+    : sections.filter((section) => EVENT_DAY_SECTIONS.has(section.id));
+  const workSections = sections.filter(
+    (section) => !waitingSections.includes(section)
   );
 
   return (
@@ -388,18 +403,13 @@ export function RoleDashboard({
           ))}
         </nav>
       ) : null}
-      {sections.some((section) =>
-        sectionActions(section, actions, scans).some(
-          (action) => action.unavailable
-        )
-      ) ? (
-        <p className="text-muted-foreground text-sm">
-          Event-day recording is available when the Edition is Live.
-        </p>
-      ) : null}
       <div className="grid min-w-0 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {sections.map((section) => {
+        {workSections.map((section) => {
           const workActions = sectionActions(section, actions, scans);
+          // Lifecycle-blocked scans become one line of explanation in the
+          // card instead of a disabled button with no reason.
+          const blocked = workActions.filter((action) => action.unavailable);
+          const available = workActions.filter((action) => !action.unavailable);
           return (
             <Card key={section.id} size="sm">
               <CardHeader>
@@ -411,12 +421,21 @@ export function RoleDashboard({
                 )}
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
-                <DashboardSectionMetrics section={section} />
-                {workActions.length ||
+                <DashboardSectionMetrics
+                  section={section}
+                  showStages={isLive || edition.lifecycle === "archived"}
+                />
+                {blocked.length ? (
+                  <p className="text-muted-foreground text-sm">
+                    {blocked.map((action) => action.label).join(" and ")} opens
+                    when the Edition is Live.
+                  </p>
+                ) : null}
+                {available.length ||
                 (section.id === "volunteers" && registerIdCard) ? (
                   <div className="mt-auto flex flex-wrap items-center gap-2">
                     {section.id === "volunteers" ? registerIdCard : null}
-                    {workActions.map((action) => (
+                    {available.map((action) => (
                       <DashboardActionButton
                         key={action.id}
                         action={{
@@ -436,6 +455,19 @@ export function RoleDashboard({
             </Card>
           );
         })}
+        {waitingSections.length ? (
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>
+                <h3>Event day</h3>
+              </CardTitle>
+              <CardDescription>
+                {waitingSections.map((section) => section.title).join(", ")}{" "}
+                open when the Edition is Live.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : null}
       </div>
       {!sections.length && !remainingActions.length ? (
         <Empty>

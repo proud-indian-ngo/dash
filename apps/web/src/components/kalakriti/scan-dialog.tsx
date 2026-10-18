@@ -1,10 +1,11 @@
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@pi-dash/design-system/components/ui/select";
 import {
   Tabs,
   TabsContent,
@@ -12,8 +13,16 @@ import {
   TabsTrigger,
 } from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { useRef, useState } from "react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import {
   SCAN_ACTIVITY_LABELS,
   type ScanActivity,
@@ -26,6 +35,26 @@ import {
 import { CenterScanPanel } from "./center-scan-dialog";
 import { InventoryScanPanel } from "./inventory-scan-panel";
 import { OperationScanPanel } from "./operation-scan-panel";
+
+// Most operators work one station all day; reopen Scan on the activity they
+// used last on this device.
+const LAST_ACTIVITY_KEY = "kalakriti.scan.activity";
+
+function readLastActivity() {
+  try {
+    return window.localStorage.getItem(LAST_ACTIVITY_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberActivity(activity: ScanActivity) {
+  try {
+    window.localStorage.setItem(LAST_ACTIVITY_KEY, activity);
+  } catch {
+    // Private mode or full storage: the default activity is fine.
+  }
+}
 
 const SCAN_ACTIVITY_DESCRIPTIONS: Record<ScanActivity, string> = {
   attendance: "Record Student attendance for a Competition session.",
@@ -53,13 +82,14 @@ export function ScanDialog({
   initialActivity?: ScanActivity;
   fixedSessionId?: string;
 }) {
-  const [activity, setActivity] = useState<ScanActivity | undefined>(() =>
-    initialActivity && activities.includes(initialActivity)
-      ? initialActivity
-      : activities.includes("transport")
-        ? "transport"
-        : activities[0]
-  );
+  const isMobile = useIsMobile();
+  const [activity, setActivity] = useState<ScanActivity | undefined>(() => {
+    if (initialActivity && activities.includes(initialActivity))
+      return initialActivity;
+    const last = activities.find((item) => item === readLastActivity());
+    if (last) return last;
+    return activities.includes("transport") ? "transport" : activities[0];
+  });
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -75,29 +105,70 @@ export function ScanDialog({
   const changeActivity = useEventCallback((value: unknown) => {
     if (!busyRef.current) {
       const next = activities.find((item) => item === value);
-      if (next) setActivity(next);
+      if (next) {
+        setActivity(next);
+        rememberActivity(next);
+      }
     }
   });
   const allowed = activity !== undefined && activities.includes(activity);
   return (
     <Dialog open={true} onOpenChange={close}>
       <DialogContent
-        className="max-h-[90dvh] overflow-y-auto sm:max-w-6xl"
+        // Phones get a full-height sheet that leads with the camera, so its
+        // height holds steady as results and activities change.
+        aria-label="Scan"
+        // A full-height sheet keeps its rows at the top instead of spreading them.
+        bodyClassName="content-start"
+        className="data-[swipe-direction=down]:h-[94dvh] data-[swipe-direction=down]:max-h-[94dvh] sm:max-w-6xl md:max-h-[90dvh] md:overflow-y-auto"
         initialFocus={headingRef}
         showCloseButton={!busy}
       >
-        <DialogHeader>
+        <DialogHeader className="relative">
           <DialogTitle ref={headingRef} tabIndex={-1}>
             Scan
           </DialogTitle>
-          <DialogDescription>
+          {/* The phone sheet is nearly full height, so it needs a visible way out. */}
+          {isMobile && !busy ? (
+            <Button
+              className="absolute top-1/2 right-0 -translate-y-1/2"
+              onClick={() => close(false)}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Close
+            </Button>
+          ) : null}
+          <DialogDescription className="max-md:sr-only">
             {allowed && activity
               ? SCAN_ACTIVITY_DESCRIPTIONS[activity]
               : "Choose an available scanning activity."}
           </DialogDescription>
         </DialogHeader>
         <Tabs value={activity ?? "unavailable"} onValueChange={changeActivity}>
-          {activities.length > 1 ? (
+          {activities.length > 1 && isMobile ? (
+            <Select
+              items={activities.map((item) => ({
+                value: item,
+                label: SCAN_ACTIVITY_LABELS[item],
+              }))}
+              value={activity ?? null}
+              disabled={busy}
+              onValueChange={changeActivity}
+            >
+              <SelectTrigger aria-label="Scanning activity" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {activities.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {SCAN_ACTIVITY_LABELS[item]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : activities.length > 1 ? (
             <TabsList className="flex w-full flex-wrap gap-1 group-data-horizontal/tabs:h-auto">
               {activities.map((item) => (
                 <TabsTrigger
@@ -115,7 +186,8 @@ export function ScanDialog({
           ) : null}
           <TabsContent
             value={activity ?? "unavailable"}
-            role={activities.length > 1 ? "tabpanel" : "region"}
+            className="max-md:mt-3"
+            role={activities.length > 1 && !isMobile ? "tabpanel" : "region"}
             aria-label={
               allowed ? SCAN_ACTIVITY_LABELS[activity] : "Scanning unavailable"
             }

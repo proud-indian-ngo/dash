@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 export function KalakritiPageHeader({
   actions,
   badge,
+  facts,
   kicker,
   meta,
   title,
@@ -12,6 +13,8 @@ export function KalakritiPageHeader({
 }: {
   actions?: ReactNode;
   badge?: ReactNode;
+  /** Short facts joined with dots, as `PageHeader` `meta`. */
+  facts?: readonly ReactNode[];
   kicker?: ReactNode;
   meta?: ReactNode;
   title: ReactNode;
@@ -30,6 +33,7 @@ export function KalakritiPageHeader({
         badge={badge}
         description={meta}
         kicker={kicker}
+        meta={facts}
         title={title}
         titleClassName={variant === "edition" ? "text-3xl" : undefined}
       />

@@ -142,8 +142,14 @@ function RowActions({
             competition.cancelledAt === null
               ? Cancel01Icon
               : ArrowTurnBackwardIcon,
-          label: `${competition.cancelledAt === null ? "Cancel" : "Restore"} Competition`,
+          // Not "Cancel …": on a phone drawer it sat right above the
+          // dismiss button and read like it.
+          label:
+            competition.cancelledAt === null
+              ? "Call off Competition"
+              : "Restore Competition",
           onSelect: handleCancel,
+          destructive: competition.cancelledAt === null,
         },
         canManageStructure && {
           id: "retire",

@@ -31,7 +31,7 @@ export class KalakritiEligibilityPage {
     await dialog
       .getByRole("spinbutton", { name: /^Female Students per Center/ })
       .fill(String(values.femaleStudentLimit));
-    await dialog.getByRole("button", { name: "Create Category" }).click();
+    await dialog.getByRole("button", { name: "Create Age Category" }).click();
   }
 
   async goto(year: number) {
@@ -47,6 +47,6 @@ export class KalakritiEligibilityPage {
     await dialog
       .getByRole("spinbutton", { name: /^Female Students per Center/ })
       .fill(String(female));
-    await dialog.getByRole("button", { name: "Save Category" }).click();
+    await dialog.getByRole("button", { name: "Save Age Category" }).click();
   }
 }

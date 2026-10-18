@@ -140,7 +140,9 @@ export function EventDayQrScanner({ onScan }: EventDayQrScannerProps) {
         className={
           startFailed
             ? "hidden"
-            : "bg-muted/30 aspect-square w-full overflow-hidden rounded-lg border"
+            : // The viewfinder stays small enough that the last result and the
+              // typed-ID field below it stay in view without scrolling.
+              "bg-muted/30 mx-auto aspect-square w-full max-w-[min(100%,40dvh)] overflow-hidden rounded-lg border"
         }
         id={SCANNER_ELEMENT_ID}
       />

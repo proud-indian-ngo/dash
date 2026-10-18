@@ -162,19 +162,21 @@ function KalakritiEditionOverview() {
               canManage={canManageLifecycle}
               editionId={edition.id}
             />
-            <Button
-              className="min-h-11 sm:min-h-10"
-              nativeButton={false}
-              render={
-                <Link
-                  params={{ year: String(edition.year) }}
-                  to="/kalakriti/$year/schedule"
-                />
-              }
-              variant="outline"
-            >
-              View schedule
-            </Button>
+            {/* The public schedule opens with registration; a Draft has none. */}
+            {edition.lifecycle === "draft" ? null : (
+              <Button
+                nativeButton={false}
+                render={
+                  <Link
+                    params={{ year: String(edition.year) }}
+                    to="/kalakriti/$year/schedule"
+                  />
+                }
+                variant="outline"
+              >
+                View schedule
+              </Button>
+            )}
 
             <EditionCloneCard
               editionId={edition.id}
@@ -195,7 +197,6 @@ function KalakritiEditionOverview() {
                     trigger={
                       <Button
                         aria-label="Admin actions"
-                        className="max-sm:min-h-11 max-sm:min-w-11"
                         size="icon"
                         type="button"
                         variant="outline"
@@ -244,39 +245,24 @@ function KalakritiEditionOverview() {
         }
         badge={<KalakritiLifecycleBadge lifecycle={edition.lifecycle} />}
         kicker={`Kalakriti · ${edition.year}`}
-        meta={
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <time dateTime={edition.eventDate}>
-              {editionDateFormatter.format(new Date(edition.eventDate))}
-            </time>
-            <span aria-hidden="true">·</span>
-            <span>
-              Age cutoff{" "}
-              {editionDateFormatter.format(new Date(edition.ageCutoffDate))}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Closes{" "}
-              {editionTimestampFormatter.format(
-                new Date(edition.plannedRegistrationCloseAt)
-              )}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>Min {minTotalCompetitions}</span>
-            {canViewLinkedEvent && teamEvent ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <Link
-                  className="text-foreground underline-offset-4 hover:underline"
-                  params={{ id: edition.teamEventId }}
-                  to="/events/$id"
-                >
-                  {teamEvent.team?.name ?? "Linked event"}
-                </Link>
-              </>
-            ) : null}
-          </p>
-        }
+        facts={[
+          <time dateTime={edition.eventDate} key="date">
+            {editionDateFormatter.format(new Date(edition.eventDate))}
+          </time>,
+          `Age cutoff ${editionDateFormatter.format(new Date(edition.ageCutoffDate))}`,
+          `Closes ${editionTimestampFormatter.format(new Date(edition.plannedRegistrationCloseAt))}`,
+          `Min ${minTotalCompetitions}`,
+          canViewLinkedEvent && teamEvent ? (
+            <Link
+              className="text-foreground underline-offset-4 hover:underline"
+              key="event"
+              params={{ id: edition.teamEventId }}
+              to="/events/$id"
+            >
+              {teamEvent.team?.name ?? "Linked event"}
+            </Link>
+          ) : null,
+        ]}
         title={edition.name}
         variant="edition"
       />
@@ -358,7 +344,10 @@ function KalakritiEditionOverview() {
               </CollapsibleContent>
             </Collapsible>
           ) : null}
-          <CenterStandings year={edition.year} />
+          <CenterStandings
+            live={edition.lifecycle === "live"}
+            year={edition.year}
+          />
         </>
       ) : null}
     </div>

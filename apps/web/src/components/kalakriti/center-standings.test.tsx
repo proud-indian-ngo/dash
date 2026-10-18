@@ -35,7 +35,7 @@ const centers = [
 ];
 
 function textContent() {
-  return renderToStaticMarkup(<CenterStandings year={2026} />)
+  return renderToStaticMarkup(<CenterStandings live year={2026} />)
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ");
 }

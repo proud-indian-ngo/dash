@@ -1,5 +1,5 @@
 import {
-  Cancel01Icon,
+  MinusSignIcon,
   Tick02Icon,
   UserAdd01Icon,
   UserRemove01Icon,
@@ -308,12 +308,12 @@ export function VolunteersTable({
             className={
               checkedIn
                 ? "text-success-foreground inline-flex"
-                : "text-destructive inline-flex"
+                : "text-muted-foreground inline-flex"
             }
           >
             <HugeiconsIcon
               aria-hidden="true"
-              icon={checkedIn ? Tick02Icon : Cancel01Icon}
+              icon={checkedIn ? Tick02Icon : MinusSignIcon}
               className="size-5"
               strokeWidth={2}
             />

@@ -250,8 +250,18 @@ export function CompetitionEntries({
   ];
   return (
     <div className="flex flex-col gap-4">
-      <Button onClick={onBack} type="button" variant="ghost">
-        <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} />
+      <Button
+        className="self-start"
+        onClick={onBack}
+        size="sm"
+        type="button"
+        variant="ghost"
+      >
+        <HugeiconsIcon
+          data-icon="inline-start"
+          icon={ArrowLeft01Icon}
+          strokeWidth={2}
+        />
         Back to Competitions
       </Button>
       <KalakritiPageHeader
@@ -262,9 +272,9 @@ export function CompetitionEntries({
             <>
               <p>
                 {snapshotReady && divisionEntriesResult.type === "complete"
-                  ? participants.length
-                  : "Checking"}{" "}
-                Students registered across authorized Centers.{" "}
+                  ? `${participants.length} ${participants.length === 1 ? "Student" : "Students"}`
+                  : "Checking Students"}{" "}
+                registered across authorized Centers.
               </p>
               <p>
                 {session.ageCategory.name} ·{" "}

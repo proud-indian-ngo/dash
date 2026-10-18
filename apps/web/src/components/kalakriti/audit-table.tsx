@@ -64,7 +64,13 @@ function createColumns(
         <DataGridColumnHeader column={column} title="Actor" visibility={true} />
       ),
       id: "actor",
-      meta: { headerTitle: "Actor", kind: "person", skeleton: TEXT_SKELETON },
+      // Phone cards stack what happened, when, who did it and to what.
+      meta: {
+        compact: "primary",
+        headerTitle: "Actor",
+        kind: "person",
+        skeleton: TEXT_SKELETON,
+      },
       size: 190,
     },
     {
@@ -128,6 +134,7 @@ function createColumns(
       ),
       id: "target",
       meta: {
+        compact: "primary",
         headerTitle: "Target",
         icon: COLUMN_ICONS.target,
         kind: "text",

@@ -188,9 +188,10 @@ export function CompetitionDetailSheet({
                     id: "cancel",
                     label:
                       competition.cancelledAt === null
-                        ? "Cancel competition"
-                        : "Restore competition",
+                        ? "Call off Competition"
+                        : "Restore Competition",
                     onSelect: handleCancel,
+                    destructive: competition.cancelledAt === null,
                   },
                   canManageStructure && {
                     icon:

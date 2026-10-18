@@ -8,13 +8,6 @@ import {
   ComboboxList,
   useComboboxAnchor,
 } from "@pi-dash/design-system/components/ui/combobox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@pi-dash/design-system/components/ui/dialog";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import {
   Select,
@@ -53,6 +46,13 @@ import {
   type EntryMusicClaim,
   EntryMusicUploadField,
 } from "@/components/kalakriti/entry-music-field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { deleteTemporaryUpload } from "@/functions/attachments";
 import { DAY_MONTH_TIME, TIME } from "@/lib/date-formats";
 import {

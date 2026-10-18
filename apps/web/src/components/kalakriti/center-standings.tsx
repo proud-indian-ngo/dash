@@ -192,7 +192,14 @@ function FinalizeForm({
   );
 }
 
-export function CenterStandings({ year }: { year: number }) {
+export function CenterStandings({
+  live,
+  year,
+}: {
+  /** Standings only move once the Edition is Live. */
+  live: boolean;
+  year: number;
+}) {
   const zero = useZero();
   const load = useCallback(
     () => getKalakritiStandings({ data: { year } }),
@@ -233,9 +240,13 @@ export function CenterStandings({ year }: { year: number }) {
         <CardTitle>
           <h2>Center standings</h2>
         </CardTitle>
-        <StatusBadge tone={data?.finalizedAt ? "success" : "info"}>
-          {data?.finalizedAt ? "Final" : "Live"}
-        </StatusBadge>
+        {data?.finalizedAt ? (
+          <StatusBadge tone="success">Final</StatusBadge>
+        ) : live ? (
+          <StatusBadge tone="info">Live</StatusBadge>
+        ) : (
+          <StatusBadge>Not started</StatusBadge>
+        )}
       </CardHeader>
       <CardContent className="grid gap-3">
         {error || !fresh ? (

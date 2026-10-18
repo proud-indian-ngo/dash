@@ -392,7 +392,8 @@ export function EditionLifecycleAlerts({
   }
 
   return (
-    <div className="space-y-3">
+    // In a ready Draft nothing renders; don't leave an empty gap in the page.
+    <div className="space-y-3 empty:hidden">
       <RegistrationReadinessBlockers
         blockers={blockers}
         lifecycle={lifecycle}

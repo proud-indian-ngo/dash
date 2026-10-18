@@ -89,7 +89,8 @@ describe("Entry Present and Attended cells", () => {
       );
       expect(html).toContain(`1 / 2 ${mode}`);
       expect(html).toContain('class="text-success-foreground inline-flex"');
-      expect(html).toContain('class="text-destructive inline-flex"');
+      // "Not yet" is a muted dash, not a red failure mark.
+      expect(html).toContain('class="text-muted-foreground inline-flex"');
       expect(html).toContain(
         `aria-label="Ananya: ${mode === "present" ? "Present" : "Attended"}"`
       );
@@ -104,7 +105,7 @@ describe("Entry Present and Attended cells", () => {
       <EntryStatusCell entry={row} mode="attended" labels={undefined} />
     );
     expect(html).toContain("Checking attendance");
-    expect(html).not.toContain("text-destructive");
+    expect(html).not.toContain('role="img"');
   });
   it("puts present and attended icons on each compact student line", () => {
     const group = renderToStaticMarkup(

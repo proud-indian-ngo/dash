@@ -103,6 +103,9 @@ function KalakritiTransportPage() {
         complete={result.type === "complete"}
         scopeKey={scopeKey}
         scopeLabel={canManage ? "All authorized Centers" : "Assigned Centers"}
+        showStages={
+          edition.lifecycle === "live" || edition.lifecycle === "archived"
+        }
         onReviewMissing={() => {
           void setFilter("missing_vehicle");
         }}
