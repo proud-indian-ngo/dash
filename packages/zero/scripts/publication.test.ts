@@ -22,6 +22,8 @@ describe("Zero replication publication", () => {
         'public."user" ("id", "image", "name", "role")'
       );
       expect(statement).toContain('public."team_event" (');
+      expect(statement).toContain('public."budget" (');
+      expect(statement).toContain('public."budget_line" (');
       expect(statement).toContain('"start_time"');
       expect(statement).not.toContain("FOR ALL TABLES");
       expect(statement).not.toContain("TABLES IN SCHEMA");
