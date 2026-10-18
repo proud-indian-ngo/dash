@@ -358,41 +358,39 @@ export function KalakritiRoleAssignmentForm({
         "competition"
           ? value.competitionIds
           : [""];
-      let assignmentsChanged = false;
-      try {
-        for (const selectedId of value.userIds) {
-          for (const [index, competitionId] of competitionIds.entries()) {
-            const assignmentId = uuidv7();
-            const target = kalakritiAssignmentMutationIds(selectedId, users);
-            const result = await assignKalakritiRole(zero, {
-              centerId: value.centerId,
-              competitionCategoryId: value.competitionCategoryId,
-              competitionId,
-              responsibility: value.responsibility,
-              common: {
-                assignmentId,
-                auditEntryId: uuidv7(),
-                editionId,
-                makePrimary: value.makePrimary && index === 0,
-                membershipId: target.membershipId,
-                now: currentTimestamp(),
-                teamEventMemberId: target.teamEventMemberId,
-                userId: target.userId,
-              },
-            });
-            handleMutationResult(result, {
-              entityId: assignmentId,
-              errorMsg:
-                "Failed to assign role. Earlier assignments may have succeeded.",
-              mutation: "kalakritiAssignment.assignRole",
-            });
-            if (result.type === "error") return;
-            assignmentsChanged = true;
+      for (const selectedId of value.userIds) {
+        for (const [index, competitionId] of competitionIds.entries()) {
+          const assignmentId = uuidv7();
+          const target = kalakritiAssignmentMutationIds(selectedId, users);
+          const result = await assignKalakritiRole(zero, {
+            centerId: value.centerId,
+            competitionCategoryId: value.competitionCategoryId,
+            competitionId,
+            responsibility: value.responsibility,
+            common: {
+              assignmentId,
+              auditEntryId: uuidv7(),
+              editionId,
+              makePrimary: value.makePrimary && index === 0,
+              membershipId: target.membershipId,
+              now: currentTimestamp(),
+              teamEventMemberId: target.teamEventMemberId,
+              userId: target.userId,
+            },
+          });
+          handleMutationResult(result, {
+            entityId: assignmentId,
+            errorMsg:
+              "Failed to assign role. Earlier assignments may have succeeded.",
+            mutation: "kalakritiAssignment.assignRole",
+          });
+          if (result.type === "error") {
+            onAssignmentsChanged?.();
+            return;
           }
         }
-      } finally {
-        if (assignmentsChanged) onAssignmentsChanged?.();
       }
+      onAssignmentsChanged?.();
       toast.success("Role assigned");
       onAssigned?.();
       form.reset();
