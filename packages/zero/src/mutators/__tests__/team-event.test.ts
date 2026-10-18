@@ -682,3 +682,64 @@ describe("teamEvent mutator schemas", () => {
     });
   });
 });
+
+describe("attendance on a recurring series", () => {
+  const NOW = 1_700_000_000_000;
+  const ctx = {
+    permissions: ["events.manage_attendance"],
+    role: "admin",
+    userId: "admin-1",
+  };
+  function makeTx(event: Record<string, unknown>) {
+    const updates: unknown[] = [];
+    const rows: Record<string, unknown> = {
+      teamEvent: {
+        id: "event-1",
+        managementDomain: null,
+        startTime: NOW - 86_400_000,
+        teamId: "team-1",
+        ...event,
+      },
+      teamEventMember: { eventId: "event-1", id: "member-1" },
+      teamMember: undefined,
+    };
+    return {
+      tx: {
+        location: "server",
+        mutate: {
+          teamEventMember: {
+            update: async (row: unknown) => {
+              updates.push(row);
+            },
+          },
+        },
+        run: async (query: { ast: { table: string } }) => rows[query.ast.table],
+      },
+      updates,
+    };
+  }
+  const args = {
+    attendance: "present" as const,
+    eventId: "event-1",
+    memberId: "member-1",
+    now: NOW,
+  };
+
+  it("marks attendance on a series parent, its first session", async () => {
+    const { tx, updates } = makeTx({
+      recurrenceRule: { rrule: "FREQ=WEEKLY" },
+      seriesId: null,
+    });
+    await teamEventMutators.markAttendance.fn({ args, ctx, tx } as never);
+    expect(updates).toMatchObject([{ attendance: "present", id: "member-1" }]);
+  });
+
+  it("marks attendance on a saved occurrence", async () => {
+    const { tx, updates } = makeTx({
+      recurrenceRule: null,
+      seriesId: "series-1",
+    });
+    await teamEventMutators.markAttendance.fn({ args, ctx, tx } as never);
+    expect(updates).toMatchObject([{ attendance: "present", id: "member-1" }]);
+  });
+});

@@ -65,10 +65,11 @@ export function buildSocialFields(
 }
 
 /**
- * Where the social recap lives: a single past, non-cancelled session. A past
- * virtual occurrence shows "Start recap" when the viewer can materialise it
+ * Where the social recap lives: a single past, non-cancelled session. A
+ * series parent viewed as itself is its first session. A past virtual
+ * occurrence shows "Start recap" when the viewer can materialise it
  * (events.edit or team lead), or when its exception row already exists, in
- * which case the button opens that row. A series parent never has one.
+ * which case the button opens that row.
  */
 export function deriveSocialRecapMode(input: {
   canManageAttendance: boolean;
@@ -91,8 +92,32 @@ export function deriveSocialRecapMode(input: {
       ? "materialize"
       : null;
   }
-  if (event.recurrenceRule && !event.seriesId) {
+  return "form";
+}
+
+/**
+ * How the Volunteers tab handles attendance once a session has started:
+ * "mark" on a saved row (a series parent viewed as itself is its first
+ * session), "open" on a virtual occurrence, whose marks need its own row
+ * (materialised, or the existing one opened), "locked" there when the
+ * viewer can mark attendance but not open the session, else nothing.
+ */
+export function deriveAttendanceMode(input: {
+  canManageAttendance: boolean;
+  canMaterialize: boolean;
+  cancelled: boolean;
+  existingOccurrenceId: string | undefined;
+  hasStarted: boolean;
+  isVirtualOccurrence: boolean;
+}): "mark" | "open" | "locked" | null {
+  if (!(input.canManageAttendance && input.hasStarted)) {
     return null;
   }
-  return "form";
+  if (!input.isVirtualOccurrence) {
+    return "mark";
+  }
+  if (input.cancelled) {
+    return null;
+  }
+  return input.canMaterialize || input.existingOccurrenceId ? "open" : "locked";
 }
