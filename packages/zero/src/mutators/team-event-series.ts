@@ -728,6 +728,14 @@ export async function cancelSeriesAll(
       new Date(Date.parse(`${splitDate}T00:00:00Z`)),
       true
     ) !== null;
+  // Saved sessions go by their own start, so a session moved later than the
+  // cut is cancelled and one moved earlier that has started stays.
+  const upcoming = exceptions
+    .filter((e) => !e.cancelledAt && e.startTime > args.now)
+    .map((e) => e.id);
+  if (!ruleCut && upcoming.length === 0) {
+    throw new Error("This series has no upcoming sessions.");
+  }
   if (rule && ruleCut) {
     await tx.mutate.teamEvent.update({
       id: args.id,
@@ -738,11 +746,6 @@ export async function cancelSeriesAll(
       updatedAt: args.now,
     });
   }
-  // Saved sessions go by their own start, so a session moved later than the
-  // cut is cancelled and one moved earlier that has started stays.
-  const upcoming = exceptions
-    .filter((e) => !e.cancelledAt && e.startTime > args.now)
-    .map((e) => e.id);
   await Promise.all(upcoming.map(cancel));
   return { cancelledIds: upcoming, ruleCut };
 }

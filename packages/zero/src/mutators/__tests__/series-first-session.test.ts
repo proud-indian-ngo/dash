@@ -831,14 +831,16 @@ describe("cancel all upcoming sessions", () => {
     ).toBe(false);
   });
 
-  it("sends nothing again for a series it already ended", async () => {
+  it("refuses a series it already ended, sending nothing", async () => {
     const db = createDb([session("past", "2026-10-10")]);
     Object.assign(db.tables.teamEvent?.[0] ?? {}, {
       inheritVolunteers: true,
       recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20261017T235959Z" },
     });
     db.tables.teamEventMember?.push(member("series-1", "lead-1"));
-    await cancelAll(db, AFTER_THIRD);
+    await expect(cancelAll(db, AFTER_THIRD)).rejects.toThrow(
+      "This series has no upcoming sessions."
+    );
 
     expect(row(db, "series-1")?.recurrenceRule).toEqual({
       rrule: "FREQ=WEEKLY;UNTIL=20261017T235959Z",
