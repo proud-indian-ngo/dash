@@ -83,4 +83,66 @@ describe("event WhatsApp templates", () => {
       },
     });
   });
+
+  it("says only the upcoming sessions are cancelled when a series ends", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      seriesEnded: true,
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The upcoming sessions of Weekly class have been cancelled.",
+      title: "❌ Upcoming sessions cancelled",
+      whatsappTemplate: {
+        name: "event_upcoming_sessions_cancelled",
+        params: { event: "Weekly class" },
+        path: "teams/team-1",
+      },
+    });
+  });
+
+  it("names the session's date in India time for one session", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      sessionStart: Date.UTC(2026, 9, 24, 4, 30),
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The Weekly class session on Sat, 24 Oct, 10:00 am has been cancelled.",
+      title: "❌ Session cancelled",
+      whatsappTemplate: {
+        name: "event_session_cancelled",
+        params: { event: "Weekly class", when: "Sat, 24 Oct, 10:00 am" },
+      },
+    });
+  });
+
+  it("names the first date for this and following", async () => {
+    await notifyEventCancelled({
+      cancelledAt: 1,
+      eventId: "series-1",
+      eventMemberIds: ["user-1"],
+      eventName: "Weekly class",
+      seriesEnded: true,
+      sessionStart: Date.UTC(2026, 9, 24, 4, 30),
+      teamId: "team-1",
+    });
+
+    expect(mocks.sendBulkMessage.mock.calls[0]?.[0]).toMatchObject({
+      body: "The Weekly class sessions from Sat, 24 Oct, 10:00 am onwards have been cancelled.",
+      title: "❌ Sessions cancelled",
+      whatsappTemplate: {
+        name: "event_sessions_cancelled_from",
+        params: { event: "Weekly class", when: "Sat, 24 Oct, 10:00 am" },
+      },
+    });
+  });
 });

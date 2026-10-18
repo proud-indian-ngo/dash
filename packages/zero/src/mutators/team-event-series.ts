@@ -1,6 +1,7 @@
 import type { ReminderTarget } from "@pi-dash/shared/constants";
 import {
   expandSeries,
+  firstOccurrenceDateFrom,
   parseRecurrenceRule,
   seriesStartDate,
 } from "@pi-dash/shared/rrule-expand";
@@ -453,9 +454,7 @@ async function saveUpcomingSessionsBefore(
   }
   const splitStart = Date.parse(`${args.splitDate}T00:00:00Z`);
   const firstDate = seriesStartDate(series.startTime);
-  const savedDates = new Set(
-    saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-  );
+  const savedDates = savedDateSet(saved);
   // Sessions under way count: their group still matters until they end.
   const upcoming = expandSeries(
     rule,
@@ -628,6 +627,13 @@ export async function updateSeriesFollowing(
 // cancelSeries per-mode helpers
 // ---------------------------------------------------------------------------
 
+/** The dates a series' saved rows hold, cancelled ones included. */
+function savedDateSet(saved: readonly TeamEvent[]): Set<string> {
+  return new Set(
+    saved.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
+  );
+}
+
 /**
  * The date key of the latest started session that has no row of its own:
  * the first session (the series row, or a live start-date row standing for
@@ -639,9 +645,7 @@ function lastStartedUnsavedDate(
   now: number
 ): string | null {
   const rule = parseRecurrenceRule(series.recurrenceRule);
-  const savedDates = new Set(
-    exceptions.flatMap((e) => (e.originalDate ? [e.originalDate] : []))
-  );
+  const savedDates = savedDateSet(exceptions);
   const virtual =
     rule && series.startTime <= now
       ? expandSeries(
@@ -673,13 +677,14 @@ function lastStartedUnsavedDate(
  * unsaved occurrence. The series row and started sessions stay live with
  * their attendance and recaps; a started saved session keyed after the new
  * UNTIL stays as an orphaned exception. Returns the rows it cancelled and
- * whether unsaved sessions were dropped from the rule.
+ * whether the cut dropped unsaved sessions. Refuses when it would cancel
+ * nothing.
  */
 export async function cancelSeriesAll(
   tx: Tx,
   args: { id: string; now: number },
   existing: TeamEvent
-): Promise<{ cancelledIds: string[]; ruleCut: boolean }> {
+): Promise<SeriesCancelResult> {
   const exceptions = (await tx.run(
     zql.teamEvent.where("seriesId", args.id)
   )) as TeamEvent[];
@@ -698,7 +703,7 @@ export async function cancelSeriesAll(
     const live = exceptions.filter((e) => !e.cancelledAt).map((e) => e.id);
     await cancel(args.id);
     await Promise.all(live.map(cancel));
-    return { cancelledIds: [args.id, ...live], ruleCut: false };
+    return { cancelledIds: [args.id, ...live], droppedUnsaved: false };
   }
 
   // The series row is the first session unless a saved row stands for it.
@@ -721,13 +726,33 @@ export async function cancelSeriesAll(
         .slice(0, 10)
     : first;
   const rule = parseRecurrenceRule(existing.recurrenceRule);
+  const splitStart = Date.parse(`${splitDate}T00:00:00Z`);
   // Only cut a rule that still runs past the split, so UNTIL never moves out.
   const ruleCut =
     rule !== null &&
     rrulestr(rule.rrule, { dtstart: new Date(existing.startTime) }).after(
-      new Date(Date.parse(`${splitDate}T00:00:00Z`)),
+      new Date(splitStart),
       true
     ) !== null;
+  // Whether the cut drops a session that has no row: a rule date past the
+  // split that isn't excluded or saved.
+  const droppedUnsaved =
+    rule !== null &&
+    ruleCut &&
+    firstOccurrenceDateFrom(
+      rule,
+      existing.startTime,
+      splitStart,
+      savedDateSet(exceptions)
+    ) !== null;
+  // Saved sessions go by their own start, so a session moved later than the
+  // cut is cancelled and one moved earlier that has started stays.
+  const upcoming = exceptions
+    .filter((e) => !e.cancelledAt && e.startTime > args.now)
+    .map((e) => e.id);
+  if (!droppedUnsaved && upcoming.length === 0) {
+    throw new Error("This series has no upcoming sessions.");
+  }
   if (rule && ruleCut) {
     await tx.mutate.teamEvent.update({
       id: args.id,
@@ -738,13 +763,19 @@ export async function cancelSeriesAll(
       updatedAt: args.now,
     });
   }
-  // Saved sessions go by their own start, so a session moved later than the
-  // cut is cancelled and one moved earlier that has started stays.
-  const upcoming = exceptions
-    .filter((e) => !e.cancelledAt && e.startTime > args.now)
-    .map((e) => e.id);
   await Promise.all(upcoming.map(cancel));
-  return { cancelledIds: upcoming, ruleCut };
+  return { cancelledIds: upcoming, droppedUnsaved };
+}
+
+/**
+ * What a series cancel did: the rows standing for the sessions it cancelled
+ * (their members hear of it and their RSVP polls close), and whether it
+ * dropped sessions that have no row, whose volunteers are the series' own
+ * when it passes them on.
+ */
+export interface SeriesCancelResult {
+  cancelledIds: string[];
+  droppedUnsaved: boolean;
 }
 
 export async function cancelSeriesThis(
@@ -757,17 +788,17 @@ export async function cancelSeriesThis(
   },
   existing: TeamEvent,
   userId: string
-) {
+): Promise<SeriesCancelResult> {
   if (existing.seriesId || !existing.recurrenceRule) {
     await tx.mutate.teamEvent.update({
       cancelledAt: args.now,
       id: args.id,
       updatedAt: args.now,
     });
-    return;
+    return { cancelledIds: [args.id], droppedUnsaved: false };
   }
   if (!args.originalDate) {
-    return;
+    return { cancelledIds: [], droppedUnsaved: false };
   }
   // A saved row for the date (a live start-date row for the first session)
   // is cancelled itself; otherwise a cancelled row is saved for the date.
@@ -778,38 +809,88 @@ export async function cancelSeriesThis(
       .one()
   )) as TeamEvent | undefined;
   if (saved) {
-    if (!saved.cancelledAt) {
-      await tx.mutate.teamEvent.update({
-        cancelledAt: args.now,
-        id: saved.id,
-        updatedAt: args.now,
-      });
+    if (saved.cancelledAt) {
+      return { cancelledIds: [], droppedUnsaved: false };
     }
-  } else if (args.newExceptionId) {
-    await tx.mutate.teamEvent.insert(
-      buildExceptionInsert(
-        args.newExceptionId,
-        existing,
-        args.originalDate,
-        userId,
-        args.now,
-        { cancelledAt: args.now }
-      )
-    );
+    await tx.mutate.teamEvent.update({
+      cancelledAt: args.now,
+      id: saved.id,
+      updatedAt: args.now,
+    });
+    return { cancelledIds: [saved.id], droppedUnsaved: false };
   }
+  if (!args.newExceptionId) {
+    return { cancelledIds: [], droppedUnsaved: false };
+  }
+  await tx.mutate.teamEvent.insert(
+    buildExceptionInsert(
+      args.newExceptionId,
+      existing,
+      args.originalDate,
+      userId,
+      args.now,
+      { cancelledAt: args.now }
+    )
+  );
+  // On the start date the series row is the session, with its members and
+  // poll; any other unsaved session has only what it inherits.
+  return args.originalDate === seriesStartDate(existing.startTime)
+    ? { cancelledIds: [args.id], droppedUnsaved: false }
+    : { cancelledIds: [], droppedUnsaved: true };
 }
 
 export async function cancelSeriesFollowing(
   tx: Tx,
   args: { id: string; now: number; originalDate: string },
   existing: TeamEvent
-) {
-  if (!existing.recurrenceRule) {
+): Promise<SeriesCancelResult> {
+  const rule = parseRecurrenceRule(existing.recurrenceRule);
+  if (!rule) {
     throw new Error("Cannot truncate a non-recurring event");
   }
-  const rule = existing.recurrenceRule as RecurrenceRuleValue & {
-    rrule: string;
-  };
+  const exceptions = (await tx.run(
+    zql.teamEvent.where("seriesId", args.id)
+  )) as TeamEvent[];
+  const savedDates = savedDateSet(exceptions);
+  const splitStart = Date.parse(`${args.originalDate}T00:00:00Z`);
+  // A cancel never drops a session that has started: the live saved row on
+  // the date, or an unsaved session on or after it.
+  const splitRow = exceptions.find((e) => e.originalDate === args.originalDate);
+  if (
+    (splitRow && !splitRow.cancelledAt && splitRow.startTime <= args.now) ||
+    (splitStart <= args.now &&
+      expandSeries(
+        rule,
+        existing.startTime,
+        existing.endTime ?? null,
+        splitStart,
+        args.now,
+        savedDates
+      ).length > 0)
+  ) {
+    throw new Error("This session has started. Cancel from a later session.");
+  }
+  const droppedUnsaved =
+    firstOccurrenceDateFrom(
+      rule,
+      existing.startTime,
+      splitStart,
+      savedDates
+    ) !== null;
+  // A session that has started stays, as an orphaned exception when keyed
+  // past the cut, as cancelling all does.
+  const cancelledIds = exceptions
+    .filter(
+      (exc) =>
+        exc.originalDate &&
+        exc.originalDate >= args.originalDate &&
+        !exc.cancelledAt &&
+        exc.startTime > args.now
+    )
+    .map((exc) => exc.id);
+  if (!droppedUnsaved && cancelledIds.length === 0) {
+    throw new Error("No upcoming sessions to cancel from this date.");
+  }
   await tx.mutate.teamEvent.update({
     id: args.id,
     recurrenceRule: {
@@ -818,22 +899,14 @@ export async function cancelSeriesFollowing(
     },
     updatedAt: args.now,
   });
-  const exceptions = (await tx.run(
-    zql.teamEvent.where("seriesId", args.id)
-  )) as TeamEvent[];
   await Promise.all(
-    exceptions.map(async (exc) => {
-      if (
-        exc.originalDate &&
-        exc.originalDate >= args.originalDate &&
-        !exc.cancelledAt
-      ) {
-        await tx.mutate.teamEvent.update({
-          cancelledAt: args.now,
-          id: exc.id,
-          updatedAt: args.now,
-        });
-      }
-    })
+    cancelledIds.map((id) =>
+      tx.mutate.teamEvent.update({
+        cancelledAt: args.now,
+        id,
+        updatedAt: args.now,
+      })
+    )
   );
+  return { cancelledIds, droppedUnsaved };
 }

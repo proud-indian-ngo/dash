@@ -295,6 +295,42 @@ export function expandSeries(
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const YEAR_MS = 366 * DAY_MS;
+const MAX_EXCLUDED_YEARS = 20;
+
+/**
+ * The ISO date of a series' first session on or after `from` that the rule
+ * (with its exdates and exclude rules) produces and `skipDates` doesn't
+ * hold, or null when there is none. Expands a year at a time, jumping over
+ * gaps to the rule's next date, so a distant session counts however far off;
+ * gives up after a bounded number of years that hold only excluded dates.
+ */
+export function firstOccurrenceDateFrom(
+  rule: RecurrenceRule,
+  seriesStart: number,
+  from: number,
+  skipDates: ReadonlySet<string> = new Set()
+): string | null {
+  const { rrule } = parseValidatedRecurrenceRule(rule, new Date(seriesStart));
+  let next = rrule.after(new Date(from), true);
+  for (let year = 0; next && year < MAX_EXCLUDED_YEARS; year++) {
+    const windowStart = next.getTime();
+    const windowEnd = windowStart + YEAR_MS;
+    const [found] = expandSeries(
+      rule,
+      seriesStart,
+      null,
+      windowStart,
+      windowEnd,
+      skipDates
+    );
+    if (found) {
+      return found.date;
+    }
+    next = rrule.after(new Date(windowEnd));
+  }
+  return null;
+}
 
 /**
  * The date key of a series' first session: the parent row's own start, as a

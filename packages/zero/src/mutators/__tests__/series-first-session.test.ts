@@ -706,6 +706,7 @@ describe("cancel all upcoming sessions", () => {
     const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
     expect(notices).toHaveLength(1);
     expect(notices[0]?.payload.eventMemberIds).toEqual(["lead-1", "vol-2"]);
+    expect(notices[0]?.payload.seriesEnded).toBe(true);
     expect(
       enqueued
         .filter((j) => j.name === "close-rsvp-poll-on-cancel")
@@ -824,20 +825,361 @@ describe("cancel all upcoming sessions", () => {
         .filter((j) => j.name === "close-rsvp-poll-on-cancel")
         .map((j) => j.payload.eventId)
     ).toEqual(["series-1", "next"]);
+    expect(
+      enqueued.find((j) => j.name === "notify-event-cancelled")?.payload
+        .seriesEnded
+    ).toBe(false);
   });
 
-  it("sends nothing again for a series it already ended", async () => {
+  it("tells the series' volunteers only when an unsaved session is dropped", async () => {
+    // After the cut, 24 October is excluded and 31 October is saved.
+    const db = createDb([session("last", "2026-10-31")]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      inheritVolunteers: true,
+      recurrenceRule: {
+        exdates: ["2026-10-24"],
+        rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z",
+      },
+    });
+    db.tables.teamEventMember?.push(
+      member("series-1", "vol-1"),
+      member("last", "vol-2")
+    );
+    await cancelAll(db, AFTER_THIRD);
+
+    expect(row(db, "last")?.cancelledAt).toBe(AFTER_THIRD);
+    const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
+    expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+  });
+
+  it("counts a distant unsaved session as dropped", async () => {
+    const db = createDb();
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      inheritVolunteers: true,
+      recurrenceRule: { rrule: "FREQ=YEARLY;INTERVAL=11" },
+    });
+    db.tables.teamEventMember?.push(member("series-1", "vol-1"));
+    await cancelAll(db, AFTER_THIRD);
+
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=YEARLY;INTERVAL=11;UNTIL=20261003T235959Z",
+    });
+    const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
+    expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["vol-1"]]);
+  });
+
+  it("refuses a series it already ended, sending nothing", async () => {
     const db = createDb([session("past", "2026-10-10")]);
     Object.assign(db.tables.teamEvent?.[0] ?? {}, {
       inheritVolunteers: true,
       recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20261017T235959Z" },
     });
     db.tables.teamEventMember?.push(member("series-1", "lead-1"));
-    await cancelAll(db, AFTER_THIRD);
+    await expect(cancelAll(db, AFTER_THIRD)).rejects.toThrow(
+      "This series has no upcoming sessions."
+    );
 
     expect(row(db, "series-1")?.recurrenceRule).toEqual({
       rrule: "FREQ=WEEKLY;UNTIL=20261017T235959Z",
     });
+    expect(enqueued).toEqual([]);
+  });
+});
+
+describe("a lead cancelling one session or the following ones", () => {
+  // Between the 17 and 24 October sessions: the series row has started.
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const cancel = (
+    db: ReturnType<typeof createDb>,
+    mode: "this" | "following",
+    originalDate: string
+  ) =>
+    teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode,
+        newExceptionId: "cancelled-row",
+        now: AFTER_THIRD,
+        originalDate,
+      },
+      ctx: { ...ctx, asyncTasks: [], traceId: "t" },
+      tx: db.tx,
+    } as never);
+  const row = (db: ReturnType<typeof createDb>, id: string) =>
+    db.tables.teamEvent?.find((e) => e.id === id);
+
+  it("cancels an upcoming unsaved session of a started series", async () => {
+    const db = createDb();
+    await cancel(db, "this", "2026-10-24");
+    expect(row(db, "cancelled-row")).toMatchObject({
+      cancelledAt: AFTER_THIRD,
+      originalDate: "2026-10-24",
+    });
+  });
+
+  it("cancels this and following from an upcoming date", async () => {
+    const db = createDb();
+    await cancel(db, "following", "2026-10-24");
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261023T235959Z",
+    });
+  });
+
+  it("keeps a later session held early when cancelling this and following", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held-early",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+      {
+        cancelledAt: null,
+        id: "later",
+        originalDate: "2026-11-07",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-11-07T04:30:00Z"),
+      },
+    ]);
+    await cancel(db, "following", "2026-10-24");
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261023T235959Z",
+    });
+    expect(row(db, "held-early")?.cancelledAt).toBeNull();
+    expect(row(db, "later")?.cancelledAt).toBe(AFTER_THIRD);
+  });
+
+  it("refuses a session that has started, unsaved or saved", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held-early",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+    ]);
+    await expect(cancel(db, "this", "2026-10-17")).rejects.toThrow(
+      "Cannot cancel an event that has already started"
+    );
+    await expect(cancel(db, "following", "2026-10-31")).rejects.toThrow(
+      "Cannot cancel an event that has already started"
+    );
+    expect(row(db, "cancelled-row")).toBeUndefined();
+    expect(row(db, "series-1")?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+  });
+});
+
+describe("who hears of a one-session or this-and-following cancel", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  async function cancel(
+    db: ReturnType<typeof createDb>,
+    mode: "this" | "following",
+    originalDate: string
+  ) {
+    enqueued.length = 0;
+    const asyncTasks: { fn: () => Promise<void> }[] = [];
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode,
+        newExceptionId: "cancelled-row",
+        now: AFTER_THIRD,
+        originalDate,
+      },
+      ctx: { ...ctx, asyncTasks, traceId: "t" },
+      tx: db.tx,
+    } as never);
+    await Promise.all(asyncTasks.map((task) => task.fn()));
+  }
+  const notices = () =>
+    enqueued.filter((j) => j.name === "notify-event-cancelled");
+  const pollCloses = () =>
+    enqueued
+      .filter((j) => j.name === "close-rsvp-poll-on-cancel")
+      .map((j) => j.payload.eventId);
+  function seriesWithLaterSession(inheritVolunteers: boolean) {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "later",
+        name: "Weekly class",
+        originalDate: "2026-11-07",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-11-07T04:30:00Z"),
+      },
+    ]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, { inheritVolunteers });
+    db.tables.teamEventMember?.push(
+      { eventId: "series-1", id: "m-1", userId: "vol-1" },
+      { eventId: "later", id: "m-2", userId: "vol-2" }
+    );
+    return db;
+  }
+
+  it("this and following tells the cancelled sessions' members and closes their polls", async () => {
+    await cancel(seriesWithLaterSession(false), "following", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+    expect(notices()[0]?.payload).toMatchObject({
+      seriesEnded: true,
+      sessionStart: Date.parse("2026-10-24T04:30:00Z"),
+    });
+    expect(pollCloses()).toEqual(["later"]);
+  });
+
+  it("this and following also tells the series' volunteers when it passes them on", async () => {
+    await cancel(seriesWithLaterSession(true), "following", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([
+      ["vol-1", "vol-2"],
+    ]);
+    expect(pollCloses()).toEqual(["later"]);
+  });
+
+  it("an unsaved session tells only inherited volunteers and leaves the series row's poll", async () => {
+    await cancel(seriesWithLaterSession(false), "this", "2026-10-24");
+    expect(enqueued).toEqual([]);
+
+    await cancel(seriesWithLaterSession(true), "this", "2026-10-24");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-1"]]);
+    expect(notices()[0]?.payload).toMatchObject({
+      seriesEnded: false,
+      sessionStart: Date.parse("2026-10-24T04:30:00Z"),
+    });
+    expect(pollCloses()).toEqual([]);
+  });
+
+  it("a saved session tells its own members and closes its poll", async () => {
+    await cancel(seriesWithLaterSession(true), "this", "2026-11-07");
+    expect(notices().map((j) => j.payload.eventMemberIds)).toEqual([["vol-2"]]);
+    expect(pollCloses()).toEqual(["later"]);
+  });
+});
+
+describe("this and following from a started session", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const cancelFollowing = (db: ReturnType<typeof createDb>, date: string) =>
+    teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "following",
+        now: AFTER_THIRD,
+        originalDate: date,
+      },
+      // A fresh context: `can` caches the permission set on it.
+      ctx: {
+        asyncTasks: [],
+        permissions: ["events.cancel"],
+        role: "admin",
+        traceId: "t",
+        userId: "admin-1",
+      },
+      tx: db.tx,
+    } as never);
+
+  it("refuses an unsaved started session, even with events.cancel", async () => {
+    const db = createDb();
+    await expect(cancelFollowing(db, "2026-10-17")).rejects.toThrow(
+      "This session has started. Cancel from a later session."
+    );
+    expect(db.tables.teamEvent?.[0]?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY",
+    });
+  });
+
+  it("refuses a saved session on the date that has started", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "moved-earlier",
+        originalDate: "2026-10-24",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-19T04:30:00Z"),
+      },
+    ]);
+    await expect(cancelFollowing(db, "2026-10-24")).rejects.toThrow(
+      "This session has started."
+    );
+    expect(db.tables.teamEvent?.[1]?.cancelledAt).toBeNull();
+  });
+});
+
+describe("this and following with nothing left to cancel", () => {
+  it("refuses from a cancelled last session", async () => {
+    const db = createDb([
+      {
+        cancelledAt: NOW,
+        id: "last",
+        originalDate: "2026-10-31",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-31T04:30:00Z"),
+      },
+    ]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, {
+      recurrenceRule: { rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z" },
+    });
+    await expect(
+      teamEventMutators.cancelSeries.fn({
+        args: {
+          id: "series-1",
+          mode: "following",
+          now: Date.UTC(2026, 9, 20, 6),
+          originalDate: "2026-10-31",
+        },
+        ctx: { ...ctx, asyncTasks: [], traceId: "t" },
+        tx: db.tx,
+      } as never)
+    ).rejects.toThrow("No upcoming sessions to cancel from this date.");
+    expect(db.tables.teamEvent?.[0]?.recurrenceRule).toEqual({
+      rrule: "FREQ=WEEKLY;UNTIL=20261031T235959Z",
+    });
+  });
+});
+
+describe("this event on a session that has started", () => {
+  const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  const admin = (asyncTasks: { fn: () => Promise<void> }[]) => ({
+    asyncTasks,
+    permissions: ["events.cancel"],
+    role: "admin",
+    traceId: "t",
+    userId: "admin-1",
+  });
+
+  it("lets events.cancel mark it cancelled without a notice or poll close", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "held",
+        originalDate: "2026-10-17",
+        seriesId: "series-1",
+        startTime: Date.parse("2026-10-17T04:30:00Z"),
+      },
+    ]);
+    db.tables.teamEventMember?.push({
+      eventId: "held",
+      id: "m-held",
+      userId: "vol-1",
+    });
+    enqueued.length = 0;
+    const asyncTasks: { fn: () => Promise<void> }[] = [];
+    await teamEventMutators.cancelSeries.fn({
+      args: {
+        id: "series-1",
+        mode: "this",
+        now: AFTER_THIRD,
+        originalDate: "2026-10-17",
+      },
+      ctx: admin(asyncTasks),
+      tx: db.tx,
+    } as never);
+    await Promise.all(asyncTasks.map((task) => task.fn()));
+
+    expect(db.tables.teamEvent?.find((e) => e.id === "held")?.cancelledAt).toBe(
+      AFTER_THIRD
+    );
     expect(enqueued).toEqual([]);
   });
 });

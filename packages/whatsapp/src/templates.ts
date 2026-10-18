@@ -409,6 +409,27 @@ export const WHATSAPP_TEMPLATES = [
     name: "event_cancelled",
   },
   {
+    body: "The {{event}} session on {{when}} has been cancelled. Other sessions go ahead as planned.",
+    category: "UTILITY",
+    dashboardPath: "teams/0192",
+    examples: { event: "Weekly Science Class", when: "Sat, 18 Oct, 10:00 AM" },
+    name: "event_session_cancelled",
+  },
+  {
+    body: "The {{event}} sessions from {{when}} onwards have been cancelled.",
+    category: "UTILITY",
+    dashboardPath: "teams/0192",
+    examples: { event: "Weekly Science Class", when: "Sat, 18 Oct, 10:00 AM" },
+    name: "event_sessions_cancelled_from",
+  },
+  {
+    body: "The upcoming sessions of {{event}} have been cancelled.",
+    category: "UTILITY",
+    dashboardPath: "teams/0192",
+    examples: { event: "Weekly Science Class" },
+    name: "event_upcoming_sessions_cancelled",
+  },
+  {
     body: "Reminder: the event {{event}} that you're part of starts in {{starts_in}}, {{details}}. Please check the event page for any last-minute changes.",
     category: "UTILITY",
     dashboardPath: "events/0192",

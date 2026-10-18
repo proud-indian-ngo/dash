@@ -69,7 +69,12 @@ import { sumAmounts } from "@/lib/stats";
 
 import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
-import { EditScopeDialog, seriesEditScopes } from "./edit-scope-dialog";
+import {
+  EditScopeDialog,
+  pageSeriesStart,
+  seriesCancelScopes,
+  seriesEditScopes,
+} from "./edit-scope-dialog";
 import {
   EventDetailsCard,
   EventLocation,
@@ -1123,11 +1128,14 @@ export function EventDetail({
         isPastEvent,
         isVirtualOccurrence,
       });
-  // A saved session on the series' start date: "this and following" is
-  // the whole series there.
-  const seriesStart = event.seriesId ? parentEvent?.startTime : event.startTime;
+  // On the series' start date "this and following" is the whole series.
+  const seriesStart = pageSeriesStart(event, parentEvent, isVirtualOccurrence);
   const scopes = seriesEditScopes(seriesStart, scopeOccDate);
-  const cancelScopes = seriesEditScopes(seriesStart, cancelOccDate);
+  const cancelScopes = seriesCancelScopes(
+    seriesStart,
+    cancelOccDate,
+    hasStarted
+  );
   const attendanceMode = firstRow
     ? null
     : deriveAttendanceMode({

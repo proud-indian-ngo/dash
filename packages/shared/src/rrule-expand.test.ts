@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   expandSeries,
   findOccurrence,
+  firstOccurrenceDateFrom,
   parseRecurrenceRule,
   type RecurrenceRule,
   validateRecurrenceRule,
@@ -351,5 +352,54 @@ describe("findOccurrence", () => {
     expect(findOccurrence(rule, start, null, "2026-10-11")).toBeNull();
     expect(findOccurrence(rule, start, null, "2026-08-29")).toBeNull();
     expect(findOccurrence(rule, start, null, "not-a-date")).toBeNull();
+  });
+});
+
+describe("firstOccurrenceDateFrom", () => {
+  const start = Date.UTC(2026, 0, 3, 4, 30);
+
+  it("finds a session however far off", () => {
+    expect(
+      firstOccurrenceDateFrom(
+        { rrule: "FREQ=YEARLY;INTERVAL=11" },
+        start,
+        Date.UTC(2026, 5, 1)
+      )
+    ).toBe("2037-01-03");
+  });
+
+  it("steps past exdates, exclude rules and skipped dates", () => {
+    expect(
+      firstOccurrenceDateFrom(
+        {
+          excludeRules: ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=4"],
+          exdates: ["2026-01-10"],
+          rrule: "FREQ=WEEKLY",
+        },
+        start,
+        start + 1,
+        new Set(["2026-01-17"])
+      )
+    ).toBe("2026-01-31");
+  });
+
+  it("returns null when every later date is excluded", () => {
+    expect(
+      firstOccurrenceDateFrom(
+        { excludeRules: ["FREQ=WEEKLY"], rrule: "FREQ=WEEKLY" },
+        start,
+        start
+      )
+    ).toBeNull();
+  });
+
+  it("returns null once the rule ends", () => {
+    expect(
+      firstOccurrenceDateFrom(
+        { exdates: ["2026-01-10"], rrule: "FREQ=WEEKLY;COUNT=2" },
+        start,
+        start + 1
+      )
+    ).toBeNull();
   });
 });

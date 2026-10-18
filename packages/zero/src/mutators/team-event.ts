@@ -35,6 +35,7 @@ import {
   cancelSeriesFollowing,
   cancelSeriesThis,
   ISO_DATE_RE,
+  type SeriesCancelResult,
   changedSeriesArgs,
   moveSeriesOccurrencesToGroup,
   moveSeriesSessionsToProgramme,
@@ -158,6 +159,34 @@ function seriesScope(
     args.originalDate === seriesStartDate(existing.startTime)
     ? "all"
     : args.mode;
+}
+
+/**
+ * The start of the session a "this" or "following" cancel targets: a saved
+ * row for the date by its own start, otherwise the series' time of day on
+ * that date. A saved row or standalone event targets itself.
+ */
+async function targetSessionStart(
+  tx: Tx,
+  existing: TeamEvent,
+  date: string | undefined
+): Promise<number> {
+  if (!date || existing.seriesId || !existing.recurrenceRule) {
+    return existing.startTime;
+  }
+  const saved = (await tx.run(
+    zql.teamEvent
+      .where("seriesId", existing.id)
+      .where("originalDate", date)
+      .one()
+  )) as TeamEvent | undefined;
+  if (saved) {
+    return saved.startTime;
+  }
+  const firstDay = Date.parse(
+    `${seriesStartDate(existing.startTime)}T00:00:00Z`
+  );
+  return Date.parse(`${date}T00:00:00Z`) + (existing.startTime - firstDay);
 }
 
 /** Resolve (materializing if needed) the event row a volunteer joins. */
@@ -797,42 +826,59 @@ export const teamEventMutators = {
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
       const mode = seriesScope(args, existing);
 
-      // Team leads without events.cancel cannot cancel an event that has
-      // started. "All" never cancels a started session, so it stays open.
+      // Team leads without events.cancel cannot cancel a session that has
+      // started, judged by the session the cancel starts from. "All" never
+      // cancels a started session, so it stays open.
+      const sessionStart =
+        mode === "all"
+          ? undefined
+          : await targetSessionStart(tx, existing, args.originalDate);
       if (
         isTeamLead &&
         !can(ctx, "events.cancel") &&
-        mode !== "all" &&
-        existing.startTime <= args.now
+        sessionStart !== undefined &&
+        sessionStart <= args.now
       ) {
         throw new Error("Cannot cancel an event that has already started");
       }
 
-      // The rows whose members hear of it and whose RSVP polls close.
-      let cancelledIds = [args.id];
-      let notifiedIds = [args.id];
+      let result: SeriesCancelResult = {
+        cancelledIds: [],
+        droppedUnsaved: false,
+      };
+      // Whether earlier sessions stay live, so only later ones are cancelled.
+      let seriesEnded = false;
       if (mode === "all") {
-        const result = await cancelSeriesAll(tx, args, existing);
-        cancelledIds = result.cancelledIds;
-        // Unsaved sessions dropped from the rule had the series' volunteers
-        // only when they inherit them.
-        notifiedIds =
-          result.ruleCut && existing.inheritVolunteers
-            ? [args.id, ...cancelledIds]
-            : cancelledIds;
+        result = await cancelSeriesAll(tx, args, existing);
+        seriesEnded = !result.cancelledIds.includes(args.id);
       } else if (mode === "this") {
-        await cancelSeriesThis(tx, args, existing, ctx.userId);
+        result = await cancelSeriesThis(tx, args, existing, ctx.userId);
       } else if (mode === "following" && args.originalDate) {
-        await cancelSeriesFollowing(
+        result = await cancelSeriesFollowing(
           tx,
           { ...args, originalDate: args.originalDate },
           existing
         );
+        seriesEnded = true;
       }
+      const { cancelledIds } = result;
+      // Unsaved sessions dropped had the series' volunteers only when they
+      // inherit them.
+      const notifiedIds =
+        result.droppedUnsaved && existing.inheritVolunteers
+          ? [args.id, ...cancelledIds]
+          : cancelledIds;
 
       // One notice to the members of every cancelled session; started
-      // sessions kept by "all" send nothing.
-      if (tx.location === "server" && notifiedIds.length > 0) {
+      // sessions kept by "all" send nothing, and neither does a started
+      // session cancelled with "this" (one that didn't happen).
+      const startedSession =
+        sessionStart !== undefined && sessionStart <= args.now;
+      if (
+        tx.location === "server" &&
+        notifiedIds.length > 0 &&
+        !startedSession
+      ) {
         const eventId = args.id;
         const eventName = existing.name;
         const { teamId } = existing;
@@ -859,6 +905,8 @@ export const teamEventMutators = {
                 eventMemberIds,
                 eventName,
                 reason,
+                seriesEnded,
+                sessionStart,
                 teamId,
               },
               { traceId: ctx.traceId }

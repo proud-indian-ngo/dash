@@ -37,6 +37,35 @@ export function seriesEditScopes(
     : ALL_SCOPES;
 }
 
+/**
+ * The series row's own start, for the scopes on a session's page. A saved
+ * session and a virtual occurrence (whose page event is shifted to its
+ * date) both take it from the series parent.
+ */
+export function pageSeriesStart(
+  event: { seriesId: string | null; startTime: number },
+  parentEvent: { startTime: number } | undefined,
+  isVirtualOccurrence: boolean
+): number | undefined {
+  return event.seriesId || isVirtualOccurrence
+    ? parentEvent?.startTime
+    : event.startTime;
+}
+
+/**
+ * The scopes offered for cancelling a session of a series. A cancel never
+ * drops a session that has started, so a started one isn't offered "this
+ * and following".
+ */
+export function seriesCancelScopes(
+  seriesStart: number | undefined,
+  occDate: string | null | undefined,
+  started: boolean
+): EditScope[] {
+  const scopes = seriesEditScopes(seriesStart, occDate);
+  return started ? scopes.filter((scope) => scope !== "following") : scopes;
+}
+
 interface EditScopeDialogProps {
   /** Label for "all" where it means less than every event (cancelling). */
   allLabel?: string;
