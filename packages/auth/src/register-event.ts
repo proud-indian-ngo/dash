@@ -40,6 +40,7 @@ export interface RegisterEventEnrollDeps {
     eventId: string;
     eventName: string;
     location: string | null;
+    memberId: string;
     startTime: number;
     userId: string;
   }) => Promise<void>;
@@ -176,6 +177,7 @@ export async function enrollUserOnRegisterEvent(
       eventId: event.id,
       eventName: event.name,
       location: event.location,
+      memberId: eventMemberId,
       startTime: event.startTime,
       userId: input.userId,
     });

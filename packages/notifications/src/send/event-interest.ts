@@ -8,6 +8,7 @@ import { TOPICS } from "../topics";
 interface InterestReceivedOptions {
   eventId: string;
   eventName: string;
+  interestId: string;
   leadUserIds: string[];
   teamId: string;
   volunteerName: string;
@@ -37,6 +38,7 @@ interface VolunteerLeftOptions {
 export async function notifyEventInterestReceived({
   eventId,
   eventName,
+  interestId,
   leadUserIds,
   volunteerName,
 }: InterestReceivedOptions): Promise<void> {
@@ -57,7 +59,7 @@ export async function notifyEventInterestReceived({
       status: { label: "Interested", tone: "info" },
     },
     emailHtml,
-    idempotencyKey: `event-interest-received-${eventId}-${volunteerName}`,
+    idempotencyKey: `event-interest-received-${eventId}-${interestId}`,
     title: "🙋 Someone's interested!",
     topic: TOPICS.EVENTS_INTEREST,
     userIds: leadUserIds,

@@ -1,3 +1,8 @@
+import {
+  createFilterQuery,
+  createFilterRule,
+} from "@pi-dash/design-system/components/reui/filters/filters-query";
+import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import capitalize from "lodash/capitalize";
 import type { ReactNode } from "react";
@@ -6,6 +11,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { useApp } from "@/context/app-context";
 import type { AdminUser } from "@/functions/user-admin-reads";
 import { DATE } from "@/lib/date-formats";
 
@@ -30,6 +36,34 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
       <span className="text-muted-foreground text-xs">{label}</span>
       <span className="text-sm">{value}</span>
     </div>
+  );
+}
+
+/** Opens Notification delivery filtered to this recipient. */
+function DeliveryLink({ userId }: { userId: string }) {
+  const { hasPermission } = useApp();
+  if (!hasPermission("notifications.view_delivery")) {
+    return null;
+  }
+  return (
+    <Link
+      className="text-primary text-sm font-medium underline-offset-4 hover:underline"
+      search={
+        {
+          filters: createFilterQuery([
+            createFilterRule({
+              id: "recipient",
+              operator: "is",
+              path: ["recipient"],
+              value: userId,
+            }),
+          ]),
+        } as never
+      }
+      to="/notification-delivery"
+    >
+      Notification delivery
+    </Link>
   );
 }
 
@@ -64,6 +98,7 @@ export function UserDetailSheet({
 
             <div className="flex flex-col gap-6 px-6 pb-6">
               <UserEmailDelivery userId={user.id} />
+              <DeliveryLink userId={user.id} />
 
               <div className="grid gap-4">
                 <h3 className="text-sm font-medium">Profile</h3>

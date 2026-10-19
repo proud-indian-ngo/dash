@@ -27,12 +27,14 @@ export async function notifyAdvancePaymentSubmitted(options: {
 export async function notifyAdvancePaymentApproved(options: {
   advancePaymentId: string;
   note?: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }): Promise<void> {
   await notifier.notifyApproved({
     entityId: options.advancePaymentId,
     note: options.note,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });
@@ -41,12 +43,14 @@ export async function notifyAdvancePaymentApproved(options: {
 export async function notifyAdvancePaymentRejected(options: {
   advancePaymentId: string;
   reason: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }): Promise<void> {
   await notifier.notifyRejected({
     entityId: options.advancePaymentId,
     reason: options.reason,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });

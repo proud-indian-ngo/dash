@@ -23,10 +23,11 @@ export const vendorMutators = {
         throw new Error("Only pending vendors can be approved");
       }
 
+      const approvedAt = Date.now();
       await tx.mutate.vendor.update({
         id: args.id,
         status: "approved",
-        updatedAt: Date.now(),
+        updatedAt: approvedAt,
       });
 
       // Nobody to tell once the creator's account has been deleted.
@@ -40,6 +41,7 @@ export const vendorMutators = {
             await enqueue(
               "notify-vendor-approved",
               {
+                approvedAt,
                 creatorId,
                 vendorId,
                 vendorName,
@@ -74,10 +76,11 @@ export const vendorMutators = {
         );
       }
 
+      const unapprovedAt = Date.now();
       await tx.mutate.vendor.update({
         id: args.id,
         status: "pending",
-        updatedAt: Date.now(),
+        updatedAt: unapprovedAt,
       });
 
       // Nobody to tell once the creator's account has been deleted.
@@ -92,6 +95,7 @@ export const vendorMutators = {
               "notify-vendor-unapproved",
               {
                 creatorId,
+                unapprovedAt,
                 vendorId,
                 vendorName,
               },

@@ -403,6 +403,13 @@ export const PERMISSIONS = [
     id: "audit_log.view",
     name: "View Audit Log",
   },
+  {
+    category: "system",
+    description:
+      "See how each notification reached each person, including the text of inbox and WhatsApp messages",
+    id: "notifications.view_delivery",
+    name: "View Notification Delivery",
+  },
 
   // ── Finance ──
   {
@@ -568,6 +575,7 @@ const adminExcluded = new Set<PermissionId>([
 
 const financeAdminExcluded = new Set<PermissionId>([
   "audit_log.view",
+  "notifications.view_delivery",
   "social.manage",
   "requests.edit_all_statuses",
   "users.create",

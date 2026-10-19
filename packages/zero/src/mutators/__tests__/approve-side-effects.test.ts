@@ -86,6 +86,7 @@ describe("approve side effects", () => {
       {
         note: "Paid by UPI",
         reimbursementId: "request-1",
+        reviewedAt: expect.any(Number),
         submitterId: "owner-1",
         title: "Travel",
       },
@@ -172,6 +173,7 @@ describe("approve side effects", () => {
       {
         advancePaymentId: "advance-1",
         note: undefined,
+        reviewedAt: expect.any(Number),
         submitterId: "owner-1",
         title: "Supplies",
       },

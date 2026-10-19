@@ -14,7 +14,10 @@ import {
   sendCloudText,
 } from "./cloud";
 import { sendWhatsAppMessage } from "./messaging";
-import type { WhatsAppTemplateMessage } from "./template-message";
+import {
+  TEMPLATE_BODIES,
+  type WhatsAppTemplateMessage,
+} from "./template-message";
 
 export interface WhatsAppNotification {
   /** Sent through Meta's Cloud API when it's configured. */
@@ -34,6 +37,16 @@ export type WhatsAppSendOutcome =
   | "no_template"
   | "rejected";
 
+/**
+ * What the send log keeps: the template, and for a template its values and
+ * its body as sent, since an edit keeps the template's name.
+ */
+interface ClaimedMessage {
+  params: Record<string, string> | null;
+  template: string;
+  templateBody: string | null;
+}
+
 /** A claim still `sending` with no message ID after this was abandoned. */
 const STALE_CLAIM_MINUTES = 5;
 const ERROR_MAX_LENGTH = 200;
@@ -45,14 +58,15 @@ const ERROR_MAX_LENGTH = 200;
  */
 async function claim(
   idempotencyKey: string,
-  template: string,
+  message: ClaimedMessage,
   userId: string | undefined
 ): Promise<boolean> {
+  const { params, template, templateBody } = message;
   const rows = await db
     .insert(whatsappMessage)
-    .values({ idempotencyKey, template, userId })
+    .values({ idempotencyKey, params, template, templateBody, userId })
     .onConflictDoUpdate({
-      set: { template, updatedAt: new Date(), userId },
+      set: { params, template, templateBody, updatedAt: new Date(), userId },
       setWhere: sql`${whatsappMessage.status} = 'sending'
         and ${whatsappMessage.wamid} is null
         and ${whatsappMessage.updatedAt} < now() - make_interval(mins => ${STALE_CLAIM_MINUTES})`,
@@ -70,11 +84,12 @@ function describeError(error: unknown): string {
 
 async function sendClaimed(
   idempotencyKey: string,
-  template: string,
+  message: ClaimedMessage,
   userId: string | undefined,
   send: () => Promise<string>
 ): Promise<WhatsAppSendOutcome> {
-  if (!(await claim(idempotencyKey, template, userId))) {
+  const { template } = message;
+  if (!(await claim(idempotencyKey, message, userId))) {
     return "duplicate";
   }
   let wamid: string;
@@ -148,7 +163,11 @@ export async function sendWhatsAppNotification(
   }
   return await sendClaimed(
     options.idempotencyKey,
-    template.name,
+    {
+      params: template.params,
+      template: template.name,
+      templateBody: TEMPLATE_BODIES.get(template.name) ?? null,
+    },
     options.userId,
     () => sendCloudTemplate(phone, template)
   );
@@ -160,8 +179,11 @@ export async function sendWhatsAppReply(
   text: string,
   options: { idempotencyKey: string; userId?: string }
 ): Promise<WhatsAppSendOutcome> {
-  return await sendClaimed(options.idempotencyKey, "text", options.userId, () =>
-    sendCloudText(phone, text)
+  return await sendClaimed(
+    options.idempotencyKey,
+    { params: null, template: "text", templateBody: null },
+    options.userId,
+    () => sendCloudText(phone, text)
   );
 }
 

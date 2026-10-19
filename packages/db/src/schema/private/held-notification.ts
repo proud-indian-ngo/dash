@@ -1,6 +1,7 @@
 import type { DigestRow } from "@pi-dash/shared/notification-digest";
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   primaryKey,
@@ -60,7 +61,13 @@ export const heldNotification = privateSchema.table(
     /** The WhatsApp text sent when this is the recipient's only message. */
     whatsappText: text("whatsapp_text"),
   },
-  (table) => [index("held_notification_created_at_idx").on(table.createdAt)]
+  (table) => [
+    index("held_notification_created_at_idx").on(table.createdAt),
+    // The flush job clears sent content every minute.
+    index("held_notification_uncleared_idx")
+      .on(table.key)
+      .where(sql`${table.clearedAt} is null`),
+  ]
 );
 
 /**
@@ -69,6 +76,10 @@ export const heldNotification = privateSchema.table(
  * the oldest is past the window, sends them, then stamps `sent_at`. A claim
  * not sent within the lease (the run died or the group failed) is taken
  * over by a later run, counting `attempts`, and given up after three.
+ *
+ * How a sent row ended is recorded in the row: given up has `attempts` at
+ * `MAX_ATTEMPTS`, dropped by the kill switch has no `batch_id`, and skipped
+ * because the inbox copy was read has `skipped_read`.
  */
 export const heldNotificationRecipient = privateSchema.table(
   "held_notification_recipient",
@@ -82,6 +93,7 @@ export const heldNotificationRecipient = privateSchema.table(
       .notNull()
       .references(() => heldNotification.key, { onDelete: "cascade" }),
     sentAt: timestamp("sent_at"),
+    skippedRead: boolean("skipped_read").default(false).notNull(),
     topicId: text("topic_id").notNull(),
     userId: text("user_id")
       .notNull()
@@ -92,5 +104,6 @@ export const heldNotificationRecipient = privateSchema.table(
     index("held_notification_recipient_unsent_idx")
       .on(table.userId, table.topicId, table.channel, table.createdAt)
       .where(sql`${table.sentAt} is null`),
+    index("held_notification_recipient_batch_id_idx").on(table.batchId),
   ]
 );

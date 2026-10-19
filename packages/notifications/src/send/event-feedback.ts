@@ -9,12 +9,14 @@ interface FeedbackOpenOptions {
   eventId: string;
   eventName: string;
   memberUserIds: string[];
+  openedAt: number;
 }
 
 export async function notifyEventFeedbackOpen({
   eventId,
   eventName,
   memberUserIds,
+  openedAt,
 }: FeedbackOpenOptions): Promise<void> {
   if (memberUserIds.length === 0) {
     return;
@@ -38,7 +40,7 @@ export async function notifyEventFeedbackOpen({
       name: eventName,
     },
     emailHtml,
-    idempotencyKey: `event-feedback-open-${eventId}`,
+    idempotencyKey: `event-feedback-open-${eventId}-${openedAt}`,
     title: "💬 Your feedback matters",
     topic: TOPICS.EVENTS_FEEDBACK,
     userIds: memberUserIds,

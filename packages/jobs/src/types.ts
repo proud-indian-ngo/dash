@@ -66,12 +66,14 @@ export interface NotifyReimbursementSubmittedPayload {
 export interface NotifyReimbursementApprovedPayload {
   note?: string;
   reimbursementId: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }
 export interface NotifyReimbursementRejectedPayload {
   reason: string;
   reimbursementId: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }
@@ -132,12 +134,14 @@ export interface NotifyAdvancePaymentSubmittedPayload {
 export interface NotifyAdvancePaymentApprovedPayload {
   advancePaymentId: string;
   note?: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }
 export interface NotifyAdvancePaymentRejectedPayload {
   advancePaymentId: string;
   reason: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }
@@ -150,12 +154,14 @@ export interface NotifyVendorPaymentSubmittedPayload {
 }
 export interface NotifyVendorPaymentApprovedPayload {
   note?: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
 }
 export interface NotifyVendorPaymentRejectedPayload {
   reason: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
@@ -173,6 +179,7 @@ export interface NotifyVpInvoiceSubmittedPayload {
   vendorPaymentTitle: string;
 }
 export interface NotifyVpInvoiceApprovedPayload {
+  approvedAt: number;
   noInvoiceReason?: VendorPaymentNoInvoiceReason;
   note?: string;
   submitterId: string;
@@ -231,6 +238,7 @@ export interface NotifyTeamDeletedPayload {
   teamName: string;
 }
 export interface NotifyAddedToTeamPayload {
+  memberId: string;
   teamId: string;
   teamName: string;
   userId: string;
@@ -275,10 +283,12 @@ export interface NotifyAddedToEventPayload {
   eventId: string;
   eventName: string;
   location: string | null;
+  memberId: string;
   startTime: number;
   userId: string;
 }
 export interface NotifyUsersAddedToEventPayload {
+  addedAt: number;
   eventId: string;
   eventName: string;
   location: string | null;
@@ -288,6 +298,7 @@ export interface NotifyUsersAddedToEventPayload {
 export interface NotifyRemovedFromEventPayload {
   eventId: string;
   eventName: string;
+  memberId: string;
   teamId: string;
   userId: string;
 }
@@ -296,6 +307,7 @@ export interface NotifyRemovedFromEventPayload {
 export interface NotifyEventInterestReceivedPayload {
   eventId: string;
   eventName: string;
+  interestId: string;
   leadUserIds: string[];
   teamId: string;
   volunteerName: string;
@@ -376,20 +388,24 @@ export interface NotifyEventFeedbackOpenPayload {
   eventId: string;
   eventName: string;
   memberUserIds: string[];
+  openedAt: number;
 }
 
 // Vendor
 export interface NotifyVendorApprovedPayload {
+  approvedAt: number;
   creatorId: string;
   vendorId: string;
   vendorName: string;
 }
 export interface NotifyVendorUnapprovedPayload {
   creatorId: string;
+  unapprovedAt: number;
   vendorId: string;
   vendorName: string;
 }
 export interface NotifyVendorAutoApprovedPayload {
+  approvedAt: number;
   creatorId: string;
   vendorId: string;
   vendorName: string;
@@ -398,6 +414,7 @@ export interface NotifyVendorAutoApprovedPayload {
 
 // Vendor Payment (additional)
 export interface NotifyVpFullyPaidPayload {
+  paidAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
@@ -412,6 +429,7 @@ export interface NotifyVptCascadeRejectedPayload {
 
 // User Admin
 export interface NotifyRoleChangedPayload {
+  changedAt: number;
   newRole: string;
   userId: string;
 }
@@ -421,13 +439,16 @@ export interface NotifyUserWelcomePayload {
   userId: string;
 }
 export interface NotifyUserBannedPayload {
+  bannedAt: number;
   reason?: string;
   userId: string;
 }
 export interface NotifyUserUnbannedPayload {
+  unbannedAt: number;
   userId: string;
 }
 export interface NotifyPasswordResetPayload {
+  resetAt: number;
   userId: string;
 }
 export interface NotifyUserDeactivatedPayload {
@@ -488,6 +509,7 @@ export interface WhatsAppManageOrientationPayload {
 
 // Team (additional)
 export interface NotifyTeamRoleChangedPayload {
+  changedAt: number;
   newRole: string;
   teamId: string;
   teamName: string;

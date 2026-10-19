@@ -79,6 +79,7 @@ export async function notifyVendorPaymentSubmitted(options: {
 
 export async function notifyVendorPaymentApproved(options: {
   note?: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
@@ -86,6 +87,7 @@ export async function notifyVendorPaymentApproved(options: {
   await notifier.notifyApproved({
     entityId: options.vendorPaymentId,
     note: options.note,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });
@@ -93,6 +95,7 @@ export async function notifyVendorPaymentApproved(options: {
 
 export async function notifyVendorPaymentRejected(options: {
   reason: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
@@ -100,6 +103,7 @@ export async function notifyVendorPaymentRejected(options: {
   await notifier.notifyRejected({
     entityId: options.vendorPaymentId,
     reason: options.reason,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });
@@ -184,6 +188,7 @@ export async function notifyVendorPaymentInvoiceSubmitted(options: {
 }
 
 export async function notifyVendorPaymentInvoiceApproved(options: {
+  approvedAt: number;
   noInvoiceReason?: VendorPaymentNoInvoiceReason;
   note?: string;
   submitterId: string;
@@ -221,7 +226,7 @@ export async function notifyVendorPaymentInvoiceApproved(options: {
         : { label: "Approved", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}`,
+    idempotencyKey: `vp-invoice-approved-${options.vendorPaymentId}-${options.approvedAt}`,
     title: `✅ ${heading}`,
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,
@@ -275,6 +280,7 @@ export async function notifyVendorPaymentInvoiceRejected(options: {
 }
 
 export async function notifyVpFullyPaid(options: {
+  paidAt: number;
   submitterId: string;
   title: string;
   vendorPaymentId: string;
@@ -296,7 +302,7 @@ export async function notifyVpFullyPaid(options: {
       status: { label: "Paid", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}`,
+    idempotencyKey: `vp-fully-paid-${options.vendorPaymentId}-${options.paidAt}`,
     title: "🎉 All paid up!",
     to: options.submitterId,
     topic: TOPICS.REQUESTS_STATUS,

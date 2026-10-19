@@ -35,6 +35,8 @@ export interface WhatsAppTemplate {
   dashboardPath?: string;
   /** One example value per `{{parameter}}` in the body. */
   examples: Record<string, string>;
+  /** A short title for the dashboard, where the template name would show. */
+  label: string;
   name: string;
 }
 
@@ -51,6 +53,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "",
     examples: { name: "Priya" },
+    label: "Account ready",
     name: "account_welcome",
   },
   {
@@ -58,18 +61,21 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "",
     examples: { role: "Volunteer" },
+    label: "Role changed",
     name: "account_role_changed",
   },
   {
     body: "Your Proud Indian Dashboard account has been suspended. Reason: {{reason}}. Contact your admin if you have questions.",
     category: "UTILITY",
     examples: { reason: "Repeated missed shifts" },
+    label: "Account suspended",
     name: "account_suspended",
   },
   {
     body: "Your Proud Indian Dashboard account has been suspended. Contact your admin if you have questions.",
     category: "UTILITY",
     examples: {},
+    label: "Account suspended",
     name: "account_suspended_no_reason",
   },
   {
@@ -77,18 +83,21 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "",
     examples: {},
+    label: "Account reactivated",
     name: "account_reactivated",
   },
   {
     body: "Your Proud Indian Dashboard account has been deactivated. Contact your admin if you have questions.",
     category: "UTILITY",
     examples: {},
+    label: "Account deactivated",
     name: "account_deactivated",
   },
   {
     body: "An admin reset your Proud Indian Dashboard password. If you didn't expect this, contact your admin right away.",
     category: "UTILITY",
     examples: {},
+    label: "Password reset by an admin",
     name: "account_password_reset",
   },
   {
@@ -98,6 +107,7 @@ export const WHATSAPP_TEMPLATES = [
     examples: { edition: "Kalakriti 2026" },
     // kalakriti_guardian_access was rejected: its login wording read as
     // authentication, so this is the reworded replacement.
+    label: "Kalakriti Guardian access",
     name: "kalakriti_guardian_ready",
   },
 
@@ -112,6 +122,7 @@ export const WHATSAPP_TEMPLATES = [
       submitter: "Priya Sharma",
       title: "Snacks for Sunday class",
     },
+    label: "Request awaiting review",
     name: "request_submitted",
   },
   {
@@ -123,6 +134,7 @@ export const WHATSAPP_TEMPLATES = [
       request_type: "reimbursement",
       title: "Snacks for Sunday class",
     },
+    label: "Request approved",
     name: "request_approved",
   },
   {
@@ -135,6 +147,7 @@ export const WHATSAPP_TEMPLATES = [
       request_type: "reimbursement",
       title: "Snacks for Sunday class",
     },
+    label: "Request approved",
     name: "request_approved_with_note",
   },
   {
@@ -147,6 +160,7 @@ export const WHATSAPP_TEMPLATES = [
       request_type: "reimbursement",
       title: "Snacks for Sunday class",
     },
+    label: "Request not approved",
     name: "request_not_approved",
   },
   {
@@ -154,6 +168,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "",
     examples: { waiting: "2 reimbursements, 1 vendor payment" },
+    label: "Requests awaiting approval",
     name: "requests_awaiting_approval",
   },
   {
@@ -161,6 +176,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "reimbursements/0192",
     examples: { raised_by: "Anita Rao", title: "Snacks for Sunday class" },
+    label: "Reimbursement raised for you",
     name: "reimbursement_raised_for_you",
   },
   {
@@ -172,6 +188,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "You paid for the snacks",
       title: "Snacks for Sunday class",
     },
+    label: "Reimbursement moved to you",
     name: "reimbursement_now_yours",
   },
   {
@@ -184,6 +201,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "Priya paid for the snacks",
       title: "Snacks for Sunday class",
     },
+    label: "Reimbursement moved to someone else",
     name: "reimbursement_moved_away",
   },
 
@@ -193,6 +211,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { submitter: "Priya Sharma", title: "Bus hire, October" },
+    label: "Invoice submitted",
     name: "invoice_submitted",
   },
   {
@@ -205,6 +224,7 @@ export const WHATSAPP_TEMPLATES = [
       submitter: "Priya Sharma",
       title: "Bus hire, October",
     },
+    label: "Payment without invoice submitted",
     name: "no_invoice_submitted",
   },
   {
@@ -212,6 +232,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { title: "Bus hire, October" },
+    label: "Invoice approved",
     name: "invoice_approved",
   },
   {
@@ -219,6 +240,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { note: "Filed under transport", title: "Bus hire, October" },
+    label: "Invoice approved",
     name: "invoice_approved_with_note",
   },
   {
@@ -226,6 +248,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { title: "Bus hire, October" },
+    label: "Payment without invoice approved",
     name: "no_invoice_approved",
   },
   {
@@ -233,6 +256,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { note: "Receipt photo accepted", title: "Bus hire, October" },
+    label: "Payment without invoice approved",
     name: "no_invoice_approved_with_note",
   },
   {
@@ -243,6 +267,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "The GST number is missing",
       title: "Bus hire, October",
     },
+    label: "Invoice not approved",
     name: "invoice_not_approved",
   },
   {
@@ -253,6 +278,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "Please ask the vendor for an invoice",
       title: "Bus hire, October",
     },
+    label: "Payment without invoice not approved",
     name: "no_invoice_not_approved",
   },
   {
@@ -264,6 +290,7 @@ export const WHATSAPP_TEMPLATES = [
       submitter: "Priya Sharma",
       title: "Bus hire, October",
     },
+    label: "Vendor payment logged",
     name: "payment_logged",
   },
   {
@@ -271,6 +298,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { amount: "₹8,000", title: "Bus hire, October" },
+    label: "Vendor payment approved",
     name: "payment_approved",
   },
   {
@@ -282,6 +310,7 @@ export const WHATSAPP_TEMPLATES = [
       note: "Matched to the bank statement",
       title: "Bus hire, October",
     },
+    label: "Vendor payment approved",
     name: "payment_approved_with_note",
   },
   {
@@ -293,6 +322,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "The UTR number doesn't match",
       title: "Bus hire, October",
     },
+    label: "Vendor payment not approved",
     name: "payment_not_approved",
   },
   {
@@ -300,6 +330,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendor-payments/0192",
     examples: { title: "Bus hire, October" },
+    label: "Vendor payment complete",
     name: "vendor_payment_complete",
   },
   {
@@ -311,6 +342,7 @@ export const WHATSAPP_TEMPLATES = [
       reason: "The vendor payment was rejected",
       title: "Bus hire, October",
     },
+    label: "Payments rejected automatically",
     name: "payments_auto_rejected",
   },
   {
@@ -318,6 +350,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendors",
     examples: { vendor: "Sri Balaji Travels" },
+    label: "Vendor approved",
     name: "vendor_approved",
   },
   {
@@ -325,6 +358,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendors",
     examples: { title: "Bus hire, October", vendor: "Sri Balaji Travels" },
+    label: "Vendor approved automatically",
     name: "vendor_auto_approved",
   },
   {
@@ -332,6 +366,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "vendors",
     examples: { vendor: "Sri Balaji Travels" },
+    label: "Vendor needs changes",
     name: "vendor_needs_changes",
   },
 
@@ -341,6 +376,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { team: "Sunday Teaching" },
+    label: "Added to a team",
     name: "team_added",
   },
   {
@@ -348,6 +384,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams",
     examples: { team: "Sunday Teaching" },
+    label: "Removed from a team",
     name: "team_removed",
   },
   {
@@ -355,6 +392,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { role: "lead", team: "Sunday Teaching" },
+    label: "Team role changed",
     name: "team_role_changed",
   },
   {
@@ -362,6 +400,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { team: "Sunday Teaching" },
+    label: "Team details changed",
     name: "team_details_changed",
   },
   {
@@ -369,6 +408,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams",
     examples: { team: "Sunday Teaching" },
+    label: "Team deleted",
     name: "team_deleted",
   },
 
@@ -378,6 +418,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { details: EVENT_DETAILS_EXAMPLE, event: "Science Fair" },
+    label: "New event",
     name: "event_created",
   },
   {
@@ -385,6 +426,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { details: EVENT_DETAILS_EXAMPLE, event: "Science Fair" },
+    label: "Added to an event",
     name: "event_added",
   },
   {
@@ -392,6 +434,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { event: "Science Fair" },
+    label: "Removed from an event",
     name: "event_removed",
   },
   {
@@ -399,6 +442,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { details: EVENT_DETAILS_EXAMPLE, event: "Science Fair" },
+    label: "Event schedule changed",
     name: "event_schedule_changed",
   },
   {
@@ -406,6 +450,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { event: "Science Fair" },
+    label: "Event cancelled",
     name: "event_cancelled",
   },
   {
@@ -413,6 +458,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { event: "Weekly Science Class", when: "Sat, 18 Oct, 10:00 AM" },
+    label: "Event session cancelled",
     name: "event_session_cancelled",
   },
   {
@@ -420,6 +466,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { event: "Weekly Science Class", when: "Sat, 18 Oct, 10:00 AM" },
+    label: "Event sessions cancelled",
     name: "event_sessions_cancelled_from",
   },
   {
@@ -427,6 +474,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "teams/0192",
     examples: { event: "Weekly Science Class" },
+    label: "Upcoming sessions cancelled",
     name: "event_upcoming_sessions_cancelled",
   },
   {
@@ -438,6 +486,7 @@ export const WHATSAPP_TEMPLATES = [
       event: "Science Fair",
       starts_in: "2 hours",
     },
+    label: "Event reminder",
     name: "event_reminder",
   },
   {
@@ -449,6 +498,7 @@ export const WHATSAPP_TEMPLATES = [
       event: "Science Fair",
       voter: "Priya Sharma",
     },
+    label: "RSVP from a non-member",
     name: "rsvp_non_member",
   },
   {
@@ -456,6 +506,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair (18 Oct)" },
+    label: "Attendance reminder",
     name: "event_attendance_reminder",
   },
 
@@ -465,6 +516,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { author: "Priya Sharma", event: "Science Fair (18 Oct)" },
+    label: "Event update posted",
     name: "event_update_posted",
   },
   {
@@ -472,6 +524,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { author: "Priya Sharma", event: "Science Fair (18 Oct)" },
+    label: "Event update awaiting approval",
     name: "event_post_needs_approval",
   },
   {
@@ -479,6 +532,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair (18 Oct)" },
+    label: "Event update approved",
     name: "event_post_approved",
   },
   {
@@ -486,6 +540,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair (18 Oct)" },
+    label: "Event update not approved",
     name: "event_post_not_approved",
   },
 
@@ -495,6 +550,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair", volunteer: "Priya Sharma" },
+    label: "Event interest received",
     name: "event_interest_received",
   },
   {
@@ -502,6 +558,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair" },
+    label: "Event interest approved",
     name: "event_interest_approved",
   },
   {
@@ -509,6 +566,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair" },
+    label: "Event interest declined",
     name: "event_interest_declined",
   },
   {
@@ -516,6 +574,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair", volunteer: "Priya Sharma" },
+    label: "Volunteer left an event",
     name: "event_volunteer_left",
   },
 
@@ -525,6 +584,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { count: "3", event: "Science Fair" },
+    label: "Photos approved",
     name: "photos_approved",
   },
   {
@@ -532,6 +592,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { count: "1", event: "Science Fair" },
+    label: "Photos not published",
     name: "photos_not_published",
   },
   {
@@ -539,6 +600,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events",
     examples: { events: "2 events", photos: "14 photos" },
+    label: "Photos awaiting approval",
     name: "photos_need_approval",
   },
   {
@@ -546,6 +608,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair" },
+    label: "Photo upload request",
     name: "photos_upload_request",
   },
 
@@ -555,6 +618,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair" },
+    label: "Feedback open",
     name: "feedback_open",
   },
   {
@@ -562,6 +626,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "events/0192",
     examples: { event: "Science Fair" },
+    label: "Feedback closing soon",
     name: "feedback_closing",
   },
 
@@ -571,6 +636,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "kalakriti/2026",
     examples: { edition: "Kalakriti 2026", status: "now open" },
+    label: "Kalakriti registration",
     name: "kalakriti_registration",
   },
   {
@@ -578,6 +644,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "kalakriti/2026/schedule",
     examples: { edition: "Kalakriti 2026" },
+    label: "Kalakriti schedule changed",
     name: "kalakriti_schedule_changed",
   },
   {
@@ -585,6 +652,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "kalakriti/2026/centers?centerId=0192",
     examples: { edition: "Kalakriti 2026" },
+    label: "Kalakriti transport changed",
     name: "kalakriti_transport_changed",
   },
   {
@@ -592,6 +660,7 @@ export const WHATSAPP_TEMPLATES = [
     category: "UTILITY",
     dashboardPath: "kalakriti/2026",
     examples: { edition: "Kalakriti 2026" },
+    label: "Kalakriti Guardian access restored",
     name: "kalakriti_guardian_reactivated",
   },
 
@@ -607,6 +676,7 @@ export const WHATSAPP_TEMPLATES = [
     // Meta doesn't allow chat.whatsapp.com links in buttons, so the button
     // opens a dashboard page that redirects to the group's invite link.
     dashboardPath: "whatsapp-groups/0192/join",
+    label: "WhatsApp group invite",
     name: "group_invite",
   },
   {
@@ -615,6 +685,7 @@ export const WHATSAPP_TEMPLATES = [
     examples: { date: "Wed, 18 Nov", group: "Proud Indian Volunteers" },
     buttonText: "Join group",
     dashboardPath: "whatsapp-groups/0192/join",
+    label: "WhatsApp group join reminder",
     name: "group_join_reminder",
   },
 
@@ -629,6 +700,7 @@ export const WHATSAPP_TEMPLATES = [
         'Reimbursement "Snacks" approved; Reimbursement "Auto fare" approved; Advance payment "Art supplies" not approved',
       topic: "Approvals and rejections",
     },
+    label: "Notification summary",
     name: "notifications_summary",
   },
   {
@@ -638,6 +710,7 @@ export const WHATSAPP_TEMPLATES = [
     examples: {
       summary: "Schedule post for Science Fair; Recap of Sunday class",
     },
+    label: "Social posts for approval",
     name: "social_digest",
   },
 ] as const satisfies readonly WhatsAppTemplate[];

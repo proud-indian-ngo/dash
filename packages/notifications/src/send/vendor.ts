@@ -12,12 +12,14 @@ const VENDORS_LIST: DigestRow["list"] = {
 };
 
 interface VendorApprovedOptions {
+  approvedAt: number;
   creatorId: string;
   vendorId: string;
   vendorName: string;
 }
 
 interface VendorAutoApprovedOptions {
+  approvedAt: number;
   creatorId: string;
   vendorId: string;
   vendorName: string;
@@ -25,6 +27,7 @@ interface VendorAutoApprovedOptions {
 }
 
 export async function notifyVendorApproved({
+  approvedAt,
   vendorId,
   vendorName,
   creatorId,
@@ -45,7 +48,7 @@ export async function notifyVendorApproved({
       status: { label: "Approved", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `vendor-approved-${vendorId}`,
+    idempotencyKey: `vendor-approved-${vendorId}-${approvedAt}`,
     title: "✅ Vendor approved!",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
@@ -59,11 +62,13 @@ export async function notifyVendorApproved({
 
 interface VendorUnapprovedOptions {
   creatorId: string;
+  unapprovedAt: number;
   vendorId: string;
   vendorName: string;
 }
 
 export async function notifyVendorUnapproved({
+  unapprovedAt,
   vendorId,
   vendorName,
   creatorId,
@@ -85,7 +90,7 @@ export async function notifyVendorUnapproved({
       status: { label: "Needs changes", tone: "warning" },
     },
     emailHtml,
-    idempotencyKey: `vendor-unapproved-${vendorId}`,
+    idempotencyKey: `vendor-unapproved-${vendorId}-${unapprovedAt}`,
     title: "🔄 Vendor needs changes",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,
@@ -98,6 +103,7 @@ export async function notifyVendorUnapproved({
 }
 
 export async function notifyVendorAutoApproved({
+  approvedAt,
   vendorId,
   vendorName,
   creatorId,
@@ -120,7 +126,7 @@ export async function notifyVendorAutoApproved({
       status: { label: "Approved", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `vendor-auto-approved-${vendorId}`,
+    idempotencyKey: `vendor-auto-approved-${vendorId}-${approvedAt}`,
     title: "✅ Vendor auto-approved!",
     to: creatorId,
     topic: TOPICS.REQUESTS_STATUS,

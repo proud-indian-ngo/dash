@@ -98,9 +98,11 @@ describe("requestInterestOnRegister", () => {
         userId: "user-1",
       })
     );
+    const interestId = insertPendingInterest.mock.calls[0]?.[0].id;
     expect(enqueueNotifyInterestReceived).toHaveBeenCalledWith({
       eventId: "event-1",
       eventName: "Maths class",
+      interestId,
       leadUserIds: ["lead-1"],
       teamId: "team-1",
       volunteerName: "Asha",

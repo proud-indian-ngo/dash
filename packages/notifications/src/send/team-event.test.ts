@@ -34,6 +34,7 @@ describe("event WhatsApp templates", () => {
       eventId: "event-1",
       eventName: "Beach cleanup",
       location: "Cubbon Park",
+      memberId: "member-1",
       startTime: Date.UTC(2026, 9, 18, 4, 30),
       userId: "user-1",
     });
@@ -56,6 +57,7 @@ describe("event WhatsApp templates", () => {
       eventId: "event-1",
       eventName: "Beach cleanup",
       location: null,
+      memberId: "member-1",
       startTime: Date.UTC(2026, 9, 18, 4, 30),
       userId: "user-1",
     });

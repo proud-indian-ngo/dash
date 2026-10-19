@@ -29,6 +29,8 @@ Better Auth's admin plugin only knows admin versus user. `toBetterAuthRole()` ma
 
 `requests.export` is reserved for `super_admin`. It is hidden from role management, rejected by custom-role mutations, and stripped from every other role on sync.
 
+`notifications.view_delivery` opens the Notification delivery page, which shows the text of people's inbox and WhatsApp messages. It is granted to `admin` and withheld from `finance_admin`; `jobs.manage` does not include it.
+
 ## Resolution
 
 `resolvePermissions()` caches a role's permissions in memory per instance. Call `invalidatePermissionCache()` after role or permission changes.

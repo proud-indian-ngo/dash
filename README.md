@@ -23,7 +23,7 @@ The libraries are in each `package.json`. The external services are:
 - Kalakriti: yearly Editions with Center registration, competitions, schedules, scanning, food, transport, inventory, results, awards and ID cards. See [Kalakriti registration](docs/architecture/kalakriti-registration.md) and the [glossary](CONTEXT.md).
 - Income, donors, receipts and books: donors, contributions (manual, CSV, give.do and Razorpay), settlements, bank statements, the donations return, donation receipts and the ledger. See [finance overview](docs/architecture/finance-and-programmes.md), which links the income, bank statement, books and receipts chapters.
 - Budgets: a year's budget per programme and project by expense head, against the books' actual spending. See [finance overview](docs/architecture/finance-and-programmes.md#budgets).
-- Notifications and WhatsApp: in-app inbox, email and WhatsApp with per-topic preferences and digests. See [notifications](docs/architecture/notifications.md) and [jobs](docs/architecture/jobs.md).
+- Notifications and WhatsApp: in-app inbox, email and WhatsApp with per-topic preferences and digests, and a delivery page for admins. See [notifications](docs/architecture/notifications.md) and [jobs](docs/architecture/jobs.md).
 - Social and public APIs: the bearer-token Social API and Social page, and the public upcoming-events feed used by proudindian.ngo. See [social API](docs/architecture/social-api.md).
 - Audit log: immutable history of user actions, visible with `audit_log.view`.
 - Settings: profile, account, notifications and bank accounts for everyone; organisation settings (programmes, projects, cost centres shown to volunteers as City), roles, integrations, API tokens and maintenance by permission.

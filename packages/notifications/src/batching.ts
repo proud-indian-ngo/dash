@@ -18,7 +18,7 @@ import {
 } from "@pi-dash/whatsapp/notify";
 import { getEnabledUserPhonesForTopic } from "@pi-dash/whatsapp/preferences";
 import type { WhatsAppTemplateMessage } from "@pi-dash/whatsapp/template-message";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { forEachLimited } from "./concurrency";
@@ -49,7 +49,10 @@ export const BATCH_WINDOW_MINUTES = 5;
  */
 export const CLAIM_LEASE_MINUTES = 15;
 
-/** Claims taken over this many times are given up and stamped sent. */
+/**
+ * Claims taken over this many times are given up: stamped sent with
+ * `attempts` set to this, which is how a give-up is told apart later.
+ */
 export const MAX_ATTEMPTS = 3;
 
 /** WhatsApp DMs in flight at once, so a large group doesn't hold up the run. */
@@ -68,7 +71,12 @@ export const WHATSAPP_SEPARATE_SEND_LIMIT = 5;
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 let lastPrunedAt = 0;
 
-const RETENTION = sql`interval '2 days'`;
+/**
+ * Held messages are kept 90 days after they were held, matching the WhatsApp
+ * send log, because the Notification delivery page reads batching state for
+ * that long.
+ */
+const RETENTION = sql`interval '90 days'`;
 const WINDOW = sql`make_interval(mins => ${BATCH_WINDOW_MINUTES}::int)`;
 const LEASE = sql`make_interval(mins => ${CLAIM_LEASE_MINUTES}::int)`;
 
@@ -91,14 +99,7 @@ export interface HeldRecipient {
   userId: string;
 }
 
-/**
- * Stores a message for the flush job instead of sending its email and
- * WhatsApp now. Idempotent by key, so a retried job holds it once; a
- * message whose content was already cleared after sending gets it back.
- * Throws when it can't store, so the notify job fails and is retried
- * rather than losing the message.
- */
-export async function holdNotification(input: {
+export interface HeldNotificationInput {
   body: string;
   clickAction?: string;
   digest?: DigestRow;
@@ -109,49 +110,23 @@ export async function holdNotification(input: {
   topic: string;
   whatsappTemplate?: HeldWhatsAppTemplate | null;
   whatsappText?: string;
-}): Promise<boolean> {
+}
+
+/**
+ * Stores a message for the flush job instead of sending its email and
+ * WhatsApp now. Idempotent by key, so a retried job holds it once; a
+ * message whose content was already cleared after sending gets it back.
+ * Throws when it can't store, so the notify job fails and is retried
+ * rather than losing the message.
+ */
+export async function holdNotification(
+  input: HeldNotificationInput
+): Promise<boolean> {
   if (input.recipients.length === 0) {
     return false;
   }
-  const content = {
-    body: input.body,
-    clickAction: input.clickAction ?? null,
-    digest: input.digest ?? null,
-    emailHtml: input.emailHtml ?? null,
-    title: input.title,
-    whatsappTemplate: input.whatsappTemplate ?? null,
-    whatsappText: input.whatsappText ?? null,
-  };
   try {
-    await db.transaction(async (tx) => {
-      const written = await tx
-        .insert(heldNotification)
-        .values({
-          ...content,
-          key: input.idempotencyKey,
-          topicId: input.topic,
-        })
-        .onConflictDoUpdate({
-          set: { ...content, clearedAt: null },
-          setWhere: sql`${heldNotification.clearedAt} is not null`,
-          target: heldNotification.key,
-        })
-        .returning({ key: heldNotification.key });
-      if (written.length === 0) {
-        await warnOnKeyReuse(tx, input);
-      }
-      await tx
-        .insert(heldNotificationRecipient)
-        .values(
-          input.recipients.map((recipient) => ({
-            channel: recipient.channel,
-            heldKey: input.idempotencyKey,
-            topicId: input.topic,
-            userId: recipient.userId,
-          }))
-        )
-        .onConflictDoNothing();
-    });
+    await db.transaction((tx) => writeHeldNotification(tx, input));
     return true;
   } catch (error) {
     logError(error, {
@@ -162,6 +137,49 @@ export async function holdNotification(input: {
     });
     throw error;
   }
+}
+
+/** `holdNotification`'s writes, run in the caller's transaction. */
+export async function writeHeldNotification(
+  tx: Pick<typeof db, "insert" | "select">,
+  input: HeldNotificationInput
+): Promise<void> {
+  const content = {
+    body: input.body,
+    clickAction: input.clickAction ?? null,
+    digest: input.digest ?? null,
+    emailHtml: input.emailHtml ?? null,
+    title: input.title,
+    whatsappTemplate: input.whatsappTemplate ?? null,
+    whatsappText: input.whatsappText ?? null,
+  };
+  const written = await tx
+    .insert(heldNotification)
+    .values({
+      ...content,
+      key: input.idempotencyKey,
+      topicId: input.topic,
+    })
+    .onConflictDoUpdate({
+      set: { ...content, clearedAt: null },
+      setWhere: sql`${heldNotification.clearedAt} is not null`,
+      target: heldNotification.key,
+    })
+    .returning({ key: heldNotification.key });
+  if (written.length === 0) {
+    await warnOnKeyReuse(tx, input);
+  }
+  await tx
+    .insert(heldNotificationRecipient)
+    .values(
+      input.recipients.map((recipient) => ({
+        channel: recipient.channel,
+        heldKey: input.idempotencyKey,
+        topicId: input.topic,
+        userId: recipient.userId,
+      }))
+    )
+    .onConflictDoNothing();
 }
 
 /**
@@ -249,8 +267,9 @@ async function claimDueBatches(): Promise<string[]> {
 
 /**
  * Takes over claims whose lease ran out, counting the attempt, and gives up
- * (stamps sent) on those already tried `MAX_ATTEMPTS` times. Returns the
- * batch ids taken over and how many recipient rows were given up.
+ * on those already tried `MAX_ATTEMPTS` times (stamps them sent with
+ * `attempts` at `MAX_ATTEMPTS`). Returns the batch ids taken over and how
+ * many recipient rows were given up.
  */
 async function reclaimExpiredBatches(): Promise<{
   abandoned: number;
@@ -261,7 +280,7 @@ async function reclaimExpiredBatches(): Promise<{
     and ${heldNotificationRecipient.claimedAt} < now() - ${LEASE}`;
   const abandoned = await db
     .update(heldNotificationRecipient)
-    .set({ sentAt: sql`now()` })
+    .set({ attempts: MAX_ATTEMPTS, sentAt: sql`now()` })
     .where(
       sql`${expired} and ${heldNotificationRecipient.attempts} >= ${MAX_ATTEMPTS - 1}`
     )
@@ -361,7 +380,8 @@ function inboxKeys(key: string, userId: string): string[] {
 
 /**
  * Drops messages the recipient already read in the app inbox: they've seen
- * it, so an email or WhatsApp minutes later only repeats it.
+ * it, so an email or WhatsApp minutes later only repeats it. The dropped rows
+ * are stamped sent and marked `skipped_read`.
  */
 async function withoutRead(
   batches: HeldBatch[]
@@ -385,20 +405,46 @@ async function withoutRead(
       )
     );
   const readKeys = new Set(read.map((r) => `${r.userId}\n${r.idempotencyKey}`));
-  let skipped = 0;
+  const skipped: { batch: HeldBatch; key: string }[] = [];
   const kept = batches.map((batch) => {
     const items = batch.items.filter((item) => {
       const seen = inboxKeys(item.key, batch.userId).some((k) =>
         readKeys.has(`${batch.userId}\n${k}`)
       );
       if (seen) {
-        skipped += 1;
+        skipped.push({ batch, key: item.key });
       }
       return !seen;
     });
     return { ...batch, items };
   });
-  return { batches: kept, skipped };
+  await markSkippedRead(skipped);
+  return { batches: kept, skipped: skipped.length };
+}
+
+async function markSkippedRead(
+  skipped: { batch: HeldBatch; key: string }[]
+): Promise<void> {
+  if (skipped.length === 0) {
+    return;
+  }
+  await db
+    .update(heldNotificationRecipient)
+    .set({ sentAt: sql`now()`, skippedRead: true })
+    .where(
+      and(
+        isNull(heldNotificationRecipient.sentAt),
+        or(
+          ...skipped.map(({ batch, key }) =>
+            and(
+              eq(heldNotificationRecipient.heldKey, key),
+              eq(heldNotificationRecipient.userId, batch.userId),
+              eq(heldNotificationRecipient.channel, batch.channel)
+            )
+          )
+        )
+      )
+    );
 }
 
 async function markSent(batchIds: string[]): Promise<void> {
@@ -698,11 +744,14 @@ async function flushWhatsApp(
   });
 }
 
-/** Held messages older than the window are dropped while the kill switch is on. */
+/**
+ * Held messages older than the window are dropped while the kill switch is
+ * on: stamped sent with no batch id, claimed or not, which marks them dropped.
+ */
 async function dropDue(): Promise<number> {
   const dropped = await db
     .update(heldNotificationRecipient)
-    .set({ sentAt: sql`now()` })
+    .set({ batchId: null, sentAt: sql`now()` })
     .where(
       and(
         isNull(heldNotificationRecipient.sentAt),
@@ -715,7 +764,7 @@ async function dropDue(): Promise<number> {
 
 /**
  * Clears the content of messages with nothing left to send (the inbox keeps
- * its own copy), then deletes them two days after they were held. Also drops
+ * its own copy), then deletes them 90 days after they were held, along with
  * WhatsApp send log rows past 90 days.
  */
 async function clearAndExpire(): Promise<void> {

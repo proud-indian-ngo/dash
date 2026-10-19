@@ -111,6 +111,7 @@ describe("vendor payment invoice notifications", () => {
   it("uses no-invoice copy for approval and rejection", async () => {
     await notifyVendorPaymentInvoiceApproved({
       ...base,
+      approvedAt: 1,
       noInvoiceReason: "rent",
     });
     expect(sent(mocks.sendMessage).title).toBe("✅ Payment completed!");

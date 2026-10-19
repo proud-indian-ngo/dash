@@ -47,7 +47,7 @@ export async function orientEnrolledKalakritiVolunteer(
         const { enqueue } = await import("@pi-dash/jobs/enqueue");
         await enqueue(
           "notify-role-changed",
-          { newRole: "Volunteer", userId },
+          { changedAt: now, newRole: "Volunteer", userId },
           { traceId: ctx?.traceId }
         );
       },

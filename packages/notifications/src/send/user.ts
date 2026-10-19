@@ -54,16 +54,19 @@ export async function notifyKalakritiGuardianAccess({
 }
 
 interface RoleChangedOptions {
+  changedAt: number;
   newRole: string;
   userId: string;
 }
 
 interface BannedOptions {
+  bannedAt: number;
   reason?: string;
   userId: string;
 }
 
 interface UnbannedOptions {
+  unbannedAt: number;
   userId: string;
 }
 
@@ -92,6 +95,7 @@ export async function notifyUserWelcome({
 }
 
 export async function notifyRoleChanged({
+  changedAt,
   userId,
   newRole,
 }: RoleChangedOptions): Promise<void> {
@@ -105,7 +109,7 @@ export async function notifyRoleChanged({
     body: `Heads up — you're now a ${newRole}!`,
     clickAction: "/",
     emailHtml,
-    idempotencyKey: `role-changed-${userId}-${newRole}`,
+    idempotencyKey: `role-changed-${userId}-${newRole}-${changedAt}`,
     title: "🔑 New role for you",
     to: userId,
     topic: TOPICS.ACCOUNT,
@@ -116,6 +120,7 @@ export async function notifyRoleChanged({
 }
 
 export async function notifyUserBanned({
+  bannedAt,
   userId,
   reason,
 }: BannedOptions): Promise<void> {
@@ -129,7 +134,7 @@ export async function notifyUserBanned({
   await sendMessage({
     body,
     emailHtml,
-    idempotencyKey: `user-banned-${userId}`,
+    idempotencyKey: `user-banned-${userId}-${bannedAt}`,
     title: "⚠️ Account suspended",
     to: userId,
     topic: TOPICS.ACCOUNT,
@@ -140,6 +145,7 @@ export async function notifyUserBanned({
 }
 
 export async function notifyUserUnbanned({
+  unbannedAt,
   userId,
 }: UnbannedOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
@@ -154,7 +160,7 @@ export async function notifyUserUnbanned({
     body: "Great news — your account is back! Jump in whenever you're ready.",
     clickAction: "/",
     emailHtml,
-    idempotencyKey: `user-unbanned-${userId}`,
+    idempotencyKey: `user-unbanned-${userId}-${unbannedAt}`,
     title: "🎉 Welcome back!",
     to: userId,
     topic: TOPICS.ACCOUNT,
@@ -163,6 +169,7 @@ export async function notifyUserUnbanned({
 }
 
 interface PasswordResetOptions {
+  resetAt: number;
   userId: string;
 }
 
@@ -184,6 +191,7 @@ interface UserReactivatedOptions {
 }
 
 export async function notifyPasswordReset({
+  resetAt,
   userId,
 }: PasswordResetOptions): Promise<void> {
   const emailHtml = await renderNotificationEmail({
@@ -195,7 +203,7 @@ export async function notifyPasswordReset({
   await sendMessage({
     body: "Your password was reset by an admin. If this wasn't you, reach out to your admin right away.",
     emailHtml,
-    idempotencyKey: `password-reset-admin-${userId}`,
+    idempotencyKey: `password-reset-admin-${userId}-${resetAt}`,
     title: "🔒 Password reset",
     to: userId,
     topic: TOPICS.ACCOUNT,

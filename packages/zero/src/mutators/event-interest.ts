@@ -357,6 +357,7 @@ export const eventInterestMutators = {
               {
                 eventId,
                 eventName,
+                interestId: args.id,
                 leadUserIds,
                 teamId,
                 volunteerName: volunteerName ?? "Someone",

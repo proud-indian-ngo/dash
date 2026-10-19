@@ -37,6 +37,7 @@ describe("Kalakriti navigation", () => {
       "requests.export",
       "settings.roles",
       "jobs.manage",
+      "notifications.view_delivery",
       "audit_log.view",
       "messages.schedule",
       "social.manage",

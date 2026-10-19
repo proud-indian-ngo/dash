@@ -69,6 +69,7 @@ export const teamMutators = {
       if (tx.location === "server") {
         const { teamId } = args;
         const { userId } = args;
+        const memberId = args.id;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
@@ -90,6 +91,7 @@ export const teamMutators = {
               await enqueue(
                 "notify-added-to-team",
                 {
+                  memberId,
                   teamId,
                   teamName,
                   userId,
@@ -351,12 +353,14 @@ export const teamMutators = {
         const teamId = member.teamId as string;
         const team = await tx.run(zql.team.where("id", teamId).one());
         const teamName = team?.name;
+        const changedAt = Date.now();
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
             await enqueue(
               "notify-team-role-changed",
               {
+                changedAt,
                 newRole: newRole ?? "member",
                 teamId,
                 teamName: teamName ?? "Team",

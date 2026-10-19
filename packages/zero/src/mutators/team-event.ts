@@ -598,6 +598,7 @@ export const teamEventMutators = {
                 eventId,
                 eventName,
                 location,
+                memberId: args.id,
                 startTime,
                 userId,
               },
@@ -692,6 +693,7 @@ export const teamEventMutators = {
             await enqueue(
               "notify-users-added-to-event",
               {
+                addedAt: args.now,
                 eventId,
                 eventName,
                 location,
@@ -1118,6 +1120,7 @@ export const teamEventMutators = {
                 eventId: target.eventId,
                 eventName: target.name,
                 location: target.location,
+                memberId: args.id,
                 startTime: target.startTime,
                 userId,
               },
@@ -1496,6 +1499,7 @@ export const teamEventMutators = {
               {
                 eventId,
                 eventName,
+                memberId: args.memberId,
                 teamId,
                 userId: memberUserId,
               },
@@ -1646,6 +1650,7 @@ export const teamEventMutators = {
                   eventId,
                   eventName,
                   memberUserIds: eventMemberIds,
+                  openedAt: updatedAt,
                 },
                 { traceId: ctx.traceId }
               );

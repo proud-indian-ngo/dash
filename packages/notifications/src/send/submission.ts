@@ -46,6 +46,8 @@ interface SubmittedOptions {
 
 interface StatusChangeOptions {
   entityId: string;
+  /** The reviewing mutator's timestamp, so a later review notifies again. */
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }
@@ -76,7 +78,7 @@ export function createSubmissionNotifier({
   const listPath = `/${routePrefix}`;
   const requestType = entityLabel.toLowerCase();
   return {
-    async notifyApproved({ entityId, title, submitterId, note }) {
+    async notifyApproved({ entityId, title, submitterId, note, reviewedAt }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" has been approved!`;
@@ -101,7 +103,7 @@ export function createSubmissionNotifier({
           status: { label: "Approved", tone: "success" },
         },
         emailHtml,
-        idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}`,
+        idempotencyKey: `${idempotencyPrefix}-approved-${entityId}-${submitterId}-${reviewedAt}`,
         title: `✅ ${entityLabel} approved!`,
         to: submitterId,
         topic: statusTopic,
@@ -128,7 +130,7 @@ export function createSubmissionNotifier({
       });
     },
 
-    async notifyRejected({ entityId, title, submitterId, reason }) {
+    async notifyRejected({ entityId, title, submitterId, reason, reviewedAt }) {
       const lineItems = await getLineItems(entityId);
       const totalSuffix = formatTotalSuffix(lineItems);
       const baseMessage = `Your ${entityLabel.toLowerCase()} "${title}" wasn't approved.`;
@@ -152,7 +154,7 @@ export function createSubmissionNotifier({
           status: { label: "Not approved", tone: "danger" },
         },
         emailHtml,
-        idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}`,
+        idempotencyKey: `${idempotencyPrefix}-rejected-${entityId}-${submitterId}-${reviewedAt}`,
         title: `↩️ ${entityLabel} not approved`,
         to: submitterId,
         topic: statusTopic,

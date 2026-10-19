@@ -33,12 +33,14 @@ export async function notifyReimbursementSubmitted(options: {
 export async function notifyReimbursementApproved(options: {
   note?: string;
   reimbursementId: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }): Promise<void> {
   await notifier.notifyApproved({
     entityId: options.reimbursementId,
     note: options.note,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });
@@ -47,12 +49,14 @@ export async function notifyReimbursementApproved(options: {
 export async function notifyReimbursementRejected(options: {
   reimbursementId: string;
   reason: string;
+  reviewedAt: number;
   submitterId: string;
   title: string;
 }): Promise<void> {
   await notifier.notifyRejected({
     entityId: options.reimbursementId,
     reason: options.reason,
+    reviewedAt: options.reviewedAt,
     submitterId: options.submitterId,
     title: options.title,
   });

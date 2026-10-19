@@ -308,6 +308,7 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
         invalidatePermissionCache("unoriented_volunteer");
         invalidatePermissionCache("volunteer");
         const userId = row.eventMember.userId;
+        const changedAt = row.eventMember.addedAt;
         withFireAndForgetLog(
           { handler: "registerEventEnroll:roleChanged", userId },
           async () => {
@@ -317,6 +318,7 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
               .where(eq(role.id, "volunteer"))
               .limit(1);
             await enqueue("notify-role-changed", {
+              changedAt,
               newRole: volunteerRole?.name ?? "volunteer",
               userId,
             });

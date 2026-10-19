@@ -1,6 +1,6 @@
 # Notifications
 
-> **Load when**: notification batching or digests, `held_notification`, `notify-*` handlers, topic preferences, email templates, unsubscribe, bounces, WhatsApp Cloud API or templates, GoWA, polls, group invites.
+> **Load when**: notification batching or digests, the Notification delivery page, `held_notification`, `notify-*` handlers, topic preferences, email templates, unsubscribe, bounces, WhatsApp Cloud API or templates, GoWA, polls, group invites.
 > **Related**: `jobs.md` (enqueueing, queues, schedules), `observability.md`
 
 ```
@@ -60,12 +60,27 @@ Failures:
 - Each topic and channel group is sent separately.
 - A claim's lease (`CLAIM_LEASE_MINUTES`) must stay longer than the scheduled job's expiry, so a later run takes over only after the first has stopped. It reuses the same keys and gives up after `MAX_ATTEMPTS`.
 - A failed delivery is logged and stamped sent, except a thrown WhatsApp send (transient Cloud API or GoWA error), which expires the claim for a retry; the send log skips what already went out. For immediate sends, a thrown WhatsApp send fails the notify job after inbox and email, and pg-boss retries.
+- Every row stamped sent without a send records why: a give-up sets `attempts` to `MAX_ATTEMPTS`, a kill-switch drop clears `batch_id`, and a message already read in the inbox sets `skipped_read`. The delivery page reads these.
 
-Held content is cleared once sent and rows are deleted after two days. These are transient tables with no seed records.
+Held content is cleared once sent and rows are deleted after 90 days, so the [delivery page](#delivery-page) can read them. These are transient tables with no seed records.
+
+### Idempotency keys
+
+The inbox, held messages and the WhatsApp send log each dedupe by key for up to 90 days, so a key that repeats for a new event silently drops the second notification. A key that can recur (re-added to a team, a role changed back, a request reviewed again) ends in a row id or a timestamp captured where the action happens and passed in the job payload, as `team-member-removed-…-${removedAt}` does. A retried job reuses the payload, so it still dedupes.
 
 ### Digest rows
 
 Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repeat updates to one record and adds the topic to the subject, so digests of different topics do not thread together.
+
+## Delivery page
+
+`/notification-delivery` shows each person's copy of each notification over 90 days, the WhatsApp log's retention. It shows inbox and WhatsApp message text, so it has its own permission, `notifications.view_delivery`, rather than `jobs.manage`. The private tables aren't in Zero, so server functions page it; statuses are SQL `CASE` columns, so filters, paging and the total run in Postgres.
+
+- A row is an inbox row with its `-inbox` suffix stripped, a held message whose inbox copy was off, or a Cloud API send with no inbox copy. A send keyed `${key}-whatsapp-${userId}` was a notification with the inbox off ("Inbox off"); other keys (group invites, Social digests) never had one. These show the template's `label` as title. Summaries have no row; their messages read "Sent in summary".
+- Email has no per-message log yet, so a send reads "Not tracked", or "Sent in summary" when its batch sent more than one message.
+- "Off" and "No WhatsApp" read the recipient's preference and phone as they are now, so they appear only where nothing was sent. GoWA sends aren't logged, so WhatsApp reads "Not sent" while the Cloud API is off.
+- Suppression is the address's current state, compared with the send time.
+- The detail sheet renders the WhatsApp template from the body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. Email content isn't kept.
 
 ## Topics and preferences
 
@@ -122,7 +137,7 @@ Meta delivers business-initiated messages only as approved templates. The social
 #### Send log and errors
 
 - The Cloud API has no idempotency key, so `sendWhatsAppNotification()` claims the message key in `private.whatsapp_message` before sending. A claim stuck in `sending` without a Meta message ID for 5 minutes is taken over by a retry, so a lost response can mean a second delivery.
-- The row never stores the phone or text. Transient table, no seed records.
+- The row never stores the phone. It keeps the template's body and parameter values as sent (`template_body` and `params`, null for a free-form reply) so the delivery page can show what was sent. Transient table, no seed records.
 - Transient errors (throttling, 5xx, timeouts; `isTransientCloudError()`) release the claim and throw so the job retries. Permanent errors mark the row `failed` and return `rejected`.
 
 #### Digests on the Cloud API
