@@ -1,4 +1,5 @@
 import { Alert02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { type ReactNode, use } from "react";
@@ -11,6 +12,18 @@ import { getErrorReference } from "@/lib/error-reference";
 
 export const CHUNK_ERROR_DESCRIPTION =
   "The dashboard was updated while this page was open. Reload to get the latest version. If this keeps appearing, hard refresh with Ctrl+Shift+R (Cmd+Shift+R on a Mac).";
+
+/** The chunk error's Reload, which shows it is working while the cache clears. */
+export function ReloadLabel({ reloading }: { reloading: boolean }) {
+  return reloading ? (
+    <>
+      <BrailleSpinner variant="inline" />
+      Reloading
+    </>
+  ) : (
+    "Reload"
+  );
+}
 
 /**
  * The page-level error block: the shared "nothing here" layout in the danger
