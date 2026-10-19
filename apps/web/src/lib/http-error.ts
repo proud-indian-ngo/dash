@@ -1,6 +1,7 @@
 /**
  * An expected failure the caller caused. Start answers with its status, and
- * Error Tracking skips it. Server functions send the client only the message.
+ * Error Tracking skips it. A server function sends the client its name,
+ * message and status.
  */
 export class HttpError extends Error {
   readonly status: 401 | 403 | 404;

@@ -11,13 +11,12 @@ import { HttpError } from "@/lib/http-error";
 import {
   captureThrownError,
   isServerFnRequest,
+  routeTemplate,
   runWithErrorScope,
 } from "@/lib/server/error-tracking";
 
 async function sessionUserId(request: Request): Promise<string | undefined> {
-  const session = await auth.api
-    .getSession({ headers: request.headers })
-    .catch(() => null);
+  const session = await auth.api.getSession({ headers: request.headers });
   return session?.user.id;
 }
 
@@ -33,9 +32,10 @@ const reportRequestErrors = createMiddleware().server(
       try {
         return await next();
       } catch (error) {
-        await captureThrownError(
+        // Not awaited: the user lookup must not delay the error response.
+        captureThrownError(
           error,
-          { route: pathname, traceId: getCurrentTraceId() },
+          { route: routeTemplate(pathname), traceId: getCurrentTraceId() },
           () => sessionUserId(request)
         );
         throw error;
@@ -45,9 +45,9 @@ const reportRequestErrors = createMiddleware().server(
 
 /**
  * Reports what server functions throw, and answers an RPC call that threw an
- * HttpError with its status. Start sends the client only the message either
- * way, so a server function called while rendering a page keeps the page's
- * status.
+ * HttpError with its status. A server function called while rendering a page
+ * keeps the page's status. Either way Start serializes the error's name,
+ * message and own properties (an HttpError's status) to the client.
  */
 const reportFunctionErrors = createMiddleware({ type: "function" }).server(
   async ({ next, serverFnMeta }) => {
@@ -57,10 +57,11 @@ const reportFunctionErrors = createMiddleware({ type: "function" }).server(
       if (error instanceof HttpError && isServerFnRequest()) {
         setResponseStatus(error.status);
       }
-      await captureThrownError(
+      const request = getRequest();
+      captureThrownError(
         error,
         { route: serverFnMeta.name, traceId: getCurrentTraceId() },
-        () => sessionUserId(getRequest())
+        () => sessionUserId(request)
       );
       throw error;
     }

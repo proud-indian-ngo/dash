@@ -7,8 +7,12 @@ import { HttpError } from "@/lib/http-error";
 import {
   captureThrownError,
   createErrorTrackingDrain,
+  errorStatus,
   errorToReport,
+  routeTemplate,
   runWithErrorScope,
+  scrubError,
+  scrubText,
 } from "./error-tracking";
 
 function wideEvent(fields: Record<string, unknown>): WideEvent {
@@ -26,6 +30,82 @@ const serverError = {
   name: "PostgresError",
   stack: "PostgresError: relation does not exist\n    at query (db.ts:1:1)",
 };
+
+describe("scrubError", () => {
+  it("drops Drizzle query params and keeps the query for grouping", () => {
+    const message =
+      "Failed query: select * from users where email = $1\nparams: asha@example.org,secret";
+    const error = new Error(message);
+    error.stack = `Error: ${message}\n    at query (db.ts:1:1)`;
+
+    const scrubbed = scrubError(error);
+
+    expect(scrubbed.message).toBe(
+      "Failed query: select * from users where email = $1\nparams: [redacted]"
+    );
+    expect(scrubbed.stack).toBe(
+      "Error: Failed query: select * from users where email = $1\nparams: [redacted]\n    at query (db.ts:1:1)"
+    );
+  });
+
+  it("masks PII in the message, stack and causes and drops own properties", () => {
+    const cause = new Error("duplicate phone +91 98765 43210");
+    const error = Object.assign(
+      new Error("no user asha@example.org with Bearer abcdefgh12345678", {
+        cause,
+      }),
+      { name: "LookupError", params: ["asha@example.org"] }
+    );
+
+    const scrubbed = scrubError(error);
+
+    expect(scrubbed.name).toBe("LookupError");
+    expect(scrubbed.message).toBe("no user a***@***.org with Bearer ***");
+    expect(scrubbed.stack).not.toContain("asha@example.org");
+    expect((scrubbed.cause as Error).message).toBe("duplicate phone +******10");
+    expect("params" in scrubbed).toBe(false);
+  });
+
+  it("masks card numbers, JWTs and IBANs", () => {
+    expect(
+      scrubText(
+        "card 4111 1111 1111 1111 token eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl iban GB82WEST12345698765432"
+      )
+    ).toBe("card ****1111 token eyJ***.*** iban GB82****432");
+  });
+});
+
+describe("errorStatus", () => {
+  it("takes the first numeric status, skipping better-call's string status", () => {
+    const apiError = Object.assign(new Error("Invalid email"), {
+      name: "APIError",
+      status: "BAD_REQUEST",
+      statusCode: 400,
+    });
+
+    expect(errorStatus(apiError)).toBe(400);
+    expect(errorStatus(new Error("x", { cause: { statusCode: 503 } }))).toBe(
+      503
+    );
+    expect(errorStatus(new Error("x"))).toBeUndefined();
+  });
+});
+
+describe("routeTemplate", () => {
+  it("replaces ID segments and drops the query", () => {
+    expect(
+      routeTemplate(
+        "/api/teams/0190f1e2-3a4b-7c5d-8e6f-0a1b2c3d4e5f/photos/42?x=1"
+      )
+    ).toBe("/api/teams/:id/photos/:id");
+    expect(routeTemplate("/api/files/9f86d081884c7d659a2feaa0c55ad015")).toBe(
+      "/api/files/:id"
+    );
+    expect(routeTemplate("/api/financial-export")).toBe(
+      "/api/financial-export"
+    );
+  });
+});
 
 describe("errorToReport", () => {
   it("rebuilds the error with its name, message and stack", () => {
@@ -60,6 +140,13 @@ describe("errorToReport", () => {
       errorToReport(wideEvent({ error: { ...serverError, statusCode: 404 } }))
     ).toBeUndefined();
     expect(
+      errorToReport(
+        wideEvent({
+          error: { ...serverError, status: "BAD_REQUEST", statusCode: 400 },
+        })
+      )
+    ).toBeUndefined();
+    expect(
       errorToReport(wideEvent({ error: { ...serverError, status: 502 } }))
     ).toBeInstanceOf(Error);
   });
@@ -76,7 +163,7 @@ describe("createErrorTrackingDrain", () => {
     drain({
       event: wideEvent({
         error: serverError,
-        path: "/api/teams",
+        path: "/api/teams/0190f1e2-3a4b-7c5d-8e6f-0a1b2c3d4e5f",
         requestId: "trace-1",
         status: 500,
         userId: "user-1",
@@ -90,7 +177,7 @@ describe("createErrorTrackingDrain", () => {
       $geoip_disable: true,
       environment: "production",
       release: "abc123",
-      route: "/api/teams",
+      route: "/api/teams/:id",
       status: 500,
       traceId: "trace-1",
     });
@@ -121,8 +208,11 @@ describe("captureThrownError", () => {
     );
 
     expect(captureException).toHaveBeenCalledTimes(1);
-    expect(captureException.mock.calls[0]).toEqual([
-      error,
+    expect(captureException.mock.calls[0]?.[0]).toMatchObject({
+      message: "connection reset",
+      stack: error.stack,
+    });
+    expect(captureException.mock.calls[0]?.slice(1)).toEqual([
       "user-1",
       {
         $geoip_disable: true,
@@ -156,7 +246,9 @@ describe("captureThrownError", () => {
 
   it("does not report again an error the handler already logged", async () => {
     const { captureException, drain } = setUp();
-    const error = new Error("relation does not exist");
+    const error = Object.assign(new Error("relation does not exist"), {
+      name: "PostgresError",
+    });
 
     await runWithErrorScope("router", async () => {
       drain({
@@ -171,6 +263,36 @@ describe("captureThrownError", () => {
 
     expect(captureException).toHaveBeenCalledTimes(1);
     expect(captureException.mock.calls[0]?.[0]).not.toBe(error);
+  });
+
+  it("reports distinct errors in one request", async () => {
+    const { captureException, drain } = setUp();
+    const original = new Error("connection reset");
+
+    await runWithErrorScope("serverFn", async () => {
+      // executeAuditedAction logs the finalize failure, then rethrows the original.
+      drain({ event: wideEvent({ error: serverError, path: "audit" }) });
+      await captureThrownError(original, { route: "createTeam" }, userId);
+      await captureThrownError(original, { route: "createTeam" }, userId);
+    });
+
+    expect(captureException).toHaveBeenCalledTimes(2);
+    expect(captureException.mock.calls[1]?.[0]).toMatchObject({
+      message: "connection reset",
+    });
+  });
+
+  it("sends without a user when the lookup fails", async () => {
+    const { captureException } = setUp();
+
+    await runWithErrorScope("router", () =>
+      captureThrownError(new Error("timeout"), { route: "/api/jobs" }, () =>
+        Promise.reject(new Error("pool exhausted"))
+      )
+    );
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0]?.[1]).toBeUndefined();
   });
 
   it("reports each request's thrown error once", async () => {
