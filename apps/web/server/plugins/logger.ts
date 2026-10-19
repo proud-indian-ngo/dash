@@ -1,3 +1,4 @@
+import { env } from "@pi-dash/env/server";
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import { type DrainContext, initLogger } from "evlog";
 import { createOTLPDrain } from "evlog/otlp";
@@ -6,8 +7,8 @@ import { PostHog } from "posthog-node";
 
 import { createErrorTrackingDrain } from "../../src/lib/server/error-tracking";
 
-const environment = process.env.APP_ENV || "development";
-const release = process.env.APP_RELEASE || undefined;
+const environment = env.APP_ENV;
+const release = env.APP_RELEASE;
 
 function buildDrain() {
   const apiKey = process.env.POSTHOG_API_KEY;
