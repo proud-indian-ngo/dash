@@ -53,24 +53,41 @@ const onwarn: Rolldown.WarningHandlerWithDefault = (
 // Client source maps are hidden: the Docker build uploads them to PostHog and
 // deletes them before the runtime image. Nitro lists every public file in its
 // asset manifest, and a listed but deleted file answers 500, so keep maps out
-// of the manifest and let the static handler answer 404.
+// of the manifest and let the static handler answer 404. The upload also
+// rewrites every chunk after Nitro recorded its size and ETag, so drop both for
+// `.js` files rather than serve a stale Content-Length or ETag.
 const PUBLIC_ASSETS_PREFIX = "export default ";
-const dropSourceMapAssets: Rolldown.Plugin = {
-  name: "pi-dash:drop-source-map-assets",
+let publicAssetsRewritten = false;
+const rewritePublicAssets: Rolldown.Plugin = {
+  name: "pi-dash:rewrite-public-assets",
+  buildStart() {
+    publicAssetsRewritten = false;
+  },
   transform: {
     filter: { id: /^#nitro\/virtual\/public-assets-data$/ },
     handler(code) {
       if (!code.startsWith(PUBLIC_ASSETS_PREFIX)) {
         throw new Error("Unexpected Nitro public asset manifest format");
       }
-      const assets: Record<string, unknown> = JSON.parse(
+      const assets: Record<string, Record<string, unknown>> = JSON.parse(
         code.slice(PUBLIC_ASSETS_PREFIX.length).replace(/;\s*$/, "")
       );
-      const kept = Object.fromEntries(
-        Object.entries(assets).filter(([id]) => !id.endsWith(".map"))
-      );
-      return `${PUBLIC_ASSETS_PREFIX}${JSON.stringify(kept)};`;
+      for (const [id, asset] of Object.entries(assets)) {
+        if (id.endsWith(".map")) {
+          delete assets[id];
+        } else if (id.endsWith(".js")) {
+          delete asset.size;
+          delete asset.etag;
+        }
+      }
+      publicAssetsRewritten = true;
+      return `${PUBLIC_ASSETS_PREFIX}${JSON.stringify(assets)};`;
     },
+  },
+  generateBundle() {
+    if (!publicAssetsRewritten) {
+      throw new Error("Nitro public asset manifest was not rewritten");
+    }
   },
 };
 
@@ -142,7 +159,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       }),
       apiMediaDevMiddleware,
       ...nitro({
-        rolldownConfig: { onwarn, plugins: [dropSourceMapAssets] },
+        rolldownConfig: { onwarn, plugins: [rewritePublicAssets] },
         experimental: {
           vite: {},
         },
