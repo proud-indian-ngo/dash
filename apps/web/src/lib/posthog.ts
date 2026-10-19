@@ -1,16 +1,20 @@
 import { env } from "@pi-dash/env/web";
 import posthogJs, { type CaptureResult, type Properties } from "posthog-js";
 
+import { CHUNK_ERROR_PATTERNS } from "@/lib/chunk-load-error";
+
 let initialized = false;
 let identifiedUserId: string | undefined;
 let currentRouteTemplate: string | undefined;
 // An error the boundaries already reported must not be reported again on re-render.
 const capturedErrors = new WeakSet<Error>();
 
+// Chunk-load failures come from tabs open across a deploy, not from defects.
 const IGNORED_LOG_PATTERNS = [
   "_nonReactive",
   "WebSocket connection closed abruptly",
   "Failed to connect",
+  ...CHUNK_ERROR_PATTERNS,
 ];
 
 // Raw URLs, paths and referrers carry record IDs and query strings.
