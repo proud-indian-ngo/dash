@@ -11,19 +11,19 @@ import { mutators } from "@pi-dash/zero/mutators";
 import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
-import { log } from "evlog";
-import { useEffect, useState } from "react";
 
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
 import {
+  type EventContact,
   getEventInterestContacts,
-  type InterestContact,
-} from "@/functions/event-interest-contacts";
+} from "@/functions/event-contacts";
 import { DATE } from "@/lib/date-formats";
 import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
+
+import { useEventContacts, whatsappUrl } from "./use-event-contacts";
 
 export type InterestWithUser = EventInterest & { user: User | undefined };
 
@@ -32,58 +32,7 @@ interface InterestRequestsProps {
   interests: readonly InterestWithUser[];
 }
 
-const NON_DIGITS = /\D/g;
-
-/**
- * Contact details for the given requesters. Fetches again only when a
- * requester appears whose contact is not loaded yet, not on every decision.
- */
-function useInterestContacts(eventId: string, userIds: readonly string[]) {
-  const [contacts, setContacts] = useState<{
-    byUser: Record<string, InterestContact>;
-    eventId: string;
-  }>({ byUser: {}, eventId });
-  const [settledKey, setSettledKey] = useState<null | string>(null);
-  const known = contacts.eventId === eventId ? contacts.byUser : {};
-  const missingKey = userIds.filter((id) => !(id in known)).join(",");
-  const requestKey = `${eventId}:${missingKey}`;
-
-  useEffect(() => {
-    if (!missingKey) {
-      return;
-    }
-    let current = true;
-    getEventInterestContacts({ data: { eventId } })
-      .then((byUser) => {
-        if (current) {
-          setContacts({ byUser, eventId });
-        }
-      })
-      .catch((error: unknown) => {
-        log.error({
-          action: "getEventInterestContacts",
-          component: "InterestRequests",
-          entityId: eventId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      })
-      .finally(() => {
-        if (current) {
-          setSettledKey(`${eventId}:${missingKey}`);
-        }
-      });
-    return () => {
-      current = false;
-    };
-  }, [eventId, missingKey]);
-
-  return {
-    contacts: known,
-    loading: missingKey !== "" && settledKey !== requestKey,
-  };
-}
-
-function InterestContactLinks({ contact }: { contact: InterestContact }) {
+function InterestContactLinks({ contact }: { contact: EventContact }) {
   return (
     <div className="flex flex-wrap gap-x-3 text-xs">
       {contact.phone ? (
@@ -96,7 +45,7 @@ function InterestContactLinks({ contact }: { contact: InterestContact }) {
           </a>
           <a
             className="text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline"
-            href={`https://wa.me/${contact.phone.replace(NON_DIGITS, "")}`}
+            href={whatsappUrl(contact.phone)}
             rel="noopener noreferrer"
             target="_blank"
           >
@@ -126,7 +75,7 @@ function InterestRow({
   contactLoading,
   interest,
 }: {
-  contact: InterestContact | undefined;
+  contact: EventContact | undefined;
   contactLoading: boolean;
   interest: InterestWithUser;
 }) {
@@ -250,7 +199,8 @@ export function InterestRequests({
   const pendingInterests = interests.filter(
     (i) => i.status === "pending" && !deferredIds.has(i.id)
   );
-  const { contacts, loading } = useInterestContacts(
+  const { contacts, loading } = useEventContacts(
+    getEventInterestContacts,
     eventId,
     pendingInterests.map((i) => i.userId)
   );
@@ -267,7 +217,7 @@ export function InterestRequests({
       <ul className="divide-y rounded-lg border">
         {pendingInterests.map((interest) => (
           <InterestRow
-            contact={contacts[interest.userId]}
+            contact={contacts[interest.userId] ?? undefined}
             contactLoading={loading}
             interest={interest}
             key={interest.id}

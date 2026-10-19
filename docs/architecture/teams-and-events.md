@@ -73,6 +73,7 @@ Creating an event that does not start in the past notifies the team. Event Whats
 - Members of the event's team join themselves with `teamEvent.joinAsMember`, without `events.manage_members`, and can leave. Both only before the start.
 - Anyone else gets in through interest (below), an admin add, a "Yes" on the WhatsApp RSVP poll ([notifications](notifications.md)), or a `/register?eventId=` sign-up link ([auth](auth.md#link-parameters)).
 - Every add and remove path syncs the event's own WhatsApp group, if it has one. The team's group is not touched.
+- Those who manage the list (`events.edit` or a lead) see each member's phone and email, for the same reason as interest reviewers. Kalakriti-managed events are excluded, as the Edition workspace owns their lists.
 
 ### Attendance
 

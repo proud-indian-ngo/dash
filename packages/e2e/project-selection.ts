@@ -14,7 +14,6 @@ const roleOnlySpecs = {
     "events/event-edit-cancel.spec.ts",
     "events/event-expenses.spec.ts",
     "events/event-interest-approval.spec.ts",
-    "events/event-members.spec.ts",
     "events/event-time-filter.spec.ts",
     "events/event-updates.spec.ts",
     "events/photo-notifications.spec.ts",

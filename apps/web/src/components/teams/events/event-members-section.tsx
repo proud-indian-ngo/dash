@@ -1,9 +1,12 @@
 import {
+  Call02Icon,
   CancelCircleIcon,
   CheckmarkCircle02Icon,
+  Mail01Icon,
   PlusSignIcon,
   UserGroupIcon,
   UserRemoveIcon,
+  WhatsappIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -20,26 +23,37 @@ import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { useApp } from "@/context/app-context";
+import {
+  type EventContact,
+  getEventMemberContacts,
+} from "@/functions/event-contacts";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import type { EventRow } from "./events-table";
+import { useEventContacts, whatsappUrl } from "./use-event-contacts";
 
 function EventMemberRow({
   canManage,
   canMarkAttendance,
+  contact,
   eventId,
   member,
   onRemove,
 }: {
   canManage: boolean;
   canMarkAttendance: boolean;
+  /** Absent for the viewer's own row and while nothing is known. */
+  contact: EventContact | "failed" | "loading" | undefined;
   eventId: string;
   member: TeamEventMember & { user: User | undefined };
   onRemove: (id: string) => void;
 }) {
   const zero = useZero();
   const displayName = member.user?.name ?? "Unknown";
+  const known = typeof contact === "object" ? contact : undefined;
+  const phone = known?.phone || null;
 
   function toggleAttendance(status: "present" | "absent") {
     const next = member.attendance === status ? null : status;
@@ -132,6 +146,53 @@ function EventMemberRow({
       {canManage ? (
         <ResponsiveActionMenu
           actions={[
+            phone !== null && {
+              group: "contact",
+              icon: Call02Icon,
+              id: "call",
+              label: `Call ${phone}`,
+              render: <a aria-label={`Call ${phone}`} href={`tel:${phone}`} />,
+            },
+            phone !== null && {
+              group: "contact",
+              icon: WhatsappIcon,
+              id: "whatsapp",
+              label: "WhatsApp",
+              render: (
+                <a
+                  aria-label="WhatsApp"
+                  href={whatsappUrl(phone)}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                />
+              ),
+            },
+            known && {
+              group: "contact",
+              icon: Mail01Icon,
+              id: "email",
+              label: (
+                <span className="max-w-72 truncate" title={known.email}>
+                  Email {known.email}
+                </span>
+              ),
+              render: (
+                <a
+                  aria-label={`Email ${known.email}`}
+                  href={`mailto:${known.email}`}
+                />
+              ),
+            },
+            (contact === "loading" || contact === "failed") && {
+              disabled: true,
+              group: "contact",
+              icon: Call02Icon,
+              id: "contact-status",
+              label:
+                contact === "loading"
+                  ? "Loading contact\u2026"
+                  : "Contact unavailable",
+            },
             {
               destructive: true,
               icon: UserRemoveIcon,
@@ -180,6 +241,26 @@ export function EventMembersSection({
   openingSession?: boolean;
 }) {
   const zero = useZero();
+  const { user } = useApp();
+  // Only those who manage the list get its contacts, in the row menu.
+  const { contacts, failed, loading } = useEventContacts(
+    getEventMemberContacts,
+    eventId,
+    canManage ? members.map((m) => m.userId) : []
+  );
+  function memberContact(userId: string) {
+    if (userId === user.id) {
+      return;
+    }
+    const contact = contacts[userId];
+    if (contact !== undefined) {
+      return contact ?? undefined;
+    }
+    if (loading) {
+      return "loading";
+    }
+    return failed ? "failed" : undefined;
+  }
   const presentCount = members.filter((m) => m.attendance === "present").length;
 
   const markAllPresent = useEventCallback(() => {
@@ -267,6 +348,7 @@ export function EventMembersSection({
             <EventMemberRow
               canManage={canManage}
               canMarkAttendance={canMarkAttendance}
+              contact={memberContact(member.userId)}
               eventId={eventId}
               key={member.id}
               member={member}
