@@ -38,9 +38,15 @@ function createDeps(overrides: Partial<LogIngestDeps> = {}) {
     emit: ReturnType<typeof mock>;
     error: ReturnType<typeof mock>;
     set: ReturnType<typeof mock>;
+    setLevel: ReturnType<typeof mock>;
   }> = [];
   const createRequestLogger = mock(() => {
-    const logger = { emit: mock(), error: mock(), set: mock() };
+    const logger = {
+      emit: mock(),
+      error: mock(),
+      set: mock(),
+      setLevel: mock(),
+    };
     loggers.push(logger);
     return logger;
   });
@@ -50,19 +56,12 @@ function createDeps(overrides: Partial<LogIngestDeps> = {}) {
     remaining: 59,
     resetAt: Date.now() + 60_000,
   }));
-  const sendBatchToPostHogEvents = mock(
-    async (_events: unknown[], _config: unknown) => undefined
-  );
   const deps: LogIngestDeps = {
     checkRateLimit:
       checkRateLimit as unknown as LogIngestDeps["checkRateLimit"],
     createRequestLogger:
       createRequestLogger as unknown as LogIngestDeps["createRequestLogger"],
-    postHogApiKey: "phc_test",
-    postHogHost: "https://posthog.test",
     readRequestBody,
-    sendBatchToPostHogEvents:
-      sendBatchToPostHogEvents as unknown as LogIngestDeps["sendBatchToPostHogEvents"],
     ...overrides,
   };
   return {
@@ -70,7 +69,6 @@ function createDeps(overrides: Partial<LogIngestDeps> = {}) {
     createRequestLogger,
     deps,
     loggers,
-    sendBatchToPostHogEvents,
   };
 }
 
@@ -113,14 +111,12 @@ describe("handleLogIngestRequest", () => {
   });
 
   it("rejects invalid JSON without processing events", async () => {
-    const { createRequestLogger, deps, sendBatchToPostHogEvents } =
-      createDeps();
+    const { createRequestLogger, deps } = createDeps();
 
     const response = await handleLogIngestRequest(request("{"), deps);
 
     expect(response.status).toBe(400);
     expect(createRequestLogger).not.toHaveBeenCalled();
-    expect(sendBatchToPostHogEvents).not.toHaveBeenCalled();
   });
 
   it("rate limits before reading the body", async () => {
@@ -173,8 +169,7 @@ describe("handleLogIngestRequest", () => {
   });
 
   it("ignores array events and non-string trace IDs", async () => {
-    const { createRequestLogger, deps, sendBatchToPostHogEvents } =
-      createDeps();
+    const { createRequestLogger, deps } = createDeps();
     const contexts = [
       null,
       { event: [] },
@@ -189,21 +184,19 @@ describe("handleLogIngestRequest", () => {
 
     expect(response.status).toBe(200);
     expect(createRequestLogger).not.toHaveBeenCalled();
-    expect(sendBatchToPostHogEvents).not.toHaveBeenCalled();
   });
 
   it("skips deeply nested events before calling real evlog", async () => {
     const nested = `${'{"value":'.repeat(12_000)}null${"}".repeat(12_000)}`;
     const body = `[{"event":{"level":"info","nested":${nested}}}]`;
     expect(new TextEncoder().encode(body).byteLength).toBeLessThan(256 * 1024);
-    const { deps, sendBatchToPostHogEvents } = createDeps({
+    const { deps } = createDeps({
       createRequestLogger: createRealRequestLogger,
     });
 
     const response = await handleLogIngestRequest(request(body), deps);
 
     expect(response.status).toBe(200);
-    expect(sendBatchToPostHogEvents).not.toHaveBeenCalled();
   });
 
   it("rejects __proto__ keys before evlog merges the event", async () => {
@@ -218,8 +211,8 @@ describe("handleLogIngestRequest", () => {
     expect(createRequestLogger).not.toHaveBeenCalled();
   });
 
-  it("caps the client batch at 25 and sends errors in one operation", async () => {
-    const { deps, sendBatchToPostHogEvents } = createDeps();
+  it("caps the client batch at 25 and keeps errors as error logs", async () => {
+    const { createRequestLogger, deps, loggers } = createDeps();
     const contexts = Array.from({ length: 30 }, (_, index) => ({
       event: {
         component: "AppErrorBoundary",
@@ -236,37 +229,12 @@ describe("handleLogIngestRequest", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(sendBatchToPostHogEvents).toHaveBeenCalledTimes(1);
-    expect(sendBatchToPostHogEvents.mock.calls[0]?.[0]).toHaveLength(25);
-    expect(sendBatchToPostHogEvents.mock.calls[0]?.[0]?.[0]).toMatchObject({
-      component: "AppErrorBoundary",
-      error: { name: "Error", stack: "client stack" },
-      level: "error",
-      message: "failure 0",
-      service: "pi-dash-client",
+    expect(createRequestLogger).toHaveBeenCalledTimes(25);
+    expect(loggers[0]?.set).toHaveBeenCalledWith({
+      ...contexts[0]?.event,
       source: "client",
-      traceId: "trace-0",
     });
-  });
-
-  it("skips PostHog for empty batches and when it is not configured", async () => {
-    const empty = createDeps();
-    const emptyResponse = await handleLogIngestRequest(
-      request("[]"),
-      empty.deps
-    );
-    expect(emptyResponse.status).toBe(200);
-    expect(empty.sendBatchToPostHogEvents).not.toHaveBeenCalled();
-
-    const unconfigured = createDeps({ postHogApiKey: undefined });
-    const unconfiguredResponse = await handleLogIngestRequest(
-      request(
-        JSON.stringify([{ event: { level: "error", message: "failed" } }])
-      ),
-      unconfigured.deps
-    );
-    expect(unconfiguredResponse.status).toBe(200);
-    expect(unconfigured.sendBatchToPostHogEvents).not.toHaveBeenCalled();
+    expect(loggers[0]?.setLevel).toHaveBeenCalledWith("error");
   });
 
   it("accepts anonymous client logs", async () => {
@@ -290,26 +258,5 @@ describe("handleLogIngestRequest", () => {
       source: "client",
     });
     expect(loggers[0]?.emit).toHaveBeenCalledTimes(1);
-  });
-
-  it("still succeeds when the best-effort PostHog batch fails", async () => {
-    const sendBatchToPostHogEvents = mock(
-      async (_events: unknown[], _config: unknown) => {
-        throw new Error("PostHog unavailable");
-      }
-    );
-    const { deps } = createDeps({
-      sendBatchToPostHogEvents:
-        sendBatchToPostHogEvents as unknown as LogIngestDeps["sendBatchToPostHogEvents"],
-    });
-
-    const response = await handleLogIngestRequest(
-      request(JSON.stringify([{ event: { level: "error" } }])),
-      deps
-    );
-    await Bun.sleep(0);
-
-    expect(response.status).toBe(200);
-    expect(sendBatchToPostHogEvents).toHaveBeenCalledTimes(1);
   });
 });

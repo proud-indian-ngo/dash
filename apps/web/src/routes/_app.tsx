@@ -64,18 +64,9 @@ function LogIdentitySync() {
           userId: user.id,
         });
       });
+    // PostHog resets on logout and when another account identifies.
     return () => {
       loadClientLogger().then(({ clearLogIdentity }) => clearLogIdentity());
-      loadPostHog()
-        .then(({ resetUser }) => resetUser())
-        .catch((error) => {
-          log.error({
-            action: "resetPostHogUser",
-            component: "LogIdentitySync",
-            error: error instanceof Error ? error.message : String(error),
-            userId: user.id,
-          });
-        });
     };
   }, [user.id, user.role]);
 
