@@ -685,6 +685,7 @@ export const WHATSAPP_TEMPLATES = [
     examples: { date: "Wed, 18 Nov", group: "Proud Indian Volunteers" },
     buttonText: "Join group",
     dashboardPath: "whatsapp-groups/0192/join",
+    label: "WhatsApp group join reminder",
     name: "group_join_reminder",
   },
 
