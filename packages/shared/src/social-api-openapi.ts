@@ -160,9 +160,15 @@ const STATS_PROPERTIES: Record<keyof SocialMonthlyStats, SchemaObject> = {
   volunteers: count,
 };
 
-const POSTED_PROPERTIES: Record<string, SchemaObject> = {
+const POSTED_INPUT_PROPERTIES: Record<string, SchemaObject> = {
   bufferPostId: { maxLength: 200, minLength: 1, type: "string" },
   channel: { enum: ["instagram", "linkedin"], type: "string" },
+  error: nullable({
+    description:
+      "Buffer's message when `status` is `failed`; stored cut to 500 characters, and null for any other status.",
+    maxLength: 10_000,
+    type: "string",
+  }),
   eventId: {
     description:
       "The event id when the post was queued (row id, `<seriesId>:<occurrenceDate>` or a synthetic id), stored as given.",
@@ -191,9 +197,19 @@ const POSTED_PROPERTIES: Record<string, SchemaObject> = {
   }),
   scheduledFor: { format: "date-time", type: "string" },
   status: {
-    enum: ["queued", "approved", "published", "dropped"],
+    enum: ["queued", "approved", "published", "failed", "dropped"],
     type: "string",
   },
+};
+
+const POSTED_PROPERTIES: Record<string, SchemaObject> = {
+  ...POSTED_INPUT_PROPERTIES,
+  droppedAt: nullable({
+    description:
+      "When someone dropped the post on the Social page; null otherwise. Kept as history if the post is later reported published, so delete from Buffer only while status is dropped.",
+    format: "date-time",
+    type: "string",
+  }),
 };
 
 const RULE_KIND_DESCRIPTIONS: Record<
@@ -274,12 +290,20 @@ const RUN_PROPERTIES: Record<string, SchemaObject> = {
   planned: count,
   recorded: count,
   rendered: count,
+  rulesNotes: runMessages(
+    "Posting-rule overrides the run ignored. Accepted but not stored; absent on a paused tick."
+  ),
   skipped: runMessages("Why planned posts were skipped."),
   startedAt: { format: "date-time", type: "string" },
   tick: { enum: [...socialRunTickValues], type: "string" },
 };
 
-const POSTED_OPTIONAL_INPUT = new Set(["eventName", "held", "occurrenceDate"]);
+const POSTED_OPTIONAL_INPUT = new Set([
+  "error",
+  "eventName",
+  "held",
+  "occurrenceDate",
+]);
 
 const json = (schema: SchemaObject | { $ref: string }) => ({
   "application/json": { schema },
@@ -310,13 +334,18 @@ export function buildSocialApiOpenApi(baseUrl: string) {
         }),
         PostedRecord: objectSchema(POSTED_PROPERTIES),
         PostedRecordInput: {
-          ...objectSchema(POSTED_PROPERTIES),
-          required: Object.keys(POSTED_PROPERTIES).filter(
+          ...objectSchema(POSTED_INPUT_PROPERTIES),
+          required: Object.keys(POSTED_INPUT_PROPERTIES).filter(
             (k) => !POSTED_OPTIONAL_INPUT.has(k)
           ),
         },
         SocialEvent: objectSchema(EVENT_PROPERTIES),
-        SocialRunInput: objectSchema(RUN_PROPERTIES),
+        SocialRunInput: {
+          ...objectSchema(RUN_PROPERTIES),
+          required: Object.keys(RUN_PROPERTIES).filter(
+            (k) => k !== "rulesNotes"
+          ),
+        },
         SocialSettings: objectSchema(SETTINGS_PROPERTIES),
         SocialMonthlyStats: objectSchema(STATS_PROPERTIES),
         SocialPhoto: {

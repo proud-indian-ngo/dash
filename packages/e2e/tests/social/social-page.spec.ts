@@ -28,7 +28,7 @@ test.describe("Social page", () => {
     );
   });
 
-  test("an admin pauses posting, sees a reported run and drops a queued post", async ({
+  test("an admin pauses posting, sees a reported run and drops a failed post", async ({
     page,
     request,
   }) => {
@@ -76,6 +76,7 @@ test.describe("Social page", () => {
           planned: 2,
           recorded: 1,
           rendered: 1,
+          rulesNotes: [],
           skipped: ["recap e2e: no usable photos"],
           startedAt: new Date(Date.now() - 60_000).toISOString(),
           tick: "hourly",
@@ -94,7 +95,7 @@ test.describe("Social page", () => {
       await runRow.getByRole("button").first().click();
       await expect(page.getByText("recap e2e: no usable photos")).toBeVisible();
 
-      // Posts: drop the queued post.
+      // Posts: the pipeline reports the queued post failed in Buffer.
       await page.getByRole("tab", { name: "Posts" }).click();
       const postRow = page
         .getByRole("row")
@@ -103,14 +104,33 @@ test.describe("Social page", () => {
       await expect(postRow).toBeVisible({ timeout: 15_000 });
       await expect(postRow).toContainText("Queued");
       await expect(postRow).toContainText("Held");
+
+      const postedUrl = "/api/social/v1/posted?eventId=e2e-social-page-event";
+      const listed = await request.get(postedUrl, { headers: auth });
+      const [queued] = (await listed.json()).posted;
+      const { droppedAt: _droppedAt, ...queuedInput } = queued;
+      const failed = await request.post("/api/social/v1/posted", {
+        data: {
+          ...queuedInput,
+          error: "Please update the media URL to be publicly accessible.",
+          status: "failed",
+        },
+        headers: auth,
+      });
+      expect(failed.status()).toBe(204);
+      await expect(postRow).toContainText("Failed", { timeout: 10_000 });
+      await expect(postRow).toContainText(
+        "Please update the media URL to be publicly accessible."
+      );
+      await expect(postRow).not.toContainText("Held");
+
+      // Drop it; the pipeline reads droppedAt to delete it from Buffer.
       await postRow.getByRole("button", { name: "Row actions" }).click();
       await page.getByRole("menuitem", { name: "Drop post" }).click();
       const dialog = page.getByRole("alertdialog");
       await expect(dialog).toContainText("Drop this post?");
       await dialog.getByRole("button", { name: "Drop post" }).click();
       await expect(postRow).toContainText("Dropped", { timeout: 10_000 });
-      // Held marks only drafts still waiting for the approver.
-      await expect(postRow).not.toContainText("Held");
       await expect(
         postRow.getByRole("button", { name: "Row actions" })
       ).toHaveCount(0);
@@ -125,6 +145,13 @@ test.describe("Social page", () => {
       }>("inspect");
       expect(dropped.droppedAt).not.toBeNull();
       expect(dropped.droppedBy).not.toBeNull();
+      const afterDrop = await request.get(postedUrl, { headers: auth });
+      expect((await afterDrop.json()).posted).toEqual([
+        expect.objectContaining({
+          droppedAt: dropped.droppedAt,
+          status: "dropped",
+        }),
+      ]);
       // The dropper's name resolves through getSocialPeople.
       await expect(postRow).toContainText(dropped.droppedByName ?? "", {
         timeout: 10_000,

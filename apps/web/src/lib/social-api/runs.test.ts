@@ -103,6 +103,17 @@ describe("handleSocialRunsWrite", () => {
     );
   });
 
+  it("accepts rulesNotes without storing them", async () => {
+    const { deps, insertSocialRun } = createDeps();
+    const response = await handleSocialRunsWrite(
+      post({ ...body, rulesNotes: ["schedule.postTime ignored"] }),
+      deps
+    );
+    expect(response.status).toBe(204);
+    const [stored] = insertSocialRun.mock.calls[0] as unknown as [object];
+    expect(stored).not.toHaveProperty("rulesNotes");
+  });
+
   it("stores the capped lists, not the raw ones", async () => {
     const { deps, insertSocialRun } = createDeps();
     const errors = Array.from({ length: 51 }, () => "e".repeat(501));
