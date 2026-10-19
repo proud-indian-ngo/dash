@@ -299,7 +299,8 @@ export async function getTeamWhatsAppGroupJid(
 
 export async function manageOrientationGroupMembership(
   userId: string,
-  isOriented: boolean
+  isOriented: boolean,
+  joinBy?: Date
 ): Promise<void> {
   const phone = await getUserPhone(userId);
   if (!phone) {
@@ -311,16 +312,19 @@ export async function manageOrientationGroupMembership(
       ALL_VOLUNTEERS_GROUP_ID
     );
     if (allVolunteersJid) {
-      await addOrInviteToWhatsAppGroup(allVolunteersJid, phone, userId);
+      await addOrInviteToWhatsAppGroup(allVolunteersJid, phone, userId, joinBy);
     }
-    const orientationJid = await getGroupJidByConfigKey(ORIENTATION_GROUP_ID);
+    // A reminder goes only to people in neither group
+    const orientationJid = joinBy
+      ? null
+      : await getGroupJidByConfigKey(ORIENTATION_GROUP_ID);
     if (orientationJid) {
       await removeFromWhatsAppGroup(orientationJid, phone);
     }
   } else {
     const orientationJid = await getGroupJidByConfigKey(ORIENTATION_GROUP_ID);
     if (orientationJid) {
-      await addOrInviteToWhatsAppGroup(orientationJid, phone, userId);
+      await addOrInviteToWhatsAppGroup(orientationJid, phone, userId, joinBy);
     }
   }
 }
@@ -430,6 +434,13 @@ async function describeGroup(
   return { joined: "Proud Indian Dashboard", topic: EVENTS_TOPIC };
 }
 
+const joinByDate = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Kolkata",
+  weekday: "short",
+});
+
 const indiaDate = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
   month: "2-digit",
@@ -453,10 +464,13 @@ export interface GroupInviteResult {
  * the group's topic; one invite per group per person per day. Each person
  * is tried on their own; a transient failure is rethrown at the end so the
  * job retries (people already invited are skipped then).
+ * With `joinBy`, it sends the reminder that names the date the weekly scan
+ * may deactivate them instead.
  */
 export async function inviteToWhatsAppGroup(
   groupJid: string,
-  userIds: string[]
+  userIds: string[],
+  joinBy?: Date
 ): Promise<GroupInviteResult> {
   const result: GroupInviteResult = {
     alreadyMember: 0,
@@ -479,11 +493,15 @@ export async function inviteToWhatsAppGroup(
     return result;
   }
   const participants = new Set(await getGroupParticipants(groupJid));
-  const template = whatsappTemplate(
-    "group_invite",
-    { group: group.name, joined },
-    `/whatsapp-groups/${group.id}/join`
-  );
+  const joinPath = `/whatsapp-groups/${group.id}/join`;
+  const template = joinBy
+    ? whatsappTemplate(
+        "group_join_reminder",
+        { date: joinByDate.format(joinBy), group: group.name },
+        joinPath
+      )
+    : whatsappTemplate("group_invite", { group: group.name, joined }, joinPath);
+  const keyPrefix = joinBy ? "group-join-reminder" : "group-invite";
   const day = indiaDate.format(new Date());
   let transient: unknown;
   for (const [userId, phone] of phones) {
@@ -495,7 +513,7 @@ export async function inviteToWhatsAppGroup(
       const outcome = await sendWhatsAppNotification(
         phone,
         { template, text: "" },
-        { idempotencyKey: `group-invite-${group.id}-${userId}-${day}`, userId }
+        { idempotencyKey: `${keyPrefix}-${group.id}-${userId}-${day}`, userId }
       );
       if (outcome === "sent" || outcome === "duplicate") {
         result.invited += 1;
@@ -519,15 +537,22 @@ export async function inviteToWhatsAppGroup(
   return result;
 }
 
-/** Invite through the Cloud API when it's on; otherwise add through GoWA. */
+/**
+ * Invite through the Cloud API when it's on; otherwise add through GoWA.
+ * A reminder (`joinBy`) is Cloud API only: re-adding people every week, some
+ * of whom left on purpose, would be a ban signal for the GoWA number.
+ */
 export async function addOrInviteToWhatsAppGroup(
   groupJid: string,
   phone: string,
-  userId: string
+  userId: string,
+  joinBy?: Date
 ): Promise<void> {
   if (isCloudApiEnabled()) {
-    await inviteToWhatsAppGroup(groupJid, [userId]);
+    await inviteToWhatsAppGroup(groupJid, [userId], joinBy);
     return;
   }
-  await addToWhatsAppGroup(groupJid, phone);
+  if (!joinBy) {
+    await addToWhatsAppGroup(groupJid, phone);
+  }
 }

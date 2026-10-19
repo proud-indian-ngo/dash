@@ -318,10 +318,14 @@ export async function handleWhatsAppManageOrientation(
         method: "JOB",
         path: "whatsapp-manage-orientation",
       });
-      const { userId, isOriented } = job.data;
-      log.set({ isOriented, jobId: job.id, userId });
+      const { userId, isOriented, joinBy } = job.data;
+      log.set({ isOriented, jobId: job.id, joinBy, userId });
 
-      await manageOrientationGroupMembership(userId, isOriented);
+      await manageOrientationGroupMembership(
+        userId,
+        isOriented,
+        joinBy ? new Date(joinBy) : undefined
+      );
 
       log.set({ event: "job_complete" });
       log.emit();

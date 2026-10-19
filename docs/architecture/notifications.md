@@ -147,6 +147,7 @@ With the Cloud API on, adding someone to a group sends the `group_invite` templa
 
 - The button opens `/whatsapp-groups/$groupId/join`, which fetches the invite link from GoWA and redirects, because Meta does not allow chat.whatsapp.com links in buttons.
 - `getWhatsAppGroupJoinLink` returns the link only to people entitled now. Anyone else gets `not_member` without the group name.
+- The [weekly group scan](teams-and-events.md#whatsapp-groups) sends `group_join_reminder` instead, with the same button and topic rule. So someone who turned off the Events topic gets no reminder and is still deactivated.
 - Invites skip people who turned off WhatsApp for the Teams topic (team groups) or Events topic (event and app-wide groups).
 
 ### GoWA gateway

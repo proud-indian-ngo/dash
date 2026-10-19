@@ -11,7 +11,14 @@ import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
-import type { ScanWhatsAppGroupsPayload } from "../enqueue";
+import { enqueue, type ScanWhatsAppGroupsPayload } from "../enqueue";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// New users get a month to join a group before the scan can deactivate them.
+// From their second week, each scan reminds them; the first week is left to
+// the invite sent at sign-up.
+const NEW_USER_GRACE_MS = 30 * DAY_MS;
+const REMINDER_AFTER_MS = 7 * DAY_MS;
 
 interface GroupInfo {
   jid: string;
@@ -52,18 +59,18 @@ async function fetchGroups(): Promise<GroupInfo[]> {
   return groups;
 }
 
-function findUsersNotInGroups(
-  activeUsers: Array<{ id: string; name: string; phone: string | null }>,
+function findUsersNotInGroups<T extends { phone: string | null }>(
+  activeUsers: T[],
   groupPhones: Set<string>
-): Array<{ id: string; name: string; phone: string }> {
-  const result: Array<{ id: string; name: string; phone: string }> = [];
+): Array<T & { phone: string }> {
+  const result: Array<T & { phone: string }> = [];
   for (const u of activeUsers) {
     if (!u.phone) {
       continue;
     }
     const normalized = formatPhoneForWhatsApp(u.phone);
     if (!groupPhones.has(normalized)) {
-      result.push({ id: u.id, name: u.name, phone: u.phone });
+      result.push({ ...u, phone: u.phone });
     }
   }
   return result;
@@ -115,7 +122,13 @@ export async function handleScanWhatsAppGroups(
   }
 
   const activeUsers = await db
-    .select({ id: user.id, name: user.name, phone: user.phone })
+    .select({
+      createdAt: user.createdAt,
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+    })
     .from(user)
     .where(
       and(
@@ -125,7 +138,13 @@ export async function handleScanWhatsAppGroups(
       )
     );
 
-  const toDeactivate = findUsersNotInGroups(activeUsers, groupPhones);
+  const graceCutoff = new Date(Date.now() - NEW_USER_GRACE_MS);
+  const reminderCutoff = new Date(Date.now() - REMINDER_AFTER_MS);
+  const notInGroups = findUsersNotInGroups(activeUsers, groupPhones);
+  const toDeactivate = notInGroups.filter((u) => u.createdAt < graceCutoff);
+  const toNudge = notInGroups.filter(
+    (u) => u.createdAt >= graceCutoff && u.createdAt < reminderCutoff
+  );
 
   // Reactivate inactive non-banned users who are present in the groups
   const inactiveUsers = await db
@@ -178,6 +197,28 @@ export async function handleScanWhatsAppGroups(
     });
   }
 
+  // Same job as sign-up, to the orientation or all-volunteers group by role,
+  // but sending the join reminder. Settled so a failed enqueue doesn't hide
+  // the admin report below.
+  const nudges = await Promise.allSettled(
+    toNudge.map((u) =>
+      enqueue("whatsapp-manage-orientation", {
+        isOriented: u.role !== "unoriented_volunteer",
+        joinBy: new Date(
+          u.createdAt.getTime() + NEW_USER_GRACE_MS
+        ).toISOString(),
+        userId: u.id,
+      })
+    )
+  );
+  for (const nudge of nudges) {
+    if (nudge.status === "rejected") {
+      log.error(
+        nudge.reason instanceof Error ? nudge.reason : String(nudge.reason)
+      );
+    }
+  }
+
   // Build registeredPhones from already-fetched data
   const registeredPhones = new Set(
     [...activeUsers, ...inactiveUsers]
@@ -196,6 +237,7 @@ export async function handleScanWhatsAppGroups(
 
   log.set({
     deactivatedCount: toDeactivate.length,
+    nudgedCount: toNudge.length,
     reactivatedCount: toReactivate.length,
     unregisteredCount: totalUnregistered,
   });
