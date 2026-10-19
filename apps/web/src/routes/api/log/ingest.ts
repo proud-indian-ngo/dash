@@ -1,7 +1,5 @@
-import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
-import { sendBatchToPostHogEvents } from "evlog/posthog";
 
 import { trustedClientIp } from "@/lib/client-ip";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -17,19 +15,13 @@ const RATE_LIMIT_PER_MINUTE = 60;
 export type LogIngestDeps = {
   checkRateLimit: typeof checkRateLimit;
   createRequestLogger: typeof createRequestLogger;
-  postHogApiKey?: string;
-  postHogHost?: string;
   readRequestBody: typeof readRequestBody;
-  sendBatchToPostHogEvents: typeof sendBatchToPostHogEvents;
 };
 
 const defaultDeps: LogIngestDeps = {
   checkRateLimit,
   createRequestLogger,
-  postHogApiKey: env.POSTHOG_API_KEY,
-  postHogHost: env.POSTHOG_HOST,
   readRequestBody,
-  sendBatchToPostHogEvents,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +94,6 @@ export async function handleLogIngestRequest(
   }
 
   const contexts = Array.isArray(body) ? body.slice(0, MAX_EVENTS) : [];
-  const postHogEvents: Parameters<typeof sendBatchToPostHogEvents>[0] = [];
 
   for (const context of contexts) {
     if (!isRecord(context) || !isRecord(context.event)) {
@@ -117,36 +108,18 @@ export async function handleLogIngestRequest(
       continue;
     }
 
-    if (event.level === "error") {
-      postHogEvents.push({
-        ...event,
-        environment: process.env.NODE_ENV ?? "development",
-        level: "error",
-        service: "pi-dash-client",
-        source: "client",
-        timestamp: new Date().toISOString(),
-      });
-      continue;
-    }
-
     const log = deps.createRequestLogger({
       method: "POST",
       path: PATH,
       ...(traceId ? { requestId: traceId } : {}),
     });
+    // Browser errors reach Error Tracking through posthog-js; the server
+    // drain skips `source: "client"`, so these stay logs.
     log.set({ ...event, source: "client" });
+    if (event.level === "error" || event.level === "warn") {
+      log.setLevel(event.level);
+    }
     log.emit();
-  }
-
-  if (deps.postHogApiKey && postHogEvents.length > 0) {
-    deps
-      .sendBatchToPostHogEvents(postHogEvents, {
-        apiKey: deps.postHogApiKey,
-        host: deps.postHogHost,
-      })
-      .catch(() => {
-        // Best effort: client logging must not fail when PostHog is down.
-      });
   }
 
   return Response.json({ ok: true });

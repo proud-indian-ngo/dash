@@ -7,6 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import z from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import { canViewKalakritiFoodAttendees } from "@/lib/kalakriti-food-policy";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 import { authMiddleware } from "@/middleware/auth";
@@ -15,7 +16,7 @@ export const getKalakritiFoodAttendees = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(z.object({ year: z.number().int().min(2000).max(2200) }))
   .handler(async ({ context, data }) => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     const access = await resolveKalakritiEditionAccess({
       role: context.session.user.role ?? "unoriented_volunteer",
       userId: context.session.user.id,

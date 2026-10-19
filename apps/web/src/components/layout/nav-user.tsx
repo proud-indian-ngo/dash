@@ -32,6 +32,8 @@ import { useApp } from "@/context/app-context";
 import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 
+const loadPostHog = () => import("@/lib/posthog");
+
 export function NavUser() {
   const { isMobile, setOpenMobile } = useSidebar();
   const zero = useZero();
@@ -54,8 +56,13 @@ export function NavUser() {
     }
     await authClient.signOut({
       fetchOptions: {
-        onSuccess: () => {
+        onSuccess: async () => {
           invalidateAuthCache();
+          await loadPostHog()
+            .then(({ resetUser }) => resetUser())
+            .catch(() => {
+              // Non-critical
+            });
           window.location.replace("/login");
         },
       },

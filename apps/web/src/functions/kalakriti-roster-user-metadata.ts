@@ -10,6 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import z from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 export interface KalakritiRosterUserMetadata {
@@ -111,7 +112,7 @@ export async function getKalakritiRosterUserMetadataWithDeps(
   deps: RosterMetadataReadDeps
 ): Promise<KalakritiRosterUserMetadata[]> {
   if (!context.session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
 
   const permissions = await deps.resolvePermissions(
@@ -123,7 +124,7 @@ export async function getKalakritiRosterUserMetadataWithDeps(
       await deps.listAccessAssignments(editionId, context.session.user.id)
     );
   if (!canRead) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
 
   return await deps.listMetadata(editionId);

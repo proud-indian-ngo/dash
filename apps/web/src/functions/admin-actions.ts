@@ -6,6 +6,7 @@ import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 interface AuthContext {
@@ -18,12 +19,12 @@ async function ensurePermission(
   permissionId: PermissionId
 ) {
   if (!context.session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const role = context.session.user.role ?? "unoriented_volunteer";
   const perms = await resolvePermissions(role);
   if (!perms.includes(permissionId)) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   return context.session;
 }
@@ -32,7 +33,7 @@ export const triggerWhatsAppGroupScan = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -65,7 +66,7 @@ export const triggerR2Cleanup = createServerFn({ method: "POST" })
   .validator(z.object({ dryRun: z.boolean() }))
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -98,7 +99,7 @@ export const triggerEventInterestExpiry = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,

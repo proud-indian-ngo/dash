@@ -25,6 +25,7 @@ import z from "zod";
 
 import { getUserAdminWhatsappSyncPlan } from "@/functions/user-admin-whatsapp";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import {
   assertGenericRoleAssignment,
   assertGenericUserManagement,
@@ -105,12 +106,12 @@ async function ensurePermission(
   permissionId: PermissionId
 ): Promise<AdminContextWithSession> {
   if (!context.session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const currentRole = context.session.user.role ?? "unoriented_volunteer";
   const perms = await resolvePermissions(currentRole);
   if (!perms.includes(permissionId)) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   return context as AdminContextWithSession;
 }
@@ -178,7 +179,7 @@ async function assertGenericUserTarget(userId: string): Promise<void> {
     .limit(1)
     .then((rows) => rows[0]);
   if (!target) {
-    throw new Error("User not found");
+    throw new HttpError(404, "User not found");
   }
   assertGenericUserManagement(target.role);
 }
@@ -188,7 +189,7 @@ export const createUserAdmin = createServerFn({ method: "POST" })
   .validator(createUserSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -288,7 +289,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
   .validator(updateUserSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -327,7 +328,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
           .limit(1)
           .then((rows) => rows[0]);
         if (!currentUser) {
-          throw new Error("User not found");
+          throw new HttpError(404, "User not found");
         }
         const previousRole = currentUser.role;
         assertGenericUserManagement(previousRole);
@@ -446,7 +447,7 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
   .validator(setUserPasswordSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -489,7 +490,7 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
   .validator(deleteUserSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -587,7 +588,7 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
   .validator(setUserBanSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,

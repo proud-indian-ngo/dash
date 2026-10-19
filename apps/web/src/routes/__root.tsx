@@ -14,6 +14,7 @@ import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { lazy, Suspense, useEffect } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { TelemetryPageviews } from "@/components/telemetry-pageviews";
 import { ZeroInit } from "@/components/zero-init";
 import { reloadForChunkError } from "@/lib/chunk-load-error";
 import { watchForNewVersion } from "@/lib/new-version";
@@ -159,6 +160,7 @@ function RootDocument() {
                   <Outlet />
                 </ZeroInit>
               </NuqsAdapter>
+              <TelemetryPageviews />
               <Toaster
                 mobileOffset={{
                   bottom: "calc(1rem + var(--mobile-tab-bar-height, 0px))",

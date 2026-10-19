@@ -46,6 +46,8 @@ Better Auth's admin plugin only knows admin versus user. `toBetterAuthRole()` ma
 | Server functions and API routes | `assertServerPermission(session, "id")` (`apps/web/src/lib/api-auth.ts`) |
 | UI | `hasPermission("id")` from `AppContext` controls visibility |
 
+Server functions and API routes throw expected failures as `HttpError` (`apps/web/src/lib/http-error.ts`): 401 `Unauthorized` without a session, 403 `Forbidden` without the permission, 404 for a missing record. Start answers with that status, and Error Tracking skips them ([observability](observability.md#posthog)). A server function serializes the error's name, message and own properties, `status` included, to the client. Zero mutators throw plain errors, which Zero returns as mutation results.
+
 Client-side mutator runs are optimistic; the server pass is authoritative. Gate a protected route in `beforeLoad` and its UI action with `hasPermission`, and test `Route.options.beforeLoad` directly with denied and allowed contexts.
 
 A user's email and phone need `users.view`. The exception is a team's or event's own people: those who manage a team's or event's members see those members' contacts ([teams](teams-and-events.md#teams), [event members](teams-and-events.md#members-and-self-join)), and interest reviewers see pending requesters' ([interest](teams-and-events.md#interest)). Team leads qualify for their own teams. External users' contacts are never shown either way.

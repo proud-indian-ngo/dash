@@ -20,6 +20,7 @@ import {
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { mapUnreadableValue } from "@/lib/encrypted-reveal";
+import { HttpError } from "@/lib/http-error";
 import { canRevealVendorBank, canViewVendorDetails } from "@/lib/vendor-access";
 import { saveVendorSchema } from "@/lib/vendor-schema";
 import { authMiddleware } from "@/middleware/auth";
@@ -74,7 +75,7 @@ export const getVendorDetails = createServerFn({ method: "POST" })
   .validator(z.object({ vendorId: z.guid().nullable() }))
   .handler(async ({ context, data }): Promise<VendorDetailsResponse> => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     if (data.vendorId === null) {
       // The create form only needs to know whether identifiers can be stored.
@@ -90,7 +91,7 @@ export const getVendorDetails = createServerFn({ method: "POST" })
     if (
       !(row && canViewVendorDetails(permissions, context.session.user.id, row))
     ) {
-      throw new Error("Forbidden");
+      throw new HttpError(403, "Forbidden");
     }
     return {
       details: await getVendorPrivate(data.vendorId),
@@ -108,14 +109,14 @@ export const revealVendorBankAccount = createServerFn({ method: "POST" })
   .validator(z.object({ vendorId: z.guid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const permissions = await permissionsOf(context.session);
     const ownsPayment =
       permissions.includes("requests.record_payment") &&
       (await hasOwnPaymentTo(data.vendorId, context.session.user.id));
     if (!canRevealVendorBank(permissions, ownsPayment)) {
-      throw new Error("Forbidden");
+      throw new HttpError(403, "Forbidden");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -147,7 +148,7 @@ export const saveVendor = createServerFn({ method: "POST" })
       data.mode === "create" ? "vendors.create" : "vendors.edit"
     );
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const result = await runSessionAuditedAction(
@@ -172,7 +173,7 @@ export const deleteVendor = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "vendors.delete");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     // A party that also holds another role keeps its party row; the outcome
     // says which happened. Either way it is the same audited vendor.delete.

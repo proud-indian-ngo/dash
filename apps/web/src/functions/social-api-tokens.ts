@@ -10,6 +10,7 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { generateSocialToken, hashSocialToken } from "@/lib/social-api-auth";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -58,7 +59,7 @@ export const createSocialApiTokenFn = createServerFn({ method: "POST" })
   .validator(createSocialApiTokenSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -93,7 +94,7 @@ export const revokeSocialApiTokenFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -108,7 +109,7 @@ export const revokeSocialApiTokenFn = createServerFn({ method: "POST" })
         await assertServerPermission(session, TOKEN_PERMISSION);
         const revoked = await revokeSocialApiToken(data.id);
         if (!revoked) {
-          throw new Error("Token not found or already revoked");
+          throw new HttpError(404, "Token not found or already revoked");
         }
         return { revoked };
       }

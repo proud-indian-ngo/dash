@@ -11,6 +11,7 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 const userIdSchema = z.object({ userId: z.string().min(1) });
@@ -54,7 +55,7 @@ export const resumeUserEmail = createServerFn({ method: "POST" })
   .validator(userIdSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -68,7 +69,7 @@ export const resumeUserEmail = createServerFn({ method: "POST" })
         await assertServerPermission(context.session, "users.edit");
         const email = await findUserEmail(data.userId);
         if (!email) {
-          throw new Error("User not found");
+          throw new HttpError(404, "User not found");
         }
         await clearEmailSuppression(email);
         return data.userId;

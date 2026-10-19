@@ -20,6 +20,7 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 async function ensureRolePermission(
@@ -98,7 +99,7 @@ export const getRoleById = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     await ensureRolePermission(context.session);
     if (TECHNICAL_ROLE_IDS.has(data.roleId)) {
-      throw new Error("Role not found");
+      throw new HttpError(404, "Role not found");
     }
 
     try {
@@ -114,7 +115,7 @@ export const getRoleById = createServerFn({ method: "GET" })
         .limit(1);
 
       if (!found) {
-        throw new Error("Role not found");
+        throw new HttpError(404, "Role not found");
       }
 
       const perms = await db
@@ -202,7 +203,7 @@ export const createRole = createServerFn({ method: "POST" })
   .validator(createRoleSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -292,7 +293,7 @@ export const updateRole = createServerFn({ method: "POST" })
   .validator(updateRoleSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -327,7 +328,7 @@ export const updateRole = createServerFn({ method: "POST" })
             .limit(1);
 
           if (!found) {
-            throw new Error("Role not found");
+            throw new HttpError(404, "Role not found");
           }
 
           if (
@@ -387,7 +388,7 @@ export const deleteRole = createServerFn({ method: "POST" })
   .validator(deleteRoleSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -407,7 +408,7 @@ export const deleteRole = createServerFn({ method: "POST" })
             .limit(1);
 
           if (!found) {
-            throw new Error("Role not found");
+            throw new HttpError(404, "Role not found");
           }
           if (found.isSystem) {
             throw new Error("Cannot delete a system role");

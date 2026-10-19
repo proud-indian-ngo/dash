@@ -21,6 +21,8 @@ import {
   payeeSignatureImageProblem,
 } from "@pi-dash/shared/payee-signature";
 
+import { HttpError } from "@/lib/http-error";
+
 import { getS3 } from "./s3";
 
 type R2CopyClient = Pick<ReturnType<typeof getS3>, "exists" | "file" | "stat">;
@@ -155,7 +157,7 @@ export async function copyR2Object(
     input.sourceKey !== input.targetKey &&
     TEMPORARY_KEY_PATTERN.test(input.sourceKey);
   if (sourceIsTemporary && !(await s3.exists(input.sourceKey))) {
-    throw new Error("Temporary upload not found");
+    throw new HttpError(404, "Temporary upload not found");
   }
   if (await s3.exists(input.targetKey)) {
     // A signature is checked even when its target already exists: the same
@@ -177,7 +179,7 @@ export async function copyR2Object(
     return;
   }
   if (!(sourceIsTemporary || (await s3.exists(input.sourceKey)))) {
-    throw new Error("Temporary upload not found");
+    throw new HttpError(404, "Temporary upload not found");
   }
   const source = await s3.stat(input.sourceKey);
   const storedMimeType = normalizeMimeType(source.type);

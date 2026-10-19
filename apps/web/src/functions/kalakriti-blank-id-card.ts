@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { z } from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -19,7 +20,7 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(z.object({ editionId: z.uuid(), personQr: z.string().max(256) }))
   .handler(async ({ context, data }) => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     const log = createRequestLogger();
     log.set({
       handler: "validateBlankIdCard",
@@ -32,7 +33,7 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
         .from(kalakritiEdition)
         .where(eq(kalakritiEdition.id, data.editionId))
         .limit(1);
-      if (!edition) throw new Error("Edition not found");
+      if (!edition) throw new HttpError(404, "Edition not found");
       const access = await resolveKalakritiEditionAccess({
         year: edition.year,
         userId: context.session.user.id,
@@ -49,7 +50,7 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
           )
         )
       )
-        throw new Error("Unauthorized");
+        throw new HttpError(401, "Unauthorized");
       if (access.edition.lifecycle === "archived")
         throw new Error("Edition is archived");
       const person = parseKalakritiPersonQr(data.personQr);

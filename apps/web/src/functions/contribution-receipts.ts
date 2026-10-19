@@ -18,6 +18,7 @@ import {
   assertServerPermission,
 } from "@/lib/api-auth";
 import { MAX_ID_VALUES, runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { containsIdentifier } from "@/lib/income-import/normalize";
 import {
   issueReceipts,
@@ -81,7 +82,7 @@ export const issueContributionReceipts = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<IssueReceiptsResult> => {
     await assertServerPermission(context.session, "donors.receipt");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -127,7 +128,7 @@ export const voidContributionReceipt = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "donors.receipt");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -147,7 +148,7 @@ export const emailContributionReceipt = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "donors.receipt");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,

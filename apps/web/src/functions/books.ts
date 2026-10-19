@@ -23,6 +23,7 @@ import {
   skipAuditedFiguresNow,
 } from "@/lib/books/server";
 import { buildCaWorkbook, type CaWorkbookFile } from "@/lib/ca-workbook/server";
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -119,7 +120,7 @@ export const postOpeningBalancesFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.post_opening");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const count = (kind: string) =>
@@ -148,7 +149,7 @@ export const reverseOpeningBalancesFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.post_opening");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     await runSessionAuditedAction(
@@ -173,7 +174,7 @@ export const postAuditedFiguresFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.adjust");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const document = await runSessionAuditedAction(
@@ -202,7 +203,7 @@ export const skipAuditedFiguresFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.adjust");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     await runSessionAuditedAction(
@@ -223,7 +224,7 @@ export const reverseAuditedFiguresFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.adjust");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     await runSessionAuditedAction(
@@ -246,7 +247,7 @@ export const closeFiscalYearFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.close_year");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -266,7 +267,7 @@ export const reopenFiscalYearFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.reopen_year");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const result = await runSessionAuditedAction(
@@ -292,7 +293,7 @@ export const postPendingFn = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<SweepResult> => {
     await assertServerPermission(context.session, "finance.post_pending");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const waitingCount = await countWaitingLedgerSources();
@@ -333,7 +334,7 @@ export const exportCaWorkbook = createServerFn({ method: "POST" })
       "finance.manage",
     ]);
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const { permissions } = await buildSessionContext(session);

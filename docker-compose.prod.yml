@@ -26,6 +26,7 @@ services:
         VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
         VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
         VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
+        VITE_APP_ENV: ${APP_ENV:-production}
     expose:
       - 3000
     environment:
@@ -81,6 +82,7 @@ services:
       POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
+      APP_ENV: ${APP_ENV:-production}
       # rebuilds proudindian.ngo when the public events feed changes (sync-public-events-deploy); unset disables it
       WEBSITE_DISPATCH_TOKEN: ${WEBSITE_DISPATCH_TOKEN:-}
       TZ: Asia/Kolkata
@@ -215,8 +217,10 @@ services:
       ZERO_QUERY_URL: http://web:${PORT:-3000}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
       ZERO_QUERY_HYDRATION_STATS: ${ZERO_QUERY_HYDRATION_STATS:-false}
-      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${POSTHOG_HOST:-https://us.i.posthog.com}/i/v1/logs
-      OTEL_EXPORTER_OTLP_HEADERS: "Authorization=Bearer ${POSTHOG_API_KEY:-}"
+      # Log export is opt-in: set ZERO_OTEL_LOGS_EXPORTER=otlp and the endpoint and headers
+      OTEL_LOGS_EXPORTER: ${ZERO_OTEL_LOGS_EXPORTER:-none}
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${ZERO_OTEL_LOGS_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${ZERO_OTEL_HEADERS:-}
       OTEL_METRICS_EXPORTER: "none"
       OTEL_TRACES_EXPORTER: "none"
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.name=zero-cache}

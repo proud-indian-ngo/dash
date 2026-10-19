@@ -1,7 +1,14 @@
+import { env } from "@pi-dash/env/server";
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
-import { initLogger } from "evlog";
+import { type DrainContext, initLogger } from "evlog";
 import { createOTLPDrain } from "evlog/otlp";
 import { definePlugin } from "nitro";
+import { PostHog } from "posthog-node";
+
+import { createErrorTrackingDrain } from "../../src/lib/server/error-tracking";
+
+const environment = env.APP_ENV;
+const release = env.APP_RELEASE;
 
 function buildDrain() {
   const apiKey = process.env.POSTHOG_API_KEY;
@@ -20,11 +27,35 @@ function buildDrain() {
   });
 }
 
+function buildPostHog() {
+  const apiKey = process.env.POSTHOG_API_KEY;
+  if (!apiKey) {
+    return;
+  }
+  return new PostHog(apiKey, {
+    disableGeoip: true,
+    host: process.env.POSTHOG_HOST ?? "https://us.i.posthog.com",
+  });
+}
+
 export default definePlugin((nitroApp) => {
+  const exportLogs = buildDrain();
+  const posthog = buildPostHog();
+  const trackErrors =
+    posthog && createErrorTrackingDrain(posthog, { environment, release });
+
   initLogger({
-    drain: buildDrain(),
+    drain:
+      exportLogs || trackErrors
+        ? async (ctx: DrainContext) => {
+            const exported = exportLogs?.(ctx);
+            trackErrors?.(ctx);
+            await exported;
+          }
+        : undefined,
     env: {
-      environment: process.env.NODE_ENV ?? "production",
+      commitHash: release,
+      environment,
       service: process.env.OTEL_SERVICE_NAME ?? "pi-dash",
     },
     pretty: process.env.NODE_ENV !== "production",
@@ -37,4 +68,8 @@ export default definePlugin((nitroApp) => {
       ctx.event.traceId = traceId;
     }
   });
+
+  if (posthog) {
+    nitroApp.hooks.hook("close", () => posthog.shutdown());
+  }
 });

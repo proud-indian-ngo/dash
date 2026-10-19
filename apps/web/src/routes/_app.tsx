@@ -49,9 +49,18 @@ function LogIdentitySync() {
   const { user } = useApp();
 
   useEffect(() => {
-    loadClientLogger().then(({ setLogIdentity }) =>
-      setLogIdentity(user.id, user.role ?? "volunteer")
-    );
+    loadClientLogger()
+      .then(({ setLogIdentity }) =>
+        setLogIdentity(user.id, user.role ?? "volunteer")
+      )
+      .catch((error) => {
+        log.error({
+          action: "setLogIdentity",
+          component: "LogIdentitySync",
+          error: error instanceof Error ? error.message : String(error),
+          userId: user.id,
+        });
+      });
     loadPostHog()
       .then(({ identifyUser }) =>
         identifyUser(user.id, { role: user.role ?? "volunteer" })
@@ -64,13 +73,13 @@ function LogIdentitySync() {
           userId: user.id,
         });
       });
+    // PostHog resets on logout and when another account identifies.
     return () => {
-      loadClientLogger().then(({ clearLogIdentity }) => clearLogIdentity());
-      loadPostHog()
-        .then(({ resetUser }) => resetUser())
+      loadClientLogger()
+        .then(({ clearLogIdentity }) => clearLogIdentity())
         .catch((error) => {
           log.error({
-            action: "resetPostHogUser",
+            action: "clearLogIdentity",
             component: "LogIdentitySync",
             error: error instanceof Error ? error.message : String(error),
             userId: user.id,

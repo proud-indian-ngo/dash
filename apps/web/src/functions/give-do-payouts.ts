@@ -8,6 +8,7 @@ import {
   getPayoutReview,
   runPayoutBatch,
 } from "@/lib/give-do-payout/server";
+import { HttpError } from "@/lib/http-error";
 import {
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
@@ -40,7 +41,7 @@ export const createGiveDoPayoutImport = createServerFn({ method: "POST" })
     await assertServerPermission(context.session, "donors.manage");
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return runSessionAuditedAction(
@@ -82,7 +83,7 @@ export const runGiveDoPayoutImport = createServerFn({ method: "POST" })
     await assertServerPermission(context.session, "donors.manage");
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const fillMissingCount = data.importUnknown

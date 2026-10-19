@@ -4,7 +4,7 @@ import { log } from "evlog";
 // request files that no longer exist. A failed module import is remembered
 // for the page's lifetime, so only a full reload recovers.
 
-const CHUNK_ERROR_PATTERNS = [
+export const CHUNK_ERROR_PATTERNS = [
   "Failed to fetch dynamically imported module", // Chromium
   "error loading dynamically imported module", // Firefox
   "Importing a module script failed", // Safari

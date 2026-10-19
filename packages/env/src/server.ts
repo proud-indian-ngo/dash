@@ -19,7 +19,11 @@ export const env = createEnv({
   server: {
     ADMIN_EMAIL: z.email().optional(),
     ADMIN_PASSWORD: z.string().min(8).optional(),
+    /** Deployment environment on logs and Error Tracking; set explicitly, not derived from NODE_ENV. */
+    APP_ENV: z.string().min(1).default("development"),
     APP_NAME: z.string().min(1).default("Proud Indian Dashboard"),
+    /** Commit SHA of the running build; the Docker image sets it, local runs leave it empty. */
+    APP_RELEASE: z.string().min(1).optional(),
     APP_URL: z.url().optional(),
     AVATAR_FALLBACK_SEED: z.string().min(1),
     BETTER_AUTH_SECRET: z.string().min(32),

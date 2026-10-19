@@ -14,6 +14,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import {
   approvalScreenshotUploadSchema,
   avatarUploadSchema,
@@ -90,7 +91,7 @@ export const getRequestUploadUrl = createServerFn({ method: "POST" })
   .validator(requestUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await presignProtectedUpload({
@@ -122,7 +123,7 @@ export const getVendorPaymentInvoiceUploadUrl = createServerFn({
   .validator(vendorPaymentInvoiceUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await presignProtectedUpload({
@@ -158,7 +159,7 @@ export const getApprovalScreenshotUploadUrl = createServerFn({
   .validator(approvalScreenshotUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await presignProtectedUpload({
@@ -188,7 +189,7 @@ export const getEventPhotoUploadUrl = createServerFn({ method: "POST" })
   .validator(eventPhotoUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await presignProtectedUpload({
@@ -219,7 +220,7 @@ export const getScheduledMessageUploadUrl = createServerFn({ method: "POST" })
   .validator(scheduledMessageUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await presignProtectedUpload({
@@ -251,7 +252,7 @@ export const getKalakritiEntryMusicUploadUrl = createServerFn({
   .validator(kalakritiEntryMusicUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await createTemporaryUpload(
@@ -311,7 +312,7 @@ export const getKalakritiScorecardUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(kalakritiScorecardUploadSchema)
   .handler(async ({ data, context }) => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     try {
       return await createTemporaryUpload(
         {
@@ -370,7 +371,7 @@ export const getKalakritiInventoryPhotoUploadUrl = createServerFn({
   .middleware([authMiddleware])
   .validator(kalakritiInventoryPhotoUploadSchema)
   .handler(async ({ data, context }) => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     try {
       return await createTemporaryUpload(
         {
@@ -422,7 +423,7 @@ export const deleteTemporaryUpload = createServerFn({ method: "POST" })
   .validator(z.object({ key: z.string().min(1) }))
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -465,7 +466,7 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
   .validator(avatarUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       const s3 = await getS3();
@@ -536,7 +537,7 @@ export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
   .validator(eventEditorUploadSchema)
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await createEventEditorUpload(data, context.session, {
@@ -575,7 +576,7 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -588,7 +589,7 @@ export const deleteProfilePicture = createServerFn({ method: "POST" })
       async () => {
         const expectedPrefix = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${session.user.id}/`;
         if (!data.key.startsWith(expectedPrefix)) {
-          throw new Error("Forbidden");
+          throw new HttpError(403, "Forbidden");
         }
         try {
           const s3 = await getS3();

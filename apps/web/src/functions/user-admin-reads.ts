@@ -4,6 +4,7 @@ import { user } from "@pi-dash/db/schema/auth";
 import { createServerFn } from "@tanstack/react-start";
 import { desc, ne } from "drizzle-orm";
 
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 export interface AdminUser {
@@ -74,13 +75,13 @@ export async function getAdminUsersWithDeps(
   deps: AdminUserReadDeps
 ): Promise<AdminUser[]> {
   if (!context.session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
 
   const role = context.session.user.role ?? "unoriented_volunteer";
   const permissions = await deps.resolvePermissions(role);
   if (!permissions.includes("users.manage")) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
 
   return await deps.listUsers();
