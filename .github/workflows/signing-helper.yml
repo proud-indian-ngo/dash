@@ -14,12 +14,13 @@ defaults:
   run:
     working-directory: services/signing-helper
 
+# Only GitHub-owned actions are allowed here; the runners' rustup and gh do the rest.
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup update stable --no-self-update && rustup default stable
       - run: cargo test --locked
 
   macos:
@@ -28,9 +29,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: rustup update stable --no-self-update && rustup default stable
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - run: cargo build --release --locked --target aarch64-apple-darwin
       - run: cargo build --release --locked --target x86_64-apple-darwin
       - run: |
@@ -38,9 +38,10 @@ jobs:
             target/aarch64-apple-darwin/release/pidash-sign \
             target/x86_64-apple-darwin/release/pidash-sign
           tar -czf pidash-sign-macos-universal.tar.gz pidash-sign
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v7
         with:
-          files: services/signing-helper/pidash-sign-macos-universal.tar.gz
+          name: macos
+          path: services/signing-helper/pidash-sign-macos-universal.tar.gz
 
   windows:
     needs: test
@@ -48,10 +49,26 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup update stable --no-self-update; rustup default stable
+        shell: pwsh
       - run: cargo build --release --locked
       - run: Compress-Archive -Path target/release/pidash-sign.exe -DestinationPath pidash-sign-windows-x64.zip
         shell: pwsh
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v7
         with:
-          files: services/signing-helper/pidash-sign-windows-x64.zip
+          name: windows
+          path: services/signing-helper/pidash-sign-windows-x64.zip
+
+  release:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes pidash-sign-macos-universal.tar.gz pidash-sign-windows-x64.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
