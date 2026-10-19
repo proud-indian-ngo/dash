@@ -113,6 +113,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP, taking precedence over `OTEL_EXPORTER_OTLP_ENDPOINT`, and sends server errors to Error Tracking |
 | `OTEL_SERVICE_NAME` | No | Service name on server logs |
 | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser pageviews and exception capture; unset disables them. Turn on **Discard client IP data** in the PostHog project |
+| `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID` | No | Build only: [source map](docs/architecture/observability.md#posthog) upload key (BuildKit secret `posthog_cli_api_key`, never a build argument) and project, default `386098` |
 | `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <key>` |
 
 ### Production Compose and tooling
@@ -146,6 +147,10 @@ Seed the admin with `bun run auth:seed-admin` (idempotent), with `ADMIN_EMAIL` a
 ## Build
 
 In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docker-compose.prod.yml` to the same minor as the `@rocicorp/zero` catalog version. Image stages are described in [monorepo.md](docs/architecture/monorepo.md#docker-build).
+
+### Source maps in Dokploy
+
+Set `POSTHOG_CLI_API_KEY` in the Dokploy Environment to a personal API key with `error_tracking:write`, limited to project `386098`. Builds log `source maps: uploaded`, `skipped` or `upload failed`.
 
 ## Running
 

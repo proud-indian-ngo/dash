@@ -27,6 +27,10 @@ services:
         VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
         VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
         VITE_APP_ENV: ${APP_ENV:-production}
+        POSTHOG_CLI_PROJECT_ID: ${POSTHOG_CLI_PROJECT_ID:-386098}
+      # Source map upload key; unset uploads nothing (see DEPLOYMENT.md)
+      secrets:
+        - posthog_cli_api_key
     expose:
       - 3000
     environment:
@@ -238,6 +242,12 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+# A file secret outside the build context needs a Buildx entitlement under
+# Compose's Bake builder, so the key comes from the environment instead.
+secrets:
+  posthog_cli_api_key:
+    environment: POSTHOG_CLI_API_KEY
 
 volumes:
   postgres18_data:

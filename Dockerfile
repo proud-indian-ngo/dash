@@ -1,3 +1,18 @@
+# PostHog CLI for the source map upload, pinned with checksums from its GitHub release
+FROM oven/bun:1.4.3-slim AS posthog-cli
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      arm64) target=aarch64-unknown-linux-gnu; sha=eb3d4135fdeac40d7fe8f5706830216d1220d3d20a600f0afa6a0621b6b437a8 ;; \
+      amd64) target=x86_64-unknown-linux-gnu; sha=29f2d4409f08205bab7d52f9cc919e964ea2c867ec568b3acdd9ee3eb4149c3d ;; \
+      *) echo "posthog-cli: unsupported architecture $TARGETARCH"; exit 1 ;; \
+    esac; \
+    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.18.10/posthog-cli-$target.tar.gz'))" && \
+    echo "$sha  /tmp/cli.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/cli.tar.gz -C /tmp && \
+    mv "/tmp/posthog-cli-$target/posthog-cli" /usr/local/bin/posthog-cli && \
+    rm -rf /tmp/cli.tar.gz "/tmp/posthog-cli-$target" && \
+    posthog-cli --version
+
 # Shared dependencies and source for the web build and migrator
 FROM oven/bun:1.4.3-slim AS source
 WORKDIR /app
@@ -50,6 +65,26 @@ RUN head=$(cat .git/HEAD 2>/dev/null || true); \
     echo "release: ${release:-none}"; \
     printf '%s' "$release" > /app/release; \
     cd apps/web && VITE_APP_RELEASE="$release" bunx --bun vite build
+# Client source maps go to PostHog Error Tracking, best effort: a missing key,
+# project ID or release skips the upload, and a failed upload leaves that
+# release unsymbolicated. `process` resolves the release before it injects, so
+# a failure there leaves the bundle untouched. The personal API key exists only
+# inside this RUN. Every map is deleted whatever happened.
+ARG POSTHOG_CLI_PROJECT_ID
+ARG POSTHOG_CLI_HOST=https://us.posthog.com
+RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
+    --mount=type=bind,from=posthog-cli,source=/usr/local/bin/posthog-cli,target=/usr/local/bin/posthog-cli \
+    release=$(cat /app/release); \
+    key=$(cat /run/secrets/posthog_cli_api_key 2>/dev/null || true); \
+    if [ -z "$key" ] || [ -z "$POSTHOG_CLI_PROJECT_ID" ] || [ -z "$release" ]; then \
+      echo "source maps: upload skipped, needs the posthog_cli_api_key secret, POSTHOG_CLI_PROJECT_ID and a release"; \
+    elif POSTHOG_CLI_API_KEY="$key" posthog-cli --host "$POSTHOG_CLI_HOST" sourcemap process \
+        --directory apps/web/.output/public --release-name pi-dash --release-version "$release"; then \
+      echo "source maps: uploaded for release $release"; \
+    else \
+      echo "source maps: upload failed, release $release ships unsymbolicated"; \
+    fi; \
+    find apps/web/.output -name '*.map' -type f -delete
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.4.3-slim AS migrator
