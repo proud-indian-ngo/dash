@@ -3,6 +3,7 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import { notesKeysSchema } from "@/lib/razorpay/notes-keys";
 import { dayCount, isRealIsoDay } from "@/lib/razorpay/reconcile";
 import {
@@ -70,7 +71,7 @@ export const updateRazorpaySettings = createServerFn({ method: "POST" })
     }): Promise<{ attachedBatchCount: number; requeuedCount: number }> => {
       await assertServerPermission(context.session, "finance.manage");
       if (!context.session) {
-        throw new Error("Unauthorized");
+        throw new HttpError(401, "Unauthorized");
       }
       const changedFields = (
         ["clearingAccountId", "notesKeys"] as const
@@ -100,7 +101,7 @@ export const syncRazorpayNow = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<ReconcileQueued> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -126,7 +127,7 @@ export const importPastRazorpayPayments = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<ReconcileQueued> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,

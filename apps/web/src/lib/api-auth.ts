@@ -3,6 +3,8 @@ import type { PermissionId } from "@pi-dash/db/permissions";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { createRequestLogger } from "evlog";
 
+import { HttpError } from "@/lib/http-error";
+
 export interface SessionContext {
   permissions: string[];
   role: string;
@@ -53,12 +55,12 @@ export async function assertServerPermission(
   permissionId: PermissionId
 ): Promise<void> {
   if (!session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const role = session.user.role ?? "unoriented_volunteer";
   const permissions = await resolvePermissions(role);
   if (!permissions.includes(permissionId)) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
 }
 
@@ -71,11 +73,11 @@ export async function assertServerAnyPermission(
   permissionIds: readonly PermissionId[]
 ): Promise<void> {
   if (!session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const role = session.user.role ?? "unoriented_volunteer";
   const permissions = await resolvePermissions(role);
   if (!permissionIds.some((id) => permissions.includes(id))) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
 }

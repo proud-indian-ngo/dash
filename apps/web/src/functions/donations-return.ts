@@ -28,6 +28,7 @@ import {
   DonationsReturnError,
   type ReturnFile,
 } from "@/lib/donations-return-export";
+import { HttpError } from "@/lib/http-error";
 import { withSafeErrors } from "@/lib/safe-errors";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -150,7 +151,7 @@ export const exportDonationsReturn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<ReturnFile> => {
     await assertServerPermission(context.session, "finance.view_sensitive");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const fy = requireYear(data.financialYear);

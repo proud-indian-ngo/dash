@@ -7,6 +7,7 @@ import {
   buildSessionContext,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import {
   AVAILABLE_IMPORT_SOURCES,
   DATE_FORMAT_VALUES,
@@ -64,7 +65,7 @@ export const createContributionImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<CreateBatchResponse> => {
     await assertServerPermission(context.session, "donors.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const parsed = parseCsv(data.csv);
@@ -95,7 +96,7 @@ export const reviewContributionImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<ReviewResponse> => {
     await assertServerPermission(context.session, "donors.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -125,7 +126,7 @@ export const getContributionImport = createServerFn({ method: "POST" })
       "donors.manage",
     ]);
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { permissions } = await buildSessionContext(context.session);
     return await getImportBatchDetail(data.batchId, {
@@ -150,7 +151,7 @@ export const runContributionImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<RunResponse> => {
     await assertServerPermission(context.session, "donors.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     // Existing donors the run will fill, planned from the stored rows.

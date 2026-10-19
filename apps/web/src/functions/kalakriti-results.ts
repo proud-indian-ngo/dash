@@ -29,6 +29,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -83,7 +84,7 @@ export const getKalakritiStandings = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(yearSchema)
   .handler(async ({ context, data }): Promise<KalakritiStandings> => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     const log = createRequestLogger();
     log.set({
       handler: "getKalakritiStandings",
@@ -100,7 +101,7 @@ export const getKalakritiStandings = createServerFn({ method: "GET" })
         !access ||
         (access.edition.lifecycle === "archived" && !access.isGlobalAdmin)
       )
-        throw new Error("Unauthorized");
+        throw new HttpError(401, "Unauthorized");
       const editionId = access.edition.id;
       return await db.transaction(
         async (tx) => {
@@ -112,7 +113,7 @@ export const getKalakritiStandings = createServerFn({ method: "GET" })
             })
             .from(kalakritiEdition)
             .where(eq(kalakritiEdition.id, editionId));
-          if (!edition) throw new Error("Edition not found");
+          if (!edition) throw new HttpError(404, "Edition not found");
           const [state] = await tx
             .select()
             .from(kalakritiResultsState)
@@ -224,7 +225,7 @@ export const getKalakritiResultDetail = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(yearSchema.extend({ divisionId: z.uuid() }))
   .handler(async ({ context, data }): Promise<KalakritiResultDetail | null> => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     const log = createRequestLogger();
     log.set({
       handler: "getKalakritiResultDetail",
@@ -242,7 +243,7 @@ export const getKalakritiResultDetail = createServerFn({ method: "GET" })
         !access ||
         (access.edition.lifecycle === "archived" && !access.isGlobalAdmin)
       )
-        throw new Error("Unauthorized");
+        throw new HttpError(401, "Unauthorized");
       const editionId = access.edition.id;
       return await db.transaction(
         async (tx) => {

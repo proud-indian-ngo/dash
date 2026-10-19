@@ -15,6 +15,7 @@ import {
 import { runSessionAuditedAction } from "@/lib/audit";
 import { saveDonorSchema } from "@/lib/donor-schema";
 import { mapUnreadableValue } from "@/lib/encrypted-reveal";
+import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -54,7 +55,7 @@ export const revealPartyIdentifier = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ idNumber: string | null }> => {
     await assertServerPermission(context.session, "finance.view_sensitive");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -83,7 +84,7 @@ export const saveDonor = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "donors.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     // Clearing a stored identifier is irreversible, so it gets its own action

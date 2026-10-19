@@ -48,6 +48,7 @@ import type {
   StatementRunResponse,
   UnseenPaymentsResponse,
 } from "@/lib/bank-statement/types";
+import { HttpError } from "@/lib/http-error";
 import {
   DATE_FORMAT_VALUES,
   MAX_IMPORT_FILE_BYTES,
@@ -85,7 +86,7 @@ export const createBankStatementImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<CreateStatementBatchResponse> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const parsed = parseCsv(data.csv, {
@@ -117,7 +118,7 @@ export const reviewBankStatementImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<StatementReviewResponse> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     return await runSessionAuditedAction(
       context.session,
@@ -140,7 +141,7 @@ export const runBankStatementImport = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<StatementRunResponse> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     // Counts the run is about to write, planned from the stored rows.
@@ -169,7 +170,7 @@ export const findBankStatementMatches = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<MatchRunResult> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const planned = await previewStatementMatches(data.orgAccountId);
@@ -320,7 +321,7 @@ export const updateStatementLine = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ lineId: string }> => {
     await assertServerPermission(context.session, "finance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(

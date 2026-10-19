@@ -23,6 +23,7 @@ import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import {
   enqueueGuardianAccessNotification,
   enqueueGuardianReactivationNotification,
@@ -77,7 +78,7 @@ async function requireGuardianAdmin(
   editionId: string
 ): Promise<AuthenticatedContext> {
   if (!context.session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const permissions = await resolvePermissions(
     context.session.user.role ?? "unoriented_volunteer"
@@ -86,7 +87,7 @@ async function requireGuardianAdmin(
     return context as AuthenticatedContext;
   }
   if (!permissions.includes("kalakriti.view")) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
 
   const editionAdmin = await db
@@ -107,7 +108,7 @@ async function requireGuardianAdmin(
     .limit(1)
     .then((rows) => rows[0]);
   if (!editionAdmin) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   return context as AuthenticatedContext;
 }
@@ -177,7 +178,7 @@ async function insertGuardianMembershipRecords(
     .from(kalakritiEdition)
     .where(eq(kalakritiEdition.id, editionId))
     .for("update");
-  if (!lockedEdition) throw new Error("Edition not found");
+  if (!lockedEdition) throw new HttpError(404, "Edition not found");
   if (lockedEdition.lifecycle === "archived")
     throw new Error("Edition is archived");
   const membershipId = uuidv7();
@@ -420,7 +421,7 @@ export const inviteKalakritiGuardian = createServerFn({ method: "POST" })
       .limit(1)
       .then((rows) => rows[0]);
     if (!edition) {
-      throw new Error("Kalakriti Edition not found");
+      throw new HttpError(404, "Kalakriti Edition not found");
     }
 
     const existing = await db
@@ -527,7 +528,7 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
       .limit(1)
       .then((rows) => rows[0]);
     if (membership?.kind !== "guardian") {
-      throw new Error("Guardian membership not found");
+      throw new HttpError(404, "Guardian membership not found");
     }
     const authed = await requireGuardianAdmin(context, membership.editionId);
     if (membership.state !== "active") {
@@ -634,7 +635,7 @@ export const updateKalakritiGuardian = createServerFn({ method: "POST" })
       .limit(1)
       .then((rows) => rows[0]);
     if (membership?.kind !== "guardian") {
-      throw new Error("Guardian membership not found");
+      throw new HttpError(404, "Guardian membership not found");
     }
     const authed = await requireGuardianAdmin(context, membership.editionId);
     if (membership.state !== "active") {

@@ -1,5 +1,7 @@
 import { uuidv7 } from "uuidv7";
 
+import { HttpError } from "@/lib/http-error";
+
 import type { ProtectedUploadScope } from "./private-media-access";
 
 export const PROTECTED_UPLOAD_SUBFOLDERS = [
@@ -42,7 +44,7 @@ export function assertOwnedTemporaryUploadKey(
     key.startsWith(`${owner.keyPrefix}/${subfolder}/tmp/${owner.userId}/`)
   );
   if (!ownedPrefix || key.endsWith("/")) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   return key;
 }

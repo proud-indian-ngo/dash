@@ -1,6 +1,8 @@
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { listSocialPeople } from "@pi-dash/db/queries/social-api";
 
+import { HttpError } from "@/lib/http-error";
+
 /** Permissions that may read Social page names (`users.view` sees users anyway). */
 export const SOCIAL_PEOPLE_PERMISSIONS = ["social.manage", "users.view"];
 
@@ -19,13 +21,13 @@ export async function loadSocialPeople(
   deps: SocialPeopleDeps = { listSocialPeople, resolvePermissions }
 ) {
   if (!session) {
-    throw new Error("Unauthorized");
+    throw new HttpError(401, "Unauthorized");
   }
   const permissions = await deps.resolvePermissions(
     session.user.role ?? "unoriented_volunteer"
   );
   if (!SOCIAL_PEOPLE_PERMISSIONS.some((id) => permissions.includes(id))) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   return await deps.listSocialPeople(ids);
 }

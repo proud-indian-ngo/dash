@@ -24,6 +24,7 @@ import { and, asc, eq, or, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
+import { HttpError } from "@/lib/http-error";
 import { resolveKalakritiEditionAccess } from "@/lib/server/kalakriti-edition-access";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -31,7 +32,7 @@ export const getKalakritiAwards = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator(z.strictObject({ year: z.number().int().min(2000).max(2200) }))
   .handler(async ({ context, data }): Promise<KalakritiAwardsRoster> => {
-    if (!context.session) throw new Error("Unauthorized");
+    if (!context.session) throw new HttpError(401, "Unauthorized");
     const log = createRequestLogger();
     log.set({
       handler: "getKalakritiAwards",
@@ -45,7 +46,7 @@ export const getKalakritiAwards = createServerFn({ method: "GET" })
         year: data.year,
       });
       if (!access || !canManageKalakritiAwards(access))
-        throw new Error("Unauthorized");
+        throw new HttpError(401, "Unauthorized");
       const editionId = access.edition.id;
       return await db.transaction(
         async (tx) => {
@@ -57,7 +58,7 @@ export const getKalakritiAwards = createServerFn({ method: "GET" })
             !edition ||
             (edition.lifecycle === "archived" && !access.isGlobalAdmin)
           )
-            throw new Error("Unauthorized");
+            throw new HttpError(401, "Unauthorized");
 
           const rows = await tx
             .select({
