@@ -1,4 +1,4 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { openPublicEvent, openSeededTeamEvent } from "../../helpers/team-event";
 
 /** Public, upcoming, in a team the volunteer is not in. */
@@ -52,8 +52,9 @@ test.describe("Event interest flow (volunteer)", () => {
 });
 
 test.describe("Event interest requests (admin)", () => {
-  test("admin sees a pending request with Approve and Reject", async ({
+  test("admin sees a pending request with contact details, Approve and Reject", async ({
     page,
+    unorientedVolunteerEmail,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
     test.slow();
@@ -74,5 +75,46 @@ test.describe("Event interest requests (admin)", () => {
         name: "Reject Test Unoriented Volunteer",
       })
     ).toBeVisible();
+    // Shown inline, as touch devices cannot open the hover card
+    await expect(
+      page.getByRole("link", { exact: true, name: unorientedVolunteerEmail })
+    ).toHaveAttribute("href", `mailto:${unorientedVolunteerEmail}`);
+  });
+});
+
+test.describe("Event interest contacts (team lead)", () => {
+  /** Upcoming event in the team the volunteer leads; seeded in seed-test-user. */
+  const LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000203";
+
+  test("a lead without users.view sees the requester's contact details", async ({
+    page,
+    unorientedVolunteerEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    await page.goto(`/events/${LEAD_EVENT_ID}`);
+    await waitForZeroReady(page);
+
+    await expect(page.getByText(/Interest requests \(\d+\)/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByRole("link", { exact: true, name: unorientedVolunteerEmail })
+    ).toHaveAttribute("href", `mailto:${unorientedVolunteerEmail}`);
+    await expect(
+      page.getByRole("link", { exact: true, name: "WhatsApp" })
+    ).toHaveAttribute("href", /^https:\/\/wa\.me\/\d+$/);
+  });
+
+  test("a team member who is not a lead sees no requests or contacts", async ({
+    page,
+    unorientedVolunteerEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    await openSeededTeamEvent(page, PENDING_EVENT);
+
+    await expect(page.getByText(/Interest requests \(\d+\)/)).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { exact: true, name: unorientedVolunteerEmail })
+    ).toHaveCount(0);
   });
 });

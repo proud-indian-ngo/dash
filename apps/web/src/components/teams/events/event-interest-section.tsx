@@ -7,9 +7,7 @@ import type { StatusTone } from "@/components/shared/status-badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { handleMutationResult } from "@/lib/mutation-result";
 
-import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import type { InterestWithUser } from "./interest-requests";
-import { InterestRequests } from "./interest-requests";
 
 const interestStatusMap = {
   approved: { label: "Interest approved", tone: "success" },
@@ -22,7 +20,6 @@ const interestStatusMap = {
 export function VolunteerInterestSection({
   canManage,
   canManageInterest,
-  interests,
   isMember,
   isPublic,
   isTeamMember,
@@ -33,7 +30,6 @@ export function VolunteerInterestSection({
 }: {
   canManage: boolean;
   canManageInterest?: boolean;
-  interests?: readonly InterestWithUser[];
   isMember?: boolean;
   isPublic: boolean;
   isTeamMember?: boolean;
@@ -99,10 +95,6 @@ export function VolunteerInterestSection({
             </Button>
           ) : null}
         </div>
-      ) : null}
-      {shouldRenderInterestRequests(canManageInterest, interests) &&
-      interests ? (
-        <InterestRequests interests={interests} />
       ) : null}
     </>
   );

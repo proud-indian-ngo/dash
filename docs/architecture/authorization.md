@@ -45,3 +45,5 @@ Better Auth's admin plugin only knows admin versus user. `toBetterAuthRole()` ma
 | UI | `hasPermission("id")` from `AppContext` controls visibility |
 
 Client-side mutator runs are optimistic; the server pass is authoritative. Gate a protected route in `beforeLoad` and its UI action with `hasPermission`, and test `Route.options.beforeLoad` directly with denied and allowed contexts.
+
+A user's email and phone need `users.view`. The one exception: interest reviewers, team leads included, see the contacts of their events' pending requesters ([teams and events](teams-and-events.md#interest)).
