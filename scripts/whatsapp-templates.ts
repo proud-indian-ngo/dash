@@ -320,7 +320,14 @@ async function edit(args: string[]): Promise<void> {
     }
     try {
       await graph<{ success: boolean }>(cfg, found.id, {
-        body: { components: payload.components },
+        // Meta rejects an edit without these (error subcode 2388039).
+        // The category must stay the one Meta holds: an approved
+        // template's category can't change.
+        body: {
+          category: found.category,
+          components: payload.components,
+          parameter_format: payload.parameter_format,
+        },
         method: "POST",
       });
       edited += 1;
