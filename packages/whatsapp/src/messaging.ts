@@ -9,11 +9,28 @@ function hashIdempotencyKey(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/**
+ * GoWA's ID for the message it accepted, or undefined when the body has
+ * none. Never throws: the message is already sent, so a retry would send
+ * it again.
+ */
+async function readMessageId(response: Response): Promise<string | undefined> {
+  try {
+    const data = (await response.json()) as {
+      results?: { message_id?: unknown };
+    };
+    const id = data.results?.message_id;
+    return typeof id === "string" && id !== "" ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function sendWhatsAppMessage(
   phone: string,
   message: string,
   options?: { idempotencyKey?: string }
-): Promise<void> {
+): Promise<string | undefined> {
   const log = createRequestLogger({
     method: "POST",
     path: "sendWhatsAppMessage",
@@ -24,7 +41,7 @@ export async function sendWhatsAppMessage(
   if (!apiUrl) {
     log.warn("whatsapp_not_configured");
     log.emit();
-    return;
+    return undefined;
   }
 
   const formatted = formatPhoneForWhatsApp(phone);
@@ -48,15 +65,17 @@ export async function sendWhatsAppMessage(
     throw error;
   }
 
-  log.set({ event: "message_sent" });
+  const messageId = await readMessageId(response);
+  log.set({ event: "message_sent", messageId });
   log.emit();
+  return messageId;
 }
 
 export async function sendWhatsAppGroupMessage(
   groupJid: string,
   message: string,
   options?: { replyMessageId?: string }
-): Promise<void> {
+): Promise<string | undefined> {
   const log = createRequestLogger({
     method: "POST",
     path: "sendWhatsAppGroupMessage",
@@ -67,7 +86,7 @@ export async function sendWhatsAppGroupMessage(
   if (!apiUrl) {
     log.warn("whatsapp_not_configured");
     log.emit();
-    return;
+    return undefined;
   }
 
   const body: Record<string, string> = { message, phone: groupJid };
@@ -91,8 +110,10 @@ export async function sendWhatsAppGroupMessage(
     throw error;
   }
 
-  log.set({ event: "message_sent" });
+  const messageId = await readMessageId(response);
+  log.set({ event: "message_sent", messageId });
   log.emit();
+  return messageId;
 }
 
 export async function sendWhatsAppPoll(
@@ -153,7 +174,7 @@ export async function sendWhatsAppImage(
   phone: string,
   imageUrl: string,
   caption?: string
-): Promise<void> {
+): Promise<string | undefined> {
   const log = createRequestLogger({
     method: "POST",
     path: "sendWhatsAppImage",
@@ -164,7 +185,7 @@ export async function sendWhatsAppImage(
   if (!apiUrl) {
     log.warn("whatsapp_not_configured");
     log.emit();
-    return;
+    return undefined;
   }
 
   const formData = new FormData();
@@ -187,15 +208,17 @@ export async function sendWhatsAppImage(
     throw error;
   }
 
-  log.set({ event: "image_sent" });
+  const messageId = await readMessageId(response);
+  log.set({ event: "image_sent", messageId });
   log.emit();
+  return messageId;
 }
 
 export async function sendWhatsAppVideo(
   phone: string,
   videoUrl: string,
   caption?: string
-): Promise<void> {
+): Promise<string | undefined> {
   const log = createRequestLogger({
     method: "POST",
     path: "sendWhatsAppVideo",
@@ -206,7 +229,7 @@ export async function sendWhatsAppVideo(
   if (!apiUrl) {
     log.warn("whatsapp_not_configured");
     log.emit();
-    return;
+    return undefined;
   }
 
   const formData = new FormData();
@@ -229,8 +252,10 @@ export async function sendWhatsAppVideo(
     throw error;
   }
 
-  log.set({ event: "video_sent" });
+  const messageId = await readMessageId(response);
+  log.set({ event: "video_sent", messageId });
   log.emit();
+  return messageId;
 }
 
 export async function sendWhatsAppFile(
@@ -238,7 +263,7 @@ export async function sendWhatsAppFile(
   fileUrl: string,
   fileName: string,
   caption?: string
-): Promise<void> {
+): Promise<string | undefined> {
   const log = createRequestLogger({ method: "POST", path: "sendWhatsAppFile" });
   log.set({ fileName, phone });
 
@@ -246,7 +271,7 @@ export async function sendWhatsAppFile(
   if (!apiUrl) {
     log.warn("whatsapp_not_configured");
     log.emit();
-    return;
+    return undefined;
   }
 
   const fileResponse = await fetch(fileUrl);
@@ -279,8 +304,10 @@ export async function sendWhatsAppFile(
     throw error;
   }
 
-  log.set({ event: "file_sent" });
+  const messageId = await readMessageId(response);
+  log.set({ event: "file_sent", messageId });
   log.emit();
+  return messageId;
 }
 
 export interface WhatsAppMediaAttachment {
@@ -295,12 +322,17 @@ export async function sendWhatsAppMedia(
   phone: string,
   attachment: WhatsAppMediaAttachment,
   caption?: string
-): Promise<void> {
+): Promise<string | undefined> {
   if (WAPI_IMAGE_TYPES.has(attachment.mimeType)) {
-    await sendWhatsAppImage(phone, attachment.url, caption);
-  } else if (attachment.mimeType.startsWith("video/")) {
-    await sendWhatsAppVideo(phone, attachment.url, caption);
-  } else {
-    await sendWhatsAppFile(phone, attachment.url, attachment.fileName, caption);
+    return await sendWhatsAppImage(phone, attachment.url, caption);
   }
+  if (attachment.mimeType.startsWith("video/")) {
+    return await sendWhatsAppVideo(phone, attachment.url, caption);
+  }
+  return await sendWhatsAppFile(
+    phone,
+    attachment.url,
+    attachment.fileName,
+    caption
+  );
 }

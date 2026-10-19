@@ -3,6 +3,7 @@ import { team as teamTable } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import {
   type WhatsAppTemplateMessage,
@@ -329,7 +330,18 @@ export async function notifyEventCreated({
     if (env.APP_URL) {
       lines.push(`\nView: ${env.APP_URL}/teams/${teamId}`);
     }
-    await sendWhatsAppGroupMessage(group.jid, lines.join("\n"));
+    const text = lines.join("\n");
+    const messageId = await sendWhatsAppGroupMessage(group.jid, text);
+    await logGowaSend(
+      {
+        chatJid: group.jid,
+        eventId,
+        kind: "group_post",
+        source: "event_created",
+        text,
+      },
+      [messageId]
+    );
   }
 }
 

@@ -4,10 +4,17 @@ import { notification } from "@pi-dash/db/schema/notification";
 import { emailMessage } from "@pi-dash/db/schema/private/email-message";
 import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
 import {
+  gowaMessage,
+  gowaMessagePart,
+  gowaReceipt,
+} from "@pi-dash/db/schema/private/gowa-message";
+import {
   heldNotification,
   heldNotificationRecipient,
 } from "@pi-dash/db/schema/private/held-notification";
 import { whatsappMessage } from "@pi-dash/db/schema/private/whatsapp-message";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { MAX_ATTEMPTS } from "@pi-dash/notifications/batching";
 import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
 import {
@@ -18,14 +25,18 @@ import { WHATSAPP_TEMPLATES } from "@pi-dash/whatsapp/templates";
 import { type SQL, sql } from "drizzle-orm";
 
 import {
+  type DeliveredBy,
   DELIVERY_HISTORY_DAYS,
   DELIVERY_STATS_DAYS,
   type DeliveryRow,
   type DeliveryStats,
   type EmailDeliveryStatus,
   type EmailLogFacts,
+  GATEWAY_SOURCE_LABEL,
+  type GatewayFacts,
   type HeldFacts,
   type InboxStatus,
+  receiptPersonName,
   type WhatsAppDeliveryStatus,
   type WhatsAppLogFacts,
 } from "@/lib/notification-delivery";
@@ -43,6 +54,17 @@ const TEMPLATE_LABELS = new Map<string, string>(
   WHATSAPP_TEMPLATES.map((template) => [template.name, template.label])
 );
 
+/** A GoWA send `g`'s title: what sent it, then its event `e`'s name. */
+const GATEWAY_TITLE = sql`(case g.source ${sql.join(
+  Object.entries(GATEWAY_SOURCE_LABEL).map(
+    ([source, label]) => sql`when ${source} then ${label}`
+  ),
+  sql` `
+)} end || coalesce(' · ' || e.name, ''))`;
+
+/** A gateway notification's first line, without WhatsApp's bold marks. */
+const GATEWAY_FIRST_LINE = sql`btrim(replace(split_part(g.text, E'\n', 1), '*', ''))`;
+
 /** Epoch milliseconds; timestamps are stored as UTC without a zone. */
 function epoch(column: string): SQL {
   return sql.raw(`(extract(epoch from ${column}) * 1000)::bigint`);
@@ -57,6 +79,7 @@ function all(conditions: SQL[]): SQL {
 }
 
 export interface DeliveryFilters {
+  deliveredBy?: DeliveredBy;
   email?: EmailDeliveryStatus;
   inbox?: InboxStatus;
   /** One message's key, to open a linked row that isn't on the page. */
@@ -70,7 +93,9 @@ export interface DeliveryFilters {
 /**
  * One row per person per notification over the last `days`: inbox rows
  * (keys `${key}-inbox` or `${key}-inbox-${userId}`), batched sends whose
- * inbox copy was off, and Cloud API sends with neither. A send keyed
+ * inbox copy was off, and Cloud API or gateway notifications with neither.
+ * Other GoWA sends (group posts, scheduled messages) are a row each, keyed
+ * `gowa-${id}`. A send keyed
  * `${key}-whatsapp-${userId}` was a notification whose inbox was off; any
  * other key (group invites, Social digests) never had an inbox copy.
  * Summaries are not rows of their own. Recipient, topic and search filter
@@ -135,8 +160,18 @@ function deliveriesCte(days: number, filters: DeliveryFilters): SQL {
       group by r.held_key, r.user_id, hn.title, hn.topic_id
     ),
     whatsapp_only as (
-      select w.idempotency_key, w.user_id, w.created_at, w.template, b.key as base_key
-      from ${whatsappMessage} w
+      select w.idempotency_key, w.user_id, w.created_at, w.title, b.key as base_key
+      from (
+        select m.idempotency_key, m.user_id, m.created_at, m.template as title,
+          true as api
+        from ${whatsappMessage} m
+        where m.created_at >= ${since(days)}
+        union all
+        select g.idempotency_key, g.user_id, g.created_at, ${GATEWAY_FIRST_LINE},
+          false
+        from ${gowaMessage} g
+        where g.created_at >= ${since(days)} and g.source = 'notification'
+      ) w
       cross join lateral (
         select case
           when right(w.idempotency_key, length(w.user_id) + 10) = '-whatsapp-' || w.user_id
@@ -144,15 +179,17 @@ function deliveriesCte(days: number, filters: DeliveryFilters): SQL {
         end as key
       ) b
       where ${all([
-        sql`w.created_at >= ${since(days)}`,
         sql`w.idempotency_key not like 'digest-%'`,
         ...byUser(sql`w.user_id`),
         ...(filters.topic ? [sql`false`] : []),
         ...(pattern
           ? [
-              matchingTemplates.length > 0
-                ? sql`(w.template in (${sql.join(matchingTemplates, sql`, `)}) or ${nameMatches(sql`w.user_id`)})`
-                : nameMatches(sql`w.user_id`),
+              sql`(${
+                matchingTemplates.length > 0
+                  ? sql`(w.api and w.title in (${sql.join(matchingTemplates, sql`, `)}))`
+                  : sql`false`
+              } or (not w.api and w.title ilike ${pattern})
+                or ${nameMatches(sql`w.user_id`)})`,
             ]
           : []),
         sql`not exists (
@@ -165,20 +202,44 @@ function deliveriesCte(days: number, filters: DeliveryFilters): SQL {
         )`,
       ])}
     ),
+    gateway_only as (
+      select g.id, g.user_id, g.created_at, t.title, wg.name as group_name
+      from ${gowaMessage} g
+      left join ${teamEvent} e on e.id = g.event_id
+      left join ${whatsappGroup} wg on wg.jid = g.chat_jid
+      cross join lateral (select ${GATEWAY_TITLE} as title) t
+      where ${all([
+        sql`g.created_at >= ${since(days)}`,
+        sql`g.source <> 'notification'`,
+        ...byUser(sql`g.user_id`),
+        ...(filters.topic ? [sql`false`] : []),
+        ...(pattern
+          ? [
+              sql`(t.title ilike ${pattern} or wg.name ilike ${pattern}
+                or ${nameMatches(sql`g.user_id`)})`,
+            ]
+          : []),
+      ])}
+    ),
     deliveries as (
       select i.key, i.user_id, i.created_at, i.title, i.topic_id, i.read,
-        i.archived, 'inbox' as kind, i.key || '-whatsapp-' || i.user_id as whatsapp_key
+        i.archived, 'inbox' as kind, i.key || '-whatsapp-' || i.user_id as whatsapp_key,
+        null::uuid as gateway_id, null::text as group_name
       from inbox i
       union all
       select h.key, h.user_id, h.created_at, h.title, h.topic_id, null, null,
-        'inbox_off', h.key || '-whatsapp-' || h.user_id
+        'inbox_off', h.key || '-whatsapp-' || h.user_id, null, null
       from held_only h
       union all
       select coalesce(w.base_key, w.idempotency_key), w.user_id, w.created_at,
-        w.template, null, null, null,
+        w.title, null, null, null,
         case when w.base_key is null then 'whatsapp' else 'inbox_off' end,
-        w.idempotency_key
+        w.idempotency_key, null, null
       from whatsapp_only w
+      union all
+      select 'gowa-' || o.id, o.user_id, o.created_at, o.title, null, null,
+        null, 'gateway', null, o.id, o.group_name
+      from gateway_only o
     )`;
 }
 
@@ -188,8 +249,10 @@ function deliveriesCte(days: number, filters: DeliveryFilters): SQL {
  * `batch_id` is a kill-switch drop, `skipped_read` a message already read in
  * the inbox, and `attempts` at `MAX_ATTEMPTS` a give-up. An email send
  * reads its delivery log; one without a log row (sent before the log, or
- * not logged) is "not tracked". "Off" and "No WhatsApp" read the recipient
- * as they are now, and only where nothing was sent.
+ * not logged) is "not tracked". A gateway send `g` reads its receipts `gr`:
+ * a group post stays "sent" (its counts are the status), a direct message
+ * moves on as the person's receipts arrive. "Off" and "No WhatsApp" read
+ * the recipient as they are now, and only where nothing was sent.
  */
 const INBOX_STATUS_SQL = sql`case
   when d.kind = 'inbox' then
@@ -203,11 +266,24 @@ const WHATSAPP_STATUS_SQL = sql`case
   when hw.held_key is not null and hw.batch_id is null then 'not_sent'
   when hw.skipped_read then 'skipped_read'
   when w.status is not null then w.status::text
-  when s.status is not null then 'summary'
+  when g.error is not null then 'failed'
+  when g.kind = 'group_post' then 'sent'
+  when gr.read_count > 0 then 'read'
+  when gr.delivered_count > 0 then 'delivered'
+  when g.id is not null then 'sent'
+  when s.status is not null or gs.id is not null then 'summary'
   when hw.attempts >= ${MAX_ATTEMPTS} then 'gave_up'
   when u.phone is null then 'no_whatsapp'
   when p.whatsapp_enabled = false then 'off'
   else 'not_sent'
+end`;
+
+/** A group post, a gateway send, a Cloud API send, or nothing on WhatsApp. */
+const DELIVERED_BY_SQL = sql`case
+  when g.kind = 'group_post' then 'whatsapp_group'
+  when w.status is not null or s.status is not null then 'whatsapp_api'
+  when g.id is not null or gs.id is not null then 'whatsapp_gateway'
+  else 'none'
 end`;
 
 const EMAIL_STATUS_SQL = sql`case
@@ -230,6 +306,7 @@ end`;
 
 interface FactRow extends Record<string, unknown> {
   created_at: string;
+  delivered_by: DeliveredBy;
   ed_created_at: string | null;
   ed_error: string | null;
   ed_status: EmailLogFacts["status"] | null;
@@ -245,6 +322,13 @@ interface FactRow extends Record<string, unknown> {
   e_created_at: string | null;
   e_sent_at: string | null;
   email_status: EmailDeliveryStatus;
+  g_created_at: string | null;
+  g_delivered_count: number | null;
+  g_error: string | null;
+  g_first_delivered_at: string | null;
+  g_first_read_at: string | null;
+  g_kind: GatewayFacts["kind"] | null;
+  g_read_count: number | null;
   inbox_status: InboxStatus;
   key: string;
   recipient_name: string | null;
@@ -329,13 +413,30 @@ function emailLogFacts(
   };
 }
 
+function gatewayFacts(row: FactRow): GatewayFacts | null {
+  if (row.g_kind === null) {
+    return null;
+  }
+  return {
+    createdAt: Number(row.g_created_at),
+    deliveredCount: Number(row.g_delivered_count ?? 0),
+    error: row.g_error,
+    firstDeliveredAt: num(row.g_first_delivered_at),
+    firstReadAt: num(row.g_first_read_at),
+    kind: row.g_kind,
+    readCount: Number(row.g_read_count ?? 0),
+  };
+}
+
 function toDeliveryRow(row: FactRow): DeliveryRow {
   return {
     createdAt: Number(row.created_at),
+    deliveredBy: row.delivered_by,
     email: row.email_status,
     emailHeld: heldFacts(row, "e"),
     emailLog: emailLogFacts(row, "em"),
     emailSummaryLog: emailLogFacts(row, "ed"),
+    gateway: gatewayFacts(row),
     id: `${row.key}\n${row.user_id ?? ""}`,
     inbox: row.inbox_status,
     key: row.key,
@@ -379,12 +480,17 @@ export async function queryDeliveries(
     ...(filters.inbox ? [sql`r.inbox_status = ${filters.inbox}`] : []),
     ...(filters.whatsapp ? [sql`r.whatsapp_status = ${filters.whatsapp}`] : []),
     ...(filters.email ? [sql`r.email_status = ${filters.email}`] : []),
+    ...(filters.deliveredBy
+      ? [sql`r.delivered_by = ${filters.deliveredBy}`]
+      : []),
   ]);
   const rows = await executor.execute(sql`
     with ${deliveriesCte(DELIVERY_HISTORY_DAYS, filters)},
     rows as (
       select d.key, d.user_id, d.created_at, d.title, d.topic_id,
-        u.name as recipient_name,
+        coalesce(u.name, d.group_name,
+          case when d.gateway_id is not null and d.user_id is null
+            then 'Unknown group' end) as recipient_name,
         es.created_at as suppressed_at,
         he.created_at as e_created_at, he.claimed_at as e_claimed_at,
         he.sent_at as e_sent_at, he.attempts as e_attempts,
@@ -400,9 +506,14 @@ export async function queryDeliveries(
         em.created_at as em_created_at, em.updated_at as em_updated_at,
         ed.status as ed_status, ed.error as ed_error,
         ed.created_at as ed_created_at, ed.updated_at as ed_updated_at,
+        g.kind as g_kind, g.error as g_error, g.created_at as g_created_at,
+        gr.delivered_count as g_delivered_count, gr.read_count as g_read_count,
+        gr.first_delivered_at as g_first_delivered_at,
+        gr.first_read_at as g_first_read_at,
         ${INBOX_STATUS_SQL} as inbox_status,
         ${WHATSAPP_STATUS_SQL} as whatsapp_status,
-        ${EMAIL_STATUS_SQL} as email_status
+        ${EMAIL_STATUS_SQL} as email_status,
+        ${DELIVERED_BY_SQL} as delivered_by
       from deliveries d
       left join ${user} u on u.id = d.user_id
       left join ${emailSuppression} es on es.email = lower(u.email)
@@ -424,6 +535,28 @@ export async function queryDeliveries(
       left join ${whatsappMessage} s
         on s.idempotency_key = 'digest-' || hw.batch_id || '-whatsapp'
       left join lateral (
+        select m.id, m.kind, m.error, m.created_at from ${gowaMessage} m
+        where m.id = d.gateway_id
+          or (d.gateway_id is null and m.idempotency_key = d.whatsapp_key)
+        order by m.created_at desc limit 1
+      ) g on true
+      left join lateral (
+        select count(distinct r.person_jid)
+            filter (where r.delivered_at is not null)::int as delivered_count,
+          count(distinct r.person_jid)
+            filter (where r.read_at is not null)::int as read_count,
+          min(r.delivered_at) as first_delivered_at,
+          min(r.read_at) as first_read_at
+        from ${gowaMessagePart} mp
+        join ${gowaReceipt} r on r.message_id = mp.message_id
+        where mp.gowa_message_id = g.id
+      ) gr on true
+      left join lateral (
+        select m.id from ${gowaMessage} m
+        where m.idempotency_key = 'digest-' || hw.batch_id || '-whatsapp'
+        limit 1
+      ) gs on true
+      left join lateral (
         select m.status, m.error, m.created_at, m.updated_at
         from ${emailMessage} m
         where m.key = d.key and m.user_id = d.user_id
@@ -438,7 +571,11 @@ export async function queryDeliveries(
     )
     select r.key, r.user_id, ${epoch("r.created_at")} as created_at, r.title,
       r.topic_id, r.recipient_name, r.inbox_status, r.whatsapp_status,
-      r.email_status,
+      r.email_status, r.delivered_by,
+      r.g_kind, r.g_error, ${epoch("r.g_created_at")} as g_created_at,
+      r.g_delivered_count, r.g_read_count,
+      ${epoch("r.g_first_delivered_at")} as g_first_delivered_at,
+      ${epoch("r.g_first_read_at")} as g_first_read_at,
       ${epoch("r.suppressed_at")} as suppressed_at,
       ${epoch("r.e_created_at")} as e_created_at,
       ${epoch("r.e_claimed_at")} as e_claimed_at,
@@ -487,13 +624,25 @@ export async function queryDeliveryOverview(
     executor.execute<Record<keyof DeliveryStats, number>>(sql`
       with ${deliveriesCte(DELIVERY_STATS_DAYS, {})}
       select
-        (select count(*)::int from deliveries) as "notificationsSent",
+        (select count(*)::int from deliveries where kind <> 'gateway')
+          as "notificationsSent",
         (select count(*)::int from ${whatsappMessage}
           where created_at >= ${since(DELIVERY_STATS_DAYS)}
-            and status in ('delivered', 'read')) as "whatsappDelivered",
+            and status in ('delivered', 'read'))
+        + (select count(*)::int from ${gowaMessage} g
+          where g.created_at >= ${since(DELIVERY_STATS_DAYS)}
+            and g.kind = 'direct' and g.error is null
+            and exists (
+              select 1 from ${gowaMessagePart} mp
+              join ${gowaReceipt} r on r.message_id = mp.message_id
+              where mp.gowa_message_id = g.id and r.delivered_at is not null
+            )) as "whatsappDelivered",
         (select count(*)::int from ${whatsappMessage}
           where created_at >= ${since(DELIVERY_STATS_DAYS)}
-            and status = 'failed') as "whatsappFailed",
+            and status = 'failed')
+        + (select count(*)::int from ${gowaMessage}
+          where created_at >= ${since(DELIVERY_STATS_DAYS)}
+            and error is not null) as "whatsappFailed",
         (select count(*)::int from ${emailMessage}
           where created_at >= ${since(DELIVERY_STATS_DAYS)}
             and status in ('delivered', 'complained')) as "emailsDelivered",
@@ -513,6 +662,10 @@ export async function queryDeliveryOverview(
         select user_id from ${whatsappMessage}
         where created_at >= ${since(DELIVERY_HISTORY_DAYS)}
           and user_id is not null
+        union
+        select user_id from ${gowaMessage}
+        where created_at >= ${since(DELIVERY_HISTORY_DAYS)}
+          and user_id is not null
       )
       order by u.name
     `),
@@ -530,10 +683,111 @@ export async function queryDeliveryOverview(
   };
 }
 
+/** One person's receipts for a group post. */
+export interface GatewayRecipient {
+  deliveredAt: number | null;
+  name: string;
+  readAt: number | null;
+}
+
+/** A message sent through GoWA, with who received it for a group post. */
+export interface GatewayPreview {
+  attachmentCount: number;
+  /** Empty for a direct message, whose status says it all. */
+  recipients: GatewayRecipient[];
+  summary: boolean;
+  text: string;
+}
+
 export interface DeliveryPreview {
+  /** The GoWA message sent, or the summary that included it. */
+  gateway: GatewayPreview | null;
   inbox: { body: string; title: string } | null;
   /** The message sent, or the summary that included it. */
   whatsapp: (WhatsAppPreview & { summary: boolean }) | null;
+}
+
+const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+
+/**
+ * A GoWA send by id, or the one a notification's WhatsApp went out as. A
+ * group post's receipts are matched to users by phone here rather than
+ * when they arrive, which keeps the webhook to one write.
+ */
+async function queryGatewayPreview(
+  executor: Executor,
+  { key, userId }: { key: string; userId: string | null }
+): Promise<GatewayPreview | null> {
+  const id = key.startsWith("gowa-") ? key.slice(5) : null;
+  if (id !== null && !UUID.test(id)) {
+    return null;
+  }
+  const [message] = await executor.execute<{
+    attachment_count: number;
+    id: string;
+    kind: GatewayFacts["kind"];
+    summary: boolean;
+    text: string;
+  }>(sql`
+    select g.id, g.kind, g.text, g.attachment_count,
+      coalesce(g.idempotency_key like 'digest-%', false) as summary
+    from ${gowaMessage} g
+    where ${
+      id === null
+        ? sql`g.idempotency_key in (${key}, ${key} || '-whatsapp-' || ${userId})
+          or g.idempotency_key = (
+            select 'digest-' || r.batch_id || '-whatsapp'
+            from ${heldNotificationRecipient} r
+            where r.held_key = ${key} and r.user_id = ${userId}
+              and r.channel = 'whatsapp'
+          )`
+        : sql`g.id = ${id}`
+    }
+    order by summary desc, g.created_at desc
+    limit 1
+  `);
+  if (!message) {
+    return null;
+  }
+  const people =
+    message.kind === "group_post"
+      ? await executor.execute<{
+          delivered_at: string | null;
+          display_name: string | null;
+          person_jid: string;
+          read_at: string | null;
+          user_name: string | null;
+        }>(sql`
+          select r.person_jid, max(r.display_name) as display_name,
+            ${epoch("min(r.delivered_at)")} as delivered_at,
+            ${epoch("min(r.read_at)")} as read_at,
+            min(u.name) as user_name
+          from ${gowaMessagePart} mp
+          join ${gowaReceipt} r on r.message_id = mp.message_id
+          left join ${user} u
+            on r.person_jid like '%@s.whatsapp.net'
+            and regexp_replace(u.phone, '[^0-9]', '', 'g')
+              = split_part(r.person_jid, '@', 1)
+          where mp.gowa_message_id = ${message.id}
+          group by r.person_jid
+        `)
+      : [];
+  return {
+    attachmentCount: Number(message.attachment_count),
+    recipients: [...people]
+      .map((person) => ({
+        deliveredAt: num(person.delivered_at),
+        name: receiptPersonName(
+          person.person_jid,
+          person.display_name,
+          person.user_name
+        ),
+        readAt: num(person.read_at),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    summary: message.summary,
+    text: message.text,
+  };
 }
 
 /**
@@ -545,7 +799,7 @@ export async function queryDeliveryPreview(
   executor: Executor,
   { key, userId }: { key: string; userId: string | null }
 ): Promise<DeliveryPreview> {
-  const [[inbox], [sent]] = await Promise.all([
+  const [[inbox], [sent], gateway] = await Promise.all([
     executor.execute<{ body: string; title: string }>(sql`
       select n.title, n.body from ${notification} n
       where n.user_id = ${userId}
@@ -572,12 +826,14 @@ export async function queryDeliveryPreview(
       order by summary desc
       limit 1
     `),
+    queryGatewayPreview(executor, { key, userId }),
   ]);
   const definition = sent
     ? WHATSAPP_TEMPLATES.find((t) => t.name === sent.template)
     : undefined;
   const body = sent?.template_body ?? definition?.body;
   return {
+    gateway,
     inbox: inbox ? { body: inbox.body, title: inbox.title } : null,
     whatsapp:
       sent && body !== undefined

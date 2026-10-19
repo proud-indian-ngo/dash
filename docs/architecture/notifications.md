@@ -76,11 +76,15 @@ Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repe
 
 `/notification-delivery` shows each person's copy of each notification over 90 days, the send logs' retention. It shows inbox and WhatsApp message text, so it has its own permission, `notifications.view_delivery`, rather than `jobs.manage`. The private tables aren't in Zero, so server functions page it; statuses are SQL `CASE` columns, so filters, paging and the total run in Postgres.
 
-- A row is an inbox row with its `-inbox` suffix stripped, a held message whose inbox copy was off, or a Cloud API send with no inbox copy. A send keyed `${key}-whatsapp-${userId}` was a notification with the inbox off ("Inbox off"); other keys (group invites, Social digests) never had one. These show the template's `label` as title. Summaries have no row; their messages read "Sent in summary".
+- A row is an inbox row with its `-inbox` suffix stripped, a held message whose inbox copy was off, or a Cloud API or gateway send with no inbox copy. A send keyed `${key}-whatsapp-${userId}` was a notification with the inbox off ("Inbox off"); other keys (group invites, Social digests) never had one. These show the template's `label` as title, or a gateway message's first line. Summaries have no row; their messages read "Sent in summary".
+- Every other [GoWA send](#gowa-log) is a row of its own, keyed `gowa-${id}`, with no inbox or email: one per group post, recipient the group's name, and one per scheduled direct message. The title is what sent it plus the event's name.
+- "Delivered by" says how the WhatsApp copy went: "WhatsApp API" (Cloud API), "WhatsApp gateway" (GoWA to one person) or "WhatsApp group" (a group post).
 - Email reads the [email log](#email-log), joined on the notification key and user, or on `digest-${batchId}` for "Sent in summary". A send with no log row (sent before the log existed, or a failed log write) reads "Not tracked".
-- "Off" and "No WhatsApp" read the recipient's preference and phone as they are now, so they appear only where nothing was sent. GoWA sends aren't logged, so WhatsApp reads "Not sent" while the Cloud API is off.
+- "Off" and "No WhatsApp" read the recipient's preference and phone as they are now, so they appear only where nothing was sent.
+- A gateway message to one person reads Sent, Delivered or Read from its receipts, or Failed. A group post shows "Delivered to 48 · Read by 21" instead, counting distinct people; a read counts as delivered. The group's size at send time isn't known, so there is no "of 60". The sheet lists who read it and who received it, by dashboard name where the receipt's phone matches a user, else GoWA's display name, else the number masked ("+91 •••• ••686"). Full numbers never reach the browser.
+- The stats count gateway direct messages with Cloud API ones as delivered, and every failed gateway send as failed. Group posts aren't counted as delivered, since a post has no single recipient.
 - Suppression is the address's current state, compared with the send time.
-- The detail sheet renders the WhatsApp template from the body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. Email content isn't kept.
+- The detail sheet renders the WhatsApp template from the body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. A gateway message shows the text sent, with its attachment count. Email content isn't kept.
 
 ## Topics and preferences
 
@@ -181,6 +185,15 @@ With the Cloud API on, adding someone to a group sends the `group_invite` templa
 - Group JIDs look like `120363012345678901@g.us`; admins paste them from the WhatsApp Web URL.
 - Group jobs are idempotent and retry-safe.
 - GoWA does not guarantee atomic idempotency, so text delivery stays at-least-once.
+
+### GoWA log
+
+`private.gowa_message` holds one row per GoWA send for the [delivery page](#delivery-page): group posts (new event, reminder, update, weekly digest, RSVP poll, cancellation), scheduled messages, and notifications while the Cloud API is off. It keeps the text we composed, the group's JID or the user (never a phone), and the event or scheduled message it came from. A media send is one row; `gowa_message_part` holds a WhatsApp message ID per attachment, and receipts roll up across them.
+
+- Each send helper returns GoWA's `results.message_id`. The sender logs after GoWA accepts the message; `logGowaSend()` logs a failed write with evlog and never fails or resends the message. A retry GoWA deduped returns an ID already logged, so it adds nothing. Only a scheduled message that exhausts its retries is logged as failed; other senders retry as before and log nothing until one succeeds.
+- GoWA posts `message.ack` to the same webhook. Each one upserts `gowa_receipt` per message ID and person JID in a single statement, with no user lookup: people are matched by phone when the page reads. Delivered sets `delivered_at`, read sets `read_at` and `delivered_at` if unset, and each time is set once. Receipt types other than delivered and read are ignored.
+- A receipt is stored without checking the send's row, because it can beat the send's insert; the page joins on the message ID. Receipts no send has claimed within an hour (messages sent from the phone itself) are pruned.
+- Sends and receipts are pruned after 90 days in the flush job's hourly step. Transient tables, no seed records.
 
 ### RSVP polls
 

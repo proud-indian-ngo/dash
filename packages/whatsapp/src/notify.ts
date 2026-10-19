@@ -13,6 +13,7 @@ import {
   sendCloudTemplate,
   sendCloudText,
 } from "./cloud";
+import { logGowaSend } from "./gowa-log";
 import { sendWhatsAppMessage } from "./messaging";
 import {
   TEMPLATE_BODIES,
@@ -142,9 +143,19 @@ export async function sendWhatsAppNotification(
   options: { idempotencyKey: string; userId?: string }
 ): Promise<WhatsAppSendOutcome> {
   if (!isCloudApiEnabled()) {
-    await sendWhatsAppMessage(phone, notification.text, {
+    const messageId = await sendWhatsAppMessage(phone, notification.text, {
       idempotencyKey: options.idempotencyKey,
     });
+    await logGowaSend(
+      {
+        idempotencyKey: options.idempotencyKey,
+        kind: "direct",
+        source: "notification",
+        text: notification.text,
+        userId: options.userId,
+      },
+      [messageId]
+    );
     return "sent";
   }
   const { template } = notification;

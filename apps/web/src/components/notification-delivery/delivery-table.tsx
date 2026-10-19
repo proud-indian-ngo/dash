@@ -20,12 +20,14 @@ import {
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import type { StatItem } from "@/components/stats/stats-cards";
 import {
+  DELIVERED_BY_LABEL,
   DELIVERY_STATS_DAYS,
   type DeliveryRow,
   type DeliveryStats,
   EMAIL_STATUS,
   deliverySubtitle,
   formatIndiaTime,
+  groupReceiptSummary,
   INBOX_STATUS,
   NO_STATUS,
   statusOptions,
@@ -71,6 +73,15 @@ export function createDeliveryFilterFields(
       statusOptions(EMAIL_STATUS),
       SELECT_IS_ONLY_OPERATORS
     ),
+    selectField(
+      "deliveredBy",
+      "Delivered by",
+      Object.entries(DELIVERED_BY_LABEL).map(([value, label]) => ({
+        label: value === "none" ? "None" : label,
+        value,
+      })),
+      SELECT_IS_ONLY_OPERATORS
+    ),
   ];
 }
 
@@ -85,13 +96,14 @@ export function computeDeliveryStats(stats: DeliveryStats | null): StatItem[] {
     },
     {
       description: days,
-      hint: "WhatsApp messages Meta reported delivered or read, summaries included.",
+      hint: "WhatsApp messages Meta or the gateway reported delivered or read, summaries included. Group posts aren't counted.",
       icon: CheckmarkCircle02Icon,
       label: "WhatsApp delivered or read",
       value: stats?.whatsappDelivered ?? 0,
     },
     {
       description: days,
+      hint: "Cloud API and gateway sends, group posts included.",
       icon: MultiplicationSignCircleIcon,
       label: "WhatsApp failed",
       tone: (stats?.whatsappFailed ?? 0) > 0 ? "danger" : undefined,
@@ -114,6 +126,18 @@ function statusCell(display: { label: string; tone: StatusTone }): ReactNode {
   ) : (
     <StatusBadge tone={display.tone}>{display.label}</StatusBadge>
   );
+}
+
+/** A group post's receipt counts, or the WhatsApp status. */
+function whatsappCell(row: DeliveryRow): ReactNode {
+  if (row.gateway?.kind === "group_post" && row.whatsapp !== "failed") {
+    return (
+      <span className="text-sm whitespace-nowrap tabular-nums">
+        {groupReceiptSummary(row.gateway)}
+      </span>
+    );
+  }
+  return statusCell(WHATSAPP_STATUS[row.whatsapp]);
 }
 
 /** The server already searched; this keeps the page's rows consistent. */
@@ -208,8 +232,11 @@ const columns: DataGridColumnDef<DeliveryRow>[] = [
     size: 100,
   },
   {
-    accessorFn: (row) => WHATSAPP_STATUS[row.whatsapp].label,
-    cell: ({ row }) => statusCell(WHATSAPP_STATUS[row.original.whatsapp]),
+    accessorFn: (row) =>
+      row.gateway?.kind === "group_post" && row.whatsapp !== "failed"
+        ? groupReceiptSummary(row.gateway)
+        : WHATSAPP_STATUS[row.whatsapp].label,
+    cell: ({ row }) => whatsappCell(row.original),
     enableSorting: false,
     header: ({ column }) => (
       <DataGridColumnHeader
@@ -226,7 +253,34 @@ const columns: DataGridColumnDef<DeliveryRow>[] = [
       kind: "status",
       skeleton: SKELETON_BADGE,
     },
-    size: 140,
+    size: 190,
+  },
+  {
+    accessorFn: (row) => DELIVERED_BY_LABEL[row.deliveredBy],
+    cell: ({ row }) =>
+      row.original.deliveredBy === "none" ? (
+        <span className="text-muted-foreground">{NO_STATUS}</span>
+      ) : (
+        <span className="text-sm whitespace-nowrap">
+          {DELIVERED_BY_LABEL[row.original.deliveredBy]}
+        </span>
+      ),
+    enableSorting: false,
+    header: ({ column }) => (
+      <DataGridColumnHeader
+        column={column}
+        title="Delivered by"
+        visibility={true}
+      />
+    ),
+    id: "deliveredBy",
+    meta: {
+      headerTitle: "Delivered by",
+      icon: COLUMN_ICONS.whatsappGroup,
+      kind: "text",
+      skeleton: SKELETON_TEXT,
+    },
+    size: 150,
   },
   {
     accessorFn: (row) => EMAIL_STATUS[row.email].label,
@@ -279,7 +333,7 @@ export function DeliveryTable({
       onRowClick={onView}
       rowCount={rowCount}
       searchFn={searchDelivery}
-      searchPlaceholder="Search title or recipient..."
+      searchPlaceholder="Search title, recipient or group..."
       storageKey="notification_delivery_table_state_v1"
       tableLayout={{
         columnsDraggable: true,

@@ -11,11 +11,14 @@ import {
   getDeliveryPreview,
 } from "@/functions/notification-delivery";
 import {
+  DELIVERED_BY_LABEL,
   type DeliveryRow,
   deliverySubtitle,
   EMAIL_STATUS,
   type EmailLogFacts,
   formatIndiaTime,
+  type GatewayFacts,
+  groupReceiptSummary,
   type HeldFacts,
   INBOX_STATUS,
   WHATSAPP_STATUS,
@@ -92,6 +95,35 @@ function LogRows({
       <Row label="Sent" value={formatIndiaTime(log.createdAt)} />
       <Row label="Last update" value={formatIndiaTime(log.updatedAt)} />
       <Row label="Error" value={log.error} />
+    </>
+  );
+}
+
+/** A GoWA send: when it went and when the first receipts came back. */
+function GatewayRows({ gateway }: { gateway: GatewayFacts | null }) {
+  if (!gateway) {
+    return null;
+  }
+  return (
+    <>
+      <Row label="Sent" value={formatIndiaTime(gateway.createdAt)} />
+      <Row
+        label="First delivered"
+        value={
+          gateway.firstDeliveredAt === null
+            ? null
+            : formatIndiaTime(gateway.firstDeliveredAt)
+        }
+      />
+      <Row
+        label="First read"
+        value={
+          gateway.firstReadAt === null
+            ? null
+            : formatIndiaTime(gateway.firstReadAt)
+        }
+      />
+      <Row label="Error" value={gateway.error} />
     </>
   );
 }
@@ -202,6 +234,91 @@ function WhatsAppPreview({
   );
 }
 
+/** The text GoWA sent, as written, with any attachments it carried. */
+function GatewayMessage({ message }: { message: DeliveryPreview["gateway"] }) {
+  if (!message) {
+    return null;
+  }
+  const attachments = message.attachmentCount;
+  return (
+    <div className="flex flex-col gap-2">
+      {message.summary ? (
+        <p className="text-muted-foreground text-sm">
+          Sent inside this summary:
+        </p>
+      ) : null}
+      <p
+        className="bg-muted/50 max-w-sm rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap"
+        data-testid="gateway-preview"
+      >
+        {message.text}
+      </p>
+      {attachments > 0 ? (
+        <p className="text-muted-foreground text-sm">
+          With {attachments} {attachments === 1 ? "attachment" : "attachments"}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** One list of people from a group post's receipts, with when. */
+function PeopleList({
+  label,
+  people,
+}: {
+  label: string;
+  people: { at: number | null; name: string }[];
+}) {
+  return (
+    <section aria-label={label} className="flex flex-col gap-1.5">
+      <p className="text-sm font-medium">
+        {label} ({people.length})
+      </p>
+      {people.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No one yet</p>
+      ) : (
+        <ul className="flex flex-col gap-1 text-sm">
+          {people.map((person, i) => (
+            <li className="flex justify-between gap-3" key={i}>
+              <span className="truncate">{person.name}</span>
+              <span className="text-muted-foreground shrink-0 text-xs">
+                {formatIndiaTime(person.at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Who read a group post, then who received it without reading. How many
+ * were in the group isn't known.
+ */
+function GroupRecipients({ message }: { message: DeliveryPreview["gateway"] }) {
+  if (!message) {
+    return null;
+  }
+  const read = message.recipients.filter((p) => p.readAt !== null);
+  const unread = message.recipients.filter(
+    (p) => p.readAt === null && p.deliveredAt !== null
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <PeopleList
+        label="Read by"
+        people={read.map((p) => ({ at: p.readAt, name: p.name }))}
+      />
+      <PeopleList
+        label="Delivered, not read"
+        people={unread.map((p) => ({ at: p.deliveredAt, name: p.name }))}
+      />
+    </div>
+  );
+}
+
 type PreviewState =
   | { status: "loading" }
   | { status: "error" }
@@ -278,6 +395,9 @@ export function DeliveryDetailSheet({
   row: DeliveryRow | null;
 }) {
   const preview = useDeliveryPreview(row);
+  // Group posts and scheduled messages had no inbox or email copy.
+  const gatewayOnly = row?.key.startsWith("gowa-") ?? false;
+  const groupPost = row?.gateway?.kind === "group_post";
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent>
@@ -292,46 +412,78 @@ export function DeliveryDetailSheet({
               title={row.title}
             />
             <div className="flex flex-col gap-4 px-6 pb-6">
-              <DetailsCard title="Inbox">
-                <StatusRow display={INBOX_STATUS[row.inbox]} />
-                <MessageRow>
-                  <PreviewSlot state={preview}>
-                    {(loaded) => <InboxPreview inbox={loaded.inbox} />}
-                  </PreviewSlot>
-                </MessageRow>
-              </DetailsCard>
+              {gatewayOnly ? null : (
+                <DetailsCard title="Inbox">
+                  <StatusRow display={INBOX_STATUS[row.inbox]} />
+                  <MessageRow>
+                    <PreviewSlot state={preview}>
+                      {(loaded) => <InboxPreview inbox={loaded.inbox} />}
+                    </PreviewSlot>
+                  </MessageRow>
+                </DetailsCard>
+              )}
 
               <DetailsCard title="WhatsApp">
-                <StatusRow display={WHATSAPP_STATUS[row.whatsapp]} />
+                {groupPost && row.gateway && row.whatsapp !== "failed" ? (
+                  <Row
+                    label="Receipts"
+                    value={groupReceiptSummary(row.gateway)}
+                  />
+                ) : (
+                  <StatusRow display={WHATSAPP_STATUS[row.whatsapp]} />
+                )}
+                {row.deliveredBy === "none" ? null : (
+                  <Row
+                    label="Delivered by"
+                    value={DELIVERED_BY_LABEL[row.deliveredBy]}
+                  />
+                )}
                 <HeldRows held={row.whatsappHeld} />
                 <LogRows log={row.whatsappLog} />
                 <LogRows log={row.whatsappSummaryLog} summary />
+                <GatewayRows gateway={row.gateway} />
                 <MessageRow>
                   <PreviewSlot state={preview}>
-                    {(loaded) => <WhatsAppPreview message={loaded.whatsapp} />}
+                    {(loaded) => (
+                      <>
+                        <WhatsAppPreview message={loaded.whatsapp} />
+                        <GatewayMessage message={loaded.gateway} />
+                      </>
+                    )}
                   </PreviewSlot>
                 </MessageRow>
               </DetailsCard>
 
-              <DetailsCard title="Email">
-                <StatusRow display={EMAIL_STATUS[row.email]} />
-                <HeldRows held={row.emailHeld} />
-                <EmailLogRows log={row.emailLog} />
-                <EmailLogRows log={row.emailSummaryLog} summary />
-                <Row
-                  label="Suppressed"
-                  value={
-                    row.suppressedAt === null
-                      ? null
-                      : `Since ${formatIndiaTime(row.suppressedAt)}`
-                  }
-                />
-                {row.email === "not_tracked" ? (
-                  <p className="text-muted-foreground text-sm">
-                    There's no delivery log for this email.
-                  </p>
-                ) : null}
-              </DetailsCard>
+              {groupPost ? (
+                <DetailsCard title="Recipients">
+                  <MessageRow>
+                    <PreviewSlot state={preview}>
+                      {(loaded) => <GroupRecipients message={loaded.gateway} />}
+                    </PreviewSlot>
+                  </MessageRow>
+                </DetailsCard>
+              ) : null}
+              {gatewayOnly ? null : (
+                <DetailsCard title="Email">
+                  <StatusRow display={EMAIL_STATUS[row.email]} />
+                  <HeldRows held={row.emailHeld} />
+                  <EmailLogRows log={row.emailLog} />
+                  <EmailLogRows log={row.emailSummaryLog} summary />
+                  <Row
+                    label="Suppressed"
+                    value={
+                      row.suppressedAt === null
+                        ? null
+                        : `Since ${formatIndiaTime(row.suppressedAt)}`
+                    }
+                  />
+                  {row.email === "not_tracked" ? (
+                    <p className="text-muted-foreground text-sm">
+                      There's no delivery log for this email.
+                    </p>
+                  ) : null}
+                </DetailsCard>
+              )}
 
               <DetailsCard title="Trace">
                 <Row

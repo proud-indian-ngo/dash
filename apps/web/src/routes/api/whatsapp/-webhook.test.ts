@@ -8,6 +8,7 @@ const state = { routeConfig: undefined as unknown };
 const processPollVote = mock(
   async (..._args: unknown[]) => "processed" as const
 );
+const recordReceipt = mock(async (..._args: unknown[]) => undefined);
 const requestLog = {
   emit: mock(),
   error: mock(),
@@ -16,6 +17,9 @@ const requestLog = {
 };
 
 mock.module("@pi-dash/db", () => ({ db: {} }));
+mock.module("@pi-dash/db/queries/gowa-message", () => ({
+  recordGowaReceipt: recordReceipt,
+}));
 mock.module("@pi-dash/env/server", () => ({
   env: { WHATSAPP_WEBHOOK_SECRET: SECRET },
 }));
@@ -90,6 +94,52 @@ const send = (value: unknown) => post(requestOf(JSON.stringify(value)));
 describe("POST /api/whatsapp/webhook", () => {
   beforeEach(() => {
     processPollVote.mockClear();
+    recordReceipt.mockClear();
+    recordReceipt.mockImplementation(async () => undefined);
+  });
+
+  const ack = (receiptType: string) => ({
+    device_id: "919999999999@s.whatsapp.net",
+    event: "message.ack",
+    payload: {
+      chat_id: "120363000000000000@g.us",
+      from: "919876543210@s.whatsapp.net",
+      ids: ["3EB0AAA", "3EB0BBB"],
+      receipt_type: receiptType,
+      sender_display_name: "Volunteer",
+    },
+    timestamp: "2026-10-16T10:30:00Z",
+  });
+
+  it("records a read receipt", async () => {
+    expect((await send(ack("read"))).status).toBe(200);
+    expect(recordReceipt).toHaveBeenCalledWith({
+      at: new Date("2026-10-16T10:30:00Z"),
+      displayName: "Volunteer",
+      messageIds: ["3EB0AAA", "3EB0BBB"],
+      personJid: "919876543210@s.whatsapp.net",
+      type: "read",
+    });
+    expect(processPollVote).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges and ignores an unknown receipt type", async () => {
+    expect((await send(ack("played"))).status).toBe(200);
+    expect(recordReceipt).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when the receipt can't be stored", async () => {
+    recordReceipt.mockImplementation(async () => {
+      throw new Error("db down");
+    });
+    expect((await send(ack("delivered"))).status).toBe(500);
+  });
+
+  it("rejects an unsigned receipt", async () => {
+    const body = JSON.stringify(ack("read"));
+    const response = await post(requestOf(body, `sha256=${"0".repeat(64)}`));
+    expect(response.status).toBe(401);
+    expect(recordReceipt).not.toHaveBeenCalled();
   });
 
   it("dispatches a valid signed upstream poll vote", async () => {

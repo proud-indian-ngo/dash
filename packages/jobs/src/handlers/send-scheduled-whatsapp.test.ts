@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { WhatsAppMediaAttachment } from "@pi-dash/whatsapp/messaging";
 
 const mocks = {
+  logGowaSend: mock(async () => undefined),
   sendGroupMessage: mock(async () => undefined),
   sendMedia: mock(
     async (
       _phone: string,
       _attachment: WhatsAppMediaAttachment,
       _caption?: string
-    ) => undefined
+    ): Promise<string | undefined> => undefined
   ),
   sendMessage: mock(async () => undefined),
   setRecipient: mock(),
@@ -19,6 +20,9 @@ const mocks = {
 
 mock.module("@pi-dash/db", () => ({
   db: { select: mocks.select, update: mocks.update },
+}));
+mock.module("@pi-dash/whatsapp/gowa-log", () => ({
+  logGowaSend: mocks.logGowaSend,
 }));
 mock.module("@pi-dash/whatsapp/messaging", () => ({
   sendWhatsAppGroupMessage: mocks.sendGroupMessage,
@@ -67,7 +71,9 @@ const job = (overrides: Record<string, unknown> = {}) =>
 beforeEach(() => {
   mock.clearAllMocks();
   mocks.select
-    .mockReturnValueOnce(limitedQuery([{ status: "pending" }]))
+    .mockReturnValueOnce(
+      limitedQuery([{ recipientId: "user-1", status: "pending" }])
+    )
     .mockReturnValueOnce(limitedQuery([{ updatedAt: null }]));
   mocks.update.mockReturnValue({
     set: mocks.setRecipient.mockReturnValue({ where: async () => undefined }),
@@ -79,11 +85,14 @@ describe("handleSendScheduledWhatsApp", () => {
   it("sends all attachments sequentially in order and captions only the last", async () => {
     let active = 0;
     let maxActive = 0;
+    let sent = 0;
     mocks.sendMedia.mockImplementation(async () => {
       active += 1;
       maxActive = Math.max(maxActive, active);
       await Promise.resolve();
       active -= 1;
+      sent += 1;
+      return `3EB0${sent}`;
     });
 
     await handleSendScheduledWhatsApp([job()]);
@@ -108,6 +117,19 @@ describe("handleSendScheduledWhatsApp", () => {
       status: "sent",
       updatedAt: expect.any(Date),
     });
+    // One logged send for all five attachments, keeping the user, not the phone.
+    expect(mocks.logGowaSend).toHaveBeenCalledWith(
+      {
+        attachmentCount: 5,
+        chatJid: null,
+        kind: "direct",
+        scheduledMessageId: "message-1",
+        source: "scheduled",
+        text: "Scheduled message",
+        userId: "user-1",
+      },
+      ["3EB01", "3EB02", "3EB03", "3EB04", "3EB05"]
+    );
   });
 
   it("leaves the recipient pending when an attachment send fails", async () => {
@@ -121,6 +143,7 @@ describe("handleSendScheduledWhatsApp", () => {
     );
 
     expect(mocks.setRecipient).not.toHaveBeenCalled();
+    expect(mocks.logGowaSend).not.toHaveBeenCalled();
   });
 
   it.each([

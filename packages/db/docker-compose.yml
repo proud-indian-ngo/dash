@@ -65,7 +65,7 @@ services:
       APP_UI_ENABLED: "true"
       APP_UI_AUTO_UPDATE: "true"
       WHATSAPP_WEBHOOK: http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook
-      WHATSAPP_WEBHOOK_EVENTS: message
+      WHATSAPP_WEBHOOK_EVENTS: message,message.ack
       WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     ports:
       - "3100:3000"

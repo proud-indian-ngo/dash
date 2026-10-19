@@ -5,6 +5,7 @@ import { eventRsvpPoll } from "@pi-dash/db/schema/event-rsvp";
 import { team } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppPoll } from "@pi-dash/whatsapp/messaging";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -152,6 +153,17 @@ async function processSendSingleRsvpPollJob(
     await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, pollId));
     throw caughtError;
   }
+
+  await logGowaSend(
+    {
+      chatJid: targetChatJid,
+      eventId,
+      kind: "group_post",
+      source: "rsvp_poll",
+      text: question,
+    },
+    [messageId]
+  );
 
   // Update with real messageId
   await db

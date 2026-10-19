@@ -1,3 +1,5 @@
+import type { GowaMessageSource } from "@pi-dash/db/schema/private/gowa-message";
+
 import type { StatusTone } from "@/components/shared/status-badge";
 
 /**
@@ -49,6 +51,49 @@ export const EMAIL_STATUSES = [
   "none",
 ] as const;
 export type EmailDeliveryStatus = (typeof EMAIL_STATUSES)[number];
+
+/** How the WhatsApp copy went out. */
+export const DELIVERED_BY = [
+  "whatsapp_api",
+  "whatsapp_gateway",
+  "whatsapp_group",
+  "none",
+] as const;
+export type DeliveredBy = (typeof DELIVERED_BY)[number];
+
+export const DELIVERED_BY_LABEL: Record<DeliveredBy, string> = {
+  none: "\u2014",
+  whatsapp_api: "WhatsApp API",
+  whatsapp_gateway: "WhatsApp gateway",
+  whatsapp_group: "WhatsApp group",
+};
+
+/** What sent a GoWA message, the start of its title. */
+export const GATEWAY_SOURCE_LABEL: Record<GowaMessageSource, string> = {
+  event_created: "New event",
+  event_reminder: "Event reminder",
+  event_update: "Event update",
+  notification: "WhatsApp message",
+  poll_cancelled: "Event cancelled",
+  rsvp_poll: "RSVP poll",
+  scheduled: "Scheduled message",
+  weekly_digest: "Weekly events digest",
+};
+
+/**
+ * A message sent through GoWA. Receipts are counted per person: a read
+ * counts as delivered too. How many were in the group isn't known.
+ */
+export interface GatewayFacts {
+  createdAt: number;
+  deliveredCount: number;
+  error: string | null;
+  /** The first delivery and read receipt. */
+  firstDeliveredAt: number | null;
+  firstReadAt: number | null;
+  kind: "group_post" | "direct";
+  readCount: number;
+}
 
 /** One recipient and channel of a batched message. */
 export interface HeldFacts {
@@ -145,14 +190,17 @@ export function statusOptions(
 /** One person's copy of one notification, as the page lists it. */
 export interface DeliveryRow {
   createdAt: number;
+  deliveredBy: DeliveredBy;
   email: EmailDeliveryStatus;
   emailHeld: HeldFacts | null;
   emailLog: EmailLogFacts | null;
   emailSummaryLog: EmailLogFacts | null;
+  gateway: GatewayFacts | null;
   id: string;
   inbox: InboxStatus;
-  /** The message's idempotency key, without channel suffixes. */
+  /** The message's idempotency key without channel suffixes, or `gowa-${id}`. */
   key: string;
+  /** The person, or the group for a group post. */
   recipientName: string | null;
   suppressedAt: number | null;
   /** The title, or the template's label for a WhatsApp-only message. */
@@ -170,7 +218,44 @@ export function deliverySubtitle(row: DeliveryRow): string {
   if (row.topicId) {
     return row.topicId;
   }
+  if (row.deliveredBy === "whatsapp_group") {
+    return "Group post";
+  }
   return row.inbox === "off" ? "Inbox off" : "WhatsApp only";
+}
+
+const PHONE_LIKE = /^[+\d\s()-]+$/;
+const PHONE_JID = /^(\d+)@s\.whatsapp\.net$/;
+
+/** A number with all but its country code and last three digits hidden. */
+export function maskPhone(digits: string): string {
+  const country = digits.length > 10 ? `+${digits.slice(0, -10)} ` : "";
+  return `${country}•••• ••${digits.slice(-3)}`;
+}
+
+/**
+ * Who a receipt came from, never as a full number: the dashboard user with
+ * that phone, else GoWA's display name unless it is itself a number, else
+ * the number masked.
+ */
+export function receiptPersonName(
+  jid: string,
+  displayName: string | null,
+  userName: string | null
+): string {
+  if (userName) {
+    return userName;
+  }
+  if (displayName && !PHONE_LIKE.test(displayName)) {
+    return displayName;
+  }
+  const phone = PHONE_JID.exec(jid)?.[1];
+  return phone ? maskPhone(phone) : "Unknown number";
+}
+
+/** A group post's receipts, as "Delivered to 48 · Read by 21". */
+export function groupReceiptSummary(gateway: GatewayFacts): string {
+  return `Delivered to ${gateway.deliveredCount} · Read by ${gateway.readCount}`;
 }
 
 export interface DeliveryStats {
@@ -178,7 +263,9 @@ export interface DeliveryStats {
   /** Bounced, failed, or refused by Resend's suppression list. */
   emailsNotDelivered: number;
   notificationsSent: number;
+  /** Cloud API and gateway direct messages; group posts aren't counted. */
   whatsappDelivered: number;
+  /** Cloud API and gateway sends, group posts included. */
   whatsappFailed: number;
 }
 

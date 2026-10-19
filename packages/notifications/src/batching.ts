@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { db } from "@pi-dash/db";
 import { pruneEmailMessages } from "@pi-dash/db/queries/email-message";
+import { pruneGowaMessages } from "@pi-dash/db/queries/gowa-message";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   type HeldNotificationChannel,
@@ -799,7 +800,7 @@ async function clearAndExpire(): Promise<void> {
 }
 
 /**
- * The Cloud API and email send logs only need recent delivery; this job
+ * The Cloud API, email and GoWA send logs only need recent delivery; this job
  * keeps them trim, at most hourly since it runs every minute. A failed prune
  * waits its turn.
  */
@@ -817,6 +818,11 @@ async function pruneSendLogsHourly(now = Date.now()): Promise<void> {
     await pruneEmailMessages();
   } catch (error) {
     logError(error, { handler: "pruneEmailMessages" });
+  }
+  try {
+    await pruneGowaMessages();
+  } catch (error) {
+    logError(error, { handler: "pruneGowaMessages" });
   }
 }
 

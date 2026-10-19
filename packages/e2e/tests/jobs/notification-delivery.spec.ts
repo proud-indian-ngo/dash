@@ -153,6 +153,34 @@ test.describe("Notification delivery (admin)", () => {
     await expect(summary.getByText("Sent in summary")).toBeVisible();
   });
 
+  test("shows a group post's receipts and who read it", async ({ page }) => {
+    const group = `Spec group ${tag.replace("delivery", "group")}`;
+    await page.goto(
+      `/notification-delivery?${new URLSearchParams({ search: group })}`
+    );
+    const row = page.getByRole("row").filter({ hasText: group });
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await expect(row).toContainText("Weekly events digest");
+    await expect(row.getByText("Delivered to 2 · Read by 1")).toBeVisible();
+    await expect(row.getByText("Group post", { exact: true })).toBeVisible();
+    await expect(
+      row.getByText("WhatsApp group", { exact: true })
+    ).toBeVisible();
+
+    await row.getByText("Weekly events digest").click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet.getByTestId("gateway-preview")).toContainText(
+      `${tag} this week's events`
+    );
+    const readers = sheet.getByRole("region", { name: "Read by" });
+    await expect(readers).toContainText("Read by (1)");
+    await expect(readers).toContainText("Spec Reader");
+    const unread = sheet.getByRole("region", { name: "Delivered, not read" });
+    await expect(unread).toContainText("+91 •••• ••901");
+    await expect(sheet).not.toContainText("919800000901");
+    await expect(sheet).not.toContainText("98000 00901");
+  });
+
   test("shows the WhatsApp status at phone width", async ({ page }) => {
     await page.setViewportSize({ height: 800, width: 390 });
     await page.goto(deliveryUrl(tag, {}));

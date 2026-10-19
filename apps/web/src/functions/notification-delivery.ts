@@ -4,6 +4,7 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import {
+  DELIVERED_BY,
   EMAIL_STATUSES,
   INBOX_STATUSES,
   WHATSAPP_STATUSES,
@@ -24,6 +25,7 @@ export type { DeliveryOverview, DeliveryPreview };
 const PERMISSION = "notifications.view_delivery";
 
 const filterSchema = z.object({
+  deliveredBy: z.enum(DELIVERED_BY).optional(),
   email: z.enum(EMAIL_STATUSES).optional(),
   inbox: z.enum(INBOX_STATUSES).optional(),
   key: z.string().optional(),

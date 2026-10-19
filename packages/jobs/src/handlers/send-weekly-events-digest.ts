@@ -5,6 +5,7 @@ import {
   expandSeries,
   parseRecurrenceRule,
 } from "@pi-dash/shared/rrule-expand";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { getGroupJidByConfigKey } from "@pi-dash/whatsapp/groups";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { and, between, eq, isNotNull, isNull } from "drizzle-orm";
@@ -174,7 +175,16 @@ export async function handleSendWeeklyEventsDigest(
     groupKeys.map(async (key) => {
       const jid = await getGroupJidByConfigKey(key);
       if (jid) {
-        await sendWhatsAppGroupMessage(jid, message);
+        const messageId = await sendWhatsAppGroupMessage(jid, message);
+        await logGowaSend(
+          {
+            chatJid: jid,
+            kind: "group_post",
+            source: "weekly_digest",
+            text: message,
+          },
+          [messageId]
+        );
         groupsSent += 1;
       }
     })

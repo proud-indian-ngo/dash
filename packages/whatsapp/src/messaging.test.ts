@@ -54,6 +54,24 @@ describe("sendWhatsAppMessage", () => {
       })
     );
   });
+
+  it("returns GoWA's message ID, or undefined when the body has none", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({
+            code: "SUCCESS",
+            results: { message_id: "3EB0ABC", status: "sent" },
+          })
+        )
+        .mockResolvedValueOnce(new Response("not json"))
+    );
+
+    expect(await sendWhatsAppMessage("919999999999", "Hello")).toBe("3EB0ABC");
+    expect(await sendWhatsAppMessage("919999999999", "Hello")).toBeUndefined();
+  });
 });
 
 describe("sendWhatsAppMedia", () => {

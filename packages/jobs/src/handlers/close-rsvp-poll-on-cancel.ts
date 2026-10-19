@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { eventRsvpPoll } from "@pi-dash/db/schema/event-rsvp";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { and, eq, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -56,9 +57,21 @@ async function processCloseRsvpPollJob(
     ? undefined
     : poll.messageId;
 
-  await sendWhatsAppGroupMessage(poll.targetChatJid, message, {
-    replyMessageId,
-  });
+  const messageId = await sendWhatsAppGroupMessage(
+    poll.targetChatJid,
+    message,
+    { replyMessageId }
+  );
+  await logGowaSend(
+    {
+      chatJid: poll.targetChatJid,
+      eventId,
+      kind: "group_post",
+      source: "poll_cancelled",
+      text: message,
+    },
+    [messageId]
+  );
 
   // Close the poll only after the message is sent successfully.
   // This ensures retries re-send the message if it failed previously.
