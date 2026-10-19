@@ -53,7 +53,7 @@ vi.mock("evlog", () => ({
   }),
 }));
 
-import { inviteToWhatsAppGroup } from "./groups";
+import { addOrInviteToWhatsAppGroup, inviteToWhatsAppGroup } from "./groups";
 
 const GROUP = { id: "g1", name: "Sunday Teaching Volunteers" };
 
@@ -71,6 +71,7 @@ function participantsResponse(phones: string[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.cloudEnabled = true;
   mocks.selects = [];
   mocks.sendWhatsAppNotification.mockImplementation(async () => "sent");
   vi.stubGlobal(
@@ -119,6 +120,45 @@ describe("inviteToWhatsAppGroup", () => {
     expect(options?.idempotencyKey).toMatch(
       /^group-invite-g1-u2-\d{4}-\d{2}-\d{2}$/
     );
+  });
+
+  it("sends the join reminder with the India date when given a deadline", async () => {
+    // group, then no team or event: an app-wide group
+    mocks.selects = [[GROUP], [], []];
+    mocks.getEnabledUserPhonesForTopic.mockResolvedValueOnce(
+      new Map([["u2", "922222222222"]])
+    );
+
+    await inviteToWhatsAppGroup(
+      "jid@g.us",
+      ["u2"],
+      new Date("2026-11-17T20:00:00Z")
+    );
+
+    expect(mocks.sendWhatsAppNotification.mock.calls[0]?.[1]).toMatchObject({
+      template: {
+        name: "group_join_reminder",
+        params: { date: "Wed, 18 Nov", group: "Sunday Teaching Volunteers" },
+        path: "whatsapp-groups/g1/join",
+      },
+    });
+    expect(mocks.sendWhatsAppNotification.mock.calls[0]?.[2]).toMatchObject({
+      idempotencyKey: expect.stringMatching(/^group-join-reminder-g1-u2-/),
+    });
+  });
+
+  it("does not re-add anyone for a reminder while the Cloud API is off", async () => {
+    mocks.cloudEnabled = false;
+
+    await addOrInviteToWhatsAppGroup(
+      "jid@g.us",
+      "922222222222",
+      "u2",
+      new Date("2026-11-17T20:00:00Z")
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppNotification).not.toHaveBeenCalled();
   });
 
   it("uses the Events setting for event groups and counts people who opted out", async () => {

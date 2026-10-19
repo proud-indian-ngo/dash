@@ -481,6 +481,8 @@ export interface SyncWhatsAppStatusPayload {
 }
 export interface WhatsAppManageOrientationPayload {
   isOriented: boolean;
+  /** Deactivation deadline (ISO); when set, sends `group_join_reminder` instead of `group_invite`. */
+  joinBy?: string;
   userId: string;
 }
 

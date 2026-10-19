@@ -609,6 +609,14 @@ export const WHATSAPP_TEMPLATES = [
     dashboardPath: "whatsapp-groups/0192/join",
     name: "group_invite",
   },
+  {
+    body: "You haven't joined the WhatsApp group {{group}} yet. Join it by {{date}} to keep your Proud Indian Dashboard account active.",
+    category: "UTILITY",
+    examples: { date: "Wed, 18 Nov", group: "Proud Indian Volunteers" },
+    buttonText: "Join group",
+    dashboardPath: "whatsapp-groups/0192/join",
+    name: "group_join_reminder",
+  },
 
   // ── Digests ───────────────────────────────────────────────────────────────
   {

@@ -152,7 +152,7 @@ All times are IST; see [jobs](jobs.md).
 
 Settings > WhatsApp groups registers groups by name and JID for teams, events, scheduled messages and the app-wide groups. Deleting a group also deletes any app-config row pointing at it. Choosing the orientation and all-volunteers groups needs `settings.app_config`.
 
-`scan-whatsapp-groups` (Monday 06:00) compares those two groups with users. It deactivates active users on WhatsApp who are in neither group, reactivates inactive, unbanned users who are in one, and reports unregistered numbers to `system.alerts` holders. It aborts if the groups return no participants, so a GoWA outage can't deactivate everyone.
+`scan-whatsapp-groups` (Monday 06:00) compares those two groups with users. It deactivates active users on WhatsApp who are in neither group, except accounts created in the last 30 days. From an account's second week, each scan sends the `group_join_reminder` template with a join-by date of creation plus 30 days; deactivation happens at the first scan after it. Reminders need the Cloud API; with it off nobody is re-added, because repeated adds are a ban signal. It reactivates inactive, unbanned users who are in one, and reports unregistered numbers to `system.alerts` holders. It aborts if the groups return no participants, so a GoWA outage can't deactivate everyone.
 
 ## Other pages
 
