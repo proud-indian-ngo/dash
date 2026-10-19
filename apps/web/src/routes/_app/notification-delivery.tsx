@@ -31,6 +31,7 @@ import {
   listNotificationDeliveries,
 } from "@/functions/notification-delivery";
 import type {
+  DeliveredBy,
   DeliveryRow,
   EmailDeliveryStatus,
   InboxStatus,
@@ -141,6 +142,9 @@ function NotificationDeliveryRoute() {
   const email = readSelectEquality(query, "email") as
     | EmailDeliveryStatus
     | undefined;
+  const deliveredBy = readSelectEquality(query, "deliveredBy") as
+    | DeliveredBy
+    | undefined;
   const [{ pageIndex, pageSize }] = useQueryStates(
     {
       pageIndex: parseAsIndex.withDefault(0),
@@ -178,6 +182,7 @@ function NotificationDeliveryRoute() {
     setLoadError(false);
     listNotificationDeliveries({
       data: {
+        deliveredBy,
         email,
         inbox,
         limit: pageSize,
@@ -213,6 +218,7 @@ function NotificationDeliveryRoute() {
       cancelled = true;
     };
   }, [
+    deliveredBy,
     email,
     inbox,
     pageIndex,
@@ -253,7 +259,7 @@ function NotificationDeliveryRoute() {
             Refresh
           </Button>
         }
-        description="How each notification reached each person over the last 90 days, in the inbox, on WhatsApp and by email."
+        description="How each notification reached each person over the last 90 days, in the inbox, on WhatsApp and by email, with WhatsApp group posts and scheduled messages."
         title="Notification delivery"
       />
 

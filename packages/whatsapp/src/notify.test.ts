@@ -4,9 +4,12 @@ const mocks = vi.hoisted(() => ({
   cloudEnabled: true,
   deleted: 0,
   inserted: [] as unknown[],
+  logGowaSend: vi.fn(async () => undefined),
   insertReturns: [{ key: "k" }] as unknown[],
   sendCloudTemplate: vi.fn(async () => "wamid.1"),
-  sendWhatsAppMessage: vi.fn(async () => undefined),
+  sendWhatsAppMessage: vi.fn(
+    async (): Promise<string | undefined> => "3EB0GOWA"
+  ),
   updates: [] as unknown[],
 }));
 
@@ -66,6 +69,7 @@ vi.mock("./cloud", () => {
     sendCloudText: vi.fn(),
   };
 });
+vi.mock("./gowa-log", () => ({ logGowaSend: mocks.logGowaSend }));
 vi.mock("./messaging", () => ({
   sendWhatsAppMessage: mocks.sendWhatsAppMessage,
 }));
@@ -173,7 +177,7 @@ describe("sendWhatsAppNotification", () => {
     await sendWhatsAppNotification(
       "919876543210",
       { template, text: "fallback" },
-      { idempotencyKey: "k" }
+      { idempotencyKey: "k", userId: "u1" }
     );
     expect(mocks.sendWhatsAppMessage).toHaveBeenCalledWith(
       "919876543210",
@@ -181,6 +185,16 @@ describe("sendWhatsAppNotification", () => {
       { idempotencyKey: "k" }
     );
     expect(mocks.sendCloudTemplate).not.toHaveBeenCalled();
+    expect(mocks.logGowaSend).toHaveBeenCalledWith(
+      {
+        idempotencyKey: "k",
+        kind: "direct",
+        source: "notification",
+        text: "fallback",
+        userId: "u1",
+      },
+      ["3EB0GOWA"]
+    );
   });
 });
 

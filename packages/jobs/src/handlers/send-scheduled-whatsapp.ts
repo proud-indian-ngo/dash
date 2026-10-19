@@ -3,6 +3,7 @@ import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import {
   sendWhatsAppGroupMessage,
   sendWhatsAppMedia,
@@ -16,6 +17,23 @@ import type { Job } from "pg-boss";
 import type { SendScheduledWhatsAppPayload } from "../enqueue";
 import { getR2Client } from "./r2";
 import { buildScheduledWhatsAppMedia } from "./scheduled-whatsapp-media";
+
+/** A scheduled send as the GoWA log keeps it; a DM keeps the user, not the phone. */
+function scheduledLogEntry(
+  data: SendScheduledWhatsAppPayload,
+  recipientId: string
+) {
+  const group = data.recipientType === "group";
+  return {
+    attachmentCount: data.attachments?.length ?? 0,
+    chatJid: group ? data.targetAddress : null,
+    kind: group ? ("group_post" as const) : ("direct" as const),
+    scheduledMessageId: data.scheduledMessageId,
+    source: "scheduled" as const,
+    text: data.message,
+    userId: group ? null : recipientId,
+  };
+}
 
 async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
   const log = createRequestLogger({
@@ -50,6 +68,7 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
   // Fetch recipient row
   const [recipient] = await db
     .select({
+      recipientId: scheduledMessageRecipient.recipientId,
       status: scheduledMessageRecipient.status,
     })
     .from(scheduledMessageRecipient)
@@ -89,6 +108,7 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
 
   log.set({ attachmentCount: attachments?.length });
 
+  const messageIds: (string | undefined)[] = [];
   if (attachments && attachments.length > 0) {
     const mediaAttachments: WhatsAppMediaAttachment[] =
       buildScheduledWhatsAppMedia(attachments, getR2Client());
@@ -98,10 +118,12 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     // significant complexity for a rare edge case.
     for (const [index, attachment] of mediaAttachments.entries()) {
       const isLast = index === mediaAttachments.length - 1;
-      await sendWhatsAppMedia(
-        targetAddress,
-        attachment,
-        isLast ? message : undefined
+      messageIds.push(
+        await sendWhatsAppMedia(
+          targetAddress,
+          attachment,
+          isLast ? message : undefined
+        )
       );
     }
   } else {
@@ -109,8 +131,12 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
       recipientType === "group"
         ? sendWhatsAppGroupMessage
         : sendWhatsAppMessage;
-    await sendText(targetAddress, message);
+    messageIds.push(await sendText(targetAddress, message));
   }
+  await logGowaSend(
+    scheduledLogEntry(job.data, recipient.recipientId),
+    messageIds
+  );
 
   await db
     .update(scheduledMessageRecipient)
@@ -140,14 +166,18 @@ export async function handleDeadLetterScheduledWhatsApp(
         return;
       }
 
-      await db
+      const error = "All retries exhausted";
+      const [recipient] = await db
         .update(scheduledMessageRecipient)
-        .set({
-          error: "All retries exhausted",
-          status: "failed",
-          updatedAt: new Date(),
-        })
-        .where(eq(scheduledMessageRecipient.id, recipientRowId));
+        .set({ error, status: "failed", updatedAt: new Date() })
+        .where(eq(scheduledMessageRecipient.id, recipientRowId))
+        .returning({ recipientId: scheduledMessageRecipient.recipientId });
+      if (recipient) {
+        await logGowaSend(
+          { ...scheduledLogEntry(job.data, recipient.recipientId), error },
+          []
+        );
+      }
 
       log.set({ event: "status_set_failed" });
       log.emit();

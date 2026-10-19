@@ -6,6 +6,7 @@
 export * from "./email-batch-recipients";
 export * from "./email-message";
 export * from "./email-suppression";
+export * from "./gowa-message";
 export * from "./party-private";
 export * from "./imports";
 export * from "./held-notification";

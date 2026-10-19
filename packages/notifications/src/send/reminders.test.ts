@@ -17,6 +17,7 @@ vi.mock("@pi-dash/env/server", () => ({
 vi.mock("@pi-dash/whatsapp/cloud", () => ({
   isCloudApiEnabled: () => mocks.cloud.enabled,
 }));
+vi.mock("@pi-dash/whatsapp/gowa-log", () => ({ logGowaSend: vi.fn() }));
 vi.mock("@pi-dash/whatsapp/messaging", () => ({
   sendWhatsAppGroupMessage: vi.fn(),
 }));

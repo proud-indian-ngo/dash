@@ -3,10 +3,16 @@ import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { notification } from "@pi-dash/db/schema/notification";
 import { emailMessage } from "@pi-dash/db/schema/private/email-message";
 import {
+  gowaMessage,
+  gowaMessagePart,
+  gowaReceipt,
+} from "@pi-dash/db/schema/private/gowa-message";
+import {
   heldNotification,
   heldNotificationRecipient,
 } from "@pi-dash/db/schema/private/held-notification";
 import { whatsappMessage } from "@pi-dash/db/schema/private/whatsapp-message";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { env } from "@pi-dash/env/server";
 import { MAX_ATTEMPTS } from "@pi-dash/notifications/batching";
 import { TOPICS } from "@pi-dash/notifications/topics";
@@ -427,6 +433,172 @@ it.skipIf(!localDatabase)(
         userId: withPhone,
       });
       expect(bounced.rows.map((row) => row.key)).toEqual([key("off")]);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "lists GoWA group posts and direct sends with their receipts",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { key, tag, withPhone } = await seed(tx);
+      const groupJid = `${tag}@g.us`;
+      await tx.insert(whatsappGroup).values({
+        createdAt: new Date(),
+        id: uuidv7(),
+        jid: groupJid,
+        name: `Volunteers ${tag}`,
+        updatedAt: new Date(),
+      });
+      const post = uuidv7();
+      const direct = uuidv7();
+      const failed = uuidv7();
+      const viaGateway = uuidv7();
+      await tx.insert(gowaMessage).values([
+        // A media post: two attachments, two message IDs, one row.
+        {
+          attachmentCount: 2,
+          chatJid: groupJid,
+          id: post,
+          kind: "group_post",
+          source: "weekly_digest",
+          text: "This week's events",
+        },
+        {
+          createdAt: minutesAgo(10),
+          id: direct,
+          kind: "direct",
+          source: "scheduled",
+          text: "See you Sunday",
+          userId: withPhone,
+        },
+        {
+          createdAt: minutesAgo(11),
+          error: "All retries exhausted",
+          id: failed,
+          kind: "direct",
+          source: "scheduled",
+          text: "Never sent",
+          userId: withPhone,
+        },
+        // A notification sent through GoWA while the Cloud API was off.
+        {
+          id: viaGateway,
+          idempotencyKey: `${key("noemail")}-whatsapp-${withPhone}`,
+          kind: "direct",
+          source: "notification",
+          text: "*No email*\nbody",
+          userId: withPhone,
+        },
+      ]);
+      await tx.insert(gowaMessagePart).values([
+        { gowaMessageId: post, messageId: `post-a-${tag}` },
+        { gowaMessageId: post, messageId: `post-b-${tag}` },
+        { gowaMessageId: direct, messageId: `direct-${tag}` },
+        { gowaMessageId: viaGateway, messageId: `gateway-${tag}` },
+      ]);
+      const at = new Date();
+      await tx.insert(gowaReceipt).values([
+        // A dashboard user who read it.
+        {
+          deliveredAt: at,
+          messageId: `post-a-${tag}`,
+          personJid: "919800000001@s.whatsapp.net",
+          readAt: at,
+        },
+        // Someone unknown whose display name is their number.
+        {
+          deliveredAt: at,
+          displayName: "+91 98111 11222",
+          messageId: `post-b-${tag}`,
+          personJid: "919811111222@s.whatsapp.net",
+        },
+        // Someone on both attachments, counted once.
+        ...["a", "b"].map((part) => ({
+          deliveredAt: at,
+          displayName: "Ravi",
+          messageId: `post-${part}-${tag}`,
+          personJid: "251556368777322@lid",
+        })),
+        {
+          deliveredAt: at,
+          messageId: `direct-${tag}`,
+          personJid: "919800000001@s.whatsapp.net",
+        },
+        {
+          deliveredAt: at,
+          messageId: `gateway-${tag}`,
+          personJid: "919800000001@s.whatsapp.net",
+          readAt: at,
+        },
+        // A receipt for a message the dashboard never logged.
+        {
+          deliveredAt: at,
+          messageId: `phone-${tag}`,
+          personJid: "919800000001@s.whatsapp.net",
+        },
+      ]);
+
+      const groups = await queryDeliveries(tx, {
+        ...PAGE,
+        deliveredBy: "whatsapp_group",
+        search: `Volunteers ${tag}`,
+      });
+      expect(groups.rows).toHaveLength(1);
+      const [row] = groups.rows;
+      expect(row).toMatchObject({
+        deliveredBy: "whatsapp_group",
+        email: "none",
+        gateway: { deliveredCount: 3, kind: "group_post", readCount: 1 },
+        inbox: "none",
+        key: `gowa-${post}`,
+        recipientName: `Volunteers ${tag}`,
+        title: "Weekly events digest",
+        whatsapp: "sent",
+      });
+
+      const { rows } = await queryDeliveries(tx, {
+        ...PAGE,
+        userId: withPhone,
+      });
+      const byKey = new Map(rows.map((r) => [r.key, r]));
+      expect(byKey.get(`gowa-${direct}`)).toMatchObject({
+        deliveredBy: "whatsapp_gateway",
+        title: "Scheduled message",
+        whatsapp: "delivered",
+      });
+      expect(byKey.get(`gowa-${failed}`)?.whatsapp).toBe("failed");
+      expect(byKey.get(key("noemail"))).toMatchObject({
+        deliveredBy: "whatsapp_gateway",
+        whatsapp: "read",
+      });
+      expect(byKey.get(key("alone"))?.deliveredBy).toBe("whatsapp_api");
+      expect(byKey.get(key("off"))?.deliveredBy).toBe("none");
+      expect(byKey.has(`gowa-${viaGateway}`)).toBe(false);
+
+      const preview = await queryDeliveryPreview(tx, {
+        key: `gowa-${post}`,
+        userId: null,
+      });
+      expect(preview.gateway).toMatchObject({
+        attachmentCount: 2,
+        summary: false,
+        text: "This week's events",
+      });
+      expect(
+        preview.gateway?.recipients.map((p) => [p.name, p.readAt !== null])
+      ).toEqual([
+        ["+91 •••• ••222", false],
+        [`Delivery Phone ${tag}`, true],
+        ["Ravi", false],
+      ]);
+
+      const gateway = await queryDeliveryPreview(tx, {
+        key: key("noemail"),
+        userId: withPhone,
+      });
+      expect(gateway.gateway?.text).toBe("*No email*\nbody");
+      expect(gateway.gateway?.recipients).toEqual([]);
     });
   }
 );

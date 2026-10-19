@@ -113,7 +113,7 @@ services:
       APP_UI_ENABLED: "true"
       APP_UI_AUTO_UPDATE: "true"
       WHATSAPP_WEBHOOK: ${WHATSAPP_WEBHOOK:-}
-      WHATSAPP_WEBHOOK_EVENTS: message
+      WHATSAPP_WEBHOOK_EVENTS: message,message.ack
       WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
     volumes:
       - whatsapp_data:/app/storages

@@ -2,6 +2,7 @@ import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { createRequestLogger } from "evlog";
@@ -442,7 +443,18 @@ export async function notifyEventReminderGroup({
   }
   lines.push(`\nView: ${env.APP_URL}/events/${eventId}`);
 
-  await sendWhatsAppGroupMessage(groupJid, lines.join("\n"));
+  const text = lines.join("\n");
+  const messageId = await sendWhatsAppGroupMessage(groupJid, text);
+  await logGowaSend(
+    {
+      chatJid: groupJid,
+      eventId,
+      kind: "group_post",
+      source: "event_reminder",
+      text,
+    },
+    [messageId]
+  );
   log.set({ event: "group_reminder_sent" });
   log.emit();
 }

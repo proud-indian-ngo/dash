@@ -3,6 +3,7 @@ import { teamMember } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { and, eq } from "drizzle-orm";
@@ -76,7 +77,18 @@ export async function notifyEventUpdatePosted({
         `${authorName} posted an update — check it out.`,
         `\nView: ${env.APP_URL}/events/${eventId}`,
       ];
-      await sendWhatsAppGroupMessage(group[0].jid, lines.join("\n"));
+      const text = lines.join("\n");
+      const messageId = await sendWhatsAppGroupMessage(group[0].jid, text);
+      await logGowaSend(
+        {
+          chatJid: group[0].jid,
+          eventId,
+          kind: "group_post",
+          source: "event_update",
+          text,
+        },
+        [messageId]
+      );
     }
   }
 }

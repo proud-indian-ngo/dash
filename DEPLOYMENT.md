@@ -70,7 +70,7 @@ The treasurer signature (`packages/pdf/assets/signature.png`) is bundled at buil
 | `WHATSAPP_WEBHOOK_SECRET` | Yes | Shared with the gateway; validates its webhook calls |
 | `WHATSAPP_API_URL` | No | Gateway URL; unset disables the gateway |
 | `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS` | No | Gateway basic auth; Compose defaults `admin`/`admin` |
-| `WHATSAPP_WEBHOOK` | No | Gateway container only: URL it posts messages to (`…/api/whatsapp/webhook`) |
+| `WHATSAPP_WEBHOOK` | No | Gateway container only: URL it posts messages and receipts to (`…/api/whatsapp/webhook`) |
 
 ### WhatsApp Cloud API
 
@@ -168,7 +168,7 @@ bun run whatsapp:start   # GoWA on http://localhost:3100; pair by QR code
 
 - Both Compose files pin `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0`. Upgrade by changing the tag; keep the storage volume and `WHATSAPP_WEBHOOK_SECRET`.
 - GoWA downloads and caches its own dashboard under `/app/storages/ui/`, which needs GitHub access on first start. For an offline build, see [upstream](https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/v9.6.0/readme.md#web-dashboard-gowa-ui). Log in with `WHATSAPP_AUTH_USER` and `WHATSAPP_AUTH_PASS`; production uses the GoWA Tailscale URL.
-- Webhook events must be `message`, not `message.poll_vote`; the app reads votes from `payload.poll`.
+- Webhook events must be `message,message.ack`, as both Compose files set. `message` carries poll votes (the app reads `payload.poll`; `message.poll_vote` won't do), and `message.ack` the delivery and read receipts for the Notification delivery page. The setting applies when the container is created, so after changing it redeploy the Compose stack (or `docker compose up -d gowa`); pairing survives in the `whatsapp_data` volume.
 - For local webhooks, run `bun run --cwd apps/web dev --host 0.0.0.0` so Docker reaches `host.docker.internal:${DEV_WEB_PORT:-3001}`.
 
 ### Switching WhatsApp to the Cloud API

@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { recordGowaReceipt } from "@pi-dash/db/queries/gowa-message";
 import { env } from "@pi-dash/env/server";
+import { receiptFromAck } from "@pi-dash/whatsapp/ack";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 
@@ -66,6 +68,29 @@ export const Route = createFileRoute("/api/whatsapp/webhook")({
           log.error(error instanceof Error ? error : String(error));
           log.emit();
           return Response.json({ error: "Invalid JSON" }, { status: 400 });
+        }
+
+        // Every member's receipt is a call, so this is one upsert and no
+        // lookups; the delivery page matches people to users when it reads.
+        const receipt = receiptFromAck(parsedBody);
+        if (receipt) {
+          try {
+            await recordGowaReceipt(receipt);
+            log.set({
+              messageCount: receipt.messageIds.length,
+              outcome: "receipt_recorded",
+              receiptType: receipt.type,
+            });
+            log.emit();
+            return Response.json({ ok: true }, { status: 200 });
+          } catch (error) {
+            log.error(error instanceof Error ? error : String(error));
+            log.emit();
+            return Response.json(
+              { error: "Failed to record receipt" },
+              { status: 500 }
+            );
+          }
         }
 
         const result = whatsAppPollVoteWebhookSchema.safeParse(parsedBody);

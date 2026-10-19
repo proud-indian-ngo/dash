@@ -5,6 +5,7 @@ const hoisted = <T>(factory: () => T): T => factory();
 const mocks = hoisted(() => ({
   enqueue: mock(),
   execute: mock(),
+  logGowaSend: mock(),
   select: mock(),
   sendMedia: mock(),
   update: mock(),
@@ -16,6 +17,9 @@ mock.module("@pi-dash/db", () => ({
     select: mocks.select,
     update: mocks.update,
   },
+}));
+mock.module("@pi-dash/whatsapp/gowa-log", () => ({
+  logGowaSend: mocks.logGowaSend,
 }));
 mock.module("@pi-dash/whatsapp/messaging", () => ({
   sendWhatsAppGroupMessage: mock(),
@@ -46,7 +50,12 @@ beforeEach(() => {
   mock.clearAllMocks();
   mocks.execute.mockResolvedValue([{ cleanedUp: 1, messagesAffected: 1 }]);
   mocks.update.mockReturnValue({
-    set: () => ({ where: async () => undefined }),
+    set: () => ({
+      where: () =>
+        Object.assign(Promise.resolve(undefined), {
+          returning: async () => [{ recipientId: "user-1" }],
+        }),
+    }),
   });
   mocks.sendMedia.mockResolvedValue(undefined);
 });
@@ -85,8 +94,11 @@ describe("scheduled WhatsApp attachment retention", () => {
     await handleDeadLetterScheduledWhatsApp([
       {
         data: {
+          message: "Message",
           recipientRowId: "recipient-1",
+          recipientType: "user",
           scheduledMessageId: "message-1",
+          targetAddress: "1234567890",
         },
         id: "job-1",
       },
@@ -94,6 +106,16 @@ describe("scheduled WhatsApp attachment retention", () => {
 
     expect(mocks.update).toHaveBeenCalled();
     expect(mocks.enqueue).not.toHaveBeenCalled();
+    // The delivery log shows it failed, against the user, not the phone.
+    expect(mocks.logGowaSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatJid: null,
+        error: "All retries exhausted",
+        kind: "direct",
+        userId: "user-1",
+      }),
+      []
+    );
   });
 
   it("does not delete attachments when stale recipients become terminal", async () => {
