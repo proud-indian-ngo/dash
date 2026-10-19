@@ -32,7 +32,26 @@ describe("WhatsApp templates", () => {
     // Meta treats `{{x}}.` as trailing; a closing quote (`"{{x}}".`) passes.
     expect(template.body).not.toMatch(/^[\s.,!?]*\{\{/);
     expect(template.body).not.toMatch(/\}\}[\s.,!?]*$/);
-    expect(template.body).not.toMatch(/[\n\t]/);
+    expect(template.body).not.toMatch(/\t/);
+  });
+
+  it.each(WHATSAPP_TEMPLATES)(
+    "$name is laid out in house style",
+    (template) => {
+      // One blank line at most; preview.ts stores the header after three.
+      expect(template.body).not.toMatch(/\n\n\n/);
+      for (const line of template.body.split("\n")) {
+        expect(line).not.toMatch(/^\W*\{\{[a-z_]+\}\}\W*$/);
+        expect(line.split("*").length % 2).toBe(1);
+      }
+    }
+  );
+
+  it.each(WHATSAPP_TEMPLATES)("$name has a plain text header", (template) => {
+    expect(template.header.length).toBeLessThanOrEqual(60);
+    expect(template.header).not.toMatch(
+      /\{\{|[*_~`\n]|\p{Extended_Pictographic}/u
+    );
   });
 
   it.each(WHATSAPP_TEMPLATES)(
@@ -84,7 +103,7 @@ describe("toTemplatePayload", () => {
       name: "event_added",
       parameter_format: "named",
     });
-    expect(payload.components[0]).toEqual({
+    expect(payload.components[1]).toEqual({
       example: {
         body_text_named_params: [
           { example: "Science Fair", param_name: "event" },
@@ -131,6 +150,7 @@ describe("toTemplatePayload", () => {
   it("leaves out the example and buttons when there are none", () => {
     const payload = toTemplatePayload(find("account_deactivated"), APP_URL);
     expect(payload.components).toEqual([
+      { format: "TEXT", text: "Account deactivated", type: "HEADER" },
       { text: find("account_deactivated").body, type: "BODY" },
       { text: "Proud Indian · Change alerts in Settings", type: "FOOTER" },
     ]);

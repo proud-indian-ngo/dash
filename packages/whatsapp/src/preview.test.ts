@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { renderWhatsAppPreview } from "./preview";
+import {
+  parseStoredTemplateText,
+  renderWhatsAppPreview,
+  storedTemplateText,
+} from "./preview";
 import { TEMPLATE_FOOTER } from "./templates";
 
 describe("renderWhatsAppPreview", () => {
@@ -49,5 +53,18 @@ describe("renderWhatsAppPreview", () => {
     expect(preview.filled).toBe(false);
     expect(preview.button).toBeNull();
     expect(preview.body).toEqual([[{ bold: false, text: "Hi {{name}}." }]]);
+  });
+
+  it("stores the header with the body and reads older body-only rows", () => {
+    const template = {
+      body: "Hi {{name}}.\n\n*Team:* {{team}} now",
+      header: "Added",
+    };
+    expect(parseStoredTemplateText(storedTemplateText(template))).toEqual(
+      template
+    );
+    expect(parseStoredTemplateText("Hi {{name}}.")).toEqual({
+      body: "Hi {{name}}.",
+    });
   });
 });

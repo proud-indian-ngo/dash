@@ -84,7 +84,7 @@ Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repe
 - A gateway message to one person reads Sent, Delivered or Read from its receipts, or Failed. A group post shows "Delivered to 48 · Read by 21" instead, counting distinct people; a read counts as delivered. The group's size at send time isn't known, so there is no "of 60". The sheet lists who read it and who received it, by dashboard name where the receipt's phone matches a user, else GoWA's display name, else the number masked ("+91 •••• ••686"). Full numbers never reach the browser.
 - The stats count gateway direct messages with Cloud API ones as delivered, and every failed gateway send as failed. Group posts aren't counted as delivered, since a post has no single recipient.
 - Suppression is the address's current state, compared with the send time.
-- The detail sheet renders the WhatsApp template from the body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. A gateway message shows the text sent, with its attachment count. Email content isn't kept.
+- The detail sheet renders the WhatsApp template from the header, body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. A gateway message shows the text sent, with its attachment count. Email content isn't kept.
 
 ## Topics and preferences
 
@@ -137,8 +137,10 @@ Messages to people use Meta's Cloud API once `WHATSAPP_CLOUD_ACCESS_TOKEN` and `
 Meta delivers business-initiated messages only as approved templates. The social digest template is covered in `social-api.md`.
 
 - `packages/whatsapp/src/templates.ts` lists them. Its test enforces Meta's rules: no parameter at the start or end (`{{x}}.` counts as the end), at least 2.5 fixed words per parameter, no chat.whatsapp.com buttons.
-- `bun run whatsapp:templates submit` creates missing templates on Meta; `status` shows review state and category. It needs the production `APP_URL`, because a button's link is fixed at approval.
-- A changed template needs a new name. Meta blocks a deleted name for about 30 days.
+- Layout: a static text header (at most 60 characters, no parameter, markdown or emoji), then a body that opens with a plain sentence and lists two or more facts as `*Label:* {{value}}` lines after a blank line. The test also rejects a line that is only a parameter, unpaired `*`, and two blank lines in a row; the send log uses three new lines to separate the stored header from the body.
+- `bun run whatsapp:templates submit` creates missing templates on Meta; `status` shows review state and category. Both need the production `APP_URL`, because a button's link is fixed at approval.
+- Change an existing template in place with `edit`: it replaces the components of each template whose header, body, footer or buttons differ from Meta's copy, keeping the name. Meta allows it only for APPROVED, REJECTED or PAUSED templates, never changes an approved template's category, and limits an approved one to one edit a day and 10 in 30 days. It re-approves an edit unless review fails it, so run `edit --dry-run`, then `edit --limit 1` as a canary and check `status` before editing the rest.
+- The send log stores the deployed copy, so messages sent between the edit and the deploy can show the other version. A new name is needed only for a new template; Meta blocks a deleted name for about 30 days.
 - Meta can move a template it reads as promotional to MARKETING, during review or after approval. Only the digest decision reads the live category. Ask for a review in WhatsApp Manager → Message templates → Template Category Updates.
 
 #### Senders

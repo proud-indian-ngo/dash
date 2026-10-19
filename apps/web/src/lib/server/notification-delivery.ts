@@ -18,6 +18,7 @@ import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { MAX_ATTEMPTS } from "@pi-dash/notifications/batching";
 import { TOPIC_CATALOG } from "@pi-dash/notifications/topics";
 import {
+  parseStoredTemplateText,
   renderWhatsAppPreview,
   type WhatsAppPreview,
 } from "@pi-dash/whatsapp/preview";
@@ -831,14 +832,21 @@ export async function queryDeliveryPreview(
   const definition = sent
     ? WHATSAPP_TEMPLATES.find((t) => t.name === sent.template)
     : undefined;
-  const body = sent?.template_body ?? definition?.body;
+  // Rows store the header and body as sent; older ones hold only the body.
+  const stored = sent?.template_body
+    ? parseStoredTemplateText(sent.template_body)
+    : definition;
+  const body = stored?.body;
   return {
     gateway,
     inbox: inbox ? { body: inbox.body, title: inbox.title } : null,
     whatsapp:
       sent && body !== undefined
         ? {
-            ...renderWhatsAppPreview({ ...definition, body }, sent.params),
+            ...renderWhatsAppPreview(
+              { ...definition, body, header: stored?.header },
+              sent.params
+            ),
             summary: sent.summary,
           }
         : null,

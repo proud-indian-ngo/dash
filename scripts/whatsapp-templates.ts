@@ -1,15 +1,25 @@
 /**
- * Submit and check the WhatsApp Cloud API message templates in
+ * Submit, edit and check the WhatsApp Cloud API message templates in
  * `packages/whatsapp/src/templates.ts`.
  *
  * Usage:
  *   bun run whatsapp:templates status
  *   bun run whatsapp:templates submit [--dry-run] [name ...]
+ *   bun run whatsapp:templates edit [--dry-run] [--limit N] [--continue] [name ...]
  *
  * `status` lists each template's review status on Meta and flags any Meta
  * moved to another category or rejected. `submit` creates the templates
  * that don't exist on Meta yet (or only the names given); existing ones are
  * left alone, so it's safe to run again after adding a template.
+ *
+ * `edit` replaces the components (header, body, footer, buttons) of
+ * templates on Meta whose text differs from ours, keeping their names, via
+ * `POST /{template-id}`. Unchanged templates are skipped, so it's safe to
+ * run again. Meta edits only APPROVED, REJECTED or PAUSED templates, never
+ * an approved template's category, and an approved one at most once a day
+ * and 10 times in 30 days; it re-approves the edit unless review fails it.
+ * `--limit N` edits at most N (a canary: edit one, check `status`, then the
+ * rest); it stops at the first failure unless `--continue` is passed.
  *
  * Needs WHATSAPP_CLOUD_ACCESS_TOKEN (the system user's token),
  * WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID and APP_URL. APP_URL must be the
@@ -29,10 +39,22 @@ const DEFAULT_GRAPH_VERSION = "v25.0";
 const USAGE = `Usage:
   bun run whatsapp:templates status
   bun run whatsapp:templates submit [--dry-run] [name ...]
+  bun run whatsapp:templates edit [--dry-run] [--limit N] [--continue] [name ...]
 `;
+
+/** The statuses Meta lets you edit a template in. */
+const EDITABLE_STATUSES = new Set(["APPROVED", "PAUSED", "REJECTED"]);
+
+interface Component {
+  buttons?: { text: string; type: string; url?: string }[];
+  format?: string;
+  text?: string;
+  type: string;
+}
 
 interface RemoteTemplate {
   category: string;
+  components: Component[];
   id: string;
   language: string;
   name: string;
@@ -110,7 +132,7 @@ async function graph<T>(
 async function listRemote(cfg: Config): Promise<RemoteTemplate[]> {
   const templates: RemoteTemplate[] = [];
   let path: string | undefined =
-    `${cfg.businessAccountId}/message_templates?fields=id,name,language,status,category,rejected_reason&limit=100`;
+    `${cfg.businessAccountId}/message_templates?fields=id,name,language,status,category,rejected_reason,components&limit=100`;
   while (path) {
     const page: { data: RemoteTemplate[]; paging?: { next?: string } } =
       await graph(cfg, path);
@@ -154,19 +176,21 @@ async function status(): Promise<void> {
   process.stdout.write(`\n${summary}\n`);
 }
 
-async function submit(args: string[]): Promise<void> {
-  const dryRun = args.includes("--dry-run");
-  const names = args.filter((arg) => !arg.startsWith("--"));
+function selectTemplates(names: string[]): readonly WhatsAppTemplate[] {
   const unknown = names.filter(
     (name) => !WHATSAPP_TEMPLATES.some((t) => t.name === name)
   );
   if (unknown.length > 0) {
     fail(`Unknown template(s): ${unknown.join(", ")}`);
   }
-  const selected: readonly WhatsAppTemplate[] =
-    names.length > 0
-      ? WHATSAPP_TEMPLATES.filter((t) => names.includes(t.name))
-      : WHATSAPP_TEMPLATES;
+  return names.length > 0
+    ? WHATSAPP_TEMPLATES.filter((t) => names.includes(t.name))
+    : WHATSAPP_TEMPLATES;
+}
+
+async function submit(args: string[]): Promise<void> {
+  const dryRun = args.includes("--dry-run");
+  const selected = selectTemplates(args.filter((arg) => !arg.startsWith("--")));
 
   const cfg = config();
   const existing = new Set(
@@ -218,6 +242,107 @@ async function submit(args: string[]): Promise<void> {
   }
 }
 
+/**
+ * The text Meta shows for each component, for comparing remote templates
+ * with ours. Examples are left out: Meta stores them in its own shape, and
+ * a changed example alone isn't worth an edit.
+ */
+function comparable(components: readonly Component[]): string {
+  return JSON.stringify(
+    components.map((c) => ({
+      buttons: c.buttons?.map((b) => [b.type, b.text, b.url ?? null]) ?? null,
+      format: c.format ?? null,
+      text: c.text ?? null,
+      type: c.type,
+    }))
+  );
+}
+
+function parseLimit(args: string[]): number {
+  const at = args.indexOf("--limit");
+  if (at === -1) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const limit = Number(args[at + 1]);
+  if (!Number.isInteger(limit) || limit < 1) {
+    fail("--limit needs a whole number of templates, at least 1");
+  }
+  args.splice(at, 2);
+  return limit;
+}
+
+async function edit(args: string[]): Promise<void> {
+  const options = [...args];
+  const limit = parseLimit(options);
+  const dryRun = options.includes("--dry-run");
+  const keepGoing = options.includes("--continue");
+  const selected = selectTemplates(
+    options.filter((arg) => !arg.startsWith("--"))
+  );
+
+  const cfg = config();
+  const remote = new Map(
+    (await listRemote(cfg)).map((t) => [remoteKey(t.name, t.language), t])
+  );
+
+  let edited = 0;
+  let failed = 0;
+  let unchanged = 0;
+  let notEditable = 0;
+  let waiting = 0;
+  for (const template of selected) {
+    const payload = toTemplatePayload(template, cfg.appUrl);
+    const found = remote.get(remoteKey(payload.name, payload.language));
+    if (!found) {
+      notEditable += 1;
+      process.stdout.write(`missing  ${template.name} (run submit)\n`);
+      continue;
+    }
+    if (comparable(found.components) === comparable(payload.components)) {
+      unchanged += 1;
+      continue;
+    }
+    if (!EDITABLE_STATUSES.has(found.status)) {
+      notEditable += 1;
+      process.stdout.write(`skipped  ${template.name}: ${found.status}\n`);
+      continue;
+    }
+    if (edited + failed >= limit) {
+      waiting += 1;
+      continue;
+    }
+    if (dryRun) {
+      edited += 1;
+      process.stdout.write(
+        `would edit ${template.name} (${found.status}, id ${found.id})\n${JSON.stringify(payload.components, null, 2)}\n`
+      );
+      continue;
+    }
+    try {
+      await graph<{ success: boolean }>(cfg, found.id, {
+        body: { components: payload.components },
+        method: "POST",
+      });
+      edited += 1;
+      process.stdout.write(`edited   ${template.name}\n`);
+    } catch (error) {
+      failed += 1;
+      process.stdout.write(
+        `FAILED   ${template.name}: ${error instanceof Error ? error.message : String(error)}\n`
+      );
+      if (!keepGoing) {
+        break;
+      }
+    }
+  }
+  process.stdout.write(
+    `\n${edited} ${dryRun ? "to edit" : "edited"}, ${unchanged} unchanged, ${notEditable} not editable, ${waiting} past the limit, ${failed} failed\n`
+  );
+  if (failed > 0) {
+    process.exit(1);
+  }
+}
+
 const [command, ...rest] = process.argv.slice(2);
 try {
   switch (command) {
@@ -226,6 +351,9 @@ try {
       break;
     case "submit":
       await submit(rest);
+      break;
+    case "edit":
+      await edit(rest);
       break;
     default:
       fail(command ? `Unknown command: ${command}` : "Missing command");

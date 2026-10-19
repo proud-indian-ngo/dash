@@ -15,10 +15,9 @@ import {
 } from "./cloud";
 import { logGowaSend } from "./gowa-log";
 import { sendWhatsAppMessage } from "./messaging";
-import {
-  TEMPLATE_BODIES,
-  type WhatsAppTemplateMessage,
-} from "./template-message";
+import { storedTemplateText } from "./preview";
+import type { WhatsAppTemplateMessage } from "./template-message";
+import { WHATSAPP_TEMPLATES } from "./templates";
 
 export interface WhatsAppNotification {
   /** Sent through Meta's Cloud API when it's configured. */
@@ -177,11 +176,16 @@ export async function sendWhatsAppNotification(
     {
       params: template.params,
       template: template.name,
-      templateBody: TEMPLATE_BODIES.get(template.name) ?? null,
+      templateBody: storedTemplate(template.name),
     },
     options.userId,
     () => sendCloudTemplate(phone, template)
   );
+}
+
+function storedTemplate(name: string): string | null {
+  const definition = WHATSAPP_TEMPLATES.find((t) => t.name === name);
+  return definition ? storedTemplateText(definition) : null;
 }
 
 /** Free-text reply inside the 24-hour window, once per key. */

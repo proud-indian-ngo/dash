@@ -22,11 +22,36 @@ export interface WhatsAppPreview {
 
 type PreviewTemplate = Pick<
   WhatsAppTemplate,
-  "body" | "buttonText" | "dashboardPath"
-> & { header?: string };
+  "body" | "buttonText" | "dashboardPath" | "header"
+>;
 
 const PARAMETER = /\{\{([a-z_]+)\}\}/g;
 const BOLD = /\*([^*\n]+)\*/g;
+/** A body never holds two blank lines in a row (templates.test.ts). */
+const HEADER_BREAK = "\n\n\n";
+
+/**
+ * The copy a send stores in `template_body`: the header, if any, then the
+ * body. Templates are edited in place, so this keeps what was sent.
+ */
+export function storedTemplateText(
+  template: Pick<WhatsAppTemplate, "body" | "header">
+): string {
+  return template.header === undefined
+    ? template.body
+    : `${template.header}${HEADER_BREAK}${template.body}`;
+}
+
+/** Split `storedTemplateText()` back up; older rows hold only the body. */
+export function parseStoredTemplateText(text: string): {
+  body: string;
+  header?: string;
+} {
+  const at = text.indexOf(HEADER_BREAK);
+  return at === -1
+    ? { body: text }
+    : { body: text.slice(at + HEADER_BREAK.length), header: text.slice(0, at) };
+}
 
 function runs(line: string): WhatsAppTextRun[] {
   const result: WhatsAppTextRun[] = [];
