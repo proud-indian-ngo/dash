@@ -23,6 +23,8 @@ Import `jsonb` from `packages/db/src/schema/jsonb.ts`, never from `drizzle-orm/p
 
 ### Dates
 
+`timestamp` columns (without time zone) hold UTC: Drizzle writes and reads them as UTC, and SQL that needs an India day converts with `at time zone 'UTC' at time zone 'Asia/Kolkata'`. So the Postgres session time zone must be UTC, or `now()` and column defaults write India time. Production sets `-c timezone=UTC`, because the container's `TZ` is Asia/Kolkata and `initdb` copied it into `postgresql.conf`.
+
 Zero syncs a Postgres `date` column as the epoch of UTC midnight. A date picker's value is local midnight, which in India is 18:30 UTC the day before, so passing `getTime()` to a mutator stores the previous day. Convert with `localDateToEpoch` (or `localDateToIso` for a string argument) and read back with `epochToLocalDate`, all in `apps/web/src/lib/local-date.ts`. Mutators compare such a day with `todayInKolkata`, not `Date.now()`.
 
 ### Money
