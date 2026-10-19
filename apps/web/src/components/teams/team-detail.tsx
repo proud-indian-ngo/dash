@@ -422,6 +422,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
           onAddMember={stableOnAddMember2}
           onRemoveMember={stableOnRemoveMember3}
           onToggleRole={handleToggleRole}
+          teamId={team.id}
           userId={userId}
         />
 

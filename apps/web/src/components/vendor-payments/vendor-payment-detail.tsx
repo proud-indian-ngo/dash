@@ -21,6 +21,7 @@ import { ChargedToCard } from "@/components/expenses/charged-to-card";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
+import { contactActions } from "@/components/shared/contact-actions";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AttachmentList,
@@ -39,6 +40,7 @@ import {
 } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useUserContact } from "@/hooks/use-user-contact";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -153,6 +155,7 @@ function VendorPaymentHeader({
   showResetAction: boolean;
   tone: StatusTone;
 }) {
+  const requesterContact = useUserContact(request.user?.id);
   return (
     <PageHeader
       actions={
@@ -195,6 +198,7 @@ function VendorPaymentHeader({
           ) : null}
           <PageHeaderMenu
             actions={[
+              ...contactActions(requesterContact, "requester"),
               showResetAction && {
                 id: "reset",
                 icon: RepeatIcon,

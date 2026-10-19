@@ -17,6 +17,7 @@ import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { optionsFromRows } from "@/components/data-table/filter-fields";
 import { FormModal } from "@/components/form/form-modal";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { contactActions } from "@/components/shared/contact-actions";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
@@ -155,6 +156,7 @@ function UserActionsMenu({
       title={`${user.name} actions`}
       trigger={<RowActionsButton onClick={stableOnClick0} />}
       actions={[
+        ...(isSelf ? [] : contactActions(user)),
         {
           id: "edit",
           icon: Edit02Icon,
@@ -266,6 +268,7 @@ function UserSheetActions({
       </Button>
       <PageHeaderMenu
         actions={[
+          ...(isSelf ? [] : contactActions(user)),
           {
             icon: NotificationIcon,
             id: "notifications",

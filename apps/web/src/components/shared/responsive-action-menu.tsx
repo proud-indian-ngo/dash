@@ -29,7 +29,7 @@ import { flushSync } from "react-dom";
 
 import styles from "./responsive-action-menu.module.css";
 
-interface ActionMenuAction {
+export interface ActionMenuAction {
   id: string;
   label: ReactNode;
   /** Every item has an icon, so a menu scans as one column. */

@@ -1,10 +1,10 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import {
-  type EventContactsAccess,
-  type EventContactsDeps,
-  loadEventContacts,
-} from "./event-contacts";
+  type ContactsAccess,
+  type ContactsDeps,
+  loadContacts,
+} from "./contacts";
 
 const contact = {
   email: "asha@example.com",
@@ -19,31 +19,31 @@ const deps = ({
   },
   isLead = false,
   permissions = [] as string[],
-} = {}): EventContactsDeps & {
+} = {}): ContactsDeps & {
   listContacts: ReturnType<typeof mock>;
 } => ({
-  findEvent: mock(async () => event ?? undefined),
+  findScope: mock(async () => event ?? undefined),
   isTeamLead: mock(async (id: string) => isLead && id === "team-1"),
   listContacts: mock(async () => [contact]),
   resolvePermissions: mock(async () => permissions),
 });
 
 const session = { user: { id: "lead-1", role: "volunteer" } };
-const access: EventContactsAccess = { permission: "events.manage_interest" };
+const access: ContactsAccess = { permission: "events.manage_interest" };
 const expected = {
   "volunteer-1": { email: contact.email, phone: contact.phone },
 };
 
-describe("loadEventContacts", () => {
+describe("loadContacts", () => {
   it("returns contacts to a lead of the event's team", async () => {
     await expect(
-      loadEventContacts("event-1", session, access, deps({ isLead: true }))
+      loadContacts("event-1", session, access, deps({ isLead: true }))
     ).resolves.toEqual(expected);
   });
 
   it("returns contacts to a holder of the permission", async () => {
     await expect(
-      loadEventContacts(
+      loadContacts(
         "event-1",
         session,
         access,
@@ -55,7 +55,7 @@ describe("loadEventContacts", () => {
   it("returns nothing to anyone else", async () => {
     const dependencies = deps();
     await expect(
-      loadEventContacts("event-1", session, access, dependencies)
+      loadContacts("event-1", session, access, dependencies)
     ).resolves.toEqual({});
     expect(dependencies.listContacts).not.toHaveBeenCalled();
   });
@@ -66,7 +66,7 @@ describe("loadEventContacts", () => {
       isLead: true,
     });
     await expect(
-      loadEventContacts("event-1", session, access, dependencies)
+      loadContacts("event-1", session, access, dependencies)
     ).resolves.toEqual({});
     expect(dependencies.listContacts).not.toHaveBeenCalled();
   });
@@ -74,7 +74,7 @@ describe("loadEventContacts", () => {
   it("returns nothing for an unknown event", async () => {
     const dependencies = deps({ event: null, isLead: true });
     await expect(
-      loadEventContacts("event-1", session, access, dependencies)
+      loadContacts("event-1", session, access, dependencies)
     ).resolves.toEqual({});
     expect(dependencies.listContacts).not.toHaveBeenCalled();
   });
@@ -86,10 +86,10 @@ describe("loadEventContacts", () => {
       permissions: ["events.edit"],
     });
     await expect(
-      loadEventContacts(
+      loadContacts(
         "event-1",
         session,
-        { excludeKalakritiEvents: true, permission: "events.edit" },
+        { excludeKalakriti: true, permission: "events.edit" },
         dependencies
       )
     ).resolves.toEqual({});
@@ -98,7 +98,7 @@ describe("loadEventContacts", () => {
 
   it("keeps Kalakriti events when that access does not exclude them", async () => {
     await expect(
-      loadEventContacts(
+      loadContacts(
         "event-1",
         session,
         access,
@@ -116,7 +116,7 @@ describe("loadEventContacts", () => {
       permissions: [access.permission],
     });
     await expect(
-      loadEventContacts(
+      loadContacts(
         "event-1",
         { user: { id: "lead-1", role: "external_user" } },
         access,
@@ -129,7 +129,7 @@ describe("loadEventContacts", () => {
   it("returns nothing without a session", async () => {
     const dependencies = deps({ isLead: true });
     await expect(
-      loadEventContacts("event-1", null, access, dependencies)
+      loadContacts("event-1", null, access, dependencies)
     ).resolves.toEqual({});
     expect(dependencies.listContacts).not.toHaveBeenCalled();
   });

@@ -12,18 +12,15 @@ import type { EventInterest, User } from "@pi-dash/zero/schema";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 
+import { whatsappUrl } from "@/components/shared/contact-actions";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
-import {
-  type EventContact,
-  getEventInterestContacts,
-} from "@/functions/event-contacts";
+import { type Contact, getEventInterestContacts } from "@/functions/contacts";
+import { type ContactState, useContacts } from "@/hooks/use-contacts";
 import { DATE } from "@/lib/date-formats";
 import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
-
-import { useEventContacts, whatsappUrl } from "./use-event-contacts";
 
 export type InterestWithUser = EventInterest & { user: User | undefined };
 
@@ -32,7 +29,10 @@ interface InterestRequestsProps {
   interests: readonly InterestWithUser[];
 }
 
-function InterestContactLinks({ contact }: { contact: EventContact }) {
+const fetchInterestContacts = (eventId: string) =>
+  getEventInterestContacts({ data: { eventId } });
+
+function InterestContactLinks({ contact }: { contact: Contact }) {
   return (
     <div className="flex flex-wrap gap-x-3 text-xs">
       {contact.phone ? (
@@ -72,11 +72,9 @@ function InterestContactLinks({ contact }: { contact: EventContact }) {
 
 function InterestRow({
   contact,
-  contactLoading,
   interest,
 }: {
-  contact: EventContact | undefined;
-  contactLoading: boolean;
+  contact: ContactState;
   interest: InterestWithUser;
 }) {
   const zero = useZero();
@@ -138,8 +136,10 @@ function InterestRow({
           </div>
         )}
         <div className={interest.user ? "min-w-0 pl-9" : "min-w-0"}>
-          {contact ? <InterestContactLinks contact={contact} /> : null}
-          {!contact && contactLoading ? (
+          {typeof contact === "object" ? (
+            <InterestContactLinks contact={contact} />
+          ) : null}
+          {contact === "loading" ? (
             <Skeleton className="my-0.5 h-3 w-48" />
           ) : null}
           {interest.message ? (
@@ -199,8 +199,8 @@ export function InterestRequests({
   const pendingInterests = interests.filter(
     (i) => i.status === "pending" && !deferredIds.has(i.id)
   );
-  const { contacts, loading } = useEventContacts(
-    getEventInterestContacts,
+  const { contactFor } = useContacts(
+    fetchInterestContacts,
     eventId,
     pendingInterests.map((i) => i.userId)
   );
@@ -217,8 +217,7 @@ export function InterestRequests({
       <ul className="divide-y rounded-lg border">
         {pendingInterests.map((interest) => (
           <InterestRow
-            contact={contacts[interest.userId] ?? undefined}
-            contactLoading={loading}
+            contact={contactFor(interest.userId)}
             interest={interest}
             key={interest.id}
           />

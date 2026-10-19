@@ -36,6 +36,7 @@ import {
 import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
+import { contactActions } from "@/components/shared/contact-actions";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AttachmentList,
@@ -56,6 +57,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useUserContact } from "@/hooks/use-user-contact";
 import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
@@ -119,6 +121,7 @@ export function ReimbursementDetail({
   const zero = useZero();
   const { hasPermission } = useApp();
   const costCentres = useCostCentres();
+  const requesterContact = useUserContact(request.user?.id);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [changeClaimantOpen, setChangeClaimantOpen] = useState(false);
@@ -330,6 +333,7 @@ export function ReimbursementDetail({
               ) : null}
               <PageHeaderMenu
                 actions={[
+                  ...contactActions(requesterContact, "requester"),
                   showPaymentProof && {
                     id: "payment-proof",
                     icon: ImageUploadIcon,

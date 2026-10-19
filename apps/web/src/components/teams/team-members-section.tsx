@@ -5,6 +5,11 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 
 import { MemberRow } from "@/components/teams/team-member-row";
+import { getTeamMemberContacts } from "@/functions/contacts";
+import { useContacts } from "@/hooks/use-contacts";
+
+const fetchTeamMemberContacts = (teamId: string) =>
+  getTeamMemberContacts({ data: { teamId } });
 
 interface TeamMembersSectionProps {
   canManage: boolean;
@@ -14,6 +19,7 @@ interface TeamMembersSectionProps {
   onAddMember: () => void;
   onRemoveMember: (id: string) => void;
   onToggleRole: (memberId: string, currentRole: string) => void;
+  teamId: string;
   userId: string;
 }
 
@@ -25,9 +31,16 @@ export function TeamMembersSection({
   onAddMember,
   onRemoveMember,
   onToggleRole,
+  teamId,
   userId,
 }: TeamMembersSectionProps) {
   const stableOnRemove = useEventCallback((id: string) => onRemoveMember(id));
+  // Only those who manage the team get its contacts, in the row menu.
+  const { contactFor } = useContacts(
+    fetchTeamMemberContacts,
+    teamId,
+    canManage ? members.map((m) => m.userId) : []
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -57,6 +70,9 @@ export function TeamMembersSection({
               canManage={canManage}
               canRemove={
                 canRemoveLeads || (canManage && member.role !== "lead")
+              }
+              contact={
+                member.userId === userId ? undefined : contactFor(member.userId)
               }
               isSoleLeadSelf={
                 leadCount === 1 &&

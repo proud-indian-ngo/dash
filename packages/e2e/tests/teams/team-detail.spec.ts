@@ -197,3 +197,47 @@ test.describe("Team detail — volunteer view", () => {
     await expect(teamDetail.getAddMemberButton()).toBeHidden();
   });
 });
+
+test.describe("Team member contacts", () => {
+  /** The volunteer leads this seeded team alongside the super admin. */
+  const LEAD_TEAM_ID = "e2e00000-0000-0000-0000-000000000102";
+
+  test("a lead without users.view reaches a member from the row menu", async ({
+    page,
+    superAdminEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    await page.goto(`/teams/${LEAD_TEAM_ID}`);
+    await waitForZeroReady(page);
+
+    await page
+      .getByRole("button", { name: "Actions for Test Super Admin" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: `Email ${superAdminEmail}` })
+    ).toHaveAttribute("href", `mailto:${superAdminEmail}`);
+  });
+
+  test("a plain member gets no row menus", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    const teamDetail = new TeamDetailPage(page);
+    await page.goto("/teams");
+    await waitForZeroReady(page);
+    await page
+      .getByPlaceholder("Search teams...")
+      .fill(VOLUNTEER_MEMBER_TEAM_NAME);
+    await page
+      .getByRole("row")
+      .filter({ hasText: VOLUNTEER_MEMBER_TEAM_NAME })
+      .first()
+      .click();
+    await expect(teamDetail.getAddMemberButton()).toBeHidden();
+    await expect(page.getByText(VOLUNTEER_NAME).first()).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const rows = page.locator('[data-slot="team-member-row"]');
+    await expect(rows.first()).toBeVisible();
+    await expect(rows.getByRole("button")).toHaveCount(0);
+  });
+});

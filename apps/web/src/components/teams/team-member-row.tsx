@@ -7,16 +7,20 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import type { TeamMember, User } from "@pi-dash/zero/schema";
 import { format } from "date-fns";
 
+import { contactActions } from "@/components/shared/contact-actions";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import type { ContactState } from "@/hooks/use-contacts";
 import { DATE } from "@/lib/date-formats";
 
 export interface MemberRowProps {
   canManage: boolean;
   canRemove: boolean;
+  /** Absent for the viewer's own row and for those who cannot manage. */
+  contact: ContactState;
   isSoleLeadSelf: boolean;
   member: TeamMember & { user: User | undefined };
   onRemove: (id: string) => void;
@@ -36,6 +40,7 @@ function getRoleToggleTitle(isSoleLeadSelf: boolean, role: string): string {
 export function MemberRow({
   canManage,
   canRemove,
+  contact,
   isSoleLeadSelf,
   member,
   onRemove,
@@ -83,6 +88,7 @@ export function MemberRow({
       {canManage || canRemove ? (
         <ResponsiveActionMenu
           actions={[
+            ...contactActions(contact),
             canManage && {
               disabled: isSoleLeadSelf && role === "lead",
               icon: role === "lead" ? UserIcon : UserStar01Icon,
