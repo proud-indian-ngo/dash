@@ -44,7 +44,7 @@ export const BODY_MAX_LENGTH = 1024;
 /** No value is cut shorter than this to make room for the others. */
 const PARAMETER_MIN_LENGTH = 20;
 
-export const TEMPLATE_BODIES: ReadonlyMap<string, string> = new Map(
+const TEMPLATE_BODIES: ReadonlyMap<string, string> = new Map(
   WHATSAPP_TEMPLATES.map((t) => [t.name, t.body])
 );
 
