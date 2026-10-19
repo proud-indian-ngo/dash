@@ -9,9 +9,9 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { log } from "evlog";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { ErrorState } from "@/components/shared/error-state";
+import { ErrorState, ReloadLabel } from "@/components/shared/error-state";
 import { StandalonePage } from "@/components/shared/not-found-state";
 import {
   isChunkLoadError,
@@ -57,8 +57,11 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     }
   }, [chunkLoadFailed, error]);
 
+  // Clearing the cache first can take seconds, so the button shows it is working.
+  const [reloading, setReloading] = useState(false);
   const retry = useEventCallback(async () => {
     if (chunkLoadFailed) {
+      setReloading(true);
       await reloadClearingCache();
       return;
     }
@@ -70,8 +73,12 @@ export function DefaultCatchBoundary({ error }: Readonly<ErrorComponentProps>) {
     <ErrorState
       actions={
         <>
-          <Button onClick={retry} type="button">
-            {chunkLoadFailed ? "Reload" : "Try again"}
+          <Button disabled={reloading} onClick={retry} type="button">
+            {chunkLoadFailed ? (
+              <ReloadLabel reloading={reloading} />
+            ) : (
+              "Try again"
+            )}
           </Button>
           {!isRoot && canGoBack ? (
             <Button onClick={goBack} type="button" variant="outline">

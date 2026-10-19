@@ -3,12 +3,13 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { log } from "evlog";
-import { type ReactNode, use } from "react";
+import { type ReactNode, use, useState } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 
 import {
   CHUNK_ERROR_DESCRIPTION,
   ErrorState,
+  ReloadLabel,
 } from "@/components/shared/error-state";
 import { AppContext } from "@/context/app-context";
 import {
@@ -22,19 +23,23 @@ type Level = "root" | "section" | "inline";
 
 // React.lazy caches a failed import, so resetting the boundary cannot recover
 // from a chunk error; only a full reload can.
+// Clearing the cache first can take seconds, so the button shows it is working.
 function useRetry({ error, resetErrorBoundary }: FallbackProps) {
-  return useEventCallback(async () => {
+  const [reloading, setReloading] = useState(false);
+  const retry = useEventCallback(async () => {
     if (isChunkLoadError(error)) {
+      setReloading(true);
       await reloadClearingCache();
       return;
     }
     resetErrorBoundary();
   });
+  return { reloading, retry };
 }
 
 function RootFallback(props: FallbackProps) {
   const { error } = props;
-  const retry = useRetry(props);
+  const { reloading, retry } = useRetry(props);
   const goHome = useEventCallback(() => {
     window.location.href = "/";
   });
@@ -44,8 +49,12 @@ function RootFallback(props: FallbackProps) {
       <ErrorState
         actions={
           <>
-            <Button onClick={retry} type="button">
-              {isChunkLoadError(error) ? "Reload" : "Try again"}
+            <Button disabled={reloading} onClick={retry} type="button">
+              {isChunkLoadError(error) ? (
+                <ReloadLabel reloading={reloading} />
+              ) : (
+                "Try again"
+              )}
             </Button>
             <Button onClick={goHome} type="button" variant="outline">
               Go to dashboard
@@ -60,7 +69,7 @@ function RootFallback(props: FallbackProps) {
 
 function SectionFallback(props: FallbackProps) {
   const { error } = props;
-  const retry = useRetry(props);
+  const { reloading, retry } = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
@@ -76,8 +85,14 @@ function SectionFallback(props: FallbackProps) {
         <p className="text-muted-foreground max-w-sm text-xs">
           {CHUNK_ERROR_DESCRIPTION}
         </p>
-        <Button onClick={retry} size="sm" type="button" variant="outline">
-          Reload
+        <Button
+          disabled={reloading}
+          onClick={retry}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <ReloadLabel reloading={reloading} />
         </Button>
       </div>
     );
@@ -105,7 +120,7 @@ function SectionFallback(props: FallbackProps) {
 
 function InlineFallback(props: FallbackProps) {
   const { error } = props;
-  const retry = useRetry(props);
+  const { reloading, retry } = useRetry(props);
   const appCtx = use(AppContext);
   const canSeeErrors = appCtx?.hasPermission("settings.app_config") ?? false;
 
@@ -115,10 +130,11 @@ function InlineFallback(props: FallbackProps) {
         New version available.{" "}
         <button
           className="underline underline-offset-2"
+          disabled={reloading}
           onClick={retry}
           type="button"
         >
-          Reload
+          {reloading ? "Reloading" : "Reload"}
         </button>
       </span>
     );
