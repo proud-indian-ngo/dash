@@ -49,6 +49,7 @@
     "nuqs": "^2.10.2",
     "papaparse": "^5.7.0",
     "posthog-js": "^1.438.12",
+    "posthog-node": "^5.56.2",
     "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
