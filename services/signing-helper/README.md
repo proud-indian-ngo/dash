@@ -7,8 +7,8 @@ It handles `pidash-sign://sign?job=<token>&server=<origin>` and `pidash-sign://e
 | | |
 |---|---|
 | Config | `~/.config/pidash-sign/config.json` (Mac), `%APPDATA%\pidash-sign\config.json` (Windows): `{ "server": "https://...", "module": "<PKCS#11 library>" }` |
-| Token driver | Mac: `/usr/local/lib/libcastle_v2.1.0.0.dylib`; Windows: `C:\Windows\System32\castle.dll` (to confirm on a trustee's laptop); override with `PIDASH_PKCS11_MODULE` |
-| Install | `install/install-macos.sh <server>` (ad-hoc signed, links via a small AppleScript app); `install/install-windows.ps1 -Server <server>` (registry, per user) |
+| Token driver | Mac: `/usr/local/lib/libcastle_v2.1.0.0.dylib`; Windows: `C:\Windows\System32\castle.dll` (confirm on a trustee's laptop before anyone enrols); override with `PIDASH_PKCS11_MODULE` |
+| Install | `install/install-macos.sh <server>` (ad-hoc signed, links via a small AppleScript app); `install/install-windows.ps1 -Server <server> [-Module <path>]` (registry, per user) |
 | Release | Push a tag `signing-helper-vX.Y.Z`; CI builds the Mac universal binary and the Windows binary into the GitHub release |
 
 ## Develop and test
