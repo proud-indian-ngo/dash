@@ -1,6 +1,7 @@
 import type { db } from "@pi-dash/db";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { notification } from "@pi-dash/db/schema/notification";
+import { emailMessage } from "@pi-dash/db/schema/private/email-message";
 import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
 import {
   heldNotification,
@@ -22,6 +23,7 @@ import {
   type DeliveryRow,
   type DeliveryStats,
   type EmailDeliveryStatus,
+  type EmailLogFacts,
   type HeldFacts,
   type InboxStatus,
   type WhatsAppDeliveryStatus,
@@ -184,10 +186,10 @@ function deliveriesCte(days: number, filters: DeliveryFilters): SQL {
  * The status rules, as SQL over a `deliveries` row `d` and its joins. A
  * batched row's outcome is recorded by the flush job: `sent_at` with no
  * `batch_id` is a kill-switch drop, `skipped_read` a message already read in
- * the inbox, and `attempts` at `MAX_ATTEMPTS` a give-up. Email has no
- * per-message log, so a send on its own is "not tracked". "Off" and "No
- * WhatsApp" read the recipient as they are now, and only where nothing was
- * sent.
+ * the inbox, and `attempts` at `MAX_ATTEMPTS` a give-up. An email send
+ * reads its delivery log; one without a log row (sent before the log, or
+ * not logged) is "not tracked". "Off" and "No WhatsApp" read the recipient
+ * as they are now, and only where nothing was sent.
  */
 const INBOX_STATUS_SQL = sql`case
   when d.kind = 'inbox' then
@@ -209,11 +211,13 @@ const WHATSAPP_STATUS_SQL = sql`case
 end`;
 
 const EMAIL_STATUS_SQL = sql`case
+  when em.status is not null then em.status::text
   when he.held_key is not null then
     case
       when he.sent_at is null then 'held'
       when he.batch_id is null then 'not_sent'
       when he.skipped_read then 'skipped_read'
+      when ed.status is not null then 'summary'
       when es.created_at <= he.sent_at then 'suppressed'
       when he.attempts >= ${MAX_ATTEMPTS} then 'gave_up'
       when eb.size > 1 then 'summary'
@@ -226,6 +230,14 @@ end`;
 
 interface FactRow extends Record<string, unknown> {
   created_at: string;
+  ed_created_at: string | null;
+  ed_error: string | null;
+  ed_status: EmailLogFacts["status"] | null;
+  ed_updated_at: string | null;
+  em_created_at: string | null;
+  em_error: string | null;
+  em_status: EmailLogFacts["status"] | null;
+  em_updated_at: string | null;
   e_attempts: number | null;
   e_batch_id: string | null;
   e_batch_size: number | null;
@@ -301,11 +313,29 @@ function logFacts(
   };
 }
 
+function emailLogFacts(
+  row: FactRow,
+  prefix: "ed" | "em"
+): EmailLogFacts | null {
+  const status = row[`${prefix}_status`] as EmailLogFacts["status"] | null;
+  if (status === null) {
+    return null;
+  }
+  return {
+    createdAt: Number(row[`${prefix}_created_at`]),
+    error: row[`${prefix}_error`] as string | null,
+    status,
+    updatedAt: Number(row[`${prefix}_updated_at`]),
+  };
+}
+
 function toDeliveryRow(row: FactRow): DeliveryRow {
   return {
     createdAt: Number(row.created_at),
     email: row.email_status,
     emailHeld: heldFacts(row, "e"),
+    emailLog: emailLogFacts(row, "em"),
+    emailSummaryLog: emailLogFacts(row, "ed"),
     id: `${row.key}\n${row.user_id ?? ""}`,
     inbox: row.inbox_status,
     key: row.key,
@@ -366,6 +396,10 @@ export async function queryDeliveries(
         w.created_at as wl_created_at, w.updated_at as wl_updated_at,
         s.status as s_status, s.error as s_error, s.template as s_template,
         s.created_at as s_created_at, s.updated_at as s_updated_at,
+        em.status as em_status, em.error as em_error,
+        em.created_at as em_created_at, em.updated_at as em_updated_at,
+        ed.status as ed_status, ed.error as ed_error,
+        ed.created_at as ed_created_at, ed.updated_at as ed_updated_at,
         ${INBOX_STATUS_SQL} as inbox_status,
         ${WHATSAPP_STATUS_SQL} as whatsapp_status,
         ${EMAIL_STATUS_SQL} as email_status
@@ -389,6 +423,18 @@ export async function queryDeliveries(
       left join ${whatsappMessage} w on w.idempotency_key = d.whatsapp_key
       left join ${whatsappMessage} s
         on s.idempotency_key = 'digest-' || hw.batch_id || '-whatsapp'
+      left join lateral (
+        select m.status, m.error, m.created_at, m.updated_at
+        from ${emailMessage} m
+        where m.key = d.key and m.user_id = d.user_id
+        order by m.created_at desc limit 1
+      ) em on true
+      left join lateral (
+        select m.status, m.error, m.created_at, m.updated_at
+        from ${emailMessage} m
+        where m.key = 'digest-' || he.batch_id and m.user_id = d.user_id
+        order by m.created_at desc limit 1
+      ) ed on true
     )
     select r.key, r.user_id, ${epoch("r.created_at")} as created_at, r.title,
       r.topic_id, r.recipient_name, r.inbox_status, r.whatsapp_status,
@@ -408,6 +454,12 @@ export async function queryDeliveries(
       r.s_status, r.s_error, r.s_template,
       ${epoch("r.s_created_at")} as s_created_at,
       ${epoch("r.s_updated_at")} as s_updated_at,
+      r.em_status, r.em_error,
+      ${epoch("r.em_created_at")} as em_created_at,
+      ${epoch("r.em_updated_at")} as em_updated_at,
+      r.ed_status, r.ed_error,
+      ${epoch("r.ed_created_at")} as ed_created_at,
+      ${epoch("r.ed_updated_at")} as ed_updated_at,
       count(*) over ()::int as total
     from rows r
     where ${outer}
@@ -442,13 +494,12 @@ export async function queryDeliveryOverview(
         (select count(*)::int from ${whatsappMessage}
           where created_at >= ${since(DELIVERY_STATS_DAYS)}
             and status = 'failed') as "whatsappFailed",
-        (select count(*)::int from ${heldNotificationRecipient}
-          where channel = 'email' and sent_at is null) as "emailsHeld",
-        (select count(*)::int from deliveries d
-          join ${user} u on u.id = d.user_id
-          join ${emailSuppression} es on es.email = lower(u.email)
-          where es.created_at <= d.created_at
-            and d.topic_id = any(${EMAIL_TOPICS})) as "emailsSuppressed"
+        (select count(*)::int from ${emailMessage}
+          where created_at >= ${since(DELIVERY_STATS_DAYS)}
+            and status in ('delivered', 'complained')) as "emailsDelivered",
+        (select count(*)::int from ${emailMessage}
+          where created_at >= ${since(DELIVERY_STATS_DAYS)}
+            and status in ('bounced', 'failed', 'suppressed')) as "emailsNotDelivered"
     `),
     executor.execute(sql`
       select u.id, u.name from ${user} u
@@ -470,8 +521,8 @@ export async function queryDeliveryOverview(
   return {
     recipients: [...recipients] as DeliveryOverview["recipients"],
     stats: {
-      emailsHeld: Number(stats?.emailsHeld ?? 0),
-      emailsSuppressed: Number(stats?.emailsSuppressed ?? 0),
+      emailsDelivered: Number(stats?.emailsDelivered ?? 0),
+      emailsNotDelivered: Number(stats?.emailsNotDelivered ?? 0),
       notificationsSent: Number(stats?.notificationsSent ?? 0),
       whatsappDelivered: Number(stats?.whatsappDelivered ?? 0),
       whatsappFailed: Number(stats?.whatsappFailed ?? 0),

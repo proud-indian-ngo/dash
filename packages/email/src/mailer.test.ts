@@ -59,7 +59,7 @@ describe("sendEmail", () => {
   it("skips and names the missing variables when Resend isn't configured", async () => {
     mocks.env.RESEND_API_KEY = undefined;
 
-    await expect(sendEmail(email)).resolves.toBe("skipped");
+    await expect(sendEmail(email)).resolves.toEqual({ status: "skipped" });
 
     expect(mocks.send).not.toHaveBeenCalled();
     expect(mocks.logWarn).toHaveBeenCalledWith("email_not_configured");
@@ -74,7 +74,7 @@ describe("sendEmail", () => {
 
     await expect(
       sendEmail({ ...email, idempotencyKey: "notif-1-email" })
-    ).resolves.toBe("sent");
+    ).resolves.toEqual({ id: "email-1", status: "sent" });
 
     expect(mocks.send).toHaveBeenCalledWith(
       { ...email, from: "noreply@example.com", text: "Hi" },
@@ -88,7 +88,10 @@ describe("sendEmail", () => {
       { content: Buffer.from("%PDF-1.4"), filename: "PI-2026-27-0001.pdf" },
     ];
 
-    await expect(sendEmail({ ...email, attachments })).resolves.toBe("sent");
+    await expect(sendEmail({ ...email, attachments })).resolves.toEqual({
+      id: "email-1",
+      status: "sent",
+    });
 
     expect(mocks.send).toHaveBeenCalledWith(
       expect.objectContaining({ attachments }),
@@ -120,7 +123,10 @@ describe("sendEmail", () => {
   it("retries rate-limited sends", async () => {
     mocks.send.mockResolvedValueOnce(rateLimited()).mockResolvedValueOnce(sent);
 
-    await expect(sendEmail(email)).resolves.toBe("sent");
+    await expect(sendEmail(email)).resolves.toEqual({
+      id: "email-1",
+      status: "sent",
+    });
 
     expect(mocks.send).toHaveBeenCalledTimes(2);
   });
@@ -149,12 +155,26 @@ describe("sendEmailBatch", () => {
       to: `user${i}@example.com`,
     }));
 
+  const accepted = (from: number, count: number) => ({
+    data: {
+      data: Array.from({ length: count }, (_, i) => ({
+        id: `email-${from + i}`,
+      })),
+    },
+    error: null,
+  });
+
   it("sends 100 emails per request with a key per chunk", async () => {
-    mocks.batchSend.mockResolvedValue({ data: { data: [] }, error: null });
+    mocks.batchSend
+      .mockResolvedValueOnce(accepted(0, 100))
+      .mockResolvedValueOnce(accepted(100, 100))
+      .mockResolvedValueOnce(accepted(200, 50));
 
     const result = await sendEmailBatch(messages(250), "bulk-1-email");
 
-    expect(result).toEqual({ failures: [], sent: 250, skipped: false });
+    expect(result.failures).toEqual([]);
+    expect(result.sent).toHaveLength(250);
+    expect(result.sent[120]).toEqual({ id: "email-120", index: 120 });
     expect(mocks.batchSend).toHaveBeenCalledTimes(3);
     const calls = mocks.batchSend.mock.calls;
     expect(calls.map(([payload]) => payload.length)).toEqual([100, 100, 50]);
@@ -177,11 +197,13 @@ describe("sendEmailBatch", () => {
         error: { message: "Bad", name: "validation_error", statusCode: 422 },
         headers: null,
       })
-      .mockResolvedValueOnce({ data: { data: [] }, error: null });
+      .mockResolvedValueOnce(accepted(100, 50));
 
     const result = await sendEmailBatch(messages(150), "bulk-2-email");
 
-    expect(result.sent).toBe(50);
+    expect(result.sent.map((s) => s.index)).toEqual(
+      Array.from({ length: 50 }, (_, i) => 100 + i)
+    );
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0]?.recipients).toHaveLength(100);
     expect(result.failures[0]?.error).toMatchObject({
@@ -194,7 +216,7 @@ describe("sendEmailBatch", () => {
 
     const result = await sendEmailBatch(messages(3), "bulk-3-email");
 
-    expect(result).toEqual({ failures: [], sent: 0, skipped: true });
+    expect(result).toEqual({ failures: [], sent: [], skipped: true });
     expect(mocks.batchSend).not.toHaveBeenCalled();
   });
 });

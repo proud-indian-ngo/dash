@@ -190,7 +190,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] Migrations applied (`bun run db:migrate`) and admin seeded (`bun run auth:seed-admin`)
 - [ ] zero-cache's `ZERO_MUTATE_URL` and `ZERO_QUERY_URL` reach the web app; `VITE_ZERO_URL` is public
 - [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` match the production domain
-- [ ] Resend domain verified (SPF and DKIM). Webhook to `https://<app-host>/api/email/webhook` with events `email.bounced` and `email.complained`, its secret in `RESEND_WEBHOOK_SECRET`
+- [ ] Resend domain verified (SPF and DKIM). Webhook to `https://<app-host>/api/email/webhook` with events `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`, its secret in `RESEND_WEBHOOK_SECRET`
 - [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/` after 24 hours. Durable keys must not expire
 - [ ] [Organisation accounts](#organisation-accounts), [books and receipts](#books-and-receipts) and, if used, [Razorpay](#razorpay-setup) set up
 - [ ] WhatsApp gateway paired and Immich reachable, if used

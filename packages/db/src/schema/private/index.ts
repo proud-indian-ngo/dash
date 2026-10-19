@@ -4,6 +4,7 @@
  * `../index.ts`, so anything exported from here never reaches the browser.
  */
 export * from "./email-batch-recipients";
+export * from "./email-message";
 export * from "./email-suppression";
 export * from "./party-private";
 export * from "./imports";

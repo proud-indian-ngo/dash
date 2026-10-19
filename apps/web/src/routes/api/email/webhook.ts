@@ -1,5 +1,7 @@
+import { recordEmailEvent } from "@pi-dash/db/queries/email-message";
 import { recordEmailSuppression } from "@pi-dash/db/queries/email-suppression";
 import {
+  emailLogUpdateFromEvent,
   suppressionsFromEvent,
   verifyResendWebhook,
 } from "@pi-dash/email/webhook";
@@ -10,9 +12,10 @@ import { createRequestLogger } from "evlog";
 import { readRequestBody } from "@/lib/read-request-body";
 
 /**
- * Resend delivery events. Permanent bounces and spam complaints add the
- * recipient to the suppression list, so notification email stops going to
- * them. Unauthenticated and signed by Resend (Svix), so outside the audit
+ * Resend delivery events. Events for notification email move its delivery
+ * log on. Permanent bounces and spam complaints add the recipient to the
+ * suppression list, so notification email stops going to them.
+ * Unauthenticated and signed by Resend (Svix), so outside the audit
  * ledger like the WhatsApp webhook.
  */
 export const Route = createFileRoute("/api/email/webhook")({
@@ -60,10 +63,18 @@ export const Route = createFileRoute("/api/email/webhook")({
         }
 
         const suppressions = suppressionsFromEvent(event);
-        log.set({ eventType: event.type, suppressions: suppressions.length });
+        const logUpdate = emailLogUpdateFromEvent(event);
+        log.set({
+          eventType: event.type,
+          logged: logUpdate !== null,
+          suppressions: suppressions.length,
+        });
         try {
           for (const suppression of suppressions) {
             await recordEmailSuppression(suppression);
+          }
+          if (logUpdate) {
+            await recordEmailEvent(logUpdate);
           }
           log.emit();
           return Response.json({ ok: true }, { status: 200 });

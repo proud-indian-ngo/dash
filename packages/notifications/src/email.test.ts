@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   freezeEmailBatchRecipients: vi.fn(),
+  recordEmailMessages: vi.fn(),
   sendEmail: vi.fn(),
   sendEmailBatch: vi.fn(),
 }));
@@ -9,6 +10,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@pi-dash/db", () => ({ db: {} }));
 vi.mock("@pi-dash/db/queries/email-batch-recipients", () => ({
   freezeEmailBatchRecipients: mocks.freezeEmailBatchRecipients,
+}));
+vi.mock("@pi-dash/db/queries/email-message", () => ({
+  recordEmailMessages: mocks.recordEmailMessages,
 }));
 vi.mock("@pi-dash/env/server", () => ({
   env: {
@@ -19,13 +23,20 @@ vi.mock("@pi-dash/env/server", () => ({
 vi.mock("@pi-dash/email", () => ({
   FOOTER_NOTE_PLACEHOLDER: "%%NOTE%%",
 }));
+vi.mock("evlog", () => ({
+  createRequestLogger: () => ({ emit: vi.fn(), error: vi.fn(), set: vi.fn() }),
+}));
 vi.mock("@pi-dash/email/mailer", () => ({
   EmailSendError: class extends Error {},
   sendEmail: mocks.sendEmail,
   sendEmailBatch: mocks.sendEmailBatch,
 }));
 
-import { buildNotificationEmail, sendBulkNotificationEmails } from "./email";
+import {
+  buildNotificationEmail,
+  sendBulkNotificationEmails,
+  sendNotificationEmail,
+} from "./email";
 import { TOPICS } from "./topics";
 
 const html = "<p>Hello</p><p>%%NOTE%%<a>Notification settings</a></p>";
@@ -86,12 +97,16 @@ describe("sendBulkNotificationEmails", () => {
     mocks.freezeEmailBatchRecipients.mockImplementation(
       async (_key: string, recipients: unknown) => recipients
     );
+    mocks.recordEmailMessages.mockResolvedValue(undefined);
   });
 
   it("sorts recipients so retried jobs build the same chunks", async () => {
     mocks.sendEmailBatch.mockResolvedValueOnce({
       failures: [],
-      sent: 2,
+      sent: [
+        { id: "email-a", index: 0 },
+        { id: "email-b", index: 1 },
+      ],
       skipped: false,
     });
 
@@ -99,6 +114,7 @@ describe("sendBulkNotificationEmails", () => {
       body: "b",
       emailHtml: html,
       idempotencyKey: "bulk-email",
+      logKey: "bulk",
       recipients: [
         { email: "b@test.com", userId: "user-b" },
         { email: "a@test.com", userId: "user-a" },
@@ -115,12 +131,19 @@ describe("sendBulkNotificationEmails", () => {
       "b@test.com",
     ]);
     expect(messages[0].html).not.toBe(messages[1].html);
+    expect(messages[0].tags).toEqual([
+      { name: "category", value: "notification" },
+    ]);
+    expect(mocks.recordEmailMessages).toHaveBeenCalledWith([
+      { key: "bulk", resendEmailId: "email-a", userId: "user-a" },
+      { key: "bulk", resendEmailId: "email-b", userId: "user-b" },
+    ]);
   });
 
   it("reports false when every chunk failed", async () => {
     mocks.sendEmailBatch.mockResolvedValueOnce({
       failures: [{ error: new Error("x"), recipients: ["a@test.com"] }],
-      sent: 0,
+      sent: [],
       skipped: false,
     });
 
@@ -128,6 +151,7 @@ describe("sendBulkNotificationEmails", () => {
       sendBulkNotificationEmails({
         body: "b",
         idempotencyKey: "k",
+        logKey: "k",
         recipients: [{ email: "a@test.com", userId: "user-a" }],
         title: "t",
         topic: TOPICS.TEAMS,
@@ -142,7 +166,10 @@ describe("sendBulkNotificationEmails", () => {
     ]);
     mocks.sendEmailBatch.mockResolvedValueOnce({
       failures: [],
-      sent: 2,
+      sent: [
+        { id: "email-a", index: 0 },
+        { id: "email-b", index: 1 },
+      ],
       skipped: false,
     });
 
@@ -150,6 +177,7 @@ describe("sendBulkNotificationEmails", () => {
     await sendBulkNotificationEmails({
       body: "b",
       idempotencyKey: "bulk-email",
+      logKey: "bulk",
       recipients: [
         { email: "c@test.com", userId: "user-c" },
         { email: "a@test.com", userId: "user-a" },
@@ -176,7 +204,7 @@ describe("sendBulkNotificationEmails", () => {
     mocks.freezeEmailBatchRecipients.mockRejectedValueOnce(new Error("db"));
     mocks.sendEmailBatch.mockResolvedValueOnce({
       failures: [],
-      sent: 1,
+      sent: [{ id: "email-a", index: 0 }],
       skipped: false,
     });
 
@@ -184,6 +212,7 @@ describe("sendBulkNotificationEmails", () => {
       sendBulkNotificationEmails({
         body: "b",
         idempotencyKey: "k",
+        logKey: "k",
         recipients: [{ email: "a@test.com", userId: "user-a" }],
         title: "t",
         topic: TOPICS.TEAMS,
@@ -191,5 +220,46 @@ describe("sendBulkNotificationEmails", () => {
     ).resolves.toBe(true);
     const [messages] = mocks.sendEmailBatch.mock.calls[0] ?? [];
     expect(messages.map((m: { to: string }) => m.to)).toEqual(["a@test.com"]);
+  });
+});
+
+describe("sendNotificationEmail", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const send = () =>
+    sendNotificationEmail({
+      body: "b",
+      idempotencyKey: "digest-batch-1-email",
+      logKey: "digest-batch-1",
+      title: "t",
+      toEmail: "a@test.com",
+      userId: "user-a",
+    });
+
+  it("logs the accepted email under its log key", async () => {
+    mocks.sendEmail.mockResolvedValueOnce({ id: "email-1", status: "sent" });
+    mocks.recordEmailMessages.mockResolvedValueOnce(undefined);
+
+    await expect(send()).resolves.toBe(true);
+    expect(mocks.recordEmailMessages).toHaveBeenCalledWith([
+      { key: "digest-batch-1", resendEmailId: "email-1", userId: "user-a" },
+    ]);
+  });
+
+  it("still reports the email sent when the log write fails", async () => {
+    mocks.sendEmail.mockResolvedValueOnce({ id: "email-1", status: "sent" });
+    mocks.recordEmailMessages.mockRejectedValueOnce(new Error("db"));
+
+    await expect(send()).resolves.toBe(true);
+    expect(mocks.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs nothing when email is skipped", async () => {
+    mocks.sendEmail.mockResolvedValueOnce({ status: "skipped" });
+
+    await expect(send()).resolves.toBe(false);
+    expect(mocks.recordEmailMessages).not.toHaveBeenCalled();
   });
 });

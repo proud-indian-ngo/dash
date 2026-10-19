@@ -74,10 +74,10 @@ Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repe
 
 ## Delivery page
 
-`/notification-delivery` shows each person's copy of each notification over 90 days, the WhatsApp log's retention. It shows inbox and WhatsApp message text, so it has its own permission, `notifications.view_delivery`, rather than `jobs.manage`. The private tables aren't in Zero, so server functions page it; statuses are SQL `CASE` columns, so filters, paging and the total run in Postgres.
+`/notification-delivery` shows each person's copy of each notification over 90 days, the send logs' retention. It shows inbox and WhatsApp message text, so it has its own permission, `notifications.view_delivery`, rather than `jobs.manage`. The private tables aren't in Zero, so server functions page it; statuses are SQL `CASE` columns, so filters, paging and the total run in Postgres.
 
 - A row is an inbox row with its `-inbox` suffix stripped, a held message whose inbox copy was off, or a Cloud API send with no inbox copy. A send keyed `${key}-whatsapp-${userId}` was a notification with the inbox off ("Inbox off"); other keys (group invites, Social digests) never had one. These show the template's `label` as title. Summaries have no row; their messages read "Sent in summary".
-- Email has no per-message log yet, so a send reads "Not tracked", or "Sent in summary" when its batch sent more than one message.
+- Email reads the [email log](#email-log), joined on the notification key and user, or on `digest-${batchId}` for "Sent in summary". A send with no log row (sent before the log existed, or a failed log write) reads "Not tracked".
 - "Off" and "No WhatsApp" read the recipient's preference and phone as they are now, so they appear only where nothing was sent. GoWA sends aren't logged, so WhatsApp reads "Not sent" while the Cloud API is off.
 - Suppression is the address's current state, compared with the send time.
 - The detail sheet renders the WhatsApp template from the body and `params` stored at send time (templates are edited in place under the same name), falling back to today's definition for older rows. Email content isn't kept.
@@ -106,9 +106,17 @@ Links are HMAC-signed under a key derived from `BETTER_AUTH_SECRET` and do not e
 
 Both are unauthenticated and authorised by the signature, so they sit outside the audit ledger.
 
+### Email log
+
+`private.email_message` holds one row per notification email per recipient: Resend's email id, the notification key (or `digest-${batchId}`), the user and a delivery status. It stores no address, subject or content. Rows are pruned after 90 days in the flush job's hourly step, with the WhatsApp log.
+
+- The send writes the row once Resend accepts the email; a failed write is logged and never fails or resends the email. A retried send that Resend dedupes returns the same ids, so the insert upserts.
+- Notification email carries the Resend tag `category: notification`; auth, receipt and account-deleted email don't, and stay unlogged. The webhook updates only tagged events, creating the row if an event beats the send's insert, so the race loses nothing.
+- Status moves forward only: sent, then delayed, then delivered. Bounced, complained, failed and suppressed are terminal; a complaint can follow delivery. Opens and clicks are ignored.
+
 ### Bounces and complaints
 
-Resend posts events to `POST /api/email/webhook`, verified with `RESEND_WEBHOOK_SECRET`.
+Resend posts events to `POST /api/email/webhook`, verified with `RESEND_WEBHOOK_SECRET`. A processing error returns 500 so Resend retries.
 
 - Permanent bounces and spam complaints add the address to `private.email_suppression`. A hard bounce replaces a complaint, never the reverse.
 - Notification email skips every suppressed address. Verification and password-reset email skip hard bounces only, because someone who reported spam still asked for those.

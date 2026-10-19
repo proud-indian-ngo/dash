@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { db } from "@pi-dash/db";
+import { pruneEmailMessages } from "@pi-dash/db/queries/email-message";
 import { notification } from "@pi-dash/db/schema/notification";
 import {
   type HeldNotificationChannel,
@@ -67,7 +68,7 @@ const WHATSAPP_CONCURRENCY = 5;
  */
 export const WHATSAPP_SEPARATE_SEND_LIMIT = 5;
 
-/** The WhatsApp send log is pruned at most this often. */
+/** The WhatsApp and email send logs are pruned at most this often. */
 const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 let lastPrunedAt = 0;
 
@@ -533,6 +534,7 @@ async function flushEmail(
         body: item.body,
         emailHtml: item.emailHtml ?? undefined,
         idempotencyKey: `${key}-email-${batchesKey(group.map((b) => b.batchId))}`,
+        logKey: key,
         recipients,
         title: item.title,
         topic: topicId,
@@ -556,6 +558,7 @@ async function flushEmail(
         body: digest.preview,
         emailHtml,
         idempotencyKey: `digest-${batch.batchId}-email`,
+        logKey: `digest-${batch.batchId}`,
         title: digest.subject,
         toEmail: email,
         topic: topicId,
@@ -792,14 +795,15 @@ async function clearAndExpire(): Promise<void> {
         nothingUnsent
       )
     );
-  await pruneWhatsAppLogHourly();
+  await pruneSendLogsHourly();
 }
 
 /**
- * The Cloud API send log only needs recent delivery; this job keeps it trim,
- * at most hourly since it runs every minute. A failed prune waits its turn.
+ * The Cloud API and email send logs only need recent delivery; this job
+ * keeps them trim, at most hourly since it runs every minute. A failed prune
+ * waits its turn.
  */
-async function pruneWhatsAppLogHourly(now = Date.now()): Promise<void> {
+async function pruneSendLogsHourly(now = Date.now()): Promise<void> {
   if (now - lastPrunedAt < PRUNE_INTERVAL_MS) {
     return;
   }
@@ -808,6 +812,11 @@ async function pruneWhatsAppLogHourly(now = Date.now()): Promise<void> {
     await pruneWhatsAppMessages();
   } catch (error) {
     logError(error, { handler: "pruneWhatsAppMessages" });
+  }
+  try {
+    await pruneEmailMessages();
+  } catch (error) {
+    logError(error, { handler: "pruneEmailMessages" });
   }
 }
 

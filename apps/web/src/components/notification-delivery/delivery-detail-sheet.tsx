@@ -14,6 +14,7 @@ import {
   type DeliveryRow,
   deliverySubtitle,
   EMAIL_STATUS,
+  type EmailLogFacts,
   formatIndiaTime,
   type HeldFacts,
   INBOX_STATUS,
@@ -91,6 +92,29 @@ function LogRows({
       <Row label="Sent" value={formatIndiaTime(log.createdAt)} />
       <Row label="Last update" value={formatIndiaTime(log.updatedAt)} />
       <Row label="Error" value={log.error} />
+    </>
+  );
+}
+
+/** An email delivery log row; the summary's shows its own status. */
+function EmailLogRows({
+  log,
+  summary = false,
+}: {
+  log: EmailLogFacts | null;
+  summary?: boolean;
+}) {
+  if (!log) {
+    return null;
+  }
+  return (
+    <>
+      {summary ? (
+        <Row label="Summary" value={EMAIL_STATUS[log.status].label} />
+      ) : null}
+      <Row label="Sent" value={formatIndiaTime(log.createdAt)} />
+      <Row label="Last update" value={formatIndiaTime(log.updatedAt)} />
+      <Row label="Reason" value={log.error} />
     </>
   );
 }
@@ -292,6 +316,8 @@ export function DeliveryDetailSheet({
               <DetailsCard title="Email">
                 <StatusRow display={EMAIL_STATUS[row.email]} />
                 <HeldRows held={row.emailHeld} />
+                <EmailLogRows log={row.emailLog} />
+                <EmailLogRows log={row.emailSummaryLog} summary />
                 <Row
                   label="Suppressed"
                   value={
@@ -302,7 +328,7 @@ export function DeliveryDetailSheet({
                 />
                 {row.email === "not_tracked" ? (
                   <p className="text-muted-foreground text-sm">
-                    Email delivery isn't logged per message yet.
+                    There's no delivery log for this email.
                   </p>
                 ) : null}
               </DetailsCard>

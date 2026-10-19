@@ -1,4 +1,5 @@
 import { freezeEmailBatchRecipients } from "@pi-dash/db/queries/email-batch-recipients";
+import { recordEmailMessages } from "@pi-dash/db/queries/email-message";
 import { FOOTER_NOTE_PLACEHOLDER } from "@pi-dash/email";
 import {
   EmailSendError,
@@ -6,6 +7,7 @@ import {
   sendEmail,
   sendEmailBatch,
 } from "@pi-dash/email/mailer";
+import { NOTIFICATION_EMAIL_TAG } from "@pi-dash/email/webhook";
 import { createRequestLogger } from "evlog";
 
 import { stripLeadingEmoji } from "./text";
@@ -80,24 +82,58 @@ function logEmailError(error: unknown, fields: Record<string, unknown>): void {
   log.emit();
 }
 
+/**
+ * Adds accepted emails to the delivery log. The email has already gone, so
+ * a failed write is logged and never fails or resends the send.
+ */
+async function logSentEmails(
+  logKey: string,
+  sent: { resendEmailId: string; userId: string | null }[]
+): Promise<void> {
+  try {
+    await recordEmailMessages(sent.map((row) => ({ ...row, key: logKey })));
+  } catch (error) {
+    logEmailError(error, {
+      handler: "recordEmailMessages",
+      logKey,
+      recipientCount: sent.length,
+    });
+  }
+}
+
 /** True only when Resend accepted the email; false when skipped or failed. */
 export async function sendNotificationEmail(
   options: NotificationEmailInput & {
     /** Deterministic per recipient, so a retried job doesn't send the email twice. */
     idempotencyKey?: string;
+    /**
+     * The key the delivery log joins on: the notification's, or
+     * `digest-${batchId}`. Without one the email isn't logged.
+     */
+    logKey?: string;
   }
 ): Promise<boolean> {
   const message = buildNotificationEmail(options);
+  let result: Awaited<ReturnType<typeof sendEmail>>;
   try {
-    const status = await sendEmail({
+    result = await sendEmail({
       ...message,
       idempotencyKey: options.idempotencyKey,
+      tags: options.logKey ? [NOTIFICATION_EMAIL_TAG] : undefined,
     });
-    return status === "sent";
   } catch (error) {
     logEmailError(error, { subject: message.subject, to: message.to });
     return false;
   }
+  if (result.status === "skipped") {
+    return false;
+  }
+  if (options.logKey) {
+    await logSentEmails(options.logKey, [
+      { resendEmailId: result.id, userId: options.userId ?? null },
+    ]);
+  }
+  return true;
 }
 
 /**
@@ -134,6 +170,8 @@ export async function sendBulkNotificationEmails(options: {
   body: string;
   emailHtml?: string;
   idempotencyKey: string;
+  /** The notification's key, which the delivery log joins on. */
+  logKey: string;
   recipients: { email: string; userId: string }[];
   title: string;
   topic: string;
@@ -142,26 +180,20 @@ export async function sendBulkNotificationEmails(options: {
     options.idempotencyKey,
     options.recipients
   );
-  const messages = recipients.map((recipient) =>
-    buildNotificationEmail({
+  const messages = recipients.map((recipient) => ({
+    ...buildNotificationEmail({
       body: options.body,
       emailHtml: options.emailHtml,
       title: options.title,
       toEmail: recipient.email,
       topic: options.topic,
       userId: recipient.userId,
-    })
-  );
+    }),
+    tags: [NOTIFICATION_EMAIL_TAG],
+  }));
+  let result: Awaited<ReturnType<typeof sendEmailBatch>>;
   try {
-    const result = await sendEmailBatch(messages, options.idempotencyKey);
-    for (const failure of result.failures) {
-      logEmailError(failure.error, {
-        handler: "sendBulkNotificationEmails",
-        recipientCount: failure.recipients.length,
-        subject: stripLeadingEmoji(options.title),
-      });
-    }
-    return result.sent > 0;
+    result = await sendEmailBatch(messages, options.idempotencyKey);
   } catch (error) {
     logEmailError(error, {
       handler: "sendBulkNotificationEmails",
@@ -170,4 +202,19 @@ export async function sendBulkNotificationEmails(options: {
     });
     return false;
   }
+  for (const failure of result.failures) {
+    logEmailError(failure.error, {
+      handler: "sendBulkNotificationEmails",
+      recipientCount: failure.recipients.length,
+      subject: stripLeadingEmoji(options.title),
+    });
+  }
+  await logSentEmails(
+    options.logKey,
+    result.sent.map(({ id, index }) => ({
+      resendEmailId: id,
+      userId: recipients[index]?.userId ?? null,
+    }))
+  );
+  return result.sent.length > 0;
 }
