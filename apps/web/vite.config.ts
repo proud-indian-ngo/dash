@@ -50,6 +50,30 @@ const onwarn: Rolldown.WarningHandlerWithDefault = (
   defaultHandler(warning);
 };
 
+// Client source maps are hidden: the Docker build uploads them to PostHog and
+// deletes them before the runtime image. Nitro lists every public file in its
+// asset manifest, and a listed but deleted file answers 500, so keep maps out
+// of the manifest and let the static handler answer 404.
+const PUBLIC_ASSETS_PREFIX = "export default ";
+const dropSourceMapAssets: Rolldown.Plugin = {
+  name: "pi-dash:drop-source-map-assets",
+  transform: {
+    filter: { id: /^#nitro\/virtual\/public-assets-data$/ },
+    handler(code) {
+      if (!code.startsWith(PUBLIC_ASSETS_PREFIX)) {
+        throw new Error("Unexpected Nitro public asset manifest format");
+      }
+      const assets: Record<string, unknown> = JSON.parse(
+        code.slice(PUBLIC_ASSETS_PREFIX.length).replace(/;\s*$/, "")
+      );
+      const kept = Object.fromEntries(
+        Object.entries(assets).filter(([id]) => !id.endsWith(".map"))
+      );
+      return `${PUBLIC_ASSETS_PREFIX}${JSON.stringify(kept)};`;
+    },
+  },
+};
+
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
     presets: [appReactCompilerPreset()],
@@ -72,6 +96,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     environments: {
       client: {
         build: {
+          sourcemap: "hidden",
           rolldownOptions: {
             output: {
               codeSplitting: {
@@ -117,7 +142,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       }),
       apiMediaDevMiddleware,
       ...nitro({
-        rolldownConfig: { onwarn },
+        rolldownConfig: { onwarn, plugins: [dropSourceMapAssets] },
         experimental: {
           vite: {},
         },
