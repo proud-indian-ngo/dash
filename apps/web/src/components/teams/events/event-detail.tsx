@@ -1389,7 +1389,10 @@ export function EventDetail({
                     onRemoveMember={stableOnRemoveMember5}
                   >
                     {showInterestRequests && interests ? (
-                      <InterestRequests interests={interests} />
+                      <InterestRequests
+                        eventId={event.id}
+                        interests={interests}
+                      />
                     ) : null}
                   </EventMembersSection>
                 ) : null

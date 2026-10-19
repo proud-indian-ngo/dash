@@ -43,7 +43,7 @@ import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { addDays, addHours, subDays } from "date-fns";
 import dotenv from "dotenv";
-import { and, eq, like } from "drizzle-orm";
+import { and, eq, isNull, like } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { seedKalakritiReleaseFixture } from "./kalakriti-release-fixture";
@@ -1423,6 +1423,8 @@ async function ensureEventWithPendingUpdate(
 }
 
 const SEED_INTEREST_EVENT_NAME = "E2E Upcoming Event With Pending Interests";
+/** Upcoming, in the team the volunteer leads, so they review its interest. */
+const SEED_LEAD_INTEREST_EVENT_ID = "e2e00000-0000-0000-0000-000000000203";
 const SEED_PHOTO_EVENT_NAME = "E2E Past Event With Pending Photos";
 const SEED_PENDING_PHOTO_COUNT = 3;
 const SEED_OPEN_INTEREST_TEAM_NAME = "E2E Interest Team";
@@ -1484,6 +1486,31 @@ async function ensureApprovalFixtures({
       userId,
     }))
   );
+
+  await db.insert(teamEvent).values({
+    createdAt: subDays(now, 1),
+    createdBy: adminUserId,
+    description: "Upcoming event whose interest the volunteer reviews as lead",
+    id: SEED_LEAD_INTEREST_EVENT_ID,
+    isPublic: true,
+    name: "E2E Lead Interest Event",
+    startTime: addDays(now, 10),
+    teamId: ZERO_AUTH_LEAD_TEAM_ID,
+    updatedAt: subDays(now, 1),
+  });
+  await db.insert(eventInterest).values({
+    createdAt: subDays(now, 1),
+    eventId: SEED_LEAD_INTEREST_EVENT_ID,
+    id: uuidv7(),
+    message: "E2E interest request",
+    status: "pending",
+    userId: unorientedUserId,
+  });
+  // A phone, so the lead sees the call and WhatsApp links as well as email.
+  await db
+    .update(user)
+    .set({ phone: "+919800000301" })
+    .where(and(eq(user.id, unorientedUserId), isNull(user.phone)));
 
   const photoEventId = uuidv7();
   await db.insert(teamEvent).values({

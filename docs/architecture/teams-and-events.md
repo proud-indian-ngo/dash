@@ -87,7 +87,7 @@ Volunteers who are not on the team ask to join a public event.
 3. The volunteer can cancel a pending request, which deletes it.
 4. `expire-event-interests` marks requests still pending at the event's start `expired` ([jobs](jobs.md#schedules)).
 
-Pending requests are visible to `events.manage_interest` everywhere and to leads for their teams' events. Website sign-ups file interest after email verification ([auth](auth.md#link-parameters)).
+Pending requests are visible to `events.manage_interest` everywhere and to leads for their teams' events. Those reviewers also see each requester's phone, WhatsApp link and email inline, since leads rarely hold `users.view` and touch devices cannot open the hover card. Website sign-ups file interest after email verification ([auth](auth.md#link-parameters)).
 
 ### Event updates
 
