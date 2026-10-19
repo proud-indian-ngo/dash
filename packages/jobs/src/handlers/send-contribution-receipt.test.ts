@@ -21,7 +21,7 @@ class EmailSendError extends Error {
 
 mock.module("@pi-dash/email/mailer", () => ({
   EmailSendError,
-  sendEmail: async () => "skipped",
+  sendEmail: async () => ({ status: "skipped" as const }),
 }));
 mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
@@ -67,7 +67,7 @@ function deps(overrides: Partial<NonNullable<Deps>> = {}): NonNullable<Deps> {
       }) as never,
     send: async (options) => {
       sent.push(options as unknown as Record<string, unknown>);
-      return "sent";
+      return { id: "email-1", status: "sent" as const };
     },
     ...overrides,
   };
@@ -159,7 +159,7 @@ describe("sendContributionReceipt", () => {
     expect(
       await sendContributionReceipt(
         payload,
-        deps({ send: async () => "skipped" })
+        deps({ send: async () => ({ status: "skipped" as const }) })
       )
     ).toEqual({ outcome: "not_configured" });
     expect(marked).toHaveLength(0);

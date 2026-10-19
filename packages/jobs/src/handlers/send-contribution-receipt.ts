@@ -76,9 +76,9 @@ export async function sendContributionReceipt(
     orgName: document.org.name,
     receivedOn: formatReceiptDate(document.gift.receivedOn),
   });
-  let status: Awaited<ReturnType<typeof deps.send>>;
+  let result: Awaited<ReturnType<typeof deps.send>>;
   try {
-    status = await deps.send({
+    result = await deps.send({
       attachments: [{ content: rendered.pdf, filename: rendered.filename }],
       html,
       idempotencyKey: `receipt-${data.receiptId}-${data.requestId}`,
@@ -95,7 +95,7 @@ export async function sendContributionReceipt(
     }
     throw error;
   }
-  if (status !== "sent") {
+  if (result.status !== "sent") {
     return { outcome: "not_configured" };
   }
   await deps.markEmailed(data.receiptId, new Date());

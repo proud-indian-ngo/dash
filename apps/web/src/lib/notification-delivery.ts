@@ -33,11 +33,17 @@ export const WHATSAPP_STATUSES = [
 export type WhatsAppDeliveryStatus = (typeof WHATSAPP_STATUSES)[number];
 
 export const EMAIL_STATUSES = [
+  "sent",
+  "delayed",
+  "delivered",
+  "complained",
+  "bounced",
+  "failed",
+  "suppressed",
   "held",
   "summary",
   "not_tracked",
   "skipped_read",
-  "suppressed",
   "gave_up",
   "not_sent",
   "none",
@@ -61,6 +67,21 @@ export interface WhatsAppLogFacts {
   error: string | null;
   status: "sending" | "sent" | "delivered" | "read" | "failed";
   template: string;
+  updatedAt: number;
+}
+
+/** A row of the email delivery log. */
+export interface EmailLogFacts {
+  createdAt: number;
+  error: string | null;
+  status:
+    | "sent"
+    | "delayed"
+    | "delivered"
+    | "complained"
+    | "bounced"
+    | "failed"
+    | "suppressed";
   updatedAt: number;
 }
 
@@ -96,11 +117,17 @@ export const WHATSAPP_STATUS: Record<WhatsAppDeliveryStatus, StatusDisplay> = {
 };
 
 export const EMAIL_STATUS: Record<EmailDeliveryStatus, StatusDisplay> = {
+  bounced: { label: "Bounced", tone: "danger" },
+  complained: { label: "Complained", tone: "danger" },
+  delayed: { label: "Delayed", tone: "warning" },
+  delivered: { label: "Delivered", tone: "success" },
+  failed: { label: "Failed", tone: "danger" },
   gave_up: { label: "Gave up", tone: "danger" },
   held: { label: "Held", tone: "warning" },
   none: { label: NO_STATUS, tone: "neutral" },
   not_sent: { label: "Not sent", tone: "neutral" },
   not_tracked: { label: "Not tracked", tone: "neutral" },
+  sent: { label: "Sent", tone: "info" },
   skipped_read: { label: "Skipped: read in inbox", tone: "neutral" },
   summary: { label: "Sent in summary", tone: "info" },
   suppressed: { label: "Suppressed", tone: "danger" },
@@ -120,6 +147,8 @@ export interface DeliveryRow {
   createdAt: number;
   email: EmailDeliveryStatus;
   emailHeld: HeldFacts | null;
+  emailLog: EmailLogFacts | null;
+  emailSummaryLog: EmailLogFacts | null;
   id: string;
   inbox: InboxStatus;
   /** The message's idempotency key, without channel suffixes. */
@@ -145,8 +174,9 @@ export function deliverySubtitle(row: DeliveryRow): string {
 }
 
 export interface DeliveryStats {
-  emailsHeld: number;
-  emailsSuppressed: number;
+  emailsDelivered: number;
+  /** Bounced, failed, or refused by Resend's suppression list. */
+  emailsNotDelivered: number;
   notificationsSent: number;
   whatsappDelivered: number;
   whatsappFailed: number;

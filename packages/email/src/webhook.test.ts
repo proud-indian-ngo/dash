@@ -2,6 +2,8 @@ import { Webhook } from "standardwebhooks";
 import { describe, expect, it } from "vitest";
 
 import {
+  emailLogUpdateFromEvent,
+  NOTIFICATION_EMAIL_TAG,
   type ResendWebhookEvent,
   suppressionsFromEvent,
   verifyResendWebhook,
@@ -109,5 +111,84 @@ describe("suppressionsFromEvent", () => {
         type: "email.delivered",
       } as ResendWebhookEvent)
     ).toEqual([]);
+  });
+});
+
+describe("emailLogUpdateFromEvent", () => {
+  const tags = { [NOTIFICATION_EMAIL_TAG.name]: NOTIFICATION_EMAIL_TAG.value };
+  const base = {
+    created_at: "2026-10-19T00:00:00.000Z",
+    email_id: "email-1",
+    from: "noreply@example.com",
+    message_id: "msg-1",
+    subject: "Hello",
+    tags,
+    to: ["a@example.com"],
+  };
+  const event = (type: string, extra: object = {}) =>
+    ({
+      created_at: "2026-10-19T00:00:00.000Z",
+      data: { ...base, ...extra },
+      type,
+    }) as ResendWebhookEvent;
+
+  it.each([
+    ["email.sent", "sent"],
+    ["email.delivered", "delivered"],
+    ["email.delivery_delayed", "delayed"],
+    ["email.complained", "complained"],
+  ])("maps %s to %s", (type, status) => {
+    expect(emailLogUpdateFromEvent(event(type))).toEqual({
+      error: null,
+      resendEmailId: "email-1",
+      status,
+    });
+  });
+
+  it("keeps the reason for bounces, failures and suppressions", () => {
+    expect(
+      emailLogUpdateFromEvent(
+        event("email.bounced", {
+          bounce: {
+            message: "No mailbox",
+            subType: "General",
+            type: "Permanent",
+          },
+        })
+      )
+    ).toMatchObject({
+      error: "Permanent (General): No mailbox",
+      status: "bounced",
+    });
+    expect(
+      emailLogUpdateFromEvent(
+        event("email.failed", { failed: { reason: "Quota exceeded" } })
+      )
+    ).toMatchObject({ error: "Quota exceeded", status: "failed" });
+    expect(
+      emailLogUpdateFromEvent(
+        event("email.suppressed", {
+          suppressed: {
+            message: "On the suppression list",
+            type: "OnAccountSuppressionList",
+          },
+        })
+      )
+    ).toMatchObject({ error: "On the suppression list", status: "suppressed" });
+  });
+
+  it("ignores opens and clicks", () => {
+    expect(emailLogUpdateFromEvent(event("email.opened"))).toBeNull();
+  });
+
+  it("ignores email without the notification tag", () => {
+    expect(
+      emailLogUpdateFromEvent(event("email.delivered", { tags: undefined }))
+    ).toBeNull();
+    expect(
+      emailLogUpdateFromEvent(
+        event("email.delivered", { tags: { category: "auth" } })
+      )
+    ).toBeNull();
   });
 });

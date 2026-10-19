@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { notification } from "@pi-dash/db/schema/notification";
+import { emailMessage } from "@pi-dash/db/schema/private/email-message";
 import {
   heldNotification,
   heldNotificationRecipient,
@@ -16,7 +17,8 @@ const minutesAgo = (minutes: number) =>
  * Fixture for the Notification delivery spec: three notifications to a
  * volunteer, keyed under `tag`, as the notify and flush jobs would write
  * them. One delivered on WhatsApp with its email still held, one whose
- * WhatsApp send failed, and one that went out in a WhatsApp summary.
+ * WhatsApp send failed and email bounced, and one that went out in a
+ * WhatsApp summary.
  */
 async function seed(email: string, tag: string) {
   const [recipient] = await db
@@ -71,6 +73,13 @@ async function seed(email: string, tag: string) {
       wamid: `wamid.${tag}-summary`,
     },
   ]);
+  await db.insert(emailMessage).values({
+    error: "Permanent (General): Mailbox does not exist",
+    key: `${tag}-failed`,
+    resendEmailId: `${tag}-failed-email`,
+    status: "bounced",
+    userId,
+  });
   await db.insert(heldNotification).values(
     ["main", "summary"].map((name) => ({
       body: "",
@@ -105,6 +114,7 @@ async function clear(tag: string) {
   await db
     .delete(heldNotification)
     .where(like(heldNotification.key, `${tag}-%`));
+  await db.delete(emailMessage).where(like(emailMessage.key, `${tag}-%`));
   await db
     .delete(whatsappMessage)
     .where(

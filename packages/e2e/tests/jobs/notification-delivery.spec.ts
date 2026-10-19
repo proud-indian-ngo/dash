@@ -119,6 +119,20 @@ test.describe("Notification delivery (admin)", () => {
     await expect(page.getByText("1 - 1 of 1")).toBeVisible();
   });
 
+  test("shows the email delivery log's status and reason", async ({ page }) => {
+    const row = page
+      .getByRole("row")
+      .filter({ hasText: `Delivery failed ${tag}` });
+    await page.goto(deliveryUrl(tag, {}));
+    await expect(row.getByText("Bounced")).toBeVisible({ timeout: 15_000 });
+
+    await row.getByText(`Delivery failed ${tag}`).click();
+    const sheet = page.getByRole("dialog");
+    await expect(
+      sheet.getByText("Permanent (General): Mailbox does not exist")
+    ).toBeVisible();
+  });
+
   test("pages the search results and shows a summary send", async ({
     page,
   }) => {

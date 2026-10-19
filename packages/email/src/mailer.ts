@@ -26,6 +26,8 @@ export interface EmailMessage {
   headers?: Record<string, string>;
   html: string;
   subject: string;
+  /** Resend tags, echoed in webhook events. */
+  tags?: { name: string; value: string }[];
   to: string;
 }
 
@@ -34,7 +36,9 @@ export interface SendEmailOptions extends EmailMessage {
   idempotencyKey?: string;
 }
 
-export type SendEmailStatus = "sent" | "skipped";
+export type SendEmailResult =
+  | { id: string; status: "sent" }
+  | { status: "skipped" };
 
 export class EmailSendError extends Error {
   readonly code: string;
@@ -48,10 +52,13 @@ export class EmailSendError extends Error {
   }
 }
 
-interface ResendResult {
-  error: { message: string; name: string; statusCode: number | null } | null;
-  headers: Record<string, string> | null;
-}
+type ResendResult<T> =
+  | { data: T; error: null; headers: Record<string, string> | null }
+  | {
+      data: null;
+      error: { message: string; name: string; statusCode: number | null };
+      headers: Record<string, string> | null;
+    };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -96,17 +103,20 @@ function configuredClient(
 }
 
 /** Rate-spaced request with retries on `rate_limit_exceeded`; throws `EmailSendError`. */
-async function request(send: () => Promise<ResendResult>): Promise<void> {
+async function request<R extends ResendResult<unknown>>(
+  send: () => Promise<R>
+): Promise<Extract<R, { error: null }>["data"]> {
   for (let attempt = 1; ; attempt++) {
     await waitForRequestSlot();
-    const { error, headers } = await send();
-    if (!error) {
-      return;
+    const result = await send();
+    if (!result.error) {
+      return result.data;
     }
+    const { error } = result;
     if (error.name !== "rate_limit_exceeded" || attempt >= MAX_ATTEMPTS) {
       throw new EmailSendError(error.name, error.message, error.statusCode);
     }
-    await sleep(retryAfterMs(headers));
+    await sleep(retryAfterMs(result.headers));
   }
 }
 
@@ -122,19 +132,19 @@ function withPlainText(message: EmailMessage, from: string) {
  */
 export async function sendEmail(
   options: SendEmailOptions
-): Promise<SendEmailStatus> {
+): Promise<SendEmailResult> {
   const { idempotencyKey, ...message } = options;
   const configured = configuredClient(message.subject);
   if (!configured) {
-    return "skipped";
+    return { status: "skipped" };
   }
-  await request(() =>
+  const { id } = await request(() =>
     configured.client.emails.send(withPlainText(message, configured.from), {
       idempotencyKey,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   );
-  return "sent";
+  return { id, status: "sent" };
 }
 
 export interface BatchFailure {
@@ -144,7 +154,8 @@ export interface BatchFailure {
 
 export interface SendEmailBatchResult {
   failures: BatchFailure[];
-  sent: number;
+  /** Resend's id for each accepted email, by its index in `messages`. */
+  sent: { id: string; index: number }[];
   skipped: boolean;
 }
 
@@ -160,7 +171,7 @@ export async function sendEmailBatch(
 ): Promise<SendEmailBatchResult> {
   const result: SendEmailBatchResult = {
     failures: [],
-    sent: 0,
+    sent: [],
     skipped: false,
   };
   const [first] = messages;
@@ -174,7 +185,7 @@ export async function sendEmailBatch(
   for (let start = 0; start < messages.length; start += BATCH_SIZE) {
     const chunk = messages.slice(start, start + BATCH_SIZE);
     try {
-      await request(() =>
+      const { data } = await request(() =>
         configured.client.batch.send(
           chunk.map((message) => withPlainText(message, configured.from)),
           {
@@ -183,7 +194,8 @@ export async function sendEmailBatch(
           }
         )
       );
-      result.sent += chunk.length;
+      // Resend returns the ids in request order.
+      result.sent.push(...data.map(({ id }, i) => ({ id, index: start + i })));
     } catch (error) {
       result.failures.push({
         error,

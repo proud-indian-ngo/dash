@@ -98,11 +98,11 @@ export function computeDeliveryStats(stats: DeliveryStats | null): StatItem[] {
       value: stats?.whatsappFailed ?? 0,
     },
     {
-      description: `${stats?.emailsHeld ?? 0} held, ${stats?.emailsSuppressed ?? 0} suppressed`,
-      hint: "Emails held for batching, and notifications to people whose address bounced or reported spam.",
+      description: `${days}, ${stats?.emailsNotDelivered ?? 0} bounced or failed`,
+      hint: "Emails Resend reported delivered, summaries included. Bounced or failed counts bounces, failures and addresses on Resend's suppression list.",
       icon: Mail01Icon,
-      label: "Emails held or suppressed",
-      value: (stats?.emailsHeld ?? 0) + (stats?.emailsSuppressed ?? 0),
+      label: "Emails delivered",
+      value: stats?.emailsDelivered ?? 0,
     },
   ];
 }

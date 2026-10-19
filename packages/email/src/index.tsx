@@ -37,12 +37,12 @@ export async function sendVerificationEmail(to: string, url: string) {
   const html = await render(
     <VerificationEmail appName={env.APP_NAME} appUrl={env.APP_URL} url={url} />
   );
-  const status = await sendEmail({
+  const result = await sendEmail({
     html,
     subject: "Verify your email address",
     to,
   });
-  if (status === "skipped") {
+  if (result.status === "skipped") {
     logSkippedAuthLink("verification", to, url);
   }
 }
@@ -51,12 +51,12 @@ export async function sendResetPasswordEmail(to: string, url: string) {
   const html = await render(
     <ResetPasswordEmail appName={env.APP_NAME} appUrl={env.APP_URL} url={url} />
   );
-  const status = await sendEmail({
+  const result = await sendEmail({
     html,
     subject: "Reset your password",
     to,
   });
-  if (status === "skipped") {
+  if (result.status === "skipped") {
     logSkippedAuthLink("reset-password", to, url);
   }
 }

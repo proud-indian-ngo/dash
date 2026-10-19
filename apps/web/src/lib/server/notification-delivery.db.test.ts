@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { notificationTopicPreference, user } from "@pi-dash/db/schema/auth";
 import { notification } from "@pi-dash/db/schema/notification";
+import { emailMessage } from "@pi-dash/db/schema/private/email-message";
 import {
   heldNotification,
   heldNotificationRecipient,
@@ -343,6 +344,89 @@ it.skipIf(!localDatabase)(
           .map((run) => run.text)
           .join("")
       ).toContain("Alone");
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reads email status from the delivery log",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { key, summaryBatch, tag, withPhone } = await seed(tx);
+      // A held message sent on its own by the flush.
+      await tx.insert(notification).values({
+        body: "single body",
+        createdAt: minutesAgo(9),
+        id: uuidv7(),
+        idempotencyKey: `${key("single")}-inbox`,
+        title: `single ${tag}`,
+        topicId: TOPICS.TEAMS,
+        userId: withPhone,
+      });
+      await tx.insert(heldNotification).values({
+        body: "",
+        key: key("single"),
+        title: `single ${tag}`,
+        topicId: TOPICS.TEAMS,
+      });
+      await tx.insert(heldNotificationRecipient).values({
+        batchId: `single-${tag}`,
+        channel: "email",
+        claimedAt: minutesAgo(1),
+        heldKey: key("single"),
+        sentAt: minutesAgo(1),
+        topicId: TOPICS.TEAMS,
+        userId: withPhone,
+      });
+      await tx.insert(emailMessage).values([
+        // Sent straight away, then bounced.
+        {
+          error: "Permanent (General): No mailbox",
+          key: key("off"),
+          resendEmailId: `email-off-${tag}`,
+          status: "bounced",
+          userId: withPhone,
+        },
+        {
+          key: key("single"),
+          resendEmailId: `email-single-${tag}`,
+          userId: withPhone,
+        },
+        {
+          key: `digest-${summaryBatch}`,
+          resendEmailId: `email-digest-${tag}`,
+          status: "delivered",
+          userId: withPhone,
+        },
+        // A webhook event that beat the send's insert has no key yet.
+        { resendEmailId: `email-orphan-${tag}`, status: "delivered" },
+      ]);
+
+      const { rows } = await queryDeliveries(tx, {
+        ...PAGE,
+        userId: withPhone,
+      });
+      const byKey = new Map(rows.map((row) => [row.key, row]));
+      expect(byKey.get(key("off"))?.email).toBe("bounced");
+      expect(byKey.get(key("off"))?.emailLog?.error).toBe(
+        "Permanent (General): No mailbox"
+      );
+      expect(byKey.get(key("single"))?.email).toBe("sent");
+      expect(byKey.get(key("summary"))?.email).toBe("summary");
+      expect(byKey.get(key("summary"))?.emailSummaryLog?.status).toBe(
+        "delivered"
+      );
+      expect(byKey.get(key("other"))?.emailSummaryLog?.status).toBe(
+        "delivered"
+      );
+      expect(byKey.get(key("alone"))?.email).toBe("held");
+
+      const bounced = await queryDeliveries(tx, {
+        ...PAGE,
+        email: "bounced",
+        userId: withPhone,
+      });
+      expect(bounced.rows.map((row) => row.key)).toEqual([key("off")]);
     });
   }
 );
