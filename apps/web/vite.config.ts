@@ -54,8 +54,10 @@ const onwarn: Rolldown.WarningHandlerWithDefault = (
 // deletes them before the runtime image. Nitro lists every public file in its
 // asset manifest, and a listed but deleted file answers 500, so keep maps out
 // of the manifest and let the static handler answer 404. The upload also
-// rewrites every chunk after Nitro recorded its size and ETag, so drop both for
-// `.js` files rather than serve a stale Content-Length or ETag.
+// rewrites every chunk after Nitro recorded its size, so drop the size for `.js`
+// files rather than serve a stale Content-Length. Keep the ETag: injection is
+// deterministic per chunk, so it still identifies the served bytes, and
+// Cloudflare revalidation relies on it.
 const PUBLIC_ASSETS_PREFIX = "export default ";
 let publicAssetsRewritten = false;
 const rewritePublicAssets: Rolldown.Plugin = {
@@ -77,7 +79,6 @@ const rewritePublicAssets: Rolldown.Plugin = {
           delete assets[id];
         } else if (id.endsWith(".js")) {
           delete asset.size;
-          delete asset.etag;
         }
       }
       publicAssetsRewritten = true;
