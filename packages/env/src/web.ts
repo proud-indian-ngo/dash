@@ -3,7 +3,9 @@ import z from "zod";
 
 export const env = createEnv({
   client: {
+    VITE_APP_ENV: z.string().min(1).default("development"),
     VITE_APP_NAME: z.string().min(1).default("Proud Indian Dashboard"),
+    VITE_APP_RELEASE: z.string().min(1).optional(),
     VITE_CDN_URL: z.url(),
     VITE_IMMICH_URL: z.url().optional(),
     VITE_POSTHOG_HOST: z.url().optional(),

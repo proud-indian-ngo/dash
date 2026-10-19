@@ -30,13 +30,26 @@ ARG VITE_CDN_URL
 ARG VITE_IMMICH_URL
 ARG VITE_POSTHOG_KEY
 ARG VITE_POSTHOG_HOST
+ARG VITE_APP_ENV
 ENV SKIP_VALIDATION=true
 ENV VITE_ZERO_URL=$VITE_ZERO_URL
 ENV VITE_CDN_URL=$VITE_CDN_URL
 ENV VITE_IMMICH_URL=$VITE_IMMICH_URL
 ENV VITE_POSTHOG_KEY=$VITE_POSTHOG_KEY
 ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST
-RUN cd apps/web && bunx --bun vite build
+ENV VITE_APP_ENV=$VITE_APP_ENV
+# Release = the commit SHA, read from .git without a git binary (Dokploy clones
+# with --depth 1). Without .git the release stays empty and the build continues.
+RUN head=$(cat .git/HEAD 2>/dev/null || true); \
+    case "$head" in \
+      "ref: "*) ref=${head#ref: }; \
+        release=$(cat ".git/$ref" 2>/dev/null || grep " $ref\$" .git/packed-refs 2>/dev/null | cut -d' ' -f1) ;; \
+      *) release=$head ;; \
+    esac; \
+    echo "$release" | grep -Eq '^[0-9a-f]{40}$' || release=; \
+    echo "release: ${release:-none}"; \
+    printf '%s' "$release" > /app/release; \
+    cd apps/web && VITE_APP_RELEASE="$release" bunx --bun vite build
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.4.3-slim AS migrator
@@ -53,8 +66,9 @@ FROM oven/bun:1.4.3-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
+COPY --from=build /app/release release
 # SSR chunks use runtime require("react") via CJS interop (use-sync-external-store)
 RUN bun add react@19
 EXPOSE 3000
 ENV NODE_ENV=production
-CMD ["bun", "run", ".output/server/index.mjs"]
+CMD ["sh", "-c", "APP_RELEASE=\"${APP_RELEASE:-$(cat release)}\" exec bun run .output/server/index.mjs"]

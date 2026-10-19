@@ -107,10 +107,13 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Required | Purpose |
 |---|---|---|
+| `APP_ENV` | No | Environment on logs and PostHog events; Prod Compose sets `production` and passes it to the build as `VITE_APP_ENV` |
+| `APP_RELEASE` | No | Commit SHA on logs and errors. The Docker build reads it from `.git` (also as `VITE_APP_RELEASE`); empty when `.git` is absent |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | OTLP logs endpoint; overrides the PostHog fallback |
-| `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP when no endpoint is set |
+| `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP when no endpoint is set, and sends server errors to Error Tracking |
 | `OTEL_SERVICE_NAME` | No | Service name on server logs |
-| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser analytics and exception capture; unset disables them |
+| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser pageviews and exception capture; unset disables them. Turn on **Discard client IP data** in the PostHog project |
+| `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <key>` |
 
 ### Production Compose and tooling
 

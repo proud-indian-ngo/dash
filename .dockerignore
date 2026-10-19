@@ -1,5 +1,9 @@
 node_modules
+# Only what the build needs to resolve the release SHA
 .git
+!.git/HEAD
+!.git/refs/**
+!.git/packed-refs
 .github
 .claude
 .agents
