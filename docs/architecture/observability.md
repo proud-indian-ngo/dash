@@ -30,7 +30,12 @@ logs, marked `source: "client"`; they never reach Error Tracking.
 
 Every server event and PostHog event carries `APP_ENV` and the release, the commit SHA the Docker build reads from `.git` (see `DEPLOYMENT.md`). Local builds have no release.
 
-**Server errors.** The evlog drain in `server/plugins/logger.ts` exports logs over OTLP and sends each server event at `error` level with an `error` field to Error Tracking through `posthog-node`, rebuilt from the stack evlog keeps in production. 4xx and abort errors are skipped. An error that no code passes to `log.error()` carries no `error` field, so it never reaches Error Tracking.
+**Server errors.** Two paths send server errors to Error Tracking through one `posthog-node` client (`apps/web/src/lib/server/error-tracking.ts`):
+
+- The evlog drain in `server/plugins/logger.ts` exports logs over OTLP and sends each server event at `error` level with an `error` field, rebuilt from the stack evlog keeps in production.
+- Middleware in `apps/web/src/start.ts` captures what API routes and server functions throw, with the route or function name, trace ID and user, then rethrows, so responses are unchanged. A server-function throw still answers 200 with the serialized message; an `HttpError` answers with its status.
+
+Both skip 4xx, including `HttpError` ([authorization](authorization.md#enforcement)), and abort errors. A request is captured at most once: a handler that passes an error to `log.error()` and rethrows it is reported by the drain only. Loader and `beforeLoad` errors during SSR are not captured unless they come from a server function; Start has no router-wide hook for them.
 
 **Browser.** posthog-js owns browser errors: it captures window errors and unhandled rejections, and the two error boundaries capture what they catch, once per error. Console errors are not captured, since React logs every caught error there. Pageviews are route templates (`/teams/$id`), one per pathname. `before_send` drops IPs, raw URLs, referrers and query strings in stack frames, and disables GeoIP; the PostHog project must also have **Discard client IP data** on. Identity is the opaque user ID and role, reset on logout and before another account identifies.
 

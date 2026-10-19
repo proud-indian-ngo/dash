@@ -2,7 +2,14 @@ import { describe, expect, it, mock } from "bun:test";
 
 import type { WideEvent } from "evlog";
 
-import { createErrorTrackingDrain, errorToReport } from "./error-tracking";
+import { HttpError } from "@/lib/http-error";
+
+import {
+  captureThrownError,
+  createErrorTrackingDrain,
+  errorToReport,
+  runWithErrorScope,
+} from "./error-tracking";
 
 function wideEvent(fields: Record<string, unknown>): WideEvent {
   return {
@@ -87,5 +94,96 @@ describe("createErrorTrackingDrain", () => {
       status: 500,
       traceId: "trace-1",
     });
+  });
+});
+
+describe("captureThrownError", () => {
+  function setUp() {
+    const captureException = mock();
+    const drain = createErrorTrackingDrain(
+      { captureException },
+      { environment: "production", release: "abc123" }
+    );
+    return { captureException, drain };
+  }
+  const userId = () => Promise.resolve("user-1");
+
+  it("reports a thrown defect with its route, user, environment and release", async () => {
+    const { captureException } = setUp();
+    const error = new Error("connection reset");
+
+    await runWithErrorScope("serverFn", () =>
+      captureThrownError(
+        error,
+        { route: "getTeams", traceId: "trace-1" },
+        userId
+      )
+    );
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0]).toEqual([
+      error,
+      "user-1",
+      {
+        $geoip_disable: true,
+        environment: "production",
+        release: "abc123",
+        route: "getTeams",
+        status: 500,
+        traceId: "trace-1",
+      },
+    ]);
+  });
+
+  it("skips expected errors, aborts and thrown non-errors", async () => {
+    const { captureException } = setUp();
+    const resolveUser = mock(userId);
+
+    for (const thrown of [
+      new HttpError(403, "Forbidden"),
+      new HttpError(404, "Role not found"),
+      Object.assign(new Error("aborted"), { name: "AbortError" }),
+      new Response(null, { status: 307 }),
+    ]) {
+      await runWithErrorScope("router", () =>
+        captureThrownError(thrown, { route: "/api/jobs" }, resolveUser)
+      );
+    }
+
+    expect(captureException).not.toHaveBeenCalled();
+    expect(resolveUser).not.toHaveBeenCalled();
+  });
+
+  it("does not report again an error the handler already logged", async () => {
+    const { captureException, drain } = setUp();
+    const error = new Error("relation does not exist");
+
+    await runWithErrorScope("router", async () => {
+      drain({
+        event: wideEvent({ error: serverError, path: "/api/financial-export" }),
+      });
+      await captureThrownError(
+        error,
+        { route: "/api/financial-export" },
+        userId
+      );
+    });
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(captureException.mock.calls[0]?.[0]).not.toBe(error);
+  });
+
+  it("reports each request's thrown error once", async () => {
+    const { captureException } = setUp();
+    const error = new Error("timeout");
+    const request = () =>
+      runWithErrorScope("serverFn", async () => {
+        await captureThrownError(error, { route: "getTeams" }, userId);
+        await captureThrownError(error, { route: "getTeams" }, userId);
+      });
+
+    await Promise.all([request(), request()]);
+
+    expect(captureException).toHaveBeenCalledTimes(2);
   });
 });
