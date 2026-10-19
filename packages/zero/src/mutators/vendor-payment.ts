@@ -326,6 +326,7 @@ export const vendorPaymentMutators = {
               "notify-vendor-payment-approved",
               {
                 note,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
                 vendorPaymentId: id,
@@ -353,6 +354,7 @@ export const vendorPaymentMutators = {
               await enqueue(
                 "notify-vendor-auto-approved",
                 {
+                  approvedAt: now,
                   creatorId: vendorCreatorId,
                   vendorId,
                   vendorName,
@@ -377,6 +379,7 @@ export const vendorPaymentMutators = {
               await enqueue(
                 "notify-vp-fully-paid",
                 {
+                  paidAt: now,
                   submitterId: ownerId,
                   title,
                   vendorPaymentId: id,
@@ -452,6 +455,7 @@ export const vendorPaymentMutators = {
             await enqueue(
               "notify-vp-invoice-approved",
               {
+                approvedAt: now,
                 noInvoiceReason: entity.noInvoiceReason ?? undefined,
                 note: args.note,
                 submitterId,
@@ -744,6 +748,7 @@ export const vendorPaymentMutators = {
               "notify-vendor-payment-rejected",
               {
                 reason,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
                 vendorPaymentId: id,

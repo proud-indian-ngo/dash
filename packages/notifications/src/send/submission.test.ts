@@ -46,6 +46,7 @@ describe("submission approval notifications", () => {
     await notifier.notifyApproved({
       entityId: "request-1",
       note: "Paid",
+      reviewedAt: 1,
       submitterId: "user-1",
       title: "Travel",
     });
@@ -59,6 +60,7 @@ describe("submission approval notifications", () => {
     expect(messageOptions).not.toHaveProperty("imageUrl");
     expect(messageOptions).toMatchObject({
       clickAction: "/reimbursements/request-1",
+      idempotencyKey: "reimbursement-approved-request-1-user-1-1",
     });
   });
 
@@ -110,6 +112,7 @@ describe("submission approval notifications", () => {
     await notifier.notifyApproved({
       entityId: "request-1",
       note: "Paid by UPI",
+      reviewedAt: 1,
       submitterId: "user-1",
       title: "Travel",
     });
@@ -141,6 +144,7 @@ describe("submission approval notifications", () => {
 
     await notifier.notifyApproved({
       entityId: "request-2",
+      reviewedAt: 1,
       submitterId: "user-1",
       title: "Stage hire",
     });

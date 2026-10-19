@@ -138,6 +138,7 @@ export const advancePaymentMutators = {
               {
                 advancePaymentId: id,
                 note,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
               },
@@ -312,6 +313,7 @@ export const advancePaymentMutators = {
               {
                 advancePaymentId: id,
                 reason,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
               },

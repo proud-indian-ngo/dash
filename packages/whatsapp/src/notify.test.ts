@@ -71,7 +71,11 @@ vi.mock("./messaging", () => ({
 }));
 
 import { CloudApiError } from "./cloud";
-import { sendWhatsAppNotification, statusesBefore } from "./notify";
+import {
+  sendWhatsAppNotification,
+  sendWhatsAppReply,
+  statusesBefore,
+} from "./notify";
 import { whatsappTemplate } from "./template-message";
 
 const template = whatsappTemplate(
@@ -102,7 +106,13 @@ describe("sendWhatsAppNotification", () => {
       template
     );
     expect(mocks.inserted).toEqual([
-      { idempotencyKey: "k", template: "team_added", userId: "u1" },
+      {
+        idempotencyKey: "k",
+        params: { team: "Sunday" },
+        template: "team_added",
+        templateBody: expect.stringContaining("{{team}}"),
+        userId: "u1",
+      },
     ]);
     expect(mocks.updates).toEqual([{ status: "sent", wamid: "wamid.1" }]);
     expect(mocks.sendWhatsAppMessage).not.toHaveBeenCalled();
@@ -171,6 +181,21 @@ describe("sendWhatsAppNotification", () => {
       { idempotencyKey: "k" }
     );
     expect(mocks.sendCloudTemplate).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendWhatsAppReply", () => {
+  it("logs a free-form reply without parameters", async () => {
+    await sendWhatsAppReply("919876543210", "Thanks", { idempotencyKey: "k" });
+    expect(mocks.inserted).toEqual([
+      {
+        idempotencyKey: "k",
+        params: null,
+        template: "text",
+        templateBody: null,
+        userId: undefined,
+      },
+    ]);
   });
 });
 

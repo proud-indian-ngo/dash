@@ -45,11 +45,13 @@ interface AddedToEventOptions {
   eventId: string;
   eventName: string;
   location: string | null;
+  memberId: string;
   startTime: number;
   userId: string;
 }
 
 interface UsersAddedToEventOptions {
+  addedAt: number;
   eventId: string;
   eventName: string;
   location: string | null;
@@ -60,6 +62,7 @@ interface UsersAddedToEventOptions {
 interface RemovedFromEventOptions {
   eventId: string;
   eventName: string;
+  memberId: string;
   teamId: string;
   userId: string;
 }
@@ -146,6 +149,7 @@ function cancelledCopy(
 }
 
 export async function notifyAddedToEvent({
+  memberId,
   userId,
   eventName,
   startTime,
@@ -170,7 +174,7 @@ export async function notifyAddedToEvent({
       status: { label: "Added", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `event-member-added-${eventId}-${userId}`,
+    idempotencyKey: `event-member-added-${eventId}-${userId}-${memberId}`,
     title: "✅ You're in!",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,
@@ -183,6 +187,7 @@ export async function notifyAddedToEvent({
 }
 
 export async function notifyUsersAddedToEvent({
+  addedAt,
   userIds,
   eventName,
   startTime,
@@ -207,7 +212,7 @@ export async function notifyUsersAddedToEvent({
       status: { label: "Added", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `event-members-added-${eventId}-${[...userIds].sort((a, b) => a.localeCompare(b)).join(",")}`,
+    idempotencyKey: `event-members-added-${eventId}-${[...userIds].sort((a, b) => a.localeCompare(b)).join(",")}-${addedAt}`,
     title: "✅ You're in!",
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds,
@@ -220,6 +225,7 @@ export async function notifyUsersAddedToEvent({
 }
 
 export async function notifyRemovedFromEvent({
+  memberId,
   userId,
   eventName,
   teamId,
@@ -241,7 +247,7 @@ export async function notifyRemovedFromEvent({
       status: { label: "Removed", tone: "neutral" },
     },
     emailHtml,
-    idempotencyKey: `event-member-removed-${eventId}-${userId}`,
+    idempotencyKey: `event-member-removed-${eventId}-${userId}-${memberId}`,
     title: "📅 Event update",
     to: userId,
     topic: TOPICS.EVENTS_SCHEDULE,

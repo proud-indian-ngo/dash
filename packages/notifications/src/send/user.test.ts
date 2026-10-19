@@ -79,7 +79,11 @@ describe("suspended account notification", () => {
   });
 
   it("sends the reason in the WhatsApp template when there is one", async () => {
-    await notifyUserBanned({ reason: "Missed\nshifts", userId: "user-1" });
+    await notifyUserBanned({
+      bannedAt: 1,
+      reason: "Missed\nshifts",
+      userId: "user-1",
+    });
 
     expect(mocks.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -92,7 +96,7 @@ describe("suspended account notification", () => {
   });
 
   it("uses the no-reason template when there is no reason", async () => {
-    await notifyUserBanned({ userId: "user-1" });
+    await notifyUserBanned({ bannedAt: 1, userId: "user-1" });
 
     expect(mocks.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({

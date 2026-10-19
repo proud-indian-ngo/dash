@@ -22,6 +22,7 @@ import { Route as AppExportRouteImport } from './routes/_app/export'
 import { Route as AppIncomeRouteRouteImport } from './routes/_app/income/route'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
+import { Route as AppNotificationDeliveryRouteImport } from './routes/_app/notification-delivery'
 import { Route as AppReimbursementsRouteRouteImport } from './routes/_app/reimbursements/route'
 import { Route as AppScheduledMessagesRouteImport } from './routes/_app/scheduled-messages'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
@@ -215,6 +216,11 @@ const AppJobsRoute = AppJobsRouteImport.update({
 const AppKalakritiRouteRoute = AppKalakritiRouteRouteImport.update({
   id: '/kalakriti',
   path: '/kalakriti',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNotificationDeliveryRoute = AppNotificationDeliveryRouteImport.update({
+  id: '/notification-delivery',
+  path: '/notification-delivery',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReimbursementsRouteRoute = AppReimbursementsRouteRouteImport.update({
@@ -922,6 +928,7 @@ export interface FileRoutesByFullPath {
   '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
+  '/notification-delivery': typeof AppNotificationDeliveryRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
   '/social': typeof AppSocialRoute
   '/users': typeof AppUsersRoute
@@ -1057,6 +1064,7 @@ export interface FileRoutesByTo {
   '/audit-log': typeof AppAuditLogRoute
   '/export': typeof AppExportRoute
   '/jobs': typeof AppJobsRoute
+  '/notification-delivery': typeof AppNotificationDeliveryRoute
   '/scheduled-messages': typeof AppScheduledMessagesRoute
   '/social': typeof AppSocialRoute
   '/users': typeof AppUsersRoute
@@ -1198,6 +1206,7 @@ export interface FileRoutesById {
   '/_app/audit-log': typeof AppAuditLogRoute
   '/_app/export': typeof AppExportRoute
   '/_app/jobs': typeof AppJobsRoute
+  '/_app/notification-delivery': typeof AppNotificationDeliveryRoute
   '/_app/scheduled-messages': typeof AppScheduledMessagesRoute
   '/_app/social': typeof AppSocialRoute
   '/_app/users': typeof AppUsersRoute
@@ -1345,6 +1354,7 @@ export interface FileRouteTypes {
     | '/audit-log'
     | '/export'
     | '/jobs'
+    | '/notification-delivery'
     | '/scheduled-messages'
     | '/social'
     | '/users'
@@ -1480,6 +1490,7 @@ export interface FileRouteTypes {
     | '/audit-log'
     | '/export'
     | '/jobs'
+    | '/notification-delivery'
     | '/scheduled-messages'
     | '/social'
     | '/users'
@@ -1620,6 +1631,7 @@ export interface FileRouteTypes {
     | '/_app/audit-log'
     | '/_app/export'
     | '/_app/jobs'
+    | '/_app/notification-delivery'
     | '/_app/scheduled-messages'
     | '/_app/social'
     | '/_app/users'
@@ -1887,6 +1899,13 @@ declare module '@tanstack/react-router' {
       path: '/kalakriti'
       fullPath: '/kalakriti'
       preLoaderRoute: typeof AppKalakritiRouteRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/notification-delivery': {
+      id: '/_app/notification-delivery'
+      path: '/notification-delivery'
+      fullPath: '/notification-delivery'
+      preLoaderRoute: typeof AppNotificationDeliveryRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/reimbursements': {
@@ -3122,6 +3141,7 @@ interface AppRouteChildren {
   AppAuditLogRoute: typeof AppAuditLogRoute
   AppExportRoute: typeof AppExportRoute
   AppJobsRoute: typeof AppJobsRoute
+  AppNotificationDeliveryRoute: typeof AppNotificationDeliveryRoute
   AppScheduledMessagesRoute: typeof AppScheduledMessagesRoute
   AppSocialRoute: typeof AppSocialRoute
   AppUsersRoute: typeof AppUsersRoute
@@ -3148,6 +3168,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAuditLogRoute: AppAuditLogRoute,
   AppExportRoute: AppExportRoute,
   AppJobsRoute: AppJobsRoute,
+  AppNotificationDeliveryRoute: AppNotificationDeliveryRoute,
   AppScheduledMessagesRoute: AppScheduledMessagesRoute,
   AppSocialRoute: AppSocialRoute,
   AppUsersRoute: AppUsersRoute,

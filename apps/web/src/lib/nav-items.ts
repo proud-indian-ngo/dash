@@ -23,6 +23,7 @@ import {
   HomeIcon,
   Invoice01Icon,
   Message01Icon,
+  MessageNotification01Icon,
   MoneyReceive01Icon,
   SecurityLockIcon,
   Settings01Icon,
@@ -176,6 +177,12 @@ const jobsNavItem: NavItem = {
   icon: TaskDaily02Icon,
   title: "Jobs",
   url: "/jobs",
+};
+
+const notificationDeliveryNavItem: NavItem = {
+  icon: MessageNotification01Icon,
+  title: "Notification delivery",
+  url: "/notification-delivery",
 };
 
 const auditLogNavItem: NavItem = {
@@ -452,6 +459,9 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "jobs.manage")) {
     items.push(jobsNavItem);
   }
+  if (has(permissions, "notifications.view_delivery")) {
+    items.push(notificationDeliveryNavItem);
+  }
   if (has(permissions, "audit_log.view")) {
     items.push(auditLogNavItem);
   }
@@ -532,6 +542,9 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (has(permissions, "jobs.manage")) {
     adminItems.push(jobsNavItem);
+  }
+  if (has(permissions, "notifications.view_delivery")) {
+    adminItems.push(notificationDeliveryNavItem);
   }
   if (has(permissions, "audit_log.view")) {
     adminItems.push(auditLogNavItem);

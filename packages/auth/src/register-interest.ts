@@ -39,6 +39,7 @@ export interface RegisterInterestDeps {
   enqueueNotifyInterestReceived: (payload: {
     eventId: string;
     eventName: string;
+    interestId: string;
     leadUserIds: string[];
     teamId: string;
     volunteerName: string;
@@ -151,10 +152,11 @@ export async function requestInterestOnRegister(
     return skipped(decision.kind === "skip" ? decision.reason : "missing");
   }
 
+  const interestId = uuidv7();
   const result = await deps.insertPendingInterest({
     createdAt: input.now,
     eventId: event.id,
-    id: uuidv7(),
+    id: interestId,
     userId: input.userId,
   });
   if (result === "conflict") {
@@ -164,6 +166,7 @@ export async function requestInterestOnRegister(
   await deps.enqueueNotifyInterestReceived({
     eventId: event.id,
     eventName: event.name,
+    interestId,
     leadUserIds: await deps.findTeamLeadIds(event.teamId),
     teamId: event.teamId,
     volunteerName: input.userName,

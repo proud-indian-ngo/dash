@@ -261,6 +261,7 @@ export const vendorPaymentTransactionMutators = {
               await enqueue(
                 "notify-vp-fully-paid",
                 {
+                  paidAt: now,
                   submitterId: vpOwnerId,
                   title: vpTitle,
                   vendorPaymentId: vpId,
@@ -388,6 +389,7 @@ export const vendorPaymentTransactionMutators = {
               await enqueue(
                 "notify-vp-fully-paid",
                 {
+                  paidAt: now,
                   submitterId: vpOwnerId,
                   title: vpTitle,
                   vendorPaymentId: vpId,

@@ -390,6 +390,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
             .where(eq(role.id, newRole))
             .then((rows) => rows[0]);
           const roleName = roleRecord?.name ?? newRole;
+          const changedAt = Date.now();
 
           // Enqueue role change notification
           withFireAndForgetLog(
@@ -400,6 +401,7 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
             },
             async () => {
               await enqueue("notify-role-changed", {
+                changedAt,
                 newRole: roleName,
                 userId: data.userId,
               });
@@ -466,10 +468,14 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
           headers: context.headers,
         });
 
+        const resetAt = Date.now();
         withFireAndForgetLog(
           { handler: "setUserPassword:notify", userId: data.userId },
           async () => {
-            await enqueue("notify-password-reset", { userId: data.userId });
+            await enqueue("notify-password-reset", {
+              resetAt,
+              userId: data.userId,
+            });
           }
         );
 
@@ -609,6 +615,7 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
 
         // Enqueue ban/unban notification
         if (data.banned) {
+          const bannedAt = Date.now();
           withFireAndForgetLog(
             {
               banReason: data.banReason,
@@ -617,16 +624,21 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
             },
             async () => {
               await enqueue("notify-user-banned", {
+                bannedAt,
                 reason: data.banReason,
                 userId: data.userId,
               });
             }
           );
         } else {
+          const unbannedAt = Date.now();
           withFireAndForgetLog(
             { handler: "setUserBan:unbanned", userId: data.userId },
             async () => {
-              await enqueue("notify-user-unbanned", { userId: data.userId });
+              await enqueue("notify-user-unbanned", {
+                unbannedAt,
+                userId: data.userId,
+              });
             }
           );
         }

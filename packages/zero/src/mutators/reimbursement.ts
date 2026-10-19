@@ -526,6 +526,7 @@ export const reimbursementMutators = {
               {
                 note,
                 reimbursementId: id,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
               },
@@ -1236,6 +1237,7 @@ export const reimbursementMutators = {
               {
                 reason,
                 reimbursementId: id,
+                reviewedAt: now,
                 submitterId: ownerId,
                 title,
               },

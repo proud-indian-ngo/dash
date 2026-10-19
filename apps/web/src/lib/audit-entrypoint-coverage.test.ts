@@ -67,6 +67,8 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getEventPhotoUploadUrl",
   "getKalakritiScorecardUploadUrl",
   "getMissingDonorDetails",
+  "getDeliveryOverview",
+  "getDeliveryPreview",
   "getPartyDetails",
   "getProfilePictureUploadUrl",
   "getReceiptCandidates",
@@ -80,6 +82,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getUserEmailSuppression",
   "getVendorDetails",
   "inviteKalakritiGuardian",
+  "listNotificationDeliveries",
   "searchDebitMatches",
   "updateKalakritiGuardian",
 ];

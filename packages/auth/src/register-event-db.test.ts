@@ -189,6 +189,7 @@ describe("signup enrollment orientation persistence", () => {
       ["volunteer"],
     ]);
     expect(mocks.enqueue).toHaveBeenCalledWith("notify-role-changed", {
+      changedAt: 1000,
       newRole: "Volunteer",
       userId: "user",
     });

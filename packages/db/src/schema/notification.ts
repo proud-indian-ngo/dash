@@ -38,6 +38,8 @@ export const notification = pgTable(
       table.id.asc()
     ),
     uniqueIndex("notification_idempotencyKey_uidx").on(table.idempotencyKey),
+    // The Notification delivery page reads every user's last 90 days.
+    index("notification_createdAt_idx").on(table.createdAt),
   ]
 );
 

@@ -19,6 +19,7 @@ interface TeamDeletedOptions {
 }
 
 interface AddedToTeamOptions {
+  memberId: string;
   teamId: string;
   teamName: string;
   userId: string;
@@ -96,6 +97,7 @@ export async function notifyTeamDeleted({
 }
 
 export async function notifyAddedToTeam({
+  memberId,
   userId,
   teamName,
   teamId,
@@ -116,7 +118,7 @@ export async function notifyAddedToTeam({
       status: { label: "Joined", tone: "success" },
     },
     emailHtml,
-    idempotencyKey: `team-member-added-${teamId}-${userId}`,
+    idempotencyKey: `team-member-added-${teamId}-${userId}-${memberId}`,
     title: "🙌 You're on the team!",
     to: userId,
     topic: TOPICS.TEAMS,
@@ -162,6 +164,7 @@ export async function notifyRemovedFromTeam({
 }
 
 interface TeamRoleChangedOptions {
+  changedAt: number;
   newRole: string;
   teamId: string;
   teamName: string;
@@ -169,6 +172,7 @@ interface TeamRoleChangedOptions {
 }
 
 export async function notifyTeamRoleChanged({
+  changedAt,
   userId,
   teamId,
   teamName,
@@ -195,7 +199,7 @@ export async function notifyTeamRoleChanged({
       name: teamName,
     },
     emailHtml,
-    idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}`,
+    idempotencyKey: `team-role-changed-${teamId}-${userId}-${newRole}-${changedAt}`,
     title: `${titleEmoji} ${heading}`,
     to: userId,
     topic: TOPICS.TEAMS,
