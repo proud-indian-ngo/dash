@@ -126,8 +126,8 @@ describe("socialPost.drop", () => {
     });
   });
 
-  it("drops an approved post", async () => {
-    const db = createDb({ socialPost: [post({ status: "approved" })] });
+  it.each(["approved", "failed"])("drops a %s post", async (status) => {
+    const db = createDb({ socialPost: [post({ status })] });
     await run(socialPostMutators.drop, db, socialManagerCtx, {
       id: "post-1",
       now: NOW,
@@ -142,7 +142,7 @@ describe("socialPost.drop", () => {
         id: "post-1",
         now: NOW,
       })
-    ).rejects.toThrow("Only queued or approved posts can be dropped");
+    ).rejects.toThrow("Only queued, approved or failed posts can be dropped");
     expect(db.writes).toEqual([]);
   });
 

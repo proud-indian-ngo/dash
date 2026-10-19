@@ -102,7 +102,7 @@ function PostsTab() {
       />
       <ConfirmDialog
         confirmLabel="Drop post"
-        description="The pipeline will never publish this post or queue it again. If it is already scheduled in Buffer, delete it there too."
+        description="The pipeline will never publish this post or queue it again, and deletes it from Buffer within the hour."
         loading={dropping}
         loadingLabel="Dropping..."
         onConfirm={handleConfirm}

@@ -30,6 +30,8 @@ const record = {
 
 const stored = {
   ...record,
+  droppedAt: null,
+  error: null,
   eventName: null,
   held: null,
   occurrenceDate: null,
@@ -134,6 +136,7 @@ describe("handleSocialPostedWrite", () => {
     expect(upsertSocialPost).toHaveBeenCalledWith(
       {
         ...record,
+        error: null,
         eventName: null,
         held: null,
         occurrenceDate: null,
@@ -171,6 +174,22 @@ describe("handleSocialPostedWrite", () => {
       }),
       NOW
     );
+  });
+
+  it("stores Buffer's error, cut to 500 characters, only for a failed post", async () => {
+    const { deps, upsertSocialPost } = createDeps();
+    const error = `Media URL not public. ${"x".repeat(600)}`;
+    await handleSocialPostedWrite(
+      post({ ...record, error, status: "failed" }),
+      deps
+    );
+    await handleSocialPostedWrite(post({ ...record, error }), deps);
+    const [failed, queued] = upsertSocialPost.mock.calls.map(
+      (call) => (call as unknown as [{ error: string | null }])[0].error
+    );
+    expect(failed).toHaveLength(500);
+    expect(failed?.startsWith("Media URL not public.")).toBe(true);
+    expect(queued).toBeNull();
   });
 
   it.each([true, false])("stores held %p when given", async (held) => {
@@ -246,6 +265,8 @@ describe("handleSocialPostedRead", () => {
       posted: [
         {
           ...record,
+          droppedAt: null,
+          error: null,
           eventName: null,
           held: null,
           occurrenceDate: null,
@@ -284,6 +305,26 @@ describe("handleSocialPostedRead", () => {
     }
   });
 
+  it("returns droppedAt as an ISO time", async () => {
+    const { deps } = createDeps({
+      listSocialPosts: mock(async () => [
+        {
+          ...stored,
+          droppedAt: new Date("2026-10-19T12:00:00Z"),
+          status: "dropped",
+        },
+      ]),
+    } as unknown as Partial<SocialPostedDeps>);
+    const response = await handleSocialPostedRead(
+      new Request(
+        `https://dash.proudindian.ngo/api/social/v1/posted?eventId=${EVENT_ID}`
+      ),
+      deps
+    );
+    const { posted } = await response.json();
+    expect(posted[0].droppedAt).toBe("2026-10-19T12:00:00.000Z");
+  });
+
   it("lists records for a virtual occurrence id", async () => {
     const { deps, listSocialPosts } = createDeps();
     const eventId = `${EVENT_ID}:2026-10-17`;
@@ -318,6 +359,8 @@ describe("handleSocialPostedRead", () => {
       posted: [
         {
           ...record,
+          droppedAt: null,
+          error: null,
           eventId: `${EVENT_ID}:2026-10-17`,
           eventName: "Spoken English Class",
           held: null,

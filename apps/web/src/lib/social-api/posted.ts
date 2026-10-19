@@ -30,10 +30,18 @@ import {
 // Fits a row id and the virtual occurrence form `${seriesId}:${occDate}`.
 const MAX_ID_LENGTH = 200;
 const MAX_EVENT_NAME_LENGTH = 200;
+const MAX_ERROR_LENGTH = 500;
 
 export const postedRecordSchema = z.strictObject({
   bufferPostId: z.string().trim().min(1).max(MAX_ID_LENGTH),
   channel: z.enum(socialPostChannelValues),
+  /** Buffer's failure message; stored only with status `failed`, cut to 500 characters. */
+  error: z
+    .string()
+    .trim()
+    .max(10_000)
+    .transform((error) => error.slice(0, MAX_ERROR_LENGTH))
+    .nullish(),
   eventId: z.string().trim().min(1).max(MAX_ID_LENGTH),
   /** Event name when the post was queued; event posts only. */
   eventName: z.string().trim().max(MAX_EVENT_NAME_LENGTH).nullish(),
@@ -48,11 +56,16 @@ export const postedRecordSchema = z.strictObject({
 
 type PostedRecordInput = z.infer<typeof postedRecordSchema>;
 
-/** A stored record as the API returns it: unset optional fields are null. */
+/**
+ * A stored record as the API returns it: unset optional fields are null, and
+ * `droppedAt` is when someone dropped it on the Social page.
+ */
 export type PostedRecord = Omit<
   PostedRecordInput,
-  "eventName" | "held" | "occurrenceDate"
+  "error" | "eventName" | "held" | "occurrenceDate"
 > & {
+  droppedAt: string | null;
+  error: string | null;
   eventName: string | null;
   held: boolean | null;
   occurrenceDate: string | null;
@@ -100,7 +113,10 @@ export function postedAuditTarget(eventId: string): {
   return { type: "socialPost" };
 }
 
-/** `POST /api/social/v1/posted` (scope social:write): record a queued post. */
+/**
+ * `POST /api/social/v1/posted` (scope social:write): record a queued post, or
+ * a later status for it (published, failed with Buffer's error, dropped).
+ */
 export async function handleSocialPostedWrite(
   request: Request,
   deps: SocialPostedDeps = defaultDeps
@@ -144,6 +160,7 @@ export async function handleSocialPostedWrite(
         deps.upsertSocialPost(
           {
             ...record,
+            error: record.status === "failed" ? record.error || null : null,
             eventName: record.eventName || null,
             held: record.held ?? null,
             occurrenceDate: record.occurrenceDate ?? null,
@@ -225,6 +242,7 @@ export async function handleSocialPostedRead(
         : await deps.listSocialPostsInWindow(query.from, query.to);
     const posted: PostedRecord[] = rows.map((row) => ({
       ...row,
+      droppedAt: row.droppedAt?.toISOString() ?? null,
       scheduledFor: row.scheduledFor.toISOString(),
     }));
     return socialJson({ posted });

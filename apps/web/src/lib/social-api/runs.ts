@@ -41,6 +41,8 @@ export const socialRunSchema = z
     planned: count,
     recorded: count,
     rendered: count,
+    /** Ignored posting-rule overrides; the digest already reports them, so they are not stored. */
+    rulesNotes: cappedMessages.optional(),
     skipped: cappedMessages,
     startedAt: z.iso.datetime({ offset: true }),
     tick: z.enum(socialRunTickValues),
@@ -91,7 +93,7 @@ export async function handleSocialRunsWrite(
       { headers: { "Cache-Control": "no-store" }, status: 400 }
     );
   }
-  const run = parsed.data;
+  const { rulesNotes: _rulesNotes, ...run } = parsed.data;
   try {
     await deps.insertSocialRun(
       {
