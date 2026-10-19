@@ -80,6 +80,16 @@ test.describe("User row actions (admin)", () => {
     await tryOpen(0);
   }
 
+  test("row action menu emails the user", async ({ page, volunteerEmail }) => {
+    await expect(async () => {
+      await page.keyboard.press("Escape");
+      await list.openRowActionMenu(getVolunteerRow(), "Edit");
+      await expect(
+        page.getByRole("menuitem", { name: `Email ${volunteerEmail}` })
+      ).toHaveAttribute("href", `mailto:${volunteerEmail}`, { timeout: 1000 });
+    }).toPass({ timeout: 15_000 });
+  });
+
   test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
     page,
   }) => {

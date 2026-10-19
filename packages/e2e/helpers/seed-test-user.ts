@@ -1506,11 +1506,23 @@ async function ensureApprovalFixtures({
     status: "pending",
     userId: unorientedUserId,
   });
-  // A phone, so the lead sees the call and WhatsApp links as well as email.
-  await db
-    .update(user)
-    .set({ phone: "+919800000301" })
-    .where(and(eq(user.id, unorientedUserId), isNull(user.phone)));
+  // A member, so the lead reaches them from the row menu.
+  await db.insert(teamEventMember).values({
+    addedAt: subDays(now, 1),
+    eventId: SEED_LEAD_INTEREST_EVENT_ID,
+    id: uuidv7(),
+    userId: financeAdminUserId,
+  });
+  // Phones, so the lead gets call and WhatsApp links as well as email.
+  for (const [userId, phone] of [
+    [unorientedUserId, "+919800000301"],
+    [financeAdminUserId, "+919800000302"],
+  ] as const) {
+    await db
+      .update(user)
+      .set({ phone })
+      .where(and(eq(user.id, userId), isNull(user.phone)));
+  }
 
   const photoEventId = uuidv7();
   await db.insert(teamEvent).values({

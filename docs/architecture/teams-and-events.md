@@ -22,6 +22,7 @@ A team lead is a `teamMember` row with `role: "lead"`. It is unrelated to the cu
 
 - Without `teams.view_all`, queries return only teams you are a member of, including `team.byId`.
 - A lead cannot remove another lead; only `teams.manage_members` can.
+- Those who manage members see each member's phone and email, as leads rarely hold `users.view` and touch devices cannot open the hover card.
 - The add-member picker lists only active users who are not `unoriented_volunteer`. The mutator does not check this.
 - A team may point only at an active programme.
 - Delete is blocked while any reimbursement or vendor payment is charged to one of the team's events, or while the books hold a ledger entry for one. Why: those records must keep their event. Delete cascades the team's events.
@@ -73,6 +74,7 @@ Creating an event that does not start in the past notifies the team. Event Whats
 - Members of the event's team join themselves with `teamEvent.joinAsMember`, without `events.manage_members`, and can leave. Both only before the start.
 - Anyone else gets in through interest (below), an admin add, a "Yes" on the WhatsApp RSVP poll ([notifications](notifications.md)), or a `/register?eventId=` sign-up link ([auth](auth.md#link-parameters)).
 - Every add and remove path syncs the event's own WhatsApp group, if it has one. The team's group is not touched.
+- Those who manage the list (`events.edit` or a lead) see each member's phone and email, as on [teams](#teams). Kalakriti-managed events are excluded, as the Edition workspace owns their lists.
 
 ### Attendance
 

@@ -58,14 +58,23 @@ export class ListPage {
       .first();
   }
 
+  /**
+   * A menu item whose name starts with `name`, so "Edit" finds "Edit" but
+   * not a contact item such as "Email e2e-edit@...".
+   */
+  menuItem(name: string): Locator {
+    const escaped = name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+    return this.page.getByRole("menuitem", {
+      name: new RegExp(`^${escaped}`, "i"),
+    });
+  }
+
   async openRowActionMenu(
     row: Locator,
     expectMenuItem = "View"
   ): Promise<void> {
     const trigger = row.getByTestId("row-actions");
-    const viewItem = this.page.getByRole("menuitem", {
-      name: expectMenuItem,
-    });
+    const viewItem = this.menuItem(expectMenuItem);
 
     const tryOpen = async (attempt: number): Promise<boolean> => {
       await trigger.click();
@@ -88,7 +97,7 @@ export class ListPage {
   }
 
   async clickMenuItem(name: string): Promise<void> {
-    await this.page.getByRole("menuitem", { name }).click();
+    await this.menuItem(name).click();
   }
 
   /**
@@ -100,7 +109,7 @@ export class ListPage {
     trigger: Locator,
     menuItemName: string
   ): Promise<void> {
-    const menuItem = this.page.getByRole("menuitem", { name: menuItemName });
+    const menuItem = this.menuItem(menuItemName);
 
     const tryClick = async (attempt: number): Promise<boolean> => {
       try {

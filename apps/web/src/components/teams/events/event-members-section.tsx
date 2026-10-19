@@ -16,24 +16,34 @@ import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
 
+import { contactActions } from "@/components/shared/contact-actions";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserHoverCard } from "@/components/shared/user-hover-card";
+import { useApp } from "@/context/app-context";
+import { getEventMemberContacts } from "@/functions/contacts";
+import { type ContactState, useContacts } from "@/hooks/use-contacts";
 import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import type { EventRow } from "./events-table";
 
+const fetchMemberContacts = (eventId: string) =>
+  getEventMemberContacts({ data: { eventId } });
+
 function EventMemberRow({
   canManage,
   canMarkAttendance,
+  contact,
   eventId,
   member,
   onRemove,
 }: {
   canManage: boolean;
   canMarkAttendance: boolean;
+  /** Absent for the viewer's own row and while nothing is known. */
+  contact: ContactState;
   eventId: string;
   member: TeamEventMember & { user: User | undefined };
   onRemove: (id: string) => void;
@@ -132,6 +142,7 @@ function EventMemberRow({
       {canManage ? (
         <ResponsiveActionMenu
           actions={[
+            ...contactActions(contact),
             {
               destructive: true,
               icon: UserRemoveIcon,
@@ -180,6 +191,13 @@ export function EventMembersSection({
   openingSession?: boolean;
 }) {
   const zero = useZero();
+  const { user } = useApp();
+  // Only those who manage the list get its contacts, in the row menu.
+  const { contactFor } = useContacts(
+    fetchMemberContacts,
+    eventId,
+    canManage ? members.map((m) => m.userId) : []
+  );
   const presentCount = members.filter((m) => m.attendance === "present").length;
 
   const markAllPresent = useEventCallback(() => {
@@ -267,6 +285,11 @@ export function EventMembersSection({
             <EventMemberRow
               canManage={canManage}
               canMarkAttendance={canMarkAttendance}
+              contact={
+                member.userId === user.id
+                  ? undefined
+                  : contactFor(member.userId)
+              }
               eventId={eventId}
               key={member.id}
               member={member}
