@@ -67,9 +67,8 @@ RUN head=$(cat .git/HEAD 2>/dev/null || true); \
     cd apps/web && VITE_APP_RELEASE="$release" bunx --bun vite build
 # Client source maps go to PostHog Error Tracking, best effort: a missing key,
 # project ID or release skips the upload, and a failed upload leaves that
-# release unsymbolicated. `process` resolves the release before it injects, so
-# a failure there leaves the bundle untouched. The personal API key exists only
-# inside this RUN. Every map is deleted whatever happened.
+# release unsymbolicated. The personal API key exists only inside this RUN.
+# Every map is deleted whatever happened.
 ARG POSTHOG_CLI_PROJECT_ID
 ARG POSTHOG_CLI_HOST=https://us.posthog.com
 RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
