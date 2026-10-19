@@ -166,6 +166,9 @@ services:
       - compute_query_id=auto
       - -c
       - track_io_timing=on
+      # Timestamp columns hold UTC; the container's TZ must not leak into now()
+      - -c
+      - timezone=UTC
     volumes:
       - postgres18_data:/var/lib/postgresql
     depends_on:
