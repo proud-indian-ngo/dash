@@ -59,6 +59,11 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await draftAndIssue(page, title);
     const panel = page.getByRole("region", { name: "Your response" });
     await expect(panel).toBeVisible();
+    // Folded behind the DSC button when the signing helper is available.
+    const otherWays = panel.getByRole("button", { name: "Other ways to sign" });
+    if (await otherWays.isVisible()) {
+      await otherWays.click();
+    }
     await expect(
       panel.getByRole("link", { name: "Download PDF" })
     ).toHaveAttribute("href", /kind=resolutionPdf/);
@@ -76,7 +81,10 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await expect(
       page.getByText(/1 objection left too few trustees/)
     ).toBeVisible();
-    const row = page.getByRole("row", { name: /Asha Rao/ });
+    const signatures = page.getByRole("region", { name: "Signatures" });
+    const row = signatures
+      .getByRole("listitem")
+      .filter({ hasText: "Asha Rao" });
     await expect(row).toContainText("Objected");
     await expect(row).toContainText("The budget isn't approved yet.");
   });
@@ -103,7 +111,11 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await confirmIfAsked(page);
     await expect(panel).toBeHidden({ timeout: 15_000 });
     await expect(
-      page.getByRole("row", { name: /Asha Rao/ }).getByText("Conflict declared")
+      page
+        .getByRole("region", { name: "Signatures" })
+        .getByRole("listitem")
+        .filter({ hasText: "Asha Rao" })
+        .getByText("Conflict declared")
     ).toBeVisible();
     await expect(page.getByText("0 of 1 signatures")).toBeVisible();
 

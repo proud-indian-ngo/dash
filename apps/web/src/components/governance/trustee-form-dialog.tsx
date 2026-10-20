@@ -195,7 +195,7 @@ function TrusteeForm({
           name="pan"
         />
         <InputField
-          description="As printed on the Aadhaar card; eSign signatures carry this name."
+          description="As printed on the Aadhaar card."
           label="Name on Aadhaar"
           name="aadhaarName"
         />

@@ -49,6 +49,7 @@ export type ResolutionResponse = (typeof resolutionResponseValues)[number];
 export const signatureMethodValues = [
   "dsc_helper",
   "acrobat_upload",
+  // Kept because the database enum has it; nothing records it.
   "esign",
   "ink_historical",
 ] as const;

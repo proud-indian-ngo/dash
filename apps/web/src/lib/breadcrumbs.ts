@@ -169,9 +169,16 @@ export function buildBreadcrumbs(
     },
     []
   );
-  const last = items.at(-1);
+  // Sidebar entries are siblings even when one's URL prefixes another's
+  // (/governance and /governance/resolutions), so only the deepest stays.
+  const topLevel = new Set(navItems.map((item) => item.url));
+  const lastTopLevel = items.filter((item) => topLevel.has(item.path)).at(-1);
+  const crumbs = items.filter(
+    (item) => !topLevel.has(item.path) || item === lastTopLevel
+  );
+  const last = crumbs.at(-1);
   if (options.recordTitle && last?.path === pathname) {
     last.title = options.recordTitle;
   }
-  return items;
+  return crumbs;
 }

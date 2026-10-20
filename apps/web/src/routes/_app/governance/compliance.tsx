@@ -1,4 +1,5 @@
 import {
+  ArrowDown01Icon,
   CalendarSetting01Icon,
   CheckmarkCircle02Icon,
   Edit02Icon,
@@ -9,6 +10,11 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
@@ -25,6 +31,7 @@ import {
   daysBetween,
   GOVERNANCE_PAGE_PERMISSIONS,
 } from "@pi-dash/shared/governance";
+import { financialYearOf } from "@pi-dash/shared/income";
 import {
   ANNUAL_PACK_TEMPLATES,
   type ResolutionTemplateKey,
@@ -33,9 +40,8 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 
 import { EvidenceLink, NO_DOCUMENT } from "@/components/governance/evidence";
@@ -47,6 +53,7 @@ import {
   todayIso,
   useGovernanceDocuments,
 } from "@/components/governance/register-data";
+import { useAccountOptions } from "@/components/governance/use-account-options";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
@@ -59,7 +66,6 @@ import {
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
-import { getTrusteeAccountOptions } from "@/functions/governance";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -105,6 +111,10 @@ type Dialogs =
   | { kind: "templates" }
   | null;
 
+/** Open items within this many days count as due soon. */
+const DUE_SOON_DAYS = 30;
+
+/** How far off an open item is; a closed one says how it closed. */
 function dueBadge(item: Item, today: string) {
   if (item.status !== "open") {
     return (
@@ -115,30 +125,74 @@ function dueBadge(item: Item, today: string) {
   }
   const days = daysBetween(today, item.dueOn);
   if (days < 0) {
-    return <StatusBadge tone="danger">Overdue</StatusBadge>;
-  }
-  if (days <= 7) {
     return (
-      <StatusBadge tone="warning">
-        {days === 0 ? "Due today" : `Due in ${days} days`}
+      <StatusBadge tone="danger">
+        {days === -1 ? "1 day late" : `${-days} days late`}
       </StatusBadge>
     );
   }
-  return <StatusBadge tone="info">Open</StatusBadge>;
+  if (days > DUE_SOON_DAYS) {
+    return null;
+  }
+  let label = `Due in ${days} days`;
+  if (days === 0) {
+    label = "Due today";
+  } else if (days === 1) {
+    label = "Due tomorrow";
+  }
+  return <StatusBadge tone="warning">{label}</StatusBadge>;
 }
 
-function useOwners(canManage: boolean) {
-  const load = useServerFn(getTrusteeAccountOptions);
-  const [owners, setOwners] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    if (!canManage) {
-      return;
-    }
-    load()
-      .then((rows) => setOwners(rows.map((r) => ({ id: r.id, name: r.name }))))
-      .catch(() => undefined);
-  }, [canManage, load]);
-  return owners;
+function Counter({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone?: "danger";
+  value: number;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-md border px-4 py-3">
+      <span
+        className={cn(
+          "text-xl font-semibold tabular-nums",
+          tone === "danger" && value > 0 && "text-destructive"
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-muted-foreground text-xs">{label}</span>
+    </div>
+  );
+}
+
+function monthLabel(month: string) {
+  return format(isoToDate(`${month}-01`) ?? new Date(), "MMMM yyyy");
+}
+
+function byMonth(items: Item[]) {
+  const months = new Map<string, Item[]>();
+  for (const item of items) {
+    const key = item.dueOn.slice(0, 7);
+    months.set(key, [...(months.get(key) ?? []), item]);
+  }
+  return [...months.entries()];
+}
+
+function ItemGroup({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-2">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <div className="divide-y rounded-md border">{children}</div>
+    </section>
+  );
 }
 
 function CompliancePage() {
@@ -150,7 +204,7 @@ function CompliancePage() {
   const navigate = useNavigate();
   const templateKeys = new Map(templates.map((t) => [t.id, t.key]));
   const { documents } = useGovernanceDocuments();
-  const owners = useOwners(canManage);
+  const owners = useAccountOptions(canManage);
   const ownerName = (id: string | null) =>
     id ? (owners.find((o) => o.id === id)?.name ?? "Assigned") : "Secretaries";
   const [filter, setFilter] = useState<Filter>("open");
@@ -176,13 +230,16 @@ function CompliancePage() {
         ? i.status === "open"
         : i.status !== "open"
   );
-  const months = new Map<string, Item[]>();
-  for (const item of shown) {
-    const key = item.dueOn.slice(0, 7);
-    months.set(key, [...(months.get(key) ?? []), item]);
-  }
-  const overdue = items.filter(
-    (i) => i.status === "open" && i.dueOn < today
+  const open = items.filter((i) => i.status === "open");
+  const overdue = open.filter((i) => i.dueOn < today);
+  const dueSoon = open.filter(
+    (i) => i.dueOn >= today && daysBetween(today, i.dueOn) <= DUE_SOON_DAYS
+  );
+  const later = open.filter((i) => daysBetween(today, i.dueOn) > DUE_SOON_DAYS);
+  const year = financialYearOf(today);
+  const closedThisYear = items.filter(
+    (i) =>
+      i.status !== "open" && i.dueOn >= year.startsOn && i.dueOn <= year.endsOn
   ).length;
 
   const mutate = useEventCallback(
@@ -203,6 +260,82 @@ function CompliancePage() {
         setDialog(null);
       }
     }
+  );
+
+  const renderItem = (item: Item) => (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
+      data-testid={`compliance-item-${item.id}`}
+      key={item.id}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{item.title}</p>
+        <p className="text-muted-foreground text-xs">
+          Due {formatIso(item.dueOn)} · {ownerName(item.ownerUserId)}
+          {item.note ? ` · ${item.note}` : ""}
+        </p>
+      </div>
+      {item.evidenceDocumentId ? (
+        <EvidenceLink
+          documentId={item.evidenceDocumentId}
+          documents={documents}
+        />
+      ) : null}
+      {dueBadge(item, today)}
+      {canManage ? (
+        <ResponsiveActionMenu
+          actions={[
+            item.status === "open" && {
+              icon: CheckmarkCircle02Icon,
+              id: "close",
+              label: "Mark done",
+              onSelect: () => setDialog({ item, kind: "close" }),
+            },
+            item.status === "open" &&
+              item.resolutionTemplate && {
+                icon: Edit02Icon,
+                id: "draft",
+                label: "Draft the resolution",
+                onSelect: () =>
+                  navigate({
+                    search: {
+                      template: item.resolutionTemplate ?? undefined,
+                    },
+                    to: "/governance/resolutions",
+                  }),
+              },
+            item.status === "open" && {
+              icon: UserAccountIcon,
+              id: "assign",
+              label: "Assign",
+              onSelect: () => setDialog({ item, kind: "assign" }),
+            },
+            item.status !== "open" && {
+              icon: Undo02Icon,
+              id: "reopen",
+              label: "Reopen",
+              onSelect: () =>
+                mutate(
+                  zero.mutate(mutators.complianceItem.reopen({ id: item.id }))
+                    .server,
+                  item.id,
+                  "complianceItem.reopen",
+                  "Reopened"
+                ),
+            },
+            item.status === "open" && {
+              destructive: true,
+              icon: Delete02Icon,
+              id: "waive",
+              label: "Not needed",
+              onSelect: () => setDialog({ item, kind: "waive" }),
+            },
+          ]}
+          title={`${item.title} actions`}
+          trigger={<RowActionsButton />}
+        />
+      ) : null}
+    </div>
   );
 
   return (
@@ -236,6 +369,15 @@ function CompliancePage() {
         description="Filings, renewals and Board approvals that fall due each year. An item closes only with the filing or record that proves it, from the Documents vault."
         title="Compliance calendar"
       />
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Counter label="Overdue" tone="danger" value={overdue.length} />
+        <Counter
+          label={`Due in ${DUE_SOON_DAYS} days`}
+          value={dueSoon.length}
+        />
+        <Counter label="Later" value={later.length} />
+        <Counter label={`Closed in ${year.label}`} value={closedThisYear} />
+      </div>
       <div className="mt-6 flex flex-wrap items-center gap-2">
         {(["open", "closed", "all"] as const).map((value) => (
           <Button
@@ -249,106 +391,52 @@ function CompliancePage() {
             {{ all: "All", closed: "Closed", open: "Open" }[value]}
           </Button>
         ))}
-        {overdue > 0 ? (
-          <StatusBadge tone="danger">{overdue} overdue</StatusBadge>
-        ) : null}
       </div>
       <div className="mt-4 flex flex-col gap-6">
         {isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {!isLoading && shown.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nothing here.</p>
         ) : null}
-        {[...months.entries()].map(([month, monthItems]) => (
-          <section
-            aria-label={month}
-            className="flex flex-col gap-2"
-            key={month}
-          >
-            <h2 className="text-sm font-semibold">
-              {format(isoToDate(`${month}-01`) ?? new Date(), "MMMM yyyy")}
-            </h2>
-            <div className="divide-y rounded-md border">
-              {monthItems.map((item) => (
-                <div
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
-                  data-testid={`compliance-item-${item.id}`}
-                  key={item.id}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="text-muted-foreground text-xs">
-                      Due {formatIso(item.dueOn)} ·{" "}
-                      {ownerName(item.ownerUserId)}
-                      {item.note ? ` · ${item.note}` : ""}
-                    </p>
-                  </div>
-                  {item.evidenceDocumentId ? (
-                    <EvidenceLink
-                      documentId={item.evidenceDocumentId}
-                      documents={documents}
-                    />
-                  ) : null}
-                  {dueBadge(item, today)}
-                  {canManage ? (
-                    <ResponsiveActionMenu
-                      actions={[
-                        item.status === "open" && {
-                          icon: CheckmarkCircle02Icon,
-                          id: "close",
-                          label: "Mark done",
-                          onSelect: () => setDialog({ item, kind: "close" }),
-                        },
-                        item.status === "open" &&
-                          item.resolutionTemplate && {
-                            icon: Edit02Icon,
-                            id: "draft",
-                            label: "Draft the resolution",
-                            onSelect: () =>
-                              navigate({
-                                search: {
-                                  template:
-                                    item.resolutionTemplate ?? undefined,
-                                },
-                                to: "/governance/resolutions",
-                              }),
-                          },
-                        item.status === "open" && {
-                          icon: UserAccountIcon,
-                          id: "assign",
-                          label: "Assign",
-                          onSelect: () => setDialog({ item, kind: "assign" }),
-                        },
-                        item.status !== "open" && {
-                          icon: Undo02Icon,
-                          id: "reopen",
-                          label: "Reopen",
-                          onSelect: () =>
-                            mutate(
-                              zero.mutate(
-                                mutators.complianceItem.reopen({ id: item.id })
-                              ).server,
-                              item.id,
-                              "complianceItem.reopen",
-                              "Reopened"
-                            ),
-                        },
-                        item.status === "open" && {
-                          destructive: true,
-                          icon: Delete02Icon,
-                          id: "waive",
-                          label: "Not needed",
-                          onSelect: () => setDialog({ item, kind: "waive" }),
-                        },
-                      ]}
-                      title={`${item.title} actions`}
-                      trigger={<RowActionsButton />}
-                    />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+        {filter === "open" ? (
+          <>
+            {overdue.length > 0 ? (
+              <ItemGroup title="Overdue">{overdue.map(renderItem)}</ItemGroup>
+            ) : null}
+            {dueSoon.length > 0 ? (
+              <ItemGroup title={`Next ${DUE_SOON_DAYS} days`}>
+                {dueSoon.map(renderItem)}
+              </ItemGroup>
+            ) : null}
+            {later.length > 0 ? (
+              <ItemGroup title="Later">
+                {byMonth(later).map(([month, monthItems]) => (
+                  <Collapsible key={month}>
+                    <CollapsibleTrigger className="hover:bg-muted/40 group flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm outline-none focus-visible:ring-3">
+                      <span>
+                        {monthLabel(month)} · {monthItems.length}{" "}
+                        {monthItems.length === 1 ? "item" : "items"}
+                      </span>
+                      <HugeiconsIcon
+                        className="text-muted-foreground size-4 transition-transform group-data-[panel-open]:rotate-180"
+                        icon={ArrowDown01Icon}
+                        strokeWidth={2}
+                      />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="divide-y border-t">
+                      {monthItems.map(renderItem)}
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </ItemGroup>
+            ) : null}
+          </>
+        ) : (
+          byMonth(shown).map(([month, monthItems]) => (
+            <ItemGroup key={month} title={monthLabel(month)}>
+              {monthItems.map(renderItem)}
+            </ItemGroup>
+          ))
+        )}
       </div>
 
       <CloseDialog

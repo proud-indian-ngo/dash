@@ -1,13 +1,13 @@
 # Governance
 
-> **Load when**: trustee register, offices and terms, deed versions, governance documents vault, organisation registrations, signing service (pyHanko), circular resolutions, meetings, DSC, Aadhaar eSign, compliance calendar, conflict of interest, policy register, safeguarding.
+> **Load when**: trustee register, offices and terms, deed versions, governance documents vault, organisation registrations, signing service (pyHanko), circular resolutions, meetings, DSC, compliance calendar, conflict of interest, policy register, safeguarding.
 > **Related**: `authorization.md`, `file-uploads.md`, `notifications.md`, `jobs.md`, `finance-and-programmes.md`
 
 ## Goals
 
 Proud Indian is a public charitable trust under deed Doc. No. 864, Book IV, 2018-19, registered at the Shivajinagar (Indiranagar) Sub-Registrar on 16-03-2019. Bengaluru has no Charity Commissioner, so the deed alone governs Board decisions. Board records lived in Word files, emails and scans, and the 07-12-2025 resolution claimed a quorum it did not have.
 
-The aim is one place that holds the trustee register and the trust's deeds and registrations, runs circulars and meetings by the deed's rules, gets decisions signed by DSC or Aadhaar eSign, and drives a compliance calendar with evidence.
+The aim is one place that holds the trustee register and the trust's deeds and registrations, runs circulars and meetings by the deed's rules, gets decisions signed by DSC, and drives a compliance calendar with evidence.
 
 ## Decisions
 
@@ -19,7 +19,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Pass rule | Majority of trustees in office at issue; two-thirds for an amendment, unanimity of the others for removal | Clauses 4.18, 9.3, 7.12 |
 | Numbering | Per financial year, assigned on pass: `PI/TR/2026-27/NNN` | Continues the paper series |
 | Immutability | Decided resolutions never change; a new one amends or rescinds. An issued circular is withdrawn and reissued | Signatures cover a fixed revision |
-| Signing | DSC through a local helper; Acrobat download and upload; Leegality Aadhaar eSign. A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac |
+| Signing | DSC through a local helper; Acrobat download and upload. A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac |
 | Vote confirmation | Signing or objecting needs a sign-in within 10 minutes | Shared laptops must not vote |
 | Finance | No trustee tier in approvals. A payment to a trustee or a declared related party warns ([declarations](governance-compliance.md#declarations-of-interests)) | Clause 7.24 |
 
@@ -64,12 +64,6 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 `services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Without it, uploads are stored unchecked and can be checked later.
 
-## Not built yet
-
-### Aadhaar eSign
-
-A fallback to the DSC through Leegality (about ₹25 per signature; Leegality sees the full PDF), checked like any other signed copy.
-
 ## Board at design time
 
 After circular PI/TR/2026-27/001 (ink-signed 18 October 2026):
@@ -86,7 +80,6 @@ The seeds hold a fictional board of the same shape (Asha Rao, Vikram Menon, Meer
 
 ## Open questions
 
-1. Does Adobe Reader trust Leegality eSign without setup? (It trusts the DSCs.)
-2. Ink-signed circulars after go-live: historical imports, or a first-class method with scan upload?
-3. Version 2 values await counsel's final amendment wording.
-4. Windows PKCS#11 path for the HyperSecu driver, to read from a trustee's laptop.
+1. Ink-signed circulars after go-live: historical imports, or a first-class method with scan upload?
+2. Version 2 values await counsel's final amendment wording.
+3. Windows PKCS#11 path for the HyperSecu driver, to read from a trustee's laptop.
