@@ -12,21 +12,23 @@ import { pdfjsAssets } from "./src/lib/dev/pdfjs-assets.ts";
 import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset.ts";
 import "@pi-dash/env";
 
-const onwarn: Rolldown.WarningHandlerWithDefault = (
-  warning,
+const onLog: NonNullable<Rolldown.InputOptions["onLog"]> = (
+  level,
+  log,
   defaultHandler
 ) => {
   // This app uses SSR, not RSC; client directives have no bundle semantics.
   // The compiler runtime's opt-out has already served its purpose by bundling.
   if (
-    warning.code === "MODULE_LEVEL_DIRECTIVE" &&
-    (warning.message.includes('"use client"') ||
-      (warning.message.includes("node_modules/") &&
-        warning.message.includes('"use no memo"')))
+    level === "warn" &&
+    log.code === "MODULE_LEVEL_DIRECTIVE" &&
+    (log.message.includes('"use client"') ||
+      (log.message.includes("node_modules/") &&
+        log.message.includes('"use no memo"')))
   ) {
     return;
   }
-  defaultHandler(warning);
+  defaultHandler(level, log);
 };
 
 // Client source maps are hidden: the Docker build uploads them to PostHog and
@@ -84,7 +86,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     build: {
       chunkSizeWarningLimit: 2300,
       rolldownOptions: {
-        onwarn,
+        onLog,
         checks: {
           pluginTimings: false,
         },
@@ -146,7 +148,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       apiMediaDevMiddleware,
       ...nitro({
         compressPublicAssets: true,
-        rolldownConfig: { onwarn, plugins: [rewritePublicAssets] },
+        rolldownConfig: { onLog, plugins: [rewritePublicAssets] },
         experimental: {
           vite: {},
         },

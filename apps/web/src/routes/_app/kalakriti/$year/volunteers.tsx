@@ -81,9 +81,7 @@ interface AssignmentScope {
 const ROSTER_METADATA_REFRESH_INTERVAL_MS = 30_000;
 
 export const Route = createFileRoute("/_app/kalakriti/$year/volunteers")({
-  validateSearch: z
-    .object({ dashboardFilter: z.string().optional() })
-    .passthrough(),
+  validateSearch: z.looseObject({ dashboardFilter: z.string().optional() }),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiVolunteers(context.kalakritiEditionAccess)) {
       throw notFound();

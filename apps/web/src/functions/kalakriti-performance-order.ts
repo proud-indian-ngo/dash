@@ -7,7 +7,7 @@ import { getKalakritiNextSlotsForAccess } from "@/lib/server/kalakriti-performan
 import { authMiddleware } from "@/middleware/auth";
 
 const inputSchema = z.strictObject({
-  divisionId: z.string().uuid(),
+  divisionId: z.uuid(),
   year: z.number().int().min(2000).max(2200),
 });
 

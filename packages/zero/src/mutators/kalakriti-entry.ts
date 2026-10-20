@@ -79,7 +79,7 @@ interface ExistingEntryMembership {
 }
 
 export const entryMusicClaimSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   byteSize: z.number().int().positive().max(MAX_KALAKRITI_MUSIC_SIZE_BYTES),
   fileName: z.string().trim().min(1).max(255),
   mimeType: z.enum(ALLOWED_KALAKRITI_MUSIC_TYPES),

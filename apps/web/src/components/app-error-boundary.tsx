@@ -175,7 +175,9 @@ function handleError(error: unknown, info: { componentStack?: string | null }) {
   });
   if (error instanceof Error) {
     import("@/lib/posthog")
-      .then(({ captureException }) => captureException(error, { traceId }))
+      .then(({ captureException }) =>
+        captureException(error, { traceId }, info.componentStack)
+      )
       .catch(() => {
         // Non-critical
       });

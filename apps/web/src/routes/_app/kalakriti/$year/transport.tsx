@@ -28,9 +28,7 @@ import {
 } from "@/lib/kalakriti-transport-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/transport")({
-  validateSearch: z
-    .object({ dashboardFilter: z.string().optional() })
-    .passthrough(),
+  validateSearch: z.looseObject({ dashboardFilter: z.string().optional() }),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiTransport(context.kalakritiEditionAccess))
       throw notFound();

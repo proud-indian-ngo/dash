@@ -73,16 +73,13 @@ export const cloudWebhookSchema = z.object({
       changes: z.array(
         z.object({
           field: z.string(),
-          value: z
-            .object({
-              metadata: z
-                .object({ phone_number_id: z.string().optional() })
-                .passthrough()
-                .optional(),
-              messages: z.array(messageSchema).optional(),
-              statuses: z.array(statusSchema).optional(),
-            })
-            .passthrough(),
+          value: z.looseObject({
+            metadata: z
+              .looseObject({ phone_number_id: z.string().optional() })
+              .optional(),
+            messages: z.array(messageSchema).optional(),
+            statuses: z.array(statusSchema).optional(),
+          }),
         })
       ),
     })

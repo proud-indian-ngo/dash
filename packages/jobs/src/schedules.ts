@@ -77,7 +77,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "ensure-fiscal-years",
     "0 5 1 * *",
     {},
-    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 600,
+      retryLimit: 2,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Daily at 12:30 AM IST — close circulars whose response date has passed
@@ -85,7 +90,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "close-due-resolutions",
     "30 0 * * *",
     {},
-    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 600,
+      retryLimit: 2,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Monthly on the 10th at 3:15 AM IST — renew long-term copies of signed
@@ -94,7 +104,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "retimestamp-governance-archives",
     "15 3 10 * *",
     {},
-    { expireInSeconds: 1800, retryLimit: 2, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 1800,
+      retryLimit: 2,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Daily at 2:45 AM IST — create the compliance calendar's coming items
@@ -102,7 +117,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "generate-compliance-items",
     "45 2 * * *",
     {},
-    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 600,
+      retryLimit: 2,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Daily at 9:15 AM IST — compliance items due in 30, 7 or 1 days
@@ -126,7 +146,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "expire-import-rows",
     "30 2 * * *",
     {},
-    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 600,
+      retryLimit: 2,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Daily at 3:30 AM IST — post every income record not up to date in the
@@ -137,7 +162,12 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     "ledger-post-pending",
     "30 3 * * *",
     { reason: "scheduled" },
-    { expireInSeconds: 60 * 60, retryLimit: 0, tz: IST_TIMEZONE }
+    {
+      expireInSeconds: 60 * 60,
+      retryLimit: 0,
+      tz: IST_TIMEZONE,
+      missed: "once",
+    }
   );
 
   // Monthly on 1st at 3:00 AM IST — clean up stale scheduled message recipients

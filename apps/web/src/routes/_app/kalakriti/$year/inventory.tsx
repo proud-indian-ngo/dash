@@ -44,9 +44,7 @@ import {
 import { handleMutationResult } from "@/lib/mutation-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/inventory")({
-  validateSearch: z
-    .object({ dashboardFilter: z.string().optional() })
-    .passthrough(),
+  validateSearch: z.looseObject({ dashboardFilter: z.string().optional() }),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiInventory(context.kalakritiEditionAccess))
       throw notFound();

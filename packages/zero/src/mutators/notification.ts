@@ -9,7 +9,7 @@ type Tx = Transaction<Schema>;
 
 export const notificationMutators = {
   archive: defineMutator(
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       await assertOwnNotification(tx, args.id, ctx.userId);
@@ -36,7 +36,7 @@ export const notificationMutators = {
     );
   }),
   markAsRead: defineMutator(
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       await assertOwnNotification(tx, args.id, ctx.userId);
@@ -45,7 +45,7 @@ export const notificationMutators = {
   ),
 
   markAsUnread: defineMutator(
-    z.object({ id: z.string().uuid() }),
+    z.object({ id: z.uuid() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       await assertOwnNotification(tx, args.id, ctx.userId);
