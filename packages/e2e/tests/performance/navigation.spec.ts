@@ -8,6 +8,24 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 const RUNS_PER_ROLE_AND_VIEWPORT = 3;
 const READY_TIMEOUT_MS = 30_000;
 const EVENT_NAME = "E2E Upcoming Public Bangalore";
+const NAVIGATION_IDLE_WAIT_MS = (() => {
+  const raw = process.env.NAVIGATION_IDLE_WAIT_MS;
+  if (raw === undefined) {
+    return 0;
+  }
+  const value = Number(raw);
+  if (
+    raw.trim() === "" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    throw new Error(
+      `NAVIGATION_IDLE_WAIT_MS must be a finite nonnegative integer, received ${JSON.stringify(raw)}`
+    );
+  }
+  return value;
+})();
 
 const THROTTLING = {
   cpuSlowdownMultiplier: 4,
@@ -130,11 +148,18 @@ type Measurement = IntervalMetrics & {
   step: string;
 };
 
+type JavaScriptAssetSnapshot = {
+  count: number;
+  totalEncodedBodyBytes: number;
+  totalTransferBytes: number;
+};
+
 type RunResult = {
   filterMeasurements: Measurement[];
   measurements: Measurement[];
   pageErrorCount: number;
   pageErrors: Array<ReturnType<typeof pageErrorDiagnostic> & { route: string }>;
+  preNavigationJavaScriptAssets: JavaScriptAssetSnapshot | null;
   role: RoleName;
   run: number;
   sameDocumentTimeOrigin: true;
@@ -347,6 +372,30 @@ async function armMeasurement(page: Page) {
       clickAt: null,
       inputAt: null,
       timeOrigin: performance.timeOrigin,
+    };
+  });
+}
+
+async function snapshotJavaScriptAssets(
+  page: Page
+): Promise<JavaScriptAssetSnapshot | null> {
+  return await page.evaluate(() => {
+    const metrics = (
+      window as typeof window & { __navigationBenchmark: BrowserMetrics }
+    ).__navigationBenchmark;
+    if (!metrics.resourceSupported) {
+      return null;
+    }
+    return {
+      count: metrics.resources.length,
+      totalEncodedBodyBytes: metrics.resources.reduce(
+        (total, resource) => total + resource.encodedBodyBytes,
+        0
+      ),
+      totalTransferBytes: metrics.resources.reduce(
+        (total, resource) => total + resource.transferBytes,
+        0
+      ),
     };
   });
 }
@@ -759,6 +808,13 @@ test("measure in-app navigation", async ({ baseURL, browser }, testInfo) => {
           await page.goto("/", { waitUntil: "domcontentloaded" });
           await waitForZeroReady(page, READY_TIMEOUT_MS, READY_TIMEOUT_MS);
           await waitForDashboard(page);
+          // Optional quiet time measures how much route code idle warming can
+          // prepare before the first interaction. Do not perform input here.
+          if (NAVIGATION_IDLE_WAIT_MS > 0) {
+            await page.waitForTimeout(NAVIGATION_IDLE_WAIT_MS);
+          }
+          const preNavigationJavaScriptAssets =
+            await snapshotJavaScriptAssets(page);
           const initialTimeOrigin = await page.evaluate(
             () => performance.timeOrigin
           );
@@ -806,6 +862,7 @@ test("measure in-app navigation", async ({ baseURL, browser }, testInfo) => {
             measurements,
             pageErrorCount: pageErrors.length,
             pageErrors,
+            preNavigationJavaScriptAssets,
             role: role.name,
             run,
             sameDocumentTimeOrigin: true,
@@ -860,6 +917,9 @@ test("measure in-app navigation", async ({ baseURL, browser }, testInfo) => {
         "Desktop uses mouse clicks; mobile uses touchscreen taps without a hover lead-in.",
       interactionMetric:
         "Maximum Event Timing duration per click-to-ready interval; null when the browser reports no qualifying interaction. This lab proxy is not field INP.",
+      idleWaitMs: NAVIGATION_IDLE_WAIT_MS,
+      idleWarming:
+        "After dashboard and Zero readiness, the benchmark optionally waits without input before the first route sequence. This isolates code or data prepared by background idle work; the per-run preNavigationJavaScriptAssets snapshot records /assets/*.js observed by that point.",
       navigation:
         "Every measured transition uses a visible UI link. The initial dashboard goto is untimed; first and repeat route sequences share a context, so the repeat pass benefits from HTTP, module and Zero caches. Intent preloading immediately before click is preserved and reported separately from assets initiated after click.",
       network: {

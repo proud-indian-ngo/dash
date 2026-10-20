@@ -17,9 +17,13 @@ Add `COPY packages/<name>/package.json packages/<name>/` to the `Dockerfile` cop
 
 ## Web compilation
 
-Split client code along route and dynamic-import boundaries, coalescing the root route’s static dependencies into a startup chunk to reduce request waterfalls. Package-wide vendor groups can capture shared dependencies and pull lazy features into startup. Check the emitted import graph and cold-load requests before changing grouping.
+Split client code along route and dynamic-import boundaries, coalescing the router entry's static dependencies into a startup chunk and the authenticated layout's dependencies into a separate chunk. The startup group takes precedence so shared helpers cannot pull the private shell into public startup. Route loaders split with their components. Package-wide vendor groups can capture shared dependencies and pull lazy features into startup. Check the emitted import graph and cold-load requests before changing grouping.
+
+Keep permission hooks shared by lists and editors outside editor modules. Importing a small hook from an editor can pull the editor's form dependencies into list navigation. Check the next detail/editor interaction too when moving that boundary.
 
 Nitro precompresses public assets, so the origin serves compressed JavaScript and CSS without relying on a CDN. Keep the compression/revalidation E2E check when changing asset serving. The root preloads the body font; display and data fonts load when used so they do not compete with initial scripts. All use hashed asset URLs with long-lived caching.
+
+TanStack Start inlines production CSS in HTML to avoid a blocking stylesheet request. The origin streams HTML with negotiated Brotli or gzip and varies on `Accept-Encoding`; compression must preserve stream errors, cancellation and response headers. Place the body-font preload after the inline styles so it does not compete with their download.
 
 `apps/web/vite.config.ts` excludes ReUI's `data-grid-table.tsx` and `data-grid-table-dnd.tsx` from React Compiler. They read column widths and pin offsets through stable references to mutable TanStack state, so compiler caching leaves stale geometry after resizing or pinning. Keep the exclusion until upstream is compiler-safe, and verify changes against real browser geometry. The same applies to compiled app components: TanStack keeps a `row` object stable when its expanded or selected state changes, so pass `row.getIsExpanded()` in as a prop rather than reading it inside the component.
 

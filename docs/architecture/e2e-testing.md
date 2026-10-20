@@ -88,10 +88,21 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `kalakriti-audit.spec.ts` | `KALAKRITI_AUDIT_PERFORMANCE` | Kalakriti Audit on 41,000 rows across two Editions, per role |
 | `login-transition.spec.ts` | `LOGIN_TRANSITION_PERFORMANCE` | Login submit to usable dashboard after fixed-speed credential entry; fresh contexts, cache enabled, no pre-login Zero connection |
 | `navigation.spec.ts` | `NAVIGATION_PERFORMANCE` | Actual in-app link clicks on desktop and mobile as admin and volunteer; first and repeat visits with caches preserved |
+| `lazy-features.spec.ts` | `LAZY_FEATURES_PERFORMANCE` | First and repeat opening of lazy Income and Books features on throttled mobile, measured from the captured click to real usable content |
+| `claims-navigation.spec.ts` | `CLAIMS_NAVIGATION_PERFORMANCE` | Finance admin opening a claim and its charge editor by mobile tap, desktop click and deliberate hover; separate keyboard activation check |
+| `finance-navigation.spec.ts` | `FINANCE_NAVIGATION_PERFORMANCE` | First and repeat Income and Books navigation from the dashboard on desktop and mobile, with populated route-specific readiness |
 | `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
 | `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
 
 Query benchmarks take three analyzer samples after initial hydration, without timing thresholds. JSON attachments contain counts, timings and sanitized plans, never record contents, filter values or credentials.
+
+Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit in the same context with HTTP and Zero caches preserved. The Export first-use benchmark supports the same mode with `EXPORT_SSR_RETURNING=true`.
+
+`LAZY_FEATURES_PROFILE=true` captures contribution-dialog CPU profiles and timelines for first/repeat opens in separate normal/reduced-motion contexts. In-page marks separate controls, rendering frames and animation completion without Playwright readiness polling during recording. These diagnostic runs do not enter the latency report.
+
+`NAVIGATION_IDLE_WAIT_MS` adds a fixed quiet period after dashboard readiness, before measured navigation. Use the same value on both candidates when comparing background code warming; the report includes JavaScript bytes loaded before navigation. Leave it unset to check immediate interaction.
+
+`FINANCE_NAVIGATION_IDLE_WAIT_MS` overrides that wait for the finance benchmark, allowing a longer background-warming window without changing the general navigation comparison.
 
 Route screening records redirects, fallbacks, page errors and timeouts separately. A passing harness does not mean every route reached its intended state; inspect each sample. Generic readiness checks the heading, Zero connection and visible skeletons, not populated-data completeness. Router tracing is best effort and can miss work before the router becomes available. Single samples rank investigation candidates, not real-user percentiles.
 

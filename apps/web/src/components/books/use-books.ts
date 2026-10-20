@@ -129,25 +129,32 @@ export function useBooks() {
     ])
   );
 
+  const cashLoading =
+    (yearRows.length === 0 && yearsResult.type !== "complete") ||
+    (accounts.length === 0 && accountsResult.type !== "complete") ||
+    (movementRows.length === 0 && movementsResult.type !== "complete") ||
+    (openingBalances.length === 0 && openingResult.type !== "complete");
+  const isLoading =
+    cashLoading ||
+    (heads.length === 0 && headsResult.type !== "complete") ||
+    (funds.length === 0 && fundsResult.type !== "complete") ||
+    (entryRows.length === 0 && entriesResult.type !== "complete");
+
   return {
     accounts,
     auditedFigures,
     /** The audited figures page also needs every document and posting. */
     auditedLoading:
+      isLoading ||
       (auditedFigures.length === 0 && auditedResult.type !== "complete") ||
       (postingRows.length === 0 && postingsResult.type !== "complete"),
+    /** The cash book needs only years, accounts, movements and opening documents. */
+    cashLoading,
     entries,
     funds,
     heads,
     // Balances need every head, account and fund before they mean anything.
-    isLoading:
-      (heads.length === 0 && headsResult.type !== "complete") ||
-      (accounts.length === 0 && accountsResult.type !== "complete") ||
-      (funds.length === 0 && fundsResult.type !== "complete") ||
-      (yearRows.length === 0 && yearsResult.type !== "complete") ||
-      (movementRows.length === 0 && movementsResult.type !== "complete") ||
-      (entryRows.length === 0 && entriesResult.type !== "complete") ||
-      (openingBalances.length === 0 && openingResult.type !== "complete"),
+    isLoading,
     movements,
     openingBalances,
     postings,

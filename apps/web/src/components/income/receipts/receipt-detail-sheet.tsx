@@ -17,7 +17,7 @@ import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { DATE_TIME } from "@/lib/date-formats";
 
-import { formatReceivedOn } from "../contribution-detail-sheet";
+import { formatReceivedOn } from "../income-date";
 import {
   type ReceiptRow,
   receiptDonorName,

@@ -18,7 +18,6 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
-import { FormSkeleton } from "@/components/shared/page-skeleton";
 import { authClient } from "@/lib/auth-client";
 import { registerLinkEventRedirect } from "@/lib/auth-route-policy";
 
@@ -62,7 +61,6 @@ export function RegisterForm() {
   const redirect = eventRedirect
     ? formatEventRedirect(eventRedirect)
     : undefined;
-  const { isPending } = authClient.useSession();
   const maxDob = latestVolunteerDob(new Date());
 
   const form = useForm({
@@ -110,10 +108,6 @@ export function RegisterForm() {
       onSubmit: registerSchema,
     },
   });
-
-  if (isPending) {
-    return <FormSkeleton fields={4} />;
-  }
 
   return (
     <div

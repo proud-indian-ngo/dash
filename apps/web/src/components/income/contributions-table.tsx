@@ -33,7 +33,6 @@ import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 
-import { formatReceivedOn } from "./contribution-detail-sheet";
 import {
   contributionBankScope,
   createContributionFilterFields,
@@ -45,6 +44,7 @@ import {
 } from "./contribution-filters";
 import { contributionsSignature } from "./contribution-stats";
 import { ContributionStatusBadge } from "./contribution-status";
+import { formatReceivedOn } from "./income-date";
 import {
   type ContributionRow,
   donorName,

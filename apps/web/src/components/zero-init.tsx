@@ -22,6 +22,7 @@ function getTraceparent(): string {
 
 interface ZeroInitProps {
   children: ReactNode;
+  onReady?: (zero: Zero) => void;
   permissions: string[];
   role: string | null | undefined;
   userId: string;
@@ -29,6 +30,7 @@ interface ZeroInitProps {
 
 export function ZeroInit({
   children,
+  onReady,
   permissions,
   role,
   userId,
@@ -69,6 +71,7 @@ export function ZeroInit({
   const init = useCallback(
     (zero: Zero) => {
       activeZero.current = zero;
+      onReady?.(zero);
       router.update({
         context: {
           ...router.options.context,
@@ -77,7 +80,7 @@ export function ZeroInit({
       });
       router.invalidate();
     },
-    [router]
+    [onReady, router]
   );
 
   useEffect(

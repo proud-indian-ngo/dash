@@ -53,11 +53,11 @@ import {
   StatementLineItem,
   type StatementLineRow,
 } from "@/components/income/bank/statement-line-row";
-import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import {
   ContributionFormDialog,
   type StatementLinePrefill,
 } from "@/components/income/contribution-form-dialog";
+import { formatReceivedOn } from "@/components/income/income-date";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { StatsCards, type StatItem } from "@/components/stats/stats-cards";

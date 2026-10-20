@@ -48,6 +48,52 @@ test.describe("Reimbursements list", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("hiding Title preserves the claim row intent target", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "super_admin",
+      "Requires the seeded reimbursement"
+    );
+    await reimbursements.list
+      .getSearchInput("Search reimbursements...")
+      .fill("E2E Seed Reimbursement");
+    const row = reimbursements.list
+      .getTable()
+      .getByRole("row")
+      .filter({ hasText: "E2E Seed Reimbursement" });
+    const actions = row.getByRole("button", { name: "Row actions" });
+    await expect(actions).toBeVisible();
+    const requestId = await row
+      .locator("[data-reimbursement-intent-id]")
+      .getAttribute("data-reimbursement-intent-id");
+    expect(requestId).toBeTruthy();
+
+    await reimbursements.list.getColumnsButton().click();
+    await page.getByRole("menuitemcheckbox", { name: "Title" }).click();
+    await page.keyboard.press("Escape");
+    await expect(
+      reimbursements.list.getTable().getByText("E2E Seed Reimbursement")
+    ).toHaveCount(0);
+    const hiddenTitleRow = reimbursements.list
+      .getTable()
+      .getByRole("row")
+      .filter({
+        has: page.locator(`[data-reimbursement-intent-id="${requestId}"]`),
+      });
+    await expect(
+      hiddenTitleRow.getByRole("button", { name: "Row actions" })
+    ).toBeVisible();
+    await hiddenTitleRow.hover();
+    await hiddenTitleRow.focus();
+    await expect(hiddenTitleRow).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(`/reimbursements/${requestId}`);
+    await expect(
+      page.getByRole("heading", { name: "E2E Seed Reimbursement", exact: true })
+    ).toBeVisible();
+  });
+
   test("table footer is present", async ({ page }) => {
     await expect(
       page.getByText("Rows per page").or(page.getByText("0 of 0 results"))

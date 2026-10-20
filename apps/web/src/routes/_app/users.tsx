@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { FormModal } from "@/components/form/form-modal";
 import { PageHeader } from "@/components/shared/page-header";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { TipStrip } from "@/components/shared/tip-strip";
 import { StatsCards } from "@/components/stats/stats-cards";
 import {
@@ -36,6 +37,15 @@ import {
   updateUserAdmin,
 } from "@/functions/user-admin";
 import { type AdminUser, getAdminUsers } from "@/functions/user-admin-reads";
+import {
+  commitAdminUserRoleOptionsRequest,
+  commitAdminUsersRequest,
+  getCachedAdminUserRoleOptions,
+  getCachedAdminUsers,
+  invalidateAdminUsersCache,
+  invalidateAdminUsersListCache,
+  startAdminUsersRequest,
+} from "@/lib/admin-users-cache";
 import { getErrorMessage } from "@/lib/errors";
 import { assertPermission } from "@/lib/route-guards";
 
@@ -50,15 +60,20 @@ export const Route = createFileRoute("/_app/users")({
 });
 
 function UsersRouteComponent() {
+  const { session } = Route.useRouteContext();
+  const usersCacheKey = `${session.session.id}:${session.user.id}`;
   const createUser = useServerFn(createUserAdmin);
   const updateUser = useServerFn(updateUserAdmin);
   const setUserBan = useServerFn(setUserBanAdmin);
   const setPassword = useServerFn(setUserPasswordAdmin);
   const deleteUser = useServerFn(deleteUserAdmin);
   const loadUsers = useServerFn(getAdminUsers);
-  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
-  const [hasLoadedUsers, setHasLoadedUsers] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [initialUsers] = useState(() => getCachedAdminUsers(usersCacheKey));
+  const [allUsers, setAllUsers] = useState<AdminUser[]>(initialUsers ?? []);
+  const [hasLoadedUsers, setHasLoadedUsers] = useState(
+    initialUsers !== undefined
+  );
+  const [isLoading, setIsLoading] = useState(initialUsers === undefined);
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
   const [usersLoadError, setUsersLoadError] = useState(false);
   const usersRequestSequence = useRef(0);
@@ -69,10 +84,11 @@ function UsersRouteComponent() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [roleSelectOptions, setRoleSelectOptions] = useState<
     { label: string; value: string }[]
-  >([]);
+  >(() => getCachedAdminUserRoleOptions(usersCacheKey) ?? []);
 
   const refreshUsers = useEventCallback(async () => {
     const requestSequence = usersRequestSequence.current + 1;
+    const cacheRequest = startAdminUsersRequest(usersCacheKey);
     usersRequestSequence.current = requestSequence;
     setIsRefreshingUsers(true);
     if (!hasLoadedUsers) {
@@ -81,6 +97,11 @@ function UsersRouteComponent() {
     try {
       const users = await loadUsers();
       if (requestSequence === usersRequestSequence.current) {
+        if (!commitAdminUsersRequest(cacheRequest, users)) {
+          setIsLoading(false);
+          setIsRefreshingUsers(false);
+          return;
+        }
         setAllUsers(users);
         setHasLoadedUsers(true);
         setIsLoading(false);
@@ -91,6 +112,7 @@ function UsersRouteComponent() {
       const errorMessage = getErrorMessage(error);
       if (requestSequence === usersRequestSequence.current) {
         if (errorMessage === "Unauthorized" || errorMessage === "Forbidden") {
+          invalidateAdminUsersCache();
           setAllUsers([]);
           setHasLoadedUsers(false);
         }
@@ -130,14 +152,17 @@ function UsersRouteComponent() {
   });
 
   useEffect(() => {
+    let active = true;
+    const cacheRequest = startAdminUsersRequest(usersCacheKey);
     getRoleOptions()
       .then((roles) => {
-        if (!roles) {
+        if (!active || !roles) {
           return;
         }
-        setRoleSelectOptions(
-          roles.map((r) => ({ label: r.name, value: r.id }))
-        );
+        const options = roles.map((r) => ({ label: r.name, value: r.id }));
+        if (commitAdminUserRoleOptionsRequest(cacheRequest, options)) {
+          setRoleSelectOptions(options);
+        }
       })
       .catch((error: unknown) => {
         log.error({
@@ -146,12 +171,16 @@ function UsersRouteComponent() {
           error: error instanceof Error ? error.message : String(error),
         });
       });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [usersCacheKey]);
 
   const handleCreateUser = useEventCallback(
     async (value: CreateUserFormValues) => {
       try {
         await createUser({ data: value });
+        invalidateAdminUsersListCache();
         await refreshUsers();
         toast.success("User created!");
         setCreateModalOpen(false);
@@ -171,6 +200,7 @@ function UsersRouteComponent() {
     async (value: EditUserFormValues) => {
       try {
         await updateUser({ data: value });
+        invalidateAdminUsersListCache();
         await refreshUsers();
         toast.success("Changes saved");
       } catch (error) {
@@ -195,6 +225,7 @@ function UsersRouteComponent() {
             userId,
           },
         });
+        invalidateAdminUsersListCache();
         await refreshUsers();
         toast.success("Password updated!");
       } catch (error) {
@@ -217,6 +248,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
+      invalidateAdminUsersListCache();
       await refreshUsers();
       toast.success("User removed");
     } catch (error) {
@@ -242,6 +274,7 @@ function UsersRouteComponent() {
             userId,
           },
         });
+        invalidateAdminUsersListCache();
         await refreshUsers();
         toast.success("User has been banned");
       } catch (error) {
@@ -265,6 +298,7 @@ function UsersRouteComponent() {
           userId,
         },
       });
+      invalidateAdminUsersListCache();
       await refreshUsers();
       toast.success("User has been unbanned");
     } catch (error) {
@@ -341,19 +375,23 @@ function UsersRouteComponent() {
               isLoading={isLoading}
               items={computeUserStats(allUsers)}
             />
-            <UsersTable
-              detailUser={selectedUser}
-              isLoading={isLoading}
-              onBanUser={handleBanUser}
-              onDelete={handleDeleteUser}
-              onDetailOpenChange={stableOnOpenChange2}
-              onRowClick={stableOnRowClick0}
-              onSetPassword={handleResetPassword}
-              onUnbanUser={handleUnbanUser}
-              onUpdateUser={handleUpdateUser}
-              roleOptions={roleSelectOptions}
-              users={allUsers}
-            />
+            {!hasLoadedUsers && isLoading ? (
+              <TableSkeleton />
+            ) : (
+              <UsersTable
+                detailUser={selectedUser}
+                isLoading={isLoading}
+                onBanUser={handleBanUser}
+                onDelete={handleDeleteUser}
+                onDetailOpenChange={stableOnOpenChange2}
+                onRowClick={stableOnRowClick0}
+                onSetPassword={handleResetPassword}
+                onUnbanUser={handleUnbanUser}
+                onUpdateUser={handleUpdateUser}
+                roleOptions={roleSelectOptions}
+                users={allUsers}
+              />
+            )}
           </>
         ) : null}
       </div>

@@ -56,7 +56,13 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
                 groups: [
                   {
                     name: "startup",
-                    test: /\/src\/routes\/__root\.tsx(?:\?|$)/,
+                    test: /\/src\/router\.tsx(?:\?|$)/,
+                    priority: 20,
+                  },
+                  {
+                    name: "app-shell",
+                    test: /\/src\/routes\/_app\.tsx(?:\?|$)/,
+                    priority: 10,
                   },
                 ],
               },
@@ -77,7 +83,19 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart({
-        router: { routeFileIgnorePattern: "\\.test\\.[tj]sx?$" },
+        router: {
+          routeFileIgnorePattern: "\\.test\\.[tj]sx?$",
+          codeSplittingOptions: {
+            defaultBehavior: [
+              ["loader", "component"],
+              ["errorComponent"],
+              ["notFoundComponent"],
+            ],
+          },
+        },
+        server: {
+          build: { inlineCss: true },
+        },
       }),
       apiMediaDevMiddleware,
       ...nitro({

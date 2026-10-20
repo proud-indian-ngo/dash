@@ -19,7 +19,7 @@ import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DATE_TIME } from "@/lib/date-formats";
 
-import { formatReceivedOn } from "../contribution-detail-sheet";
+import { formatReceivedOn } from "../income-date";
 import {
   RECEIPT_STATUS_LABELS,
   type ReceiptRow,

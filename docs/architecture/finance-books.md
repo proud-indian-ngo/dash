@@ -8,6 +8,8 @@ Cutover figures, plain-language rules and workbook columns in [finance-ledger-cu
 
 Server code starts in `packages/db/src/ledger/`; schema in `packages/db/src/schema/ledger.ts`. Zero queries over the books are read-only.
 
+The cash book can render before statement-only data arrives. Keep the other book subscriptions warm for tab changes, and retain the full statement loading guard for audited drift. Cached data remains visible during resyncs, following the [Zero loading rules](../../.agents/skills/zero-patterns/SKILL.md).
+
 A `posting` is one source action; its unique (`source_type`, `source_id`, `source_revision`, `action`) is the idempotency key. It holds `ledger_entry` rows (recognition) and `account_movement` rows (cash book). `ledger_source_state` is the one books table updated in place.
 
 ### Immutability

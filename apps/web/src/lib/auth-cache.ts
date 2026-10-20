@@ -1,4 +1,5 @@
 import { getAuth } from "@/functions/get-auth";
+import { invalidateAdminUsersCache } from "@/lib/admin-users-cache";
 import { clearPendingKalakritiAccessRequests } from "@/lib/kalakriti-access-request";
 
 type AuthResult = NonNullable<Awaited<ReturnType<typeof getAuth>>>;
@@ -11,12 +12,19 @@ const CACHE_TTL = 5 * 60 * 1000;
 let cached: AuthResult | null = null;
 let lastFetchTime = 0;
 let inflight: Promise<AuthResult | null> | null = null;
+let cacheGeneration = 0;
 
-async function fetchAuth(): Promise<AuthResult | null> {
+async function fetchAuth(
+  requestGeneration: number
+): Promise<AuthResult | null> {
   const result = await getAuth();
+  if (requestGeneration !== cacheGeneration) {
+    return result;
+  }
   if (!result) {
     cached = null;
     lastFetchTime = 0;
+    invalidateAdminUsersCache();
     return null;
   }
 
@@ -43,9 +51,12 @@ export async function getCachedAuth() {
   // Dedup concurrent calls — all preload-triggered beforeLoad calls
   // share a single in-flight fetch instead of each firing independently.
   if (!inflight) {
-    inflight = fetchAuth().finally(() => {
-      inflight = null;
+    const request = fetchAuth(cacheGeneration).finally(() => {
+      if (inflight === request) {
+        inflight = null;
+      }
     });
+    inflight = request;
   }
 
   const result = await inflight;
@@ -57,8 +68,10 @@ export async function getCachedAuth() {
 }
 
 export function invalidateAuthCache() {
+  cacheGeneration += 1;
   cached = null;
   lastFetchTime = 0;
   inflight = null;
+  invalidateAdminUsersCache();
   clearPendingKalakritiAccessRequests();
 }

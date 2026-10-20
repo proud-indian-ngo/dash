@@ -95,6 +95,50 @@ Each change kept results, permissions and cache behaviour and was verified on th
 | Server tables: reset pagination when the debounced search commits | One request per search from page two instead of two |
 | Request logger created before the handler | Request-log durations were wrong (60 ms logged as 1 ms); instrumentation fix only |
 
+### Idle route code warming
+
+With a ready dashboard and the same 10-second quiet period, three local production-build runs per role/device compared first navigation before and after code warming. Chrome used 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Medians include browser-test readiness overhead.
+
+| Mobile first visit | Before | After |
+|---|---:|---:|
+| Admin Events | 997 ms | 232 ms |
+| Admin Claims | 1,647 ms | 347 ms |
+| Volunteer Events | 795 ms | 283 ms |
+| Volunteer Claims | 1,497 ms | 246 ms |
+
+About 159 KB of additional compressed JavaScript loaded before navigation. Users did not improve consistently within that idle window. That comparison changed code timing only. Scheduling rules live in [route preloads](architecture/data-layer.md#route-preloads).
+
+Immediate navigation remained mixed in a fresh control: desktop admin Events' median rose from 748 to 1,078 ms, with overlapping sample ranges of 741–1,098 and 715–1,097 ms. Three samples and readiness polling do not establish zero overhead. Both comparisons completed without browser errors.
+
+### Normal-use responsiveness
+
+Matched local production benchmarks used the same throttling above, three samples and standard seeded records. These medians include test readiness overhead, not field percentiles or production-scale workload validation.
+
+| Path | Before | After |
+|---|---:|---:|
+| Repeat Users, desktop | 448 ms | 264 ms |
+| Repeat Users, mobile | 498 ms | 284 ms |
+| First claim, desktop with 500 ms hover | 1,566 ms | 1,047 ms |
+| First claim, immediate desktop click | 1,596 ms | 1,578 ms |
+| First claim, mobile tap | 1,495 ms | 1,486 ms |
+
+Users reuse their session's private list and role options while refreshing. First visits remained around 1.1–1.2 seconds. The repeat-click Event Timing median increased from 72 to 232 ms on desktop and 96 to 232 ms on mobile: cached rows arrive sooner, but table mounting moves into the initial interaction. Cache ownership and invalidation live in [caching](architecture/caching.md).
+
+Claim hover moves downloading ahead of the click; its 500 ms lead-in is excluded from the table. An immediate pointerdown cancels the pending hover timer, avoiding a second preload during navigation. Keyboard activation and the charge editor remained usable.
+
+A separate same-build comparison gave each finance destination a fresh context:
+
+| First visit | Immediate navigation | After 20 seconds idle |
+|---|---:|---:|
+| Income, desktop | 4,282 ms | 1,813 ms |
+| Income, mobile | 3,198 ms | 748 ms |
+| Books, desktop | 2,000 ms | 631 ms |
+| Books, mobile | 1,984 ms | 602 ms |
+
+The longer idle window loaded about 298 KB of extra compressed JavaScript before navigation; neither destination then needed post-click JavaScript. At ten seconds the queue was incomplete. Repeat visits changed little. This supports bounded code warming, not warming every database query.
+
+Contribution-dialog traces isolated about 245 ms to mounted controls on first open and 101 ms on repeat. Reduced motion measured 296 and 102 ms, so shortening animation does not address mounting. Base UI drawer geometry reads dominated style/layout work; form code accounted for about 20 ms initially. No local optimization was adopted: changing the mobile drawer interaction or memoizing the form would not be justified by that profile. The opt-in profiler retains in-page readiness marks and timelines for evaluating a dependency-level fix.
+
 ### Rules these results support
 
 - Global admins skip most permission predicates. Measure the restricted role too: Edition admin roughly doubles the reads of global admin on Students, Entries and Food.

@@ -4,13 +4,15 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiPublicSchedule } from "@/lib/kalakriti-public-schedule";
 
 export function ScheduleItem({
+  endTimeLabel,
   isLast,
   session,
-  timeFormatter,
+  startTimeLabel,
 }: {
+  endTimeLabel: string;
   isLast: boolean;
   session: KalakritiPublicSchedule["sessions"][number];
-  timeFormatter: Intl.DateTimeFormat;
+  startTimeLabel: string;
 }) {
   const cancelled = session.status === "cancelled";
 
@@ -20,13 +22,13 @@ export function ScheduleItem({
         <div>
           <p className="text-base font-semibold tabular-nums">
             <time dateTime={new Date(session.startAt).toISOString()}>
-              {timeFormatter.format(session.startAt)}
+              {startTimeLabel}
             </time>
           </p>
           <p className="text-muted-foreground mt-0.5 text-sm tabular-nums">
             until{" "}
             <time dateTime={new Date(session.endAt).toISOString()}>
-              {timeFormatter.format(session.endAt)}
+              {endTimeLabel}
             </time>
           </p>
         </div>

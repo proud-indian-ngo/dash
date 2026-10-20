@@ -40,10 +40,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
-import { ContributionDetailSheet } from "@/components/income/contribution-detail-sheet";
 import { MISSING_DETAILS_VALUE } from "@/components/income/contribution-filters";
 import { ContributionFormDialog } from "@/components/income/contribution-form-dialog";
 import {
@@ -51,25 +50,21 @@ import {
   contributionsSignature,
 } from "@/components/income/contribution-stats";
 import { ContributionsTable } from "@/components/income/contributions-table";
-import {
-  type ImportBatchRow,
-  ImportBatchesTable,
-} from "@/components/income/import-batches-table";
-import type {
-  ContributionRow,
-  OtherIncomeRow,
-} from "@/components/income/income-types";
-import { OtherIncomeFormDialog } from "@/components/income/other-income-form-dialog";
-import { OtherIncomeTable } from "@/components/income/other-income-table";
-import {
-  IssueReceiptsDialog,
-  useReceiptCandidates,
-} from "@/components/income/receipts/issue-receipts-dialog";
-import { ReceiptsTab } from "@/components/income/receipts/receipts-tab";
-import { SettlementsTab } from "@/components/income/settlements/settlements-tab";
+import type { ContributionRow } from "@/components/income/income-types";
+import { useReceiptCandidates } from "@/components/income/receipts/use-receipt-candidates";
+import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { TableSkeleton } from "@/components/shared/page-skeleton";
+import { PendingDialog } from "@/components/shared/pending-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/shared/responsive-sheet";
 import { StatsCards, type StatItem } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
@@ -87,6 +82,76 @@ const INCOME_TABS = [
   "receipts",
 ] as const;
 type IncomeTab = (typeof INCOME_TABS)[number];
+
+const loadContributionDetailSheet = () =>
+  import("@/components/income/contribution-detail-sheet");
+const ContributionDetailSheet = lazy(() =>
+  loadContributionDetailSheet().then((module) => ({
+    default: module.ContributionDetailSheet,
+  }))
+);
+const loadOtherIncomeFormDialog = () =>
+  import("@/components/income/other-income-form-dialog");
+const OtherIncomeFormDialog = lazy(() =>
+  loadOtherIncomeFormDialog().then((module) => ({
+    default: module.OtherIncomeFormDialog,
+  }))
+);
+const loadOtherIncomeTab = () => import("@/components/income/other-income-tab");
+const OtherIncomeTab = lazy(() =>
+  loadOtherIncomeTab().then((module) => ({
+    default: module.OtherIncomeTab,
+  }))
+);
+const loadImportsTab = () => import("@/components/income/imports-tab");
+const ImportsTab = lazy(() =>
+  loadImportsTab().then((module) => ({
+    default: module.ImportsTab,
+  }))
+);
+const loadReceiptsTab = () =>
+  import("@/components/income/receipts/receipts-tab");
+const ReceiptsTab = lazy(() =>
+  loadReceiptsTab().then((module) => ({
+    default: module.ReceiptsTab,
+  }))
+);
+const loadIssueReceiptsDialog = () =>
+  import("@/components/income/receipts/issue-receipts-dialog");
+const IssueReceiptsDialog = lazy(() =>
+  loadIssueReceiptsDialog().then((module) => ({
+    default: module.IssueReceiptsDialog,
+  }))
+);
+const loadSettlementsTab = () =>
+  import("@/components/income/settlements/settlements-tab");
+const SettlementsTab = lazy(() =>
+  loadSettlementsTab().then((module) => ({
+    default: module.SettlementsTab,
+  }))
+);
+
+function PendingContributionSheet({
+  onOpenChange,
+}: {
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet onOpenChange={onOpenChange} open>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Contribution</SheetTitle>
+          <SheetDescription className="sr-only">
+            Loading contribution details
+          </SheetDescription>
+        </SheetHeader>
+        <div className="min-h-24">
+          <Loader />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 export const Route = createFileRoute("/_app/income/")({
   component: IncomeRouteComponent,
@@ -211,6 +276,17 @@ function ContributionsTab({
   const handleDelete = useEventCallback((row: ContributionRow) =>
     deleteAction.trigger(row)
   );
+  const handleDetailOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setViewingId(null);
+      setRefundId(null);
+    }
+  });
+  const handleEditOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setEditing(null);
+    }
+  });
   const filterMissing = useEventCallback(() => {
     setQuery(
       createFilterQuery([
@@ -279,38 +355,34 @@ function ContributionsTab({
         onEdit={handleEdit}
         onView={handleView}
       />
-      <ContributionDetailSheet
-        canDelete={
-          canManage &&
-          viewing !== null &&
-          isContributionDeletable(
-            viewing.status ?? "received",
-            viewing.refunds,
-            viewing.receipts
-          )
-        }
-        canEdit={
-          canManage &&
-          viewing !== null &&
-          isContributionEditable(viewing.status ?? "received")
-        }
-        contribution={viewing}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-        onOpenChange={(open) => {
-          if (!open) {
-            setViewingId(null);
-            setRefundId(null);
+      {viewing ? (
+        <Suspense
+          fallback={
+            <PendingContributionSheet onOpenChange={handleDetailOpenChange} />
           }
-        }}
-      />
+        >
+          <ContributionDetailSheet
+            canDelete={
+              canManage &&
+              isContributionDeletable(
+                viewing.status ?? "received",
+                viewing.refunds,
+                viewing.receipts
+              )
+            }
+            canEdit={
+              canManage && isContributionEditable(viewing.status ?? "received")
+            }
+            contribution={viewing}
+            onDelete={handleDelete}
+            onEdit={handleEdit}
+            onOpenChange={handleDetailOpenChange}
+          />
+        </Suspense>
+      ) : null}
       <ContributionFormDialog
         contribution={editing}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditing(null);
-          }
-        }}
+        onOpenChange={handleEditOpenChange}
         open={editing !== null}
       />
       <ConfirmDialog
@@ -328,180 +400,6 @@ function ContributionsTab({
         title="Delete contribution?"
         variant="destructive"
       />
-    </>
-  );
-}
-
-function OtherIncomeTab({
-  canManage,
-  onRecord,
-}: {
-  canManage: boolean;
-  onRecord: () => void;
-}) {
-  const zero = useZero();
-  const [incomes, result] = useQuery(queries.otherIncome.list());
-  const rows = incomes as OtherIncomeRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
-  const [editing, setEditing] = useState<OtherIncomeRow | null>(null);
-  const deleteAction = useConfirmAction<OtherIncomeRow>({
-    mutationMeta: {
-      entityId: (row) => row.id,
-      errorMsg: "Couldn't delete income",
-      mutation: "otherIncome.delete",
-      successMsg: "Income deleted",
-    },
-    onConfirm: async (row) =>
-      await zero.mutate(mutators.otherIncome.delete({ id: row.id })).server,
-  });
-  const handleEdit = useEventCallback((row: OtherIncomeRow) => setEditing(row));
-  const handleDelete = useEventCallback((row: OtherIncomeRow) =>
-    deleteAction.trigger(row)
-  );
-
-  if (!isLoading && rows.length === 0) {
-    return (
-      <NotFoundState
-        actions={
-          canManage ? (
-            <Button onClick={onRecord} type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Record other income
-            </Button>
-          ) : null
-        }
-        description="Bank interest, returned grants and other money that is not a donation. It never enters donation filings."
-        icon={MoneyAdd01Icon}
-        title="No other income yet"
-      />
-    );
-  }
-
-  return (
-    <>
-      <OtherIncomeTable
-        canManage={canManage}
-        data={rows}
-        isLoading={isLoading}
-        onDelete={handleDelete}
-        onEdit={handleEdit}
-      />
-      <OtherIncomeFormDialog
-        income={editing}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditing(null);
-          }
-        }}
-        open={editing !== null}
-      />
-      <ConfirmDialog
-        confirmLabel="Delete income"
-        description="This cannot be undone."
-        loading={deleteAction.isLoading}
-        loadingLabel="Deleting..."
-        onConfirm={deleteAction.confirm}
-        onOpenChange={(open) => {
-          if (!open) {
-            deleteAction.cancel();
-          }
-        }}
-        open={deleteAction.isOpen}
-        title="Delete this income?"
-        variant="destructive"
-      />
-    </>
-  );
-}
-
-function ImportsTab({
-  canImport,
-  onImport,
-}: {
-  canImport: boolean;
-  onImport: () => void;
-}) {
-  const navigate = useNavigate();
-  const [batches, result] = useQuery(queries.importBatch.list());
-  const rows = batches as ImportBatchRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
-  const open = useEventCallback((row: ImportBatchRow) => {
-    if (row.source === "give_do_payout") {
-      navigate({ search: { batch: row.id }, to: "/income/payout/import" });
-      return;
-    }
-    // A bank statement's lines live on the Bank statements page.
-    if (row.source === "bank_csv") {
-      navigate({
-        search: row.orgAccountId ? { account: row.orgAccountId } : {},
-        to: "/income/bank",
-      });
-      return;
-    }
-    navigate({ params: { batchId: row.id }, to: "/income/imports/$batchId" });
-  });
-
-  if (!isLoading && rows.length === 0) {
-    return (
-      <NotFoundState
-        actions={
-          canImport ? (
-            <Button onClick={onImport} type="button">
-              <HugeiconsIcon
-                className="size-4"
-                icon={FileImportIcon}
-                strokeWidth={2}
-              />
-              Import contributions
-            </Button>
-          ) : null
-        }
-        description="Upload a spreadsheet of donations; each upload is listed here with what it imported."
-        icon={FileImportIcon}
-        title="No imports yet"
-      />
-    );
-  }
-  const pending = rows.reduce((sum, row) => sum + (row.pendingCount ?? 0), 0);
-  const waitingBatches = rows.filter((row) => (row.pendingCount ?? 0) > 0);
-  // Newest first, so the last is the oldest still waiting.
-  const oldestWaiting = waitingBatches.at(-1);
-  return (
-    <>
-      {pending > 0 ? (
-        <div
-          className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
-          data-testid="imports-needs-review"
-          role="status"
-        >
-          <span>
-            <span className="font-semibold">
-              Waiting: {pending.toLocaleString("en-IN")}
-            </span>{" "}
-            {pending === 1 ? "row waits" : "rows wait"} to sync or for a
-            decision in{" "}
-            {waitingBatches.length === 1
-              ? "1 import"
-              : `${waitingBatches.length} imports`}
-            .
-          </span>
-          {oldestWaiting ? (
-            <Button
-              onClick={() => open(oldestWaiting)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Open the oldest
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-      <ImportBatchesTable data={rows} isLoading={isLoading} onOpen={open} />
     </>
   );
 }
@@ -664,58 +562,94 @@ function IncomeRouteComponent() {
             <TabsTrigger value="receipts">Receipts</TabsTrigger>
           ) : null}
         </TabsList>
-        <TabsContent
-          className="mt-4 grid gap-6 *:min-w-0"
-          value="contributions"
-        >
-          <ContributionsTab
-            canManage={canManageContributions}
-            onRecord={openContribution}
-          />
-        </TabsContent>
-        <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="other">
-          <OtherIncomeTab
-            canManage={canManageOtherIncome}
-            onRecord={openOther}
-          />
-        </TabsContent>
-        <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="imports">
-          <ImportsTab
-            canImport={canManageContributions}
-            onImport={openImport}
-          />
-        </TabsContent>
-        {canSeeSettlements ? (
+        {tab === "contributions" ? (
+          <TabsContent
+            className="mt-4 grid gap-6 *:min-w-0"
+            value="contributions"
+          >
+            <ContributionsTab
+              canManage={canManageContributions}
+              onRecord={openContribution}
+            />
+          </TabsContent>
+        ) : null}
+        {tab === "other" ? (
+          <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="other">
+            <Suspense fallback={<TableSkeleton />}>
+              <OtherIncomeTab
+                canManage={canManageOtherIncome}
+                onRecord={openOther}
+              />
+            </Suspense>
+          </TabsContent>
+        ) : null}
+        {tab === "imports" ? (
+          <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="imports">
+            <Suspense fallback={<TableSkeleton />}>
+              <ImportsTab
+                canImport={canManageContributions}
+                onImport={openImport}
+              />
+            </Suspense>
+          </TabsContent>
+        ) : null}
+        {canSeeSettlements && tab === "settlements" ? (
           <TabsContent
             className="mt-4 grid gap-6 *:min-w-0"
             value="settlements"
           >
-            <SettlementsTab />
+            <Suspense fallback={<TableSkeleton />}>
+              <SettlementsTab />
+            </Suspense>
           </TabsContent>
         ) : null}
-        {canSeeReceipts ? (
+        {canSeeReceipts && tab === "receipts" ? (
           <TabsContent className="mt-4 grid gap-6 *:min-w-0" value="receipts">
-            <ReceiptsTab canIssue={canIssueReceipts} onIssue={openIssue} />
+            <Suspense fallback={<TableSkeleton />}>
+              <ReceiptsTab canIssue={canIssueReceipts} onIssue={openIssue} />
+            </Suspense>
           </TabsContent>
         ) : null}
       </Tabs>
-      {canIssueReceipts ? (
-        <IssueReceiptsDialog
-          contributionIds={null}
-          onOpenChange={setIssueOpen}
-          open={issueOpen}
-        />
+      {canIssueReceipts && issueOpen ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading receipt details"
+              onOpenChange={setIssueOpen}
+              title="Issue receipts"
+            />
+          }
+        >
+          <IssueReceiptsDialog
+            contributionIds={null}
+            onOpenChange={setIssueOpen}
+            open
+          />
+        </Suspense>
       ) : null}
       <ContributionFormDialog
         contribution={null}
         onOpenChange={setContributionOpen}
         open={contributionOpen}
       />
-      <OtherIncomeFormDialog
-        income={null}
-        onOpenChange={setOtherOpen}
-        open={otherOpen}
-      />
+      {otherOpen ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading income form"
+              onOpenChange={setOtherOpen}
+              title="Record other income"
+            />
+          }
+        >
+          <OtherIncomeFormDialog
+            income={null}
+            onOpenChange={setOtherOpen}
+            open
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

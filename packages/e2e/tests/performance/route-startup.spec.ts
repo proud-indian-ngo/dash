@@ -10,6 +10,7 @@ import { expect, test } from "../../fixtures/test";
 const READY_TIMEOUT_MS = 30_000;
 const FONT_TIMEOUT_MS = 10_000;
 const SETTLE_MS = 2_000;
+const WARM_RELOAD = process.env.ROUTE_AUDIT_RETURNING === "true";
 const execFileAsync = promisify(execFile);
 const publicScheduleHelperPath = path.resolve(
   import.meta.dirname,
@@ -301,7 +302,9 @@ function resourceCategory(url: string): ResourceCategory {
 async function configureThrottling(context: BrowserContext, page: Page) {
   const session = await context.newCDPSession(page);
   await session.send("Network.enable");
-  await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+  await session.send("Network.setCacheDisabled", {
+    cacheDisabled: !WARM_RELOAD,
+  });
   await session.send("Network.emulateNetworkConditions", {
     connectionType: "cellular3g",
     downloadThroughput: THROTTLING.downloadBitsPerSecond / 8,
@@ -859,7 +862,7 @@ function classifyError(error: unknown): Pick<Sample, "failure" | "status"> {
   };
 }
 
-test("audit cold startup across the route manifest", async ({
+test("audit startup across the route manifest", async ({
   baseURL,
   browser,
 }, testInfo) => {
@@ -880,7 +883,7 @@ test("audit cold startup across the route manifest", async ({
   const reportPath = testInfo.outputPath("route-startup.json");
   const report = () => ({
     methodology: {
-      cacheDisabled: true,
+      cacheDisabled: !WARM_RELOAD,
       contentReadiness:
         "Authenticated readiness means the app shell rendered, Zero connected, visible skeletons cleared, fonts settled (up to 10 seconds), and a 2 second quiet period elapsed. It does not verify seeded-data completeness.",
       cpuSlowdownMultiplier: THROTTLING.cpuSlowdownMultiplier,
@@ -894,7 +897,9 @@ test("audit cold startup across the route manifest", async ({
       routerTrace,
       routerTraceMethod:
         "Optional best-effort client router beforeLoad, loader, update and invalidate timing; traceInstalled=false means no router timing was observed, not zero work.",
-      sampleKind: "cold synthetic route-startup screening",
+      sampleKind: WARM_RELOAD
+        ? "warm reload after a complete initial visit in the same context"
+        : "cold synthetic route-startup screening",
       sequential: true,
       viewport: viewport.name,
     },
@@ -949,10 +954,22 @@ test("audit cold startup across the route manifest", async ({
         await configureThrottling(context, page);
 
         try {
-          const navigationResponse = await page.goto(route.path, {
+          if (WARM_RELOAD) {
+            await page.goto(route.path, {
+              timeout: READY_TIMEOUT_MS,
+              waitUntil: "domcontentloaded",
+            });
+            await waitForRouteReadiness(page, route);
+            sample.pageErrors.length = 0;
+            sample.failedRequests.length = 0;
+          }
+          const navigationOptions = {
             timeout: READY_TIMEOUT_MS,
-            waitUntil: "domcontentloaded",
-          });
+            waitUntil: "domcontentloaded" as const,
+          };
+          const navigationResponse = WARM_RELOAD
+            ? await page.reload(navigationOptions)
+            : await page.goto(route.path, navigationOptions);
           sample.httpDocumentStatus = navigationResponse?.status() ?? null;
           await waitForRouteReadiness(page, route);
         } catch (error) {

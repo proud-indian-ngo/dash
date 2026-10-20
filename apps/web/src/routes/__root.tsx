@@ -9,6 +9,7 @@ import {
   Outlet,
   ScriptOnce,
   Scripts,
+  useMatches,
 } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
@@ -21,13 +22,7 @@ import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 import { watchForNewVersion } from "@/lib/new-version";
 import type { RouterContext } from "@/router";
 
-// In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
-// In prod, we need an explicit <link> for SSR.
-import appCss from "../index.css?url";
-
-if (import.meta.env.DEV) {
-  import("../index.css");
-}
+import "../index.css";
 
 const LazyDevTools = import.meta.env.DEV
   ? lazy(() =>
@@ -45,10 +40,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: import.meta.env.DEV
       ? []
       : [
-          {
-            href: appCss,
-            rel: "stylesheet",
-          },
           {
             href: "/favicon-96x96.png",
             rel: "icon",
@@ -105,6 +96,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootDocument() {
+  const prioritizeBodyFont = useMatches({
+    select: (matches) =>
+      matches.some((match) => match.routeId === "/_app/export"),
+  });
   useEffect(() => {
     // Vite's preload helper fails when a deploy removed the chunks this tab
     // was built against; reload onto the current build. The error still
@@ -131,18 +126,24 @@ function RootDocument() {
     };
   }, []);
 
+  const bodyFontPreload = (
+    <link
+      as="font"
+      crossOrigin="anonymous"
+      fetchPriority={prioritizeBodyFont ? "high" : undefined}
+      href={bodyFont}
+      rel="preload"
+      type="font/woff2"
+    />
+  );
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link
-          as="font"
-          crossOrigin="anonymous"
-          href={bodyFont}
-          rel="preload"
-          type="font/woff2"
-        />
         {/* React Scan disabled while debugging local browser tests. */}
+        {prioritizeBodyFont ? bodyFontPreload : null}
         <HeadContent />
+        {prioritizeBodyFont ? null : bodyFontPreload}
       </head>
       <body>
         <a

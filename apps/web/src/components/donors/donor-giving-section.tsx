@@ -8,9 +8,9 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 
-import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import { computeDonorGiving } from "@/components/income/contribution-stats";
 import { ContributionStatusBadge } from "@/components/income/contribution-status";
+import { formatReceivedOn } from "@/components/income/income-date";
 
 /** How many gifts the sheet lists before pointing to the Income page. */
 const RECENT_GIFTS = 8;

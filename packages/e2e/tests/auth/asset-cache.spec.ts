@@ -7,6 +7,42 @@ const ASSET_PATTERN = /\/assets\/[^"']+\.js/;
 // must never inherit that header: a cached redirect or 404 would pin a broken
 // chunk in browsers and Cloudflare after a deploy.
 test.describe("Static asset caching", () => {
+  test("negotiates streamed compression for server-rendered HTML", async ({
+    request,
+  }) => {
+    test.skip(
+      process.env.E2E_SERVER === "dev",
+      "This verifies the production Nitro server"
+    );
+
+    const identity = await request.get("/login", {
+      headers: { "Accept-Encoding": "identity" },
+    });
+    expect(identity.status()).toBe(200);
+    expect(identity.headers()["content-encoding"]).toBeUndefined();
+    expect(identity.headers()["content-type"]).toMatch(/^text\/html\b/);
+    expect(identity.headers().vary?.toLowerCase()).toContain("accept-encoding");
+    const identityHtml = await identity.text();
+    expect(identityHtml).toContain('name="email"');
+    expect(identityHtml).toContain('type="password"');
+
+    for (const encoding of ["br", "gzip"] as const) {
+      const compressed = await request.get("/login", {
+        headers: { "Accept-Encoding": encoding },
+      });
+      expect(compressed.status()).toBe(200);
+      expect(compressed.headers()["content-encoding"]).toBe(encoding);
+      expect(compressed.headers()["content-length"]).toBeUndefined();
+      expect(compressed.headers()["content-type"]).toMatch(/^text\/html\b/);
+      expect(compressed.headers().vary?.toLowerCase()).toContain(
+        "accept-encoding"
+      );
+      const compressedHtml = await compressed.text();
+      expect(compressedHtml).toContain('name="email"');
+      expect(compressedHtml).toContain('type="password"');
+    }
+  });
+
   test("serves real chunks as immutable, including revalidations", async ({
     request,
   }) => {

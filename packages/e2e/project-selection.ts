@@ -44,6 +44,7 @@ const roleOnlySpecs = {
     "settings/whatsapp-groups.spec.ts",
     "teams/team-create.spec.ts",
     "users/create-user-unhappy-paths.spec.ts",
+    "users/users-navigation-cache.spec.ts",
     "vendors/vendor-approval.spec.ts",
     "vendors/vendor-payment-unhappy-paths.spec.ts",
     "vendors/vendor-unhappy-paths.spec.ts",

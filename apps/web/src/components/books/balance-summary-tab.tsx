@@ -1,10 +1,15 @@
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
-import type { BalanceLine, BalanceSummary } from "@pi-dash/shared/ledger";
+import {
+  type BalanceLine,
+  type BalanceSummary,
+  balanceSummary,
+} from "@pi-dash/shared/ledger";
 import { formatPaise } from "@pi-dash/shared/money";
 
 import { StatusBadge } from "@/components/shared/status-badge";
 
 import { formatDay } from "./labels";
+import type { Books } from "./use-books";
 
 /**
  * A fund's opening at the year's start (with earlier years' surplus) and
@@ -166,4 +171,39 @@ export function BalanceSummaryTab({
       </div>
     </div>
   );
+}
+
+/** Builds the balance statement only while its tab is selected. */
+export function BalanceSummaryPanel({
+  accountIds,
+  asOf,
+  books,
+  startsOn,
+}: {
+  accountIds: string[];
+  asOf: string;
+  books: Books;
+  startsOn: string;
+}) {
+  const accountNames = new Map(books.accounts.map((a) => [a.id, a.name]));
+  const fundNames = new Map(books.funds.map((f) => [f.id, f.name]));
+  const headNames = new Map(books.heads.map((h) => [h.id, h.name]));
+  const nameOf = (line: BalanceLine) => {
+    if (line.kind === "account") {
+      return accountNames.get(line.key) ?? "Account";
+    }
+    if (line.kind === "fund") {
+      return fundNames.get(line.key) ?? "Fund";
+    }
+    return headNames.get(line.key) ?? "Account head";
+  };
+  const summary = balanceSummary({
+    accountIds,
+    asOf,
+    entries: books.entries,
+    movements: books.movements,
+    startsOn,
+  });
+
+  return <BalanceSummaryTab asOf={asOf} nameOf={nameOf} summary={summary} />;
 }

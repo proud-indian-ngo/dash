@@ -24,6 +24,7 @@ test.describe("Kalakriti public schedule", () => {
 
   test("shows the public schedule with viewer-specific actions", async ({
     browser,
+    consoleErrors,
     page,
     request,
   }, testInfo) => {
@@ -68,8 +69,35 @@ test.describe("Kalakriti public schedule", () => {
         )
       ).toEqual(["Drawing", "Painting"]);
       expect(body.sessions[1].status).toBe("cancelled");
+      const eventDateLabel = new Intl.DateTimeFormat("en-IN", {
+        day: "numeric",
+        month: "long",
+        timeZone: "UTC",
+        weekday: "long",
+        year: "numeric",
+      }).format(new Date(`${body.edition.eventDate}T00:00:00Z`));
+      const timeFormatter = new Intl.DateTimeFormat("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: body.edition.timezone,
+      });
+      const expectedTimeLabels = body.sessions.flatMap(
+        (session: { endAt: number; startAt: number }) => [
+          timeFormatter.format(session.startAt),
+          timeFormatter.format(session.endAt),
+        ]
+      );
 
-      await page.goto(`/kalakriti/${year}/schedule`);
+      const navigationResponse = await page.goto(`/kalakriti/${year}/schedule`);
+      if (!navigationResponse) {
+        throw new Error("Expected the schedule document response");
+      }
+      const serverHtml = await navigationResponse.text();
+      expect(serverHtml).toContain(eventDateLabel);
+      for (const label of expectedTimeLabels) {
+        // Node and Bun's ICU data differ in AM/PM casing.
+        expect(serverHtml.toLowerCase()).toContain(label.toLowerCase());
+      }
       await expect(page).toHaveURL(`/kalakriti/${year}/schedule`);
       await expect(
         page.getByRole("heading", { level: 1, name: `Kalakriti ${year}` })
@@ -77,6 +105,14 @@ test.describe("Kalakriti public schedule", () => {
       await expect(page.getByText("Drawing", { exact: true })).toBeVisible();
       await expect(page.getByText("Painting", { exact: true })).toBeVisible();
       await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText(eventDateLabel, { exact: true })
+      ).toBeVisible();
+      for (const label of expectedTimeLabels) {
+        await expect(
+          page.getByText(new RegExp(`^${label}$`, "i"))
+        ).toBeVisible();
+      }
       await expect(page.getByText("Art Room", { exact: false })).toHaveCount(2);
       await expect(page.getByRole("combobox", { name: "Venue" })).toBeVisible();
       await expect(
@@ -86,6 +122,14 @@ test.describe("Kalakriti public schedule", () => {
         .getByRole("combobox", { name: "Category", exact: true })
         .click();
       await page.getByRole("option", { name: "Visual Arts" }).click();
+      for (const label of expectedTimeLabels) {
+        await expect(
+          page.getByText(new RegExp(`^${label}$`, "i"))
+        ).toBeVisible();
+      }
+      expect(consoleErrors, "Hydration must not raise a page error").toEqual(
+        []
+      );
       await expect(
         page.getByRole("button", { name: "Clear filters" })
       ).toBeEnabled();

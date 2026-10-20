@@ -51,6 +51,7 @@ import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { PendingDialog } from "@/components/shared/pending-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,13 +62,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/shared/responsive-dialog";
 import type { StatusTone } from "@/components/shared/status-badge";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { TeamDetailData } from "@/components/teams/team-detail";
@@ -173,32 +167,6 @@ const ShowInterestDialog = lazy(() =>
 const TRAILING_SLASH = /\/$/;
 
 const SERIES_SCOPES: EditScope[] = ["following", "all"];
-
-function PendingDialog({
-  description,
-  onOpenChange,
-  title,
-}: {
-  description: string;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-}) {
-  return (
-    <Dialog onOpenChange={onOpenChange} open>
-      <DialogContent className="sm:max-w-(--dialog-md)">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-24">
-          <Loader />
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function buildCancelMutation(
   zero: ReturnType<typeof useZero>,
