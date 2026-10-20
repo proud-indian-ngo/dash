@@ -258,7 +258,7 @@ export async function processWhatsAppPollVoteWebhook(
     (await safeguardingBlocks(poll.eventId, resolvedUserId, todayInKolkata()))
   ) {
     // An event with children needs the safeguarding policy acknowledged;
-    // the volunteer sees it on their dashboard.
+    // the dashboard asks the volunteer to accept it when they next open it.
     log.set({ event: "rsvp_safeguarding_not_acknowledged" });
     log.emit();
     return "processed";

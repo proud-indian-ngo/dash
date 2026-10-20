@@ -1,18 +1,18 @@
 import { expect, test } from "../../fixtures/test";
 
 /**
- * Declarations of interests, the policy register and the annual pack
- * against the seeded board: the super admin is Asha Rao, a trustee in
- * office. The seeded vendor payment "E2E Event Vendor Payment" is pending,
- * and Vikram Menon's seeded declaration, confirmed without a signature,
- * names its vendor.
- * The child-safeguarding gate itself is covered by unit tests: publishing a
- * gating version here would hold back every other spec's volunteers.
+ * Declarations of interests and the annual pack against the seeded board:
+ * the super admin is Asha Rao, a trustee in office. The seeded vendor
+ * payment "E2E Event Vendor Payment" is pending, and Vikram Menon's seeded
+ * declaration, confirmed without a signature, names its vendor.
+ * Publishing a policy version would hold back everyone it is for, so the
+ * register is covered by policy-gate.spec.ts, which runs last, alone; the
+ * child-safeguarding gate by unit tests.
  */
 
 const VENDOR_PAYMENT = "/vendor-payments/e2e00000-0000-0000-0000-000000000004";
 
-test.describe("declarations and policies (super admin)", () => {
+test.describe("declarations (super admin)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
   });
@@ -79,51 +79,6 @@ test.describe("declarations and policies (super admin)", () => {
       timeout: 20_000,
     });
     await expect(prompt.getByRole("link", { name: "Sign" })).toBeVisible();
-  });
-
-  test("publishes a policy version that trustees acknowledge from the dashboard", async ({
-    page,
-  }) => {
-    test.slow();
-    const title = `E2E trustee code ${Date.now()}`;
-    await page.goto("/governance/policies");
-    await page.getByRole("button", { name: "New policy" }).click();
-    const create = page.getByRole("dialog", { name: "New policy" });
-    await create.getByRole("textbox", { name: "Title" }).fill(title);
-    await create.getByRole("combobox", { name: "For" }).click();
-    await page.getByRole("option", { name: "Trustees" }).click();
-    await create.getByRole("button", { name: "Add policy" }).click();
-    await expect(create).toBeHidden();
-
-    const card = page.getByRole("region", { name: title });
-    await card.getByRole("button", { name: "Publish a version" }).click();
-    const publish = page.getByRole("dialog", { name: "Publish a version" });
-    await publish.getByRole("combobox", { name: "Approved document" }).click();
-    await page
-      .getByRole("option", { name: /Volunteer code of conduct/ })
-      .click();
-    await publish
-      .getByLabel("What changed", { exact: true })
-      .fill("First version");
-    await publish.getByRole("button", { name: "Publish version" }).click();
-    await expect(card.getByText("Version 1")).toBeVisible();
-    await expect(card.getByText(/^0 of \d+ acknowledged$/)).toBeVisible();
-
-    await page.goto("/");
-    const toRead = page.getByRole("region", { name: "Policies to read" });
-    const item = toRead.getByRole("group", { name: title });
-    await expect(item).toBeVisible({ timeout: 20_000 });
-    await item
-      .getByRole("button", { name: "I've read it and will follow it" })
-      .click();
-    await expect(page.getByText(title)).toBeHidden({ timeout: 20_000 });
-
-    await page.goto("/governance/policies");
-    await expect(
-      page
-        .getByRole("region", { name: title })
-        .getByText(/^1 of \d+ acknowledged$/)
-    ).toBeVisible();
   });
 
   test("a budget item on the calendar opens its resolution template", async ({

@@ -95,7 +95,7 @@ function PoliciesPage() {
             </Button>
           ) : null
         }
-        description="The trust's policies, each with its approved versions and who has acknowledged them. Everyone the policy is for sees the version in force on their dashboard; the child-safeguarding policy must be acknowledged before joining events with children."
+        description="The trust's policies, each with its approved versions and who has acknowledged them. Everyone the policy is for accepts the version in force before they can use the dashboard; the child-safeguarding policy must be acknowledged before joining events with children."
         title="Policies"
       />
       <div className="mt-6 flex flex-col gap-4">

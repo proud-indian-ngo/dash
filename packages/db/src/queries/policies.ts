@@ -1,11 +1,12 @@
 import {
   type DeclaredInterest,
   declarationsByTrustee,
+  outstandingPolicyVersions,
   paymentWarnings,
   policyVersionOn,
   SAFEGUARDING_POLICY_KEY,
 } from "@pi-dash/shared/declarations";
-import { boardOn } from "@pi-dash/shared/governance";
+import { boardOn, isHeldOn } from "@pi-dash/shared/governance";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -16,7 +17,7 @@ import {
   policyAcknowledgement,
   policyVersion,
 } from "../schema/declarations";
-import { trustee } from "../schema/governance";
+import { trustee, trusteeTerm } from "../schema/governance";
 import { team } from "../schema/team";
 import { teamEvent } from "../schema/team-event";
 import { loadRegister, type Tx } from "./resolutions";
@@ -42,6 +43,65 @@ export async function ensureSafeguardingPolicy(): Promise<void> {
       updatedAt: now,
     })
     .onConflictDoNothing({ target: policy.key });
+}
+
+/**
+ * Whether a user has a policy version in force to accept before using the
+ * dashboard. Read with the session, so the app's layout can send them to
+ * the accept page before anything renders.
+ */
+export async function hasOutstandingPolicies(
+  userId: string,
+  today: string
+): Promise<boolean> {
+  const [versions, acknowledged, terms] = await Promise.all([
+    db
+      .select({
+        audience: policy.audience,
+        effectiveOn: policyVersion.effectiveOn,
+        id: policyVersion.id,
+        policyId: policyVersion.policyId,
+        version: policyVersion.version,
+      })
+      .from(policyVersion)
+      .innerJoin(policy, eq(policy.id, policyVersion.policyId)),
+    db
+      .select({ id: policyAcknowledgement.policyVersionId })
+      .from(policyAcknowledgement)
+      .where(eq(policyAcknowledgement.userId, userId)),
+    db
+      .select({
+        endedOn: trusteeTerm.endedOn,
+        endsOn: trusteeTerm.endsOn,
+        startsOn: trusteeTerm.startsOn,
+      })
+      .from(trusteeTerm)
+      .innerJoin(trustee, eq(trustee.id, trusteeTerm.trusteeId))
+      .where(eq(trustee.userId, userId)),
+  ]);
+  const policies = new Map<
+    string,
+    {
+      audience: (typeof versions)[number]["audience"];
+      versions: typeof versions;
+    }
+  >();
+  for (const v of versions) {
+    const p = policies.get(v.policyId) ?? {
+      audience: v.audience,
+      versions: [],
+    };
+    p.versions.push(v);
+    policies.set(v.policyId, p);
+  }
+  return (
+    outstandingPolicyVersions({
+      acknowledged: new Set(acknowledged.map((a) => a.id)),
+      inOffice: terms.some((t) => isHeldOn(t, today)),
+      on: today,
+      policies: [...policies.values()],
+    }).length > 0
+  );
 }
 
 /** The versions in force today of the policies that gate events with children. */

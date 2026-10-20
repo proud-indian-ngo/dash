@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AcceptPoliciesRouteImport } from './routes/accept-policies'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
@@ -176,6 +177,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptPoliciesRoute = AcceptPoliciesRouteImport.update({
+  id: '/accept-policies',
+  path: '/accept-policies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
@@ -1011,6 +1017,7 @@ const ApiSocialV1MediaPhotoIdVariantRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
@@ -1171,6 +1178,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
@@ -1318,6 +1326,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
@@ -1481,6 +1490,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/donors'
     | '/events'
@@ -1641,6 +1651,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/$'
     | '/analytics'
@@ -1787,6 +1798,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/_app/donors'
     | '/_app/events'
@@ -1950,6 +1962,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  AcceptPoliciesRoute: typeof AcceptPoliciesRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
@@ -2009,6 +2022,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-policies': {
+      id: '/accept-policies'
+      path: '/accept-policies'
+      fullPath: '/accept-policies'
+      preLoaderRoute: typeof AcceptPoliciesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/unsubscribe': {
@@ -3560,6 +3580,7 @@ const ApiSocialV1EventsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  AcceptPoliciesRoute: AcceptPoliciesRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,

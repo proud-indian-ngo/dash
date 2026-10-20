@@ -154,7 +154,7 @@ export const SAFEGUARDING_POLICY_KEY = "child_safeguarding";
 
 /** The refusal shown when someone hasn't acknowledged the safeguarding policy. */
 export const SAFEGUARDING_GATE_MESSAGE =
-  "Read and acknowledge the child-safeguarding policy before you join events with children. You'll find it on your dashboard.";
+  "Accept the child-safeguarding policy before you join events with children. Reload the dashboard to see it.";
 
 /** The version in force on a date: the latest that took effect on or before it. */
 export function policyVersionOn<
@@ -167,6 +167,36 @@ export function policyVersionOn<
     }
   }
   return found;
+}
+
+/**
+ * The versions in force on a date that a person hasn't acknowledged, from
+ * the policies meant for them: everyone's, and trustees' while they are in
+ * office. `updated` when they acknowledged an earlier version. The dashboard
+ * asks them to accept these before they use it.
+ */
+export function outstandingPolicyVersions<
+  V extends { effectiveOn: string; id: string; version: number },
+  P extends { audience: PolicyAudience; versions: readonly V[] },
+>(input: {
+  acknowledged: ReadonlySet<string>;
+  inOffice: boolean;
+  on: string;
+  policies: readonly P[];
+}): { policy: P; updated: boolean; version: V }[] {
+  return input.policies.flatMap((policy) => {
+    if (policy.audience === "trustees" && !input.inOffice) {
+      return [];
+    }
+    const version = policyVersionOn(policy.versions, input.on);
+    if (!version || input.acknowledged.has(version.id)) {
+      return [];
+    }
+    const updated = policy.versions.some(
+      (v) => v.version < version.version && input.acknowledged.has(v.id)
+    );
+    return [{ policy, updated, version }];
+  });
 }
 
 export const POLICY_TITLE_MAX = 200;

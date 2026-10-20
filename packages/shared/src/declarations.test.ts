@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   declarationsByTrustee,
   normaliseName,
+  outstandingPolicyVersions,
   paymentWarnings,
   policyVersionOn,
 } from "./declarations";
@@ -94,5 +95,60 @@ describe("declarationsByTrustee", () => {
       row("a2", "asha", "awaiting_signature", 2),
     ]);
     expect(byTrustee.get("asha")?.inForce?.id).toBe("a1");
+  });
+});
+
+describe("outstandingPolicyVersions", () => {
+  const conduct = {
+    audience: "everyone" as const,
+    id: "conduct",
+    versions: [
+      { effectiveOn: "2026-01-01", id: "c1", version: 1 },
+      { effectiveOn: "2026-10-01", id: "c2", version: 2 },
+      { effectiveOn: "2026-12-01", id: "c3", version: 3 },
+    ],
+  };
+  const trusteeCode = {
+    audience: "trustees" as const,
+    id: "trustees",
+    versions: [{ effectiveOn: "2026-01-01", id: "t1", version: 1 }],
+  };
+  const draft = { audience: "everyone" as const, id: "draft", versions: [] };
+  const policies = [conduct, trusteeCode, draft];
+  const ids = (input: Parameters<typeof outstandingPolicyVersions>[0]) =>
+    outstandingPolicyVersions(input).map((o) => [o.version.id, o.updated]);
+
+  it("asks for the version in force of each policy meant for the person", () => {
+    const base = {
+      acknowledged: new Set<string>(),
+      on: "2026-10-20",
+      policies,
+    };
+    expect(ids({ ...base, inOffice: false })).toEqual([["c2", false]]);
+    expect(ids({ ...base, inOffice: true })).toEqual([
+      ["c2", false],
+      ["t1", false],
+    ]);
+  });
+
+  it("marks a policy updated since the person acknowledged it", () => {
+    expect(
+      ids({
+        acknowledged: new Set(["c1", "t1"]),
+        inOffice: true,
+        on: "2026-10-20",
+        policies,
+      })
+    ).toEqual([["c2", true]]);
+  });
+
+  it("leaves out acknowledged versions and versions not yet in force", () => {
+    const acknowledged = new Set(["c2"]);
+    expect(
+      ids({ acknowledged, inOffice: false, on: "2026-10-20", policies })
+    ).toEqual([]);
+    expect(
+      ids({ acknowledged, inOffice: false, on: "2026-12-01", policies })
+    ).toEqual([["c3", true]]);
   });
 });
