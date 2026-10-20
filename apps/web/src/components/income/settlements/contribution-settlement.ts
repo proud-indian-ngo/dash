@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { useApp } from "@/context/app-context";
 import { getContributionSettlementLock } from "@/functions/razorpay-settlements";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 /**
  * Where a gateway gift stands with its payout: paid out by a processed
@@ -62,7 +63,7 @@ export function useContributionSettlement(
   const state = contributionSettlementOf(
     lines as readonly { settlement?: GatewaySettlement | null }[]
   );
-  if (state.kind === "none" && result.type !== "complete") {
+  if (state.kind === "none" && isAwaitingResult(result)) {
     return { kind: "loading" };
   }
   return state;

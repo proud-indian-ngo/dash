@@ -33,6 +33,7 @@ import {
   type ParticipationCompliance,
 } from "@/lib/kalakriti-participation-compliance";
 import type { KalakritiRegistrationDashboardProjection } from "@/lib/server/kalakriti-registration-dashboard";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 function scopeHeading(
   scope: KalakritiRegistrationDashboardProjection["scope"]
@@ -518,7 +519,7 @@ export function RegistrationDashboard({
   const minimum = edition?.minTotalCompetitions ?? undefined;
   const complianceByCenter =
     minimum === undefined ||
-    (students.length === 0 && studentResult.type !== "complete")
+    (students.length === 0 && isAwaitingResult(studentResult))
       ? undefined
       : buildParticipationCompliance(students, minimum);
   if (projections.length === 0) {

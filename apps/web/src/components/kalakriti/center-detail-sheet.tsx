@@ -19,6 +19,7 @@ import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getCenterTransportCapabilities } from "@/lib/kalakriti-center-registration-policy";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import type { CenterPersonAssignment } from "./center-assignments";
 import { CenterTransportSection } from "./center-transport-section";
@@ -264,7 +265,7 @@ function CenterSheetDetails({
         />
       ) : null}
       {canViewTransport ? (
-        assignments.length === 0 && transportResult.type !== "complete" ? (
+        assignments.length === 0 && isAwaitingResult(transportResult) ? (
           <Skeleton
             aria-label="Loading transport assignments"
             className="h-24 w-full"

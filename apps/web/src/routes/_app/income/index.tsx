@@ -73,6 +73,7 @@ import {
 } from "@/functions/income";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const INCOME_TABS = [
   "contributions",
@@ -224,7 +225,7 @@ function ContributionsTab({
   const { hasPermission } = useApp();
   const [contributions, result] = useQuery(queries.contribution.list());
   const rows = contributions as ContributionRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const fy = currentFinancialYear();
   const stats = computeContributionYearStats(rows, fy);
   const missing = useMissingDonorDetails(

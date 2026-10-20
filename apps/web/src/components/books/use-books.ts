@@ -11,6 +11,8 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 
+import { isAwaitingResult } from "@/lib/zero-result";
+
 /** A fiscal year as the books pages use it, dates as yyyy-MM-dd. */
 export interface BooksYear {
   closedAt: number | null;
@@ -130,15 +132,15 @@ export function useBooks() {
   );
 
   const cashLoading =
-    (yearRows.length === 0 && yearsResult.type !== "complete") ||
-    (accounts.length === 0 && accountsResult.type !== "complete") ||
-    (movementRows.length === 0 && movementsResult.type !== "complete") ||
-    (openingBalances.length === 0 && openingResult.type !== "complete");
+    (yearRows.length === 0 && isAwaitingResult(yearsResult)) ||
+    (accounts.length === 0 && isAwaitingResult(accountsResult)) ||
+    (movementRows.length === 0 && isAwaitingResult(movementsResult)) ||
+    (openingBalances.length === 0 && isAwaitingResult(openingResult));
   const isLoading =
     cashLoading ||
-    (heads.length === 0 && headsResult.type !== "complete") ||
-    (funds.length === 0 && fundsResult.type !== "complete") ||
-    (entryRows.length === 0 && entriesResult.type !== "complete");
+    (heads.length === 0 && isAwaitingResult(headsResult)) ||
+    (funds.length === 0 && isAwaitingResult(fundsResult)) ||
+    (entryRows.length === 0 && isAwaitingResult(entriesResult));
 
   return {
     accounts,
@@ -146,8 +148,8 @@ export function useBooks() {
     /** The audited figures page also needs every document and posting. */
     auditedLoading:
       isLoading ||
-      (auditedFigures.length === 0 && auditedResult.type !== "complete") ||
-      (postingRows.length === 0 && postingsResult.type !== "complete"),
+      (auditedFigures.length === 0 && isAwaitingResult(auditedResult)) ||
+      (postingRows.length === 0 && isAwaitingResult(postingsResult)),
     /** The cash book needs only years, accounts, movements and opening documents. */
     cashLoading,
     entries,

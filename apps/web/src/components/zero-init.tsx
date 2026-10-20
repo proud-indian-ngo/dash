@@ -1,10 +1,12 @@
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
 import { schema } from "@pi-dash/zero/schema";
-import type { Zero } from "@rocicorp/zero";
+import type { StorageFailureError, Zero } from "@rocicorp/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
+import { log } from "evlog";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { toast } from "sonner";
 
 import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
@@ -18,6 +20,22 @@ import {
 // Each message is a distinct traceable operation — new traceId per call is correct.
 function getTraceparent(): string {
   return formatTraceparent(generateTraceId(), generateSpanId());
+}
+
+// Zero keeps running in memory, so unsent changes are lost on reload until
+// local storage works again. Zero reports a failure once per instance.
+function onStorageFailure(failure: StorageFailureError) {
+  log.warn({
+    component: "ZeroInit",
+    message: "Zero local storage failed",
+    kind: failure.kind,
+    error: failure.message,
+  });
+  toast.warning(
+    failure.kind === "full"
+      ? "This device is out of storage. Stay online until your changes sync."
+      : "This browser can't save dashboard data. Stay online until your changes sync."
+  );
 }
 
 interface ZeroInitProps {
@@ -106,6 +124,7 @@ export function ZeroInit({
       getTraceparent={getTraceparent}
       init={init}
       mutators={mutators}
+      onStorageFailure={onStorageFailure}
       schema={schema}
       storageKey="pi-dash"
       userID={userId}

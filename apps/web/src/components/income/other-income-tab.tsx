@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PendingDialog } from "@/components/shared/pending-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import type { OtherIncomeRow } from "./income-types";
 import { OtherIncomeTable } from "./other-income-table";
@@ -32,7 +33,7 @@ export function OtherIncomeTab({
   const zero = useZero();
   const [incomes, result] = useQuery(queries.otherIncome.list());
   const rows = incomes as OtherIncomeRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const [editing, setEditing] = useState<OtherIncomeRow | null>(null);
   const deleteAction = useConfirmAction<OtherIncomeRow>({
     mutationMeta: {

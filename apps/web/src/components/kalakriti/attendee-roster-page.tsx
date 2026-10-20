@@ -288,9 +288,7 @@ export function AttendeeRosterPage({
         data={data}
         kind={kind}
         canManage={canManage}
-        isLoading={
-          !data.length && result.type !== "complete" && result.type !== "error"
-        }
+        isLoading={!data.length && result.type === "unknown"}
         statusReady={statusReady}
         onView={onView}
         onEdit={onEdit}

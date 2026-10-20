@@ -58,6 +58,7 @@ import {
   canManageKalakritiVolunteers,
   canViewKalakritiVolunteers,
 } from "@/lib/kalakriti-volunteer-policy";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 interface PickerData {
   editionId: string;
@@ -383,7 +384,7 @@ function KalakritiVolunteersPage() {
     null;
   const isLoading =
     metadataState === "loading" ||
-    (volunteerRows.length === 0 && rosterResult.type !== "complete");
+    (volunteerRows.length === 0 && isAwaitingResult(rosterResult));
   const unassigned = volunteerRows.filter(
     (row) => row.assignments.length === 0
   ).length;

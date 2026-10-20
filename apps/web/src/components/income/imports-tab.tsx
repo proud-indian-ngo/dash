@@ -11,6 +11,7 @@ import {
   ImportBatchesTable,
 } from "@/components/income/import-batches-table";
 import { NotFoundState } from "@/components/shared/not-found-state";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export function ImportsTab({
   canImport,
@@ -22,7 +23,7 @@ export function ImportsTab({
   const navigate = useNavigate();
   const [batches, result] = useQuery(queries.importBatch.list());
   const rows = batches as ImportBatchRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const open = useEventCallback((row: ImportBatchRow) => {
     if (row.source === "give_do_payout") {
       navigate({ search: { batch: row.id }, to: "/income/payout/import" });

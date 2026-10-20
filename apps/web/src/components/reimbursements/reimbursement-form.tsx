@@ -16,6 +16,7 @@ import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { RequestType } from "@/lib/reimbursement-types";
 import { REQUEST_TYPE_LABELS } from "@/lib/reimbursement-types";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { ClaimForField } from "./claim-for-field";
 import { useClaimantOptions } from "./claimant-picker";
@@ -259,7 +260,7 @@ function ReimbursementFormInner({
 
   let bankAccountsStatus: "loading" | "complete" | "error" = "complete";
 
-  if (bankAccountList.length === 0 && bankAccountsResult.type !== "complete") {
+  if (bankAccountList.length === 0 && isAwaitingResult(bankAccountsResult)) {
     bankAccountsStatus = "loading";
   } else if (bankAccountsResult.type === "error") {
     bankAccountsStatus = "error";

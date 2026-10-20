@@ -78,6 +78,7 @@ import type {
   UnseenPaymentsResponse,
 } from "@/lib/bank-statement/types";
 import { assertAnyPermission } from "@/lib/route-guards";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const LINE_TABS = [
   "review",
@@ -366,7 +367,7 @@ function BankStatementsPage() {
     { enabled: accountId !== null }
   );
   const lines = lineRows as StatementLineRow[];
-  const loading = lines.length === 0 && linesResult.type !== "complete";
+  const loading = lines.length === 0 && isAwaitingResult(linesResult);
   const signature = linesSignature(lines);
   const summary = useSummary(accountId, signature);
   const suggestions = useDebitSuggestions(accountId, canManage, signature);

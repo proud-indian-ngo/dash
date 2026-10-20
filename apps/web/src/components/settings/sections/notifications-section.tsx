@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { NotificationPreferenceGrid } from "@/components/settings/notification-preference-grid";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export function NotificationsSection() {
   const { hasPermission } = useApp();
@@ -17,7 +18,7 @@ export function NotificationsSection() {
     queries.notificationPreference.byCurrentUser()
   );
 
-  const isLoading = preferences.length === 0 && result.type !== "complete";
+  const isLoading = preferences.length === 0 && isAwaitingResult(result);
 
   const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
 

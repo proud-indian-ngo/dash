@@ -19,6 +19,7 @@ import {
   mapLineItemsToFormValues,
   mapQuotationAttachmentsToFormValues,
 } from "@/lib/submission-mappers";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/vendor-payments/$id")({
   component: VendorPaymentDetailRouteComponent,
@@ -87,7 +88,7 @@ function VendorPaymentDetailRouteComponent() {
   const [vendorPayment, result] = useQuery(queries.vendorPayment.byId({ id }));
   useRecordTitle(vendorPayment?.title);
 
-  const isLoading = !vendorPayment && result.type !== "complete";
+  const isLoading = !vendorPayment && isAwaitingResult(result);
   const setEditMode = (enabled: boolean) => {
     navigate({
       params: { id },

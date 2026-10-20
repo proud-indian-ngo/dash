@@ -8,6 +8,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { useState } from "react";
 
 import { NotFoundState } from "@/components/shared/not-found-state";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { ReceiptDetailSheet } from "./receipt-detail-sheet";
 import type { ReceiptRow } from "./receipt-types";
@@ -28,7 +29,7 @@ export function ReceiptsTab({
 }) {
   const [receipts, result] = useQuery(queries.contributionReceipt.list());
   const rows = receipts as ReceiptRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [voiding, setVoiding] = useState<ReceiptRow | null>(null);
   const { send, sendingId } = useEmailReceipt();

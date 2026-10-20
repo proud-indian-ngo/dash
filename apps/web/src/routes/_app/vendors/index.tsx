@@ -22,6 +22,7 @@ import { deleteVendor } from "@/functions/vendors";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { enrichVendorsWithPayments, type VendorRow } from "@/lib/vendor-types";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/vendors/")({
   component: VendorsRouteComponent,
@@ -51,8 +52,8 @@ function VendorsRouteComponent() {
   const isLoading =
     vendors.length === 0 &&
     vendorPayments.length === 0 &&
-    vendorsResult.type !== "complete" &&
-    vpResult.type !== "complete";
+    isAwaitingResult(vendorsResult) &&
+    isAwaitingResult(vpResult);
 
   const vendorRows = enrichVendorsWithPayments(
     vendors ?? [],

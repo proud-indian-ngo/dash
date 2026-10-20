@@ -18,6 +18,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import {
   type CompetitionTableRow,
@@ -54,7 +55,7 @@ function AssignedJudges({
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium">Assigned judges</h3>
-      {!judges.length && result.type !== "complete" ? (
+      {!judges.length && isAwaitingResult(result) ? (
         <Loader />
       ) : assigned.length ? (
         <ul className="text-sm">

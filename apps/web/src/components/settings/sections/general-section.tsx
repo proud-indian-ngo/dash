@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const KILL_SWITCH_KEY = "notifications_disabled";
 
@@ -19,7 +20,7 @@ export function GeneralSection() {
   const [configs, result] = useQuery(queries.appConfig.all());
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const isLoading = configs.length === 0 && result.type !== "complete";
+  const isLoading = configs.length === 0 && isAwaitingResult(result);
 
   const notificationsDisabled =
     configs.find((c) => c.key === KILL_SWITCH_KEY)?.value === "true";

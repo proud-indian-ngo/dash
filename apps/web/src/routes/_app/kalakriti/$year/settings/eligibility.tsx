@@ -22,6 +22,7 @@ import { formatKalakritiLifecycle } from "@/components/kalakriti/kalakriti-lifec
 import { KalakritiLockNotice } from "@/components/kalakriti/kalakriti-lock-notice";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const ageCutoffFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -143,7 +144,7 @@ function KalakritiEligibilityPage() {
 
   const categoryRows = categories.map(categoryValue);
   const isLoading =
-    categoryRows.length === 0 && categoryResult.type !== "complete";
+    categoryRows.length === 0 && isAwaitingResult(categoryResult);
   const overlap = findKalakritiAgeCategoryOverlap(categoryRows);
   const missingLimits = categoryRows.filter(
     (category) => category.femaleStudentLimit + category.maleStudentLimit <= 0

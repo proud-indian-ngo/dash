@@ -64,6 +64,7 @@ import {
 } from "@/lib/mutation-result";
 import { assertAnyPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/governance/registrations")({
   beforeLoad: ({ context }) =>
@@ -304,7 +305,7 @@ function RegistrationsPage() {
   const canManage =
     hasPermission("governance.manage") || hasPermission("finance.manage");
   const [rows, result] = useQuery(queries.organisationRegistration.all());
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const { documents } = useGovernanceDocuments();
   const today = todayIso();
   const registrations: RegistrationRow[] = rows.map((r) => {

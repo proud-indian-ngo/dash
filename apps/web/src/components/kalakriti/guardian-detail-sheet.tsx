@@ -14,6 +14,7 @@ import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { hasEffectiveGuardianCheckIn } from "@/lib/kalakriti-guardian-policy";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
@@ -52,7 +53,7 @@ export function GuardianDetailSheet({
       : []
   );
   const centersLoading =
-    centerAssignments.length === 0 && centersResult.type !== "complete";
+    centerAssignments.length === 0 && isAwaitingResult(centersResult);
 
   const handleArchive = useEventCallback(() => {
     if (guardian) {

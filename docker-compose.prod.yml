@@ -232,17 +232,19 @@ services:
       ZERO_CHANGE_DB: *db-url
       ZERO_REPLICA_FILE: /data/zero.db
       ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-}
+      ZERO_OPERATOR_PASSWORD: ${ZERO_OPERATOR_PASSWORD:-}
       ZERO_MUTATE_FORWARD_COOKIES: "true"
       ZERO_MUTATE_URL: http://web:${PORT:-3000}/api/zero/mutate
       ZERO_QUERY_FORWARD_COOKIES: "true"
       ZERO_QUERY_URL: http://web:${PORT:-3000}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
       ZERO_QUERY_HYDRATION_STATS: ${ZERO_QUERY_HYDRATION_STATS:-false}
-      # Log export is opt-in: set ZERO_OTEL_LOGS_EXPORTER=otlp and the endpoint and headers
+      # Log and metric export are opt-in: set the exporter to otlp, its endpoint and the headers
       OTEL_LOGS_EXPORTER: ${ZERO_OTEL_LOGS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${ZERO_OTEL_LOGS_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${ZERO_OTEL_HEADERS:-}
-      OTEL_METRICS_EXPORTER: "none"
+      OTEL_METRICS_EXPORTER: ${ZERO_OTEL_METRICS_EXPORTER:-none}
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${ZERO_OTEL_METRICS_ENDPOINT:-}
       OTEL_TRACES_EXPORTER: "none"
       OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.name=zero-cache}
       OTEL_NODE_RESOURCE_DETECTORS: ${OTEL_NODE_RESOURCE_DETECTORS:-env,host,os}
@@ -258,6 +260,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      # zero-cache reports ready only once replication has caught up
+      start_period: 120s
     restart: unless-stopped
 
 # A file secret outside the build context needs a Buildx entitlement under

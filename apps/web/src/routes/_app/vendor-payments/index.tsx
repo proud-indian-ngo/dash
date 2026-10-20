@@ -28,6 +28,7 @@ import {
   handleMutationResult,
 } from "@/lib/mutation-result";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/vendor-payments/")({
   component: VendorPaymentsRouteComponent,
@@ -56,7 +57,7 @@ function VendorPaymentsRouteComponent() {
   const [vendorPayments, result] = useQuery(queries.vendorPayment.all());
 
   const data = vendorPayments as VendorPaymentWithRelations[];
-  const isLoading = data.length === 0 && result.type !== "complete";
+  const isLoading = data.length === 0 && isAwaitingResult(result);
   // In the books: its expense or any of its payments stands there.
   const postedRequests = usePostedSourceIds("vendor_payment");
   const postedPayments = usePostedSourceIds("vendor_payment_transaction");

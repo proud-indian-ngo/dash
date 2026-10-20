@@ -17,6 +17,7 @@ import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { DATE } from "@/lib/date-formats";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 function studentTransportLabel(student: Pick<CenterScanStudent, "operations">) {
   return getKalakritiStudentTransportLabel(student.operations);
@@ -82,7 +83,7 @@ export function StudentDetailSheet({
       entry.centerId === student.centerId &&
       entry.members.some((member) => member.studentId === student.id)
   );
-  const isLoading = entries.length === 0 && result.type !== "complete";
+  const isLoading = entries.length === 0 && isAwaitingResult(result);
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="overflow-y-auto">
