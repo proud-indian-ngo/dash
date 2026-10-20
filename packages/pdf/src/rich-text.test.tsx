@@ -126,9 +126,20 @@ describe("rich text in the PDF", () => {
     expect(drawn.has("4,50,000")).toBe(true);
   });
 
-  /** Draws `texts` as one table row and checks each line stays in its column. */
-  async function expectInsideColumns(texts: string[]) {
-    const table = { children: [row("td", texts)], type: "table" };
+  /**
+   * Draws one table row of `cells` (each cell's blocks) and checks every line
+   * stays in its column and every one of `texts` is drawn whole.
+   */
+  async function expectInsideColumns(cells: unknown[][], texts: string[]) {
+    const table = {
+      children: [
+        {
+          children: cells.map((children) => ({ children, type: "td" })),
+          type: "tr",
+        },
+      ],
+      type: "table",
+    };
     const runs = await pdfTextRuns(await circular([table]));
     // The columns' edges on the page: 48pt margins on A4.
     const edges = columnWidths(table as RichTextTable).reduce(
@@ -145,25 +156,50 @@ describe("rich text in the PDF", () => {
       const column = edges.findLastIndex((e) => e <= run.x + 0.5);
       expect(run.x + run.width).toBeLessThanOrEqual(edges[column + 1]! + 0.5);
     }
-    // Lines join back into every cell's text once the break hyphens are dropped.
+    // Lines join back into every text once the break hyphens are dropped.
     const joined = cellRuns.map((r) => r.str.replace(/-$/, "")).join("");
     expect(texts.filter((t) => !joined.includes(t))).toEqual([]);
   }
 
   it("breaks a long run without spaces inside its own column", async () => {
+    const urls = Array.from(
+      { length: MAX_TABLE_COLUMNS },
+      (_, c) => `https://example.org/reference${String(c)}abcdef`
+    );
     await expectInsideColumns(
-      Array.from(
-        { length: MAX_TABLE_COLUMNS },
-        (_, c) => `https://example.org/reference${String(c)}abcdef`
-      )
+      urls.map((u) => [p(u)]),
+      urls
     );
   });
 
   it("breaks a run of the widest letters inside its own column", async () => {
+    const runs = Array.from(
+      { length: MAX_TABLE_COLUMNS },
+      (_, c) => `${"W".repeat(9)}${String(c)}`
+    );
     await expectInsideColumns(
-      Array.from(
-        { length: MAX_TABLE_COLUMNS },
-        (_, c) => `${"W".repeat(9)}${String(c)}`
+      runs.map((r) => [p(r)]),
+      runs
+    );
+  });
+
+  it("keeps lists nested six deep inside the narrowest columns", async () => {
+    const nested = (cell: number, level: number): unknown => ({
+      children: [
+        item(
+          `WXYZ${String(cell)}${String(level)}`,
+          level < 6 ? nested(cell, level + 1) : undefined
+        ),
+      ],
+      type: level % 2 ? "ol" : "ul",
+    });
+    const cells = Array.from({ length: MAX_TABLE_COLUMNS }, (_, c) => [
+      nested(c, 1),
+    ]);
+    await expectInsideColumns(
+      cells,
+      cells.flatMap((_, c) =>
+        [1, 2, 3, 4, 5, 6].map((l) => `WXYZ${String(c)}${String(l)}`)
       )
     );
   });

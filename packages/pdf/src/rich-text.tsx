@@ -28,6 +28,8 @@ type Style = Styles[string];
 
 const RULE = `0.5pt solid ${INK}`;
 const CELL_PADDING = 5;
+/** Least room, in ems, a list item's text keeps beside a hanging marker. */
+const MIN_TEXT_EMS = 4;
 
 /** An A4 page's text width inside the product pages' margins, in points. */
 const PAGE_WIDTH =
@@ -170,45 +172,65 @@ function List({
     list.type === "ol" ? `${listNumber(numbered, index)}.` : "•"
   );
   // A hanging indent wide enough for "10." or "viii." at this size, and
-  // wider when a marker such as "xxxviii." needs it.
+  // wider for a longer marker such as "xxxviii.".
   const markerWidth = Math.max(
     list.type === "ol" ? fontSize * 2.2 : fontSize * 1.2,
-    ...markers.map((m) => (m.length * 0.6 + 0.6) * fontSize)
+    ...markers.map((m) =>
+      m.length > 5 ? (m.length * 0.6 + 0.6) * fontSize : 0
+    )
   );
-  const bodyWidth = width - markerWidth;
+  // In a narrow table cell the indents of nested lists would leave the text
+  // no room, so there the marker leads the item's first line and the item
+  // keeps the list's whole width.
+  const hanging = width - markerWidth >= MIN_TEXT_EMS * fontSize;
+  const bodyWidth = hanging ? width - markerWidth : width;
   const text = { ...spacing.paragraph, marginTop: 0 };
   return (
     <View style={{ marginTop: top }}>
-      {list.children.map((item, index) => (
-        <View
-          key={`i${String(index)}`}
-          style={[styles.item, { marginTop: index === 0 ? 0 : spacing.tight }]}
-        >
-          <Text style={[text, { width: markerWidth }]}>{markers[index]}</Text>
-          <View style={styles.itemBody}>
-            {item.children.map((child, c) =>
-              child.type === "lic" ? (
-                <Line
-                  key={`c${String(c)}`}
-                  hyphenate={fitWords(bodyWidth, spacing)}
-                  style={text}
-                >
-                  <Leaves leaves={child.children} />
-                </Line>
-              ) : (
-                <List
-                  key={`c${String(c)}`}
-                  list={child}
-                  numbered={list.type === "ol" ? numbered + 1 : numbered}
-                  spacing={spacing}
-                  top={spacing.tight}
-                  width={bodyWidth}
-                />
-              )
-            )}
+      {list.children.map((item, index) => {
+        const lead = item.children[0]?.type === "lic";
+        return (
+          <View
+            key={`i${String(index)}`}
+            style={[
+              ...(hanging ? [styles.item] : []),
+              { marginTop: index === 0 ? 0 : spacing.tight },
+            ]}
+          >
+            {hanging || !lead ? (
+              <Line
+                hyphenate={fitWords(hanging ? markerWidth : width, spacing)}
+                style={hanging ? [text, { width: markerWidth }] : text}
+              >
+                {markers[index]}
+              </Line>
+            ) : null}
+            <View style={hanging ? styles.itemBody : undefined}>
+              {item.children.map((child, c) =>
+                child.type === "lic" ? (
+                  <Line
+                    key={`c${String(c)}`}
+                    hyphenate={fitWords(bodyWidth, spacing)}
+                    style={text}
+                  >
+                    {hanging || c > 0 ? null : `${markers[index]} `}
+                    <Leaves leaves={child.children} />
+                  </Line>
+                ) : (
+                  <List
+                    key={`c${String(c)}`}
+                    list={child}
+                    numbered={list.type === "ol" ? numbered + 1 : numbered}
+                    spacing={spacing}
+                    top={spacing.tight}
+                    width={bodyWidth}
+                  />
+                )
+              )}
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
