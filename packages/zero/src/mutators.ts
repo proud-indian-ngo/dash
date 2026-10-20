@@ -51,6 +51,10 @@ import {
 } from "./mutators/meetings";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
+import {
+  policyAcknowledgementMutators,
+  policyMutators,
+} from "./mutators/policies";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { scheduledMessageMutators } from "./mutators/scheduled-message";
 import { socialPostMutators } from "./mutators/social-post";
@@ -103,6 +107,8 @@ export const mutators = defineMutators({
   orgAccount: orgAccountMutators,
   organisationRegistration: organisationRegistrationMutators,
   otherIncome: otherIncomeMutators,
+  policy: policyMutators,
+  policyAcknowledgement: policyAcknowledgementMutators,
   programme: programmeMutators,
   project: projectMutators,
   reimbursement: reimbursementMutators,

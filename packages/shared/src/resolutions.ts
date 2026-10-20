@@ -72,6 +72,10 @@ export const resolutionTemplateKeyValues = [
   "registered_office",
   "deed_amendment",
   "removal",
+  "budget_approval",
+  "accounts_approval",
+  "auditor_appointment",
+  "accumulation",
 ] as const;
 export type ResolutionTemplateKey =
   (typeof resolutionTemplateKeyValues)[number];
@@ -125,6 +129,36 @@ export const RESOLUTION_TEMPLATES: Record<
   ResolutionTemplateKey,
   ResolutionTemplate
 > = {
+  accounts_approval: {
+    allowedBelowMinimum: false,
+    description:
+      "Approve the audited accounts of the year that ended (annual pack), in time for the audit report.",
+    effect: "none",
+    key: "accounts_approval",
+    text: "RESOLVED THAT the audited Balance Sheet as at 31 March [year] and the Income and Expenditure Account for the year ended on that date, together with the auditor's report, as placed before the Board, be and are hereby approved and adopted.\n\nRESOLVED FURTHER THAT the Managing Trustee be authorised to sign the accounts on behalf of the Board.",
+    threshold: "majority_in_office",
+    title: "Approval of the annual accounts",
+  },
+  accumulation: {
+    allowedBelowMinimum: false,
+    description:
+      "Set apart income for a specific purpose for up to five years (annual pack). The accumulation statement (Form 109) is filed with this resolution.",
+    effect: "none",
+    key: "accumulation",
+    text: "RESOLVED THAT a sum of Rs [amount] out of the income of the financial year [year] be accumulated and set apart for [specific purpose], to be applied within [period] years, and that the statement of accumulation (Form 109) be filed with the income-tax authorities.",
+    threshold: "majority_in_office",
+    title: "Accumulation of income",
+  },
+  auditor_appointment: {
+    allowedBelowMinimum: false,
+    description:
+      "Appoint or reappoint the auditor for the year and fix their fee (annual pack).",
+    effect: "none",
+    key: "auditor_appointment",
+    text: "RESOLVED THAT [firm], Chartered Accountants (Firm Registration No. [number]), be and is hereby appointed auditor of the Trust for the financial year [year], at a fee of Rs [amount] plus applicable taxes.",
+    threshold: "majority_in_office",
+    title: "Appointment of the auditor",
+  },
   appointment: {
     allowedBelowMinimum: true,
     description:
@@ -134,6 +168,16 @@ export const RESOLUTION_TEMPLATES: Record<
     text: "RESOLVED THAT [name] be and is hereby appointed a Trustee of the Trust for a term from [date] to [date], and that [name] be requested to accept the trusteeship in writing.",
     threshold: "majority_in_office",
     title: "Appointment of a trustee",
+  },
+  budget_approval: {
+    allowedBelowMinimum: false,
+    description:
+      "Approve the next financial year's budget before it starts (clause 7.7, annual pack).",
+    effect: "none",
+    key: "budget_approval",
+    text: "RESOLVED THAT the budget of the Trust for the financial year [year], as placed before the Board, be and is hereby approved.",
+    threshold: "majority_in_office",
+    title: "Approval of the budget",
   },
   bank_operation: {
     allowedBelowMinimum: false,
@@ -446,6 +490,19 @@ export function signatureFieldBox(
 }
 
 export const SIGNATURE_BOX = BOX;
+
+/**
+ * The annual approvals pack: the calendar items whose closing evidence is a
+ * resolution, and the template each one opens.
+ */
+export const ANNUAL_PACK_TEMPLATES: Readonly<
+  Record<string, ResolutionTemplateKey>
+> = {
+  accounts_approval: "accounts_approval",
+  accumulation: "accumulation",
+  auditor_appointment: "auditor_appointment",
+  budget: "budget_approval",
+};
 
 export const RESOLUTION_TITLE_MAX = 200;
 export const RESOLUTION_TEXT_MAX = 20_000;

@@ -56,6 +56,7 @@ interface TeamFormDialogProps {
     description: string | null;
     programmeId: string | null;
     whatsappGroupId: string | null;
+    worksWithChildren?: boolean | null;
   };
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -80,6 +81,9 @@ export function TeamFormDialog({
     initialValues?.programmeId ?? ""
   );
   const [createWaGroup, setCreateWaGroup] = useState(false);
+  const [worksWithChildren, setWorksWithChildren] = useState(
+    initialValues?.worksWithChildren ?? false
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const [whatsappGroups] = useQuery(queries.whatsappGroup.all());
@@ -134,6 +138,7 @@ export function TeamFormDialog({
       setWhatsappGroupId(initialValues?.whatsappGroupId);
       setProgrammeId(initialValues?.programmeId ?? "");
       setCreateWaGroup(false);
+      setWorksWithChildren(initialValues?.worksWithChildren ?? false);
     }
   }, [open, initialValues]);
 
@@ -154,6 +159,7 @@ export function TeamFormDialog({
             now: Date.now(),
             programmeId: programmeId || null,
             whatsappGroupId: whatsappGroupId || null,
+            worksWithChildren,
           })
         )
       : zero.mutate(
@@ -164,6 +170,7 @@ export function TeamFormDialog({
             name: trimmedName,
             programmeId: programmeId || undefined,
             whatsappGroupId: whatsappGroupId || undefined,
+            worksWithChildren,
           })
         );
     const res = await mutation.server;
@@ -313,6 +320,22 @@ export function TeamFormDialog({
               placeholder="Optional description"
               rows={3}
               value={description}
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="grid gap-1">
+              <Label htmlFor="team-works-with-children">
+                Works with children
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Volunteers acknowledge the child-safeguarding policy before
+                joining this team's events.
+              </p>
+            </div>
+            <Switch
+              checked={worksWithChildren}
+              id="team-works-with-children"
+              onCheckedChange={(checked) => setWorksWithChildren(checked)}
             />
           </div>
           {Boolean(!(isEdit || whatsappGroupId)) && (

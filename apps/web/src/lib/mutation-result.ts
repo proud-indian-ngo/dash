@@ -32,6 +32,21 @@ export function getMutationResultErrorMessage(
 }
 
 /**
+ * The toast for joining an event: the safeguarding refusal as the server
+ * wrote it (it says what to do), anything else as the generic fallback.
+ */
+export function joinErrorMessage(
+  result: { error?: unknown; type: string },
+  fallback: string
+): string {
+  const message =
+    result.type === "error"
+      ? getMutationResultErrorMessage(result.error, "")
+      : "";
+  return message.includes("safeguarding policy") ? message : fallback;
+}
+
+/**
  * Handles a Zero mutation server result — logs errors via evlog browser log
  * drain and shows appropriate toast.
  */

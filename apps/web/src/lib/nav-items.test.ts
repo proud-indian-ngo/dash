@@ -292,6 +292,8 @@ describe("Governance navigation", () => {
       "Resolutions",
       "Meetings",
       "Compliance",
+      "Declarations",
+      "Policies",
       "Documents",
       "Registrations",
       "Trust deed",

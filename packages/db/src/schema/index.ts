@@ -26,6 +26,7 @@ export * from "./kalakriti-inventory";
 export * from "./kalakriti-results";
 export * from "./ledger";
 export * from "./meetings";
+export * from "./declarations";
 export * from "./notification";
 export * from "./party";
 export * from "./permission";

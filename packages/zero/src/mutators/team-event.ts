@@ -29,6 +29,7 @@ import type { TeamEvent, TeamEventMember } from "../schema";
 import { type Schema, zql } from "../schema";
 import { pickCostCentreId } from "./cost-centre-pick";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
+import { assertSafeToJoinEvent } from "./safeguarding";
 import {
   buildUpdateFields,
   cancelSeriesAll,
@@ -552,6 +553,9 @@ export const teamEventMutators = {
       if (existing) {
         throw new Error("User is already a member");
       }
+      await assertSafeToJoinEvent(tx, args.eventId, [args.userId], {
+        self: args.userId === ctx.userId,
+      });
 
       await tx.mutate.teamEventMember.insert({
         addedAt: args.now,
@@ -639,6 +643,12 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.manage_members", isTeamLead);
+      await assertSafeToJoinEvent(
+        tx,
+        args.eventId,
+        args.members.map((m) => m.userId),
+        { self: false }
+      );
 
       await Promise.all(
         args.members.map(async (member) => {
@@ -1078,6 +1088,9 @@ export const teamEventMutators = {
       if (existingMember) {
         throw new Error("Already a member of this event");
       }
+      await assertSafeToJoinEvent(tx, args.eventId, [ctx.userId], {
+        self: true,
+      });
 
       await tx.mutate.teamEventMember.insert({
         addedAt: args.now,

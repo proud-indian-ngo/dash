@@ -69,6 +69,7 @@ Orientation policy (`packages/db/src/kalakriti-orientation.ts`):
 - Enrolling a central user, or assigning them any responsibility, changes a persisted `unoriented_volunteer` role to `volunteer`. Other roles are untouched.
 - The update and session revocation run in the enrolment transaction. After commit, callers invalidate permission caches and enqueue the role-change notification and orientation WhatsApp only if a row changed.
 - Edition creation, pending or rejected interest, local volunteers and Guardian identities never promote. Removal never demotes.
+- Enrolling or assigning a central user needs the child-safeguarding policy acknowledged once a version is in force ([gate](governance-compliance.md#child-safeguarding-gate)).
 
 ### Guardians and the linked event
 

@@ -22,6 +22,32 @@ const deps = (
 });
 
 describe("authorizeR2Object", () => {
+  it("lets anyone signed in read a published policy, and a circular only its trustees", async () => {
+    const policy = {
+      access: "policy" as const,
+      filename: "safeguarding.pdf",
+      key: "app/governance/documents/doc/safeguarding.pdf",
+    };
+    await expect(
+      authorizeR2Object(ownerSession, policy, deps())
+    ).resolves.toEqual({ filename: policy.filename, key: policy.key });
+    const minutes = {
+      access: "resolution" as const,
+      filename: "minutes.pdf",
+      key: "app/governance/meetings/m/minutes.pdf",
+      recipientUserIds: ["chair"],
+    };
+    await expect(
+      authorizeR2Object(ownerSession, minutes, deps())
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      authorizeR2Object(
+        { user: { id: "chair", role: "volunteer" } },
+        minutes,
+        deps()
+      )
+    ).resolves.toEqual({ filename: minutes.filename, key: minutes.key });
+  });
   it("requires current inventory authorization and rejects temporary photos", async () => {
     const record = {
       access: "kalakritiInventoryPhoto" as const,

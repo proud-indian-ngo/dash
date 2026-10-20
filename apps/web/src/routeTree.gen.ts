@@ -49,8 +49,10 @@ import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppFinanceBudgetsRouteImport } from './routes/_app/finance/budgets'
 import { Route as AppGovernanceIndexRouteImport } from './routes/_app/governance/index'
 import { Route as AppGovernanceComplianceRouteImport } from './routes/_app/governance/compliance'
+import { Route as AppGovernanceDeclarationsRouteImport } from './routes/_app/governance/declarations'
 import { Route as AppGovernanceDeedRouteImport } from './routes/_app/governance/deed'
 import { Route as AppGovernanceDocumentsRouteImport } from './routes/_app/governance/documents'
+import { Route as AppGovernancePoliciesRouteImport } from './routes/_app/governance/policies'
 import { Route as AppGovernanceRegistrationsRouteImport } from './routes/_app/governance/registrations'
 import { Route as AppGovernanceSigningHelperRouteImport } from './routes/_app/governance/signing-helper'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
@@ -365,6 +367,12 @@ const AppGovernanceComplianceRoute = AppGovernanceComplianceRouteImport.update({
   path: '/compliance',
   getParentRoute: () => AppGovernanceRouteRoute,
 } as any)
+const AppGovernanceDeclarationsRoute =
+  AppGovernanceDeclarationsRouteImport.update({
+    id: '/declarations',
+    path: '/declarations',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppGovernanceDeedRoute = AppGovernanceDeedRouteImport.update({
   id: '/deed',
   path: '/deed',
@@ -373,6 +381,11 @@ const AppGovernanceDeedRoute = AppGovernanceDeedRouteImport.update({
 const AppGovernanceDocumentsRoute = AppGovernanceDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernancePoliciesRoute = AppGovernancePoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
   getParentRoute: () => AppGovernanceRouteRoute,
 } as any)
 const AppGovernanceRegistrationsRoute =
@@ -1027,8 +1040,10 @@ export interface FileRoutesByFullPath {
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
   '/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/governance/declarations': typeof AppGovernanceDeclarationsRoute
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/governance/policies': typeof AppGovernancePoliciesRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
@@ -1172,8 +1187,10 @@ export interface FileRoutesByTo {
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
   '/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/governance/declarations': typeof AppGovernanceDeclarationsRoute
   '/governance/deed': typeof AppGovernanceDeedRoute
   '/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/governance/policies': typeof AppGovernancePoliciesRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
@@ -1329,8 +1346,10 @@ export interface FileRoutesById {
   '/_app/events/$id': typeof AppEventsIdRoute
   '/_app/finance/budgets': typeof AppFinanceBudgetsRoute
   '/_app/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/_app/governance/declarations': typeof AppGovernanceDeclarationsRoute
   '/_app/governance/deed': typeof AppGovernanceDeedRoute
   '/_app/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/_app/governance/policies': typeof AppGovernancePoliciesRoute
   '/_app/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/_app/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/_app/income/import': typeof AppIncomeImportRoute
@@ -1488,8 +1507,10 @@ export interface FileRouteTypes {
     | '/events/$id'
     | '/finance/budgets'
     | '/governance/compliance'
+    | '/governance/declarations'
     | '/governance/deed'
     | '/governance/documents'
+    | '/governance/policies'
     | '/governance/registrations'
     | '/governance/signing-helper'
     | '/income/import'
@@ -1633,8 +1654,10 @@ export interface FileRouteTypes {
     | '/events/$id'
     | '/finance/budgets'
     | '/governance/compliance'
+    | '/governance/declarations'
     | '/governance/deed'
     | '/governance/documents'
+    | '/governance/policies'
     | '/governance/registrations'
     | '/governance/signing-helper'
     | '/income/import'
@@ -1789,8 +1812,10 @@ export interface FileRouteTypes {
     | '/_app/events/$id'
     | '/_app/finance/budgets'
     | '/_app/governance/compliance'
+    | '/_app/governance/declarations'
     | '/_app/governance/deed'
     | '/_app/governance/documents'
+    | '/_app/governance/policies'
     | '/_app/governance/registrations'
     | '/_app/governance/signing-helper'
     | '/_app/income/import'
@@ -2239,6 +2264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGovernanceComplianceRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
+    '/_app/governance/declarations': {
+      id: '/_app/governance/declarations'
+      path: '/declarations'
+      fullPath: '/governance/declarations'
+      preLoaderRoute: typeof AppGovernanceDeclarationsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
     '/_app/governance/deed': {
       id: '/_app/governance/deed'
       path: '/deed'
@@ -2251,6 +2283,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/governance/documents'
       preLoaderRoute: typeof AppGovernanceDocumentsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/policies': {
+      id: '/_app/governance/policies'
+      path: '/policies'
+      fullPath: '/governance/policies'
+      preLoaderRoute: typeof AppGovernancePoliciesRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/governance/registrations': {
@@ -3089,8 +3128,10 @@ const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
 
 interface AppGovernanceRouteRouteChildren {
   AppGovernanceComplianceRoute: typeof AppGovernanceComplianceRoute
+  AppGovernanceDeclarationsRoute: typeof AppGovernanceDeclarationsRoute
   AppGovernanceDeedRoute: typeof AppGovernanceDeedRoute
   AppGovernanceDocumentsRoute: typeof AppGovernanceDocumentsRoute
+  AppGovernancePoliciesRoute: typeof AppGovernancePoliciesRoute
   AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
   AppGovernanceSigningHelperRoute: typeof AppGovernanceSigningHelperRoute
   AppGovernanceIndexRoute: typeof AppGovernanceIndexRoute
@@ -3102,8 +3143,10 @@ interface AppGovernanceRouteRouteChildren {
 
 const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
   AppGovernanceComplianceRoute: AppGovernanceComplianceRoute,
+  AppGovernanceDeclarationsRoute: AppGovernanceDeclarationsRoute,
   AppGovernanceDeedRoute: AppGovernanceDeedRoute,
   AppGovernanceDocumentsRoute: AppGovernanceDocumentsRoute,
+  AppGovernancePoliciesRoute: AppGovernancePoliciesRoute,
   AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,
   AppGovernanceSigningHelperRoute: AppGovernanceSigningHelperRoute,
   AppGovernanceIndexRoute: AppGovernanceIndexRoute,

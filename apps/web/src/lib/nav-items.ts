@@ -24,6 +24,8 @@ import {
   Files01Icon,
   LegalDocument01Icon,
   MeetingRoomIcon,
+  Shield01Icon,
+  UserCheck01Icon,
   UserMultiple02Icon,
   FileExportIcon,
   HomeIcon,
@@ -165,6 +167,18 @@ const meetingsNavItem: NavItem = {
   url: "/governance/meetings",
 };
 
+const declarationsNavItem: NavItem = {
+  icon: UserCheck01Icon,
+  title: "Declarations",
+  url: "/governance/declarations",
+};
+
+const policiesNavItem: NavItem = {
+  icon: Shield01Icon,
+  title: "Policies",
+  url: "/governance/policies",
+};
+
 const complianceNavItem: NavItem = {
   icon: Calendar04Icon,
   title: "Compliance",
@@ -198,6 +212,8 @@ function governanceNavItems(permissions: string[]): NavItem[] {
       resolutionsNavItem,
       meetingsNavItem,
       complianceNavItem,
+      declarationsNavItem,
+      policiesNavItem,
       governanceDocumentsNavItem
     );
   }

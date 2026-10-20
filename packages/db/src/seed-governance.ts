@@ -1,3 +1,4 @@
+import { fiscalYearLabel } from "@pi-dash/shared/compliance";
 import { DEED_VERSION_1, deedVersionOn } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { kolkataInstant } from "@pi-dash/shared/meetings";
@@ -8,8 +9,16 @@ import {
   generateComplianceItems,
 } from "./queries/compliance";
 import { ensureGovernanceReferenceData } from "./queries/governance";
+import { ensureSafeguardingPolicy } from "./queries/policies";
+import {
+  conflictDeclaration,
+  policy,
+  policyAcknowledgement,
+  policyVersion,
+} from "./schema/declarations";
 import {
   deedVersion,
+  governanceDocument,
   resolution,
   trustee,
   trusteeOffice,
@@ -317,5 +326,132 @@ export async function ensureMeetingFixtures(): Promise<void> {
         updatedAt: now,
       },
     ])
+    .onConflictDoNothing();
+}
+
+export const POLICY_SEED_DOCUMENT_ID = "01930000-0000-7000-8000-00000000d501";
+
+/**
+ * The child-safeguarding policy (no version, so nothing is gated) and an
+ * approved policy document in the vault for specs that publish a version.
+ * The document's file isn't stored; nothing downloads it.
+ */
+export async function ensurePolicyFixtures(): Promise<void> {
+  await ensureSafeguardingPolicy();
+  await db
+    .insert(governanceDocument)
+    .values({
+      contentType: "application/pdf",
+      createdAt: new Date(),
+      datedOn: "2026-04-01",
+      id: POLICY_SEED_DOCUMENT_ID,
+      kind: "policy",
+      note: "Seeded for the policy register.",
+      objectKey: `seed/governance/documents/${POLICY_SEED_DOCUMENT_ID}/code-of-conduct.pdf`,
+      originalFilename: "code-of-conduct.pdf",
+      sha256: "0".repeat(64),
+      sizeBytes: 1024,
+      sourceFormat: "pdf",
+      title: "Volunteer code of conduct (approved)",
+      uploadedBy: null,
+    })
+    .onConflictDoNothing();
+}
+
+/**
+ * Dev examples for the policy register and declarations: a code of conduct
+ * with its first version, acknowledged by the given account, and the
+ * Managing Trustee's declaration for the year with nothing to declare. Not
+ * in the E2E seed, so specs see their own state.
+ */
+export async function ensureDevPolicyExamples(
+  acknowledgedBy: string | null
+): Promise<void> {
+  const now = new Date();
+  const policyId = "01930000-0000-7000-8000-00000000d511";
+  const versionId = "01930000-0000-7000-8000-00000000d512";
+  await db
+    .insert(policy)
+    .values({
+      audience: "everyone",
+      createdAt: now,
+      description: "How volunteers conduct themselves at events and online.",
+      gatesChildren: false,
+      id: policyId,
+      key: null,
+      title: "Volunteer code of conduct",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(policyVersion)
+    .values({
+      documentId: POLICY_SEED_DOCUMENT_ID,
+      effectiveOn: "2026-04-01",
+      id: versionId,
+      policyId,
+      publishedAt: now,
+      publishedBy: acknowledgedBy,
+      summary: "First version.",
+      version: 1,
+    })
+    .onConflictDoNothing();
+  if (acknowledgedBy) {
+    await db
+      .insert(policyAcknowledgement)
+      .values({
+        acknowledgedAt: now,
+        id: "01930000-0000-7000-8000-00000000d513",
+        policyVersionId: versionId,
+        userId: acknowledgedBy,
+      })
+      .onConflictDoNothing();
+  }
+  await db
+    .insert(conflictDeclaration)
+    .values({
+      createdAt: now,
+      declaredAt: now,
+      declaredBy: null,
+      documentId: null,
+      fiscalYear: fiscalYearLabel(todayInKolkata()),
+      id: "01930000-0000-7000-8000-00000000d521",
+      interests: [],
+      nothingToDeclare: true,
+      trusteeId: T.managingTrustee,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+}
+
+/**
+ * For E2E: the Joint Managing Trustee's declaration for the year, naming
+ * the vendor of the seeded vendor payment, so the approver's warning can be
+ * checked without making a declaration's PDF.
+ */
+export async function ensureDeclarationFixture(
+  vendorName: string
+): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(conflictDeclaration)
+    .values({
+      createdAt: now,
+      declaredAt: now,
+      declaredBy: null,
+      documentId: null,
+      fiscalYear: fiscalYearLabel(todayInKolkata()),
+      id: "01930000-0000-7000-8000-00000000d522",
+      interests: [
+        {
+          nature: "Event supplies",
+          party: vendorName,
+          relationship: "Brother's firm",
+        },
+      ],
+      nothingToDeclare: false,
+      trusteeId: T.jointManagingTrustee,
+      updatedAt: now,
+    })
     .onConflictDoNothing();
 }

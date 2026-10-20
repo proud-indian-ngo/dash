@@ -31,6 +31,7 @@ import {
   assertCanManageVolunteerRoster,
   ensureUnassignedVolunteerEnrollment,
 } from "./kalakriti-volunteer-enroll";
+import { assertSafeguardingAcknowledged } from "./safeguarding";
 
 abstract class BivariantZeroMutation {
   abstract bivarianceHack(args: unknown): Promise<void>;
@@ -380,6 +381,10 @@ async function assignVolunteerResponsibility(
     if (!volunteer) {
       return;
     }
+    // Kalakriti is always an event with children.
+    await assertSafeguardingAcknowledged(tx, [args.userId], {
+      self: args.userId === ctx.userId,
+    });
     membership = assertVolunteerMembership(
       (await tx.run(
         zql.kalakritiEditionMembership
