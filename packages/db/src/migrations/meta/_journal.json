@@ -1219,6 +1219,13 @@
       "when": 1792433652740,
       "tag": "0173_trustee_end_source_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1792476243330,
+      "tag": "0174_signing_job_meeting",
+      "breakpoints": true
     }
   ]
 }

@@ -179,9 +179,9 @@ export function CircularSignPanel({
         </p>
       </div>
       <DscSignSection
-        circularId={circularId}
         onAvailability={setDscAvailable}
         onVote={runVote}
+        target={{ circularId }}
       />
       {dscAvailable === false ? (
         acrobat

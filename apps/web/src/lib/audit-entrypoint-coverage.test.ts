@@ -10,6 +10,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "generateMinutesFn",
   "submitSignedMinutesFn",
   "startDscSigningFn",
+  "startDscMinutesSigningFn",
   "startDscEnrolmentFn",
   "recordHistoricalResolutionFn",
   "withdrawCircularFn",
@@ -151,7 +152,11 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
   "routes/api/jobs/$id/retry.ts": ["runSessionAuditedAction"],
   "routes/api/jobs/index.ts": ["runSessionAuditedAction"],
   "lib/social-api/posted.ts": ["runAuditedAction", "social.posted.record"],
-  "lib/governance/signing-jobs.ts": ["runAuditedAction", "circular.sign"],
+  "lib/governance/signing-jobs.ts": [
+    "runAuditedAction",
+    "circular.sign",
+    "meeting.sign_minutes",
+  ],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",
     "tx.mutate.auditLog.insert",

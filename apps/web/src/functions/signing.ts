@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { MeetingError } from "@pi-dash/db/queries/meetings";
 import {
   createSigningJob,
   currentCertificate,
@@ -14,6 +15,7 @@ import z from "zod";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
 import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
+import { startMinutesJob } from "@/lib/governance/signing-jobs";
 import {
   SigningServiceError,
   signingServiceConfigured,
@@ -46,6 +48,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
   return run().catch((error: unknown) => {
     if (
       error instanceof CircularError ||
+      error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
       throw new Error(error.message);
@@ -156,6 +159,39 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
             kind: "sign",
             stateObjectKey,
             toSign: started.toSign,
+            trusteeId: me.id,
+            userId: session.user.id,
+          });
+          return { jobId: job.id, link: helperLink("sign", job.token) };
+        })
+    );
+  });
+
+/** The chair signs the meeting's current minutes with the helper. */
+export const startDscMinutesSigningFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ meetingId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "meeting.sign_minutes.start",
+        target: { id: data.meetingId, type: "meeting" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          const job = await startMinutesJob({
+            meetingId: data.meetingId,
             trusteeId: me.id,
             userId: session.user.id,
           });
