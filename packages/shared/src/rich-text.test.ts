@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   bodyUntouched,
+  RESOLUTION_TEMPLATES,
   RESOLUTION_TEXT_MAX,
   resolutionBodyProblem,
   resolutionBodySchema,
+  resolutionTemplateKeyValues,
   templateBody,
 } from "./resolutions";
 import {
@@ -397,4 +399,24 @@ describe("listNumber", () => {
     expect(listNumber(1, 26)).toBe("aa");
     expect(listNumber(2, 13)).toBe("xiv");
   });
+});
+
+describe("resolution templates", () => {
+  it.each(resolutionTemplateKeyValues)(
+    "%s is valid rich text, untouched when fresh, with bold lead words",
+    (key) => {
+      const value = parseRichText(templateBody(key));
+      expect(value).toEqual(RESOLUTION_TEMPLATES[key].body);
+      expect(bodyUntouched(templateBody(key), key)).toBe(true);
+      for (const block of value) {
+        if (block.type !== "p") {
+          continue;
+        }
+        const [lead, ...rest] = block.children;
+        expect(lead?.text).toMatch(/^RESOLVED (FURTHER )?THAT ?$/);
+        expect(lead?.bold).toBe(true);
+        expect(rest.every((l) => !l.bold)).toBe(true);
+      }
+    }
+  );
 });

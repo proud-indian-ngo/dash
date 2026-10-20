@@ -158,7 +158,7 @@ function cell(node: unknown): RichTextCell {
   };
 }
 
-function table(node: Record<string, unknown>): RichTextTable {
+function parseTable(node: Record<string, unknown>): RichTextTable {
   const rows = childrenOf(node).map((row) => {
     if (!(isRecord(row) && row.type === "tr")) {
       throw new RichTextError("A table holds only rows.");
@@ -188,7 +188,7 @@ function block(node: unknown): RichTextBlock {
     case "ol":
       return list(node, node.type, 1);
     case "table":
-      return table(node);
+      return parseTable(node);
     default:
       throw new RichTextError(
         `Use paragraphs, lists and tables only, not ${String(node.type)}.`
@@ -210,8 +210,15 @@ export function parseRichText(json: string): RichTextValue {
   return raw.map(block);
 }
 
+/** JSON with keys sorted, so equal values serialize alike however built. */
 export function serializeRichText(value: RichTextValue): string {
-  return JSON.stringify(value);
+  return JSON.stringify(value, (_, node: unknown) =>
+    isRecord(node)
+      ? Object.fromEntries(
+          Object.entries(node).sort(([a], [b]) => (a < b ? -1 : 1))
+        )
+      : node
+  );
 }
 
 function inlineText(node: { children: RichTextLeaf[] }): string {
@@ -416,4 +423,52 @@ export function richTextSchema({
         return z.NEVER;
       }
     });
+}
+
+// Builders, so rich text written in code (resolution templates) reads as
+// text. A string is plain text; `bold` marks a run.
+
+type Inline = string | RichTextLeaf;
+
+const leafOf = (part: Inline): RichTextLeaf =>
+  typeof part === "string" ? { text: part } : part;
+
+export function bold(text: string): RichTextLeaf {
+  return { bold: true, text };
+}
+
+export function p(...parts: Inline[]): RichTextParagraph {
+  return { children: parts.map(leafOf), type: "p" };
+}
+
+function listOf(type: "ol" | "ul", items: (Inline | Inline[])[]): RichTextList {
+  return {
+    children: items.map((item) => ({
+      children: [
+        {
+          children: (Array.isArray(item) ? item : [item]).map(leafOf),
+          type: "lic" as const,
+        },
+      ],
+      type: "li" as const,
+    })),
+    type,
+  };
+}
+
+/** A numbered list; an item is a string, a run, or several runs. */
+export function ol(...items: (Inline | Inline[])[]): RichTextList {
+  return listOf("ol", items);
+}
+
+/** A table: the header row's cells, then each row's. */
+export function table(header: string[], ...rows: string[][]): RichTextTable {
+  const row = (type: "td" | "th", cells: string[]): RichTextRow => ({
+    children: cells.map((text) => ({ children: [p(text)], type })),
+    type: "tr",
+  });
+  return {
+    children: [row("th", header), ...rows.map((cells) => row("td", cells))],
+    type: "table",
+  };
 }

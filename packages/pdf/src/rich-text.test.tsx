@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { RESOLUTION_TEXT_MAX } from "@pi-dash/shared/resolutions";
+import {
+  RESOLUTION_TEMPLATES,
+  RESOLUTION_TEXT_MAX,
+  resolutionTemplateKeyValues,
+  templateBody,
+} from "@pi-dash/shared/resolutions";
 import {
   MAX_TABLE_COLUMNS,
   parseRichText,
@@ -145,5 +150,32 @@ describe("rich text in the PDF", () => {
     expect(words[words.indexOf("ulol") - 1]).toBe("1.");
     expect(words[words.indexOf("outer") - 1]).toBe("1.");
     expect(words[words.indexOf("inner") - 1]).toBe("a.");
+  });
+});
+
+describe("resolution templates in the PDF", () => {
+  it("draws every template's text in one circular", async () => {
+    const pdf = await generateCircularResolutionPdf({
+      authority: "Clause 4.18 of the Trust Deed",
+      issuedOn: "2026-10-21",
+      issuer: { name: "Asha Rao", office: "Managing Trustee" },
+      org: { address: "Bengaluru 560016", name: "Proud Indian" },
+      reference: "C-0193ABCD",
+      resolutions: resolutionTemplateKeyValues.map((key) => ({
+        body: templateBody(key),
+        threshold: "Majority of trustees in office (2 of 3)",
+        title: RESOLUTION_TEMPLATES[key].title,
+      })),
+      responseDueOn: "2026-10-28",
+      signers: [{ name: "Trustee 1", offices: "", trusteeId: "01930000" }],
+    });
+    // Runs split at marks ("THAT" and ","), so match against the joined text.
+    const drawn = (await pdfWords(pdf)).join("");
+    const expected = resolutionTemplateKeyValues.flatMap((key) =>
+      richTextToPlain(RESOLUTION_TEMPLATES[key].body)
+        .split(/[\s|]+/)
+        .filter((w) => w && w !== "-")
+    );
+    expect(expected.filter((w) => !drawn.includes(w))).toEqual([]);
   });
 });
