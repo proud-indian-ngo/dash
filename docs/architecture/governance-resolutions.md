@@ -35,7 +35,7 @@ Trustees sign with the DSC helper or in Acrobat, and every copy goes through the
   1. Enrolment, once per DSC: the helper reads the token's certificate (valid now, RSA), kept in the trustee's name. A renewed DSC is enrolled again.
   2. Signing needs a recent sign-in and an enrolled certificate. The signing service reserves the trustee's field and returns the attributes to sign, and the page opens a `pidash-sign://` link with a one-time job token (hashed at rest, 15 minutes).
   3. The helper fetches the job, asks for the PIN in its own window (never stored or sent), signs on the token and posts the signature back.
-  4. The service checks the signature against the certificate and embeds it with a timestamp (PAdES B-T). The result must come from the enrolled certificate. The job API has no session, so it is audited in the trustee's name.
+  4. The service checks the signature against the certificate and embeds it with a timestamp (PAdES B-T). The result must come from the enrolled certificate. The box shows the name large, then "Digitally signed by", the name and the date in India time, over a faint Proud Indian symbol. The job API has no session, so it is audited in the trustee's name.
 - **Acrobat**: download the latest PDF, sign the box with the token in Acrobat or Reader, upload the saved copy.
 
 The helper (`services/signing-helper`, Rust) signs only for the server its installer wrote into its config, so a crafted link can't make a token sign for another site. Installing and releasing it are in its README. The Windows binary is unsigned until SignPath signs it.

@@ -31,8 +31,11 @@ from pyhanko.sign.validation import async_add_validation_info
 from pyhanko_certvalidator import ValidationContext
 from pyhanko_certvalidator.registry import SimpleCertificateStore
 
+from .appearance import SignedByStampStyle
+
 #: Room for the CMS: the signature, the certificate chain and the TSA token.
-BYTES_RESERVED = 24_576
+#: An Indian DSC chain with a TSA token already needs about 13 KB.
+BYTES_RESERVED = 65_536
 MD = "sha256"
 
 
@@ -82,6 +85,7 @@ async def start(
             subfilter=fields.SigSeedSubFilter.PADES,
         ),
         signer=ext,
+        stamp_style=SignedByStampStyle(),
     )
     prep, _tbs, output = await pdf_signer.async_digest_doc_for_signing(
         writer, existing_fields_only=True, bytes_reserved=BYTES_RESERVED
