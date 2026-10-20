@@ -3,14 +3,14 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "../../fixtures/test";
 
 /**
- * Circular resolutions against the seeded board: the super admin is the
- * Managing Trustee (Asha Rao) and the admin the Joint Managing Trustee
- * (Vikram Menon), the two trustees in office. Each test drafts its own
- * circular. Signing needs the signing service, which E2E doesn't run; the
- * pass rules with signatures are covered by unit and database tests.
+ * Circulars against the seeded board: the super admin is the Managing
+ * Trustee (Asha Rao) and the admin the Joint Managing Trustee (Vikram
+ * Menon), the two trustees in office. Each test drafts its own
+ * resolutions. Signing needs the signing service, which E2E doesn't run;
+ * the pass rules with signatures are covered by unit and database tests.
  */
 
-async function draftAndIssue(page: Page, title: string) {
+async function draft(page: Page, title: string) {
   await page.goto("/governance/resolutions");
   await page.getByRole("button", { name: "New circular" }).click();
   const dialog = page.getByRole("dialog", { name: "New circular" });
@@ -19,13 +19,25 @@ async function draftAndIssue(page: Page, title: string) {
     .getByRole("textbox", { name: "Text" })
     .fill("RESOLVED THAT the Board approves the end-to-end test.");
   await dialog.getByRole("button", { name: "Create draft" }).click();
-  await expect(page.getByRole("heading", { name: title })).toBeVisible();
-  await page.getByRole("button", { exact: true, name: "Issue" }).click();
-  await page.getByRole("button", { name: "Issue to the trustees" }).click();
-  await expect(page.getByText("Issued", { exact: true })).toBeVisible({
+  // The first save in a fresh stack waits for Zero's initial sync.
+  await expect(page.getByRole("heading", { name: title })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText("0 of 2 signatures")).toBeVisible();
+}
+
+/** Issues the open draft, with any other drafts named, in that order. */
+async function issue(page: Page, alsoTitles: string[] = []) {
+  await page.getByRole("button", { exact: true, name: "Issue" }).click();
+  const dialog = page.getByRole("dialog", { name: "Issue a circular" });
+  for (const title of alsoTitles) {
+    await dialog.getByRole("checkbox", { name: title }).check();
+  }
+  await dialog
+    .getByRole("button", { name: /^Issue (\d+ resolutions )?to the trustees$/ })
+    .click();
+  await expect(page.getByRole("heading", { name: /^Circular C-/ })).toBeVisible(
+    { timeout: 20_000 }
+  );
 }
 
 /** Voting asks for the password when the sign-in is older than 10 minutes. */
@@ -42,66 +54,107 @@ async function confirmIfAsked(page: Page) {
     .catch(() => undefined);
 }
 
+function resolutionCard(page: Page, title: string) {
+  return page.getByRole("region", { name: title });
+}
+
 test.describe("circular resolutions (Managing Trustee)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
-  });
-
-  test("an objection from one of two trustees fails the circular", async ({
-    page,
-  }) => {
     test.skip(
-      Boolean(process.env.CI),
+      Boolean(process.env.CI) &&
+        testInfo.title !== "records a past resolution so the series continues",
       "Issuing stores the circular's PDF in R2, which CI does not have"
     );
+  });
+
+  test("an objection from one of two trustees fails the resolution", async ({
+    page,
+  }) => {
     test.slow();
     const title = `E2E circular objected ${Date.now()}`;
-    await draftAndIssue(page, title);
-    const panel = page.getByRole("region", { name: "Your response" });
-    await expect(panel).toBeVisible();
+    await draft(page, title);
+    await issue(page);
+    const card = resolutionCard(page, title);
+    await expect(card).toContainText("0 of 2 signatures");
+    const panel = page.getByRole("region", { name: "Your signature" });
+    await expect(panel).toContainText("Signing assents to resolution 1");
     // Folded behind the DSC button when the signing helper is available.
     const otherWays = panel.getByRole("button", { name: "Other ways to sign" });
     if (await otherWays.isVisible()) {
       await otherWays.click();
     }
     await expect(
-      panel.getByRole("link", { name: "Download PDF" })
-    ).toHaveAttribute("href", /kind=resolutionPdf/);
+      panel.getByRole("button", { name: "Download your copy" })
+    ).toBeVisible();
 
-    await panel.getByRole("button", { exact: true, name: "Object" }).click();
+    await card.getByRole("button", { name: "Object to resolution 1" }).click();
     const dialog = page.getByRole("dialog", {
       name: "Object to this resolution",
     });
     await dialog.getByLabel("Reason").fill("The budget isn't approved yet.");
     await dialog.getByRole("button", { name: "Record objection" }).click();
     await confirmIfAsked(page);
-    await expect(page.getByText("Failed", { exact: true })).toBeVisible({
+    await expect(card.getByText("Failed", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(card).toContainText("1 objection left too few trustees");
+    await expect(card).toContainText("You objected");
+    // Nothing is left to assent to, so there's nothing to sign.
+    await expect(panel).toBeHidden();
+  });
+
+  test("one circular carries two resolutions, answered one by one", async ({
+    page,
+  }) => {
+    test.slow();
+    const stamp = Date.now();
+    const first = `E2E first of two ${stamp}`;
+    const second = `E2E second of two ${stamp}`;
+    await draft(page, first);
+    await draft(page, second);
+    await issue(page, [first]);
+    // The draft the dialog opened from comes first, the one added after it.
     await expect(
-      page.getByText(/1 objection left too few trustees/)
+      page.getByRole("heading", { level: 2 }).filter({ hasText: /E2E/ })
+    ).toHaveText([second, first]);
+    const panel = page.getByRole("region", { name: "Your signature" });
+    await expect(panel).toContainText("Signing assents to resolutions 1, 2");
+
+    await resolutionCard(page, first)
+      .getByRole("button", { name: "Object to resolution 2" })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Object to this resolution",
+    });
+    await dialog.getByLabel("Reason").fill("Not this one.");
+    await dialog.getByRole("button", { name: "Record objection" }).click();
+    await confirmIfAsked(page);
+    await expect(panel).toContainText(
+      "Signing assents to resolution 1 and records that you object to resolution 2",
+      { timeout: 15_000 }
+    );
+    // The first resolution is still open; the second failed on its own.
+    await expect(
+      resolutionCard(page, second).getByText("Issued", { exact: true })
     ).toBeVisible();
-    const signatures = page.getByRole("region", { name: "Signatures" });
-    const row = signatures
-      .getByRole("listitem")
-      .filter({ hasText: "Asha Rao" });
-    await expect(row).toContainText("Objected");
-    await expect(row).toContainText("The budget isn't approved yet.");
+    await expect(
+      resolutionCard(page, first).getByText("Failed", { exact: true })
+    ).toBeVisible();
   });
 
   test("a conflicted trustee steps aside, and the issuer can withdraw", async ({
     page,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Issuing stores the circular's PDF in R2, which CI does not have"
-    );
     test.slow();
     const title = `E2E circular withdrawn ${Date.now()}`;
-    await draftAndIssue(page, title);
-    const panel = page.getByRole("region", { name: "Your response" });
-    await panel
-      .getByRole("button", { name: "Declare a conflict of interest" })
+    await draft(page, title);
+    await issue(page);
+    const card = resolutionCard(page, title);
+    await card
+      .getByRole("button", {
+        name: "Declare a conflict of interest on resolution 1",
+      })
       .click();
     const dialog = page.getByRole("dialog", {
       name: "Declare a conflict of interest",
@@ -109,15 +162,13 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await dialog.getByLabel("What is the interest?").fill("Related party.");
     await dialog.getByRole("button", { name: "Declare conflict" }).click();
     await confirmIfAsked(page);
-    await expect(panel).toBeHidden({ timeout: 15_000 });
+    await expect(card).toContainText("You declared a conflict of interest", {
+      timeout: 15_000,
+    });
+    await expect(card).toContainText("0 of 1 signatures");
     await expect(
-      page
-        .getByRole("region", { name: "Signatures" })
-        .getByRole("listitem")
-        .filter({ hasText: "Asha Rao" })
-        .getByText("Conflict declared")
-    ).toBeVisible();
-    await expect(page.getByText("0 of 1 signatures")).toBeVisible();
+      page.getByRole("region", { name: "Your signature" })
+    ).toBeHidden();
 
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Withdraw circular" }).click();
@@ -126,7 +177,7 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     });
     await withdraw.getByLabel("Reason").fill("Wrong wording.");
     await withdraw.getByRole("button", { name: "Withdraw" }).click();
-    await expect(page.getByText("Withdrawn", { exact: true })).toBeVisible({
+    await expect(card.getByText("Withdrawn", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
   });
@@ -178,7 +229,10 @@ test.describe("circular resolutions (another trustee)", () => {
     await dialog.getByRole("button", { name: "Create draft" }).click();
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await page.getByRole("button", { exact: true, name: "Issue" }).click();
-    await page.getByRole("button", { name: "Issue to the trustees" }).click();
+    await page
+      .getByRole("dialog", { name: "Issue a circular" })
+      .getByRole("button", { name: "Issue to the trustees" })
+      .click();
     await expect(
       page.getByText(/Only the Managing Trustee can issue/)
     ).toBeVisible();

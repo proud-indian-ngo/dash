@@ -1,5 +1,4 @@
 import { db } from "@pi-dash/db";
-import { currentRevision, responseFor } from "@pi-dash/db/queries/resolutions";
 import {
   createSigningJob,
   currentCertificate,
@@ -14,6 +13,7 @@ import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
+import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
 import {
   SigningServiceError,
   signingServiceConfigured,
@@ -105,7 +105,7 @@ export const startDscEnrolmentFn = createServerFn({ method: "POST" })
 
 export const startDscSigningFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ resolutionId: z.uuid() }))
+  .validator(z.object({ circularId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new Error("Unauthorized");
@@ -115,8 +115,8 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
       session,
       context.headers,
       {
-        action: "resolution.sign.start",
-        target: { id: data.resolutionId, type: "resolution" },
+        action: "circular.sign.start",
+        target: { id: data.circularId, type: "circular" },
       },
       () =>
         userFacing(async () => {
@@ -125,44 +125,35 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const [response, revision, certificate] = await Promise.all([
-            responseFor(data.resolutionId, me.id),
-            currentRevision(data.resolutionId),
-            currentCertificate(me.id),
-          ]);
-          if (!(response && revision)) {
-            throw new CircularError(
-              "You weren't a trustee in office when this was issued."
-            );
-          }
-          if (response.response !== "pending" || response.conflictDeclared) {
-            throw new CircularError("You have already responded.");
-          }
+          const certificate = await currentCertificate(me.id);
           if (!certificate) {
             throw new CircularError(
               "Set up your DSC first: no valid certificate is enrolled for you."
             );
           }
-          const s3 = await getS3();
-          const pdf = new Uint8Array(
-            await s3.file(revision.latestObjectKey).arrayBuffer()
-          );
+          const copy = await signingCopy(data.circularId, me.id, {
+            create: true,
+          });
           const started = await startRemoteSignature({
             certificate: certificate.der,
             chain: certificate.chain,
-            fieldName: response.fieldName,
-            pdf,
+            fieldName: copy.fieldName,
+            pdf: copy.bytes,
           });
-          const stateObjectKey = `${env.R2_KEY_PREFIX}/governance/resolutions/${data.resolutionId}/sign-state-${uuidv7()}.json`;
+          const s3 = await getS3();
+          const stateObjectKey = circularKey(
+            data.circularId,
+            `sign-state-${uuidv7()}.json`
+          );
           await s3.write(stateObjectKey, started.state, {
             type: "application/json",
           });
           const job = await createSigningJob({
-            basedOnSha256: revision.latestSha256,
+            basedOnSha256: copy.basedOnSha256,
             certificateId: certificate.id,
-            fieldName: response.fieldName,
+            circularId: data.circularId,
+            fieldName: copy.fieldName,
             kind: "sign",
-            resolutionId: data.resolutionId,
             stateObjectKey,
             toSign: started.toSign,
             trusteeId: me.id,

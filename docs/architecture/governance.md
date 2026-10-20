@@ -62,7 +62,7 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Signing service
 
-`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Without it, uploads are stored unchecked and can be checked later.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts, pyHanko's verdicts and text-field values (a circular's answers), never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, fills answers into, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Its validator uses pyHanko's default diff policy, except that a field's appearance may not be rewritten in place: pyHanko otherwise reads every later answers fill as a change to the locked field. Without it, uploads are stored unchecked and can be checked later.
 
 ## Board at design time
 

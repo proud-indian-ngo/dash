@@ -16,8 +16,17 @@ from pathlib import Path
 from typing import Any
 
 from asn1crypto import pem, x509
+from pyhanko.pdf_utils.form_tools import enumerate_fields_in
 from pyhanko.pdf_utils.misc import PdfReadError
 from pyhanko.pdf_utils.reader import PdfFileReader
+from pyhanko.sign.diff_analysis import (
+    DEFAULT_DIFF_POLICY,
+    FormUpdatingRule,
+    GenericFieldModificationRule,
+    SigFieldCreationRule,
+    SigFieldModificationRule,
+    StandardDiffPolicy,
+)
 from pyhanko.sign.validation import (
     async_validate_pdf_signature,
     async_validate_pdf_timestamp,
@@ -28,6 +37,22 @@ from pyhanko_certvalidator import ValidationContext
 log = logging.getLogger(__name__)
 
 CERT_SUFFIXES = {".pem", ".cer", ".crt", ".der"}
+
+#: pyHanko's default policy, except that a non-signature field's existing
+#: appearance stream can't be rewritten in place. pyHanko (0.37, 0.38) counts
+#: every such stream written before the signed revision as rewritten, so a
+#: signature that locks a filled answers field would fail once anyone else
+#: fills or signs later. A changed appearance must be a new stream instead.
+DIFF_POLICY = StandardDiffPolicy(
+    global_rules=DEFAULT_DIFF_POLICY.global_rules,
+    form_rule=FormUpdatingRule(
+        field_rules=[
+            SigFieldCreationRule(),
+            SigFieldModificationRule(),
+            GenericFieldModificationRule(allow_in_place_appearance_stream_changes=False),
+        ]
+    ),
+)
 
 
 def load_trust_roots(directory: Path | None) -> list[x509.Certificate]:
@@ -94,6 +119,20 @@ def _certificate_facts(cert: x509.Certificate) -> dict[str, Any]:
     }
 
 
+def _text_fields(reader: PdfFileReader) -> dict[str, str]:
+    """Every text field's value in the latest revision; empty when unset."""
+    try:
+        fields = reader.root["/AcroForm"]["/Fields"]
+    except KeyError:
+        return {}
+    return {
+        name: str(value) if value is not None else ""
+        for name, value, _ in enumerate_fields_in(
+            fields, refs_seen=set(), target_field_type="/Tx"
+        )
+    }
+
+
 def validate_pdf(data: bytes, settings: ValidationSettings) -> dict[str, Any]:
     """Synchronous form of `validate_pdf_async`, for scripts and tests."""
     return asyncio.run(validate_pdf_async(data, settings))
@@ -107,16 +146,23 @@ async def validate_pdf_async(
     try:
         reader = PdfFileReader(io.BytesIO(data), strict=False)
         embedded = list(reader.embedded_signatures)
+        text_fields = _text_fields(reader)
     except (PdfReadError, ValueError, KeyError) as error:
         return {
             "checkedAt": checked_at,
             "message": f"Not a readable PDF: {type(error).__name__}",
             "signatures": [],
             "status": "invalid",
+            "textFields": {},
         }
 
     if not embedded:
-        return {"checkedAt": checked_at, "signatures": [], "status": "no_signatures"}
+        return {
+            "checkedAt": checked_at,
+            "signatures": [],
+            "status": "no_signatures",
+            "textFields": text_fields,
+        }
 
     signatures: list[dict[str, Any]] = []
     document_timestamps: list[dict[str, Any]] = []
@@ -144,7 +190,7 @@ async def validate_pdf_async(
             continue
         try:
             status = await async_validate_pdf_signature(
-                sig, signer_validation_context=settings.context()
+                sig, signer_validation_context=settings.context(), diff_policy=DIFF_POLICY
             )
         except Exception as error:  # noqa: BLE001 - report, don't crash
             all_good = False
@@ -200,6 +246,7 @@ async def validate_pdf_async(
         "status": (
             "no_signatures" if not signatures else ("valid" if all_good else "invalid")
         ),
+        "textFields": text_fields,
     }
     if document_timestamps:
         report["documentTimestamps"] = document_timestamps

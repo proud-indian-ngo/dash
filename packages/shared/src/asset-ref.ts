@@ -1,6 +1,7 @@
 export const attachmentDownloadKindValues = [
   "advancePaymentAttachment",
   "advancePaymentApprovalScreenshot",
+  "circularPdf",
   "governanceDocument",
   "kalakritiEntryMusic",
   "kalakritiInventoryPhoto",
@@ -9,7 +10,6 @@ export const attachmentDownloadKindValues = [
   "policyDocument",
   "reimbursementAttachment",
   "reimbursementApprovalScreenshot",
-  "resolutionPdf",
   "scheduledMessageAttachment",
   "vendorPaymentAttachment",
   "vendorPaymentTransactionAttachment",
@@ -26,6 +26,7 @@ export type AttachmentRowDownloadKind = Exclude<
 export type AttachmentDownloadRef =
   | { id: string; kind: "advancePaymentAttachment" }
   | { id: string; kind: "advancePaymentApprovalScreenshot" }
+  | { id: string; kind: "circularPdf" }
   | { id: string; kind: "governanceDocument" }
   | { id: string; kind: "kalakritiEntryMusic" }
   | { id: string; kind: "kalakritiInventoryPhoto" }
@@ -34,7 +35,6 @@ export type AttachmentDownloadRef =
   | { id: string; kind: "policyDocument" }
   | { id: string; kind: "reimbursementAttachment" }
   | { id: string; kind: "reimbursementApprovalScreenshot" }
-  | { id: string; kind: "resolutionPdf" }
   | { id: string; key: string; kind: "scheduledMessageAttachment" }
   | { id: string; kind: "vendorPaymentAttachment" }
   | { id: string; kind: "vendorPaymentTransactionAttachment" };

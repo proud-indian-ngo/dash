@@ -60,13 +60,13 @@ function useHelperJob() {
 export function DscSignSection({
   onAvailability,
   onVote,
-  resolutionId,
+  circularId,
 }: {
   /** Whether the helper can be used here, once the status has loaded. */
   onAvailability: (available: boolean) => void;
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
-  resolutionId: string;
+  circularId: string;
 }) {
   const loadStatus = useServerFn(getMyDscStatus);
   const enrol = useServerFn(startDscEnrolmentFn);
@@ -116,7 +116,7 @@ export function DscSignSection({
 
   const handleSign = useEventCallback(async () => {
     setBusy("sign");
-    await onVote(() => runJob(() => sign({ data: { resolutionId } })))
+    await onVote(() => runJob(() => sign({ data: { circularId } })))
       .then((outcome) => {
         if (!outcome) {
           return;

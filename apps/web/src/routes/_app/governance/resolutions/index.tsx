@@ -273,7 +273,8 @@ function ResolutionsPage() {
       const status = row.status ?? "draft";
       return {
         date: epochToIso(
-          (status === "issued" ? row.responseDueOn : row.decidedOn) ?? null
+          (status === "issued" ? row.circular?.responseDueOn : row.decidedOn) ??
+            null
         ),
         historical: row.historical ?? false,
         id: row.id,

@@ -7,11 +7,11 @@ import {
 import { policyVersion } from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import {
+  circularRevision,
   governanceDocument,
   resolution,
-  trustee,
   resolutionResponse,
-  resolutionRevision,
+  trustee,
 } from "@pi-dash/db/schema/governance";
 import { meeting } from "@pi-dash/db/schema/meetings";
 import {
@@ -30,6 +30,7 @@ import {
   vendorPaymentTransactionAttachment,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
+import { circularReference } from "@pi-dash/shared/resolutions";
 import { and, desc, eq } from "drizzle-orm";
 
 import {
@@ -307,34 +308,26 @@ async function resolveGovernanceDocument(
     : null;
 }
 
-async function resolveResolutionPdf(
-  ref: AssetRef<"resolutionPdf">
+async function resolveCircularPdf(
+  ref: AssetRef<"circularPdf">
 ): Promise<R2ObjectRecord | null> {
   const [revision] = await db
-    .select({
-      key: resolutionRevision.latestObjectKey,
-      number: resolution.number,
-      title: resolution.title,
-    })
-    .from(resolutionRevision)
-    .innerJoin(resolution, eq(resolution.id, resolutionRevision.resolutionId))
-    .where(eq(resolutionRevision.resolutionId, ref.id))
-    .orderBy(desc(resolutionRevision.revision))
+    .select({ key: circularRevision.latestObjectKey })
+    .from(circularRevision)
+    .where(eq(circularRevision.circularId, ref.id))
+    .orderBy(desc(circularRevision.revision))
     .limit(1);
   if (!revision) {
     return null;
   }
   const recipients = await db
-    .select({ userId: resolutionResponse.userId })
+    .selectDistinct({ userId: resolutionResponse.userId })
     .from(resolutionResponse)
-    .where(eq(resolutionResponse.resolutionId, ref.id));
-  const name = (revision.number ?? `circular-${ref.id.slice(-8)}`).replaceAll(
-    "/",
-    "-"
-  );
+    .innerJoin(resolution, eq(resolution.id, resolutionResponse.resolutionId))
+    .where(eq(resolution.circularId, ref.id));
   return {
     access: "resolution",
-    filename: `${name}.pdf`,
+    filename: `circular-${circularReference(ref.id)}.pdf`,
     key: revision.key,
     recipientUserIds: recipients
       .map((r) => r.userId)
@@ -422,6 +415,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveAdvancePaymentAttachment(ref);
     case "advancePaymentApprovalScreenshot":
       return resolveAdvancePaymentApprovalScreenshot(ref);
+    case "circularPdf":
+      return resolveCircularPdf(ref);
     case "eventPhoto":
       return resolveEventPhoto(ref);
     case "governanceDocument":
@@ -440,8 +435,6 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":
       return resolveReimbursementApprovalScreenshot(ref);
-    case "resolutionPdf":
-      return resolveResolutionPdf(ref);
     case "scheduledMessageAttachment":
       return resolveScheduledMessageAttachment(ref);
     case "vendorPaymentAttachment":

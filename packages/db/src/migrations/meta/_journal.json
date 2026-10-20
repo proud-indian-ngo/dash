@@ -1184,6 +1184,20 @@
       "when": 1792424022239,
       "tag": "0168_governance_annual_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1792424104883,
+      "tag": "0169_governance_circulars",
+      "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1792424106386,
+      "tag": "0170_governance_circulars_cleanup",
+      "breakpoints": true
     }
   ]
 }

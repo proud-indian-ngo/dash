@@ -1,40 +1,31 @@
 import {
+  ArrowRight01Icon,
   Delete02Icon,
-  Download04Icon,
   Edit02Icon,
   SentIcon,
-  Undo02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Button,
   buttonVariants,
 } from "@pi-dash/design-system/components/ui/button";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import { RESOLUTION_THRESHOLD_LABELS } from "@pi-dash/shared/governance";
 import {
-  addDays,
-  RESOLUTION_THRESHOLD_LABELS,
-} from "@pi-dash/shared/governance";
-import {
-  DEFAULT_RESPONSE_DAYS,
+  circularReference,
   effectSubject,
   RESOLUTION_TEMPLATES,
-  type ResolutionEffect,
   tallyCircular,
 } from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
 
+import { IssueCircularDialog } from "@/components/governance/issue-circular-dialog";
 import {
   epochToIso,
   formatIso,
@@ -45,9 +36,12 @@ import {
   draftValuesFrom,
   ResolutionDraftForm,
 } from "@/components/governance/resolution-draft-form";
-import { ResolutionResponsePanel } from "@/components/governance/resolution-response-panel";
 import { ResolutionSignatures } from "@/components/governance/resolution-signatures";
 import { ResolutionStatusBadge } from "@/components/governance/resolution-status";
+import {
+  effectText,
+  paragraphs,
+} from "@/components/governance/resolution-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
@@ -58,12 +52,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
-import {
-  issueResolutionFn,
-  withdrawResolutionFn,
-} from "@/functions/resolutions";
 import { useRecordTitle } from "@/hooks/use-record-title";
-import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
 import {
   getMutationResultErrorMessage,
@@ -79,35 +68,6 @@ export const Route = createFileRoute(
   }),
 });
 
-function paragraphs(body: string): string[] {
-  return body
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
-function effectText(
-  effect: ResolutionEffect,
-  names: Map<string, string>
-): string | null {
-  const who =
-    effect.type === "none" ? "" : (names.get(effect.trusteeId) ?? "A trustee");
-  switch (effect.type) {
-    case "none":
-      return null;
-    case "term_start":
-      return `${who} becomes a trustee from ${formatIso(effect.startsOn)}${effect.endsOn ? ` to ${formatIso(effect.endsOn)}` : " for life"}.`;
-    case "term_end":
-      return `${who} ceases to be a trustee from ${formatIso(effect.endedOn)}, and their offices end.`;
-    case "office_start":
-      return `${who} holds the office from ${formatIso(effect.startsOn)}; the previous holder's office ends that day.`;
-    case "removal":
-      return `${who} is removed from ${formatIso(effect.endedOn)} (hearing on ${formatIso(effect.hearingOn)}).`;
-    default:
-      return null;
-  }
-}
-
 function ResolutionPage() {
   const { resolutionId } = Route.useParams();
   const { hasPermission, user } = useApp();
@@ -118,48 +78,9 @@ function ResolutionPage() {
   const { trustees } = useRegister(today);
   const zero = useZero();
   const navigate = useNavigate();
-  const issue = useServerFn(issueResolutionFn);
-  const withdraw = useServerFn(withdrawResolutionFn);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [issuing, setIssuing] = useState(false);
-  const [dueOn, setDueOn] = useState(() =>
-    addDays(today, DEFAULT_RESPONSE_DAYS)
-  );
-  const [busy, setBusy] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
-  const [reason, setReason] = useState("");
-
-  const handleIssue = useEventCallback(async () => {
-    setBusy(true);
-    await issue({ data: { id: resolutionId, responseDueOn: dueOn } })
-      .then((out) => {
-        toast.success(`Issued to ${out.responders} trustees`);
-        setIssuing(false);
-      })
-      .catch((error: unknown) => {
-        toast.error("Couldn't issue it", {
-          description:
-            error instanceof Error ? error.message : "Something went wrong",
-        });
-      })
-      .finally(() => setBusy(false));
-  });
-  const handleWithdraw = useEventCallback(async () => {
-    setBusy(true);
-    await withdraw({ data: { id: resolutionId, reason } })
-      .then(() => {
-        toast.success("Circular withdrawn");
-        setWithdrawing(false);
-      })
-      .catch((error: unknown) => {
-        toast.error("Couldn't withdraw it", {
-          description:
-            error instanceof Error ? error.message : "Something went wrong",
-        });
-      })
-      .finally(() => setBusy(false));
-  });
   const handleDelete = useEventCallback(async () => {
     const out = await zero.mutate(
       mutators.resolution.deleteDraft({ id: resolutionId })
@@ -199,15 +120,14 @@ function ResolutionPage() {
   const responses = [...(row.responses ?? [])].sort((a, b) =>
     (a.trustee?.legalName ?? "").localeCompare(b.trustee?.legalName ?? "")
   );
-  // The open one first, should the account have moved between trustees.
-  const mine =
-    responses.find(
+  const { circular } = row;
+  const dueIso = epochToIso(circular?.responseDueOn ?? null);
+  const waitingForMe =
+    row.status === "issued" &&
+    responses.some(
       (r) =>
         r.userId === user.id && r.response === "pending" && !r.conflictDeclared
-    ) ??
-    responses.find((r) => r.userId === user.id) ??
-    null;
-  const dueIso = epochToIso(row.responseDueOn ?? null);
+    );
   const tally =
     row.status === "draft" || row.historical
       ? null
@@ -223,13 +143,8 @@ function ResolutionPage() {
           threshold: row.threshold ?? "majority_in_office",
           today,
         });
-  const isIssuer = row.issuedBy?.userId === user.id;
   const effectLine = effectText(row.effect, names);
-  const pdfHref = getProtectedAttachmentHref({
-    id: row.id,
-    kind: "resolutionPdf",
-  });
-  const fieldsPrepared = row.revisions?.[0]?.fieldsPrepared ?? true;
+  const siblings = circular?.resolutions ?? [];
 
   // A meeting's resolution is decided on the meeting's page, not issued.
   const isCircularDraft = row.status === "draft" && row.kind !== "meeting";
@@ -240,14 +155,6 @@ function ResolutionPage() {
         id: "edit",
         label: "Edit draft",
         onSelect: () => setEditing(true),
-      },
-    row.status === "issued" &&
-      isIssuer && {
-        destructive: true,
-        icon: Undo02Icon,
-        id: "withdraw",
-        label: "Withdraw circular",
-        onSelect: () => setWithdrawing(true),
       },
     isCircularDraft &&
       canManage && {
@@ -275,20 +182,21 @@ function ResolutionPage() {
                 Issue
               </Button>
             ) : null}
-            {row.status !== "draft" && !row.historical ? (
-              <a
-                className={buttonVariants({ variant: "outline" })}
-                href={pdfHref}
-                rel="noreferrer"
-                target="_blank"
+            {circular ? (
+              <Link
+                className={buttonVariants({
+                  variant: waitingForMe ? "default" : "outline",
+                })}
+                params={{ circularId: circular.id }}
+                to="/governance/resolutions/circulars/$circularId"
               >
+                {waitingForMe ? "Respond" : "Open circular"}
                 <HugeiconsIcon
                   className="size-4"
-                  icon={Download04Icon}
+                  icon={ArrowRight01Icon}
                   strokeWidth={2}
                 />
-                PDF
-              </a>
+              </Link>
             ) : null}
             {hasMenu ? (
               <PageHeaderMenu
@@ -314,12 +222,14 @@ function ResolutionPage() {
             Respond by {formatIso(dueIso)}
           </span>
         ) : null}
-        {row.issuedBy ? (
+        {circular ? (
           <span className="text-muted-foreground">
-            Issued by {row.issuedBy.legalName} on{" "}
-            {row.issuedAt
-              ? formatTimestamp(new Date(row.issuedAt).toISOString())
-              : "—"}
+            {siblings.length > 1
+              ? `Resolution ${row.position} of ${siblings.length} in circular ${circularReference(circular.id)}`
+              : `Circular ${circularReference(circular.id)}`}
+            {circular.issuedBy
+              ? `, issued by ${circular.issuedBy.legalName} on ${formatTimestamp(new Date(circular.issuedAt).toISOString())}`
+              : ""}
           </span>
         ) : null}
         {row.decidedOn ? (
@@ -372,15 +282,6 @@ function ResolutionPage() {
               }
               userId={user.id}
             />
-            {mine &&
-            row.status === "issued" &&
-            mine.response === "pending" &&
-            !mine.conflictDeclared ? (
-              <ResolutionResponsePanel
-                fieldsPrepared={fieldsPrepared}
-                resolutionId={row.id}
-              />
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -406,78 +307,13 @@ function ResolutionPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog onOpenChange={setIssuing} open={issuing}>
-        <DialogContent className="sm:max-w-(--dialog-md)">
-          <DialogHeader>
-            <DialogTitle>Issue this circular</DialogTitle>
-            <DialogDescription>
-              The text is fixed and a PDF with a signature box for every trustee
-              in office goes to each of them. Only the Managing Trustee can
-              issue it (clause 4.18).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="response-due">Respond by</Label>
-            <Input
-              id="response-due"
-              min={addDays(today, 1)}
-              onChange={(e) => setDueOn(e.target.value)}
-              type="date"
-              value={dueOn}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              onClick={() => setIssuing(false)}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button disabled={busy} onClick={handleIssue} type="button">
-              {busy ? "Issuing..." : "Issue to the trustees"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog onOpenChange={setWithdrawing} open={withdrawing}>
-        <DialogContent className="sm:max-w-(--dialog-md)">
-          <DialogHeader>
-            <DialogTitle>Withdraw this circular</DialogTitle>
-            <DialogDescription>
-              It stops collecting responses and stays on record as withdrawn. To
-              change the text, draft a new one.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="withdraw-reason">Reason</Label>
-            <Textarea
-              id="withdraw-reason"
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-              value={reason}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              onClick={() => setWithdrawing(false)}
-              type="button"
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={busy || !reason.trim()}
-              onClick={handleWithdraw}
-              type="button"
-              variant="destructive"
-            >
-              Withdraw
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {isCircularDraft && canManage ? (
+        <IssueCircularDialog
+          onOpenChange={setIssuing}
+          open={issuing}
+          startId={row.id}
+        />
+      ) : null}
 
       <ConfirmDialog
         confirmLabel="Delete draft"

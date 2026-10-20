@@ -1,4 +1,5 @@
 import {
+  ANSWERS_BOX,
   SIGNATURE_BOX,
   signaturePageCount,
   signatureSlots,
@@ -23,25 +24,26 @@ import {
 import { ProudIndianLockup } from "./proud-indian-lockup";
 
 /**
- * A circular resolution as issued: the text, then signature pages with one
- * block per trustee in office. Each block's box is where the signing service
- * puts that trustee's empty signature field (`signatureFieldBox`), so the
- * layout here and the field positions come from the same numbers.
+ * A circular as issued: its resolutions in order, then signature pages with
+ * one block per trustee in office. Each block's box is where the signing
+ * service puts that trustee's empty signature field (`signatureFieldBox`),
+ * and the space under their name is their answers field
+ * (`answersFieldBox`), so the layout here and the field positions come from
+ * the same numbers.
  */
 
 export interface CircularResolutionProps {
-  body: string;
   /** "Clause 4.18 of the Trust Deed (Doc. No. 864, Book IV, 2018-19)". */
   authority: string;
   issuedOn: string;
   issuer: { name: string; office: string };
   org: { address: string; name: string };
-  /** Short reference printed on every page; the register number comes when it passes. */
+  /** Short reference printed on every page; register numbers come as each passes. */
   reference: string;
+  /** In order; each passes or fails on its own. */
+  resolutions: { body: string; threshold: string; title: string }[];
   responseDueOn: string;
   signers: { name: string; offices: string; trusteeId: string }[];
-  threshold: string;
-  title: string;
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", {
@@ -58,6 +60,14 @@ function formatDay(isoDate: string): string {
 const styles = {
   ...productStyles,
   ...StyleSheet.create({
+    answers: {
+      border: `0.5pt solid ${MUTED}`,
+      borderRadius: 3,
+      height: ANSWERS_BOX.height,
+      left: ANSWERS_BOX.left,
+      position: "absolute",
+      width: ANSWERS_BOX.width,
+    },
     blockName: { fontSize: 11, fontWeight: 600 },
     blockOffice: { color: MUTED, fontSize: 9, marginTop: 2 },
     box: {
@@ -75,6 +85,7 @@ const styles = {
       position: "absolute",
     },
     paragraph: { fontSize: 10.5, lineHeight: 1.55, marginTop: 10 },
+    passes: { color: MUTED, fontSize: 9, marginTop: 8 },
     signaturePage: { ...productStyles.page, padding: 0 },
     signaturesHead: { left: 48, position: "absolute", right: 48, top: 44 },
     signaturesIntro: { fontSize: 9.5, lineHeight: 1.45, marginTop: 8 },
@@ -104,6 +115,10 @@ function Footer({ props }: { props: CircularResolutionProps }) {
 export function CircularResolution(props: CircularResolutionProps) {
   const slots = signatureSlots(props.signers.map((s) => s.trusteeId));
   const pages = signaturePageCount(props.signers.length);
+  const several = props.resolutions.length > 1;
+  const title = several
+    ? `Circular with ${props.resolutions.length} resolutions`
+    : (props.resolutions[0]?.title ?? "Resolution");
   return (
     <Document
       author={props.org.name}
@@ -112,7 +127,7 @@ export function CircularResolution(props: CircularResolutionProps) {
       modificationDate={documentDate(props.issuedOn)}
       producer="Proud Indian"
       subject="Resolution by circulation"
-      title={`${props.title} (${props.reference})`}
+      title={`${title} (${props.reference})`}
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
@@ -131,14 +146,23 @@ export function CircularResolution(props: CircularResolutionProps) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Line style={styles.name}>{props.title}</Line>
-          {paragraphs(props.body).map((paragraph, index) => (
-            <Line key={`p${String(index)}`} style={styles.paragraph}>
-              {paragraph}
+        {props.resolutions.map((resolution, index) => (
+          <View key={`r${String(index)}`} style={styles.section}>
+            <Line style={styles.name}>
+              {several
+                ? `Resolution ${index + 1}: ${resolution.title}`
+                : resolution.title}
             </Line>
-          ))}
-        </View>
+            {paragraphs(resolution.body).map((paragraph, p) => (
+              <Line key={`p${String(p)}`} style={styles.paragraph}>
+                {paragraph}
+              </Line>
+            ))}
+            <Line style={styles.passes}>
+              Passes with {resolution.threshold}
+            </Line>
+          </View>
+        ))}
 
         <View style={styles.section} wrap={false}>
           <Text style={styles.label}>Circulation</Text>
@@ -153,7 +177,14 @@ export function CircularResolution(props: CircularResolutionProps) {
               mono
               value={formatDay(props.responseDueOn)}
             />
-            <Fact label="Passes with" value={props.threshold} />
+            <Fact
+              label="Decided"
+              value={
+                several
+                  ? "Each resolution on its own, by the threshold under it"
+                  : "By the threshold under it"
+              }
+            />
           </View>
         </View>
         <Footer props={props} />
@@ -170,9 +201,12 @@ export function CircularResolution(props: CircularResolutionProps) {
           <View style={styles.signaturesHead}>
             <Text style={styles.title}>Signatures</Text>
             <Line style={styles.signaturesIntro}>
-              Each trustee who approves this resolution signs in their own box
-              with their digital signature certificate. A trustee who objects
-              does not sign and records the objection with its reason.
+              Each trustee signs once, in their own box, with their digital
+              signature certificate. Their answer to each resolution is filled
+              in under their name before they sign, and their signature covers
+              it: they assent to every resolution they haven't objected to or
+              declared a conflict on. A trustee who objects to every resolution
+              records the objections with their reasons and does not sign.
             </Line>
           </View>
           {slots
@@ -192,6 +226,10 @@ export function CircularResolution(props: CircularResolutionProps) {
                     {signer?.offices || "Trustee"}
                   </Line>
                 </View>,
+                <View
+                  key={`${slot.fieldName}-answers`}
+                  style={[styles.answers, { top: top + ANSWERS_BOX.offset }]}
+                />,
                 <View
                   key={`${slot.fieldName}-box`}
                   style={[styles.box, { top }]}

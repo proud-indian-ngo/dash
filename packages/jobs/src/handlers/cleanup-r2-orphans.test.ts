@@ -126,10 +126,10 @@ describe("handleCleanupR2Orphans", () => {
         "FROM governance_document WHERE object_key LIKE"
       );
       expect(statement).toContain(
-        "FROM resolution_revision WHERE latest_object_key LIKE"
+        "FROM circular_revision WHERE latest_object_key LIKE"
       );
       expect(statement).toContain(
-        "FROM resolution_signature WHERE object_key LIKE"
+        "FROM circular_signature WHERE object_key LIKE"
       );
       expect(statement).toContain(
         "FROM governance_document WHERE archive_object_key LIKE"

@@ -80,6 +80,33 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("skips a static segment that only leads to a deeper record", () => {
+    const resolutions: NavItem[] = [
+      {
+        subItems: [
+          {
+            isHidden: true,
+            title: "Resolution",
+            url: "/governance/resolutions/$resolutionId",
+          },
+          {
+            isHidden: true,
+            title: "Circular",
+            url: "/governance/resolutions/circulars/$circularId",
+          },
+        ],
+        title: "Resolutions",
+        url: "/governance/resolutions",
+      },
+    ];
+    expect(
+      buildBreadcrumbs(resolutions, "/governance/resolutions/circulars/c-1")
+    ).toEqual([
+      { path: "/governance/resolutions", title: "Resolutions" },
+      { path: "/governance/resolutions/circulars/c-1", title: "Circular" },
+    ]);
+  });
+
   it("keeps standard dynamic route breadcrumbs", () => {
     expect(buildBreadcrumbs(navItems, "/teams/team-1")).toEqual([
       { path: "/teams", title: "Teams" },

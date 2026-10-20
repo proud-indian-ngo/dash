@@ -88,8 +88,13 @@ export const organisationRegistrationQueries = {
 const resolutionDetail = () =>
   zql.resolution
     .related("responses", (q) => q.related("trustee").related("signature"))
-    .related("revisions", (q) => q.orderBy("revision", "desc").limit(1))
-    .related("issuedBy");
+    .related("circular", (q) =>
+      q
+        .related("issuedBy")
+        .related("resolutions", (r) =>
+          r.orderBy("position", "asc").related("responses")
+        )
+    );
 
 /**
  * Resolutions: everything for governance; for a trustee, the ones issued
@@ -98,8 +103,14 @@ const resolutionDetail = () =>
 export const resolutionQueries = {
   all: defineQuery(({ ctx }) =>
     canSeeGovernance(ctx)
-      ? zql.resolution.related("responses").orderBy("updatedAt", "desc")
-      : zql.resolution.where("id", "__never_match__").related("responses")
+      ? zql.resolution
+          .related("responses")
+          .related("circular")
+          .orderBy("updatedAt", "desc")
+      : zql.resolution
+          .where("id", "__never_match__")
+          .related("responses")
+          .related("circular")
   ),
   byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
     if (canSeeGovernance(ctx)) {
@@ -113,6 +124,15 @@ export const resolutionQueries = {
     }
     return resolutionDetail().where("id", "__never_match__").one();
   }),
+  /** Circular drafts waiting to be issued, oldest first: what an issue can carry. */
+  drafts: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.resolution
+          .where("status", "draft")
+          .where("kind", "circular")
+          .orderBy("createdAt", "asc")
+      : zql.resolution.where("id", "__never_match__")
+  ),
   /** Resolutions sent to the signed-in trustee. */
   mine: defineQuery(({ ctx }) =>
     ctx
@@ -120,10 +140,14 @@ export const resolutionQueries = {
           .where("status", "!=", "draft")
           .whereExists("responses", (r) => r.where("userId", ctx.userId))
           .related("responses")
+          .related("circular")
           .orderBy("updatedAt", "desc")
-      : zql.resolution.where("id", "__never_match__").related("responses")
+      : zql.resolution
+          .where("id", "__never_match__")
+          .related("responses")
+          .related("circular")
   ),
-  /** The signed-in trustee's open circulars still waiting for them: the dashboard card. */
+  /** The signed-in trustee's answers still pending on open resolutions: the dashboard card. */
   awaitingMe: defineQuery(({ ctx }) =>
     ctx
       ? zql.resolutionResponse
@@ -131,11 +155,43 @@ export const resolutionQueries = {
           .where("response", "pending")
           .where("conflictDeclared", false)
           .whereExists("resolution", (q) => q.where("status", "issued"))
-          .related("resolution")
+          .related("resolution", (q) => q.related("circular"))
       : zql.resolutionResponse
           .where("id", "__never_match__")
-          .related("resolution")
+          .related("resolution", (q) => q.related("circular"))
   ),
+};
+
+const circularDetail = () =>
+  zql.circular
+    .related("issuedBy")
+    .related("revisions", (q) => q.orderBy("revision", "desc").limit(1))
+    .related("signatures", (q) => q.related("trustee"))
+    .related("resolutions", (q) =>
+      q
+        .orderBy("position", "asc")
+        .related("responses", (r) => r.related("trustee").related("signature"))
+    );
+
+/**
+ * Circulars: everything for governance; for a trustee, the ones sent to
+ * them (they have a response on its resolutions under their account).
+ */
+export const circularQueries = {
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
+    if (canSeeGovernance(ctx)) {
+      return circularDetail().where("id", id).one();
+    }
+    if (ctx) {
+      return circularDetail()
+        .where("id", id)
+        .whereExists("resolutions", (q) =>
+          q.whereExists("responses", (r) => r.where("userId", ctx.userId))
+        )
+        .one();
+    }
+    return circularDetail().where("id", "__never_match__").one();
+  }),
 };
 
 export const complianceQueries = {

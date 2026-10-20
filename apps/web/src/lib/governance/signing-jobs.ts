@@ -2,7 +2,7 @@ import { X509Certificate } from "node:crypto";
 
 import { db } from "@pi-dash/db";
 import { trusteeNamesForMatching } from "@pi-dash/db/queries/governance";
-import { getResolution } from "@pi-dash/db/queries/resolutions";
+import { circularResolutions } from "@pi-dash/db/queries/resolutions";
 import {
   type CertificateFacts,
   closeJob,
@@ -13,13 +13,14 @@ import {
 } from "@pi-dash/db/queries/signing";
 import { user } from "@pi-dash/db/schema/auth";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
+import { circularReference } from "@pi-dash/shared/resolutions";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { runAuditedAction } from "../audit";
 import { getS3 } from "../s3";
-import { acceptSignedPdf } from "./accept-signature";
+import { acceptSignedPdf, signedMessage } from "./accept-signature";
 import { CircularError } from "./circulars";
 import { finishRemoteSignature, SigningServiceError } from "./signing-service";
 
@@ -118,8 +119,8 @@ export async function describeJob(token: string): Promise<JobReply> {
       status: 200,
     };
   }
-  const [resolution, certificate] = await Promise.all([
-    job.resolutionId ? getResolution(job.resolutionId) : null,
+  const [resolutions, certificate] = await Promise.all([
+    job.circularId ? circularResolutions(job.circularId) : [],
     job.certificateId ? getCertificate(job.certificateId) : null,
   ]);
   return {
@@ -127,7 +128,10 @@ export async function describeJob(token: string): Promise<JobReply> {
       certificateSha256: certificate?.sha256 ?? null,
       kind: "sign",
       signer: job.legalName,
-      title: resolution?.title ?? "Resolution",
+      title:
+        resolutions.length === 1
+          ? (resolutions[0]?.title ?? "Circular")
+          : `Circular ${job.circularId ? circularReference(job.circularId) : ""} (${resolutions.length} resolutions)`,
       toSign: job.toSign,
     },
     status: 200,
@@ -167,7 +171,7 @@ async function completeSignature(
   const certificate = job.certificateId
     ? await getCertificate(job.certificateId)
     : null;
-  if (!(certificate && job.resolutionId && job.stateObjectKey)) {
+  if (!(certificate && job.circularId && job.stateObjectKey)) {
     await closeJob(job.id, { error: "This signing job is incomplete." });
     return GONE;
   }
@@ -185,10 +189,10 @@ async function completeSignature(
       signature: input.signature,
       state,
     });
-    const decision = await acceptSignedPdf({
+    const decisions = await acceptSignedPdf({
+      circularId: job.circularId,
       expectedCertificateSha256: certificate.sha256,
       method: "dsc_helper",
-      resolutionId: job.resolutionId,
       trustee: { id: job.trusteeId, legalName: job.legalName },
       uploaded: signed,
       userId: job.userId,
@@ -197,11 +201,7 @@ async function completeSignature(
     await closeJob(job.id, { ok: true });
     return {
       body: {
-        message:
-          decision.status === "passed"
-            ? `Signed. The resolution passed as ${decision.number ?? ""}. You can return to the dashboard.`
-            : "Signed. Your signature is on the circular. You can return to the dashboard.",
-        status: decision.status,
+        message: `${signedMessage(decisions)} You can return to the dashboard.`,
       },
       status: 200,
     };
@@ -227,7 +227,7 @@ export async function completeJob(
     return GONE;
   }
   const actor = await actorFor(job);
-  const action = job.kind === "enrol" ? "signing.enrol" : "resolution.sign";
+  const action = job.kind === "enrol" ? "signing.enrol" : "circular.sign";
   try {
     return await runAuditedAction(
       {
@@ -237,7 +237,7 @@ export async function completeJob(
         target:
           job.kind === "enrol"
             ? { id: job.trusteeId, type: "trustee" }
-            : { id: job.resolutionId ?? undefined, type: "resolution" },
+            : { id: job.circularId ?? undefined, type: "circular" },
       },
       async () => {
         if (job.kind === "enrol") {

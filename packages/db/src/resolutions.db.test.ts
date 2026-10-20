@@ -1,10 +1,12 @@
+import { answersText } from "@pi-dash/shared/resolutions";
 import { and, eq, inArray } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
- * Database-backed checks of circular resolutions: issue, objections,
- * signatures, passing with a number and a register change, and failing.
+ * Database-backed checks of circulars: issue, objections, one signature per
+ * trustee assenting to the rest, each resolution passing with a number and
+ * a register change or failing on its own, and withdrawal.
  * Opt in with RESOLUTIONS_DB_TEST=1 and DATABASE_URL pointing at a local,
  * migrated database (a worktree's isolated database). It adds its own
  * trustees and resolutions and deletes them afterwards.
@@ -23,6 +25,7 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
   const trustees = [uuidv7(), uuidv7(), uuidv7()];
   const newcomer = uuidv7();
   const resolutionIds: string[] = [];
+  const circularIds: string[] = [];
   const now = new Date();
   let db: typeof import(".").db;
   let schema: typeof import("./schema/governance");
@@ -67,58 +70,81 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
         .set({ signatureId: null })
         .where(inArray(schema.resolutionResponse.resolutionId, resolutionIds));
       await db
-        .delete(schema.resolutionSignature)
-        .where(inArray(schema.resolutionSignature.resolutionId, resolutionIds));
-      await db
         .delete(schema.resolutionResponse)
         .where(inArray(schema.resolutionResponse.resolutionId, resolutionIds));
       await db
-        .delete(schema.resolutionRevision)
-        .where(inArray(schema.resolutionRevision.resolutionId, resolutionIds));
-      await db
         .delete(schema.resolution)
         .where(inArray(schema.resolution.id, resolutionIds));
+    }
+    if (circularIds.length > 0) {
+      await db
+        .delete(schema.circularSignature)
+        .where(inArray(schema.circularSignature.circularId, circularIds));
+      await db
+        .delete(schema.circularRevision)
+        .where(inArray(schema.circularRevision.circularId, circularIds));
+      await db
+        .delete(schema.circular)
+        .where(inArray(schema.circular.id, circularIds));
     }
     await db
       .delete(schema.trustee)
       .where(inArray(schema.trustee.id, [...trustees, newcomer]));
   });
 
-  async function draft(
-    effect: Parameters<
-      typeof import("./queries/resolutions").effectRegisterProblem
-    >[1]
-  ): Promise<string> {
-    const id = uuidv7();
-    resolutionIds.push(id);
-    await db.insert(schema.resolution).values({
-      body: "RESOLVED THAT the test passes.",
-      createdAt: now,
-      effect,
-      id,
-      templateKey: effect.type === "term_start" ? "appointment" : "ordinary",
-      title: "DB test",
-      updatedAt: now,
-    });
-    await q.issueResolution({
+  type Effect = Parameters<
+    typeof import("./queries/resolutions").effectRegisterProblem
+  >[1];
+
+  const TEMPLATES = {
+    none: "ordinary",
+    office_start: "office_bearer",
+    removal: "removal",
+    term_end: "cessation",
+    term_start: "appointment",
+  } as const;
+
+  /** Drafts one resolution per effect and issues them together. */
+  async function issue(
+    effects: Effect[]
+  ): Promise<{ circularId: string; ids: string[] }> {
+    const circularId = uuidv7();
+    circularIds.push(circularId);
+    const ids = effects.map(() => uuidv7());
+    resolutionIds.push(...ids);
+    await db.insert(schema.resolution).values(
+      effects.map((effect, i) => ({
+        body: "RESOLVED THAT the test passes.",
+        createdAt: now,
+        effect,
+        id: ids[i] as string,
+        templateKey: TEMPLATES[effect.type],
+        title: `DB test ${i + 1}`,
+        updatedAt: now,
+      }))
+    );
+    await q.issueCircular({
+      circularId,
       deedVersionId: null,
-      issuedOn: today,
       issuerTrusteeId: trustees[0] as string,
       pdf: {
         fieldsPrepared: true,
-        objectKey: `test/${id}/issued.pdf`,
+        objectKey: `test/${circularId}/issued.pdf`,
         sha256: "a".repeat(64),
       },
-      resolutionId: id,
-      responseDueOn: "2026-10-27",
+      resolutions: ids.map((id) => ({
+        id,
+        renderedFrom: now,
+        threshold: "majority_in_office",
+      })),
       responders: trustees.map((trusteeId) => ({
         fieldName: `Trustee_${trusteeId}`,
         trusteeId,
         userId: null,
       })),
-      threshold: "majority_in_office",
+      responseDueOn: "2026-10-27",
     });
-    return id;
+    return { circularId, ids };
   }
 
   function signature(trusteeId: string) {
@@ -141,55 +167,90 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
     };
   }
 
-  it("passes with a majority of signatures, numbers it and appoints the trustee", async () => {
-    const id = await draft({
-      basis: "co_option_4_5",
-      endsOn: "2029-10-19",
-      startsOn: "2026-10-20",
-      trusteeId: newcomer,
-      type: "term_start",
-    });
-    const first = await q.recordSignature({
-      basedOnSha256: "a".repeat(64),
+  /** Signs as a trustee with their answers as they stand. */
+  async function sign(
+    circularId: string,
+    trusteeId: string,
+    from: string,
+    to: string
+  ) {
+    const state = await q.signerState(db, circularId, trusteeId);
+    return await q.recordSignature({
+      answers: answersText(state?.answers ?? []),
+      basedOnSha256: from,
+      circularId,
       createdBy: null,
       method: "acrobat_upload",
-      objectKey: `test/${id}/1.pdf`,
-      resolutionId: id,
-      sha256: "b".repeat(64),
-      signature: signature(trustees[0] as string),
+      objectKey: `test/${circularId}/${to}.pdf`,
+      sha256: to,
+      signature: signature(trusteeId),
       today,
-      trusteeId: trustees[0] as string,
+      trusteeId,
     });
-    expect(first.status).toBe("issued");
+  }
+
+  /** Ends the newcomer's appointment so the next test can appoint them again. */
+  async function removeNewcomer() {
+    await db
+      .delete(schema.trusteeOffice)
+      .where(eq(schema.trusteeOffice.trusteeId, newcomer));
+    await db
+      .delete(schema.trusteeTerm)
+      .where(eq(schema.trusteeTerm.trusteeId, newcomer));
+  }
+
+  const statusOf = (decisions: { resolutionId: string; status: string }[]) =>
+    Object.fromEntries(decisions.map((d) => [d.resolutionId, d.status]));
+
+  it("passes with a majority of signatures, numbers it and appoints the trustee", async () => {
+    const {
+      circularId,
+      ids: [id],
+    } = await issue([
+      {
+        basis: "co_option_4_5",
+        endsOn: "2029-10-19",
+        startsOn: "2026-10-20",
+        trusteeId: newcomer,
+        type: "term_start",
+      },
+    ]);
+    const first = await sign(
+      circularId,
+      trustees[0] as string,
+      "a".repeat(64),
+      "b".repeat(64)
+    );
+    expect(first[0]?.status).toBe("issued");
 
     // A signer working from the issued PDF after someone else signed is refused.
     await expect(
+      sign(circularId, trustees[1] as string, "a".repeat(64), "c".repeat(64))
+    ).rejects.toThrow("Someone else signed");
+    // So is one whose PDF carries answers that aren't theirs now.
+    await expect(
       q.recordSignature({
-        basedOnSha256: "a".repeat(64),
+        answers: "Resolution 1: objects",
+        basedOnSha256: "b".repeat(64),
+        circularId,
         createdBy: null,
         method: "acrobat_upload",
-        objectKey: `test/${id}/stale.pdf`,
-        resolutionId: id,
-        sha256: "c".repeat(64),
+        objectKey: `test/${circularId}/wrong.pdf`,
+        sha256: "e".repeat(64),
         signature: signature(trustees[1] as string),
         today,
         trusteeId: trustees[1] as string,
       })
-    ).rejects.toThrow("Someone else signed");
+    ).rejects.toThrow("answers changed");
 
-    const second = await q.recordSignature({
-      basedOnSha256: "b".repeat(64),
-      createdBy: null,
-      method: "acrobat_upload",
-      objectKey: `test/${id}/2.pdf`,
-      resolutionId: id,
-      sha256: "d".repeat(64),
-      signature: signature(trustees[1] as string),
-      today,
-      trusteeId: trustees[1] as string,
-    });
-    expect(second.status).toBe("passed");
-    expect(second.number).toMatch(/^PI\/TR\/2026-27\/\d{3}$/);
+    const second = await sign(
+      circularId,
+      trustees[1] as string,
+      "b".repeat(64),
+      "d".repeat(64)
+    );
+    expect(second[0]?.status).toBe("passed");
+    expect(second[0]?.number).toMatch(/^PI\/TR\/2026-27\/\d{3}$/);
 
     const [term] = await db
       .select()
@@ -202,44 +263,235 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       startsOn: "2026-10-20",
     });
 
-    // The last trustee can no longer respond.
+    // The last trustee can no longer respond, nor sign.
     await expect(
       q.recordObjection({
         reason: "late",
-        resolutionId: id,
+        resolutionId: id as string,
         today,
         trusteeId: trustees[2] as string,
       })
     ).rejects.toThrow("no longer open");
+    await expect(
+      sign(circularId, trustees[2] as string, "d".repeat(64), "f".repeat(64))
+    ).rejects.toThrow("nothing left");
+
+    await removeNewcomer();
   });
 
-  it("fails when objections make a majority unreachable", async () => {
-    const id = await draft({ type: "none" });
+  it("decides each resolution of a circular on its own, in order", async () => {
+    const {
+      circularId,
+      ids: [appointment, designation],
+    } = await issue([
+      {
+        basis: "co_option_4_5",
+        endsOn: null,
+        startsOn: "2026-10-20",
+        trusteeId: newcomer,
+        type: "term_start",
+      },
+      {
+        office: "secretary",
+        startsOn: "2026-10-21",
+        trusteeId: newcomer,
+        type: "office_start",
+      },
+    ]);
     await q.recordObjection({
-      reason: "No budget",
-      resolutionId: id,
+      reason: "Too soon",
+      resolutionId: designation as string,
       today,
       trusteeId: trustees[0] as string,
     });
-    const decision = await q.recordObjection({
+    const state = await q.signerState(db, circularId, trustees[0] as string);
+    expect(answersText(state?.answers ?? [])).toBe(
+      "Resolution 1: assents; Resolution 2: objects"
+    );
+    const first = await sign(
+      circularId,
+      trustees[0] as string,
+      "a".repeat(64),
+      "1".repeat(64)
+    );
+    expect(statusOf(first)).toEqual({
+      [appointment as string]: "issued",
+      [designation as string]: "issued",
+    });
+    // The second signature passes the appointment; the designation has one.
+    const second = await sign(
+      circularId,
+      trustees[1] as string,
+      "1".repeat(64),
+      "2".repeat(64)
+    );
+    expect(statusOf(second)).toEqual({
+      [appointment as string]: "passed",
+      [designation as string]: "issued",
+    });
+    // The appointment passed before the third trustee signed: their
+    // signature doesn't assent to it, and their answers say so.
+    const late = await q.signerState(db, circularId, trustees[2] as string);
+    expect(answersText(late?.answers ?? [])).toBe(
+      "Resolution 1: decided before signing; Resolution 2: assents"
+    );
+    const third = await sign(
+      circularId,
+      trustees[2] as string,
+      "2".repeat(64),
+      "3".repeat(64)
+    );
+    expect(statusOf(third)).toEqual({ [designation as string]: "passed" });
+    const [lateOnAppointment] = await db
+      .select()
+      .from(schema.resolutionResponse)
+      .where(
+        and(
+          eq(schema.resolutionResponse.resolutionId, appointment as string),
+          eq(schema.resolutionResponse.trusteeId, trustees[2] as string)
+        )
+      );
+    expect(lateOnAppointment).toMatchObject({
+      response: "pending",
+      signatureId: null,
+    });
+
+    const [office] = await db
+      .select()
+      .from(schema.trusteeOffice)
+      .where(eq(schema.trusteeOffice.trusteeId, newcomer));
+    expect(office).toMatchObject({
+      office: "secretary",
+      sourceResolutionId: designation,
+    });
+    const signatures = await db
+      .select({ answers: schema.circularSignature.answers })
+      .from(schema.circularSignature)
+      .where(eq(schema.circularSignature.circularId, circularId));
+    expect(signatures.map((s) => s.answers)).toContain(
+      "Resolution 1: assents; Resolution 2: objects"
+    );
+    await removeNewcomer();
+  });
+
+  it("holds a designation that reaches its count until the appointment is decided", async () => {
+    const {
+      circularId,
+      ids: [appointment, designation],
+    } = await issue([
+      {
+        basis: "co_option_4_5",
+        endsOn: null,
+        startsOn: "2026-10-20",
+        trusteeId: newcomer,
+        type: "term_start",
+      },
+      {
+        office: "secretary",
+        startsOn: "2026-10-21",
+        trusteeId: newcomer,
+        type: "office_start",
+      },
+    ]);
+    await q.recordObjection({
+      reason: "Not yet",
+      resolutionId: appointment as string,
+      today,
+      trusteeId: trustees[0] as string,
+    });
+    await sign(
+      circularId,
+      trustees[0] as string,
+      "a".repeat(64),
+      "4".repeat(64)
+    );
+    // A second signature from the same trustee is refused.
+    await expect(
+      sign(circularId, trustees[0] as string, "4".repeat(64), "9".repeat(64))
+    ).rejects.toThrow("nothing left");
+    // Two signatures reach the designation's count, but its holder isn't a
+    // trustee until the appointment passes, so it stays open.
+    const second = await sign(
+      circularId,
+      trustees[1] as string,
+      "4".repeat(64),
+      "5".repeat(64)
+    );
+    expect(statusOf(second)).toEqual({
+      [appointment as string]: "issued",
+      [designation as string]: "issued",
+    });
+    const third = await sign(
+      circularId,
+      trustees[2] as string,
+      "5".repeat(64),
+      "6".repeat(64)
+    );
+    expect(statusOf(third)).toEqual({
+      [appointment as string]: "passed",
+      [designation as string]: "passed",
+    });
+    await removeNewcomer();
+  });
+
+  it("fails when objections make a majority unreachable", async () => {
+    const {
+      ids: [id],
+    } = await issue([{ type: "none" }]);
+    await q.recordObjection({
+      reason: "No budget",
+      resolutionId: id as string,
+      today,
+      trusteeId: trustees[0] as string,
+    });
+    const decisions = await q.recordObjection({
       reason: "Agree with the first objection",
-      resolutionId: id,
+      resolutionId: id as string,
       today,
       trusteeId: trustees[1] as string,
     });
-    expect(decision.status).toBe("failed");
+    expect(statusOf(decisions)).toEqual({ [id as string]: "failed" });
     const [row] = await db
       .select()
       .from(schema.resolution)
-      .where(and(eq(schema.resolution.id, id)));
+      .where(and(eq(schema.resolution.id, id as string)));
     expect(row?.number).toBeNull();
     expect(row?.outcomeNote).toContain("objections");
   });
 
-  it("fails an overdue circular when the closing job runs", async () => {
-    const id = await draft({ type: "none" });
-    expect(await q.overdueResolutionIds("2026-10-28")).toContain(id);
-    const decision = await q.decideResolution(id, "2026-10-28");
-    expect(decision.status).toBe("failed");
+  it("fails an overdue circular's resolutions when the closing job runs", async () => {
+    const { circularId, ids } = await issue([
+      { type: "none" },
+      { type: "none" },
+    ]);
+    expect(await q.overdueCircularIds("2026-10-28")).toContain(circularId);
+    const decisions = await q.decideCircular(circularId, "2026-10-28");
+    expect(decisions.map((d) => d.status)).toEqual(["failed", "failed"]);
+    expect(decisions.map((d) => d.resolutionId)).toEqual(ids);
+  });
+
+  it("withdraws only the resolutions still open", async () => {
+    const {
+      circularId,
+      ids: [kept, open],
+    } = await issue([{ type: "none" }, { type: "none" }]);
+    await q.recordObjection({
+      reason: "No",
+      resolutionId: kept as string,
+      today,
+      trusteeId: trustees[0] as string,
+    });
+    await q.recordObjection({
+      reason: "No",
+      resolutionId: kept as string,
+      today,
+      trusteeId: trustees[1] as string,
+    });
+    expect(
+      await q.withdrawCircular({ circularId, reason: "Redraft", today })
+    ).toEqual([open]);
+    await expect(
+      q.withdrawCircular({ circularId, reason: "Again", today })
+    ).rejects.toThrow("already decided");
   });
 });

@@ -27,8 +27,8 @@ export interface NewSigningJob {
   basedOnSha256?: string | null;
   certificateId?: string | null;
   fieldName?: string | null;
+  circularId?: string | null;
   kind: "enrol" | "sign";
-  resolutionId?: string | null;
   stateObjectKey?: string | null;
   toSign?: string | null;
   trusteeId: string;
@@ -45,12 +45,12 @@ export async function createSigningJob(
   await db.insert(signingJob).values({
     basedOnSha256: input.basedOnSha256 ?? null,
     certificateId: input.certificateId ?? null,
+    circularId: input.circularId ?? null,
     createdAt: now,
     expiresAt: new Date(now.getTime() + SIGNING_JOB_TTL_MS),
     fieldName: input.fieldName ?? null,
     id,
     kind: input.kind,
-    resolutionId: input.resolutionId ?? null,
     stateObjectKey: input.stateObjectKey ?? null,
     toSign: input.toSign ?? null,
     tokenHash: hashJobToken(token),

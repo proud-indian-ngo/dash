@@ -168,6 +168,11 @@ const resolutionsNavItem: NavItem = {
       title: "Signing helper",
       url: "/governance/resolutions/signing-helper",
     },
+    {
+      isHidden: true,
+      title: "Circular",
+      url: "/governance/resolutions/circulars/$circularId",
+    },
   ],
   title: "Resolutions",
   url: "/governance/resolutions",

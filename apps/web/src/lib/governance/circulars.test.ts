@@ -2,12 +2,15 @@ import { describe, expect, it } from "bun:test";
 
 import type { GovernanceValidationReport } from "@pi-dash/db/schema/governance";
 import { DEED_VERSION_1 } from "@pi-dash/shared/governance";
-import { VOTE_REAUTH_MESSAGE } from "@pi-dash/shared/resolutions";
+import {
+  circularReference,
+  type ResolutionEffect,
+  VOTE_REAUTH_MESSAGE,
+} from "@pi-dash/shared/resolutions";
 
 import {
   assertRecentSignIn,
   checkSignedUpload,
-  circularReference,
   type DraftRow,
   fieldRequests,
   planIssue,
@@ -59,20 +62,23 @@ const draft: DraftRow = {
   body: "RESOLVED THAT the registered office be shifted.",
   effect: { type: "none" },
   id: "01930000-0000-7000-8000-0000000abcde",
+  kind: "circular",
   status: "draft",
   templateKey: "registered_office",
   title: "Shift of the registered office",
 };
 
 const noProblem = () => null;
+const unchanged = <R>(r: R) => r;
 
 describe("planIssue", () => {
   it("sends the circular to every trustee in office, needing both of two", () => {
     const plan = planIssue({
-      draft,
+      drafts: [draft],
       effectRegisterProblem: noProblem,
       issuer: { trusteeId: "mt" },
       register,
+      registerAfterEffect: unchanged,
       today: "2026-10-20",
     });
     expect(plan.responders.map((r) => r.trusteeId).sort()).toEqual([
@@ -83,25 +89,27 @@ describe("planIssue", () => {
       "u-mt"
     );
     expect(plan.issuerOffice).toBe("Managing Trustee");
-    expect(plan.thresholdText).toContain("(2 of 2)");
+    expect(plan.resolutions[0]?.thresholdText).toContain("(2 of 2)");
   });
 
   it("refuses anyone but the Managing Trustee", () => {
     expect(() =>
       planIssue({
-        draft,
+        drafts: [draft],
         effectRegisterProblem: noProblem,
         issuer: { trusteeId: "sec" },
         register,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       })
     ).toThrow("Only the Managing Trustee");
     expect(() =>
       planIssue({
-        draft,
+        drafts: [draft],
         effectRegisterProblem: noProblem,
         issuer: null,
         register,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       })
     ).toThrow("isn't linked to a trustee");
@@ -114,10 +122,11 @@ describe("planIssue", () => {
     };
     expect(() =>
       planIssue({
-        draft,
+        drafts: [draft],
         effectRegisterProblem: noProblem,
         issuer: { trusteeId: "mt" },
         register: short,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       })
     ).toThrow("fill vacancies");
@@ -134,10 +143,11 @@ describe("planIssue", () => {
     };
     expect(
       planIssue({
-        draft: appointment,
+        drafts: [appointment],
         effectRegisterProblem: noProblem,
         issuer: { trusteeId: "mt" },
         register: short,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       }).responders
     ).toHaveLength(1);
@@ -146,22 +156,110 @@ describe("planIssue", () => {
   it("refuses a register change the register can't take, and an empty text", () => {
     expect(() =>
       planIssue({
-        draft,
+        drafts: [draft],
         effectRegisterProblem: () => "That trustee has no open term to end.",
         issuer: { trusteeId: "mt" },
         register,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       })
     ).toThrow("no open term");
     expect(() =>
       planIssue({
-        draft: { ...draft, body: "  " },
+        drafts: [{ ...draft, body: "  " }],
         effectRegisterProblem: noProblem,
         issuer: { trusteeId: "mt" },
         register,
+        registerAfterEffect: unchanged,
         today: "2026-10-20",
       })
     ).toThrow("Write the resolution");
+  });
+
+  it("checks each draft against the register as the ones before it leave it", () => {
+    const appointment: DraftRow = {
+      ...draft,
+      effect: {
+        basis: "co_option_4_5",
+        endsOn: null,
+        startsOn: "2026-10-20",
+        trusteeId: "new",
+        type: "term_start",
+      },
+      id: "01930000-0000-7000-8000-00000000000a",
+      templateKey: "appointment",
+      title: "Appointment of Meera Iyer",
+    };
+    const designation: DraftRow = {
+      ...draft,
+      effect: {
+        office: "secretary",
+        startsOn: "2026-10-20",
+        trusteeId: "new",
+        type: "office_start",
+      },
+      id: "01930000-0000-7000-8000-00000000000b",
+      templateKey: "office_bearer",
+      title: "Meera Iyer as Secretary",
+    };
+    // An office needs its holder in office, as the register would stand.
+    const effectRegisterProblem = (
+      r: typeof register,
+      effect: ResolutionEffect
+    ) =>
+      effect.type === "office_start" &&
+      !r.terms.some((t) => t.trusteeId === effect.trusteeId)
+        ? "The office holder isn't a trustee then."
+        : null;
+    const registerAfterEffect = (
+      r: typeof register,
+      effect: ResolutionEffect
+    ) =>
+      effect.type === "term_start"
+        ? {
+            ...r,
+            terms: [
+              ...r.terms,
+              {
+                ...r.terms[0],
+                id: "t-new",
+                startsOn: effect.startsOn,
+                trusteeId: effect.trusteeId,
+              } as (typeof r.terms)[number],
+            ],
+          }
+        : r;
+    const input = {
+      effectRegisterProblem: effectRegisterProblem as never,
+      issuer: { trusteeId: "mt" },
+      register,
+      registerAfterEffect: registerAfterEffect as never,
+      today: "2026-10-20",
+    };
+    const plan = planIssue({ ...input, drafts: [appointment, designation] });
+    expect(plan.resolutions.map((r) => r.id)).toEqual([
+      appointment.id,
+      designation.id,
+    ]);
+    expect(() =>
+      planIssue({ ...input, drafts: [designation, appointment] })
+    ).toThrow('Resolution 1 ("Meera Iyer as Secretary"): The office holder');
+  });
+
+  it("refuses no drafts and the same draft twice", () => {
+    const input = {
+      effectRegisterProblem: noProblem,
+      issuer: { trusteeId: "mt" },
+      register,
+      registerAfterEffect: unchanged,
+      today: "2026-10-20",
+    };
+    expect(() => planIssue({ ...input, drafts: [] })).toThrow(
+      "at least one draft"
+    );
+    expect(() => planIssue({ ...input, drafts: [draft, draft] })).toThrow(
+      "only be in the circular once"
+    );
   });
 });
 
@@ -229,8 +327,13 @@ describe("checkSignedUpload", () => {
     current,
     fieldName: "Trustee_sec",
     signedBefore: 1,
+    textFieldsBefore: { Answers_mt: "Resolution 1: assents", Answers_sec: "" },
     trustee,
     uploaded,
+  };
+  const textFields = {
+    Answers_mt: "Resolution 1: assents",
+    Answers_sec: "",
   };
 
   it("takes the trustee's signature appended to the latest PDF", () => {
@@ -243,9 +346,27 @@ describe("checkSignedUpload", () => {
           sig("Trustee_sec"),
         ],
         status: "valid",
+        textFields,
       },
     });
     expect(added.fieldName).toBe("Trustee_sec");
+  });
+
+  it("refuses a signed copy whose answers were changed", () => {
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          checkedAt: "",
+          signatures: [
+            sig("Trustee_mt", { signerName: "ASHA RAO" }),
+            sig("Trustee_sec"),
+          ],
+          status: "valid",
+          textFields: { ...textFields, Answers_mt: "Resolution 1: objects" },
+        },
+      })
+    ).toThrow("answers in the PDF were changed");
   });
 
   it("refuses a file that isn't the latest copy plus a signature", () => {
@@ -305,6 +426,43 @@ describe("checkSignedUpload", () => {
     ).toThrow("doesn't check out");
   });
 
+  it("refuses a signature in another trustee's box", () => {
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          checkedAt: "",
+          signatures: [
+            sig("Signature1", { signerName: "ASHA RAO" }),
+            sig("Trustee_mt"),
+          ],
+          status: "valid",
+          textFields,
+        },
+      })
+    ).toThrow("your own name");
+  });
+
+  it("refuses a change the earlier signatures don't allow", () => {
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          checkedAt: "",
+          signatures: [
+            sig("Trustee_mt", {
+              modificationLevel: "OTHER",
+              signerName: "ASHA RAO",
+            }),
+            sig("Trustee_sec"),
+          ],
+          status: "valid",
+          textFields,
+        },
+      })
+    ).toThrow("don't allow");
+  });
+
   it("accepts a box the signer drew when the PDF had no fields", () => {
     const added = checkSignedUpload({
       ...base,
@@ -315,6 +473,7 @@ describe("checkSignedUpload", () => {
           sig("Signature2"),
         ],
         status: "valid",
+        textFields,
       },
     });
     expect(added.fieldName).toBe("Signature2");
