@@ -240,11 +240,10 @@ test.describe("resolution text", () => {
     await page.getByRole("button", { name: "New circular" }).click();
     const dialog = page.getByRole("dialog", { name: "New circular" });
     await dialog.getByRole("textbox", { name: "Title" }).fill(title);
-    await writeText(page, dialog, "RESOLVED THAT ");
+    // The template's lead words are bold, so typing over them stays bold.
+    await writeText(page, dialog, "RESOLVED THAT");
     await page.keyboard.press("ControlOrMeta+b");
-    await page.keyboard.type("the budget");
-    await page.keyboard.press("ControlOrMeta+b");
-    await page.keyboard.type(" be approved under these heads:");
+    await page.keyboard.type(" the budget be approved under these heads:");
     await page.keyboard.press("Enter");
     await dialog.getByRole("button", { exact: true, name: "Table" }).click();
     await dialog.getByRole("columnheader").first().click();
@@ -267,8 +266,11 @@ test.describe("resolution text", () => {
     ).toBeVisible();
     await expect(table.getByRole("cell", { name: "4,50,000" })).toBeVisible();
     await expect(
-      page.locator("strong").filter({ hasText: "the budget" })
+      page.locator("strong").filter({ hasText: /^RESOLVED THAT$/ })
     ).toBeVisible();
+    await expect(
+      page.locator("strong").filter({ hasText: "the budget" })
+    ).toHaveCount(0);
   });
 
   test("keeps pasted and indented lists within six levels", async ({
