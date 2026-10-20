@@ -25,7 +25,10 @@ const ICON = {
   warning: Alert02Icon,
 } as const;
 
-/** Board-level warnings first; unevidenced facts are summed up in one line. */
+/**
+ * Board-level warnings first. Unevidenced dates are left to the table's
+ * "Unevidenced" view.
+ */
 export function RegisterWarnings({
   input,
   on,
@@ -33,10 +36,10 @@ export function RegisterWarnings({
   input: RegisterInput;
   on: string;
 }) {
-  const warnings = registerWarnings(input, on);
-  const unevidenced = warnings.filter((w) => w.code === "unevidenced");
-  const shown = warnings.filter((w) => w.code !== "unevidenced");
-  if (input.trustees.length === 0) {
+  const shown = registerWarnings(input, on).filter(
+    (w) => w.code !== "unevidenced"
+  );
+  if (input.trustees.length === 0 || shown.length === 0) {
     return null;
   }
   return (
@@ -57,27 +60,6 @@ export function RegisterWarnings({
           <span>{warning.message}</span>
         </li>
       ))}
-      {unevidenced.length > 0 ? (
-        <li
-          className={cn(
-            "flex items-start gap-2 rounded-md border p-3 text-sm",
-            STYLE.info
-          )}
-        >
-          <HugeiconsIcon
-            className="mt-0.5 size-4 shrink-0"
-            icon={ICON.info}
-            strokeWidth={2}
-          />
-          <span>
-            {unevidenced.length === 1
-              ? "1 date in the register has"
-              : `${unevidenced.length} dates in the register have`}{" "}
-            no document behind it yet. They are marked "Unevidenced"; open the
-            trustee to link a document from the vault.
-          </span>
-        </li>
-      ) : null}
     </ul>
   );
 }

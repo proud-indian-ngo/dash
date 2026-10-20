@@ -65,6 +65,7 @@ import {
 } from "@/components/shared/responsive-dialog";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
   getMutationResultErrorMessage,
@@ -141,30 +142,6 @@ function dueBadge(item: Item, today: string) {
     label = "Due tomorrow";
   }
   return <StatusBadge tone="warning">{label}</StatusBadge>;
-}
-
-function Counter({
-  label,
-  tone,
-  value,
-}: {
-  label: string;
-  tone?: "danger";
-  value: number;
-}) {
-  return (
-    <div className="flex flex-col gap-0.5 rounded-md border px-4 py-3">
-      <span
-        className={cn(
-          "text-xl font-semibold tabular-nums",
-          tone === "danger" && value > 0 && "text-destructive"
-        )}
-      >
-        {value}
-      </span>
-      <span className="text-muted-foreground text-xs">{label}</span>
-    </div>
-  );
 }
 
 function monthLabel(month: string) {
@@ -369,15 +346,23 @@ function CompliancePage() {
         description="Filings, renewals and Board approvals that fall due each year. An item closes only with the filing or record that proves it, from the Documents vault."
         title="Compliance calendar"
       />
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Counter label="Overdue" tone="danger" value={overdue.length} />
-        <Counter
-          label={`Due in ${DUE_SOON_DAYS} days`}
-          value={dueSoon.length}
-        />
-        <Counter label="Later" value={later.length} />
-        <Counter label={`Closed in ${year.label}`} value={closedThisYear} />
-      </div>
+      <StatsCards
+        className="mt-6"
+        items={[
+          {
+            label: "Overdue",
+            tone: overdue.length > 0 ? "danger" : "neutral",
+            value: overdue.length,
+          },
+          {
+            label: `Due in ${DUE_SOON_DAYS} days`,
+            tone: dueSoon.length > 0 ? "warning" : "neutral",
+            value: dueSoon.length,
+          },
+          { label: "Later", value: later.length },
+          { label: `Closed in ${year.label}`, value: closedThisYear },
+        ]}
+      />
       <div className="mt-6 flex flex-wrap items-center gap-2">
         {(["open", "closed", "all"] as const).map((value) => (
           <Button

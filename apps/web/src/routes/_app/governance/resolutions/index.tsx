@@ -1,19 +1,17 @@
 import { Archive02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
+  RESOLUTION_STATUS_LABELS,
   RESOLUTION_TEMPLATES,
+  type ResolutionStatus,
+  resolutionStatusValues,
   resolutionTemplateKeyValues,
 } from "@pi-dash/shared/resolutions";
 import { queries } from "@pi-dash/zero/queries";
@@ -23,6 +21,8 @@ import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { selectField } from "@/components/data-table/filter-fields";
 import { HistoricalResolutionDialog } from "@/components/governance/historical-resolution-dialog";
 import {
   epochToIso,
@@ -74,8 +74,171 @@ function openFirstThenRecent(
   return byStatus === 0 ? (b.updatedAt ?? 0) - (a.updatedAt ?? 0) : byStatus;
 }
 
+interface ResolutionRow {
+  /** Issued: the response deadline; decided: the decision date. */
+  date: string | null;
+  historical: boolean;
+  id: string;
+  number: string | null;
+  objected: number;
+  responses: number;
+  signed: number;
+  status: ResolutionStatus;
+  templateTitle: string;
+  title: string;
+  /** Issued, and the signed-in trustee hasn't responded yet. */
+  waitingForMe: boolean;
+}
+
+const WAITING_FOR_ME = {
+  path: "response",
+  value: "waiting-for-me",
+} as const;
+
+const filterFields: FilterField[] = [
+  selectField(
+    "status",
+    "Status",
+    resolutionStatusValues.map((value) => ({
+      label: RESOLUTION_STATUS_LABELS[value],
+      value,
+    }))
+  ),
+  selectField(WAITING_FOR_ME.path, "Response", [
+    { label: "Waiting for you", value: WAITING_FOR_ME.value },
+  ]),
+];
+
+function getFilterValue(row: ResolutionRow, path: string[]): unknown {
+  switch (path[0]) {
+    case "status":
+      return row.status;
+    case WAITING_FOR_ME.path:
+      return row.waitingForMe ? WAITING_FOR_ME.value : null;
+    default:
+      return;
+  }
+}
+
+function searchResolution(row: ResolutionRow, query: string): boolean {
+  return [row.title, row.templateTitle, row.number ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .includes(query.trim().toLowerCase());
+}
+
+function getRowId(row: ResolutionRow) {
+  return row.id;
+}
+
+function dateText(row: ResolutionRow) {
+  if (row.status === "draft") {
+    return "—";
+  }
+  return row.status === "issued"
+    ? `Respond by ${formatIso(row.date)}`
+    : formatIso(row.date);
+}
+
+const SKELETON_TITLE = <Skeleton className="h-5 w-56" />;
+const SKELETON_TEXT = <Skeleton className="h-5 w-28" />;
+const SKELETON_BADGE = <Skeleton className="h-5.5 w-16" />;
+
+const columns: DataGridColumnDef<ResolutionRow>[] = [
+  {
+    accessorFn: (row) => row.title,
+    cell: ({ row }) => (
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium">{row.original.title}</span>
+        <span className="text-muted-foreground truncate text-xs">
+          {row.original.templateTitle}
+          {row.original.historical ? " · recorded from paper" : ""}
+        </span>
+      </span>
+    ),
+    header: ({ column }) => (
+      <DataGridColumnHeader
+        column={column}
+        title="Resolution"
+        visibility={true}
+      />
+    ),
+    id: "title",
+    meta: {
+      compact: "primary",
+      headerTitle: "Resolution",
+      kind: "text",
+      skeleton: SKELETON_TITLE,
+    },
+    size: 320,
+  },
+  {
+    accessorFn: (row) => row.status,
+    cell: ({ row }) => <ResolutionStatusBadge status={row.original.status} />,
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Status" visibility={true} />
+    ),
+    id: "status",
+    meta: {
+      compact: "trailing",
+      headerTitle: "Status",
+      kind: "status",
+      skeleton: SKELETON_BADGE,
+    },
+    size: 120,
+  },
+  {
+    accessorFn: (row) => row.number ?? "",
+    cell: ({ row }) => row.original.number ?? "—",
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Number" visibility={true} />
+    ),
+    id: "number",
+    meta: { headerTitle: "Number", kind: "id", skeleton: SKELETON_TEXT },
+    size: 170,
+  },
+  {
+    accessorFn: (row) => row.signed,
+    cell: ({ row }) => {
+      const { objected, responses, signed } = row.original;
+      return (
+        <span className="text-muted-foreground truncate">
+          {responses > 0
+            ? `${signed} signed${objected ? `, ${objected} objected` : ""} of ${responses}`
+            : "—"}
+        </span>
+      );
+    },
+    header: ({ column }) => (
+      <DataGridColumnHeader
+        column={column}
+        title="Responses"
+        visibility={true}
+      />
+    ),
+    id: "responses",
+    meta: { headerTitle: "Responses", skeleton: SKELETON_TEXT },
+    size: 200,
+  },
+  {
+    accessorFn: (row) => row.date ?? "",
+    cell: ({ row }) => dateText(row.original),
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Date" visibility={true} />
+    ),
+    id: "date",
+    meta: {
+      compact: "primary",
+      headerTitle: "Date",
+      kind: "date",
+      skeleton: SKELETON_TEXT,
+    },
+    size: 190,
+  },
+];
+
 function ResolutionsPage() {
-  const { hasPermission } = useApp();
+  const { hasPermission, user } = useApp();
   const canSee =
     hasPermission("governance.view") || hasPermission("governance.manage");
   const canManage = hasPermission("governance.manage");
@@ -103,7 +266,40 @@ function ResolutionsPage() {
     });
   });
 
-  const sorted = [...rows].sort(openFirstThenRecent);
+  const data: ResolutionRow[] = [...rows]
+    .sort(openFirstThenRecent)
+    .map((row) => {
+      const responses = row.responses ?? [];
+      const status = row.status ?? "draft";
+      return {
+        date: epochToIso(
+          (status === "issued" ? row.responseDueOn : row.decidedOn) ?? null
+        ),
+        historical: row.historical ?? false,
+        id: row.id,
+        number: row.number ?? null,
+        objected: responses.filter((r) => r.response === "objection").length,
+        responses: responses.length,
+        signed: responses.filter((r) => r.signatureId).length,
+        status,
+        templateTitle: RESOLUTION_TEMPLATES[row.templateKey].title,
+        title: row.title,
+        waitingForMe:
+          status === "issued" &&
+          responses.some(
+            (r) =>
+              r.userId === user.id &&
+              r.response === "pending" &&
+              !r.conflictDeclared
+          ),
+      };
+    });
+  const openResolution = useEventCallback((row: ResolutionRow) =>
+    navigate({
+      params: { resolutionId: row.id },
+      to: "/governance/resolutions/$resolutionId",
+    })
+  );
 
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
@@ -137,83 +333,43 @@ function ResolutionsPage() {
         title="Resolutions"
       />
       <div className="mt-6">
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : null}
-        {!isLoading && sorted.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {canSee
-              ? "No resolutions yet."
-              : "No circulars have been sent to you."}
-          </p>
-        ) : null}
-        {sorted.length > 0 ? (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Resolution</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Responses</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sorted.map((row) => {
-                  const responses = row.responses ?? [];
-                  const signed = responses.filter((r) => r.signatureId).length;
-                  const objected = responses.filter(
-                    (r) => r.response === "objection"
-                  ).length;
-                  const date =
-                    row.status === "issued"
-                      ? `Respond by ${formatIso(epochToIso(row.responseDueOn ?? null))}`
-                      : formatIso(epochToIso(row.decidedOn ?? null));
-                  return (
-                    <TableRow
-                      className="cursor-pointer"
-                      key={row.id}
-                      onClick={() =>
-                        navigate({
-                          params: { resolutionId: row.id },
-                          to: "/governance/resolutions/$resolutionId",
-                        })
-                      }
-                    >
-                      <TableCell>
-                        <span className="flex flex-col">
-                          <span className="font-medium">{row.title}</span>
-                          <span className="text-muted-foreground text-xs">
-                            {RESOLUTION_TEMPLATES[row.templateKey].title}
-                            {row.historical ? " · recorded from paper" : ""}
-                          </span>
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <ResolutionStatusBadge status={row.status ?? "draft"} />
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {row.number ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {responses.length > 0
-                          ? `${signed} signed${objected ? `, ${objected} objected` : ""} of ${responses.length}`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {row.status === "draft" ? "—" : date}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        ) : null}
+        <DataTableWrapper
+          columns={columns}
+          compactOnMobile
+          data={data}
+          emptyMessage={
+            data.length > 0
+              ? "No resolutions match."
+              : canSee
+                ? "No resolutions yet."
+                : "No circulars have been sent to you."
+          }
+          filter={{
+            attentionViews: [
+              {
+                count: data.filter((row) => row.waitingForMe).length,
+                id: "waiting-for-me",
+                label: "Waiting for you",
+                rule: WAITING_FOR_ME,
+              },
+            ],
+            fields: filterFields,
+            getValue: getFilterValue,
+            viewField: "status",
+          }}
+          getRowId={getRowId}
+          isLoading={isLoading}
+          onRowClick={openResolution}
+          searchFn={searchResolution}
+          searchPlaceholder="Search resolutions..."
+          storageKey="governance_resolutions_table_state_v1"
+          tableLayout={{
+            columnsDraggable: true,
+            columnsPinnable: true,
+            columnsResizable: true,
+            columnsVisibility: true,
+          }}
+        />
       </div>
       <Dialog
         onOpenChange={(open) => {

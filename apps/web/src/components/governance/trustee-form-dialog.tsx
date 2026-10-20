@@ -139,7 +139,7 @@ function TrusteeForm({
   const cancel = useEventCallback(() => onOpenChange(false));
 
   const accountOptions = [
-    { label: "No pi-dash account", value: NO_ACCOUNT },
+    { label: "No dashboard account", value: NO_ACCOUNT },
     ...accounts.map((a) => ({ label: `${a.name} · ${a.email}`, value: a.id })),
   ];
   const kycHint = (stored: boolean, last4: string | null) => {
@@ -163,7 +163,7 @@ function TrusteeForm({
         />
         <SelectField
           description="The account that votes and signs as this trustee."
-          label="pi-dash account"
+          label="Dashboard account"
           name="userId"
           options={accountOptions}
         />
