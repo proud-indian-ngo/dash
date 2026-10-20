@@ -71,6 +71,14 @@ export interface KalakritiScorecardR2ObjectRecord {
   key: string;
 }
 
+export interface GovernanceDocumentR2ObjectRecord {
+  access: "governanceDocument";
+  filename: string;
+  key: string;
+  /** Registration certificates are on filings, so finance may read them too. */
+  kind: string;
+}
+
 export interface KalakritiInventoryPhotoR2ObjectRecord {
   access: "kalakritiInventoryPhoto";
   editionId: string;
@@ -80,6 +88,7 @@ export interface KalakritiInventoryPhotoR2ObjectRecord {
 
 export type R2ObjectRecord =
   | EventPhotoR2ObjectRecord
+  | GovernanceDocumentR2ObjectRecord
   | KalakritiEntryMusicR2ObjectRecord
   | KalakritiInventoryPhotoR2ObjectRecord
   | KalakritiScorecardR2ObjectRecord
@@ -159,6 +168,20 @@ export async function authorizeEventPhoto(
   }
 }
 
+async function canReadGovernanceDocument(
+  session: SessionLike,
+  record: GovernanceDocumentR2ObjectRecord,
+  deps: R2ObjectAccessDeps
+): Promise<boolean> {
+  const permissions = await deps.resolvePermissions(getRole(session));
+  return (
+    permissions.includes("governance.view") ||
+    permissions.includes("governance.manage") ||
+    (record.kind === "registration_certificate" &&
+      permissions.includes("finance.view"))
+  );
+}
+
 export async function authorizeR2Object(
   session: SessionLike,
   record: R2ObjectRecord,
@@ -178,6 +201,8 @@ export async function authorizeR2Object(
     allowed = await deps.canReadKalakritiInventoryPhoto(session, record);
   } else if (record.access === "kalakritiScorecard") {
     allowed = await deps.canReadKalakritiScorecard(session, record);
+  } else if (record.access === "governanceDocument") {
+    allowed = await canReadGovernanceDocument(session, record, deps);
   } else {
     await authorizeEventPhoto(session, record, deps);
   }

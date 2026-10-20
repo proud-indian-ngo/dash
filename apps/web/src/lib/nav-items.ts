@@ -19,6 +19,10 @@ import {
   UserLove01Icon,
   UserShield01Icon,
   Calendar03Icon,
+  Certificate01Icon,
+  Files01Icon,
+  LegalDocument01Icon,
+  UserMultiple02Icon,
   FileExportIcon,
   HomeIcon,
   Invoice01Icon,
@@ -32,6 +36,10 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons";
+import {
+  GOVERNANCE_PAGE_PERMISSIONS,
+  REGISTRATIONS_PAGE_PERMISSIONS,
+} from "@pi-dash/shared/governance";
 import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
 import { BOOKS_PAGE_PERMISSIONS } from "@pi-dash/shared/ledger";
 
@@ -135,6 +143,45 @@ const incomeNavItem: NavItem = {
   title: "Income",
   url: "/income",
 };
+
+const trusteeRegisterNavItem: NavItem = {
+  icon: UserMultiple02Icon,
+  title: "Trustee register",
+  url: "/governance",
+};
+
+const governanceDocumentsNavItem: NavItem = {
+  icon: Files01Icon,
+  title: "Documents",
+  url: "/governance/documents",
+};
+
+const registrationsNavItem: NavItem = {
+  icon: Certificate01Icon,
+  title: "Registrations",
+  url: "/governance/registrations",
+};
+
+const deedNavItem: NavItem = {
+  icon: LegalDocument01Icon,
+  title: "Trust deed",
+  url: "/governance/deed",
+};
+
+/** Register, vault and deed for governance; registrations for finance too. */
+function governanceNavItems(permissions: string[]): NavItem[] {
+  const items: NavItem[] = [];
+  if (hasAny(permissions, ...GOVERNANCE_PAGE_PERMISSIONS)) {
+    items.push(trusteeRegisterNavItem, governanceDocumentsNavItem);
+  }
+  if (hasAny(permissions, ...REGISTRATIONS_PAGE_PERMISSIONS)) {
+    items.push(registrationsNavItem);
+  }
+  if (hasAny(permissions, ...GOVERNANCE_PAGE_PERMISSIONS)) {
+    items.push(deedNavItem);
+  }
+  return items;
+}
 
 const booksNavItem: NavItem = {
   icon: Book02Icon,
@@ -443,6 +490,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
   if (has(permissions, "finance.view")) {
     items.push(budgetsNavItem);
   }
+  items.push(...governanceNavItems(permissions));
   if (has(permissions, "users.manage")) {
     items.push(usersNavItem);
   }
@@ -527,6 +575,11 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
   }
   if (orgItems.length > 0) {
     groups.push({ items: orgItems, label: "Organization" });
+  }
+
+  const governanceItems = governanceNavItems(permissions);
+  if (governanceItems.length > 0) {
+    groups.push({ items: governanceItems, label: "Governance" });
   }
 
   // Admin group

@@ -16,3 +16,11 @@ export const accountNumberContext = (accountId: string) =>
 /** `private.contribution_receipt_snapshot.id_number_encrypted`, keyed by receipt ID. */
 export const snapshotIdContext = (receiptId: string) =>
   `contribution_receipt_snapshot.id_number:${receiptId}`;
+
+/** `private.trustee_private.pan_encrypted`, keyed by trustee ID. */
+export const trusteePanContext = (trusteeId: string) =>
+  `trustee_private.pan:${trusteeId}`;
+
+/** `private.trustee_private.aadhaar_reference_encrypted`, keyed by trustee ID. */
+export const trusteeAadhaarContext = (trusteeId: string) =>
+  `trustee_private.aadhaar_reference:${trusteeId}`;

@@ -21,7 +21,7 @@ Each chapter covers one subsystem. Agents route to chapters through the agent gu
 | [finance-books](finance-books.md) | Ledger, posting engine, opening balances, year close, posting rules, audited figures, CA workbook |
 | [finance-receipts-and-returns](finance-receipts-and-returns.md) | Donation receipts and the donations return (Form 113/114) |
 | [finance-ledger-cutover](finance-ledger-cutover.md) | Ledger cutover: opening balances, backfill, posting rules and CA handoff |
-| [governance](governance.md) | Trustee register, resolutions, meetings, signing and compliance (design) |
+| [governance](governance.md) | Trustee register, deed versions, documents vault and registrations; the design for resolutions, signing, meetings and compliance |
 | [jobs](jobs.md) | pg-boss handlers, schedules and retries |
 | [kalakriti-registration](kalakriti-registration.md) | Kalakriti Editions, registration, event-day operations, results and awards |
 | [monorepo](monorepo.md) | Workspaces, Turborepo and the Docker package layout |

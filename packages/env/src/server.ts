@@ -113,6 +113,10 @@ export const env = createEnv({
       ),
     /** Signing secret (`whsec_…`) of the Resend webhook for bounces and complaints; unset disables `/api/email/webhook`. */
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
+    /** Shared bearer token for the internal signing service (services/signing). */
+    SIGNING_SERVICE_TOKEN: z.string().min(16).optional(),
+    /** Internal URL of the signing service; unset stores signed PDFs without a signature check. */
+    SIGNING_SERVICE_URL: z.url().optional(),
     /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
     SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),

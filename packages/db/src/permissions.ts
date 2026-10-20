@@ -488,6 +488,29 @@ export const PERMISSIONS = [
     id: "donors.receipt",
     name: "Issue Donation Receipts",
   },
+
+  // ── Governance ──
+  {
+    category: "governance",
+    description:
+      "See the trustee register, the deed's rules, the trust's registrations and the governance documents vault",
+    id: "governance.view",
+    name: "View Governance",
+  },
+  {
+    category: "governance",
+    description:
+      "Keep the trustee register, upload governance documents and record the trust's registrations",
+    id: "governance.manage",
+    name: "Manage Governance",
+  },
+  {
+    category: "governance",
+    description:
+      "Reveal a trustee's full PAN and Aadhaar reference; every reveal is audited",
+    id: "governance.kyc.view",
+    name: "View Trustee KYC",
+  },
 ] as const;
 
 export type PermissionId = (typeof PERMISSIONS)[number]["id"];
@@ -569,6 +592,7 @@ const adminExcluded = new Set<PermissionId>([
   "finance.post_pending",
   "donors.manage",
   "donors.receipt",
+  "governance.kyc.view",
   "jobs.manage",
   "system.alerts",
 ]);
@@ -586,6 +610,8 @@ const financeAdminExcluded = new Set<PermissionId>([
   "settings.app_config",
   "settings.roles",
   "settings.whatsapp_groups",
+  "governance.manage",
+  "governance.kyc.view",
   "jobs.manage",
   "system.alerts",
 ]);

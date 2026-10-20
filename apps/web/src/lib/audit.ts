@@ -248,6 +248,24 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "voucherAttachmentId",
   "whatsappEnabled",
   "whatsappGroupId",
+  // Governance register and vault
+  "basis",
+  "cessationBasis",
+  "datedOn",
+  "endedOn",
+  "isCoFounder",
+  "issuedOn",
+  "legalName",
+  "office",
+  "scopeNote",
+  "sourceFormat",
+  "validFrom",
+  "validTo",
+  "validityNote",
+  "aadhaarName",
+  "aadhaarReference",
+  "pan",
+  "panName",
 ]);
 
 type ResolveExistingIds = (

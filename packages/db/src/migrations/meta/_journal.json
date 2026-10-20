@@ -1142,6 +1142,13 @@
       "when": 1792423769721,
       "tag": "0162_lovely_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1792423770721,
+      "tag": "0163_governance_register",
+      "breakpoints": true
     }
   ]
 }

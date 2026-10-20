@@ -41,6 +41,7 @@ describe("Kalakriti navigation", () => {
       "audit_log.view",
       "messages.schedule",
       "social.manage",
+      "governance.view",
     ]);
     for (const groups of [kalakriti, organization]) {
       const icons = groups.flatMap((group) =>
@@ -276,5 +277,30 @@ describe("Settings in the sidebar", () => {
     expect(
       adminItems(["settings.roles"]).some((item) => item.title === "Roles")
     ).toBe(false);
+  });
+});
+
+describe("Governance navigation", () => {
+  const titles = (permissions: string[]) =>
+    buildNavGroups(permissions)
+      .find((group) => group.label === "Governance")
+      ?.items.map((item) => item.title) ?? [];
+
+  it("shows the register, documents, registrations and deed to governance viewers", () => {
+    expect(titles(["governance.view"])).toEqual([
+      "Trustee register",
+      "Documents",
+      "Registrations",
+      "Trust deed",
+    ]);
+    expect(titles(["governance.manage"])).toContain("Trustee register");
+  });
+
+  it("shows finance only the registrations", () => {
+    expect(titles(["finance.view"])).toEqual(["Registrations"]);
+  });
+
+  it("hides the section from volunteers", () => {
+    expect(titles(["events.view_own", "requests.view_own"])).toEqual([]);
   });
 });
