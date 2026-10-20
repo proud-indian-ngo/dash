@@ -1,4 +1,4 @@
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
@@ -21,6 +21,7 @@ import * as z from "zod";
 
 import { useOutstandingPolicies } from "@/components/governance/policy-gate";
 import { Loader } from "@/components/loader";
+import { FilePreviewDialog } from "@/components/shared/file-preview";
 import { StandalonePage } from "@/components/shared/not-found-state";
 import { Tag } from "@/components/shared/status-badge";
 import { ZeroConnectionMonitor } from "@/components/zero-connection-monitor";
@@ -99,6 +100,12 @@ function AcceptPoliciesPage() {
   const { complete, items } = useOutstandingPolicies();
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Kept after closing, so the viewer animates out and returns focus.
+  const [reading, setReading] = useState<{
+    src: string;
+    title: string;
+  } | null>(null);
+  const [readingOpen, setReadingOpen] = useState(false);
 
   // The layout reads the gate from the cached session, so drop it first.
   const proceed = useCallback(() => {
@@ -181,13 +188,19 @@ function AcceptPoliciesPage() {
             <div key={item.version.id} role="listitem">
               <Item
                 render={
-                  <a
-                    href={getProtectedAttachmentHref(
-                      { id: item.version.id, kind: "policyDocument" },
-                      "inline"
-                    )}
-                    rel="noreferrer"
-                    target="_blank"
+                  <button
+                    aria-haspopup="dialog"
+                    onClick={() => {
+                      setReading({
+                        src: getProtectedAttachmentHref(
+                          { id: item.version.id, kind: "policyDocument" },
+                          "inline"
+                        ),
+                        title: item.policy.title,
+                      });
+                      setReadingOpen(true);
+                    }}
+                    type="button"
                   />
                 }
                 variant="outline"
@@ -199,7 +212,7 @@ function AcceptPoliciesPage() {
                   {item.updated ? <Tag>Updated</Tag> : null}
                   <HugeiconsIcon
                     className="text-muted-foreground size-4"
-                    icon={ArrowRight01Icon}
+                    icon={ViewIcon}
                     strokeWidth={2}
                   />
                 </ItemActions>
@@ -207,6 +220,14 @@ function AcceptPoliciesPage() {
             </div>
           ))}
         </ItemGroup>
+        {reading ? (
+          <FilePreviewDialog
+            onOpenChange={setReadingOpen}
+            open={readingOpen}
+            src={reading.src}
+            fileName={reading.title}
+          />
+        ) : null}
         <Label
           className="flex items-start gap-2 font-normal pointer-coarse:min-h-10 pointer-coarse:items-center"
           htmlFor="accept-policies"

@@ -27,6 +27,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { AddUrlRow } from "@/components/form/add-url-row";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
   getRequestUploadUrl,
   getVendorPaymentInvoiceUploadUrl,
@@ -119,16 +120,16 @@ function AttachmentRow({
             </span>
           </a>
         ) : null}
-        {attachment.type === "file" && downloadRef ? (
+        {attachment.type === "file" && attachment.objectKey && downloadRef ? (
           <>
-            <a
+            <FilePreviewButton
               className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-              href={getAttachmentPreviewHref(attachment, downloadRef)}
-              rel="noopener noreferrer"
-              target="_blank"
+              src={getAttachmentPreviewHref(attachment, downloadRef)}
+              fileName={getAttachmentLabel(attachment)}
+              mimeType={attachment.mimeType}
             >
               Preview
-            </a>
+            </FilePreviewButton>
             <a
               className="text-primary text-xs font-medium underline-offset-2 hover:underline"
               download

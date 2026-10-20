@@ -68,6 +68,8 @@ export default defineConfig({
         "apps/web/src/components/shared/responsive-alert-dialog.tsx",
         // Phones get a full-height sheet: a drawer swipe would fight the pen.
         "apps/web/src/components/reimbursements/collect-payee-signature-dialog.tsx",
+        // Phones get a full-screen viewer: a drawer swipe would fight scrolling pages.
+        "apps/web/src/components/shared/file-preview.tsx",
       ],
       rules: { "no-restricted-imports": "off" },
     },

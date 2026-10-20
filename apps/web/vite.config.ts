@@ -8,6 +8,7 @@ import { defineConfig, type Rolldown, type UserConfig } from "vite";
 
 import { apiMediaDevMiddleware } from "./src/lib/dev/api-media-dev-middleware.ts";
 import { kalakritiPdfAssets } from "./src/lib/dev/kalakriti-pdf-assets.ts";
+import { pdfjsAssets } from "./src/lib/dev/pdfjs-assets.ts";
 import { appReactCompilerPreset } from "./src/lib/dev/react-compiler-preset.ts";
 import "@pi-dash/env";
 
@@ -124,6 +125,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     },
     plugins: [
       kalakritiPdfAssets(),
+      pdfjsAssets(),
       ...devtools(),
       ...tailwindcss(),
       ...tanstackStart({

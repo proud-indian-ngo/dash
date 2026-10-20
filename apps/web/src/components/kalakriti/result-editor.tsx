@@ -19,6 +19,7 @@ import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { SelectField } from "@/components/form/select-field";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
   deleteTemporaryUpload,
   getKalakritiScorecardUploadUrl,
@@ -345,17 +346,17 @@ export function ResultEditor({
                     className="flex items-center gap-2 text-sm"
                     key={file.id}
                   >
-                    <a
-                      className="min-w-0 break-all underline"
-                      href={getProtectedAttachmentHref({
-                        kind: "kalakritiScorecard",
-                        id: file.id,
-                      })}
-                      rel="noreferrer"
-                      target="_blank"
+                    <FilePreviewButton
+                      className="min-w-0 text-left break-all underline"
+                      src={getProtectedAttachmentHref(
+                        { kind: "kalakritiScorecard", id: file.id },
+                        "inline"
+                      )}
+                      fileName={file.fileName}
+                      mimeType={file.mimeType}
                     >
                       {file.fileName}
-                    </a>
+                    </FilePreviewButton>
                     {canEdit ? (
                       <Button
                         type="button"

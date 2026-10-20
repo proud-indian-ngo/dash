@@ -26,7 +26,8 @@ const defaults: ReceiptPdfDependencies = {
  * stored). `donors.receipt` only, because the PDF carries the donor's full
  * ID number; each download is audited as `contribution_receipt.download`
  * with the receipt ID, as revealing an identifier is. Voided receipts still
- * download, marked void.
+ * download, marked void. `?disposition=inline` opens it in the browser
+ * instead; that is still a download for the audit.
  */
 export async function handleReceiptPdf(
   request: Request,
@@ -62,10 +63,14 @@ export async function handleReceiptPdf(
     if (!rendered) {
       return Response.json({ error: "Not found" }, { status: 404 });
     }
+    const disposition =
+      new URL(request.url).searchParams.get("disposition") === "inline"
+        ? "inline"
+        : "attachment";
     return new Response(new Uint8Array(rendered.pdf), {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
-        "Content-Disposition": `attachment; filename="${rendered.filename}"`,
+        "Content-Disposition": `${disposition}; filename="${rendered.filename}"`,
         "Content-Type": "application/pdf",
         Vary: "Cookie",
         "X-Content-Type-Options": "nosniff",

@@ -2,9 +2,13 @@ import {
   Cancel01Icon,
   Download04Icon,
   Mail01Icon,
+  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Button,
+  buttonVariants,
+} from "@pi-dash/design-system/components/ui/button";
 import type { ContributionChannel } from "@pi-dash/shared/constants";
 import { CONTRIBUTION_CHANNEL_LABELS } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -12,6 +16,7 @@ import { format } from "date-fns";
 import type { ReactNode } from "react";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
@@ -87,18 +92,19 @@ export function ReceiptDetailSheet({
           actions={
             canIssue ? (
               <>
-                <Button
-                  data-testid="receipt-download"
-                  render={<a download href={receiptPdfUrl(row.id)} />}
-                  variant="outline"
+                <FilePreviewButton
+                  className={buttonVariants({ variant: "outline" })}
+                  data-testid="receipt-view"
+                  src={receiptPdfUrl(row.id, "inline")}
+                  fileName={`Receipt ${row.number}`}
                 >
                   <HugeiconsIcon
                     className="size-4"
-                    icon={Download04Icon}
+                    icon={ViewIcon}
                     strokeWidth={2}
                   />
-                  Download
-                </Button>
+                  View
+                </FilePreviewButton>
                 {live ? (
                   <Button
                     disabled={emailing}
@@ -114,20 +120,34 @@ export function ReceiptDetailSheet({
                     Email
                   </Button>
                 ) : null}
-                {live ? (
-                  <PageHeaderMenu
-                    actions={[
-                      {
-                        destructive: true,
-                        icon: Cancel01Icon,
-                        id: "void",
-                        label: "Void receipt",
-                        onSelect: () => onVoid(row),
-                      },
-                    ]}
-                    title="Receipt actions"
-                  />
-                ) : null}
+                <PageHeaderMenu
+                  actions={[
+                    {
+                      icon: Download04Icon,
+                      id: "download",
+                      label: "Download PDF",
+                      render: (
+                        <a
+                          aria-label="Download PDF"
+                          download
+                          href={receiptPdfUrl(row.id)}
+                        />
+                      ),
+                    },
+                    ...(live
+                      ? [
+                          {
+                            destructive: true,
+                            icon: Cancel01Icon,
+                            id: "void",
+                            label: "Void receipt",
+                            onSelect: () => onVoid(row),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  title="Receipt actions"
+                />
               </>
             ) : null
           }

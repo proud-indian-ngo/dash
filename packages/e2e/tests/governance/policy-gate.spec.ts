@@ -44,10 +44,14 @@ test.describe("accepting policies (runs last, alone)", () => {
     await expect(
       page.getByRole("heading", { name: "Before you continue" })
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: title })).toHaveAttribute(
-      "href",
-      /kind=policyDocument/
-    );
+    // The policy opens in the viewer, without leaving the page.
+    await page.getByRole("button", { name: title }).click();
+    const viewer = page.getByRole("dialog", { name: title });
+    await expect(
+      viewer.getByRole("link", { name: "Open in new tab" })
+    ).toHaveAttribute("href", /kind=policyDocument/);
+    await viewer.getByRole("button", { name: "Close" }).click();
+    await expect(viewer).toBeHidden();
 
     const continueButton = page.getByRole("button", { name: "Continue" });
     await expect(continueButton).toBeDisabled();

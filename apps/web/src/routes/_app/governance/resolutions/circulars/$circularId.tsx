@@ -1,7 +1,7 @@
 import {
-  Download04Icon,
   SignatureIcon,
   Undo02Icon,
+  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -40,6 +40,7 @@ import {
   effectText,
   paragraphs,
 } from "@/components/governance/resolution-text";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   Dialog,
@@ -173,10 +174,10 @@ function CircularPage() {
   ].sort((a, b) => a[1].localeCompare(b[1]));
   const signatures = row.signatures ?? [];
   const fieldsPrepared = row.revisions?.[0]?.fieldsPrepared ?? true;
-  const pdfHref = getProtectedAttachmentHref({
-    id: circularId,
-    kind: "circularPdf",
-  });
+  const pdfHref = getProtectedAttachmentHref(
+    { id: circularId, kind: "circularPdf" },
+    "inline"
+  );
   const goToSignature = () => {
     const panel = document.getElementById("my-signature");
     panel?.scrollIntoView({ block: "start" });
@@ -198,19 +199,18 @@ function CircularPage() {
                 Sign
               </Button>
             ) : null}
-            <a
+            <FilePreviewButton
               className={buttonVariants({ variant: "outline" })}
-              href={pdfHref}
-              rel="noreferrer"
-              target="_blank"
+              src={pdfHref}
+              fileName={`Circular ${ref}`}
             >
               <HugeiconsIcon
                 className="size-4"
-                icon={Download04Icon}
+                icon={ViewIcon}
                 strokeWidth={2}
               />
               PDF
-            </a>
+            </FilePreviewButton>
             {open && isIssuer ? (
               <PageHeaderMenu
                 actions={[

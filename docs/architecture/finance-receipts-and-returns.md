@@ -12,7 +12,7 @@ Rules start in `packages/shared/src/receipts.ts`.
 - One live receipt per gift. A server-only snapshot freezes what the PDF prints, so later edits never change an issued receipt.
 - Numbering (`PI/2026-27/0001`): one gap-free series per financial year of the issue date, from a locked counter row in the issuing transaction, so a rollback gives the number back; a Postgres `SEQUENCE` would skip. Voiding keeps the number.
 - Eligibility: direct gift on or after the start, `received`, no refund, INR, not a platform donor, donor with name and address with PIN. The 80G line (needing a valid ID, printed in full) is left out when the gift is excluded, the donor opted out, or cash is above ₹2,000; the receipt then says no deduction certificate is issued. The trust's particulars and 80G registration must be set first.
-- `donors.receipt` (finance admins and super admins) issues, voids with a reason and emails. Issuing sets the gift `receipted`; voiding returns it to `received`. Reading also needs an income permission. Download is audited because the PDF carries the full ID.
+- `donors.receipt` (finance admins and super admins) issues, voids with a reason and emails. Issuing sets the gift `receipted`; voiding returns it to `received`. Reading also needs an income permission. Every fetch of the PDF, including opening it in the viewer, is audited as a download because it carries the full ID.
 - The PDF is rendered on demand, never stored. Email is manual only, through a job with an idempotency key.
 - Receipts have no ledger effect.
 

@@ -37,6 +37,7 @@ import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-di
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { contactActions } from "@/components/shared/contact-actions";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   AttachmentList,
@@ -431,13 +432,12 @@ export function ReimbursementDetail({
           {request.status === "approved" && approvalScreenshot ? (
             <RecordSection title="Payment proof">
               <div className="flex items-center gap-3 rounded-lg border p-2">
-                <a
-                  href={getAttachmentPreviewHref(
+                <FilePreviewButton
+                  src={getAttachmentPreviewHref(
                     approvalScreenshot,
                     approvalScreenshotRef
                   )}
-                  rel="noopener noreferrer"
-                  target="_blank"
+                  fileName="Payment proof"
                 >
                   <img
                     alt="Payment proof"
@@ -449,7 +449,7 @@ export function ReimbursementDetail({
                     )}
                     width={56}
                   />
-                </a>
+                </FilePreviewButton>
                 <span className="min-w-0 flex-1 text-sm">
                   Screenshot of the payment
                 </span>

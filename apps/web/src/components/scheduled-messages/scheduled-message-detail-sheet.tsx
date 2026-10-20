@@ -17,10 +17,14 @@ import { format } from "date-fns";
 
 import { RecipientSubTable } from "@/components/scheduled-messages/recipient-sub-table";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeaderMenu } from "@/components/shared/page-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
-import { getAttachmentDownloadHref } from "@/lib/attachment-links";
+import {
+  getAttachmentDownloadHref,
+  getAttachmentPreviewHref,
+} from "@/lib/attachment-links";
 import { DATE_TIME } from "@/lib/date-formats";
 
 type ScheduledMessageWithCreator = ScheduledMessage & {
@@ -205,35 +209,49 @@ export function ScheduledMessageDetailSheet({
                 Attachments ({attachments.length})
               </h3>
               <div className="flex flex-col gap-1.5">
-                {attachments.map((a) => (
-                  <a
-                    className="hover:bg-muted/50 flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors"
-                    download={a.fileName}
-                    href={getAttachmentDownloadHref(
-                      {
-                        filename: a.fileName,
-                        mimeType: a.mimeType,
-                        objectKey: a.r2Key,
-                        type: "file",
-                      },
-                      {
-                        id: message.id,
-                        key: a.r2Key,
-                        kind: "scheduledMessageAttachment",
-                      }
-                    )}
-                    key={a.r2Key}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {a.fileName}
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      {a.mimeType}
-                    </span>
-                  </a>
-                ))}
+                {attachments.map((a) => {
+                  const file = {
+                    filename: a.fileName,
+                    mimeType: a.mimeType,
+                    objectKey: a.r2Key,
+                    type: "file" as const,
+                  };
+                  const ref = {
+                    id: message.id,
+                    key: a.r2Key,
+                    kind: "scheduledMessageAttachment" as const,
+                  };
+                  return (
+                    <div
+                      className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                      key={a.r2Key}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {a.fileName}
+                      </span>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {a.mimeType}
+                      </span>
+                      <FilePreviewButton
+                        className="text-primary shrink-0 text-xs font-medium underline-offset-2 hover:underline"
+                        fileName={a.fileName}
+                        mimeType={a.mimeType}
+                        src={getAttachmentPreviewHref(file, ref)}
+                      >
+                        Preview
+                        <span className="sr-only"> {a.fileName}</span>
+                      </FilePreviewButton>
+                      <a
+                        className="text-primary shrink-0 text-xs font-medium underline-offset-2 hover:underline"
+                        download={a.fileName}
+                        href={getAttachmentDownloadHref(file, ref)}
+                      >
+                        Download
+                        <span className="sr-only"> {a.fileName}</span>
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ) : null}

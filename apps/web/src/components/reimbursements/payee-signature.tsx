@@ -12,6 +12,7 @@ import type { ReimbursementAttachment } from "@pi-dash/zero/schema";
 import { useEffect, useState } from "react";
 
 import { CollectPayeeSignatureDialog } from "@/components/reimbursements/collect-payee-signature-dialog";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
 
@@ -131,14 +132,13 @@ export function PayeeSignatureLine({
         className="bg-card mt-1.5 inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border py-1 pr-1 pl-1"
         data-testid="payee-signature-chip"
       >
-        <a
+        <FilePreviewButton
           className="shrink-0 rounded-sm border bg-white"
-          href={href}
-          rel="noopener noreferrer"
-          target="_blank"
+          src={href}
+          fileName={`Signature of ${payeeName}`}
         >
           <SignatureThumbnail alt={`Signature of ${payeeName}`} src={href} />
-        </a>
+        </FilePreviewButton>
         <span className="text-foreground flex items-center gap-1 text-xs">
           <HugeiconsIcon
             className="text-success-foreground size-3.5 shrink-0"

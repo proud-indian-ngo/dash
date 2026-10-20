@@ -28,7 +28,9 @@ test.describe("Signed cash voucher", () => {
     await expect(page.getByText("Signed voucher uploaded")).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByRole("link", { name: "Signed copy" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Signed copy" })
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Replace signed copy" })
     ).toBeVisible();

@@ -1,6 +1,7 @@
 import { GOVERNANCE_DOCUMENT_KIND_LABELS } from "@pi-dash/shared/governance";
 
 import type { SelectOption } from "@/components/form/select-field";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
@@ -52,13 +53,12 @@ export function EvidenceLink({
   }
   const document = documents.find((d) => d.id === documentId);
   return (
-    <a
+    <FilePreviewButton
       className="text-primary inline-flex items-center text-sm underline-offset-4 hover:underline pointer-coarse:min-h-10"
-      href={governanceDocumentHref(documentId)}
-      rel="noreferrer"
-      target="_blank"
+      src={governanceDocumentHref(documentId)}
+      fileName={document?.title ?? "Document"}
     >
       {document?.title ?? "Document"}
-    </a>
+    </FilePreviewButton>
   );
 }

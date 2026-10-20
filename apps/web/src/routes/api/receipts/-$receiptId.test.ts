@@ -69,6 +69,19 @@ describe("receipt PDF download", () => {
     ]);
   });
 
+  it("opens the PDF inline when asked", async () => {
+    const response = await handleReceiptPdf(
+      new Request(
+        `http://localhost/api/receipts/${RECEIPT}?disposition=inline`
+      ),
+      RECEIPT,
+      deps(true, [])
+    );
+    expect(response.headers.get("Content-Disposition")).toBe(
+      'inline; filename="PI-2026-27-0001.pdf"'
+    );
+  });
+
   it("refuses everyone without donors.receipt", async () => {
     const audits: unknown[] = [];
     const response = await handleReceiptPdf(

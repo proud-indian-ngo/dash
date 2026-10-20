@@ -38,6 +38,8 @@ Browser reads use typed asset references, never a caller-supplied key. A raw obj
 
 Scheduled WhatsApp delivery signs persisted attachment keys when the job runs. Notification payloads never include approval screenshots.
 
+Stored PDFs and images open in the in-app viewer, not a new tab; other types are offered as downloads. The viewer fetches each file once, from its `disposition=inline` URL, and Download saves that copy, so a viewed receipt is audited once. Where downloading is the usual job, as for receipts, a direct Download sits beside View. pdf.js needs its decoders, fonts and character maps at `/pdfjs/<version>/`; the build copies them there. The CSP allows `wasm-unsafe-eval` for the decoders and `blob:` images for the fetched copy.
+
 In development, the Vite `/api/` middleware (`apps/web/src/lib/dev/api-media-dev-middleware.ts`) normalises media `Sec-Fetch-Dest` headers. Without it Nitro treats native media requests as static assets and returns 404.
 
 ## Surfaces
