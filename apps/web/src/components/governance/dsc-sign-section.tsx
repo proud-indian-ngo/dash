@@ -26,7 +26,8 @@ const POLL_LIMIT_MS = 15 * 60 * 1000;
 /**
  * Opens a `pidash-sign://` link and waits for the helper to finish the
  * job, polling its status. Resolves with the job's outcome, or null once
- * the page is left: the job may still finish, so nothing is reported.
+ * the page is left: the job may still finish, so nothing is reported, not
+ * even an error, and a link that arrives after it isn't opened.
  */
 function useHelperJob() {
   const poll = useServerFn(getSigningJobStatus);
@@ -38,9 +39,12 @@ function useHelperJob() {
       cancelled.current = true;
     };
   }, []);
-  return useEventCallback(
+  const follow = useEventCallback(
     async (start: () => Promise<{ jobId: string; link: string }>) => {
       const { jobId, link } = await start();
+      if (cancelled.current) {
+        return null;
+      }
       window.location.href = link;
       const started = Date.now();
       while (Date.now() - started < POLL_LIMIT_MS) {
@@ -61,6 +65,15 @@ function useHelperJob() {
         status: "failed" as const,
       };
     }
+  );
+  return useEventCallback(
+    (start: () => Promise<{ jobId: string; link: string }>) =>
+      follow(start).catch((error: unknown) => {
+        if (cancelled.current) {
+          return null;
+        }
+        throw error;
+      })
   );
 }
 
