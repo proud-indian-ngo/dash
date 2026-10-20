@@ -4,10 +4,7 @@ import { parseRichText } from "@pi-dash/shared/rich-text";
 import type { Value } from "platejs";
 import { Plate, PlateContent, usePlateEditor } from "platejs/react";
 
-import {
-  RICH_TEXT_LISTS,
-  RichTextKit,
-} from "../components/editor/plugins/rich-text-kit";
+import { RichTextKit } from "../components/editor/plugins/rich-text-kit";
 
 export interface RichTextRendererProps {
   className?: string;
@@ -26,9 +23,7 @@ export function RichTextRenderer({
   );
   return (
     <Plate editor={editor} readOnly>
-      <PlateContent
-        className={`text-sm leading-relaxed ${RICH_TEXT_LISTS} ${className ?? ""}`}
-      />
+      <PlateContent className={`text-sm leading-relaxed ${className ?? ""}`} />
     </Plate>
   );
 }

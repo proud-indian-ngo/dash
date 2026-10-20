@@ -270,6 +270,89 @@ test.describe("resolution text", () => {
       page.locator("strong").filter({ hasText: "the budget" })
     ).toBeVisible();
   });
+
+  test("keeps pasted and indented lists within six levels", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+    const title = `E2E deep list ${Date.now()}`;
+    await page.goto("/governance/resolutions");
+    await page.getByRole("button", { name: "New circular" }).click();
+    const dialog = page.getByRole("dialog", { name: "New circular" });
+    await dialog.getByRole("textbox", { name: "Title" }).fill(title);
+    await writeText(page, dialog, "RESOLVED THAT:");
+    // Eight bulleted levels, with a numbered list inside the first bullet.
+    const deep = Array.from({ length: 8 }, (_, i) => `level${String(i + 1)}`)
+      .reverse()
+      .reduce((inner, text) => `<ul><li>${text}${inner}</li></ul>`, "")
+      .replace("level1", "level1<ol><li>numbered</li></ol>");
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.evaluate(async (html) => {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob(["levels"], { type: "text/plain" }),
+        }),
+      ]);
+    }, deep);
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ControlOrMeta+v");
+    const editor = dialog.getByRole("textbox", { name: "Text" });
+    await expect(editor).toContainText("level8");
+    // Deeper items moved up a level; Tab and Indent can't go past six.
+    await expect(editor.locator("ul ul ul ul ul ul ul")).toHaveCount(0);
+    await editor.getByText("level8").click();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("level9");
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Indent" })).toBeDisabled();
+    await expect(editor.locator("ul ul ul ul ul ul ul")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Create draft" }).click();
+
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText("level9")).toBeVisible();
+    // A numbered list inside a bulleted one counts from 1, as in the PDF.
+    await expect(
+      page.locator("ul ol").filter({ hasText: "numbered" }).first()
+    ).toHaveCSS("list-style-type", "decimal");
+  });
+
+  test("reaches every table action on a phone", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+    // iPhone 12 Pro.
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.goto("/governance/resolutions");
+    await page.getByRole("button", { name: "New circular" }).click();
+    const dialog = page.getByRole("dialog", { name: "New circular" });
+    await writeText(page, dialog, "RESOLVED THAT:");
+    await page.keyboard.press("Enter");
+    await dialog.getByRole("button", { exact: true, name: "Table" }).click();
+    await dialog.getByRole("columnheader").first().click();
+    const actions = dialog.getByRole("group", { name: "Table" });
+    for (const name of [
+      "Add row",
+      "Add column",
+      "Remove row",
+      "Remove column",
+      "Remove table",
+    ]) {
+      const box = await actions.getByRole("button", { name }).boundingBox();
+      expect(box, name).not.toBeNull();
+      expect(box!.x, name).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, name).toBeLessThanOrEqual(390);
+    }
+    // Columns stop at the cap: three now, five more allowed.
+    const addColumn = actions.getByRole("button", { name: "Add column" });
+    for (let i = 0; i < 5; i++) {
+      await addColumn.click();
+    }
+    await expect(addColumn).toBeDisabled();
+  });
 });
 
 test.describe("circular resolutions (another trustee)", () => {
