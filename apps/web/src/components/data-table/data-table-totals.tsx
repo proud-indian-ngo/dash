@@ -4,8 +4,8 @@ import type {
 } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatPaise } from "@pi-dash/shared/money";
-import type { CSSProperties, ReactNode, RefObject } from "react";
-import { useLayoutEffect, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { DATA_FONT_CLASS } from "./column-kinds";
 
@@ -68,23 +68,24 @@ function measureHeader(area: HTMLElement): {
  * grid's columns. Lives in the grid's scroll area so it scrolls with it.
  */
 export function DataTableTotals<TData extends object>({
-  areaRef,
   rows,
   table,
   totals,
 }: {
-  areaRef: RefObject<HTMLElement | null>;
   rows: readonly DataGridRow<TData>[];
   table: DataGridTableInstance<TData>;
   totals: readonly string[];
 }) {
+  const ref = useRef<HTMLTableElement>(null);
   const [layout, setLayout] = useState<ReturnType<typeof measureHeader>>(null);
   const columnIds = table.getVisibleLeafColumns().map((column) => column.id);
   const layoutKey = columnIds.join(",");
 
-  // Before paint, so the fitted page size already accounts for this row.
+  // Before paint, so the fitted page size already accounts for this row. The
+  // area comes from this table's own ref: an ancestor's ref is not attached yet
+  // when this mounts in the same commit as the scroll area.
   useLayoutEffect(() => {
-    const area = areaRef.current;
+    const area = ref.current?.closest<HTMLElement>("[data-slot=scroll-area]");
     const head = area?.querySelector("thead");
     if (!(area && head)) {
       return;
@@ -94,12 +95,9 @@ export function DataTableTotals<TData extends object>({
     const observer = new ResizeObserver(update);
     observer.observe(head);
     return () => observer.disconnect();
-  }, [areaRef, layoutKey]);
+  }, [layoutKey]);
 
-  if (!layout || layout.cells.length !== columnIds.length) {
-    return null;
-  }
-
+  const ready = layout?.cells.length === columnIds.length;
   const sums = sumColumns(rows, totals);
   const labelIndex = columnIds.findIndex(
     (id) => id !== "select" && !totals.includes(id)
@@ -119,29 +117,32 @@ export function DataTableTotals<TData extends object>({
     <table
       className="table-fixed border-separate border-spacing-0 text-sm"
       data-slot="data-grid-totals"
+      ref={ref}
       // Not a second table or an extra row for locators and screen readers;
       // the text still reads.
       role="presentation"
-      style={{ width: layout.width }}
+      style={{ width: layout?.width }}
     >
-      <tbody>
-        <tr>
-          {columnIds.map((id, index) => (
-            <td
-              className={cn(
-                "text-muted-foreground h-9 truncate border-t px-3 py-1",
-                layout.cells[index]?.pinned ? "bg-muted" : "bg-muted/40",
-                sums.has(id) &&
-                  cn(DATA_FONT_CLASS, "text-foreground font-semibold")
-              )}
-              key={id}
-              style={layout.cells[index]?.style}
-            >
-              {content(id, index)}
-            </td>
-          ))}
-        </tr>
-      </tbody>
+      {ready ? (
+        <tbody>
+          <tr>
+            {columnIds.map((id, index) => (
+              <td
+                className={cn(
+                  "text-muted-foreground h-9 truncate border-t px-3 py-1",
+                  layout.cells[index]?.pinned ? "bg-muted" : "bg-muted/40",
+                  sums.has(id) &&
+                    cn(DATA_FONT_CLASS, "text-foreground font-semibold")
+                )}
+                key={id}
+                style={layout.cells[index]?.style}
+              >
+                {content(id, index)}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      ) : null}
     </table>
   );
 }

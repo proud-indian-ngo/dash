@@ -998,7 +998,6 @@ function DataTableWrapperBase<TData extends object>({
                   )}
                   {totals?.length && filteredRows.length > 0 && !isLoading ? (
                     <DataTableTotals
-                      areaRef={scrollAreaRef}
                       rows={filteredRows}
                       table={table}
                       totals={totals}
