@@ -341,7 +341,7 @@ describe("trustee office mutators", () => {
 
 describe("resolution draft mutators", () => {
   const draft = {
-    body: "RESOLVED THAT",
+    body: '[{"children":[{"text":"RESOLVED THAT"}],"type":"p"}]',
     effect: { type: "none" },
     id: "r1",
     templateKey: "ordinary",
@@ -355,7 +355,7 @@ describe("resolution draft mutators", () => {
     await expect(
       run(resolutionMutators.updateDraft, db, secretaryCtx, {
         ...draft,
-        body: "RESOLVED THAT something else",
+        body: '[{"children":[{"text":"RESOLVED THAT something else"}],"type":"p"}]',
       })
     ).rejects.toThrow("Only a draft can change");
     await expect(

@@ -19,6 +19,17 @@ import {
   trusteeOfficeValues,
   trusteeTermBasisValues,
 } from "./governance";
+import {
+  bold,
+  ol,
+  p,
+  parseRichText,
+  richTextHasText,
+  richTextSchema,
+  type RichTextValue,
+  serializeRichText,
+  table,
+} from "./rich-text";
 
 export const resolutionStatusValues = [
   "draft",
@@ -120,8 +131,8 @@ export interface ResolutionTemplate {
   description: string;
   effect: ResolutionEffectType;
   key: ResolutionTemplateKey;
-  /** Starting text; the drafter edits it. */
-  text: string;
+  /** Starting text, with [placeholders] to replace; stored by `templateBody`. */
+  body: RichTextValue;
   /** Fixed threshold; null uses the deed's (amendment) or a simple majority. */
   threshold: ResolutionThreshold | "deed_amendment";
   title: string;
@@ -137,7 +148,16 @@ export const RESOLUTION_TEMPLATES: Record<
       "Approve the audited accounts of the year that ended (annual pack), in time for the audit report.",
     effect: "none",
     key: "accounts_approval",
-    text: "RESOLVED THAT the audited Balance Sheet as at 31 March [year] and the Income and Expenditure Account for the year ended on that date, together with the auditor's report, as placed before the Board, be and are hereby approved and adopted.\n\nRESOLVED FURTHER THAT the Managing Trustee be authorised to sign the accounts on behalf of the Board.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " the audited Balance Sheet as at 31 March [year] and the Income and Expenditure Account for the year ended on that date, together with the auditor's report, as placed before the Board, be and are hereby approved and adopted."
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " the Managing Trustee be authorised to sign the accounts on behalf of the Board."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Approval of the annual accounts",
   },
@@ -147,7 +167,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Set apart income for a specific purpose for up to five years (annual pack). The accumulation statement (Form 109) is filed with this resolution.",
     effect: "none",
     key: "accumulation",
-    text: "RESOLVED THAT a sum of Rs [amount] out of the income of the financial year [year] be accumulated and set apart for [specific purpose], to be applied within [period] years, and that the statement of accumulation (Form 109) be filed with the income-tax authorities.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " a sum of Rs [amount] out of the income of the financial year [year] be accumulated and set apart for [specific purpose], to be applied within [period] years, and that the statement of accumulation (Form 109) be filed with the income-tax authorities."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Accumulation of income",
   },
@@ -157,7 +182,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Appoint or reappoint the auditor for the year and fix their fee (annual pack).",
     effect: "none",
     key: "auditor_appointment",
-    text: "RESOLVED THAT [firm], Chartered Accountants (Firm Registration No. [number]), be and is hereby appointed auditor of the Trust for the financial year [year], at a fee of Rs [amount] plus applicable taxes.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " [firm], Chartered Accountants (Firm Registration No. [number]), be and is hereby appointed auditor of the Trust for the financial year [year], at a fee of Rs [amount] plus applicable taxes."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Appointment of the auditor",
   },
@@ -167,7 +197,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Appoint, co-opt or reappoint a trustee. Passing it adds the term to the register.",
     effect: "term_start",
     key: "appointment",
-    text: "RESOLVED THAT [name] be and is hereby appointed a Trustee of the Trust for a term from [date] to [date], and that [name] be requested to accept the trusteeship in writing.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " [name] be and is hereby appointed a Trustee of the Trust for a term from [date] to [date], and that [name] be requested to accept the trusteeship in writing."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Appointment of a trustee",
   },
@@ -177,7 +212,21 @@ export const RESOLUTION_TEMPLATES: Record<
       "Approve the next financial year's budget before it starts (clause 7.7, annual pack).",
     effect: "none",
     key: "budget_approval",
-    text: "RESOLVED THAT the budget of the Trust for the financial year [year], as placed before the Board, be and is hereby approved.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " the budget of the Trust for the financial year [year], as placed before the Board and summarised below, be and is hereby approved:"
+      ),
+      table(
+        ["Head", "Purpose", "Amount (Rs)"],
+        ["[head]", "[purpose]", "[amount]"],
+        ["[head]", "[purpose]", "[amount]"]
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " no head be exceeded by more than [ten] per cent without the Board's approval."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Approval of the budget",
   },
@@ -186,7 +235,25 @@ export const RESOLUTION_TEMPLATES: Record<
     description: "Who may operate the trust's bank accounts (clause 7.18).",
     effect: "none",
     key: "bank_operation",
-    text: "RESOLVED THAT the bank accounts of the Trust be operated by [names], [singly / jointly], with effect from [date].",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        ", with effect from [date], the Trust's [current/savings] account No. [number] with [bank], [branch] branch (IFSC [code]) be operated as follows:"
+      ),
+      table(
+        ["Name", "Office", "Operates"],
+        ["[name]", "[office]", "[singly up to Rs [amount] / jointly]"],
+        ["[name]", "[office]", "[singly up to Rs [amount] / jointly]"]
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " every other person cease to be an authorised signatory on the account."
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " a copy of this resolution, certified as true by the Managing Trustee, be furnished to the bank."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Operation of bank accounts",
   },
@@ -196,7 +263,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Record that a trustee ceased (resignation, term end, absence under clause 4.23 or death). Passing it ends the term and their offices.",
     effect: "term_end",
     key: "cessation",
-    text: "RESOLVED THAT the Board records that [name] ceased to be a Trustee of the Trust with effect from [date], by [reason].",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " the Board records that [name] ceased to be a Trustee of the Trust with effect from [date], by [reason]."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Cessation of a trustee",
   },
@@ -206,7 +278,20 @@ export const RESOLUTION_TEMPLATES: Record<
       "Approve an amendment to the deed (clause 9.3). Execution and registration happen on paper; the registered deed of amendment then becomes a new deed version.",
     effect: "none",
     key: "deed_amendment",
-    text: "RESOLVED THAT, subject to the prior approval of the Commissioner of Income-tax, the Trust Deed be amended as set out in the annexure.",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        ", subject to the prior approval of the Commissioner of Income-tax under clause 9.3 of the Trust Deed, the Trust Deed be amended as follows:"
+      ),
+      ol(
+        'Clause [number] be substituted by: "[new text]".',
+        'Clause [number] be inserted after clause [number]: "[new text]".'
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " the Managing Trustee be authorised to apply for the Commissioner's approval and to register the deed of amendment."
+      ),
+    ],
     threshold: "deed_amendment",
     title: "Amendment of the trust deed",
   },
@@ -216,7 +301,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Designate a trustee to an office. Passing it starts the office and ends the previous holder's on the same day.",
     effect: "office_start",
     key: "office_bearer",
-    text: "RESOLVED THAT [name] be and is hereby designated [office] of the Trust with effect from [date].",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " [name] be and is hereby designated [office] of the Trust with effect from [date]."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Designation of an office-bearer",
   },
@@ -225,7 +315,7 @@ export const RESOLUTION_TEMPLATES: Record<
     description: "Any other decision of the Board.",
     effect: "none",
     key: "ordinary",
-    text: "RESOLVED THAT ",
+    body: [p(bold("RESOLVED THAT "))],
     threshold: "majority_in_office",
     title: "Ordinary resolution",
   },
@@ -234,7 +324,16 @@ export const RESOLUTION_TEMPLATES: Record<
     description: "Shift the registered office (clause 3).",
     effect: "none",
     key: "registered_office",
-    text: "RESOLVED THAT the registered office of the Trust be shifted to [address] with effect from [date].",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        " the registered office of the Trust be shifted to [address] with effect from [date]."
+      ),
+      p(
+        bold("RESOLVED FURTHER THAT"),
+        " the Managing Trustee be authorised to update the address with the bank, the income-tax department, NGO Darpan and every other authority that holds it."
+      ),
+    ],
     threshold: "majority_in_office",
     title: "Shift of the registered office",
   },
@@ -244,7 +343,12 @@ export const RESOLUTION_TEMPLATES: Record<
       "Remove a trustee under clause 7.12: needs every other trustee, after a hearing, with reasons in writing.",
     effect: "removal",
     key: "removal",
-    text: "RESOLVED THAT, the Board having heard [name] on [date], and for the reasons recorded in writing, [name] be and is hereby removed as a Trustee of the Trust with effect from [date].",
+    body: [
+      p(
+        bold("RESOLVED THAT"),
+        ", the Board having heard [name] on [date], and for the reasons recorded in writing, [name] be and is hereby removed as a Trustee of the Trust with effect from [date]."
+      ),
+    ],
     threshold: "unanimous_others",
     title: "Removal of a trustee (clause 7.12)",
   },
@@ -631,7 +735,53 @@ export const ANNUAL_PACK_TEMPLATES: Readonly<
 export const RESOLUTION_TITLE_MAX = 200;
 /** Resolutions one circular can carry. */
 export const CIRCULAR_RESOLUTIONS_MAX = 10;
+/** Most plain text a resolution's body may hold. */
 export const RESOLUTION_TEXT_MAX = 20_000;
+/** Most serialized rich text stored for a body: room for the JSON around the text. */
+export const RESOLUTION_BODY_MAX = 200_000;
+/** A resolution's body as submitted: rich text, stored canonical. */
+export const resolutionBodySchema = richTextSchema({
+  maxChars: RESOLUTION_TEXT_MAX,
+  maxLength: RESOLUTION_BODY_MAX,
+});
+
+/**
+ * Why a body can't be saved, or undefined: it fails `resolutionBodySchema`,
+ * or has no text (empty lists and tables don't count).
+ */
+export function resolutionBodyProblem(json: string): string | undefined {
+  const parsed = resolutionBodySchema.safeParse(json);
+  if (!parsed.success) {
+    return parsed.error.issues[0]?.message ?? "Check the text.";
+  }
+  return richTextHasText(parseRichText(parsed.data))
+    ? undefined
+    : "Write the resolution's text.";
+}
+
+/** A template's starting text as a stored body. */
+export function templateBody(key: ResolutionTemplateKey): string {
+  return serializeRichText(RESOLUTION_TEMPLATES[key].body);
+}
+
+/**
+ * Whether a body is still the template's starting text, formatting and all,
+ * or has no text, so switching template may replace it.
+ */
+export function bodyUntouched(
+  json: string,
+  key: ResolutionTemplateKey
+): boolean {
+  let value: RichTextValue;
+  try {
+    value = parseRichText(json);
+  } catch {
+    return false;
+  }
+  return (
+    !richTextHasText(value) || serializeRichText(value) === templateBody(key)
+  );
+}
 export const OBJECTION_REASON_MAX = 1000;
 /** Default days between issue and the response date. */
 export const DEFAULT_RESPONSE_DAYS = 7;

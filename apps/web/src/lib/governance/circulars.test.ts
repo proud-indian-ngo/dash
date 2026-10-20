@@ -61,7 +61,7 @@ const register = {
 };
 
 const draft: DraftRow = {
-  body: "RESOLVED THAT the registered office be shifted.",
+  body: '[{"children":[{"text":"RESOLVED THAT the registered office be shifted."}],"type":"p"}]',
   effect: { type: "none" },
   id: "01930000-0000-7000-8000-0000000abcde",
   kind: "circular",
@@ -168,7 +168,9 @@ describe("planIssue", () => {
     ).toThrow("no open term");
     expect(() =>
       planIssue({
-        drafts: [{ ...draft, body: "  " }],
+        drafts: [
+          { ...draft, body: '[{"children":[{"text":"  "}],"type":"p"}]' },
+        ],
         effectRegisterProblem: noProblem,
         issuer: { trusteeId: "mt" },
         register,

@@ -25,6 +25,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { RichText } from "@/components/editor/rich-text";
 import { IssueCircularDialog } from "@/components/governance/issue-circular-dialog";
 import {
   epochToIso,
@@ -38,10 +39,7 @@ import {
 } from "@/components/governance/resolution-draft-form";
 import { ResolutionSignatures } from "@/components/governance/resolution-signatures";
 import { ResolutionStatusBadge } from "@/components/governance/resolution-status";
-import {
-  effectText,
-  paragraphs,
-} from "@/components/governance/resolution-text";
+import { effectText } from "@/components/governance/resolution-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
@@ -264,11 +262,7 @@ function ResolutionPage() {
       >
         <section className="flex flex-col gap-3 rounded-md border p-4">
           <h2 className="text-base font-semibold">Text</h2>
-          {paragraphs(row.body).map((p, i) => (
-            <p className="text-sm leading-relaxed" key={`p${String(i)}`}>
-              {p}
-            </p>
-          ))}
+          <RichText content={row.body} />
           {effectLine ? (
             <p className="text-muted-foreground border-t pt-3 text-sm">
               When it passes, the register records: {effectLine}

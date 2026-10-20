@@ -17,6 +17,7 @@ import {
   productStyles,
 } from "./product-pdf";
 import { ProudIndianLockup } from "./proud-indian-lockup";
+import { RichTextPdf } from "./rich-text";
 
 /**
  * The minutes of a board meeting, for the chair to sign: who was there, and
@@ -28,7 +29,7 @@ import { ProudIndianLockup } from "./proud-indian-lockup";
 export interface MinutesItem {
   /** Who attended this item differently from the attendance list, or another chair. */
   attendance: string | null;
-  /** The resolution text, for a resolution item. */
+  /** The resolution text (stored rich text), for a resolution item. */
   body: string | null;
   /** Trustees who declared an interest and stayed out of the item. */
   conflicted: string[];
@@ -135,13 +136,9 @@ function Item({ item }: { item: MinutesItem }) {
             </Line>
           ))
         : null}
-      {item.body
-        ? paragraphs(item.body).map((p, i) => (
-            <Line key={`b${String(i)}`} style={styles.paragraph}>
-              {p}
-            </Line>
-          ))
-        : null}
+      {item.body ? (
+        <RichTextPdf json={item.body} paragraph={styles.paragraph} />
+      ) : null}
       {item.noted.map((n) => (
         <View key={n.number} style={styles.row}>
           <Text style={styles.rowName}>{n.number}</Text>

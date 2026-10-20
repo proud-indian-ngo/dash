@@ -1,13 +1,13 @@
 # Governance: resolutions
 
-> **Load when**: circular, circular resolution, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `pidash-sign://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
+> **Load when**: circular, circular resolution, resolution text, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `pidash-sign://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
 > **Related**: `governance.md` (register, deed rules, vault, signing service)
 
 ## Lifecycle
 
 | Step | Who | What happens |
 |---|---|---|
-| Draft | `governance.manage` | One resolution: the text and the template's register change |
+| Draft | `governance.manage` | One resolution: the text (see [Text](#text)) and the template's register change |
 | Issue | The office-holder the deed allows (version 1: the MT) | Picks up to ten drafts and their order into one circular. Refused when the board is too small, a register change doesn't fit the register as the drafts before it would leave it, or a threshold is out of reach. Freezes revision 1 and renders one PDF with every resolution and, per trustee in office, a signature field and an answers field. The register is read again as the circular is saved; if the issuer's authority, the trustees in office or a threshold changed meanwhile, it is refused for a fresh issue |
 | Respond | Each trustee the circular went to | Object to a resolution with a reason, or declare a conflict on it, which leaves its count. Then sign the circular once: the signature assents to every open resolution they haven't objected to or declared a conflict on. Ones decided before they sign are marked so, not assented to |
 | Pass | | A resolution's signed assents reach its threshold |
@@ -21,6 +21,18 @@
 - A trustee sees the circulars sent to them without `governance.view`.
 - Past paper resolutions are recorded with their numbers so the series continues.
 - Resolutions decided at a board meeting share the numbering and register changes; see [meetings](governance-meetings.md).
+
+## Text
+
+A resolution's text is rich text, written in the rich text editor (`@pi-dash/editor/rich-text-editor`, see [editor](editor.md)) for circular drafts and agenda resolutions alike: paragraphs, bold, italic, underline, numbered and bulleted lists, nested, and simple tables with a header row.
+
+- `resolution.body` holds the Plate JSON. Every write passes `resolutionBodySchema`, which parses it with `@pi-dash/shared/rich-text`, refuses any other node or mark type, merged cells, ragged rows, tables wider than eight columns and lists deeper than six levels, allows 20,000 characters of plain text in 200,000 of JSON, and stores the canonical form (types, children and marks only).
+- The draft form refuses a body without text (`resolutionBodyProblem`), and so do issue and notice (`richTextHasText`): empty lists and tables don't count.
+- A template's text is rich text written with the builders in `@pi-dash/shared/rich-text` (`p`, `bold`, `ol`, `table`): the lead words "RESOLVED THAT" and "RESOLVED FURTHER THAT" are bold, and [placeholders] mark what to fill in; the budget and bank templates carry a table, the deed amendment a numbered list. `templateBody` stores it. Switching template replaces the text only while it has no text or is still the old template's exactly, formatting included (`bodyUntouched`).
+- Pages show the text read-only through the same preset. Anything that needs plain text uses `richTextToPlain`: paragraphs apart by a blank line, list items on lines with their marker, table cells apart by " | ".
+- A numbered list counts 1, then a, then i by the numbered lists it sits in, bulleted ones not counting (`orderedListStyle`). The editor, the pages, the PDF and plain text share that rule.
+- Migration 0176 turned the plain-text bodies into paragraphs in SQL with the same rule as `plainTextToRichText`, ASCII whitespace only; `rich-text-migration.db.test.ts` checks they agree.
+- The circular and the minutes draw it with `packages/pdf/src/rich-text.tsx` (see [PDF](pdf.md#rich-text)).
 
 ## Signatures
 

@@ -22,6 +22,7 @@ import {
   productStyles,
 } from "./product-pdf";
 import { ProudIndianLockup } from "./proud-indian-lockup";
+import { RichTextPdf } from "./rich-text";
 
 /**
  * A circular as issued: its resolutions in order, then signature pages with
@@ -40,7 +41,7 @@ export interface CircularResolutionProps {
   org: { address: string; name: string };
   /** Short reference printed on every page; register numbers come as each passes. */
   reference: string;
-  /** In order; each passes or fails on its own. */
+  /** In order; each passes or fails on its own. `body` is stored rich text. */
   resolutions: { body: string; threshold: string; title: string }[];
   responseDueOn: string;
   signers: { name: string; offices: string; trusteeId: string }[];
@@ -92,13 +93,6 @@ const styles = {
     slot: { left: 48, position: "absolute", width: 230 },
   }),
 };
-
-function paragraphs(body: string): string[] {
-  return body
-    .split(/\n\s*\n/)
-    .map((p) => p.replace(/\s*\n\s*/g, " ").trim())
-    .filter(Boolean);
-}
 
 function Footer({ props }: { props: CircularResolutionProps }) {
   return (
@@ -153,11 +147,7 @@ export function CircularResolution(props: CircularResolutionProps) {
                 ? `Resolution ${index + 1}: ${resolution.title}`
                 : resolution.title}
             </Line>
-            {paragraphs(resolution.body).map((paragraph, p) => (
-              <Line key={`p${String(p)}`} style={styles.paragraph}>
-                {paragraph}
-              </Line>
-            ))}
+            <RichTextPdf json={resolution.body} paragraph={styles.paragraph} />
             <Line style={styles.passes}>
               Passes with {resolution.threshold}
             </Line>
