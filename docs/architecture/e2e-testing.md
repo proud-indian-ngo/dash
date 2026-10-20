@@ -107,6 +107,8 @@ The claim-edit, Users-mount and Food-layout reports use `PERFORMANCE_LABEL` to s
 
 Warm governance uses `GOVERNANCE_WARM_LABEL` and optional `GOVERNANCE_WARM_ROUTES`. Each destination starts in a fresh context, waits two seconds after dashboard readiness, then measures first and repeat link navigation in the same document. `GOVERNANCE_WARM_IDLE_WAIT_MS` adds a fixed idle window. Meetings checks the populated Past tab count; Registrations checks its empty-state search control because the standard seed has no registration.
 
+Add `GOVERNANCE_WARM_REGISTER_ACTIONS=true` to measure Add trustee and trustee details in independent fresh contexts, including the first Add term opening. Each scenario measures navigation before the action; dialogs are cancelled without changing data. This prevents one form's loaded code from masking another's first-use cost.
+
 Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit in the same context with HTTP and Zero caches preserved. The Export first-use benchmark supports the same mode with `EXPORT_SSR_RETURNING=true`.
 
 `LAZY_FEATURES_PROFILE=true` captures contribution-dialog CPU profiles and timelines for first/repeat opens in separate normal/reduced-motion contexts. In-page marks separate controls, rendering frames and animation completion without Playwright readiness polling during recording. These diagnostic runs do not enter the latency report.

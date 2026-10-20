@@ -175,7 +175,9 @@ All 54 samples reached their readiness marker without page errors. First visits 
 
 Documents' signing-status request revalidates in the router's background on repeat visits. Its loader remains blocking on first entry to preserve warning geometry; an extra status cache has no demonstrated navigation benefit.
 
-The register now preloads deed versions alongside trustees because both gate its loading state. Two candidate runs reduced mobile first-visit medians from 2,350 to 2,249 and 2,214 ms; desktop measured 2,364 and 2,316 ms against 2,405. Repeat timing varied, so this supports a modest first-visit improvement only. No additional background warming or form splitting was adopted.
+The register preloads deed versions alongside trustees because both gate its loading state. Two candidate runs reduced mobile first-visit medians from 2,350 to 2,249 and 2,214 ms; desktop measured 2,364 and 2,316 ms against 2,405. Repeat timing varied.
+
+Deferring the trustee form alongside its private requests saves 4.7 KB. Against a repeated control, desktop/mobile navigation improved 2,456/2,248 → 2,295/2,182 ms; Add trustee measured 350/331 → 364/332 ms, within observed variation. Independent fresh-context actions prevent warmed forms masking regressions. Deferring period forms too saved 27 KB but slowed mobile Add trustee from 363 to 947 ms; rejected. The shared form library stays eager.
 
 ### Rules these results support
 

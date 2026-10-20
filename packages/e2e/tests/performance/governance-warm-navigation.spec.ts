@@ -13,6 +13,8 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 const RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
 const DASHBOARD_SETTLE_MS = 2_000;
+const MEASURE_REGISTER_ACTIONS =
+  process.env.GOVERNANCE_WARM_REGISTER_ACTIONS === "true";
 const LABEL = (process.env.GOVERNANCE_WARM_LABEL ?? "unlabelled")
   .replace(/[^a-zA-Z0-9_-]+/g, "-")
   .slice(0, 60);
@@ -153,7 +155,14 @@ const SELECTED_DESTINATIONS =
 type Destination = (typeof DESTINATIONS)[number];
 type DestinationName = Destination["name"];
 type Phase = "first" | "repeat";
+type Scenario = "add-trustee" | "navigation" | "trustee-detail";
 type ViewportName = (typeof VIEWPORTS)[number]["name"];
+
+function scenariosFor(destination: Destination): readonly Scenario[] {
+  return MEASURE_REGISTER_ACTIONS && destination.name === "register"
+    ? ["add-trustee", "trustee-detail"]
+    : ["navigation"];
+}
 
 type TimedEntry = {
   duration: number;
@@ -190,19 +199,26 @@ type Diagnostic = {
 };
 
 type Measurement = {
+  destination: DestinationName;
+  phase: Phase;
+} & InteractionMeasurement;
+
+type InteractionMeasurement = {
   armToClickMs: number;
   clickToReadyMs: number;
-  destination: DestinationName;
   longTasks: {
     count: number;
     maxDurationMs: number;
     totalDurationMs: number;
   } | null;
-  phase: Phase;
   postClickJavaScript: JavaScriptSnapshot;
   sameDocumentTimeOrigin: boolean;
   timeOrigin: number;
 };
+
+type RegisterActionMeasurement = {
+  action: "add-term" | "add-trustee" | "trustee-detail";
+} & InteractionMeasurement;
 
 type RunResult = {
   destination: DestinationName;
@@ -210,7 +226,9 @@ type RunResult = {
   measurements: Measurement[];
   pageErrors: Diagnostic[];
   preNavigationJavaScript: Omit<JavaScriptSnapshot, "assets">;
+  registerActions: RegisterActionMeasurement[] | null;
   run: number;
+  scenario: Scenario;
   viewport: ViewportName;
 };
 
@@ -246,7 +264,7 @@ async function installMetrics(context: BrowserContext) {
         if (
           metrics.active?.clickAt === null &&
           target instanceof Element &&
-          target.closest("a[href]")
+          target.closest('a[href],button,[role="button"],[role="row"],tr')
         ) {
           metrics.active.clickAt = event.timeStamp;
         }
@@ -380,91 +398,82 @@ async function armMeasurement(page: Page) {
   });
 }
 
-async function finishMeasurement(
-  page: Page,
-  destination: DestinationName,
-  phase: Phase
-): Promise<Measurement> {
-  return await page.evaluate(
-    ({ measuredDestination, measuredPhase }) => {
-      const metrics = (
-        window as typeof window & {
-          __governanceWarmNavigationBenchmark: BrowserMetrics;
-        }
-      ).__governanceWarmNavigationBenchmark;
-      const active = metrics.active;
-      if (!active || active.clickAt === null) {
-        throw new Error("The measured governance link click was not observed");
+async function finishMeasurement(page: Page): Promise<InteractionMeasurement> {
+  return await page.evaluate(() => {
+    const metrics = (
+      window as typeof window & {
+        __governanceWarmNavigationBenchmark: BrowserMetrics;
       }
-      const readyAt = performance.now();
-      const assets: JavaScriptAsset[] = performance
-        .getEntriesByType("resource")
-        .flatMap((item) => {
-          const entry = item as PerformanceResourceTiming;
-          try {
-            const pathname = new URL(entry.name, location.href).pathname;
-            if (!pathname.startsWith("/assets/") || !pathname.endsWith(".js")) {
-              return [];
-            }
-            return [
-              {
-                encodedBodyBytes: entry.encodedBodySize,
-                filename: pathname.split("/").at(-1) ?? pathname,
-                startFromClickMs: entry.startTime - active.clickAt!,
-                transferBytes: entry.transferSize,
-              },
-            ];
-          } catch {
+    ).__governanceWarmNavigationBenchmark;
+    const active = metrics.active;
+    if (!active || active.clickAt === null) {
+      throw new Error("The measured governance click was not observed");
+    }
+    const readyAt = performance.now();
+    const assets: JavaScriptAsset[] = performance
+      .getEntriesByType("resource")
+      .flatMap((item) => {
+        const entry = item as PerformanceResourceTiming;
+        try {
+          const pathname = new URL(entry.name, location.href).pathname;
+          if (!pathname.startsWith("/assets/") || !pathname.endsWith(".js")) {
             return [];
           }
-        })
-        .filter(
-          (asset) =>
-            asset.startFromClickMs >= 0 &&
-            asset.startFromClickMs <= readyAt - active.clickAt!
-        );
-      const longTasks = metrics.longTasks.filter(
-        (entry) =>
-          entry.startTime <= readyAt &&
-          entry.startTime + entry.duration >= active.clickAt!
+          return [
+            {
+              encodedBodyBytes: entry.encodedBodySize,
+              filename: pathname.split("/").at(-1) ?? pathname,
+              startFromClickMs: entry.startTime - active.clickAt!,
+              transferBytes: entry.transferSize,
+            },
+          ];
+        } catch {
+          return [];
+        }
+      })
+      .filter(
+        (asset) =>
+          asset.startFromClickMs >= 0 &&
+          asset.startFromClickMs <= readyAt - active.clickAt!
       );
-      metrics.active = null;
-      return {
-        armToClickMs: active.clickAt - active.armedAt,
-        clickToReadyMs: readyAt - active.clickAt,
-        destination: measuredDestination,
-        longTasks: metrics.longtaskSupported
-          ? {
-              count: longTasks.length,
-              maxDurationMs:
-                longTasks.length === 0
-                  ? 0
-                  : Math.max(...longTasks.map((entry) => entry.duration)),
-              totalDurationMs: longTasks.reduce(
-                (total, entry) => total + entry.duration,
-                0
-              ),
-            }
-          : null,
-        phase: measuredPhase,
-        postClickJavaScript: {
-          assets,
-          count: assets.length,
-          totalEncodedBodyBytes: assets.reduce(
-            (total, asset) => total + asset.encodedBodyBytes,
-            0
-          ),
-          totalTransferBytes: assets.reduce(
-            (total, asset) => total + asset.transferBytes,
-            0
-          ),
-        },
-        sameDocumentTimeOrigin: active.timeOrigin === performance.timeOrigin,
-        timeOrigin: performance.timeOrigin,
-      };
-    },
-    { measuredDestination: destination, measuredPhase: phase }
-  );
+    const longTasks = metrics.longTasks.filter(
+      (entry) =>
+        entry.startTime <= readyAt &&
+        entry.startTime + entry.duration >= active.clickAt!
+    );
+    metrics.active = null;
+    return {
+      armToClickMs: active.clickAt - active.armedAt,
+      clickToReadyMs: readyAt - active.clickAt,
+      longTasks: metrics.longtaskSupported
+        ? {
+            count: longTasks.length,
+            maxDurationMs:
+              longTasks.length === 0
+                ? 0
+                : Math.max(...longTasks.map((entry) => entry.duration)),
+            totalDurationMs: longTasks.reduce(
+              (total, entry) => total + entry.duration,
+              0
+            ),
+          }
+        : null,
+      postClickJavaScript: {
+        assets,
+        count: assets.length,
+        totalEncodedBodyBytes: assets.reduce(
+          (total, asset) => total + asset.encodedBodyBytes,
+          0
+        ),
+        totalTransferBytes: assets.reduce(
+          (total, asset) => total + asset.transferBytes,
+          0
+        ),
+      },
+      sameDocumentTimeOrigin: active.timeOrigin === performance.timeOrigin,
+      timeOrigin: performance.timeOrigin,
+    };
+  });
 }
 
 async function measureNavigation(
@@ -481,7 +490,97 @@ async function measureNavigation(
     await link.click();
   }
   await waitForDestination(page, destination);
-  return await finishMeasurement(page, destination.name, phase);
+  return {
+    ...(await finishMeasurement(page)),
+    destination: destination.name,
+    phase,
+  };
+}
+
+async function activate(page: Page, viewport: ViewportName, locator: Locator) {
+  await armMeasurement(page);
+  if (viewport === "mobile") {
+    await locator.tap();
+  } else {
+    await locator.click();
+  }
+}
+
+async function measureAddTrustee(
+  page: Page,
+  viewport: ViewportName
+): Promise<RegisterActionMeasurement[]> {
+  await activate(
+    page,
+    viewport,
+    page.getByRole("button", { exact: true, name: "Add trustee" })
+  );
+  const addDialog = page.getByRole("dialog", { name: "Add trustee" });
+  await expect(
+    addDialog.getByRole("textbox", { exact: true, name: "Legal name" })
+  ).toBeVisible({ timeout: READY_TIMEOUT_MS });
+  await waitForSettledContent(page);
+  const addTrustee: RegisterActionMeasurement = {
+    ...(await finishMeasurement(page)),
+    action: "add-trustee",
+  };
+  const cancel = addDialog.getByRole("button", { exact: true, name: "Cancel" });
+  if (viewport === "mobile") {
+    await cancel.tap();
+  } else {
+    await cancel.click();
+  }
+  await expect(addDialog).toBeHidden({ timeout: READY_TIMEOUT_MS });
+  return [addTrustee];
+}
+
+async function measureTrusteeDetailActions(
+  page: Page,
+  viewport: ViewportName
+): Promise<RegisterActionMeasurement[]> {
+  const ashaRow = page.getByRole("row").filter({ hasText: "Asha Rao" }).first();
+  await activate(page, viewport, ashaRow);
+  const detailSheet = page.getByRole("dialog", { name: "Asha Rao" });
+  await expect(
+    detailSheet.getByText("Contact and KYC", { exact: true })
+  ).toBeVisible({ timeout: READY_TIMEOUT_MS });
+  await expect(detailSheet.getByText("Email", { exact: true })).toBeVisible({
+    timeout: READY_TIMEOUT_MS,
+  });
+  await waitForSettledContent(page);
+  const trusteeDetail: RegisterActionMeasurement = {
+    ...(await finishMeasurement(page)),
+    action: "trustee-detail",
+  };
+
+  await activate(
+    page,
+    viewport,
+    detailSheet.getByRole("button", { exact: true, name: "Add term" })
+  );
+  const termDialog = page.getByRole("dialog", { name: "Add a term" });
+  await expect(
+    termDialog.getByRole("textbox", { exact: true, name: "Validity note" })
+  ).toBeVisible({ timeout: READY_TIMEOUT_MS });
+  await waitForSettledContent(page);
+  const addTerm: RegisterActionMeasurement = {
+    ...(await finishMeasurement(page)),
+    action: "add-term",
+  };
+  const cancel = termDialog.getByRole("button", {
+    exact: true,
+    name: "Cancel",
+  });
+  if (viewport === "mobile") {
+    await cancel.tap();
+  } else {
+    await cancel.click();
+  }
+  await expect(termDialog).toBeHidden({ timeout: READY_TIMEOUT_MS });
+  await page.keyboard.press("Escape");
+  await expect(detailSheet).toBeHidden({ timeout: READY_TIMEOUT_MS });
+
+  return [trusteeDetail, addTerm];
 }
 
 async function returnToDashboard(page: Page, viewport: ViewportName) {
@@ -540,75 +639,93 @@ test("measure first and repeat warm governance navigation", async ({
     error: Diagnostic;
     pageErrors: Diagnostic[];
     run: number;
+    scenario: Scenario;
     viewport: ViewportName;
   }> = [];
 
   for (const destination of SELECTED_DESTINATIONS) {
     for (const viewport of VIEWPORTS) {
-      for (let run = 1; run <= RUNS; run += 1) {
-        const context = await browser.newContext({
-          baseURL,
-          deviceScaleFactor: viewport.deviceScaleFactor,
-          hasTouch: viewport.hasTouch,
-          isMobile: viewport.isMobile,
-          storageState: STORAGE_STATE,
-          viewport: viewport.viewport,
-        });
-        context.setDefaultTimeout(READY_TIMEOUT_MS);
-        context.setDefaultNavigationTimeout(READY_TIMEOUT_MS);
-        const pageErrors: Diagnostic[] = [];
-        try {
-          await installMetrics(context);
-          const page = await context.newPage();
-          page.on("pageerror", (error) => pageErrors.push(diagnostic(error)));
-          const session = await configureThrottling(context, page);
-          await page.goto("/", { waitUntil: "domcontentloaded" });
-          await waitForDashboard(page);
-          await page.waitForTimeout(DASHBOARD_SETTLE_MS);
-          if (EXTRA_IDLE_WAIT_MS > 0) {
-            await page.waitForTimeout(EXTRA_IDLE_WAIT_MS);
+      for (const scenario of scenariosFor(destination)) {
+        for (let run = 1; run <= RUNS; run += 1) {
+          const context = await browser.newContext({
+            baseURL,
+            deviceScaleFactor: viewport.deviceScaleFactor,
+            hasTouch: viewport.hasTouch,
+            isMobile: viewport.isMobile,
+            storageState: STORAGE_STATE,
+            viewport: viewport.viewport,
+          });
+          context.setDefaultTimeout(READY_TIMEOUT_MS);
+          context.setDefaultNavigationTimeout(READY_TIMEOUT_MS);
+          const pageErrors: Diagnostic[] = [];
+          try {
+            await installMetrics(context);
+            const page = await context.newPage();
+            page.on("pageerror", (error) => pageErrors.push(diagnostic(error)));
+            const session = await configureThrottling(context, page);
+            await page.goto("/", { waitUntil: "domcontentloaded" });
+            await waitForDashboard(page);
+            await page.waitForTimeout(DASHBOARD_SETTLE_MS);
+            if (EXTRA_IDLE_WAIT_MS > 0) {
+              await page.waitForTimeout(EXTRA_IDLE_WAIT_MS);
+            }
+            const initialTimeOrigin = await page.evaluate(
+              () => performance.timeOrigin
+            );
+            const preNavigationJavaScriptAssets =
+              await preNavigationJavaScript(page);
+            const first = await measureNavigation(
+              page,
+              viewport.name,
+              destination,
+              "first"
+            );
+            const registerActions =
+              scenario === "add-trustee"
+                ? await measureAddTrustee(page, viewport.name)
+                : scenario === "trustee-detail"
+                  ? await measureTrusteeDetailActions(page, viewport.name)
+                  : null;
+            await returnToDashboard(page, viewport.name);
+            const repeat = await measureNavigation(
+              page,
+              viewport.name,
+              destination,
+              "repeat"
+            );
+            results.push({
+              destination: destination.name,
+              initialTimeOrigin,
+              measurements: [first, repeat],
+              pageErrors,
+              preNavigationJavaScript: preNavigationJavaScriptAssets,
+              registerActions,
+              run,
+              scenario,
+              viewport: viewport.name,
+            });
+            const actions = (registerActions ?? [])
+              .map(
+                (measurement) =>
+                  `${measurement.action}=${Math.round(measurement.clickToReadyMs)}ms/${measurement.postClickJavaScript.totalEncodedBodyBytes}B`
+              )
+              .join(" ");
+            console.log(
+              `[governance-warm] ${destination.name}/${viewport.name}/${scenario}/run-${run} first=${Math.round(first.clickToReadyMs)}ms repeat=${Math.round(repeat.clickToReadyMs)}ms pre-js=${preNavigationJavaScriptAssets.totalEncodedBodyBytes}B first-post-click-js=${first.postClickJavaScript.totalEncodedBodyBytes}B repeat-post-click-js=${repeat.postClickJavaScript.totalEncodedBodyBytes}B${actions ? ` ${actions}` : ""}`
+            );
+            void session;
+          } catch (error) {
+            runErrors.push({
+              destination: destination.name,
+              error: diagnostic(error),
+              pageErrors,
+              run,
+              scenario,
+              viewport: viewport.name,
+            });
+          } finally {
+            await context.close();
           }
-          const initialTimeOrigin = await page.evaluate(
-            () => performance.timeOrigin
-          );
-          const preNavigationJavaScriptAssets =
-            await preNavigationJavaScript(page);
-          const first = await measureNavigation(
-            page,
-            viewport.name,
-            destination,
-            "first"
-          );
-          await returnToDashboard(page, viewport.name);
-          const repeat = await measureNavigation(
-            page,
-            viewport.name,
-            destination,
-            "repeat"
-          );
-          results.push({
-            destination: destination.name,
-            initialTimeOrigin,
-            measurements: [first, repeat],
-            pageErrors,
-            preNavigationJavaScript: preNavigationJavaScriptAssets,
-            run,
-            viewport: viewport.name,
-          });
-          console.log(
-            `[governance-warm] ${destination.name}/${viewport.name}/run-${run} first=${Math.round(first.clickToReadyMs)}ms repeat=${Math.round(repeat.clickToReadyMs)}ms pre-js=${preNavigationJavaScriptAssets.totalEncodedBodyBytes}B first-post-click-js=${first.postClickJavaScript.totalEncodedBodyBytes}B repeat-post-click-js=${repeat.postClickJavaScript.totalEncodedBodyBytes}B`
-          );
-          void session;
-        } catch (error) {
-          runErrors.push({
-            destination: destination.name,
-            error: diagnostic(error),
-            pageErrors,
-            run,
-            viewport: viewport.name,
-          });
-        } finally {
-          await context.close();
         }
       }
     }
@@ -620,12 +737,15 @@ test("measure first and repeat warm governance navigation", async ({
       cache:
         "HTTP and Zero caches remain enabled within each destination sample",
       clickStart:
-        "Capture-phase link click Event.timeStamp, excluding Playwright actionability work",
+        "Capture-phase intended click Event.timeStamp, excluding Playwright actionability work",
       dashboardSettleMs: DASHBOARD_SETTLE_MS,
       extraIdleWaitMs: EXTRA_IDLE_WAIT_MS,
       network: THROTTLING,
       readiness:
         "Level-one heading, Zero ready, route-specific seeded content, no visible skeletons, fonts ready and two animation frames. Meetings verifies the populated Past tab because the real link opens Upcoming. Registrations has no standard seeded row and verifies its search control.",
+      registerActions: MEASURE_REGISTER_ACTIONS
+        ? "Two independent fresh-context register scenarios: Add trustee until Legal name is ready; Asha Rao detail until private Email is ready, followed by Add term until Validity note is ready. Dialogs are cancelled without mutation. Each action also requires no visible skeletons, fonts ready and two animation frames."
+        : "disabled",
       role: "super_admin",
       routeFilter: requestedRoutes,
       routes: SELECTED_DESTINATIONS.map(({ link, name, path: routePath }) => ({
@@ -633,9 +753,9 @@ test("measure first and repeat warm governance navigation", async ({
         name,
         path: routePath,
       })),
-      runsPerDestinationAndViewport: RUNS,
+      runsPerScenarioAndViewport: RUNS,
       sampleIsolation:
-        "A fresh authenticated browser context is used for each destination, viewport and run. First, dashboard return and repeat stay in one document.",
+        "A fresh authenticated browser context is used for each destination, viewport, scenario and run. With register actions enabled, Add trustee and trustee detail start in separate fresh contexts. First navigation, optional actions, dashboard return and repeat stay in one document.",
       viewports: VIEWPORTS,
     },
     results,
@@ -668,12 +788,12 @@ test("measure first and repeat warm governance navigation", async ({
   ).toHaveLength(0);
   expect(
     results.every((result) =>
-      result.measurements.every(
+      [...result.measurements, ...(result.registerActions ?? [])].every(
         (measurement) =>
           measurement.sameDocumentTimeOrigin &&
           measurement.timeOrigin === result.initialTimeOrigin
       )
     ),
-    "Every first and repeat measurement must preserve the dashboard document"
+    "Every navigation and register action measurement must preserve the dashboard document"
   ).toBe(true);
 });
