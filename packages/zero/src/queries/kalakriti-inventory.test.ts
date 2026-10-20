@@ -297,6 +297,12 @@ describe("inventory query authorization", () => {
     const aliases = (ast("transactions").related ?? []).map(
       (relation) => relation.subquery.alias
     );
-    expect(aliases).toEqual(["item", "volunteer", "competition", "actor"]);
+    // Zero orders relationships by alias in the AST; the set is what matters.
+    expect(aliases.toSorted()).toEqual([
+      "actor",
+      "competition",
+      "item",
+      "volunteer",
+    ]);
   });
 });

@@ -221,7 +221,7 @@ services:
     restart: unless-stopped
 
   zero-cache:
-    image: rocicorp/zero:1.10.0
+    image: rocicorp/zero:1.11.1
     ports:
       - 4848
     environment:
