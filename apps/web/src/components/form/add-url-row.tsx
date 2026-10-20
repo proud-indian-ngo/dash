@@ -18,10 +18,7 @@ export function AddUrlRow({ onAdd }: AddUrlRowProps) {
       return null;
     }
 
-    const result = z
-      .string()
-      .url("Must be a valid URL")
-      .safeParse(value.trim());
+    const result = z.url("Must be a valid URL").safeParse(value.trim());
     return result.success
       ? null
       : (result.error.issues[0]?.message ?? "Must be a valid URL");

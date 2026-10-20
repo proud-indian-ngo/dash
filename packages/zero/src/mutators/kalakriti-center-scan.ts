@@ -23,7 +23,7 @@ import { getEditionForUpdate } from "./kalakriti-row-locks";
 import { pushTransportChangedNotificationTask } from "./kalakriti-transport";
 
 const centerStageFields = {
-  centerId: z.string().uuid(),
+  centerId: z.uuid(),
   expectedStage: z.enum(KALAKRITI_CENTER_SCAN_STAGES),
 };
 const recordSchema = kalakritiOperationRecordSchema
@@ -34,9 +34,9 @@ const recordManualSchema = kalakritiOperationRecordManualSchema
   .extend(centerStageFields);
 const finalizeSchema = z.object({
   ...centerStageFields,
-  editionId: z.string().uuid(),
-  id: z.string().uuid(),
-  auditEntryId: z.string().uuid(),
+  editionId: z.uuid(),
+  id: z.uuid(),
+  auditEntryId: z.uuid(),
   now: z.number().finite(),
 });
 

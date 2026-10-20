@@ -1,5 +1,5 @@
 import { env } from "@pi-dash/env/server";
-import { defineEventHandler, setHeaders } from "nitro/h3";
+import { defineEventHandler } from "nitro/h3";
 
 const isProduction = env.NODE_ENV === "production";
 
@@ -28,7 +28,7 @@ function buildCsp(): string {
 }
 
 export default defineEventHandler((event) => {
-  setHeaders(event, {
+  const headers: Record<string, string> = {
     "Permissions-Policy": "camera=(self), microphone=(), geolocation=()",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "X-Content-Type-Options": "nosniff",
@@ -41,5 +41,8 @@ export default defineEventHandler((event) => {
             "max-age=63072000; includeSubDomains; preload",
         }
       : {}),
-  });
+  };
+  for (const [name, value] of Object.entries(headers)) {
+    event.res.headers.set(name, value);
+  }
 });

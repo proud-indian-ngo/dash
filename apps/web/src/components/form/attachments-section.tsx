@@ -330,7 +330,7 @@ export function AttachmentsSection({
       return false;
     }
 
-    const result = z.string().url("Must be a valid URL").safeParse(url.trim());
+    const result = z.url("Must be a valid URL").safeParse(url.trim());
     if (!result.success) {
       return false;
     }

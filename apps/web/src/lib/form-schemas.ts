@@ -109,7 +109,7 @@ export const attachmentSchema = z.discriminatedUnion("type", [
   z.object({
     id: z.string(),
     type: z.literal("url"),
-    url: z.string().url("Must be a valid URL"),
+    url: z.url("Must be a valid URL"),
   }),
 ]);
 

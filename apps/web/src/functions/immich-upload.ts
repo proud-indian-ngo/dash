@@ -73,7 +73,7 @@ export function validateImmichUploadInput(input: unknown) {
   ) {
     throw new Error("Missing file, eventId, or photoId");
   }
-  if (!z.string().uuid().safeParse(photoId).success) {
+  if (!z.uuid().safeParse(photoId).success) {
     throw new Error("Invalid photoId");
   }
   const mime = file.type;

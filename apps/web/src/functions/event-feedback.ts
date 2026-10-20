@@ -11,7 +11,7 @@ import { authMiddleware } from "@/middleware/auth";
 
 export const getMyEventFeedback = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .validator(z.object({ eventId: z.string().uuid() }))
+  .validator(z.object({ eventId: z.uuid() }))
   .handler(async ({ context, data }) => {
     const userId = context.session?.user?.id;
     if (!userId) {

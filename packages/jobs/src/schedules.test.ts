@@ -29,6 +29,33 @@ describe("registerSchedules", () => {
     }
   });
 
+  it("catches up missed maintenance runs once and skips missed reminders", async () => {
+    const missed = new Map<string, unknown>();
+    await registerSchedules({
+      schedule: async (
+        name: string,
+        _cron: string,
+        _data: unknown,
+        options: { missed?: string }
+      ) => {
+        missed.set(name, options.missed);
+      },
+      unschedule: async () => undefined,
+    } as never);
+    for (const name of [
+      "ensure-fiscal-years",
+      "close-due-resolutions",
+      "retimestamp-governance-archives",
+      "generate-compliance-items",
+      "ledger-post-pending",
+      "expire-import-rows",
+    ]) {
+      expect(missed.get(name)).toBe("once");
+    }
+    expect(missed.get("remind-compliance-items")).toBeUndefined();
+    expect(missed.get("send-weekly-events-digest")).toBeUndefined();
+  });
+
   const withEnv = async (values: Record<string, string | undefined>) => {
     const saved = Object.fromEntries(
       Object.keys(values).map((key) => [key, process.env[key]])

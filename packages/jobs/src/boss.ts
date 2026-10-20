@@ -44,6 +44,17 @@ export async function startWorker(): Promise<void> {
       errLog.emit();
     });
 
+    // Vacuum, backlog, slow-query and handler-overrun alerts arrive here.
+    boss.on("warning", (warning) => {
+      const warnLog = createRequestLogger({
+        method: "SYSTEM",
+        path: "jobs/warning",
+      });
+      warnLog.set({ data: warning.data });
+      warnLog.warn(warning.message);
+      warnLog.emit();
+    });
+
     await boss.start();
     setBossInstance(boss);
     log.set({ event: "pg_boss_started" });

@@ -22,9 +22,7 @@ import {
 } from "@/lib/kalakriti-food-policy";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/food")({
-  validateSearch: z
-    .object({ dashboardFilter: z.string().optional() })
-    .passthrough(),
+  validateSearch: z.looseObject({ dashboardFilter: z.string().optional() }),
   beforeLoad: ({ context }) => {
     if (!canViewKalakritiFood(context.kalakritiEditionAccess)) throw notFound();
   },

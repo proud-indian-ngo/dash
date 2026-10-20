@@ -42,9 +42,7 @@ import { preloadRouteQuery } from "@/lib/route-preload";
 import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/students")({
-  validateSearch: z
-    .object({ dashboardFilter: z.string().optional() })
-    .passthrough(),
+  validateSearch: z.looseObject({ dashboardFilter: z.string().optional() }),
   beforeLoad: ({ context }) => {
     if (!canAccessKalakritiStudents(context.kalakritiEditionAccess))
       throw notFound();

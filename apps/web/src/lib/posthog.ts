@@ -175,9 +175,34 @@ export function resetUser(): void {
 
 const IGNORED_ERRORS = ["_nonReactive", "WebSocket connection closed abruptly"];
 
+/**
+ * Links React's component stack as the innermost cause, which is how
+ * @posthog/react reports it, so Error Tracking shows the crashing component.
+ */
+export function attachComponentStack(error: Error, componentStack: string) {
+  const stackError = new Error(error.message);
+  Object.defineProperty(stackError, "name", {
+    configurable: true,
+    value: `React ErrorBoundary ${error.name}`,
+    writable: true,
+  });
+  stackError.stack = componentStack;
+  const seen = new Set<Error>([error]);
+  let innermost = error;
+  while (innermost.cause instanceof Error && !seen.has(innermost.cause)) {
+    innermost = innermost.cause;
+    seen.add(innermost);
+  }
+  if (innermost.cause !== undefined && !(innermost.cause instanceof Error)) {
+    stackError.cause = innermost.cause;
+  }
+  innermost.cause = stackError;
+}
+
 export function captureException(
   error: Error,
-  properties?: Record<string, unknown>
+  properties?: Record<string, unknown>,
+  componentStack?: string | null
 ): void {
   initPostHog();
   if (!initialized || capturedErrors.has(error)) {
@@ -187,5 +212,8 @@ export function captureException(
     return;
   }
   capturedErrors.add(error);
+  if (componentStack) {
+    attachComponentStack(error, componentStack);
+  }
   posthogJs.captureException(error, properties);
 }

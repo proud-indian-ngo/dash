@@ -22,6 +22,7 @@ function buildDrain() {
 
   return createOTLPDrain({
     endpoint,
+    semanticConventions: true,
     serviceName: process.env.OTEL_SERVICE_NAME ?? "pi-dash",
     ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {}),
   });
@@ -59,7 +60,9 @@ export default definePlugin((nitroApp) => {
       service: process.env.OTEL_SERVICE_NAME ?? "pi-dash",
     },
     pretty: process.env.NODE_ENV !== "production",
-    redact: { builtins: ["creditCard", "email", "jwt", "bearer", "iban"] },
+    redact: {
+      builtins: ["creditCard", "email", "jwt", "bearer", "iban", "secrets"],
+    },
   });
 
   nitroApp.hooks.hook("evlog:enrich", (ctx) => {
