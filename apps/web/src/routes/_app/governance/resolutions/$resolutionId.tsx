@@ -206,7 +206,14 @@ function ResolutionPage() {
   const responses = [...(row.responses ?? [])].sort((a, b) =>
     (a.trustee?.legalName ?? "").localeCompare(b.trustee?.legalName ?? "")
   );
-  const mine = responses.find((r) => r.userId === user.id) ?? null;
+  // The open one first, should the account have moved between trustees.
+  const mine =
+    responses.find(
+      (r) =>
+        r.userId === user.id && r.response === "pending" && !r.conflictDeclared
+    ) ??
+    responses.find((r) => r.userId === user.id) ??
+    null;
   const dueIso = epochToIso(row.responseDueOn ?? null);
   const tally =
     row.status === "draft" || row.historical

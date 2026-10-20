@@ -107,8 +107,8 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing`, `http://signing:8080` in `docker-compose.prod.yml`. Unset stores governance documents unchecked; they can be checked later |
-| `SIGNING_SERVICE_TOKEN` | No | Bearer token, 16+ characters (`openssl rand -hex 32`), shared with the signing service, which refuses requests without it |
+| `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Unset stores governance documents unchecked, to check later |
+| `SIGNING_SERVICE_TOKEN` | No | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
 
 ### Observability
 
@@ -173,7 +173,9 @@ For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy 
 
 ### Signing service
 
-`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents and adds the signature fields to circulars; without it, signed circulars can't be accepted. Extra trust roots go in `services/signing/roots/`.
+`services/signing` runs as `signing`, reachable only from the web service. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+
+The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
 
 ### WhatsApp gateway (optional)
 

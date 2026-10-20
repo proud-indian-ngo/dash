@@ -18,7 +18,10 @@ from typing import Any
 from asn1crypto import pem, x509
 from pyhanko.pdf_utils.misc import PdfReadError
 from pyhanko.pdf_utils.reader import PdfFileReader
-from pyhanko.sign.validation import async_validate_pdf_signature
+from pyhanko.sign.validation import (
+    async_validate_pdf_signature,
+    async_validate_pdf_timestamp,
+)
 from pyhanko.sign.validation.status import SignatureCoverageLevel
 from pyhanko_certvalidator import ValidationContext
 
@@ -53,8 +56,10 @@ class ValidationSettings:
     allow_fetching: bool = False
 
     def context(self) -> ValidationContext:
+        # The system's roots (the TSA's DigiCert chain, Adobe-trusted CAs)
+        # plus the configured ones (the CCA India roots behind every DSC).
         return ValidationContext(
-            trust_roots=self.trust_roots,
+            extra_trust_roots=self.trust_roots,
             allow_fetching=self.allow_fetching,
             revocation_mode="soft-fail",
         )
@@ -114,8 +119,29 @@ async def validate_pdf_async(
         return {"checkedAt": checked_at, "signatures": [], "status": "no_signatures"}
 
     signatures: list[dict[str, Any]] = []
+    document_timestamps: list[dict[str, Any]] = []
     all_good = True
     for sig in embedded:
+        if sig.sig_object_type == "/DocTimeStamp":
+            try:
+                ts_status = await async_validate_pdf_timestamp(
+                    sig, validation_context=settings.context()
+                )
+                intact = bool(ts_status.intact and ts_status.valid)
+                document_timestamps.append(
+                    {
+                        "intact": intact,
+                        "time": _iso(ts_status.timestamp),
+                        "trusted": bool(ts_status.trusted),
+                    }
+                )
+                all_good = all_good and intact
+            except Exception as error:  # noqa: BLE001
+                all_good = False
+                document_timestamps.append(
+                    {"error": type(error).__name__, "intact": False, "time": None, "trusted": False}
+                )
+            continue
         try:
             status = await async_validate_pdf_signature(
                 sig, signer_validation_context=settings.context()
@@ -168,8 +194,13 @@ async def validate_pdf_async(
             }
         )
 
-    return {
+    report: dict[str, Any] = {
         "checkedAt": checked_at,
         "signatures": signatures,
-        "status": "valid" if all_good else "invalid",
+        "status": (
+            "no_signatures" if not signatures else ("valid" if all_good else "invalid")
+        ),
     }
+    if document_timestamps:
+        report["documentTimestamps"] = document_timestamps
+    return report

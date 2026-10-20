@@ -25,7 +25,7 @@ The libraries are in each `package.json`. The external services are:
 - Budgets: a year's budget per programme and project by expense head, against the books' actual spending. See [finance overview](docs/architecture/finance-and-programmes.md#budgets).
 - Notifications and WhatsApp: in-app inbox, email and WhatsApp with per-topic preferences and digests, and a delivery page for admins. See [notifications](docs/architecture/notifications.md) and [jobs](docs/architecture/jobs.md).
 - Social and public APIs: the bearer-token Social API and Social page, and the public upcoming-events feed used by proudindian.ngo. See [social API](docs/architecture/social-api.md).
-- Governance: the trustee register with evidence for every date, the deed's rules by version, the trust's registrations, a vault of governance documents with signatures checked, and circular resolutions signed by DSC and numbered when they pass. See [governance](docs/architecture/governance.md) and [resolutions](docs/architecture/governance-resolutions.md).
+- Governance: the trustee register with evidence for every date, the deed's rules by version, the trust's registrations, a vault of governance documents with signatures checked, and circular resolutions signed by DSC (through a small signing helper, or in Acrobat) and numbered when they pass. See [governance](docs/architecture/governance.md) and [resolutions](docs/architecture/governance-resolutions.md).
 - Audit log: immutable history of user actions, visible with `audit_log.view`.
 - Settings: profile, account, notifications and bank accounts for everyone; organisation settings (programmes, projects, cost centres shown to volunteers as City), roles, integrations, API tokens and maintenance by permission.
 
