@@ -84,7 +84,7 @@ export function AwaitingMyVote() {
               key={item.id}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
+                <p className="line-clamp-2 text-sm font-medium">
                   {item.titles.length === 1
                     ? item.titles[0]
                     : `${item.titles.length} resolutions: ${item.titles.join(", ")}`}

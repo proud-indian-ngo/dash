@@ -212,7 +212,9 @@ export function DocumentDetailSheet({
             />
             <Row
               label="SHA-256"
-              value={<code className="text-xs">{document.sha256}</code>}
+              value={
+                <code className="text-xs break-all">{document.sha256}</code>
+              }
             />
             {document.note ? <Row label="Note" value={document.note} /> : null}
             {document.archivedAt ? (

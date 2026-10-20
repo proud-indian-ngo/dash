@@ -9,6 +9,7 @@ import { Checkbox } from "@pi-dash/design-system/components/ui/checkbox";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import type { DeedRules } from "@pi-dash/shared/governance";
 import {
   countedVotes,
@@ -334,8 +335,8 @@ function AgendaItemCard({
 
   return (
     <li className="flex flex-col gap-3 rounded-md border p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col">
           <h3 className="text-sm font-semibold">
             {item.position}. {item.title}
           </h3>
@@ -346,7 +347,7 @@ function AgendaItemCard({
             {item.resolution?.number ? ` · ${item.resolution.number}` : ""}
           </span>
         </div>
-        <span className="flex items-center gap-2">
+        <span className="flex shrink-0 items-center gap-2">
           {decided ? (
             <StatusBadge tone={decided.tone}>{decided.label}</StatusBadge>
           ) : null}
@@ -463,6 +464,7 @@ function ItemVotes({
   item: AgendaItemView;
 }) {
   const zero = useZero();
+  const isMobile = useIsMobile();
   const decide = useServerFn(decideAgendaItemFn);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -622,6 +624,51 @@ function ItemVotes({
       .finally(() => setBusy(false));
   });
 
+  const marks = attendance.map((a) => {
+    const vote = votes.find((v) => v.trusteeId === a.trusteeId);
+    const name = names.get(a.trusteeId) ?? "A trustee";
+    return {
+      id: a.id,
+      interestControl: (
+        <Checkbox
+          aria-label={`${name} declared an interest`}
+          checked={vote?.conflict ?? false}
+          onCheckedChange={(checked) =>
+            setVote(a, { conflict: Boolean(checked) })
+          }
+        />
+      ),
+      name,
+      present: countsPresent(rules, presenceOf(a)),
+      presenceText:
+        basis || a.markedAt ? PRESENCE_LABELS[presenceOf(a)] : "Not marked",
+      vote,
+      voteControl: (
+        <SegmentedChoice
+          label={`Vote of ${name}`}
+          onChange={(choice) => setVote(a, { choice })}
+          options={choiceOptions}
+          value={vote?.choice ?? null}
+        />
+      ),
+      voteText: vote?.conflict
+        ? "Took no part"
+        : vote
+          ? `${VOTE_CHOICE_LABELS[vote.choice]}${counted.has(vote.trusteeId) ? "" : " (not counted)"}`
+          : "—",
+      writingControl: (
+        <Checkbox
+          aria-label={`${name} sent views in writing`}
+          checked={vote?.absenteeWritten ?? false}
+          disabled={!vote || Boolean(vote.conflict)}
+          onCheckedChange={(checked) =>
+            setVote(a, { written: Boolean(checked) })
+          }
+        />
+      ),
+    };
+  });
+
   if (!context.canRecord && votes.length === 0 && !item.outcome) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -643,97 +690,102 @@ function ItemVotes({
           <span className="text-muted-foreground text-xs">{quorum.reason}</span>
         )}
       </div>
-      <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-muted-foreground text-xs">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Trustee</th>
-              <th className="px-3 py-2 text-left font-medium">Vote</th>
-              <th className="px-3 py-2 text-left font-medium">
-                Interest declared
-              </th>
-              <th className="px-3 py-2 text-left font-medium">
-                Views in writing
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {attendance.map((a) => {
-              const vote = votes.find((v) => v.trusteeId === a.trusteeId);
-              const name = names.get(a.trusteeId) ?? "A trustee";
-              const presence = presenceOf(a);
-              const present = countsPresent(rules, presence);
-              return (
-                <tr className="border-t" key={a.id}>
+      {isMobile ? (
+        // Phones: one framed list, each trustee's vote under their name, so
+        // the four columns don't squeeze names to a word per line.
+        <ul className="divide-y rounded-md border text-sm">
+          {marks.map((m) => (
+            <li className="flex flex-col gap-2 px-3 py-2.5" key={m.id}>
+              <span className="flex flex-col">
+                <span>{m.name}</span>
+                <span className="text-muted-foreground text-xs">
+                  {m.presenceText}
+                </span>
+              </span>
+              {editable ? (
+                <>
+                  {m.vote?.conflict ? <span>{m.voteText}</span> : m.voteControl}
+                  <span className="flex flex-wrap gap-x-4">
+                    <Label className="flex items-center gap-2 font-normal pointer-coarse:min-h-10">
+                      {m.interestControl}
+                      Declared an interest
+                    </Label>
+                    {m.present ? null : (
+                      <Label className="flex items-center gap-2 font-normal pointer-coarse:min-h-10">
+                        {m.writingControl}
+                        Views in writing
+                      </Label>
+                    )}
+                  </span>
+                </>
+              ) : (
+                <span>
+                  {m.vote ? m.voteText : "No vote"}
+                  {!m.present && m.vote?.absenteeWritten ? " · in writing" : ""}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground text-xs">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Trustee</th>
+                <th className="px-3 py-2 text-left font-medium">Vote</th>
+                <th className="px-3 py-2 text-left font-medium">
+                  Interest declared
+                </th>
+                <th className="px-3 py-2 text-left font-medium">
+                  Views in writing
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {marks.map((m) => (
+                <tr className="border-t" key={m.id}>
                   <td className="px-3 py-2">
                     <span className="flex flex-col">
-                      <span>{name}</span>
+                      <span>{m.name}</span>
                       <span className="text-muted-foreground text-xs">
-                        {basis || a.markedAt
-                          ? PRESENCE_LABELS[presence]
-                          : "Not marked"}
+                        {m.presenceText}
                       </span>
                     </span>
                   </td>
                   <td className="px-3 py-2">
-                    {editable && !vote?.conflict ? (
-                      <SegmentedChoice
-                        label={`Vote of ${name}`}
-                        onChange={(choice) => setVote(a, { choice })}
-                        options={choiceOptions}
-                        value={vote?.choice ?? null}
-                      />
+                    {editable && !m.vote?.conflict ? (
+                      m.voteControl
                     ) : (
-                      <span>
-                        {vote?.conflict
-                          ? "Took no part"
-                          : vote
-                            ? `${VOTE_CHOICE_LABELS[vote.choice]}${counted.has(vote.trusteeId) ? "" : " (not counted)"}`
-                            : "—"}
-                      </span>
+                      <span>{m.voteText}</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
                     {editable ? (
-                      <Checkbox
-                        aria-label={`${name} declared an interest`}
-                        checked={vote?.conflict ?? false}
-                        onCheckedChange={(checked) =>
-                          setVote(a, { conflict: Boolean(checked) })
-                        }
-                      />
+                      m.interestControl
                     ) : (
                       <span className="text-sm">
-                        {vote?.conflict ? "Declared" : "—"}
+                        {m.vote?.conflict ? "Declared" : "—"}
                       </span>
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    {present ? (
+                    {m.present ? (
                       <span className="text-muted-foreground text-xs">—</span>
                     ) : null}
-                    {!present && !editable ? (
+                    {!m.present && !editable ? (
                       <span className="text-sm">
-                        {vote?.absenteeWritten ? "In writing" : "—"}
+                        {m.vote?.absenteeWritten ? "In writing" : "—"}
                       </span>
                     ) : null}
-                    {!present && editable ? (
-                      <Checkbox
-                        aria-label={`${name} sent views in writing`}
-                        checked={vote?.absenteeWritten ?? false}
-                        disabled={!vote || Boolean(vote.conflict)}
-                        onCheckedChange={(checked) =>
-                          setVote(a, { written: Boolean(checked) })
-                        }
-                      />
-                    ) : null}
+                    {!m.present && editable ? m.writingControl : null}
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div
         className="flex flex-col gap-1 text-sm"
         data-testid={`tally-${item.id}`}
@@ -768,7 +820,7 @@ function ItemVotes({
         </div>
       ) : null}
       <ConfirmDialog
-        confirmLabel="Record"
+        confirmLabel="Record the decision"
         description={
           preview.outcome === "passed"
             ? `It passes, ${preview.for} for and ${preview.against} against. It gets the next resolution number and any register change is made. This can't be undone.`

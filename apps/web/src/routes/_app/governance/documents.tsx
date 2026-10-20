@@ -6,6 +6,7 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
 import {
   GOVERNANCE_DOCUMENT_FORMAT_LABELS,
@@ -19,6 +20,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 
+import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
 import {
@@ -101,12 +103,35 @@ function getRowId(row: VaultDocument) {
   return row.id;
 }
 
+// A phone card has room for two lines of a long title; a table row has one.
+function TitleCell({ title }: { title: string }) {
+  const compact = useCompactTable();
+  return (
+    <span
+      className={cn(
+        "font-medium",
+        compact ? "line-clamp-2 whitespace-normal" : "truncate"
+      )}
+    >
+      {title}
+    </span>
+  );
+}
+
+// Phone cards show the badge only for a signed PDF, not a bare dash.
+function SignaturesCell({ document }: { document: VaultDocument }) {
+  const compact = useCompactTable();
+  const status = signatureStatus(document.validationReport);
+  if (status) {
+    return <ReportBadge status={status} />;
+  }
+  return compact ? null : <span className="text-muted-foreground">—</span>;
+}
+
 const columns: DataGridColumnDef<VaultDocument>[] = [
   {
     accessorFn: (row) => row.title,
-    cell: ({ row }) => (
-      <span className="truncate font-medium">{row.original.title}</span>
-    ),
+    cell: ({ row }) => <TitleCell title={row.original.title} />,
     header: ({ column }) => (
       <DataGridColumnHeader column={column} title="Title" visibility={true} />
     ),
@@ -128,7 +153,12 @@ const columns: DataGridColumnDef<VaultDocument>[] = [
       <DataGridColumnHeader column={column} title="Kind" visibility={true} />
     ),
     id: "kind",
-    meta: { headerTitle: "Kind", kind: "tag", skeleton: SKELETON_BADGE },
+    meta: {
+      compact: "primary",
+      headerTitle: "Kind",
+      kind: "tag",
+      skeleton: SKELETON_BADGE,
+    },
     size: 200,
   },
   {
@@ -162,14 +192,7 @@ const columns: DataGridColumnDef<VaultDocument>[] = [
   },
   {
     accessorFn: (row) => signatureStatus(row.validationReport) ?? "",
-    cell: ({ row }) => {
-      const status = signatureStatus(row.original.validationReport);
-      return status ? (
-        <ReportBadge status={status} />
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      );
-    },
+    cell: ({ row }) => <SignaturesCell document={row.original} />,
     header: ({ column }) => (
       <DataGridColumnHeader
         column={column}
@@ -179,7 +202,7 @@ const columns: DataGridColumnDef<VaultDocument>[] = [
     ),
     id: "signatures",
     meta: {
-      compact: "trailing",
+      compact: "primary",
       headerTitle: "Signatures",
       kind: "status",
       skeleton: SKELETON_BADGE,

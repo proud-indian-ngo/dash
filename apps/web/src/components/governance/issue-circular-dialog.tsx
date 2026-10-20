@@ -22,6 +22,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
@@ -134,7 +135,7 @@ export function IssueCircularDialog({
                   className="flex min-w-0 flex-1 flex-col"
                   htmlFor={checkboxId}
                 >
-                  <span className="truncate text-sm font-medium">
+                  <span className="line-clamp-2 text-sm font-medium">
                     {position >= 0 ? `${position + 1}. ` : ""}
                     {draft.title}
                   </span>
@@ -194,7 +195,7 @@ export function IssueCircularDialog({
             value={dueOn}
           />
         </div>
-        <div className="flex justify-end gap-2">
+        <DialogFooter>
           <Button
             onClick={() => onOpenChange(false)}
             type="button"
@@ -213,7 +214,7 @@ export function IssueCircularDialog({
                 ? "Issue to the trustees"
                 : `Issue ${chosen.length} resolutions to the trustees`}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

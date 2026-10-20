@@ -184,7 +184,7 @@ function PoliciesPage() {
                           </span>
                         )}
                         <a
-                          className="text-primary underline-offset-4 hover:underline"
+                          className="text-primary inline-flex items-center underline-offset-4 hover:underline pointer-coarse:min-h-10"
                           href={getProtectedAttachmentHref(
                             { id: v.id, kind: "policyDocument" },
                             "inline"
@@ -251,7 +251,7 @@ function AcknowledgementCount({
       </span>
       {missing.length > 0 ? (
         <button
-          className="text-primary text-xs underline-offset-4 hover:underline"
+          className="text-primary inline-flex items-center text-xs underline-offset-4 hover:underline pointer-coarse:min-h-10"
           onClick={() => onShowMissing(missing.map((m) => m.name))}
           type="button"
         >

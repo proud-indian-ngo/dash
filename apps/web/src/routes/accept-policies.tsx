@@ -120,7 +120,8 @@ function AcceptPoliciesPage() {
   return (
     <StandalonePage>
       <ZeroConnectionMonitor />
-      <div className="flex w-full max-w-md flex-col gap-6">
+      {/* Phones top-align it, as the sign-in pages do. */}
+      <div className="flex w-full max-w-md flex-col gap-6 self-start pt-6 md:self-auto md:pt-0">
         <div className="flex flex-col gap-2">
           <h1 className="font-display text-2xl font-semibold">
             Before you continue
@@ -162,7 +163,7 @@ function AcceptPoliciesPage() {
           ))}
         </ItemGroup>
         <Label
-          className="flex items-start gap-2 font-normal"
+          className="flex items-start gap-2 font-normal pointer-coarse:min-h-10 pointer-coarse:items-center"
           htmlFor="accept-policies"
         >
           <Checkbox

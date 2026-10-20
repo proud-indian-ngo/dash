@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
@@ -99,7 +100,7 @@ export function ResolutionAnswerActions({
       <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <button
           aria-label={`Object to resolution ${position}`}
-          className="hover:text-foreground underline-offset-4 hover:underline"
+          className="hover:text-foreground underline-offset-4 hover:underline pointer-coarse:min-h-10"
           onClick={() => start("objection")}
           type="button"
         >
@@ -107,7 +108,7 @@ export function ResolutionAnswerActions({
         </button>
         <button
           aria-label={`Declare a conflict of interest on resolution ${position}`}
-          className="hover:text-foreground underline-offset-4 hover:underline"
+          className="hover:text-foreground underline-offset-4 hover:underline pointer-coarse:min-h-10"
           onClick={() => start("conflict")}
           type="button"
         >
@@ -139,7 +140,7 @@ export function ResolutionAnswerActions({
               value={text}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button
               onClick={() => setKind(null)}
               type="button"
@@ -155,7 +156,7 @@ export function ResolutionAnswerActions({
             >
               {kind ? COPY[kind].action : ""}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {reauthDialog}

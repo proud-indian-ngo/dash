@@ -521,14 +521,15 @@ function CompliancePage() {
                 className="flex flex-wrap items-center gap-3 py-3"
                 key={template.id}
               >
-                <div className="min-w-0 flex-1">
+                {/* Phones put the owner and switch under the description. */}
+                <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
                   <p className="text-sm font-medium">{template.title}</p>
                   <p className="text-muted-foreground text-xs">
                     {template.description}
                   </p>
                 </div>
                 <PlainSelect
-                  className="w-48"
+                  className="flex-1 sm:w-48 sm:flex-none"
                   label={`Owner of ${template.title}`}
                   onChange={(next) =>
                     mutate(
