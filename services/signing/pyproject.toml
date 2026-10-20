@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Internal PDF signing and validation service for pi-dash governance (pyHanko)"
 requires-python = ">=3.12"
 dependencies = [
-  "fastapi>=0.143.3",
-  "pyhanko[opentype]>=0.37.0",
+  "fastapi>=0.153.0",
+  "pyhanko[opentype]>=0.38.0",
   "uvicorn>=0.54.0",
 ]
 

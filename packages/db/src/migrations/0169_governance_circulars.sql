@@ -105,6 +105,18 @@ ALTER TABLE "resolution_response" ADD CONSTRAINT "resolution_response_signature_
 ALTER TABLE "private"."signing_job" ADD CONSTRAINT "signing_job_circular_id_circular_id_fk" FOREIGN KEY ("circular_id") REFERENCES "public"."circular"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "resolution_circular_position_uidx" ON "resolution" USING btree ("circular_id","position");--> statement-breakpoint
 CREATE INDEX "resolution_status_idx" ON "resolution" USING btree ("status");--> statement-breakpoint
+-- The Zero publication lists resolution's columns, and a listed column
+-- can't be dropped. The migrator's publication step adds the table back
+-- with its new columns once migrations finish.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'pi_dash_public' AND schemaname = 'public' AND tablename = 'resolution'
+  ) THEN
+    ALTER PUBLICATION "pi_dash_public" DROP TABLE "public"."resolution";
+  END IF;
+END $$;--> statement-breakpoint
 ALTER TABLE "resolution" DROP COLUMN "issued_at";--> statement-breakpoint
 ALTER TABLE "resolution" DROP COLUMN "issued_by_trustee_id";--> statement-breakpoint
 ALTER TABLE "resolution" DROP COLUMN "response_due_on";--> statement-breakpoint

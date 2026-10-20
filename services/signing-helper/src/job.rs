@@ -3,6 +3,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde_json::json;
 
 use crate::config;
@@ -65,18 +66,21 @@ fn job_url(server: &str, job: &str) -> String {
     format!("{}/api/signing/jobs/{job}", server.trim_end_matches('/'))
 }
 
-fn server_error(response: ureq::Error) -> Box<dyn std::error::Error> {
-    match response {
-        ureq::Error::Status(_, response) => {
-            let message = response
-                .into_json::<ServerMessage>()
-                .ok()
-                .and_then(|m| m.message)
-                .unwrap_or_else(|| "The dashboard refused the request.".into());
-            message.into()
-        }
-        other => format!("Couldn't reach the dashboard: {other}").into(),
+/// The dashboard's JSON reply, or the message it refused the request with.
+fn reply<T: DeserializeOwned>(
+    sent: std::result::Result<ureq::http::Response<ureq::Body>, ureq::Error>,
+) -> Result<T> {
+    let mut response = sent.map_err(|e| format!("Couldn't reach the dashboard: {e}"))?;
+    if !response.status().is_success() {
+        let message = response
+            .body_mut()
+            .read_json::<ServerMessage>()
+            .ok()
+            .and_then(|m| m.message)
+            .unwrap_or_else(|| "The dashboard refused the request.".into());
+        return Err(message.into());
     }
+    Ok(response.body_mut().read_json()?)
 }
 
 pub fn run_link(link: &str) -> Result<()> {
@@ -97,7 +101,8 @@ pub fn run_link(link: &str) -> Result<()> {
         .into());
     }
     let url = job_url(allowed, &link.job);
-    let job: Job = ureq::get(&url).call().map_err(server_error)?.into_json()?;
+    // A refusal's body carries the dashboard's message, so statuses aren't errors.
+    let job: Job = reply(ureq::get(&url).config().http_status_as_error(false).build().call())?;
     let body = match job_result(&job, &link, &settings) {
         Ok(body) => body,
         Err(error) => {
@@ -105,13 +110,15 @@ pub fn run_link(link: &str) -> Result<()> {
             return Err(error);
         }
     };
-    let reply: ServerMessage = ureq::post(&url)
-        .send_json(body)
-        .map_err(server_error)?
-        .into_json()?;
+    let done: ServerMessage = reply(
+        ureq::post(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .send_json(body),
+    )?;
     ui::info(
-        reply
-            .message
+        done.message
             .as_deref()
             .unwrap_or("Done. You can return to the dashboard."),
     );

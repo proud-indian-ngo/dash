@@ -1,5 +1,6 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { KalakritiResponsibility } from "@pi-dash/shared/kalakriti";
+import type { ResultType } from "@rocicorp/zero";
 import { useState } from "react";
 
 import { KalakritiRoleAssignmentForm } from "@/components/kalakriti/kalakriti-role-assignment-form";
@@ -37,10 +38,10 @@ export function KalakritiRoleAssignmentDialog({
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   categories: readonly ScopeOption[];
-  categoriesState: "complete" | "error" | "unknown";
+  categoriesState: ResultType;
   centers: readonly ScopeOption[];
   competitions: readonly ScopeOption[];
-  competitionsState: "complete" | "error" | "unknown";
+  competitionsState: ResultType;
   editionId: string;
   initialUserId?: string | null;
   isGlobalAdmin: boolean;
@@ -112,10 +113,10 @@ function KalakritiRoleAssignmentDialogBody({
 }: {
   actorResponsibilities: readonly KalakritiResponsibility[];
   categories: readonly ScopeOption[];
-  categoriesState: "complete" | "error" | "unknown";
+  categoriesState: ResultType;
   centers: readonly ScopeOption[];
   competitions: readonly ScopeOption[];
-  competitionsState: "complete" | "error" | "unknown";
+  competitionsState: ResultType;
   editionId: string;
   formKey: number;
   initialUserId?: string | null;

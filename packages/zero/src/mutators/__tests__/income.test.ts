@@ -127,7 +127,7 @@ function createDb(
 }
 
 async function run(
-  mutator: { fn: (input: never) => Promise<void> },
+  mutator: { fn: (input: never) => Promise<unknown> },
   db: ReturnType<typeof createDb>,
   ctx: Row | undefined,
   args: Row
