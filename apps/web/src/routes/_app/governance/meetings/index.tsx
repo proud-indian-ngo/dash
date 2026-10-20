@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
+import { useIndiaToday } from "@/hooks/use-india-today";
 
 export const Route = createFileRoute("/_app/governance/meetings/")({
   component: MeetingsPage,
@@ -127,7 +128,7 @@ function MeetingsPage() {
   );
   const [search, setSearch] = useQueryState("s", parseAsString.withDefault(""));
   const [now] = useState(() => Date.now());
-  const today = meetingDay(now);
+  const today = useIndiaToday();
 
   const query = search.trim().toLowerCase();
   const matching = rows.filter((row) =>
@@ -238,7 +239,7 @@ function MeetingsPage() {
               <li className="[&:last-child>ul]:border-b-0" key={day}>
                 <h2 className="bg-muted/60 text-muted-foreground border-b px-3 py-1.5 text-xs font-medium sm:px-4">
                   {dayRows[0]?.startsAt
-                    ? meetingDayHeading(dayRows[0].startsAt, now)
+                    ? meetingDayHeading(dayRows[0].startsAt, today)
                     : "Date not set"}
                 </h2>
                 <ul className="divide-y border-b">

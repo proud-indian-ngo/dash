@@ -42,16 +42,16 @@ export function meetingDay(epoch: number): string {
 }
 
 /** "Sat 10 Oct", with the year outside this year and Today/Tomorrow first. */
-export function meetingDayHeading(epoch: number, now: number): string {
+export function meetingDayHeading(epoch: number, today: string): string {
   const day = meetingDay(epoch);
-  const sameYear = day.slice(0, 4) === meetingDay(now).slice(0, 4);
+  const sameYear = day.slice(0, 4) === today.slice(0, 4);
   const label = (sameYear ? dayFmt : dayYearFmt)
     .format(new Date(epoch))
     .replace(",", "");
-  if (day === meetingDay(now)) {
+  if (day === today) {
     return `Today · ${label}`;
   }
-  if (day === meetingDay(now + 86_400_000)) {
+  if (day === meetingDay(Date.parse(`${today}T12:00:00+05:30`) + 86_400_000)) {
     return `Tomorrow · ${label}`;
   }
   return label;
