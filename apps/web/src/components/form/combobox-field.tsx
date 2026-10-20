@@ -1,3 +1,4 @@
+import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
 import {
   Combobox,
   ComboboxContent,
@@ -58,11 +59,10 @@ function ComboboxFieldControl({
   placeholder: string;
   submitted: boolean;
 }) {
-  const items = options.map((o) => o.value);
-  const labels = new Map(options.map((o) => [o.value, o.label]));
-  const itemToStringLabel = useEventCallback(
-    (value: string) => labels.get(value) ?? value
-  );
+  const items = ComboboxPrimitive.createItems(options, {
+    getLabel: (option) => option.label,
+    getValue: (option) => option.value,
+  });
   const handleValueChange = useEventCallback((value: string | null) =>
     field.handleChange(value === null || value === "" ? undefined : value)
   );
@@ -72,7 +72,6 @@ function ComboboxFieldControl({
     <Combobox
       disabled={disabled}
       items={items}
-      itemToStringLabel={itemToStringLabel}
       onValueChange={handleValueChange}
       value={value}
     >
@@ -87,9 +86,9 @@ function ComboboxFieldControl({
       />
       <ComboboxContent>
         <ComboboxList>
-          {(itemValue: string) => (
-            <ComboboxItem key={itemValue} value={itemValue}>
-              {labels.get(itemValue) ?? itemValue}
+          {(option: SelectOption) => (
+            <ComboboxItem key={option.value} value={option.value}>
+              {option.label}
             </ComboboxItem>
           )}
         </ComboboxList>

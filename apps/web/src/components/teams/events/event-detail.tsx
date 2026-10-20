@@ -675,7 +675,7 @@ function EventTabs(props: EventTabsProps) {
 
   return (
     <Tabs onValueChange={handleTabChange} value={activeTab}>
-      <TabsList className="max-w-full [scrollbar-width:none] justify-start overflow-x-auto">
+      <TabsList className="no-scrollbar max-w-full justify-start overflow-x-auto">
         {tabs.includes("volunteers") ? (
           <TabsTrigger value="volunteers">
             Volunteers ({memberCount})

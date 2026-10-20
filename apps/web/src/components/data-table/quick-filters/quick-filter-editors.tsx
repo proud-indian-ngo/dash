@@ -282,6 +282,7 @@ export function DateFilterEditor({
                 });
               }
             }}
+            resetOnSelect
             selected={draft}
           />
         </Suspense>

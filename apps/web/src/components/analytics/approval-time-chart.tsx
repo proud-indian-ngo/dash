@@ -45,7 +45,7 @@ export function ApprovalTimeChart({ data }: { data: ApprovalTimeBucket[] }) {
             axisLine={false}
             fontSize={12}
             tickLine={false}
-            width={30}
+            width="auto"
           />
           <ChartTooltip
             content={<ChartTooltipContent formatter={stableFormatter0} />}

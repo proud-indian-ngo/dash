@@ -1,3 +1,4 @@
+import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
 import {
   Combobox,
   ComboboxContent,
@@ -48,6 +49,8 @@ export function useClaimantOptions(enabled: boolean): PickerUser[] {
   return users;
 }
 
+type Claimant = Pick<PickerUser, "email" | "id" | "image" | "name">;
+
 interface ClaimantComboboxProps {
   disabled?: boolean;
   id: string;
@@ -55,8 +58,8 @@ interface ClaimantComboboxProps {
   onBlur?: () => void;
   onValueChange: (userId: string) => void;
   /** Always offered, even before the list loads (for example yourself). */
-  pinned?: readonly Pick<PickerUser, "email" | "id" | "image" | "name">[];
-  users: readonly Pick<PickerUser, "email" | "id" | "image" | "name">[];
+  pinned?: readonly Claimant[];
+  users: readonly Claimant[];
   value: string;
 }
 
@@ -71,20 +74,20 @@ export function ClaimantCombobox({
   users,
   value,
 }: ClaimantComboboxProps) {
-  const byId = new Map(
-    [...pinned, ...users].map((person) => [person.id, person])
-  );
-  const items = [...byId.keys()];
-  const itemToStringLabel = useEventCallback(
-    (userId: string) => byId.get(userId)?.name ?? ""
-  );
-  const filter = useEventCallback((userId: string, query: string) => {
-    const person = byId.get(userId);
+  // Pinned people come first; a pinned person who is also in `users` shows once.
+  const people = [
+    ...new Map(
+      [...pinned, ...users].map((person) => [person.id, person])
+    ).values(),
+  ];
+  const items = ComboboxPrimitive.createItems(people, {
+    getLabel: (person) => person.name,
+    getValue: (person) => person.id,
+  });
+  const filter = useEventCallback((person: Claimant, query: string) => {
     const q = query.trim().toLowerCase();
-    if (!(person && q)) {
-      return Boolean(person);
-    }
     return (
+      !q ||
       person.name.toLowerCase().includes(q) ||
       Boolean(person.email?.toLowerCase().includes(q))
     );
@@ -100,7 +103,8 @@ export function ClaimantCombobox({
       disabled={disabled}
       filter={filter}
       items={items}
-      itemToStringLabel={itemToStringLabel}
+      // A claimant outside the loaded list shows blank rather than their ID.
+      itemToStringLabel={() => ""}
       onValueChange={handleValueChange}
       value={value}
     >
@@ -113,28 +117,23 @@ export function ClaimantCombobox({
       />
       <ComboboxContent>
         <ComboboxList>
-          {(userId: string) => {
-            const person = byId.get(userId);
-            return (
-              <ComboboxItem key={userId} value={userId}>
-                {person ? (
-                  <UserAvatar
-                    className="size-6"
-                    fallbackClassName="text-[10px]"
-                    user={person}
-                  />
+          {(person: Claimant) => (
+            <ComboboxItem key={person.id} value={person.id}>
+              <UserAvatar
+                className="size-6"
+                fallbackClassName="text-[10px]"
+                user={person}
+              />
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate font-medium">{person.name}</span>
+                {person.email ? (
+                  <span className="text-muted-foreground truncate text-xs">
+                    {person.email}
+                  </span>
                 ) : null}
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{person?.name}</span>
-                  {person?.email ? (
-                    <span className="text-muted-foreground truncate text-xs">
-                      {person.email}
-                    </span>
-                  ) : null}
-                </div>
-              </ComboboxItem>
-            );
-          }}
+              </div>
+            </ComboboxItem>
+          )}
         </ComboboxList>
         <ComboboxEmpty>No matching people.</ComboboxEmpty>
       </ComboboxContent>
