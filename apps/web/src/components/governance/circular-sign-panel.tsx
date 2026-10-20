@@ -188,7 +188,7 @@ export function CircularSignPanel({
       ) : (
         <Collapsible>
           <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3">
-            Other ways to sign
+            Sign in Acrobat instead
             <HugeiconsIcon
               className="size-4 transition-transform group-data-[panel-open]:rotate-180"
               icon={ArrowDown01Icon}

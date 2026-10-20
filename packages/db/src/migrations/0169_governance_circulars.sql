@@ -50,6 +50,47 @@ DROP INDEX "resolution_status_idx";--> statement-breakpoint
 ALTER TABLE "resolution" ADD COLUMN "circular_id" uuid;--> statement-breakpoint
 ALTER TABLE "resolution" ADD COLUMN "position" integer;--> statement-breakpoint
 ALTER TABLE "private"."signing_job" ADD COLUMN "circular_id" uuid;--> statement-breakpoint
+-- Backfill: every resolution issued before circulars existed becomes a
+-- circular of one, keeping its ID, so its revision, signatures, responses
+-- and signing jobs carry over unchanged. Revisions and signatures keep
+-- their IDs too, so resolution_response.signature_id stays valid. The
+-- revision's text is dropped: issue copied it from the resolution, whose
+-- text can't change after that. The guard aborts the migration (and with
+-- it the deploy) rather than lose an issuer, a due date or issued text.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "resolution"
+    WHERE "issued_at" IS NOT NULL
+      AND ("issued_by_trustee_id" IS NULL OR "response_due_on" IS NULL)
+  ) OR EXISTS (
+    SELECT 1 FROM "resolution_revision" rr
+    JOIN "resolution" r ON r."id" = rr."resolution_id"
+    WHERE r."issued_at" IS NULL OR rr."body" <> r."body"
+  ) THEN
+    RAISE EXCEPTION 'governance_circulars: an issued resolution lacks an issuer or due date, or its revision text differs; fix it before migrating';
+  END IF;
+END $$;--> statement-breakpoint
+INSERT INTO "circular" ("created_at", "id", "issued_at", "issued_by_trustee_id", "response_due_on", "updated_at")
+SELECT "issued_at", "id", "issued_at", "issued_by_trustee_id", "response_due_on", "updated_at"
+FROM "resolution" WHERE "issued_at" IS NOT NULL;--> statement-breakpoint
+UPDATE "resolution" SET "circular_id" = "id", "position" = 1 WHERE "issued_at" IS NOT NULL;--> statement-breakpoint
+-- These PDFs have no answers fields, so they count as issued without
+-- fields: a signer's copy is the latest PDF as it stands (their empty
+-- signature field is still there for the helper or Acrobat).
+INSERT INTO "circular_revision" ("circular_id", "created_at", "fields_prepared", "id", "latest_object_key", "latest_sha256", "object_key", "revision", "sha256")
+SELECT "resolution_id", "created_at", false, "id", "latest_object_key", "latest_sha256", "object_key", "revision", "sha256"
+FROM "resolution_revision";--> statement-breakpoint
+-- No answers field was filled before these signatures, so answers stay null.
+INSERT INTO "circular_signature" ("certificate_sha256", "circular_id", "created_at", "created_by", "field_name", "id", "issuer", "method", "object_key", "revision_id", "serial", "sha256", "signer_name", "signing_time", "timestamped", "trustee_id", "trusted")
+SELECT "certificate_sha256", "resolution_id", "created_at", "created_by", "field_name", "id", "issuer", "method", "object_key", "revision_id", "serial", "sha256", "signer_name", "signing_time", "timestamped", "trustee_id", "trusted"
+FROM "resolution_signature";--> statement-breakpoint
+-- A signing job follows its resolution to the circular; a pending one can
+-- still finish, as its base PDF is the circular's latest. A signing job
+-- without an issued resolution has nothing to sign and is dropped.
+UPDATE "private"."signing_job" j SET "circular_id" = j."resolution_id"
+FROM "circular" c WHERE c."id" = j."resolution_id";--> statement-breakpoint
+DELETE FROM "private"."signing_job" WHERE "kind" = 'sign' AND "circular_id" IS NULL;--> statement-breakpoint
 ALTER TABLE "circular" ADD CONSTRAINT "circular_issued_by_trustee_id_trustee_id_fk" FOREIGN KEY ("issued_by_trustee_id") REFERENCES "public"."trustee"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "circular_revision" ADD CONSTRAINT "circular_revision_circular_id_circular_id_fk" FOREIGN KEY ("circular_id") REFERENCES "public"."circular"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "circular_signature" ADD CONSTRAINT "circular_signature_circular_id_circular_id_fk" FOREIGN KEY ("circular_id") REFERENCES "public"."circular"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint

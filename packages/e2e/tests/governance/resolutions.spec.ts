@@ -80,7 +80,9 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     const panel = page.getByRole("region", { name: "Your signature" });
     await expect(panel).toContainText("Signing assents to resolution 1");
     // Folded behind the DSC button when the signing helper is available.
-    const otherWays = panel.getByRole("button", { name: "Other ways to sign" });
+    const otherWays = panel.getByRole("button", {
+      name: "Sign in Acrobat instead",
+    });
     if (await otherWays.isVisible()) {
       await otherWays.click();
     }
