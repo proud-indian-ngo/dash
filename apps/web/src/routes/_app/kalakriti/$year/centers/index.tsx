@@ -34,6 +34,7 @@ import {
 } from "@/lib/kalakriti-center-registration-policy";
 import { canViewKalakritiGuardians } from "@/lib/kalakriti-guardian-policy";
 import { buildParticipationCompliance } from "@/lib/kalakriti-participation-compliance";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/centers/")({
   component: KalakritiCentersPage,
@@ -200,7 +201,7 @@ function KalakritiCentersPage() {
       : buildParticipationCompliance(students, minimum);
   const complianceLoading =
     minimum === undefined ||
-    (students.length === 0 && studentResult.type !== "complete");
+    (students.length === 0 && isAwaitingResult(studentResult));
   const [guardianAssignments, guardianAssignmentsResult] = useQuery(
     queries.kalakritiCenter.guardianAssignments({ editionId: edition.id }),
     { enabled: canViewGuardians }
@@ -373,7 +374,7 @@ function KalakritiCentersPage() {
     );
   };
   const isLoading =
-    directoryCenters.length === 0 && centerResult.type !== "complete";
+    directoryCenters.length === 0 && isAwaitingResult(centerResult);
   const hasOpenRegistration = directoryCenters.some(
     (center) =>
       center.studentRegistrationEnabled ||
@@ -505,11 +506,11 @@ function KalakritiCentersPage() {
         canViewLiaisons={canManageLiaisons}
         guardiansLoading={
           guardianAssignments.length === 0 &&
-          guardianAssignmentsResult.type !== "complete"
+          isAwaitingResult(guardianAssignmentsResult)
         }
         liaisonsLoading={
           liaisonAssignments.length === 0 &&
-          liaisonAssignmentsResult.type !== "complete"
+          isAwaitingResult(liaisonAssignmentsResult)
         }
         guardianAssignments={guardianAssignments
           .filter((link) => link.centerId === selectedCenterId)

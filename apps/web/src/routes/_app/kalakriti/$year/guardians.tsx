@@ -35,6 +35,7 @@ import {
   canManageKalakritiGuardians,
   canViewKalakritiGuardians,
 } from "@/lib/kalakriti-guardian-policy";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 interface ReusePayload extends GuardianInviteValues {
   existingName: string;
@@ -200,8 +201,7 @@ function KalakritiGuardiansPage() {
     guardianRows.find((guardian) => guardian.id === selectedGuardianId) ?? null;
   const editingGuardian =
     guardianRows.find((guardian) => guardian.id === editingGuardianId) ?? null;
-  const isLoading =
-    guardianRows.length === 0 && rosterResult.type !== "complete";
+  const isLoading = guardianRows.length === 0 && isAwaitingResult(rosterResult);
   const activeGuardians = guardianRows.filter(
     (guardian) => guardian.state === "active"
   );

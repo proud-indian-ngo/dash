@@ -78,6 +78,7 @@ import {
 } from "@/functions/income";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const INCOME_TABS = [
   "contributions",
@@ -159,7 +160,7 @@ function ContributionsTab({
   const { hasPermission } = useApp();
   const [contributions, result] = useQuery(queries.contribution.list());
   const rows = contributions as ContributionRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const fy = currentFinancialYear();
   const stats = computeContributionYearStats(rows, fy);
   const missing = useMissingDonorDetails(
@@ -342,7 +343,7 @@ function OtherIncomeTab({
   const zero = useZero();
   const [incomes, result] = useQuery(queries.otherIncome.list());
   const rows = incomes as OtherIncomeRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const [editing, setEditing] = useState<OtherIncomeRow | null>(null);
   const deleteAction = useConfirmAction<OtherIncomeRow>({
     mutationMeta: {
@@ -428,7 +429,7 @@ function ImportsTab({
   const navigate = useNavigate();
   const [batches, result] = useQuery(queries.importBatch.list());
   const rows = batches as ImportBatchRow[];
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const open = useEventCallback((row: ImportBatchRow) => {
     if (row.source === "give_do_payout") {
       navigate({ search: { batch: row.id }, to: "/income/payout/import" });

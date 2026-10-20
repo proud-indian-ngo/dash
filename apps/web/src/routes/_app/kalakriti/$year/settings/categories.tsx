@@ -24,6 +24,7 @@ import type {
 } from "@/components/kalakriti/competition-config-types";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute(
   "/_app/kalakriti/$year/settings/categories"
@@ -58,8 +59,7 @@ function CompetitionCategoriesPage() {
   }));
   const isLoading =
     rows.length === 0 &&
-    (categoryResult.type !== "complete" ||
-      competitionResult.type !== "complete");
+    (isAwaitingResult(categoryResult) || isAwaitingResult(competitionResult));
   const nextSortOrder =
     categoryViews.reduce(
       (maximum, category) => Math.max(maximum, category.sortOrder),

@@ -17,6 +17,7 @@ import { useRecordTitle } from "@/hooks/use-record-title";
 import { sessionOccDate, startDateRow } from "@/lib/event-display-utils";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 interface EventAccess {
   canApproveUpdates: boolean;
@@ -276,7 +277,7 @@ function EventDetailRouteComponent() {
     { enabled: canManageInterest }
   );
 
-  if (!event && eventStatus.type !== "complete") {
+  if (!event && isAwaitingResult(eventStatus)) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <DetailPageSkeleton />

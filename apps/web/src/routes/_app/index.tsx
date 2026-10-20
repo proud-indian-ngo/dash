@@ -49,6 +49,7 @@ import {
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { spentAt, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 // biome-ignore assist/source/useSortedKeys: TanStack Router option order preserves route type inference.
 export const Route = createFileRoute("/_app/")({
@@ -271,8 +272,8 @@ function OrientedDashboard() {
   const isLoading =
     reimbursements.length === 0 &&
     advancePayments.length === 0 &&
-    r1.type !== "complete" &&
-    r2.type !== "complete";
+    isAwaitingResult(r1) &&
+    isAwaitingResult(r2);
 
   const [dateParams] = useQueryStates(dateRangeSearchParams);
   const dateRange = resolveDateRange(

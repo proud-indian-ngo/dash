@@ -80,6 +80,7 @@ import {
 } from "@/lib/mutation-result";
 import { assertAnyPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/governance/compliance")({
   beforeLoad: ({ context }) =>
@@ -194,7 +195,7 @@ function CompliancePage() {
   const [filter, setFilter] = useState<Filter>("open");
   const [dialog, setDialog] = useState<Dialogs>(null);
   const today = todayIso();
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
 
   const items: Item[] = rows.map((r) => ({
     dueOn: epochToIso(r.dueOn),

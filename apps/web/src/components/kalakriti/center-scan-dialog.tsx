@@ -42,6 +42,7 @@ import {
   getMutationResultErrorMessage,
   handleMutationResult,
 } from "@/lib/mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const STAGE_LABELS: Record<StudentTransportCheckpoint, string> = {
   pickup: "Pickup",
@@ -89,7 +90,7 @@ export function CenterScanPanel({
   )
     ? selectedCenterId
     : "";
-  const loading = centers.length === 0 && centersResult.type !== "complete";
+  const loading = centers.length === 0 && isAwaitingResult(centersResult);
   const [busy, setBusy] = useState(false);
   const handleBusyChange = useEventCallback((value: boolean) => {
     setBusy(value);

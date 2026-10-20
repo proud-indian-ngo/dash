@@ -23,6 +23,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { assertPermission } from "@/lib/route-guards";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/scheduled-messages")({
   beforeLoad: ({ context }) => assertPermission(context, "messages.schedule"),
@@ -41,7 +42,7 @@ function ScheduledMessagesPage() {
   const zero = useZero();
   const [messagesData, queryResult] = useQuery(queries.scheduledMessage.all());
   const allMessages = (messagesData ?? []) as ScheduledMessageRow[];
-  const isLoading = allMessages.length === 0 && queryResult.type !== "complete";
+  const isLoading = allMessages.length === 0 && isAwaitingResult(queryResult);
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [sheetOpen, setSheetOpen] = useState(false);

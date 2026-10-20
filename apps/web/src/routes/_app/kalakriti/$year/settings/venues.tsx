@@ -32,6 +32,7 @@ import { VenuesTable } from "@/components/kalakriti/venues-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { countScheduledSessionsByVenue } from "@/lib/kalakriti-competition-page-metrics";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/settings/venues")({
   component: VenuesPage,
@@ -56,7 +57,7 @@ function VenuesPage() {
     ...venue,
     sessionCount: sessionCounts.get(venue.id) ?? 0,
   }));
-  const isLoading = rows.length === 0 && venueResult.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(venueResult);
   const summaryLoading =
     venueResult.type !== "complete" || sessionResult.type !== "complete";
   const summaryError =

@@ -11,6 +11,7 @@ import { Link } from "@tanstack/react-router";
 import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
 import { computeDonorGiving } from "@/components/income/contribution-stats";
 import { ContributionStatusBadge } from "@/components/income/contribution-status";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 /** How many gifts the sheet lists before pointing to the Income page. */
 const RECENT_GIFTS = 8;
@@ -26,7 +27,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export function DonorGivingSection({ partyId }: { partyId: string }) {
   const [gifts, result] = useQuery(queries.contribution.byParty({ partyId }));
-  const isLoading = gifts.length === 0 && result.type !== "complete";
+  const isLoading = gifts.length === 0 && isAwaitingResult(result);
   const fy = currentFinancialYear();
   const summary = computeDonorGiving(gifts, fy);
 

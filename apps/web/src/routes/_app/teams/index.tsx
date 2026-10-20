@@ -15,6 +15,7 @@ import { TeamsTable } from "@/components/teams/teams-table";
 import { useApp } from "@/context/app-context";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/teams/")({
   component: TeamsRouteComponent,
@@ -33,7 +34,7 @@ function TeamsRouteComponent() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const [data, result] = useQuery(queries.team.all());
-  const isLoading = data.length === 0 && result.type !== "complete";
+  const isLoading = data.length === 0 && isAwaitingResult(result);
 
   const handleDelete = useEventCallback(async (id: string) => {
     const res = await zero.mutate(mutators.team.delete({ id })).server;

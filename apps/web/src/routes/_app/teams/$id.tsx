@@ -8,6 +8,7 @@ import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { TeamDetail } from "@/components/teams/team-detail";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/teams/$id")({
   loader: ({ abortController, context, params }) => {
@@ -29,7 +30,7 @@ function TeamDetailRouteComponent() {
   const [team, result] = useQuery(queries.team.byId({ id }));
   useRecordTitle(team?.name);
 
-  if (!team && result.type !== "complete") {
+  if (!team && isAwaitingResult(result)) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <DetailPageSkeleton />

@@ -34,6 +34,7 @@ import {
   type RequestRow,
 } from "@/lib/reimbursement-types";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/reimbursements/")({
   component: ReimbursementsRouteComponent,
@@ -71,8 +72,8 @@ function ReimbursementsRouteComponent() {
   const isLoading =
     reimbursements.length === 0 &&
     advancePayments.length === 0 &&
-    r1.type !== "complete" &&
-    r2.type !== "complete";
+    isAwaitingResult(r1) &&
+    isAwaitingResult(r2);
 
   const allData = normalizeToRequestRows(
     reimbursements ?? [],

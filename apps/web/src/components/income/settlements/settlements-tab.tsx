@@ -24,6 +24,7 @@ import {
   getSettlementSummary,
   type SettlementSummaryResponse,
 } from "@/functions/razorpay-settlements";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { SettlementDetailSheet } from "./settlement-detail-sheet";
 import type { SettlementRow } from "./settlement-types";
@@ -104,7 +105,7 @@ export function SettlementsTab() {
   }, [summary]);
   const isLoading =
     (summary === null && !failed) ||
-    (rows.length === 0 && result.type !== "complete");
+    (rows.length === 0 && isAwaitingResult(result));
   // In the URL, so the books can link to a payout.
   const [openId, setOpenId] = useQueryState("settlement", parseAsString);
   const open = useEventCallback((row: SettlementRow) => setOpenId(row.id));

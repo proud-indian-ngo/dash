@@ -39,8 +39,9 @@ Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` pa
 | `ZERO_MUTATE_URL`, `ZERO_QUERY_URL` | Yes (zero-cache) | Web app's `/api/zero/mutate` and `/api/zero/query` |
 | `ZERO_MUTATE_FORWARD_COOKIES`, `ZERO_QUERY_FORWARD_COOKIES` | No | Forward session cookies |
 | `ZERO_ADMIN_PASSWORD` | Prod | zero-cache admin password |
+| `ZERO_OPERATOR_PASSWORD` | No | Basic-auth password for `/statz`, `/profz` and `/plannerz`; unlike the admin password, it cannot read application data |
 | `ZERO_LOG_LEVEL`, `ZERO_REPLICA_FILE` | No | Log level; SQLite replica path |
-| `ZERO_QUERY_HYDRATION_STATS` | No | Slow-hydration statistics; keep `false` |
+| `ZERO_QUERY_HYDRATION_STATS` | No | Row counts on slow-hydration warnings; keep `false` |
 
 ### Email (Resend)
 
@@ -121,7 +122,8 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `OTEL_SERVICE_NAME` | No | Service name on server logs |
 | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser pageviews and exception capture; unset disables them. Turn on **Discard client IP data** in the PostHog project |
 | `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID` | No | Build only: [source map](docs/architecture/observability.md#posthog) upload. Key: a personal API key with `error_tracking:write`, passed as a BuildKit secret; `docker-compose.prod.yml` defaults the project. Secrets are outside BuildKit's cache key, so a new key or failed upload takes effect on the next new commit; redeploying a built commit shows the step `CACHED` |
-| `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <key>` |
+| `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <phc_ project token>` |
+| `ZERO_OTEL_METRICS_EXPORTER`, `ZERO_OTEL_METRICS_ENDPOINT` | No | zero-cache metric export (replication and serving lag, WAL, connections); default `none`. For PostHog (Metrics is in alpha; enable it in the project first): `otlp`, `<host>/i/v1/metrics`. Shares `ZERO_OTEL_HEADERS`, so its key must be the `phc_` project token |
 
 ### Production Compose and tooling
 
@@ -169,7 +171,7 @@ zero-cache runs separately (the `rocicorp/zero` image in production, `npx zero-c
 
 The migrator prepares `pi_dash_public` from the generated Zero schema after database migrations. Custom starts must run `bun packages/zero/scripts/prepare-publication.ts` against the upstream database and set `ZERO_APP_PUBLICATIONS=pi_dash_public`. The client schema alone cannot hide columns. Changing publications rebuilds the replica and can cause replication downtime; allow initialization to finish before serving traffic. Old clients requiring removed private fields must reload. Never retain a broader publication alongside this one.
 
-For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`.
+zero-cache logs, with literal values redacted, slow hydrations and advancements (over 100 ms), planner warnings for reads no index covers, and `query-stats` events every minute ranking query shapes by time. For row counts on the slow warnings, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`. CPU profiles (`/profz`) and planner statistics (`/plannerz`) take `ZERO_OPERATOR_PASSWORD`.
 
 ### Signing service
 

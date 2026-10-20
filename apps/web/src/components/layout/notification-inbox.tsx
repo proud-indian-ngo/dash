@@ -23,6 +23,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 
+import { isAwaitingResult } from "@/lib/zero-result";
+
 // Leading emoji, plus any variation selector or joiner, and the space after.
 const LEADING_EMOJI =
   /^(?:\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\p{Emoji_Component}(?=\p{Extended_Pictographic}))+\s*/u;
@@ -207,7 +209,7 @@ export function NotificationInbox({ onClose }: NotificationInboxProps) {
   const [notifications, result] = useQuery(
     queries.notification.forCurrentUser()
   );
-  const isLoading = notifications.length === 0 && result.type !== "complete";
+  const isLoading = notifications.length === 0 && isAwaitingResult(result);
   const hasUnread = notifications.some((n) => !n.read);
 
   const handleMarkAllRead = useEventCallback(async () => {
