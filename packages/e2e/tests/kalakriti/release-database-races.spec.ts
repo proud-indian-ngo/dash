@@ -4,6 +4,8 @@ import { promisify } from "node:util";
 
 import { expect, test } from "../../fixtures/test";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
   import.meta.dirname,
@@ -21,11 +23,7 @@ async function fixture<T>(action: "cleanup" | "run", actorEmail?: string) {
 
 test("serializes live Edition, duplicate Membership, and duplicate Entry races", async ({
   superAdminEmail,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Authoritative PostgreSQL release races"
-  );
+}) => {
   test.slow();
 
   try {

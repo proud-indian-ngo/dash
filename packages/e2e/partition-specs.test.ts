@@ -42,16 +42,20 @@ test("uses exact duration, normalized location lookup, then a 10s fallback", () 
   );
 });
 
-test("balances the serial invariant lane before other work", () => {
-  const first = listed("kalakriti_release_invariants", "slow.spec.ts", "slow");
+test("balances the single-live-edition specs before other work", () => {
+  const first = listed(
+    "unoriented_volunteer",
+    "kalakriti/golive.spec.ts",
+    "slow"
+  );
   const second = listed(
-    "kalakriti_release_invariants",
-    "medium.spec.ts",
+    "unoriented_volunteer",
+    "kalakriti/results.spec.ts",
     "medium"
   );
   const third = listed(
-    "kalakriti_release_invariants",
-    "short.spec.ts",
+    "unoriented_volunteer",
+    "kalakriti/awards.spec.ts",
     "short"
   );
   const other = listed("admin", "other.spec.ts", "other");
@@ -69,29 +73,10 @@ test("balances the serial invariant lane before other work", () => {
   expect(result[1].totalMs).toBe(60_000);
 });
 
-test("keeps a file with invariant and other role cases on one stack", () => {
+test("schedules zero-duration single-live-edition specs before other specs", () => {
   const invariant = listed(
-    "kalakriti_release_invariants",
-    "same.spec.ts",
-    "invariant"
-  );
-  const admin = listed("admin", "same.spec.ts", "admin case", 3);
-  const result = partitionSpecs([invariant, admin], {
-    [invariant]: 7000,
-    [admin]: 2000,
-  });
-  expect(result[0]).toEqual({
-    lines: [invariant, admin],
-    totalMs: 9000,
-    invariantMs: 7000,
-  });
-  expect(result[1].lines).toEqual([]);
-});
-
-test("schedules zero-duration invariant groups before other specs", () => {
-  const invariant = listed(
-    "kalakriti_release_invariants",
-    "invariant.spec.ts",
+    "unoriented_volunteer",
+    "kalakriti/golive.spec.ts",
     "zero"
   );
   const other = listed("admin", "other.spec.ts", "other");

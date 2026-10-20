@@ -1,5 +1,7 @@
+import { singleLiveEditionSpecs } from "./project-selection";
+
 const DEFAULT_DURATION_MS = 10_000;
-const INVARIANT_PROJECT = "kalakriti_release_invariants";
+const LOCKED_SPECS = new Set<string>(singleLiveEditionSpecs);
 const TEST_LINE = /^\[([^\]\s]+)\] › ([^›\n]+\.ts):(\d+):(\d+) › (\S.*)$/;
 
 type Partition = { lines: string[]; totalMs: number; invariantMs: number };
@@ -64,7 +66,7 @@ export function partitionSpecs(
       : (normalizedDurations.get(normalizedKey(line)) ?? DEFAULT_DURATION_MS);
     group.lines.push(line);
     group.totalMs += duration;
-    if (project === INVARIANT_PROJECT) {
+    if (LOCKED_SPECS.has(spec)) {
       group.isInvariant = true;
       group.invariantMs += duration;
     }

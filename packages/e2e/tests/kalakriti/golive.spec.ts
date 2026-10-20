@@ -15,6 +15,8 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import type { GoliveFixtures } from "../../helpers/kalakriti-golive";
 import { registrationCleanup } from "../../helpers/registration-cleanup";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 const helper = path.resolve(
   import.meta.dirname,
@@ -121,12 +123,8 @@ async function withFixture(
   }
 }
 
-test.beforeEach(({ baseURL }, testInfo) => {
+test.beforeEach(({ baseURL }) => {
   expect(baseURL).toBeDefined();
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Serialized go-live invariants"
-  );
   test.slow();
 });
 

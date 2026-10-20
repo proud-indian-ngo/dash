@@ -47,11 +47,11 @@ Feature helpers in `helpers/` add the entities a spec needs. They must be idempo
 
 `E2E_STACK_INDEX=1|2` gives a run its own ports and container names. Benchmarks use `E2E_STACK_INDEX=2` so they can run beside an ordinary stack.
 
-## Release-invariant lane
+## Single-live-Edition lock
 
-Specs that touch the database-wide single-live-Edition constraint run only in `kalakriti_release_invariants` with one worker. Distinct fixture IDs do not isolate them. The project is queued before the role projects so its serial work overlaps theirs.
+The database allows one live Edition, so distinct fixture IDs do not isolate specs that make an Edition live. Each declares `test.describe.configure({ lock: "single-live-edition" })`, and Playwright never runs two tests holding that lock at once, while everything else stays parallel. The lock only excludes its other holders: a spec that makes an Edition live, or depends on none being live, must take it too. These specs run once, in `unoriented_volunteer`, which is the first role project so their serial work is queued ahead of the rest.
 
-- Put new live-Edition specs in this lane and add them to `releaseInvariantSpecs` in `project-selection.ts`.
+- Add a new live-Edition spec to `singleLiveEditionSpecs` in `project-selection.ts` and declare the lock; `project-selection.test.ts` fails when the two disagree.
 - `event-day-transport.spec.ts` uses isolated Edition 2166 and its own Guardian. `event-day-stations.spec.ts` uses live Edition 2168 and draft Edition 2169.
 - Cleanup removes Center scan stages before Centers because their composite foreign key is restrictive.
 - Transport fixtures must finalize pickup and venue arrival before testing departure.

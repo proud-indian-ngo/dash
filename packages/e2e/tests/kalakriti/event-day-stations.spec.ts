@@ -8,6 +8,8 @@ import { uuidv7 } from "uuidv7";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 test.use({
   storageState: path.resolve(
     import.meta.dirname,
@@ -147,11 +149,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
   page,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Isolated LIVE activities run only in the serialized invariant lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup", superAdminEmail);
   const foodContext = await browser.newContext({

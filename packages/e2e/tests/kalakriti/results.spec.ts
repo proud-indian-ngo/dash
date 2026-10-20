@@ -8,6 +8,8 @@ import { uuidv7 } from "uuidv7";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiResultsPage } from "../../pages/kalakriti-results-page";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 test.use({
   storageState: path.resolve(
     import.meta.dirname,
@@ -95,11 +97,7 @@ test("scorecard-backed results publish only after group attendance, then finaliz
   page,
   superAdminEmail,
   volunteerEmail,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Serialized live Edition lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup", superAdminEmail, volunteerEmail);
   const coordinatorContext = await browser.newContext({
@@ -299,11 +297,7 @@ test("failed scorecard PUT can retry while a successful staged file stays attach
   page,
   superAdminEmail,
   volunteerEmail,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Serialized live Edition lane"
-  );
+}) => {
   test.skip(
     Boolean(process.env.CI),
     "Requires real R2 promotion, following the local-only music upload test"

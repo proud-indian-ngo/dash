@@ -8,6 +8,8 @@ import { uuidv7 } from "uuidv7";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 test.use({
   storageState: path.resolve(
     import.meta.dirname,
@@ -131,11 +133,7 @@ test("Center scan sessions mark two Students through four explicitly finalized s
   superAdminEmail,
   volunteerEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Serialized live Edition invariant lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>(
     "setup",

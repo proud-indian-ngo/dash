@@ -14,6 +14,8 @@ import { uuidv7 } from "uuidv7";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 const helper = path.resolve(
   import.meta.dirname,
@@ -173,12 +175,6 @@ async function desktopAction(
 
 test.describe("Kalakriti Awards handovers", () => {
   test.describe.configure({ mode: "serial" });
-  test.beforeEach(() =>
-    test.skip(
-      test.info().project.name !== "kalakriti_release_invariants",
-      "Awards uses an isolated Live Edition in the serialized invariant lane"
-    )
-  );
   test.afterEach(async () => {
     await fixture("cleanup");
   });

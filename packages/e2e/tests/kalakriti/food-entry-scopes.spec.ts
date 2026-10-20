@@ -10,6 +10,8 @@ import { KalakritiPersonQrPage } from "../../pages/kalakriti-person-qr-page";
 import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
 import { KalakritiStudentsPage } from "../../pages/kalakriti-students-page";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 test.use({
   storageState: path.resolve(
     import.meta.dirname,
@@ -230,11 +232,7 @@ for (const actor of ["guardian", "liaison"] as const) {
     baseURL,
     superAdminEmail,
     kalakritiActors,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "kalakriti_release_invariants",
-      "Isolated scope fixture requires the serialized invariant lane"
-    );
+  }) => {
     const data = await fixture<Setup>("setup-scopes", superAdminEmail);
     const context = await browser.newContext({
       baseURL,
@@ -288,11 +286,7 @@ test("Competition workspace scopes Guardian and Liaison Entries without configur
   page,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Isolated scope fixture requires the serialized invariant lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup-scopes", superAdminEmail);
   const guardianContext = await browser.newContext({
@@ -427,11 +421,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
   baseURL,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Isolated LIVE scope fixture uses the serialized invariant lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup-scopes", superAdminEmail);
   const guardianContext = await browser.newContext({
@@ -1085,11 +1075,7 @@ test("Meal undo preserves history and requires a new capture before re-serving",
   baseURL,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Isolated LIVE undo fixture uses the serialized lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup-scopes", superAdminEmail);
   const contexts = await Promise.all(
@@ -1316,11 +1302,7 @@ test("Guardian yearly IDs remain stable on invite retry and support legacy and y
   baseURL,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Guardian IDs require isolated Edition fixtures"
-  );
+}) => {
   test.slow();
   page.setDefaultTimeout(10_000);
   const data = await fixture<Setup>("setup-scopes", superAdminEmail);
@@ -1552,11 +1534,7 @@ test("Students directory unions assigned Centers while creation, quota and trans
   baseURL,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Student union uses an isolated LIVE Edition"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("setup-scopes", superAdminEmail);
   const guardianContext = await browser.newContext({

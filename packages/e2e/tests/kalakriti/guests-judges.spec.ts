@@ -10,6 +10,8 @@ import { KalakritiAttendeePage } from "../../pages/kalakriti-attendee-page";
 import { KalakritiPersonQrPage } from "../../pages/kalakriti-person-qr-page";
 import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 test.use({
   storageState: path.resolve(
@@ -115,11 +117,7 @@ test("non-login guests and judges support multiple competitions, scoped visibili
   baseURL,
   superAdminEmail,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Live Edition requires serialized invariant lane"
-  );
+}) => {
   test.slow();
   const data = await fixture<Setup>("station", "setup", superAdminEmail);
   const readState = () => fixture<State>("attendee", "state", data.editionId);
