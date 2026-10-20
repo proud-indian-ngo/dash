@@ -1,6 +1,6 @@
 # Query performance audit
 
-Reference for what has been profiled, what was changed and what was rejected. Benchmark commands, fixtures and flags are in [E2E testing](architecture/e2e-testing.md#performance-benchmarks); implementation rules are in `.agents/skills/query-performance/SKILL.md`.
+Evidence for measured query and browser performance changes, including rejected approaches. Benchmark commands, fixtures and flags are in [E2E testing](architecture/e2e-testing.md#performance-benchmarks); implementation rules are in `.agents/skills/query-performance/SKILL.md`.
 
 Most numbers below come from the synthetic local fixtures on 14–15 Sept 2026 (Zero 1.9, PostgreSQL 18.3, optimized build). "Analyzer" means the median of three Zero analyzer samples. Local results show query work, not production latency.
 
@@ -56,7 +56,7 @@ Server reads and CPU work:
 
 ## Proven changes
 
-Each change kept results, permissions and cache behaviour and was verified on the fixture. Add new rows here.
+The retained changes preserve results, permissions and cache behaviour on the measured fixtures.
 
 ### Indexes
 
@@ -139,7 +139,7 @@ The longer idle window loaded about 298 KB of extra compressed JavaScript before
 
 Contribution-dialog traces isolated about 245 ms to mounted controls on first open and 101 ms on repeat. Reduced motion measured 296 and 102 ms, so shortening animation does not address mounting. Base UI drawer geometry reads dominated style/layout work; form code accounted for about 20 ms initially. No local optimization was adopted: changing the mobile drawer interaction or memoizing the form would not be justified by that profile. The opt-in profiler retains in-page readiness marks and timelines for evaluating a dependency-level fix.
 
-### Loading geometry and follow-up trials
+### Loading geometry
 
 Three fresh contexts per case used the same throttling and production harness. These are local seeded mobile CLS medians:
 
@@ -177,7 +177,9 @@ Documents' signing-status request revalidates in the router's background on repe
 
 The register preloads deed versions alongside trustees because both gate its loading state. Two candidate runs reduced mobile first-visit medians from 2,350 to 2,249 and 2,214 ms; desktop measured 2,364 and 2,316 ms against 2,405. Repeat timing varied.
 
-Deferring the trustee form alongside its private requests saves 4.7 KB. Against a repeated control, desktop/mobile navigation improved 2,456/2,248 → 2,295/2,182 ms; Add trustee measured 350/331 → 364/332 ms, within observed variation. Independent fresh-context actions prevent warmed forms masking regressions. Deferring period forms too saved 27 KB but slowed mobile Add trustee from 363 to 947 ms; rejected. The shared form library stays eager.
+Deferring the trustee form alongside its private requests saves 4.7 KB. Against a repeated control, desktop/mobile navigation improved 2,456/2,248 → 2,295/2,182 ms; Add trustee measured 350/331 → 364/332 ms, within observed variation. Independent fresh-context actions prevent warmed forms from masking regressions.
+
+Deferring period forms as well saved 27 KB but slowed mobile Add trustee from 363 to 947 ms, so that trial was rejected. The shared form library stays eager.
 
 ### Rules these results support
 
@@ -189,7 +191,7 @@ Deferring the trustee form alongside its private requests saves 4.7 KB. Against 
 
 ## Rejected approaches
 
-One line each. Add new rows here.
+These alternatives did not justify their cost or regressed user-visible performance.
 
 | Approach | Why rejected |
 |---|---|

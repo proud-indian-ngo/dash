@@ -101,29 +101,45 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
 | `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
 
+### Compare navigation runs
+
+Compare matched production builds with the same seed, role, route sequence, throttling and machine. Stop concurrent builds, tests and profilers. Click-to-content includes readiness assertion overhead; it is separate from Event Timing latency. Three local samples are not real-user percentiles.
+
+Navigation benchmarks use real links after dashboard readiness. First visits can reuse code and queries loaded by earlier pages; repeats preserve those caches. Keep the app's preloading and motion settings unchanged.
+
+| Option | Use |
+|---|---|
+| `PERFORMANCE_LABEL` | Label claim-edit, Users-mount and Food-layout reports |
+| `GOVERNANCE_PERFORMANCE_LABEL`, `GOVERNANCE_PERFORMANCE_ROUTES` | Label cold governance reports and optionally select comma-separated route names |
+| `GOVERNANCE_WARM_LABEL`, `GOVERNANCE_WARM_ROUTES` | Label and select warm governance destinations |
+| `NAVIGATION_IDLE_WAIT_MS` | Add a fixed quiet period before navigation; leave unset for immediate interaction |
+| `FINANCE_NAVIGATION_IDLE_WAIT_MS` | Override the idle period for finance navigation |
+| `GOVERNANCE_WARM_IDLE_WAIT_MS` | Add an idle window after the governance benchmark's two-second dashboard settle |
+
+Use equal idle windows when comparing code warming. Reports include JavaScript downloaded before navigation, so a faster click does not hide the cost of warming.
+
+Warm governance gives each destination a fresh context and keeps its first/repeat pair in one document. Meetings checks the populated Past tab count; Registrations checks the empty-state search control because the standard seed has no registration.
+
+Add `GOVERNANCE_WARM_REGISTER_ACTIONS=true` to measure Add trustee, trustee details and the first Add term opening. Add and detail scenarios use independent fresh contexts, so one form's loaded code cannot mask another's first-use cost. Each scenario measures navigation before opening and cancelling dialogs.
+
+### Cold loads and returning visits
+
+Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit, preserving HTTP and Zero caches. Export first-use supports `EXPORT_SSR_RETURNING=true`; web vitals supports `WEB_VITALS_RETURNING=true`.
+
+Route screening records redirects, fallbacks, page errors and timeouts separately. Inspect each sample: a passing harness does not mean every route reached its intended state. Generic readiness checks the heading, Zero connection and visible skeletons, not populated-data completeness. Router tracing is best effort and can miss work before the router becomes available.
+
+Web vitals takes three fresh contexts per route and viewport at 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Cold mode disables HTTP caching; returning mode measures a cached reload. Reports include skeleton-free readiness, LCP, maximum CLS session window and the worst observed Event Timing duration. This interaction proxy is not field INP.
+
+`WEB_VITALS_ASSERT=true` requires LCP ≤2.5 s, CLS ≤0.1 and interaction latency ≤200 ms. Production validation still needs real-user measurements.
+
+### Profiles and query reports
+
+Keep diagnostic profiling separate from latency comparisons:
+
+- `NAVIGATION_PROFILE=true` records an extra Users navigation after the measured route sequence. Subsequent `filterMeasurements` time first/repeat quick-filter opening with profiling off. Open `.cpuprofile` attachments in Chrome DevTools.
+- `LAZY_FEATURES_PROFILE=true` records contribution-dialog CPU profiles and timelines in separate normal/reduced-motion contexts. In-page marks separate control mounting, rendering frames and animation completion without readiness polling. These runs do not enter the latency report.
+
 Query benchmarks take three analyzer samples after initial hydration, without timing thresholds. JSON attachments contain counts, timings and sanitized plans, never record contents, filter values or credentials.
-
-The claim-edit, Users-mount and Food-layout reports use `PERFORMANCE_LABEL` to separate baseline, candidate and final runs. Governance uses `GOVERNANCE_PERFORMANCE_LABEL`; `GOVERNANCE_PERFORMANCE_ROUTES` optionally selects comma-separated route names for focused reruns. Compare matched production builds without concurrent builds, tests or profilers.
-
-Warm governance uses `GOVERNANCE_WARM_LABEL` and optional `GOVERNANCE_WARM_ROUTES`. Each destination starts in a fresh context, waits two seconds after dashboard readiness, then measures first and repeat link navigation in the same document. `GOVERNANCE_WARM_IDLE_WAIT_MS` adds a fixed idle window. Meetings checks the populated Past tab count; Registrations checks its empty-state search control because the standard seed has no registration.
-
-Add `GOVERNANCE_WARM_REGISTER_ACTIONS=true` to measure Add trustee and trustee details in independent fresh contexts, including the first Add term opening. Each scenario measures navigation before the action; dialogs are cancelled without changing data. This prevents one form's loaded code from masking another's first-use cost.
-
-Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit in the same context with HTTP and Zero caches preserved. The Export first-use benchmark supports the same mode with `EXPORT_SSR_RETURNING=true`.
-
-`LAZY_FEATURES_PROFILE=true` captures contribution-dialog CPU profiles and timelines for first/repeat opens in separate normal/reduced-motion contexts. In-page marks separate controls, rendering frames and animation completion without Playwright readiness polling during recording. These diagnostic runs do not enter the latency report.
-
-`NAVIGATION_IDLE_WAIT_MS` adds a fixed quiet period after dashboard readiness, before measured navigation. Use the same value on both candidates when comparing background code warming; the report includes JavaScript bytes loaded before navigation. Leave it unset to check immediate interaction.
-
-`FINANCE_NAVIGATION_IDLE_WAIT_MS` overrides that wait for the finance benchmark, allowing a longer background-warming window without changing the general navigation comparison.
-
-Route screening records redirects, fallbacks, page errors and timeouts separately. A passing harness does not mean every route reached its intended state; inspect each sample. Generic readiness checks the heading, Zero connection and visible skeletons, not populated-data completeness. Router tracing is best effort and can miss work before the router becomes available. Single samples rank investigation candidates, not real-user percentiles.
-
-Navigation measurements start after dashboard readiness and use real links within the same document. First visits can reuse code and queries loaded by earlier pages; repeat visits keep those caches. Click-to-content includes readiness assertion overhead and is separate from Event Timing latency. The slowest event's input, processing and presentation delays help distinguish main-thread work from waiting for a paint. Preserve the app's preloading and motion settings, and compare the same route sequence and role.
-
-After the route sequence, separate `filterMeasurements` time the first and repeat quick-filter editor opening with the same throttling. Add `NAVIGATION_PROFILE=true` to capture Chrome CPU profiles of an extra Users navigation before these filter measurements. Profiling is off during the reported measurements; open the `.cpuprofile` attachments in Chrome DevTools to investigate rendering work.
-
-The web-vitals benchmark takes three fresh browser contexts per route and viewport at 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Cold mode disables HTTP caching; returning mode completes an initial visit, then measures a reload with HTTP and Zero caches preserved. Reports include a skeleton-free readiness timestamp, LCP, maximum CLS session window and the worst observed Event Timing interaction duration. Its lab interaction proxy is not field INP, and three-run p75 is not a real-user percentile. Assertions require LCP ≤2.5 s, CLS ≤0.1 and interaction latency ≤200 ms. Compare the same build mode, seed and machine; production field validation still needs real-user measurements.
 
 ### Index experiment flags
 

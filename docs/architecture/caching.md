@@ -17,6 +17,8 @@ Every cache and limiter is in memory in one process. There is no Redis or shared
 
 `apps/web/src/lib/auth-cache.ts` wraps the `getAuth()` server function on the client. Concurrent callers share one in-flight request, which stops fan-out from router viewport preloading. Call `invalidateAuthCache()` after sign-in, sign-out or a role change.
 
+## User admin cache
+
 The Users page keeps its last successful private list and role options in browser memory for the current Better Auth session. Repeat visits show both immediately and refresh them independently in the background. User-admin writes invalidate the list while keeping unchanged role options. Role create, update and delete clear both because labels and available choices can change. Auth invalidation also clears both and invalidates pending reads so an older response cannot restore private data. The cache is unavailable during server rendering.
 
 ## Permission cache
