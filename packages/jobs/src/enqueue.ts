@@ -48,6 +48,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-kalakriti-registration-open",
   "notify-kalakriti-schedule-changed",
   "notify-kalakriti-transport-changed",
+  "notify-meeting-notice",
   "notify-password-reset",
   "notify-photo-approved",
   "notify-photo-rejected",

@@ -1,4 +1,7 @@
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
+import { Button } from "@pi-dash/design-system/components/ui/button";
 import { env } from "@pi-dash/env/web";
 import {
   type DeedRules,
@@ -10,7 +13,9 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
+import { DeedVersionDialog } from "@/components/governance/deed-version-dialog";
 import {
   type DocumentOption,
   governanceDocumentHref,
@@ -216,9 +221,23 @@ function DeedPage() {
   const { documents } = useGovernanceDocuments();
   const { hasPermission } = useApp();
   const canManage = hasPermission("governance.manage");
+  const [adding, setAdding] = useState(false);
+  const latest = deedVersions.at(-1);
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
+        actions={
+          canManage && latest ? (
+            <Button onClick={() => setAdding(true)} type="button">
+              <HugeiconsIcon
+                className="size-4"
+                icon={PlusSignIcon}
+                strokeWidth={2}
+              />
+              Add a version
+            </Button>
+          ) : null
+        }
         description="The rules pi-dash checks the register, resolutions and meetings against. A registered deed of amendment adds a version; earlier decisions keep the rules of their date."
         title="Trust deed"
       />
@@ -233,6 +252,14 @@ function DeedPage() {
           />
         ))}
       </div>
+      {latest ? (
+        <DeedVersionDialog
+          documents={documents}
+          latest={latest.rules}
+          onOpenChange={setAdding}
+          open={adding}
+        />
+      ) : null}
     </div>
   );
 }

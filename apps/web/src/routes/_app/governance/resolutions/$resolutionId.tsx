@@ -238,6 +238,8 @@ function ResolutionPage() {
   });
   const fieldsPrepared = row.revisions?.[0]?.fieldsPrepared ?? true;
 
+  // A meeting's resolution is decided on the meeting's page, not issued.
+  const isCircularDraft = row.status === "draft" && row.kind !== "meeting";
   const menuActions = [
     row.status === "draft" &&
       canManage && {
@@ -254,7 +256,7 @@ function ResolutionPage() {
         label: "Withdraw circular",
         onSelect: () => setWithdrawing(true),
       },
-    row.status === "draft" &&
+    isCircularDraft &&
       canManage && {
         destructive: true,
         icon: Delete02Icon,
@@ -270,7 +272,7 @@ function ResolutionPage() {
       <PageHeader
         actions={
           <>
-            {row.status === "draft" && canManage ? (
+            {isCircularDraft && canManage ? (
               <Button onClick={() => setIssuing(true)} type="button">
                 <HugeiconsIcon
                   className="size-4"
@@ -303,7 +305,11 @@ function ResolutionPage() {
             ) : null}
           </>
         }
-        description={template.title}
+        description={
+          row.kind === "meeting"
+            ? `${template.title} · decided at a board meeting`
+            : template.title
+        }
         title={row.title}
       />
 

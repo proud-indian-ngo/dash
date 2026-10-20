@@ -146,3 +146,51 @@ export const complianceQueries = {
       : zql.complianceTemplate.where("id", "__never_match__")
   ),
 };
+
+const meetingDetail = () =>
+  zql.meeting
+    .related("agenda", (q) =>
+      q.related("votes").related("resolution").orderBy("position", "asc")
+    )
+    .related("attendance", (q) => q.related("trustee"))
+    .related("chair")
+    .related("deedVersion")
+    .related("minutesDocument");
+
+/**
+ * Board meetings: everything for governance; for a trustee, the meetings
+ * whose notice went to them.
+ */
+export const meetingQueries = {
+  all: defineQuery(({ ctx }) =>
+    canSeeGovernance(ctx)
+      ? zql.meeting.related("agenda").orderBy("startsAt", "desc")
+      : zql.meeting.where("id", "__never_match__").related("agenda")
+  ),
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
+    if (canSeeGovernance(ctx)) {
+      return meetingDetail().where("id", id).one();
+    }
+    if (ctx) {
+      return meetingDetail()
+        .where("id", id)
+        .whereExists("attendance", (a) =>
+          a.whereExists("trustee", (t) => t.where("userId", ctx.userId))
+        )
+        .one();
+    }
+    return meetingDetail().where("id", "__never_match__").one();
+  }),
+  /** Meetings the signed-in trustee was given notice of. */
+  mine: defineQuery(({ ctx }) =>
+    ctx
+      ? zql.meeting
+          .where("status", "!=", "draft")
+          .whereExists("attendance", (a) =>
+            a.whereExists("trustee", (t) => t.where("userId", ctx.userId))
+          )
+          .related("agenda")
+          .orderBy("startsAt", "desc")
+      : zql.meeting.where("id", "__never_match__").related("agenda")
+  ),
+};

@@ -18,6 +18,7 @@
 - Passing takes the next number for the financial year under an advisory lock and makes the register change in the same transaction. A change the register can no longer take fails the resolution with the reason. Terms and offices keep the resolution that made them.
 - A trustee sees the circulars sent to them without `governance.view`.
 - Past paper resolutions are recorded with their numbers so the series continues.
+- Resolutions decided at a board meeting share the numbering and register changes; see [meetings](governance-meetings.md).
 
 ## Signatures
 

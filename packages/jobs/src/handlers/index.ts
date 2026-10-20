@@ -25,6 +25,7 @@ import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
 import { handleLedgerPostPending, handleLedgerPostSource } from "./ledger-post";
+import { handleNotifyMeetingNotice } from "./meetings";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -574,6 +575,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-resolution-issued",
     NOTIFY_POLL,
     handleNotifyResolutionIssued
+  );
+  await boss.work(
+    "notify-meeting-notice",
+    NOTIFY_POLL,
+    handleNotifyMeetingNotice
   );
   await boss.work(
     "notify-resolution-decided",
