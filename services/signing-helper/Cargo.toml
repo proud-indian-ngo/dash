@@ -1,0 +1,16 @@
+[package]
+name = "pidash-sign"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64 = "0.23.1"
+cryptoki = "0.10"
+hex = "0.4.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+tinyfiledialogs = "3.9.1"
+ureq = { version = "2", features = ["json"] }
+url = "2.5.8"
+x509-parser = "0.18.1"

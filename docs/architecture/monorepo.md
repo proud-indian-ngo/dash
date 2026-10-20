@@ -21,7 +21,7 @@ Split client code along route and dynamic-import boundaries, coalescing the rout
 
 Keep permission hooks shared by lists and editors outside editor modules. Importing a small hook from an editor can pull the editor's form dependencies into list navigation. Check the next detail/editor interaction too when moving that boundary.
 
-Nitro precompresses public assets, so the origin serves compressed JavaScript and CSS without relying on a CDN. Keep the compression/revalidation E2E check when changing asset serving. The root preloads the body font; display and data fonts load when used so they do not compete with initial scripts. All use hashed asset URLs with long-lived caching.
+Nitro precompresses public assets, so the origin serves compressed JavaScript and CSS without relying on a CDN. Docker recreates existing JavaScript variants after PostHog source-map processing; otherwise the variants can contain the pre-injection chunks. Keep the compression/revalidation E2E check when changing asset serving. The root preloads the body font; display and data fonts load when used so they do not compete with initial scripts. All use hashed asset URLs with long-lived caching.
 
 TanStack Start inlines production CSS in HTML to avoid a blocking stylesheet request. The origin streams HTML with negotiated Brotli or gzip and varies on `Accept-Encoding`; compression must preserve stream errors, cancellation and response headers. Place the body-font preload after the inline styles so it does not compete with their download.
 

@@ -10,6 +10,7 @@ pg-boss runs every asynchronous side effect. Start at `src/handlers/index.ts`, w
 - Use `enqueue()` from `@pi-dash/jobs/enqueue` for side effects. Never call notification, WhatsApp, Immich or R2 handlers directly from server functions, auth hooks or mutators. Account deletion is the one synchronous send ([notifications](notifications.md)).
 - `@pi-dash/jobs/enqueue` is the lean entry, so mutators never pull in handler code. The `@pi-dash/jobs` barrel is server-only.
 - Wrap side-effect enqueues in `withFireAndForgetLog()` so a pg-boss failure does not fail the main operation. Await `enqueue()` only when enqueueing is the operation.
+- A job that must exist exactly when a write commits is sent in that transaction: `enqueue(name, data, { db: inTransaction(tx) })`.
 - Never use `Date.now()` in idempotency or singleton keys. Pass the mutator's deterministic timestamp.
 - CLI scripts enqueue with `startJobProducer(databaseUrl)`, which starts no handlers, schedules or migrations. The caller stops it before exit.
 

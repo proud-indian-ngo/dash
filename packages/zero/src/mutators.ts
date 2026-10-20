@@ -18,6 +18,16 @@ import {
   programmeMutators,
   projectMutators,
 } from "./mutators/finance-dimensions";
+import {
+  complianceItemMutators,
+  complianceTemplateMutators,
+  deedVersionMutators,
+  governanceDocumentMutators,
+  organisationRegistrationMutators,
+  resolutionMutators,
+  trusteeOfficeMutators,
+  trusteeTermMutators,
+} from "./mutators/governance";
 import { contributionMutators, otherIncomeMutators } from "./mutators/income";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
@@ -33,8 +43,18 @@ import { kalakritiOperationMutators } from "./mutators/kalakriti-operation";
 import { kalakritiResultMutators } from "./mutators/kalakriti-result";
 import { kalakritiStudentMutators } from "./mutators/kalakriti-student";
 import { kalakritiTransportMutators } from "./mutators/kalakriti-transport";
+import {
+  agendaItemMutators,
+  agendaVoteMutators,
+  meetingAttendanceMutators,
+  meetingMutators,
+} from "./mutators/meetings";
 import { notificationMutators } from "./mutators/notification";
 import { notificationPreferenceMutators } from "./mutators/notification-preference";
+import {
+  policyAcknowledgementMutators,
+  policyMutators,
+} from "./mutators/policies";
 import { reimbursementMutators } from "./mutators/reimbursement";
 import { scheduledMessageMutators } from "./mutators/scheduled-message";
 import { socialPostMutators } from "./mutators/social-post";
@@ -48,11 +68,16 @@ import { whatsappGroupMutators } from "./mutators/whatsapp-group";
 export const mutators = defineMutators({
   accountHead: accountHeadMutators,
   advancePayment: advancePaymentMutators,
+  agendaItem: agendaItemMutators,
+  agendaVote: agendaVoteMutators,
   appConfig: appConfigMutators,
   bankAccount: bankAccountMutators,
   budget: budgetMutators,
   contribution: contributionMutators,
+  complianceItem: complianceItemMutators,
+  complianceTemplate: complianceTemplateMutators,
   costCentre: costCentreMutators,
+  deedVersion: deedVersionMutators,
   eventFeedback: eventFeedbackMutators,
   eventImmichAlbum: eventImmichAlbumMutators,
   eventInterest: eventInterestMutators,
@@ -60,6 +85,7 @@ export const mutators = defineMutators({
   eventUpdate: eventUpdateMutators,
   expenseCategory: expenseCategoryMutators,
   fund: fundMutators,
+  governanceDocument: governanceDocumentMutators,
   kalakritiAssignment: kalakritiAssignmentMutators,
   kalakritiAttendee: kalakritiAttendeeMutators,
   kalakritiAward: kalakritiAwardMutators,
@@ -74,17 +100,25 @@ export const mutators = defineMutators({
   kalakritiResult: kalakritiResultMutators,
   kalakritiStudent: kalakritiStudentMutators,
   kalakritiTransport: kalakritiTransportMutators,
+  meeting: meetingMutators,
+  meetingAttendance: meetingAttendanceMutators,
   notification: notificationMutators,
   notificationPreference: notificationPreferenceMutators,
   orgAccount: orgAccountMutators,
+  organisationRegistration: organisationRegistrationMutators,
   otherIncome: otherIncomeMutators,
+  policy: policyMutators,
+  policyAcknowledgement: policyAcknowledgementMutators,
   programme: programmeMutators,
   project: projectMutators,
   reimbursement: reimbursementMutators,
+  resolution: resolutionMutators,
   scheduledMessage: scheduledMessageMutators,
   socialPost: socialPostMutators,
   team: teamMutators,
   teamEvent: teamEventMutators,
+  trusteeOffice: trusteeOfficeMutators,
+  trusteeTerm: trusteeTermMutators,
   vendor: vendorMutators,
   vendorPayment: vendorPaymentMutators,
   vendorPaymentTransaction: vendorPaymentTransactionMutators,

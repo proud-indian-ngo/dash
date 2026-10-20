@@ -15,6 +15,11 @@ describe("registerSchedules", () => {
     await registerSchedules(boss as never);
     expect(scheduled).toContain("ensure-fiscal-years");
     expect(scheduled).toContain("expire-import-rows");
+    expect(scheduled).toContain("remind-trustee-terms");
+    expect(scheduled).toContain("close-due-resolutions");
+    expect(scheduled).toContain("retimestamp-governance-archives");
+    expect(scheduled).toContain("generate-compliance-items");
+    expect(scheduled).toContain("remind-compliance-items");
     expect(scheduled).toContain("expire-event-interests");
     expect(scheduled).toContain("flush-held-notifications");
     expect(scheduled).toContain("ledger-post-pending");

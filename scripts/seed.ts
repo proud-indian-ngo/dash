@@ -149,6 +149,13 @@ import {
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
+import {
+  ensureComplianceFixtures,
+  ensureGovernanceFixtures,
+  ensureDevPolicyExamples,
+  ensureMeetingFixtures,
+  ensurePolicyFixtures,
+} from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import {
@@ -3842,6 +3849,24 @@ async function seedBudgets(): Promise<void> {
   log("Budgets ready");
 }
 
+// ── Governance ───────────────────────────────────────────────────────────────
+
+async function seedGovernance(userMap: Map<string, string>): Promise<void> {
+  log("Seeding governance register...");
+  // The dev admin is the Managing Trustee, so circulars can be issued locally.
+  await ensureGovernanceFixtures({
+    jointManagingTrusteeUserId: null,
+    managingTrusteeUserId: getUser(userMap, "admin@pi-dash.dev"),
+  });
+  await ensureComplianceFixtures();
+  await ensureMeetingFixtures();
+  await ensurePolicyFixtures();
+  await ensureDevPolicyExamples(getUser(userMap, "admin@pi-dash.dev"));
+  log(
+    "Deed version 1, a fictional board of 4 trustees, the compliance calendar, a board meeting and the policy register ready"
+  );
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -3875,6 +3900,7 @@ async function main(): Promise<void> {
   await seedEmailSuppressions();
   await seedNotifications(userMap);
   await seedAppConfig();
+  await seedGovernance(userMap);
 
   process.stdout.write("\n=== Dev data seeded successfully! ===\n");
   process.exit(0);

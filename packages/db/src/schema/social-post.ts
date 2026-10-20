@@ -24,6 +24,7 @@ export const socialPostStatusValues = [
   "queued",
   "approved",
   "published",
+  "failed",
   "dropped",
 ] as const;
 
@@ -41,7 +42,8 @@ export type SocialPostStatus = (typeof socialPostStatusValues)[number];
  * draft for approval, false when it was scheduled automatically, and null
  * when the pipeline did not say. `dropped_by` / `dropped_at` are set when someone drops
  * the post on the Social page (`socialPost.drop`); the pipeline treats
- * `dropped` as final.
+ * `dropped` as final. `failed` means Buffer could not publish the post, and
+ * `error` holds Buffer's message for it.
  */
 export const socialPost = pgTable(
   "social_post",
@@ -53,6 +55,7 @@ export const socialPost = pgTable(
     droppedBy: text("dropped_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    error: text("error"),
     eventId: text("event_id").notNull(),
     eventName: text("event_name"),
     held: boolean("held"),
@@ -82,7 +85,7 @@ export const socialPost = pgTable(
     ),
     check(
       "social_post_status_chk",
-      sql`status IN ('queued', 'approved', 'published', 'dropped')`
+      sql`status IN ('queued', 'approved', 'published', 'failed', 'dropped')`
     ),
   ]
 );

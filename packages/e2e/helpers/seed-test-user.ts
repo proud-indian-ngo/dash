@@ -38,6 +38,14 @@ import {
 } from "@pi-dash/db/schema/vendor";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { ensureFinanceDimensions } from "@pi-dash/db/seed-finance-dimensions";
+import {
+  ensureAmendedDeedFixture,
+  ensureComplianceFixtures,
+  ensureDeclarationFixture,
+  ensureGovernanceFixtures,
+  ensureMeetingFixtures,
+  ensurePolicyFixtures,
+} from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
@@ -1794,6 +1802,7 @@ async function seed(): Promise<void> {
   await ensureWhatsAppGroup();
 
   let superAdminUserId = "";
+  let adminUserId = "";
   let financeAdminUserId = "";
   let unorientedUserId = "";
   let volunteerUserId = "";
@@ -1803,6 +1812,8 @@ async function seed(): Promise<void> {
       await ensureBankAccount(userId);
       if (testUser.role === "super_admin") {
         superAdminUserId = userId;
+      } else if (testUser.role === "admin") {
+        adminUserId = userId;
       } else if (testUser.role === "finance_admin") {
         financeAdminUserId = userId;
       } else if (testUser.role === "unoriented_volunteer") {
@@ -1828,6 +1839,20 @@ async function seed(): Promise<void> {
     volunteerUserId,
   });
   await ensureAuditLogEntry(superAdminUserId);
+  // A fictional board for the register; specs that change it add their own trustees.
+  // The super admin is the Managing Trustee (issues circulars); the admin the
+  // Joint Managing Trustee.
+  await ensureGovernanceFixtures({
+    jointManagingTrusteeUserId: adminUserId,
+    managingTrusteeUserId: superAdminUserId,
+  });
+  await ensureComplianceFixtures();
+  // Version 2 of the deed makes a two-trustee quorum possible for the
+  // meeting specs; it takes effect on 1 Jan 2026.
+  await ensureAmendedDeedFixture();
+  await ensureMeetingFixtures();
+  await ensurePolicyFixtures();
+  await ensureDeclarationFixture("E2E Event Vendor");
   const pastEvent = await db.query.teamEvent.findFirst({
     where: (table, ops) => ops.eq(table.name, SEED_EVENT_NAME),
   });

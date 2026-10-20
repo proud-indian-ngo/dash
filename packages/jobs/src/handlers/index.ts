@@ -10,6 +10,10 @@ import { handleCleanupR2Orphans } from "./cleanup-r2-orphans";
 import { handleCleanupStaleScheduledRecipients } from "./cleanup-stale-scheduled-recipients";
 import { handleCloseExpiredRsvpPolls } from "./close-expired-rsvp-polls";
 import { handleCloseRsvpPollOnCancel } from "./close-rsvp-poll-on-cancel";
+import {
+  handleGenerateComplianceItems,
+  handleRemindComplianceItems,
+} from "./compliance";
 import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
 import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
@@ -21,6 +25,7 @@ import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
 import { handleLedgerPostPending, handleLedgerPostSource } from "./ledger-post";
+import { handleNotifyMeetingNotice } from "./meetings";
 import {
   handleNotifyAdvancePaymentApproved,
   handleNotifyAdvancePaymentRejected,
@@ -108,6 +113,13 @@ import { handleProcessPostEventReminders } from "./process-post-event-reminders"
 import { handleRemindFeedbackDeadline } from "./remind-feedback-deadline";
 import { handleRemindPhotoApproval } from "./remind-photo-approval";
 import { handleRemindStaleRequests } from "./remind-stale-requests";
+import { handleRemindTrusteeTerms } from "./remind-trustee-terms";
+import {
+  handleCloseDueResolutions,
+  handleNotifyCircularIssued,
+  handleNotifyResolutionDecided,
+} from "./resolutions";
+import { handleRetimestampGovernanceArchives } from "./retimestamp-governance-archives";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendContributionReceipt } from "./send-contribution-receipt";
@@ -558,6 +570,46 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "flush-held-notifications",
     NOTIFY_POLL,
     withDefaultOutput(handleFlushHeldNotifications)
+  );
+  await boss.work(
+    "notify-circular-issued",
+    NOTIFY_POLL,
+    handleNotifyCircularIssued
+  );
+  await boss.work(
+    "notify-meeting-notice",
+    NOTIFY_POLL,
+    handleNotifyMeetingNotice
+  );
+  await boss.work(
+    "notify-resolution-decided",
+    NOTIFY_POLL,
+    handleNotifyResolutionDecided
+  );
+  await boss.work(
+    "close-due-resolutions",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleCloseDueResolutions(jobs))
+  );
+  await boss.work(
+    "retimestamp-governance-archives",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRetimestampGovernanceArchives(jobs))
+  );
+  await boss.work(
+    "generate-compliance-items",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleGenerateComplianceItems(jobs))
+  );
+  await boss.work(
+    "remind-compliance-items",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRemindComplianceItems(jobs))
+  );
+  await boss.work(
+    "remind-trustee-terms",
+    NOTIFY_POLL,
+    withDefaultOutput((jobs) => handleRemindTrusteeTerms(jobs))
   );
   await boss.work(
     "expire-import-rows",

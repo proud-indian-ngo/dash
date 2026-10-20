@@ -40,12 +40,20 @@ export async function getCachedAuth() {
   if (typeof window === "undefined") {
     const result = await getAuth();
     return result
-      ? { permissions: result.permissions, session: result.session }
-      : { permissions: [] as string[], session: null };
+      ? {
+          permissions: result.permissions,
+          policiesPending: result.policiesPending,
+          session: result.session,
+        }
+      : { permissions: [] as string[], policiesPending: false, session: null };
   }
 
   if (cached && Date.now() - lastFetchTime < CACHE_TTL) {
-    return { permissions: cached.permissions, session: cached.session };
+    return {
+      permissions: cached.permissions,
+      policiesPending: cached.policiesPending,
+      session: cached.session,
+    };
   }
 
   // Dedup concurrent calls — all preload-triggered beforeLoad calls
@@ -61,10 +69,18 @@ export async function getCachedAuth() {
 
   const result = await inflight;
   if (!result) {
-    return { permissions: [] as string[], session: null };
+    return {
+      permissions: [] as string[],
+      policiesPending: false,
+      session: null,
+    };
   }
 
-  return { permissions: result.permissions, session: result.session };
+  return {
+    permissions: result.permissions,
+    policiesPending: result.policiesPending,
+    session: result.session,
+  };
 }
 
 export function invalidateAuthCache() {

@@ -113,6 +113,7 @@ export const teamMutators = {
       name: z.string().min(1),
       programmeId: z.string().optional(),
       whatsappGroupId: z.string().optional(),
+      worksWithChildren: z.boolean().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.create");
@@ -132,6 +133,7 @@ export const teamMutators = {
         programmeId: args.programmeId ?? null,
         updatedAt: now,
         whatsappGroupId: args.whatsappGroupId,
+        worksWithChildren: args.worksWithChildren ?? false,
       });
 
       if (
@@ -384,6 +386,7 @@ export const teamMutators = {
       programmeId: z.string().nullable().optional(),
       // Undefined leaves the group alone; null removes it.
       whatsappGroupId: z.string().nullable().optional(),
+      worksWithChildren: z.boolean().optional(),
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.edit");
@@ -417,6 +420,8 @@ export const teamMutators = {
             : args.programmeId,
         updatedAt: args.now,
         ...(nextGroupId !== undefined && { whatsappGroupId: nextGroupId }),
+        worksWithChildren:
+          args.worksWithChildren ?? existing.worksWithChildren ?? false,
       });
 
       if (tx.location === "server") {

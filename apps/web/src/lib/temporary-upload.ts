@@ -7,6 +7,7 @@ import type { ProtectedUploadScope } from "./private-media-access";
 export const PROTECTED_UPLOAD_SUBFOLDERS = [
   "attachments",
   "approval-screenshots",
+  "governance",
   "kalakriti-music",
   "kalakriti-inventory",
   "kalakriti-scorecards",

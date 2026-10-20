@@ -80,6 +80,47 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
   );
 
+  // Daily at 12:30 AM IST — close circulars whose response date has passed
+  await boss.schedule(
+    "close-due-resolutions",
+    "30 0 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
+  // Monthly on the 10th at 3:15 AM IST — renew long-term copies of signed
+  // governance documents whose yearly document timestamp is due
+  await boss.schedule(
+    "retimestamp-governance-archives",
+    "15 3 10 * *",
+    {},
+    { expireInSeconds: 1800, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
+  // Daily at 2:45 AM IST — create the compliance calendar's coming items
+  await boss.schedule(
+    "generate-compliance-items",
+    "45 2 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
+  // Daily at 9:15 AM IST — compliance items due in 30, 7 or 1 days
+  await boss.schedule(
+    "remind-compliance-items",
+    "15 9 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
+  // Daily at 9:00 AM IST — trustee terms ending in 90, 30 or 7 days
+  await boss.schedule(
+    "remind-trustee-terms",
+    "0 9 * * *",
+    {},
+    { expireInSeconds: 600, retryLimit: 2, tz: IST_TIMEZONE }
+  );
+
   // Daily at 2:30 AM IST — apply the retention policy to uploaded import rows
   await boss.schedule(
     "expire-import-rows",

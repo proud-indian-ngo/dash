@@ -14,6 +14,10 @@ import {
   MAX_VIDEO_SIZE_BYTES,
   MIME_TYPE_PATTERN,
 } from "@pi-dash/shared/constants";
+import {
+  GOVERNANCE_DOCUMENT_CONTENT_TYPES,
+  GOVERNANCE_DOCUMENT_MAX_BYTES,
+} from "@pi-dash/shared/governance";
 import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 import {
   PAYEE_SIGNATURE_MAX_BYTES,
@@ -93,6 +97,14 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
     return {
       allowed: ALLOWED_KALAKRITI_SCORECARD_TYPES as readonly string[],
       maxSize: MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
+    };
+  }
+  if (sourceKey.includes("/governance/tmp/")) {
+    return {
+      allowed: [
+        ...new Set(Object.values(GOVERNANCE_DOCUMENT_CONTENT_TYPES).flat()),
+      ] as readonly string[],
+      maxSize: GOVERNANCE_DOCUMENT_MAX_BYTES,
     };
   }
   throw new Error("Invalid temporary upload key");
@@ -287,20 +299,19 @@ async function readNextChunk(
 }
 
 /**
- * Reads a small object chunk by chunk, stopping as soon as it runs past the
- * stated size or the signature cap, so an object swapped for a bigger one
- * is never buffered whole.
+ * Reads an object chunk by chunk, stopping as soon as it runs past the size
+ * its caller checked, so an object swapped for a bigger one is never
+ * buffered whole.
  */
 async function readCapped(
   file: R2CopyFile,
   expectedSize: number
 ): Promise<Uint8Array> {
-  const limit = Math.min(expectedSize, PAYEE_SIGNATURE_MAX_BYTES);
   const reader = file.stream().getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   try {
-    total = await readNextChunk(reader, chunks, 0, limit);
+    total = await readNextChunk(reader, chunks, 0, expectedSize);
   } finally {
     reader.releaseLock();
   }
@@ -314,4 +325,19 @@ async function readCapped(
     offset += chunk.byteLength;
   }
   return bytes;
+}
+
+/**
+ * Reads a governance upload that exists, no bigger than the vault's cap. A
+ * presigned PUT can store more than the size it declared, so the stored
+ * size is checked before reading and the read stops if the object grows.
+ */
+export async function readGovernanceUpload(
+  file: R2CopyFile
+): Promise<Uint8Array> {
+  const { size } = await file.stat();
+  if (size > GOVERNANCE_DOCUMENT_MAX_BYTES) {
+    throw new Error("The file is larger than 25 MB.");
+  }
+  return await readCapped(file, size);
 }

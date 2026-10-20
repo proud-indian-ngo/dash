@@ -513,6 +513,8 @@ export async function getAppConfigValues(
 export interface SocialPostInput {
   bufferPostId: string;
   channel: SocialPostChannel;
+  /** Buffer's message when `status` is `failed`; null otherwise. */
+  error: string | null;
   eventId: string;
   eventName: string | null;
   /** True: created as a Buffer draft for approval; false: scheduled automatically; null: not reported. */
@@ -525,7 +527,7 @@ export interface SocialPostInput {
 }
 
 /**
- * Record a queued post; a repeat of the same post updates status, time,
+ * Record a queued post; a repeat of the same post updates status, error, time,
  * occurrence date and event name, and `held` when the repeat reports it (a
  * repeat without it keeps the stored value). A post dropped on the Social page stays
  * dropped unless the repeat reports it `published`.
@@ -540,6 +542,7 @@ export async function upsertSocialPost(
     .values({ ...input, createdAt: now, id: uuidv7(), updatedAt: now })
     .onConflictDoUpdate({
       set: {
+        error: sql`CASE WHEN ${socialPost.status} = 'dropped' AND excluded.status <> 'published' THEN ${socialPost.error} ELSE excluded.error END`,
         eventName: input.eventName,
         held: sql`coalesce(excluded.held, ${socialPost.held})`,
         occurrenceDate: input.occurrenceDate,
@@ -559,9 +562,17 @@ export async function upsertSocialPost(
     });
 }
 
+/** A stored post as `GET /posted` returns it. */
+export interface SocialPostRecord extends SocialPostInput {
+  /** When someone dropped it on the Social page; null otherwise. */
+  droppedAt: Date | null;
+}
+
 const socialPostColumns = {
   bufferPostId: socialPost.bufferPostId,
   channel: socialPost.channel,
+  droppedAt: socialPost.droppedAt,
+  error: socialPost.error,
   eventId: socialPost.eventId,
   eventName: socialPost.eventName,
   held: socialPost.held,
@@ -573,7 +584,7 @@ const socialPostColumns = {
 
 export async function listSocialPosts(
   eventId: string
-): Promise<SocialPostInput[]> {
+): Promise<SocialPostRecord[]> {
   return await db
     .select(socialPostColumns)
     .from(socialPost)
@@ -593,7 +604,7 @@ const COMPOSITE_EVENT_ID_SQL =
 export async function listSocialPostsInWindow(
   from: string,
   to: string
-): Promise<SocialPostInput[]> {
+): Promise<SocialPostRecord[]> {
   const compositeDate = sql`right(${socialPost.eventId}, 10)`;
   return await db
     .select(socialPostColumns)

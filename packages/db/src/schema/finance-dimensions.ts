@@ -27,6 +27,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { governanceDocument } from "./governance";
 import { party } from "./party";
 
 export const projectKindEnum = pgEnum("project_kind", projectKindValues);
@@ -257,6 +258,11 @@ export const fiscalPeriod = pgTable(
 export const organisationRegistration = pgTable(
   "organisation_registration",
   {
+    /** The certificate in the governance vault. */
+    certificateDocumentId: uuid("certificate_document_id").references(
+      () => governanceDocument.id,
+      { onDelete: "set null" }
+    ),
     createdAt: timestamp("created_at").notNull(),
     id: uuid("id").primaryKey(),
     issuedOn: date("issued_on"),
@@ -302,3 +308,13 @@ export const fiscalPeriodRelations = relations(fiscalPeriod, ({ one }) => ({
     references: [fiscalYear.id],
   }),
 }));
+
+export const organisationRegistrationRelations = relations(
+  organisationRegistration,
+  ({ one }) => ({
+    certificate: one(governanceDocument, {
+      fields: [organisationRegistration.certificateDocumentId],
+      references: [governanceDocument.id],
+    }),
+  })
+);

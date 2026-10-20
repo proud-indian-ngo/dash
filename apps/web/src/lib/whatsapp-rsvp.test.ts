@@ -24,6 +24,9 @@ const select = mock(() => {
 });
 mock.module("@pi-dash/db", () => ({ db: { select, insert, delete: remove } }));
 mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue: mock() }));
+mock.module("@pi-dash/db/queries/policies", () => ({
+  safeguardingBlocks: mock(async () => false),
+}));
 mock.module("@pi-dash/notifications/helpers", () => ({
   getUserIdsWithPermission: mock(),
 }));

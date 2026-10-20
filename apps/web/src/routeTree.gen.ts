@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AcceptPoliciesRouteImport } from './routes/accept-policies'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
@@ -19,6 +20,7 @@ import { Route as AppAuditLogRouteImport } from './routes/_app/audit-log'
 import { Route as AppDonorsRouteRouteImport } from './routes/_app/donors/route'
 import { Route as AppEventsRouteRouteImport } from './routes/_app/events/route'
 import { Route as AppExportRouteImport } from './routes/_app/export'
+import { Route as AppGovernanceRouteRouteImport } from './routes/_app/governance/route'
 import { Route as AppIncomeRouteRouteImport } from './routes/_app/income/route'
 import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppKalakritiRouteRouteImport } from './routes/_app/kalakriti/route'
@@ -46,6 +48,13 @@ import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
 import { Route as AppFinanceBudgetsRouteImport } from './routes/_app/finance/budgets'
+import { Route as AppGovernanceIndexRouteImport } from './routes/_app/governance/index'
+import { Route as AppGovernanceComplianceRouteImport } from './routes/_app/governance/compliance'
+import { Route as AppGovernanceDeclarationsRouteImport } from './routes/_app/governance/declarations'
+import { Route as AppGovernanceDeedRouteImport } from './routes/_app/governance/deed'
+import { Route as AppGovernanceDocumentsRouteImport } from './routes/_app/governance/documents'
+import { Route as AppGovernancePoliciesRouteImport } from './routes/_app/governance/policies'
+import { Route as AppGovernanceRegistrationsRouteImport } from './routes/_app/governance/registrations'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
 import { Route as AppIncomeReturnRouteImport } from './routes/_app/income/return'
@@ -97,6 +106,11 @@ import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$y
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
 import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
+import { Route as AppGovernanceMeetingsIndexRouteImport } from './routes/_app/governance/meetings/index'
+import { Route as AppGovernanceMeetingsMeetingIdRouteImport } from './routes/_app/governance/meetings/$meetingId'
+import { Route as AppGovernanceResolutionsIndexRouteImport } from './routes/_app/governance/resolutions/index'
+import { Route as AppGovernanceResolutionsResolutionIdRouteImport } from './routes/_app/governance/resolutions/$resolutionId'
+import { Route as AppGovernanceResolutionsSigningHelperRouteImport } from './routes/_app/governance/resolutions/signing-helper'
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
 import { Route as AppIncomeBankImportRouteImport } from './routes/_app/income/bank/import'
 import { Route as AppIncomeImportsBatchIdRouteImport } from './routes/_app/income/imports.$batchId'
@@ -129,6 +143,7 @@ import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
+import { Route as ApiSigningJobsTokenRouteImport } from './routes/api/signing/jobs/$token'
 import { Route as ApiSocialV1EventsRouteImport } from './routes/api/social/v1/events'
 import { Route as ApiSocialV1NotifyRouteImport } from './routes/api/social/v1/notify'
 import { Route as ApiSocialV1OpenapiDotjsonRouteImport } from './routes/api/social/v1/openapi[.]json'
@@ -137,6 +152,7 @@ import { Route as ApiSocialV1RunsRouteImport } from './routes/api/social/v1/runs
 import { Route as ApiSocialV1SettingsRouteImport } from './routes/api/social/v1/settings'
 import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
 import { Route as ApiWhatsappCloudWebhookRouteImport } from './routes/api/whatsapp/cloud/webhook'
+import { Route as AppGovernanceResolutionsCircularsCircularIdRouteImport } from './routes/_app/governance/resolutions/circulars/$circularId'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
 import { Route as AppKalakritiYearCompetitionsCatalogRouteImport } from './routes/_app/kalakriti/$year/competitions/catalog'
@@ -161,6 +177,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptPoliciesRoute = AcceptPoliciesRouteImport.update({
+  id: '/accept-policies',
+  path: '/accept-policies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
@@ -201,6 +222,11 @@ const AppEventsRouteRoute = AppEventsRouteRouteImport.update({
 const AppExportRoute = AppExportRouteImport.update({
   id: '/export',
   path: '/export',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGovernanceRouteRoute = AppGovernanceRouteRouteImport.update({
+  id: '/governance',
+  path: '/governance',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIncomeRouteRoute = AppIncomeRouteRouteImport.update({
@@ -338,6 +364,43 @@ const AppFinanceBudgetsRoute = AppFinanceBudgetsRouteImport.update({
   path: '/finance/budgets',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGovernanceIndexRoute = AppGovernanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernanceComplianceRoute = AppGovernanceComplianceRouteImport.update({
+  id: '/compliance',
+  path: '/compliance',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernanceDeclarationsRoute =
+  AppGovernanceDeclarationsRouteImport.update({
+    id: '/declarations',
+    path: '/declarations',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceDeedRoute = AppGovernanceDeedRouteImport.update({
+  id: '/deed',
+  path: '/deed',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernanceDocumentsRoute = AppGovernanceDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernancePoliciesRoute = AppGovernancePoliciesRouteImport.update({
+  id: '/policies',
+  path: '/policies',
+  getParentRoute: () => AppGovernanceRouteRoute,
+} as any)
+const AppGovernanceRegistrationsRoute =
+  AppGovernanceRegistrationsRouteImport.update({
+    id: '/registrations',
+    path: '/registrations',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -596,6 +659,36 @@ const AppFinanceBooksOpeningRoute = AppFinanceBooksOpeningRouteImport.update({
   path: '/finance/books/opening',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGovernanceMeetingsIndexRoute =
+  AppGovernanceMeetingsIndexRouteImport.update({
+    id: '/meetings/',
+    path: '/meetings/',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceMeetingsMeetingIdRoute =
+  AppGovernanceMeetingsMeetingIdRouteImport.update({
+    id: '/meetings/$meetingId',
+    path: '/meetings/$meetingId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceResolutionsIndexRoute =
+  AppGovernanceResolutionsIndexRouteImport.update({
+    id: '/resolutions/',
+    path: '/resolutions/',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceResolutionsResolutionIdRoute =
+  AppGovernanceResolutionsResolutionIdRouteImport.update({
+    id: '/resolutions/$resolutionId',
+    path: '/resolutions/$resolutionId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceResolutionsSigningHelperRoute =
+  AppGovernanceResolutionsSigningHelperRouteImport.update({
+    id: '/resolutions/signing-helper',
+    path: '/resolutions/signing-helper',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppIncomeBankIndexRoute = AppIncomeBankIndexRouteImport.update({
   id: '/bank/',
   path: '/bank/',
@@ -767,6 +860,11 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSigningJobsTokenRoute = ApiSigningJobsTokenRouteImport.update({
+  id: '/api/signing/jobs/$token',
+  path: '/api/signing/jobs/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSocialV1EventsRoute = ApiSocialV1EventsRouteImport.update({
   id: '/api/social/v1/events',
   path: '/api/social/v1/events',
@@ -808,6 +906,12 @@ const ApiWhatsappCloudWebhookRoute = ApiWhatsappCloudWebhookRouteImport.update({
   path: '/api/whatsapp/cloud/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppGovernanceResolutionsCircularsCircularIdRoute =
+  AppGovernanceResolutionsCircularsCircularIdRouteImport.update({
+    id: '/resolutions/circulars/$circularId',
+    path: '/resolutions/circulars/$circularId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppKalakritiYearCentersIndexRoute =
   AppKalakritiYearCentersIndexRouteImport.update({
     id: '/centers/',
@@ -913,9 +1017,11 @@ const ApiSocialV1MediaPhotoIdVariantRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
+  '/governance': typeof AppGovernanceRouteRouteWithChildren
   '/income': typeof AppIncomeRouteRouteWithChildren
   '/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
@@ -947,6 +1053,12 @@ export interface FileRoutesByFullPath {
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
+  '/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/governance/declarations': typeof AppGovernanceDeclarationsRoute
+  '/governance/deed': typeof AppGovernanceDeedRoute
+  '/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/governance/policies': typeof AppGovernancePoliciesRoute
+  '/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -987,6 +1099,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
+  '/governance/': typeof AppGovernanceIndexRoute
   '/income/': typeof AppIncomeIndexRoute
   '/kalakriti/': typeof AppKalakritiIndexRoute
   '/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -999,6 +1112,9 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
+  '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1026,6 +1142,7 @@ export interface FileRoutesByFullPath {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1035,9 +1152,12 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
+  '/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1058,6 +1178,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
@@ -1081,6 +1202,12 @@ export interface FileRoutesByTo {
   '/api/version': typeof ApiVersionRoute
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
+  '/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/governance/declarations': typeof AppGovernanceDeclarationsRoute
+  '/governance/deed': typeof AppGovernanceDeedRoute
+  '/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/governance/policies': typeof AppGovernancePoliciesRoute
+  '/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1121,6 +1248,7 @@ export interface FileRoutesByTo {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
+  '/governance': typeof AppGovernanceIndexRoute
   '/income': typeof AppIncomeIndexRoute
   '/kalakriti': typeof AppKalakritiIndexRoute
   '/reimbursements': typeof AppReimbursementsIndexRoute
@@ -1131,6 +1259,9 @@ export interface FileRoutesByTo {
   '/api/jobs': typeof ApiJobsIndexRoute
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
+  '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1157,6 +1288,7 @@ export interface FileRoutesByTo {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1166,9 +1298,12 @@ export interface FileRoutesByTo {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books': typeof AppFinanceBooksIndexRoute
+  '/governance/meetings': typeof AppGovernanceMeetingsIndexRoute
+  '/governance/resolutions': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
+  '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1191,9 +1326,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/accept-policies': typeof AcceptPoliciesRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
+  '/_app/governance': typeof AppGovernanceRouteRouteWithChildren
   '/_app/income': typeof AppIncomeRouteRouteWithChildren
   '/_app/kalakriti': typeof AppKalakritiRouteRouteWithChildren
   '/_app/reimbursements': typeof AppReimbursementsRouteRouteWithChildren
@@ -1226,6 +1363,12 @@ export interface FileRoutesById {
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/_app/events/$id': typeof AppEventsIdRoute
   '/_app/finance/budgets': typeof AppFinanceBudgetsRoute
+  '/_app/governance/compliance': typeof AppGovernanceComplianceRoute
+  '/_app/governance/declarations': typeof AppGovernanceDeclarationsRoute
+  '/_app/governance/deed': typeof AppGovernanceDeedRoute
+  '/_app/governance/documents': typeof AppGovernanceDocumentsRoute
+  '/_app/governance/policies': typeof AppGovernancePoliciesRoute
+  '/_app/governance/registrations': typeof AppGovernanceRegistrationsRoute
   '/_app/income/import': typeof AppIncomeImportRoute
   '/_app/income/return': typeof AppIncomeReturnRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1266,6 +1409,7 @@ export interface FileRoutesById {
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
   '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
+  '/_app/governance/': typeof AppGovernanceIndexRoute
   '/_app/income/': typeof AppIncomeIndexRoute
   '/_app/kalakriti/': typeof AppKalakritiIndexRoute
   '/_app/reimbursements/': typeof AppReimbursementsIndexRoute
@@ -1278,6 +1422,9 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/_app/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/_app/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
+  '/_app/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/_app/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/_app/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1305,6 +1452,7 @@ export interface FileRoutesById {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
+  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1314,9 +1462,12 @@ export interface FileRoutesById {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/_app/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/_app/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
+  '/_app/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/_app/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/_app/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/_app/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/_app/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1339,9 +1490,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/donors'
     | '/events'
+    | '/governance'
     | '/income'
     | '/kalakriti'
     | '/reimbursements'
@@ -1373,6 +1526,12 @@ export interface FileRouteTypes {
     | '/settings/roles'
     | '/events/$id'
     | '/finance/budgets'
+    | '/governance/compliance'
+    | '/governance/declarations'
+    | '/governance/deed'
+    | '/governance/documents'
+    | '/governance/policies'
+    | '/governance/registrations'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1413,6 +1572,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors/'
     | '/events/'
+    | '/governance/'
     | '/income/'
     | '/kalakriti/'
     | '/reimbursements/'
@@ -1425,6 +1585,9 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/settings'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/governance/meetings/$meetingId'
+    | '/governance/resolutions/$resolutionId'
+    | '/governance/resolutions/signing-helper'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1452,6 +1615,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1461,9 +1625,12 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books/'
+    | '/governance/meetings/'
+    | '/governance/resolutions/'
     | '/income/bank/'
     | '/kalakriti/$year/'
     | '/settings/roles/'
+    | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
     | '/kalakriti/$year/competitions/schedule'
@@ -1484,6 +1651,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/$'
     | '/analytics'
@@ -1507,6 +1675,12 @@ export interface FileRouteTypes {
     | '/api/version'
     | '/events/$id'
     | '/finance/budgets'
+    | '/governance/compliance'
+    | '/governance/declarations'
+    | '/governance/deed'
+    | '/governance/documents'
+    | '/governance/policies'
+    | '/governance/registrations'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1547,6 +1721,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/donors'
     | '/events'
+    | '/governance'
     | '/income'
     | '/kalakriti'
     | '/reimbursements'
@@ -1557,6 +1732,9 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/governance/meetings/$meetingId'
+    | '/governance/resolutions/$resolutionId'
+    | '/governance/resolutions/signing-helper'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1583,6 +1761,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1592,9 +1771,12 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books'
+    | '/governance/meetings'
+    | '/governance/resolutions'
     | '/income/bank'
     | '/kalakriti/$year'
     | '/settings/roles'
+    | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
     | '/kalakriti/$year/competitions/schedule'
@@ -1616,9 +1798,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/accept-policies'
     | '/unsubscribe'
     | '/_app/donors'
     | '/_app/events'
+    | '/_app/governance'
     | '/_app/income'
     | '/_app/kalakriti'
     | '/_app/reimbursements'
@@ -1651,6 +1835,12 @@ export interface FileRouteTypes {
     | '/_app/settings/roles'
     | '/_app/events/$id'
     | '/_app/finance/budgets'
+    | '/_app/governance/compliance'
+    | '/_app/governance/declarations'
+    | '/_app/governance/deed'
+    | '/_app/governance/documents'
+    | '/_app/governance/policies'
+    | '/_app/governance/registrations'
     | '/_app/income/import'
     | '/_app/income/return'
     | '/_app/kalakriti/new'
@@ -1691,6 +1881,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/schedule'
     | '/_app/donors/'
     | '/_app/events/'
+    | '/_app/governance/'
     | '/_app/income/'
     | '/_app/kalakriti/'
     | '/_app/reimbursements/'
@@ -1703,6 +1894,9 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/settings'
     | '/_app/finance/books/audited'
     | '/_app/finance/books/opening'
+    | '/_app/governance/meetings/$meetingId'
+    | '/_app/governance/resolutions/$resolutionId'
+    | '/_app/governance/resolutions/signing-helper'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
     | '/_app/income/payout/import'
@@ -1730,6 +1924,7 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
+    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1739,9 +1934,12 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/_app/finance/books/'
+    | '/_app/governance/meetings/'
+    | '/_app/governance/resolutions/'
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
+    | '/_app/governance/resolutions/circulars/$circularId'
     | '/_app/kalakriti/$year/competitions/catalog'
     | '/_app/kalakriti/$year/competitions/categories'
     | '/_app/kalakriti/$year/competitions/schedule'
@@ -1764,6 +1962,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  AcceptPoliciesRoute: typeof AcceptPoliciesRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
@@ -1796,6 +1995,7 @@ export interface RootRouteChildren {
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
+  ApiSigningJobsTokenRoute: typeof ApiSigningJobsTokenRoute
   ApiSocialV1EventsRoute: typeof ApiSocialV1EventsRouteWithChildren
   ApiSocialV1NotifyRoute: typeof ApiSocialV1NotifyRoute
   ApiSocialV1OpenapiDotjsonRoute: typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1822,6 +2022,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-policies': {
+      id: '/accept-policies'
+      path: '/accept-policies'
+      fullPath: '/accept-policies'
+      preLoaderRoute: typeof AcceptPoliciesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/unsubscribe': {
@@ -1878,6 +2085,13 @@ declare module '@tanstack/react-router' {
       path: '/export'
       fullPath: '/export'
       preLoaderRoute: typeof AppExportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/governance': {
+      id: '/_app/governance'
+      path: '/governance'
+      fullPath: '/governance'
+      preLoaderRoute: typeof AppGovernanceRouteRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/income': {
@@ -2068,6 +2282,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/finance/budgets'
       preLoaderRoute: typeof AppFinanceBudgetsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/governance/': {
+      id: '/_app/governance/'
+      path: '/'
+      fullPath: '/governance/'
+      preLoaderRoute: typeof AppGovernanceIndexRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/compliance': {
+      id: '/_app/governance/compliance'
+      path: '/compliance'
+      fullPath: '/governance/compliance'
+      preLoaderRoute: typeof AppGovernanceComplianceRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/declarations': {
+      id: '/_app/governance/declarations'
+      path: '/declarations'
+      fullPath: '/governance/declarations'
+      preLoaderRoute: typeof AppGovernanceDeclarationsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/deed': {
+      id: '/_app/governance/deed'
+      path: '/deed'
+      fullPath: '/governance/deed'
+      preLoaderRoute: typeof AppGovernanceDeedRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/documents': {
+      id: '/_app/governance/documents'
+      path: '/documents'
+      fullPath: '/governance/documents'
+      preLoaderRoute: typeof AppGovernanceDocumentsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/policies': {
+      id: '/_app/governance/policies'
+      path: '/policies'
+      fullPath: '/governance/policies'
+      preLoaderRoute: typeof AppGovernancePoliciesRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/registrations': {
+      id: '/_app/governance/registrations'
+      path: '/registrations'
+      fullPath: '/governance/registrations'
+      preLoaderRoute: typeof AppGovernanceRegistrationsRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/income/': {
       id: '/_app/income/'
@@ -2426,6 +2689,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFinanceBooksOpeningRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/governance/meetings/': {
+      id: '/_app/governance/meetings/'
+      path: '/meetings'
+      fullPath: '/governance/meetings/'
+      preLoaderRoute: typeof AppGovernanceMeetingsIndexRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/meetings/$meetingId': {
+      id: '/_app/governance/meetings/$meetingId'
+      path: '/meetings/$meetingId'
+      fullPath: '/governance/meetings/$meetingId'
+      preLoaderRoute: typeof AppGovernanceMeetingsMeetingIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/resolutions/': {
+      id: '/_app/governance/resolutions/'
+      path: '/resolutions'
+      fullPath: '/governance/resolutions/'
+      preLoaderRoute: typeof AppGovernanceResolutionsIndexRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/resolutions/$resolutionId': {
+      id: '/_app/governance/resolutions/$resolutionId'
+      path: '/resolutions/$resolutionId'
+      fullPath: '/governance/resolutions/$resolutionId'
+      preLoaderRoute: typeof AppGovernanceResolutionsResolutionIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/resolutions/signing-helper': {
+      id: '/_app/governance/resolutions/signing-helper'
+      path: '/resolutions/signing-helper'
+      fullPath: '/governance/resolutions/signing-helper'
+      preLoaderRoute: typeof AppGovernanceResolutionsSigningHelperRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
     '/_app/income/bank/': {
       id: '/_app/income/bank/'
       path: '/bank'
@@ -2650,6 +2948,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signing/jobs/$token': {
+      id: '/api/signing/jobs/$token'
+      path: '/api/signing/jobs/$token'
+      fullPath: '/api/signing/jobs/$token'
+      preLoaderRoute: typeof ApiSigningJobsTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/social/v1/events': {
       id: '/api/social/v1/events'
       path: '/api/social/v1/events'
@@ -2705,6 +3010,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/whatsapp/cloud/webhook'
       preLoaderRoute: typeof ApiWhatsappCloudWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/governance/resolutions/circulars/$circularId': {
+      id: '/_app/governance/resolutions/circulars/$circularId'
+      path: '/resolutions/circulars/$circularId'
+      fullPath: '/governance/resolutions/circulars/$circularId'
+      preLoaderRoute: typeof AppGovernanceResolutionsCircularsCircularIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/kalakriti/$year/centers/': {
       id: '/_app/kalakriti/$year/centers/'
@@ -2853,6 +3165,44 @@ const AppEventsRouteRouteChildren: AppEventsRouteRouteChildren = {
 const AppEventsRouteRouteWithChildren = AppEventsRouteRoute._addFileChildren(
   AppEventsRouteRouteChildren,
 )
+
+interface AppGovernanceRouteRouteChildren {
+  AppGovernanceComplianceRoute: typeof AppGovernanceComplianceRoute
+  AppGovernanceDeclarationsRoute: typeof AppGovernanceDeclarationsRoute
+  AppGovernanceDeedRoute: typeof AppGovernanceDeedRoute
+  AppGovernanceDocumentsRoute: typeof AppGovernanceDocumentsRoute
+  AppGovernancePoliciesRoute: typeof AppGovernancePoliciesRoute
+  AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
+  AppGovernanceIndexRoute: typeof AppGovernanceIndexRoute
+  AppGovernanceMeetingsMeetingIdRoute: typeof AppGovernanceMeetingsMeetingIdRoute
+  AppGovernanceResolutionsResolutionIdRoute: typeof AppGovernanceResolutionsResolutionIdRoute
+  AppGovernanceResolutionsSigningHelperRoute: typeof AppGovernanceResolutionsSigningHelperRoute
+  AppGovernanceMeetingsIndexRoute: typeof AppGovernanceMeetingsIndexRoute
+  AppGovernanceResolutionsIndexRoute: typeof AppGovernanceResolutionsIndexRoute
+  AppGovernanceResolutionsCircularsCircularIdRoute: typeof AppGovernanceResolutionsCircularsCircularIdRoute
+}
+
+const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
+  AppGovernanceComplianceRoute: AppGovernanceComplianceRoute,
+  AppGovernanceDeclarationsRoute: AppGovernanceDeclarationsRoute,
+  AppGovernanceDeedRoute: AppGovernanceDeedRoute,
+  AppGovernanceDocumentsRoute: AppGovernanceDocumentsRoute,
+  AppGovernancePoliciesRoute: AppGovernancePoliciesRoute,
+  AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,
+  AppGovernanceIndexRoute: AppGovernanceIndexRoute,
+  AppGovernanceMeetingsMeetingIdRoute: AppGovernanceMeetingsMeetingIdRoute,
+  AppGovernanceResolutionsResolutionIdRoute:
+    AppGovernanceResolutionsResolutionIdRoute,
+  AppGovernanceResolutionsSigningHelperRoute:
+    AppGovernanceResolutionsSigningHelperRoute,
+  AppGovernanceMeetingsIndexRoute: AppGovernanceMeetingsIndexRoute,
+  AppGovernanceResolutionsIndexRoute: AppGovernanceResolutionsIndexRoute,
+  AppGovernanceResolutionsCircularsCircularIdRoute:
+    AppGovernanceResolutionsCircularsCircularIdRoute,
+}
+
+const AppGovernanceRouteRouteWithChildren =
+  AppGovernanceRouteRoute._addFileChildren(AppGovernanceRouteRouteChildren)
 
 interface AppIncomeRouteRouteChildren {
   AppIncomeImportRoute: typeof AppIncomeImportRoute
@@ -3129,6 +3479,7 @@ const AppVendorsRouteRouteWithChildren = AppVendorsRouteRoute._addFileChildren(
 interface AppRouteChildren {
   AppDonorsRouteRoute: typeof AppDonorsRouteRouteWithChildren
   AppEventsRouteRoute: typeof AppEventsRouteRouteWithChildren
+  AppGovernanceRouteRoute: typeof AppGovernanceRouteRouteWithChildren
   AppIncomeRouteRoute: typeof AppIncomeRouteRouteWithChildren
   AppKalakritiRouteRoute: typeof AppKalakritiRouteRouteWithChildren
   AppReimbursementsRouteRoute: typeof AppReimbursementsRouteRouteWithChildren
@@ -3156,6 +3507,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppDonorsRouteRoute: AppDonorsRouteRouteWithChildren,
   AppEventsRouteRoute: AppEventsRouteRouteWithChildren,
+  AppGovernanceRouteRoute: AppGovernanceRouteRouteWithChildren,
   AppIncomeRouteRoute: AppIncomeRouteRouteWithChildren,
   AppKalakritiRouteRoute: AppKalakritiRouteRouteWithChildren,
   AppReimbursementsRouteRoute: AppReimbursementsRouteRouteWithChildren,
@@ -3228,6 +3580,7 @@ const ApiSocialV1EventsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  AcceptPoliciesRoute: AcceptPoliciesRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAvatarRoute: ApiAvatarRoute,
@@ -3261,6 +3614,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
+  ApiSigningJobsTokenRoute: ApiSigningJobsTokenRoute,
   ApiSocialV1EventsRoute: ApiSocialV1EventsRouteWithChildren,
   ApiSocialV1NotifyRoute: ApiSocialV1NotifyRoute,
   ApiSocialV1OpenapiDotjsonRoute: ApiSocialV1OpenapiDotjsonRoute,

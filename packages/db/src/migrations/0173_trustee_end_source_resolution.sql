@@ -1,0 +1,4 @@
+ALTER TABLE "trustee_office" ADD COLUMN "end_source_resolution_id" uuid;--> statement-breakpoint
+ALTER TABLE "trustee_term" ADD COLUMN "end_source_resolution_id" uuid;--> statement-breakpoint
+ALTER TABLE "trustee_office" ADD CONSTRAINT "trustee_office_end_source_resolution_id_resolution_id_fk" FOREIGN KEY ("end_source_resolution_id") REFERENCES "public"."resolution"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "trustee_term" ADD CONSTRAINT "trustee_term_end_source_resolution_id_resolution_id_fk" FOREIGN KEY ("end_source_resolution_id") REFERENCES "public"."resolution"("id") ON DELETE restrict ON UPDATE no action;

@@ -1,0 +1,3 @@
+ALTER TABLE "private"."signing_job" ADD COLUMN "meeting_id" uuid;--> statement-breakpoint
+ALTER TABLE "private"."signing_job" ADD CONSTRAINT "signing_job_meeting_id_meeting_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meeting"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "private"."signing_job" ADD CONSTRAINT "signing_job_target_check" CHECK ("private"."signing_job"."kind" = 'enrol' OR num_nonnulls("private"."signing_job"."circular_id", "private"."signing_job"."meeting_id") = 1);

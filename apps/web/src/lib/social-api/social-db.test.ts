@@ -100,6 +100,7 @@ const POST_ID = "019f0000-0050-7000-8000-000000005001";
 const post = {
   bufferPostId: "db-test-buffer",
   channel: "instagram" as const,
+  error: null,
   eventId: "db-test-event",
   eventName: null,
   held: null,
@@ -184,6 +185,73 @@ describe("upsertSocialPost held", () => {
         await readHeld();
       });
       expect(seen).toEqual([null, true, true, false]);
+    },
+    60_000
+  );
+});
+
+describe("upsertSocialPost failed", () => {
+  dbTest(
+    "stores Buffer's error while failed and clears it once published",
+    async () => {
+      const seen: unknown[] = [];
+      await rolledBack(async (tx) => {
+        const read = async () => {
+          const [row] = await tx
+            .select({ error: socialPost.error, status: socialPost.status })
+            .from(socialPost)
+            .where(eq(socialPost.bufferPostId, post.bufferPostId));
+          seen.push(row);
+        };
+        await upsertSocialPost(
+          { ...post, error: "Media not accessible", status: "failed" },
+          new Date(),
+          tx
+        );
+        await read();
+        await upsertSocialPost(
+          { ...post, status: "published" },
+          new Date(),
+          tx
+        );
+        await read();
+      });
+      expect(seen).toEqual([
+        { error: "Media not accessible", status: "failed" },
+        { error: null, status: "published" },
+      ]);
+    },
+    60_000
+  );
+
+  dbTest(
+    "keeps a dropped post dropped, with its error, when failed is reported again",
+    async () => {
+      let stored: unknown;
+      await rolledBack(async (tx) => {
+        await upsertSocialPost(
+          { ...post, error: "Media not accessible", status: "failed" },
+          new Date(),
+          tx
+        );
+        await tx
+          .update(socialPost)
+          .set({ droppedAt: new Date(), status: "dropped" })
+          .where(eq(socialPost.bufferPostId, post.bufferPostId));
+        await upsertSocialPost(
+          { ...post, error: "Another reason", status: "failed" },
+          new Date(),
+          tx
+        );
+        [stored] = await tx
+          .select({ error: socialPost.error, status: socialPost.status })
+          .from(socialPost)
+          .where(eq(socialPost.bufferPostId, post.bufferPostId));
+      });
+      expect(stored).toEqual({
+        error: "Media not accessible",
+        status: "dropped",
+      });
     },
     60_000
   );

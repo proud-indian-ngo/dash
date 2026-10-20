@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "governance_document_sha256_uidx" ON "governance_document" USING btree ("sha256");

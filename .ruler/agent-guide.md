@@ -86,7 +86,10 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Environment variables | `env-and-secrets.md`; the full list is in `DEPLOYMENT.md` |
 | Workspaces, Turborepo, Docker | `monorepo.md` |
 | E2E specs | `e2e-testing.md` |
-| Governance (design only) | `governance.md` |
+| Governance: trustee register, deed versions, vault, signing service | `governance.md` |
+| Circular resolutions, DSC signing helper, long-term copies | `governance-resolutions.md` |
+| Compliance calendar, declarations of interests, policies, child-safeguarding gate | `governance-compliance.md` |
+| Board meetings and minutes | `governance-meetings.md` |
 | Plate editor, shared constants | `editor.md`, `shared.md` |
 
 ## Documentation

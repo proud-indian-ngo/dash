@@ -53,7 +53,8 @@ Routes live in `apps/web/src/routes/api/social/v1/`, handlers in `apps/web/src/l
 ### Posted log
 
 - `POST posted` is audited as `social.posted.record` with actor role `social-api`.
-- `GET posted` takes exactly one of `eventId` or a date window.
+- `GET posted` takes exactly one of `eventId` or a date window, and returns `droppedAt` so the pipeline can delete a dashboard drop from Buffer; it acts only while `status` is `dropped`, since `droppedAt` survives a later `published`.
+- The pipeline reads each post back from Buffer after its time and reports `published`, or `failed` with Buffer's message in `error`. `error` is stored only with `failed`.
 
 ### Social digest
 
@@ -66,7 +67,7 @@ Routes live in `apps/web/src/routes/api/social/v1/`, handlers in `apps/web/src/l
 The generator reads `GET settings` at the start of every run.
 
 - `paused` is true only when `social_paused` is exactly `"true"`. `social_paused_kinds` skips individual kinds.
-- A pause does not touch posts already in Buffer. Drop them on the Social page and delete them in Buffer.
+- A pause does not touch posts already in Buffer. Drop them on the Social page.
 - `rules` are merged over the pipeline's own defaults; an absent field means the pipeline default. `socialRulesSchema` defines the fields, limits and cross-field checks.
 - The schedule window `[buildTime, postTime)` must contain an HH:00 instant, because the Worker's cron runs hourly.
 - A missing key, bad JSON or a schema failure all give `rules: {}`, never a 500.
@@ -90,7 +91,7 @@ The social keys (`SOCIAL_MANAGE_CONFIG_KEYS`) are the approver, the all-time ove
 
 ### Dropping a post
 
-`socialPost.drop` marks a queued or approved post `dropped`. The generator treats `dropped` as final, and a repeat `POST posted` with `queued` or `approved` keeps it dropped. A repeat reporting `published` wins, because the post went out anyway. Dropping does not delete the Buffer post.
+`socialPost.drop` marks a queued, approved or failed post `dropped`. The generator treats `dropped` as final, and any repeat `POST posted` except `published` keeps it dropped. A repeat reporting `published` wins, because the post went out anyway. The pipeline deletes the Buffer post on its next hourly tick, retrying for 3 hours after `dropped_at`; the dashboard holds no Buffer token.
 
 ## Event-side fields
 

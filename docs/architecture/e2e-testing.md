@@ -21,7 +21,7 @@
 
 ## Specs that run last, alone
 
-Some state reaches every spec on the stack: a second active cost centre makes every event and request form ask for a city, and a closed FY 2026-27 refuses statement imports and line actions dated in it. Such specs go in `exclusiveLastSpecs` (`project-selection.ts`) and run in `exclusive_last`, the teardown of `setup`, which Playwright starts once every project depending on `setup` has finished. It has no dependencies, so a failure elsewhere doesn't skip it. A teardown doesn't pull in setup, so `run-e2e.sh` adds `global-setup.ts` whenever spec files are named. Other cost centre specs add their centres inactive and run in parallel; seeding deactivates any `E2E…` centre a stopped run left active.
+Some state reaches every spec on the stack: a second active cost centre makes every event and request form ask for a city, a closed FY 2026-27 refuses statement imports and line actions dated in it, and a policy version in force sends everyone it is for to the accept page. The seed publishes no version, so no fixture user is held back. Such specs go in `exclusiveLastSpecs` (`project-selection.ts`) and run in `exclusive_last`, the teardown of `setup`, which Playwright starts once every project depending on `setup` has finished. It has no dependencies, so a failure elsewhere doesn't skip it. A teardown doesn't pull in setup, so `run-e2e.sh` adds `global-setup.ts` whenever spec files are named. Other cost centre specs add their centres inactive and run in parallel; seeding deactivates any `E2E…` centre a stopped run left active.
 
 ## Global setup and auth
 

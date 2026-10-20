@@ -4,6 +4,8 @@ The repository map. Paths are relative to the repository root. Commands, boundar
 
 `apps/web/` is the full-stack TanStack Start app. Server functions live in `src/functions/`, routes in `src/routes/`, and Nitro plugins and middleware in `server/`.
 
+`services/` holds what isn't a Bun workspace and runs on its own: `signing`, the Python (pyHanko) service that checks and signs governance PDFs ([governance](docs/architecture/governance.md#signing-service)), and `signing-helper`, the Rust app trustees install to sign with their DSC token. Each has its own README.
+
 ## Packages
 
 | Package | Purpose |

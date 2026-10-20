@@ -36,6 +36,7 @@ const STATUS: Record<
 > = {
   approved: { label: "Approved", tone: "info" },
   dropped: { label: "Dropped", tone: "neutral" },
+  failed: { label: "Failed", tone: "danger" },
   published: { label: "Published", tone: "success" },
   queued: { label: "Queued", tone: "warning" },
 };
@@ -54,7 +55,11 @@ const CHANNEL_LABEL: Record<SocialPost["channel"], string> = {
 };
 
 export function canDropSocialPost(post: Pick<SocialPost, "status">): boolean {
-  return post.status === "queued" || post.status === "approved";
+  return (
+    post.status === "queued" ||
+    post.status === "approved" ||
+    post.status === "failed"
+  );
 }
 
 const FILTER_FIELDS: FilterField[] = [
@@ -129,13 +134,28 @@ function EventCell({ post }: { post: SocialPostRow }) {
 function StatusCell({ post }: { post: SocialPostRow }) {
   const badge = STATUS[post.status];
   // Held: still a Buffer draft waiting for the approver (null: not reported).
-  const awaitingApproval = post.held === true && canDropSocialPost(post);
+  const awaitingApproval =
+    post.held === true &&
+    (post.status === "queued" || post.status === "approved");
   const status = (
     <div className="flex flex-wrap items-center gap-1">
       <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>
       {awaitingApproval ? <Tag>Held</Tag> : null}
     </div>
   );
+  if (post.status === "failed" && post.error) {
+    return (
+      <div className="flex min-w-0 flex-col gap-0.5">
+        {status}
+        <span
+          className="text-destructive line-clamp-2 text-xs"
+          title={post.error}
+        >
+          {post.error}
+        </span>
+      </div>
+    );
+  }
   if (post.status !== "dropped" || !post.droppedAt) {
     return status;
   }

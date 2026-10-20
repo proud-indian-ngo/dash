@@ -27,6 +27,10 @@ services:
         VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
         VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
         VITE_APP_ENV: ${APP_ENV:-production}
+        POSTHOG_CLI_PROJECT_ID: ${POSTHOG_CLI_PROJECT_ID:-386098}
+      # Source map upload key; unset uploads nothing (see DEPLOYMENT.md)
+      secrets:
+        - posthog_cli_api_key
     expose:
       - 3000
     environment:
@@ -83,6 +87,9 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
       APP_ENV: ${APP_ENV:-production}
+      # internal pyHanko service for governance PDFs (services/signing); unset stores signed PDFs unchecked
+      SIGNING_SERVICE_URL: ${SIGNING_SERVICE_URL:-http://signing:8080}
+      SIGNING_SERVICE_TOKEN: ${SIGNING_SERVICE_TOKEN:-}
       # rebuilds proudindian.ngo when the public events feed changes (sync-public-events-deploy); unset disables it
       WEBSITE_DISPATCH_TOKEN: ${WEBSITE_DISPATCH_TOKEN:-}
       TZ: Asia/Kolkata
@@ -199,6 +206,20 @@ services:
       - sys_module
     restart: unless-stopped
 
+  # The governance signing service. No published port:
+  # only the web service reaches it, over the compose network.
+  signing:
+    build:
+      context: services/signing
+      dockerfile: Dockerfile
+    environment:
+      TZ: Asia/Kolkata
+      SIGNING_SERVICE_TOKEN: ${SIGNING_SERVICE_TOKEN:-}
+      SIGNING_ALLOW_FETCHING: ${SIGNING_ALLOW_FETCHING:-false}
+    expose:
+      - 8080
+    restart: unless-stopped
+
   zero-cache:
     image: rocicorp/zero:1.10.0
     ports:
@@ -238,6 +259,12 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+# A file secret outside the build context needs a Buildx entitlement under
+# Compose's Bake builder, so the key comes from the environment instead.
+secrets:
+  posthog_cli_api_key:
+    environment: POSTHOG_CLI_API_KEY
 
 volumes:
   postgres18_data:

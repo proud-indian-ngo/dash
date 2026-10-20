@@ -122,6 +122,22 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM kalakriti_competition_entry WHERE music_object_key LIKE"
       );
+      expect(statement).toContain(
+        "FROM governance_document WHERE object_key LIKE"
+      );
+      expect(statement).toContain(
+        "FROM circular_revision WHERE latest_object_key LIKE"
+      );
+      expect(statement).toContain(
+        "FROM circular_signature WHERE object_key LIKE"
+      );
+      expect(statement).toContain(
+        "FROM governance_document WHERE archive_object_key LIKE"
+      );
+      expect(statement).toContain("FROM meeting WHERE minutes_object_key LIKE");
+      expect(statement).toContain(
+        "FROM conflict_declaration WHERE object_key LIKE"
+      );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

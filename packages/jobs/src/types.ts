@@ -521,6 +521,21 @@ export interface CleanupStaleScheduledRecipientsPayload {
   triggeredAt: string;
 }
 
+/** A board meeting whose notice went out. */
+export interface NotifyMeetingPayload {
+  meetingId: string;
+}
+
+/** A circular that was issued. */
+export interface NotifyCircularPayload {
+  circularId: string;
+}
+
+/** Resolutions one response, withdrawal or close decided: one notice. */
+export interface NotifyResolutionPayload {
+  resolutionIds: string[];
+}
+
 export interface RemindStaleRequestsPayload {
   triggeredAt: string;
 }
@@ -782,6 +797,14 @@ export interface JobPayloads {
   "remind-kalakriti-registration-close": RemindKalakritiRegistrationClosePayload;
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
+  "remind-trustee-terms": Record<string, never>;
+  "notify-circular-issued": NotifyCircularPayload;
+  "notify-meeting-notice": NotifyMeetingPayload;
+  "notify-resolution-decided": NotifyResolutionPayload;
+  "close-due-resolutions": Record<string, never>;
+  "retimestamp-governance-archives": Record<string, never>;
+  "generate-compliance-items": Record<string, never>;
+  "remind-compliance-items": Record<string, never>;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;

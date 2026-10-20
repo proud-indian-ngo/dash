@@ -4,7 +4,19 @@ import {
   advancePayment,
   advancePaymentAttachment,
 } from "@pi-dash/db/schema/advance-payment";
+import {
+  conflictDeclaration,
+  policyVersion,
+} from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import {
+  circularRevision,
+  governanceDocument,
+  resolution,
+  resolutionResponse,
+  trustee,
+} from "@pi-dash/db/schema/governance";
+import { meeting } from "@pi-dash/db/schema/meetings";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -21,7 +33,8 @@ import {
   vendorPaymentTransactionAttachment,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
-import { and, eq } from "drizzle-orm";
+import { circularReference } from "@pi-dash/shared/resolutions";
+import { and, desc, eq } from "drizzle-orm";
 
 import {
   authorizeEventPhoto,
@@ -280,6 +293,126 @@ async function resolveVendorPaymentTransactionAttachment(
   ]);
 }
 
+async function resolveGovernanceDocument(
+  ref: AssetRef<"governanceDocument">
+): Promise<R2ObjectRecord | null> {
+  const document = await db.query.governanceDocument.findFirst({
+    where: eq(governanceDocument.id, ref.id),
+  });
+  return document
+    ? {
+        access: "governanceDocument",
+        filename: document.originalFilename,
+        // The long-term copy extends the original (revocation data and
+        // document timestamps appended), so it is the one to hand out.
+        key: document.archiveObjectKey ?? document.objectKey,
+        kind: document.kind,
+      }
+    : null;
+}
+
+async function resolveCircularPdf(
+  ref: AssetRef<"circularPdf">
+): Promise<R2ObjectRecord | null> {
+  const [revision] = await db
+    .select({ key: circularRevision.latestObjectKey })
+    .from(circularRevision)
+    .where(eq(circularRevision.circularId, ref.id))
+    .orderBy(desc(circularRevision.revision))
+    .limit(1);
+  if (!revision) {
+    return null;
+  }
+  const recipients = await db
+    .selectDistinct({ userId: resolutionResponse.userId })
+    .from(resolutionResponse)
+    .innerJoin(resolution, eq(resolution.id, resolutionResponse.resolutionId))
+    .where(eq(resolution.circularId, ref.id));
+  return {
+    access: "resolution",
+    filename: `circular-${circularReference(ref.id)}.pdf`,
+    key: revision.key,
+    recipientUserIds: recipients
+      .map((r) => r.userId)
+      .filter((id): id is string => !!id),
+  };
+}
+
+/** The minutes as generated, before the chair signs them. */
+async function resolveMeetingMinutes(
+  ref: AssetRef<"meetingMinutes">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      chairUserId: trustee.userId,
+      key: meeting.minutesObjectKey,
+    })
+    .from(meeting)
+    .leftJoin(trustee, eq(trustee.id, meeting.chairTrusteeId))
+    .where(eq(meeting.id, ref.id))
+    .limit(1);
+  if (!row?.key) {
+    return null;
+  }
+  return {
+    access: "resolution",
+    filename: `minutes-${ref.id.slice(-8)}.pdf`,
+    key: row.key,
+    recipientUserIds: row.chairUserId ? [row.chairUserId] : [],
+  };
+}
+
+/** A declaration of interests as generated, before its trustee signs it. */
+async function resolveDeclarationPdf(
+  ref: AssetRef<"declarationPdf">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      fiscalYear: conflictDeclaration.fiscalYear,
+      key: conflictDeclaration.objectKey,
+      userId: trustee.userId,
+    })
+    .from(conflictDeclaration)
+    .innerJoin(trustee, eq(trustee.id, conflictDeclaration.trusteeId))
+    .where(eq(conflictDeclaration.id, ref.id))
+    .limit(1);
+  if (!row?.key) {
+    return null;
+  }
+  return {
+    access: "resolution",
+    filename: `declaration-${row.fiscalYear}.pdf`,
+    key: row.key,
+    recipientUserIds: row.userId ? [row.userId] : [],
+  };
+}
+
+/** A published policy version's document. */
+async function resolvePolicyDocument(
+  ref: AssetRef<"policyDocument">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      archiveKey: governanceDocument.archiveObjectKey,
+      filename: governanceDocument.originalFilename,
+      key: governanceDocument.objectKey,
+    })
+    .from(policyVersion)
+    .innerJoin(
+      governanceDocument,
+      eq(governanceDocument.id, policyVersion.documentId)
+    )
+    .where(eq(policyVersion.id, ref.id))
+    .limit(1);
+  return row
+    ? {
+        access: "policy",
+        filename: row.filename,
+        key: row.archiveKey ?? row.key,
+      }
+    : null;
+}
+
 async function resolveKalakritiEntryMusic(
   ref: Extract<AttachmentAssetRef, { kind: "kalakritiEntryMusic" }>
 ): Promise<R2ObjectRecord | null> {
@@ -310,14 +443,24 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveAdvancePaymentAttachment(ref);
     case "advancePaymentApprovalScreenshot":
       return resolveAdvancePaymentApprovalScreenshot(ref);
+    case "circularPdf":
+      return resolveCircularPdf(ref);
+    case "declarationPdf":
+      return resolveDeclarationPdf(ref);
     case "eventPhoto":
       return resolveEventPhoto(ref);
+    case "governanceDocument":
+      return resolveGovernanceDocument(ref);
     case "kalakritiEntryMusic":
       return resolveKalakritiEntryMusic(ref);
     case "kalakritiInventoryPhoto":
       return resolveKalakritiInventoryPhoto(ref);
     case "kalakritiScorecard":
       return resolveKalakritiScorecard(ref);
+    case "meetingMinutes":
+      return resolveMeetingMinutes(ref);
+    case "policyDocument":
+      return resolvePolicyDocument(ref);
     case "reimbursementAttachment":
       return resolveReimbursementAttachment(ref);
     case "reimbursementApprovalScreenshot":

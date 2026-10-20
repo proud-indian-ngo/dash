@@ -10,12 +10,14 @@ import { zql } from "../schema";
 export const DROPPABLE_SOCIAL_POST_STATUSES: readonly string[] = [
   "queued",
   "approved",
+  "failed",
 ];
 
 export const socialPostMutators = {
   /**
-   * Drop a queued or approved post so the pipeline never publishes it. The
-   * pipeline treats `dropped` as final, and `POST /posted` never revives it.
+   * Drop a queued, approved or failed post so the pipeline never publishes
+   * it; the pipeline then deletes it from Buffer. The pipeline treats
+   * `dropped` as final, and `POST /posted` revives it only as `published`.
    */
   drop: defineMutator(
     z.object({ id: z.string().min(1), now: z.number() }),
@@ -28,7 +30,7 @@ export const socialPostMutators = {
         throw new Error("Social post not found");
       }
       if (!DROPPABLE_SOCIAL_POST_STATUSES.includes(post.status)) {
-        throw new Error("Only queued or approved posts can be dropped");
+        throw new Error("Only queued, approved or failed posts can be dropped");
       }
       await tx.mutate.socialPost.update({
         droppedAt: args.now,

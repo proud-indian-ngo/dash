@@ -1,5 +1,12 @@
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
-import type { PgBoss, SendOptions } from "pg-boss";
+import { sql } from "drizzle-orm";
+import {
+  type Db,
+  type DrizzleTransactionLike,
+  fromDrizzle,
+  type PgBoss,
+  type SendOptions,
+} from "pg-boss";
 
 import { ensureBossReady, getBoss } from "./boss-instance";
 import type { JobName, JobPayloads } from "./types";
@@ -10,6 +17,7 @@ export const QUEUE_NAMES: JobName[] = [
   "cleanup-notifications",
   "cleanup-r2-orphans",
   "cleanup-stale-scheduled-recipients",
+  "close-due-resolutions",
   "close-expired-rsvp-polls",
   "close-rsvp-poll-on-cancel",
   "delete-r2-object",
@@ -17,6 +25,7 @@ export const QUEUE_NAMES: JobName[] = [
   "expire-event-interests",
   "expire-import-rows",
   "flush-held-notifications",
+  "generate-compliance-items",
   "generate-cash-voucher",
   "immich-delete-album",
   "immich-delete-asset",
@@ -28,6 +37,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-advance-payment-approved",
   "notify-advance-payment-rejected",
   "notify-advance-payment-submitted",
+  "notify-circular-issued",
   "notify-event-cancelled",
   "notify-event-created",
   "notify-event-feedback-open",
@@ -46,6 +56,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-kalakriti-registration-open",
   "notify-kalakriti-schedule-changed",
   "notify-kalakriti-transport-changed",
+  "notify-meeting-notice",
   "notify-password-reset",
   "notify-photo-approved",
   "notify-photo-rejected",
@@ -56,6 +67,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-reimbursement-submitted",
   "notify-removed-from-event",
   "notify-removed-from-team",
+  "notify-resolution-decided",
   "notify-role-changed",
   "notify-team-deleted",
   "notify-team-role-changed",
@@ -91,6 +103,9 @@ export const QUEUE_NAMES: JobName[] = [
   "remind-kalakriti-registration-close",
   "remind-photo-approval",
   "remind-stale-requests",
+  "remind-compliance-items",
+  "remind-trustee-terms",
+  "retimestamp-governance-archives",
   "scan-whatsapp-groups",
   "send-bulk-notification",
   "send-contribution-receipt",
@@ -122,6 +137,14 @@ export const PHOTO_NOTIFICATION_DELAY_SECONDS =
 export interface EnqueueOptions extends SendOptions {
   /** Explicit trace ID. Falls back to AsyncLocalStorage via getCurrentTraceId(). */
   traceId?: string;
+}
+
+/**
+ * Runs pg-boss's SQL in a Drizzle transaction: a job sent with
+ * `{ db: inTransaction(tx) }` is queued only if the transaction commits.
+ */
+export function inTransaction(tx: DrizzleTransactionLike): Db {
+  return fromDrizzle(tx, sql);
 }
 
 /**

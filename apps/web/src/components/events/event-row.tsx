@@ -24,7 +24,7 @@ import {
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { DAY_MONTH, TIME } from "@/lib/date-formats";
-import { handleMutationResult } from "@/lib/mutation-result";
+import { handleMutationResult, joinErrorMessage } from "@/lib/mutation-result";
 
 import {
   deriveCardActionState,
@@ -93,7 +93,7 @@ export function EventRow({
     ).server;
     handleMutationResult(res, {
       entityId: id,
-      errorMsg: "Couldn't submit interest",
+      errorMsg: joinErrorMessage(res, "Couldn't submit interest"),
       mutation: "eventInterest.create",
       successMsg: "Interest submitted!",
     });
@@ -119,7 +119,7 @@ export function EventRow({
     ).server;
     handleMutationResult(res, {
       entityId: id,
-      errorMsg: "Couldn't join event",
+      errorMsg: joinErrorMessage(res, "Couldn't join event"),
       mutation: "teamEvent.joinAsMember",
       successMsg: "Joined event",
     });

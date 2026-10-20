@@ -103,6 +103,13 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `SOCIAL_MEDIA_SIGNING_SECRET` | No | `openssl rand -hex 32`. Signs 36-hour photo links; rotating it invalidates issued links |
 | `WEBSITE_DISPATCH_TOKEN` | No | Fine-grained GitHub token for `proud-indian-ngo/website` only, Contents read and write. The `sync-public-events-deploy` job checks `/api/public/events` every 5 minutes and sends `events-changed` `repository_dispatch` when the feed changes |
 
+### Governance
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Unset stores governance documents unchecked, to check later |
+| `SIGNING_SERVICE_TOKEN` | No | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
+
 ### Observability
 
 | Variable | Required | Purpose |
@@ -113,6 +120,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP, taking precedence over `OTEL_EXPORTER_OTLP_ENDPOINT`, and sends server errors to Error Tracking |
 | `OTEL_SERVICE_NAME` | No | Service name on server logs |
 | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser pageviews and exception capture; unset disables them. Turn on **Discard client IP data** in the PostHog project |
+| `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID` | No | Build only: [source map](docs/architecture/observability.md#posthog) upload. Key: a personal API key with `error_tracking:write`, passed as a BuildKit secret; `docker-compose.prod.yml` defaults the project. Secrets are outside BuildKit's cache key, so a new key or failed upload takes effect on the next new commit; redeploying a built commit shows the step `CACHED` |
 | `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <key>` |
 
 ### Production Compose and tooling
@@ -163,6 +171,12 @@ The migrator prepares `pi_dash_public` from the generated Zero schema after data
 
 For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`.
 
+### Signing service
+
+`services/signing` runs as `signing`, reachable only from the web service. Deploy it before the web app when both change. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+
+The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
+
 ### WhatsApp gateway (optional)
 
 ```bash
@@ -194,7 +208,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] zero-cache's `ZERO_MUTATE_URL` and `ZERO_QUERY_URL` reach the web app; `VITE_ZERO_URL` is public
 - [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` match the production domain
 - [ ] Resend domain verified (SPF and DKIM). Webhook to `https://<app-host>/api/email/webhook` with events `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`, its secret in `RESEND_WEBHOOK_SECRET`
-- [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages}/tmp/` after 24 hours. Durable keys must not expire
+- [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages,governance}/tmp/` after 24 hours. Durable keys must not expire
 - [ ] [Organisation accounts](#organisation-accounts), [books and receipts](#books-and-receipts) and, if used, [Razorpay](#razorpay-setup) set up
 - [ ] WhatsApp gateway paired and Immich reachable, if used
 - [ ] Social pipeline, if used: `SOCIAL_MEDIA_SIGNING_SECRET` set, token created with `bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`, and app_config `social_approver_user_id` names the digest recipient ([social-api.md](docs/architecture/social-api.md))
@@ -205,30 +219,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 
 ## Backups and restore
 
-Production PostgreSQL runs on Dokploy, which backs it up daily. The bucket, schedule, retention and last good run are on the Backups tab of the pi-dash database in Dokploy; check there, and use its Test button for a backup on demand. Dokploy's backup is a `pg_dump` of `POSTGRES_DB` (`pi-dash`), so it holds every schema in that database: `public`, `private`, `pgboss` and zero-cache's own state.
-
-The database backup does not hold:
-
-- Files in R2 (attachments, payment proof, vouchers, receipts, photos). Nothing in this repo backs up the bucket.
-- The env. Keep `DATA_ENCRYPTION_KEY` outside the database backup; without it, PANs, bank numbers and donor IDs are unreadable and import hashes stop matching ([env-and-secrets.md](docs/architecture/env-and-secrets.md)). Keep `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `RAZORPAY_WEBHOOK_SECRET`, `ZERO_ADMIN_PASSWORD` and the other secrets with it.
-- zero-cache's replica (`/data/zero.db` in the `zero_cache_data` volume) and GoWA's pairing (`whatsapp_data`).
-
-To restore:
-
-1. Stop `web` and `zero-cache`.
-2. On the Backups tab choose Restore, pick the bucket and backup file, and enter database `pi-dash`. Dokploy runs `pg_restore --clean --if-exists`, replacing everything in that database.
-3. Delete `/data/zero.db*` (or the `zero_cache_data` volume). Wiping the replica is always safe; zero-cache rebuilds it from Postgres and clients resync.
-4. Start the stack. `migrate` applies any newer migrations, and the server re-applies the ledger guards (`ensureLedgerTriggers()`) on start.
-
-After a restore:
-
-- Work since the backup is gone and must be re-entered.
-- pg-boss is back at the backup's state, so jobs queued then run again. Notifications sent since the backup may go out twice, because the send logs rolled back too.
-- Files uploaded since the backup are no longer referenced. The monthly `cleanup-r2-orphans` job (1st, 04:00) deletes them, so re-attach or download them before then.
-- Razorpay: run "Sync now" (last three days) or "Import past payments" in Settings → Integrations. Duplicates are skipped ([finance-income.md](docs/architecture/finance-income.md)).
-- Re-import give.do payouts and bank statements since the backup, then choose Books → Post pending.
-
-Test a restore into a scratch database every quarter.
+Daily database backups, what they leave out, and the restore steps are in [backups.md](docs/backups.md).
 
 ## Troubleshooting
 

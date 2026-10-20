@@ -63,3 +63,24 @@ describe("finance permissions by role", () => {
     expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain("requests.void");
   });
 });
+
+describe("governance permissions by role", () => {
+  it("lets admins run governance but not reveal trustee KYC", () => {
+    expect(ADMIN_PERMISSIONS).toContain("governance.view");
+    expect(ADMIN_PERMISSIONS).toContain("governance.manage");
+    expect(ADMIN_PERMISSIONS).not.toContain("governance.kyc.view");
+  });
+
+  it("lets finance admins see the register but not change it", () => {
+    expect(FINANCE_ADMIN_PERMISSIONS).toContain("governance.view");
+    expect(FINANCE_ADMIN_PERMISSIONS).not.toContain("governance.manage");
+    expect(FINANCE_ADMIN_PERMISSIONS).not.toContain("governance.kyc.view");
+  });
+
+  it("gives volunteers no governance permissions", () => {
+    for (const id of ["governance.view", "governance.manage"]) {
+      expect(PERMISSION_IDS.has(id)).toBe(true);
+      expect(VOLUNTEER_BASELINE_PERMISSIONS).not.toContain(id);
+    }
+  });
+});

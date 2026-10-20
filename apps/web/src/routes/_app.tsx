@@ -9,20 +9,18 @@ import {
 } from "@pi-dash/design-system/components/ui/sidebar";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import type { Zero } from "@rocicorp/zero";
-import { useConnectionState, useZero, ZeroContext } from "@rocicorp/zero/react";
+import { ZeroContext } from "@rocicorp/zero/react";
 import {
   createFileRoute,
   Outlet,
   redirect,
   useMatches,
-  useNavigate,
 } from "@tanstack/react-router";
 import { log } from "evlog";
-import debounce from "lodash/debounce";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useState } from "react";
 
 import { BackgroundRouteWarmup } from "@/components/background-route-warmup";
+import { PolicyGate } from "@/components/governance/policy-gate";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
@@ -31,6 +29,7 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ZeroConnectionMonitor } from "@/components/zero-connection-monitor";
 import { ZeroInit } from "@/components/zero-init";
 import { AppProvider, useApp } from "@/context/app-context";
 import { getCachedAuth } from "@/lib/auth-cache";
@@ -38,12 +37,18 @@ import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
-    const { session, permissions } = await getCachedAuth();
+    const { session, permissions, policiesPending } = await getCachedAuth();
 
     if (!session) {
       throw redirect({
         search: { redirect: location.href },
         to: "/login",
+      });
+    }
+    if (policiesPending) {
+      throw redirect({
+        search: { redirect: location.href },
+        to: "/accept-policies",
       });
     }
 
@@ -97,73 +102,6 @@ function LogIdentitySync() {
         });
     };
   }, [user.id, user.role]);
-
-  return null;
-}
-
-const showSyncErrorToast = debounce(
-  () => toast.error("Couldn't sync data. Check your connection."),
-  3000,
-  { leading: true, trailing: false }
-);
-
-// Zero stops retrying in `error`, but some server errors are transient (a
-// reload racing the previous page's connection can drop shared query work, in
-// bursts), so reconnect, up to a limit per minute, before telling the user.
-const MAX_ERROR_RECONNECTS_PER_MINUTE = 10;
-
-function extractReason(state: { reason?: unknown }): string {
-  return typeof state.reason === "string"
-    ? state.reason
-    : JSON.stringify(state.reason ?? "unknown");
-}
-
-function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
-  const zero = useZero();
-  const state = useConnectionState();
-  const prevName = useRef<string | null>(null);
-  const errorReconnectTimes = useRef<number[]>([]);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (state.name === prevName.current) {
-      return;
-    }
-
-    if (state.name === "connected") {
-      onConnected();
-    } else if (state.name === "needs-auth") {
-      log.error({
-        component: "ZeroConnectionMonitor",
-        message: "Zero connection: needs-auth",
-        reason: extractReason(state),
-      });
-      navigate({
-        search: { redirect: window.location.pathname },
-        to: "/login",
-      });
-    } else if (state.name === "error") {
-      log.error({
-        component: "ZeroConnectionMonitor",
-        message: `Zero connection: ${state.name}`,
-        reason: extractReason(state),
-      });
-      const now = Date.now();
-      errorReconnectTimes.current = errorReconnectTimes.current.filter(
-        (time) => now - time < 60_000
-      );
-      if (
-        errorReconnectTimes.current.length < MAX_ERROR_RECONNECTS_PER_MINUTE
-      ) {
-        errorReconnectTimes.current.push(now);
-        zero.connection.connect();
-      } else {
-        showSyncErrorToast();
-      }
-    }
-
-    prevName.current = state.name;
-  }, [state, navigate, onConnected, zero]);
 
   return null;
 }
@@ -264,6 +202,7 @@ function AuthenticatedAppLayout({
           <>
             <ZeroConnectionMonitor onConnected={handleConnected} />
             <LogIdentitySync />
+            {session.user.role === "external_user" ? null : <PolicyGate />}
           </>
         )}
         {initializing ? <ExportSidebarFallback /> : <AppSidebar />}

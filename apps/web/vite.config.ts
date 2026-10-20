@@ -28,6 +28,49 @@ const onwarn: Rolldown.WarningHandlerWithDefault = (
   defaultHandler(warning);
 };
 
+// Client source maps are hidden: the Docker build uploads them to PostHog and
+// deletes them before the runtime image. Nitro lists every public file in its
+// asset manifest, and a listed but deleted file answers 500, so keep maps out
+// of the manifest and let the static handler answer 404. The upload also
+// rewrites every chunk after Nitro recorded its size, then the Docker build
+// recreates existing compressed variants. Drop the stale sizes for every JS
+// representation. Keep the ETag: injection and recompression are deterministic
+// per chunk, so it still identifies the served bytes, and Cloudflare
+// revalidation relies on it.
+const PUBLIC_ASSETS_PREFIX = "export default ";
+let publicAssetsRewritten = false;
+const rewritePublicAssets: Rolldown.Plugin = {
+  name: "pi-dash:rewrite-public-assets",
+  buildStart() {
+    publicAssetsRewritten = false;
+  },
+  transform: {
+    filter: { id: /^#nitro\/virtual\/public-assets-data$/ },
+    handler(code) {
+      if (!code.startsWith(PUBLIC_ASSETS_PREFIX)) {
+        throw new Error("Unexpected Nitro public asset manifest format");
+      }
+      const assets: Record<string, Record<string, unknown>> = JSON.parse(
+        code.slice(PUBLIC_ASSETS_PREFIX.length).replace(/;\s*$/, "")
+      );
+      for (const [id, asset] of Object.entries(assets)) {
+        if (/\.map(?:\.br|\.gz|\.zst)?$/.test(id)) {
+          delete assets[id];
+        } else if (/\.js(?:\.br|\.gz|\.zst)?$/.test(id)) {
+          delete asset.size;
+        }
+      }
+      publicAssetsRewritten = true;
+      return `${PUBLIC_ASSETS_PREFIX}${JSON.stringify(assets)};`;
+    },
+  },
+  generateBundle() {
+    if (!publicAssetsRewritten) {
+      throw new Error("Nitro public asset manifest was not rewritten");
+    }
+  },
+};
+
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
     presets: [appReactCompilerPreset()],
@@ -50,6 +93,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     environments: {
       client: {
         build: {
+          sourcemap: "hidden",
           rolldownOptions: {
             output: {
               codeSplitting: {
@@ -100,7 +144,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       apiMediaDevMiddleware,
       ...nitro({
         compressPublicAssets: true,
-        rolldownConfig: { onwarn },
+        rolldownConfig: { onwarn, plugins: [rewritePublicAssets] },
         experimental: {
           vite: {},
         },
