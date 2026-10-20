@@ -130,7 +130,7 @@ export function CircularSignPanel({
         <li>
           {fieldsPrepared
             ? "Sign the box beside your name in Acrobat or Reader with your DSC token, and save."
-            : "In Acrobat or Reader, choose Use a certificate, draw over the box beside your name, sign with your DSC token, and save."}
+            : "In Acrobat or Reader, click the box beside your name and sign it with your DSC token; if it isn't clickable, choose Use a certificate and draw over it. Then save."}
         </li>
         <li>
           Upload the signed copy. If someone signs first, or you change an
