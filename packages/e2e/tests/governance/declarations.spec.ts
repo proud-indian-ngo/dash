@@ -63,7 +63,7 @@ test.describe("declarations and policies (super admin)", () => {
     await expect(dialog).toBeHidden({ timeout: 20_000 });
 
     await expect(page.getByText(/is waiting for your signature/)).toBeVisible();
-    // The Acrobat steps are mounted, open or under "Other ways to sign".
+    // The Acrobat steps are mounted, open or under "Sign in Acrobat instead".
     await expect(
       page.locator("a[href*='kind=declarationPdf']", {
         hasText: "Download declaration",

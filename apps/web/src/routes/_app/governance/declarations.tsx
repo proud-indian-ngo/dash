@@ -196,7 +196,8 @@ function DeclarationsPage() {
         kind: "status",
         skeleton: SKELETON_BADGE,
       },
-      size: 130,
+      // Fits "Confirmed without a signature" without truncating.
+      size: 240,
     },
     {
       accessorFn: (row) => row.interests ?? "",
