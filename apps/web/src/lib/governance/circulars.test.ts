@@ -365,6 +365,8 @@ function sig(
 }
 
 describe("checkSignedUpload", () => {
+  // The prepared copy's signature fields.
+  const boxes = ["Trustee_mt", "Trustee_sec"];
   const current = new Uint8Array([1, 2, 3, 4]);
   const uploaded = new Uint8Array([1, 2, 3, 4, 5, 6]);
   const trustee = { id: "sec", names: ["Vikram Menon"] };
@@ -390,6 +392,7 @@ describe("checkSignedUpload", () => {
           sig("Trustee_mt", { signerName: "ASHA RAO" }),
           sig("Trustee_sec"),
         ],
+        baseSignatureFields: boxes,
         changesSinceBase: "FORM_FILLING",
         status: "valid",
         textFields,
@@ -403,6 +406,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           checkedAt: "",
           signatures: [
             sig("Trustee_mt", { signerName: "ASHA RAO" }),
@@ -417,6 +421,7 @@ describe("checkSignedUpload", () => {
 
   it("refuses a file that isn't the latest copy plus a signature", () => {
     const report: GovernanceValidationReport = {
+      baseSignatureFields: boxes,
       checkedAt: "",
       signatures: [sig("Trustee_mt"), sig("Trustee_sec")],
       status: "valid",
@@ -438,6 +443,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           checkedAt: "",
           signatures: [
             sig("Trustee_mt"),
@@ -451,6 +457,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           checkedAt: "",
           signatures: [sig("Trustee_sec"), sig("Trustee_mt")],
           status: "valid",
@@ -461,6 +468,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           checkedAt: "",
           signatures: [
             sig("Trustee_mt"),
@@ -482,6 +490,7 @@ describe("checkSignedUpload", () => {
             sig("Signature1", { signerName: "ASHA RAO" }),
             sig("Trustee_mt"),
           ],
+          baseSignatureFields: boxes,
           changesSinceBase: "FORM_FILLING",
           status: "valid",
           textFields,
@@ -503,6 +512,7 @@ describe("checkSignedUpload", () => {
             }),
             sig("Trustee_sec"),
           ],
+          baseSignatureFields: boxes,
           changesSinceBase: "FORM_FILLING",
           status: "valid",
           textFields,
@@ -516,6 +526,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           changesSinceBase: "FORM_FILLING",
           checkedAt: "",
           signatures: [
@@ -534,6 +545,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           changesSinceBase: "FORM_FILLING",
           checkedAt: "",
           signatures: [
@@ -552,6 +564,7 @@ describe("checkSignedUpload", () => {
       checkSignedUpload({
         ...base,
         report: {
+          baseSignatureFields: boxes,
           changesSinceBase: "FORM_FILLING",
           checkedAt: "",
           signatures: [sig("Trustee_mt", { signerName: "ASHA RAO" }), added],
@@ -590,6 +603,7 @@ describe("checkSignedUpload", () => {
           ...base,
           report: {
             changesSinceBase,
+            baseSignatureFields: boxes,
             checkedAt: "",
             signatures: [sig("Trustee_sec")],
             status: "valid",
@@ -604,20 +618,20 @@ describe("checkSignedUpload", () => {
   it("accepts a box the signer drew on the last page when the PDF had no fields", () => {
     const report = (
       rect: [number, number, number, number],
-      page = 1
+      page = 1,
+      name = "Signature2"
     ): GovernanceValidationReport => ({
       checkedAt: "",
-      signatures: [
-        sig("Signature1", { signerName: "ASHA RAO" }),
-        sig("Signature2"),
-      ],
+      signatures: [sig("Signature1", { signerName: "ASHA RAO" }), sig(name)],
+      // Issued without fields: only the first signer's own field.
+      baseSignatureFields: ["Signature1"],
       changesSinceBase: "FORM_FILLING",
       pageCount: 2,
       status: "valid",
       textFields,
       widgets: [
         { field: "Signature1", page: 1, rect: [300, 600, 547, 672] },
-        { field: "Signature2", page, rect },
+        { field: name, page, rect },
       ],
     });
     const added = checkSignedUpload({
@@ -631,6 +645,41 @@ describe("checkSignedUpload", () => {
     expect(() =>
       checkSignedUpload({ ...base, report: report([300, 470, 547, 542], 0) })
     ).toThrow("more of the circular");
+    // A new field is judged as one whatever it's called, even the name a
+    // prepared box for the signer would have had.
+    expect(
+      checkSignedUpload({
+        ...base,
+        report: report([300, 470, 547, 542], 1, "Trustee_sec"),
+      }).fieldName
+    ).toBe("Trustee_sec");
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: report([0, 0, 595, 842], 1, "Trustee_sec"),
+      })
+    ).toThrow("more of the circular");
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: report([300, 470, 547, 542], 0, "Trustee_sec"),
+      })
+    ).toThrow("more of the circular");
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: report([300, 470, 547, 542], 1, "Signature1"),
+      })
+    ).toThrow("your own name");
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          ...report([300, 470, 547, 542]),
+          baseSignatureFields: undefined,
+        },
+      })
+    ).toThrow("couldn't be checked");
   });
 
   describe("a signature in a field of its own beside the trustee's box", () => {
@@ -649,6 +698,7 @@ describe("checkSignedUpload", () => {
         sig("Trustee_mt", { signerName: "ASHA RAO" }),
         sig("Signature1"),
       ],
+      baseSignatureFields: boxes,
       changesSinceBase: "FORM_FILLING",
       pageCount: 2,
       status: "valid",

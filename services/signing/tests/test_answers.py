@@ -347,6 +347,55 @@ def test_a_new_fields_widget_is_reported_for_the_caller_to_judge(pki: Pki) -> No
         ]
 
 
+def test_the_first_signature_on_a_pdf_without_a_form_is_form_filling(pki: Pki) -> None:
+    # The app's PDFs issued without fields have no /AcroForm, like this one;
+    # Acrobat's first signature creates the form with its own field.
+    given = blank_pdf()
+    assert "/AcroForm" not in PdfFileReader(io.BytesIO(given)).root
+    for signed in (
+        sign_new_field(given, pki, "Signature1", (300, 300, 500, 360)),
+        sign_in(given, pki, "Signature1"),
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["status"] == "valid"
+        assert report["changesSinceBase"] == "FORM_FILLING"
+        assert report["baseSignatureFields"] == []
+
+
+def test_more_than_a_signature_on_a_pdf_without_a_form_is_refused(pki: Pki) -> None:
+    given = blank_pdf()
+    extra = IncrementalPdfFileWriter(io.BytesIO(given))
+    fields.append_signature_field(
+        extra, fields.SigFieldSpec(sig_field_name="Extra", on_page=0, box=(0, 0, 595, 842))
+    )
+    with_extra = signers.sign_pdf(
+        extra,
+        signers.PdfSignatureMetadata(field_name="Signature1"),
+        signer=pki.signer(),
+        new_field_spec=fields.SigFieldSpec(
+            sig_field_name="Signature1", on_page=0, box=(300, 300, 500, 360)
+        ),
+    ).getvalue()
+    for signed in (
+        sign_in(given, pki, "Signature1", rewrite_page=b"BT 72 700 Td (Altered) Tj ET"),
+        # An empty field drawn over the page alongside the signature.
+        with_extra,
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["status"] == "valid"
+        assert report["changesSinceBase"] == "OTHER"
+
+
+def test_the_signature_fields_the_copy_had_are_reported(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    report = validate_pdf(
+        sign_new_field(given, pki, "Trustee_a2", (300, 300, 500, 360)),
+        settings(pki),
+        base_length=len(given),
+    )
+    assert report["baseSignatureFields"] == ["Trustee_a", "Trustee_b"]
+
+
 def new_appearance(writer: IncrementalPdfFileWriter) -> generic.IndirectObject:
     return writer.add_object(
         generic.StreamObject(

@@ -257,6 +257,9 @@ export function sha256Of(bytes: Uint8Array): string {
 
 // ── Taking a signed PDF ─────────────────────────────────────────────────────
 
+const PLACEMENT_UNCHECKED_MESSAGE =
+  "Where your signature sits on the page couldn't be checked. Try again.";
+
 export interface SignedUploadCheck {
   current: Uint8Array;
   fieldName: string;
@@ -274,7 +277,8 @@ export interface SignedUploadCheck {
  * update) that changes no more than signing a field does, the new signature
  * must be intact, cover the whole file, chain to a licensed Indian CA, sit in
  * the trustee's own field when the PDF has one (on a circular issued without
- * fields, in a field of its own, bounded as `checkNewSignatureField` says),
+ * fields, in a new field of any name, bounded as `checkNewSignatureField`
+ * says),
  * lock none but the trustee's own fields, certify nothing, and be theirs by
  * name; every earlier signature must still be intact and trusted, and every
  * answers field as it was. `report` must be checked against `current` (its
@@ -308,12 +312,22 @@ export function checkSignedUpload(
   if (!added) {
     throw new CircularError("No signature was found in the file.");
   }
-  // Another trustee's box is theirs.
-  if (added.fieldName !== check.fieldName) {
-    if (added.fieldName.startsWith(SIGNATURE_FIELD_PREFIX)) {
-      throw new CircularError("Sign in the box with your own name.");
-    }
-    checkNewSignatureField(check, added.fieldName);
+  // A signature field the copy already had is a trustee's box, and only its
+  // trustee signs it. Any other field is new, whatever it's called, and
+  // must sit like a box.
+  const baseFields = report.baseSignatureFields;
+  if (!baseFields) {
+    throw new CircularError(PLACEMENT_UNCHECKED_MESSAGE);
+  }
+  if (
+    added.fieldName !== check.fieldName &&
+    (baseFields.includes(added.fieldName) ||
+      added.fieldName.startsWith(SIGNATURE_FIELD_PREFIX))
+  ) {
+    throw new CircularError("Sign in the box with your own name.");
+  }
+  if (!baseFields.includes(added.fieldName)) {
+    checkNewSignatureField(check, added.fieldName, baseFields);
   }
   if (!(added.intact && added.coversWholeRevision)) {
     throw new CircularError(
@@ -410,30 +424,34 @@ function overlaps(
 }
 
 /**
- * A signature in a field of its own, only on a circular issued without
- * fields, which has no box to sign in. pyHanko counts a new signature field
- * as form filling whatever its widget covers, so each visible widget must
- * sit on a signature page (the pages with the trustees' boxes, or the last
- * page), be about a box in size, and cover no other field.
+ * A signature in a field the copy didn't have, whatever its name, only on
+ * a circular issued without fields, which has no box to sign in. pyHanko
+ * counts a new signature field as form filling whatever its widget covers,
+ * so each visible widget must sit on a signature page (the pages with the
+ * trustees' boxes, or the last page), be about a box in size, and cover no
+ * other field.
  */
 function checkNewSignatureField(
   check: SignedUploadCheck,
-  fieldName: string
+  fieldName: string,
+  baseFields: readonly string[]
 ): void {
   const { pageCount, widgets } = check.report;
   if (!widgets || pageCount === undefined) {
-    throw new CircularError(
-      "Where your signature sits on the page couldn't be checked. Try again."
-    );
+    throw new CircularError(PLACEMENT_UNCHECKED_MESSAGE);
   }
-  if (widgets.some((w) => w.field === check.fieldName)) {
+  if (baseFields.includes(check.fieldName)) {
     throw new CircularError(
       "Sign in your own box, under your name, rather than adding a new one."
     );
   }
   const signaturePages = new Set(
     widgets
-      .filter((w) => w.field.startsWith(SIGNATURE_FIELD_PREFIX))
+      .filter(
+        (w) =>
+          baseFields.includes(w.field) &&
+          w.field.startsWith(SIGNATURE_FIELD_PREFIX)
+      )
       .map((w) => w.page)
   );
   if (signaturePages.size === 0) {

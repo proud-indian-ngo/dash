@@ -151,6 +151,8 @@ export interface GovernanceValidationReport {
     page: number;
     rect: [number, number, number, number];
   }[];
+  /** With `changesSinceBase`: the signature fields the copy a signer was given already had. */
+  baseSignatureFields?: string[];
   /** Every text field's value: a circular's answers fields. */
   textFields?: Record<string, string>;
 }
