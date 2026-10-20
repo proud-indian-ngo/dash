@@ -61,7 +61,7 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 
 Every reimbursement and vendor payment records which work it served in `charged_to`, independent of its expense category:
 
-- `event`: the event's programme.
+- `event`: the event's programme. The picker lists standalone events, series and each saved session of a series (one with attendance, members or edits); an unsaved session has no row, so a claim for it goes on the series.
 - `programme`: a programme and optional project, for ongoing costs with no event such as rent.
 - `organisation`: admin costs (audit fee, bank charges, website).
 

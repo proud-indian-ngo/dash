@@ -1,4 +1,15 @@
+import { format } from "date-fns";
+
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { DATE } from "@/lib/date-formats";
+
+interface PickableEvent {
+  cancelledAt: number | null;
+  costCentreId: string | null;
+  id: string;
+  name: string;
+  startTime: number;
+}
 
 interface RequestCityInitial {
   costCentreId?: string | null;
@@ -33,5 +44,26 @@ export function useRequestCity(
     !(costCentres.loaded && event.costCentreId) ||
     activeIds.has(event.costCentreId) ||
     event.id === initial?.eventId;
-  return { cityOptions, defaultCostCentreId, listsEvent };
+  /**
+   * The event picker's options: standalone events, series and every saved
+   * session of a series (one with attendance, members or edits), newest
+   * first. Unsaved sessions have no row to charge to.
+   */
+  const toEventOptions = (
+    events: readonly (PickableEvent & {
+      exceptions?: readonly PickableEvent[];
+    })[]
+  ) =>
+    events
+      .flatMap((e) => [
+        e,
+        ...(e.exceptions ?? []).filter((s) => s.cancelledAt === null),
+      ])
+      .filter(listsEvent)
+      .sort((a, b) => b.startTime - a.startTime)
+      .map((e) => ({
+        label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
+        value: e.id,
+      }));
+  return { cityOptions, defaultCostCentreId, toEventOptions };
 }

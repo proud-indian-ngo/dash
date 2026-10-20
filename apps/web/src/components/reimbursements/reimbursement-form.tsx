@@ -1,13 +1,8 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { queries } from "@pi-dash/zero/queries";
-import type {
-  BankAccount,
-  ExpenseCategory,
-  TeamEvent,
-} from "@pi-dash/zero/schema";
+import type { BankAccount, ExpenseCategory } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { format } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
@@ -17,7 +12,6 @@ import { useRequestCity } from "@/components/expenses/use-request-city";
 import { FormLayout } from "@/components/form/form-layout";
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
-import { DATE } from "@/lib/date-formats";
 import { newLineItem } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 import type { RequestType } from "@/lib/reimbursement-types";
@@ -129,7 +123,7 @@ function ReimbursementFormInner({
     ? claimantBankAccountsResult
     : ownBankAccountsResult;
   const [events] = useQuery(queries.teamEvent.allAccessible());
-  const { cityOptions, defaultCostCentreId, listsEvent } = useRequestCity(
+  const { cityOptions, defaultCostCentreId, toEventOptions } = useRequestCity(
     initialValues,
     isEdit
   );
@@ -138,12 +132,8 @@ function ReimbursementFormInner({
 
   const categoryList = (categories ?? []) as ExpenseCategory[];
   const bankAccountList = (bankAccounts ?? []) as BankAccount[];
-  const eventList = (events ?? []) as TeamEvent[];
 
-  const eventOptions = eventList.filter(listsEvent).map((e) => ({
-    label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
-    value: e.id,
-  }));
+  const eventOptions = toEventOptions(events ?? []);
 
   const bankAccountOptions = bankAccountList.map((account) => ({
     label: bankAccountOptionLabel(account),
