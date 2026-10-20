@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  BoldPlugin,
-  ItalicPlugin,
-  UnderlinePlugin,
-} from "@platejs/basic-nodes/react";
-import { MAX_LIST_DEPTH, orderedListStyle } from "@pi-dash/shared/rich-text";
+  MAX_INDENT,
+  MAX_LIST_DEPTH,
+  orderedListStyle,
+} from "@pi-dash/shared/rich-text";
+import { IndentPlugin } from "@platejs/indent/react";
 import {
   BulletedListRules,
   moveListItemUp,
@@ -17,6 +17,7 @@ import {
   ListItemPlugin,
   ListPlugin,
   NumberedListPlugin,
+  TaskListPlugin,
 } from "@platejs/list-classic/react";
 import {
   TableCellHeaderPlugin,
@@ -25,18 +26,14 @@ import {
   TableRowPlugin,
 } from "@platejs/table/react";
 import {
-  type Editor,
   ElementApi,
   type ElementEntry,
+  ExitBreakPlugin,
   KEYS,
-  NodeApi,
-  type Path,
-  type TElement,
   TrailingBlockPlugin,
 } from "platejs";
 import {
   createPlatePlugin,
-  ParagraphPlugin,
   PlateElement,
   type PlateElementProps,
   useEditorSelector,
@@ -46,34 +43,26 @@ import {
   BulletedListElement,
   ListItemElement,
 } from "../../ui/list-classic-node";
-import { ParagraphElement } from "../../ui/paragraph-node";
 import {
-  SimpleTableCellElement,
-  SimpleTableElement,
-  SimpleTableHeaderCellElement,
-  SimpleTableRowElement,
-} from "../../ui/simple-table-node";
+  TableCellElement,
+  TableCellHeaderElement,
+  TableElement,
+  TableRowElement,
+} from "../../ui/table-node";
+import {
+  DOCUMENT_BLOCKS,
+  DOCUMENT_INDENTED,
+  DOCUMENT_LINK_OPTIONS,
+  DOCUMENT_MARKS,
+} from "../document";
+import { listDepthAt, numberedListsAbove } from "../list-depth";
+import { BasicBlocksKit } from "./basic-blocks-kit";
+import { BasicMarksKit } from "./basic-marks-kit";
+import { DocumentTablePlugin } from "./document-table";
+import { LinkKit } from "./link-kit";
+import { SlashKit } from "./slash-kit";
 
 const LIST_TYPES = new Set<string>([KEYS.ulClassic, KEYS.olClassic]);
-
-/** Lists of `types` among the nodes at `path` and above it. */
-function listsAt(editor: Editor, path: Path, types: Set<string>): number {
-  let count = 0;
-  for (let i = 1; i <= path.length; i++) {
-    const node = NodeApi.get<TElement>(editor, path.slice(0, i));
-    if (node && types.has(node.type)) {
-      count += 1;
-    }
-  }
-  return count;
-}
-
-/** How deep in lists the node at `path` sits, counting itself. */
-export function listDepthAt(editor: Editor, path: Path): number {
-  return listsAt(editor, path, LIST_TYPES);
-}
-
-const ORDERED = new Set<string>([KEYS.olClassic]);
 
 /**
  * A numbered list counting by the shared rule (`orderedListStyle`): by the
@@ -83,7 +72,7 @@ const ORDERED = new Set<string>([KEYS.olClassic]);
 function NumberedListElement(props: PlateElementProps) {
   const pathKey = props.path.join(".");
   const depth = useEditorSelector(
-    (editor) => listsAt(editor, props.path.slice(0, -1), ORDERED),
+    (editor) => numberedListsAbove(editor, props.path),
     [pathKey]
   );
   return (
@@ -126,16 +115,24 @@ const ListDepthPlugin = createPlatePlugin({
 }));
 
 /**
- * The rich text preset: exactly what `@pi-dash/shared/rich-text` accepts.
- * Paragraphs, bold, italic, underline, lists and simple tables; HTML pasted
- * from Word keeps only these, since no other plugin can claim it.
+ * The document preset: the event updates editor's plugins, kept to exactly
+ * what `@pi-dash/shared/rich-text` accepts and the signed PDF draws.
+ * Paragraphs, headings 1 to 3, quotes, dividers, four marks, web and email
+ * links, indents, lists (a list item may hold a quote) and tables merged
+ * only across a row. The Insert, Turn into and slash menus list only these,
+ * and HTML pasted from Word keeps only these, since no other plugin can
+ * claim it.
  */
 export const RichTextKit = [
-  ParagraphPlugin.withComponent(ParagraphElement),
-  BoldPlugin,
-  ItalicPlugin,
-  UnderlinePlugin,
-  ListPlugin,
+  ...BasicBlocksKit.filter((plugin) => DOCUMENT_BLOCKS.has(plugin.key)),
+  ...BasicMarksKit.filter((plugin) => DOCUMENT_MARKS.has(plugin.key)),
+  // `extend`, since `configure` would drop the kit's floating toolbar.
+  ...LinkKit.map((plugin) => plugin.extend({ options: DOCUMENT_LINK_OPTIONS })),
+  ListPlugin.configure({
+    options: { validLiChildrenTypes: [KEYS.blockquote] },
+  }),
+  // The list plugin brings to-do lists, which a document has no use for.
+  TaskListPlugin.configure({ enabled: false }),
   ListDepthPlugin,
   ListItemPlugin.withComponent(ListItemElement),
   ListItemContentPlugin,
@@ -150,13 +147,21 @@ export const RichTextKit = [
     inputRules: [OrderedListRules.markdown({ variant: "." })],
     node: { component: NumberedListElement },
   }),
-  TablePlugin.configure({
-    node: { component: SimpleTableElement },
-    options: { disableMarginLeft: true, disableMerge: true },
+  // Before the table, so Tab in a cell moves to the next cell.
+  IndentPlugin.configure({
+    inject: { targetPlugins: DOCUMENT_INDENTED },
+    options: { indentMax: MAX_INDENT, offset: 24 },
   }),
-  TableRowPlugin.withComponent(SimpleTableRowElement),
-  TableCellPlugin.withComponent(SimpleTableCellElement),
-  TableCellHeaderPlugin.withComponent(SimpleTableHeaderCellElement),
+  TablePlugin.configure({
+    node: { component: TableElement },
+    options: { disableMarginLeft: true, minColumnWidth: 48 },
+  }),
+  TableRowPlugin.withComponent(TableRowElement),
+  TableCellPlugin.withComponent(TableCellElement),
+  TableCellHeaderPlugin.withComponent(TableCellHeaderElement),
+  DocumentTablePlugin,
+  ...SlashKit,
+  ExitBreakPlugin,
   // A line after a closing table, to keep writing below it.
   TrailingBlockPlugin,
 ];

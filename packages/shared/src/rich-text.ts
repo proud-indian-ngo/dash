@@ -196,6 +196,16 @@ function linkUrl(url: unknown): string {
   return url;
 }
 
+/** Whether a link may go to `url`: the checks `parseRichText` makes. */
+export function isLinkUrl(url: string): boolean {
+  try {
+    linkUrl(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function inline(node: unknown): RichTextInline {
   if (isRecord(node) && node.type === "a") {
     return {

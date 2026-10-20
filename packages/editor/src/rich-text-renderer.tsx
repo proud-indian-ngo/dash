@@ -2,9 +2,10 @@
 
 import { parseRichText } from "@pi-dash/shared/rich-text";
 import type { Value } from "platejs";
-import { Plate, PlateContent, usePlateEditor } from "platejs/react";
+import { createStaticEditor, PlateStatic } from "platejs/static";
+import { useMemo } from "react";
 
-import { RichTextKit } from "../components/editor/plugins/rich-text-kit";
+import { BaseRichTextKit } from "../components/editor/plugins/rich-text-base-kit";
 
 export interface RichTextRendererProps {
   className?: string;
@@ -12,18 +13,26 @@ export interface RichTextRendererProps {
   content: string;
 }
 
-/** Stored rich text, read-only, drawn as the rich text editor draws it. */
+/**
+ * Stored rich text, read-only, drawn as the rich text editor draws it but
+ * with Plate's static rendering, so a page of resolutions mounts no editor.
+ */
 export function RichTextRenderer({
   className,
   content,
 }: RichTextRendererProps) {
-  const editor = usePlateEditor(
-    { plugins: RichTextKit, value: parseRichText(content) as Value },
+  const editor = useMemo(
+    () =>
+      createStaticEditor({
+        plugins: BaseRichTextKit,
+        value: parseRichText(content) as Value,
+      }),
     [content]
   );
   return (
-    <Plate editor={editor} readOnly>
-      <PlateContent className={`text-sm leading-relaxed ${className ?? ""}`} />
-    </Plate>
+    <PlateStatic
+      className={`text-sm leading-relaxed break-words ${className ?? ""}`}
+      editor={editor}
+    />
   );
 }

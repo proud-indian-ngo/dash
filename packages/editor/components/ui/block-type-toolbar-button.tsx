@@ -4,7 +4,7 @@ import { KEYS } from "platejs";
 import { useEditorRef, useEditorSelector } from "platejs/react";
 import type React from "react";
 
-import { getBlockType, setBlockType } from "../editor/transforms";
+import { setBlockType } from "../editor/transforms";
 import { ToolbarButton } from "./toolbar";
 
 function BlockTypeToolbarButton({
@@ -16,7 +16,7 @@ function BlockTypeToolbarButton({
   const isActive = useEditorSelector(
     (e) => {
       const block = e.api.block();
-      return block ? getBlockType(block[0]) === nodeType : false;
+      return block ? block[0].type === nodeType : false;
     },
     [nodeType]
   );
