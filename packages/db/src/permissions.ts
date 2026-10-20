@@ -610,7 +610,6 @@ const financeAdminExcluded = new Set<PermissionId>([
   "settings.app_config",
   "settings.roles",
   "settings.whatsapp_groups",
-  "governance.manage",
   "governance.kyc.view",
   "jobs.manage",
   "system.alerts",
@@ -621,7 +620,7 @@ export const ADMIN_PERMISSIONS: readonly PermissionId[] = PERMISSIONS.map(
   (p) => p.id
 ).filter((id) => !(adminExcluded.has(id) || systemOnlyPermissionIds.has(id)));
 
-/** Permissions for the finance_admin role — all except user CRUD, app settings, social posts and jobs */
+/** Permissions for the finance_admin role — all except user CRUD, app settings, social posts, jobs and trustee KYC. It runs governance too: the Managing Trustee holds it and owns the tax filings. */
 export const FINANCE_ADMIN_PERMISSIONS: readonly PermissionId[] =
   PERMISSIONS.map((p) => p.id).filter(
     (id) => !(financeAdminExcluded.has(id) || systemOnlyPermissionIds.has(id))
