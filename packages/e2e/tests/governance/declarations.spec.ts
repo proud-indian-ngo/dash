@@ -105,7 +105,7 @@ test.describe("declarations (super admin)", () => {
     await expect(dialog.getByRole("textbox", { name: "Title" })).toHaveValue(
       "Approval of the budget"
     );
-    await expect(dialog.getByRole("textbox", { name: "Text" })).toHaveValue(
+    await expect(dialog.getByRole("textbox", { name: "Text" })).toContainText(
       /budget of the Trust for the financial year/
     );
   });

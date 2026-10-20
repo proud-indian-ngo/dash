@@ -2,14 +2,6 @@ import type { ResolutionEffect } from "@pi-dash/shared/resolutions";
 
 import { formatIso } from "./register-data";
 
-/** A resolution's text split at blank lines. */
-export function paragraphs(body: string): string[] {
-  return body
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
 /** What the register records when the resolution passes, in a sentence. */
 export function effectText(
   effect: ResolutionEffect,

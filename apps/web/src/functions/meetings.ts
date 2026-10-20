@@ -45,6 +45,7 @@ import {
   effectProblem,
   RESOLUTION_TEMPLATES,
 } from "@pi-dash/shared/resolutions";
+import { richTextJsonToPlain } from "@pi-dash/shared/rich-text";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, inArray } from "drizzle-orm";
 import z from "zod";
@@ -118,7 +119,7 @@ function assertStarted(startsAt: Date) {
 function agendaResolutionProblem(
   row: Pick<typeof resolution.$inferSelect, "body" | "effect" | "templateKey">
 ): string | null {
-  if (!row.body.trim()) {
+  if (!richTextJsonToPlain(row.body).trim()) {
     return "Write the resolution's text first.";
   }
   return effectProblem(RESOLUTION_TEMPLATES[row.templateKey], row.effect);

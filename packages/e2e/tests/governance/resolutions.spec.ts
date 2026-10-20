@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { expect, test } from "../../fixtures/test";
 
@@ -10,14 +10,24 @@ import { expect, test } from "../../fixtures/test";
  * the pass rules with signatures are covered by unit and database tests.
  */
 
+/** Replaces the rich text in the dialog's Text editor with `text`. */
+async function writeText(page: Page, dialog: Locator, text: string) {
+  const editor = dialog.getByRole("textbox", { name: "Text" });
+  await editor.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type(text);
+}
+
 async function draft(page: Page, title: string) {
   await page.goto("/governance/resolutions");
   await page.getByRole("button", { name: "New circular" }).click();
   const dialog = page.getByRole("dialog", { name: "New circular" });
   await dialog.getByRole("textbox", { name: "Title" }).fill(title);
-  await dialog
-    .getByRole("textbox", { name: "Text" })
-    .fill("RESOLVED THAT the Board approves the end-to-end test.");
+  await writeText(
+    page,
+    dialog,
+    "RESOLVED THAT the Board approves the end-to-end test."
+  );
   await dialog.getByRole("button", { name: "Create draft" }).click();
   // The first save in a fresh stack waits for Zero's initial sync.
   await expect(page.getByRole("heading", { name: title })).toBeVisible({
@@ -217,6 +227,48 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await expect(
       page.getByRole("row").filter({ hasText: number }).first()
     ).toContainText("recorded from paper");
+  });
+});
+
+test.describe("resolution text", () => {
+  test("drafts a resolution with bold text and a table", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+    const title = `E2E rich text ${Date.now()}`;
+    await page.goto("/governance/resolutions");
+    await page.getByRole("button", { name: "New circular" }).click();
+    const dialog = page.getByRole("dialog", { name: "New circular" });
+    await dialog.getByRole("textbox", { name: "Title" }).fill(title);
+    await writeText(page, dialog, "RESOLVED THAT ");
+    await page.keyboard.press("ControlOrMeta+b");
+    await page.keyboard.type("the budget");
+    await page.keyboard.press("ControlOrMeta+b");
+    await page.keyboard.type(" be approved under these heads:");
+    await page.keyboard.press("Enter");
+    await dialog.getByRole("button", { exact: true, name: "Table" }).click();
+    await dialog.getByRole("columnheader").first().click();
+    // A 3 by 3 table with a header row; Tab moves to the next cell.
+    for (const cell of ["Head", "Purpose", "Amount", "Kalakriti", "Prizes"]) {
+      await page.keyboard.type(cell);
+      await page.keyboard.press("Tab");
+    }
+    await page.keyboard.type("4,50,000");
+    await dialog.getByRole("button", { name: "Add row" }).click();
+    await dialog.getByRole("button", { name: "Create draft" }).click();
+
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 20_000,
+    });
+    const table = page.getByRole("table");
+    await expect(table.getByRole("row")).toHaveCount(4);
+    await expect(
+      table.getByRole("columnheader", { name: "Head" })
+    ).toBeVisible();
+    await expect(table.getByRole("cell", { name: "4,50,000" })).toBeVisible();
+    await expect(
+      page.locator("strong").filter({ hasText: "the budget" })
+    ).toBeVisible();
   });
 });
 

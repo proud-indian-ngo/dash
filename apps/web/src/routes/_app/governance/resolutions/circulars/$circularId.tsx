@@ -27,6 +27,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/editor/rich-text";
 import { CircularSignPanel } from "@/components/governance/circular-sign-panel";
 import {
   epochToIso,
@@ -36,10 +37,7 @@ import {
 } from "@/components/governance/register-data";
 import { ResolutionAnswerActions } from "@/components/governance/resolution-answer-actions";
 import { ResolutionStatusBadge } from "@/components/governance/resolution-status";
-import {
-  effectText,
-  paragraphs,
-} from "@/components/governance/resolution-text";
+import { effectText } from "@/components/governance/resolution-text";
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
@@ -293,11 +291,7 @@ function CircularPage() {
                   </div>
                   <ResolutionStatusBadge status={r.status ?? "issued"} />
                 </div>
-                {paragraphs(r.body).map((p, i) => (
-                  <p className="text-sm leading-relaxed" key={`p${String(i)}`}>
-                    {p}
-                  </p>
-                ))}
+                <RichText content={r.body} />
                 {effectLine ? (
                   <p className="text-muted-foreground text-sm">
                     When it passes, the register records: {effectLine}

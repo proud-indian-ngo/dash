@@ -15,6 +15,7 @@ import {
   type ResolutionStatus,
   resolutionStatusValues,
   resolutionTemplateKeyValues,
+  templateBody,
 } from "@pi-dash/shared/resolutions";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -434,7 +435,7 @@ function ResolutionsPage() {
             <ResolutionDraftForm
               draftId={creating}
               initial={draftValuesFrom({
-                body: RESOLUTION_TEMPLATES[startKey].text,
+                body: templateBody(startKey),
                 effect: { type: "none" },
                 templateKey: startKey,
                 title:

@@ -7,10 +7,13 @@ import {
 import {
   RESOLUTION_EFFECT_VALUES,
   RESOLUTION_TEMPLATES,
+  resolutionBodySchema,
   type ResolutionEffect,
   type ResolutionTemplateKey,
   resolutionTemplateKeyValues,
+  templateBody,
 } from "@pi-dash/shared/resolutions";
+import { richTextJsonToPlain } from "@pi-dash/shared/rich-text";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -22,6 +25,7 @@ import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { FormSectionHeading } from "@/components/form/form-section";
 import { InputField } from "@/components/form/input-field";
+import { RichTextField } from "@/components/form/rich-text-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import {
@@ -211,13 +215,17 @@ export function ResolutionDraftForm({
         if (fieldApi.name !== "templateKey") {
           return;
         }
-        const previous = RESOLUTION_TEMPLATES[lastTemplate.current];
+        const previousKey = lastTemplate.current;
+        const previous = RESOLUTION_TEMPLATES[previousKey];
         const key = formApi.getFieldValue("templateKey");
         const next = RESOLUTION_TEMPLATES[key];
         lastTemplate.current = key;
-        const body = formApi.getFieldValue("body");
-        if (!body.trim() || body === previous.text) {
-          formApi.setFieldValue("body", next.text);
+        const text = richTextJsonToPlain(formApi.getFieldValue("body"));
+        if (
+          !text.trim() ||
+          text === richTextJsonToPlain(templateBody(previousKey))
+        ) {
+          formApi.setFieldValue("body", templateBody(key));
         }
         const title = formApi.getFieldValue("title");
         if (!title.trim() || title === previous.title) {
@@ -231,8 +239,13 @@ export function ResolutionDraftForm({
         toast.error(result.problem);
         return;
       }
+      const body = resolutionBodySchema.safeParse(value.body);
+      if (!body.success) {
+        toast.error(body.error.issues[0]?.message ?? "Check the text.");
+        return;
+      }
       const args = {
-        body: value.body,
+        body: body.data,
         effect: result.effect,
         id: draftId,
         templateKey: value.templateKey,
@@ -311,16 +324,15 @@ export function ResolutionDraftForm({
               <p className="text-muted-foreground text-sm">
                 {template.description}
               </p>
-              <TextareaField
+              <RichTextField
                 description={
                   agenda
-                    ? "Separate paragraphs with a blank line. The text can change until the meeting decides it."
-                    : "Separate paragraphs with a blank line. The text can't change once the circular is issued."
+                    ? "The text can change until the meeting decides it."
+                    : "The text can't change once the circular is issued."
                 }
                 isRequired
                 label="Text"
                 name="body"
-                rows={8}
               />
               {template.effect === "none" ? null : (
                 <>

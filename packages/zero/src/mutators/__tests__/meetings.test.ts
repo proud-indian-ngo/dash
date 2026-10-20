@@ -75,7 +75,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
     ],
     resolution: [
       {
-        body: "RESOLVED THAT",
+        body: '[{"children":[{"text":"RESOLVED THAT"}],"type":"p"}]',
         effect: { type: "none" },
         id: "r1",
         kind: "meeting",
@@ -194,7 +194,7 @@ describe("meeting mutators", () => {
         id: "item-2",
         meetingId: "m1",
         resolution: {
-          body: "RESOLVED THAT",
+          body: '[{"children":[{"text":"RESOLVED THAT"}],"type":"p"}]',
           effect: { type: "none" },
           id: "r2",
           templateKey: "ordinary",
@@ -204,7 +204,7 @@ describe("meeting mutators", () => {
     ).rejects.toThrow("notice has gone out");
     await expect(
       run(resolutionMutators.updateDraft, db, {
-        body: "RESOLVED THAT something else",
+        body: '[{"children":[{"text":"RESOLVED THAT something else"}],"type":"p"}]',
         effect: { type: "none" },
         id: "r1",
         templateKey: "ordinary",
