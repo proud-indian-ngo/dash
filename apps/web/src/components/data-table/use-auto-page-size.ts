@@ -1,6 +1,7 @@
 import debounce from "lodash/debounce";
 import type { RefObject } from "react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 /** Below this window width tables keep their default page size. */
 const AUTO_PAGE_SIZE_MIN_WIDTH = 768;
@@ -92,9 +93,9 @@ function measure(area: HTMLElement) {
 
 /**
  * Rows per page that fill the window without making the page scroll. Measured
- * once rows render, then again when the window or anything around the table
- * changes size. Returns null when it cannot measure (narrow windows, no rows
- * yet), so the caller falls back to its default.
+ * once rows (or skeleton rows) render, then again when the window or anything
+ * around the table changes size. Returns null when it cannot measure (narrow
+ * windows, no rows yet), so the caller falls back to its default.
  */
 export function useAutoPageSize({
   areaRef,
@@ -107,7 +108,8 @@ export function useAutoPageSize({
 }) {
   const [pageSize, setPageSize] = useState<number | null>(null);
 
-  useEffect(() => {
+  // Measured before paint, so the first frame already shows the fitted rows.
+  useLayoutEffect(() => {
     const area = areaRef.current;
     if (!(enabled && hasRows && area)) {
       return;
@@ -120,8 +122,10 @@ export function useAutoPageSize({
     window.addEventListener("resize", onResize);
     // The fit ignores how many rows render, so watching the table's ancestors
     // catches content above or below it changing (chips, filters, totals)
-    // without feeding back on its own page size.
-    const observer = new ResizeObserver(onResize);
+    // without feeding back on its own page size. Observer callbacks run before
+    // paint; flushing there keeps a late totals row from showing a frame with
+    // one row too many.
+    const observer = new ResizeObserver(() => flushSync(update));
     for (
       let node: HTMLElement | null = area;
       node && node !== document.body;

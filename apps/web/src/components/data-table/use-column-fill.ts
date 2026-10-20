@@ -1,5 +1,5 @@
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import type { SizingColumn } from "./column-fill";
 
@@ -31,7 +31,8 @@ export function getSizingColumns<T extends object>(
 export function useTableViewportWidth(enabled: boolean) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  useEffect(() => {
+  // Before paint, so the filler column never renders at its unfilled width.
+  useLayoutEffect(() => {
     if (!enabled) return;
     const viewport = scrollAreaRef.current?.querySelector<HTMLElement>(
       "[data-slot=scroll-area-viewport]"

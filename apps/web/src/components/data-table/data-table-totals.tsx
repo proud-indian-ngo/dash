@@ -5,7 +5,7 @@ import type {
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatPaise } from "@pi-dash/shared/money";
 import type { CSSProperties, ReactNode, RefObject } from "react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 import { DATA_FONT_CLASS } from "./column-kinds";
 
@@ -82,7 +82,8 @@ export function DataTableTotals<TData extends object>({
   const columnIds = table.getVisibleLeafColumns().map((column) => column.id);
   const layoutKey = columnIds.join(",");
 
-  useEffect(() => {
+  // Before paint, so the fitted page size already accounts for this row.
+  useLayoutEffect(() => {
     const area = areaRef.current;
     const head = area?.querySelector("thead");
     if (!(area && head)) {

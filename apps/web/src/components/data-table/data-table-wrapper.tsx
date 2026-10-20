@@ -411,7 +411,8 @@ function DataTableWrapperBase<TData extends object>({
   const fittedPageSize = useAutoPageSize({
     areaRef: scrollAreaRef,
     enabled: isAutoSize,
-    hasRows: data.length > 0,
+    // Skeleton rows are fitted too, so loading and loaded pages match.
+    hasRows: isLoading || data.length > 0,
   });
   const tablePagination = isAutoSize
     ? { ...pagination, pageSize: fittedPageSize ?? defaultPageSize }
@@ -1001,6 +1002,13 @@ function DataTableWrapperBase<TData extends object>({
                       rows={filteredRows}
                       table={table}
                       totals={totals}
+                    />
+                  ) : null}
+                  {/* Holds the totals row's height so skeleton rows fit to the loaded page. */}
+                  {totals?.length && isLoading ? (
+                    <div
+                      aria-hidden="true"
+                      className="bg-muted/40 h-9 border-t"
                     />
                   ) : null}
                   {/* Phone cards fit the width; a sub-pixel overflow must not draw a scrollbar strip. */}
