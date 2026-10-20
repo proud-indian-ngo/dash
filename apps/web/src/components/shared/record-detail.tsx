@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import upperFirst from "lodash/upperFirst";
 import type { ReactNode } from "react";
 
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
   getAttachmentDownloadHref,
   getAttachmentLabel,
@@ -158,17 +159,17 @@ export function AttachmentList({
                   View link
                   <span className="sr-only"> {label} (opens in new tab)</span>
                 </a>
-              ) : (
+              ) : att.objectKey ? (
                 <>
-                  <a
+                  <FilePreviewButton
                     className={LINK_CLASS}
-                    href={getAttachmentPreviewHref(att, ref)}
-                    rel="noopener noreferrer"
-                    target="_blank"
+                    src={getAttachmentPreviewHref(att, ref)}
+                    fileName={label}
+                    mimeType={att.mimeType}
                   >
                     Preview
-                    <span className="sr-only"> {label} (opens in new tab)</span>
-                  </a>
+                    <span className="sr-only"> {label}</span>
+                  </FilePreviewButton>
                   <a
                     className={LINK_CLASS}
                     download
@@ -180,7 +181,7 @@ export function AttachmentList({
                     <span className="sr-only"> {label} (opens in new tab)</span>
                   </a>
                 </>
-              )}
+              ) : null}
             </span>
           </li>
         );

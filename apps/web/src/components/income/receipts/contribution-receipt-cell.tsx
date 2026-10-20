@@ -9,15 +9,13 @@ import {
   receiptBlocksTitle,
 } from "@pi-dash/shared/receipts";
 
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 import type { ContributionRow } from "../income-types";
 import { contributionReceiptValue } from "./receipt-column";
 import { liveReceipt, receiptPdfUrl } from "./receipt-types";
 import type { ReceiptReadinessState } from "./use-receipt-readiness";
-
-const stopPropagation = (event: { stopPropagation: () => void }) =>
-  event.stopPropagation();
 
 const TEST_ID = "contribution-receipt-cell";
 
@@ -62,16 +60,14 @@ export function ContributionReceiptCell({
     const live = liveReceipt(row.receipts);
     const number = live?.number ?? RECEIPT_COLUMN_LABELS.issued;
     return live && canDownload ? (
-      <a
+      <FilePreviewButton
         className="font-mono text-sm underline underline-offset-2"
         data-testid={TEST_ID}
-        download
-        href={receiptPdfUrl(live.id)}
-        onClick={stopPropagation}
-        title={`Download receipt ${number}`}
+        src={receiptPdfUrl(live.id, "inline")}
+        fileName={`Receipt ${number}`}
       >
         {number}
-      </a>
+      </FilePreviewButton>
     ) : (
       <span className="font-mono text-sm" data-testid={TEST_ID}>
         {number}

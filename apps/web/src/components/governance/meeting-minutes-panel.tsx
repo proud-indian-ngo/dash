@@ -24,6 +24,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
   generateMinutesFn,
   getMinutesUploadUrl,
@@ -225,14 +226,13 @@ export function MeetingMinutesPanel({
       {signed && meeting.minutesDocumentId ? (
         <p className="text-sm">
           Signed by the chair and filed in the vault.{" "}
-          <a
+          <FilePreviewButton
             className="text-primary underline-offset-4 hover:underline"
-            href={governanceDocumentHref(meeting.minutesDocumentId)}
-            rel="noreferrer"
-            target="_blank"
+            src={governanceDocumentHref(meeting.minutesDocumentId)}
+            fileName={meeting.minutesDocument?.title ?? "Signed minutes"}
           >
             {meeting.minutesDocument?.title ?? "Open the signed minutes"}
-          </a>
+          </FilePreviewButton>
         </p>
       ) : null}
       {canManage && !signed ? (

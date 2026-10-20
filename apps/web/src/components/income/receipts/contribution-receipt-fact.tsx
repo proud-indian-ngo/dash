@@ -10,6 +10,8 @@ import {
 } from "@pi-dash/shared/receipts";
 import { useState } from "react";
 
+import { FilePreviewButton } from "@/components/shared/file-preview";
+
 import type { ContributionRow } from "../income-types";
 import {
   IssueReceiptsDialog,
@@ -83,6 +85,14 @@ export function ContributionReceiptFact({
         <span className="font-mono">{live.number}</span>
         {canIssue ? (
           <>
+            <span aria-hidden>·</span>
+            <FilePreviewButton
+              className="underline underline-offset-2"
+              src={receiptPdfUrl(live.id, "inline")}
+              fileName={`Receipt ${live.number}`}
+            >
+              View
+            </FilePreviewButton>
             <span aria-hidden>·</span>
             <a
               className="underline underline-offset-2"

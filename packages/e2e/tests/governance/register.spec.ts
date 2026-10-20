@@ -174,6 +174,10 @@ test.describe("governance documents (super admin)", () => {
     const sheet = page.getByRole("dialog", { name: title });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText("SHA-256")).toBeVisible();
-    await expect(sheet.getByRole("link", { name: "Open" })).toBeVisible();
+    await sheet.getByRole("button", { name: "View" }).click();
+    const viewer = page.getByRole("dialog", { name: title }).last();
+    await expect(
+      viewer.getByRole("link", { name: "Open in new tab" })
+    ).toHaveAttribute("href", /kind=governanceDocument/);
   });
 });

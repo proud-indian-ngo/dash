@@ -28,6 +28,7 @@ import {
   useRegister,
 } from "@/components/governance/register-data";
 import { useAccountOptions } from "@/components/governance/use-account-options";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Dialog,
@@ -183,17 +184,16 @@ function PoliciesPage() {
                             {ackedBy.get(v.id)?.size ?? 0} acknowledged
                           </span>
                         )}
-                        <a
+                        <FilePreviewButton
                           className="text-primary inline-flex items-center underline-offset-4 hover:underline pointer-coarse:min-h-10"
-                          href={getProtectedAttachmentHref(
+                          src={getProtectedAttachmentHref(
                             { id: v.id, kind: "policyDocument" },
                             "inline"
                           )}
-                          rel="noreferrer"
-                          target="_blank"
+                          fileName={`${p.title}, version ${v.version}`}
                         >
                           Read
-                        </a>
+                        </FilePreviewButton>
                       </span>
                     </li>
                   ))}

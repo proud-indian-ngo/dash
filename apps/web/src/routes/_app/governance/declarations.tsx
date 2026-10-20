@@ -32,6 +32,7 @@ import { DeclarationSignPanel } from "@/components/governance/declaration-sign-p
 import { governanceDocumentHref } from "@/components/governance/evidence";
 import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Dialog,
@@ -219,14 +220,13 @@ function DeclarationsPage() {
       accessorFn: (row) => (row.documentId ? 1 : 0),
       cell: ({ row }) =>
         row.original.documentId ? (
-          <a
+          <FilePreviewButton
             className="text-primary text-sm underline-offset-4 hover:underline"
-            href={governanceDocumentHref(row.original.documentId)}
-            rel="noreferrer"
-            target="_blank"
+            src={governanceDocumentHref(row.original.documentId)}
+            fileName={`Declaration of ${row.original.name}`}
           >
             PDF
-          </a>
+          </FilePreviewButton>
         ) : (
           "—"
         ),

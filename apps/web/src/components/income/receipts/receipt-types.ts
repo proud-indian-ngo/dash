@@ -30,8 +30,13 @@ export function receiptDonorName(row: ReceiptRow): string {
 }
 
 /** Where a receipt's PDF downloads from; the route checks donors.receipt. */
-export function receiptPdfUrl(receiptId: string): string {
-  return `/api/receipts/${receiptId}`;
+export function receiptPdfUrl(
+  receiptId: string,
+  disposition?: "inline"
+): string {
+  return disposition
+    ? `/api/receipts/${receiptId}?disposition=${disposition}`
+    : `/api/receipts/${receiptId}`;
 }
 
 /** The live receipt of a gift, if any: the newest one not voided. */

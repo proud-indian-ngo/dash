@@ -216,16 +216,28 @@ test.describe("Income: donation receipts (finance)", () => {
       "Received"
     );
 
-    // The PDF: an attachment named after the number, titled with it.
+    // The PDF opens in the viewer, which downloads it named after the number.
+    await receiptLine.getByRole("button", { name: "View" }).click();
+    const viewer = page.getByRole("dialog", { name: `Receipt ${number}` });
+    await expect(viewer.getByText("1 page")).toBeVisible({ timeout: 15_000 });
+    await expect(viewer.getByRole("group", { name: "Page 1" })).toBeVisible();
+    // The page's text is selectable and searchable, not only drawn.
+    await expect(
+      viewer
+        .getByRole("group", { name: "Page 1" })
+        .getByText(number, { exact: true })
+    ).toBeAttached();
     const downloadPromise = page.waitForEvent("download");
-    await receiptLine.getByRole("link", { name: "Download" }).click();
+    await viewer.getByRole("button", { name: "Download" }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe(
       `${number.replaceAll("/", "-")}.pdf`
     );
-    const href = await receiptLine
-      .getByRole("link", { name: "Download" })
+    const href = await viewer
+      .getByRole("link", { name: "Open in new tab" })
       .getAttribute("href");
+    await viewer.getByRole("button", { name: "Close" }).click();
+    await expect(viewer).toBeHidden();
     const response = await page.request.get(href ?? "");
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toBe("application/pdf");
@@ -243,6 +255,23 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(issued.getByTestId("contribution-status")).toHaveText(
       "Received"
     );
+
+    // The number opens the viewer over the table. Downloading from the
+    // keyboard and closing it by clicking outside never open the gift's sheet.
+    await issued.getByTestId("contribution-receipt-cell").click();
+    const fromTable = page.getByRole("dialog", { name: `Receipt ${number}` });
+    await expect(fromTable.getByRole("group", { name: "Page 1" })).toBeVisible({
+      timeout: 15_000,
+    });
+    const keyboardDownload = page.waitForEvent("download");
+    await fromTable.getByRole("button", { name: "Download" }).focus();
+    await page.keyboard.press("Enter");
+    expect((await keyboardDownload).suggestedFilename()).toBe(
+      `${number.replaceAll("/", "-")}.pdf`
+    );
+    await page.mouse.click(5, 5);
+    await expect(fromTable).toBeHidden();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
     // Void it from the Receipts tab; the number stays in the list.
     await page.goto("/income?tab=receipts");

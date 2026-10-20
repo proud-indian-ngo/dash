@@ -23,6 +23,7 @@ import {
   useGovernanceDocuments,
   useRegister,
 } from "@/components/governance/register-data";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
@@ -105,14 +106,13 @@ function RegisteredCopy({ version }: { version: DeedVersionView }) {
     );
   }
   return (
-    <a
+    <FilePreviewButton
       className="text-primary inline-flex items-center text-sm underline-offset-4 hover:underline pointer-coarse:min-h-10"
-      href={governanceDocumentHref(version.documentId)}
-      rel="noreferrer"
-      target="_blank"
+      src={governanceDocumentHref(version.documentId)}
+      fileName={version.documentTitle ?? "Registered document"}
     >
       {version.documentTitle ?? "Registered document"}
-    </a>
+    </FilePreviewButton>
   );
 }
 

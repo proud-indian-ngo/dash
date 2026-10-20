@@ -95,6 +95,17 @@ test.describe("Payee signature", () => {
     await expect(
       chip.getByRole("button", { name: "Re-collect" })
     ).toBeVisible();
+
+    // The thumbnail opens the signature in the viewer.
+    await thumbnail.click();
+    const viewer = page.getByRole("dialog", {
+      name: "Signature of Test Payee",
+    });
+    await expect(
+      viewer.getByRole("img", { name: "Signature of Test Payee" })
+    ).toBeVisible({ timeout: 15_000 });
+    await viewer.getByRole("button", { name: "Close" }).click();
+    await expect(viewer).toBeHidden();
   });
 
   test("the voucher prints the payee's signature", async ({
@@ -130,10 +141,20 @@ test.describe("Payee signature", () => {
     const width = header.readUInt32BE(16);
     const height = header.readUInt32BE(20);
 
-    const voucherLink = page.getByRole("link", { name: "View voucher" });
-    await expect(voucherLink).toBeVisible({ timeout: 15_000 });
+    // The voucher opens in the viewer, rendered page by page.
+    await page
+      .getByRole("button", { name: "View voucher" })
+      .click({ timeout: 15_000 });
+    const viewer = page.getByRole("dialog").filter({
+      has: page.getByRole("button", { name: "Download" }),
+    });
+    await expect(viewer.getByRole("group", { name: "Page 1" })).toBeVisible({
+      timeout: 15_000,
+    });
     const pdf = await page.request.get(
-      (await voucherLink.getAttribute("href")) ?? ""
+      (await viewer
+        .getByRole("link", { name: "Open in new tab" })
+        .getAttribute("href")) ?? ""
     );
     expect(pdf.headers()["content-type"]).toBe("application/pdf");
     // The PDF embeds an image the signature's size beside the treasurer's.

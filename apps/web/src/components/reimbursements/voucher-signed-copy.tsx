@@ -12,12 +12,16 @@ import { type ChangeEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { uploadSingleAttachment } from "@/components/form/attachment-upload";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
   getRequestUploadUrl,
   getVendorPaymentInvoiceUploadUrl,
   toAllowedMimeType,
 } from "@/functions/attachments";
-import { getAttachmentPreviewHref } from "@/lib/attachment-links";
+import {
+  getAttachmentLabel,
+  getAttachmentPreviewHref,
+} from "@/lib/attachment-links";
 import { ATTACHMENT_ACCEPT } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -28,21 +32,21 @@ function AttachmentLink({
   attachment: ReimbursementAttachment | undefined;
   label: string;
 }) {
-  if (!attachment) {
+  if (!attachment?.objectKey) {
     return null;
   }
   return (
-    <a
+    <FilePreviewButton
       className="text-primary text-xs font-medium underline-offset-2 hover:underline"
-      href={getAttachmentPreviewHref(attachment, {
+      src={getAttachmentPreviewHref(attachment, {
         id: attachment.id,
         kind: "reimbursementAttachment",
       })}
-      rel="noopener noreferrer"
-      target="_blank"
+      fileName={getAttachmentLabel(attachment)}
+      mimeType={attachment.mimeType}
     >
       {label}
-    </a>
+    </FilePreviewButton>
   );
 }
 

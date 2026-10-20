@@ -1,4 +1,4 @@
-import { Download04Icon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { RefreshIcon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { GovernanceValidationReport } from "@pi-dash/db/schema/governance";
 import {
@@ -19,6 +19,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { recheckGovernanceDocument } from "@/functions/governance";
@@ -157,19 +158,18 @@ export function DocumentDetailSheet({
         <DetailSheetHeader
           actions={
             <span className="flex flex-wrap gap-2">
-              <a
+              <FilePreviewButton
                 className={buttonVariants({ variant: "outline" })}
-                href={href}
-                rel="noreferrer"
-                target="_blank"
+                src={href}
+                fileName={document.title}
               >
                 <HugeiconsIcon
                   className="size-4"
-                  icon={Download04Icon}
+                  icon={ViewIcon}
                   strokeWidth={2}
                 />
-                Open
-              </a>
+                View
+              </FilePreviewButton>
               {canManage && isPdf ? (
                 <Button
                   disabled={checking}
