@@ -253,28 +253,25 @@ export const useFileUpload = (
         clearFiles();
       }
 
-      // Compute new state outside setState to avoid side effects inside the
-      // updater (React strict mode double-invokes updater functions).
+      // Compute the result from the rendered files rather than inside a
+      // setState updater: React defers updaters when an update is already
+      // queued (handleDrop resets isDragging first), so values assigned
+      // inside one are not visible here.
+      const existingFiles = multiple ? state.files : [];
       let addedFiles: FileWithPreview[] | null = null;
       let updatedFiles: FileWithPreview[] | null = null;
       let pendingErrors: string[] | null = null;
 
-      setState((prev) => {
-        // Check if adding these files would exceed maxFiles (only in multiple mode)
-        if (
-          multiple &&
-          maxFiles !== Number.POSITIVE_INFINITY &&
-          prev.files.length + newFilesArray.length > maxFiles
-        ) {
-          pendingErrors = [
-            `You can only upload a maximum of ${maxFiles} files.`,
-          ];
-          return { ...prev, errors: pendingErrors };
-        }
-
+      if (
+        multiple &&
+        maxFiles !== Number.POSITIVE_INFINITY &&
+        existingFiles.length + newFilesArray.length > maxFiles
+      ) {
+        pendingErrors = [`You can only upload a maximum of ${maxFiles} files.`];
+      } else {
         const { errors, validFiles } = prepareFilesForUpload({
           createPreview,
-          existingFiles: prev.files,
+          existingFiles,
           generateUniqueId,
           incomingFiles: newFilesArray,
           maxSize,
@@ -282,24 +279,22 @@ export const useFileUpload = (
           validateFile,
         });
 
-        // Only update state if we have valid files to add
         if (validFiles.length > 0) {
           addedFiles = validFiles;
-          updatedFiles = multiple ? [...prev.files, ...validFiles] : validFiles;
-          return {
-            ...prev,
-            errors,
-            files: updatedFiles,
-          };
+          updatedFiles = [...existingFiles, ...validFiles];
         }
-
         if (errors.length > 0) {
           pendingErrors = errors;
-          return { ...prev, errors };
         }
+      }
 
-        return { ...prev, errors: [] };
-      });
+      const nextErrors = pendingErrors ?? [];
+      const nextFiles = updatedFiles;
+      setState((prev) => ({
+        ...prev,
+        errors: nextErrors,
+        files: nextFiles ?? prev.files,
+      }));
 
       // Fire callbacks outside setState to avoid double-invocation
       if (addedFiles) {
@@ -319,6 +314,7 @@ export const useFileUpload = (
       }
     },
     [
+      state.files,
       maxFiles,
       multiple,
       maxSize,
