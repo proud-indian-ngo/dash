@@ -207,7 +207,7 @@ export function DataTableViewTabs({
     // Scrolls sideways on phones. The 2px of bottom padding, taken back by
     // the margin, keeps the active underline from being clipped.
     <Tabs
-      className="scroll-fade-x -mb-0.5 [scrollbar-width:none] overflow-x-auto overscroll-x-contain pb-0.5 [&::-webkit-scrollbar]:hidden"
+      className="scroll-fade-x no-scrollbar -mb-0.5 overflow-x-auto overscroll-x-contain pb-0.5"
       onValueChange={handleChange}
       value={active}
     >

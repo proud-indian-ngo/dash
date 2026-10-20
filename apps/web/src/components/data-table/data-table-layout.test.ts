@@ -9,8 +9,8 @@ describe("Resizable table header hit area", () => {
     const classes = getDataTableClassNames(true)?.base.split(" ");
     expect(classes).toEqual([
       "min-w-0",
-      "[&_thead_.cursor-col-resize]:end-0",
-      "[&_thead_.cursor-col-resize]:before:end-0",
+      "[&_thead_.cursor-col-resize]:inset-e-0",
+      "[&_thead_.cursor-col-resize]:before:inset-e-0",
       "[&_thead_.cursor-col-resize]:before:translate-x-0",
     ]);
   });

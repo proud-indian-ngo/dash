@@ -58,7 +58,7 @@ function DialogContent({
       >
         <div
           data-slot="dialog-body"
-          className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-5 pt-5 pb-5 [scrollbar-width:thin]"
+          className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-5 pt-5 pb-5 scrollbar-thin"
         >
           {children}
         </div>

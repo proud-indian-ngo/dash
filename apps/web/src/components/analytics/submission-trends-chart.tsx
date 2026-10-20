@@ -86,7 +86,7 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
             fontSize={12}
             orientation="left"
             tickLine={false}
-            width={32}
+            width="auto"
             yAxisId="count"
           />
           <YAxis
@@ -95,7 +95,7 @@ export function SubmissionTrendsChart({ data }: { data: TrendDataPoint[] }) {
             orientation="right"
             tickFormatter={stableTickFormatter0}
             tickLine={false}
-            width={52}
+            width="auto"
             yAxisId="amount"
           />
           <ChartTooltip

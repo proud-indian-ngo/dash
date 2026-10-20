@@ -119,7 +119,7 @@ export function DataTableGroupHeader<TData extends object>({
   const label = groupBy.renderValue?.(value) ?? name;
 
   return (
-    <div className="sticky start-0 flex h-9 w-fit items-center gap-3 px-2">
+    <div className="sticky inset-s-0 flex h-9 w-fit items-center gap-3 px-2">
       <button
         aria-expanded={open}
         className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex size-6 items-center justify-center rounded-md outline-none focus-visible:ring-3"

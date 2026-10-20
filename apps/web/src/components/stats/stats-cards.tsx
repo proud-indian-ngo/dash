@@ -152,7 +152,7 @@ export function StatsCards({
   return (
     <div
       className={cn(
-        "flex [scrollbar-width:none] gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap [&::-webkit-scrollbar]:hidden",
+        "no-scrollbar flex gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap",
         className
       )}
       data-slot="stat-chips"

@@ -6,6 +6,6 @@
 export function getDataTableClassNames(columnsResizable?: boolean) {
   if (!columnsResizable) return undefined;
   return {
-    base: "min-w-0 [&_thead_.cursor-col-resize]:end-0 [&_thead_.cursor-col-resize]:before:end-0 [&_thead_.cursor-col-resize]:before:translate-x-0",
+    base: "min-w-0 [&_thead_.cursor-col-resize]:inset-e-0 [&_thead_.cursor-col-resize]:before:inset-e-0 [&_thead_.cursor-col-resize]:before:translate-x-0",
   };
 }

@@ -28,7 +28,7 @@ export function AccountsRail({
       {/* Phones: one swipeable row of cards bleeding to the screen edge, like
           the stat chips. Cards above the books on mid screens; a rail beside
           them on wide ones. */}
-      <ul className="flex [scrollbar-width:none] gap-2 overflow-x-auto max-sm:-mx-2 max-sm:px-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:block xl:gap-0 xl:divide-y xl:rounded-lg xl:border [&::-webkit-scrollbar]:hidden">
+      <ul className="no-scrollbar flex gap-2 overflow-x-auto max-sm:-mx-2 max-sm:px-2 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:block xl:gap-0 xl:divide-y xl:rounded-lg xl:border">
         {accounts.map((account) => {
           const selected = account.id === selectedId;
           return (

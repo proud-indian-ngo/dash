@@ -45,7 +45,7 @@ export function SummaryMetricCards({
   return (
     <div
       aria-label={label}
-      className="flex [scrollbar-width:none] gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap [&::-webkit-scrollbar]:hidden"
+      className="no-scrollbar flex gap-2 overflow-x-auto *:shrink-0 max-sm:-mx-2 max-sm:px-2 sm:flex-wrap"
       role="group"
     >
       {metrics.map((metric) => (

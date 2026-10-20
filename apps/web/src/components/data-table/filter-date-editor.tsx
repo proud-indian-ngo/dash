@@ -51,6 +51,7 @@ function FilterDateRangeEditor({
       <Calendar
         mode="range"
         onSelect={handleSelect}
+        resetOnSelect
         selected={toRange(value)}
       />
     </div>

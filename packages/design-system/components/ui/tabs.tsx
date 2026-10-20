@@ -28,7 +28,7 @@ const tabsListVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-muted max-w-full justify-center-safe overflow-x-auto scroll-fade-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        default: "bg-muted max-w-full justify-center-safe overflow-x-auto scroll-fade-x no-scrollbar",
         line: "gap-1 bg-transparent",
       },
     },

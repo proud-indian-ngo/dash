@@ -134,6 +134,7 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
             <LazyCalendar
               mode="range"
               onSelect={handleCustomRangeSelect}
+              resetOnSelect
               selected={customRange}
             />
           </Suspense>
