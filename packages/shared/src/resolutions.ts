@@ -19,6 +19,11 @@ import {
   trusteeOfficeValues,
   trusteeTermBasisValues,
 } from "./governance";
+import {
+  plainTextToRichText,
+  richTextSchema,
+  serializeRichText,
+} from "./rich-text";
 
 export const resolutionStatusValues = [
   "draft",
@@ -120,7 +125,7 @@ export interface ResolutionTemplate {
   description: string;
   effect: ResolutionEffectType;
   key: ResolutionTemplateKey;
-  /** Starting text; the drafter edits it. */
+  /** Starting text, as plain text; `templateBody` makes it rich text. */
   text: string;
   /** Fixed threshold; null uses the deed's (amendment) or a simple majority. */
   threshold: ResolutionThreshold | "deed_amendment";
@@ -631,7 +636,20 @@ export const ANNUAL_PACK_TEMPLATES: Readonly<
 export const RESOLUTION_TITLE_MAX = 200;
 /** Resolutions one circular can carry. */
 export const CIRCULAR_RESOLUTIONS_MAX = 10;
+/** Most plain text a resolution's body may hold. */
 export const RESOLUTION_TEXT_MAX = 20_000;
+/** Most serialized rich text stored for a body: room for the JSON around the text. */
+export const RESOLUTION_BODY_MAX = 200_000;
+/** A resolution's body as submitted: rich text, stored canonical. */
+export const resolutionBodySchema = richTextSchema({
+  maxChars: RESOLUTION_TEXT_MAX,
+  maxLength: RESOLUTION_BODY_MAX,
+});
+
+/** A template's starting text as a stored body. */
+export function templateBody(key: ResolutionTemplateKey): string {
+  return serializeRichText(plainTextToRichText(RESOLUTION_TEMPLATES[key].text));
+}
 export const OBJECTION_REASON_MAX = 1000;
 /** Default days between issue and the response date. */
 export const DEFAULT_RESPONSE_DAYS = 7;
