@@ -26,34 +26,40 @@ const POLL_LIMIT_MS = 15 * 60 * 1000;
 /**
  * Opens a `pidash-sign://` link and waits for the helper to finish the
  * job, polling its status. Resolves with the job's outcome, or null once
- * the page is left: the job may still finish, so nothing is reported, not
- * even an error, and a link that arrives after it isn't opened.
+ * the page is left or shows another document (the router keeps this
+ * component when only the ID changes): the job may still finish, so
+ * nothing is reported, not even an error, and a link that arrives after
+ * it isn't opened.
  */
-function useHelperJob() {
+function useHelperJob(targetKey: string) {
   const poll = useServerFn(getSigningJobStatus);
-  const cancelled = useRef(false);
-  useEffect(() => {
-    // StrictMode mounts twice in development; reset after its first cleanup.
-    cancelled.current = false;
-    return () => {
-      cancelled.current = true;
-    };
-  }, []);
+  // Each wait remembers the run it started in; leaving or moving to
+  // another document starts a new one, so the old wait goes quiet.
+  const run = useRef(0);
+  useEffect(
+    () => () => {
+      run.current += 1;
+    },
+    [targetKey]
+  );
   const follow = useEventCallback(
-    async (start: () => Promise<{ jobId: string; link: string }>) => {
+    async (
+      start: () => Promise<{ jobId: string; link: string }>,
+      stale: () => boolean
+    ) => {
       const { jobId, link } = await start();
-      if (cancelled.current) {
+      if (stale()) {
         return null;
       }
       window.location.href = link;
       const started = Date.now();
       while (Date.now() - started < POLL_LIMIT_MS) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-        if (cancelled.current) {
+        if (stale()) {
           return null;
         }
         const status = await poll({ data: { jobId } });
-        if (cancelled.current) {
+        if (stale()) {
           return null;
         }
         if (status.status !== "pending") {
@@ -67,13 +73,16 @@ function useHelperJob() {
     }
   );
   return useEventCallback(
-    (start: () => Promise<{ jobId: string; link: string }>) =>
-      follow(start).catch((error: unknown) => {
-        if (cancelled.current) {
+    (start: () => Promise<{ jobId: string; link: string }>) => {
+      const mine = run.current;
+      const stale = () => run.current !== mine;
+      return follow(start, stale).catch((error: unknown) => {
+        if (stale()) {
           return null;
         }
         throw error;
-      })
+      });
+    }
   );
 }
 
@@ -93,7 +102,7 @@ export function DscSignSection({
   const enrol = useServerFn(startDscEnrolmentFn);
   const signCircular = useServerFn(startDscSigningFn);
   const signMinutes = useServerFn(startDscMinutesSigningFn);
-  const runJob = useHelperJob();
+  const runJob = useHelperJob(JSON.stringify(target));
   const [status, setStatus] = useState<DscStatus | null>(null);
   const [busy, setBusy] = useState<"enrol" | "sign" | null>(null);
 
