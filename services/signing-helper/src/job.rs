@@ -104,7 +104,7 @@ pub fn run_link(link: &str) -> Result<()> {
     let prompt = if job.kind == "enrol" {
         format!("Register the DSC on this token for {} in pi-dash.", job.signer)
     } else {
-        format!("Sign \"{}\" as {}.", job.title, job.signer)
+        format!("Sign \u{201C}{}\u{201D} as {}.", job.title, job.signer)
     };
     let Some(pin) = ui::ask_pin(&prompt) else {
         return Err("Signing cancelled.".into());

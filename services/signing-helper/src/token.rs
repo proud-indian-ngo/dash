@@ -2,6 +2,7 @@
 //! dropped; nothing from the token is written to disk.
 
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use cryptoki::context::{CInitializeArgs, Pkcs11};
 use cryptoki::mechanism::Mechanism;
@@ -53,12 +54,21 @@ impl Token {
         pkcs11
             .initialize(CInitializeArgs::OsThreads)
             .map_err(|e| err("Couldn't start the token driver", e))?;
-        let slot = pkcs11
-            .get_slots_with_token()
-            .map_err(|e| err("Couldn't list tokens", e))?
-            .into_iter()
-            .next()
-            .ok_or_else(|| TokenError("No DSC token is plugged in.".into()))?;
+        // The HyperSecu driver finds the token a second or two after
+        // initialising, so an empty slot list right away doesn't mean no token.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let slot = loop {
+            let slots = pkcs11
+                .get_slots_with_token()
+                .map_err(|e| err("Couldn't list tokens", e))?;
+            if let Some(slot) = slots.into_iter().next() {
+                break slot;
+            }
+            if Instant::now() >= deadline {
+                return Err(TokenError("No DSC token is plugged in.".into()));
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        };
         let session = pkcs11
             .open_ro_session(slot)
             .map_err(|e| err("Couldn't open the token", e))?;
