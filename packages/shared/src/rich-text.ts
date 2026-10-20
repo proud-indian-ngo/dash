@@ -54,8 +54,14 @@ export type RichTextValue = RichTextBlock[];
 export class RichTextError extends Error {}
 
 const MARKS = ["bold", "italic", "underline"] as const;
-/** Deepest list nesting kept; the editor has no reason to go further. */
-const MAX_LIST_DEPTH = 6;
+/** Deepest list nesting kept; the editor moves deeper items up. */
+export const MAX_LIST_DEPTH = 6;
+/**
+ * Most columns a table may have. The A4 text column is about 500pt; eight
+ * columns leave each at least 31pt (`columnWidths` in the PDF), room for a
+ * short word or an amount at the 9.5pt table type.
+ */
+export const MAX_TABLE_COLUMNS = 8;
 
 function isRecord(node: unknown): node is Record<string, unknown> {
   return typeof node === "object" && node !== null && !Array.isArray(node);
@@ -163,6 +169,11 @@ function table(node: Record<string, unknown>): RichTextTable {
   if (rows.some((row) => row.children.length !== columns)) {
     throw new RichTextError("Every row of a table needs the same cells.");
   }
+  if (columns > MAX_TABLE_COLUMNS) {
+    throw new RichTextError(
+      `A table has at most ${String(MAX_TABLE_COLUMNS)} columns.`
+    );
+  }
   return { children: rows, type: "table" };
 }
 
@@ -238,30 +249,49 @@ function alpha(n: number): string {
   return out;
 }
 
+const ORDERED_LIST_STYLES = ["decimal", "lower-alpha", "lower-roman"] as const;
+
 /**
- * A numbered list item's number, by nesting as in a deed: 1, then a, then
- * i, then again from 1. `depth` and `index` count from 0.
+ * How a numbered list counts, as in a deed: 1, then a, then i, then again
+ * from 1. `depth` is how many numbered lists it sits in (bulleted ones don't
+ * count), from 0. The editor, the pages, the PDF and plain text all use it.
  */
+export function orderedListStyle(
+  depth: number
+): (typeof ORDERED_LIST_STYLES)[number] {
+  return ORDERED_LIST_STYLES[depth % 3] ?? "decimal";
+}
+
+/** A numbered list item's number; `index` counts from 0. */
 export function listNumber(depth: number, index: number): string {
   const n = index + 1;
-  switch (depth % 3) {
-    case 1:
+  switch (orderedListStyle(depth)) {
+    case "lower-alpha":
       return alpha(n);
-    case 2:
+    case "lower-roman":
       return roman(n);
     default:
       return String(n);
   }
 }
 
-function listLines(node: RichTextList, depth: number): string[] {
-  const indent = "  ".repeat(depth);
+/** `indent` is the list nesting; `numbered` the numbered lists it sits in. */
+function listLines(
+  node: RichTextList,
+  indent: number,
+  numbered: number
+): string[] {
+  const pad = "  ".repeat(indent);
   return node.children.flatMap((item, index) => {
-    const marker = node.type === "ol" ? `${listNumber(depth, index)}.` : "-";
+    const marker = node.type === "ol" ? `${listNumber(numbered, index)}.` : "-";
     return item.children.flatMap((child) =>
       child.type === "lic"
-        ? [`${indent}${marker} ${inlineText(child)}`]
-        : listLines(child, depth + 1)
+        ? [`${pad}${marker} ${inlineText(child)}`]
+        : listLines(
+            child,
+            indent + 1,
+            node.type === "ol" ? numbered + 1 : numbered
+          )
     );
   });
 }
@@ -272,7 +302,7 @@ function blockText(node: RichTextBlock): string {
       return inlineText(node);
     case "ul":
     case "ol":
-      return listLines(node, 0).join("\n");
+      return listLines(node, 0, 0).join("\n");
     case "table":
       return node.children
         .map((row) =>
@@ -300,20 +330,51 @@ export function richTextToPlain(value: RichTextValue): string {
     .join("\n\n");
 }
 
-/** `richTextToPlain` of stored JSON. */
-export function richTextJsonToPlain(json: string): string {
-  return richTextToPlain(parseRichText(json));
+function blockHasText(
+  node: RichTextBlock | RichTextListItem["children"][number]
+): boolean {
+  switch (node.type) {
+    case "p":
+    case "lic":
+      return node.children.some((l) => l.text.trim() !== "");
+    case "ul":
+    case "ol":
+      return node.children.some((item) => item.children.some(blockHasText));
+    case "table":
+      return node.children.some((row) =>
+        row.children.some((c) => c.children.some(blockHasText))
+      );
+    default:
+      return false;
+  }
 }
+
+/**
+ * Whether there is any text at all: empty lists and tables have none,
+ * though their plain text has markers.
+ */
+export function richTextHasText(value: RichTextValue): boolean {
+  return value.some(blockHasText);
+}
+
+/**
+ * ASCII whitespace only, as migration 0176 matches it in SQL: JavaScript's
+ * `\s` and `trim()` also take NBSP and BOM, which PostgreSQL's don't.
+ */
+const PARAGRAPH_BREAK = /\n[ \t\n\r\f\v]*\n/;
+const LINE_BREAK = /[ \t\n\r\f\v]*\n[ \t\n\r\f\v]*/g;
+const EDGE_SPACE = /^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g;
 
 /**
  * Plain text as rich text: a paragraph per blank-line-separated block, with
  * single line breaks joined by a space, as the circular PDF printed plain
- * text. Empty text is one empty paragraph.
+ * text. Empty text is one empty paragraph. Migration 0176 does the same in
+ * SQL; `rich-text-migration.db.test.ts` keeps them equal.
  */
 export function plainTextToRichText(text: string): RichTextValue {
   const paragraphs = text
-    .split(/\n\s*\n/)
-    .map((p) => p.replace(/\s*\n\s*/g, " ").trim())
+    .split(PARAGRAPH_BREAK)
+    .map((p) => p.replace(LINE_BREAK, " ").replace(EDGE_SPACE, ""))
     .filter(Boolean);
   if (paragraphs.length === 0) {
     return [{ children: [{ text: "" }], type: "p" }];

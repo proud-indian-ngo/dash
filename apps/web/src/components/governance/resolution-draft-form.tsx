@@ -7,13 +7,13 @@ import {
 import {
   RESOLUTION_EFFECT_VALUES,
   RESOLUTION_TEMPLATES,
-  resolutionBodySchema,
+  bodyUntouched,
+  resolutionBodyProblem,
   type ResolutionEffect,
   type ResolutionTemplateKey,
   resolutionTemplateKeyValues,
   templateBody,
 } from "@pi-dash/shared/resolutions";
-import { richTextJsonToPlain } from "@pi-dash/shared/rich-text";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
@@ -220,11 +220,7 @@ export function ResolutionDraftForm({
         const key = formApi.getFieldValue("templateKey");
         const next = RESOLUTION_TEMPLATES[key];
         lastTemplate.current = key;
-        const text = richTextJsonToPlain(formApi.getFieldValue("body"));
-        if (
-          !text.trim() ||
-          text === richTextJsonToPlain(templateBody(previousKey))
-        ) {
+        if (bodyUntouched(formApi.getFieldValue("body"), previousKey)) {
           formApi.setFieldValue("body", templateBody(key));
         }
         const title = formApi.getFieldValue("title");
@@ -239,13 +235,8 @@ export function ResolutionDraftForm({
         toast.error(result.problem);
         return;
       }
-      const body = resolutionBodySchema.safeParse(value.body);
-      if (!body.success) {
-        toast.error(body.error.issues[0]?.message ?? "Check the text.");
-        return;
-      }
       const args = {
-        body: body.data,
+        body: value.body,
         effect: result.effect,
         id: draftId,
         templateKey: value.templateKey,
@@ -333,6 +324,10 @@ export function ResolutionDraftForm({
                 isRequired
                 label="Text"
                 name="body"
+                validators={{
+                  onChange: ({ value }) => resolutionBodyProblem(value),
+                  onSubmit: ({ value }) => resolutionBodyProblem(value),
+                }}
               />
               {template.effect === "none" ? null : (
                 <>

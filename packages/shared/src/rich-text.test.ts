@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bodyUntouched,
   RESOLUTION_TEXT_MAX,
+  resolutionBodyProblem,
   resolutionBodySchema,
   templateBody,
 } from "./resolutions";
 import {
   listNumber,
+  MAX_TABLE_COLUMNS,
   parseRichText,
   plainTextToRichText,
   RichTextError,
-  richTextJsonToPlain,
+  richTextHasText,
   richTextToPlain,
   type RichTextValue,
 } from "./rich-text";
@@ -107,6 +110,28 @@ describe("parseRichText", () => {
     ]);
   });
 
+  it("refuses a table wider than the column cap", () => {
+    const wide = (n: number) =>
+      JSON.stringify([
+        {
+          children: [
+            {
+              children: Array.from({ length: n }, () => ({
+                children: [p("x")],
+                type: "td",
+              })),
+              type: "tr",
+            },
+          ],
+          type: "table",
+        },
+      ]);
+    expect(() => parseRichText(wide(MAX_TABLE_COLUMNS))).not.toThrow();
+    expect(() => parseRichText(wide(MAX_TABLE_COLUMNS + 1))).toThrow(
+      "A table has at most 8 columns."
+    );
+  });
+
   it.each([
     ["a heading", [{ children: [{ text: "x" }], type: "h1" }]],
     [
@@ -196,8 +221,82 @@ describe("richTextToPlain", () => {
   });
 
   it("skips empty paragraphs", () => {
-    expect(richTextJsonToPlain(JSON.stringify([p(""), p("a"), p(" ")]))).toBe(
-      "a"
+    expect(
+      richTextToPlain(parseRichText(JSON.stringify([p(""), p("a"), p(" ")])))
+    ).toBe("a");
+  });
+
+  it("numbers by the numbered lists an item sits in", () => {
+    const li = (text: string, nested?: unknown) => ({
+      children: [
+        { children: [{ text }], type: "lic" },
+        ...(nested ? [nested] : []),
+      ],
+      type: "li",
+    });
+    const value = parseRichText(
+      JSON.stringify([
+        {
+          children: [li("bullet", { children: [li("ulol")], type: "ol" })],
+          type: "ul",
+        },
+        {
+          children: [
+            li("outer", {
+              children: [li("middle", { children: [li("inner")], type: "ol" })],
+              type: "ul",
+            }),
+          ],
+          type: "ol",
+        },
+      ])
+    );
+    expect(richTextToPlain(value)).toBe(
+      "- bullet\n  1. ulol\n\n1. outer\n  - middle\n    a. inner"
+    );
+  });
+});
+
+describe("richTextHasText", () => {
+  const emptyList = {
+    children: [
+      { children: [{ children: [{ text: " " }], type: "lic" }], type: "li" },
+    ],
+    type: "ul",
+  };
+  const emptyTable = {
+    children: [
+      {
+        children: [
+          { children: [p("")], type: "td" },
+          { children: [p("")], type: "td" },
+        ],
+        type: "tr",
+      },
+    ],
+    type: "table",
+  };
+
+  it("finds no text in empty lists and tables, though their plain text has markers", () => {
+    const value = parseRichText(JSON.stringify([p(""), emptyList, emptyTable]));
+    expect(richTextToPlain(value)).not.toBe("");
+    expect(richTextHasText(value)).toBe(false);
+  });
+
+  it("finds text in a list item or a cell", () => {
+    expect(
+      richTextHasText(parseRichText(JSON.stringify([emptyTable, p("x")])))
+    ).toBe(true);
+    expect(richTextHasText(sample as RichTextValue)).toBe(true);
+  });
+
+  it("makes a required body refuse an empty list", () => {
+    expect(resolutionBodyProblem(JSON.stringify([emptyList]))).toBe(
+      "Write the resolution's text."
+    );
+    expect(resolutionBodyProblem(JSON.stringify(sample))).toBeUndefined();
+    expect(resolutionBodyProblem("not json")).toBe(
+      "The text isn't in the expected format."
     );
   });
 });
@@ -211,12 +310,51 @@ describe("plainTextToRichText", () => {
     ).toEqual([p("First line continues."), p("Second."), p("Third")]);
   });
 
+  it("treats only ASCII whitespace as space, as migration 0176 does", () => {
+    expect(plainTextToRichText("first\n \nsecond")).toEqual([
+      p("first"),
+      p("second"),
+    ]);
+    // A line of NBSP isn't blank, and NBSP and BOM aren't trimmed.
+    expect(plainTextToRichText("\u00A0a\u00A0\n\u00A0\nb\uFEFF")).toEqual([
+      p("\u00A0a\u00A0 \u00A0 b\uFEFF"),
+    ]);
+  });
+
   it("makes empty text one empty paragraph", () => {
     expect(plainTextToRichText(" \n\n ")).toEqual([p("")]);
   });
 
   it("seeds a template as paragraphs", () => {
     expect(JSON.parse(templateBody("accounts_approval"))).toHaveLength(2);
+  });
+});
+
+describe("bodyUntouched", () => {
+  it("is true for the template's own text or an empty body", () => {
+    expect(
+      bodyUntouched(templateBody("budget_approval"), "budget_approval")
+    ).toBe(true);
+    expect(bodyUntouched(JSON.stringify([p("")]), "budget_approval")).toBe(
+      true
+    );
+  });
+
+  it("is false once the formatting changes, even with the same words", () => {
+    const [first] = JSON.parse(templateBody("budget_approval"));
+    const bolded = [
+      { ...first, children: [{ ...first.children[0], bold: true }] },
+    ];
+    expect(bodyUntouched(JSON.stringify(bolded), "budget_approval")).toBe(
+      false
+    );
+  });
+
+  it("is false for another template's text or invalid JSON", () => {
+    expect(bodyUntouched(templateBody("ordinary"), "budget_approval")).toBe(
+      false
+    );
+    expect(bodyUntouched("{", "budget_approval")).toBe(false);
   });
 });
 

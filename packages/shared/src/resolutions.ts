@@ -20,8 +20,11 @@ import {
   trusteeTermBasisValues,
 } from "./governance";
 import {
+  parseRichText,
   plainTextToRichText,
+  richTextHasText,
   richTextSchema,
+  type RichTextValue,
   serializeRichText,
 } from "./rich-text";
 
@@ -646,9 +649,42 @@ export const resolutionBodySchema = richTextSchema({
   maxLength: RESOLUTION_BODY_MAX,
 });
 
+/**
+ * Why a body can't be saved, or undefined: it fails `resolutionBodySchema`,
+ * or has no text (empty lists and tables don't count).
+ */
+export function resolutionBodyProblem(json: string): string | undefined {
+  const parsed = resolutionBodySchema.safeParse(json);
+  if (!parsed.success) {
+    return parsed.error.issues[0]?.message ?? "Check the text.";
+  }
+  return richTextHasText(parseRichText(parsed.data))
+    ? undefined
+    : "Write the resolution's text.";
+}
+
 /** A template's starting text as a stored body. */
 export function templateBody(key: ResolutionTemplateKey): string {
   return serializeRichText(plainTextToRichText(RESOLUTION_TEMPLATES[key].text));
+}
+
+/**
+ * Whether a body is still the template's starting text, formatting and all,
+ * or has no text, so switching template may replace it.
+ */
+export function bodyUntouched(
+  json: string,
+  key: ResolutionTemplateKey
+): boolean {
+  let value: RichTextValue;
+  try {
+    value = parseRichText(json);
+  } catch {
+    return false;
+  }
+  return (
+    !richTextHasText(value) || serializeRichText(value) === templateBody(key)
+  );
 }
 export const OBJECTION_REASON_MAX = 1000;
 /** Default days between issue and the response date. */

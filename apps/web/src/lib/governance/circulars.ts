@@ -28,7 +28,7 @@ import {
   VOTE_REAUTH_MESSAGE,
   VOTE_SESSION_MAX_AGE_MS,
 } from "@pi-dash/shared/resolutions";
-import { richTextJsonToPlain } from "@pi-dash/shared/rich-text";
+import { parseRichText, richTextHasText } from "@pi-dash/shared/rich-text";
 
 import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
 
@@ -174,7 +174,7 @@ export function planIssue(input: {
     if (draft.kind !== "circular") {
       throw about("It's on a meeting's agenda and is decided there.");
     }
-    if (!richTextJsonToPlain(draft.body).trim()) {
+    if (!richTextHasText(parseRichText(draft.body))) {
       throw about("Write the resolution's text before issuing it.");
     }
     const template = RESOLUTION_TEMPLATES[draft.templateKey];

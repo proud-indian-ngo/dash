@@ -26,9 +26,12 @@
 
 A resolution's text is rich text, written in the rich text editor (`@pi-dash/editor/rich-text-editor`, see [editor](editor.md)) for circular drafts and agenda resolutions alike: paragraphs, bold, italic, underline, numbered and bulleted lists, nested, and simple tables with a header row.
 
-- `resolution.body` holds the Plate JSON. Every write passes `resolutionBodySchema`, which parses it with `@pi-dash/shared/rich-text`, refuses any other node or mark type, merged cells and ragged rows, allows 20,000 characters of plain text in 200,000 of JSON, and stores the canonical form (types, children and marks only).
-- A template's text is plain and seeds the editor as paragraphs (`templateBody`). Switching template replaces the text only while it is empty or still the old template's.
-- Pages show the text read-only through the same preset. Checks and anything else that needs plain text (an empty text refused at issue or notice) use `richTextToPlain`: paragraphs apart by a blank line, list items on lines with "1." or "-", table cells apart by " | ".
+- `resolution.body` holds the Plate JSON. Every write passes `resolutionBodySchema`, which parses it with `@pi-dash/shared/rich-text`, refuses any other node or mark type, merged cells, ragged rows, tables wider than eight columns and lists deeper than six levels, allows 20,000 characters of plain text in 200,000 of JSON, and stores the canonical form (types, children and marks only).
+- The draft form refuses a body without text (`resolutionBodyProblem`), and so do issue and notice (`richTextHasText`): empty lists and tables don't count.
+- A template's text is plain and seeds the editor as paragraphs (`templateBody`). Switching template replaces the text only while it has no text or is still the old template's exactly, formatting included (`bodyUntouched`).
+- Pages show the text read-only through the same preset. Anything that needs plain text uses `richTextToPlain`: paragraphs apart by a blank line, list items on lines with their marker, table cells apart by " | ".
+- A numbered list counts 1, then a, then i by the numbered lists it sits in, bulleted ones not counting (`orderedListStyle`). The editor, the pages, the PDF and plain text share that rule.
+- Migration 0176 turned the plain-text bodies into paragraphs in SQL with the same rule as `plainTextToRichText`, ASCII whitespace only; `rich-text-migration.db.test.ts` checks they agree.
 - The circular and the minutes draw it with `packages/pdf/src/rich-text.tsx` (see [PDF](pdf.md#rich-text)).
 
 ## Signatures
