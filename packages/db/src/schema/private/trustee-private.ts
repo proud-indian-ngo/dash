@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "../auth";
+import { conflictDeclaration } from "../declarations";
 import { circular, signingCertificate, trustee } from "../governance";
 import { meeting } from "../meetings";
 import { privateSchema } from "./party-private";
@@ -57,7 +58,8 @@ export const signingJobStatusEnum = privateSchema.enum("signing_job_status", [
 /**
  * One `pidash-sign://` link: the helper fetches it with the one-time token
  * (only its hash is kept), signs on the trustee's token and posts back.
- * Expires in 15 minutes. A sign job signs a circular or a meeting's minutes.
+ * Expires in 15 minutes. A sign job signs a circular, a meeting's minutes
+ * or a declaration of interests.
  * Server only: it holds the signing state's key.
  */
 export const signingJob = privateSchema.table(
@@ -74,6 +76,10 @@ export const signingJob = privateSchema.table(
     }),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").notNull(),
+    declarationId: uuid("declaration_id").references(
+      () => conflictDeclaration.id,
+      { onDelete: "restrict" }
+    ),
     /** A message for the person, when it failed. */
     error: text("error"),
     expiresAt: timestamp("expires_at").notNull(),
@@ -101,7 +107,7 @@ export const signingJob = privateSchema.table(
     index("signing_job_user_idx").on(t.userId, t.createdAt),
     check(
       "signing_job_target_check",
-      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}) = 1`
+      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}, ${t.declarationId}) = 1`
     ),
   ]
 );

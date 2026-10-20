@@ -1,8 +1,9 @@
 import {
   type DeclaredInterest,
+  declarationStatusValues,
   policyAudienceValues,
 } from "@pi-dash/shared/declarations";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -25,7 +26,16 @@ import { jsonb } from "./jsonb";
  * Rules in packages/shared/src/declarations.ts.
  */
 
-/** A trustee's declaration for one financial year; declaring again replaces it. */
+export const conflictDeclarationStatusEnum = pgEnum(
+  "conflict_declaration_status",
+  declarationStatusValues
+);
+
+/**
+ * A trustee's declaration for one financial year. It counts once they sign
+ * it with their DSC, and the last signed one counts; declaring again
+ * replaces the one waiting for their signature.
+ */
 export const conflictDeclaration = pgTable(
   "conflict_declaration",
   {
@@ -34,7 +44,7 @@ export const conflictDeclaration = pgTable(
     declaredBy: text("declared_by").references(() => user.id, {
       onDelete: "set null",
     }),
-    /** The generated PDF in the vault. */
+    /** The signed PDF in the vault. */
     documentId: uuid("document_id").references(() => governanceDocument.id, {
       onDelete: "restrict",
     }),
@@ -43,16 +53,24 @@ export const conflictDeclaration = pgTable(
     id: uuid("id").primaryKey(),
     interests: jsonb("interests").$type<DeclaredInterest[]>().notNull(),
     nothingToDeclare: boolean("nothing_to_declare").notNull(),
+    /** R2 key of the generated PDF the trustee signs. */
+    objectKey: text("object_key"),
+    /** Of the generated PDF, so a signature is accepted only on that copy. */
+    sha256: text("sha256"),
+    status: conflictDeclarationStatusEnum("status").notNull(),
     trusteeId: uuid("trustee_id")
       .notNull()
       .references(() => trustee.id, { onDelete: "restrict" }),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (t) => [
-    uniqueIndex("conflict_declaration_trustee_year_uidx").on(
+    index("conflict_declaration_trustee_year_idx").on(
       t.trusteeId,
       t.fiscalYear
     ),
+    uniqueIndex("conflict_declaration_awaiting_uidx")
+      .on(t.trusteeId, t.fiscalYear)
+      .where(sql`${t.status} = 'awaiting_signature'`),
   ]
 );
 

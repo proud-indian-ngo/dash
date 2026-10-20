@@ -12,6 +12,12 @@ import {
   setSignedMinutes,
 } from "@pi-dash/db/queries/meetings";
 import {
+  DeclarationError,
+  getConflictDeclaration,
+  lockConflictDeclaration,
+  setSignedDeclaration,
+} from "@pi-dash/db/queries/policies";
+import {
   circularResolutions,
   currentRevision,
   type Decision,
@@ -38,6 +44,9 @@ import { finalizeForArchive, validateSignedPdf } from "./signing-service";
 
 export const meetingKey = (meetingId: string, name: string) =>
   `${env.R2_KEY_PREFIX}/governance/meetings/${meetingId}/${name}`;
+
+export const declarationKey = (trusteeId: string, name: string) =>
+  `${env.R2_KEY_PREFIX}/governance/declarations/${trusteeId}/${name}`;
 
 /** Days between the archive copy's document timestamps. */
 const ARCHIVE_RENEW_DAYS = 365;
@@ -162,6 +171,47 @@ export async function acceptSignedPdf(input: {
 }
 
 /**
+ * Checks that `uploaded` is `current` with exactly the trustee's signature
+ * added in their field, by them by name and, for the helper, from their
+ * enrolled certificate. Returns the upload's validation report.
+ */
+async function checkOneSignerAdded(input: {
+  current: Uint8Array;
+  expectedCertificateSha256?: string;
+  trusteeId: string;
+  uploaded: Uint8Array;
+}) {
+  const { current, trusteeId, uploaded } = input;
+  const [report, currentReport, names] = await Promise.all([
+    validateSignedPdf(uploaded, current.byteLength),
+    validateSignedPdf(current),
+    trusteeNamesForMatching(),
+  ]);
+  const signature = checkSignedUpload({
+    current,
+    fieldName: signatureFieldName(trusteeId),
+    report,
+    signedBefore: currentReport.signatures.length,
+    textFieldsBefore: currentReport.textFields ?? {},
+    trustee: {
+      id: trusteeId,
+      names: names.find((n) => n.id === trusteeId)?.names ?? [],
+    },
+    uploaded,
+  });
+  if (
+    input.expectedCertificateSha256 &&
+    signature.sha256Fingerprint.toLowerCase() !==
+      input.expectedCertificateSha256.toLowerCase()
+  ) {
+    throw new CircularError(
+      "The signature isn't from the certificate enrolled for you."
+    );
+  }
+  return report;
+}
+
+/**
  * Takes the minutes the chair signed (uploaded from Acrobat, or finished by
  * the signing service for the helper): the generated copy with exactly the
  * chair's signature added. Files them in the vault, makes them the evidence
@@ -186,37 +236,13 @@ export async function acceptSignedMinutes(input: {
   if (!(row.minutesObjectKey && row.chairTrusteeId)) {
     throw new MeetingError("Generate the minutes first.");
   }
-  const chairId = row.chairTrusteeId;
   const s3 = await getS3();
-  const current = new Uint8Array(
-    await s3.file(row.minutesObjectKey).arrayBuffer()
-  );
-  const [report, currentReport, names] = await Promise.all([
-    validateSignedPdf(uploaded, current.byteLength),
-    validateSignedPdf(current),
-    trusteeNamesForMatching(),
-  ]);
-  const signature = checkSignedUpload({
-    current,
-    fieldName: signatureFieldName(chairId),
-    report,
-    signedBefore: currentReport.signatures.length,
-    textFieldsBefore: currentReport.textFields ?? {},
-    trustee: {
-      id: chairId,
-      names: names.find((n) => n.id === chairId)?.names ?? [],
-    },
+  const report = await checkOneSignerAdded({
+    current: new Uint8Array(await s3.file(row.minutesObjectKey).arrayBuffer()),
+    expectedCertificateSha256: input.expectedCertificateSha256,
+    trusteeId: row.chairTrusteeId,
     uploaded,
   });
-  if (
-    input.expectedCertificateSha256 &&
-    signature.sha256Fingerprint.toLowerCase() !==
-      input.expectedCertificateSha256.toLowerCase()
-  ) {
-    throw new CircularError(
-      "The signature isn't from the certificate enrolled for you."
-    );
-  }
   const sha256 = sha256Of(uploaded);
   // Stored by content, so a submission that loses the race below never
   // replaces the accepted copy.
@@ -272,6 +298,94 @@ export async function acceptSignedMinutes(input: {
     bytes: uploaded,
     documentId,
     log: { meetingId: row.id },
+    objectKey,
+  });
+  return documentId;
+}
+
+/**
+ * Takes a declaration of interests its trustee signed (uploaded from
+ * Acrobat, or finished by the signing service for the helper): the
+ * generated copy with exactly their signature added. Files it in the vault
+ * as the declaration's document, which puts it in force, and starts the
+ * long-term copy.
+ */
+export async function acceptSignedDeclaration(input: {
+  declarationId: string;
+  /** For the helper: the enrolled certificate the signature must come from. */
+  expectedCertificateSha256?: string;
+  uploaded: Uint8Array;
+  userId: string;
+}): Promise<string> {
+  const { uploaded } = input;
+  const row = await getConflictDeclaration(input.declarationId);
+  if (!row) {
+    throw new DeclarationError("Declaration not found");
+  }
+  if (!(row.status === "awaiting_signature" && row.objectKey)) {
+    throw new DeclarationError("This declaration is already signed.");
+  }
+  const s3 = await getS3();
+  const report = await checkOneSignerAdded({
+    current: new Uint8Array(await s3.file(row.objectKey).arrayBuffer()),
+    expectedCertificateSha256: input.expectedCertificateSha256,
+    trusteeId: row.trusteeId,
+    uploaded,
+  });
+  const sha256 = sha256Of(uploaded);
+  // Stored by content, so a submission that loses the race below never
+  // replaces the accepted copy.
+  const objectKey = declarationKey(
+    row.trusteeId,
+    `${row.fiscalYear}-signed-${sha256.slice(0, 16)}.pdf`
+  );
+  await s3.write(objectKey, uploaded, { type: "application/pdf" });
+  const today = todayInKolkata();
+  // One submission is accepted, against the copy it was checked against.
+  const documentId = await db.transaction(async (tx) => {
+    const locked = await lockConflictDeclaration(tx, row.id);
+    if (locked?.status !== "awaiting_signature") {
+      throw new DeclarationError("This declaration is already signed.");
+    }
+    if (locked.sha256 !== row.sha256) {
+      throw new DeclarationError(
+        "You declared again meanwhile. Sign the new copy."
+      );
+    }
+    const id =
+      (await findGovernanceDocumentBySha256(sha256, tx))?.id ??
+      (await insertGovernanceDocument(
+        {
+          contentType: "application/pdf",
+          datedOn: today,
+          kind: "declaration",
+          note: `Signed by ${row.legalName} with their DSC.`,
+          objectKey,
+          originalFilename: `declaration-${row.fiscalYear}.pdf`,
+          sha256,
+          sizeBytes: uploaded.byteLength,
+          sourceFormat: "signed_pdf",
+          title:
+            `Declaration of interests ${row.fiscalYear}: ${row.legalName}`.slice(
+              0,
+              DOCUMENT_TITLE_MAX
+            ),
+          uploadedBy: input.userId,
+          validationReport: report,
+        },
+        tx
+      ));
+    await setSignedDeclaration(tx, row.id, id);
+    return id;
+  });
+  await fileArchiveCopy({
+    archiveKey: declarationKey(
+      row.trusteeId,
+      `${row.fiscalYear}-${sha256.slice(0, 16)}-ltv.pdf`
+    ),
+    bytes: uploaded,
+    documentId,
+    log: { declarationId: row.id },
     objectKey,
   });
   return documentId;

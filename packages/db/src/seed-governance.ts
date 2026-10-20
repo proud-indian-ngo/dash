@@ -418,6 +418,7 @@ export async function ensureDevPolicyExamples(
       id: "01930000-0000-7000-8000-00000000d521",
       interests: [],
       nothingToDeclare: true,
+      status: "confirmed",
       trusteeId: T.managingTrustee,
       updatedAt: now,
     })
@@ -450,6 +451,7 @@ export async function ensureDeclarationFixture(
         },
       ],
       nothingToDeclare: false,
+      status: "confirmed",
       trusteeId: T.jointManagingTrustee,
       updatedAt: now,
     })

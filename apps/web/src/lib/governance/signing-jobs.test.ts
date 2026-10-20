@@ -18,6 +18,8 @@ let accept: () => Promise<unknown[]> = async () => [];
 const acceptedMinutes: Record<string, unknown>[] = [];
 const created: Record<string, unknown>[] = [];
 let meeting: Record<string, unknown> | null = null;
+const acceptedDeclarations: Record<string, unknown>[] = [];
+let declaration: Record<string, unknown> | null = null;
 const CLAIM = new Date("2026-10-19T10:00:00Z");
 
 mock.module("@pi-dash/db", () => ({
@@ -71,6 +73,10 @@ mock.module("@pi-dash/db/queries/meetings", () => ({
   getMeeting: async () => meeting,
   MeetingError: class MeetingError extends Error {},
 }));
+mock.module("@pi-dash/db/queries/policies", () => ({
+  DeclarationError: class DeclarationError extends Error {},
+  getConflictDeclaration: async () => declaration,
+}));
 mock.module("@pi-dash/db/queries/resolutions", () => ({
   circularResolutions: async () => [{ title: "Operation of bank accounts" }],
 }));
@@ -89,11 +95,16 @@ mock.module("../s3", () => ({
   }),
 }));
 mock.module("./accept-signature", () => ({
+  acceptSignedDeclaration: async (input: Record<string, unknown>) => {
+    acceptedDeclarations.push(input);
+    return "document-2";
+  },
   acceptSignedMinutes: async (input: Record<string, unknown>) => {
     acceptedMinutes.push(input);
     return "document-1";
   },
   acceptSignedPdf: async () => await accept(),
+  declarationKey: (trusteeId: string, name: string) => `${trusteeId}/${name}`,
   meetingKey: (meetingId: string, name: string) => `${meetingId}/${name}`,
   signedMessage: () => "Signed. Your signature is on the circular.",
 }));
@@ -107,8 +118,13 @@ mock.module("./signing-service", () => ({
   }),
 }));
 
-const { certificateFacts, completeJob, describeJob, startMinutesJob } =
-  await import("./signing-jobs");
+const {
+  certificateFacts,
+  completeJob,
+  describeJob,
+  startDeclarationJob,
+  startMinutesJob,
+} = await import("./signing-jobs");
 
 const IN_VALIDITY = new Date("2027-01-01T00:00:00Z");
 
@@ -389,6 +405,126 @@ describe("minutes jobs", () => {
     });
     expect(reply.status).toBe(200);
     expect(acceptedMinutes).toEqual([]);
+    expect(closed).toEqual([
+      { claim: CLAIM, error: "The PIN was cancelled.", id: "job-1" },
+    ]);
+  });
+});
+
+describe("declaration jobs", () => {
+  const sha256 = certificateFacts(ASHA_CERT, [])?.sha256;
+
+  beforeEach(() => {
+    closed.length = 0;
+    acceptedDeclarations.length = 0;
+    created.length = 0;
+    claimTaken = false;
+    ownsClaim = true;
+    settled = null;
+    certificate = { chain: [], der: ASHA_CERT, id: "cert-1", sha256 };
+    declaration = {
+      fiscalYear: "2026-27",
+      id: "declaration-1",
+      objectKey: "declaration.pdf",
+      sha256: "def",
+      status: "awaiting_signature",
+      trusteeId: "asha",
+    };
+    job = {
+      certificateId: "cert-1",
+      circularId: null,
+      createdAt: new Date("2026-10-19T09:55:00Z"),
+      declarationId: "declaration-1",
+      id: "job-1",
+      kind: "sign",
+      legalName: "Asha Rao",
+      meetingId: null,
+      stateObjectKey: "state.json",
+      toSign: "dG8tc2lnbg==",
+      trusteeId: "asha",
+      userId: "user-1",
+    };
+  });
+
+  it("starts a job on the declaration waiting for its trustee's signature", async () => {
+    expect(
+      await startDeclarationJob({
+        declarationId: "declaration-1",
+        trusteeId: "asha",
+        userId: "user-1",
+      })
+    ).toEqual({ id: "job-2", token: "token" });
+    expect(created).toEqual([
+      expect.objectContaining({
+        basedOnSha256: "def",
+        certificateId: "cert-1",
+        declarationId: "declaration-1",
+        kind: "sign",
+        stateObjectKey: expect.stringMatching(/^asha\/sign-state-/),
+        trusteeId: "asha",
+      }),
+    ]);
+  });
+
+  it("refuses another trustee", async () => {
+    await expect(
+      startDeclarationJob({
+        declarationId: "declaration-1",
+        trusteeId: "vikram",
+        userId: "user-2",
+      })
+    ).rejects.toThrow("Only the trustee who declared signs the declaration.");
+    expect(created).toEqual([]);
+  });
+
+  it("refuses a declaration already signed", async () => {
+    declaration = { ...declaration, status: "signed" };
+    await expect(
+      startDeclarationJob({
+        declarationId: "declaration-1",
+        trusteeId: "asha",
+        userId: "user-1",
+      })
+    ).rejects.toThrow("This declaration is already signed.");
+    expect(created).toEqual([]);
+  });
+
+  it("describes the declaration to sign", async () => {
+    expect(await describeJob("t".repeat(43))).toEqual({
+      body: {
+        certificateSha256: sha256,
+        kind: "sign",
+        signer: "Asha Rao",
+        title: "Declaration of interests for 2026-27",
+        toSign: "dG8tc2lnbg==",
+      },
+      status: 200,
+    });
+  });
+
+  it("files the signed declaration through the declaration acceptance", async () => {
+    const reply = await completeJob("t".repeat(43), {
+      certificate: ASHA_CERT,
+      signature: "c2ln",
+    });
+    expect(reply.status).toBe(200);
+    expect(String(reply.body.message)).toContain("declaration");
+    expect(acceptedDeclarations).toEqual([
+      expect.objectContaining({
+        declarationId: "declaration-1",
+        expectedCertificateSha256: sha256,
+        userId: "user-1",
+      }),
+    ]);
+    expect(closed).toEqual([{ claim: CLAIM, id: "job-1", ok: true }]);
+  });
+
+  it("closes the job with the reason the helper gave up", async () => {
+    const reply = await completeJob("t".repeat(43), {
+      failed: "The PIN was cancelled.",
+    });
+    expect(reply.status).toBe(200);
+    expect(acceptedDeclarations).toEqual([]);
     expect(closed).toEqual([
       { claim: CLAIM, error: "The PIN was cancelled.", id: "job-1" },
     ]);

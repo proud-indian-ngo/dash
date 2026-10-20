@@ -16,6 +16,63 @@ export interface DeclaredInterest {
 export const DECLARATION_INTERESTS_MAX = 20;
 export const DECLARATION_FIELD_MAX = 200;
 
+/**
+ * A declaration waits for the trustee's DSC signature and counts once
+ * signed. "confirmed" is one made by a click before signatures were
+ * required; it still counts.
+ */
+export const declarationStatusValues = [
+  "awaiting_signature",
+  "signed",
+  "confirmed",
+] as const;
+export type DeclarationStatus = (typeof declarationStatusValues)[number];
+
+export const DECLARATION_STATUS_LABELS: Record<DeclarationStatus, string> = {
+  awaiting_signature: "Waiting for signature",
+  confirmed: "Confirmed without a signature",
+  signed: "Signed",
+};
+
+interface DeclarationLike {
+  declaredAt: Date | number;
+  id: string;
+  status: DeclarationStatus;
+  trusteeId: string;
+}
+
+/**
+ * Per trustee, from one year's declarations: the one in force (the last
+ * signed, or confirmed) and the one waiting for their signature, if any.
+ */
+export function declarationsByTrustee<T extends DeclarationLike>(
+  rows: readonly T[]
+): Map<string, { awaiting: T | null; inForce: T | null }> {
+  const byTrustee = new Map<
+    string,
+    { awaiting: T | null; inForce: T | null }
+  >();
+  for (const row of rows) {
+    const entry = byTrustee.get(row.trusteeId) ?? {
+      awaiting: null,
+      inForce: null,
+    };
+    if (row.status === "awaiting_signature") {
+      entry.awaiting = row;
+    } else if (!entry.inForce || later(row, entry.inForce)) {
+      entry.inForce = row;
+    }
+    byTrustee.set(row.trusteeId, entry);
+  }
+  return byTrustee;
+}
+
+function later(a: DeclarationLike, b: DeclarationLike): boolean {
+  const at = Number(a.declaredAt);
+  const bt = Number(b.declaredAt);
+  return at === bt ? a.id > b.id : at > bt;
+}
+
 const HONORIFICS =
   /^(m\/s\.?|messrs\.?|mr\.?|mrs\.?|ms\.?|dr\.?|shri\.?|smt\.?|sri\.?)\s+/;
 const COMPANY_SUFFIXES =

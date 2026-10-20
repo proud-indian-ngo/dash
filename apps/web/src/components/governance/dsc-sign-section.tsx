@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   getMyDscStatus,
   getSigningJobStatus,
+  startDscDeclarationSigningFn,
   startDscEnrolmentFn,
   startDscMinutesSigningFn,
   startDscSigningFn,
@@ -86,7 +87,10 @@ function useHelperJob(targetKey: string) {
   );
 }
 
-/** Sign a circular, or as the chair a meeting's minutes, with the DSC helper, or set it up first. */
+/**
+ * Sign a circular, as the chair a meeting's minutes, or your own
+ * declaration of interests with the DSC helper, or set it up first.
+ */
 export function DscSignSection({
   onAvailability,
   onVote,
@@ -96,12 +100,16 @@ export function DscSignSection({
   onAvailability: (available: boolean) => void;
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
-  target: { circularId: string } | { meetingId: string };
+  target:
+    | { circularId: string }
+    | { declarationId: string }
+    | { meetingId: string };
 }) {
   const loadStatus = useServerFn(getMyDscStatus);
   const enrol = useServerFn(startDscEnrolmentFn);
   const signCircular = useServerFn(startDscSigningFn);
   const signMinutes = useServerFn(startDscMinutesSigningFn);
+  const signDeclaration = useServerFn(startDscDeclarationSigningFn);
   const runJob = useHelperJob(JSON.stringify(target));
   const [status, setStatus] = useState<DscStatus | null>(null);
   const [busy, setBusy] = useState<"enrol" | "sign" | null>(null);
@@ -151,11 +159,15 @@ export function DscSignSection({
   const handleSign = useEventCallback(async () => {
     setBusy("sign");
     await onVote(() =>
-      runJob(() =>
-        "meetingId" in target
-          ? signMinutes({ data: target })
-          : signCircular({ data: target })
-      )
+      runJob(() => {
+        if ("meetingId" in target) {
+          return signMinutes({ data: target });
+        }
+        if ("declarationId" in target) {
+          return signDeclaration({ data: target });
+        }
+        return signCircular({ data: target });
+      })
     )
       .then((outcome) => {
         if (!outcome) {
