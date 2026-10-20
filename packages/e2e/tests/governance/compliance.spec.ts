@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { expect, test } from "../../fixtures/test";
 
@@ -8,13 +8,28 @@ import { expect, test } from "../../fixtures/test";
  * items stay open for other runs.
  */
 
+/** Picks a day in a DateField; its calendar closes itself on selection. */
+async function pickDay(scope: Locator, label: string, date: Date) {
+  const page = scope.page();
+  await scope.getByRole("button", { exact: true, name: label }).click();
+  const popup = page.getByRole("dialog").last();
+  const day = popup.locator(
+    `button[data-day="${date.toLocaleDateString("en-US")}"]`
+  );
+  for (let month = 0; month < 24 && !(await day.isVisible()); month++) {
+    await popup.getByRole("button", { name: /next month/i }).click();
+  }
+  await day.click();
+  await expect(day).toBeHidden();
+}
+
 async function addItem(page: Page, title: string) {
   await page.getByRole("button", { name: "Add item" }).click();
   const dialog = page.getByRole("dialog", { name: "Add an item" });
   await dialog.getByLabel("Title").fill(title);
   const due = new Date();
   due.setDate(due.getDate() + 20);
-  await dialog.getByLabel("Due on").fill(due.toISOString().slice(0, 10));
+  await pickDay(dialog, "Due on", due);
   await dialog.getByRole("button", { name: "Add item" }).click();
   await expect(page.getByText(title)).toBeVisible();
 }
@@ -79,9 +94,11 @@ test.describe("compliance calendar (super admin)", () => {
     await row.getByRole("button", { name: /actions/i }).click();
     await page.getByRole("menuitem", { name: "Mark done" }).click();
     const dialog = page.getByRole("dialog", { name: "Mark done" });
+    // An item closes only with the document that proves it.
+    await dialog.getByRole("button", { name: "Mark done" }).click();
     await expect(
-      dialog.getByRole("button", { name: "Mark done" })
-    ).toBeDisabled();
+      page.getByText("Choose the document that proves it.")
+    ).toBeVisible();
     if (process.env.CI) {
       return;
     }
@@ -90,7 +107,7 @@ test.describe("compliance calendar (super admin)", () => {
     await dialog.getByRole("button", { name: "Mark done" }).click();
     await expect(page.getByText("Marked done")).toBeVisible();
 
-    await page.getByRole("button", { exact: true, name: "Closed" }).click();
+    await page.getByRole("tab", { name: /^Closed/ }).click();
     const closed = page.locator("[data-testid^='compliance-item-']", {
       hasText: title,
     });
@@ -109,8 +126,8 @@ test.describe("compliance calendar (super admin)", () => {
     await page.getByRole("menuitem", { name: "Not needed" }).click();
     const dialog = page.getByRole("dialog", { name: "Not needed this time" });
     await dialog.getByLabel("Reason").fill("Filed by the CA directly.");
-    await dialog.getByRole("button", { name: "Not needed" }).click();
-    await page.getByRole("button", { exact: true, name: "Closed" }).click();
+    await dialog.getByRole("button", { name: "Mark not needed" }).click();
+    await page.getByRole("tab", { name: /^Closed/ }).click();
     await expect(
       page.locator("[data-testid^='compliance-item-']", { hasText: title })
     ).toContainText("Filed by the CA directly.");

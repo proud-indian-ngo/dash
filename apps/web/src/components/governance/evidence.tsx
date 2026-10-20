@@ -1,7 +1,7 @@
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { GOVERNANCE_DOCUMENT_KIND_LABELS } from "@pi-dash/shared/governance";
 
 import type { SelectOption } from "@/components/form/select-field";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
 import { formatIso } from "./register-data";
@@ -48,11 +48,7 @@ export function EvidenceLink({
   documents: readonly DocumentOption[];
 }) {
   if (!documentId) {
-    return (
-      <Badge className="text-warning-foreground" variant="outline">
-        Unevidenced
-      </Badge>
-    );
+    return <StatusBadge tone="warning">Unevidenced</StatusBadge>;
   }
   const document = documents.find((d) => d.id === documentId);
   return (

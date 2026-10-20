@@ -6,7 +6,6 @@ import {
   Logout03Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
@@ -31,6 +30,7 @@ import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
+import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
   getTrusteeDetails,
@@ -152,7 +152,7 @@ function PeriodCard({
   title: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3">
+    <li className="flex flex-col gap-2 px-3 py-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col">
           <span className="text-sm font-medium">{title}</span>
@@ -161,7 +161,7 @@ function PeriodCard({
         {actions}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">{children}</div>
-    </div>
+    </li>
   );
 }
 
@@ -357,20 +357,14 @@ export function TrusteeDetailSheet({
             ) : null
           }
           badge={
-            <span className="flex flex-wrap gap-1">
-              <Badge variant={inOffice ? "secondary" : "outline"}>
+            <span className="flex flex-wrap items-center gap-1.5">
+              <StatusBadge tone={inOffice ? "success" : "neutral"}>
                 {statusLabel}
-              </Badge>
-              {trustee.isCoFounder ? (
-                <Badge variant="outline">Co-Founder</Badge>
-              ) : null}
+              </StatusBadge>
+              {trustee.isCoFounder ? <Tag>Co-Founder</Tag> : null}
             </span>
           }
-          meta={[
-            trustee.userId
-              ? "Linked to a dashboard account"
-              : "No dashboard account",
-          ]}
+          meta={[trustee.userId ? "Has an account" : "No account"]}
           title={trustee.legalName}
         />
         <div className="flex flex-col gap-6 px-6 pb-6">
@@ -398,65 +392,72 @@ export function TrusteeDetailSheet({
                 No terms recorded.
               </p>
             ) : null}
-            {trustee.terms.map((term) => (
-              <PeriodCard
-                actions={termActions(term)}
-                key={term.id}
-                subtitle={TRUSTEE_TERM_BASIS_LABELS[term.basis]}
-                title={periodText(
-                  term.startsOn,
-                  lastDayOf(term),
-                  term.endsOn === null && term.endedOn === null
-                )}
-              >
-                <DetailRow
-                  label="Start evidence"
-                  value={
-                    <EvidenceLink
-                      documentId={term.startEvidenceDocumentId}
-                      documents={documents}
-                    />
-                  }
-                />
-                <DetailRow
-                  label="Acceptance (clause 4.24)"
-                  value={
-                    term.acceptanceDocumentId ? (
-                      <EvidenceLink
-                        documentId={term.acceptanceDocumentId}
-                        documents={documents}
-                      />
-                    ) : null
-                  }
-                />
-                {term.endedOn ? (
-                  <>
+            {trustee.terms.length > 0 ? (
+              <ul className="divide-y rounded-lg border">
+                {trustee.terms.map((term) => (
+                  <PeriodCard
+                    actions={termActions(term)}
+                    key={term.id}
+                    subtitle={TRUSTEE_TERM_BASIS_LABELS[term.basis]}
+                    title={periodText(
+                      term.startsOn,
+                      lastDayOf(term),
+                      term.endsOn === null && term.endedOn === null
+                    )}
+                  >
                     <DetailRow
-                      label="Ceased"
-                      value={`${formatIso(term.endedOn)} · ${
-                        term.cessationBasis
-                          ? TRUSTEE_CESSATION_BASIS_LABELS[
-                              term.cessationBasis as TrusteeCessationBasis
-                            ]
-                          : ""
-                      }`}
-                    />
-                    <DetailRow
-                      label="End evidence"
+                      label="Start evidence"
                       value={
                         <EvidenceLink
-                          documentId={term.endEvidenceDocumentId}
+                          documentId={term.startEvidenceDocumentId}
                           documents={documents}
                         />
                       }
                     />
-                  </>
-                ) : null}
-                {term.validityNote ? (
-                  <DetailRow label="Validity note" value={term.validityNote} />
-                ) : null}
-              </PeriodCard>
-            ))}
+                    <DetailRow
+                      label="Acceptance (clause 4.24)"
+                      value={
+                        term.acceptanceDocumentId ? (
+                          <EvidenceLink
+                            documentId={term.acceptanceDocumentId}
+                            documents={documents}
+                          />
+                        ) : null
+                      }
+                    />
+                    {term.endedOn ? (
+                      <>
+                        <DetailRow
+                          label="Ceased"
+                          value={`${formatIso(term.endedOn)} · ${
+                            term.cessationBasis
+                              ? TRUSTEE_CESSATION_BASIS_LABELS[
+                                  term.cessationBasis as TrusteeCessationBasis
+                                ]
+                              : ""
+                          }`}
+                        />
+                        <DetailRow
+                          label="End evidence"
+                          value={
+                            <EvidenceLink
+                              documentId={term.endEvidenceDocumentId}
+                              documents={documents}
+                            />
+                          }
+                        />
+                      </>
+                    ) : null}
+                    {term.validityNote ? (
+                      <DetailRow
+                        label="Validity note"
+                        value={term.validityNote}
+                      />
+                    ) : null}
+                  </PeriodCard>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="grid gap-3">
@@ -481,41 +482,49 @@ export function TrusteeDetailSheet({
             {trustee.offices.length === 0 ? (
               <p className="text-muted-foreground text-sm">No offices held.</p>
             ) : null}
-            {trustee.offices.map((office) => (
-              <PeriodCard
-                actions={officeActions(office)}
-                key={office.id}
-                subtitle={periodText(office.startsOn, lastDayOf(office), false)}
-                title={TRUSTEE_OFFICE_LABELS[office.office]}
-              >
-                <DetailRow
-                  label="Start evidence"
-                  value={
-                    <EvidenceLink
-                      documentId={office.startEvidenceDocumentId}
-                      documents={documents}
+            {trustee.offices.length > 0 ? (
+              <ul className="divide-y rounded-lg border">
+                {trustee.offices.map((office) => (
+                  <PeriodCard
+                    actions={officeActions(office)}
+                    key={office.id}
+                    subtitle={periodText(
+                      office.startsOn,
+                      lastDayOf(office),
+                      false
+                    )}
+                    title={TRUSTEE_OFFICE_LABELS[office.office]}
+                  >
+                    <DetailRow
+                      label="Start evidence"
+                      value={
+                        <EvidenceLink
+                          documentId={office.startEvidenceDocumentId}
+                          documents={documents}
+                        />
+                      }
                     />
-                  }
-                />
-                {office.endedOn ? (
-                  <DetailRow
-                    label="End evidence"
-                    value={
-                      <EvidenceLink
-                        documentId={office.endEvidenceDocumentId}
-                        documents={documents}
+                    {office.endedOn ? (
+                      <DetailRow
+                        label="End evidence"
+                        value={
+                          <EvidenceLink
+                            documentId={office.endEvidenceDocumentId}
+                            documents={documents}
+                          />
+                        }
                       />
-                    }
-                  />
-                ) : null}
-                {office.validityNote ? (
-                  <DetailRow
-                    label="Validity note"
-                    value={office.validityNote}
-                  />
-                ) : null}
-              </PeriodCard>
-            ))}
+                    ) : null}
+                    {office.validityNote ? (
+                      <DetailRow
+                        label="Validity note"
+                        value={office.validityNote}
+                      />
+                    ) : null}
+                  </PeriodCard>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="grid gap-3">
@@ -554,7 +563,9 @@ export function TrusteeDetailSheet({
           state={officeDialog}
         />
         <ConfirmDialog
-          confirmLabel="Delete"
+          confirmLabel={
+            removal?.kind === "office" ? "Delete office" : "Delete term"
+          }
           description={`Delete ${removal?.label ?? "this record"}? Use this only for something entered by mistake; to record that it ended, use the end action instead.`}
           onConfirm={confirmRemoval}
           onOpenChange={closeRemoval}
