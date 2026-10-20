@@ -14,7 +14,7 @@ import { FIELD, INK, Line } from "./product-pdf";
 /**
  * Stored rich text (`@pi-dash/shared/rich-text`) drawn in react-pdf, for the
  * circular and the minutes: paragraphs, marks, lists with a hanging indent
- * and tables whose rows never split across pages.
+ * and tables whose rows break across pages like text.
  */
 
 type Style = Styles[string];
@@ -39,8 +39,9 @@ const styles = StyleSheet.create({
 const COLUMN_WEIGHT = { max: 40, min: 6 };
 
 /**
- * Each column's share of the table width, in percent: by its longest cell,
- * within bounds, so a number column stays narrow and no column vanishes.
+ * Each column's share of the table width, in percent: half shared equally,
+ * half by its longest cell within bounds, so a number column stays narrow
+ * and no column gets less than half an equal share (31pt at eight columns).
  */
 export function columnWidths(table: RichTextTable): number[] {
   const count = table.children[0]?.children.length ?? 0;
@@ -54,7 +55,7 @@ export function columnWidths(table: RichTextTable): number[] {
     return Math.min(COLUMN_WEIGHT.max, Math.max(COLUMN_WEIGHT.min, longest));
   });
   const total = weights.reduce((sum, w) => sum + w, 0);
-  return weights.map((w) => (w / total) * 100);
+  return weights.map((w) => (0.5 / count + (0.5 * w) / total) * 100);
 }
 
 function Leaves({ leaves }: { leaves: RichTextLeaf[] }) {
@@ -84,13 +85,14 @@ interface Spacing {
 }
 
 function List({
-  depth,
   list,
+  numbered,
   spacing,
   top,
 }: {
-  depth: number;
   list: RichTextList;
+  /** Numbered lists this one sits in (`listNumber`). */
+  numbered: number;
   spacing: Spacing;
   top: number;
 }) {
@@ -106,7 +108,7 @@ function List({
           style={[styles.item, { marginTop: index === 0 ? 0 : spacing.tight }]}
         >
           <Text style={[text, { width: markerWidth }]}>
-            {list.type === "ol" ? `${listNumber(depth, index)}.` : "•"}
+            {list.type === "ol" ? `${listNumber(numbered, index)}.` : "•"}
           </Text>
           <View style={styles.itemBody}>
             {item.children.map((child, c) =>
@@ -116,9 +118,9 @@ function List({
                 </Line>
               ) : (
                 <List
-                  depth={depth + 1}
                   key={`c${String(c)}`}
                   list={child}
+                  numbered={list.type === "ol" ? numbered + 1 : numbered}
                   spacing={spacing}
                   top={spacing.tight}
                 />
@@ -141,7 +143,8 @@ function Table({ spacing, table }: { spacing: Spacing; table: RichTextTable }) {
   return (
     <View style={[styles.table, { marginTop: spacing.paragraph.marginTop }]}>
       {table.children.map((row, r) => (
-        <View key={`r${String(r)}`} style={styles.row} wrap={false}>
+        // A row breaks across pages like text, so a tall cell is never cut.
+        <View key={`r${String(r)}`} style={styles.row}>
           {row.children.map((cell, c) => (
             <View
               key={`c${String(c)}`}
@@ -187,7 +190,13 @@ function Blocks({
       case "ul":
       case "ol":
         return (
-          <List depth={0} key={key} list={block} spacing={spacing} top={top} />
+          <List
+            key={key}
+            list={block}
+            numbered={0}
+            spacing={spacing}
+            top={top}
+          />
         );
       case "table":
         return <Table key={key} spacing={spacing} table={block} />;

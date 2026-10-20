@@ -28,8 +28,8 @@ Bricolage and Paper Mono are instanced with fontTools from the variable woff2 fi
 `src/rich-text.tsx` draws stored rich text (`@pi-dash/shared/rich-text`) for the circular and the minutes, in the caller's paragraph style.
 
 - Bold is SemiBold, italic and underline are real; empty paragraphs take no space.
-- Lists hang the text after the marker; numbered lists go 1, a, i by nesting (`listNumber`), as the pages do.
-- Tables have thin black borders and a bold header row on a light wash. Column widths follow each column's longest cell, between 6 and 40 characters' weight. A row never splits across pages.
+- Lists hang the text after the marker; numbered lists go 1, a, i by the numbered lists they sit in (`listNumber`), as the pages do.
+- Tables have thin black borders and a bold header row on a light wash. Half the width is shared equally and half follows each column's longest cell (6 to 40 characters' weight), so at the eight-column cap no column is under 31pt. A row taller than the space left breaks across pages like text, so no cell is cut.
 - The signature pages draw at fixed page coordinates, so rich text moves nothing there.
 
 ## Donation receipt
