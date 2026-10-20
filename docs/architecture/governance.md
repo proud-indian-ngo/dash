@@ -14,7 +14,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Decision | Choice | Why |
 |---|---|---|
 | Voters | Only trustees with a current term. A trustee may link to a user account | The deed counts trustees in office |
-| Permissions | `governance.view`; `governance.manage` (the secretary runs the process); `governance.kyc.view` (reveal PAN and Aadhaar, audited). No new role | Duties sit on top of existing roles |
+| Permissions | `governance.view`; `governance.manage` (the secretary runs the process; admins and finance admins hold it); `governance.kyc.view` (reveal PAN and Aadhaar, audited). No new role | Duties sit on top of existing roles |
 | Deed rules | Dated deed versions; each decision is checked against the version in force on its date | Amendments must not rewrite history |
 | Pass rule | Majority of trustees in office at issue; two-thirds for an amendment, unanimity of the others for removal | Clauses 4.18, 9.3, 7.12 |
 | Numbering | Per financial year, assigned on pass: `PI/TR/2026-27/NNN` | Continues the paper series |

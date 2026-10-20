@@ -71,9 +71,9 @@ describe("governance permissions by role", () => {
     expect(ADMIN_PERMISSIONS).not.toContain("governance.kyc.view");
   });
 
-  it("lets finance admins see the register but not change it", () => {
+  it("lets finance admins run governance but not reveal trustee KYC", () => {
     expect(FINANCE_ADMIN_PERMISSIONS).toContain("governance.view");
-    expect(FINANCE_ADMIN_PERMISSIONS).not.toContain("governance.manage");
+    expect(FINANCE_ADMIN_PERMISSIONS).toContain("governance.manage");
     expect(FINANCE_ADMIN_PERMISSIONS).not.toContain("governance.kyc.view");
   });
 
