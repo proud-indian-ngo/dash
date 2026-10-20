@@ -11,9 +11,11 @@ import {
 import {
   assertRecentSignIn,
   checkSignedUpload,
+  EARLIER_SIGNATURE_UNTRUSTED_MESSAGE,
   type DraftRow,
   fieldRequests,
   planIssue,
+  planStillHolds,
 } from "./circulars";
 
 const register = {
@@ -263,6 +265,47 @@ describe("planIssue", () => {
   });
 });
 
+describe("planStillHolds", () => {
+  const input = {
+    drafts: [draft],
+    effectRegisterProblem: noProblem,
+    issuer: { trusteeId: "mt" },
+    registerAfterEffect: unchanged,
+    today: "2026-10-20",
+  };
+  const prepared = planIssue({ ...input, register });
+
+  it("holds while the register gives the same circular", () => {
+    expect(
+      planStillHolds(prepared, () => planIssue({ ...input, register }))
+    ).toBe(true);
+  });
+
+  it("fails when a term ended meanwhile", () => {
+    const ended = {
+      ...register,
+      terms: register.terms.map((t) =>
+        t.id === "t2" ? { ...t, endedOn: "2026-10-19" } : t
+      ),
+    };
+    expect(
+      planStillHolds(prepared, () => planIssue({ ...input, register: ended }))
+    ).toBe(false);
+  });
+
+  it("fails when the issuer's office ended meanwhile", () => {
+    const noOffice = {
+      ...register,
+      offices: register.offices.map((o) => ({ ...o, endedOn: "2026-10-19" })),
+    };
+    expect(
+      planStillHolds(prepared, () =>
+        planIssue({ ...input, register: noOffice })
+      )
+    ).toBe(false);
+  });
+});
+
 describe("fieldRequests", () => {
   it("puts the fields on the last pages, counted from the end", () => {
     const fields = fieldRequests(["a", "b", "c", "d", "e", "f"]);
@@ -300,10 +343,12 @@ function sig(
   overrides: Partial<GovernanceValidationReport["signatures"][number]> = {}
 ): GovernanceValidationReport["signatures"][number] {
   return {
+    certifies: false,
     coversWholeRevision: true,
     fieldName,
     intact: true,
     issuer: "CA",
+    locks: [],
     matchedTrusteeId: null,
     modificationLevel: "FORM_FILLING",
     notAfter: null,
@@ -345,6 +390,7 @@ describe("checkSignedUpload", () => {
           sig("Trustee_mt", { signerName: "ASHA RAO" }),
           sig("Trustee_sec"),
         ],
+        changesSinceBase: "FORM_FILLING",
         status: "valid",
         textFields,
       },
@@ -436,6 +482,7 @@ describe("checkSignedUpload", () => {
             sig("Signature1", { signerName: "ASHA RAO" }),
             sig("Trustee_mt"),
           ],
+          changesSinceBase: "FORM_FILLING",
           status: "valid",
           textFields,
         },
@@ -456,6 +503,7 @@ describe("checkSignedUpload", () => {
             }),
             sig("Trustee_sec"),
           ],
+          changesSinceBase: "FORM_FILLING",
           status: "valid",
           textFields,
         },
@@ -463,20 +511,168 @@ describe("checkSignedUpload", () => {
     ).toThrow("don't allow");
   });
 
-  it("accepts a box the signer drew when the PDF had no fields", () => {
+  it("refuses an untrusted certificate in the trustee's name", () => {
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          changesSinceBase: "FORM_FILLING",
+          checkedAt: "",
+          signatures: [
+            sig("Trustee_mt", { signerName: "ASHA RAO" }),
+            sig("Trustee_sec", { trusted: false }),
+          ],
+          status: "valid",
+          textFields,
+        },
+      })
+    ).toThrow("licensed Indian certifying authority");
+  });
+
+  it("refuses an upload counting an earlier signature that no longer validates", () => {
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          changesSinceBase: "FORM_FILLING",
+          checkedAt: "",
+          signatures: [
+            sig("Trustee_mt", { signerName: "ASHA RAO", trusted: false }),
+            sig("Trustee_sec"),
+          ],
+          status: "valid",
+          textFields,
+        },
+      })
+    ).toThrow(EARLIER_SIGNATURE_UNTRUSTED_MESSAGE);
+  });
+
+  it("takes a lock on the trustee's own answers, and refuses one that locks out the others", () => {
+    const upload = (added: ReturnType<typeof sig>) =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          changesSinceBase: "FORM_FILLING",
+          checkedAt: "",
+          signatures: [sig("Trustee_mt", { signerName: "ASHA RAO" }), added],
+          status: "valid",
+          textFields,
+        },
+      });
+    expect(
+      upload(
+        sig("Trustee_sec", {
+          locks: [{ action: "include", fields: ["Answers_sec"] }],
+        })
+      ).fieldName
+    ).toBe("Trustee_sec");
+    for (const locks of [
+      [{ action: "all" as const, fields: [] }],
+      [{ action: "include" as const, fields: ["Answers_mt"] }],
+      [{ action: "exclude" as const, fields: ["Answers_sec"] }],
+      undefined,
+    ]) {
+      expect(() => upload(sig("Trustee_sec", { locks }))).toThrow(
+        "locks parts of the circular"
+      );
+    }
+    for (const certifies of [true, undefined]) {
+      expect(() => upload(sig("Trustee_sec", { certifies }))).toThrow(
+        "certifies the circular"
+      );
+    }
+  });
+
+  it("refuses a first signature that also changed the document", () => {
+    for (const changesSinceBase of ["OTHER", "ANNOTATIONS", undefined]) {
+      expect(() =>
+        checkSignedUpload({
+          ...base,
+          report: {
+            changesSinceBase,
+            checkedAt: "",
+            signatures: [sig("Trustee_sec")],
+            status: "valid",
+            textFields,
+          },
+          signedBefore: 0,
+        })
+      ).toThrow("beyond adding your signature");
+    }
+  });
+
+  it("accepts a box the signer drew on the last page when the PDF had no fields", () => {
+    const report = (
+      rect: [number, number, number, number],
+      page = 1
+    ): GovernanceValidationReport => ({
+      checkedAt: "",
+      signatures: [
+        sig("Signature1", { signerName: "ASHA RAO" }),
+        sig("Signature2"),
+      ],
+      changesSinceBase: "FORM_FILLING",
+      pageCount: 2,
+      status: "valid",
+      textFields,
+      widgets: [
+        { field: "Signature1", page: 1, rect: [300, 600, 547, 672] },
+        { field: "Signature2", page, rect },
+      ],
+    });
     const added = checkSignedUpload({
       ...base,
-      report: {
-        checkedAt: "",
-        signatures: [
-          sig("Signature1", { signerName: "ASHA RAO" }),
-          sig("Signature2"),
-        ],
-        status: "valid",
-        textFields,
-      },
+      report: report([300, 470, 547, 542]),
     });
     expect(added.fieldName).toBe("Signature2");
+    expect(() =>
+      checkSignedUpload({ ...base, report: report([0, 0, 595, 842]) })
+    ).toThrow("more of the circular");
+    expect(() =>
+      checkSignedUpload({ ...base, report: report([300, 470, 547, 542], 0) })
+    ).toThrow("more of the circular");
+  });
+
+  describe("a signature in a field of its own beside the trustee's box", () => {
+    const prepared = [
+      { field: "Trustee_mt", page: 1, rect: [300, 620, 547, 692] },
+      { field: "Answers_mt", page: 1, rect: [48, 586, 278, 636] },
+      { field: "Trustee_sec", page: 1, rect: [300, 492, 547, 564] },
+      { field: "Answers_sec", page: 1, rect: [48, 458, 278, 508] },
+    ] satisfies GovernanceValidationReport["widgets"];
+    const withNewField = (
+      rect: [number, number, number, number],
+      page = 1
+    ): GovernanceValidationReport => ({
+      checkedAt: "",
+      signatures: [
+        sig("Trustee_mt", { signerName: "ASHA RAO" }),
+        sig("Signature1"),
+      ],
+      changesSinceBase: "FORM_FILLING",
+      pageCount: 2,
+      status: "valid",
+      textFields,
+      widgets: [...prepared, { field: "Signature1", page, rect }],
+    });
+
+    it("refuses it, since the helper and Acrobat sign the box", () => {
+      expect(() =>
+        checkSignedUpload({
+          ...base,
+          report: withNewField([320, 300, 520, 360]),
+        })
+      ).toThrow("Sign in your own box");
+    });
+
+    it("refuses one whose place on the page wasn't reported", () => {
+      expect(() =>
+        checkSignedUpload({
+          ...base,
+          report: { ...withNewField([300, 492, 547, 564]), widgets: undefined },
+        })
+      ).toThrow("couldn't be checked");
+    });
   });
 
   it("refuses when the signing service can't check it", () => {

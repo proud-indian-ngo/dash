@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/shared/governance";
 import { uuidv7 } from "uuidv7";
 
+import { databaseErrorFields } from "../safe-errors";
 import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
 import { readEmailEvidence } from "./eml";
 
@@ -249,6 +250,17 @@ export async function importVaultDocument(
     });
   } catch (error) {
     await deps.deleteObject(objectKey).catch(() => undefined);
+    // The same file uploaded at the same moment: the other copy won.
+    const raced =
+      databaseErrorFields(error).constraint ===
+      "governance_document_sha256_uidx"
+        ? await deps.findBySha256(sha256)
+        : null;
+    if (raced) {
+      throw new VaultImportError(
+        `This file is already in the vault as "${raced.title}".`
+      );
+    }
     throw error;
   }
   await deps.deleteObject(tempKey).catch(() => undefined);

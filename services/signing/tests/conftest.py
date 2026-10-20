@@ -11,11 +11,11 @@ from asn1crypto import keys, x509 as asn1_x509
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.writer import PdfFileWriter
-from pyhanko.sign import signers
+from pyhanko.sign import signers, timestamps
 from pyhanko_certvalidator.registry import SimpleCertificateStore
 
 
@@ -28,7 +28,17 @@ def _name(cn: str) -> x509.Name:
     )
 
 
-def _cert(subject, issuer, public_key, signing_key, *, ca: bool) -> x509.Certificate:
+def _cert(
+    subject,
+    issuer,
+    public_key,
+    signing_key,
+    *,
+    ca: bool,
+    encryption_only: bool = False,
+    time_stamping: bool = False,
+    crl_url: str | None = None,
+) -> x509.Certificate:
     now = datetime.now(UTC)
     builder = (
         x509.CertificateBuilder()
@@ -58,9 +68,9 @@ def _cert(subject, issuer, public_key, signing_key, *, ca: bool) -> x509.Certifi
     else:
         builder = builder.add_extension(
             x509.KeyUsage(
-                digital_signature=True,
-                content_commitment=True,
-                key_encipherment=False,
+                digital_signature=not encryption_only,
+                content_commitment=not encryption_only,
+                key_encipherment=encryption_only,
                 data_encipherment=False,
                 key_agreement=False,
                 key_cert_sign=False,
@@ -69,6 +79,25 @@ def _cert(subject, issuer, public_key, signing_key, *, ca: bool) -> x509.Certifi
                 decipher_only=False,
             ),
             critical=True,
+        )
+    if crl_url:
+        # A certificate without one isn't checked for revocation in soft-fail mode.
+        builder = builder.add_extension(
+            x509.CRLDistributionPoints(
+                [
+                    x509.DistributionPoint(
+                        full_name=[x509.UniformResourceIdentifier(crl_url)],
+                        relative_name=None,
+                        reasons=None,
+                        crl_issuer=None,
+                    )
+                ]
+            ),
+            critical=False,
+        )
+    if time_stamping:
+        builder = builder.add_extension(
+            x509.ExtendedKeyUsage([ExtendedKeyUsageOID.TIME_STAMPING]), critical=True
         )
     return builder.sign(signing_key, hashes.SHA256())
 
@@ -94,7 +123,61 @@ class Pki:
             self.signer_key.public_key(),
             self.ca_key,
             ca=False,
+            crl_url="http://crl.invalid/test-root.crl",
         )
+
+    def encryption_cert(self) -> x509.Certificate:
+        """The signer's encryption certificate, as a DSC token also carries."""
+        return _cert(
+            _name("SARJUN H HAJATHULLA"),
+            _name("Test CCA Root"),
+            self.signer_key.public_key(),
+            self.ca_key,
+            ca=False,
+            encryption_only=True,
+        )
+
+    def timestamper(self, at: datetime) -> timestamps.DummyTimeStamper:
+        """A TSA under the test root whose timestamps all say `at`."""
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        cert = _cert(
+            _name("Test TSA"),
+            _name("Test CCA Root"),
+            key.public_key(),
+            self.ca_key,
+            ca=False,
+            time_stamping=True,
+        )
+        key_der = key.private_bytes(
+            serialization.Encoding.DER,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        return timestamps.DummyTimeStamper(
+            tsa_cert=_asn1(cert),
+            tsa_key=keys.PrivateKeyInfo.load(key_der),
+            certs_to_embed=[self.ca_asn1],
+            fixed_dt=at,
+        )
+
+    def crl_revoking_signer(self, at: datetime) -> bytes:
+        """The root's CRL, issued now, listing the signer's certificate as revoked at `at`."""
+        now = datetime.now(UTC)
+        revoked = (
+            x509.RevokedCertificateBuilder()
+            .serial_number(self.signer_cert.serial_number)
+            .revocation_date(at)
+            .build()
+        )
+        crl = (
+            x509.CertificateRevocationListBuilder()
+            .issuer_name(self.ca.subject)
+            .last_update(now - timedelta(minutes=1))
+            .next_update(now + timedelta(days=1))
+            .add_revoked_certificate(revoked)
+            .sign(self.ca_key, hashes.SHA256())
+        )
+        return crl.public_bytes(serialization.Encoding.DER)
 
     @property
     def ca_asn1(self) -> asn1_x509.Certificate:
@@ -135,12 +218,18 @@ def blank_pdf() -> bytes:
     return out.getvalue()
 
 
-def sign(pdf: bytes, pki: Pki, field: str = "Signature1") -> bytes:
+def sign(
+    pdf: bytes,
+    pki: Pki,
+    field: str = "Signature1",
+    timestamper: timestamps.TimeStamper | None = None,
+) -> bytes:
     writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
     out = signers.sign_pdf(
         writer,
         signers.PdfSignatureMetadata(field_name=field),
         signer=pki.signer(),
+        timestamper=timestamper,
     )
     return out.getvalue()
 

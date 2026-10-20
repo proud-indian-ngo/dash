@@ -50,13 +50,15 @@ describe("governance queries", () => {
   });
 
   it("show registrations to finance as well", () => {
-    expect(
-      queryAst(
-        organisationRegistrationQueries.all.fn({
-          args: undefined,
-          ctx: ctx(["finance.view"]),
-        })
-      )
-    ).not.toContain(NEVER);
+    for (const permission of ["finance.view", "finance.manage"]) {
+      expect(
+        queryAst(
+          organisationRegistrationQueries.all.fn({
+            args: undefined,
+            ctx: ctx([permission]),
+          })
+        )
+      ).not.toContain(NEVER);
+    }
   });
 });

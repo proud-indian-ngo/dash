@@ -200,7 +200,7 @@ export function TrusteeDetailSheet({
   const trusteeId = trustee?.id ?? null;
 
   useEffect(() => {
-    if (!(open && trusteeId)) {
+    if (!(open && trusteeId && canManage)) {
       return;
     }
     let cancelled = false;
@@ -224,7 +224,7 @@ export function TrusteeDetailSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, trusteeId, version, loadDetails]);
+  }, [open, trusteeId, canManage, version, loadDetails]);
 
   const handleEdit = useEventCallback(() => trustee && onEdit(trustee));
   const closeTermDialog = useEventCallback(() => setTermDialog(null));
@@ -527,30 +527,32 @@ export function TrusteeDetailSheet({
             ) : null}
           </section>
 
-          <section className="grid gap-3">
-            <h3 className="text-sm font-medium">Contact and KYC</h3>
-            {details.kind === "loading" ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-4 w-48" />
-                <Skeleton className="h-4 w-64" />
-              </div>
-            ) : null}
-            {details.kind === "error" ? (
-              <p className="text-destructive text-sm">
-                Couldn't load the contact and KYC details.
-              </p>
-            ) : null}
-            {details.kind === "ready" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <DetailRow label="Email" value={ready?.email} />
-                <DetailRow label="Phone" value={ready?.phone} />
-                <DetailRow label="Address" value={ready?.address} />
-                {ready ? (
-                  <KycRows details={ready} trusteeId={trustee.id} />
-                ) : null}
-              </div>
-            ) : null}
-          </section>
+          {canManage ? (
+            <section className="grid gap-3">
+              <h3 className="text-sm font-medium">Contact and KYC</h3>
+              {details.kind === "loading" ? (
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-4 w-64" />
+                </div>
+              ) : null}
+              {details.kind === "error" ? (
+                <p className="text-destructive text-sm">
+                  Couldn't load the contact and KYC details.
+                </p>
+              ) : null}
+              {details.kind === "ready" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <DetailRow label="Email" value={ready?.email} />
+                  <DetailRow label="Phone" value={ready?.phone} />
+                  <DetailRow label="Address" value={ready?.address} />
+                  {ready ? (
+                    <KycRows details={ready} trusteeId={trustee.id} />
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
         <TermDialog
           documents={documents}

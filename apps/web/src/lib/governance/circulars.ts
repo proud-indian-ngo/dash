@@ -20,6 +20,7 @@ import {
   RESOLUTION_TEMPLATES,
   type ResolutionEffect,
   type ResolutionTemplateKey,
+  SIGNATURE_BOX,
   signatureFieldBox,
   signaturePageCount,
   signatureSlots,
@@ -39,6 +40,18 @@ import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
  */
 
 export class CircularError extends Error {}
+
+/** What signing a prepared or new signature field may change (pyHanko's levels). */
+const SIGNING_CHANGE_LEVELS = new Set(["NONE", "LTA_UPDATES", "FORM_FILLING"]);
+
+/** How much wider and taller than a trustee's box a signature field of its own may be. */
+const NEW_FIELD_SCALE = 1.5;
+
+export const UNTRUSTED_CERTIFICATE_MESSAGE =
+  "This certificate doesn't chain to a licensed Indian certifying authority. Sign with your DSC.";
+
+export const EARLIER_SIGNATURE_UNTRUSTED_MESSAGE =
+  "An earlier trustee's signature on this circular no longer validates: its certificate may have been revoked. Yours can't be added until that's sorted out, so tell the Managing Trustee.";
 
 /** Voting needs a sign-in from the last 10 minutes (governance.md, decisions). */
 export function assertRecentSignIn(
@@ -73,6 +86,24 @@ export interface IssuePlan {
     thresholdText: string;
   }[];
   signers: { name: string; offices: string; trusteeId: string }[];
+}
+
+/**
+ * Whether a plan made again, from the register as it is now, still renders
+ * the circular already prepared. A refusal now means the board changed.
+ */
+export function planStillHolds(
+  prepared: IssuePlan,
+  replan: () => IssuePlan
+): boolean {
+  try {
+    return JSON.stringify(replan()) === JSON.stringify(prepared);
+  } catch (error) {
+    if (error instanceof CircularError) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -240,10 +271,14 @@ export interface SignedUploadCheck {
 /**
  * Checks a trustee's signed PDF against the one they downloaded: it must be
  * that file with exactly one more signature appended (an incremental
- * update), the new signature must be intact and cover the whole file, sit in
- * the trustee's own field when the PDF has fields, and be theirs by name;
- * every earlier signature must still be intact, and every answers field as
- * it was. Returns the new signature.
+ * update) that changes no more than signing a field does, the new signature
+ * must be intact, cover the whole file, chain to a licensed Indian CA, sit in
+ * the trustee's own field when the PDF has one (on a circular issued without
+ * fields, in a field of its own, bounded as `checkNewSignatureField` says),
+ * lock none but the trustee's own fields, certify nothing, and be theirs by
+ * name; every earlier signature must still be intact and trusted, and every
+ * answers field as it was. `report` must be checked against `current` (its
+ * byte length as the base). Returns the new signature.
  */
 export function checkSignedUpload(
   check: SignedUploadCheck
@@ -273,22 +308,34 @@ export function checkSignedUpload(
   if (!added) {
     throw new CircularError("No signature was found in the file.");
   }
-  // Another trustee's box is theirs; a new field (a box drawn on a circular
-  // without fields) is fine.
-  if (
-    added.fieldName !== check.fieldName &&
-    added.fieldName.startsWith(SIGNATURE_FIELD_PREFIX)
-  ) {
-    throw new CircularError("Sign in the box with your own name.");
+  // Another trustee's box is theirs.
+  if (added.fieldName !== check.fieldName) {
+    if (added.fieldName.startsWith(SIGNATURE_FIELD_PREFIX)) {
+      throw new CircularError("Sign in the box with your own name.");
+    }
+    checkNewSignatureField(check, added.fieldName);
   }
   if (!(added.intact && added.coversWholeRevision)) {
     throw new CircularError(
       "Your signature doesn't check out: the file changed after it was signed."
     );
   }
-  if (report.signatures.slice(0, -1).some((s) => !s.intact)) {
+  if (!added.trusted) {
+    throw new CircularError(UNTRUSTED_CERTIFICATE_MESSAGE);
+  }
+  const earlier = report.signatures.slice(0, -1);
+  if (earlier.some((s) => !s.intact)) {
     throw new CircularError("An earlier signature no longer checks out.");
   }
+  // Each earlier signature counts towards the resolutions this one may pass.
+  if (earlier.some((s) => !s.trusted)) {
+    throw new CircularError(EARLIER_SIGNATURE_UNTRUSTED_MESSAGE);
+  }
+  checkLeavesRoomForOthers(added, [
+    answersFieldName(check.trustee.id),
+    check.fieldName,
+    added.fieldName,
+  ]);
   if (
     matchSignerToTrustee(added.signerName, [check.trustee]) !== check.trustee.id
   ) {
@@ -307,6 +354,13 @@ export function checkSignedUpload(
       "The answers in the PDF were changed. Sign the copy you downloaded without editing it."
     );
   }
+  // pyHanko judges only changes after a signature, so the revision the new
+  // one signs is judged against the copy the trustee was given.
+  if (!SIGNING_CHANGE_LEVELS.has(report.changesSinceBase ?? "")) {
+    throw new CircularError(
+      "The file was changed beyond adding your signature. Sign the copy you downloaded without editing it."
+    );
+  }
   // Filling a field and signing are the only changes a signature allows.
   if (
     report.signatures
@@ -319,6 +373,93 @@ export function checkSignedUpload(
     );
   }
   return added;
+}
+
+/**
+ * A certification signature, or a lock (FieldMDP) on anything but the
+ * trustee's own fields, would make the later trustees' signatures fail.
+ */
+function checkLeavesRoomForOthers(
+  added: GovernanceValidationReport["signatures"][number],
+  ownFields: readonly string[]
+): void {
+  if (added.certifies !== false) {
+    throw new CircularError(
+      "Your signature certifies the circular, which limits the signatures after it. Sign it as an ordinary (approval) signature."
+    );
+  }
+  if (
+    !added.locks ||
+    added.locks.some(
+      (lock) =>
+        lock.action !== "include" ||
+        lock.fields.some((field) => !ownFields.includes(field))
+    )
+  ) {
+    throw new CircularError(
+      "Your signature locks parts of the circular the other trustees still need, so their signatures would fail. Sign without locking the document."
+    );
+  }
+}
+
+function overlaps(
+  a: readonly [number, number, number, number],
+  b: readonly [number, number, number, number]
+): boolean {
+  return a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+}
+
+/**
+ * A signature in a field of its own, only on a circular issued without
+ * fields, which has no box to sign in. pyHanko counts a new signature field
+ * as form filling whatever its widget covers, so each visible widget must
+ * sit on a signature page (the pages with the trustees' boxes, or the last
+ * page), be about a box in size, and cover no other field.
+ */
+function checkNewSignatureField(
+  check: SignedUploadCheck,
+  fieldName: string
+): void {
+  const { pageCount, widgets } = check.report;
+  if (!widgets || pageCount === undefined) {
+    throw new CircularError(
+      "Where your signature sits on the page couldn't be checked. Try again."
+    );
+  }
+  if (widgets.some((w) => w.field === check.fieldName)) {
+    throw new CircularError(
+      "Sign in your own box, under your name, rather than adding a new one."
+    );
+  }
+  const signaturePages = new Set(
+    widgets
+      .filter((w) => w.field.startsWith(SIGNATURE_FIELD_PREFIX))
+      .map((w) => w.page)
+  );
+  if (signaturePages.size === 0) {
+    signaturePages.add(pageCount - 1);
+  }
+  for (const widget of widgets.filter((w) => w.field === fieldName)) {
+    const [x1, y1, x2, y2] = widget.rect;
+    if (x2 <= x1 || y2 <= y1) {
+      continue;
+    }
+    const fits =
+      signaturePages.has(widget.page) &&
+      x2 - x1 <= SIGNATURE_BOX.width * NEW_FIELD_SCALE &&
+      y2 - y1 <= SIGNATURE_BOX.height * NEW_FIELD_SCALE &&
+      !widgets.some(
+        (other) =>
+          other.field !== fieldName &&
+          other.page === widget.page &&
+          overlaps(other.rect, widget.rect)
+      );
+    if (!fits) {
+      throw new CircularError(
+        "Your signature covers more of the circular than a signature box does. Sign in a box of the usual size on the signatures page, clear of the other boxes."
+      );
+    }
+  }
 }
 
 /** Whether the bytes are a temporary governance upload of this user. */

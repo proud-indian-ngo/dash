@@ -154,6 +154,24 @@ describe("importVaultDocument", () => {
     );
   });
 
+  it("refuses a duplicate recorded while it was being checked", async () => {
+    const { d, deleted } = deps(PDF);
+    let lookups = 0;
+    d.findBySha256 = mock(async () => {
+      lookups += 1;
+      return lookups === 1 ? null : { id: "x", title: "The deed" };
+    });
+    d.insert = mock(async () => {
+      throw new Error("Failed query", {
+        cause: { code: "23505", constraint: "governance_document_sha256_uidx" },
+      });
+    });
+    await expect(importVaultDocument(input(), d)).rejects.toThrow(
+      'already in the vault as "The deed"'
+    );
+    expect(deleted.some((key) => key.includes("/documents/"))).toBe(true);
+  });
+
   it("refuses another user's upload or another folder", async () => {
     const { d } = deps(PDF);
     await expect(

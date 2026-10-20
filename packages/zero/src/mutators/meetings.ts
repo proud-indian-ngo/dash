@@ -1,6 +1,10 @@
+import { deedVersionOn } from "@pi-dash/shared/governance";
 import {
+  castingVoteProblem,
+  kolkataParts,
   MEETING_NOTES_MAX,
   MEETING_TITLE_MAX,
+  meetingCancelling,
   meetingModeValues,
   presenceValues,
   voteChoiceValues,
@@ -18,6 +22,7 @@ import "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
 import { effectInput } from "./governance";
+import { requireServerTransaction } from "./kalakriti-row-locks";
 
 /**
  * Meeting writes the secretary makes: the draft and its agenda, attendance
@@ -27,7 +32,22 @@ import { effectInput } from "./governance";
 
 type Tx = Transaction<Schema>;
 
+/**
+ * On the server, takes the meeting's row lock for the rest of the
+ * transaction before anything is read, so a write can't land between the
+ * reads and the record of a decision, the close or the minutes, which
+ * take the same lock (`lockMeeting`).
+ */
+async function lockMeetingRow(tx: Tx, id: string): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const { lockMeeting } = await import("@pi-dash/db/queries/meetings");
+  await lockMeeting(requireServerTransaction(tx), id);
+}
+
 async function requireMeeting(tx: Tx, id: string) {
+  await lockMeetingRow(tx, id);
   const row = await tx.run(zql.meeting.where("id", id).one());
   if (!row) {
     throw new Error("Meeting not found");
@@ -53,6 +73,9 @@ function assertStarted(row: { startsAt: number }) {
     );
   }
 }
+
+/** Edits to what the minutes show drop the copy generated for signing. */
+const minutesOutdated = { minutesObjectKey: null, minutesSha256: null };
 
 const meetingFields = {
   mode: z.enum(meetingModeValues),
@@ -116,14 +139,34 @@ export const meetingMutators = {
         ["draft", "convened"],
         "A held meeting can't be cancelled."
       );
+      const cancelling = meetingCancelling(
+        await tx.run(zql.agendaItem.where("meetingId", row.id))
+      );
+      if ("problem" in cancelling) {
+        throw new Error(cancelling.problem);
+      }
       await tx.mutate.meeting.update({
         cancelledReason: args.reason,
         id: args.id,
         status: "cancelled",
         updatedAt: Date.now(),
       });
+      if (tx.location === "server") {
+        const { releaseResolutions } =
+          await import("@pi-dash/db/queries/meetings");
+        await releaseResolutions(
+          requireServerTransaction(tx),
+          cancelling.released,
+          {
+            reason:
+              "The meeting was cancelled. Its text was drafted again as a circular.",
+            today: kolkataParts(Date.now()).date,
+          }
+        );
+      }
     }
   ),
+  /** A decided item keeps the chair it was decided with (`decisionBasis`). */
   setChair: defineMutator(
     z.object({ chairTrusteeId: z.string().nullable(), id: z.string() }),
     async ({ tx, ctx, args }) => {
@@ -134,6 +177,17 @@ export const meetingMutators = {
         ["draft", "convened"],
         "The minutes are fixed once it's held."
       );
+      if (row.status === "convened" && args.chairTrusteeId) {
+        const attendee = await tx.run(
+          zql.meetingAttendance
+            .where("meetingId", row.id)
+            .where("trusteeId", args.chairTrusteeId)
+            .one()
+        );
+        if (!attendee) {
+          throw new Error("The chair must be a trustee the notice went to.");
+        }
+      }
       await tx.mutate.meeting.update({
         chairTrusteeId: args.chairTrusteeId,
         id: args.id,
@@ -155,6 +209,7 @@ export const meetingMutators = {
         throw new Error("The minutes are signed and can't change.");
       }
       await tx.mutate.meeting.update({
+        ...minutesOutdated,
         id: args.id,
         notes: args.notes,
         updatedAt: Date.now(),
@@ -168,13 +223,24 @@ async function nextPosition(tx: Tx, meetingId: string): Promise<number> {
   return items.reduce((max, i) => Math.max(max, i.position), 0) + 1;
 }
 
+/** The item and its meeting, read under the meeting's lock. */
 async function requireItem(tx: Tx, id: string) {
+  const found = await tx.run(zql.agendaItem.where("id", id).one());
+  if (!found) {
+    throw new Error("Agenda item not found");
+  }
+  const meeting = await requireMeeting(tx, found.meetingId);
+  // Again under the lock: a decision may have committed meanwhile.
   const item = await tx.run(zql.agendaItem.where("id", id).one());
   if (!item) {
     throw new Error("Agenda item not found");
   }
-  return item;
+  return { item, meeting };
 }
+
+/** Resolutions on the agenda are fixed by the notice (clause 4.19). */
+const NOTICED_BUSINESS =
+  "The notice has gone out with this agenda's resolutions. Cancel the meeting and convene a new one to change them.";
 
 export const agendaItemMutators = {
   /** A discussion item, or a resolution to decide at the meeting. */
@@ -201,6 +267,9 @@ export const agendaItemMutators = {
         ["draft", "convened"],
         "The agenda is fixed once the meeting is held."
       );
+      if (args.resolution && row.status !== "draft") {
+        throw new Error(NOTICED_BUSINESS);
+      }
       const now = Date.now();
       if (args.resolution) {
         const template = RESOLUTION_TEMPLATES[args.resolution.templateKey];
@@ -238,15 +307,20 @@ export const agendaItemMutators = {
     z.object({ id: z.string(), notes: z.string().max(MEETING_NOTES_MAX) }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.id);
-      const row = await requireMeeting(tx, item.meetingId);
+      const { meeting: row } = await requireItem(tx, args.id);
       if (row.minutesDocumentId) {
         throw new Error("The minutes are signed and can't change.");
       }
+      const now = Date.now();
       await tx.mutate.agendaItem.update({
         id: args.id,
         notes: args.notes,
-        updatedAt: Date.now(),
+        updatedAt: now,
+      });
+      await tx.mutate.meeting.update({
+        ...minutesOutdated,
+        id: row.id,
+        updatedAt: now,
       });
     }
   ),
@@ -254,9 +328,45 @@ export const agendaItemMutators = {
     z.object({ choice: z.enum(voteChoiceValues).nullable(), id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.id);
+      const { item, meeting } = await requireItem(tx, args.id);
       if (item.outcome && item.outcome !== "no_decision") {
         throw new Error("This item has already been decided.");
+      }
+      if (args.choice) {
+        const [attendance, votes, versions] = await Promise.all([
+          tx.run(zql.meetingAttendance.where("meetingId", meeting.id)),
+          tx.run(zql.agendaVote.where("agendaItemId", item.id)),
+          tx.run(zql.deedVersion),
+        ]);
+        // The deed in force on the meeting's day, as the decision uses.
+        const deed = deedVersionOn(
+          versions.map((v) => ({
+            ...v,
+            effectiveFrom: new Date(v.effectiveFrom).toISOString().slice(0, 10),
+          })),
+          kolkataParts(meeting.startsAt).date
+        );
+        const problem = castingVoteProblem({
+          attendance: attendance.map((a) => ({
+            offices: a.offices,
+            presence: a.presence ?? "absent",
+            trusteeId: a.trusteeId,
+          })),
+          chairTrusteeId: meeting.chairTrusteeId ?? null,
+          rules: {
+            castingVote: deed?.castingVote ?? "chair",
+            videoCountsPresent: deed?.videoCountsPresent ?? false,
+          },
+          votes: votes.map((v) => ({
+            absenteeWritten: v.absenteeWritten ?? false,
+            choice: v.choice,
+            conflict: v.conflict ?? false,
+            trusteeId: v.trusteeId,
+          })),
+        });
+        if (problem) {
+          throw new Error(problem);
+        }
       }
       await tx.mutate.agendaItem.update({
         castingVote: args.choice,
@@ -269,8 +379,7 @@ export const agendaItemMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.id);
-      const row = await requireMeeting(tx, item.meetingId);
+      const { item, meeting: row } = await requireItem(tx, args.id);
       assertStatus(
         row,
         ["draft", "convened"],
@@ -292,6 +401,10 @@ export const agendaItemMutators = {
 };
 
 export const meetingAttendanceMutators = {
+  /**
+   * Arrivals and departures count for the items still to decide; a decided
+   * item keeps the attendance it was decided on (`decisionBasis`).
+   */
   set: defineMutator(
     z.object({ id: z.string(), presence: z.enum(presenceValues) }),
     async ({ tx, ctx, args }) => {
@@ -331,14 +444,16 @@ export const agendaVoteMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.agendaItemId);
+      const { item, meeting: parent } = await requireItem(
+        tx,
+        args.agendaItemId
+      );
       if (item.kind !== "resolution") {
         throw new Error("Only a resolution is voted on.");
       }
       if (item.outcome && item.outcome !== "no_decision") {
         throw new Error("This item has already been decided.");
       }
-      const parent = await requireMeeting(tx, item.meetingId);
       assertStatus(
         parent,
         ["convened"],
@@ -383,10 +498,18 @@ export const agendaVoteMutators = {
     z.object({ agendaItemId: z.string(), trusteeId: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.agendaItemId);
+      const { item, meeting: parent } = await requireItem(
+        tx,
+        args.agendaItemId
+      );
       if (item.outcome && item.outcome !== "no_decision") {
         throw new Error("This item has already been decided.");
       }
+      assertStatus(
+        parent,
+        ["convened"],
+        "Votes are recorded while the meeting is open."
+      );
       const existing = await tx.run(
         zql.agendaVote
           .where("agendaItemId", args.agendaItemId)

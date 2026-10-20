@@ -1,8 +1,12 @@
 import { describe, expect, it, mock } from "bun:test";
 
 // The safeguarding gate has its own tests; these fakes answer queries in order.
+const assertSafeguardingAcknowledged = mock(
+  async (_tx: unknown, _userIds: readonly string[], _options: unknown) =>
+    undefined
+);
 mock.module("../safeguarding", () => ({
-  assertSafeguardingAcknowledged: async () => undefined,
+  assertSafeguardingAcknowledged,
   assertSafeToJoinEvent: async () => undefined,
 }));
 
@@ -1583,6 +1587,44 @@ describe("kalakritiAssignment.assignVolunteer local membership", () => {
     expect(spies.insertEventMember).not.toHaveBeenCalled();
     expect(sql.returning).not.toHaveBeenCalled();
     expect(ctx.asyncTasks).toHaveLength(0);
+  });
+
+  it("gates an account-linked membership chosen without a user id", async () => {
+    const { tx, spies } = createTx([
+      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+      {
+        id: "membership-linked",
+        editionId: "edition-1",
+        kind: "volunteer",
+        state: "active",
+        userId: "volunteer-9",
+      },
+    ]);
+    assertSafeguardingAcknowledged.mockImplementationOnce(() =>
+      Promise.reject(new Error("Not acknowledged"))
+    );
+
+    await expect(
+      kalakritiAssignmentMutators.assignVolunteer.fn({
+        args: {
+          ...assignArgs,
+          membershipId: "membership-linked",
+          teamEventMemberId: undefined,
+          userId: undefined,
+        },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.assignVolunteer.fn
+      >[0])
+    ).rejects.toThrow("Not acknowledged");
+
+    expect(assertSafeguardingAcknowledged).toHaveBeenLastCalledWith(
+      tx,
+      ["volunteer-9"],
+      { self: false }
+    );
+    expect(spies.insertAssignment).not.toHaveBeenCalled();
   });
 
   it("assigns a Center liaison to a local volunteer", async () => {

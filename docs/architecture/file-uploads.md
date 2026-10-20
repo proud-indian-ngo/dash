@@ -16,6 +16,8 @@ Every upload surface has its own signer in `apps/web/src/functions/attachments.t
 5. Advisory locks on the temp source and durable target are held through commit.
 6. After commit, temp-source deletion is enqueued under the same source lock that browser-triggered temp cleanup takes.
 
+A presigned PUT can store more than the size it declared, so a server function that reads an upload into memory (governance signed copies and vault imports, through `readGovernanceUpload`) checks the stored size first and stops the read if the object grows.
+
 ### Deletion
 
 - Replaced or deleted durable objects are deleted after a delay by a job that locks the key, rechecks every database reference and deletes only an unreferenced key.

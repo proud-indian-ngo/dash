@@ -157,6 +157,27 @@ describe("boardOn", () => {
       "secretary",
     ]);
   });
+
+  it("orders trustees with the same name the same way whatever the row order", () => {
+    const trustees = [
+      { id: "b", isCoFounder: false, legalName: "Asha Rao" },
+      { id: "a", isCoFounder: false, legalName: "Asha Rao" },
+    ];
+    const terms = [
+      term({ id: "tb", trusteeId: "b" }),
+      term({ id: "ta", trusteeId: "a" }),
+    ];
+    const ids = (input: Parameters<typeof boardOn>[0]) =>
+      boardOn(input, "2026-04-03").map((m) => m.trustee.id);
+    expect(ids({ offices: [], terms, trustees })).toEqual(["a", "b"]);
+    expect(
+      ids({
+        offices: [],
+        terms: [...terms].reverse(),
+        trustees: [...trustees].reverse(),
+      })
+    ).toEqual(["a", "b"]);
+  });
 });
 
 describe("deed versions and quorum", () => {

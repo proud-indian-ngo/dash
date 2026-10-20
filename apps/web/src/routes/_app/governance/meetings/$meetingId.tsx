@@ -19,6 +19,7 @@ import {
   type TrusteeOffice,
 } from "@pi-dash/shared/governance";
 import {
+  hasDecision,
   kolkataParts,
   MEETING_MODE_LABELS,
   noticeProblem,
@@ -205,8 +206,12 @@ function MeetingView({
   const handleClose = useEventCallback(async () => {
     setBusy(true);
     await markHeld({ data: { id: meeting.id } })
-      .then(() => {
-        toast.success("Meeting closed. Make the minutes next.");
+      .then((out) => {
+        toast.success(
+          out.released > 0
+            ? "Meeting closed. Resolutions with no decision went back to the drafts."
+            : "Meeting closed. Make the minutes next."
+        );
         setClosing(false);
       })
       .catch((error: unknown) => {
@@ -401,6 +406,12 @@ function MeetingView({
                 Attendance is taken once the meeting starts.
               </p>
             ) : null}
+            {canRecord && hasDecision(meeting.agenda ?? []) ? (
+              <p className="text-muted-foreground text-sm">
+                Arrivals and departures count for the items still to decide.
+                Decided items keep the attendance they were decided on.
+              </p>
+            ) : null}
             <ul className="flex flex-col divide-y">
               {[...attendance]
                 .sort((a, b) =>
@@ -502,7 +513,7 @@ function MeetingView({
       />
       <ConfirmDialog
         confirmLabel="Close the meeting"
-        description="Attendance and votes are fixed once the meeting is closed. Every resolution on the agenda must be decided first."
+        description="Attendance and votes are fixed once the meeting is closed. Every resolution on the agenda must be decided first. One with no decision goes back to the drafts, to issue as a circular."
         loading={busy}
         onConfirm={handleClose}
         onOpenChange={setClosing}

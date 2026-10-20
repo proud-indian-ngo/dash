@@ -35,13 +35,18 @@ import "../context";
 import type { Context } from "../context";
 import { assertHasPermission, assertIsLoggedIn, can } from "../permissions";
 import { type Schema, zql } from "../schema";
+import {
+  type LockableKalakritiTx,
+  requireServerTransaction,
+} from "./kalakriti-row-locks";
 
 /**
  * Register writes. Terms and offices sync through Zero, so they change here;
  * a trustee's identity and private details go through the `saveTrustee`
  * server function, and vault files through `createGovernanceDocument`.
  * Every write refuses a change that would give an office two holders, put an
- * office outside its holder's term, or give a trustee overlapping terms.
+ * office outside its holder's term, or give a trustee overlapping terms, and
+ * takes the register lock first so concurrent writes are checked in turn.
  */
 
 type Tx = Transaction<Schema>;
@@ -147,6 +152,19 @@ async function loadRegister(tx: Tx): Promise<RegisterInput> {
   };
 }
 
+/**
+ * On the server, the lock every register write takes (`lockRegister` in
+ * @pi-dash/db), before anything is read for the check.
+ */
+async function lockRegister(tx: Tx): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const { lockRegister: lock } =
+    await import("@pi-dash/db/queries/resolutions");
+  await lock(requireServerTransaction(tx as unknown as LockableKalakritiTx));
+}
+
 function assertNoNewProblems(before: RegisterInput, after: RegisterInput) {
   const [problem] = newRegisterProblems(before, after);
   if (problem) {
@@ -217,6 +235,7 @@ async function requireTerm(tx: Tx, id: string) {
 export const trusteeTermMutators = {
   create: defineMutator(termCreateInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     await requireTrustee(tx, args.trusteeId);
     const dateProblem = termDateProblem({
       endedOn: null,
@@ -263,6 +282,7 @@ export const trusteeTermMutators = {
   /** Corrects a term: any field, including its end, for records entered wrongly. */
   update: defineMutator(termUpdateInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     const existing = await requireTerm(tx, args.id);
     const endedOn =
       args.endedOn === undefined ? toIso(existing.endedOn) : args.endedOn;
@@ -338,6 +358,7 @@ export const trusteeTermMutators = {
   /** Records that a trustee ceased: resignation, death, absence, removal or the term's end. */
   end: defineMutator(termEndInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     const existing = await requireTerm(tx, args.id);
     if (existing.endedOn !== null && existing.endedOn !== undefined) {
       throw new Error("This term has already ended. Correct it instead.");
@@ -401,6 +422,7 @@ export const trusteeTermMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
+      await lockRegister(tx);
       const existing = await requireTerm(tx, args.id);
       const before = await loadRegister(tx);
       assertNoNewProblems(before, {
@@ -451,6 +473,7 @@ async function requireOffice(tx: Tx, id: string) {
 export const trusteeOfficeMutators = {
   create: defineMutator(officeCreateInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     await requireTrustee(tx, args.trusteeId);
     await assertDocumentsExist(tx, [args.startEvidenceDocumentId]);
     const before = await loadRegister(tx);
@@ -484,6 +507,7 @@ export const trusteeOfficeMutators = {
 
   update: defineMutator(officeUpdateInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     const existing = await requireOffice(tx, args.id);
     const endedOn =
       args.endedOn === undefined ? toIso(existing.endedOn) : args.endedOn;
@@ -534,6 +558,7 @@ export const trusteeOfficeMutators = {
 
   end: defineMutator(officeEndInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
+    await lockRegister(tx);
     const existing = await requireOffice(tx, args.id);
     if (existing.endedOn !== null && existing.endedOn !== undefined) {
       throw new Error("This office has already ended. Correct it instead.");
@@ -562,6 +587,7 @@ export const trusteeOfficeMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
+      await lockRegister(tx);
       const existing = await requireOffice(tx, args.id);
       await tx.mutate.trusteeOffice.delete({ id: existing.id });
     }
@@ -800,7 +826,24 @@ const draftInput = z.object({
   title: z.string().trim().min(1).max(RESOLUTION_TITLE_MAX),
 });
 
+/**
+ * On the server, locks what decides the draft before reading it, so an edit
+ * can't land after it's issued or noticed: the meeting for one on an agenda
+ * (every meeting write takes it), otherwise the row (as issuing does).
+ */
 async function requireDraft(tx: Tx, id: string) {
+  if (tx.location === "server") {
+    const server = requireServerTransaction(tx);
+    const item = await tx.run(zql.agendaItem.where("resolutionId", id).one());
+    if (item) {
+      const { lockMeeting } = await import("@pi-dash/db/queries/meetings");
+      await lockMeeting(server, item.meetingId);
+    } else {
+      const { lockResolution } =
+        await import("@pi-dash/db/queries/resolutions");
+      await lockResolution(server, id);
+    }
+  }
   const row = await tx.run(zql.resolution.where("id", id).one());
   if (!row) {
     throw new Error("Resolution not found");
@@ -817,6 +860,25 @@ function assertDraftEffect(args: z.infer<typeof draftInput>) {
   const template = RESOLUTION_TEMPLATES[args.templateKey];
   if (args.effect.type !== template.effect) {
     throw new Error("The register change doesn't match the template.");
+  }
+}
+
+/**
+ * A meeting's resolutions are fixed once its notice goes out (clause 4.19).
+ * `requireDraft` has taken the meeting's lock.
+ */
+async function assertAgendaOpen(tx: Tx, resolutionId: string) {
+  const item = await tx.run(
+    zql.agendaItem.where("resolutionId", resolutionId).one()
+  );
+  if (!item) {
+    return;
+  }
+  const meeting = await tx.run(zql.meeting.where("id", item.meetingId).one());
+  if (meeting?.status !== "draft") {
+    throw new Error(
+      "The notice has gone out with this resolution. Cancel the meeting and convene a new one to change it."
+    );
   }
 }
 
@@ -844,7 +906,10 @@ export const resolutionMutators = {
   }),
   updateDraft: defineMutator(draftInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "governance.manage");
-    await requireDraft(tx, args.id);
+    const draft = await requireDraft(tx, args.id);
+    if (draft.kind === "meeting") {
+      await assertAgendaOpen(tx, args.id);
+    }
     assertDraftEffect(args);
     if (args.effect.type !== "none") {
       await requireTrustee(tx, args.effect.trusteeId);
@@ -877,6 +942,24 @@ async function requireItem(tx: Tx, id: string) {
   const item = await tx.run(zql.complianceItem.where("id", id).one());
   if (!item) {
     throw new Error("Item not found");
+  }
+  return item;
+}
+
+/** Locks the row on the server first, so a closure and a waiver can't both land. */
+async function requireOpenItem(tx: Tx, id: string) {
+  if (tx.location === "server") {
+    const { lockComplianceItem } =
+      await import("@pi-dash/db/queries/compliance");
+    await lockComplianceItem(requireServerTransaction(tx), id);
+  }
+  const item = await requireItem(tx, id);
+  if (item.status !== "open") {
+    throw new Error(
+      item.status === "waived"
+        ? "This item has already been waived."
+        : "This item is already closed."
+    );
   }
   return item;
 }
@@ -918,10 +1001,7 @@ export const complianceItemMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.id);
-      if (item.status !== "open") {
-        throw new Error("This item is already closed.");
-      }
+      const item = await requireOpenItem(tx, args.id);
       await assertDocumentsExist(tx, [args.evidenceDocumentId]);
       const now = Date.now();
       await tx.mutate.complianceItem.update({
@@ -943,10 +1023,7 @@ export const complianceItemMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
-      const item = await requireItem(tx, args.id);
-      if (item.status !== "open") {
-        throw new Error("This item is already closed.");
-      }
+      await requireOpenItem(tx, args.id);
       const now = Date.now();
       await tx.mutate.complianceItem.update({
         closedAt: now,

@@ -16,6 +16,7 @@ const props = {
   heldOn: "2026-10-20",
   items: [
     {
+      attendance: null,
       body: null,
       conflicted: [],
       noted: [{ number: "PI/TR/2026-27/001", title: "Bank signatories" }],
@@ -26,6 +27,7 @@ const props = {
       votes: [],
     },
     {
+      attendance: "For this item: Vikram Menon (absent).",
       body: "RESOLVED THAT the budget for 2027-28 be approved.",
       conflicted: ["Vikram Menon"],
       noted: [],

@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, desc, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import {
+  circularSignature,
   governanceDocument,
   signingCertificate,
   trustee,
@@ -83,11 +84,78 @@ export async function openJobForToken(
 }
 
 /**
- * Marks a job finished, exactly once: a second post with the same token
- * finds nothing to update.
+ * A completion's claim on a pending job lapses after this, so one that died
+ * mid-way doesn't hold it forever. Longer than any completion takes.
+ */
+export const SETTLING_CLAIM_MS = 5 * 60 * 1000;
+
+/**
+ * Runs `work` while claiming one pending job, so a second completion racing
+ * the first (a repeated post) gets `null` straight away instead of running
+ * too. The claim is the pending row's `completedAt`, committed before
+ * `work` runs, so no connection is held meanwhile. `work` gets the claim
+ * and settles the row with it (`closeJob`), so a completion whose claim
+ * lapsed and was taken over can't settle it too; `work` that leaves the row
+ * pending gives it back.
+ */
+export async function whileClaimed<T>(
+  id: string,
+  work: (claim: Date) => Promise<T>
+): Promise<T | null> {
+  const claim = new Date();
+  const claimed = await db
+    .update(signingJob)
+    .set({ completedAt: claim })
+    .where(
+      and(
+        eq(signingJob.id, id),
+        eq(signingJob.status, "pending"),
+        or(
+          isNull(signingJob.completedAt),
+          lte(
+            signingJob.completedAt,
+            new Date(claim.getTime() - SETTLING_CLAIM_MS)
+          )
+        )
+      )
+    )
+    .returning({ id: signingJob.id });
+  if (claimed.length === 0) {
+    return null;
+  }
+  try {
+    return await work(claim);
+  } finally {
+    await db
+      .update(signingJob)
+      .set({ completedAt: null })
+      .where(
+        and(
+          eq(signingJob.id, id),
+          eq(signingJob.status, "pending"),
+          eq(signingJob.completedAt, claim)
+        )
+      );
+  }
+}
+
+/** How a job ended, read fresh. */
+export async function jobOutcome(id: string) {
+  const [row] = await db
+    .select({ error: signingJob.error, status: signingJob.status })
+    .from(signingJob)
+    .where(eq(signingJob.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Marks a job finished, exactly once and only by the completion holding
+ * `claim`: one whose claim was taken over finds nothing to update.
  */
 export async function closeJob(
   id: string,
+  claim: Date,
   outcome: { error: string } | { ok: true }
 ): Promise<boolean> {
   const updated = await db
@@ -97,7 +165,13 @@ export async function closeJob(
       error: "error" in outcome ? outcome.error : null,
       status: "error" in outcome ? "failed" : "completed",
     })
-    .where(and(eq(signingJob.id, id), eq(signingJob.status, "pending")))
+    .where(
+      and(
+        eq(signingJob.id, id),
+        eq(signingJob.status, "pending"),
+        eq(signingJob.completedAt, claim)
+      )
+    )
     .returning({ id: signingJob.id });
   return updated.length === 1;
 }
@@ -121,6 +195,30 @@ export async function jobStatusFor(id: string, userId: string) {
     error: expired ? "The link expired. Start again." : row.error,
     status: expired ? ("failed" as const) : row.status,
   };
+}
+
+/**
+ * Whether the trustee's signature on the circular was recorded since a job
+ * started: a completion whose claim lapsed may have recorded it
+ * while another took over, which is that job done, not failed.
+ */
+export async function signatureRecordedSince(
+  circularId: string,
+  trusteeId: string,
+  since: Date
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: circularSignature.id })
+    .from(circularSignature)
+    .where(
+      and(
+        eq(circularSignature.circularId, circularId),
+        eq(circularSignature.trusteeId, trusteeId),
+        gte(circularSignature.createdAt, since)
+      )
+    )
+    .limit(1);
+  return row !== undefined;
 }
 
 // ── Certificates ────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import type { TrusteeOffice } from "@pi-dash/shared/governance";
 import {
   agendaItemKindValues,
+  type DecisionBasis,
   meetingModeValues,
   meetingStatusValues,
   presenceValues,
@@ -96,6 +97,8 @@ export const agendaItem = pgTable(
     castingVote: voteChoiceEnum("casting_vote"),
     createdAt: timestamp("created_at").notNull(),
     decidedAt: timestamp("decided_at"),
+    /** The attendance, chair and counts the decision was worked out from. */
+    decisionBasis: jsonb("decision_basis").$type<DecisionBasis>(),
     id: uuid("id").primaryKey(),
     kind: agendaItemKindEnum("kind").notNull(),
     meetingId: uuid("meeting_id")

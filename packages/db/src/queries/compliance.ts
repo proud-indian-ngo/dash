@@ -100,6 +100,18 @@ export async function generateComplianceItems(today: string): Promise<number> {
   return inserted.length;
 }
 
+/** Locks an item's row, so two closures of it are checked in turn. */
+export async function lockComplianceItem(
+  tx: Pick<typeof db, "select">,
+  id: string
+): Promise<void> {
+  await tx
+    .select({ id: complianceItem.id })
+    .from(complianceItem)
+    .where(eq(complianceItem.id, id))
+    .for("update");
+}
+
 /** Open items due within the next 30 days, for the reminder job. */
 export async function openItemsDueSoon(today: string) {
   return await db

@@ -26,6 +26,7 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
   const newcomer = uuidv7();
   const resolutionIds: string[] = [];
   const circularIds: string[] = [];
+  const documentIds: string[] = [];
   const now = new Date();
   let db: typeof import(".").db;
   let schema: typeof import("./schema/governance");
@@ -65,6 +66,17 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       .delete(schema.trusteeTerm)
       .where(inArray(schema.trusteeTerm.trusteeId, [...trustees, newcomer]));
     if (resolutionIds.length > 0) {
+      // Reopen the offices the test designations took over.
+      await db
+        .update(schema.trusteeOffice)
+        .set({
+          endEvidenceDocumentId: null,
+          endSourceResolutionId: null,
+          endedOn: null,
+        })
+        .where(
+          inArray(schema.trusteeOffice.endSourceResolutionId, resolutionIds)
+        );
       await db
         .update(schema.resolutionResponse)
         .set({ signatureId: null })
@@ -86,6 +98,11 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       await db
         .delete(schema.circular)
         .where(inArray(schema.circular.id, circularIds));
+    }
+    if (documentIds.length > 0) {
+      await db
+        .delete(schema.governanceDocument)
+        .where(inArray(schema.governanceDocument.id, documentIds));
     }
     await db
       .delete(schema.trustee)
@@ -143,6 +160,8 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
         userId: null,
       })),
       responseDueOn: "2026-10-27",
+      stillPlanned: () => true,
+      today,
     });
     return { circularId, ids };
   }
@@ -434,6 +453,180 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
     await removeNewcomer();
   });
 
+  it("files start and end evidence from the resolution that made each", async () => {
+    const {
+      circularId: first,
+      ids: [appointment, designation],
+    } = await issue([
+      {
+        basis: "co_option_4_5",
+        endsOn: null,
+        startsOn: "2026-10-20",
+        trusteeId: newcomer,
+        type: "term_start",
+      },
+      {
+        office: "secretary",
+        startsOn: "2026-10-21",
+        trusteeId: newcomer,
+        type: "office_start",
+      },
+    ]);
+    await sign(first, trustees[0] as string, "a".repeat(64), "6".repeat(64));
+    await sign(first, trustees[1] as string, "6".repeat(64), "7".repeat(64));
+    const {
+      circularId: second,
+      ids: [cessation],
+    } = await issue([
+      {
+        cessationBasis: "resignation",
+        endedOn: "2026-10-22",
+        trusteeId: newcomer,
+        type: "term_end",
+      },
+    ]);
+    await sign(second, trustees[0] as string, "a".repeat(64), "8".repeat(64));
+    const decided = await sign(
+      second,
+      trustees[1] as string,
+      "8".repeat(64),
+      "0".repeat(64)
+    );
+    expect(statusOf(decided)).toEqual({ [cessation as string]: "passed" });
+
+    const docs = [appointment, designation, cessation].map(() => uuidv7());
+    documentIds.push(...docs);
+    await db.insert(schema.governanceDocument).values(
+      docs.map((id) => ({
+        contentType: "application/pdf",
+        createdAt: now,
+        datedOn: today,
+        id,
+        kind: "resolution" as const,
+        objectKey: `test/${id}.pdf`,
+        originalFilename: "resolution.pdf",
+        sha256: id.replaceAll("-", "").padEnd(64, "0"),
+        sizeBytes: 1,
+        sourceFormat: "signed_pdf" as const,
+        title: "DB test resolution",
+      }))
+    );
+    // The cessation is filed first; the term it ended still gets its start.
+    await q.setFinalDocument(cessation as string, docs[2] as string);
+    await q.setFinalDocument(appointment as string, docs[0] as string);
+    await q.setFinalDocument(designation as string, docs[1] as string);
+
+    const [term] = await db
+      .select()
+      .from(schema.trusteeTerm)
+      .where(eq(schema.trusteeTerm.trusteeId, newcomer));
+    expect(term).toMatchObject({
+      endEvidenceDocumentId: docs[2],
+      endSourceResolutionId: cessation,
+      endedOn: "2026-10-22",
+      sourceResolutionId: appointment,
+      startEvidenceDocumentId: docs[0],
+    });
+    const [office] = await db
+      .select()
+      .from(schema.trusteeOffice)
+      .where(eq(schema.trusteeOffice.trusteeId, newcomer));
+    expect(office).toMatchObject({
+      endEvidenceDocumentId: docs[2],
+      endSourceResolutionId: cessation,
+      sourceResolutionId: designation,
+      startEvidenceDocumentId: docs[1],
+    });
+    // A secretary the designation replaced ends on its resolution too.
+    const replaced = await db
+      .select()
+      .from(schema.trusteeOffice)
+      .where(
+        eq(schema.trusteeOffice.endSourceResolutionId, designation as string)
+      );
+    for (const row of replaced) {
+      expect(row).toMatchObject({
+        endEvidenceDocumentId: docs[1],
+        endedOn: "2026-10-21",
+      });
+    }
+    await removeNewcomer();
+  });
+
+  it("leaves an office that ended with its holder's fixed term alone", async () => {
+    // The newcomer's first term ran out with their office recorded open.
+    const expiredOffice = uuidv7();
+    await db.insert(schema.trusteeTerm).values([
+      {
+        basis: "co_option_4_5",
+        createdAt: now,
+        endsOn: "2022-12-31",
+        id: uuidv7(),
+        startsOn: "2020-01-01",
+        trusteeId: newcomer,
+        updatedAt: now,
+      },
+      {
+        basis: "co_option_4_5",
+        createdAt: now,
+        id: uuidv7(),
+        startsOn: "2026-10-01",
+        trusteeId: newcomer,
+        updatedAt: now,
+      },
+    ]);
+    await db.insert(schema.trusteeOffice).values({
+      createdAt: now,
+      id: expiredOffice,
+      office: "treasurer",
+      startsOn: "2020-01-01",
+      trusteeId: newcomer,
+      updatedAt: now,
+    });
+    const {
+      circularId,
+      ids: [designation, cessation],
+    } = await issue([
+      {
+        office: "treasurer",
+        startsOn: "2026-10-21",
+        trusteeId: trustees[2] as string,
+        type: "office_start",
+      },
+      {
+        cessationBasis: "resignation",
+        endedOn: "2026-10-22",
+        trusteeId: newcomer,
+        type: "term_end",
+      },
+    ]);
+    await sign(
+      circularId,
+      trustees[0] as string,
+      "a".repeat(64),
+      "c".repeat(64)
+    );
+    const decided = await sign(
+      circularId,
+      trustees[1] as string,
+      "c".repeat(64),
+      "d".repeat(64)
+    );
+    expect(statusOf(decided)).toEqual({
+      [cessation as string]: "passed",
+      [designation as string]: "passed",
+    });
+    const [office] = await db
+      .select()
+      .from(schema.trusteeOffice)
+      .where(eq(schema.trusteeOffice.id, expiredOffice));
+    expect(office).toMatchObject({
+      endSourceResolutionId: null,
+      endedOn: null,
+    });
+    await removeNewcomer();
+  });
+
   it("fails when objections make a majority unreachable", async () => {
     const {
       ids: [id],
@@ -465,7 +658,11 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       { type: "none" },
     ]);
     expect(await q.overdueCircularIds("2026-10-28")).toContain(circularId);
-    const decisions = await q.decideCircular(circularId, "2026-10-28");
+    const decisions = await q.decideCircular(
+      circularId,
+      "2026-10-28",
+      async () => undefined
+    );
     expect(decisions.map((d) => d.status)).toEqual(["failed", "failed"]);
     expect(decisions.map((d) => d.resolutionId)).toEqual(ids);
   });

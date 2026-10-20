@@ -8,8 +8,17 @@ import {
   addDays,
   type DeedRules,
   quorumFor,
+  RESOLUTION_THRESHOLD_LABELS,
   type TrusteeOffice,
 } from "./governance";
+import {
+  effectSubject,
+  neededFor,
+  RESOLUTION_TEMPLATES,
+  type ResolutionEffect,
+  type ResolutionTemplateKey,
+  thresholdFor,
+} from "./resolutions";
 
 export const meetingModeValues = ["in_person", "video", "hybrid"] as const;
 export type MeetingMode = (typeof meetingModeValues)[number];
@@ -94,7 +103,10 @@ export interface AttendanceRow {
 }
 
 /** Whether a trustee counts as present: in person, or on video when the deed allows it. */
-export function countsPresent(rules: DeedRules, presence: Presence): boolean {
+export function countsPresent(
+  rules: Pick<DeedRules, "videoCountsPresent">,
+  presence: Presence
+): boolean {
   return (
     presence === "in_person" ||
     (presence === "video" && rules.videoCountsPresent)
@@ -160,70 +172,168 @@ export interface ItemResult {
   /** "passed" or "failed" once decided; "no_decision" when inquorate. */
   outcome: "passed" | "failed" | "no_decision";
   for: number;
+  quorum: QuorumState;
   reason: string | null;
   usedCastingVote: boolean;
 }
 
 /**
- * The result of a vote (clauses 4.17 and 4.20): a simple majority of the
- * votes cast, counting absent trustees' written votes; a tie goes to the
- * chair's casting vote when the deed gives one and the chair cast it.
+ * Why the chair can't give a casting vote on an item, or null: the deed
+ * must give one, and the chair must be on the attendance list, counted
+ * present and not conflicted on the item.
+ */
+export function castingVoteProblem(input: {
+  attendance: readonly AttendanceRow[];
+  chairTrusteeId: string | null;
+  rules: Pick<DeedRules, "castingVote" | "videoCountsPresent">;
+  votes: readonly VoteRow[];
+}): string | null {
+  if (input.rules.castingVote !== "chair") {
+    return "The deed in force gives the chair no casting vote.";
+  }
+  const chair = input.attendance.find(
+    (a) => a.trusteeId === input.chairTrusteeId
+  );
+  if (!chair) {
+    return "Record who chairs the meeting, from the trustees the notice went to.";
+  }
+  if (!countsPresent(input.rules, chair.presence)) {
+    return "The chair isn't counted present.";
+  }
+  if (input.votes.some((v) => v.trusteeId === chair.trusteeId && v.conflict)) {
+    return "The chair declared an interest in this item.";
+  }
+  return null;
+}
+
+/**
+ * Decides a resolution on the agenda by its template, on the votes that
+ * count (clauses 4.15, 4.17 and 4.20). Quorum first. A simple majority
+ * decides the majority templates, a tie going to an eligible chair's
+ * casting vote; two-thirds and "all other trustees" are counted, as on a
+ * circular, against the trustees on the attendance list who may vote: not
+ * conflicted, and not the subject of a removal (clauses 7.12 and 9.3).
  */
 export function itemResult(input: {
+  attendance: readonly AttendanceRow[];
   castingVote: VoteChoice | null;
-  quorum: QuorumState;
+  chairTrusteeId: string | null;
+  /** Trustees in office on the meeting's date. */
+  inOffice: number;
+  resolution: { effect: ResolutionEffect; templateKey: ResolutionTemplateKey };
   rules: DeedRules;
+  /** Every vote recorded on the item. */
   votes: readonly VoteRow[];
 }): ItemResult {
-  const counted = input.votes.filter((v) => !v.conflict);
+  const threshold = thresholdFor(
+    RESOLUTION_TEMPLATES[input.resolution.templateKey],
+    input.rules
+  );
+  const subject = votingSubject(threshold, input.resolution.effect);
+  const conflicted = input.votes
+    .filter((v) => v.conflict)
+    .map((v) => v.trusteeId);
+  const quorum = itemQuorum({
+    attendance: input.attendance,
+    conflicted,
+    inOffice: input.inOffice,
+    rules: input.rules,
+  });
+  const counted = countedVotes(input);
   const forVotes = counted.filter((v) => v.choice === "for").length;
   const against = counted.filter((v) => v.choice === "against").length;
-  if (!input.quorum.quorate) {
-    return {
-      against,
-      for: forVotes,
-      outcome: "no_decision",
-      reason: input.quorum.reason,
-      usedCastingVote: false,
-    };
-  }
-  if (forVotes > against) {
-    return {
-      against,
-      for: forVotes,
-      outcome: "passed",
-      reason: null,
-      usedCastingVote: false,
-    };
-  }
-  if (forVotes < against) {
-    return {
-      against,
-      for: forVotes,
-      outcome: "failed",
-      reason: "More votes against than for.",
-      usedCastingVote: false,
-    };
-  }
-  if (
-    input.rules.castingVote === "chair" &&
-    (input.castingVote === "for" || input.castingVote === "against")
-  ) {
-    return {
-      against,
-      for: forVotes,
-      outcome: input.castingVote === "for" ? "passed" : "failed",
-      reason: `A tie, decided by the chair's casting vote ${input.castingVote}.`,
-      usedCastingVote: true,
-    };
-  }
-  return {
+  const decided = (
+    outcome: ItemResult["outcome"],
+    reason: string | null,
+    usedCastingVote = false
+  ): ItemResult => ({
     against,
     for: forVotes,
-    outcome: "failed",
-    reason: forVotes === 0 ? "No votes for." : "A tie with no casting vote.",
-    usedCastingVote: false,
-  };
+    outcome,
+    quorum,
+    reason,
+    usedCastingVote,
+  });
+  if (!quorum.quorate) {
+    return decided("no_decision", quorum.reason);
+  }
+  if (threshold !== "majority_in_office") {
+    const eligible = input.attendance.filter(
+      (a) => !conflicted.includes(a.trusteeId) && a.trusteeId !== subject
+    ).length;
+    const needed = neededFor(threshold, eligible);
+    if (eligible === 0) {
+      return decided("failed", "No trustee is left who can vote on it.");
+    }
+    if (forVotes >= needed) {
+      return decided("passed", null);
+    }
+    return decided(
+      "failed",
+      `${forVotes} for; it needs ${needed} of the ${eligible} trustees who may vote (${RESOLUTION_THRESHOLD_LABELS[threshold].toLowerCase()}).`
+    );
+  }
+  if (forVotes > against) {
+    return decided("passed", null);
+  }
+  if (forVotes < against) {
+    return decided("failed", "More votes against than for.");
+  }
+  if (input.castingVote === "for" || input.castingVote === "against") {
+    const problem = castingVoteProblem({
+      attendance: input.attendance,
+      chairTrusteeId: input.chairTrusteeId,
+      rules: input.rules,
+      votes: input.votes,
+    });
+    if (!problem) {
+      return decided(
+        input.castingVote === "for" ? "passed" : "failed",
+        `A tie, decided by the chair's casting vote ${input.castingVote}.`,
+        true
+      );
+    }
+    if (input.rules.castingVote === "chair") {
+      return decided(
+        "failed",
+        `A tie. The casting vote doesn't count: ${problem}`
+      );
+    }
+  }
+  return decided(
+    "failed",
+    forVotes === 0 ? "No votes for." : "A tie with no casting vote."
+  );
+}
+
+/**
+ * What a decided item's result was worked out from, recorded with the
+ * decision: attendance and the chair can change for later items, and this
+ * item keeps the inputs it was decided on.
+ */
+export interface DecisionBasis {
+  against: number;
+  attendance: AttendanceRow[];
+  chairTrusteeId: string | null;
+  for: number;
+  inOffice: number;
+  quorum: { counted: number; needed: number };
+  usedCastingVote: boolean;
+}
+
+/**
+ * Trustees who attended a decided item differently from the meeting's
+ * attendance list (they arrived or left), with how they attended the item.
+ */
+export function attendanceChanges(
+  basis: Pick<DecisionBasis, "attendance">,
+  attendance: readonly Pick<AttendanceRow, "presence" | "trusteeId">[]
+): AttendanceRow[] {
+  return basis.attendance.filter(
+    (b) =>
+      attendance.find((a) => a.trusteeId === b.trusteeId)?.presence !==
+      b.presence
+  );
 }
 
 /**
@@ -244,6 +354,97 @@ export function countableVotes<V extends VoteRow>(
     }
     return countsPresent(rules, row.presence) || v.absenteeWritten;
   });
+}
+
+/** The trustee a removal is about, who leaves the count, or null. */
+function votingSubject(
+  threshold: ReturnType<typeof thresholdFor>,
+  effect: ResolutionEffect
+): string | null {
+  return threshold === "unanimous_others" ? effectSubject(effect) : null;
+}
+
+/**
+ * The votes an item's result counts, as `itemResult` tallies them: the
+ * countable votes, less the conflicted and the subject of a removal. The
+ * minutes list these, so they agree with the tally.
+ */
+export function countedVotes<V extends VoteRow>(input: {
+  attendance: readonly AttendanceRow[];
+  resolution: { effect: ResolutionEffect; templateKey: ResolutionTemplateKey };
+  rules: DeedRules;
+  votes: readonly V[];
+}): V[] {
+  const subject = votingSubject(
+    thresholdFor(
+      RESOLUTION_TEMPLATES[input.resolution.templateKey],
+      input.rules
+    ),
+    input.resolution.effect
+  );
+  return countableVotes(input.rules, input.attendance, input.votes).filter(
+    (v) => !v.conflict && v.trusteeId !== subject
+  );
+}
+
+/**
+ * Closing a meeting: why it can't close yet, or the resolutions it hands
+ * back. Every resolution must have been put to the vote and a chair
+ * recorded. One the meeting was inquorate for is withdrawn on its item,
+ * which keeps its text in the minutes, and a copy becomes a circular draft.
+ */
+export function meetingClosing(input: {
+  agenda: readonly {
+    kind: AgendaItemKind;
+    outcome: ItemResult["outcome"] | null;
+    resolutionId: string | null;
+  }[];
+  chairTrusteeId: string | null;
+}): { problem: string } | { released: string[] } {
+  if (input.agenda.some((a) => a.kind === "resolution" && !a.outcome)) {
+    return {
+      problem: "Decide every resolution on the agenda first, or remove it.",
+    };
+  }
+  if (!input.chairTrusteeId) {
+    return { problem: "Record who chaired the meeting." };
+  }
+  return {
+    released: input.agenda.flatMap((a) =>
+      a.outcome === "no_decision" && a.resolutionId ? [a.resolutionId] : []
+    ),
+  };
+}
+
+/** Whether a resolution on the agenda has passed or failed. */
+export function hasDecision(
+  agenda: readonly { outcome: ItemResult["outcome"] | null }[]
+): boolean {
+  return agenda.some((a) => a.outcome === "passed" || a.outcome === "failed");
+}
+
+/**
+ * Cancelling a meeting: refused once a resolution was decided at it (it is
+ * closed instead), else the resolutions it hands back, as closing does.
+ */
+export function meetingCancelling(
+  agenda: readonly {
+    kind: AgendaItemKind;
+    outcome: ItemResult["outcome"] | null;
+    resolutionId: string | null;
+  }[]
+): { problem: string } | { released: string[] } {
+  if (hasDecision(agenda)) {
+    return {
+      problem:
+        "A resolution has been decided at this meeting. Mark it held instead.",
+    };
+  }
+  return {
+    released: agenda.flatMap((a) =>
+      a.kind === "resolution" && a.resolutionId ? [a.resolutionId] : []
+    ),
+  };
 }
 
 /**

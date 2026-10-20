@@ -9,6 +9,7 @@ import {
 import {
   complianceItemMutators,
   organisationRegistrationMutators,
+  resolutionMutators,
   trusteeOfficeMutators,
   trusteeTermMutators,
 } from "../governance";
@@ -19,10 +20,12 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).getTime();
 
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
+    agendaItem: [],
     complianceItem: [],
     deedVersion: [],
     governanceDocument: [{ id: "doc-1" }],
     organisationRegistration: [],
+    resolution: [],
     trustee: [
       { id: "sarjun", isCoFounder: true, legalName: "Sarjun H Hajathulla" },
       { id: "somu", isCoFounder: false, legalName: "Somasundaram Ayyappan" },
@@ -50,12 +53,36 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       Object.assign(current, row);
     },
   });
+  /** Reads made before each register lock, and before each row lock. */
+  const locks: number[] = [];
+  const rowLocks: number[] = [];
+  let reads = 0;
+  // `select().from().where().for("update")[.limit()]`, resolving to one row.
+  const select = {
+    for: () => {
+      rowLocks.push(reads);
+      return Object.assign(Promise.resolve([{}]), {
+        limit: async () => [{}],
+      });
+    },
+    from: () => select,
+    where: () => select,
+  };
   const tx = {
+    dbTransaction: {
+      wrappedTransaction: {
+        execute: async () => {
+          locks.push(reads);
+        },
+        select: () => select,
+      },
+    },
     location: "server",
     mutate: Object.fromEntries(
       Object.keys(tables).map((table) => [table, tableApi(table)])
     ),
     run: async (query: { ast: ScopeAst; format: { singular: boolean } }) => {
+      reads += 1;
       const result = (tables[query.ast.table] ?? []).filter((row) =>
         matchesScope(
           row as ScopeRow,
@@ -66,7 +93,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       return query.format.singular ? result[0] : result;
     },
   };
-  return { tables, tx, writes };
+  return { locks, rowLocks, tables, tx, writes };
 }
 
 function run(
@@ -165,6 +192,8 @@ describe("trustee term mutators", () => {
         trusteeId: "somu",
       })
     ).rejects.toThrow("two terms on the same days");
+    // The register lock comes before the register is read for the check.
+    expect(db.locks).toEqual([0]);
   });
 
   it("refuse evidence that isn't in the vault", async () => {
@@ -294,6 +323,62 @@ describe("trustee office mutators", () => {
     });
     expect(db.tables.trusteeOffice).toHaveLength(2);
   });
+
+  it("take the register lock before ending or removing an office", async () => {
+    const db = createDb({ trusteeOffice: [office()], trusteeTerm: [term()] });
+    await run(trusteeOfficeMutators.end, db, secretaryCtx, {
+      endedOn: "2026-10-16",
+      id: "o-somu-sec",
+    });
+    await run(trusteeOfficeMutators.remove, db, secretaryCtx, {
+      id: "o-somu-sec",
+    });
+    // Each lock comes before that mutator's first read (one read each).
+    expect(db.locks).toEqual([0, 1]);
+    expect(db.tables.trusteeOffice).toHaveLength(0);
+  });
+});
+
+describe("resolution draft mutators", () => {
+  const draft = {
+    body: "RESOLVED THAT",
+    effect: { type: "none" },
+    id: "r1",
+    templateKey: "ordinary",
+    title: "Open a bank account",
+  };
+
+  it("lock the row before reading it, and refuse an issued one", async () => {
+    const db = createDb({
+      resolution: [{ ...draft, kind: "circular", status: "issued" }],
+    });
+    await expect(
+      run(resolutionMutators.updateDraft, db, secretaryCtx, {
+        ...draft,
+        body: "RESOLVED THAT something else",
+      })
+    ).rejects.toThrow("Only a draft can change");
+    await expect(
+      run(resolutionMutators.deleteDraft, db, secretaryCtx, { id: "r1" })
+    ).rejects.toThrow("Only a draft can change");
+    // Each lock follows only the agenda lookup and precedes the row's read.
+    expect(db.rowLocks).toEqual([1, 3]);
+    expect(db.writes).toHaveLength(0);
+  });
+
+  it("change a draft under the lock", async () => {
+    const db = createDb({
+      resolution: [{ ...draft, kind: "circular", status: "draft" }],
+    });
+    await run(resolutionMutators.updateDraft, db, secretaryCtx, {
+      ...draft,
+      title: "Open a savings account",
+    });
+    expect(db.rowLocks).toEqual([1]);
+    expect(db.tables.resolution?.[0]).toMatchObject({
+      title: "Open a savings account",
+    });
+  });
 });
 
 describe("organisation registration mutators", () => {
@@ -357,6 +442,35 @@ describe("compliance item mutators", () => {
         id: "itr",
       })
     ).rejects.toThrow("already closed");
+  });
+
+  it("lock the item before reading it, so a waiver can't follow a closure", async () => {
+    const db = createDb({ complianceItem: [item()] });
+    await run(complianceItemMutators.close, db, secretaryCtx, {
+      evidenceDocumentId: "doc-1",
+      id: "itr",
+    });
+    await expect(
+      run(complianceItemMutators.waive, db, secretaryCtx, {
+        id: "itr",
+        note: "Filed by the CA directly",
+      })
+    ).rejects.toThrow("already closed");
+    expect(db.rowLocks).toEqual([0, 2]);
+    expect(db.tables.complianceItem?.[0]).toMatchObject({
+      evidenceDocumentId: "doc-1",
+      status: "done",
+    });
+  });
+
+  it("refuse closing a waived item", async () => {
+    const db = createDb({ complianceItem: [item({ status: "waived" })] });
+    await expect(
+      run(complianceItemMutators.close, db, secretaryCtx, {
+        evidenceDocumentId: "doc-1",
+        id: "itr",
+      })
+    ).rejects.toThrow("already been waived");
   });
 
   it("need governance.manage", async () => {

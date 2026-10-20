@@ -12,10 +12,13 @@ import {
   type CircularAnswer,
   effectSubject,
   formatResolutionNumber,
+  officesEndedBy,
   type ResolutionEffect,
   type ResponseState,
+  responseDatePassed,
   type Tally,
   tallyCircular,
+  termEndedBy,
 } from "@pi-dash/shared/resolutions";
 import { and, asc, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -38,6 +41,18 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Pick<typeof db, "select">;
 
 export class ResolutionError extends Error {}
+
+/**
+ * Serialises every write that could break the register's rules (a trustee's
+ * overlapping terms, two holders of an office, an office outside its
+ * holder's term): each takes this lock before it reads the register to
+ * check the change, so two checks never pass against the same register.
+ */
+export async function lockRegister(tx: Pick<Tx, "execute">): Promise<void> {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(hashtextextended('governance_register', 0))`
+  );
+}
 
 /** Rows as the shared rules read them. */
 export async function loadRegister(
@@ -121,7 +136,11 @@ export async function getResolution(id: string) {
   return row ?? null;
 }
 
-async function lockResolution(tx: Tx, id: string) {
+/**
+ * Locks a resolution's row. Issuing, deciding and editing a draft take it,
+ * after any meeting or circular lock and before the register's.
+ */
+export async function lockResolution(tx: Executor, id: string) {
   const [row] = await tx
     .select()
     .from(resolution)
@@ -167,33 +186,29 @@ export function registerAfterEffect(
       };
     case "term_end":
     case "removal": {
-      const open = register.terms.find(
-        (t) => t.trusteeId === effect.trusteeId && t.endedOn === null
+      const ended = termEndedBy(
+        register.terms,
+        effect.trusteeId,
+        effect.endedOn
       );
+      const offices = new Set(officesEndedBy(register, effect));
       return {
         ...register,
         offices: register.offices.map((o) =>
-          o.trusteeId === effect.trusteeId &&
-          o.endedOn === null &&
-          o.startsOn < effect.endedOn
-            ? { ...o, endedOn: effect.endedOn }
-            : o
+          offices.has(o.id) ? { ...o, endedOn: effect.endedOn } : o
         ),
         terms: register.terms.map((t) =>
-          t.id === open?.id ? { ...t, endedOn: effect.endedOn } : t
+          t.id === ended?.id ? { ...t, endedOn: effect.endedOn } : t
         ),
       };
     }
-    case "office_start":
+    case "office_start": {
+      const ended = new Set(officesEndedBy(register, effect));
       return {
         ...register,
         offices: [
           ...register.offices.map((o) =>
-            o.office === effect.office &&
-            o.endedOn === null &&
-            o.startsOn < effect.startsOn
-              ? { ...o, endedOn: effect.startsOn }
-              : o
+            ended.has(o.id) ? { ...o, endedOn: effect.startsOn } : o
           ),
           {
             endEvidenceDocumentId: null,
@@ -206,6 +221,7 @@ export function registerAfterEffect(
           },
         ],
       };
+    }
     default: {
       const never: never = effect;
       return never;
@@ -224,16 +240,15 @@ export function effectRegisterProblem(
   if (!register.trustees.some((t) => t.id === effect.trusteeId)) {
     return "The trustee isn't on the register.";
   }
-  if (effect.type === "term_end" || effect.type === "removal") {
-    const open = register.terms.find(
+  if (
+    (effect.type === "term_end" || effect.type === "removal") &&
+    !termEndedBy(register.terms, effect.trusteeId, effect.endedOn)
+  ) {
+    return register.terms.some(
       (t) => t.trusteeId === effect.trusteeId && t.endedOn === null
-    );
-    if (!open) {
-      return "That trustee has no open term to end.";
-    }
-    if (effect.endedOn <= open.startsOn) {
-      return "The cessation date must come after the term started.";
-    }
+    )
+      ? "The cessation date must come after the term started."
+      : "That trustee has no open term to end.";
   }
   const after = registerAfterEffect(register, effect, {
     officeId: "__new_office__",
@@ -246,7 +261,9 @@ async function applyEffect(
   tx: Tx,
   resolutionId: string,
   effect: ResolutionEffect,
-  documentId: string | null
+  documentId: string | null,
+  /** The register the effect was checked against. */
+  register: RegisterInput
 ): Promise<void> {
   const now = new Date();
   switch (effect.type) {
@@ -269,53 +286,51 @@ async function applyEffect(
     case "removal": {
       const cessationBasis =
         effect.type === "removal" ? "removal_7_12" : effect.cessationBasis;
-      await tx
-        .update(trusteeOffice)
-        .set({
-          endEvidenceDocumentId: documentId,
-          endedOn: effect.endedOn,
-          sourceResolutionId: resolutionId,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(trusteeOffice.trusteeId, effect.trusteeId),
-            isNull(trusteeOffice.endedOn),
-            sql`${trusteeOffice.startsOn} < ${effect.endedOn}`
-          )
-        );
+      const ended = termEndedBy(
+        register.terms,
+        effect.trusteeId,
+        effect.endedOn
+      );
+      if (!ended) {
+        throw new ResolutionError("That trustee has no open term to end.");
+      }
+      const offices = officesEndedBy(register, effect);
+      if (offices.length > 0) {
+        await tx
+          .update(trusteeOffice)
+          .set({
+            endEvidenceDocumentId: documentId,
+            endedOn: effect.endedOn,
+            endSourceResolutionId: resolutionId,
+            updatedAt: now,
+          })
+          .where(inArray(trusteeOffice.id, offices));
+      }
       await tx
         .update(trusteeTerm)
         .set({
           cessationBasis,
           endEvidenceDocumentId: documentId,
           endedOn: effect.endedOn,
-          sourceResolutionId: resolutionId,
+          endSourceResolutionId: resolutionId,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(trusteeTerm.trusteeId, effect.trusteeId),
-            isNull(trusteeTerm.endedOn)
-          )
-        );
+        .where(eq(trusteeTerm.id, ended.id));
       return;
     }
-    case "office_start":
-      await tx
-        .update(trusteeOffice)
-        .set({
-          endEvidenceDocumentId: documentId,
-          endedOn: effect.startsOn,
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(trusteeOffice.office, effect.office),
-            isNull(trusteeOffice.endedOn),
-            sql`${trusteeOffice.startsOn} < ${effect.startsOn}`
-          )
-        );
+    case "office_start": {
+      const ended = officesEndedBy(register, effect);
+      if (ended.length > 0) {
+        await tx
+          .update(trusteeOffice)
+          .set({
+            endEvidenceDocumentId: documentId,
+            endedOn: effect.startsOn,
+            endSourceResolutionId: resolutionId,
+            updatedAt: now,
+          })
+          .where(inArray(trusteeOffice.id, ended));
+      }
       await tx.insert(trusteeOffice).values({
         createdAt: now,
         id: uuidv7(),
@@ -327,6 +342,7 @@ async function applyEffect(
         updatedAt: now,
       });
       return;
+    }
     default: {
       const never: never = effect;
       return never;
@@ -354,6 +370,12 @@ export interface IssueInput {
   responseDueOn: string;
   /** Snapshot of the trustees in office at issue. */
   responders: { fieldName: string; trusteeId: string; userId: string | null }[];
+  /**
+   * Whether the register, read again under its lock, still gives the deed,
+   * issuer, signers and thresholds the PDF was rendered with.
+   */
+  stillPlanned: (register: Awaited<ReturnType<typeof loadRegister>>) => boolean;
+  today: string;
 }
 
 /**
@@ -381,6 +403,13 @@ export async function issueCircular(input: IssueInput): Promise<void> {
           `"${row.title}" was edited while the circular was being issued. Issue it again.`
         );
       }
+    }
+    await lockRegister(tx);
+    const register = await loadRegister(tx, input.today);
+    if (!input.stillPlanned(register)) {
+      throw new ResolutionError(
+        "The board changed while the circular was being prepared. Issue it again."
+      );
     }
     const now = new Date();
     await tx.insert(circular).values({
@@ -465,10 +494,23 @@ async function lockCircular(tx: Tx, circularId: string) {
   return row;
 }
 
+/** Under the circular's lock, so a response can't land after the closing job. */
+function assertResponseDateOpen(
+  row: typeof circular.$inferSelect,
+  today: string
+) {
+  if (responseDatePassed(row.responseDueOn, today)) {
+    throw new ResolutionError(
+      "The response date has passed, so responses are closed."
+    );
+  }
+}
+
 async function lockOpenResponse(
   tx: Tx,
   resolutionId: string,
-  trusteeId: string
+  trusteeId: string,
+  today: string
 ) {
   const [owner] = await tx
     .select({ circularId: resolution.circularId })
@@ -476,7 +518,7 @@ async function lockOpenResponse(
     .where(eq(resolution.id, resolutionId))
     .limit(1);
   if (owner?.circularId) {
-    await lockCircular(tx, owner.circularId);
+    assertResponseDateOpen(await lockCircular(tx, owner.circularId), today);
   }
   const row = await lockResolution(tx, resolutionId);
   if (row.status !== "issued") {
@@ -519,7 +561,8 @@ export async function recordObjection(input: {
     const { response, row } = await lockOpenResponse(
       tx,
       input.resolutionId,
-      input.trusteeId
+      input.trusteeId,
+      input.today
     );
     await tx
       .update(resolutionResponse)
@@ -543,7 +586,8 @@ export async function declareConflict(input: {
     const { response, row } = await lockOpenResponse(
       tx,
       input.resolutionId,
-      input.trusteeId
+      input.trusteeId,
+      input.today
     );
     await tx
       .update(resolutionResponse)
@@ -676,7 +720,10 @@ export async function recordSignature(
   input: SignatureInput
 ): Promise<Decision[]> {
   return await db.transaction(async (tx) => {
-    await lockCircular(tx, input.circularId);
+    assertResponseDateOpen(
+      await lockCircular(tx, input.circularId),
+      input.today
+    );
     const state = await signerState(tx, input.circularId, input.trusteeId);
     if (!state) {
       throw new ResolutionError(
@@ -914,6 +961,7 @@ export async function passInTx(
 ): Promise<
   { number: string; status: "passed" } | { note: string; status: "failed" }
 > {
+  await lockRegister(tx);
   const register = await loadRegister(tx, today);
   const problem = effectRegisterProblem(register, row.effect);
   if (problem) {
@@ -925,7 +973,7 @@ export async function passInTx(
   const fiscalYear = financialYearOf(today).label;
   const sequence = await nextSequence(tx, fiscalYear);
   const number = formatResolutionNumber(fiscalYear, sequence);
-  await applyEffect(tx, row.id, row.effect, null);
+  await applyEffect(tx, row.id, row.effect, null, register);
   await tx
     .update(resolution)
     .set({
@@ -942,14 +990,21 @@ export async function passInTx(
   return { number, status: "passed" };
 }
 
-/** Settles a circular's resolutions whose outcome is due (the closing job). */
+/**
+ * Settles a circular's resolutions whose outcome is due (the closing job).
+ * `then` runs in the same transaction, so what it writes commits with the
+ * decisions or not at all.
+ */
 export async function decideCircular(
   circularId: string,
-  today: string
+  today: string,
+  then: (tx: Tx, decisions: Decision[]) => Promise<void>
 ): Promise<Decision[]> {
   return await db.transaction(async (tx) => {
     await lockCircular(tx, circularId);
-    return await decideCircularInTx(tx, circularId, today);
+    const decisions = await decideCircularInTx(tx, circularId, today);
+    await then(tx, decisions);
+    return decisions;
   });
 }
 
@@ -1015,9 +1070,11 @@ export async function withdrawCircular(input: {
  */
 export async function setFinalDocument(
   resolutionId: string,
-  documentId: string
+  documentId: string,
+  executor: typeof db | Tx = db
 ): Promise<void> {
-  await db.transaction(async (tx) => {
+  await executor.transaction(async (tx) => {
+    await lockRegister(tx);
     const now = new Date();
     await tx
       .update(resolution)
@@ -1030,8 +1087,7 @@ export async function setFinalDocument(
         .where(
           and(
             eq(table.sourceResolutionId, resolutionId),
-            isNull(table.startEvidenceDocumentId),
-            isNull(table.endedOn)
+            isNull(table.startEvidenceDocumentId)
           )
         );
       await tx
@@ -1039,7 +1095,7 @@ export async function setFinalDocument(
         .set({ endEvidenceDocumentId: documentId, updatedAt: now })
         .where(
           and(
-            eq(table.sourceResolutionId, resolutionId),
+            eq(table.endSourceResolutionId, resolutionId),
             isNull(table.endEvidenceDocumentId),
             sql`${table.endedOn} IS NOT NULL`
           )

@@ -21,28 +21,31 @@ export function signingServiceConfigured(): boolean {
  * Asks the internal signing service (services/signing) to check every
  * signature in a PDF. Never throws: when the service is missing or fails,
  * the report says "unavailable" and the document is stored unchecked, to be
- * checked again later.
+ * checked again later. With `baseLength`, the report also says how much the
+ * revisions appended to that many leading bytes change (`changesSinceBase`).
  */
 export async function validateSignedPdf(
   bytes: Uint8Array,
+  baseLength?: number,
   fetchImpl: typeof fetch = fetch
 ): Promise<GovernanceValidationReport> {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     return unavailable("The signing service isn't configured");
   }
+  const url = new URL("/validate", env.SIGNING_SERVICE_URL);
+  if (baseLength !== undefined) {
+    url.searchParams.set("base", String(baseLength));
+  }
   try {
-    const response = await fetchImpl(
-      new URL("/validate", env.SIGNING_SERVICE_URL),
-      {
-        body: new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
-        headers: {
-          Authorization: `Bearer ${env.SIGNING_SERVICE_TOKEN}`,
-          "Content-Type": "application/pdf",
-        },
-        method: "POST",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      }
-    );
+    const response = await fetchImpl(url, {
+      body: new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
+      headers: {
+        Authorization: `Bearer ${env.SIGNING_SERVICE_TOKEN}`,
+        "Content-Type": "application/pdf",
+      },
+      method: "POST",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
     if (!response.ok) {
       return unavailable(`The signing service answered ${response.status}`);
     }
@@ -133,6 +136,20 @@ async function post(
     );
   }
   return response;
+}
+
+/** Whether a certificate (DER in base64) chains to the configured DSC roots. */
+export async function certificateTrusted(
+  input: { certificate: string; chain: string[] },
+  fetchImpl: typeof fetch = fetch
+): Promise<boolean> {
+  const response = await post(
+    "/certificate",
+    JSON.stringify(input),
+    "application/json",
+    fetchImpl
+  );
+  return ((await response.json()) as { trusted: boolean }).trusted;
 }
 
 /** Fills a trustee's answers field: the copy they then sign. */

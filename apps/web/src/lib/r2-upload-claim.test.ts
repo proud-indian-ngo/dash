@@ -9,11 +9,12 @@ import {
   MAX_SCHEDULED_MESSAGE_FILE_SIZE_BYTES,
   MAX_VIDEO_SIZE_BYTES,
 } from "@pi-dash/shared/constants";
+import { GOVERNANCE_DOCUMENT_MAX_BYTES } from "@pi-dash/shared/governance";
 import { MAX_KALAKRITI_INVENTORY_PHOTO_SIZE_BYTES } from "@pi-dash/shared/kalakriti-inventory";
 
 mock.module("./s3", () => ({ getS3: mock() }));
 
-import { copyR2Object } from "./r2-upload-claim";
+import { copyR2Object, readGovernanceUpload } from "./r2-upload-claim";
 
 const writer = {
   end: mock(),
@@ -454,6 +455,40 @@ describe("copyR2Object for a payee signature", () => {
     withExistingTarget(png(480, 160), "application/pdf");
     await expect(copyR2Object(signatureInput, deps)).rejects.toThrow(
       "Unsupported upload type: application/pdf"
+    );
+  });
+});
+
+describe("readGovernanceUpload", () => {
+  const upload = (statedSize: number) => {
+    const stream = mock(sourceStream);
+    return {
+      file: {
+        stat: async () => ({ size: statedSize }),
+        stream,
+      } as unknown as Parameters<typeof readGovernanceUpload>[0],
+      stream,
+    };
+  };
+
+  it("reads an upload within the cap", async () => {
+    const { file } = upload(1024);
+    expect((await readGovernanceUpload(file)).byteLength).toBe(1024);
+  });
+
+  it("refuses an upload stored bigger than the cap without reading it", async () => {
+    const { file, stream } = upload(GOVERNANCE_DOCUMENT_MAX_BYTES + 1);
+    await expect(readGovernanceUpload(file)).rejects.toThrow(
+      "The file is larger than 25 MB."
+    );
+    expect(stream).not.toHaveBeenCalled();
+  });
+
+  it("stops reading an upload that grew past its stored size", async () => {
+    streamedSize = 3 * 1024 * 1024;
+    const { file } = upload(1024);
+    await expect(readGovernanceUpload(file)).rejects.toThrow(
+      "Upload changed during claim"
     );
   });
 });

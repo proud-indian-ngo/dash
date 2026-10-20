@@ -8,8 +8,11 @@ import {
   closeJob,
   enrolCertificate,
   getCertificate,
+  jobOutcome,
   openJobForToken,
   type SigningJobRow,
+  signatureRecordedSince,
+  whileClaimed,
 } from "@pi-dash/db/queries/signing";
 import { user } from "@pi-dash/db/schema/auth";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
@@ -21,8 +24,12 @@ import z from "zod";
 import { runAuditedAction } from "../audit";
 import { getS3 } from "../s3";
 import { acceptSignedPdf, signedMessage } from "./accept-signature";
-import { CircularError } from "./circulars";
-import { finishRemoteSignature, SigningServiceError } from "./signing-service";
+import { CircularError, UNTRUSTED_CERTIFICATE_MESSAGE } from "./circulars";
+import {
+  certificateTrusted,
+  finishRemoteSignature,
+  SigningServiceError,
+} from "./signing-service";
 
 /**
  * The helper's side of a `pidash-sign://` link. It has no session: the
@@ -44,6 +51,14 @@ const GONE: JobReply = {
   status: 404,
 };
 
+const SIGNED: JobReply = {
+  body: {
+    message:
+      "Signed. Your signature is on the circular. You can return to the dashboard.",
+  },
+  status: 200,
+};
+
 const enrolBody = z.object({
   certificates: z.array(z.string().max(16_384)).min(1).max(8),
   chain: z.array(z.string().max(16_384)).max(8).default([]),
@@ -53,6 +68,9 @@ const signBody = z.object({
   certificate: z.string().max(16_384),
   signature: z.string().max(4096),
 });
+
+/** The helper gave up on the trustee's computer: a cancelled PIN, no token, a wrong PIN. */
+const failedBody = z.object({ failed: z.string().trim().min(1).max(500) });
 
 function commonName(distinguishedName: string): string | null {
   const line = distinguishedName
@@ -92,6 +110,19 @@ export function certificateFacts(
     sha256: certificate.fingerprint256.replaceAll(":", "").toLowerCase(),
     subject: commonName(certificate.subject) ?? certificate.subject,
   };
+}
+
+/**
+ * Settles the job under this completion's claim and replies; null when the
+ * claim was taken over, so the caller answers with how the job settled.
+ */
+async function settle(
+  job: SigningJobRow,
+  claim: Date,
+  outcome: { error: string } | { ok: true },
+  reply: JobReply
+): Promise<JobReply | null> {
+  return (await closeJob(job.id, claim, outcome)) ? reply : null;
 }
 
 async function actorFor(job: SigningJobRow) {
@@ -140,84 +171,162 @@ export async function describeJob(token: string): Promise<JobReply> {
 
 async function completeEnrolment(
   job: SigningJobRow & { legalName: string },
-  input: z.infer<typeof enrolBody>
-): Promise<JobReply> {
+  input: z.infer<typeof enrolBody>,
+  claim: Date
+): Promise<JobReply | null> {
   const names = await trusteeNamesForMatching();
   const own = names.filter((n) => n.id === job.trusteeId);
   const facts = input.certificates
     .map((der) => certificateFacts(der, input.chain))
     .filter((f) => f !== null)
     .filter((f) => matchSignerToTrustee(f.commonName, own) === job.trusteeId);
-  const [chosen] = facts;
-  if (!chosen) {
+  if (facts.length === 0) {
     const message = `None of the valid certificates on this token is in the name of ${job.legalName}. Plug in your own DSC token.`;
-    await closeJob(job.id, { error: message });
-    return { body: { message }, status: 422 };
+    return await settle(
+      job,
+      claim,
+      { error: message },
+      {
+        body: { message },
+        status: 422,
+      }
+    );
   }
+  // A certificate in the trustee's name is a DSC only if a licensed CA issued it.
+  let chosen: (typeof facts)[number] | undefined;
+  try {
+    for (const f of facts) {
+      if (await certificateTrusted({ certificate: f.der, chain: f.chain })) {
+        chosen = f;
+        break;
+      }
+    }
+  } catch (error) {
+    if (!(error instanceof SigningServiceError)) {
+      throw error;
+    }
+    return await settle(
+      job,
+      claim,
+      { error: error.message },
+      {
+        body: { message: error.message },
+        status: 422,
+      }
+    );
+  }
+  if (!chosen) {
+    return await settle(
+      job,
+      claim,
+      { error: UNTRUSTED_CERTIFICATE_MESSAGE },
+      { body: { message: UNTRUSTED_CERTIFICATE_MESSAGE }, status: 422 }
+    );
+  }
+  // Enrolling the same certificate again changes nothing.
   await enrolCertificate(job.trusteeId, chosen);
-  await closeJob(job.id, { ok: true });
-  return {
-    body: {
-      message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign circulars with it now.`,
-    },
-    status: 200,
-  };
+  return await settle(
+    job,
+    claim,
+    { ok: true },
+    {
+      body: {
+        message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign circulars with it now.`,
+      },
+      status: 200,
+    }
+  );
 }
 
 async function completeSignature(
   job: SigningJobRow & { legalName: string },
-  input: z.infer<typeof signBody>
-): Promise<JobReply> {
+  input: z.infer<typeof signBody>,
+  claim: Date
+): Promise<JobReply | null> {
   const certificate = job.certificateId
     ? await getCertificate(job.certificateId)
     : null;
-  if (!(certificate && job.circularId && job.stateObjectKey)) {
-    await closeJob(job.id, { error: "This signing job is incomplete." });
-    return GONE;
+  const { circularId, stateObjectKey } = job;
+  if (!(certificate && circularId && stateObjectKey)) {
+    return await settle(
+      job,
+      claim,
+      { error: "This signing job is incomplete." },
+      GONE
+    );
   }
   const facts = certificateFacts(input.certificate, []);
   if (facts?.sha256 !== certificate.sha256) {
     const message =
       "The token signed with a different certificate from the one enrolled for you.";
-    await closeJob(job.id, { error: message });
-    return { body: { message }, status: 422 };
+    return await settle(
+      job,
+      claim,
+      { error: message },
+      {
+        body: { message },
+        status: 422,
+      }
+    );
   }
   try {
     const s3 = await getS3();
-    const state = await s3.file(job.stateObjectKey).text();
+    const state = await s3.file(stateObjectKey).text();
     const signed = await finishRemoteSignature({
       signature: input.signature,
       state,
     });
     const decisions = await acceptSignedPdf({
-      circularId: job.circularId,
+      circularId,
       expectedCertificateSha256: certificate.sha256,
       method: "dsc_helper",
       trustee: { id: job.trusteeId, legalName: job.legalName },
       uploaded: signed,
       userId: job.userId,
     });
-    await s3.delete(job.stateObjectKey).catch(() => undefined);
-    await closeJob(job.id, { ok: true });
-    return {
-      body: {
-        message: `${signedMessage(decisions)} You can return to the dashboard.`,
-      },
-      status: 200,
-    };
+    await s3.delete(stateObjectKey).catch(() => undefined);
+    return await settle(
+      job,
+      claim,
+      { ok: true },
+      {
+        body: {
+          message: `${signedMessage(decisions)} You can return to the dashboard.`,
+        },
+        status: 200,
+      }
+    );
   } catch (error) {
+    // An earlier completion whose claim lapsed recorded the signature
+    // meanwhile, so this one finds it stale: the job is done.
+    if (
+      await signatureRecordedSince(circularId, job.trusteeId, job.createdAt)
+    ) {
+      return await settle(job, claim, { ok: true }, SIGNED);
+    }
     if (
       error instanceof CircularError ||
       error instanceof SigningServiceError
     ) {
-      await closeJob(job.id, { error: error.message });
-      return { body: { message: error.message }, status: 422 };
+      return await settle(
+        job,
+        claim,
+        { error: error.message },
+        {
+          body: { message: error.message },
+          status: 422,
+        }
+      );
     }
     throw error;
   }
 }
 
-/** POST: the helper's result. Audited as the trustee who started the job. */
+/**
+ * POST: the helper's result. Audited as the trustee who started the job.
+ * One completion of a job runs at a time; another gets how the job
+ * settled, or a 409 while the first is still running.
+ */
 export async function completeJob(
   token: string,
   rawBody: unknown
@@ -226,8 +335,43 @@ export async function completeJob(
   if (!job) {
     return GONE;
   }
+  const reply = await whileClaimed(job.id, (claim) =>
+    runJob(job, rawBody, claim)
+  );
+  if (reply) {
+    return reply;
+  }
+  const settled = await jobOutcome(job.id);
+  if (settled?.status === "completed") {
+    return job.kind === "enrol"
+      ? {
+          body: { message: "Your DSC is registered in the dashboard." },
+          status: 200,
+        }
+      : SIGNED;
+  }
+  if (settled?.status === "failed") {
+    return {
+      body: {
+        message: settled.error ?? "This signing job didn't go through.",
+      },
+      status: 422,
+    };
+  }
+  return {
+    body: { message: "This signing job is already in progress. Try again." },
+    status: 409,
+  };
+}
+
+async function runJob(
+  job: SigningJobRow & { legalName: string },
+  rawBody: unknown,
+  claim: Date
+): Promise<JobReply | null> {
   const actor = await actorFor(job);
   const action = job.kind === "enrol" ? "signing.enrol" : "circular.sign";
+  const failed = failedBody.safeParse(rawBody);
   try {
     return await runAuditedAction(
       {
@@ -240,6 +384,15 @@ export async function completeJob(
             : { id: job.circularId ?? undefined, type: "circular" },
       },
       async () => {
+        if (failed.success) {
+          // Closing the job stops the page waiting and shows it the reason.
+          return await settle(
+            job,
+            claim,
+            { error: failed.data.failed },
+            { body: { message: "The dashboard knows it failed." }, status: 200 }
+          );
+        }
         if (job.kind === "enrol") {
           const parsed = enrolBody.safeParse(rawBody);
           if (!parsed.success) {
@@ -248,7 +401,7 @@ export async function completeJob(
               status: 400,
             };
           }
-          return await completeEnrolment(job, parsed.data);
+          return await completeEnrolment(job, parsed.data, claim);
         }
         const parsed = signBody.safeParse(rawBody);
         if (!parsed.success) {
@@ -257,9 +410,10 @@ export async function completeJob(
             status: 400,
           };
         }
-        return await completeSignature(job, parsed.data);
+        return await completeSignature(job, parsed.data, claim);
       },
-      (reply) => (reply.status === 200 ? "success" : "failure")
+      (reply) =>
+        reply?.status === 200 && !failed.success ? "success" : "failure"
     );
   } catch (error) {
     const log = createRequestLogger({
@@ -269,12 +423,11 @@ export async function completeJob(
     log.set({ event: "signing_job_failed", jobId: job.id, kind: job.kind });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
-    await closeJob(job.id, {
-      error: "Something went wrong while signing. Try again.",
-    }).catch(() => undefined);
-    return {
-      body: { message: "Something went wrong while signing. Try again." },
-      status: 500,
-    };
+    const message = "Something went wrong while signing. Try again.";
+    const lost = await closeJob(job.id, claim, { error: message }).then(
+      (closed) => !closed,
+      () => false
+    );
+    return lost ? null : { body: { message }, status: 500 };
   }
 }

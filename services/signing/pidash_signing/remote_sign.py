@@ -43,7 +43,7 @@ class RemoteSignError(ValueError):
     pass
 
 
-def _load_cert(der_b64: str) -> x509.Certificate:
+def load_cert(der_b64: str) -> x509.Certificate:
     try:
         return x509.Certificate.load(base64.b64decode(der_b64, validate=True))
     except Exception as error:  # noqa: BLE001
@@ -65,8 +65,8 @@ async def start(
     chain_b64: list[str],
 ) -> StartResult:
     """Reserves the signature in `field_name` and returns what the token signs."""
-    cert = _load_cert(certificate_b64)
-    chain = [_load_cert(c) for c in chain_b64]
+    cert = load_cert(certificate_b64)
+    chain = [load_cert(c) for c in chain_b64]
     reader = PdfFileReader(io.BytesIO(pdf))
     names = [f[0] for f in fields.enumerate_sig_fields(reader, filled_status=False)]
     if field_name not in names:
@@ -112,8 +112,8 @@ async def finish(
     """Builds the CMS around the token's signature and writes it into the PDF."""
     try:
         state = json.loads(state_json)
-        cert = _load_cert(state["certificate"])
-        chain = [_load_cert(c) for c in state["chain"]]
+        cert = load_cert(state["certificate"])
+        chain = [load_cert(c) for c in state["chain"]]
         signed_attrs = cms.CMSAttributes.load(base64.b64decode(state["signedAttrs"]))
         output = io.BytesIO(base64.b64decode(state["output"]))
         prep = PreparedByteRangeDigest(

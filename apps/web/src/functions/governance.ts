@@ -22,6 +22,7 @@ import z from "zod";
 import {
   assertServerAnyPermission,
   assertServerPermission,
+  buildSessionContext,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { mapUnreadableValue } from "@/lib/encrypted-reveal";
@@ -41,6 +42,7 @@ import {
 } from "@/lib/governance/vault";
 import { authorizeProtectedUpload } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
+import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
 import { authMiddleware } from "@/middleware/auth";
@@ -62,22 +64,26 @@ export const getTrusteeDetails = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(z.object({ trusteeId: z.uuid().nullable() }))
   .handler(async ({ context, data }): Promise<TrusteeDetailsResponse> => {
-    await assertServerAnyPermission(context.session, [
-      "governance.view",
-      "governance.manage",
-    ]);
+    // Contact and KYC details are for the register's keepers (trustee_private).
+    await assertServerPermission(context.session, "governance.manage");
     return {
       details: data.trusteeId ? await getTrusteePrivate(data.trusteeId) : null,
       identifiersAvailable: hasEncryptionKey(),
     };
   });
 
-/** Accounts a trustee can be linked to: internal, not banned. Names and emails only. */
+/** Accounts a trustee can be linked to: internal, not banned. Names, and emails with `users.view`. */
 export const getTrusteeAccountOptions = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    await assertServerPermission(context.session, "governance.manage");
-    return await db
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { permissions } = await buildSessionContext(context.session);
+    if (!permissions.includes("governance.manage")) {
+      throw new Error("Forbidden");
+    }
+    const rows = await db
       .select({ email: user.email, id: user.id, name: user.name })
       .from(user)
       .where(
@@ -87,6 +93,8 @@ export const getTrusteeAccountOptions = createServerFn({ method: "POST" })
         )
       )
       .orderBy(asc(user.name));
+    const showEmail = permissions.includes("users.view");
+    return rows.map((r) => ({ ...r, email: showEmail ? r.email : null }));
   });
 
 export const saveTrusteeFn = createServerFn({ method: "POST" })
@@ -257,7 +265,7 @@ export const createGovernanceDocument = createServerFn({ method: "POST" })
                 if (!(await file.exists())) {
                   return null;
                 }
-                return new Uint8Array(await file.arrayBuffer());
+                return await readGovernanceUpload(file);
               },
               trusteeNames: trusteeNamesForMatching,
               validatePdf: (bytes) => validateSignedPdf(bytes),

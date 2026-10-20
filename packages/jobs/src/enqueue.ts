@@ -1,5 +1,12 @@
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
-import type { PgBoss, SendOptions } from "pg-boss";
+import { sql } from "drizzle-orm";
+import {
+  type Db,
+  type DrizzleTransactionLike,
+  fromDrizzle,
+  type PgBoss,
+  type SendOptions,
+} from "pg-boss";
 
 import { ensureBossReady, getBoss } from "./boss-instance";
 import type { JobName, JobPayloads } from "./types";
@@ -130,6 +137,14 @@ export const PHOTO_NOTIFICATION_DELAY_SECONDS =
 export interface EnqueueOptions extends SendOptions {
   /** Explicit trace ID. Falls back to AsyncLocalStorage via getCurrentTraceId(). */
   traceId?: string;
+}
+
+/**
+ * Runs pg-boss's SQL in a Drizzle transaction: a job sent with
+ * `{ db: inTransaction(tx) }` is queued only if the transaction commits.
+ */
+export function inTransaction(tx: DrizzleTransactionLike): Db {
+  return fromDrizzle(tx, sql);
 }
 
 /**

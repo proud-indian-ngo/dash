@@ -11,9 +11,8 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import type { DeedRules } from "@pi-dash/shared/governance";
 import {
-  countableVotes,
+  countedVotes,
   countsPresent,
-  itemQuorum,
   itemResult,
   MEETING_NOTES_MAX,
   PRESENCE_LABELS,
@@ -21,7 +20,10 @@ import {
   type VoteChoice,
   voteChoiceValues,
 } from "@pi-dash/shared/meetings";
-import { RESOLUTION_TEMPLATES } from "@pi-dash/shared/resolutions";
+import {
+  RESOLUTION_TEMPLATES,
+  thresholdFor,
+} from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
@@ -108,25 +110,27 @@ export function MeetingAgenda(props: AgendaContext) {
         </h2>
         {canEdit ? (
           <span className="flex flex-wrap gap-2">
-            <Button
-              onClick={() =>
-                setAdding({
-                  itemId: uuidv7(),
-                  kind: "resolution",
-                  resolutionId: uuidv7(),
-                })
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={PlusSignIcon}
-                strokeWidth={2}
-              />
-              Add a resolution
-            </Button>
+            {meeting.status === "draft" ? (
+              <Button
+                onClick={() =>
+                  setAdding({
+                    itemId: uuidv7(),
+                    kind: "resolution",
+                    resolutionId: uuidv7(),
+                  })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={PlusSignIcon}
+                  strokeWidth={2}
+                />
+                Add a resolution
+              </Button>
+            ) : null}
             <Button
               onClick={() =>
                 setAdding({
@@ -469,10 +473,16 @@ function ItemVotes({
   const votes = item.votes ?? [];
   const isOpen = !item.outcome || item.outcome === "no_decision";
   const editable = context.canRecord && isOpen;
+  // Once decided, the item shows the attendance and chair it was decided on.
+  const basis = editable ? null : (item.decisionBasis ?? null);
+  const presenceOf = (a: AttendanceView) =>
+    (basis
+      ? basis.attendance.find((b) => b.trusteeId === a.trusteeId)?.presence
+      : a.presence) ?? "absent";
 
   const rows = attendance.map((a) => ({
     offices: a.offices,
-    presence: a.presence ?? "absent",
+    presence: presenceOf(a),
     trusteeId: a.trusteeId,
   }));
   const voteRows = votes.map((v) => ({
@@ -481,19 +491,33 @@ function ItemVotes({
     conflict: v.conflict ?? false,
     trusteeId: v.trusteeId,
   }));
-  const quorum = itemQuorum({
-    attendance: rows,
-    conflicted: voteRows.filter((v) => v.conflict).map((v) => v.trusteeId),
-    inOffice: context.inOffice,
-    rules,
-  });
+  const resolution = item.resolution ?? {
+    effect: { type: "none" },
+    templateKey: "ordinary",
+  };
   const preview = itemResult({
+    attendance: rows,
     castingVote: item.castingVote ?? null,
-    quorum,
+    chairTrusteeId: basis
+      ? basis.chairTrusteeId
+      : (meeting.chairTrusteeId ?? null),
+    inOffice: basis?.inOffice ?? context.inOffice,
+    resolution,
     rules,
-    votes: countableVotes(rules, rows, voteRows),
+    votes: voteRows,
   });
-  const tied = quorum.quorate && preview.for === preview.against;
+  const counted = new Set(
+    countedVotes({ attendance: rows, resolution, rules, votes: voteRows }).map(
+      (v) => v.trusteeId
+    )
+  );
+  const { quorum } = preview;
+  const majority =
+    thresholdFor(
+      RESOLUTION_TEMPLATES[item.resolution?.templateKey ?? "ordinary"],
+      rules
+    ) === "majority_in_office";
+  const tied = quorum.quorate && majority && preview.for === preview.against;
 
   const setVote = useEventCallback(
     async (
@@ -561,10 +585,11 @@ function ItemVotes({
     setBusy(true);
     // The server decides from the database, and attendance and votes reach it
     // through Zero. Zero applies this client's writes in order, so once this
-    // one lands, everything marked before it has too.
+    // one lands, everything marked before it has too. A casting vote
+    // only stands on a tie.
     const flushed = await zero.mutate(
       mutators.agendaItem.setCastingVote({
-        choice: item.castingVote ?? null,
+        choice: tied ? (item.castingVote ?? null) : null,
         id: item.id,
       })
     ).server;
@@ -636,15 +661,16 @@ function ItemVotes({
             {attendance.map((a) => {
               const vote = votes.find((v) => v.trusteeId === a.trusteeId);
               const name = names.get(a.trusteeId) ?? "A trustee";
-              const present = countsPresent(rules, a.presence ?? "absent");
+              const presence = presenceOf(a);
+              const present = countsPresent(rules, presence);
               return (
                 <tr className="border-t" key={a.id}>
                   <td className="px-3 py-2">
                     <span className="flex flex-col">
                       <span>{name}</span>
                       <span className="text-muted-foreground text-xs">
-                        {a.markedAt
-                          ? PRESENCE_LABELS[a.presence ?? "absent"]
+                        {basis || a.markedAt
+                          ? PRESENCE_LABELS[presence]
                           : "Not marked"}
                       </span>
                     </span>
@@ -662,7 +688,7 @@ function ItemVotes({
                         {vote?.conflict
                           ? "Took no part"
                           : vote
-                            ? VOTE_CHOICE_LABELS[vote.choice]
+                            ? `${VOTE_CHOICE_LABELS[vote.choice]}${counted.has(vote.trusteeId) ? "" : " (not counted)"}`
                             : "—"}
                       </span>
                     )}
