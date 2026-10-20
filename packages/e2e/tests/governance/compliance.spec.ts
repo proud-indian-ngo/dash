@@ -112,7 +112,8 @@ test.describe("compliance calendar (super admin)", () => {
       hasText: title,
     });
     await expect(closed).toContainText("Done");
-    await expect(closed.getByRole("link", { name: evidence })).toBeVisible();
+    // The evidence opens in the file viewer.
+    await expect(closed.getByRole("button", { name: evidence })).toBeVisible();
   });
 
   test("records an item as not needed, with the reason", async ({ page }) => {
