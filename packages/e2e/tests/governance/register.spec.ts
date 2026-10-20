@@ -124,7 +124,9 @@ test.describe("trustee register access", () => {
     await expect(page).toHaveURL(`${baseURL}/`);
   });
 
-  test("is read-only for finance admins", async ({ page }, testInfo) => {
+  test("lets finance admins manage the register", async ({
+    page,
+  }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Finance test");
     await page.goto("/governance");
     await expect(
@@ -132,7 +134,7 @@ test.describe("trustee register access", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Add trustee" })
-    ).toBeHidden();
+    ).toBeVisible();
     await page.goto("/governance/registrations");
     await expect(
       page.getByRole("button", { name: "Add registration" })

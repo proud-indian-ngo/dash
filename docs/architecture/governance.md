@@ -14,7 +14,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Decision | Choice | Why |
 |---|---|---|
 | Voters | Only trustees with a current term. A trustee may link to a user account | The deed counts trustees in office |
-| Permissions | `governance.view`; `governance.manage` (the secretary runs the process); `governance.kyc.view` (reveal PAN and Aadhaar, audited). No new role | Duties sit on top of existing roles |
+| Permissions | `governance.view`; `governance.manage` (the secretary runs the process; admins and finance admins hold it); `governance.kyc.view` (reveal PAN and Aadhaar, audited). No new role | Duties sit on top of existing roles |
 | Deed rules | Dated deed versions; each decision is checked against the version in force on its date | Amendments must not rewrite history |
 | Pass rule | Majority of trustees in office at issue; two-thirds for an amendment, unanimity of the others for removal | Clauses 4.18, 9.3, 7.12 |
 | Numbering | Per financial year, assigned on pass: `PI/TR/2026-27/NNN` | Continues the paper series |
@@ -64,7 +64,7 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Signing service
 
-`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts, pyHanko's verdicts and text-field values (a circular's answers), never document text, and trusts the system roots (for timestamps) plus `services/signing/roots/`, the only roots a signer may chain to. It also prepares, fills answers into, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Its validator uses pyHanko's default diff policy, except that a field's appearance may not be rewritten in place: pyHanko otherwise reads every later answers fill as a change to the locked field. Without it, uploads are stored unchecked and can be checked later.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts, pyHanko's verdicts and text-field values (a circular's answers), never document text, and trusts the system roots (for timestamps) plus `services/signing/roots/`, the only roots a signer may chain to. `services/signing/intermediates/` holds CA certificates that complete a chain a PDF leaves out (the eMudhra CAs behind Income Tax Department orders); they are never roots. An RSA signature whose DigestInfo omits the hash's NULL parameters, as the department's do, is accepted only in that one exact encoding. It also prepares, fills answers into, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Its validator uses pyHanko's default diff policy, except that a field's appearance may not be rewritten in place: pyHanko otherwise reads every later answers fill as a change to the locked field. Without it, uploads are stored unchecked and can be checked later.
 
 ## Board at design time
 

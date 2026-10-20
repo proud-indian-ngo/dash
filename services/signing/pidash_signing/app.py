@@ -26,6 +26,7 @@ from .validate import (
 
 MAX_PDF_BYTES = 25 * 1024 * 1024
 DEFAULT_ROOTS = Path(__file__).resolve().parent.parent / "roots"
+DEFAULT_INTERMEDIATES = Path(__file__).resolve().parent.parent / "intermediates"
 
 
 class PrepareField(BaseModel):
@@ -70,6 +71,7 @@ def _settings() -> ValidationSettings:
     roots_dir = os.environ.get("SIGNING_TRUST_ROOTS_DIR")
     return ValidationSettings(
         trust_roots=load_trust_roots(Path(roots_dir) if roots_dir else DEFAULT_ROOTS),
+        intermediates=load_trust_roots(DEFAULT_INTERMEDIATES),
         allow_fetching=os.environ.get("SIGNING_ALLOW_FETCHING") == "true",
     )
 

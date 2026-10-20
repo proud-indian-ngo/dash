@@ -230,3 +230,143 @@ def test_certificate_check_needs_a_configured_root(pki: Pki) -> None:
         client.post("/certificate", headers=auth, json={"certificate": "nope"}).status_code
         == 400
     )
+
+
+# ── Income Tax Department signatures ────────────────────────────────────────
+
+
+def _digest_info_block(key_size: int, digest_info: bytes) -> bytes:
+    return b"\x00\x01" + b"\xff" * (key_size - 3 - len(digest_info)) + b"\x00" + digest_info
+
+
+def _raw_rsa_sign(pki: Pki, block: bytes) -> bytes:
+    """Signs a padded PKCS#1 block as is, as a signer that builds its own DigestInfo would."""
+    numbers = pki.signer_key.private_numbers()
+    n = numbers.public_numbers.n
+    size = (n.bit_length() + 7) // 8
+    return pow(int.from_bytes(block, "big"), numbers.d, n).to_bytes(size, "big")
+
+
+def _without_null(digest: bytes) -> bytes:
+    body = bytes.fromhex("300b0609608648016503040201") + bytes([0x04, len(digest)]) + digest
+    return bytes([0x30, len(body)]) + body
+
+
+def _check(pki: Pki, signature: bytes, data: bytes) -> None:
+    from asn1crypto import algos, keys
+
+    spki = keys.PublicKeyInfo.load(
+        pki.signer_key.public_key().public_bytes(
+            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    )
+    validate.SIGNATURE_VALIDATOR.validate_signature(
+        signature,
+        data,
+        spki,
+        algos.SignedDigestAlgorithm({"algorithm": "sha256_rsa"}),
+    )
+
+
+def test_accepts_a_digest_info_without_null_parameters(pki: Pki) -> None:
+    import hashlib
+
+    data = b"signed attributes"
+    size = pki.signer_key.key_size // 8
+    signature = _raw_rsa_sign(pki, _digest_info_block(size, _without_null(hashlib.sha256(data).digest())))
+    _check(pki, signature, data)
+
+
+def test_still_refuses_other_digest_info_encodings(pki: Pki) -> None:
+    import hashlib
+
+    from cryptography.exceptions import InvalidSignature
+
+    data = b"signed attributes"
+    size = pki.signer_key.key_size // 8
+    digest = hashlib.sha256(data).digest()
+    variants = {
+        # The right encoding over different data.
+        "other data": _without_null(hashlib.sha256(b"other").digest()),
+        # Trailing bytes after the digest.
+        "trailing bytes": _without_null(digest) + b"\x00",
+        # SHA-1's identifier with a SHA-256 signature algorithm.
+        "wrong hash": bytes.fromhex("3021300906052b0e03021a0414") + hashlib.sha1(data).digest(),
+    }
+    for name, digest_info in variants.items():
+        signature = _raw_rsa_sign(pki, _digest_info_block(size, digest_info))
+        with pytest.raises(InvalidSignature):
+            _check(pki, signature, data)
+        assert name
+
+
+def test_intermediates_complete_a_chain_the_pdf_leaves_out(tmp_path: Path) -> None:
+    from asn1crypto import keys
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from pyhanko.sign import signers
+    from pyhanko_certvalidator.registry import SimpleCertificateStore
+
+    from .conftest import _asn1, _cert, _name
+
+    root_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    root = _cert(_name("Test CCA Root"), _name("Test CCA Root"), root_key.public_key(), root_key, ca=True)
+    sub_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    sub = _cert(_name("Test Sub CA"), _name("Test CCA Root"), sub_key.public_key(), root_key, ca=True)
+    leaf_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    leaf = _cert(_name("PRAVEEN KARANTH"), _name("Test Sub CA"), leaf_key.public_key(), sub_key, ca=False)
+    signer = signers.SimpleSigner(
+        signing_cert=_asn1(leaf),
+        signing_key=keys.PrivateKeyInfo.load(
+            leaf_key.private_bytes(
+                serialization.Encoding.DER,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+        ),
+        # The PDF carries no chain, as the department's don't.
+        cert_registry=SimpleCertificateStore.from_certs([]),
+    )
+    import io
+
+    from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+
+    signed = signers.sign_pdf(
+        IncrementalPdfFileWriter(io.BytesIO(blank_pdf())),
+        signers.PdfSignatureMetadata(field_name="Signature1"),
+        signer=signer,
+    ).getvalue()
+
+    without = validate_pdf(signed, ValidationSettings(trust_roots=[_asn1(root)]))
+    assert without["signatures"][0]["intact"] is True
+    assert without["signatures"][0]["trusted"] is False
+
+    (tmp_path / "sub.pem").write_bytes(sub.public_bytes(serialization.Encoding.PEM))
+    with_sub = validate_pdf(
+        signed,
+        ValidationSettings(trust_roots=[_asn1(root)], intermediates=load_trust_roots(tmp_path)),
+    )
+    assert with_sub["signatures"][0]["trusted"] is True
+
+    # An intermediate is never a trust anchor on its own.
+    only_sub = validate_pdf(
+        signed, ValidationSettings(trust_roots=[], intermediates=load_trust_roots(tmp_path))
+    )
+    assert only_sub["signatures"][0]["trusted"] is False
+
+
+def test_shipped_intermediates_chain_to_the_shipped_root() -> None:
+    from cryptography import x509 as cx509
+
+    here = Path(__file__).resolve().parent.parent
+
+    def load(path: Path) -> cx509.Certificate:
+        data = path.read_bytes()
+        if data.startswith(b"-----BEGIN"):
+            return cx509.load_pem_x509_certificate(data)
+        return cx509.load_der_x509_certificate(data)
+
+    root = load(here / "roots" / "cca-india-2022.cer")
+    ca = load(here / "intermediates" / "emudhra-ca-2022.crt")
+    sub = load(here / "intermediates" / "emudhra-sub-ca-class-3-organisation-2022.crt")
+    ca.verify_directly_issued_by(root)
+    sub.verify_directly_issued_by(ca)

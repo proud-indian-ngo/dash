@@ -135,12 +135,12 @@ test.describe("compliance calendar (super admin)", () => {
 });
 
 test.describe("compliance calendar access", () => {
-  test("is read-only for finance admins", async ({ page }, testInfo) => {
+  test("lets finance admins manage items", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Finance test");
     await page.goto("/governance/compliance");
     await expect(
       page.getByRole("heading", { name: "Compliance calendar" })
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add item" })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Add item" })).toBeVisible();
   });
 });
