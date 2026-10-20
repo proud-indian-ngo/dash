@@ -30,7 +30,7 @@ import {
   handleMutationResult,
 } from "@/lib/mutation-result";
 
-import { dateToIso, formatIso } from "./register-data";
+import { dateToIso, formatIso, isoToDate, todayIso } from "./register-data";
 
 const FUTURE_MONTH = new Date(2100, 11, 1);
 
@@ -134,7 +134,7 @@ function PublishForm({
   const form = useForm({
     defaultValues: {
       documentId: NO_DOCUMENT,
-      effectiveOn: new Date() as Date | undefined,
+      effectiveOn: isoToDate(todayIso()),
       summary: "",
     },
     onSubmit: async ({ value }) => {
