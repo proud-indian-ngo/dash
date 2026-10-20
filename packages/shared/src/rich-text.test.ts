@@ -399,6 +399,13 @@ describe("listNumber", () => {
     expect(listNumber(1, 26)).toBe("aa");
     expect(listNumber(2, 13)).toBe("xiv");
   });
+
+  it("counts in Roman numerals past ten, as CSS lower-roman does", () => {
+    expect(
+      [39, 40, 49, 50, 90, 400, 1994].map((n) => listNumber(2, n - 1))
+    ).toEqual(["xxxix", "xl", "xlix", "l", "xc", "cd", "mcmxciv"]);
+    expect(listNumber(2, 3999)).toBe("4000");
+  });
 });
 
 describe("resolution templates", () => {

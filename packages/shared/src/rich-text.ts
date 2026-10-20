@@ -226,6 +226,14 @@ function inlineText(node: { children: RichTextLeaf[] }): string {
 }
 
 const ROMAN: [number, string][] = [
+  [1000, "m"],
+  [900, "cm"],
+  [500, "d"],
+  [400, "cd"],
+  [100, "c"],
+  [90, "xc"],
+  [50, "l"],
+  [40, "xl"],
   [10, "x"],
   [9, "ix"],
   [5, "v"],
@@ -233,7 +241,11 @@ const ROMAN: [number, string][] = [
   [1, "i"],
 ];
 
+/** As CSS `lower-roman`: 1 to 3999, then plain numbers. */
 function roman(n: number): string {
+  if (n > 3999) {
+    return String(n);
+  }
   let rest = n;
   let out = "";
   for (const [value, digits] of ROMAN) {
