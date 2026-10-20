@@ -14,7 +14,12 @@
   },
   "ignoreExportsUsedInFile": true,
   "workspaces": {
-    ".": {},
+    ".": {
+      "entry": [
+        "scripts/performance/table-filters.ts",
+        "scripts/performance/table-filter-workload.ts"
+      ]
+    },
     "apps/web": {
       "entry": [
         "server/middleware/html-compression.ts",

@@ -100,6 +100,7 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `finance-navigation.spec.ts` | `FINANCE_NAVIGATION_PERFORMANCE` | First and repeat Income and Books navigation from the dashboard on desktop and mobile, with populated route-specific readiness |
 | `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
 | `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
+| `rendering-memory.spec.ts` | `RENDERING_PERFORMANCE` | Eight desktop navigation cycles on scale fixtures: renderer CPU, sampled JS heap, post-GC retention, DOM/listeners and process RSS |
 
 ### Compare navigation runs
 
@@ -133,6 +134,12 @@ Web vitals takes three fresh contexts per route and viewport at 4× CPU slowdown
 `WEB_VITALS_ASSERT=true` requires LCP ≤2.5 s, CLS ≤0.1 and interaction latency ≤200 ms. Production validation still needs real-user measurements.
 
 ### Profiles and query reports
+
+Rendering-memory uses 1366×768 and 4× CPU slowdown without network throttling. Set `RENDERING_PERFORMANCE_LABEL` to retain matched reports under `tmp/rendering-performance/`. Compare the same Dashboard checkpoint after warm-up; initial route-code and query-cache growth is expected. CPU counters are main-thread time, not utilization. Heap sampling can miss peaks; process RSS includes native memory and can double-count shared pages when summed.
+
+`RENDERING_PERFORMANCE_HEAP_SNAPSHOT=true` adds warm/final snapshots around a separate eight-cycle diagnostic pass after measurements and CPU profiling. Never use snapshot-inflated RSS as the app's memory requirement.
+
+For the shared filter evaluator alone, run `bun scripts/performance/table-filters.ts before`, make the change, then run it with `after`. The script saves each browser bundle; `--bundle tmp/rendering-performance/filter/before.bundle.js` reruns the original under a new label. Seven timed samples and separate allocation profiles verify CPU/allocation changes independently of React and DOM rendering. Results and limitations live in the [rendering performance audit](../rendering-performance-audit.md).
 
 Keep diagnostic profiling separate from latency comparisons:
 

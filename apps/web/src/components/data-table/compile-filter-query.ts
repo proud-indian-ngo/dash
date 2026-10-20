@@ -5,7 +5,6 @@ import {
 import {
   flattenFilterRules,
   isFilterGroup,
-  isFilterQueryEmpty,
   isFilterRule,
   isFilterRuleComplete,
 } from "@pi-dash/design-system/components/reui/filters/filters-query";
@@ -60,10 +59,18 @@ function isFilterDateValue(value: unknown): value is FilterDateValue {
     return false;
   }
   const candidate = value as FilterDateValue;
+  const relative = candidate.relative;
+  if (isNil(relative)) {
+    return typeof candidate.date === "string";
+  }
   return (
-    typeof candidate.date === "string" ||
-    (candidate.relative !== undefined &&
-      typeof candidate.relative.unit === "string")
+    typeof relative === "object" &&
+    (relative.unit === "day" ||
+      relative.unit === "week" ||
+      relative.unit === "month" ||
+      relative.unit === "year") &&
+    typeof relative.offset === "number" &&
+    Number.isFinite(relative.offset)
   );
 }
 
@@ -108,6 +115,18 @@ function asStringList(value: unknown): string[] {
   return [String(value)];
 }
 
+function stringListHasAny(value: unknown, wanted: Set<string>): boolean {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (wanted.has(String(item))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return !isNil(value) && wanted.has(String(value));
+}
+
 function rowInstant(value: unknown): Date | null {
   if (isNil(value) || value === "") {
     return null;
@@ -120,6 +139,10 @@ function rowInstant(value: unknown): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
   return null;
+}
+
+function localDayKey(date: Date): number {
+  return date.getFullYear() * 10_000 + date.getMonth() * 100 + date.getDate();
 }
 
 function isValuePending(rule: FilterRule): boolean {
@@ -149,33 +172,14 @@ function isValuePending(rule: FilterRule): boolean {
   return false;
 }
 
-function isActiveNode(node: FilterNode): boolean {
-  if (isFilterRule(node)) {
-    return isFilterRuleComplete(node) && !isValuePending(node);
-  }
-  if (!isFilterGroup(node)) {
-    return false;
-  }
-  return node.rules.some(isActiveNode);
-}
+type ValueMatcher = (rowValue: unknown) => boolean;
+type DateMatcher = (rowValue: unknown) => boolean | null;
 
-function matchDate(
-  rowValue: unknown,
+function compileDateMatcher(
   operator: string,
   ruleValue: unknown,
   now: Date
-): boolean | null {
-  const rowDate = rowInstant(rowValue);
-  if (operator === "empty") {
-    return isNil(rowDate);
-  }
-  if (operator === "not_empty") {
-    return !isNil(rowDate);
-  }
-  if (isNil(rowDate)) {
-    return false;
-  }
-
+): DateMatcher {
   if (operator === "between" || operator === "not_between") {
     const range = Array.isArray(ruleValue) ? ruleValue : [];
     const from = isFilterDateValue(range[0])
@@ -184,170 +188,194 @@ function matchDate(
     const to = isFilterDateValue(range[1])
       ? resolveFilterDate(range[1], now)
       : null;
-    if (isNil(from) || isNil(to)) {
-      return null;
-    }
-    const inRange =
-      rowDate.getTime() >= startOfDay(from).getTime() &&
-      rowDate.getTime() <= endOfDay(to).getTime();
-    return operator === "between" ? inRange : !inRange;
+    const fromTime = isNil(from) ? null : startOfDay(from).getTime();
+    const toTime = isNil(to) ? null : endOfDay(to).getTime();
+
+    return (rowValue) => {
+      const rowDate = rowInstant(rowValue);
+      if (isNil(rowDate)) {
+        return false;
+      }
+      if (isNil(fromTime) || isNil(toTime)) {
+        return null;
+      }
+      const rowTime = rowDate.getTime();
+      const inRange = rowTime >= fromTime && rowTime <= toTime;
+      return operator === "between" ? inRange : !inRange;
+    };
   }
 
   const token = isFilterDateValue(ruleValue)
     ? resolveFilterDate(ruleValue, now)
     : null;
-  if (isNil(token)) {
-    return null;
-  }
-  const rowDay = startOfDay(rowDate).getTime();
-  const tokenDay = startOfDay(token).getTime();
+  const tokenDay = isNil(token) ? null : localDayKey(token);
 
-  switch (operator) {
-    case "is":
-    case "eq":
-      return rowDay === tokenDay;
-    case "is_not":
-    case "neq":
-      return rowDay !== tokenDay;
-    case "is_before":
-    case "lt":
-      return rowDay < tokenDay;
-    case "is_on_or_before":
-    case "lte":
-      return rowDay <= tokenDay;
-    case "is_after":
-    case "gt":
-      return rowDay > tokenDay;
-    case "is_on_or_after":
-    case "gte":
-      return rowDay >= tokenDay;
-    default:
+  return (rowValue) => {
+    const rowDate = rowInstant(rowValue);
+    if (isNil(rowDate)) {
+      return false;
+    }
+    if (isNil(tokenDay)) {
       return null;
-  }
+    }
+    const rowDay = localDayKey(rowDate);
+
+    switch (operator) {
+      case "is":
+      case "eq":
+        return rowDay === tokenDay;
+      case "is_not":
+      case "neq":
+        return rowDay !== tokenDay;
+      case "is_before":
+      case "lt":
+        return rowDay < tokenDay;
+      case "is_on_or_before":
+      case "lte":
+        return rowDay <= tokenDay;
+      case "is_after":
+      case "gt":
+        return rowDay > tokenDay;
+      case "is_on_or_after":
+      case "gte":
+        return rowDay >= tokenDay;
+      default:
+        return null;
+    }
+  };
 }
 
-function matchNumberCompare(
-  rowValue: unknown,
-  operator: string,
-  bound: number
-): boolean {
-  const actual = asNumber(rowValue);
-  if (isNil(actual)) {
-    return false;
-  }
-  switch (operator) {
-    case "eq":
-      return actual === bound;
-    case "neq":
-      return actual !== bound;
-    case "gt":
-      return actual > bound;
-    case "gte":
-      return actual >= bound;
-    case "lt":
-      return actual < bound;
-    case "lte":
-      return actual <= bound;
-    default:
-      return true;
-  }
-}
-
-function matchText(
-  rowValue: unknown,
+function compileTextMatcher(
   operator: string,
   ruleValue: unknown
-): boolean | null {
+): ValueMatcher | null {
   if (!TEXT_OPERATORS.has(operator)) {
     return null;
   }
-  const haystack = asString(rowValue).toLowerCase();
   const needle = asString(ruleValue).toLowerCase();
-  switch (operator) {
-    case "contains":
-      return haystack.includes(needle);
-    case "not_contains":
-      return !haystack.includes(needle);
-    case "starts_with":
-      return haystack.startsWith(needle);
-    case "ends_with":
-      return haystack.endsWith(needle);
-    default:
-      return null;
-  }
+  return (rowValue) => {
+    const haystack = asString(rowValue).toLowerCase();
+    switch (operator) {
+      case "contains":
+        return haystack.includes(needle);
+      case "not_contains":
+        return !haystack.includes(needle);
+      case "starts_with":
+        return haystack.startsWith(needle);
+      case "ends_with":
+        return haystack.endsWith(needle);
+      default:
+        return true;
+    }
+  };
 }
 
-function matchMembership(
-  rowValue: unknown,
+function compileMembershipMatcher(
   operator: string,
   ruleValue: unknown
-): boolean | null {
+): ValueMatcher | null {
   if (!MEMBERSHIP_OPERATORS.has(operator)) {
     return null;
   }
   switch (operator) {
-    case "is":
-      if (typeof rowValue === "boolean") {
-        return rowValue === Boolean(ruleValue);
-      }
-      return asString(rowValue) === asString(ruleValue);
-    case "is_not":
-      if (typeof rowValue === "boolean") {
-        return rowValue !== Boolean(ruleValue);
-      }
-      return asString(rowValue) !== asString(ruleValue);
-    case "is_any_of":
-      return new Set(asStringList(ruleValue)).has(asString(rowValue));
-    case "is_none_of":
-      return !new Set(asStringList(ruleValue)).has(asString(rowValue));
+    case "is": {
+      const booleanValue = Boolean(ruleValue);
+      const stringValue = asString(ruleValue);
+      return (rowValue) =>
+        typeof rowValue === "boolean"
+          ? rowValue === booleanValue
+          : asString(rowValue) === stringValue;
+    }
+    case "is_not": {
+      const booleanValue = Boolean(ruleValue);
+      const stringValue = asString(ruleValue);
+      return (rowValue) =>
+        typeof rowValue === "boolean"
+          ? rowValue !== booleanValue
+          : asString(rowValue) !== stringValue;
+    }
+    case "is_any_of": {
+      const wanted = new Set(asStringList(ruleValue));
+      return (rowValue) => wanted.has(asString(rowValue));
+    }
+    case "is_none_of": {
+      const blocked = new Set(asStringList(ruleValue));
+      return (rowValue) => !blocked.has(asString(rowValue));
+    }
     case "has_any_of": {
       const wanted = new Set(asStringList(ruleValue));
-      return asStringList(rowValue).some((item) => wanted.has(item));
+      return (rowValue) => stringListHasAny(rowValue, wanted);
     }
     case "has_all_of": {
-      const rowSet = new Set(asStringList(rowValue));
-      return asStringList(ruleValue).every((item) => rowSet.has(item));
+      const wanted = asStringList(ruleValue);
+      return (rowValue) => {
+        const rowSet = new Set(asStringList(rowValue));
+        return wanted.every((item) => rowSet.has(item));
+      };
     }
     case "has_none_of": {
       const blocked = new Set(asStringList(ruleValue));
-      return asStringList(rowValue).every((item) => !blocked.has(item));
+      return (rowValue) => !stringListHasAny(rowValue, blocked);
     }
     default:
       return null;
   }
 }
 
-function matchNumber(
-  rowValue: unknown,
+function compileNumberMatcher(
   operator: string,
   ruleValue: unknown
-): boolean | null {
+): ValueMatcher | null {
   if (!NUMBER_OPERATORS.has(operator)) {
     return null;
   }
   if (operator === "between" || operator === "not_between") {
     const range = Array.isArray(ruleValue) ? ruleValue : [];
-    const actual = asNumber(rowValue);
     const from = asNumber(range[0]);
     const to = asNumber(range[1]);
-    if (isNil(actual) || isNil(from) || isNil(to)) {
-      return true;
-    }
-    const inRange = actual >= from && actual <= to;
-    return operator === "between" ? inRange : !inRange;
+    return (rowValue) => {
+      const actual = asNumber(rowValue);
+      if (isNil(actual) || isNil(from) || isNil(to)) {
+        return true;
+      }
+      const inRange = actual >= from && actual <= to;
+      return operator === "between" ? inRange : !inRange;
+    };
   }
 
   const bound = asNumber(ruleValue);
   if (isNil(bound)) {
+    const stringValue = asString(ruleValue);
     if (operator === "eq") {
-      return asString(rowValue) === asString(ruleValue);
+      return (rowValue) => asString(rowValue) === stringValue;
     }
     if (operator === "neq") {
-      return asString(rowValue) !== asString(ruleValue);
+      return (rowValue) => asString(rowValue) !== stringValue;
     }
-    return false;
+    return () => false;
   }
-  return matchNumberCompare(rowValue, operator, bound);
+  return (rowValue) => {
+    const actual = asNumber(rowValue);
+    if (isNil(actual)) {
+      return false;
+    }
+    switch (operator) {
+      case "eq":
+        return actual === bound;
+      case "neq":
+        return actual !== bound;
+      case "gt":
+        return actual > bound;
+      case "gte":
+        return actual >= bound;
+      case "lt":
+        return actual < bound;
+      case "lte":
+        return actual <= bound;
+      default:
+        return true;
+    }
+  };
 }
 
 function shouldTryDateMatch(operator: string, ruleValue: unknown): boolean {
@@ -358,77 +386,82 @@ function shouldTryDateMatch(operator: string, ruleValue: unknown): boolean {
   );
 }
 
-function matchRule(
-  rowValue: unknown,
+function compileRuleMatcher(
   operator: string,
   ruleValue: unknown,
   now: Date
-): boolean {
+): ValueMatcher {
   if (operator === "empty") {
-    return isEmptyValue(rowValue);
+    return isEmptyValue;
   }
   if (operator === "not_empty") {
-    return !isEmptyValue(rowValue);
+    return (rowValue) => !isEmptyValue(rowValue);
   }
 
-  const dateMatch = shouldTryDateMatch(operator, ruleValue)
-    ? matchDate(rowValue, operator, ruleValue, now)
+  const dateMatcher = shouldTryDateMatch(operator, ruleValue)
+    ? compileDateMatcher(operator, ruleValue, now)
     : null;
-  if (dateMatch !== null) {
-    return dateMatch;
-  }
+  const fallbackMatcher =
+    compileTextMatcher(operator, ruleValue) ??
+    compileMembershipMatcher(operator, ruleValue) ??
+    compileNumberMatcher(operator, ruleValue) ??
+    (() => true);
 
-  const textMatch = matchText(rowValue, operator, ruleValue);
-  if (textMatch !== null) {
-    return textMatch;
+  if (isNil(dateMatcher)) {
+    return fallbackMatcher;
   }
-
-  const membershipMatch = matchMembership(rowValue, operator, ruleValue);
-  if (membershipMatch !== null) {
-    return membershipMatch;
-  }
-
-  const numberMatch = matchNumber(rowValue, operator, ruleValue);
-  if (numberMatch !== null) {
-    return numberMatch;
-  }
-
-  return true;
+  return (rowValue) => dateMatcher(rowValue) ?? fallbackMatcher(rowValue);
 }
 
-function matchNode<T>(
+type RowMatcher<T> = (row: T) => boolean;
+
+function compileNode<T>(
   node: FilterNode,
-  row: T,
   getValue: FilterValueGetter<T>,
   now: Date
-): boolean {
+): RowMatcher<T> | null {
   if (isFilterRule(node)) {
     if (!isFilterRuleComplete(node) || isValuePending(node)) {
-      return true;
+      return null;
     }
-    const matched = matchRule(
-      getValue(row, node.path),
-      node.operator,
-      node.value,
-      now
-    );
-    return node.negated ? !matched : matched;
+    const matchValue = compileRuleMatcher(node.operator, node.value, now);
+    if (node.negated) {
+      return (row) => !matchValue(getValue(row, node.path));
+    }
+    return (row) => matchValue(getValue(row, node.path));
   }
 
   if (!isFilterGroup(node)) {
-    return true;
+    return null;
   }
 
-  const activeRules = node.rules.filter(isActiveNode);
-  if (activeRules.length === 0) {
-    return true;
+  const matchers = node.rules.flatMap((child) => {
+    const matcher = compileNode(child, getValue, now);
+    return isNil(matcher) ? [] : [matcher];
+  });
+  if (matchers.length === 0) {
+    return null;
   }
 
   if (node.combinator === "or") {
-    return activeRules.some((child) => matchNode(child, row, getValue, now));
+    return (row) => {
+      for (const matcher of matchers) {
+        if (matcher(row)) {
+          return true;
+        }
+      }
+      return false;
+    };
   }
 
-  return activeRules.every((child) => matchNode(child, row, getValue, now));
+  return (row) => {
+    for (const matcher of matchers) {
+      if (!matcher(row)) {
+        return false;
+      }
+    }
+    return true;
+  };
 }
 
 export function compileFilterQuery<T>(
@@ -436,10 +469,7 @@ export function compileFilterQuery<T>(
   getValue: FilterValueGetter<T>,
   now: Date = new Date()
 ): (row: T) => boolean {
-  if (isFilterQueryEmpty(query)) {
-    return () => true;
-  }
-  return (row: T) => matchNode(query, row, getValue, now);
+  return compileNode(query, getValue, now) ?? (() => true);
 }
 
 export function readSelectEquality(
