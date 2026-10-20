@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
+import {
+  plainTextToRichText,
+  serializeRichText,
+} from "@pi-dash/shared/rich-text";
+
 import { generateMeetingMinutesPdf } from "./meeting-minutes";
+import { richSample } from "./rich-text.test-helper";
 
 const props = {
   attendance: [
@@ -28,7 +34,9 @@ const props = {
     },
     {
       attendance: "For this item: Vikram Menon (absent).",
-      body: "RESOLVED THAT the budget for 2027-28 be approved.",
+      body: serializeRichText(
+        plainTextToRichText("RESOLVED THAT the budget for 2027-28 be approved.")
+      ),
       conflicted: ["Vikram Menon"],
       noted: [],
       notes: "The treasurer presented the budget.",
@@ -54,6 +62,17 @@ describe("generateMeetingMinutesPdf", () => {
     const text = pdf.toString("latin1");
     expect(text.startsWith("%PDF-")).toBe(true);
     expect(text.match(/\/Type \/Page\b/g)?.length).toBe(2);
+  });
+
+  it("draws a resolution's table, lists and marks", async () => {
+    const [discussion, budget] = props.items;
+    const pdf = await generateMeetingMinutesPdf({
+      ...props,
+      items: [discussion!, { ...budget!, body: richSample }],
+    });
+    const text = pdf.toString("latin1");
+    expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+Geist-SemiBoldItalic\b/);
+    expect(text.match(/\/Type \/Page\b/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders the same bytes twice", async () => {
