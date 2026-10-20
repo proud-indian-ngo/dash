@@ -3,9 +3,10 @@ import { isHeldOn } from "@pi-dash/shared/governance";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-import { epochToIso, todayIso } from "@/components/governance/register-data";
+import { epochToIso } from "@/components/governance/register-data";
+import { useIndiaToday } from "@/hooks/use-india-today";
 
 /** Whether the signed-in account is a trustee in office today. */
 export function useInOffice(today: string) {
@@ -25,37 +26,15 @@ export function useInOffice(today: string) {
   return { complete: result.type === "complete", inOffice };
 }
 
-const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Today in India time, kept current: a version that takes effect at
- * midnight changes no row, so the day itself has to move. Also checked when
- * a suspended tab comes back.
- */
-function useToday(): string {
-  const [today, setToday] = useState(todayIso);
-  useEffect(() => {
-    const refresh = () => setToday(todayIso());
-    const untilMidnight =
-      DAY_MS - ((Date.now() + IST_OFFSET_MS) % DAY_MS) + 1000;
-    const timer = setTimeout(refresh, untilMidnight);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [today]);
-  return today;
-}
-
 /**
  * The policy versions in force the signed-in person still has to accept.
  * `complete` once every query has synced, so a half-loaded list never sends
  * anyone to the accept page.
  */
 export function useOutstandingPolicies() {
-  const today = useToday();
+  // A version that takes effect at midnight changes no row, so the day
+  // itself has to move.
+  const today = useIndiaToday();
   const office = useInOffice(today);
   const [policies, policiesResult] = useQuery(queries.policy.all());
   const [acknowledged, acknowledgedResult] = useQuery(

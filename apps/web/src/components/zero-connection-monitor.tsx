@@ -50,8 +50,9 @@ export function ZeroConnectionMonitor({
         message: "Zero connection: needs-auth",
         reason: extractReason(state),
       });
+      const { hash, pathname, search } = window.location;
       navigate({
-        search: { redirect: window.location.pathname },
+        search: { redirect: `${pathname}${search}${hash}` },
         to: "/login",
       });
     } else if (state.name === "error") {
