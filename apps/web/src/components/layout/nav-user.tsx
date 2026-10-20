@@ -22,17 +22,13 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useZero } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
-import { log } from "evlog";
 import { useState } from "react";
 
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { useApp } from "@/context/app-context";
-import { invalidateAuthCache } from "@/lib/auth-cache";
-import { authClient } from "@/lib/auth-client";
-
-const loadPostHog = () => import("@/lib/posthog");
+import { signOut } from "@/lib/sign-out";
 
 export function NavUser() {
   const { isMobile, setOpenMobile } = useSidebar();
@@ -44,30 +40,7 @@ export function NavUser() {
     setOpenMobile(false);
     navigate({ to: "/settings/profile" });
   });
-  const stableOnClick2 = useEventCallback(async () => {
-    try {
-      await zero.delete();
-    } catch (error: unknown) {
-      log.error({
-        action: "logout.clearCache",
-        component: "NavUser",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: async () => {
-          invalidateAuthCache();
-          await loadPostHog()
-            .then(({ resetUser }) => resetUser())
-            .catch(() => {
-              // Non-critical
-            });
-          window.location.replace("/login");
-        },
-      },
-    });
-  });
+  const stableOnClick2 = useEventCallback(() => signOut(zero));
 
   const accountTrigger = (
     <SidebarMenuButton

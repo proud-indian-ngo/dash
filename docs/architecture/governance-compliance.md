@@ -1,6 +1,6 @@
 # Governance: compliance, declarations and policies
 
-> **Load when**: compliance calendar, filing due dates, Form 112, ITR-7, Forms 113 and 114, TDS return, 80G or 12AB renewal, trustee term end item, compliance reminders, closing an item with evidence, annual approvals pack, Form 109 accumulation, declaration of interests, related party, payment warning, policy register, policy acknowledgement, child safeguarding, "Works with children".
+> **Load when**: compliance calendar, filing due dates, Form 112, ITR-7, Forms 113 and 114, TDS return, 80G or 12AB renewal, trustee term end item, compliance reminders, closing an item with evidence, annual approvals pack, Form 109 accumulation, declaration of interests, related party, payment warning, policy register, policy acknowledgement, accept policies gate, child safeguarding, "Works with children".
 > **Related**: `governance.md` (register, vault, registrations), `governance-resolutions.md`, `finance-receipts-and-returns.md` (the donations return), `teams-and-events.md`, `vendor-payments.md`
 
 ## Calendar
@@ -28,13 +28,20 @@
 ## Policy register
 
 - A policy is for everyone with an account or for trustees. Each version is an approved vault document with the day it takes effect, after the version before.
-- Everyone a policy is for is asked on their dashboard to read the version in force and acknowledge it. Any signed-in user may read it.
+- Any signed-in user may read any version.
+
+### Accepting policies
+
+- Anyone with a version in force that is meant for them and that they haven't acknowledged sees `/accept-policies` before the rest of the dashboard, whatever their role, right after sign-in or sign-up too. Kalakriti's `external_user` accounts are left out, as they are from the register's "everyone". One checkbox accepts every listed version (one `policyAcknowledgement.acknowledge` each); opening the documents is optional. A new version in force asks again, marked "Updated".
+- The `_app` layout's `beforeLoad` redirects on `policiesPending`, read with the session in `getAuth` (`hasOutstandingPolicies`), so a page load never shows the dashboard first. Mid-session, `PolicyGate` watches the same rule (`outstandingPolicyVersions`) through Zero. Accepting clears the cached session before returning to `redirect`, so the guard reads the new state and doesn't loop.
+- The accept page, auth pages, public pages and API routes (policy documents are served by `/api/attachments`) sit outside `_app`, so the gate never blocks them.
+- It is a gate in the app only: mutators and API routes don't check it. The child-safeguarding gate below is the one enforced on the server.
 
 ### Child-safeguarding gate
 
 - The child-safeguarding policy is ensured on every server start and gates events with children: Kalakriti events, and events of a team marked as working with children.
 - Once one of its versions is in force, anyone who hasn't acknowledged that version can't join such an event, show interest, be approved or added by a lead, be enrolled or assigned in Kalakriti, or join through a WhatsApp RSVP. The refusal says what to do. With no version in force, nothing is gated.
 - Every one of those paths checks on the server (`packages/zero/src/mutators/safeguarding.ts`, and `safeguardingBlocks` for the RSVP), so a new join path must call it too.
-- Not gated: sign-up through an event registration link (the new volunteer sees the policy on their dashboard), volunteers carried into recurring occurrences, and Kalakriti local volunteers without accounts.
+- Not gated: sign-up through an event registration link (the new volunteer is added first and accepts the policy when they open the dashboard), volunteers carried into recurring occurrences, and Kalakriti local volunteers without accounts.
 
 Not built: CSR utilisation certificates, which wait for grants in the ledger (finance Phase 5).

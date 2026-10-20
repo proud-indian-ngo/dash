@@ -27,10 +27,7 @@ import { useQueryStates } from "nuqs";
 
 import { DateRangeFilter } from "@/components/analytics/date-range-filter";
 import { AwaitingMyVote } from "@/components/dashboard/awaiting-my-vote";
-import {
-  DeclareInterests,
-  PoliciesToAcknowledge,
-} from "@/components/dashboard/governance-to-do";
+import { DeclareInterests } from "@/components/dashboard/governance-to-do";
 import { MyTeams } from "@/components/dashboard/my-teams";
 import {
   countPendingReviews,
@@ -385,7 +382,6 @@ function OrientedDashboard() {
 
       <div className="mt-6 space-y-6">
         <AwaitingMyVote />
-        <PoliciesToAcknowledge />
         <DeclareInterests />
         <PendingReviews
           advancePayments={pendingAdvancePayments}

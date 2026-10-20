@@ -6,6 +6,9 @@ mock.module("@/middleware/auth", () => ({ authMiddleware: {} }));
 mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
   resolvePermissions: () => resolve(),
 }));
+mock.module("@pi-dash/db/queries/policies", () => ({
+  hasOutstandingPolicies: async () => false,
+}));
 mock.module("@tanstack/react-start", () => ({
   createServerFn: () => {
     const builder = {
