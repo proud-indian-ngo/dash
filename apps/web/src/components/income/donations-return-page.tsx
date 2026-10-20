@@ -50,10 +50,7 @@ import { toast } from "sonner";
 import { DonorDetailSheet } from "@/components/donors/donor-detail-sheet";
 import { DonorFormDialog } from "@/components/donors/donor-form-dialog";
 import type { PartyRow } from "@/components/donors/party-row";
-import {
-  ContributionDetailSheet,
-  formatReceivedOn,
-} from "@/components/income/contribution-detail-sheet";
+import { ContributionDetailSheet } from "@/components/income/contribution-detail-sheet";
 import { ContributionFormDialog } from "@/components/income/contribution-form-dialog";
 import { contributionsSignature } from "@/components/income/contribution-stats";
 import {
@@ -62,6 +59,7 @@ import {
   type ChecklistSection,
   donorCount,
 } from "@/components/income/donations-return-checklist";
+import { formatReceivedOn } from "@/components/income/income-date";
 import type { ContributionRow } from "@/components/income/income-types";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { StatsCards, type StatItem } from "@/components/stats/stats-cards";

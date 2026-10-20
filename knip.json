@@ -17,6 +17,7 @@
     ".": {},
     "apps/web": {
       "entry": [
+        "server/middleware/html-compression.ts",
         "scripts/check-react-compiler.ts",
         "scripts/profile-entry-eligibility.ts"
       ],
@@ -33,6 +34,7 @@
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-inventory.ts",
+        "helpers/kalakriti-layout.ts",
         "helpers/razorpay.ts",
         "helpers/bank-statements.ts",
         "helpers/books.ts",

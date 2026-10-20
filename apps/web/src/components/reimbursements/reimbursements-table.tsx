@@ -12,7 +12,7 @@ import { requestCostCentreId } from "@pi-dash/shared/cost-centre";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import type { ReactNode } from "react";
@@ -30,6 +30,7 @@ import {
   getReimbursementFilterValue,
   useMigrateLegacyReimbursementFilterParams,
 } from "@/components/reimbursements/reimbursement-filters";
+import { ReimbursementRowIntentBoundary } from "@/components/reimbursements/reimbursement-row-intent-boundary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   USER_CELL_SKELETON,
@@ -123,7 +124,12 @@ function RowActions({
   return (
     <ResponsiveActionMenu
       title={`${request.title} actions`}
-      trigger={<RowActionsButton onClick={stableOnClick0} />}
+      trigger={
+        <RowActionsButton
+          data-reimbursement-intent-id={id}
+          onClick={stableOnClick0}
+        />
+      }
       actions={[
         {
           id: "view",
@@ -199,6 +205,7 @@ export function ReimbursementsTable({
   toolbarActions,
 }: ReimbursementsTableProps) {
   useMigrateLegacyReimbursementFilterParams();
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
   const { hasPermission } = useApp();
@@ -590,6 +597,21 @@ export function ReimbursementsTable({
   const stableOnRowClick2 = useEventCallback((row: { id: string }) =>
     onNavigate(row.id)
   );
+  const stableOnRowIntent = useEventCallback((id: string) => {
+    void router
+      .preloadRoute({
+        params: { id },
+        to: "/reimbursements/$id",
+      })
+      .catch((error: unknown) => {
+        log.warn({
+          action: "preload",
+          component: "ReimbursementsTable",
+          entityId: id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+  });
   const stableOnOpenChange3 = useEventCallback((open: boolean) => {
     if (!open) {
       setDeleteTarget(null);
@@ -606,34 +628,36 @@ export function ReimbursementsTable({
 
   return (
     <>
-      <DataTableWrapper<RequestRow>
-        columns={columns}
-        data={data}
-        defaultColumnVisibility={{ event: false }}
-        emptyMessage="No reimbursements found."
-        compactOnMobile
-        filter={{
-          attentionViews,
-          fields: filterFields,
-          getValue: getReimbursementFilterValue,
-          viewField: "status",
-        }}
-        getRowId={stableGetRowId1}
-        groupBy={STATUS_GROUP_BY}
-        isLoading={isLoading}
-        onRowClick={stableOnRowClick2}
-        searchFn={stableSearch}
-        searchPlaceholder="Search reimbursements..."
-        totals={TOTAL_COLUMNS}
-        storageKey="reimbursements_table_state_v1"
-        tableLayout={{
-          columnsDraggable: true,
-          columnsPinnable: true,
-          columnsResizable: true,
-          columnsVisibility: true,
-        }}
-        toolbarActions={toolbarActions}
-      />
+      <ReimbursementRowIntentBoundary onIntent={stableOnRowIntent}>
+        <DataTableWrapper<RequestRow>
+          columns={columns}
+          data={data}
+          defaultColumnVisibility={{ event: false }}
+          emptyMessage="No reimbursements found."
+          compactOnMobile
+          filter={{
+            attentionViews,
+            fields: filterFields,
+            getValue: getReimbursementFilterValue,
+            viewField: "status",
+          }}
+          getRowId={stableGetRowId1}
+          groupBy={STATUS_GROUP_BY}
+          isLoading={isLoading}
+          onRowClick={stableOnRowClick2}
+          searchFn={stableSearch}
+          searchPlaceholder="Search reimbursements..."
+          totals={TOTAL_COLUMNS}
+          storageKey="reimbursements_table_state_v1"
+          tableLayout={{
+            columnsDraggable: true,
+            columnsPinnable: true,
+            columnsResizable: true,
+            columnsVisibility: true,
+          }}
+          toolbarActions={toolbarActions}
+        />
+      </ReimbursementRowIntentBoundary>
       <ConfirmDialog
         confirmLabel={`Delete ${deleteType}`}
         description={`This will permanently delete this ${deleteType} including all line items and attachments. This action cannot be undone.`}

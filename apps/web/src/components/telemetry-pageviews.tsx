@@ -1,7 +1,7 @@
 import { rootRouteId, useLocation, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-const loadPostHog = () => import("@/lib/posthog");
+import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 
 /** One `$pageview` per pathname, sent as the route template so record IDs never leave the browser. */
 export function TelemetryPageviews() {
@@ -13,7 +13,7 @@ export function TelemetryPageviews() {
     if (!routeId || routeId === rootRouteId) {
       return;
     }
-    loadPostHog()
+    loadPostHogAfterLoad()
       .then(({ capturePageview, routeIdToTemplate }) =>
         capturePageview(routeIdToTemplate(routeId))
       )

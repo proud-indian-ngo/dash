@@ -2,10 +2,8 @@
 import { getKalakritiPublicSchedule } from "@pi-dash/db/queries/kalakriti-public-schedule";
 import { createFileRoute } from "@tanstack/react-router";
 
-import {
-  kalakritiPublicScheduleSchema,
-  kalakritiPublicScheduleYearSchema,
-} from "@/lib/kalakriti-public-schedule";
+import { kalakritiPublicScheduleYearSchema } from "@/lib/kalakriti-public-schedule";
+import { kalakritiPublicScheduleSchema } from "@/lib/kalakriti-public-schedule-schema";
 
 export interface PublicScheduleHandlerDeps {
   getSchedule: (year: number) => Promise<unknown | null>;

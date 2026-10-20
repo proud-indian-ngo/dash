@@ -218,6 +218,7 @@ Check-in records `volunteer_check_in`, `attendee_check_in` or `guardian_check_in
 
 The Food roster lists only currently meal-eligible people.
 
+- Counts and rows wait for a complete authorized snapshot. Initial placeholders reserve space for meal progress and the roster; later sync gaps retain the last complete snapshot for the same scope.
 - Administrators and Food staff see the whole Edition; Guardians and Liaisons see their Centers, and Guardians always see their own row. Reading never grants recording.
 - Guests and Judges reach Food staff through a server projection (`functions/kalakriti-food.ts`), because Zero would sync their contacts.
 - Administrators and Food Leads can undo a meal while Live. `kalakritiOperation.undoMeal` appends a `meal_correction` and never deletes. The meal can then be served again by a fresh scan, not by continuous camera frames.

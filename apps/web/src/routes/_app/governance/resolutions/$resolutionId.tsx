@@ -58,10 +58,18 @@ import {
   getMutationResultErrorMessage,
   handleMutationResult,
 } from "@/lib/mutation-result";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute(
   "/_app/governance/resolutions/$resolutionId"
 )({
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.resolution.byId({ id: params.resolutionId }),
+      abortController.signal
+    );
+  },
   component: ResolutionPage,
   head: () => ({
     meta: [{ title: `Resolution | ${env.VITE_APP_NAME}` }],

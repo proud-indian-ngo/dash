@@ -56,7 +56,9 @@ Defined in `packages/zero/src/queries/`. The client reads its local replica inst
 
 `zero-cache` tails the Postgres WAL through `ZERO_UPSTREAM_DB`, which must be unpooled. Clients keep a local replica over WebSocket. A mutation flows client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients.
 
-`ZeroProvider` is set up in `apps/web/src/components/zero-init.tsx`.
+`ZeroProvider` mounts in authenticated runtimes, seeded with the route session and permissions. The standalone policy-acceptance route owns a runtime because it bypasses the app layout's policy guard. Its query consumers wait for initialization behind a server-renderable loader. Public routes remain server-renderable without starting Zero. Zero’s React bindings do not support SSR hydration; server ZQL is not a replacement for that binding. Router preloads must tolerate an absent Zero instance before initialization and between runtimes.
+
+The Export SSR prototype keeps its query-free form mounted outside Zero’s initialization boundary. The managed provider still owns the instance; its initialization callback supplies the surrounding context. Query consumers wait for that instance, while navigation reserves its server-rendered geometry. The authenticated document is private and non-cacheable. This does not hydrate server rows into Zero.
 
 ## Connection pools
 
@@ -64,7 +66,7 @@ The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the p
 
 ## Connection errors and logout
 
-- `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` watches `useConnectionState()`. Individual queries do no error handling.
+- The app layout and standalone policy-acceptance page mount `ZeroConnectionMonitor`, which watches `useConnectionState()`. Individual queries do no error handling.
 - `error`: reconnect, since Zero itself stops retrying and some server errors are transient (a reload racing the previous connection can drop shared query work); after 10 reconnects in a minute, a debounced toast. `needs-auth`: redirect to `/login` with the current path.
 - Logout calls `zero.delete()` (best effort) before `authClient.signOut()` to clear IndexedDB.
 
@@ -73,6 +75,8 @@ The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the p
 - Loaders call `preloadRouteQuery` (`apps/web/src/lib/route-preload.ts`), which releases its reference on completion, abort or a timeout.
 - Mounted query hooks hold their own references, so releasing a preload does not unsubscribe the page.
 - Router preloading is intent-based (hover, focus) in every environment. Showing a sidebar link starts no query.
+- Claim rows use the same route preload on deliberate pointer hover or keyboard focus. Touch scrolling starts no preload; the router owns cache freshness rather than a permanent per-row warmed flag.
+- After Zero connects, selected common destinations from the user's navigation warm their route code only. The queue waits for two quiet seconds and browser idle time between imports, pauses for interaction/navigation or hidden/offline pages, and skips data-saving/2G connections. It never runs guards or loaders. Unmounting cancels queued work; an import already in flight cannot be cancelled.
 - Broad query results are deliberate: they enable instant local filtering and warm navigation. Visible row count alone does not prove overfetching, but route preloads must never retain references indefinitely.
 - Kalakriti access guards dedupe only concurrent browser requests by session, lookup kind and year. Settled results are not cached and SSR bypasses the shared state.
 

@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
 
 import { InTheBooks } from "@/components/books/in-the-books";
 import { SettlementInBank } from "@/components/income/bank/in-bank-fact";
-import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
+import { formatReceivedOn } from "@/components/income/income-date";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";

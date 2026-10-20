@@ -55,10 +55,18 @@ import { withdrawCircularFn } from "@/functions/resolutions";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute(
   "/_app/governance/resolutions/circulars/$circularId"
 )({
+  loader: ({ abortController, context, params }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.circular.byId({ id: params.circularId }),
+      abortController.signal
+    );
+  },
   component: CircularPage,
   head: () => ({
     meta: [{ title: `Circular | ${env.VITE_APP_NAME}` }],

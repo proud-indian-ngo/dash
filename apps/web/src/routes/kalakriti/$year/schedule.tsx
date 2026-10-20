@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@pi-dash/design-system/components/ui/select";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import {
@@ -36,14 +36,6 @@ import {
   filterKalakritiPublicSchedule,
   kalakritiPublicScheduleYearSchema,
 } from "@/lib/kalakriti-public-schedule";
-
-const EVENT_DATE_FORMATTER = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-  weekday: "long",
-  year: "numeric",
-});
 
 export const Route = createFileRoute("/kalakriti/$year/schedule")({
   beforeLoad: async ({ params }) => {
@@ -84,23 +76,10 @@ export const Route = createFileRoute("/kalakriti/$year/schedule")({
   notFoundComponent: ScheduleNotFound,
 });
 
-function formatEventDate(eventDate: string) {
-  return EVENT_DATE_FORMATTER.format(new Date(`${eventDate}T00:00:00Z`));
-}
-
 function PublicSchedulePage() {
   const { publicSchedule: schedule, scheduleViewer } = Route.useRouteContext();
-  const { edition, sessions } = schedule;
+  const { edition, formattedEventDate, formattedTimes, sessions } = schedule;
   const actionKind = scheduleActionKind(scheduleViewer);
-  const timeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-IN", {
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone: edition.timezone,
-      }),
-    [edition.timezone]
-  );
   const [venue, setVenue] = useState("");
   const [ageCategory, setAgeCategory] = useState("");
   const [category, setCategory] = useState("");
@@ -142,7 +121,7 @@ function PublicSchedulePage() {
             kicker="Public schedule"
             meta={
               <time className="tabular-nums" dateTime={edition.eventDate}>
-                {formatEventDate(edition.eventDate)}
+                {formattedEventDate}
               </time>
             }
             title={edition.name}
@@ -282,10 +261,11 @@ function PublicSchedulePage() {
               <ol className="bg-card overflow-hidden rounded-lg border shadow-xs">
                 {visibleSessions.map((session, index) => (
                   <ScheduleItem
+                    endTimeLabel={formattedTimes[session.endAt]!}
                     isLast={index === visibleSessions.length - 1}
                     key={`${session.competition}-${session.ageCategory}-${session.startAt}`}
                     session={session}
-                    timeFormatter={timeFormatter}
+                    startTimeLabel={formattedTimes[session.startAt]!}
                   />
                 ))}
               </ol>

@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
 import { MEETING_MODE_LABELS } from "@pi-dash/shared/meetings";
 import { queries } from "@pi-dash/zero/queries";
 import type { Meeting } from "@pi-dash/zero/schema";
@@ -30,8 +31,19 @@ import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { useIndiaToday } from "@/hooks/use-india-today";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/governance/meetings/")({
+  loader: ({ abortController, context }) => {
+    const canSee = GOVERNANCE_PAGE_PERMISSIONS.some((permission) =>
+      context.permissions.includes(permission)
+    );
+    preloadRouteQuery(
+      context.zero,
+      canSee ? queries.meeting.all() : queries.meeting.mine(),
+      abortController.signal
+    );
+  },
   component: MeetingsPage,
   head: () => ({
     meta: [{ title: `Board meetings | ${env.VITE_APP_NAME}` }],
@@ -116,8 +128,12 @@ function MeetingsPage() {
   const canSee =
     hasPermission("governance.view") || hasPermission("governance.manage");
   const canManage = hasPermission("governance.manage");
-  const [all, allResult] = useQuery(queries.meeting.all());
-  const [mine, mineResult] = useQuery(queries.meeting.mine());
+  const [all, allResult] = useQuery(queries.meeting.all(), {
+    enabled: canSee,
+  });
+  const [mine, mineResult] = useQuery(queries.meeting.mine(), {
+    enabled: !canSee,
+  });
   const rows: readonly MeetingRow[] = canSee ? all : mine;
   const isLoading =
     rows.length === 0 &&

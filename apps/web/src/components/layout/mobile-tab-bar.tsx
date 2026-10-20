@@ -65,7 +65,7 @@ function TabContent({
 }
 
 const TAB_CLASS =
-  "text-muted-foreground flex h-full w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium outline-none select-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-active:text-sidebar-accent-foreground";
+  "text-muted-foreground flex h-full w-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium outline-none select-none active:bg-sidebar-accent active:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-active:text-sidebar-accent-foreground";
 
 /**
  * Phone navigation: up to four destinations from the person's nav, an

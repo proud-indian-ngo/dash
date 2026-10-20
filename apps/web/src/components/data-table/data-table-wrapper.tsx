@@ -7,6 +7,7 @@ import {
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
 import { DataGrid } from "@pi-dash/design-system/components/reui/data-grid/data-grid";
 import { DataGridColumnVisibility } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-visibility";
 import {
@@ -19,7 +20,6 @@ import {
 import { DataGridPagination } from "@pi-dash/design-system/components/reui/data-grid/data-grid-pagination";
 import { DataGridTable } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table";
 import { DataGridTableDnd } from "@pi-dash/design-system/components/reui/data-grid/data-grid-table-dnd";
-import { Filters } from "@pi-dash/design-system/components/reui/filters/filters";
 import type {
   FilterField,
   FilterQuery,
@@ -48,6 +48,7 @@ import {
   ScrollBar,
 } from "@pi-dash/design-system/components/ui/scroll-area";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useRouter } from "@tanstack/react-router";
 import type {
   ColumnPinningState,
   ColumnSizingState,
@@ -61,7 +62,7 @@ import type {
 import debounce from "lodash/debounce";
 import { parseAsString, useQueryState } from "nuqs";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import {
@@ -73,7 +74,6 @@ import {
   DataTableViewTabs,
   getDataTableViews,
 } from "@/components/data-table/data-table-view-tabs";
-import { DATA_TABLE_FILTER_EDITORS } from "@/components/data-table/filter-date-editor";
 import { useDataTableFilters } from "@/components/data-table/use-data-table-filters";
 import { useTableState } from "@/hooks/use-table-state";
 import {
@@ -191,39 +191,11 @@ const DEFAULT_COLUMN_PINNING: ColumnPinningState = {
   start: ["select"],
 };
 
-export function DataTableFiltersBar({
-  allowAdvanced = true,
-  fields,
-  onQueryChange,
-  query,
-}: {
-  /** When false, hide chip kebab "Convert to advanced". Server-paginated chips only honor `is`. */
-  allowAdvanced?: boolean;
-  fields: FilterField[];
-  onQueryChange: (query: FilterQuery) => void;
-  query: FilterQuery;
-}) {
-  const [variant, setVariant] = useState<"advanced" | "basic">("basic");
-  const handleQueryChange = useEventCallback((next: FilterQuery) => {
-    onQueryChange(next);
-  });
-  const handleConvertToAdvanced = useEventCallback(() => {
-    setVariant("advanced");
-  });
-
-  return (
-    <Filters
-      editors={DATA_TABLE_FILTER_EDITORS}
-      fields={fields}
-      onConvertToAdvanced={allowAdvanced ? handleConvertToAdvanced : undefined}
-      onQueryChange={handleQueryChange}
-      query={query}
-      showClear
-      size="sm"
-      variant={allowAdvanced ? variant : "basic"}
-    />
-  );
-}
+const DataTableFiltersBar = lazy(() =>
+  import("./data-table-advanced-filters").then(({ DataTableFiltersBar }) => ({
+    default: DataTableFiltersBar,
+  }))
+);
 
 export function DataTableWrapper<TData extends object>(
   props: DataTableWrapperProps<TData>
@@ -309,12 +281,24 @@ function DataTableWrapperWithFilters<TData extends object>({
         <>
           {showAdvanced ? (
             <>
-              <DataTableFiltersBar
-                allowAdvanced={applyLocally}
-                fields={fields}
-                onQueryChange={handleQueryChange}
-                query={query}
-              />
+              <Suspense
+                fallback={
+                  <span
+                    className="text-muted-foreground inline-flex h-8 items-center text-sm"
+                    role="status"
+                  >
+                    <BrailleSpinner variant="inline" />
+                    <span className="sr-only">Loading filters</span>
+                  </span>
+                }
+              >
+                <DataTableFiltersBar
+                  allowAdvanced={applyLocally}
+                  fields={fields}
+                  onQueryChange={handleQueryChange}
+                  query={query}
+                />
+              </Suspense>
               {canUseQuick ? (
                 <Button onClick={handleQuick} size="sm" variant="ghost">
                   Quick filters
@@ -692,6 +676,7 @@ function DataTableWrapperBase<TData extends object>({
     setGroupColumnId(activeGroupBy ? null : groupBy.columnId);
   });
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const router = useRouter();
 
   const debouncedSyncRef = useRef(
     debounce((value: string) => {
@@ -702,12 +687,21 @@ function DataTableWrapperBase<TData extends object>({
     }, 300)
   );
 
-  useEffect(
-    () => () => {
-      debouncedSyncRef.current.cancel();
-    },
-    []
-  );
+  useEffect(() => {
+    const sync = debouncedSyncRef.current;
+    const unsubscribe = router.subscribe(
+      "onBeforeNavigate",
+      ({ pathChanged }) => {
+        if (pathChanged) {
+          sync.cancel();
+        }
+      }
+    );
+    return () => {
+      unsubscribe();
+      sync.cancel();
+    };
+  }, [router]);
 
   // Sync local state when URL changes externally (browser back/forward)
   useEffect(() => {

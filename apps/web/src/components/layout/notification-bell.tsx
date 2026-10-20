@@ -9,9 +9,9 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 
-import { NotificationInbox } from "@/components/layout/notification-inbox";
+import { Loader } from "@/components/loader";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,12 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useUnreadNotificationCount } from "@/hooks/use-unread-notification-count";
+
+const NotificationInbox = lazy(() =>
+  import("@/components/layout/notification-inbox").then((module) => ({
+    default: module.NotificationInbox,
+  }))
+);
 
 /** Pulses the unread dot each time the count goes up. */
 function useUnreadPulse(unreadCount: number) {
@@ -103,7 +109,9 @@ export function NotificationBell({
               </DialogDescription>
             </DialogHeader>
             <div className="h-[min(480px,65dvh)] min-h-0">
-              <NotificationInbox onClose={close} />
+              <Suspense fallback={<Loader />}>
+                <NotificationInbox onClose={close} />
+              </Suspense>
             </div>
           </DialogContent>
         </Dialog>
@@ -123,7 +131,9 @@ export function NotificationBell({
         sideOffset={16}
       >
         <div className="h-[min(480px,calc(100dvh-6rem))] min-h-0">
-          <NotificationInbox onClose={close} />
+          <Suspense fallback={<Loader />}>
+            <NotificationInbox onClose={close} />
+          </Suspense>
         </div>
       </PopoverContent>
     </Popover>

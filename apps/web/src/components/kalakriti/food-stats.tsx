@@ -2,6 +2,7 @@ import {
   Progress,
   ProgressLabel,
 } from "@pi-dash/design-system/components/ui/progress";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { getKalakritiFoodStatus } from "@pi-dash/zero/kalakriti-food-rules";
 import { useEffect, useMemo, useState } from "react";
 
@@ -64,14 +65,30 @@ export function FoodStats({
   const pendingLunch = counts
     ? counts.eligible - counts.eligibleLunch
     : undefined;
+  const mealProgress = [
+    [
+      "Breakfast served to currently eligible people",
+      counts?.eligibleBreakfast,
+    ],
+    ["Lunch served to currently eligible people", counts?.eligibleLunch],
+  ] as const;
   return (
-    <section aria-labelledby="food-stats-title" className="flex flex-col gap-4">
+    <section
+      aria-busy={!counts}
+      aria-labelledby="food-stats-title"
+      className="flex flex-col gap-4"
+    >
       <div>
         <h2 className="sr-only" id="food-stats-title">
           Meals in scope
         </h2>
         <p className="sr-only">All authorized people</p>
       </div>
+      {!counts ? (
+        <span className="sr-only" role="status">
+          Loading food counts
+        </span>
+      ) : null}
       {!complete && counts ? (
         <p className="text-muted-foreground text-xs" role="status">
           Showing the last complete meal snapshot while updating.
@@ -100,24 +117,14 @@ export function FoodStats({
           },
         ]}
       />
-      {counts ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(
-            [
-              [
-                "Breakfast served to currently eligible people",
-                counts.eligibleBreakfast,
-              ],
-              [
-                "Lunch served to currently eligible people",
-                counts.eligibleLunch,
-              ],
-            ] as const
-          ).map(([label, served]) =>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {mealProgress.map(([label, served]) =>
+          counts ? (
             counts.eligible > 0 ? (
               <Progress
+                className="min-h-9"
                 key={label}
-                value={served}
+                value={served ?? 0}
                 max={counts.eligible}
                 aria-valuetext={`${served} of ${counts.eligible}`}
               >
@@ -127,19 +134,38 @@ export function FoodStats({
                 </span>
               </Progress>
             ) : (
-              <p className="text-muted-foreground text-xs" key={label}>
+              <p
+                className="text-muted-foreground flex min-h-9 items-start text-xs"
+                key={label}
+              >
                 {label}: no eligible people
               </p>
             )
-          )}
-        </div>
-      ) : null}
-      {counts ? (
-        <p className="text-muted-foreground text-xs">
-          Historical meals served, including people no longer eligible:
-          breakfast {counts.breakfast}; lunch {counts.lunch}.
-        </p>
-      ) : null}
+          ) : (
+            <div
+              aria-hidden="true"
+              className="flex min-h-9 flex-col justify-between"
+              key={label}
+            >
+              <Skeleton className="h-4 w-64 max-w-full" />
+              <Skeleton className="h-1 w-full" />
+            </div>
+          )
+        )}
+      </div>
+      <div className="min-h-8 sm:min-h-4">
+        {counts ? (
+          <p className="text-muted-foreground text-xs">
+            Historical meals served, including people no longer eligible:
+            breakfast {counts.breakfast}; lunch {counts.lunch}.
+          </p>
+        ) : (
+          <div aria-hidden="true" className="grid gap-1 sm:block">
+            <Skeleton className="h-3 w-full max-w-xl" />
+            <Skeleton className="h-3 w-48 sm:hidden" />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

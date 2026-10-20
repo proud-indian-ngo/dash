@@ -2,12 +2,14 @@ import { Toaster } from "@pi-dash/design-system/components/ui/sonner";
 import { TooltipProvider } from "@pi-dash/design-system/components/ui/tooltip";
 import { ThemeProvider } from "@pi-dash/design-system/lib/theme-provider";
 import { env } from "@pi-dash/env/web";
+import bodyFont from "@proudindian/design/fonts/geist-latin-wght-normal.woff2?url";
 import {
   createRootRouteWithContext,
   HeadContent,
   Outlet,
   ScriptOnce,
   Scripts,
+  useMatches,
 } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
@@ -15,18 +17,12 @@ import { lazy, Suspense, useEffect } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { TelemetryPageviews } from "@/components/telemetry-pageviews";
-import { ZeroInit } from "@/components/zero-init";
 import { reloadForChunkError } from "@/lib/chunk-load-error";
+import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 import { watchForNewVersion } from "@/lib/new-version";
 import type { RouterContext } from "@/router";
 
-// In dev, Vite injects CSS via HMR — no <link> needed (and avoids ?t= hydration mismatch).
-// In prod, we need an explicit <link> for SSR.
-import appCss from "../index.css?url";
-
-if (import.meta.env.DEV) {
-  import("../index.css");
-}
+import "../index.css";
 
 const LazyDevTools = import.meta.env.DEV
   ? lazy(() =>
@@ -35,7 +31,6 @@ const LazyDevTools = import.meta.env.DEV
   : () => null;
 
 const loadClientLogger = () => import("@/lib/client-logger");
-const loadPostHog = () => import("@/lib/posthog");
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootDocument,
@@ -45,10 +40,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: import.meta.env.DEV
       ? []
       : [
-          {
-            href: appCss,
-            rel: "stylesheet",
-          },
           {
             href: "/favicon-96x96.png",
             rel: "icon",
@@ -105,6 +96,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootDocument() {
+  const prioritizeBodyFont = useMatches({
+    select: (matches) =>
+      matches.some((match) => match.routeId === "/_app/export"),
+  });
   useEffect(() => {
     // Vite's preload helper fails when a deploy removed the chunks this tab
     // was built against; reload onto the current build. The error still
@@ -120,7 +115,7 @@ function RootDocument() {
       .catch(() => {
         // Non-critical
       });
-    loadPostHog()
+    loadPostHogAfterLoad()
       .then(({ initPostHog }) => initPostHog())
       .catch(() => {
         // Non-critical
@@ -131,11 +126,24 @@ function RootDocument() {
     };
   }, []);
 
+  const bodyFontPreload = (
+    <link
+      as="font"
+      crossOrigin="anonymous"
+      fetchPriority={prioritizeBodyFont ? "high" : undefined}
+      href={bodyFont}
+      rel="preload"
+      type="font/woff2"
+    />
+  );
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* React Scan disabled while debugging local browser tests. */}
+        {prioritizeBodyFont ? bodyFontPreload : null}
         <HeadContent />
+        {prioritizeBodyFont ? null : bodyFontPreload}
       </head>
       <body>
         <a
@@ -156,9 +164,7 @@ function RootDocument() {
             {/* Wait before the first tooltip; once one is showing, neighbours open instantly. */}
             <TooltipProvider delay={400}>
               <NuqsAdapter>
-                <ZeroInit>
-                  <Outlet />
-                </ZeroInit>
+                <Outlet />
               </NuqsAdapter>
               <TelemetryPageviews />
               <Toaster

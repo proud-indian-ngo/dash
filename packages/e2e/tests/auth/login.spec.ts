@@ -3,6 +3,8 @@ import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import dotenv from "dotenv";
 
+import { waitForZeroReady } from "../../fixtures/test";
+
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../../.env.test"),
   quiet: true,
@@ -47,6 +49,33 @@ test.describe("Login page", () => {
     await expect(
       page.getByRole("heading", { name: "Dashboard" })
     ).toBeVisible();
+  });
+
+  test("warms a redirect without connecting before login", async ({ page }) => {
+    const session = await page.context().newCDPSession(page);
+    let webSocketCount = 0;
+    session.on("Network.webSocketCreated", () => {
+      webSocketCount += 1;
+    });
+    await session.send("Network.enable");
+
+    await page.goto("/login?redirect=%2Fevents", { waitUntil: "load" });
+    const email = page.getByLabel("Email");
+    await expect(email).toBeEditable();
+    await email.focus();
+    await email.fill(process.env.ADMIN_EMAIL ?? "test-admin@pi-dash.test");
+    await page
+      .getByLabel("Password")
+      .fill(process.env.ADMIN_PASSWORD ?? "TestAdmin123!");
+
+    expect(webSocketCount).toBe(0);
+    await page.getByRole("button", { name: "Log in" }).click();
+
+    await page.waitForURL("/events");
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Events" })
+    ).toBeVisible();
+    await waitForZeroReady(page);
   });
 
   test("forgot password link navigates to /forgot-password", async ({

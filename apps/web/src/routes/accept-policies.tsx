@@ -12,7 +12,8 @@ import {
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { env } from "@pi-dash/env/web";
 import { mutators } from "@pi-dash/zero/mutators";
-import { useZero } from "@rocicorp/zero/react";
+import type { Zero } from "@rocicorp/zero";
+import { ZeroContext, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { uuidv7 } from "uuidv7";
@@ -23,6 +24,7 @@ import { Loader } from "@/components/loader";
 import { StandalonePage } from "@/components/shared/not-found-state";
 import { Tag } from "@/components/shared/status-badge";
 import { ZeroConnectionMonitor } from "@/components/zero-connection-monitor";
+import { ZeroInit } from "@/components/zero-init";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { getCachedAuth, invalidateAuthCache } from "@/lib/auth-cache";
 import {
@@ -36,16 +38,59 @@ import { signOut } from "@/lib/sign-out";
 export const Route = createFileRoute("/accept-policies")({
   validateSearch: z.object({ redirect: z.string().optional() }),
   beforeLoad: async ({ location }) => {
-    const { session } = await getCachedAuth();
+    const { permissions, session } = await getCachedAuth();
     if (!session) {
       throw redirect({ search: { redirect: location.href }, to: "/login" });
     }
+    return { permissions, session };
   },
   head: () => ({
     meta: [{ title: `Before you continue | ${env.VITE_APP_NAME}` }],
   }),
-  component: AcceptPoliciesPage,
+  component: AcceptPoliciesRoute,
 });
+
+function AcceptPoliciesRoute() {
+  const { permissions, session } = Route.useRouteContext();
+
+  return (
+    <AcceptPoliciesRuntime
+      key={`${session.user.id}:${session.user.role}`}
+      permissions={permissions}
+      session={session}
+    />
+  );
+}
+
+function AcceptPoliciesRuntime({
+  permissions,
+  session,
+}: {
+  permissions: string[];
+  session: ReturnType<typeof Route.useRouteContext>["session"];
+}) {
+  const [zero, setZero] = useState<Zero>();
+
+  return (
+    <ZeroContext value={zero}>
+      <ZeroInit
+        onReady={setZero}
+        permissions={permissions}
+        role={session.user.role}
+        userId={session.user.id}
+      >
+        {null}
+      </ZeroInit>
+      {zero ? (
+        <AcceptPoliciesPage />
+      ) : (
+        <StandalonePage>
+          <Loader />
+        </StandalonePage>
+      )}
+    </ZeroContext>
+  );
+}
 
 function AcceptPoliciesPage() {
   const zero = useZero();

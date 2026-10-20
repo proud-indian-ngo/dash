@@ -24,6 +24,7 @@ import {
   getRoles,
   type RoleListItem,
 } from "@/functions/role-admin";
+import { invalidateAdminUsersCache } from "@/lib/admin-users-cache";
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/settings/roles/")({
@@ -90,6 +91,7 @@ function RolesPage() {
             permissionIds: [],
           },
         });
+        invalidateAdminUsersCache();
         toast.success("Role created!");
         setCreateOpen(false);
         loadRoles();
@@ -110,6 +112,7 @@ function RolesPage() {
     async ({ id: roleId }: { id: string; name: string }) => {
       try {
         await deleteRoleFn({ data: { roleId } });
+        invalidateAdminUsersCache();
         loadRoles();
         return { type: "success" as const };
       } catch (error) {

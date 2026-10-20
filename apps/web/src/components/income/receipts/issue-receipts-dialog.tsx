@@ -12,8 +12,7 @@ import {
   receiptAssessmentLabel,
 } from "@pi-dash/shared/receipts";
 import { useServerFn } from "@tanstack/react-start";
-import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Loader } from "@/components/loader";
@@ -26,60 +25,16 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { Tag } from "@/components/shared/status-badge";
-import {
-  getReceiptCandidates,
-  issueContributionReceipts,
-  type ReceiptCandidatesResponse,
-} from "@/functions/contribution-receipts";
+import { issueContributionReceipts } from "@/functions/contribution-receipts";
 
-import { formatReceivedOn } from "../contribution-detail-sheet";
+import { formatReceivedOn } from "../income-date";
+import { useReceiptCandidates } from "./use-receipt-candidates";
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
 
 /** yyyy-MM-dd to the epoch the table formatter takes. */
 const dayEpoch = (isoDay: string) => Date.parse(`${isoDay}T00:00:00Z`);
-
-/**
- * Loads the gifts a receipt could be issued for: every direct gift without
- * one (`contributionIds` null) or exactly the given gifts. Reloads when
- * `refreshKey` changes.
- */
-export function useReceiptCandidates(
-  enabled: boolean,
-  contributionIds: string[] | null,
-  refreshKey: string
-) {
-  const load = useServerFn(getReceiptCandidates);
-  const [state, setState] = useState<ReceiptCandidatesResponse | null>(null);
-  const idsKey = contributionIds?.join(",") ?? "";
-  useEffect(() => {
-    if (!enabled) {
-      setState(null);
-      return;
-    }
-    let cancelled = false;
-    load({
-      data: { giftIds: idsKey ? idsKey.split(",") : null },
-    })
-      .then((result) => {
-        if (!cancelled) {
-          setState(result);
-        }
-      })
-      .catch((error: unknown) => {
-        log.error({
-          action: "receipts.candidates",
-          caughtError: errorMessage(error),
-          component: "IssueReceipts",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, idsKey, refreshKey, load]);
-  return state;
-}
 
 function CandidateRow({
   candidate,
