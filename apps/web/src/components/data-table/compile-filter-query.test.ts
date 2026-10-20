@@ -179,6 +179,59 @@ describe("compileFilterQuery", () => {
     expect(filterRows(query).map((row) => row.title)).toEqual(["Snacks"]);
   });
 
+  it("ignores unknown and incomplete nodes inside nested groups", () => {
+    const nested = createFilterGroup({
+      combinator: "or",
+      id: "g1",
+      rules: [
+        createFilterRule({
+          id: "r1",
+          operator: "",
+          path: ["status"],
+        }),
+        createFilterRule({
+          id: "r2",
+          operator: "is",
+          path: ["status"],
+          value: "approved",
+        }),
+      ],
+    });
+    nested.rules.push({ id: "unknown", type: "unknown" } as never);
+
+    expect(
+      filterRows(createFilterQuery([nested])).map((row) => row.title)
+    ).toEqual(["Hotel stay"]);
+  });
+
+  it("keeps negation scoped to a rule in a nested group", () => {
+    const query = createFilterQuery([
+      createFilterGroup({
+        combinator: "or",
+        id: "g1",
+        rules: [
+          createFilterRule({
+            id: "r1",
+            operator: "is",
+            path: ["status"],
+            value: "approved",
+          }),
+          createFilterRule({
+            id: "r2",
+            negated: true,
+            operator: "empty",
+            path: ["city"],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(filterRows(query).map((row) => row.title)).toEqual([
+      "Taxi",
+      "Hotel stay",
+    ]);
+  });
+
   it("matches an OR of two statuses", () => {
     const query = createFilterQuery(
       [
@@ -254,6 +307,66 @@ describe("compileFilterQuery", () => {
     expect(filterRows(query).map((row) => row.title)).toEqual(["Hotel stay"]);
   });
 
+  it("matches every membership variant with exact string values", () => {
+    const cases: {
+      expected: string[];
+      operator: string;
+      path: string[];
+      value: unknown;
+    }[] = [
+      {
+        expected: ["Taxi", "Snacks"],
+        operator: "is_not",
+        path: ["status"],
+        value: "approved",
+      },
+      {
+        expected: ["Taxi", "Snacks"],
+        operator: "is_none_of",
+        path: ["status"],
+        value: ["approved"],
+      },
+      {
+        expected: ["Taxi", "Hotel stay"],
+        operator: "has_any_of",
+        path: ["tags"],
+        value: ["travel", "food"],
+      },
+      {
+        expected: ["Hotel stay"],
+        operator: "has_all_of",
+        path: ["tags"],
+        value: ["travel", "food"],
+      },
+      {
+        expected: ["Taxi", "Snacks"],
+        operator: "has_none_of",
+        path: ["tags"],
+        value: ["travel"],
+      },
+      {
+        expected: [],
+        operator: "is_any_of",
+        path: ["status"],
+        value: ["Pending"],
+      },
+    ];
+
+    for (const testCase of cases) {
+      const query = createFilterQuery([
+        createFilterRule({
+          id: testCase.operator,
+          operator: testCase.operator,
+          path: testCase.path,
+          value: testCase.value,
+        }),
+      ]);
+      expect(filterRows(query).map((row) => row.title)).toEqual(
+        testCase.expected
+      );
+    }
+  });
+
   it("matches an absolute date is rule", () => {
     const query = createFilterQuery([
       createFilterRule({
@@ -264,6 +377,93 @@ describe("compileFilterQuery", () => {
       }),
     ]);
     expect(filterRows(query).map((row) => row.title)).toEqual(["Taxi"]);
+  });
+
+  it("includes both date boundaries", () => {
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "r1",
+        operator: "between",
+        path: ["expenseDate"],
+        value: [{ date: "2026-08-10" }, { date: "2026-08-19" }],
+      }),
+    ]);
+    expect(filterRows(query).map((row) => row.title)).toEqual([
+      "Taxi",
+      "Hotel stay",
+    ]);
+  });
+
+  it("preserves fallback behavior for an invalid date boundary", () => {
+    const query = createFilterQuery([
+      createFilterRule({
+        id: "r1",
+        operator: "between",
+        path: ["expenseDate"],
+        value: [{ date: "not-a-date" }, { date: "2026-08-19" }],
+      }),
+    ]);
+    expect(filterRows(query).map((row) => row.title)).toEqual([
+      "Taxi",
+      "Hotel stay",
+    ]);
+  });
+
+  it("preserves the match-all fallback for unknown operators", () => {
+    const rule = {
+      id: "r1",
+      operator: "custom_operator",
+      path: ["status"],
+      value: "pending",
+    };
+    expect(
+      filterRows(createFilterQuery([createFilterRule(rule)]))
+    ).toHaveLength(3);
+
+    const negatedQuery = createFilterQuery([
+      createFilterRule({
+        ...rule,
+        negated: true,
+      }),
+    ]);
+    expect(filterRows(negatedQuery)).toHaveLength(0);
+  });
+
+  it("does not eagerly resolve unreachable malformed date values", () => {
+    const malformedDateRule = () =>
+      createFilterRule<unknown>({
+        id: "malformed",
+        operator: "is",
+        path: ["expenseDate"],
+        value: { relative: null },
+      });
+    const statusRule = createFilterRule<unknown>({
+      id: "status",
+      operator: "is",
+      path: ["status"],
+      value: "pending",
+    });
+
+    const matchesOr = compileFilterQuery(
+      createFilterQuery<unknown>([statusRule, malformedDateRule()], "or"),
+      getValue
+    );
+    expect(matchesOr(rows[0]!)).toBe(true);
+
+    const matchesAnd = compileFilterQuery(
+      createFilterQuery<unknown>([statusRule, malformedDateRule()]),
+      getValue
+    );
+    expect(matchesAnd(rows[1]!)).toBe(false);
+
+    expect(
+      ([] as Row[]).filter(
+        compileFilterQuery(
+          createFilterQuery<unknown>([malformedDateRule()]),
+          getValue
+        )
+      )
+    ).toEqual([]);
   });
 
   it("resolves relative date tokens at read time", () => {

@@ -38,6 +38,7 @@ const roleOnlySpecs = {
     "performance/app.spec.ts",
     "performance/kalakriti.spec.ts",
     "performance/navigation.spec.ts",
+    "performance/rendering-memory.spec.ts",
     "reimbursements/cash-voucher.spec.ts",
     "reimbursements/reimbursement-unhappy-paths.spec.ts",
     "settings/expense-categories.spec.ts",
