@@ -56,7 +56,7 @@ Defined in `packages/zero/src/queries/`. The client reads its local replica inst
 
 `zero-cache` tails the Postgres WAL through `ZERO_UPSTREAM_DB`, which must be unpooled. Clients keep a local replica over WebSocket. A mutation flows client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients.
 
-`ZeroProvider` mounts only inside the authenticated layout, seeded with its route session and permissions. Public routes remain server-renderable without starting Zero. Zero’s React bindings do not support SSR hydration; server ZQL is not a replacement for that binding. Router preloads must tolerate an absent Zero instance before initialization and after leaving the authenticated layout.
+`ZeroProvider` mounts in authenticated runtimes, seeded with the route session and permissions. The standalone policy-acceptance route owns a runtime because it bypasses the app layout's policy guard. Its query consumers wait for initialization behind a server-renderable loader. Public routes remain server-renderable without starting Zero. Zero’s React bindings do not support SSR hydration; server ZQL is not a replacement for that binding. Router preloads must tolerate an absent Zero instance before initialization and between runtimes.
 
 The Export SSR prototype keeps its query-free form mounted outside Zero’s initialization boundary. The managed provider still owns the instance; its initialization callback supplies the surrounding context. Query consumers wait for that instance, while navigation reserves its server-rendered geometry. The authenticated document is private and non-cacheable. This does not hydrate server rows into Zero.
 
@@ -66,7 +66,7 @@ The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the p
 
 ## Connection errors and logout
 
-- `ZeroConnectionMonitor` in `apps/web/src/routes/_app.tsx` watches `useConnectionState()`. Individual queries do no error handling.
+- The app layout and standalone policy-acceptance page mount `ZeroConnectionMonitor`, which watches `useConnectionState()`. Individual queries do no error handling.
 - `error`: reconnect, since Zero itself stops retrying and some server errors are transient (a reload racing the previous connection can drop shared query work); after 10 reconnects in a minute, a debounced toast. `needs-auth`: redirect to `/login` with the current path.
 - Logout calls `zero.delete()` (best effort) before `authClient.signOut()` to clear IndexedDB.
 
