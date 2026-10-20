@@ -36,35 +36,34 @@ test.describe("trustee register (super admin)", () => {
     await expect(
       page.getByRole("heading", { name: "Trustee register" })
     ).toBeVisible();
-    await page.getByLabel("Board on", { exact: true }).fill("2026-04-03");
-    const board = page.getByRole("region", { name: /On the board/ });
-    await expect(board.getByText("Rahul Das")).toBeVisible();
-    await expect(board.getByText("Meera Iyer")).toBeVisible();
+    const row = (name: string) =>
+      page.getByRole("row", { name: new RegExp(name) });
+    await page.goto("/governance?on=2026-04-03");
+    await expect(row("Rahul Das")).toContainText("On the board");
+    await expect(row("Meera Iyer")).toContainText("On the board");
 
-    await page.getByLabel("Board on", { exact: true }).fill("2026-10-20");
-    await expect(
-      page.getByRole("heading", { name: "On the board (2)" })
-    ).toBeVisible();
-    await expect(board.getByText("Rahul Das")).toBeHidden();
-    const vikram = board.getByRole("row", { name: /Vikram Menon/ });
-    await expect(vikram).toContainText("Joint Managing Trustee");
-    await expect(vikram).toContainText("Secretary");
+    await page.goto("/governance?on=2026-10-20");
+    await expect(row("Rahul Das")).toContainText("Not on the board");
+    await expect(row("Vikram Menon")).toContainText("Joint Managing Trustee");
+    await expect(row("Vikram Menon")).toContainText("Secretary");
 
     // Before version 2 of the deed (1 Jan 2026), a quorum of five can't be
     // met by the four trustees then in office.
-    await page.getByLabel("Board on", { exact: true }).fill("2025-12-31");
+    await page.goto("/governance?on=2025-12-31");
     await expect(
       page.getByText("no meeting can be quorate", { exact: false })
     ).toBeVisible();
 
     await page.getByRole("link", { name: "Trust deed" }).click();
-    const version1 = page.locator("section").filter({
-      has: page.getByRole("heading", { name: /Version 1: Trust deed/ }),
-    });
-    await expect(version1).toBeVisible();
-    await expect(version1.getByText("Circulars issued by")).toBeVisible();
+    const inForce = page.getByRole("region", { name: "Rules in force" });
+    await expect(inForce.getByText("Circulars issued by")).toBeVisible();
+    // Version 2 lists only what it changed: version 1's quorum, struck out.
+    const version2 = page
+      .getByRole("region", { name: "History" })
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("heading", { name: /^Version 2:/ }) });
     await expect(
-      version1.getByText(
+      version2.getByText(
         "5 trustees present and voting, including the Managing Trustee"
       )
     ).toBeVisible();

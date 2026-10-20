@@ -54,7 +54,6 @@ import { Route as AppGovernanceDeedRouteImport } from './routes/_app/governance/
 import { Route as AppGovernanceDocumentsRouteImport } from './routes/_app/governance/documents'
 import { Route as AppGovernancePoliciesRouteImport } from './routes/_app/governance/policies'
 import { Route as AppGovernanceRegistrationsRouteImport } from './routes/_app/governance/registrations'
-import { Route as AppGovernanceSigningHelperRouteImport } from './routes/_app/governance/signing-helper'
 import { Route as AppIncomeIndexRouteImport } from './routes/_app/income/index'
 import { Route as AppIncomeImportRouteImport } from './routes/_app/income/import'
 import { Route as AppIncomeReturnRouteImport } from './routes/_app/income/return'
@@ -110,6 +109,7 @@ import { Route as AppGovernanceMeetingsIndexRouteImport } from './routes/_app/go
 import { Route as AppGovernanceMeetingsMeetingIdRouteImport } from './routes/_app/governance/meetings/$meetingId'
 import { Route as AppGovernanceResolutionsIndexRouteImport } from './routes/_app/governance/resolutions/index'
 import { Route as AppGovernanceResolutionsResolutionIdRouteImport } from './routes/_app/governance/resolutions/$resolutionId'
+import { Route as AppGovernanceResolutionsSigningHelperRouteImport } from './routes/_app/governance/resolutions/signing-helper'
 import { Route as AppIncomeBankIndexRouteImport } from './routes/_app/income/bank/index'
 import { Route as AppIncomeBankImportRouteImport } from './routes/_app/income/bank/import'
 import { Route as AppIncomeImportsBatchIdRouteImport } from './routes/_app/income/imports.$batchId'
@@ -394,12 +394,6 @@ const AppGovernanceRegistrationsRoute =
     path: '/registrations',
     getParentRoute: () => AppGovernanceRouteRoute,
   } as any)
-const AppGovernanceSigningHelperRoute =
-  AppGovernanceSigningHelperRouteImport.update({
-    id: '/signing-helper',
-    path: '/signing-helper',
-    getParentRoute: () => AppGovernanceRouteRoute,
-  } as any)
 const AppIncomeIndexRoute = AppIncomeIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -680,6 +674,12 @@ const AppGovernanceResolutionsResolutionIdRoute =
   AppGovernanceResolutionsResolutionIdRouteImport.update({
     id: '/resolutions/$resolutionId',
     path: '/resolutions/$resolutionId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
+const AppGovernanceResolutionsSigningHelperRoute =
+  AppGovernanceResolutionsSigningHelperRouteImport.update({
+    id: '/resolutions/signing-helper',
+    path: '/resolutions/signing-helper',
     getParentRoute: () => AppGovernanceRouteRoute,
   } as any)
 const AppIncomeBankIndexRoute = AppIncomeBankIndexRouteImport.update({
@@ -1045,7 +1045,6 @@ export interface FileRoutesByFullPath {
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/policies': typeof AppGovernancePoliciesRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
-  '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1101,6 +1100,7 @@ export interface FileRoutesByFullPath {
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1192,7 +1192,6 @@ export interface FileRoutesByTo {
   '/governance/documents': typeof AppGovernanceDocumentsRoute
   '/governance/policies': typeof AppGovernancePoliciesRoute
   '/governance/registrations': typeof AppGovernanceRegistrationsRoute
-  '/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/income/import': typeof AppIncomeImportRoute
   '/income/return': typeof AppIncomeReturnRoute
   '/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1246,6 +1245,7 @@ export interface FileRoutesByTo {
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/income/bank/import': typeof AppIncomeBankImportRoute
   '/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1351,7 +1351,6 @@ export interface FileRoutesById {
   '/_app/governance/documents': typeof AppGovernanceDocumentsRoute
   '/_app/governance/policies': typeof AppGovernancePoliciesRoute
   '/_app/governance/registrations': typeof AppGovernanceRegistrationsRoute
-  '/_app/governance/signing-helper': typeof AppGovernanceSigningHelperRoute
   '/_app/income/import': typeof AppIncomeImportRoute
   '/_app/income/return': typeof AppIncomeReturnRoute
   '/_app/kalakriti/new': typeof AppKalakritiNewRoute
@@ -1407,6 +1406,7 @@ export interface FileRoutesById {
   '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
   '/_app/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/_app/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
+  '/_app/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
   '/_app/income/bank/import': typeof AppIncomeBankImportRoute
   '/_app/income/imports/$batchId': typeof AppIncomeImportsBatchIdRoute
   '/_app/income/payout/import': typeof AppIncomePayoutImportRoute
@@ -1512,7 +1512,6 @@ export interface FileRouteTypes {
     | '/governance/documents'
     | '/governance/policies'
     | '/governance/registrations'
-    | '/governance/signing-helper'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1568,6 +1567,7 @@ export interface FileRouteTypes {
     | '/finance/books/opening'
     | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
+    | '/governance/resolutions/signing-helper'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1659,7 +1659,6 @@ export interface FileRouteTypes {
     | '/governance/documents'
     | '/governance/policies'
     | '/governance/registrations'
-    | '/governance/signing-helper'
     | '/income/import'
     | '/income/return'
     | '/kalakriti/new'
@@ -1713,6 +1712,7 @@ export interface FileRouteTypes {
     | '/finance/books/opening'
     | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
+    | '/governance/resolutions/signing-helper'
     | '/income/bank/import'
     | '/income/imports/$batchId'
     | '/income/payout/import'
@@ -1817,7 +1817,6 @@ export interface FileRouteTypes {
     | '/_app/governance/documents'
     | '/_app/governance/policies'
     | '/_app/governance/registrations'
-    | '/_app/governance/signing-helper'
     | '/_app/income/import'
     | '/_app/income/return'
     | '/_app/kalakriti/new'
@@ -1873,6 +1872,7 @@ export interface FileRouteTypes {
     | '/_app/finance/books/opening'
     | '/_app/governance/meetings/$meetingId'
     | '/_app/governance/resolutions/$resolutionId'
+    | '/_app/governance/resolutions/signing-helper'
     | '/_app/income/bank/import'
     | '/_app/income/imports/$batchId'
     | '/_app/income/payout/import'
@@ -2299,13 +2299,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGovernanceRegistrationsRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
-    '/_app/governance/signing-helper': {
-      id: '/_app/governance/signing-helper'
-      path: '/signing-helper'
-      fullPath: '/governance/signing-helper'
-      preLoaderRoute: typeof AppGovernanceSigningHelperRouteImport
-      parentRoute: typeof AppGovernanceRouteRoute
-    }
     '/_app/income/': {
       id: '/_app/income/'
       path: '/'
@@ -2689,6 +2682,13 @@ declare module '@tanstack/react-router' {
       path: '/resolutions/$resolutionId'
       fullPath: '/governance/resolutions/$resolutionId'
       preLoaderRoute: typeof AppGovernanceResolutionsResolutionIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
+    '/_app/governance/resolutions/signing-helper': {
+      id: '/_app/governance/resolutions/signing-helper'
+      path: '/resolutions/signing-helper'
+      fullPath: '/governance/resolutions/signing-helper'
+      preLoaderRoute: typeof AppGovernanceResolutionsSigningHelperRouteImport
       parentRoute: typeof AppGovernanceRouteRoute
     }
     '/_app/income/bank/': {
@@ -3133,10 +3133,10 @@ interface AppGovernanceRouteRouteChildren {
   AppGovernanceDocumentsRoute: typeof AppGovernanceDocumentsRoute
   AppGovernancePoliciesRoute: typeof AppGovernancePoliciesRoute
   AppGovernanceRegistrationsRoute: typeof AppGovernanceRegistrationsRoute
-  AppGovernanceSigningHelperRoute: typeof AppGovernanceSigningHelperRoute
   AppGovernanceIndexRoute: typeof AppGovernanceIndexRoute
   AppGovernanceMeetingsMeetingIdRoute: typeof AppGovernanceMeetingsMeetingIdRoute
   AppGovernanceResolutionsResolutionIdRoute: typeof AppGovernanceResolutionsResolutionIdRoute
+  AppGovernanceResolutionsSigningHelperRoute: typeof AppGovernanceResolutionsSigningHelperRoute
   AppGovernanceMeetingsIndexRoute: typeof AppGovernanceMeetingsIndexRoute
   AppGovernanceResolutionsIndexRoute: typeof AppGovernanceResolutionsIndexRoute
 }
@@ -3148,11 +3148,12 @@ const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
   AppGovernanceDocumentsRoute: AppGovernanceDocumentsRoute,
   AppGovernancePoliciesRoute: AppGovernancePoliciesRoute,
   AppGovernanceRegistrationsRoute: AppGovernanceRegistrationsRoute,
-  AppGovernanceSigningHelperRoute: AppGovernanceSigningHelperRoute,
   AppGovernanceIndexRoute: AppGovernanceIndexRoute,
   AppGovernanceMeetingsMeetingIdRoute: AppGovernanceMeetingsMeetingIdRoute,
   AppGovernanceResolutionsResolutionIdRoute:
     AppGovernanceResolutionsResolutionIdRoute,
+  AppGovernanceResolutionsSigningHelperRoute:
+    AppGovernanceResolutionsSigningHelperRoute,
   AppGovernanceMeetingsIndexRoute: AppGovernanceMeetingsIndexRoute,
   AppGovernanceResolutionsIndexRoute: AppGovernanceResolutionsIndexRoute,
 }

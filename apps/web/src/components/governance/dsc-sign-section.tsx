@@ -175,7 +175,7 @@ export function DscSignSection({
         <>
           <p className="text-sm">
             To sign here, set up your DSC once: plug in your token and the
-            helper registers its certificate with pi-dash.
+            helper registers its certificate with the dashboard.
           </p>
           <div>
             <Button
@@ -200,7 +200,7 @@ export function DscSignSection({
         First time?{" "}
         <Link
           className="text-primary underline-offset-4 hover:underline"
-          to="/governance/signing-helper"
+          to="/governance/resolutions/signing-helper"
         >
           Install the signing helper
         </Link>

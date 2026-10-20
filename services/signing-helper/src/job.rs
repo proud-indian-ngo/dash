@@ -72,10 +72,10 @@ fn server_error(response: ureq::Error) -> Box<dyn std::error::Error> {
                 .into_json::<ServerMessage>()
                 .ok()
                 .and_then(|m| m.message)
-                .unwrap_or_else(|| "pi-dash refused the request.".into());
+                .unwrap_or_else(|| "The dashboard refused the request.".into());
             message.into()
         }
-        other => format!("Couldn't reach pi-dash: {other}").into(),
+        other => format!("Couldn't reach the dashboard: {other}").into(),
     }
 }
 
@@ -84,7 +84,7 @@ pub fn run_link(link: &str) -> Result<()> {
     let settings = config::load();
     let Some(allowed) = settings.server.as_deref() else {
         return Err(format!(
-            "The helper isn't set up for a pi-dash server. Run the installer again (config: {}).",
+            "The helper isn't set up for a dashboard. Run the installer again (config: {}).",
             config::config_path().display()
         )
         .into());
@@ -102,7 +102,7 @@ pub fn run_link(link: &str) -> Result<()> {
         return Err("The job doesn't match the link.".into());
     }
     let prompt = if job.kind == "enrol" {
-        format!("Register the DSC on this token for {} in pi-dash.", job.signer)
+        format!("Register the DSC on this token for {} in the dashboard.", job.signer)
     } else {
         format!("Sign \u{201C}{}\u{201D} as {}.", job.title, job.signer)
     };
@@ -132,7 +132,7 @@ pub fn run_link(link: &str) -> Result<()> {
             .find(|c| c.sha256.eq_ignore_ascii_case(expected))
             .ok_or_else(|| {
                 TokenError(
-                    "This token doesn't hold the certificate enrolled for you in pi-dash. Plug in your own token, or enrol this one first.".into(),
+                    "This token doesn't hold the certificate enrolled for you in the dashboard. Plug in your own token, or enrol this one first.".into(),
                 )
             })?;
         let data = STANDARD.decode(job.to_sign.as_deref().unwrap_or_default())?;
@@ -150,7 +150,7 @@ pub fn run_link(link: &str) -> Result<()> {
         reply
             .message
             .as_deref()
-            .unwrap_or("Done. You can return to pi-dash."),
+            .unwrap_or("Done. You can return to the dashboard."),
     );
     Ok(())
 }

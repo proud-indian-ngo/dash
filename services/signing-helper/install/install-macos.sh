@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs the pi-dash signing helper on a Mac.
+# Installs the Proud Indian signing helper on a Mac.
 #
 #   curl -fsSL https://raw.githubusercontent.com/proud-indian-ngo/dash/master/services/signing-helper/install/install-macos.sh | bash -s -- https://dash.example.org
 #
@@ -11,16 +11,16 @@ set -euo pipefail
 
 SERVER="${1:-}"
 if [[ -z "$SERVER" ]]; then
-  echo "Usage: install-macos.sh https://your-pi-dash-server" >&2
+  echo "Usage: install-macos.sh https://your-dashboard" >&2
   exit 2
 fi
 REPO="proud-indian-ngo/dash"
 MODULE="${PIDASH_PKCS11_MODULE:-/usr/local/lib/libcastle_v2.1.0.0.dylib}"
 BIN_DIR="$HOME/.local/bin"
-APP="$HOME/Applications/pi-dash Signing.app"
+APP="$HOME/Applications/Proud Indian Signing.app"
 CONFIG_DIR="$HOME/.config/pidash-sign"
 
-echo "Finding the latest pi-dash signing helper..."
+echo "Finding the latest Proud Indian signing helper..."
 TAG=$(curl -fsSL "https://api.github.com/repos/$REPO/releases" \
   | grep -o '"tag_name": *"signing-helper-v[^"]*"' | head -1 | cut -d'"' -f4)
 if [[ -z "$TAG" ]]; then
@@ -57,7 +57,7 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :LSUIElement bool true" "$PLIST" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
-/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string pi-dash signing" "$PLIST"
+/usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string Proud Indian signing" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string pidash-sign" "$PLIST"
 codesign --force --deep --sign - "$APP"
@@ -67,4 +67,4 @@ rm -rf "$TMP"
 if [[ ! -f "$MODULE" ]]; then
   echo "Note: the token driver wasn't found at $MODULE. Install the HyperSecu (ePass) driver, or edit $CONFIG_DIR/config.json." >&2
 fi
-echo "Installed $TAG. Plug in your DSC token and return to pi-dash."
+echo "Installed $TAG. Plug in your DSC token and return to the dashboard."

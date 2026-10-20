@@ -1,21 +1,17 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
+import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
+import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@pi-dash/design-system/components/ui/table";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
   GOVERNANCE_DOCUMENT_FORMAT_LABELS,
   GOVERNANCE_DOCUMENT_KIND_LABELS,
   GOVERNANCE_PAGE_PERMISSIONS,
+  governanceDocumentKindValues,
 } from "@pi-dash/shared/governance";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
@@ -23,14 +19,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 
+import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
+import { dateField, selectField } from "@/components/data-table/filter-fields";
 import {
   DocumentDetailSheet,
   ReportBadge,
+  SIGNATURE_STATUS_LABELS,
+  signatureStatus,
   type VaultDocument,
 } from "@/components/governance/document-detail-sheet";
 import { DocumentUploadDialog } from "@/components/governance/document-upload-dialog";
 import { epochToIso, formatIso } from "@/components/governance/register-data";
 import { PageHeader } from "@/components/shared/page-header";
+import { Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { getSigningServiceStatus } from "@/functions/governance";
 import { assertAnyPermission } from "@/lib/route-guards";
@@ -51,6 +52,141 @@ export const Route = createFileRoute("/_app/governance/documents")({
     );
   },
 });
+
+const SKELETON_TITLE = <Skeleton className="h-5 w-48" />;
+const SKELETON_TEXT = <Skeleton className="h-5 w-28" />;
+const SKELETON_BADGE = <Skeleton className="h-5.5 w-24" />;
+
+const filterFields: FilterField[] = [
+  selectField(
+    "kind",
+    "Kind",
+    governanceDocumentKindValues.map((value) => ({
+      label: GOVERNANCE_DOCUMENT_KIND_LABELS[value],
+      value,
+    }))
+  ),
+  selectField(
+    "signatures",
+    "Signatures",
+    Object.entries(SIGNATURE_STATUS_LABELS).map(([value, label]) => ({
+      label,
+      value,
+    }))
+  ),
+  dateField("datedOn", "Dated"),
+];
+
+function getFilterValue(row: VaultDocument, path: string[]): unknown {
+  switch (path[0]) {
+    case "datedOn":
+      return row.datedOn;
+    case "kind":
+      return row.kind;
+    case "signatures":
+      return signatureStatus(row.validationReport);
+    default:
+      return;
+  }
+}
+
+function searchDocument(row: VaultDocument, query: string): boolean {
+  return [row.title, row.originalFilename, row.note ?? ""]
+    .join(" ")
+    .toLowerCase()
+    .includes(query.trim().toLowerCase());
+}
+
+function getRowId(row: VaultDocument) {
+  return row.id;
+}
+
+const columns: DataGridColumnDef<VaultDocument>[] = [
+  {
+    accessorFn: (row) => row.title,
+    cell: ({ row }) => (
+      <span className="truncate font-medium">{row.original.title}</span>
+    ),
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Title" visibility={true} />
+    ),
+    id: "title",
+    meta: {
+      compact: "primary",
+      headerTitle: "Title",
+      kind: "text",
+      skeleton: SKELETON_TITLE,
+    },
+    size: 280,
+  },
+  {
+    accessorFn: (row) => GOVERNANCE_DOCUMENT_KIND_LABELS[row.kind],
+    cell: ({ row }) => (
+      <Tag>{GOVERNANCE_DOCUMENT_KIND_LABELS[row.original.kind]}</Tag>
+    ),
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Kind" visibility={true} />
+    ),
+    id: "kind",
+    meta: { headerTitle: "Kind", kind: "tag", skeleton: SKELETON_BADGE },
+    size: 200,
+  },
+  {
+    accessorFn: (row) => row.datedOn,
+    cell: ({ row }) => formatIso(row.original.datedOn),
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Dated" visibility={true} />
+    ),
+    id: "datedOn",
+    meta: {
+      compact: "primary",
+      headerTitle: "Dated",
+      kind: "date",
+      skeleton: SKELETON_TEXT,
+    },
+    size: 130,
+  },
+  {
+    accessorFn: (row) => GOVERNANCE_DOCUMENT_FORMAT_LABELS[row.sourceFormat],
+    cell: ({ row }) => (
+      <span className="text-muted-foreground truncate">
+        {GOVERNANCE_DOCUMENT_FORMAT_LABELS[row.original.sourceFormat]}
+      </span>
+    ),
+    header: ({ column }) => (
+      <DataGridColumnHeader column={column} title="Format" visibility={true} />
+    ),
+    id: "format",
+    meta: { headerTitle: "Format", skeleton: SKELETON_TEXT },
+    size: 180,
+  },
+  {
+    accessorFn: (row) => signatureStatus(row.validationReport) ?? "",
+    cell: ({ row }) => {
+      const status = signatureStatus(row.original.validationReport);
+      return status ? (
+        <ReportBadge status={status} />
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
+    },
+    header: ({ column }) => (
+      <DataGridColumnHeader
+        column={column}
+        title="Signatures"
+        visibility={true}
+      />
+    ),
+    id: "signatures",
+    meta: {
+      compact: "trailing",
+      headerTitle: "Signatures",
+      kind: "status",
+      skeleton: SKELETON_BADGE,
+    },
+    size: 170,
+  },
+];
 
 function GovernanceDocumentsPage() {
   const { hasPermission } = useApp();
@@ -100,6 +236,9 @@ function GovernanceDocumentsPage() {
     : null;
   const openUpload = useEventCallback(() => setUploadOpen(true));
   const handleUploaded = useEventCallback((id: string) => setViewingId(id));
+  const openDocument = useEventCallback((document: VaultDocument) =>
+    setViewingId(document.id)
+  );
   const handleDetailOpenChange = useEventCallback((open: boolean) => {
     if (!open) {
       setViewingId(null);
@@ -131,57 +270,29 @@ function GovernanceDocumentsPage() {
         </p>
       )}
       <div className="mt-6">
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : null}
-        {!isLoading && documents.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No documents yet. Start with the registered trust deed.
-          </p>
-        ) : null}
-        {documents.length > 0 ? (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Dated</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead>Signatures</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((document) => (
-                  <TableRow
-                    className="cursor-pointer"
-                    key={document.id}
-                    onClick={() => setViewingId(document.id)}
-                  >
-                    <TableCell className="font-medium">
-                      {document.title}
-                    </TableCell>
-                    <TableCell>
-                      {GOVERNANCE_DOCUMENT_KIND_LABELS[document.kind]}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatIso(document.datedOn)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {GOVERNANCE_DOCUMENT_FORMAT_LABELS[document.sourceFormat]}
-                    </TableCell>
-                    <TableCell>
-                      <ReportBadge report={document.validationReport} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : null}
+        <DataTableWrapper
+          columns={columns}
+          compactOnMobile
+          data={documents}
+          emptyMessage={
+            documents.length === 0
+              ? "No documents yet. Start with the registered trust deed."
+              : "No documents match."
+          }
+          filter={{ fields: filterFields, getValue: getFilterValue }}
+          getRowId={getRowId}
+          isLoading={isLoading}
+          onRowClick={openDocument}
+          searchFn={searchDocument}
+          searchPlaceholder="Search documents..."
+          storageKey="governance_documents_table_state_v1"
+          tableLayout={{
+            columnsDraggable: true,
+            columnsPinnable: true,
+            columnsResizable: true,
+            columnsVisibility: true,
+          }}
+        />
       </div>
       <DocumentUploadDialog
         onOpenChange={setUploadOpen}

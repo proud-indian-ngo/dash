@@ -559,6 +559,25 @@ function ItemVotes({
   });
   const handleDecide = useEventCallback(async () => {
     setBusy(true);
+    // The server decides from the database, and attendance and votes reach it
+    // through Zero. Zero applies this client's writes in order, so once this
+    // one lands, everything marked before it has too.
+    const flushed = await zero.mutate(
+      mutators.agendaItem.setCastingVote({
+        choice: item.castingVote ?? null,
+        id: item.id,
+      })
+    ).server;
+    if (flushed.type === "error") {
+      toast.error(
+        getMutationResultErrorMessage(
+          flushed.error,
+          "Couldn't record the decision"
+        )
+      );
+      setBusy(false);
+      return;
+    }
     await decide({ data: { id: meeting.id, itemId: item.id } })
       .then((out) => {
         if (out.outcome === "passed") {

@@ -58,7 +58,7 @@ test.describe("declarations and policies (super admin)", () => {
     await dialog.getByRole("button", { exact: true, name: "Declare" }).click();
     await expect(dialog).toBeHidden({ timeout: 20_000 });
 
-    const asha = page.getByRole("row", { name: /Asha Rao/ });
+    const asha = page.getByRole("row").filter({ hasText: "Asha Rao" }).first();
     await expect(asha).toContainText("Declared");
     await expect(asha).toContainText("E2E Event Vendor");
     await expect(asha.getByRole("link", { name: "PDF" })).toHaveAttribute(
