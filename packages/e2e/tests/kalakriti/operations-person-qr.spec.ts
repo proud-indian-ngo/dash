@@ -7,7 +7,8 @@ import { uuidv7 } from "uuidv7";
 
 import { expect, test } from "../../fixtures/test";
 
-// Live Edition uniqueness is shared with the other release-invariant specs.
+test.describe.configure({ lock: "single-live-edition" });
+
 test.use({
   storageState: path.resolve(
     import.meta.dirname,
@@ -122,11 +123,7 @@ test("authorized operations resolve JSON people, reject invalid subjects, replay
   browser,
   baseURL,
   kalakritiActors,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Operations integration fixture"
-  );
+}) => {
   test.slow();
   const setup = await fixture<Setup>(
     "setup",

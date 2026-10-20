@@ -6,6 +6,8 @@ import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 // Sidebar-aware desktop: container stays above the 768px compact breakpoint
 // while session Entries (~997px) and Food still overflow the scroll viewport.
@@ -162,10 +164,6 @@ test("shared table DOM sizing, drag, scroll and persisted column controls", asyn
   page,
   superAdminEmail,
 }, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Isolated scope fixture requires the serialized lane"
-  );
   test.slow();
   page.setDefaultTimeout(10_000);
   const data = await fixture("setup-scopes", superAdminEmail);

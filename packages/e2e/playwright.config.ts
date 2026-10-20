@@ -3,11 +3,7 @@ import path from "node:path";
 
 import { defineConfig, devices } from "@playwright/test";
 
-import {
-  exclusiveLastPatterns,
-  releaseInvariantPatterns,
-  testIgnoreForRole,
-} from "./project-selection";
+import { exclusiveLastPatterns, testIgnoreForRole } from "./project-selection";
 
 const isCI = !!process.env.CI;
 const isTestDB = !!process.env.TEST_DB_URL;
@@ -30,8 +26,18 @@ export default defineConfig({
     },
     {
       dependencies: ["setup"],
-      name: "kalakriti_release_invariants",
-      testMatch: releaseInvariantPatterns,
+      // First role project, so its single-live-edition specs, which run one
+      // at a time, are queued ahead of the other projects' work.
+      name: "unoriented_volunteer",
+      // Skip domains whose specs assume access unoriented volunteers lack.
+      // Dedicated coverage lives in tests/roles/unoriented-volunteer-flows.spec.ts
+      // and tests/authorization/.
+      testIgnore: testIgnoreForRole("unoriented_volunteer", [
+        /auth\//,
+        /users\//,
+        /reimbursements\//,
+        /teams\//,
+      ]),
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -39,7 +45,6 @@ export default defineConfig({
           ".auth/unoriented_volunteer.json"
         ),
       },
-      workers: 1,
     },
     {
       dependencies: ["setup"],
@@ -81,26 +86,6 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(import.meta.dirname, ".auth/volunteer.json"),
-      },
-    },
-    {
-      dependencies: ["setup"],
-      name: "unoriented_volunteer",
-      // Skip domains whose specs assume access unoriented volunteers lack.
-      // Dedicated coverage lives in tests/roles/unoriented-volunteer-flows.spec.ts
-      // and tests/authorization/.
-      testIgnore: testIgnoreForRole("unoriented_volunteer", [
-        /auth\//,
-        /users\//,
-        /reimbursements\//,
-        /teams\//,
-      ]),
-      use: {
-        ...devices["Desktop Chrome"],
-        storageState: path.resolve(
-          import.meta.dirname,
-          ".auth/unoriented_volunteer.json"
-        ),
       },
     },
     {

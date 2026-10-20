@@ -7,6 +7,8 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { registrationCleanup } from "../../helpers/registration-cleanup";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 const helper = path.resolve(
   import.meta.dirname,
@@ -47,10 +49,6 @@ test("role dashboards show scoped work, linked actions, and read-only Awards acc
   kalakritiActors,
   superAdminEmail,
 }, testInfo) => {
-  test.skip(
-    testInfo.project.name !== "kalakriti_release_invariants",
-    "Serialized live Edition lane"
-  );
   test.slow();
   const contexts: BrowserContext[] = [];
   let failed = true;

@@ -4,6 +4,8 @@ import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
+test.describe.configure({ lock: "single-live-edition" });
+
 const execFileAsync = promisify(execFile);
 const helperPath = path.resolve(
   import.meta.dirname,
@@ -27,11 +29,7 @@ test.describe("Kalakriti public schedule", () => {
     consoleErrors,
     page,
     request,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "kalakriti_release_invariants",
-      "Public and authenticated schedule workflow"
-    );
+  }) => {
     const { draftYear, year } = await fixture<{
       draftYear: number;
       year: number;

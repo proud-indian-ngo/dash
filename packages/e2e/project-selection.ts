@@ -1,3 +1,24 @@
+/**
+ * Specs that make an Edition live. The database allows one live Edition, so
+ * each declares the `single-live-edition` lock and no two of them run at
+ * once. They run in `unoriented_volunteer`, whose storage state their
+ * default `request` expects.
+ */
+export const singleLiveEditionSpecs = [
+  "kalakriti/awards.spec.ts",
+  "kalakriti/golive.spec.ts",
+  "kalakriti/operations-person-qr.spec.ts",
+  "kalakriti/event-day-transport.spec.ts",
+  "kalakriti/event-day-stations.spec.ts",
+  "kalakriti/guests-judges.spec.ts",
+  "kalakriti/food-entry-scopes.spec.ts",
+  "kalakriti/table-sizing.spec.ts",
+  "kalakriti/public-schedule.spec.ts",
+  "kalakriti/release-database-races.spec.ts",
+  "kalakriti/results.spec.ts",
+  "kalakriti/role-dashboard.spec.ts",
+] as const;
+
 // Add a file only when every test in it is gated to the same role.
 const roleOnlySpecs = {
   super_admin: [
@@ -62,30 +83,14 @@ const roleOnlySpecs = {
   unoriented_volunteer: [
     "roles/unoriented-volunteer-flows.spec.ts",
     "settings/bank-accounts.spec.ts",
+    ...singleLiveEditionSpecs,
   ],
 } as const;
 
 type RoleProject = keyof typeof roleOnlySpecs;
 
-const releaseInvariantSpecs = [
-  "kalakriti/awards.spec.ts",
-  "kalakriti/golive.spec.ts",
-  "kalakriti/operations-person-qr.spec.ts",
-  "kalakriti/event-day-transport.spec.ts",
-  "kalakriti/event-day-stations.spec.ts",
-  "kalakriti/guests-judges.spec.ts",
-  "kalakriti/food-entry-scopes.spec.ts",
-  "kalakriti/table-sizing.spec.ts",
-  "kalakriti/public-schedule.spec.ts",
-  "kalakriti/release-database-races.spec.ts",
-  "kalakriti/results.spec.ts",
-  "kalakriti/role-dashboard.spec.ts",
-];
-
 const specPattern = (file: string) =>
   new RegExp(`/${file.replaceAll(".", "\\.")}$`);
-
-export const releaseInvariantPatterns = releaseInvariantSpecs.map(specPattern);
 
 /**
  * Specs that change state every other spec relies on, such as a second
@@ -109,7 +114,6 @@ export function testIgnoreForRole(
 ): RegExp[] {
   return [
     ...existing,
-    ...releaseInvariantPatterns,
     ...exclusiveLastPatterns,
     ...Object.entries(roleOnlySpecs).flatMap(([owner, files]) =>
       owner === role ? [] : files.map(specPattern)
