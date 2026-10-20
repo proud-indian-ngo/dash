@@ -1,7 +1,16 @@
+import { db } from "@pi-dash/db";
 import {
   fileGovernanceDocumentOnce,
+  findGovernanceDocumentBySha256,
+  insertGovernanceDocument,
   trusteeNamesForMatching,
 } from "@pi-dash/db/queries/governance";
+import {
+  loadMeetingRecord,
+  lockMeeting,
+  MeetingError,
+  setSignedMinutes,
+} from "@pi-dash/db/queries/meetings";
 import {
   circularResolutions,
   currentRevision,
@@ -11,17 +20,24 @@ import {
   setFinalDocument,
 } from "@pi-dash/db/queries/resolutions";
 import { setArchiveCopy } from "@pi-dash/db/queries/signing";
+import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { addDays, DOCUMENT_TITLE_MAX } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
-import { circularReference } from "@pi-dash/shared/resolutions";
+import {
+  circularReference,
+  signatureFieldName,
+} from "@pi-dash/shared/resolutions";
 import { createRequestLogger } from "evlog";
 
 import { getS3 } from "../s3";
 import { CircularError, checkSignedUpload, sha256Of } from "./circulars";
 import { circularKey, signingCopy } from "./signing-copy";
 import { finalizeForArchive, validateSignedPdf } from "./signing-service";
+
+export const meetingKey = (meetingId: string, name: string) =>
+  `${env.R2_KEY_PREFIX}/governance/meetings/${meetingId}/${name}`;
 
 /** Days between the archive copy's document timestamps. */
 const ARCHIVE_RENEW_DAYS = 365;
@@ -143,6 +159,122 @@ export async function acceptSignedPdf(input: {
     });
   }
   return decisions;
+}
+
+/**
+ * Takes the minutes the chair signed (uploaded from Acrobat, or finished by
+ * the signing service for the helper): the generated copy with exactly the
+ * chair's signature added. Files them in the vault, makes them the evidence
+ * for the resolutions passed at the meeting, and starts the long-term copy.
+ */
+export async function acceptSignedMinutes(input: {
+  /** For the helper: the enrolled certificate the signature must come from. */
+  expectedCertificateSha256?: string;
+  meetingId: string;
+  uploaded: Uint8Array;
+  userId: string;
+}): Promise<string> {
+  const { uploaded } = input;
+  const record = await loadMeetingRecord(input.meetingId);
+  if (!record) {
+    throw new MeetingError("Meeting not found");
+  }
+  const { meeting: row } = record;
+  if (row.minutesDocumentId) {
+    throw new MeetingError("The minutes are already signed.");
+  }
+  if (!(row.minutesObjectKey && row.chairTrusteeId)) {
+    throw new MeetingError("Generate the minutes first.");
+  }
+  const chairId = row.chairTrusteeId;
+  const s3 = await getS3();
+  const current = new Uint8Array(
+    await s3.file(row.minutesObjectKey).arrayBuffer()
+  );
+  const [report, currentReport, names] = await Promise.all([
+    validateSignedPdf(uploaded, current.byteLength),
+    validateSignedPdf(current),
+    trusteeNamesForMatching(),
+  ]);
+  const signature = checkSignedUpload({
+    current,
+    fieldName: signatureFieldName(chairId),
+    report,
+    signedBefore: currentReport.signatures.length,
+    textFieldsBefore: currentReport.textFields ?? {},
+    trustee: {
+      id: chairId,
+      names: names.find((n) => n.id === chairId)?.names ?? [],
+    },
+    uploaded,
+  });
+  if (
+    input.expectedCertificateSha256 &&
+    signature.sha256Fingerprint.toLowerCase() !==
+      input.expectedCertificateSha256.toLowerCase()
+  ) {
+    throw new CircularError(
+      "The signature isn't from the certificate enrolled for you."
+    );
+  }
+  const sha256 = sha256Of(uploaded);
+  // Stored by content, so a submission that loses the race below never
+  // replaces the accepted copy.
+  const objectKey = meetingKey(
+    row.id,
+    `minutes-signed-${sha256.slice(0, 16)}.pdf`
+  );
+  await s3.write(objectKey, uploaded, { type: "application/pdf" });
+  const heldOn = todayInKolkata(row.startsAt);
+  // One submission is accepted, against the copy it was checked against,
+  // and the minutes and every resolution's evidence are recorded together.
+  const documentId = await db.transaction(async (tx) => {
+    const locked = await lockMeeting(tx, row.id);
+    if (locked?.minutesDocumentId) {
+      throw new MeetingError("The minutes are already signed.");
+    }
+    if (locked?.minutesObjectKey !== row.minutesObjectKey) {
+      throw new MeetingError(
+        locked?.minutesObjectKey
+          ? "The minutes were generated again. Sign the new copy."
+          : "The proceedings changed. Generate the minutes again and sign the new copy."
+      );
+    }
+    const id =
+      (await findGovernanceDocumentBySha256(sha256, tx))?.id ??
+      (await insertGovernanceDocument(
+        {
+          contentType: "application/pdf",
+          datedOn: heldOn,
+          kind: "minutes",
+          note: `Minutes of the board meeting held on ${heldOn}, signed by the chair.`,
+          objectKey,
+          originalFilename: `minutes-${heldOn}.pdf`,
+          sha256,
+          sizeBytes: uploaded.byteLength,
+          sourceFormat: "signed_pdf",
+          title: `Minutes: ${row.title}`.slice(0, DOCUMENT_TITLE_MAX),
+          uploadedBy: input.userId,
+          validationReport: report,
+        },
+        tx
+      ));
+    await setSignedMinutes(tx, row.id, id);
+    for (const item of record.agenda) {
+      if (item.outcome === "passed" && item.resolutionId) {
+        await setFinalDocument(item.resolutionId, id, tx);
+      }
+    }
+    return id;
+  });
+  await fileArchiveCopy({
+    archiveKey: meetingKey(row.id, "minutes-ltv.pdf"),
+    bytes: uploaded,
+    documentId,
+    log: { meetingId: row.id },
+    objectKey,
+  });
+  return documentId;
 }
 
 function passedIds(decisions: readonly Decision[]): string[] {

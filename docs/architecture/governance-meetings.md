@@ -31,7 +31,9 @@
 ## Minutes
 
 - The minutes PDF is rendered from the record: attendance, the proceedings, and each item with its text, the votes that counted, declared interests and outcome, plus who attended it differently from the list (arrived or left) or another chair. The chair's block sits where the signing service adds the chair's empty field. Rendering again replaces the unsigned copy. Editing the meeting's or an item's notes drops the generated copy, and a render is kept only if the meeting didn't change while it ran, so the chair always signs the current record.
-- The chair, or anyone with `governance.manage`, uploads the copy the chair signed in Acrobat. It must be the generated PDF with exactly the chair's signature added.
+- The chair signs in one of two ways, and both copies go through the same checks: the generated PDF with exactly the chair's signature added.
+  - **DSC helper**, as for a circular (`governance-resolutions.md`, Signing): only the recorded chair, signed in to an account linked to that trustee, with an enrolled certificate and a recent sign-in, on held minutes that are made and unsigned. The job reserves the chair's field in the current minutes, the helper shows "Minutes of the board meeting of" the date, and the signature must come from the enrolled certificate. It is audited as `meeting.sign_minutes` in the chair's name.
+  - **Acrobat**: the chair, or anyone with `governance.manage`, uploads the copy the chair signed.
 - The signed minutes are stored by content, then accepted once, under the meeting's lock and against the copy they were checked against: the vault document, the meeting's signed status and every passed resolution's evidence in one transaction. They get a long-term copy like a passed circular.
 
-Meetings held before the app are vault documents (kind minutes); a meeting in the app starts with a notice the deed allows. Not built: signing minutes through the DSC helper, and minutes written in the editor.
+Meetings held before the app are vault documents (kind minutes); a meeting in the app starts with a notice the deed allows. Not built: minutes written in the editor.

@@ -30,6 +30,7 @@ export interface NewSigningJob {
   fieldName?: string | null;
   circularId?: string | null;
   kind: "enrol" | "sign";
+  meetingId?: string | null;
   stateObjectKey?: string | null;
   toSign?: string | null;
   trusteeId: string;
@@ -52,6 +53,7 @@ export async function createSigningJob(
     fieldName: input.fieldName ?? null,
     id,
     kind: input.kind,
+    meetingId: input.meetingId ?? null,
     stateObjectKey: input.stateObjectKey ?? null,
     toSign: input.toSign ?? null,
     tokenHash: hashJobToken(token),

@@ -1,10 +1,5 @@
 import { db } from "@pi-dash/db";
 import {
-  findGovernanceDocumentBySha256,
-  insertGovernanceDocument,
-  trusteeNamesForMatching,
-} from "@pi-dash/db/queries/governance";
-import {
   circularsToNote,
   conveneMeeting,
   getMeeting,
@@ -15,13 +10,11 @@ import {
   recordAgendaDecision,
   resolutionSummaries,
   setGeneratedMinutes,
-  setSignedMinutes,
 } from "@pi-dash/db/queries/meetings";
 import {
   loadRegister,
   lockRegister,
   ResolutionError,
-  setFinalDocument,
 } from "@pi-dash/db/queries/resolutions";
 import { deedVersion, resolution } from "@pi-dash/db/schema/governance";
 import { agendaItem } from "@pi-dash/db/schema/meetings";
@@ -34,7 +27,6 @@ import {
 } from "@pi-dash/pdf/meeting-minutes.tsx";
 import {
   boardOn,
-  DOCUMENT_TITLE_MAX,
   officeHolderOn,
   TRUSTEE_OFFICE_LABELS,
 } from "@pi-dash/shared/governance";
@@ -52,7 +44,6 @@ import {
 import {
   effectProblem,
   RESOLUTION_TEMPLATES,
-  signatureFieldName,
 } from "@pi-dash/shared/resolutions";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, inArray } from "drizzle-orm";
@@ -60,11 +51,13 @@ import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
-import { fileArchiveCopy } from "@/lib/governance/accept-signature";
+import {
+  acceptSignedMinutes,
+  meetingKey,
+} from "@/lib/governance/accept-signature";
 import {
   assertOwnSignedUpload,
   CircularError,
-  checkSignedUpload,
   fieldRequests,
   sha256Of,
 } from "@/lib/governance/circulars";
@@ -72,7 +65,6 @@ import {
   prepareSignatureFields,
   SigningServiceError,
   signingServiceConfigured,
-  validateSignedPdf,
 } from "@/lib/governance/signing-service";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
@@ -99,9 +91,6 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
     throw error;
   });
 }
-
-const meetingKey = (meetingId: string, name: string) =>
-  `${env.R2_KEY_PREFIX}/governance/meetings/${meetingId}/${name}`;
 
 /** Short reference printed on the minutes. */
 function minutesReference(meetingId: string): string {
@@ -666,11 +655,7 @@ export const getMinutesUploadUrl = createServerFn({ method: "POST" })
     );
   });
 
-/**
- * Takes the minutes the chair signed: the generated copy with exactly the
- * chair's signature added. Files them in the vault, makes them the evidence
- * for the resolutions passed at the meeting, and starts the long-term copy.
- */
+/** Takes the copy of the minutes the chair signed in Acrobat. */
 export const submitSignedMinutesFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(z.object({ id: z.uuid(), tempKey: z.string().min(1).max(500) }))
@@ -693,103 +678,17 @@ export const submitSignedMinutesFn = createServerFn({ method: "POST" })
             keyPrefix: env.R2_KEY_PREFIX,
             userId: session.user.id,
           });
-          const record = await loadMeetingRecord(data.id);
-          if (!record) {
-            throw new MeetingError("Meeting not found");
-          }
-          const { meeting: row } = record;
-          if (row.minutesDocumentId) {
-            throw new MeetingError("The minutes are already signed.");
-          }
-          if (!(row.minutesObjectKey && row.chairTrusteeId)) {
-            throw new MeetingError("Generate the minutes first.");
-          }
-          const chairId = row.chairTrusteeId;
           const s3 = await getS3();
           const uploadedFile = s3.file(tempKey);
           if (!(await uploadedFile.exists())) {
             throw new MeetingError("The upload wasn't found. Upload it again.");
           }
-          const uploaded = await readGovernanceUpload(uploadedFile);
-          const current = new Uint8Array(
-            await s3.file(row.minutesObjectKey).arrayBuffer()
-          );
-          const [report, currentReport, names] = await Promise.all([
-            validateSignedPdf(uploaded, current.byteLength),
-            validateSignedPdf(current),
-            trusteeNamesForMatching(),
-          ]);
-          checkSignedUpload({
-            current,
-            fieldName: signatureFieldName(chairId),
-            report,
-            signedBefore: currentReport.signatures.length,
-            textFieldsBefore: currentReport.textFields ?? {},
-            trustee: {
-              id: chairId,
-              names: names.find((n) => n.id === chairId)?.names ?? [],
-            },
-            uploaded,
-          });
-          const sha256 = sha256Of(uploaded);
-          // Stored by content, so a submission that loses the race below
-          // never replaces the accepted copy.
-          const objectKey = meetingKey(
-            row.id,
-            `minutes-signed-${sha256.slice(0, 16)}.pdf`
-          );
-          await s3.write(objectKey, uploaded, { type: "application/pdf" });
-          const heldOn = todayInKolkata(row.startsAt);
-          // One submission is accepted, against the copy it was checked
-          // against, and the minutes and every resolution's evidence are
-          // recorded together.
-          const documentId = await db.transaction(async (tx) => {
-            const locked = await lockMeeting(tx, row.id);
-            if (locked?.minutesDocumentId) {
-              throw new MeetingError("The minutes are already signed.");
-            }
-            if (locked?.minutesObjectKey !== row.minutesObjectKey) {
-              throw new MeetingError(
-                locked?.minutesObjectKey
-                  ? "The minutes were generated again. Sign the new copy."
-                  : "The proceedings changed. Generate the minutes again and sign the new copy."
-              );
-            }
-            const id =
-              (await findGovernanceDocumentBySha256(sha256, tx))?.id ??
-              (await insertGovernanceDocument(
-                {
-                  contentType: "application/pdf",
-                  datedOn: heldOn,
-                  kind: "minutes",
-                  note: `Minutes of the board meeting held on ${heldOn}, signed by the chair.`,
-                  objectKey,
-                  originalFilename: `minutes-${heldOn}.pdf`,
-                  sha256,
-                  sizeBytes: uploaded.byteLength,
-                  sourceFormat: "signed_pdf",
-                  title: `Minutes: ${row.title}`.slice(0, DOCUMENT_TITLE_MAX),
-                  uploadedBy: session.user.id,
-                  validationReport: report,
-                },
-                tx
-              ));
-            await setSignedMinutes(tx, row.id, id);
-            for (const item of record.agenda) {
-              if (item.outcome === "passed" && item.resolutionId) {
-                await setFinalDocument(item.resolutionId, id, tx);
-              }
-            }
-            return id;
+          const documentId = await acceptSignedMinutes({
+            meetingId: data.id,
+            uploaded: await readGovernanceUpload(uploadedFile),
+            userId: session.user.id,
           });
           await s3.delete(tempKey).catch(() => undefined);
-          await fileArchiveCopy({
-            archiveKey: meetingKey(row.id, "minutes-ltv.pdf"),
-            bytes: uploaded,
-            documentId,
-            log: { meetingId: row.id },
-            objectKey,
-          });
           return { documentId };
         })
     );

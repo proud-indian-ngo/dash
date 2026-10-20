@@ -1,9 +1,18 @@
-import { Download04Icon, Upload04Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  Download04Icon,
+  Upload04Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Button,
   buttonVariants,
 } from "@pi-dash/design-system/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
@@ -26,12 +35,15 @@ import {
   handleMutationResult,
 } from "@/lib/mutation-result";
 
+import { DscSignSection } from "./dsc-sign-section";
 import { governanceDocumentHref } from "./evidence";
 import { errorText, type MeetingDetail } from "./meeting-data";
+import { useVoteReauth } from "./use-vote-reauth";
 
 /**
  * After the meeting: the proceedings for the minutes, the generated PDF,
- * and the copy the chair signed with their DSC.
+ * and the chair's DSC signature, through the helper or a copy signed in
+ * Acrobat.
  */
 export function MeetingMinutesPanel({
   canManage,
@@ -51,6 +63,9 @@ export function MeetingMinutesPanel({
   const [generating, setGenerating] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const { dialog: reauthDialog, runVote } = useVoteReauth();
+  // Without the helper, Acrobat is the only way, so it shows open.
+  const [dscAvailable, setDscAvailable] = useState<boolean | null>(null);
   const signed = !!meeting.minutesDocumentId;
   const href = getProtectedAttachmentHref({
     id: meeting.id,
@@ -114,6 +129,91 @@ export function MeetingMinutesPanel({
       .finally(() => setUploading(false));
   });
 
+  const acrobat = (
+    <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
+      <li>
+        <span className="flex flex-wrap items-center gap-2">
+          The chair downloads the minutes.
+          <a
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+            href={href}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={Download04Icon}
+              strokeWidth={2}
+            />
+            Download minutes
+          </a>
+        </span>
+      </li>
+      <li>
+        The chair signs the box on the last page in Adobe Acrobat or Reader with
+        their DSC token, and saves the signed copy.
+      </li>
+      <li>
+        Upload the signed copy.
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1.5">
+            <Label className="sr-only" htmlFor="signed-minutes-file">
+              Signed minutes
+            </Label>
+            <Input
+              accept="application/pdf,.pdf"
+              className="max-w-xs"
+              id="signed-minutes-file"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </div>
+          <Button
+            disabled={!file || uploading}
+            onClick={handleUpload}
+            type="button"
+          >
+            <HugeiconsIcon
+              className="size-4"
+              icon={Upload04Icon}
+              strokeWidth={2}
+            />
+            {uploading ? "Checking..." : "Upload signed minutes"}
+          </Button>
+        </div>
+      </li>
+    </ol>
+  );
+  let signing = acrobat;
+  if (isChair) {
+    signing = (
+      <div className="flex flex-col gap-4">
+        <DscSignSection
+          onAvailability={setDscAvailable}
+          onVote={runVote}
+          target={{ meetingId: meeting.id }}
+        />
+        {dscAvailable === false ? (
+          acrobat
+        ) : (
+          <Collapsible>
+            <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3">
+              Sign in Acrobat instead
+              <HugeiconsIcon
+                className="size-4 transition-transform group-data-[panel-open]:rotate-180"
+                icon={ArrowDown01Icon}
+                strokeWidth={2}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3" keepMounted>
+              {acrobat}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </div>
+    );
+  }
+
   return (
     <section
       aria-labelledby="minutes-heading"
@@ -171,66 +271,15 @@ export function MeetingMinutesPanel({
           </p>
         </div>
       ) : null}
-      {!signed && meeting.minutesObjectKey && (canManage || isChair) ? (
-        <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
-          <li>
-            <span className="flex flex-wrap items-center gap-2">
-              The chair downloads the minutes.
-              <a
-                className={buttonVariants({ size: "sm", variant: "outline" })}
-                href={href}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Download04Icon}
-                  strokeWidth={2}
-                />
-                Download minutes
-              </a>
-            </span>
-          </li>
-          <li>
-            The chair signs the box on the last page in Adobe Acrobat or Reader
-            with their DSC token, and saves the signed copy.
-          </li>
-          <li>
-            Upload the signed copy.
-            <div className="mt-2 flex flex-wrap items-end gap-2">
-              <div className="flex flex-col gap-1.5">
-                <Label className="sr-only" htmlFor="signed-minutes-file">
-                  Signed minutes
-                </Label>
-                <Input
-                  accept="application/pdf,.pdf"
-                  className="max-w-xs"
-                  id="signed-minutes-file"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  type="file"
-                />
-              </div>
-              <Button
-                disabled={!file || uploading}
-                onClick={handleUpload}
-                type="button"
-              >
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Upload04Icon}
-                  strokeWidth={2}
-                />
-                {uploading ? "Checking..." : "Upload signed minutes"}
-              </Button>
-            </div>
-          </li>
-        </ol>
-      ) : null}
+      {!signed && meeting.minutesObjectKey && (canManage || isChair)
+        ? signing
+        : null}
       {!(signed || meeting.minutesObjectKey || canManage) ? (
         <p className="text-muted-foreground text-sm">
           The minutes aren't ready yet.
         </p>
       ) : null}
+      {reauthDialog}
     </section>
   );
 }

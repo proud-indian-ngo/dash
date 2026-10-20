@@ -2,10 +2,13 @@ import { X509Certificate } from "node:crypto";
 
 import { db } from "@pi-dash/db";
 import { trusteeNamesForMatching } from "@pi-dash/db/queries/governance";
+import { getMeeting, MeetingError } from "@pi-dash/db/queries/meetings";
 import { circularResolutions } from "@pi-dash/db/queries/resolutions";
 import {
   type CertificateFacts,
   closeJob,
+  createSigningJob,
+  currentCertificate,
   enrolCertificate,
   getCertificate,
   jobOutcome,
@@ -16,26 +19,37 @@ import {
 } from "@pi-dash/db/queries/signing";
 import { user } from "@pi-dash/db/schema/auth";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
-import { circularReference } from "@pi-dash/shared/resolutions";
+import {
+  circularReference,
+  signatureFieldName,
+} from "@pi-dash/shared/resolutions";
 import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
+import { uuidv7 } from "uuidv7";
 import z from "zod";
 
-import { runAuditedAction } from "../audit";
+import { type AuditTarget, runAuditedAction } from "../audit";
 import { getS3 } from "../s3";
-import { acceptSignedPdf, signedMessage } from "./accept-signature";
+import {
+  acceptSignedMinutes,
+  acceptSignedPdf,
+  meetingKey,
+  signedMessage,
+} from "./accept-signature";
 import { CircularError, UNTRUSTED_CERTIFICATE_MESSAGE } from "./circulars";
 import {
   certificateTrusted,
   finishRemoteSignature,
   SigningServiceError,
+  startRemoteSignature,
 } from "./signing-service";
 
 /**
  * The helper's side of a `pidash-sign://` link. It has no session: the
  * one-time job token (only its hash is stored, 15 minutes, single use)
  * stands for the trustee who started the job, and every completion is
- * audited in their name.
+ * audited in their name. A sign job signs a circular or, for the chair, a
+ * meeting's minutes.
  */
 
 export interface JobReply {
@@ -51,13 +65,19 @@ const GONE: JobReply = {
   status: 404,
 };
 
-const SIGNED: JobReply = {
-  body: {
-    message:
-      "Signed. Your signature is on the circular. You can return to the dashboard.",
-  },
-  status: 200,
-};
+function signedReply(job: SigningJobRow): JobReply {
+  return {
+    body: {
+      message: `Signed. Your signature is on the ${job.meetingId ? "minutes" : "circular"}. You can return to the dashboard.`,
+    },
+    status: 200,
+  };
+}
+
+const minutesDate = new Intl.DateTimeFormat("en-IN", {
+  dateStyle: "long",
+  timeZone: "Asia/Kolkata",
+});
 
 const enrolBody = z.object({
   certificates: z.array(z.string().max(16_384)).min(1).max(8),
@@ -138,6 +158,62 @@ async function actorFor(job: SigningJobRow) {
   };
 }
 
+/**
+ * Reserves the chair's field in the meeting's current minutes for the
+ * helper. Only the recorded chair signs, once the meeting is held and its
+ * minutes are made and unsigned.
+ */
+export async function startMinutesJob(input: {
+  meetingId: string;
+  trusteeId: string;
+  userId: string;
+}): Promise<{ id: string; token: string }> {
+  const row = await getMeeting(input.meetingId);
+  if (!row) {
+    throw new MeetingError("Meeting not found");
+  }
+  if (row.chairTrusteeId !== input.trusteeId) {
+    throw new MeetingError("Only the chair of the meeting signs its minutes.");
+  }
+  if (row.status !== "held") {
+    throw new MeetingError("Mark the meeting held first.");
+  }
+  if (row.minutesDocumentId) {
+    throw new MeetingError("The minutes are already signed.");
+  }
+  if (!row.minutesObjectKey) {
+    throw new MeetingError("Generate the minutes first.");
+  }
+  const certificate = await currentCertificate(input.trusteeId);
+  if (!certificate) {
+    throw new CircularError(
+      "Set up your DSC first: no valid certificate is enrolled for you."
+    );
+  }
+  const s3 = await getS3();
+  const pdf = new Uint8Array(await s3.file(row.minutesObjectKey).arrayBuffer());
+  const fieldName = signatureFieldName(input.trusteeId);
+  const started = await startRemoteSignature({
+    certificate: certificate.der,
+    chain: certificate.chain,
+    fieldName,
+    pdf,
+  });
+  const stateObjectKey = meetingKey(row.id, `sign-state-${uuidv7()}.json`);
+  await s3.write(stateObjectKey, started.state, { type: "application/json" });
+  return await createSigningJob({
+    basedOnSha256: row.minutesSha256,
+    certificateId: certificate.id,
+    fieldName,
+    kind: "sign",
+    meetingId: row.id,
+    stateObjectKey,
+    toSign: started.toSign,
+    trusteeId: input.trusteeId,
+    userId: input.userId,
+  });
+}
+
 /** GET: what the helper should do, without revealing more than it needs. */
 export async function describeJob(token: string): Promise<JobReply> {
   const job = await openJobForToken(token);
@@ -150,19 +226,23 @@ export async function describeJob(token: string): Promise<JobReply> {
       status: 200,
     };
   }
-  const [resolutions, certificate] = await Promise.all([
+  const [resolutions, meeting, certificate] = await Promise.all([
     job.circularId ? circularResolutions(job.circularId) : [],
+    job.meetingId ? getMeeting(job.meetingId) : null,
     job.certificateId ? getCertificate(job.certificateId) : null,
   ]);
+  let title = `Circular ${job.circularId ? circularReference(job.circularId) : ""} (${resolutions.length} resolutions)`;
+  if (meeting) {
+    title = `Minutes of the board meeting of ${minutesDate.format(meeting.startsAt)}`;
+  } else if (resolutions.length === 1) {
+    title = resolutions[0]?.title ?? "Circular";
+  }
   return {
     body: {
       certificateSha256: certificate?.sha256 ?? null,
       kind: "sign",
       signer: job.legalName,
-      title:
-        resolutions.length === 1
-          ? (resolutions[0]?.title ?? "Circular")
-          : `Circular ${job.circularId ? circularReference(job.circularId) : ""} (${resolutions.length} resolutions)`,
+      title,
       toSign: job.toSign,
     },
     status: 200,
@@ -231,7 +311,7 @@ async function completeEnrolment(
     { ok: true },
     {
       body: {
-        message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign circulars with it now.`,
+        message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign with it now.`,
       },
       status: 200,
     }
@@ -246,8 +326,8 @@ async function completeSignature(
   const certificate = job.certificateId
     ? await getCertificate(job.certificateId)
     : null;
-  const { circularId, stateObjectKey } = job;
-  if (!(certificate && circularId && stateObjectKey)) {
+  const { circularId, meetingId, stateObjectKey } = job;
+  if (!(certificate && (circularId || meetingId) && stateObjectKey)) {
     return await settle(
       job,
       claim,
@@ -276,36 +356,53 @@ async function completeSignature(
       signature: input.signature,
       state,
     });
-    const decisions = await acceptSignedPdf({
-      circularId,
-      expectedCertificateSha256: certificate.sha256,
-      method: "dsc_helper",
-      trustee: { id: job.trusteeId, legalName: job.legalName },
-      uploaded: signed,
-      userId: job.userId,
-    });
+    let message = "Signed. The minutes are filed in the vault.";
+    if (meetingId) {
+      await acceptSignedMinutes({
+        expectedCertificateSha256: certificate.sha256,
+        meetingId,
+        uploaded: signed,
+        userId: job.userId,
+      });
+    } else if (circularId) {
+      const decisions = await acceptSignedPdf({
+        circularId,
+        expectedCertificateSha256: certificate.sha256,
+        method: "dsc_helper",
+        trustee: { id: job.trusteeId, legalName: job.legalName },
+        uploaded: signed,
+        userId: job.userId,
+      });
+      message = signedMessage(decisions);
+    }
     await s3.delete(stateObjectKey).catch(() => undefined);
     return await settle(
       job,
       claim,
       { ok: true },
       {
-        body: {
-          message: `${signedMessage(decisions)} You can return to the dashboard.`,
-        },
+        body: { message: `${message} You can return to the dashboard.` },
         status: 200,
       }
     );
   } catch (error) {
     // An earlier completion whose claim lapsed recorded the signature
-    // meanwhile, so this one finds it stale: the job is done.
-    if (
-      await signatureRecordedSince(circularId, job.trusteeId, job.createdAt)
-    ) {
-      return await settle(job, claim, { ok: true }, SIGNED);
+    // meanwhile, so this one finds it stale: the job is done. Minutes are
+    // signed only by the chair, so signed minutes are this job done too.
+    const recorded = meetingId
+      ? !!(await getMeeting(meetingId))?.minutesDocumentId
+      : !!circularId &&
+        (await signatureRecordedSince(
+          circularId,
+          job.trusteeId,
+          job.createdAt
+        ));
+    if (recorded) {
+      return await settle(job, claim, { ok: true }, signedReply(job));
     }
     if (
       error instanceof CircularError ||
+      error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
       return await settle(
@@ -348,7 +445,7 @@ export async function completeJob(
           body: { message: "Your DSC is registered in the dashboard." },
           status: 200,
         }
-      : SIGNED;
+      : signedReply(job);
   }
   if (settled?.status === "failed") {
     return {
@@ -370,7 +467,18 @@ async function runJob(
   claim: Date
 ): Promise<JobReply | null> {
   const actor = await actorFor(job);
-  const action = job.kind === "enrol" ? "signing.enrol" : "circular.sign";
+  let action = "circular.sign";
+  let target: AuditTarget = {
+    id: job.circularId ?? undefined,
+    type: "circular",
+  };
+  if (job.kind === "enrol") {
+    action = "signing.enrol";
+    target = { id: job.trusteeId, type: "trustee" };
+  } else if (job.meetingId) {
+    action = "meeting.sign_minutes";
+    target = { id: job.meetingId, type: "meeting" };
+  }
   const failed = failedBody.safeParse(rawBody);
   try {
     return await runAuditedAction(
@@ -378,10 +486,7 @@ async function runJob(
         action,
         actor,
         metadata: { method: "dsc_helper" },
-        target:
-          job.kind === "enrol"
-            ? { id: job.trusteeId, type: "trustee" }
-            : { id: job.circularId ?? undefined, type: "circular" },
+        target,
       },
       async () => {
         if (failed.success) {

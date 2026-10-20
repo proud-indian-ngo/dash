@@ -12,6 +12,7 @@ import {
   getMyDscStatus,
   getSigningJobStatus,
   startDscEnrolmentFn,
+  startDscMinutesSigningFn,
   startDscSigningFn,
 } from "@/functions/signing";
 
@@ -24,26 +25,43 @@ const POLL_LIMIT_MS = 15 * 60 * 1000;
 
 /**
  * Opens a `pidash-sign://` link and waits for the helper to finish the
- * job, polling its status. Resolves with the job's outcome.
+ * job, polling its status. Resolves with the job's outcome, or null once
+ * the page is left or shows another document (the router keeps this
+ * component when only the ID changes): the job may still finish, so
+ * nothing is reported, not even an error, and a link that arrives after
+ * it isn't opened.
  */
-function useHelperJob() {
+function useHelperJob(targetKey: string) {
   const poll = useServerFn(getSigningJobStatus);
-  const cancelled = useRef(false);
-  useEffect(() => {
-    // StrictMode mounts twice in development; reset after its first cleanup.
-    cancelled.current = false;
-    return () => {
-      cancelled.current = true;
-    };
-  }, []);
-  return useEventCallback(
-    async (start: () => Promise<{ jobId: string; link: string }>) => {
+  // Each wait remembers the run it started in; leaving or moving to
+  // another document starts a new one, so the old wait goes quiet.
+  const run = useRef(0);
+  useEffect(
+    () => () => {
+      run.current += 1;
+    },
+    [targetKey]
+  );
+  const follow = useEventCallback(
+    async (
+      start: () => Promise<{ jobId: string; link: string }>,
+      stale: () => boolean
+    ) => {
       const { jobId, link } = await start();
+      if (stale()) {
+        return null;
+      }
       window.location.href = link;
       const started = Date.now();
-      while (!cancelled.current && Date.now() - started < POLL_LIMIT_MS) {
+      while (Date.now() - started < POLL_LIMIT_MS) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        if (stale()) {
+          return null;
+        }
         const status = await poll({ data: { jobId } });
+        if (stale()) {
+          return null;
+        }
         if (status.status !== "pending") {
           return status;
         }
@@ -54,24 +72,37 @@ function useHelperJob() {
       };
     }
   );
+  return useEventCallback(
+    (start: () => Promise<{ jobId: string; link: string }>) => {
+      const mine = run.current;
+      const stale = () => run.current !== mine;
+      return follow(start, stale).catch((error: unknown) => {
+        if (stale()) {
+          return null;
+        }
+        throw error;
+      });
+    }
+  );
 }
 
-/** Sign with the DSC helper, or set it up first. */
+/** Sign a circular, or as the chair a meeting's minutes, with the DSC helper, or set it up first. */
 export function DscSignSection({
   onAvailability,
   onVote,
-  circularId,
+  target,
 }: {
   /** Whether the helper can be used here, once the status has loaded. */
   onAvailability: (available: boolean) => void;
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
-  circularId: string;
+  target: { circularId: string } | { meetingId: string };
 }) {
   const loadStatus = useServerFn(getMyDscStatus);
   const enrol = useServerFn(startDscEnrolmentFn);
-  const sign = useServerFn(startDscSigningFn);
-  const runJob = useHelperJob();
+  const signCircular = useServerFn(startDscSigningFn);
+  const signMinutes = useServerFn(startDscMinutesSigningFn);
+  const runJob = useHelperJob(JSON.stringify(target));
   const [status, setStatus] = useState<DscStatus | null>(null);
   const [busy, setBusy] = useState<"enrol" | "sign" | null>(null);
 
@@ -97,6 +128,9 @@ export function DscSignSection({
     setBusy("enrol");
     await runJob(() => enrol())
       .then((outcome) => {
+        if (!outcome) {
+          return;
+        }
         if (outcome.status === "completed") {
           toast.success("Your DSC is set up");
           refresh();
@@ -116,7 +150,13 @@ export function DscSignSection({
 
   const handleSign = useEventCallback(async () => {
     setBusy("sign");
-    await onVote(() => runJob(() => sign({ data: { circularId } })))
+    await onVote(() =>
+      runJob(() =>
+        "meetingId" in target
+          ? signMinutes({ data: target })
+          : signCircular({ data: target })
+      )
+    )
       .then((outcome) => {
         if (!outcome) {
           return;

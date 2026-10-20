@@ -15,6 +15,9 @@ let ownsClaim = true;
 let recordedMeanwhile = false;
 let certificate: Record<string, unknown> | null = null;
 let accept: () => Promise<unknown[]> = async () => [];
+const acceptedMinutes: Record<string, unknown>[] = [];
+const created: Record<string, unknown>[] = [];
+let meeting: Record<string, unknown> | null = null;
 const CLAIM = new Date("2026-10-19T10:00:00Z");
 
 mock.module("@pi-dash/db", () => ({
@@ -28,6 +31,11 @@ mock.module("@pi-dash/db", () => ({
 }));
 mock.module("@pi-dash/db/schema/auth", () => ({ user: {} }));
 mock.module("@pi-dash/db/queries/signing", () => ({
+  createSigningJob: async (input: Record<string, unknown>) => {
+    created.push(input);
+    return { id: "job-2", token: "token" };
+  },
+  currentCertificate: async () => certificate,
   closeJob: async (
     id: string,
     claim: Date,
@@ -59,6 +67,10 @@ mock.module("@pi-dash/db/queries/governance", () => ({
     { id: "vikram", names: ["Vikram Menon"] },
   ],
 }));
+mock.module("@pi-dash/db/queries/meetings", () => ({
+  getMeeting: async () => meeting,
+  MeetingError: class MeetingError extends Error {},
+}));
 mock.module("@pi-dash/db/queries/resolutions", () => ({
   circularResolutions: async () => [{ title: "Operation of bank accounts" }],
 }));
@@ -69,20 +81,33 @@ mock.module("../audit", () => ({
 mock.module("../s3", () => ({
   getS3: async () => ({
     delete: async () => undefined,
-    file: () => ({ text: async () => "state" }),
+    file: () => ({
+      arrayBuffer: async () => new ArrayBuffer(8),
+      text: async () => "state",
+    }),
+    write: async () => undefined,
   }),
 }));
 mock.module("./accept-signature", () => ({
+  acceptSignedMinutes: async (input: Record<string, unknown>) => {
+    acceptedMinutes.push(input);
+    return "document-1";
+  },
   acceptSignedPdf: async () => await accept(),
+  meetingKey: (meetingId: string, name: string) => `${meetingId}/${name}`,
   signedMessage: () => "Signed. Your signature is on the circular.",
 }));
 mock.module("./signing-service", () => ({
   certificateTrusted: async () => trusted,
   finishRemoteSignature: async () => new Uint8Array(),
   SigningServiceError: class SigningServiceError extends Error {},
+  startRemoteSignature: async () => ({
+    state: "state",
+    toSign: "dG8tc2lnbg==",
+  }),
 }));
 
-const { certificateFacts, completeJob, describeJob } =
+const { certificateFacts, completeJob, describeJob, startMinutesJob } =
   await import("./signing-jobs");
 
 const IN_VALIDITY = new Date("2027-01-01T00:00:00Z");
@@ -114,6 +139,9 @@ describe("helper jobs", () => {
     recordedMeanwhile = false;
     certificate = null;
     accept = async () => [];
+    acceptedMinutes.length = 0;
+    created.length = 0;
+    meeting = null;
     trusted = true;
     job = {
       id: "job-1",
@@ -243,5 +271,126 @@ describe("helper jobs", () => {
     expect(reply.status).toBe(422);
     expect(String(reply.body.message)).toContain("licensed Indian");
     expect(enrolled).toEqual([]);
+  });
+});
+
+describe("minutes jobs", () => {
+  const sha256 = certificateFacts(ASHA_CERT, [])?.sha256;
+
+  beforeEach(() => {
+    closed.length = 0;
+    acceptedMinutes.length = 0;
+    created.length = 0;
+    claimTaken = false;
+    ownsClaim = true;
+    settled = null;
+    certificate = { chain: [], der: ASHA_CERT, id: "cert-1", sha256 };
+    meeting = {
+      chairTrusteeId: "asha",
+      id: "meeting-1",
+      minutesDocumentId: null,
+      minutesObjectKey: "minutes.pdf",
+      minutesSha256: "abc",
+      startsAt: new Date("2026-10-10T05:00:00Z"),
+      status: "held",
+    };
+    job = {
+      certificateId: "cert-1",
+      circularId: null,
+      createdAt: new Date("2026-10-19T09:55:00Z"),
+      id: "job-1",
+      kind: "sign",
+      legalName: "Asha Rao",
+      meetingId: "meeting-1",
+      stateObjectKey: "state.json",
+      toSign: "dG8tc2lnbg==",
+      trusteeId: "asha",
+      userId: "user-1",
+    };
+  });
+
+  it("starts a job on the current minutes for the chair", async () => {
+    expect(
+      await startMinutesJob({
+        meetingId: "meeting-1",
+        trusteeId: "asha",
+        userId: "user-1",
+      })
+    ).toEqual({ id: "job-2", token: "token" });
+    expect(created).toEqual([
+      expect.objectContaining({
+        basedOnSha256: "abc",
+        certificateId: "cert-1",
+        kind: "sign",
+        meetingId: "meeting-1",
+        stateObjectKey: expect.stringMatching(/^meeting-1\/sign-state-/),
+        toSign: "dG8tc2lnbg==",
+        trusteeId: "asha",
+      }),
+    ]);
+  });
+
+  it("refuses a trustee who didn't chair the meeting", async () => {
+    await expect(
+      startMinutesJob({
+        meetingId: "meeting-1",
+        trusteeId: "vikram",
+        userId: "user-2",
+      })
+    ).rejects.toThrow("Only the chair of the meeting signs its minutes.");
+    expect(created).toEqual([]);
+  });
+
+  it("refuses minutes already signed", async () => {
+    meeting = { ...meeting, minutesDocumentId: "document-1" };
+    await expect(
+      startMinutesJob({
+        meetingId: "meeting-1",
+        trusteeId: "asha",
+        userId: "user-1",
+      })
+    ).rejects.toThrow("The minutes are already signed.");
+    expect(created).toEqual([]);
+  });
+
+  it("describes the minutes to sign", async () => {
+    expect(await describeJob("t".repeat(43))).toEqual({
+      body: {
+        certificateSha256: sha256,
+        kind: "sign",
+        signer: "Asha Rao",
+        title: "Minutes of the board meeting of 10 October 2026",
+        toSign: "dG8tc2lnbg==",
+      },
+      status: 200,
+    });
+  });
+
+  it("files the signed minutes through the minutes acceptance", async () => {
+    const reply = await completeJob("t".repeat(43), {
+      certificate: ASHA_CERT,
+      signature: "c2ln",
+    });
+    expect(reply.status).toBe(200);
+    expect(String(reply.body.message)).toContain("minutes");
+    expect(acceptedMinutes).toEqual([
+      expect.objectContaining({
+        expectedCertificateSha256: sha256,
+        meetingId: "meeting-1",
+        userId: "user-1",
+      }),
+    ]);
+    expect(closed).toEqual([{ claim: CLAIM, id: "job-1", ok: true }]);
+  });
+
+  it("closes the job with the reason the helper gave up", async () => {
+    const reply = await completeJob("t".repeat(43), {
+      failed: "The PIN was cancelled.",
+    });
+    expect(reply.status).toBe(200);
+    expect(acceptedMinutes).toEqual([]);
+    expect(closed).toEqual([
+      { claim: CLAIM, error: "The PIN was cancelled.", id: "job-1" },
+    ]);
   });
 });

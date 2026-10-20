@@ -1,7 +1,16 @@
-import { index, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  check,
+  index,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { user } from "../auth";
 import { circular, signingCertificate, trustee } from "../governance";
+import { meeting } from "../meetings";
 import { privateSchema } from "./party-private";
 
 /**
@@ -48,7 +57,8 @@ export const signingJobStatusEnum = privateSchema.enum("signing_job_status", [
 /**
  * One `pidash-sign://` link: the helper fetches it with the one-time token
  * (only its hash is kept), signs on the trustee's token and posts back.
- * Expires in 15 minutes. Server only: it holds the signing state's key.
+ * Expires in 15 minutes. A sign job signs a circular or a meeting's minutes.
+ * Server only: it holds the signing state's key.
  */
 export const signingJob = privateSchema.table(
   "signing_job",
@@ -70,6 +80,9 @@ export const signingJob = privateSchema.table(
     fieldName: text("field_name"),
     id: uuid("id").primaryKey(),
     kind: signingJobKindEnum("kind").notNull(),
+    meetingId: uuid("meeting_id").references(() => meeting.id, {
+      onDelete: "restrict",
+    }),
     /** R2 key of the signing service's state between start and finish. */
     stateObjectKey: text("state_object_key"),
     status: signingJobStatusEnum("status").default("pending").notNull(),
@@ -86,5 +99,9 @@ export const signingJob = privateSchema.table(
   (t) => [
     uniqueIndex("signing_job_token_uidx").on(t.tokenHash),
     index("signing_job_user_idx").on(t.userId, t.createdAt),
+    check(
+      "signing_job_target_check",
+      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}) = 1`
+    ),
   ]
 );
