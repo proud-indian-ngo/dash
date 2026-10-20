@@ -7,6 +7,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY pidash_signing ./pidash_signing
 COPY roots ./roots
+COPY intermediates ./intermediates
 RUN useradd --system --uid 10001 signing && chown -R signing /app
 USER signing
 EXPOSE 8080
