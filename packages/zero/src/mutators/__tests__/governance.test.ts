@@ -7,6 +7,7 @@ import {
   type ScopeTables,
 } from "../../queries/query-scope-test-utils";
 import {
+  complianceItemMutators,
   organisationRegistrationMutators,
   trusteeOfficeMutators,
   trusteeTermMutators,
@@ -18,6 +19,7 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).getTime();
 
 function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
+    complianceItem: [],
     deedVersion: [],
     governanceDocument: [{ id: "doc-1" }],
     organisationRegistration: [],
@@ -317,5 +319,67 @@ describe("organisation registration mutators", () => {
         type: "pan",
       })
     ).rejects.toThrow("Unauthorized");
+  });
+});
+
+describe("compliance item mutators", () => {
+  function item(overrides: Row = {}): Row {
+    return {
+      dueOn: day("2026-10-31"),
+      id: "itr",
+      note: null,
+      status: "open",
+      title: "ITR-7",
+      ...overrides,
+    };
+  }
+
+  it("close an item only with a document from the vault", async () => {
+    const db = createDb({ complianceItem: [item()] });
+    await expect(
+      run(complianceItemMutators.close, db, secretaryCtx, {
+        evidenceDocumentId: "missing",
+        id: "itr",
+      })
+    ).rejects.toThrow("isn't in the vault");
+    await run(complianceItemMutators.close, db, secretaryCtx, {
+      evidenceDocumentId: "doc-1",
+      id: "itr",
+    });
+    expect(db.tables.complianceItem?.[0]).toMatchObject({
+      closedBy: "admin-1",
+      evidenceDocumentId: "doc-1",
+      status: "done",
+    });
+    await expect(
+      run(complianceItemMutators.close, db, secretaryCtx, {
+        evidenceDocumentId: "doc-1",
+        id: "itr",
+      })
+    ).rejects.toThrow("already closed");
+  });
+
+  it("need governance.manage", async () => {
+    const db = createDb({ complianceItem: [item()] });
+    await expect(
+      run(complianceItemMutators.waive, db, viewerCtx, {
+        id: "itr",
+        note: "Filed by the CA directly",
+      })
+    ).rejects.toThrow("Unauthorized");
+  });
+
+  it("file a hand-added item under the financial year of its due date", async () => {
+    const db = createDb();
+    await run(complianceItemMutators.create, db, secretaryCtx, {
+      dueOn: "2027-02-15",
+      id: "x",
+      title: "Renew office lease",
+    });
+    expect(db.tables.complianceItem?.[0]).toMatchObject({
+      fiscalYear: "2026-27",
+      sourceKey: null,
+      status: "open",
+    });
   });
 });

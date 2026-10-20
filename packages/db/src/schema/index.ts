@@ -3,6 +3,7 @@ export * from "./advance-payment";
 export * from "./app-config";
 export * from "./audit-log";
 export * from "./auth";
+export * from "./compliance";
 export * from "./bank-account";
 export * from "./budget";
 export * from "./contribution-receipt";
