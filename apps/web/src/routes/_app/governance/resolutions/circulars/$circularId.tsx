@@ -45,6 +45,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
@@ -432,7 +433,7 @@ function CircularPage() {
               value={reason}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button
               onClick={() => setWithdrawing(false)}
               type="button"
@@ -446,9 +447,9 @@ function CircularPage() {
               type="button"
               variant="destructive"
             >
-              Withdraw
+              Withdraw circular
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

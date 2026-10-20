@@ -4,11 +4,6 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@pi-dash/design-system/components/ui/popover";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -21,8 +16,10 @@ import {
 } from "@pi-dash/shared/governance";
 import { useState } from "react";
 
+import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { selectField } from "@/components/data-table/filter-fields";
+import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 
 import {
@@ -96,6 +93,15 @@ function getRowId(row: RegisterRow): string {
   return row.id;
 }
 
+// A phone card leaves out the offices of a trustee who holds none.
+function OfficesCell({ offices }: { offices: string[] }) {
+  const compact = useCompactTable();
+  if (offices.length === 0) {
+    return compact ? null : <span className="text-sm">—</span>;
+  }
+  return <span className="text-sm">{offices.join(", ")}</span>;
+}
+
 const columns: DataGridColumnDef<RegisterRow>[] = [
   {
     accessorFn: (row) => row.trustee.legalName,
@@ -141,13 +147,7 @@ const columns: DataGridColumnDef<RegisterRow>[] = [
   },
   {
     accessorFn: (row) => row.offices.join(", "),
-    cell: ({ row }) => (
-      <span className="text-sm">
-        {row.original.offices.length > 0
-          ? row.original.offices.join(", ")
-          : "—"}
-      </span>
-    ),
+    cell: ({ row }) => <OfficesCell offices={row.original.offices} />,
     header: ({ column }) => (
       <DataGridColumnHeader column={column} title="Offices" visibility={true} />
     ),
@@ -209,7 +209,7 @@ const columns: DataGridColumnDef<RegisterRow>[] = [
     ),
     id: "evidence",
     meta: {
-      compact: "trailing",
+      compact: "primary",
       headerTitle: "Evidence",
       kind: "status",
       skeleton: SKELETON_BADGE,
@@ -237,28 +237,28 @@ function AsOfPicker({
   const reset = useEventCallback(() => onChange(null));
   return (
     <span className="flex items-center gap-1">
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger
-          render={
-            <Button size="sm" type="button" variant="outline">
-              <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} />
-              {isToday ? "As of today" : `As of ${formatIso(on)}`}
-            </Button>
-          }
+      <ResponsivePicker
+        onOpenChange={setOpen}
+        open={open}
+        title="Register as of"
+        trigger={
+          <Button size="sm" type="button" variant="outline">
+            <HugeiconsIcon icon={Calendar03Icon} strokeWidth={2} />
+            {isToday ? "As of today" : `As of ${formatIso(on)}`}
+          </Button>
+        }
+      >
+        <Calendar
+          autoFocus
+          captionLayout="dropdown"
+          defaultMonth={selected}
+          endMonth={new Date(new Date().getFullYear() + 5, 11)}
+          mode="single"
+          onSelect={handleSelect}
+          selected={selected}
+          startMonth={REGISTER_START}
         />
-        <PopoverContent align="end" className="w-auto p-0">
-          <Calendar
-            autoFocus
-            captionLayout="dropdown"
-            defaultMonth={selected}
-            endMonth={new Date(new Date().getFullYear() + 5, 11)}
-            mode="single"
-            onSelect={handleSelect}
-            selected={selected}
-            startMonth={REGISTER_START}
-          />
-        </PopoverContent>
-      </Popover>
+      </ResponsivePicker>
       {isToday ? null : (
         <Button onClick={reset} size="sm" type="button" variant="ghost">
           Today

@@ -409,7 +409,7 @@ function RegistrationsPage() {
       ),
       id: "validity",
       meta: {
-        compact: "trailing",
+        compact: "primary",
         headerTitle: "Status",
         kind: "status",
         skeleton: SKELETON_BADGE,

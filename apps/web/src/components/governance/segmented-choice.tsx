@@ -33,7 +33,7 @@ export function SegmentedChoice<T extends string>({
       {options.map((option) => (
         <ToggleGroupItem
           aria-label={option.label}
-          className="aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground aria-pressed:hover:bg-sidebar-accent px-2.5 text-xs"
+          className="aria-pressed:bg-sidebar-accent aria-pressed:text-sidebar-accent-foreground aria-pressed:hover:bg-sidebar-accent px-2.5 text-xs pointer-coarse:h-10 pointer-coarse:min-w-10"
           key={option.value}
           value={option.value}
         >

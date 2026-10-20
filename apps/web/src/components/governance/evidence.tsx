@@ -53,7 +53,7 @@ export function EvidenceLink({
   const document = documents.find((d) => d.id === documentId);
   return (
     <a
-      className="text-primary text-sm underline-offset-4 hover:underline"
+      className="text-primary inline-flex items-center text-sm underline-offset-4 hover:underline pointer-coarse:min-h-10"
       href={governanceDocumentHref(documentId)}
       rel="noreferrer"
       target="_blank"

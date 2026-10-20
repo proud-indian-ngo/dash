@@ -118,7 +118,7 @@ export function CircularSignPanel({
       <ol className="text-muted-foreground flex list-decimal flex-col gap-2 pl-5 text-sm">
         <li>
           <button
-            className="text-primary underline-offset-4 hover:underline disabled:opacity-50"
+            className="text-primary underline-offset-4 hover:underline disabled:opacity-50 pointer-coarse:min-h-10"
             disabled={downloading}
             onClick={handleDownload}
             type="button"
@@ -187,7 +187,7 @@ export function CircularSignPanel({
         acrobat
       ) : (
         <Collapsible>
-          <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3">
+          <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 pointer-coarse:min-h-10">
             Sign in Acrobat instead
             <HugeiconsIcon
               className="size-4 transition-transform group-data-[panel-open]:rotate-180"

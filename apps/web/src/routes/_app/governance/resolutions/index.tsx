@@ -6,6 +6,7 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
 import {
   RESOLUTION_STATUS_LABELS,
@@ -21,6 +22,7 @@ import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { selectField } from "@/components/data-table/filter-fields";
 import { HistoricalResolutionDialog } from "@/components/governance/historical-resolution-dialog";
@@ -131,13 +133,51 @@ function getRowId(row: ResolutionRow) {
   return row.id;
 }
 
-function dateText(row: ResolutionRow) {
+// A phone card has room for two lines of a long title; a table row has one.
+function TitleCell({ row }: { row: ResolutionRow }) {
+  const compact = useCompactTable();
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span
+        className={cn(
+          "font-medium",
+          compact ? "line-clamp-2 whitespace-normal" : "truncate"
+        )}
+      >
+        {row.title}
+      </span>
+      <span className="text-muted-foreground truncate text-xs">
+        {row.templateTitle}
+        {row.historical ? " · recorded from paper" : ""}
+      </span>
+    </span>
+  );
+}
+
+// Phone cards leave out facts a row doesn't have yet instead of a bare dash.
+function DateCell({ row }: { row: ResolutionRow }) {
+  const compact = useCompactTable();
   if (row.status === "draft") {
-    return "—";
+    return compact ? null : "—";
   }
   return row.status === "issued"
     ? `Respond by ${formatIso(row.date)}`
     : formatIso(row.date);
+}
+
+function ResponsesCell({ row }: { row: ResolutionRow }) {
+  const compact = useCompactTable();
+  const { objected, responses, signed } = row;
+  if (responses === 0 && compact) {
+    return null;
+  }
+  return (
+    <span className="text-muted-foreground truncate">
+      {responses > 0
+        ? `${signed} signed${objected ? `, ${objected} objected` : ""} of ${responses}`
+        : "—"}
+    </span>
+  );
 }
 
 const SKELETON_TITLE = <Skeleton className="h-5 w-56" />;
@@ -147,15 +187,7 @@ const SKELETON_BADGE = <Skeleton className="h-5.5 w-16" />;
 const columns: DataGridColumnDef<ResolutionRow>[] = [
   {
     accessorFn: (row) => row.title,
-    cell: ({ row }) => (
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate font-medium">{row.original.title}</span>
-        <span className="text-muted-foreground truncate text-xs">
-          {row.original.templateTitle}
-          {row.original.historical ? " · recorded from paper" : ""}
-        </span>
-      </span>
-    ),
+    cell: ({ row }) => <TitleCell row={row.original} />,
     header: ({ column }) => (
       <DataGridColumnHeader
         column={column}
@@ -180,7 +212,7 @@ const columns: DataGridColumnDef<ResolutionRow>[] = [
     ),
     id: "status",
     meta: {
-      compact: "trailing",
+      compact: "primary",
       headerTitle: "Status",
       kind: "status",
       skeleton: SKELETON_BADGE,
@@ -199,16 +231,7 @@ const columns: DataGridColumnDef<ResolutionRow>[] = [
   },
   {
     accessorFn: (row) => row.signed,
-    cell: ({ row }) => {
-      const { objected, responses, signed } = row.original;
-      return (
-        <span className="text-muted-foreground truncate">
-          {responses > 0
-            ? `${signed} signed${objected ? `, ${objected} objected` : ""} of ${responses}`
-            : "—"}
-        </span>
-      );
-    },
+    cell: ({ row }) => <ResponsesCell row={row.original} />,
     header: ({ column }) => (
       <DataGridColumnHeader
         column={column}
@@ -217,12 +240,16 @@ const columns: DataGridColumnDef<ResolutionRow>[] = [
       />
     ),
     id: "responses",
-    meta: { headerTitle: "Responses", skeleton: SKELETON_TEXT },
+    meta: {
+      compact: "primary",
+      headerTitle: "Responses",
+      skeleton: SKELETON_TEXT,
+    },
     size: 200,
   },
   {
     accessorFn: (row) => row.date ?? "",
-    cell: ({ row }) => dateText(row.original),
+    cell: ({ row }) => <DateCell row={row.original} />,
     header: ({ column }) => (
       <DataGridColumnHeader column={column} title="Date" visibility={true} />
     ),

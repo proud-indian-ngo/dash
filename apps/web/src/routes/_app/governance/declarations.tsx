@@ -191,7 +191,7 @@ function DeclarationsPage() {
       ),
       id: "status",
       meta: {
-        compact: "trailing",
+        compact: "primary",
         headerTitle: fiscalYear,
         kind: "status",
         skeleton: SKELETON_BADGE,
@@ -445,7 +445,9 @@ function DeclareDialog({
               </div>
               <Button
                 aria-label={`Remove interest ${index + 1}`}
-                className="self-end"
+                // Stacked on phones, a bare bin under the fields read as
+                // belonging to nothing; it says Remove and sits on the right.
+                className="self-end justify-self-end max-sm:w-auto max-sm:px-3"
                 onClick={() => setRows((r) => r.filter((_, i) => i !== index))}
                 size="icon"
                 type="button"
@@ -456,6 +458,7 @@ function DeclareDialog({
                   icon={Delete02Icon}
                   strokeWidth={2}
                 />
+                <span className="sm:sr-only">Remove</span>
               </Button>
             </fieldset>
           ))}

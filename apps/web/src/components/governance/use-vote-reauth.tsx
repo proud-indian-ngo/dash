@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
@@ -112,7 +113,7 @@ export function useVoteReauth(): {
               value={password}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button
               onClick={() => finish(false)}
               type="button"
@@ -123,7 +124,7 @@ export function useVoteReauth(): {
             <Button disabled={pending || !password} type="submit">
               {pending ? "Checking..." : "Continue"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

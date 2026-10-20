@@ -78,15 +78,17 @@ function plural(count: number, noun: string): string {
 function MeetingListRow({ now, row }: { now: number; row: MeetingRow }) {
   const pending = pendingStep(row, now);
   return (
-    <li className="hover:bg-muted/50 relative flex items-start gap-3 px-3 py-2.5 transition-colors sm:gap-4 sm:px-4">
-      <div className="w-16 shrink-0 pt-px text-sm font-medium tabular-nums sm:w-20">
+    // Phones move the badges under the facts, as the events agenda does, so
+    // they don't squeeze the title to a letter per line.
+    <li className="hover:bg-muted/50 relative grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 px-3 py-2.5 transition-colors sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:px-4">
+      <div className="pt-px text-sm font-medium tabular-nums">
         {row.startsAt === null ? (
           <span className="text-muted-foreground">No date</span>
         ) : (
           formatMeetingTime(row.startsAt)
         )}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <Link
           className="min-w-0 text-sm font-medium wrap-break-word after:absolute after:inset-0 hover:underline sm:truncate"
           params={{ meetingId: row.id }}
@@ -101,7 +103,7 @@ function MeetingListRow({ now, row }: { now: number; row: MeetingRow }) {
           <span>{plural(row.agenda.length, "agenda item")}</span>
         </div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-center">
+      <div className="col-start-2 flex flex-wrap items-center gap-2 sm:col-start-auto sm:justify-end sm:self-center">
         {pending ? <StatusBadge tone="warning">{pending}</StatusBadge> : null}
         <MeetingStatusBadge status={row.status ?? "draft"} />
       </div>
