@@ -30,7 +30,7 @@ import {
   isBeforeCutover,
   type LineSuggestions,
 } from "@/components/income/bank/debit-match";
-import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
+import { formatReceivedOn } from "@/components/income/income-date";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {

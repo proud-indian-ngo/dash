@@ -303,9 +303,17 @@ describe("Food table", () => {
     }
   );
   it("waits for the first complete snapshot instead of showing partial eligibility", () => {
-    const table = food([guardian], false);
-    expect(table.data).toEqual([]);
-    expect(table.isLoading).toBe(true);
+    captured = undefined;
+    const markup = renderToStaticMarkup(
+      <FoodTable
+        data={[guardian]}
+        isLoading={false}
+        statusSnapshotComplete={false}
+        statusSnapshotKey="edition"
+      />
+    );
+    expect(captured).toBeUndefined();
+    expect(markup).toContain('data-slot="skeleton"');
     expect(
       renderToStaticMarkup(
         <FoodStats data={[guardian]} complete={false} scopeKey="edition" />

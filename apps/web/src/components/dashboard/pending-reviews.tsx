@@ -16,7 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
@@ -168,33 +167,15 @@ function eventNames(groups: readonly EventGroup[]): string {
   return more > 0 ? `${names.join(", ")} and ${more} more` : names.join(", ");
 }
 
-// --- Skeleton ---
-
-function PendingReviewsSkeleton() {
-  return (
-    <div className="divide-y">
-      {[1, 2, 3].map((i) => (
-        <div className="flex items-center gap-3 px-4 py-3" key={i}>
-          <Skeleton className="size-4 rounded" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-          <Skeleton className="h-4 w-24" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // --- Queue row ---
 
 interface QueueRowProps {
   count: number;
   icon: IconSvgElement;
+  isLoading?: boolean;
   label: string;
-  link: ReactNode;
-  oldestAt: number;
+  link?: ReactNode;
+  oldestAt?: number;
   summary: ReactNode;
 }
 
@@ -202,14 +183,19 @@ interface QueueRowProps {
 function QueueRow({
   count,
   icon,
+  isLoading,
   label,
   link,
   oldestAt,
   summary,
 }: QueueRowProps) {
-  const stale = Date.now() - oldestAt > STALE_AFTER_MS;
+  const stale =
+    oldestAt !== undefined && Date.now() - oldestAt > STALE_AFTER_MS;
   return (
-    <div className="hover:bg-muted/40 relative grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 transition-colors sm:grid-cols-[1rem_minmax(0,1fr)_auto_auto_auto]">
+    <div
+      className="hover:bg-muted/40 relative grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 transition-colors sm:grid-cols-[1rem_minmax(0,1fr)_auto_auto_auto]"
+      data-slot="review-queue-row"
+    >
       <HugeiconsIcon
         className="text-muted-foreground size-4"
         icon={icon}
@@ -217,23 +203,39 @@ function QueueRow({
       />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{label}</p>
-        <p className="text-muted-foreground truncate text-xs">{summary}</p>
+        <p className="text-muted-foreground truncate text-xs">
+          {isLoading ? <InlineSkeleton className="h-3 w-28" /> : summary}
+        </p>
       </div>
       <span className="font-mono text-sm font-semibold tabular-nums">
-        {count}
+        {isLoading ? <InlineSkeleton className="h-4 w-5" /> : count}
       </span>
       <span
         className={cn(
-          "col-start-2 text-xs whitespace-nowrap sm:col-start-auto",
+          "col-start-2 min-h-4 text-xs whitespace-nowrap sm:col-start-auto",
           stale ? "text-warning-foreground" : "text-muted-foreground"
         )}
       >
-        oldest {formatDistanceToNowStrict(oldestAt)}
+        {isLoading ? (
+          <InlineSkeleton className="h-3 w-20" />
+        ) : oldestAt === undefined ? null : (
+          <>oldest {formatDistanceToNowStrict(oldestAt)}</>
+        )}
       </span>
-      <span className="text-primary col-start-3 row-start-2 flex items-center gap-1 text-xs font-medium whitespace-nowrap sm:col-start-auto sm:row-start-auto">
-        {link}
+      <span className="text-primary col-start-3 row-start-2 flex min-h-4 items-center gap-1 text-xs font-medium whitespace-nowrap sm:col-start-auto sm:row-start-auto">
+        {isLoading ? <InlineSkeleton className="h-3 w-14" /> : link}
       </span>
     </div>
+  );
+}
+
+function InlineSkeleton({ className }: { className: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("bg-muted inline-flex animate-pulse rounded-md", className)}
+      data-slot="skeleton"
+    />
   );
 }
 
@@ -255,35 +257,42 @@ function ReviewLinkLabel() {
 function FinancialRow({
   icon,
   items,
+  isLoading,
   label,
   to,
 }: {
   icon: IconSvgElement;
   items: readonly FinancialPendingItem[] | readonly VendorPaymentPendingItem[];
+  isLoading?: boolean;
   label: string;
   to: "/reimbursements" | "/vendor-payments";
 }) {
-  if (items.length === 0) {
-    return null;
-  }
-  const total = sumPaise(items.map((item) => sumAmounts(item.lineItems)));
+  const hasItems = items.length > 0;
+  const total = hasItems
+    ? sumPaise(items.map((item) => sumAmounts(item.lineItems)))
+    : 0;
   return (
     <QueueRow
       count={items.length}
       icon={icon}
+      isLoading={isLoading}
       label={label}
       link={
-        <Link
-          className="inline-flex items-center gap-1"
-          aria-label={`Review ${label.toLowerCase()}`}
-          search={{ status: "pending" }}
-          to={to}
-        >
-          <ReviewLinkLabel />
-        </Link>
+        hasItems ? (
+          <Link
+            className="inline-flex items-center gap-1"
+            aria-label={`Review ${label.toLowerCase()}`}
+            search={{ status: "pending" }}
+            to={to}
+          >
+            <ReviewLinkLabel />
+          </Link>
+        ) : undefined
       }
-      oldestAt={oldest(items)}
-      summary={`${formatPaise(total)} to approve`}
+      oldestAt={hasItems ? oldest(items) : undefined}
+      summary={
+        hasItems ? `${formatPaise(total)} to approve` : "Nothing waiting"
+      }
     />
   );
 }
@@ -292,37 +301,39 @@ function EventRow({
   groups,
   icon,
   items,
+  isLoading,
   label,
   tab,
 }: {
   groups: EventGroup[];
   icon: IconSvgElement;
   items: readonly { createdAt: number }[];
+  isLoading?: boolean;
   label: string;
   tab?: "updates" | "photos";
 }) {
   const latest = groups[0];
-  if (!latest) {
-    return null;
-  }
   return (
     <QueueRow
       count={items.length}
       icon={icon}
+      isLoading={isLoading}
       label={label}
       link={
-        <Link
-          className="inline-flex items-center gap-1"
-          aria-label={`Review ${label.toLowerCase()} for ${latest.eventName}`}
-          params={{ id: latest.eventId }}
-          search={tab ? { tab } : undefined}
-          to="/events/$id"
-        >
-          <ReviewLinkLabel />
-        </Link>
+        latest ? (
+          <Link
+            className="inline-flex items-center gap-1"
+            aria-label={`Review ${label.toLowerCase()} for ${latest.eventName}`}
+            params={{ id: latest.eventId }}
+            search={tab ? { tab } : undefined}
+            to="/events/$id"
+          >
+            <ReviewLinkLabel />
+          </Link>
+        ) : undefined
       }
-      oldestAt={oldest(items)}
-      summary={eventNames(groups)}
+      oldestAt={latest ? oldest(items) : undefined}
+      summary={latest ? eventNames(groups) : "Nothing waiting"}
     />
   );
 }
@@ -366,10 +377,6 @@ export function PendingReviews({
     vendorPayments,
   });
 
-  if (!isLoading && totalCount === 0) {
-    return null;
-  }
-
   // Event items grouped by event, most recent first (already scoped by Zero)
   const photoGroups = canManagePhotos
     ? groupByEvent(eventPhotos, (p) => p.uploader?.name ?? "Unknown")
@@ -391,66 +398,68 @@ export function PendingReviews({
             strokeWidth={2}
           />
           Waiting for review
-          {totalCount > 0 && (
-            <Tag className="font-mono tabular-nums">{totalCount}</Tag>
-          )}
+          <Tag className="font-mono tabular-nums">
+            {isLoading ? <InlineSkeleton className="h-4 w-5" /> : totalCount}
+          </Tag>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0">
-        {isLoading ? (
-          <PendingReviewsSkeleton />
-        ) : (
-          <div className="divide-y">
-            {canApproveRequests ? (
-              <>
-                <FinancialRow
-                  icon={Invoice01Icon}
-                  items={reimbursements}
-                  label="Reimbursements"
-                  to="/reimbursements"
-                />
-                <FinancialRow
-                  icon={MoneyReceiveSquareIcon}
-                  items={advancePayments}
-                  label="Advance payments"
-                  to="/reimbursements"
-                />
-                <FinancialRow
-                  icon={Store01Icon}
-                  items={vendorPayments}
-                  label="Vendor payments"
-                  to="/vendor-payments"
-                />
-              </>
-            ) : null}
-            {canManagePhotos ? (
-              <EventRow
-                groups={photoGroups}
-                icon={Camera01Icon}
-                items={eventPhotos}
-                label="Event photos"
-                tab="photos"
+        <div className="divide-y">
+          {canApproveRequests ? (
+            <>
+              <FinancialRow
+                icon={Invoice01Icon}
+                isLoading={isLoading}
+                items={reimbursements}
+                label="Reimbursements"
+                to="/reimbursements"
               />
-            ) : null}
-            {canApproveUpdates ? (
-              <EventRow
-                groups={updateGroups}
-                icon={Notification01Icon}
-                items={eventUpdates}
-                label="Event updates"
-                tab="updates"
+              <FinancialRow
+                icon={MoneyReceiveSquareIcon}
+                isLoading={isLoading}
+                items={advancePayments}
+                label="Advance payments"
+                to="/reimbursements"
               />
-            ) : null}
-            {canManageInterest ? (
-              <EventRow
-                groups={interestGroups}
-                icon={UserMultipleIcon}
-                items={eventInterests}
-                label="Interest requests"
+              <FinancialRow
+                icon={Store01Icon}
+                isLoading={isLoading}
+                items={vendorPayments}
+                label="Vendor payments"
+                to="/vendor-payments"
               />
-            ) : null}
-          </div>
-        )}
+            </>
+          ) : null}
+          {canManagePhotos ? (
+            <EventRow
+              groups={photoGroups}
+              icon={Camera01Icon}
+              isLoading={isLoading}
+              items={eventPhotos}
+              label="Event photos"
+              tab="photos"
+            />
+          ) : null}
+          {canApproveUpdates ? (
+            <EventRow
+              groups={updateGroups}
+              icon={Notification01Icon}
+              isLoading={isLoading}
+              items={eventUpdates}
+              label="Event updates"
+              tab="updates"
+            />
+          ) : null}
+          {canManageInterest ? (
+            <EventRow
+              groups={interestGroups}
+              icon={UserMultipleIcon}
+              isLoading={isLoading}
+              items={eventInterests}
+              label="Interest requests"
+            />
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

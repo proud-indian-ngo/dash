@@ -146,6 +146,7 @@ test.describe("Sidebar navigation", () => {
 
     const inbox = page.getByRole("dialog", { name: "Notifications" });
     await expect(inbox).toBeVisible();
+    await expect(inbox.getByText("Inbox", { exact: true })).toBeVisible();
     const sidebarBox = await sidebar.boundingBox();
     const inboxBox = await inbox.boundingBox();
     expect(inboxBox?.x ?? 0).toBeGreaterThanOrEqual(

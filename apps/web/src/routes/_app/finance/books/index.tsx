@@ -25,8 +25,6 @@ import {
 import { env } from "@pi-dash/env/web";
 import {
   accountBalances,
-  type BalanceLine,
-  balanceSummary,
   BOOKS_PAGE_PERMISSIONS,
   booksAsOf,
   LEDGER_CUTOVER_ON,
@@ -36,11 +34,11 @@ import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import { AccountsRail } from "@/components/books/accounts-rail";
 import { auditedDriftCount } from "@/components/books/audited-lines";
-import { BalanceSummaryTab } from "@/components/books/balance-summary-tab";
+import { BalanceSummaryPanel } from "@/components/books/balance-summary-tab";
 import {
   CaWorkbookLabel,
   caWorkbookBlocker,
@@ -58,13 +56,17 @@ import {
   usePostPending,
   WaitingToPost,
 } from "@/components/books/waiting-to-post";
-import {
-  CloseYearDialog,
-  ReopenYearDialog,
-} from "@/components/books/year-close-dialogs";
+import { Loader } from "@/components/loader";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { DATE_TIME } from "@/lib/date-formats";
@@ -72,6 +74,45 @@ import { assertAnyPermission } from "@/lib/route-guards";
 
 const BOOK_TABS = ["cash", "income", "balance"] as const;
 type BookTab = (typeof BOOK_TABS)[number];
+
+const loadYearCloseDialogs = () =>
+  import("@/components/books/year-close-dialogs");
+const CloseYearDialog = lazy(() =>
+  loadYearCloseDialogs().then((module) => ({
+    default: module.CloseYearDialog,
+  }))
+);
+const ReopenYearDialog = lazy(() =>
+  loadYearCloseDialogs().then((module) => ({
+    default: module.ReopenYearDialog,
+  }))
+);
+
+function PendingDialog({
+  description,
+  onOpenChange,
+  title,
+}: {
+  description: string;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+}) {
+  return (
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent className="sm:max-w-(--dialog-md)">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex min-h-24 items-center justify-center">
+          <Loader />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export const Route = createFileRoute("/_app/finance/books/")({
   beforeLoad: ({ context }) =>
@@ -109,7 +150,7 @@ function BooksPage() {
     defaultYear(books.years, books.today);
   const accounts = booksAccounts(books);
 
-  if (books.isLoading) {
+  if (books.cashLoading) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <PageHeader title="Books" />
@@ -146,27 +187,6 @@ function BooksPage() {
   const hasOpening = books.openingBalances.some(
     (o) => o.fiscalYearId === year.id && !o.reversalPostingId
   );
-
-  const headNames = new Map(books.heads.map((h) => [h.id, h.name]));
-  const fundNames = new Map(books.funds.map((f) => [f.id, f.name]));
-  const accountNames = new Map(books.accounts.map((a) => [a.id, a.name]));
-  const programmeNames = new Map(books.programmes.map((p) => [p.id, p.name]));
-  const nameOf = (line: BalanceLine) => {
-    if (line.kind === "account") {
-      return accountNames.get(line.key) ?? "Account";
-    }
-    if (line.kind === "fund") {
-      return fundNames.get(line.key) ?? "Fund";
-    }
-    return headNames.get(line.key) ?? "Account head";
-  };
-  const summary = balanceSummary({
-    accountIds: accounts.map((a) => a.id),
-    asOf,
-    entries: books.entries,
-    movements: books.movements,
-    startsOn: year.startsOn,
-  });
 
   // The workbook starts from the cutover year's opening balances.
   const openingPosted = books.openingBalances.some(
@@ -347,7 +367,7 @@ function BooksPage() {
             {account ? (
               <CashBookTab
                 accountName={account.name}
-                isLoading={books.isLoading}
+                isLoading={books.cashLoading}
                 movements={books.movements}
                 orgAccountId={account.id}
                 postings={books.postings}
@@ -355,43 +375,92 @@ function BooksPage() {
               />
             ) : null}
           </TabsContent>
-          <TabsContent className="mt-4" value="income">
-            <IncomeExpenditureTab
-              entries={books.entries}
-              headNames={headNames}
-              isLoading={books.isLoading}
-              postings={books.postings}
-              programmeNames={programmeNames}
-              range={range}
-            />
-          </TabsContent>
-          <TabsContent className="mt-4" value="balance">
-            <BalanceSummaryTab asOf={asOf} nameOf={nameOf} summary={summary} />
-          </TabsContent>
+          {tab === "income" ? (
+            <TabsContent className="mt-4" value="income">
+              <IncomeExpenditureTab
+                entries={books.entries}
+                headNames={
+                  new Map(books.heads.map((head) => [head.id, head.name]))
+                }
+                isLoading={books.isLoading}
+                postings={books.postings}
+                programmeNames={
+                  new Map(
+                    books.programmes.map((programme) => [
+                      programme.id,
+                      programme.name,
+                    ])
+                  )
+                }
+                range={range}
+              />
+            </TabsContent>
+          ) : null}
+          {tab === "balance" ? (
+            <TabsContent className="mt-4" value="balance">
+              {books.isLoading ? (
+                <TableSkeleton />
+              ) : (
+                <BalanceSummaryPanel
+                  accountIds={accounts.map((item) => item.id)}
+                  asOf={asOf}
+                  books={books}
+                  startsOn={year.startsOn}
+                />
+              )}
+            </TabsContent>
+          ) : null}
         </Tabs>
       </div>
-      <CloseYearDialog
-        fiscalYearId={year.id}
-        label={year.label}
-        onOpenChange={(open) => {
-          setClosing(open);
-          if (!open && closeParam) {
-            setCloseParam(null);
+      {closing &&
+      !closed &&
+      year.startsOn <= books.today &&
+      hasPermission("finance.close_year") ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading the year close checklist"
+              onOpenChange={(open) => {
+                setClosing(open);
+                if (!open && closeParam) {
+                  setCloseParam(null);
+                }
+              }}
+              title={`Close ${year.label}`}
+            />
           }
-        }}
-        open={
-          closing &&
-          !closed &&
-          year.startsOn <= books.today &&
-          hasPermission("finance.close_year")
-        }
-      />
-      <ReopenYearDialog
-        fiscalYearId={year.id}
-        label={year.label}
-        onOpenChange={setReopening}
-        open={reopening}
-      />
+        >
+          <CloseYearDialog
+            fiscalYearId={year.id}
+            label={year.label}
+            onOpenChange={(open) => {
+              setClosing(open);
+              if (!open && closeParam) {
+                setCloseParam(null);
+              }
+            }}
+            open
+          />
+        </Suspense>
+      ) : null}
+      {reopening ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading the reopen year form"
+              onOpenChange={setReopening}
+              title={`Reopen ${year.label}`}
+            />
+          }
+        >
+          <ReopenYearDialog
+            fiscalYearId={year.id}
+            label={year.label}
+            onOpenChange={setReopening}
+            open
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

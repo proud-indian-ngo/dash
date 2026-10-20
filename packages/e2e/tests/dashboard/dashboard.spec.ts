@@ -61,19 +61,19 @@ test.describe("Dashboard", () => {
       .locator("[data-slot=stat-chip]")
       .filter({ hasText: "Waiting for you" });
     await expect(chip).toBeVisible({ timeout: 15_000 });
-    const waiting = await chip.locator("[data-slot=stat-value]").innerText();
+    const chipValue = chip.locator("[data-slot=stat-value]");
+    await expect(chipValue).toHaveText(/^\d+$/);
+    const waiting = await chipValue.innerText();
 
     const panel = page.getByRole("region", { name: "Waiting for review" });
-    if (waiting === "0") {
-      await expect(panel).toBeHidden();
-      return;
-    }
     await expect(panel).toBeVisible();
     await expect(
-      panel.getByText(waiting, { exact: true }).first()
-    ).toBeVisible();
-    await expect(
-      panel.getByRole("link", { name: /^Review / }).first()
-    ).toBeVisible();
+      panel.locator('[data-slot="card-title"] [data-slot="tag"]')
+    ).toHaveText(waiting);
+    if (waiting !== "0") {
+      await expect(
+        panel.getByRole("link", { name: /^Review / }).first()
+      ).toBeVisible();
+    }
   });
 });

@@ -8,16 +8,21 @@ import {
   receiptAssessmentLabel,
   receiptIssuerFor,
 } from "@pi-dash/shared/receipts";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import { FilePreviewButton } from "@/components/shared/file-preview";
+import { PendingDialog } from "@/components/shared/pending-dialog";
 
 import type { ContributionRow } from "../income-types";
-import {
-  IssueReceiptsDialog,
-  useReceiptCandidates,
-} from "./issue-receipts-dialog";
 import { liveReceipt, receiptPdfUrl } from "./receipt-types";
+import { useReceiptCandidates } from "./use-receipt-candidates";
+
+const loadIssueReceiptsDialog = () => import("./issue-receipts-dialog");
+const IssueReceiptsDialog = lazy(() =>
+  loadIssueReceiptsDialog().then((module) => ({
+    default: module.IssueReceiptsDialog,
+  }))
+);
 
 /** yyyy-MM-dd of a date column's epoch. */
 const isoDay = (epoch: number) => new Date(epoch).toISOString().slice(0, 10);
@@ -138,12 +143,22 @@ export function ContributionReceiptFact({
           Issue receipt
         </Button>
       ) : null}
-      {canIssue ? (
-        <IssueReceiptsDialog
-          contributionIds={[row.id]}
-          onOpenChange={setIssuing}
-          open={issuing}
-        />
+      {canIssue && issuing ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading receipt details"
+              title="Issue receipt"
+              onOpenChange={setIssuing}
+            />
+          }
+        >
+          <IssueReceiptsDialog
+            contributionIds={[row.id]}
+            onOpenChange={setIssuing}
+            open
+          />
+        </Suspense>
       ) : null}
     </span>
   );

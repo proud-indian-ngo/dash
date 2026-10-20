@@ -41,10 +41,18 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { assertAnyPermission } from "@/lib/route-guards";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/governance/policies")({
   beforeLoad: ({ context }) =>
     assertAnyPermission(context, ...GOVERNANCE_PAGE_PERMISSIONS),
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.policy.all(),
+      abortController.signal
+    );
+  },
   component: PoliciesPage,
   head: () => ({
     meta: [{ title: `Policies | ${env.VITE_APP_NAME}` }],

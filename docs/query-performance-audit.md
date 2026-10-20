@@ -1,6 +1,6 @@
 # Query performance audit
 
-Reference for what has been profiled, what was changed and what was rejected. Benchmark commands, fixtures and flags are in [E2E testing](architecture/e2e-testing.md#performance-benchmarks); implementation rules are in `.agents/skills/query-performance/SKILL.md`.
+Evidence for measured query and browser performance changes, including rejected approaches. Benchmark commands, fixtures and flags are in [E2E testing](architecture/e2e-testing.md#performance-benchmarks); implementation rules are in `.agents/skills/query-performance/SKILL.md`.
 
 Most numbers below come from the synthetic local fixtures on 14–15 Sept 2026 (Zero 1.9, PostgreSQL 18.3, optimized build). "Analyzer" means the median of three Zero analyzer samples. Local results show query work, not production latency.
 
@@ -56,7 +56,7 @@ Server reads and CPU work:
 
 ## Proven changes
 
-Each change kept results, permissions and cache behaviour and was verified on the fixture. Add new rows here.
+The retained changes preserve results, permissions and cache behaviour on the measured fixtures.
 
 ### Indexes
 
@@ -95,6 +95,92 @@ Each change kept results, permissions and cache behaviour and was verified on th
 | Server tables: reset pagination when the debounced search commits | One request per search from page two instead of two |
 | Request logger created before the handler | Request-log durations were wrong (60 ms logged as 1 ms); instrumentation fix only |
 
+### Idle route code warming
+
+With a ready dashboard and the same 10-second quiet period, three local production-build runs per role/device compared first navigation before and after code warming. Chrome used 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Medians include browser-test readiness overhead.
+
+| Mobile first visit | Before | After |
+|---|---:|---:|
+| Admin Events | 997 ms | 232 ms |
+| Admin Claims | 1,647 ms | 347 ms |
+| Volunteer Events | 795 ms | 283 ms |
+| Volunteer Claims | 1,497 ms | 246 ms |
+
+About 159 KB of additional compressed JavaScript loaded before navigation. Users did not improve consistently within that idle window. That comparison changed code timing only. Scheduling rules live in [route preloads](architecture/data-layer.md#route-preloads).
+
+Immediate navigation remained mixed in a fresh control: desktop admin Events' median rose from 748 to 1,078 ms, with overlapping sample ranges of 741–1,098 and 715–1,097 ms. Three samples and readiness polling do not establish zero overhead. Both comparisons completed without browser errors.
+
+### Normal-use responsiveness
+
+Matched local production benchmarks used the same throttling above, three samples and standard seeded records. These medians include test readiness overhead, not field percentiles or production-scale workload validation.
+
+| Path | Before | After |
+|---|---:|---:|
+| Repeat Users, desktop | 448 ms | 264 ms |
+| Repeat Users, mobile | 498 ms | 284 ms |
+| First claim, desktop with 500 ms hover | 1,566 ms | 1,047 ms |
+| First claim, immediate desktop click | 1,596 ms | 1,578 ms |
+| First claim, mobile tap | 1,495 ms | 1,486 ms |
+
+Users reuse their session's private list and role options while refreshing. First visits remained around 1.1–1.2 seconds. The repeat-click Event Timing median increased from 72 to 232 ms on desktop and 96 to 232 ms on mobile: cached rows arrive sooner, but table mounting moves into the initial interaction. Cache ownership and invalidation live in [caching](architecture/caching.md).
+
+Claim hover moves downloading ahead of the click; its 500 ms lead-in is excluded from the table. An immediate pointerdown cancels the pending hover timer, avoiding a second preload during navigation. Keyboard activation and the charge editor remained usable.
+
+A separate same-build comparison gave each finance destination a fresh context:
+
+| First visit | Immediate navigation | After 20 seconds idle |
+|---|---:|---:|
+| Income, desktop | 4,282 ms | 1,813 ms |
+| Income, mobile | 3,198 ms | 748 ms |
+| Books, desktop | 2,000 ms | 631 ms |
+| Books, mobile | 1,984 ms | 602 ms |
+
+The longer idle window loaded about 298 KB of extra compressed JavaScript before navigation; neither destination then needed post-click JavaScript. At ten seconds the queue was incomplete. Repeat visits changed little. This supports bounded code warming, not warming every database query.
+
+Contribution-dialog traces isolated about 245 ms to mounted controls on first open and 101 ms on repeat. Reduced motion measured 296 and 102 ms, so shortening animation does not address mounting. Base UI drawer geometry reads dominated style/layout work; form code accounted for about 20 ms initially. No local optimization was adopted: changing the mobile drawer interaction or memoizing the form would not be justified by that profile. The opt-in profiler retains in-page readiness marks and timelines for evaluating a dependency-level fix.
+
+### Loading geometry
+
+Three fresh contexts per case used the same throttling and production harness. These are local seeded mobile CLS medians:
+
+| Page | Before | Retained change |
+|---|---:|---:|
+| Food, no eligible people | 0.321 | 0.007 |
+| Food, populated eligible roster | 0.150 | 0.007 |
+| Trust deed | 0.581 | 0.000 |
+| Governance documents | 0.143 | 0.058 |
+| Declarations | 0.303 | 0.000 |
+
+Food reserves its loading geometry; Deed uses the rules/history layout while loading. Documents resolves signing-service status before rendering its warning. Declarations waits for the personal and board data instead of inserting the personal card above a rendered table. That completeness requirement increased measured mobile readiness from 5.45 to 6.00 seconds under throttling.
+
+Two trials were rejected. Splitting the claim editor saved about 35 KB of detail JavaScript, but mobile detail readiness stayed near 1.56 seconds and first edit rose from 511 to 900 ms. Caching table width reduced mobile repeat Users navigation from 269 to 242 ms, but desktop rose from 240 to 288 ms and first visits slowed. Neither trial justified its extra complexity. The opt-in probes remain available; early Event Timing snapshots are diagnostics, not INP.
+
+### Warm governance navigation
+
+Three fresh contexts per destination and viewport used real dashboard links, a two-second dashboard settle, enabled caches and the same throttling. Each first/repeat pair stayed in one document. Baseline medians in milliseconds:
+
+| Page | Desktop first / repeat | Mobile first / repeat |
+|---|---:|---:|
+| Register | 2,405 / 278 | 2,350 / 324 |
+| Documents | 1,879 / 212 | 1,814 / 298 |
+| Deed | 1,163 / 163 | 1,195 / 226 |
+| Resolutions | 2,064 / 260 | 1,931 / 332 |
+| Meetings | 1,181 / 143 | 1,181 / 216 |
+| Compliance | 1,271 / 145 | 1,282 / 326 |
+| Declarations | 1,698 / 215 | 1,648 / 282 |
+| Policies | 1,163 / 145 | 1,164 / 216 |
+| Registrations | 1,802 / 145 | 1,772 / 232 |
+
+All 54 samples reached their readiness marker without page errors. First visits downloaded 46–153 KB of compressed route JavaScript; repeats downloaded none. Compliance had one 626 ms mobile repeat, without a corresponding long-task increase. These are seeded lab timings, not field percentiles. Meetings verifies the populated Past tab count; Registrations has no seeded row.
+
+Documents' signing-status request revalidates in the router's background on repeat visits. Its loader remains blocking on first entry to preserve warning geometry; an extra status cache has no demonstrated navigation benefit.
+
+The register preloads deed versions alongside trustees because both gate its loading state. Two candidate runs reduced mobile first-visit medians from 2,350 to 2,249 and 2,214 ms; desktop measured 2,364 and 2,316 ms against 2,405. Repeat timing varied.
+
+Deferring the trustee form alongside its private requests saves 4.7 KB. Against a repeated control, desktop/mobile navigation improved 2,456/2,248 → 2,295/2,182 ms; Add trustee measured 350/331 → 364/332 ms, within observed variation. Independent fresh-context actions prevent warmed forms from masking regressions.
+
+Deferring period forms as well saved 27 KB but slowed mobile Add trustee from 363 to 947 ms, so that trial was rejected. The shared form library stays eager.
+
 ### Rules these results support
 
 - Global admins skip most permission predicates. Measure the restricted role too: Edition admin roughly doubles the reads of global admin on Students, Entries and Food.
@@ -105,7 +191,7 @@ Each change kept results, permissions and cache behaviour and was verified on th
 
 ## Rejected approaches
 
-One line each. Add new rows here.
+These alternatives did not justify their cost or regressed user-visible performance.
 
 | Approach | Why rejected |
 |---|---|

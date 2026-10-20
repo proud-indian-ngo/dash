@@ -52,4 +52,30 @@ test.describe("Event detail page", () => {
     await expect(page.getByText(/Volunteers \(\d+\)/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit" })).not.toBeVisible();
   });
+
+  for (const viewport of [
+    { height: 900, width: 1440 },
+    { height: 844, width: 390 },
+  ]) {
+    test(`edit form opens and resets after cancellation at ${viewport.width}px`, async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+      await page.setViewportSize(viewport);
+      await openPublicEvent(page, PUBLIC_EVENT);
+      await page.getByRole("button", { exact: true, name: "Edit" }).click();
+
+      const dialog = page.getByRole("dialog");
+      const name = dialog.getByRole("textbox", { exact: true, name: "Name" });
+      await expect(name).toHaveValue(PUBLIC_EVENT);
+      await name.fill("Unsaved event name");
+      await dialog.getByRole("button", { exact: true, name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+
+      await page.getByRole("button", { exact: true, name: "Edit" }).click();
+      await expect(name).toHaveValue(PUBLIC_EVENT);
+      await dialog.getByRole("button", { exact: true, name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+    });
+  }
 });

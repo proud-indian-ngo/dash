@@ -1,11 +1,16 @@
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { env } from "@pi-dash/env/web";
-import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
+import {
+  DEED_VERSION_1,
+  deedVersionOn,
+  GOVERNANCE_PAGE_PERMISSIONS,
+} from "@pi-dash/shared/governance";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { useZero } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -21,7 +26,7 @@ import {
   formatIso,
   todayIso,
   useGovernanceDocuments,
-  useRegister,
+  toDeedVersionView,
 } from "@/components/governance/register-data";
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
@@ -147,6 +152,55 @@ function RulesInForce({ version }: { version: DeedVersionView }) {
   );
 }
 
+function DeedLoadingSkeleton() {
+  const rules = deedRuleLines(DEED_VERSION_1.rules);
+
+  return (
+    <>
+      <section
+        aria-hidden="true"
+        className="flex flex-col gap-4 rounded-lg border p-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-col">
+            <h2 className="text-base font-semibold">Rules in force</h2>
+            <div className="flex flex-col gap-0.5 sm:hidden">
+              <Skeleton className="h-5 w-72 max-w-full" />
+              <Skeleton className="h-5 w-56" />
+            </div>
+            <Skeleton className="hidden h-5 w-96 max-w-full sm:block" />
+          </div>
+          <Skeleton className="h-5.5 w-24" />
+        </div>
+        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rules.map((line) => (
+            <div className="flex flex-col gap-0.5" key={line.label}>
+              <dt className="text-muted-foreground text-xs">{line.label}</dt>
+              <dd>
+                <Skeleton className="h-5 w-32" />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+      <section aria-hidden="true" className="flex flex-col gap-2">
+        <h2 className="text-base font-semibold">History</h2>
+        <ul className="divide-y rounded-lg border">
+          <li className="flex flex-col gap-3 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="flex flex-col">
+                <Skeleton className="h-5 w-64 max-w-full" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+              <Skeleton className="h-5.5 w-16" />
+            </div>
+          </li>
+        </ul>
+      </section>
+    </>
+  );
+}
+
 /** One version in the history: what it changed from the version before. */
 function HistoryEntry({
   canManage,
@@ -224,7 +278,10 @@ function HistoryEntry({
 
 function DeedPage() {
   const today = todayIso();
-  const { deedVersions, inForce } = useRegister(today);
+  const [deedRows, deedResult] = useQuery(queries.deedVersion.all());
+  const deedVersions = deedRows.map(toDeedVersionView);
+  const inForce = deedVersionOn(deedVersions, today);
+  const isLoading = deedRows.length === 0 && deedResult.type !== "complete";
   const { documents } = useGovernanceDocuments();
   const { hasPermission } = useApp();
   const canManage = hasPermission("governance.manage");
@@ -237,8 +294,12 @@ function DeedPage() {
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
         actions={
-          canManage && latest ? (
-            <Button onClick={() => setAdding(true)} type="button">
+          canManage ? (
+            <Button
+              disabled={isLoading || !latest}
+              onClick={() => setAdding(true)}
+              type="button"
+            >
               <HugeiconsIcon
                 className="size-4"
                 icon={PlusSignIcon}
@@ -252,25 +313,39 @@ function DeedPage() {
         title="Trust deed"
       />
       <div className="mt-6 flex flex-col gap-6">
-        {inForce ? <RulesInForce version={inForce} /> : null}
-        <section aria-labelledby="deed-history" className="flex flex-col gap-2">
-          <h2 className="text-base font-semibold" id="deed-history">
-            History
-          </h2>
-          <ul className="divide-y rounded-lg border">
-            {newestFirst.map(({ previous, version }) => (
-              <HistoryEntry
-                canManage={canManage}
-                documents={documents}
-                isInForce={inForce?.id === version.id}
-                key={version.id}
-                previous={previous}
-                today={today}
-                version={version}
-              />
-            ))}
-          </ul>
-        </section>
+        {isLoading ? (
+          <>
+            <span className="sr-only" role="status">
+              Loading deed
+            </span>
+            <DeedLoadingSkeleton />
+          </>
+        ) : (
+          <>
+            {inForce ? <RulesInForce version={inForce} /> : null}
+            <section
+              aria-labelledby="deed-history"
+              className="flex flex-col gap-2"
+            >
+              <h2 className="text-base font-semibold" id="deed-history">
+                History
+              </h2>
+              <ul className="divide-y rounded-lg border">
+                {newestFirst.map(({ previous, version }) => (
+                  <HistoryEntry
+                    canManage={canManage}
+                    documents={documents}
+                    isInForce={inForce?.id === version.id}
+                    key={version.id}
+                    previous={previous}
+                    today={today}
+                    version={version}
+                  />
+                ))}
+              </ul>
+            </section>
+          </>
+        )}
       </div>
       {latest ? (
         <DeedVersionDialog

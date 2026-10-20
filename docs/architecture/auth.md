@@ -18,6 +18,8 @@ Better Auth is configured in `packages/auth/src/auth.ts`.
 3. Server functions and API routes call `requireSession(request)` (`apps/web/src/lib/api-auth.ts`).
 4. zero-cache forwards cookies to `/api/zero/mutate` and `/api/zero/query`. The app validates the session cookie and builds the Zero context. There is no separate JWT.
 
+Focusing the login form warms the intended destination’s matched route chunks, including its layout, through the router’s code-only loader. It runs no route guards, data loaders or Zero instance before sign-in. Authentication and permissions are still resolved by `_app` when navigation begins.
+
 ## Volunteer sign-up
 
 ### Age

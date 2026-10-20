@@ -1,5 +1,5 @@
 import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
-import { useCanChangeCharge } from "@/components/expenses/charged-to-card";
+import { useCanChangeCharge } from "@/components/expenses/use-can-change-charge";
 import {
   type ChargedRequest,
   requestToClearValue,

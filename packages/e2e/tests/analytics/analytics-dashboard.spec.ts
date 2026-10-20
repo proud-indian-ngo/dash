@@ -35,6 +35,45 @@ test.describe("Analytics dashboard (admin)", () => {
     ).toBeVisible({ timeout: 5000 });
   });
 
+  test("custom date range loads its calendar on desktop and phone", async ({
+    page,
+  }) => {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ height: 900, width });
+      await page.goto("/");
+      await waitForZeroReady(page);
+      await page.getByRole("combobox").click();
+      await page.getByRole("option", { name: "Custom range" }).click();
+      const calendar = page.getByRole("grid");
+      await expect(calendar).toBeVisible();
+      await calendar
+        .getByRole("button", { name: /, \w+ 15th, \d{4}$/ })
+        .click();
+      await calendar
+        .getByRole("button", { name: /, \w+ 16th, \d{4}$/ })
+        .click();
+      await expect
+        .poll(() => {
+          const params = new URL(page.url()).searchParams;
+          const from = params.get("from");
+          const to = params.get("to");
+          return (
+            params.get("range") === "custom" &&
+            from !== null &&
+            to !== null &&
+            Date.parse(to) - Date.parse(from) === 86_400_000
+          );
+        })
+        .toBe(true);
+      if (width < 768) {
+        await page.getByRole("button", { exact: true, name: "Done" }).click();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+      await expect(calendar).toBeHidden();
+    }
+  });
+
   test("spending by programme renders", async ({ page }) => {
     await expect(
       page.getByRole("region", { name: "Spending by programme" })

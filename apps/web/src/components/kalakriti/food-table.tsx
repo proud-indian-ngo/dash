@@ -4,6 +4,11 @@ import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/dat
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { FilterField } from "@pi-dash/design-system/components/reui/filters/filters-types";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+} from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
@@ -182,6 +187,29 @@ export function FoodTable({
     statusSnapshotKey,
     statusSnapshotComplete
   );
+  if (!snapshot && (isLoading || !statusSnapshotComplete)) {
+    return (
+      <Card
+        aria-busy="true"
+        aria-label="Loading Food roster"
+        className="h-[13.625rem] w-full gap-0 py-0!"
+        role="status"
+      >
+        <CardHeader className="block border-b px-3 py-2.5">
+          <Skeleton className="h-8 w-full max-w-64" />
+        </CardHeader>
+        <CardContent className="flex flex-1 px-3 py-4">
+          <div className="flex h-fit w-full items-center gap-3 rounded-lg border p-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+            <Skeleton className="h-5 w-16" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   const rows = snapshot?.rows ?? EMPTY_ROWS;
   const fields = createFoodFilterFields(rows);
   const columns: DataGridColumnDef<EligibleFoodRow>[] = [
@@ -294,7 +322,6 @@ export function FoodTable({
     <DataTableWrapper
       columns={columns}
       data={rows}
-      isLoading={!snapshot && (isLoading || !statusSnapshotComplete)}
       emptyMessage="No eligible people in your Food scope."
       compactOnMobile
       filter={{ fields, getValue: getFoodFilterValue }}

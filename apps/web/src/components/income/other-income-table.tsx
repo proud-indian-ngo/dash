@@ -17,7 +17,7 @@ import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { Tag } from "@/components/shared/status-badge";
 
-import { formatReceivedOn } from "./contribution-detail-sheet";
+import { formatReceivedOn } from "./income-date";
 import type { OtherIncomeRow } from "./income-types";
 
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;

@@ -131,25 +131,32 @@ export function useBooks() {
     ])
   );
 
+  const cashLoading =
+    (yearRows.length === 0 && isAwaitingResult(yearsResult)) ||
+    (accounts.length === 0 && isAwaitingResult(accountsResult)) ||
+    (movementRows.length === 0 && isAwaitingResult(movementsResult)) ||
+    (openingBalances.length === 0 && isAwaitingResult(openingResult));
+  const isLoading =
+    cashLoading ||
+    (heads.length === 0 && isAwaitingResult(headsResult)) ||
+    (funds.length === 0 && isAwaitingResult(fundsResult)) ||
+    (entryRows.length === 0 && isAwaitingResult(entriesResult));
+
   return {
     accounts,
     auditedFigures,
     /** The audited figures page also needs every document and posting. */
     auditedLoading:
+      isLoading ||
       (auditedFigures.length === 0 && isAwaitingResult(auditedResult)) ||
       (postingRows.length === 0 && isAwaitingResult(postingsResult)),
+    /** The cash book needs only years, accounts, movements and opening documents. */
+    cashLoading,
     entries,
     funds,
     heads,
     // Balances need every head, account and fund before they mean anything.
-    isLoading:
-      (heads.length === 0 && isAwaitingResult(headsResult)) ||
-      (accounts.length === 0 && isAwaitingResult(accountsResult)) ||
-      (funds.length === 0 && isAwaitingResult(fundsResult)) ||
-      (yearRows.length === 0 && isAwaitingResult(yearsResult)) ||
-      (movementRows.length === 0 && isAwaitingResult(movementsResult)) ||
-      (entryRows.length === 0 && isAwaitingResult(entriesResult)) ||
-      (openingBalances.length === 0 && isAwaitingResult(openingResult)),
+    isLoading,
     movements,
     openingBalances,
     postings,

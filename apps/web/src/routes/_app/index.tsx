@@ -17,7 +17,6 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Kbd } from "@pi-dash/design-system/components/ui/kbd";
-import { useIsMobile } from "@pi-dash/design-system/hooks/use-mobile";
 import { env } from "@pi-dash/env/web";
 import { formatPaise } from "@pi-dash/shared/money";
 import { queries } from "@pi-dash/zero/queries";
@@ -418,13 +417,9 @@ function OrientedDashboard() {
 
 /** Desktop only: phones have no sidebar shortcut. */
 function SidebarShortcutTip() {
-  const isMobile = useIsMobile();
   const modifier = useShortcutModifier();
-  if (isMobile) {
-    return null;
-  }
   return (
-    <TipStrip className="mt-4" id="sidebar-shortcut">
+    <TipStrip className="mt-4 hidden md:flex" id="sidebar-shortcut">
       Press <Kbd>{modifier}B</Kbd> to collapse or expand the sidebar.
     </TipStrip>
   );

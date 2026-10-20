@@ -1,6 +1,5 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
   Tooltip,
   TooltipContent,
@@ -38,7 +37,13 @@ const CHIP_TONE: Record<StatusTone, string> = {
 };
 
 /** A compact KPI chip for pages where a table's view tabs already show counts. */
-export function StatChip({ item }: { item: StatItem }) {
+export function StatChip({
+  item,
+  isLoading = false,
+}: {
+  item: StatItem;
+  isLoading?: boolean;
+}) {
   const chip = (
     <span
       className={cn(
@@ -64,11 +69,27 @@ export function StatChip({ item }: { item: StatItem }) {
         className="font-mono font-semibold tabular-nums"
         data-slot="stat-value"
       >
-        {item.value}
+        {isLoading ? (
+          <span
+            aria-hidden="true"
+            className="bg-muted inline-flex h-4 w-5 animate-pulse rounded-md"
+            data-slot="skeleton"
+          />
+        ) : (
+          item.value
+        )}
       </span>
       {item.description ? (
         <span className="text-muted-foreground font-mono text-xs tabular-nums">
-          {item.description}
+          {isLoading ? (
+            <span
+              aria-hidden="true"
+              className="bg-muted inline-flex h-3 w-14 animate-pulse rounded-md"
+              data-slot="skeleton"
+            />
+          ) : (
+            item.description
+          )}
         </span>
       ) : null}
     </span>
@@ -116,16 +137,6 @@ export function StatChip({ item }: { item: StatItem }) {
   return chip;
 }
 
-function StatChipsSkeleton() {
-  return (
-    <div className="flex gap-2 overflow-hidden *:shrink-0 sm:flex-wrap">
-      {["sk-1", "sk-2", "sk-3", "sk-4"].map((id) => (
-        <Skeleton className="h-8 w-36 rounded-lg" key={id} />
-      ))}
-    </div>
-  );
-}
-
 /** The page's counts as one row of compact chips (swipeable on phones). */
 export function StatsCards({
   className,
@@ -136,9 +147,6 @@ export function StatsCards({
   items: StatItem[];
   isLoading?: boolean;
 }) {
-  if (isLoading) {
-    return <StatChipsSkeleton />;
-  }
   // Phones: one swipeable row that bleeds to the screen edge, instead of a
   // stack of chips pushing the table down. Wider screens wrap.
   return (
@@ -150,7 +158,7 @@ export function StatsCards({
       data-slot="stat-chips"
     >
       {items.map((item) => (
-        <StatChip item={item} key={item.label} />
+        <StatChip isLoading={isLoading} item={item} key={item.label} />
       ))}
     </div>
   );

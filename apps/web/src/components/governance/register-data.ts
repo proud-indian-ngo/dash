@@ -146,9 +146,16 @@ export function toDeedVersionView(
 }
 
 /** The register, deed versions and the rules in force on a date, from Zero. */
-export function useRegister(on: string) {
-  const [trusteeRows, trusteeResult] = useQuery(queries.trustee.all());
-  const [deedRows, deedResult] = useQuery(queries.deedVersion.all());
+export function useRegister(
+  on: string,
+  { enabled = true }: { enabled?: boolean } = {}
+) {
+  const [trusteeRows, trusteeResult] = useQuery(queries.trustee.all(), {
+    enabled,
+  });
+  const [deedRows, deedResult] = useQuery(queries.deedVersion.all(), {
+    enabled,
+  });
   const trustees = trusteeRows.map(toRegisterTrustee);
   const deedVersions = deedRows.map(toDeedVersionView);
   const inForce = deedVersionOn(deedVersions, on);
@@ -159,8 +166,9 @@ export function useRegister(on: string) {
     trustees,
   };
   const isLoading =
-    (trusteeRows.length === 0 && isAwaitingResult(trusteeResult)) ||
-    (deedRows.length === 0 && isAwaitingResult(deedResult));
+    enabled &&
+    ((trusteeRows.length === 0 && isAwaitingResult(trusteeResult)) ||
+      (deedRows.length === 0 && isAwaitingResult(deedResult)));
   return { deedVersions, inForce, input, isLoading, trustees };
 }
 

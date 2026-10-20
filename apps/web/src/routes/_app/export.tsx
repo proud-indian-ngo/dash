@@ -36,6 +36,7 @@ export const Route = createFileRoute("/_app/export")({
   head: () => ({
     meta: [{ title: `Export Data | ${env.VITE_APP_NAME}` }],
   }),
+  headers: () => ({ "Cache-Control": "private, no-store" }),
 });
 
 const FY_OPTIONS = (() => {

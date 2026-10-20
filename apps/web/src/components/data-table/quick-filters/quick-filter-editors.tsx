@@ -13,16 +13,16 @@ import type {
   FilterField,
   FilterRule,
 } from "@pi-dash/design-system/components/reui/filters/filters-types";
-import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@pi-dash/design-system/components/ui/toggle-group";
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import { isFilterDateValue } from "@/components/data-table/filter-date";
+import { Loader } from "@/components/loader";
 
 import {
   DATE_PRESETS,
@@ -36,6 +36,12 @@ import {
 type RuleChange = (next: { operator: string; value: unknown } | null) => void;
 
 const SEARCH_THRESHOLD = 7;
+
+const LazyCalendar = lazy(() =>
+  import("@pi-dash/design-system/components/ui/calendar").then((module) => ({
+    default: module.Calendar,
+  }))
+);
 
 function EditorFooter({
   children,
@@ -260,23 +266,25 @@ export function DateFilterEditor({
           />
           Presets
         </button>
-        <Calendar
-          className="p-0"
-          mode="range"
-          onSelect={(range: CalendarRange | undefined) => {
-            setDraft(range);
-            if (range?.from && range.to) {
-              onChange({
-                operator: "between",
-                value: [
-                  toFilterDateValue(range.from),
-                  toFilterDateValue(range.to),
-                ],
-              });
-            }
-          }}
-          selected={draft}
-        />
+        <Suspense fallback={<Loader />}>
+          <LazyCalendar
+            className="p-0"
+            mode="range"
+            onSelect={(range: CalendarRange | undefined) => {
+              setDraft(range);
+              if (range?.from && range.to) {
+                onChange({
+                  operator: "between",
+                  value: [
+                    toFilterDateValue(range.from),
+                    toFilterDateValue(range.to),
+                  ],
+                });
+              }
+            }}
+            selected={draft}
+          />
+        </Suspense>
         {rule ? <EditorFooter onClear={() => onChange(null)} /> : null}
       </div>
     );

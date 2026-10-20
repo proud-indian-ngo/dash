@@ -68,7 +68,8 @@ RUN head=$(cat .git/HEAD 2>/dev/null || true); \
 # Client source maps go to PostHog Error Tracking, best effort: a missing key,
 # project ID or release skips the upload, and a failed upload leaves that
 # release unsymbolicated. The personal API key exists only inside this RUN.
-# Every map is deleted whatever happened.
+# Finalization deletes every map and recreates existing compressed JavaScript
+# after the CLI has had its chance to rewrite the chunks.
 ARG POSTHOG_CLI_PROJECT_ID
 ARG POSTHOG_CLI_HOST=https://us.posthog.com
 RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
@@ -83,7 +84,7 @@ RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
     else \
       echo "source maps: upload failed, release $release ships unsymbolicated"; \
     fi; \
-    find apps/web/.output -name '*.map' -type f -delete
+    bun apps/web/scripts/finalize-public-assets.ts apps/web/.output/public
 
 # Stage 2: Migrator (runs pending DB migrations)
 FROM oven/bun:1.4.3-slim AS migrator

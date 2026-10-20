@@ -40,6 +40,7 @@ import {
   updateRole,
 } from "@/functions/role-admin";
 import { useRecordTitle } from "@/hooks/use-record-title";
+import { invalidateAdminUsersCache } from "@/lib/admin-users-cache";
 import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/_app/settings/roles/$roleId")({
@@ -233,6 +234,7 @@ function RoleEditPage() {
             roleId,
           },
         });
+        invalidateAdminUsersCache();
         setRoleData((prev) =>
           prev
             ? {

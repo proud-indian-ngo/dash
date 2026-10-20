@@ -226,11 +226,18 @@ test.describe("Team member contacts", () => {
     await page
       .getByPlaceholder("Search teams...")
       .fill(VOLUNTEER_MEMBER_TEAM_NAME);
-    await page
+    const teamRow = page
       .getByRole("row")
       .filter({ hasText: VOLUNTEER_MEMBER_TEAM_NAME })
-      .first()
-      .click();
+      .first();
+    await teamRow.getByTestId("row-title").click();
+    await page.waitForURL(/\/teams\/[a-z0-9-]+/);
+    await expect(
+      page.getByRole("heading", {
+        name: VOLUNTEER_MEMBER_TEAM_NAME,
+        exact: true,
+      })
+    ).toBeVisible();
     await expect(teamDetail.getAddMemberButton()).toBeHidden();
     await expect(page.getByText(VOLUNTEER_NAME).first()).toBeVisible({
       timeout: 10_000,

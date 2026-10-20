@@ -15,7 +15,7 @@ import {
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { dateField, selectField } from "@/components/data-table/filter-fields";
-import { formatReceivedOn } from "@/components/income/contribution-detail-sheet";
+import { formatReceivedOn } from "@/components/income/income-date";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 
 import {

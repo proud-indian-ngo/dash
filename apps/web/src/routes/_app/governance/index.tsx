@@ -44,6 +44,11 @@ export const Route = createFileRoute("/_app/governance/")({
       queries.trustee.all(),
       abortController.signal
     );
+    preloadRouteQuery(
+      context.zero,
+      queries.deedVersion.all(),
+      abortController.signal
+    );
   },
 });
 

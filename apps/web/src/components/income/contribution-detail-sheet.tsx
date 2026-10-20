@@ -35,14 +35,14 @@ import { DetailsRow } from "@/components/shared/record-detail";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
-import { DATE, DATE_TIME } from "@/lib/date-formats";
-import { epochToLocalDate } from "@/lib/local-date";
+import { DATE_TIME } from "@/lib/date-formats";
 
 import { ContributionInBank } from "./bank/in-bank-fact";
 import {
   ContributionStatusBadge,
   refundedOfLabel,
 } from "./contribution-status";
+import { formatReceivedOn } from "./income-date";
 import { type ContributionRow, donorName } from "./income-types";
 import { ContributionReceiptFact } from "./receipts/contribution-receipt-fact";
 import {
@@ -55,11 +55,6 @@ import { shortId } from "./settlements/settlement-types";
 
 function withDescription(label: string, description: string | null) {
   return description ? `${label}: ${description}` : label;
-}
-
-export function formatReceivedOn(epoch: number): string {
-  const date = epochToLocalDate(epoch);
-  return date ? format(date, DATE) : "—";
 }
 
 /**
