@@ -167,13 +167,16 @@ export function wholeWords(word: string): string[] {
 
 export function Line({
   children,
+  hyphenate = wholeWords,
   style,
 }: {
   children: ReactNode;
+  /** Where a word may break, as `wholeWords`; a narrow box breaks more. */
+  hyphenate?: (word: string) => string[];
   style?: Styles[string] | Styles[string][];
 }) {
   return (
-    <Text hyphenationCallback={wholeWords} style={style}>
+    <Text hyphenationCallback={hyphenate} style={style}>
       {children}
     </Text>
   );

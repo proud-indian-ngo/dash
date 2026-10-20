@@ -14,7 +14,7 @@ import {
 } from "@pi-dash/shared/rich-text";
 
 import { generateCircularResolutionPdf } from "./circular-resolution";
-import { pdfWords } from "./pdf-text.test-helper";
+import { pdfTextRuns, pdfWords } from "./pdf-text.test-helper";
 import { columnWidths } from "./rich-text";
 import { richSample } from "./rich-text.test-helper";
 
@@ -124,6 +124,48 @@ describe("rich text in the PDF", () => {
     );
     expect(expected.filter((w) => !drawn.has(w))).toEqual([]);
     expect(drawn.has("4,50,000")).toBe(true);
+  });
+
+  /** Draws `texts` as one table row and checks each line stays in its column. */
+  async function expectInsideColumns(texts: string[]) {
+    const table = { children: [row("td", texts)], type: "table" };
+    const runs = await pdfTextRuns(await circular([table]));
+    // The columns' edges on the page: 48pt margins on A4.
+    const edges = columnWidths(table as RichTextTable).reduce(
+      (acc, w) => [...acc, acc.at(-1)! + (w * (595.28 - 96)) / 100],
+      [48]
+    );
+    // The table's text: what's drawn between the title and "Passes with".
+    const cellRuns = runs.slice(
+      runs.findIndex((r) => r.str === "Rich text") + 1,
+      runs.findIndex((r) => r.str.startsWith("Passes with"))
+    );
+    expect(cellRuns.length).toBeGreaterThanOrEqual(texts.length);
+    for (const run of cellRuns) {
+      const column = edges.findLastIndex((e) => e <= run.x + 0.5);
+      expect(run.x + run.width).toBeLessThanOrEqual(edges[column + 1]! + 0.5);
+    }
+    // Lines join back into every cell's text once the break hyphens are dropped.
+    const joined = cellRuns.map((r) => r.str.replace(/-$/, "")).join("");
+    expect(texts.filter((t) => !joined.includes(t))).toEqual([]);
+  }
+
+  it("breaks a long run without spaces inside its own column", async () => {
+    await expectInsideColumns(
+      Array.from(
+        { length: MAX_TABLE_COLUMNS },
+        (_, c) => `https://example.org/reference${String(c)}abcdef`
+      )
+    );
+  });
+
+  it("breaks a run of the widest letters inside its own column", async () => {
+    await expectInsideColumns(
+      Array.from(
+        { length: MAX_TABLE_COLUMNS },
+        (_, c) => `${"W".repeat(9)}${String(c)}`
+      )
+    );
   });
 
   it("numbers by the numbered lists an item sits in", async () => {

@@ -16,3 +16,19 @@ export async function pdfWords(pdf: Buffer): Promise<string[]> {
   await task.destroy();
   return words;
 }
+
+/** Each run of text drawn on the first page, with its left edge and width in points. */
+export async function pdfTextRuns(
+  pdf: Buffer
+): Promise<{ str: string; width: number; x: number }[]> {
+  const task = getDocument({ data: new Uint8Array(pdf) });
+  const doc = await task.promise;
+  const content = await (await doc.getPage(1)).getTextContent();
+  const runs = content.items.flatMap((item) =>
+    "str" in item && item.str.trim()
+      ? [{ str: item.str, width: item.width, x: item.transform[4] as number }]
+      : []
+  );
+  await task.destroy();
+  return runs;
+}
