@@ -29,12 +29,13 @@ const POLL_LIMIT_MS = 15 * 60 * 1000;
 function useHelperJob() {
   const poll = useServerFn(getSigningJobStatus);
   const cancelled = useRef(false);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // StrictMode mounts twice in development; reset after its first cleanup.
+    cancelled.current = false;
+    return () => {
       cancelled.current = true;
-    },
-    []
-  );
+    };
+  }, []);
   return useEventCallback(
     async (start: () => Promise<{ jobId: string; link: string }>) => {
       const { jobId, link } = await start();
