@@ -50,9 +50,13 @@ export async function isProtectedR2ObjectReferenced(
       UNION ALL
       SELECT 1 FROM governance_document WHERE object_key = ${r2Key} OR archive_object_key = ${r2Key}
       UNION ALL
-      SELECT 1 FROM resolution_revision WHERE object_key = ${r2Key} OR latest_object_key = ${r2Key}
+      SELECT 1 FROM circular_revision WHERE object_key = ${r2Key} OR latest_object_key = ${r2Key}
       UNION ALL
-      SELECT 1 FROM resolution_signature WHERE object_key = ${r2Key}
+      SELECT 1 FROM circular_signature WHERE object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM resolution
+      WHERE status = 'issued' AND circular_id IS NOT NULL
+        AND ${r2Key} LIKE '%/governance/circulars/' || circular_id::text || '/%'
       UNION ALL
       SELECT 1 FROM meeting WHERE minutes_object_key = ${r2Key}
     ) AS referenced

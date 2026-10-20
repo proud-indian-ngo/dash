@@ -62,6 +62,8 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
 
 async function collectAllDbKeys(): Promise<{
   keys: Set<string>;
+  /** Folders kept whole: an open circular's signing copies and state. */
+  retainPrefixes: string[];
   retainAllEventUpdates: boolean;
 }> {
   const keys = new Set<string>();
@@ -92,11 +94,11 @@ async function collectAllDbKeys(): Promise<{
       UNION ALL
       SELECT object_key FROM governance_document WHERE object_key LIKE ${keyPrefix}
       UNION ALL
-      SELECT object_key FROM resolution_revision WHERE object_key LIKE ${keyPrefix}
+      SELECT object_key FROM circular_revision WHERE object_key LIKE ${keyPrefix}
       UNION ALL
-      SELECT latest_object_key FROM resolution_revision WHERE latest_object_key LIKE ${keyPrefix}
+      SELECT latest_object_key FROM circular_revision WHERE latest_object_key LIKE ${keyPrefix}
       UNION ALL
-      SELECT object_key FROM resolution_signature WHERE object_key LIKE ${keyPrefix}
+      SELECT object_key FROM circular_signature WHERE object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT archive_object_key FROM governance_document WHERE archive_object_key LIKE ${keyPrefix}
       UNION ALL
@@ -167,7 +169,15 @@ async function collectAllDbKeys(): Promise<{
     }
   }
 
-  return { keys, retainAllEventUpdates };
+  const openCirculars = await db.execute<{ id: string }>(sql`
+    SELECT DISTINCT circular_id AS id FROM resolution
+    WHERE status = 'issued' AND circular_id IS NOT NULL
+  `);
+  const retainPrefixes = openCirculars.map(
+    (row) => `${prefix}/governance/circulars/${row.id}/`
+  );
+
+  return { keys, retainAllEventUpdates, retainPrefixes };
 }
 
 async function deleteOrphans(
@@ -231,7 +241,7 @@ export async function handleCleanupR2Orphans(
     listAllR2Objects(graceCutoff),
     collectAllDbKeys(),
   ]);
-  const { keys: dbKeys, retainAllEventUpdates } = dbReferences;
+  const { keys: dbKeys, retainAllEventUpdates, retainPrefixes } = dbReferences;
 
   log.set({
     dbKeyCount: dbKeys.size,
@@ -244,7 +254,8 @@ export async function handleCleanupR2Orphans(
     (key) =>
       !(
         dbKeys.has(key) ||
-        (retainAllEventUpdates && key.startsWith(eventUpdatePrefix))
+        (retainAllEventUpdates && key.startsWith(eventUpdatePrefix)) ||
+        retainPrefixes.some((p) => key.startsWith(p))
       )
   );
   log.set({ orphanCount: orphans.length });

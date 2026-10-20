@@ -526,9 +526,14 @@ export interface NotifyMeetingPayload {
   meetingId: string;
 }
 
-/** A resolution that was issued or decided. */
+/** A circular that was issued. */
+export interface NotifyCircularPayload {
+  circularId: string;
+}
+
+/** Resolutions one response, withdrawal or close decided: one notice. */
 export interface NotifyResolutionPayload {
-  resolutionId: string;
+  resolutionIds: string[];
 }
 
 export interface RemindStaleRequestsPayload {
@@ -793,7 +798,7 @@ export interface JobPayloads {
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
   "remind-trustee-terms": Record<string, never>;
-  "notify-resolution-issued": NotifyResolutionPayload;
+  "notify-circular-issued": NotifyCircularPayload;
   "notify-meeting-notice": NotifyMeetingPayload;
   "notify-resolution-decided": NotifyResolutionPayload;
   "close-due-resolutions": Record<string, never>;

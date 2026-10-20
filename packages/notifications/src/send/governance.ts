@@ -77,25 +77,25 @@ export async function notifyTermEnding(
 
 // ── Resolutions ─────────────────────────────────────────────────────────────
 
-export interface ResolutionNotice {
-  /** For "decided": the outcome. */
-  number?: string | null;
-  outcome?: "passed" | "failed" | "withdrawn";
-  outcomeNote?: string | null;
-  resolutionId: string;
-  responseDueOn?: string | null;
-  title: string;
-}
-
 /** A circular went out: every trustee it went to is asked to respond. */
-export async function notifyResolutionIssued(
-  notice: ResolutionNotice & { userIds: string[] }
-): Promise<void> {
-  const path = `/governance/resolutions/${notice.resolutionId}`;
-  const due = notice.responseDueOn ? formatDay(notice.responseDueOn) : null;
+export async function notifyCircularIssued(notice: {
+  circularId: string;
+  responseDueOn: string;
+  titles: string[];
+  userIds: string[];
+}): Promise<void> {
+  const path = `/governance/resolutions/circulars/${notice.circularId}`;
+  const due = formatDay(notice.responseDueOn);
+  const [first] = notice.titles;
+  const title =
+    notice.titles.length === 1
+      ? (first ?? "")
+      : `${notice.titles.length} resolutions`;
   const paragraphs = [
-    `A circular resolution needs your response: "${notice.title}".`,
-    `Read it, then either sign it with your DSC or record an objection${due ? ` by ${due}` : ""}. If you have a conflict of interest, declare it instead.`,
+    notice.titles.length === 1
+      ? `A circular resolution needs your response: "${first ?? ""}".`
+      : `A circular with ${notice.titles.length} resolutions needs your response: ${notice.titles.map((t) => `"${t}"`).join(", ")}.`,
+    `Read it, object to any resolution you disagree with, then sign the circular with your DSC by ${due}: your signature assents to the rest. If you have a conflict of interest in one, declare it instead.`,
   ];
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Open the circular",
@@ -110,13 +110,13 @@ export async function notifyResolutionIssued(
         clickAction: path,
         digest: {
           actionLabel: "Respond",
-          meta: due ? `Respond by ${due}` : "Respond",
-          name: notice.title,
+          meta: `Respond by ${due}`,
+          name: title,
           status: { label: "Your vote", tone: "warning" },
         },
         emailHtml,
-        idempotencyKey: `resolution-issued-${notice.resolutionId}-${userId}`,
-        title: `Circular for your vote: ${notice.title}`,
+        idempotencyKey: `circular-issued-${notice.circularId}-${userId}`,
+        title: `Circular for your vote: ${title}`,
         to: userId,
         topic: TOPICS.GOVERNANCE,
         whatsappTemplate: null,
@@ -131,26 +131,66 @@ const OUTCOME_TEXT = {
   withdrawn: "was withdrawn",
 } as const;
 
-/** A circular passed, failed or was withdrawn: the trustees and the secretaries hear. */
-export async function notifyResolutionDecided(
-  notice: ResolutionNotice & { userIds: string[] }
-): Promise<void> {
-  const outcome = notice.outcome ?? "passed";
-  const path = `/governance/resolutions/${notice.resolutionId}`;
-  const first =
-    outcome === "passed" && notice.number
-      ? `The circular "${notice.title}" passed and is recorded as ${notice.number}.`
-      : `The circular "${notice.title}" ${OUTCOME_TEXT[outcome]}.`;
-  const paragraphs = notice.outcomeNote ? [first, notice.outcomeNote] : [first];
+export interface DecidedResolution {
+  number: string | null;
+  outcome: "passed" | "failed" | "withdrawn";
+  outcomeNote: string | null;
+  /** Its place in the circular; null for a meeting's resolution. */
+  position: number | null;
+  resolutionId: string;
+  title: string;
+}
+
+function decidedLine(r: DecidedResolution): string {
+  const name = r.position
+    ? `Resolution ${r.position}, "${r.title}",`
+    : `"${r.title}"`;
+  const outcome =
+    r.outcome === "passed" && r.number
+      ? `passed and is recorded as ${r.number}`
+      : OUTCOME_TEXT[r.outcome];
+  return `${name} ${outcome}.${r.outcomeNote ? ` ${r.outcomeNote}` : ""}`;
+}
+
+/**
+ * Resolutions one response, withdrawal or close decided: the trustees and
+ * the secretaries hear once, with each outcome.
+ */
+export async function notifyResolutionsDecided(notice: {
+  circularId: string | null;
+  resolutions: DecidedResolution[];
+  userIds: string[];
+}): Promise<void> {
+  const [only] = notice.resolutions;
+  if (!only) {
+    return;
+  }
+  const single = notice.resolutions.length === 1;
+  const path =
+    single || !notice.circularId
+      ? `/governance/resolutions/${only.resolutionId}`
+      : `/governance/resolutions/circulars/${notice.circularId}`;
+  const paragraphs = notice.resolutions.map(decidedLine);
+  const passed = notice.resolutions.filter((r) => r.outcome === "passed");
+  const heading = single
+    ? only.outcome === "passed"
+      ? "Resolution passed"
+      : `Resolution ${OUTCOME_TEXT[only.outcome]}`
+    : `${notice.resolutions.length} resolutions decided`;
+  const title = single
+    ? only.outcome === "passed"
+      ? `Passed: ${only.title}`
+      : `Resolution ${OUTCOME_TEXT[only.outcome]}: ${only.title}`
+    : `${notice.resolutions.length} resolutions decided, ${passed.length} passed`;
   const emailHtml = await renderNotificationEmail({
-    ctaLabel: "Open the resolution",
+    ctaLabel: single ? "Open the resolution" : "Open the circular",
     ctaUrl: `${env.APP_URL}${path}`,
-    heading:
-      outcome === "passed"
-        ? "Resolution passed"
-        : `Circular ${OUTCOME_TEXT[outcome]}`,
+    heading,
     paragraphs,
   });
+  const key = notice.resolutions
+    .map((r) => `${r.resolutionId}-${r.outcome}`)
+    .join("_");
   await Promise.all(
     notice.userIds.map((userId) =>
       sendMessage({
@@ -158,19 +198,18 @@ export async function notifyResolutionDecided(
         clickAction: path,
         digest: {
           actionLabel: "Open",
-          meta: notice.number ?? OUTCOME_TEXT[outcome],
-          name: notice.title,
+          meta: single
+            ? (only.number ?? OUTCOME_TEXT[only.outcome])
+            : `${passed.length} of ${notice.resolutions.length} passed`,
+          name: single ? only.title : heading,
           status: {
-            label: outcome === "passed" ? "Passed" : "Closed",
-            tone: outcome === "passed" ? "success" : "neutral",
+            label: passed.length > 0 ? "Passed" : "Closed",
+            tone: passed.length > 0 ? "success" : "neutral",
           },
         },
         emailHtml,
-        idempotencyKey: `resolution-decided-${notice.resolutionId}-${outcome}-${userId}`,
-        title:
-          outcome === "passed"
-            ? `Passed: ${notice.title}`
-            : `Circular ${OUTCOME_TEXT[outcome]}: ${notice.title}`,
+        idempotencyKey: `resolutions-decided-${key}-${userId}`,
+        title,
         to: userId,
         topic: TOPICS.GOVERNANCE,
         whatsappTemplate: null,

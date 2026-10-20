@@ -151,6 +151,7 @@ import { Route as ApiSocialV1RunsRouteImport } from './routes/api/social/v1/runs
 import { Route as ApiSocialV1SettingsRouteImport } from './routes/api/social/v1/settings'
 import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
 import { Route as ApiWhatsappCloudWebhookRouteImport } from './routes/api/whatsapp/cloud/webhook'
+import { Route as AppGovernanceResolutionsCircularsCircularIdRouteImport } from './routes/_app/governance/resolutions/circulars/$circularId'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
 import { Route as AppKalakritiYearCompetitionsCatalogRouteImport } from './routes/_app/kalakriti/$year/competitions/catalog'
@@ -899,6 +900,12 @@ const ApiWhatsappCloudWebhookRoute = ApiWhatsappCloudWebhookRouteImport.update({
   path: '/api/whatsapp/cloud/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppGovernanceResolutionsCircularsCircularIdRoute =
+  AppGovernanceResolutionsCircularsCircularIdRouteImport.update({
+    id: '/resolutions/circulars/$circularId',
+    path: '/resolutions/circulars/$circularId',
+    getParentRoute: () => AppGovernanceRouteRoute,
+  } as any)
 const AppKalakritiYearCentersIndexRoute =
   AppKalakritiYearCentersIndexRouteImport.update({
     id: '/centers/',
@@ -1143,6 +1150,7 @@ export interface FileRoutesByFullPath {
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1287,6 +1295,7 @@ export interface FileRoutesByTo {
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
+  '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1449,6 +1458,7 @@ export interface FileRoutesById {
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/_app/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/_app/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/_app/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
   '/_app/kalakriti/$year/competitions/schedule': typeof AppKalakritiYearCompetitionsScheduleRoute
@@ -1610,6 +1620,7 @@ export interface FileRouteTypes {
     | '/income/bank/'
     | '/kalakriti/$year/'
     | '/settings/roles/'
+    | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
     | '/kalakriti/$year/competitions/schedule'
@@ -1754,6 +1765,7 @@ export interface FileRouteTypes {
     | '/income/bank'
     | '/kalakriti/$year'
     | '/settings/roles'
+    | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
     | '/kalakriti/$year/competitions/schedule'
@@ -1915,6 +1927,7 @@ export interface FileRouteTypes {
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
+    | '/_app/governance/resolutions/circulars/$circularId'
     | '/_app/kalakriti/$year/competitions/catalog'
     | '/_app/kalakriti/$year/competitions/categories'
     | '/_app/kalakriti/$year/competitions/schedule'
@@ -2978,6 +2991,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWhatsappCloudWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/governance/resolutions/circulars/$circularId': {
+      id: '/_app/governance/resolutions/circulars/$circularId'
+      path: '/resolutions/circulars/$circularId'
+      fullPath: '/governance/resolutions/circulars/$circularId'
+      preLoaderRoute: typeof AppGovernanceResolutionsCircularsCircularIdRouteImport
+      parentRoute: typeof AppGovernanceRouteRoute
+    }
     '/_app/kalakriti/$year/centers/': {
       id: '/_app/kalakriti/$year/centers/'
       path: '/centers'
@@ -3139,6 +3159,7 @@ interface AppGovernanceRouteRouteChildren {
   AppGovernanceResolutionsSigningHelperRoute: typeof AppGovernanceResolutionsSigningHelperRoute
   AppGovernanceMeetingsIndexRoute: typeof AppGovernanceMeetingsIndexRoute
   AppGovernanceResolutionsIndexRoute: typeof AppGovernanceResolutionsIndexRoute
+  AppGovernanceResolutionsCircularsCircularIdRoute: typeof AppGovernanceResolutionsCircularsCircularIdRoute
 }
 
 const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
@@ -3156,6 +3177,8 @@ const AppGovernanceRouteRouteChildren: AppGovernanceRouteRouteChildren = {
     AppGovernanceResolutionsSigningHelperRoute,
   AppGovernanceMeetingsIndexRoute: AppGovernanceMeetingsIndexRoute,
   AppGovernanceResolutionsIndexRoute: AppGovernanceResolutionsIndexRoute,
+  AppGovernanceResolutionsCircularsCircularIdRoute:
+    AppGovernanceResolutionsCircularsCircularIdRoute,
 }
 
 const AppGovernanceRouteRouteWithChildren =

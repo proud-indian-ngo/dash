@@ -116,8 +116,8 @@ import { handleRemindStaleRequests } from "./remind-stale-requests";
 import { handleRemindTrusteeTerms } from "./remind-trustee-terms";
 import {
   handleCloseDueResolutions,
+  handleNotifyCircularIssued,
   handleNotifyResolutionDecided,
-  handleNotifyResolutionIssued,
 } from "./resolutions";
 import { handleRetimestampGovernanceArchives } from "./retimestamp-governance-archives";
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
@@ -572,9 +572,9 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     withDefaultOutput(handleFlushHeldNotifications)
   );
   await boss.work(
-    "notify-resolution-issued",
+    "notify-circular-issued",
     NOTIFY_POLL,
-    handleNotifyResolutionIssued
+    handleNotifyCircularIssued
   );
   await boss.work(
     "notify-meeting-notice",

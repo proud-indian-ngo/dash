@@ -8,6 +8,8 @@ import {
 } from "@pi-dash/shared/governance";
 import { financialYearOf } from "@pi-dash/shared/income";
 import {
+  answersText,
+  type CircularAnswer,
   effectSubject,
   formatResolutionNumber,
   type ResolutionEffect,
@@ -15,17 +17,18 @@ import {
   type Tally,
   tallyCircular,
 } from "@pi-dash/shared/resolutions";
-import { and, eq, isNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import {
+  circular,
+  circularRevision,
+  circularSignature,
   deedVersion,
   type GovernanceValidationReport,
   resolution,
   resolutionResponse,
-  resolutionRevision,
-  resolutionSignature,
   trustee,
   trusteeOffice,
   trusteeTerm,
@@ -334,75 +337,147 @@ async function applyEffect(
 // ── Issue ───────────────────────────────────────────────────────────────────
 
 export interface IssueInput {
+  circularId: string;
   deedVersionId: string | null;
-  issuedOn: string;
   issuerTrusteeId: string;
   /** The prepared PDF, already stored. */
   pdf: { fieldsPrepared: boolean; objectKey: string; sha256: string };
-  resolutionId: string;
+  /**
+   * The drafts it carries, in order, each with the threshold it passes by
+   * and the `updatedAt` the PDF was rendered from.
+   */
+  resolutions: {
+    id: string;
+    renderedFrom: Date;
+    threshold: RegisterInput["rules"]["amendmentThreshold"];
+  }[];
   responseDueOn: string;
   /** Snapshot of the trustees in office at issue. */
   responders: { fieldName: string; trusteeId: string; userId: string | null }[];
-  threshold: RegisterInput["rules"]["amendmentThreshold"];
 }
 
-/** Freezes a draft into revision 1 and opens a response per trustee. */
-export async function issueResolution(input: IssueInput): Promise<void> {
+/**
+ * Freezes the drafts into one circular with its PDF as revision 1, and
+ * opens a response per trustee on each of them.
+ */
+export async function issueCircular(input: IssueInput): Promise<void> {
   await db.transaction(async (tx) => {
-    const row = await lockResolution(tx, input.resolutionId);
-    if (row.status !== "draft") {
-      throw new ResolutionError("Only a draft can be issued.");
-    }
-    if (row.kind !== "circular") {
-      throw new ResolutionError(
-        "This resolution is on a meeting's agenda and is decided there."
-      );
+    // In id order, so two issues sharing drafts lock them in the same order.
+    const byId = [...input.resolutions].sort((a, b) =>
+      a.id.localeCompare(b.id)
+    );
+    for (const item of byId) {
+      const row = await lockResolution(tx, item.id);
+      if (row.status !== "draft") {
+        throw new ResolutionError(`"${row.title}" is no longer a draft.`);
+      }
+      if (row.kind !== "circular") {
+        throw new ResolutionError(
+          `"${row.title}" is on a meeting's agenda and is decided there.`
+        );
+      }
+      if (row.updatedAt.getTime() !== item.renderedFrom.getTime()) {
+        throw new ResolutionError(
+          `"${row.title}" was edited while the circular was being issued. Issue it again.`
+        );
+      }
     }
     const now = new Date();
-    const revisionId = uuidv7();
-    await tx.insert(resolutionRevision).values({
-      body: row.body,
+    await tx.insert(circular).values({
+      createdAt: now,
+      id: input.circularId,
+      issuedAt: now,
+      issuedByTrusteeId: input.issuerTrusteeId,
+      responseDueOn: input.responseDueOn,
+      updatedAt: now,
+    });
+    await tx.insert(circularRevision).values({
+      circularId: input.circularId,
       createdAt: now,
       fieldsPrepared: input.pdf.fieldsPrepared,
-      id: revisionId,
+      id: uuidv7(),
       latestObjectKey: input.pdf.objectKey,
       latestSha256: input.pdf.sha256,
       objectKey: input.pdf.objectKey,
-      resolutionId: row.id,
       revision: 1,
       sha256: input.pdf.sha256,
     });
-    await tx.insert(resolutionResponse).values(
-      input.responders.map((r) => ({
-        fieldName: r.fieldName,
-        id: uuidv7(),
-        resolutionId: row.id,
-        trusteeId: r.trusteeId,
-        userId: r.userId,
-      }))
-    );
-    await tx
-      .update(resolution)
-      .set({
-        deedVersionId: input.deedVersionId,
-        issuedAt: now,
-        issuedByTrusteeId: input.issuerTrusteeId,
-        responseDueOn: input.responseDueOn,
-        status: "issued",
-        threshold: input.threshold,
-        updatedAt: now,
-      })
-      .where(eq(resolution.id, row.id));
+    for (const [index, item] of input.resolutions.entries()) {
+      await tx.insert(resolutionResponse).values(
+        input.responders.map((r) => ({
+          fieldName: r.fieldName,
+          id: uuidv7(),
+          resolutionId: item.id,
+          trusteeId: r.trusteeId,
+          userId: r.userId,
+        }))
+      );
+      await tx
+        .update(resolution)
+        .set({
+          circularId: input.circularId,
+          deedVersionId: input.deedVersionId,
+          position: index + 1,
+          status: "issued",
+          threshold: item.threshold,
+          updatedAt: now,
+        })
+        .where(eq(resolution.id, item.id));
+    }
   });
 }
 
+export async function getCircular(id: string) {
+  const [row] = await db
+    .select()
+    .from(circular)
+    .where(eq(circular.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/** A circular's resolutions in order. */
+export async function circularResolutions(circularId: string) {
+  return await db
+    .select()
+    .from(resolution)
+    .where(eq(resolution.circularId, circularId))
+    .orderBy(asc(resolution.position));
+}
+
 // ── Responses ───────────────────────────────────────────────────────────────
+
+/**
+ * Every write to a circular locks its row first, then its resolutions, then
+ * responses, so signatures, objections, withdrawal and closing serialise
+ * per circular without deadlocking.
+ */
+async function lockCircular(tx: Tx, circularId: string) {
+  const [row] = await tx
+    .select()
+    .from(circular)
+    .where(eq(circular.id, circularId))
+    .for("update")
+    .limit(1);
+  if (!row) {
+    throw new ResolutionError("Circular not found");
+  }
+  return row;
+}
 
 async function lockOpenResponse(
   tx: Tx,
   resolutionId: string,
   trusteeId: string
 ) {
+  const [owner] = await tx
+    .select({ circularId: resolution.circularId })
+    .from(resolution)
+    .where(eq(resolution.id, resolutionId))
+    .limit(1);
+  if (owner?.circularId) {
+    await lockCircular(tx, owner.circularId);
+  }
   const row = await lockResolution(tx, resolutionId);
   if (row.status !== "issued") {
     throw new ResolutionError("This resolution is no longer open.");
@@ -439,9 +514,9 @@ export async function recordObjection(input: {
   resolutionId: string;
   today: string;
   trusteeId: string;
-}): Promise<Decision> {
+}): Promise<Decision[]> {
   return await db.transaction(async (tx) => {
-    const { response } = await lockOpenResponse(
+    const { response, row } = await lockOpenResponse(
       tx,
       input.resolutionId,
       input.trusteeId
@@ -454,7 +529,7 @@ export async function recordObjection(input: {
         response: "objection",
       })
       .where(eq(resolutionResponse.id, response.id));
-    return await decideInTx(tx, input.resolutionId, input.today);
+    return await settleAfterResponse(tx, row, input.today);
   });
 }
 
@@ -463,9 +538,9 @@ export async function declareConflict(input: {
   resolutionId: string;
   today: string;
   trusteeId: string;
-}): Promise<Decision> {
+}): Promise<Decision[]> {
   return await db.transaction(async (tx) => {
-    const { response } = await lockOpenResponse(
+    const { response, row } = await lockOpenResponse(
       tx,
       input.resolutionId,
       input.trusteeId
@@ -478,67 +553,155 @@ export async function declareConflict(input: {
         respondedAt: new Date(),
       })
       .where(eq(resolutionResponse.id, response.id));
-    return await decideInTx(tx, input.resolutionId, input.today);
+    return await settleAfterResponse(tx, row, input.today);
   });
 }
 
+/** A response can settle more than its own resolution: the ones held behind it. */
+function settleAfterResponse(
+  tx: Tx,
+  row: typeof resolution.$inferSelect,
+  today: string
+): Promise<Decision[]> {
+  return row.circularId
+    ? decideCircularInTx(tx, row.circularId, today)
+    : decideInTx(tx, row.id, today, false).then((d) => [d]);
+}
+
 /** The PDF a signer must extend: the latest with every signature so far. */
-export async function currentRevision(resolutionId: string) {
+export async function currentRevision(circularId: string) {
   const [row] = await db
     .select()
-    .from(resolutionRevision)
-    .where(eq(resolutionRevision.resolutionId, resolutionId))
-    .orderBy(sql`${resolutionRevision.revision} desc`)
+    .from(circularRevision)
+    .where(eq(circularRevision.circularId, circularId))
+    .orderBy(desc(circularRevision.revision))
     .limit(1);
   return row ?? null;
 }
 
-export async function responseFor(resolutionId: string, trusteeId: string) {
-  const [row] = await db
-    .select()
+export interface SignerState {
+  /** Each resolution's answer as their signature would give it now. */
+  answers: { answer: CircularAnswer; position: number }[];
+  fieldName: string;
+  /** Resolutions still open and waiting for them: what signing assents to. */
+  openAssents: number;
+}
+
+/**
+ * Where a trustee stands on a circular: null if it didn't go to them.
+ * Signing assents to every resolution they haven't objected to or declared
+ * a conflict on.
+ */
+export async function signerState(
+  executor: Executor,
+  circularId: string,
+  trusteeId: string
+): Promise<SignerState | null> {
+  const rows = await executor
+    .select({
+      conflictDeclared: resolutionResponse.conflictDeclared,
+      fieldName: resolutionResponse.fieldName,
+      position: resolution.position,
+      response: resolutionResponse.response,
+      status: resolution.status,
+    })
     .from(resolutionResponse)
+    .innerJoin(resolution, eq(resolution.id, resolutionResponse.resolutionId))
     .where(
       and(
-        eq(resolutionResponse.resolutionId, resolutionId),
+        eq(resolution.circularId, circularId),
         eq(resolutionResponse.trusteeId, trusteeId)
       )
-    )
-    .limit(1);
-  return row ?? null;
+    );
+  const [first] = rows;
+  if (!first) {
+    return null;
+  }
+  const answers = rows.map((r) => ({
+    answer: answerOf(r),
+    position: r.position ?? 0,
+  }));
+  return {
+    answers,
+    fieldName: first.fieldName,
+    openAssents: rows.filter(
+      (r) =>
+        r.status === "issued" && r.response === "pending" && !r.conflictDeclared
+    ).length,
+  };
+}
+
+/**
+ * What a trustee's signature would say about one resolution: a resolution
+ * decided while they were still pending isn't assented to.
+ */
+function answerOf(r: {
+  conflictDeclared: boolean;
+  response: string;
+  status: string;
+}): CircularAnswer {
+  if (r.conflictDeclared) {
+    return "conflict";
+  }
+  if (r.response === "objection") {
+    return "objection";
+  }
+  return r.response === "pending" && r.status !== "issued"
+    ? "decided"
+    : "assent";
 }
 
 export interface SignatureInput {
+  /** The answers filled into the PDF the trustee signed. */
+  answers: string;
   /** The sha256 of the PDF the signer extended; refuses a stale upload. */
   basedOnSha256: string;
+  circularId: string;
   createdBy: string | null;
   method: "acrobat_upload" | "dsc_helper";
   objectKey: string;
-  resolutionId: string;
   sha256: string;
   signature: GovernanceValidationReport["signatures"][number];
   today: string;
   trusteeId: string;
 }
 
-/** Records a signed assent and moves the revision's latest PDF forward. */
+/**
+ * Records a trustee's signature on a circular: it assents to every
+ * resolution they hadn't objected to or declared a conflict on, as the
+ * answers in the signed PDF say. Moves the latest PDF forward and settles
+ * whatever is now decided, in order.
+ */
 export async function recordSignature(
   input: SignatureInput
-): Promise<Decision> {
+): Promise<Decision[]> {
   return await db.transaction(async (tx) => {
-    const { response } = await lockOpenResponse(
-      tx,
-      input.resolutionId,
-      input.trusteeId
-    );
+    await lockCircular(tx, input.circularId);
+    const state = await signerState(tx, input.circularId, input.trusteeId);
+    if (!state) {
+      throw new ResolutionError(
+        "You weren't a trustee in office when this was issued."
+      );
+    }
+    if (state.openAssents === 0) {
+      throw new ResolutionError(
+        "There's nothing left for you to sign on this circular."
+      );
+    }
+    if (answersText(state.answers) !== input.answers) {
+      throw new ResolutionError(
+        "Your answers changed while you were signing. Start again to sign them as they are now."
+      );
+    }
     const [revision] = await tx
       .select()
-      .from(resolutionRevision)
-      .where(eq(resolutionRevision.resolutionId, input.resolutionId))
-      .orderBy(sql`${resolutionRevision.revision} desc`)
+      .from(circularRevision)
+      .where(eq(circularRevision.circularId, input.circularId))
+      .orderBy(desc(circularRevision.revision))
       .for("update")
       .limit(1);
     if (!revision) {
-      throw new ResolutionError("This resolution has no issued PDF.");
+      throw new ResolutionError("This circular has no issued PDF.");
     }
     if (revision.latestSha256 !== input.basedOnSha256) {
       throw new ResolutionError(
@@ -547,16 +710,18 @@ export async function recordSignature(
     }
     const signatureId = uuidv7();
     const s = input.signature;
-    await tx.insert(resolutionSignature).values({
+    const now = new Date();
+    await tx.insert(circularSignature).values({
+      answers: input.answers,
       certificateSha256: s.sha256Fingerprint || null,
-      createdAt: new Date(),
+      circularId: input.circularId,
+      createdAt: now,
       createdBy: input.createdBy,
-      fieldName: response.fieldName,
+      fieldName: state.fieldName,
       id: signatureId,
       issuer: s.issuer || null,
       method: input.method,
       objectKey: input.objectKey,
-      resolutionId: input.resolutionId,
       revisionId: revision.id,
       serial: s.serial || null,
       sha256: input.sha256,
@@ -568,13 +733,31 @@ export async function recordSignature(
     });
     await tx
       .update(resolutionResponse)
-      .set({ respondedAt: new Date(), response: "assent", signatureId })
-      .where(eq(resolutionResponse.id, response.id));
+      .set({ respondedAt: now, response: "assent", signatureId })
+      .where(
+        and(
+          eq(resolutionResponse.trusteeId, input.trusteeId),
+          eq(resolutionResponse.response, "pending"),
+          eq(resolutionResponse.conflictDeclared, false),
+          inArray(
+            resolutionResponse.resolutionId,
+            tx
+              .select({ id: resolution.id })
+              .from(resolution)
+              .where(
+                and(
+                  eq(resolution.circularId, input.circularId),
+                  eq(resolution.status, "issued")
+                )
+              )
+          )
+        )
+      );
     await tx
-      .update(resolutionRevision)
+      .update(circularRevision)
       .set({ latestObjectKey: input.objectKey, latestSha256: input.sha256 })
-      .where(eq(resolutionRevision.id, revision.id));
-    return await decideInTx(tx, input.resolutionId, input.today);
+      .where(eq(circularRevision.id, revision.id));
+    return await decideCircularInTx(tx, input.circularId, input.today);
   });
 }
 
@@ -582,6 +765,7 @@ export async function recordSignature(
 
 export interface Decision {
   number: string | null;
+  resolutionId: string;
   status: "issued" | "passed" | "failed";
   tally: Tally;
 }
@@ -598,17 +782,26 @@ async function nextSequence(tx: Tx, fiscalYear: string): Promise<number> {
 }
 
 /**
- * Counts the responses and, when the outcome is settled, passes the
- * resolution (number, register effect) or fails it, in the caller's
- * transaction. An effect the register can no longer take fails it with the
- * reason, rather than leaving the register inconsistent.
+ * Counts a resolution's responses and, when the outcome is settled, passes
+ * it (number, register effect) or fails it, in the caller's transaction. An
+ * effect the register can no longer take fails it with the reason, rather
+ * than leaving the register inconsistent.
  */
 async function decideInTx(
   tx: Tx,
   resolutionId: string,
-  today: string
+  today: string,
+  /** An earlier resolution in the circular is still open. */
+  earlierOpen: boolean
 ): Promise<Decision> {
   const row = await lockResolution(tx, resolutionId);
+  const [issue] = row.circularId
+    ? await tx
+        .select({ responseDueOn: circular.responseDueOn })
+        .from(circular)
+        .where(eq(circular.id, row.circularId))
+        .limit(1)
+    : [];
   const responses = await tx
     .select({
       conflictDeclared: resolutionResponse.conflictDeclared,
@@ -619,7 +812,7 @@ async function decideInTx(
     .from(resolutionResponse)
     .where(eq(resolutionResponse.resolutionId, resolutionId));
   const tally = tallyCircular({
-    dueOn: row.responseDueOn ?? today,
+    dueOn: issue?.responseDueOn ?? today,
     responses: responses.map((r): ResponseState => ({
       conflictDeclared: r.conflictDeclared,
       response: r.response,
@@ -633,23 +826,60 @@ async function decideInTx(
   if (row.status !== "issued" || tally.outcome === "open") {
     return {
       number: row.number,
+      resolutionId,
       status: row.status === "issued" ? "issued" : (row.status as "passed"),
       tally,
     };
   }
   if (tally.outcome === "failed") {
     await failInTx(tx, resolutionId, today, tally.reason);
-    return { number: null, status: "failed", tally };
+    return { number: null, resolutionId, status: "failed", tally };
+  }
+  // A designation that needs the appointment before it waits for that
+  // appointment to be decided, rather than failing on the register now.
+  if (
+    earlierOpen &&
+    effectRegisterProblem(await loadRegister(tx, today), row.effect)
+  ) {
+    return { number: null, resolutionId, status: "issued", tally };
   }
   const passed = await passInTx(tx, row, today);
   if (passed.status === "failed") {
     return {
       number: null,
+      resolutionId,
       status: "failed",
       tally: { ...tally, reason: passed.note },
     };
   }
-  return { number: passed.number, status: "passed", tally };
+  return { number: passed.number, resolutionId, status: "passed", tally };
+}
+
+/**
+ * Settles each of a circular's open resolutions that can be, in order. The
+ * caller holds the circular's lock.
+ */
+async function decideCircularInTx(
+  tx: Tx,
+  circularId: string,
+  today: string
+): Promise<Decision[]> {
+  const rows = await tx
+    .select({ id: resolution.id })
+    .from(resolution)
+    .where(
+      and(
+        eq(resolution.circularId, circularId),
+        eq(resolution.status, "issued")
+      )
+    )
+    .orderBy(asc(resolution.position));
+  const decisions: Decision[] = [];
+  for (const row of rows) {
+    const earlierOpen = decisions.some((d) => d.status === "issued");
+    decisions.push(await decideInTx(tx, row.id, today, earlierOpen));
+  }
+  return decisions;
 }
 
 /** Marks a resolution failed with the reason, in the caller's transaction. */
@@ -712,39 +942,59 @@ export async function passInTx(
   return { number, status: "passed" };
 }
 
-/** Settles a resolution whose outcome is due (the closing job, and after each response). */
-export async function decideResolution(
-  resolutionId: string,
+/** Settles a circular's resolutions whose outcome is due (the closing job). */
+export async function decideCircular(
+  circularId: string,
   today: string
-): Promise<Decision> {
-  return await db.transaction((tx) => decideInTx(tx, resolutionId, today));
+): Promise<Decision[]> {
+  return await db.transaction(async (tx) => {
+    await lockCircular(tx, circularId);
+    return await decideCircularInTx(tx, circularId, today);
+  });
 }
 
-/** Issued resolutions whose response date has passed. */
-export async function overdueResolutionIds(today: string): Promise<string[]> {
+/** Circulars with an open resolution whose response date has passed. */
+export async function overdueCircularIds(today: string): Promise<string[]> {
   const rows = await db
-    .select({ id: resolution.id })
-    .from(resolution)
+    .selectDistinct({ id: circular.id, issuedAt: circular.issuedAt })
+    .from(circular)
+    .innerJoin(resolution, eq(resolution.circularId, circular.id))
     .where(
       and(
         eq(resolution.status, "issued"),
-        sql`${resolution.responseDueOn} < ${today}`
+        sql`${circular.responseDueOn} < ${today}`
       )
-    );
+    )
+    .orderBy(asc(circular.issuedAt));
   return rows.map((r) => r.id);
 }
 
-export async function withdrawResolution(input: {
+/** Withdraws every resolution of the circular still open; returns their IDs. */
+export async function withdrawCircular(input: {
+  circularId: string;
   reason: string;
-  resolutionId: string;
   today: string;
-}): Promise<void> {
-  await db.transaction(async (tx) => {
-    const row = await lockResolution(tx, input.resolutionId);
-    if (row.status !== "issued") {
-      throw new ResolutionError("Only an issued resolution can be withdrawn.");
+}): Promise<string[]> {
+  return await db.transaction(async (tx) => {
+    await lockCircular(tx, input.circularId);
+    const open = await tx
+      .select({ id: resolution.id })
+      .from(resolution)
+      .where(
+        and(
+          eq(resolution.circularId, input.circularId),
+          eq(resolution.status, "issued")
+        )
+      )
+      .orderBy(asc(resolution.position))
+      .for("update");
+    if (open.length === 0) {
+      throw new ResolutionError(
+        "Every resolution in this circular is already decided."
+      );
     }
     const now = new Date();
+    const ids = open.map((r) => r.id);
     await tx
       .update(resolution)
       .set({
@@ -754,7 +1004,8 @@ export async function withdrawResolution(input: {
         status: "withdrawn",
         updatedAt: now,
       })
-      .where(eq(resolution.id, input.resolutionId));
+      .where(inArray(resolution.id, ids));
+    return ids;
   });
 }
 
@@ -795,6 +1046,20 @@ export async function setFinalDocument(
         );
     }
   });
+}
+
+/** The trustees a circular went to, with their accounts. */
+export async function circularRecipients(circularId: string) {
+  return await db
+    .selectDistinct({
+      legalName: trustee.legalName,
+      trusteeId: resolutionResponse.trusteeId,
+      userId: resolutionResponse.userId,
+    })
+    .from(resolutionResponse)
+    .innerJoin(trustee, eq(trustee.id, resolutionResponse.trusteeId))
+    .innerJoin(resolution, eq(resolution.id, resolutionResponse.resolutionId))
+    .where(eq(resolution.circularId, circularId));
 }
 
 /** People to tell about a resolution: the trustees it went to, with accounts. */

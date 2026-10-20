@@ -257,7 +257,9 @@ export const decideAgendaItemFn = createServerFn({ method: "POST" })
             withFireAndForgetLog(
               { handler: "resolution:decided", resolutionId },
               async () => {
-                await enqueue("notify-resolution-decided", { resolutionId });
+                await enqueue("notify-resolution-decided", {
+                  resolutionIds: [resolutionId],
+                });
               }
             );
           }
@@ -598,6 +600,7 @@ export const submitSignedMinutesFn = createServerFn({ method: "POST" })
             fieldName: signatureFieldName(chairId),
             report,
             signedBefore: currentReport.signatures.length,
+            textFieldsBefore: currentReport.textFields ?? {},
             trustee: {
               id: chairId,
               names: names.find((n) => n.id === chairId)?.names ?? [],

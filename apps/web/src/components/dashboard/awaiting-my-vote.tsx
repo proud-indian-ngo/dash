@@ -21,20 +21,39 @@ import {
 } from "@/components/governance/register-data";
 import { Tag } from "@/components/shared/status-badge";
 
+interface Item {
+  dueOn: string | null;
+  id: string;
+  titles: string[];
+}
+
 /**
- * Circulars waiting for the signed-in trustee's signature or objection.
- * Empty for everyone else, so it renders nothing for most people.
+ * Circulars waiting for the signed-in trustee's signature or objection, one
+ * row per circular. Empty for everyone else, so it renders nothing for most
+ * people.
  */
 export function AwaitingMyVote() {
   const [rows] = useQuery(queries.resolution.awaitingMe());
-  const items = rows
-    .filter((r) => r.resolution)
-    .map((r) => ({
-      dueOn: epochToIso(r.resolution?.responseDueOn ?? null),
-      id: r.resolutionId,
-      title: r.resolution?.title ?? "",
-    }))
-    .sort((a, b) => (a.dueOn ?? "").localeCompare(b.dueOn ?? ""));
+  const byCircular = new Map<string, Item>();
+  const inPosition = [...rows].sort(
+    (a, b) => (a.resolution?.position ?? 0) - (b.resolution?.position ?? 0)
+  );
+  for (const r of inPosition) {
+    const circular = r.resolution?.circular;
+    if (!circular) {
+      continue;
+    }
+    const item = byCircular.get(circular.id) ?? {
+      dueOn: epochToIso(circular.responseDueOn),
+      id: circular.id,
+      titles: [],
+    };
+    item.titles.push(r.resolution?.title ?? "");
+    byCircular.set(circular.id, item);
+  }
+  const items = [...byCircular.values()].sort((a, b) =>
+    (a.dueOn ?? "").localeCompare(b.dueOn ?? "")
+  );
   if (items.length === 0) {
     return null;
   }
@@ -65,20 +84,24 @@ export function AwaitingMyVote() {
               key={item.id}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{item.title}</p>
+                <p className="truncate text-sm font-medium">
+                  {item.titles.length === 1
+                    ? item.titles[0]
+                    : `${item.titles.length} resolutions: ${item.titles.join(", ")}`}
+                </p>
                 <p
                   className={cn(
                     "text-xs",
                     late ? "text-warning-foreground" : "text-muted-foreground"
                   )}
                 >
-                  Circular resolution · respond by {formatIso(item.dueOn)}
+                  Circular · respond by {formatIso(item.dueOn)}
                 </p>
               </div>
               <Link
                 className="text-primary flex items-center gap-1 text-xs font-medium whitespace-nowrap after:absolute after:inset-0"
-                params={{ resolutionId: item.id }}
-                to="/governance/resolutions/$resolutionId"
+                params={{ circularId: item.id }}
+                to="/governance/resolutions/circulars/$circularId"
               >
                 Respond
                 <HugeiconsIcon

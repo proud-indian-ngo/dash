@@ -55,13 +55,15 @@ export async function validateSignedPdf(
 export class SigningServiceError extends Error {}
 
 /**
- * Adds one empty signature field per signer to an issued circular. Throws
- * when the service is missing or refuses: a circular without fields can't
- * be signed in place.
+ * Adds per signer an empty signature field and the read-only answers field
+ * it locks to an issued circular. Throws when the service is missing or
+ * refuses: a circular without fields can't be signed in place.
  */
 export async function prepareSignatureFields(
   pdf: Uint8Array,
   fields: {
+    answersBox: [number, number, number, number];
+    answersName: string;
     box: [number, number, number, number];
     name: string;
     page: number;
@@ -104,7 +106,7 @@ async function post(
 ): Promise<Response> {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     throw new SigningServiceError(
-      "Signing with the DSC helper needs the signing service, which isn't set up here."
+      "Signing needs the signing service, which isn't set up here."
     );
   }
   const response = await fetchImpl(new URL(path, env.SIGNING_SERVICE_URL), {
@@ -131,6 +133,24 @@ async function post(
     );
   }
   return response;
+}
+
+/** Fills a trustee's answers field: the copy they then sign. */
+export async function fillAnswers(
+  input: { name: string; pdf: Uint8Array; value: string },
+  fetchImpl: typeof fetch = fetch
+): Promise<Uint8Array> {
+  const response = await post(
+    "/fill",
+    JSON.stringify({
+      name: input.name,
+      pdf: Buffer.from(input.pdf).toString("base64"),
+      value: input.value,
+    }),
+    "application/json",
+    fetchImpl
+  );
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 /** Reserves the signature in the trustee's field; returns what the token signs. */

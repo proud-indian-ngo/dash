@@ -173,7 +173,7 @@ For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy 
 
 ### Signing service
 
-`services/signing` runs as `signing`, reachable only from the web service. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+`services/signing` runs as `signing`, reachable only from the web service. Deploy it before the web app when both change. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
 The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
 

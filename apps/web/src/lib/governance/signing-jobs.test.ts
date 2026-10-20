@@ -40,7 +40,7 @@ mock.module("@pi-dash/db/queries/governance", () => ({
   ],
 }));
 mock.module("@pi-dash/db/queries/resolutions", () => ({
-  getResolution: async () => ({ title: "Operation of bank accounts" }),
+  circularResolutions: async () => [{ title: "Operation of bank accounts" }],
 }));
 mock.module("../audit", () => ({
   runAuditedAction: async (_options: unknown, run: () => Promise<unknown>) =>
@@ -48,7 +48,8 @@ mock.module("../audit", () => ({
 }));
 mock.module("../s3", () => ({ getS3: async () => ({}) }));
 mock.module("./accept-signature", () => ({
-  acceptSignedPdf: async () => ({}),
+  acceptSignedPdf: async () => [],
+  signedMessage: () => "Signed. Your signature is on the circular.",
 }));
 mock.module("./signing-service", () => ({
   finishRemoteSignature: async () => new Uint8Array(),

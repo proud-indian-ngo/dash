@@ -131,6 +131,8 @@ export interface GovernanceValidationReport {
     attachments: string[];
   };
   message?: string;
+  /** Every text field's value: a circular's answers fields. */
+  textFields?: Record<string, string>;
 }
 
 /** A file in the governance vault: deeds, certificates, resolutions, resignations, evidence. */
@@ -319,10 +321,27 @@ export const trusteeOffice = pgTable(
 );
 
 /**
- * A decision of the Board. Circulars are drafted by governance.manage,
- * issued by the Managing Trustee (a fixed revision and PDF), signed or
- * objected to by each trustee in office, and pass or fail by the deed's
- * rules. A passed or failed resolution never changes.
+ * One issue of resolutions by circulation: the drafts the Managing Trustee
+ * sent together, as one PDF that each trustee signs once. Open while any of
+ * its resolutions is still issued.
+ */
+export const circular = pgTable("circular", {
+  createdAt: timestamp("created_at").notNull(),
+  id: uuid("id").primaryKey(),
+  issuedAt: timestamp("issued_at").notNull(),
+  issuedByTrusteeId: uuid("issued_by_trustee_id")
+    .notNull()
+    .references(() => trustee.id, { onDelete: "restrict" }),
+  responseDueOn: date("response_due_on").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+});
+
+/**
+ * A decision of the Board. Circular resolutions are drafted by
+ * governance.manage, issued by the Managing Trustee in a circular, assented
+ * to (by signing the circular) or objected to by each trustee in office, and
+ * pass or fail on their own by the deed's rules. A passed or failed
+ * resolution never changes.
  */
 export const resolution = pgTable(
   "resolution",
@@ -333,6 +352,10 @@ export const resolution = pgTable(
       { onDelete: "restrict" }
     ),
     body: text("body").notNull(),
+    /** The circular it was issued in; null for drafts, meetings and history. */
+    circularId: uuid("circular_id").references(() => circular.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at").notNull(),
     decidedAt: timestamp("decided_at"),
     deedVersionId: uuid("deed_version_id").references(() => deedVersion.id, {
@@ -353,22 +376,18 @@ export const resolution = pgTable(
     /** Recorded from paper, not run in pi-dash. */
     historical: boolean("historical").default(false).notNull(),
     id: uuid("id").primaryKey(),
-    issuedAt: timestamp("issued_at"),
-    issuedByTrusteeId: uuid("issued_by_trustee_id").references(
-      () => trustee.id,
-      { onDelete: "restrict" }
-    ),
     kind: resolutionKindEnum("kind").default("circular").notNull(),
     /** PI/TR/2026-27/003, assigned when it passes. */
     number: text("number"),
     outcomeNote: text("outcome_note"),
+    /** Its place in the circular, from 1. */
+    position: integer("position"),
     /** Day the decision was taken: passed, failed or withdrawn. */
     decidedOn: date("decided_on"),
     rescindsResolutionId: uuid("rescinds_resolution_id").references(
       (): AnyPgColumn => resolution.id,
       { onDelete: "restrict" }
     ),
-    responseDueOn: date("response_due_on"),
     sequence: integer("sequence"),
     status: resolutionStatusEnum("status").default("draft").notNull(),
     templateKey: resolutionTemplateKeyEnum("template_key").notNull(),
@@ -380,7 +399,11 @@ export const resolution = pgTable(
   (t) => [
     uniqueIndex("resolution_number_uidx").on(t.number),
     uniqueIndex("resolution_fy_sequence_uidx").on(t.fiscalYear, t.sequence),
-    index("resolution_status_idx").on(t.status, t.issuedAt),
+    index("resolution_status_idx").on(t.status),
+    uniqueIndex("resolution_circular_position_uidx").on(
+      t.circularId,
+      t.position
+    ),
     check(
       "resolution_number_check",
       sql`(${t.number} IS NULL) = (${t.sequence} IS NULL)`
@@ -388,11 +411,13 @@ export const resolution = pgTable(
   ]
 );
 
-/** The fixed text and PDF a circular was issued with; signatures go onto `latest`. */
-export const resolutionRevision = pgTable(
-  "resolution_revision",
+/** The PDF a circular was issued with; signatures go onto `latest`. */
+export const circularRevision = pgTable(
+  "circular_revision",
   {
-    body: text("body").notNull(),
+    circularId: uuid("circular_id")
+      .notNull()
+      .references(() => circular.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull(),
     /** False when the signing service wasn't set up at issue: signers then draw their own box. */
     fieldsPrepared: boolean("fields_prepared").default(true).notNull(),
@@ -402,18 +427,13 @@ export const resolutionRevision = pgTable(
     latestSha256: text("latest_sha256").notNull(),
     /** The prepared PDF as issued, with an empty field per trustee. */
     objectKey: text("object_key").notNull(),
-    resolutionId: uuid("resolution_id")
-      .notNull()
-      .references(() => resolution.id, { onDelete: "restrict" }),
     revision: integer("revision").notNull(),
     sha256: text("sha256").notNull(),
   },
-  (t) => [
-    uniqueIndex("resolution_revision_uidx").on(t.resolutionId, t.revision),
-  ]
+  (t) => [uniqueIndex("circular_revision_uidx").on(t.circularId, t.revision)]
 );
 
-/** One per trustee in office at issue: their answer, conflict and signature. */
+/** One per trustee in office at issue: their answer, conflict and signature on the circular. */
 export const resolutionResponse = pgTable(
   "resolution_response",
   {
@@ -430,7 +450,7 @@ export const resolutionResponse = pgTable(
     respondedAt: timestamp("responded_at"),
     response: resolutionResponseEnum("response").default("pending").notNull(),
     signatureId: uuid("signature_id").references(
-      (): AnyPgColumn => resolutionSignature.id,
+      (): AnyPgColumn => circularSignature.id,
       { onDelete: "restrict" }
     ),
     trusteeId: uuid("trustee_id")
@@ -447,11 +467,19 @@ export const resolutionResponse = pgTable(
   ]
 );
 
-/** A signature on a resolution's PDF, with the facts the signing service checked. */
-export const resolutionSignature = pgTable(
-  "resolution_signature",
+/**
+ * A trustee's signature on a circular's PDF, with the facts the signing
+ * service checked. It assents to every resolution they hadn't objected to
+ * or declared a conflict on; `answers` is that list as filled into the PDF.
+ */
+export const circularSignature = pgTable(
+  "circular_signature",
   {
+    answers: text("answers"),
     certificateSha256: text("certificate_sha256"),
+    circularId: uuid("circular_id")
+      .notNull()
+      .references(() => circular.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
@@ -462,12 +490,9 @@ export const resolutionSignature = pgTable(
     method: signatureMethodEnum("method").notNull(),
     /** The PDF as it stood after this signature. */
     objectKey: text("object_key").notNull(),
-    resolutionId: uuid("resolution_id")
-      .notNull()
-      .references(() => resolution.id, { onDelete: "restrict" }),
     revisionId: uuid("revision_id")
       .notNull()
-      .references(() => resolutionRevision.id, { onDelete: "restrict" }),
+      .references(() => circularRevision.id, { onDelete: "restrict" }),
     serial: text("serial"),
     sha256: text("sha256").notNull(),
     signerName: text("signer_name"),
@@ -480,10 +505,8 @@ export const resolutionSignature = pgTable(
     trusted: boolean("trusted").default(false).notNull(),
   },
   (t) => [
-    uniqueIndex("resolution_signature_field_uidx").on(
-      t.revisionId,
-      t.fieldName
-    ),
+    uniqueIndex("circular_signature_field_uidx").on(t.revisionId, t.fieldName),
+    index("circular_signature_circular_idx").on(t.circularId, t.trusteeId),
   ]
 );
 
@@ -527,26 +550,34 @@ export const signingCertificateRelations = relations(
   })
 );
 
+export const circularRelations = relations(circular, ({ many, one }) => ({
+  issuedBy: one(trustee, {
+    fields: [circular.issuedByTrusteeId],
+    references: [trustee.id],
+  }),
+  resolutions: many(resolution),
+  revisions: many(circularRevision),
+  signatures: many(circularSignature),
+}));
+
 export const resolutionRelations = relations(resolution, ({ many, one }) => ({
+  circular: one(circular, {
+    fields: [resolution.circularId],
+    references: [circular.id],
+  }),
   finalDocument: one(governanceDocument, {
     fields: [resolution.finalDocumentId],
     references: [governanceDocument.id],
   }),
-  issuedBy: one(trustee, {
-    fields: [resolution.issuedByTrusteeId],
-    references: [trustee.id],
-  }),
   responses: many(resolutionResponse),
-  revisions: many(resolutionRevision),
-  signatures: many(resolutionSignature),
 }));
 
-export const resolutionRevisionRelations = relations(
-  resolutionRevision,
+export const circularRevisionRelations = relations(
+  circularRevision,
   ({ one }) => ({
-    resolution: one(resolution, {
-      fields: [resolutionRevision.resolutionId],
-      references: [resolution.id],
+    circular: one(circular, {
+      fields: [circularRevision.circularId],
+      references: [circular.id],
     }),
   })
 );
@@ -558,9 +589,9 @@ export const resolutionResponseRelations = relations(
       fields: [resolutionResponse.resolutionId],
       references: [resolution.id],
     }),
-    signature: one(resolutionSignature, {
+    signature: one(circularSignature, {
       fields: [resolutionResponse.signatureId],
-      references: [resolutionSignature.id],
+      references: [circularSignature.id],
     }),
     trustee: one(trustee, {
       fields: [resolutionResponse.trusteeId],
@@ -569,15 +600,15 @@ export const resolutionResponseRelations = relations(
   })
 );
 
-export const resolutionSignatureRelations = relations(
-  resolutionSignature,
+export const circularSignatureRelations = relations(
+  circularSignature,
   ({ one }) => ({
-    resolution: one(resolution, {
-      fields: [resolutionSignature.resolutionId],
-      references: [resolution.id],
+    circular: one(circular, {
+      fields: [circularSignature.circularId],
+      references: [circular.id],
     }),
     trustee: one(trustee, {
-      fields: [resolutionSignature.trusteeId],
+      fields: [circularSignature.trusteeId],
       references: [trustee.id],
     }),
   })

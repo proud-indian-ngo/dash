@@ -1,7 +1,7 @@
 import { index, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { user } from "../auth";
-import { resolution, signingCertificate, trustee } from "../governance";
+import { circular, signingCertificate, trustee } from "../governance";
 import { privateSchema } from "./party-private";
 
 /**
@@ -59,6 +59,9 @@ export const signingJob = privateSchema.table(
       () => signingCertificate.id,
       { onDelete: "restrict" }
     ),
+    circularId: uuid("circular_id").references(() => circular.id, {
+      onDelete: "restrict",
+    }),
     completedAt: timestamp("completed_at"),
     createdAt: timestamp("created_at").notNull(),
     /** A message for the person, when it failed. */
@@ -67,9 +70,6 @@ export const signingJob = privateSchema.table(
     fieldName: text("field_name"),
     id: uuid("id").primaryKey(),
     kind: signingJobKindEnum("kind").notNull(),
-    resolutionId: uuid("resolution_id").references(() => resolution.id, {
-      onDelete: "restrict",
-    }),
     /** R2 key of the signing service's state between start and finish. */
     stateObjectKey: text("state_object_key"),
     status: signingJobStatusEnum("status").default("pending").notNull(),

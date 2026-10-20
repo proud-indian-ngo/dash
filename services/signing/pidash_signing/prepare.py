@@ -1,4 +1,5 @@
-"""Preparing an issued resolution: one empty signature field per trustee."""
+"""Preparing an issued resolution: one empty signature field per trustee,
+optionally with an answers field that signing the signature field locks."""
 
 from __future__ import annotations
 
@@ -7,7 +8,14 @@ from dataclasses import dataclass
 
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
-from pyhanko.sign.fields import SigFieldSpec, append_signature_field
+from pyhanko.sign.fields import (
+    FieldMDPAction,
+    FieldMDPSpec,
+    SigFieldSpec,
+    append_signature_field,
+)
+
+from .answers import add_answers_field
 
 MAX_FIELDS = 20
 
@@ -18,6 +26,9 @@ class FieldRequest:
     #: 0-based; negative counts from the last page (-1 is the last).
     page: int
     box: tuple[int, int, int, int]
+    #: The trustee's answers field, on the same page; both or neither.
+    answers_name: str | None = None
+    answers_box: tuple[float, float, float, float] | None = None
 
 
 class PrepareError(ValueError):
@@ -30,7 +41,9 @@ def prepare_fields(pdf: bytes, fields: list[FieldRequest]) -> bytes:
         raise PrepareError("No fields")
     if len(fields) > MAX_FIELDS:
         raise PrepareError("Too many fields")
-    names = [f.name for f in fields]
+    if any((f.answers_name is None) != (f.answers_box is None) for f in fields):
+        raise PrepareError("answersName and answersBox go together")
+    names = [f.name for f in fields] + [f.answers_name for f in fields if f.answers_name]
     if len(set(names)) != len(names):
         raise PrepareError("Field names repeat")
     try:
@@ -48,8 +61,20 @@ def prepare_fields(pdf: bytes, fields: list[FieldRequest]) -> bytes:
                 sig_field_name=field.name,
                 on_page=page,
                 box=tuple(int(round(v)) for v in field.box),  # type: ignore[arg-type]
+                field_mdp_spec=(
+                    FieldMDPSpec(action=FieldMDPAction.INCLUDE, fields=[field.answers_name])
+                    if field.answers_name
+                    else None
+                ),
             ),
         )
+        if field.answers_name and field.answers_box:
+            add_answers_field(
+                writer,
+                field.answers_name,
+                writer.find_page_for_modification(page)[0],
+                field.answers_box,
+            )
     out = io.BytesIO()
     writer.write(out)
     return out.getvalue()

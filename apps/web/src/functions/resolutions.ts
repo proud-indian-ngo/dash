@@ -1,18 +1,18 @@
 import { db } from "@pi-dash/db";
 import {
   declareConflict,
-  type Decision,
   effectRegisterProblem,
-  getResolution,
-  issueResolution,
+  getCircular,
+  issueCircular,
   loadRegister,
   recordHistoricalResolution,
   recordObjection,
+  registerAfterEffect,
   ResolutionError,
-  responseFor,
-  withdrawResolution,
+  signerState,
+  withdrawCircular,
 } from "@pi-dash/db/queries/resolutions";
-import { trustee } from "@pi-dash/db/schema/governance";
+import { resolution, trustee } from "@pi-dash/db/schema/governance";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -23,27 +23,33 @@ import {
 } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
+  CIRCULAR_RESOLUTIONS_MAX,
+  circularReference,
   OBJECTION_REASON_MAX,
   parseResolutionNumber,
   resolutionTemplateKeyValues,
 } from "@pi-dash/shared/resolutions";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
-import { acceptSignedPdf } from "@/lib/governance/accept-signature";
+import {
+  acceptSignedPdf,
+  enqueueDecided,
+  signedMessage,
+} from "@/lib/governance/accept-signature";
 import {
   assertOwnSignedUpload,
   assertRecentSignIn,
   CircularError,
-  circularReference,
   fieldRequests,
   planIssue,
   sha256Of,
 } from "@/lib/governance/circulars";
+import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
 import {
   prepareSignatureFields,
   SigningServiceError,
@@ -54,11 +60,11 @@ import { createTemporaryUpload } from "@/lib/temporary-upload";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
- * Circular resolutions. Drafts change through Zero mutators; issuing,
- * responding, signing and withdrawing go through these server functions,
- * which check the deed's rules, render and store PDFs, call the signing
- * service, and are audited. Responding and signing need a sign-in from the
- * last 10 minutes.
+ * Circular resolutions. Drafts change through Zero mutators; issuing a
+ * circular, responding to its resolutions, signing it and withdrawing it go
+ * through these server functions, which check the deed's rules, render and
+ * store PDFs, call the signing service, and are audited. Responding and
+ * signing need a sign-in from the last 10 minutes.
  */
 
 /** Known refusals reach the person as their message; anything else stays generic. */
@@ -84,29 +90,23 @@ async function linkedTrustee(userId: string) {
   return row ?? null;
 }
 
-function enqueueDecided(decision: Decision, resolutionId: string) {
-  if (decision.status === "issued") {
-    return;
-  }
-  withFireAndForgetLog(
-    { handler: "resolution:decided", resolutionId },
-    async () => {
-      await enqueue("notify-resolution-decided", { resolutionId });
-    }
-  );
+/** The answered resolution's status after a response settled its circular. */
+function statusOf(
+  decisions: readonly { resolutionId: string; status: string }[],
+  resolutionId: string
+): string {
+  return decisions.find((d) => d.resolutionId === resolutionId)?.status ?? "";
 }
-
-const resolutionKey = (resolutionId: string, name: string) =>
-  `${env.R2_KEY_PREFIX}/governance/resolutions/${resolutionId}/${name}`;
 
 // ── Issue ───────────────────────────────────────────────────────────────────
 
 const issueSchema = z.object({
-  id: z.uuid(),
+  /** The drafts it carries, in order. */
+  resolutionIds: z.array(z.uuid()).min(1).max(CIRCULAR_RESOLUTIONS_MAX),
   responseDueOn: z.iso.date(),
 });
 
-export const issueResolutionFn = createServerFn({ method: "POST" })
+export const issueCircularFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(issueSchema)
   .handler(async ({ context, data }) => {
@@ -114,12 +114,14 @@ export const issueResolutionFn = createServerFn({ method: "POST" })
       throw new Error("Unauthorized");
     }
     const { session } = context;
+    const circularId = uuidv7();
     return await runSessionAuditedAction(
       session,
       context.headers,
       {
-        action: "resolution.issue",
-        target: { id: data.id, type: "resolution" },
+        action: "circular.issue",
+        metadata: { resolutionIds: data.resolutionIds },
+        target: { id: circularId, type: "circular" },
       },
       () =>
         userFacing(async () => {
@@ -129,34 +131,44 @@ export const issueResolutionFn = createServerFn({ method: "POST" })
               "Give the trustees at least one day to respond."
             );
           }
-          const draft = await getResolution(data.id);
-          if (!draft) {
-            throw new CircularError("Resolution not found");
-          }
+          const rows = await db
+            .select()
+            .from(resolution)
+            .where(inArray(resolution.id, data.resolutionIds));
+          const drafts = data.resolutionIds.map((id) => {
+            const row = rows.find((r) => r.id === id);
+            if (!row) {
+              throw new CircularError("A draft wasn't found.");
+            }
+            return row;
+          });
           const register = await loadRegister(db, today);
           const issuer = await linkedTrustee(session.user.id);
           const plan = planIssue({
-            draft,
+            drafts,
             effectRegisterProblem,
             issuer: issuer ? { trusteeId: issuer.id } : null,
             register,
+            registerAfterEffect,
             today,
           });
           const rendered = await generateCircularResolutionPdf({
             authority:
               "Clause 4.18 of the Trust Deed (Doc. No. 864, Book IV, 2018-19)",
-            body: draft.body,
             issuedOn: today,
             issuer: { name: plan.issuerName, office: plan.issuerOffice },
             org: {
               address: env.VOUCHER_ORG_ADDRESS,
               name: env.VOUCHER_ORG_NAME,
             },
-            reference: circularReference(draft.id),
+            reference: circularReference(circularId),
+            resolutions: drafts.map((d, index) => ({
+              body: d.body,
+              threshold: plan.resolutions[index]?.thresholdText ?? "",
+              title: d.title,
+            })),
             responseDueOn: data.responseDueOn,
             signers: plan.signers,
-            threshold: plan.thresholdText,
-            title: draft.title,
           });
           const fieldsPrepared = signingServiceConfigured();
           const pdf = fieldsPrepared
@@ -165,28 +177,34 @@ export const issueResolutionFn = createServerFn({ method: "POST" })
                 fieldRequests(plan.signers.map((s) => s.trusteeId))
               )
             : new Uint8Array(rendered);
-          const objectKey = resolutionKey(draft.id, "issued.pdf");
+          const objectKey = circularKey(circularId, "issued.pdf");
           const s3 = await getS3();
           await s3.write(objectKey, pdf, { type: "application/pdf" });
-          await issueResolution({
+          await issueCircular({
+            circularId,
             deedVersionId: register.deedVersionId,
-            issuedOn: today,
             issuerTrusteeId: plan.issuerTrusteeId,
             pdf: { fieldsPrepared, objectKey, sha256: sha256Of(pdf) },
-            resolutionId: draft.id,
-            responseDueOn: data.responseDueOn,
+            resolutions: plan.resolutions.map((r) => ({
+              id: r.id,
+              renderedFrom:
+                drafts.find((d) => d.id === r.id)?.updatedAt ?? new Date(0),
+              threshold: r.threshold,
+            })),
             responders: plan.responders,
-            threshold: plan.threshold,
+            responseDueOn: data.responseDueOn,
           });
           withFireAndForgetLog(
-            { handler: "resolution:issued", resolutionId: draft.id },
+            { circularId, handler: "circular:issued" },
             async () => {
-              await enqueue("notify-resolution-issued", {
-                resolutionId: draft.id,
-              });
+              await enqueue("notify-circular-issued", { circularId });
             }
           );
-          return { fieldsPrepared, responders: plan.responders.length };
+          return {
+            circularId,
+            fieldsPrepared,
+            responders: plan.responders.length,
+          };
         })
     );
   });
@@ -224,14 +242,14 @@ export const objectToResolutionFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const decision = await recordObjection({
+          const decisions = await recordObjection({
             reason: data.reason,
             resolutionId: data.id,
             today: todayInKolkata(),
             trusteeId: me.id,
           });
-          enqueueDecided(decision, data.id);
-          return { status: decision.status };
+          enqueueDecided(decisions);
+          return { status: statusOf(decisions, data.id) };
         })
     );
   });
@@ -267,32 +285,72 @@ export const declareResolutionConflictFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const decision = await declareConflict({
+          const decisions = await declareConflict({
             note: data.note,
             resolutionId: data.id,
             today: todayInKolkata(),
             trusteeId: me.id,
           });
-          enqueueDecided(decision, data.id);
-          return { status: decision.status };
+          enqueueDecided(decisions);
+          return { status: statusOf(decisions, data.id) };
         })
     );
   });
 
 // ── Sign ────────────────────────────────────────────────────────────────────
 
+/**
+ * The copy to sign in Acrobat: the latest PDF with the trustee's answers
+ * filled in. Returns a short-lived download link.
+ */
+export const getCircularSigningCopyUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ circularId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "circular.sign.start",
+        metadata: { method: "acrobat_upload" },
+        target: { id: data.circularId, type: "circular" },
+      },
+      () =>
+        userFacing(async () => {
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          const copy = await signingCopy(data.circularId, me.id, {
+            create: true,
+          });
+          if (!copy.objectKey) {
+            return { url: null };
+          }
+          const s3 = await getS3();
+          return {
+            url: s3.presign(copy.objectKey, { expiresIn: 300, method: "GET" }),
+          };
+        })
+    );
+  });
+
 /** A presigned upload for the trustee's signed copy; only trustees the circular went to. */
-export const getResolutionSignUploadUrl = createServerFn({ method: "POST" })
+export const getCircularSignUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
+      circularId: z.uuid(),
       fileName: z.string().trim().min(1).max(200),
       fileSize: z
         .number()
         .int()
         .positive()
         .max(25 * 1024 * 1024),
-      id: z.uuid(),
     })
   )
   .handler(async ({ context, data }) => {
@@ -312,8 +370,10 @@ export const getResolutionSignUploadUrl = createServerFn({ method: "POST" })
       {
         authorize: async (user) => {
           const me = await linkedTrustee(user.id);
-          const response = me ? await responseFor(data.id, me.id) : null;
-          if (!response) {
+          const state = me
+            ? await signerState(db, data.circularId, me.id)
+            : null;
+          if (!state) {
             throw new Error("Forbidden");
           }
         },
@@ -329,9 +389,11 @@ export const getResolutionSignUploadUrl = createServerFn({ method: "POST" })
     );
   });
 
-export const submitSignedResolutionFn = createServerFn({ method: "POST" })
+export const submitSignedCircularFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ id: z.uuid(), tempKey: z.string().min(1).max(500) }))
+  .validator(
+    z.object({ circularId: z.uuid(), tempKey: z.string().min(1).max(500) })
+  )
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new Error("Unauthorized");
@@ -341,9 +403,9 @@ export const submitSignedResolutionFn = createServerFn({ method: "POST" })
       session,
       context.headers,
       {
-        action: "resolution.sign",
+        action: "circular.sign",
         metadata: { method: "acrobat_upload" },
-        target: { id: data.id, type: "resolution" },
+        target: { id: data.circularId, type: "circular" },
       },
       () =>
         userFacing(async () => {
@@ -364,27 +426,26 @@ export const submitSignedResolutionFn = createServerFn({ method: "POST" })
             );
           }
           const uploaded = new Uint8Array(await uploadedFile.arrayBuffer());
-          const decision = await acceptSignedPdf({
+          const decisions = await acceptSignedPdf({
+            circularId: data.circularId,
             method: "acrobat_upload",
-            resolutionId: data.id,
             trustee: me,
             uploaded,
             userId: session.user.id,
           });
           await s3.delete(tempKey).catch(() => undefined);
-          enqueueDecided(decision, data.id);
-          return { number: decision.number, status: decision.status };
+          return { message: signedMessage(decisions) };
         })
     );
   });
 
 // ── Withdraw ────────────────────────────────────────────────────────────────
 
-export const withdrawResolutionFn = createServerFn({ method: "POST" })
+export const withdrawCircularFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
-      id: z.uuid(),
+      circularId: z.uuid(),
       reason: z
         .string()
         .trim()
@@ -401,32 +462,27 @@ export const withdrawResolutionFn = createServerFn({ method: "POST" })
       session,
       context.headers,
       {
-        action: "resolution.withdraw",
-        target: { id: data.id, type: "resolution" },
+        action: "circular.withdraw",
+        target: { id: data.circularId, type: "circular" },
       },
       () =>
         userFacing(async () => {
-          const row = await getResolution(data.id);
+          const row = await getCircular(data.circularId);
           const me = await linkedTrustee(session.user.id);
           if (!(row && me && row.issuedByTrusteeId === me.id)) {
             throw new CircularError(
               "Only the trustee who issued a circular can withdraw it."
             );
           }
-          await withdrawResolution({
+          const ids = await withdrawCircular({
+            circularId: data.circularId,
             reason: data.reason,
-            resolutionId: data.id,
             today: todayInKolkata(),
           });
-          withFireAndForgetLog(
-            { handler: "resolution:withdrawn", resolutionId: data.id },
-            async () => {
-              await enqueue("notify-resolution-decided", {
-                resolutionId: data.id,
-              });
-            }
+          enqueueDecided(
+            ids.map((resolutionId) => ({ resolutionId, status: "withdrawn" }))
           );
-          return { status: "withdrawn" as const };
+          return { withdrawn: ids.length };
         })
     );
   });

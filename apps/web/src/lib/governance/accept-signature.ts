@@ -4,65 +4,96 @@ import {
   trusteeNamesForMatching,
 } from "@pi-dash/db/queries/governance";
 import {
-  currentRevision,
+  circularResolutions,
   type Decision,
-  getResolution,
   recordSignature,
-  responseFor,
   setFinalDocument,
 } from "@pi-dash/db/queries/resolutions";
 import { setArchiveCopy } from "@pi-dash/db/queries/signing";
-import { env } from "@pi-dash/env/server";
+import { enqueue } from "@pi-dash/jobs/enqueue";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import { addDays, DOCUMENT_TITLE_MAX } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
+import { circularReference } from "@pi-dash/shared/resolutions";
 import { createRequestLogger } from "evlog";
 
 import { getS3 } from "../s3";
 import { CircularError, checkSignedUpload, sha256Of } from "./circulars";
+import { circularKey, signingCopy } from "./signing-copy";
 import { finalizeForArchive, validateSignedPdf } from "./signing-service";
 
 /** Days between the archive copy's document timestamps. */
 const ARCHIVE_RENEW_DAYS = 365;
 
-const resolutionKey = (resolutionId: string, name: string) =>
-  `${env.R2_KEY_PREFIX}/governance/resolutions/${resolutionId}/${name}`;
+/** What a trustee hears after signing: what it passed, and what failed with it. */
+export function signedMessage(
+  decisions: readonly { number: string | null; status: string }[]
+): string {
+  const numbers = decisions
+    .filter((d) => d.status === "passed")
+    .map((d) => d.number ?? "");
+  const failed = decisions.filter((d) => d.status === "failed").length;
+  const passed =
+    numbers.length === 0
+      ? "Your signature is on the circular."
+      : numbers.length === 1
+        ? `The resolution passed as ${numbers[0]}.`
+        : `Resolutions ${numbers.join(", ")} passed.`;
+  const failedText =
+    failed === 0
+      ? ""
+      : ` ${failed === 1 ? "One resolution" : `${failed} resolutions`} didn't pass; the circular shows why.`;
+  return `Signed. ${passed}${failedText}`;
+}
+
+/** Tells everyone, once, about the resolutions one response just decided. */
+export function enqueueDecided(
+  decisions: readonly { resolutionId: string; status: string }[]
+): void {
+  const resolutionIds = decisions
+    .filter((d) => d.status !== "issued")
+    .map((d) => d.resolutionId);
+  if (resolutionIds.length === 0) {
+    return;
+  }
+  withFireAndForgetLog(
+    { handler: "resolution:decided", resolutionIds: resolutionIds.join(",") },
+    async () => {
+      await enqueue("notify-resolution-decided", { resolutionIds });
+    }
+  );
+}
 
 /**
- * Takes a PDF a trustee signed (uploaded from Acrobat, or finished by the
- * signing service for the helper), checks it against the latest copy,
- * stores it and records the assent. Passing files the final copy in the
- * vault and makes its long-term copy.
+ * Takes a circular a trustee signed (uploaded from Acrobat, or finished by
+ * the signing service for the helper), checks it against the copy with
+ * their answers that they were given, stores it and records
+ * their assents. Resolutions that pass file the signed copy in the vault and
+ * make its long-term copy; each decision notifies everyone.
  */
 export async function acceptSignedPdf(input: {
+  circularId: string;
   /** For the helper: the enrolled certificate the signature must come from. */
   expectedCertificateSha256?: string;
   method: "acrobat_upload" | "dsc_helper";
-  resolutionId: string;
   trustee: { id: string; legalName: string };
   uploaded: Uint8Array;
   userId: string;
-}): Promise<Decision> {
-  const response = await responseFor(input.resolutionId, input.trustee.id);
-  const revision = await currentRevision(input.resolutionId);
-  if (!(response && revision)) {
-    throw new CircularError(
-      "You weren't a trustee in office when this was issued."
-    );
-  }
-  const s3 = await getS3();
-  const current = new Uint8Array(
-    await s3.file(revision.latestObjectKey).arrayBuffer()
-  );
-  const [report, currentReport, names] = await Promise.all([
+}): Promise<Decision[]> {
+  const copy = await signingCopy(input.circularId, input.trustee.id, {
+    create: false,
+  });
+  const [report, copyReport, names] = await Promise.all([
     validateSignedPdf(input.uploaded),
-    validateSignedPdf(current),
+    validateSignedPdf(copy.bytes),
     trusteeNamesForMatching(),
   ]);
   const signature = checkSignedUpload({
-    current,
-    fieldName: response.fieldName,
+    current: copy.bytes,
+    fieldName: copy.fieldName,
     report,
-    signedBefore: currentReport.signatures.length,
+    signedBefore: copyReport.signatures.length,
+    textFieldsBefore: copyReport.textFields ?? {},
     trustee: {
       id: input.trustee.id,
       names: names.find((n) => n.id === input.trustee.id)?.names ?? [
@@ -81,71 +112,94 @@ export async function acceptSignedPdf(input: {
     );
   }
   const sha256 = sha256Of(input.uploaded);
-  const objectKey = resolutionKey(
-    input.resolutionId,
-    `signed-${String(currentReport.signatures.length + 1)}.pdf`
+  // Keyed by content: a copy refused as stale mustn't overwrite one accepted.
+  const objectKey = circularKey(
+    input.circularId,
+    `signed-${String(copyReport.signatures.length + 1)}-${sha256.slice(0, 16)}.pdf`
   );
+  const s3 = await getS3();
   await s3.write(objectKey, input.uploaded, { type: "application/pdf" });
-  const decision = await recordSignature({
-    basedOnSha256: revision.latestSha256,
+  const decisions = await recordSignature({
+    answers: copy.answers,
+    basedOnSha256: copy.basedOnSha256,
+    circularId: input.circularId,
     createdBy: input.userId,
     method: input.method,
     objectKey,
-    resolutionId: input.resolutionId,
     sha256,
     signature: { ...signature, matchedTrusteeId: input.trustee.id },
     today: todayInKolkata(),
     trusteeId: input.trustee.id,
   });
-  if (decision.status === "passed") {
-    await fileFinalCopy(input.resolutionId, objectKey, input.uploaded, report);
+  const passed = decisions
+    .filter((d) => d.status === "passed")
+    .map((d) => d.resolutionId);
+  if (passed.length > 0) {
+    await fileFinalCopy(input.circularId, passed, {
+      bytes: input.uploaded,
+      objectKey,
+      report,
+    });
   }
-  return decision;
+  enqueueDecided(decisions);
+  return decisions;
 }
 
 /**
- * The fully signed PDF goes into the vault and becomes the register's
- * evidence; its long-term copy (revocation data and a document timestamp)
- * is made now and renewed yearly. A failed long-term copy is logged and
- * retried by the yearly job; the signed original is already safe.
+ * The signed PDF the resolutions passed on goes into the vault and becomes
+ * their register evidence; its long-term copy (revocation data and a
+ * document timestamp) is made now and renewed yearly. A failed long-term
+ * copy is logged and retried by the yearly job; the signed original is
+ * already safe.
  */
 async function fileFinalCopy(
-  resolutionId: string,
-  objectKey: string,
-  bytes: Uint8Array,
-  report: Awaited<ReturnType<typeof validateSignedPdf>>
+  circularId: string,
+  passedIds: readonly string[],
+  signed: {
+    bytes: Uint8Array;
+    objectKey: string;
+    report: Awaited<ReturnType<typeof validateSignedPdf>>;
+  }
 ): Promise<void> {
-  const row = await getResolution(resolutionId);
-  if (!row) {
+  const rows = (await circularResolutions(circularId)).filter((r) =>
+    passedIds.includes(r.id)
+  );
+  const [first] = rows;
+  if (!first) {
     return;
   }
-  const sha256 = sha256Of(bytes);
+  const numbers = rows.map((r) => r.number ?? "").filter(Boolean);
+  const sha256 = sha256Of(signed.bytes);
   const existing = await findGovernanceDocumentBySha256(sha256);
+  const title =
+    rows.length === 1
+      ? `${first.number ?? ""} ${first.title}`
+      : `${numbers.join(", ")} (circular ${circularReference(circularId)})`;
   const documentId =
     existing?.id ??
     (await insertGovernanceDocument({
       contentType: "application/pdf",
-      datedOn: row.decidedOn ?? todayInKolkata(),
+      datedOn: first.decidedOn ?? todayInKolkata(),
       kind: "resolution",
-      note: `Passed by circulation as ${row.number ?? ""}.`,
-      objectKey,
-      originalFilename: `${(row.number ?? "resolution").replaceAll("/", "-")}.pdf`,
+      note: `Passed by circulation as ${numbers.join(", ")}.`,
+      objectKey: signed.objectKey,
+      originalFilename: `${(numbers[0] ?? "resolution").replaceAll("/", "-")}.pdf`,
       sha256,
-      sizeBytes: bytes.byteLength,
+      sizeBytes: signed.bytes.byteLength,
       sourceFormat: "signed_pdf",
-      title: `${row.number ?? ""} ${row.title}`
-        .trim()
-        .slice(0, DOCUMENT_TITLE_MAX),
-      uploadedBy: row.draftedBy,
-      validationReport: report,
+      title: title.trim().slice(0, DOCUMENT_TITLE_MAX),
+      uploadedBy: first.draftedBy,
+      validationReport: signed.report,
     }));
-  await setFinalDocument(resolutionId, documentId);
+  for (const row of rows) {
+    await setFinalDocument(row.id, documentId);
+  }
   await fileArchiveCopy({
-    bytes,
+    archiveKey: circularKey(circularId, `final-ltv-${sha256.slice(0, 16)}.pdf`),
+    bytes: signed.bytes,
     documentId,
-    log: { resolutionId },
-    objectKey,
-    archiveKey: resolutionKey(resolutionId, "final-ltv.pdf"),
+    log: { circularId },
+    objectKey: signed.objectKey,
   });
 }
 

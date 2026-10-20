@@ -417,6 +417,11 @@ export function mayIssueCircular(
 
 // ── Numbers ─────────────────────────────────────────────────────────────────
 
+/** Short reference printed on the circular; its resolutions get register numbers when they pass. */
+export function circularReference(circularId: string): string {
+  return `C-${circularId.replaceAll("-", "").slice(-8).toUpperCase()}`;
+}
+
 /** The register number of a passed resolution: PI/TR/2026-27/003. */
 export function formatResolutionNumber(
   fiscalYear: string,
@@ -458,9 +463,17 @@ export interface SignatureSlot {
   trusteeId: string;
 }
 
+/** Every trustee's signature field starts with this. */
+export const SIGNATURE_FIELD_PREFIX = "Trustee_";
+
 /** The signature field name for a trustee: stable, and safe in a PDF. */
 export function signatureFieldName(trusteeId: string): string {
-  return `Trustee_${trusteeId.replaceAll("-", "")}`;
+  return `${SIGNATURE_FIELD_PREFIX}${trusteeId.replaceAll("-", "")}`;
+}
+
+/** The read-only text field beside a trustee's box that holds their answers. */
+export function answersFieldName(trusteeId: string): string {
+  return `Answers_${trusteeId.replaceAll("-", "")}`;
 }
 
 /** Where each trustee's block sits on the signature pages. */
@@ -490,7 +503,50 @@ export function signatureFieldBox(
   ];
 }
 
+/** Under the trustee's name: where their answers are filled in before they sign. */
+const ANSWERS = { height: 50, left: 48, offset: 34, width: 230 } as const;
+
+/** The box a slot's answers field occupies, in PDF coordinates (origin bottom left). */
+export function answersFieldBox(
+  slot: SignatureSlot
+): [number, number, number, number] {
+  const top = slot.top + 22 + ANSWERS.offset;
+  return [
+    ANSWERS.left,
+    Number((A4.height - top - ANSWERS.height).toFixed(2)),
+    ANSWERS.left + ANSWERS.width,
+    Number((A4.height - top).toFixed(2)),
+  ];
+}
+
 export const SIGNATURE_BOX = BOX;
+export const ANSWERS_BOX = ANSWERS;
+
+// ── Answers ─────────────────────────────────────────────────────────────────
+
+export type CircularAnswer = "assent" | "objection" | "conflict" | "decided";
+
+const ANSWER_WORDS: Record<CircularAnswer, string> = {
+  assent: "assents",
+  conflict: "declares a conflict of interest",
+  decided: "decided before signing",
+  objection: "objects",
+};
+
+/**
+ * What a trustee's signature says about each resolution in the circular,
+ * filled into their answers field before they sign: the open resolutions
+ * they hadn't objected to or declared a conflict on are the ones they assent
+ * to, and ones decided before they signed are marked so.
+ */
+export function answersText(
+  answers: readonly { answer: CircularAnswer; position: number }[]
+): string {
+  return [...answers]
+    .sort((a, b) => a.position - b.position)
+    .map((a) => `Resolution ${a.position}: ${ANSWER_WORDS[a.answer]}`)
+    .join("; ");
+}
 
 /**
  * The annual approvals pack: the calendar items whose closing evidence is a
@@ -506,6 +562,8 @@ export const ANNUAL_PACK_TEMPLATES: Readonly<
 };
 
 export const RESOLUTION_TITLE_MAX = 200;
+/** Resolutions one circular can carry. */
+export const CIRCULAR_RESOLUTIONS_MAX = 10;
 export const RESOLUTION_TEXT_MAX = 20_000;
 export const OBJECTION_REASON_MAX = 1000;
 /** Default days between issue and the response date. */
