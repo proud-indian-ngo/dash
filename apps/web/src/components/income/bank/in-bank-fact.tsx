@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { useApp } from "@/context/app-context";
 import { DATE } from "@/lib/date-formats";
 import { epochToLocalDate } from "@/lib/local-date";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 type MatchedLine = StatementLine & { orgAccount?: OrgAccount | null };
 
@@ -80,7 +81,7 @@ export function PaidFromBank({
     queries.statementLine.allocationsByDocument({ documentId, kind }),
     { enabled: canSee }
   );
-  if (!canSee || (allocations.length === 0 && result.type !== "complete")) {
+  if (!canSee || (allocations.length === 0 && isAwaitingResult(result))) {
     return null;
   }
   const paid = allocations.reduce((sum, a) => sum + a.amountPaise, 0);

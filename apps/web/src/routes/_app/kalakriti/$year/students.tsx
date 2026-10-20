@@ -39,6 +39,7 @@ import {
   selectKalakritiStudentCenters,
 } from "@/lib/kalakriti-student-policy";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/kalakriti/$year/students")({
   validateSearch: z
@@ -308,7 +309,7 @@ function KalakritiStudentsPage() {
   if (
     dashboardFilterPending ||
     needsFilterMigration ||
-    (centers.length === 0 && centersResult.type !== "complete") ||
+    (centers.length === 0 && isAwaitingResult(centersResult)) ||
     (linkedCenterId !== null &&
       (centersResult.type !== "complete" || linkedCenterAvailable))
   )
@@ -397,7 +398,7 @@ function KalakritiStudentsPage() {
         statusSnapshotComplete={studentsResult.type === "complete"}
         statusSnapshotKey={`${kalakritiFoodScopeKey(access)}:directory`}
         entryRegistrationEnabled={false}
-        isLoading={rows.length === 0 && studentsResult.type !== "complete"}
+        isLoading={rows.length === 0 && isAwaitingResult(studentsResult)}
         onDelete={handleDelete}
         onEdit={handleEdit}
         onView={handleView}

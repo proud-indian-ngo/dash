@@ -15,6 +15,7 @@ import type { PartyRow } from "@/components/donors/party-row";
 import { PageHeader } from "@/components/shared/page-header";
 import { useApp } from "@/context/app-context";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/donors/")({
   component: DonorsRouteComponent,
@@ -34,7 +35,7 @@ function DonorsRouteComponent() {
   const { hasPermission } = useApp();
   const canManage = hasPermission("donors.manage");
   const [parties, partiesResult] = useQuery(queries.party.all());
-  const isLoading = parties.length === 0 && partiesResult.type !== "complete";
+  const isLoading = parties.length === 0 && isAwaitingResult(partiesResult);
   const rows = (parties ?? []) as PartyRow[];
 
   const [formOpen, setFormOpen] = useState(false);

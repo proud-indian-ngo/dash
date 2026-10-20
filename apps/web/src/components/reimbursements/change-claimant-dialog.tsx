@@ -17,6 +17,7 @@ import { FormModal } from "@/components/form/form-modal";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { ClaimantCombobox, useClaimantOptions } from "./claimant-picker";
 import { bankAccountOptionLabel } from "./default-bank-account";
@@ -59,7 +60,7 @@ function ClaimantBankAccountField({
   const [accounts, result] = useQuery(
     queries.bankAccount.bankAccountsForClaimant({ userId })
   );
-  const loading = accounts.length === 0 && result.type !== "complete";
+  const loading = accounts.length === 0 && isAwaitingResult(result);
 
   useEffect(() => {
     if (loading) {

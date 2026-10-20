@@ -51,6 +51,7 @@ import {
   computeVendorData,
   spentAt,
 } from "@/lib/stats";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const SubmissionTrendsChart = lazy(() =>
   import("@/components/analytics/submission-trends-chart").then((m) => ({
@@ -127,9 +128,9 @@ function AnalyticsPage() {
     reimbursements.length === 0 &&
     advancePayments.length === 0 &&
     vendorPayments.length === 0 &&
-    r1.type !== "complete" &&
-    r2.type !== "complete" &&
-    r3.type !== "complete";
+    isAwaitingResult(r1) &&
+    isAwaitingResult(r2) &&
+    isAwaitingResult(r3);
 
   const anyComplete =
     r1.type === "complete" || r2.type === "complete" || r3.type === "complete";

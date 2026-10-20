@@ -42,6 +42,7 @@ import {
   indexEntriesByStudent,
 } from "@/lib/kalakriti-entry-policy";
 import { canScanKalakritiCompetition } from "@/lib/kalakriti-event-day-policy";
+import { isAwaitingResult } from "@/lib/zero-result";
 function completeStudent<T extends { ageCategory?: unknown }>(
   student: T
 ): student is T & KalakritiEntryStudent {
@@ -236,7 +237,7 @@ export function CompetitionEntries({
     );
   if (
     !session &&
-    (sessionsResult.type !== "complete" || entriesResult.type !== "complete")
+    (isAwaitingResult(sessionsResult) || entriesResult.type !== "complete")
   )
     return <TableSkeleton />;
   const participants = [
@@ -314,7 +315,7 @@ export function CompetitionEntries({
                 emptyMessage="No Entries have been registered for this Session."
                 isLoading={
                   divisionEntries.length === 0 &&
-                  divisionEntriesResult.type !== "complete"
+                  isAwaitingResult(divisionEntriesResult)
                 }
                 snapshotReady={
                   snapshotReady && divisionEntriesResult.type === "complete"

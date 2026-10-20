@@ -9,6 +9,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 
 import { useApp } from "@/context/app-context";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { formatDay } from "./labels";
 
@@ -32,7 +33,7 @@ export function InTheBooks({
     queries.ledger.sourceState({ sourceId, sourceType }),
     { enabled: canSee }
   );
-  if (!canSee || (state === undefined && result.type !== "complete")) {
+  if (!canSee || (state === undefined && isAwaitingResult(result))) {
     return null;
   }
   return (

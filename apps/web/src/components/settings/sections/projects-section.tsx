@@ -41,6 +41,7 @@ import {
   optionalRupeesToPaise,
 } from "@/lib/paise";
 import { reportMutationResult } from "@/lib/report-mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 const KIND_LABELS: Record<ProjectKind, string> = {
   class: "Class",
@@ -287,7 +288,7 @@ export function ProjectsSection() {
 
   const projectList = projects ?? [];
   const isLoading =
-    projectList.length === 0 && projectsResult.type !== "complete";
+    projectList.length === 0 && isAwaitingResult(projectsResult);
   const programmesLoaded = programmesResult.type === "complete";
   const programmeNames = new Map((programmes ?? []).map((p) => [p.id, p.name]));
   // New projects need a real cause; the Unallocated holder is for legacy records only.

@@ -8,6 +8,7 @@ import {
   getKalakritiVolunteersForPicker,
   type PickerUser,
 } from "@/functions/users-for-picker";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 import { CenterAssignments } from "./center-assignments";
 
@@ -98,13 +99,13 @@ export function CenterEditAssignments({
   const loading =
     (loadGuardians &&
       guardians.length === 0 &&
-      guardianResult.type !== "complete") ||
+      isAwaitingResult(guardianResult)) ||
     (canManageGuardians &&
       guardianLinks.length === 0 &&
-      guardianLinksResult.type !== "complete") ||
+      isAwaitingResult(guardianLinksResult)) ||
     (canManageLiaisons &&
       liaisonLinks.length === 0 &&
-      liaisonLinksResult.type !== "complete") ||
+      isAwaitingResult(liaisonLinksResult)) ||
     (loadVolunteers && volunteerState === "loading");
   if (loading)
     return (

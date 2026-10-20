@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { NotificationPreferenceGrid } from "@/components/settings/notification-preference-grid";
 import { handleMutationResult } from "@/lib/mutation-result";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 interface UserNotificationsFormProps {
   userId: string;
@@ -19,7 +20,7 @@ export function UserNotificationsForm({ userId }: UserNotificationsFormProps) {
     queries.notificationPreference.byUser({ userId })
   );
 
-  const isLoading = preferences.length === 0 && result.type !== "complete";
+  const isLoading = preferences.length === 0 && isAwaitingResult(result);
 
   const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
 

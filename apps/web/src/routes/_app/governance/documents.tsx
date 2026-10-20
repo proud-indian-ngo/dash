@@ -38,6 +38,7 @@ import { useApp } from "@/context/app-context";
 import { getSigningServiceStatus } from "@/functions/governance";
 import { assertAnyPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/governance/documents")({
   beforeLoad: ({ context }) =>
@@ -216,7 +217,7 @@ function GovernanceDocumentsPage() {
   const canManage = hasPermission("governance.manage");
   const [rows, result] = useQuery(queries.governanceDocument.all());
   const [trustees] = useQuery(queries.trustee.all());
-  const isLoading = rows.length === 0 && result.type !== "complete";
+  const isLoading = rows.length === 0 && isAwaitingResult(result);
   const documents: VaultDocument[] = rows.map((d) => ({
     archiveRenewOn: epochToIso(d.archiveRenewOn ?? null),
     archivedAt: d.archivedAt ?? null,

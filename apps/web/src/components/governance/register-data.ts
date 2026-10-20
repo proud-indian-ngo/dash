@@ -13,6 +13,7 @@ import { useQuery } from "@rocicorp/zero/react";
 import { format } from "date-fns";
 
 import { DATE } from "@/lib/date-formats";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 /** Zero stores dates as epoch milliseconds at UTC midnight. */
 export function epochToIso(value: number): string;
@@ -158,8 +159,8 @@ export function useRegister(on: string) {
     trustees,
   };
   const isLoading =
-    (trusteeRows.length === 0 && trusteeResult.type !== "complete") ||
-    (deedRows.length === 0 && deedResult.type !== "complete");
+    (trusteeRows.length === 0 && isAwaitingResult(trusteeResult)) ||
+    (deedRows.length === 0 && isAwaitingResult(deedResult));
   return { deedVersions, inForce, input, isLoading, trustees };
 }
 
@@ -173,6 +174,6 @@ export function useGovernanceDocuments() {
       kind: d.kind,
       title: d.title,
     })),
-    isLoading: rows.length === 0 && result.type !== "complete",
+    isLoading: rows.length === 0 && isAwaitingResult(result),
   };
 }

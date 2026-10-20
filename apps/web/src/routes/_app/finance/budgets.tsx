@@ -48,6 +48,7 @@ import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { assertPermission } from "@/lib/route-guards";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/finance/budgets")({
   beforeLoad: ({ context }) => assertPermission(context, "finance.view"),
@@ -91,11 +92,11 @@ function BudgetsPage() {
   const { actuals, error: actualsError, retry } = useBudgetActuals(year?.id);
 
   const isLoading =
-    (yearRows.length === 0 && yearsResult.type !== "complete") ||
-    (budgetRows.length === 0 && budgetsResult.type !== "complete") ||
-    (programmes.length === 0 && programmesResult.type !== "complete") ||
-    (heads.length === 0 && headsResult.type !== "complete") ||
-    (categories.length === 0 && categoriesResult.type !== "complete");
+    (yearRows.length === 0 && isAwaitingResult(yearsResult)) ||
+    (budgetRows.length === 0 && isAwaitingResult(budgetsResult)) ||
+    (programmes.length === 0 && isAwaitingResult(programmesResult)) ||
+    (heads.length === 0 && isAwaitingResult(headsResult)) ||
+    (categories.length === 0 && isAwaitingResult(categoriesResult));
 
   if (isLoading || !year) {
     return (

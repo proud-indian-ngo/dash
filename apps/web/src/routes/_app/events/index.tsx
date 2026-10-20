@@ -12,6 +12,7 @@ import { TipStrip } from "@/components/shared/tip-strip";
 import { useApp } from "@/context/app-context";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isTeamLead } from "@/lib/team-utils";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/events/")({
   component: PublicEventsRouteComponent,
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/_app/events/")({
 function PublicEventsRouteComponent() {
   const { session } = Route.useRouteContext();
   const [data, result] = useQuery(queries.teamEvent.allAccessible());
-  const isLoading = data.length === 0 && result.type !== "complete";
+  const isLoading = data.length === 0 && isAwaitingResult(result);
   const [myInterests] = useQuery(queries.eventInterest.byCurrentUser());
   const [myTeams] = useQuery(queries.team.byCurrentUser());
   const myTeamIds = useMemo(() => new Set(myTeams.map((t) => t.id)), [myTeams]);

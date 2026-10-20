@@ -5,10 +5,11 @@ description: Use when writing or modifying Zero query hooks, fixing skeleton/loa
 
 # Zero Query Patterns
 
-Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `"unknown"` — it causes skeleton/content flash cycles.
+Zero keeps cached data during re-sync (`type === "unknown"`). Never gate UI on `"unknown"` alone — it causes skeleton/content flash cycles. A query whose local rows the server confirmed in an earlier session starts as `"cached"`: treat it as settled for display, but it may be stale.
 
-- DO: Derive loading state from **data emptiness + type**: `const isLoading = data.length === 0 && result.type !== "complete"`. This shows skeleton only on first load; once data is cached it persists through re-sync.
-- DO: For singular queries (`.byId`): `const isLoading = !item && result.type !== "complete"`.
+- DO: Derive loading state from **data emptiness + type** with `isAwaitingResult` (`@/lib/zero-result`): `const isLoading = data.length === 0 && isAwaitingResult(result)`. This shows a skeleton only until a confirmed result; a `"cached"` empty result shows its empty state at once, and loaded data persists through re-sync.
+- DO: For singular queries (`.byId`): `const isLoading = !item && isAwaitingResult(result)`.
+- DO: Keep `result.type === "complete"` where an action or snapshot needs this session's server-confirmed rows (Kalakriti scans, clones, readiness checks); `"cached"` can be stale.
 - DO: Always compute derived data (stats, counts, filters) from the live query data — never gate computation on `isLoading`. This prevents values flashing to 0 during re-sync.
 - DO NOT: Check `result.type === "unknown"` to show loading UI — Zero returns cached data during `"unknown"`, so it's never truly empty after first load.
 - DO NOT: Use per-query error hooks — connection errors are handled globally by `ZeroConnectionMonitor` in `_app.tsx` via `useConnectionState()`.

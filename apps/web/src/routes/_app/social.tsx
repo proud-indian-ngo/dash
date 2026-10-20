@@ -26,6 +26,7 @@ import { SocialSettings } from "@/components/social/social-settings";
 import { useSocialPeople } from "@/components/social/use-social-people";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { assertPermission } from "@/lib/route-guards";
+import { isAwaitingResult } from "@/lib/zero-result";
 
 export const Route = createFileRoute("/_app/social")({
   beforeLoad: ({ context }) => assertPermission(context, "social.manage"),
@@ -40,7 +41,7 @@ function RunsTab() {
   const [runs, result] = useQuery(queries.socialRun.all());
   return (
     <SocialRunsTable
-      isLoading={runs.length === 0 && result.type !== "complete"}
+      isLoading={runs.length === 0 && isAwaitingResult(result)}
       runs={runs as SocialRun[]}
     />
   );
@@ -96,7 +97,7 @@ function PostsTab() {
   return (
     <>
       <SocialPostsTable
-        isLoading={posts.length === 0 && result.type !== "complete"}
+        isLoading={posts.length === 0 && isAwaitingResult(result)}
         onDrop={setDropTarget}
         posts={rows}
       />
@@ -117,7 +118,7 @@ function PostsTab() {
 
 function SettingsTab() {
   const [configs, result] = useQuery(queries.appConfig.all());
-  if (configs.length === 0 && result.type !== "complete") {
+  if (configs.length === 0 && isAwaitingResult(result)) {
     return null;
   }
   return <SocialSettings configs={configs} />;
