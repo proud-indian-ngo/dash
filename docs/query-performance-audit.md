@@ -139,6 +139,22 @@ The longer idle window loaded about 298 KB of extra compressed JavaScript before
 
 Contribution-dialog traces isolated about 245 ms to mounted controls on first open and 101 ms on repeat. Reduced motion measured 296 and 102 ms, so shortening animation does not address mounting. Base UI drawer geometry reads dominated style/layout work; form code accounted for about 20 ms initially. No local optimization was adopted: changing the mobile drawer interaction or memoizing the form would not be justified by that profile. The opt-in profiler retains in-page readiness marks and timelines for evaluating a dependency-level fix.
 
+### Loading geometry and follow-up trials
+
+Three fresh contexts per case used the same throttling and production harness. These are local seeded mobile CLS medians:
+
+| Page | Before | Retained change |
+|---|---:|---:|
+| Food, no eligible people | 0.321 | 0.007 |
+| Food, populated eligible roster | 0.150 | 0.007 |
+| Trust deed | 0.581 | 0.000 |
+| Governance documents | 0.143 | 0.058 |
+| Declarations | 0.303 | 0.000 |
+
+Food reserves its loading geometry; Deed uses the rules/history layout while loading. Documents resolves signing-service status before rendering its warning. Declarations waits for the personal and board data instead of inserting the personal card above a rendered table. That completeness requirement increased measured mobile readiness from 5.45 to 6.00 seconds under throttling.
+
+Two trials were rejected. Splitting the claim editor saved about 35 KB of detail JavaScript, but mobile detail readiness stayed near 1.56 seconds and first edit rose from 511 to 900 ms. Caching table width reduced mobile repeat Users navigation from 269 to 242 ms, but desktop rose from 240 to 288 ms and first visits slowed. Neither trial justified its extra complexity. The opt-in probes remain available; early Event Timing snapshots are diagnostics, not INP.
+
 ### Rules these results support
 
 - Global admins skip most permission predicates. Measure the restricted role too: Edition admin roughly doubles the reads of global admin on Students, Entries and Food.

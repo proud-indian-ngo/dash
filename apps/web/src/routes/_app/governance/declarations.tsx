@@ -18,7 +18,10 @@ import {
   type DeclaredInterest,
   declarationsByTrustee,
 } from "@pi-dash/shared/declarations";
-import { boardOn } from "@pi-dash/shared/governance";
+import {
+  boardOn,
+  GOVERNANCE_PAGE_PERMISSIONS,
+} from "@pi-dash/shared/governance";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -33,6 +36,7 @@ import { governanceDocumentHref } from "@/components/governance/evidence";
 import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
 import { PageHeader } from "@/components/shared/page-header";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -45,8 +49,42 @@ import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { submitConflictDeclarationFn } from "@/functions/declarations";
 import { formatTimestamp } from "@/lib/date-formats";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/governance/declarations")({
+  loader: ({ abortController, context }) => {
+    preloadRouteQuery(
+      context.zero,
+      queries.trustee.me(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.conflictDeclaration.mine(),
+      abortController.signal
+    );
+    const canSee = GOVERNANCE_PAGE_PERMISSIONS.some((permission) =>
+      context.permissions.includes(permission)
+    );
+    if (!canSee) {
+      return;
+    }
+    preloadRouteQuery(
+      context.zero,
+      queries.trustee.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.deedVersion.all(),
+      abortController.signal
+    );
+    preloadRouteQuery(
+      context.zero,
+      queries.conflictDeclaration.all(),
+      abortController.signal
+    );
+  },
   component: DeclarationsPage,
   head: () => ({
     meta: [{ title: `Declarations of interests | ${env.VITE_APP_NAME}` }],
@@ -117,11 +155,27 @@ function DeclarationsPage() {
     hasPermission("governance.view") || hasPermission("governance.manage");
   const today = todayIso();
   const fiscalYear = fiscalYearLabel(today);
-  const { input, isLoading } = useRegister(today);
-  const [mineTrustees] = useQuery(queries.trustee.me());
-  const [all] = useQuery(queries.conflictDeclaration.all());
-  const [mine] = useQuery(queries.conflictDeclaration.mine());
+  const { input, isLoading } = useRegister(today, { enabled: canSee });
+  const [mineTrustees, mineTrusteesResult] = useQuery(queries.trustee.me());
+  const [all, allResult] = useQuery(queries.conflictDeclaration.all(), {
+    enabled: canSee,
+  });
+  const [mine, mineResult] = useQuery(queries.conflictDeclaration.mine());
   const [declaring, setDeclaring] = useState(false);
+  const initialLoading =
+    isLoading ||
+    (mineTrustees.length === 0 && mineTrusteesResult.type !== "complete") ||
+    (mine.length === 0 && mineResult.type !== "complete") ||
+    (canSee && all.length === 0 && allResult.type !== "complete");
+
+  if (initialLoading) {
+    return (
+      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
+        <DetailPageSkeleton />
+      </div>
+    );
+  }
+
   const board = boardOn(input, today);
   const isTrustee = mineTrustees.length > 0;
   const my =

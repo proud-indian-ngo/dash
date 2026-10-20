@@ -17,8 +17,7 @@ import {
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -52,6 +51,7 @@ export const Route = createFileRoute("/_app/governance/documents")({
       queries.governanceDocument.all(),
       abortController.signal
     );
+    return getSigningServiceStatus().catch(() => ({ configured: true }));
   },
 });
 
@@ -213,6 +213,7 @@ const columns: DataGridColumnDef<VaultDocument>[] = [
 
 function GovernanceDocumentsPage() {
   const { hasPermission } = useApp();
+  const { configured: signingConfigured } = Route.useLoaderData();
   const canManage = hasPermission("governance.manage");
   const [rows, result] = useQuery(queries.governanceDocument.all());
   const [trustees] = useQuery(queries.trustee.all());
@@ -236,22 +237,6 @@ function GovernanceDocumentsPage() {
       null) as VaultDocument["validationReport"],
   }));
   const trusteeNames = new Map(trustees.map((t) => [t.id, t.legalName]));
-  const loadSigningStatus = useServerFn(getSigningServiceStatus);
-  const [signingConfigured, setSigningConfigured] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    loadSigningStatus()
-      .then((status) => {
-        if (!cancelled) {
-          setSigningConfigured(status.configured);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [loadSigningStatus]);
-
   const [uploadOpen, setUploadOpen] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const viewing = viewingId

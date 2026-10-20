@@ -23,6 +23,8 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Vote confirmation | Signing or objecting needs a sign-in within 10 minutes | Shared laptops must not vote |
 | Finance | No trustee tier in approvals. A payment to a trustee or a declared related party warns ([declarations](governance-compliance.md#declarations-of-interests)) | Clause 7.24 |
 
+List preloads and mounted subscriptions use the same permission scope: governance viewers and managers read the full list; other trustees read their own meetings and resolutions. Personal declarations remain independent of board-wide access because a manager can also be a trustee. Client subscription gating avoids unused work; Zero query predicates still enforce access.
+
 ## Deed rules (version 1)
 
 | Clause | Rule | Enforcement |

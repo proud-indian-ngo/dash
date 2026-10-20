@@ -8,6 +8,7 @@ import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
+import { GOVERNANCE_PAGE_PERMISSIONS } from "@pi-dash/shared/governance";
 import {
   RESOLUTION_STATUS_LABELS,
   RESOLUTION_TEMPLATES,
@@ -46,12 +47,23 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { preloadRouteQuery } from "@/lib/route-preload";
 
 export const Route = createFileRoute("/_app/governance/resolutions/")({
   component: ResolutionsPage,
   head: () => ({
     meta: [{ title: `Resolutions | ${env.VITE_APP_NAME}` }],
   }),
+  loader: ({ abortController, context }) => {
+    const canSee = GOVERNANCE_PAGE_PERMISSIONS.some((permission) =>
+      context.permissions.includes(permission)
+    );
+    preloadRouteQuery(
+      context.zero,
+      canSee ? queries.resolution.all() : queries.resolution.mine(),
+      abortController.signal
+    );
+  },
   // A calendar item opens the new-circular form with its annual-pack template.
   validateSearch: z.object({
     template: z.enum(resolutionTemplateKeyValues).optional(),
@@ -269,13 +281,17 @@ function ResolutionsPage() {
   const canSee =
     hasPermission("governance.view") || hasPermission("governance.manage");
   const canManage = hasPermission("governance.manage");
-  const [all, allResult] = useQuery(queries.resolution.all());
-  const [mine, mineResult] = useQuery(queries.resolution.mine());
+  const [all, allResult] = useQuery(queries.resolution.all(), {
+    enabled: canSee,
+  });
+  const [mine, mineResult] = useQuery(queries.resolution.mine(), {
+    enabled: !canSee,
+  });
   const rows = canSee ? all : mine;
   const isLoading =
     rows.length === 0 &&
     (canSee ? allResult.type : mineResult.type) !== "complete";
-  const { trustees } = useRegister(todayIso());
+  const { trustees } = useRegister(todayIso(), { enabled: canManage });
   const navigate = useNavigate();
   const { template: startTemplate } = Route.useSearch();
   const [creating, setCreating] = useState<string | null>(() =>
