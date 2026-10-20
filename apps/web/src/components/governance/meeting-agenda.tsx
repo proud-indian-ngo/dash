@@ -1,6 +1,7 @@
 import {
   Delete02Icon,
   Edit02Icon,
+  MoreHorizontalIcon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -33,6 +34,7 @@ import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
   Dialog,
   DialogContent,
@@ -284,6 +286,7 @@ function DiscussionDialog({
       }}
       open
       title="Add a discussion item"
+      variant="default"
     />
   );
 }
@@ -296,6 +299,7 @@ function AgendaItemCard({
   item: AgendaItemView;
 }) {
   const zero = useZero();
+  const isMobile = useIsMobile();
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState(item.notes ?? "");
   const [removing, setRemoving] = useState(false);
@@ -305,6 +309,11 @@ function AgendaItemCard({
   const canEditNotes =
     context.canEdit ||
     (context.meeting.status === "held" && !signed && context.canRecord);
+  const canRemove = context.canEdit && isOpen && item.kind !== "note_circulars";
+  const openNotes = () => {
+    setNotes(item.notes ?? "");
+    setEditingNotes(true);
+  };
 
   const saveNotes = useEventCallback(async () => {
     const result = await zero.mutate(
@@ -351,39 +360,74 @@ function AgendaItemCard({
           {decided ? (
             <StatusBadge tone={decided.tone}>{decided.label}</StatusBadge>
           ) : null}
-          {canEditNotes ? (
-            <Button
-              aria-label={`Edit notes on ${item.title}`}
-              onClick={() => {
-                setNotes(item.notes ?? "");
-                setEditingNotes(true);
-              }}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Edit02Icon}
-                strokeWidth={2}
-              />
-            </Button>
-          ) : null}
-          {context.canEdit && isOpen && item.kind !== "note_circulars" ? (
-            <Button
-              aria-label={`Remove ${item.title}`}
-              onClick={() => setRemoving(true)}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <HugeiconsIcon
-                className="size-4"
-                icon={Delete02Icon}
-                strokeWidth={2}
-              />
-            </Button>
-          ) : null}
+          {isMobile ? (
+            // Phones: one menu instead of two small icons beside the title.
+            <ResponsiveActionMenu
+              actions={[
+                canEditNotes && {
+                  icon: Edit02Icon,
+                  id: "notes",
+                  label: item.notes ? "Edit notes" : "Add notes",
+                  onSelect: openNotes,
+                },
+                canRemove && {
+                  destructive: true,
+                  icon: Delete02Icon,
+                  id: "remove",
+                  label: "Remove from the agenda",
+                  onSelect: () => setRemoving(true),
+                },
+              ]}
+              title={item.title}
+              trigger={
+                <Button
+                  aria-label={`Actions for ${item.title}`}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={MoreHorizontalIcon}
+                    strokeWidth={2}
+                  />
+                </Button>
+              }
+            />
+          ) : (
+            <>
+              {canEditNotes ? (
+                <Button
+                  aria-label={`Edit notes on ${item.title}`}
+                  onClick={openNotes}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                </Button>
+              ) : null}
+              {canRemove ? (
+                <Button
+                  aria-label={`Remove ${item.title}`}
+                  onClick={() => setRemoving(true)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Delete02Icon}
+                    strokeWidth={2}
+                  />
+                </Button>
+              ) : null}
+            </>
+          )}
         </span>
       </div>
       {item.resolution
@@ -437,6 +481,7 @@ function AgendaItemCard({
           onOpenChange={setEditingNotes}
           open
           title={item.title}
+          variant="default"
         />
       ) : null}
       <ConfirmDialog
