@@ -1,102 +1,31 @@
 "use client";
 
-import { CaptionPlugin } from "@platejs/caption/react";
-import {
-  BulletedListPlugin,
-  ListItemContentPlugin,
-  ListItemPlugin,
-  ListPlugin,
-  NumberedListPlugin,
-} from "@platejs/list-classic/react";
-import { Image, ImagePlugin } from "@platejs/media/react";
 import { log } from "evlog";
-import type { TImageElement, Value } from "platejs";
-import { KEYS } from "platejs";
-import type { PlateElementProps } from "platejs/react";
-import {
-  Plate,
-  PlateContent,
-  PlateElement,
-  usePlateEditor,
-} from "platejs/react";
+import type { Value } from "platejs";
+import { createZustandStore } from "platejs/react";
+import { createStaticEditor, PlateStatic } from "platejs/static";
+import { useMemo } from "react";
 
-import { BasicBlocksKit } from "../components/editor/plugins/basic-blocks-kit";
-import { BasicMarksKit } from "../components/editor/plugins/basic-marks-kit";
-import { CodeBlockKit } from "../components/editor/plugins/code-block-kit";
-import { LinkKit } from "../components/editor/plugins/link-kit";
-import { MentionKit } from "../components/editor/plugins/mention-kit";
-import { TableKit } from "../components/editor/plugins/table-kit";
-import { ToggleKit } from "../components/editor/plugins/toggle-kit";
-import {
-  BulletedListElement,
-  ListItemElement,
-  NumberedListElement,
-} from "../components/ui/list-classic-node";
-
-function ReadOnlyImageElement(props: PlateElementProps<TImageElement>) {
-  const { align = "center" } = props.element;
-  const width = props.element.width as string | number | undefined;
-  const caption = props.element.caption as unknown;
-  const captionText = Array.isArray(caption)
-    ? caption
-        .map((c) => {
-          if (!(typeof c === "object" && c && "text" in c)) {
-            return "";
-          }
-          const { text } = c as { text?: unknown };
-          return typeof text === "string" ? text : "";
-        })
-        .join("")
-    : "";
-
-  const alignClasses: Record<string, string> = {
-    left: "mr-auto",
-    right: "ml-auto",
-  };
-  const alignClass = alignClasses[align as string];
-
-  return (
-    <PlateElement {...props} className="py-2.5">
-      <figure
-        className={`m-0 ${alignClass}`}
-        style={width ? { width } : undefined}
-      >
-        <Image
-          alt={captionText || "Image"}
-          className="block w-full max-w-full rounded-sm object-cover"
-        />
-        {Boolean(captionText) && (
-          <figcaption className="text-muted-foreground mt-2 text-center text-sm">
-            {captionText}
-          </figcaption>
-        )}
-      </figure>
-      {props.children}
-    </PlateElement>
-  );
-}
+import { BaseBasicBlocksKit } from "../components/editor/plugins/basic-blocks-base-kit";
+import { BaseBasicMarksKit } from "../components/editor/plugins/basic-marks-base-kit";
+import { BaseCodeBlockKit } from "../components/editor/plugins/code-block-base-kit";
+import { BaseLinkKit } from "../components/editor/plugins/link-base-kit";
+import { BaseListKit } from "../components/editor/plugins/list-classic-base-kit";
+import { BaseMediaKit } from "../components/editor/plugins/media-base-kit";
+import { BaseMentionKit } from "../components/editor/plugins/mention-base-kit";
+import { BaseTableKit } from "../components/editor/plugins/table-base-kit";
+import { BaseToggleKit } from "../components/editor/plugins/toggle-base-kit";
 
 const rendererPlugins = [
-  ...BasicBlocksKit,
-  ...BasicMarksKit,
-  ...LinkKit,
-  ImagePlugin.withComponent(ReadOnlyImageElement),
-  CaptionPlugin.configure({
-    options: { query: { allow: [KEYS.img] } },
-  }),
-  ...CodeBlockKit,
-  ...TableKit,
-  ...MentionKit,
-  ...ToggleKit,
-  ListPlugin,
-  ListItemContentPlugin,
-  BulletedListPlugin.configure({
-    node: { component: BulletedListElement },
-  }),
-  NumberedListPlugin.configure({
-    node: { component: NumberedListElement },
-  }),
-  ListItemPlugin.withComponent(ListItemElement),
+  ...BaseBasicBlocksKit,
+  ...BaseBasicMarksKit,
+  ...BaseLinkKit,
+  ...BaseMediaKit,
+  ...BaseCodeBlockKit,
+  ...BaseTableKit,
+  ...BaseMentionKit,
+  ...BaseToggleKit,
+  ...BaseListKit,
 ];
 
 export interface RendererProps {
@@ -122,13 +51,21 @@ function parseContent(content: string): Value | undefined {
 }
 
 export function PlateRenderer({ content, className }: RendererProps) {
-  const parsed = parseContent(content);
-  const editor = usePlateEditor({
-    plugins: rendererPlugins,
-    value: parsed,
-  });
+  // Toggle open state lives in the editor's plugin options, so keep one editor
+  // per content value and give it React-subscribable option stores.
+  const editor = useMemo(() => {
+    const value = parseContent(content);
+    return (
+      value &&
+      createStaticEditor({
+        optionsStoreFactory: createZustandStore,
+        plugins: rendererPlugins,
+        value,
+      })
+    );
+  }, [content]);
 
-  if (!parsed) {
+  if (!editor) {
     return (
       <p className="text-muted-foreground text-sm">
         Unable to display this content.
@@ -137,8 +74,9 @@ export function PlateRenderer({ content, className }: RendererProps) {
   }
 
   return (
-    <Plate editor={editor} readOnly>
-      <PlateContent className={`prose prose-sm ${className}`} />
-    </Plate>
+    <PlateStatic
+      className={`prose prose-sm relative break-words whitespace-pre-wrap ${className}`}
+      editor={editor}
+    />
   );
 }

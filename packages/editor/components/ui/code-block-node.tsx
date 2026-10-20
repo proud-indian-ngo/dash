@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "./button";
+import { CopyButton } from "./code-block-node-static";
 import {
   Command,
   CommandEmpty,
@@ -16,7 +17,7 @@ import {
 } from "./popover";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { formatCodeBlock, isLangSupported } from "@platejs/code-block";
-import { Copy01Icon, SourceCodeSquareIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { SourceCodeSquareIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { NodeApi, type TCodeBlockElement, type TCodeSyntaxLeaf } from "platejs";
 import {
@@ -151,41 +152,6 @@ function CodeBlockCombobox() {
         </Command>
       </PopoverContent>
     </Popover>
-  );
-}
-
-function CopyButton({
-  value,
-  ...props
-}: { value: (() => string) | string } & Omit<
-  React.ComponentProps<typeof Button>,
-  "value"
->) {
-  const [hasCopied, setHasCopied] = React.useState(false);
-
-  React.useEffect(() => {
-    setTimeout(() => {
-      setHasCopied(false);
-    }, 2000);
-  }, [hasCopied]);
-
-  return (
-    <Button
-      onClick={() => {
-        void navigator.clipboard.writeText(
-          typeof value === "function" ? value() : value
-        );
-        setHasCopied(true);
-      }}
-      {...props}
-    >
-      <span className="sr-only">Copy</span>
-      {hasCopied ? (
-        <HugeiconsIcon icon={Tick02Icon} className="!size-3" />
-      ) : (
-        <HugeiconsIcon icon={Copy01Icon} className="!size-3" />
-      )}
-    </Button>
   );
 }
 

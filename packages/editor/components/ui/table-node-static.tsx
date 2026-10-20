@@ -1,9 +1,14 @@
 import { cn } from "@pi-dash/design-system/lib/utils";
-import { BaseTablePlugin } from "@platejs/table";
+import {
+  BaseTablePlugin,
+  getTableOverriddenColSizes,
+} from "@platejs/table";
 import type { TTableCellElement, TTableElement } from "platejs";
 import type { SlateElementProps } from "platejs/static";
 import { SlateElement } from "platejs/static";
 import type * as React from "react";
+
+const TABLE_DEFAULT_COLUMN_WIDTH = 120;
 
 export function TableElementStatic({
   children,
@@ -11,6 +16,9 @@ export function TableElementStatic({
 }: SlateElementProps<TTableElement>) {
   const { disableMarginLeft } = props.editor.getOptions(BaseTablePlugin);
   const marginLeft = disableMarginLeft ? 0 : props.element.marginLeft;
+  const colSizes = getTableOverriddenColSizes(props.element).map(
+    (colSize) => colSize || TABLE_DEFAULT_COLUMN_WIDTH
+  );
 
   return (
     <SlateElement
@@ -21,8 +29,24 @@ export function TableElementStatic({
       <div className="group/table relative w-fit">
         <table
           className="mr-0 ml-px table h-px table-fixed border-collapse"
-          style={{ borderCollapse: "collapse", width: "100%" }}
+          style={{
+            width: colSizes.reduce((total, colSize) => total + colSize, 0),
+          }}
         >
+          {colSizes.length > 0 && (
+            <colgroup>
+              {colSizes.map((colSize, index) => (
+                <col
+                  key={index}
+                  style={{
+                    maxWidth: colSize,
+                    minWidth: colSize,
+                    width: colSize,
+                  }}
+                />
+              ))}
+            </colgroup>
+          )}
           <tbody className="min-w-full">{children}</tbody>
         </table>
       </div>
@@ -32,7 +56,7 @@ export function TableElementStatic({
 
 export function TableRowElementStatic(props: SlateElementProps) {
   return (
-    <SlateElement {...props} as="tr" className="h-full">
+    <SlateElement {...props} as="tr">
       {props.children}
     </SlateElement>
   );
@@ -49,6 +73,8 @@ export function TableCellElementStatic({
 
   const { minHeight, width } = api.table.getCellSize({ element });
   const borders = api.table.getCellBorders({ element });
+  const colSpan = api.table.getColSpan(element);
+  const cellWidth = width || TABLE_DEFAULT_COLUMN_WIDTH * colSpan;
 
   return (
     <SlateElement
@@ -56,13 +82,13 @@ export function TableCellElementStatic({
       as={isHeader ? "th" : "td"}
       attributes={{
         ...props.attributes,
-        colSpan: api.table.getColSpan(element),
+        colSpan,
         rowSpan: api.table.getRowSpan(element),
       }}
       className={cn(
-        "h-full overflow-visible border-none bg-background p-0",
+        "relative h-full overflow-visible border-none bg-background p-0",
         element.background ? "bg-(--cellBackground)" : "bg-background",
-        isHeader && "text-left font-normal *:m-0",
+        isHeader && "text-left *:m-0",
         "before:size-full",
         "before:absolute before:box-border before:select-none before:content-['']",
         borders &&
@@ -76,13 +102,13 @@ export function TableCellElementStatic({
       style={
         {
           "--cellBackground": element.background,
-          maxWidth: width || 240,
-          minWidth: width || 120,
+          maxWidth: cellWidth,
+          minWidth: cellWidth,
         } as React.CSSProperties
       }
     >
       <div
-        className="relative z-20 box-border h-full px-4 py-2"
+        className="relative z-20 box-border h-full px-3 py-2"
         style={{ minHeight }}
       >
         {props.children}
