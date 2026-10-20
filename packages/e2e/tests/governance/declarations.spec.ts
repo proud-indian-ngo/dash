@@ -81,8 +81,8 @@ test.describe("declarations and policies (super admin)", () => {
     const title = `E2E trustee code ${Date.now()}`;
     await page.goto("/governance/policies");
     await page.getByRole("button", { name: "New policy" }).click();
-    const create = page.getByRole("alertdialog", { name: "New policy" });
-    await create.getByLabel("Title", { exact: true }).fill(title);
+    const create = page.getByRole("dialog", { name: "New policy" });
+    await create.getByRole("textbox", { name: "Title" }).fill(title);
     await create.getByRole("combobox", { name: "For" }).click();
     await page.getByRole("option", { name: "Trustees" }).click();
     await create.getByRole("button", { name: "Add policy" }).click();
@@ -90,9 +90,7 @@ test.describe("declarations and policies (super admin)", () => {
 
     const card = page.getByRole("region", { name: title });
     await card.getByRole("button", { name: "Publish a version" }).click();
-    const publish = page.getByRole("alertdialog", {
-      name: "Publish a version",
-    });
+    const publish = page.getByRole("dialog", { name: "Publish a version" });
     await publish.getByRole("combobox", { name: "Approved document" }).click();
     await page
       .getByRole("option", { name: /Volunteer code of conduct/ })
@@ -100,7 +98,7 @@ test.describe("declarations and policies (super admin)", () => {
     await publish
       .getByLabel("What changed", { exact: true })
       .fill("First version");
-    await publish.getByRole("button", { name: "Publish" }).click();
+    await publish.getByRole("button", { name: "Publish version" }).click();
     await expect(card.getByText("Version 1")).toBeVisible();
     await expect(card.getByText(/^0 of \d+ acknowledged$/)).toBeVisible();
 

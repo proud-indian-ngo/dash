@@ -668,28 +668,39 @@ function ItemVotes({
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <Checkbox
-                      aria-label={`${name} declared an interest`}
-                      checked={vote?.conflict ?? false}
-                      disabled={!editable}
-                      onCheckedChange={(checked) =>
-                        setVote(a, { conflict: Boolean(checked) })
-                      }
-                    />
+                    {editable ? (
+                      <Checkbox
+                        aria-label={`${name} declared an interest`}
+                        checked={vote?.conflict ?? false}
+                        onCheckedChange={(checked) =>
+                          setVote(a, { conflict: Boolean(checked) })
+                        }
+                      />
+                    ) : (
+                      <span className="text-sm">
+                        {vote?.conflict ? "Declared" : "—"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {present ? (
                       <span className="text-muted-foreground text-xs">—</span>
-                    ) : (
+                    ) : null}
+                    {!present && !editable ? (
+                      <span className="text-sm">
+                        {vote?.absenteeWritten ? "In writing" : "—"}
+                      </span>
+                    ) : null}
+                    {!present && editable ? (
                       <Checkbox
                         aria-label={`${name} sent views in writing`}
                         checked={vote?.absenteeWritten ?? false}
-                        disabled={!(editable && vote && !vote.conflict)}
+                        disabled={!vote || Boolean(vote.conflict)}
                         onCheckedChange={(checked) =>
                           setVote(a, { written: Boolean(checked) })
                         }
                       />
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               );

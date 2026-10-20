@@ -15,13 +15,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
-import { Input } from "@pi-dash/design-system/components/ui/input";
-import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@pi-dash/design-system/components/ui/tabs";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { cn } from "@pi-dash/design-system/lib/utils";
 import { env } from "@pi-dash/env/web";
 import {
   COMPLIANCE_STATUS_LABELS,
@@ -39,12 +40,18 @@ import {
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 
-import { EvidenceLink, NO_DOCUMENT } from "@/components/governance/evidence";
+import {
+  AddItemDialog,
+  AssignDialog,
+  MarkDoneDialog,
+  NotNeededDialog,
+} from "@/components/governance/compliance-dialogs";
+import { EvidenceLink } from "@/components/governance/evidence";
 import { PlainSelect } from "@/components/governance/plain-select";
 import {
   epochToIso,
@@ -239,6 +246,8 @@ function CompliancePage() {
     }
   );
 
+  const closeDialog = useEventCallback(() => setDialog(null));
+
   const renderItem = (item: Item) => (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
@@ -363,20 +372,28 @@ function CompliancePage() {
           { label: `Closed in ${year.label}`, value: closedThisYear },
         ]}
       />
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        {(["open", "closed", "all"] as const).map((value) => (
-          <Button
-            aria-pressed={filter === value}
-            key={value}
-            onClick={() => setFilter(value)}
-            size="sm"
-            type="button"
-            variant={filter === value ? "secondary" : "ghost"}
-          >
-            {{ all: "All", closed: "Closed", open: "Open" }[value]}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        className="mt-6 border-b"
+        onValueChange={(value) => setFilter(value as Filter)}
+        value={filter}
+      >
+        <TabsList className="h-9 gap-4 px-0" variant="line">
+          {(
+            [
+              ["open", "Open", open.length],
+              ["closed", "Closed", items.length - open.length],
+              ["all", "All", items.length],
+            ] as const
+          ).map(([value, label, count]) => (
+            <TabsTrigger className="flex-none px-0" key={value} value={value}>
+              {label}
+              <span className="text-muted-foreground font-mono text-xs tabular-nums">
+                {count}
+              </span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       <div className="mt-4 flex flex-col gap-6">
         {isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {!isLoading && shown.length === 0 ? (
@@ -424,10 +441,10 @@ function CompliancePage() {
         )}
       </div>
 
-      <CloseDialog
-        dialog={dialog}
+      <MarkDoneDialog
         documents={documents}
-        onClose={() => setDialog(null)}
+        item={dialog?.kind === "close" ? dialog.item : null}
+        onClose={closeDialog}
         onSubmit={(item, documentId, note) =>
           mutate(
             zero.mutate(
@@ -443,32 +460,23 @@ function CompliancePage() {
           )
         }
       />
-      <TextDialog
-        description="Say why it isn't needed this time; it stays on the calendar as closed."
-        label="Reason"
-        onClose={() => setDialog(null)}
-        onSubmit={(text) =>
-          dialog?.kind === "waive"
-            ? mutate(
-                zero.mutate(
-                  mutators.complianceItem.waive({
-                    id: dialog.item.id,
-                    note: text,
-                  })
-                ).server,
-                dialog.item.id,
-                "complianceItem.waive",
-                "Marked not needed"
-              )
-            : undefined
+      <NotNeededDialog
+        item={dialog?.kind === "waive" ? dialog.item : null}
+        onClose={closeDialog}
+        onSubmit={(item, reason) =>
+          mutate(
+            zero.mutate(
+              mutators.complianceItem.waive({ id: item.id, note: reason })
+            ).server,
+            item.id,
+            "complianceItem.waive",
+            "Marked not needed"
+          )
         }
-        open={dialog?.kind === "waive"}
-        submitLabel="Not needed"
-        title="Not needed this time"
       />
       <AssignDialog
         item={dialog?.kind === "assign" ? dialog.item : null}
-        onClose={() => setDialog(null)}
+        onClose={closeDialog}
         onSubmit={(item, ownerUserId) =>
           mutate(
             zero.mutate(
@@ -481,8 +489,8 @@ function CompliancePage() {
         }
         owners={owners}
       />
-      <AddDialog
-        onClose={() => setDialog(null)}
+      <AddItemDialog
+        onClose={closeDialog}
         onSubmit={(title, dueOn) => {
           const id = uuidv7();
           return mutate(
@@ -566,258 +574,5 @@ function CompliancePage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function CloseDialog({
-  dialog,
-  documents,
-  onClose,
-  onSubmit,
-}: {
-  dialog: Dialogs;
-  documents: ReturnType<typeof useGovernanceDocuments>["documents"];
-  onClose: () => void;
-  onSubmit: (item: Item, documentId: string, note: string) => void;
-}) {
-  const [documentId, setDocumentId] = useState(NO_DOCUMENT);
-  const [note, setNote] = useState("");
-  const item = dialog?.kind === "close" ? dialog.item : null;
-  return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-          setDocumentId(NO_DOCUMENT);
-          setNote("");
-        }
-      }}
-      open={item !== null}
-    >
-      <DialogContent className="sm:max-w-(--dialog-md)">
-        <DialogHeader>
-          <DialogTitle>Mark done</DialogTitle>
-          <DialogDescription>{item?.title}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-evidence">Evidence</Label>
-          <PlainSelect
-            id="compliance-evidence"
-            onChange={setDocumentId}
-            options={[
-              { label: "Choose a document…", value: NO_DOCUMENT },
-              ...documents.map((d) => ({
-                label: `${d.title} · ${formatIso(d.datedOn)}`,
-                value: d.id,
-              })),
-            ]}
-            value={documentId}
-          />
-          <p className="text-muted-foreground text-xs">
-            The acknowledgement, filing or signed record.{" "}
-            <Link
-              className="text-primary underline-offset-4 hover:underline"
-              to="/governance/documents"
-            >
-              Add it to the vault
-            </Link>{" "}
-            first if it isn't there.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-note">Note</Label>
-          <Textarea
-            id="compliance-note"
-            onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            value={note}
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button
-            disabled={documentId === NO_DOCUMENT}
-            onClick={() => item && onSubmit(item, documentId, note)}
-            type="button"
-          >
-            Mark done
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TextDialog({
-  description,
-  label,
-  onClose,
-  onSubmit,
-  open,
-  submitLabel,
-  title,
-}: {
-  description: string;
-  label: string;
-  onClose: () => void;
-  onSubmit: (text: string) => void;
-  open: boolean;
-  submitLabel: string;
-  title: string;
-}) {
-  const [text, setText] = useState("");
-  return (
-    <Dialog
-      onOpenChange={(next) => {
-        if (!next) {
-          onClose();
-          setText("");
-        }
-      }}
-      open={open}
-    >
-      <DialogContent className="sm:max-w-(--dialog-md)">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-text">{label}</Label>
-          <Textarea
-            id="compliance-text"
-            onChange={(e) => setText(e.target.value)}
-            rows={3}
-            value={text}
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button
-            disabled={!text.trim()}
-            onClick={() => onSubmit(text.trim())}
-            type="button"
-          >
-            {submitLabel}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AssignDialog({
-  item,
-  onClose,
-  onSubmit,
-  owners,
-}: {
-  item: Item | null;
-  onClose: () => void;
-  onSubmit: (item: Item, ownerUserId: string | null) => void;
-  owners: { id: string; name: string }[];
-}) {
-  const [owner, setOwner] = useState("");
-  return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open={item !== null}>
-      <DialogContent className="sm:max-w-(--dialog-md)">
-        <DialogHeader>
-          <DialogTitle>Assign</DialogTitle>
-          <DialogDescription>{item?.title}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-owner">Owner</Label>
-          <PlainSelect
-            id="compliance-owner"
-            onChange={setOwner}
-            options={[
-              {
-                label: "Secretaries (everyone who manages governance)",
-                value: "",
-              },
-              ...owners.map((o) => ({ label: o.name, value: o.id })),
-            ]}
-            value={owner}
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => item && onSubmit(item, owner || null)}
-            type="button"
-          >
-            Assign
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AddDialog({
-  onClose,
-  onSubmit,
-  open,
-}: {
-  onClose: () => void;
-  onSubmit: (title: string, dueOn: string) => void;
-  open: boolean;
-}) {
-  const [title, setTitle] = useState("");
-  const [dueOn, setDueOn] = useState("");
-  return (
-    <Dialog
-      onOpenChange={(next) => {
-        if (!next) {
-          onClose();
-          setTitle("");
-          setDueOn("");
-        }
-      }}
-      open={open}
-    >
-      <DialogContent className="sm:max-w-(--dialog-md)">
-        <DialogHeader>
-          <DialogTitle>Add an item</DialogTitle>
-          <DialogDescription>
-            A one-off deadline outside the recurring items.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-title">Title</Label>
-          <Input
-            id="compliance-title"
-            onChange={(e) => setTitle(e.target.value)}
-            value={title}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="compliance-due">Due on</Label>
-          <Input
-            id="compliance-due"
-            onChange={(e) => setDueOn(e.target.value)}
-            type="date"
-            value={dueOn}
-          />
-        </div>
-        <div className={cn("flex justify-end gap-2")}>
-          <Button onClick={onClose} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button
-            disabled={!(title.trim() && dueOn)}
-            onClick={() => onSubmit(title.trim(), dueOn)}
-            type="button"
-          >
-            Add item
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

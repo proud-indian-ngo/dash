@@ -1,13 +1,22 @@
 import {
   Alert,
+  AlertDescription,
   AlertTitle,
 } from "@pi-dash/design-system/components/reui/alert";
-import type { PaymentWarning } from "@pi-dash/shared/declarations";
+import type {
+  PaymentWarning,
+  PaymentWarningKind,
+} from "@pi-dash/shared/declarations";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useEffect, useState } from "react";
 
 import { getPaymentGovernanceWarnings } from "@/functions/declarations";
+
+const WARNING_TITLES: Record<PaymentWarningKind, string> = {
+  related_party: "Conflict of interest",
+  trustee: "Paid to a trustee",
+};
 
 /**
  * Warns an approver when the vendor is a trustee (clause 7.24 allows
@@ -54,7 +63,8 @@ export function GovernancePaymentWarnings({
     <div className="flex flex-col gap-2">
       {warnings.map((w) => (
         <Alert key={`${w.kind}-${w.trusteeName}`} variant="warning">
-          <AlertTitle>{w.message}</AlertTitle>
+          <AlertTitle>{WARNING_TITLES[w.kind]}</AlertTitle>
+          <AlertDescription>{w.message}</AlertDescription>
         </Alert>
       ))}
     </div>
