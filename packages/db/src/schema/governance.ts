@@ -487,7 +487,7 @@ export const resolutionSignature = pgTable(
   ]
 );
 
-/** A trustee's DSC (or eSign identity), read from their token by the helper. */
+/** A trustee's DSC, read from their token by the helper. */
 export const signingCertificate = pgTable(
   "signing_certificate",
   {

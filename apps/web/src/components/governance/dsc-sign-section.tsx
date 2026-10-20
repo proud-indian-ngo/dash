@@ -58,9 +58,12 @@ function useHelperJob() {
 
 /** Sign with the DSC helper, or set it up first. */
 export function DscSignSection({
+  onAvailability,
   onVote,
   resolutionId,
 }: {
+  /** Whether the helper can be used here, once the status has loaded. */
+  onAvailability: (available: boolean) => void;
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
   resolutionId: string;
@@ -74,7 +77,10 @@ export function DscSignSection({
 
   const refresh = useEventCallback(() => {
     loadStatus()
-      .then(setStatus)
+      .then((next) => {
+        setStatus(next);
+        onAvailability(next.helperAvailable);
+      })
       .catch((error: unknown) => {
         log.error({
           action: "dsc.status",
@@ -139,12 +145,13 @@ export function DscSignSection({
     <div className="flex flex-col gap-3">
       {status.certificate ? (
         <>
-          <p className="text-sm">
-            Sign with the DSC token in your laptop. The pi-dash signing helper
-            asks for your token PIN; the PIN never leaves your laptop.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button disabled={busy !== null} onClick={handleSign} type="button">
+          <div className="flex flex-col gap-1.5">
+            <Button
+              className="w-full"
+              disabled={busy !== null}
+              onClick={handleSign}
+              type="button"
+            >
               <HugeiconsIcon
                 className="size-4"
                 icon={SignatureIcon}
@@ -159,6 +166,10 @@ export function DscSignSection({
               {formatIso(status.certificate.notAfter.slice(0, 10))}
             </span>
           </div>
+          <p className="text-muted-foreground text-xs">
+            The signing helper asks for your token PIN; the PIN never leaves
+            your laptop.
+          </p>
         </>
       ) : (
         <>

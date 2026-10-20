@@ -13,7 +13,7 @@ import { privateSchema } from "./party-private";
  */
 export const trusteePrivate = privateSchema.table("trustee_private", {
   address: text("address"),
-  /** Name as printed on the Aadhaar card, for matching eSign signatures. */
+  /** Name as printed on the Aadhaar card. */
   aadhaarName: text("aadhaar_name"),
   aadhaarLast4: text("aadhaar_last4"),
   /** Encrypted; see packages/db/src/encryption.ts. */

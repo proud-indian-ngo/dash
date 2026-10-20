@@ -102,7 +102,7 @@ test.describe("declarations and policies (super admin)", () => {
       .fill("First version");
     await publish.getByRole("button", { name: "Publish" }).click();
     await expect(card.getByText("Version 1")).toBeVisible();
-    await expect(card.getByText("0 acknowledged")).toBeVisible();
+    await expect(card.getByText(/^0 of \d+ acknowledged$/)).toBeVisible();
 
     await page.goto("/");
     const toRead = page.getByRole("region", { name: "Policies to read" });
@@ -115,7 +115,9 @@ test.describe("declarations and policies (super admin)", () => {
 
     await page.goto("/governance/policies");
     await expect(
-      page.getByRole("region", { name: title }).getByText("1 acknowledged")
+      page
+        .getByRole("region", { name: title })
+        .getByText(/^1 of \d+ acknowledged$/)
     ).toBeVisible();
   });
 
@@ -123,6 +125,14 @@ test.describe("declarations and policies (super admin)", () => {
     page,
   }) => {
     await page.goto("/governance/compliance");
+    // Items more than 30 days out are folded by month.
+    const months = page
+      .getByRole("region", { name: "Later" })
+      .getByRole("button", { name: /· \d+ items?$/ });
+    await expect(months.first()).toBeVisible();
+    for (let i = 0, n = await months.count(); i < n; i++) {
+      await months.nth(i).click();
+    }
     const row = page
       .locator("[data-testid^='compliance-item-']", {
         hasText: "Next year's budget approved",

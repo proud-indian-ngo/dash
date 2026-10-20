@@ -46,6 +46,40 @@ describe("breadcrumbs", () => {
     ]);
   });
 
+  it("treats sidebar entries under one prefix as siblings", () => {
+    const governance: NavItem[] = [
+      { title: "Trustee register", url: "/governance" },
+      {
+        subItems: [
+          {
+            isHidden: true,
+            title: "Resolution",
+            url: "/governance/resolutions/$resolutionId",
+          },
+        ],
+        title: "Resolutions",
+        url: "/governance/resolutions",
+      },
+    ];
+    expect(buildBreadcrumbs(governance, "/governance/resolutions")).toEqual([
+      { path: "/governance/resolutions", title: "Resolutions" },
+    ]);
+    expect(
+      buildBreadcrumbs(governance, "/governance/resolutions/r-1", {
+        recordTitle: "Operation of bank accounts",
+      })
+    ).toEqual([
+      { path: "/governance/resolutions", title: "Resolutions" },
+      {
+        path: "/governance/resolutions/r-1",
+        title: "Operation of bank accounts",
+      },
+    ]);
+    expect(buildBreadcrumbs(governance, "/governance")).toEqual([
+      { path: "/governance", title: "Trustee register" },
+    ]);
+  });
+
   it("keeps standard dynamic route breadcrumbs", () => {
     expect(buildBreadcrumbs(navItems, "/teams/team-1")).toEqual([
       { path: "/teams", title: "Teams" },

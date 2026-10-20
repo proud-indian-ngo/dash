@@ -511,7 +511,7 @@ export interface SignatureInput {
   /** The sha256 of the PDF the signer extended; refuses a stale upload. */
   basedOnSha256: string;
   createdBy: string | null;
-  method: "acrobat_upload" | "dsc_helper" | "esign";
+  method: "acrobat_upload" | "dsc_helper";
   objectKey: string;
   resolutionId: string;
   sha256: string;
