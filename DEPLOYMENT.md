@@ -173,7 +173,7 @@ For a slow-query investigation, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy 
 
 ### Signing service
 
-`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents. Extra trust roots go in `services/signing/roots/`.
+`docker-compose.prod.yml` builds `services/signing` (Python, pyHanko) as `signing`. It has no public route; only the web service reaches it, with `SIGNING_SERVICE_TOKEN` set on both. It checks the signatures on governance documents and adds the signature fields to circulars; without it, signed circulars can't be accepted. Extra trust roots go in `services/signing/roots/`.
 
 ### WhatsApp gateway (optional)
 

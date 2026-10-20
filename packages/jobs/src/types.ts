@@ -521,6 +521,11 @@ export interface CleanupStaleScheduledRecipientsPayload {
   triggeredAt: string;
 }
 
+/** A resolution that was issued or decided. */
+export interface NotifyResolutionPayload {
+  resolutionId: string;
+}
+
 export interface RemindStaleRequestsPayload {
   triggeredAt: string;
 }
@@ -783,6 +788,9 @@ export interface JobPayloads {
   "remind-photo-approval": RemindPhotoApprovalPayload;
   "remind-stale-requests": RemindStaleRequestsPayload;
   "remind-trustee-terms": Record<string, never>;
+  "notify-resolution-issued": NotifyResolutionPayload;
+  "notify-resolution-decided": NotifyResolutionPayload;
+  "close-due-resolutions": Record<string, never>;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;

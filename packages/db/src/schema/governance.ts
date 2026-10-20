@@ -8,6 +8,14 @@ import {
   trusteeOfficeValues,
   trusteeTermBasisValues,
 } from "@pi-dash/shared/governance";
+import {
+  type ResolutionEffect,
+  resolutionKindValues,
+  resolutionResponseValues,
+  resolutionStatusValues,
+  resolutionTemplateKeyValues,
+  signatureMethodValues,
+} from "@pi-dash/shared/resolutions";
 import { relations, sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
@@ -63,6 +71,27 @@ export const castingVoteRuleEnum = pgEnum(
 export const resolutionThresholdEnum = pgEnum(
   "resolution_threshold",
   resolutionThresholdValues
+);
+
+export const resolutionStatusEnum = pgEnum(
+  "resolution_status",
+  resolutionStatusValues
+);
+export const resolutionKindEnum = pgEnum(
+  "resolution_kind",
+  resolutionKindValues
+);
+export const resolutionTemplateKeyEnum = pgEnum(
+  "resolution_template_key",
+  resolutionTemplateKeyValues
+);
+export const resolutionResponseEnum = pgEnum(
+  "resolution_response_kind",
+  resolutionResponseValues
+);
+export const signatureMethodEnum = pgEnum(
+  "signature_method",
+  signatureMethodValues
 );
 
 /** Signature check the signing service ran on a signed PDF; IDs and certificate facts only. */
@@ -219,6 +248,11 @@ export const trusteeTerm = pgTable(
     /** Last day of a fixed term, inclusive; null for life. */
     endsOn: date("ends_on"),
     id: uuid("id").primaryKey(),
+    /** The resolution that started or ended this term, when pi-dash ran it. */
+    sourceResolutionId: uuid("source_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
     startEvidenceDocumentId: evidence("start_evidence_document_id"),
     startsOn: date("starts_on").notNull(),
     trusteeId: uuid("trustee_id")
@@ -251,6 +285,11 @@ export const trusteeOffice = pgTable(
     endEvidenceDocumentId: evidence("end_evidence_document_id"),
     id: uuid("id").primaryKey(),
     office: trusteeOfficeEnum("office").notNull(),
+    /** The resolution that designated or ended this office, when pi-dash ran it. */
+    sourceResolutionId: uuid("source_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
     startEvidenceDocumentId: evidence("start_evidence_document_id"),
     startsOn: date("starts_on").notNull(),
     trusteeId: uuid("trustee_id")
@@ -267,6 +306,231 @@ export const trusteeOffice = pgTable(
       sql`${t.endedOn} IS NULL OR ${t.endedOn} > ${t.startsOn}`
     ),
   ]
+);
+
+/**
+ * A decision of the Board. Circulars are drafted by governance.manage,
+ * issued by the Managing Trustee (a fixed revision and PDF), signed or
+ * objected to by each trustee in office, and pass or fail by the deed's
+ * rules. A passed or failed resolution never changes.
+ */
+export const resolution = pgTable(
+  "resolution",
+  {
+    /** Resolution this one amends, if any. */
+    amendsResolutionId: uuid("amends_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    decidedAt: timestamp("decided_at"),
+    deedVersionId: uuid("deed_version_id").references(() => deedVersion.id, {
+      onDelete: "restrict",
+    }),
+    draftedBy: text("drafted_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** The register change it makes when it passes. */
+    effect: jsonb("effect").$type<ResolutionEffect>().notNull(),
+    /** The vault copy of the final signed PDF, once passed. */
+    finalDocumentId: uuid("final_document_id").references(
+      () => governanceDocument.id,
+      { onDelete: "restrict" }
+    ),
+    /** "2026-27"; set with the number. */
+    fiscalYear: text("fiscal_year"),
+    /** Recorded from paper, not run in pi-dash. */
+    historical: boolean("historical").default(false).notNull(),
+    id: uuid("id").primaryKey(),
+    issuedAt: timestamp("issued_at"),
+    issuedByTrusteeId: uuid("issued_by_trustee_id").references(
+      () => trustee.id,
+      { onDelete: "restrict" }
+    ),
+    kind: resolutionKindEnum("kind").default("circular").notNull(),
+    /** PI/TR/2026-27/003, assigned when it passes. */
+    number: text("number"),
+    outcomeNote: text("outcome_note"),
+    /** Day the decision was taken: passed, failed or withdrawn. */
+    decidedOn: date("decided_on"),
+    rescindsResolutionId: uuid("rescinds_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
+    responseDueOn: date("response_due_on"),
+    sequence: integer("sequence"),
+    status: resolutionStatusEnum("status").default("draft").notNull(),
+    templateKey: resolutionTemplateKeyEnum("template_key").notNull(),
+    threshold: resolutionThresholdEnum("threshold"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+    validityNote: text("validity_note"),
+  },
+  (t) => [
+    uniqueIndex("resolution_number_uidx").on(t.number),
+    uniqueIndex("resolution_fy_sequence_uidx").on(t.fiscalYear, t.sequence),
+    index("resolution_status_idx").on(t.status, t.issuedAt),
+    check(
+      "resolution_number_check",
+      sql`(${t.number} IS NULL) = (${t.sequence} IS NULL)`
+    ),
+  ]
+);
+
+/** The fixed text and PDF a circular was issued with; signatures go onto `latest`. */
+export const resolutionRevision = pgTable(
+  "resolution_revision",
+  {
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+    /** False when the signing service wasn't set up at issue: signers then draw their own box. */
+    fieldsPrepared: boolean("fields_prepared").default(true).notNull(),
+    id: uuid("id").primaryKey(),
+    /** The PDF with every signature so far; each signer extends it. */
+    latestObjectKey: text("latest_object_key").notNull(),
+    latestSha256: text("latest_sha256").notNull(),
+    /** The prepared PDF as issued, with an empty field per trustee. */
+    objectKey: text("object_key").notNull(),
+    resolutionId: uuid("resolution_id")
+      .notNull()
+      .references(() => resolution.id, { onDelete: "restrict" }),
+    revision: integer("revision").notNull(),
+    sha256: text("sha256").notNull(),
+  },
+  (t) => [
+    uniqueIndex("resolution_revision_uidx").on(t.resolutionId, t.revision),
+  ]
+);
+
+/** One per trustee in office at issue: their answer, conflict and signature. */
+export const resolutionResponse = pgTable(
+  "resolution_response",
+  {
+    conflictDeclared: boolean("conflict_declared").default(false).notNull(),
+    conflictNote: text("conflict_note"),
+    /** The trustee's signature field in the PDF. */
+    fieldName: text("field_name").notNull(),
+    id: uuid("id").primaryKey(),
+    /** Why they objected; shown to the board. */
+    reason: text("reason"),
+    resolutionId: uuid("resolution_id")
+      .notNull()
+      .references(() => resolution.id, { onDelete: "restrict" }),
+    respondedAt: timestamp("responded_at"),
+    response: resolutionResponseEnum("response").default("pending").notNull(),
+    signatureId: uuid("signature_id").references(
+      (): AnyPgColumn => resolutionSignature.id,
+      { onDelete: "restrict" }
+    ),
+    trusteeId: uuid("trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    /** The trustee's account at issue, so their pages and card can find it. */
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    uniqueIndex("resolution_response_uidx").on(t.resolutionId, t.trusteeId),
+    index("resolution_response_user_idx").on(t.userId, t.response),
+  ]
+);
+
+/** A signature on a resolution's PDF, with the facts the signing service checked. */
+export const resolutionSignature = pgTable(
+  "resolution_signature",
+  {
+    certificateSha256: text("certificate_sha256"),
+    createdAt: timestamp("created_at").notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    fieldName: text("field_name").notNull(),
+    id: uuid("id").primaryKey(),
+    issuer: text("issuer"),
+    method: signatureMethodEnum("method").notNull(),
+    /** The PDF as it stood after this signature. */
+    objectKey: text("object_key").notNull(),
+    resolutionId: uuid("resolution_id")
+      .notNull()
+      .references(() => resolution.id, { onDelete: "restrict" }),
+    revisionId: uuid("revision_id")
+      .notNull()
+      .references(() => resolutionRevision.id, { onDelete: "restrict" }),
+    serial: text("serial"),
+    sha256: text("sha256").notNull(),
+    signerName: text("signer_name"),
+    /** From the signature itself (the signer's clock), not the upload. */
+    signingTime: timestamp("signing_time"),
+    timestamped: boolean("timestamped").default(false).notNull(),
+    trusteeId: uuid("trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    trusted: boolean("trusted").default(false).notNull(),
+  },
+  (t) => [
+    uniqueIndex("resolution_signature_field_uidx").on(
+      t.revisionId,
+      t.fieldName
+    ),
+  ]
+);
+
+export const resolutionRelations = relations(resolution, ({ many, one }) => ({
+  finalDocument: one(governanceDocument, {
+    fields: [resolution.finalDocumentId],
+    references: [governanceDocument.id],
+  }),
+  issuedBy: one(trustee, {
+    fields: [resolution.issuedByTrusteeId],
+    references: [trustee.id],
+  }),
+  responses: many(resolutionResponse),
+  revisions: many(resolutionRevision),
+  signatures: many(resolutionSignature),
+}));
+
+export const resolutionRevisionRelations = relations(
+  resolutionRevision,
+  ({ one }) => ({
+    resolution: one(resolution, {
+      fields: [resolutionRevision.resolutionId],
+      references: [resolution.id],
+    }),
+  })
+);
+
+export const resolutionResponseRelations = relations(
+  resolutionResponse,
+  ({ one }) => ({
+    resolution: one(resolution, {
+      fields: [resolutionResponse.resolutionId],
+      references: [resolution.id],
+    }),
+    signature: one(resolutionSignature, {
+      fields: [resolutionResponse.signatureId],
+      references: [resolutionSignature.id],
+    }),
+    trustee: one(trustee, {
+      fields: [resolutionResponse.trusteeId],
+      references: [trustee.id],
+    }),
+  })
+);
+
+export const resolutionSignatureRelations = relations(
+  resolutionSignature,
+  ({ one }) => ({
+    resolution: one(resolution, {
+      fields: [resolutionSignature.resolutionId],
+      references: [resolution.id],
+    }),
+    trustee: one(trustee, {
+      fields: [resolutionSignature.trusteeId],
+      references: [trustee.id],
+    }),
+  })
 );
 
 export const trusteeRelations = relations(trustee, ({ one, many }) => ({

@@ -69,6 +69,7 @@ describe("withProtectedR2ObjectReferenceLock", () => {
     expect(referenceSql).toContain("kalakriti_entry_music WHERE object_key");
     expect(referenceSql).toContain("kalakriti_inventory_item WHERE photo_key");
     expect(referenceSql).toContain("governance_document WHERE object_key");
+    expect(referenceSql).toContain("resolution_signature WHERE object_key");
     expect(referenceSql).toContain(
       "kalakriti_competition_entry WHERE music_object_key"
     );

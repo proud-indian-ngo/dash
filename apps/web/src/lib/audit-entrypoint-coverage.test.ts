@@ -3,6 +3,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
+  "recordHistoricalResolutionFn",
+  "withdrawResolutionFn",
+  "submitSignedResolutionFn",
+  "declareResolutionConflictFn",
+  "objectToResolutionFn",
+  "issueResolutionFn",
   "closeFiscalYearFn",
   "postAuditedFiguresFn",
   "postOpeningBalancesFn",
@@ -59,6 +65,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  "getResolutionSignUploadUrl",
   "archiveKalakritiGuardian",
   "getBankStatementSummary",
   "getContributionBankEvidence",

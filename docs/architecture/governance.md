@@ -62,15 +62,9 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Signing service
 
-`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the roots in `services/signing/roots/`. Without it, uploads are stored unchecked and can be checked later.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts and pyHanko's verdicts, never document text, and trusts the roots in `services/signing/roots/`. It also adds the empty signature fields to circulars ([resolutions](governance-resolutions.md#signatures)). Without it, uploads are stored unchecked and can be checked later.
 
 ## Not built yet
-
-### Circulars
-
-- Drafted by `governance.manage` and issued by the MT: a frozen revision rendered as a PDF and sent to the trustees in office.
-- An assent is a signature on the PDF; an objection is a click with a reason; a conflicted trustee leaves the count.
-- A circular passes when signed assents reach the threshold, taking its number and making its register change in the same transaction. It fails when the response date passes or objections make the threshold unreachable. The issuer may withdraw it.
 
 ### Signing
 

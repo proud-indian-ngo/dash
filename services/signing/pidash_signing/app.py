@@ -3,16 +3,31 @@ and every request but /health carries the shared bearer token."""
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hmac
 import os
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
+from .prepare import FieldRequest, PrepareError, prepare_fields
 from .validate import ValidationSettings, load_trust_roots, validate_pdf_async
 
 MAX_PDF_BYTES = 25 * 1024 * 1024
 DEFAULT_ROOTS = Path(__file__).resolve().parent.parent / "roots"
+
+
+class PrepareField(BaseModel):
+    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_]+$")
+    page: int
+    box: tuple[float, float, float, float]
+
+
+class PrepareRequest(BaseModel):
+    pdf: str = Field(description="The PDF, base64")
+    fields: list[PrepareField]
 
 
 def _settings() -> ValidationSettings:
@@ -49,6 +64,26 @@ def create_app(settings: ValidationSettings | None = None, token: str | None = N
         if not body:
             raise HTTPException(400, "Empty body")
         return await validate_pdf_async(bytes(body), resolved)
+
+    @app.post("/prepare", dependencies=[Depends(require_token)])
+    def prepare(body: PrepareRequest) -> Response:
+        try:
+            pdf = base64.b64decode(body.pdf, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise HTTPException(400, "pdf is not base64") from error
+        if len(pdf) > MAX_PDF_BYTES:
+            raise HTTPException(413, "PDF too large")
+        try:
+            prepared = prepare_fields(
+                pdf,
+                [
+                    FieldRequest(name=f.name, page=f.page, box=tuple(int(round(v)) for v in f.box))  # type: ignore[arg-type]
+                    for f in body.fields
+                ],
+            )
+        except PrepareError as error:
+            raise HTTPException(422, str(error)) from error
+        return Response(content=prepared, media_type="application/pdf")
 
     return app
 
