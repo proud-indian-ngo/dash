@@ -189,37 +189,25 @@ export const scheduledMessageMutators = {
         for (const row of recipientRows) {
           let targetAddress: string | undefined;
           let targetAddressError: unknown;
-          if (row.type === "user") {
-            try {
-              targetAddress = await resolveRecipientAddress(tx, ctx, {
-                id: row.recipientId,
-                type: row.type,
-              });
-            } catch (error) {
-              targetAddressError = error;
-            }
+          // Resolve inside the transaction: the async task runs after commit,
+          // when `tx` can no longer query.
+          try {
+            targetAddress = await resolveRecipientAddress(tx, ctx, {
+              id: row.recipientId,
+              type: row.type,
+            });
+          } catch (error) {
+            targetAddressError = error;
           }
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                if (row.type === "group") {
-                  const group = await tx.run(
-                    zql.whatsappGroup.where("id", row.recipientId).one()
-                  );
-                  if (!group) {
-                    throw new Error(
-                      `WhatsApp group ${row.recipientId} not found`
-                    );
-                  }
-                  targetAddress = group.jid;
-                } else {
-                  if (targetAddressError) {
-                    throw targetAddressError;
-                  }
-                  if (!targetAddress) {
-                    throw new Error("Recipient address unavailable");
-                  }
+                if (targetAddressError) {
+                  throw targetAddressError;
+                }
+                if (!targetAddress) {
+                  throw new Error("Recipient address unavailable");
                 }
 
                 await enqueue(
@@ -486,37 +474,25 @@ export const scheduledMessageMutators = {
         for (const row of recipientRows) {
           let targetAddress: string | undefined;
           let targetAddressError: unknown;
-          if (row.type === "user") {
-            try {
-              targetAddress = await resolveRecipientAddress(tx, ctx, {
-                id: row.recipientId,
-                type: row.type,
-              });
-            } catch (error) {
-              targetAddressError = error;
-            }
+          // Resolve inside the transaction: the async task runs after commit,
+          // when `tx` can no longer query.
+          try {
+            targetAddress = await resolveRecipientAddress(tx, ctx, {
+              id: row.recipientId,
+              type: row.type,
+            });
+          } catch (error) {
+            targetAddressError = error;
           }
           ctx.asyncTasks?.push({
             fn: async () => {
               try {
                 const { enqueue } = await import("@pi-dash/jobs/enqueue");
-                if (row.type === "group") {
-                  const group = await tx.run(
-                    zql.whatsappGroup.where("id", row.recipientId).one()
-                  );
-                  if (!group) {
-                    throw new Error(
-                      `WhatsApp group ${row.recipientId} not found`
-                    );
-                  }
-                  targetAddress = group.jid;
-                } else {
-                  if (targetAddressError) {
-                    throw targetAddressError;
-                  }
-                  if (!targetAddress) {
-                    throw new Error("Recipient address unavailable");
-                  }
+                if (targetAddressError) {
+                  throw targetAddressError;
+                }
+                if (!targetAddress) {
+                  throw new Error("Recipient address unavailable");
                 }
 
                 await enqueue(
