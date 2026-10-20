@@ -8,8 +8,18 @@ import { definePlugin } from "nitro";
 // response after it.
 export default definePlugin((nitroApp) => {
   nitroApp.hooks.hook("response", (response, event) => {
+    if (!new URL(event.req.url).pathname.startsWith("/assets/")) {
+      return;
+    }
+    // Nitro adds Vary only when the request advertises a compression format.
+    // Identity responses must vary too, or a cache can reuse them for browsers.
+    if (
+      !response.headers.get("Vary")?.toLowerCase().includes("accept-encoding")
+    ) {
+      response.headers.append("Vary", "Accept-Encoding");
+    }
     const failed = response.status >= 300 && response.status !== 304;
-    if (failed && new URL(event.req.url).pathname.startsWith("/assets/")) {
+    if (failed) {
       response.headers.set("Cache-Control", "no-store");
     }
   });

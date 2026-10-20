@@ -65,6 +65,8 @@ Use the formats in `apps/web/src/lib/date-formats.ts`, which match `en-IN` `Intl
 
 ## Layout and navigation
 
+Hide desktop-only content with CSS breakpoints from the first render. A viewport hook resolves too late to prevent a brief mobile layout shift.
+
 ### Page headers
 
 Every app page starts with `PageHeader` (`@/components/shared/page-header`):
@@ -130,6 +132,7 @@ Time-based lists that are not tables (the events page):
 ## Components
 
 - Tables: `DataTableWrapper`. Phones get cards: columns marked `compact: "primary"` stack under the first one (a count reads with its column name, "Members 4"), and the rest fold into the row. Pick the primary facts a person scans for (who, when, how much). Columns and Group by are wider-screen tools; phone view tabs skip empty statuses.
+- Keep advanced filter editors and custom-range calendars outside the initial table bundle. Quick-filter chips, presets and row filtering stay eager; opening a custom range loads its calendar.
 - Menus: `ResponsiveActionMenu` for row and page menus. Every item needs a Hugeicons icon (drawn muted); destructive items go last, in red, after a divider. Permission checks and confirmations stay with the caller, not inside the menu. Desktop: solid popover with 28px rows (taller on touch). Phones: bottom drawer.
 - Undoable one-click actions: `deferAction` from `@/lib/deferred-actions`. Deletes: a confirmation dialog.
 - Dialog widths: `sm:max-w-(--dialog-sm)` for confirms and one-field prompts, `--dialog-md` for most forms, `--dialog-lg` for long or two-column forms. Very wide pickers and tables keep their own width.
@@ -149,7 +152,7 @@ Time-based lists that are not tables (the events page):
 ## Motion and hover
 
 - Overlays use the app curves (`--ease-out-expo`, `--ease-out-sheet`), never default `ease`. Menus, popovers, selects and comboboxes enter in 120ms (tooltips 100ms) and leave in 100ms; dialogs take 150ms; sheets and the sidebar 200ms.
-- Route changes that change the path crossfade the root through the View Transitions API (`defaultViewTransition` in `apps/web/src/router.tsx`). Pages have no other entrance animation.
+- Route changes display the destination without a root crossfade, so frequent navigation does not wait for decorative motion or compete with another view transition.
 - Tooltips wait 400ms before the first opens (root `TooltipProvider`), then open instantly between triggers.
 - Use Tailwind v4 `hover:` (hover-capable devices only), not raw `:hover` CSS.
 - The global `prefers-reduced-motion` rule in `styles.css` turns all motion off.

@@ -117,6 +117,7 @@ test("on phones the top-bar bell opens notifications", async ({
     .click();
   const notifications = page.getByRole("dialog", { name: "Notifications" });
   await expect(notifications).toBeVisible();
+  await expect(notifications.getByText("Inbox", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(notifications).toBeHidden();
 

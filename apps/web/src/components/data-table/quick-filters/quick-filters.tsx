@@ -244,7 +244,7 @@ export function QuickFilters({
   const more = quickFields.filter((field) => !shown.includes(field));
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+    <div className="hidden min-w-0 flex-wrap items-center gap-1.5 md:flex">
       {shown.map((field) => {
         const rule = ruleFor(field);
         return (

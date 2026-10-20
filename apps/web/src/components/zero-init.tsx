@@ -4,16 +4,9 @@ import { schema } from "@pi-dash/zero/schema";
 import type { Zero } from "@rocicorp/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useRouter } from "@tanstack/react-router";
-import { log } from "evlog";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 
-import { getPermissions } from "@/functions/get-permissions";
+import { invalidateAuthCache } from "@/lib/auth-cache";
 import { authClient } from "@/lib/auth-client";
 import {
   formatTraceparent,
@@ -29,43 +22,53 @@ function getTraceparent(): string {
 
 interface ZeroInitProps {
   children: ReactNode;
+  permissions: string[];
+  role: string | null | undefined;
+  userId: string;
 }
 
-export function ZeroInit({ children }: ZeroInitProps) {
+export function ZeroInit({
+  children,
+  permissions,
+  role,
+  userId,
+}: ZeroInitProps) {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const role = session?.user.role ?? "unoriented_volunteer";
-  const userID = session?.user.id;
-  const [permissions, setPermissions] = useState<string[]>([]);
+  const { data: session, isPending } = authClient.useSession();
+  const activeZero = useRef<Zero | undefined>(undefined);
+  const invalidatedMismatch = useRef<string | null>(null);
+  const zeroRole = role ?? "unoriented_volunteer";
+  const sessionUserId = session?.user.id;
+  const sessionRole = session?.user.role ?? "unoriented_volunteer";
 
-  const userId = session?.user?.id;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch permissions when role changes
   useEffect(() => {
-    if (!userId) {
+    if (isPending) {
       return;
     }
-    getPermissions()
-      .then(setPermissions)
-      .catch((error: unknown) => {
-        log.error({
-          action: "getPermissions",
-          component: "ZeroInit",
-          error: error instanceof Error ? error.message : String(error),
-        });
-        setPermissions([]);
-      });
-  }, [userId, role]);
+
+    const expectedIdentity = `${userId}:${zeroRole}`;
+    const actualIdentity = `${sessionUserId ?? "anonymous"}:${sessionRole}`;
+    if (actualIdentity === expectedIdentity) {
+      invalidatedMismatch.current = null;
+      return;
+    }
+    if (invalidatedMismatch.current === actualIdentity) {
+      return;
+    }
+
+    invalidatedMismatch.current = actualIdentity;
+    invalidateAuthCache();
+    void router.invalidate();
+  }, [isPending, router, sessionRole, sessionUserId, userId, zeroRole]);
 
   const context = useMemo(
-    () =>
-      userID
-        ? { permissions, role, userId: userID }
-        : { permissions: [], role: "unoriented_volunteer", userId: "anon" },
-    [permissions, role, userID]
+    () => ({ permissions, role: zeroRole, userId }),
+    [permissions, userId, zeroRole]
   );
 
   const init = useCallback(
     (zero: Zero) => {
+      activeZero.current = zero;
       router.update({
         context: {
           ...router.options.context,
@@ -73,6 +76,22 @@ export function ZeroInit({ children }: ZeroInitProps) {
         },
       });
       router.invalidate();
+    },
+    [router]
+  );
+
+  useEffect(
+    () => () => {
+      const zero = activeZero.current;
+      if (router.options.context.zero === zero) {
+        router.update({
+          context: {
+            ...router.options.context,
+            zero: undefined,
+          },
+        });
+      }
+      activeZero.current = undefined;
     },
     [router]
   );
@@ -86,7 +105,7 @@ export function ZeroInit({ children }: ZeroInitProps) {
       mutators={mutators}
       schema={schema}
       storageKey="pi-dash"
-      userID={userID}
+      userID={userId}
     >
       {children}
     </ZeroProvider>

@@ -56,7 +56,7 @@ Defined in `packages/zero/src/queries/`. The client reads its local replica inst
 
 `zero-cache` tails the Postgres WAL through `ZERO_UPSTREAM_DB`, which must be unpooled. Clients keep a local replica over WebSocket. A mutation flows client → `zero-cache` → `/api/zero/mutate` → Postgres → WAL → `zero-cache` → all clients.
 
-`ZeroProvider` is set up in `apps/web/src/components/zero-init.tsx`.
+`ZeroProvider` mounts only inside the authenticated layout, seeded with its route session and permissions. Public routes remain server-renderable without starting Zero. Zero’s React bindings do not support SSR hydration; server ZQL is not a replacement for that binding. Keep Zero hooks below the provider. Router preloads must tolerate an absent Zero instance before initialization and after leaving the authenticated layout.
 
 ## Connection pools
 

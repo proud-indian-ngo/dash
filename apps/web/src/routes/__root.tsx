@@ -2,6 +2,7 @@ import { Toaster } from "@pi-dash/design-system/components/ui/sonner";
 import { TooltipProvider } from "@pi-dash/design-system/components/ui/tooltip";
 import { ThemeProvider } from "@pi-dash/design-system/lib/theme-provider";
 import { env } from "@pi-dash/env/web";
+import bodyFont from "@proudindian/design/fonts/geist-latin-wght-normal.woff2?url";
 import {
   createRootRouteWithContext,
   HeadContent,
@@ -15,8 +16,8 @@ import { lazy, Suspense, useEffect } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { TelemetryPageviews } from "@/components/telemetry-pageviews";
-import { ZeroInit } from "@/components/zero-init";
 import { reloadForChunkError } from "@/lib/chunk-load-error";
+import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 import { watchForNewVersion } from "@/lib/new-version";
 import type { RouterContext } from "@/router";
 
@@ -35,7 +36,6 @@ const LazyDevTools = import.meta.env.DEV
   : () => null;
 
 const loadClientLogger = () => import("@/lib/client-logger");
-const loadPostHog = () => import("@/lib/posthog");
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootDocument,
@@ -120,7 +120,7 @@ function RootDocument() {
       .catch(() => {
         // Non-critical
       });
-    loadPostHog()
+    loadPostHogAfterLoad()
       .then(({ initPostHog }) => initPostHog())
       .catch(() => {
         // Non-critical
@@ -134,6 +134,13 @@ function RootDocument() {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          as="font"
+          crossOrigin="anonymous"
+          href={bodyFont}
+          rel="preload"
+          type="font/woff2"
+        />
         {/* React Scan disabled while debugging local browser tests. */}
         <HeadContent />
       </head>
@@ -156,9 +163,7 @@ function RootDocument() {
             {/* Wait before the first tooltip; once one is showing, neighbours open instantly. */}
             <TooltipProvider delay={400}>
               <NuqsAdapter>
-                <ZeroInit>
-                  <Outlet />
-                </ZeroInit>
+                <Outlet />
               </NuqsAdapter>
               <TelemetryPageviews />
               <Toaster

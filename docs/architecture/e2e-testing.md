@@ -72,7 +72,7 @@ Matching FY 2026-27's audited figures freezes that year for every spec on the sa
 
 ## Performance benchmarks
 
-Benchmarks are opt-in specs under `tests/performance/`, skipped unless their flag is set. All of them run as `super_admin` on an isolated stack:
+Benchmarks are opt-in specs under `tests/performance/`, skipped unless their flag is set. Use the `super_admin` project on an isolated stack. The login-transition benchmark signs in through the form as the seeded admin:
 
 ```bash
 env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never \
@@ -86,8 +86,20 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `app.spec.ts` | `APP_PERFORMANCE` | Main app pages as admin and volunteer at scale; denied details sync zero rows |
 | `audit.spec.ts` | `AUDIT_PERFORMANCE` | Global Audit Log on 50,000 rows: exact filter and pagination results, ordered index used without temp writes |
 | `kalakriti-audit.spec.ts` | `KALAKRITI_AUDIT_PERFORMANCE` | Kalakriti Audit on 41,000 rows across two Editions, per role |
+| `login-transition.spec.ts` | `LOGIN_TRANSITION_PERFORMANCE` | Login submit to usable dashboard after fixed-speed credential entry; fresh contexts, cache enabled, no pre-login Zero connection |
+| `navigation.spec.ts` | `NAVIGATION_PERFORMANCE` | Actual in-app link clicks on desktop and mobile as admin and volunteer; first and repeat visits with caches preserved |
+| `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
+| `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
 
-Each Zero query gets three analyzer samples after initial hydration. JSON reports are attached to the Playwright report and hold counts, timings and sanitized plans only, never record contents, filter values or credentials. No timing threshold is enforced.
+Query benchmarks take three analyzer samples after initial hydration, without timing thresholds. JSON attachments contain counts, timings and sanitized plans, never record contents, filter values or credentials.
+
+Route screening records redirects, fallbacks, page errors and timeouts separately. A passing harness does not mean every route reached its intended state; inspect each sample. Generic readiness checks the heading, Zero connection and visible skeletons, not populated-data completeness. Router tracing is best effort and can miss work before the router becomes available. Single samples rank investigation candidates, not real-user percentiles.
+
+Navigation measurements start after dashboard readiness and use real links within the same document. First visits can reuse code and queries loaded by earlier pages; repeat visits keep those caches. Click-to-content includes readiness assertion overhead and is separate from Event Timing latency. The slowest event's input, processing and presentation delays help distinguish main-thread work from waiting for a paint. Preserve the app's preloading and motion settings, and compare the same route sequence and role.
+
+After the route sequence, separate `filterMeasurements` time the first and repeat quick-filter editor opening with the same throttling. Add `NAVIGATION_PROFILE=true` to capture Chrome CPU profiles of an extra Users navigation before these filter measurements. Profiling is off during the reported measurements; open the `.cpuprofile` attachments in Chrome DevTools to investigate rendering work.
+
+The web-vitals benchmark takes three fresh browser contexts per route and viewport at 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Cold mode disables HTTP caching; returning mode completes an initial visit, then measures a reload with HTTP and Zero caches preserved. Reports include a skeleton-free readiness timestamp, LCP, maximum CLS session window and the worst observed Event Timing interaction duration. Its lab interaction proxy is not field INP, and three-run p75 is not a real-user percentile. Assertions require LCP ≤2.5 s, CLS ≤0.1 and interaction latency ≤200 ms. Compare the same build mode, seed and machine; production field validation still needs real-user measurements.
 
 ### Index experiment flags
 

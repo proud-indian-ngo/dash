@@ -8,14 +8,12 @@ import { Loader } from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 
 export interface RouterContext {
-  zero: Zero;
+  zero?: Zero;
 }
 
 export const getRouter = () => {
   const router = createTanStackRouter({
-    context: {
-      zero: undefined as unknown as Zero, // populated in ZeroInit,
-    } satisfies RouterContext,
+    context: { zero: undefined } as RouterContext, // populated while ZeroInit is mounted
     defaultErrorComponent: DefaultCatchBoundary,
     defaultNotFoundComponent: DefaultNotFound,
     defaultPendingComponent: Loader,
@@ -27,12 +25,6 @@ export const getRouter = () => {
     // queries internally.
     defaultPreloadStaleTime: 0,
     defaultStructuralSharing: true,
-    // TanStack only evaluates the callback when view transition types are supported.
-    defaultViewTransition:
-      typeof CSS !== "undefined" &&
-      CSS.supports("selector(:active-view-transition-type(page))")
-        ? { types: ({ pathChanged }) => (pathChanged ? ["page"] : false) }
-        : false,
     routeTree,
     scrollRestoration: true,
   });

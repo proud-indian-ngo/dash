@@ -1,7 +1,6 @@
 import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -12,11 +11,18 @@ import {
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { format, isValid, parseISO } from "date-fns";
 import { useQueryStates } from "nuqs";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 
+import { Loader } from "@/components/loader";
 import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { DATE, DAY_MONTH, ISO_DATE } from "@/lib/date-formats";
 import { DATE_PRESETS, dateRangeSearchParams } from "@/lib/date-range";
+
+const LazyCalendar = lazy(() =>
+  import("@pi-dash/design-system/components/ui/calendar").then((module) => ({
+    default: module.Calendar,
+  }))
+);
 
 interface RangeSelection {
   from: Date | undefined;
@@ -124,11 +130,13 @@ export function DateRangeFilter({ onChange }: { onChange?: () => void } = {}) {
             </Button>
           }
         >
-          <Calendar
-            mode="range"
-            onSelect={handleCustomRangeSelect}
-            selected={customRange}
-          />
+          <Suspense fallback={<Loader />}>
+            <LazyCalendar
+              mode="range"
+              onSelect={handleCustomRangeSelect}
+              selected={customRange}
+            />
+          </Suspense>
         </ResponsivePicker>
       )}
     </div>

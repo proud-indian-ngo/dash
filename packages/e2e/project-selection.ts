@@ -37,6 +37,7 @@ const roleOnlySpecs = {
     "kalakriti/volunteer-assignment.spec.ts",
     "performance/app.spec.ts",
     "performance/kalakriti.spec.ts",
+    "performance/navigation.spec.ts",
     "reimbursements/cash-voucher.spec.ts",
     "reimbursements/reimbursement-unhappy-paths.spec.ts",
     "settings/expense-categories.spec.ts",

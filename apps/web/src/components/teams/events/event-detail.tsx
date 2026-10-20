@@ -36,11 +36,19 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { log } from "evlog";
 import { parseAsStringLiteral, useQueryState } from "nuqs";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
+import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
@@ -53,6 +61,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/responsive-dialog";
 import type { StatusTone } from "@/components/shared/status-badge";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import type { TeamDetailData } from "@/components/teams/team-detail";
@@ -67,7 +82,6 @@ import { startDateRow } from "@/lib/event-display-utils";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { sumAmounts } from "@/lib/stats";
 
-import { AddEventMemberDialog } from "./add-event-member-dialog";
 import type { EditScope } from "./edit-scope-dialog";
 import {
   EditScopeDialog,
@@ -81,9 +95,6 @@ import {
   formatEventWhen,
   hasEventDetails,
 } from "./event-details-card";
-import { EventExpenses } from "./event-expenses";
-import { EventFeedbackSection } from "./event-feedback";
-import { EventFormDialog } from "./event-form-dialog";
 import {
   buildEventDuplicateInitialValues,
   buildScopedEditInitialValues,
@@ -96,13 +107,10 @@ import {
 } from "./event-interest-section";
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import { EventMembersSection } from "./event-members-section";
-import { EventPhotos } from "./event-photos";
 import {
   deriveAttendanceMode,
   deriveSocialRecapMode,
 } from "./event-social-fields";
-import { EventSocialRecap } from "./event-social-recap";
-import { EventUpdates } from "./event-updates";
 import type { EventRow } from "./events-table";
 
 type PostEventRsvpPollErrorCode = Extract<
@@ -120,11 +128,77 @@ const RSVP_POLL_ERROR_MESSAGES = {
 } satisfies Record<Exclude<PostEventRsvpPollErrorCode, "unknown">, string>;
 
 import { InterestRequests, type InterestWithUser } from "./interest-requests";
-import { ShowInterestDialog } from "./show-interest-dialog";
+
+const AddEventMemberDialog = lazy(() =>
+  import("./add-event-member-dialog").then((module) => ({
+    default: module.AddEventMemberDialog,
+  }))
+);
+const EventExpenses = lazy(() =>
+  import("./event-expenses").then((module) => ({
+    default: module.EventExpenses,
+  }))
+);
+const EventFeedbackSection = lazy(() =>
+  import("./event-feedback").then((module) => ({
+    default: module.EventFeedbackSection,
+  }))
+);
+const EventFormDialog = lazy(() =>
+  import("./event-form-dialog").then((module) => ({
+    default: module.EventFormDialog,
+  }))
+);
+const EventPhotos = lazy(() =>
+  import("./event-photos").then((module) => ({
+    default: module.EventPhotos,
+  }))
+);
+const EventSocialRecap = lazy(() =>
+  import("./event-social-recap").then((module) => ({
+    default: module.EventSocialRecap,
+  }))
+);
+const EventUpdates = lazy(() =>
+  import("./event-updates").then((module) => ({
+    default: module.EventUpdates,
+  }))
+);
+const ShowInterestDialog = lazy(() =>
+  import("./show-interest-dialog").then((module) => ({
+    default: module.ShowInterestDialog,
+  }))
+);
 
 const TRAILING_SLASH = /\/$/;
 
 const SERIES_SCOPES: EditScope[] = ["following", "all"];
+
+function PendingDialog({
+  description,
+  onOpenChange,
+  title,
+}: {
+  description: string;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+}) {
+  return (
+    <Dialog onOpenChange={onOpenChange} open>
+      <DialogContent className="sm:max-w-(--dialog-md)">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-24">
+          <Loader />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function buildCancelMutation(
   zero: ReturnType<typeof useZero>,
@@ -676,45 +750,53 @@ function EventTabs(props: EventTabsProps) {
       ) : null}
       {tabs.includes("updates") ? (
         <TabsContent value="updates">
-          <EventUpdates
-            approvedUpdates={approvedUpdates}
-            canApproveUpdates={canApproveUpdates}
-            canManage={props.canManage}
-            canUploadImages={canUploadUpdateImages}
-            eventId={event.id}
-            isMember={isMember}
-            pendingUpdates={pendingUpdates}
-          />
+          <Suspense fallback={<Loader />}>
+            <EventUpdates
+              approvedUpdates={approvedUpdates}
+              canApproveUpdates={canApproveUpdates}
+              canManage={props.canManage}
+              canUploadImages={canUploadUpdateImages}
+              eventId={event.id}
+              isMember={isMember}
+              pendingUpdates={pendingUpdates}
+            />
+          </Suspense>
         </TabsContent>
       ) : null}
       {tabs.includes("photos") ? (
         <TabsContent value="photos">
-          <EventPhotos
-            approvedPhotos={approvedPhotos}
-            canManage={canManagePhotos}
-            eventId={event.id}
-            immichAlbumUrl={immichAlbumUrl}
-            isMember={isMember}
-            occDate={occDate}
-            pendingPhotos={pendingPhotos}
-          />
+          <Suspense fallback={<Loader />}>
+            <EventPhotos
+              approvedPhotos={approvedPhotos}
+              canManage={canManagePhotos}
+              eventId={event.id}
+              immichAlbumUrl={immichAlbumUrl}
+              isMember={isMember}
+              occDate={occDate}
+              pendingPhotos={pendingPhotos}
+            />
+          </Suspense>
         </TabsContent>
       ) : null}
       {tabs.includes("feedback") ? (
         <TabsContent value="feedback">
-          <EventFeedbackSection
-            canManageFeedback={canManageFeedback}
-            eventId={event.id}
-            feedbackDeadline={event.feedbackDeadline}
-            feedbackDeadlinePassed={feedbackDeadlinePassed}
-            isMember={isMember}
-            memberCount={memberCount}
-          />
+          <Suspense fallback={<Loader />}>
+            <EventFeedbackSection
+              canManageFeedback={canManageFeedback}
+              eventId={event.id}
+              feedbackDeadline={event.feedbackDeadline}
+              feedbackDeadlinePassed={feedbackDeadlinePassed}
+              isMember={isMember}
+              memberCount={memberCount}
+            />
+          </Suspense>
         </TabsContent>
       ) : null}
       {tabs.includes("expenses") ? (
         <TabsContent value="expenses">
-          <EventExpenses eventId={event.id} />
+          <Suspense fallback={<Loader />}>
+            <EventExpenses eventId={event.id} />
+          </Suspense>
         </TabsContent>
       ) : null}
     </Tabs>
@@ -1407,11 +1489,13 @@ export function EventDetail({
 
             {/* After the tabs so attendance, which the recap counts, comes first */}
             {socialRecapMode === "form" ? (
-              <EventSocialRecap
-                approvedPhotos={approvedPhotos}
-                event={event}
-                presentCount={presentCount}
-              />
+              <Suspense fallback={<Loader />}>
+                <EventSocialRecap
+                  approvedPhotos={approvedPhotos}
+                  event={event}
+                  presentCount={presentCount}
+                />
+              </Suspense>
             ) : null}
             {socialRecapMode === "materialize" ? (
               <SocialRecapStart
@@ -1447,25 +1531,49 @@ export function EventDetail({
         title="Cancel recurring event"
       />
 
-      <EventFormDialog
-        editScope={editScope ?? undefined}
-        initialValues={editInitialValues ?? undefined}
-        kalakritiEditionId={kalakritiEditionId}
-        onOpenChange={stableOnOpenChange6}
-        open={dialog.isOpen("edit") && editInitialValues !== null}
-        originalDate={scopeOccDate ?? undefined}
-        teamId={event.teamId}
-        teamProgrammeId={team?.programmeId}
-      />
+      {dialog.isOpen("edit") && editInitialValues !== null ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading event details"
+              onOpenChange={stableOnOpenChange6}
+              title="Edit event"
+            />
+          }
+        >
+          <EventFormDialog
+            editScope={editScope ?? undefined}
+            initialValues={editInitialValues ?? undefined}
+            kalakritiEditionId={kalakritiEditionId}
+            onOpenChange={stableOnOpenChange6}
+            open
+            originalDate={scopeOccDate ?? undefined}
+            teamId={event.teamId}
+            teamProgrammeId={team?.programmeId}
+          />
+        </Suspense>
+      ) : null}
 
-      <EventFormDialog
-        initialValues={buildEventDuplicateInitialValues(event, parentEvent)}
-        mode="create"
-        onOpenChange={dialog.onOpenChange}
-        open={dialog.isOpen("duplicate")}
-        teamId={event.teamId}
-        teamProgrammeId={team?.programmeId}
-      />
+      {dialog.isOpen("duplicate") ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading event details"
+              onOpenChange={dialog.onOpenChange}
+              title="Duplicate Event"
+            />
+          }
+        >
+          <EventFormDialog
+            initialValues={buildEventDuplicateInitialValues(event, parentEvent)}
+            mode="create"
+            onOpenChange={dialog.onOpenChange}
+            open
+            teamId={event.teamId}
+            teamProgrammeId={team?.programmeId}
+          />
+        </Suspense>
+      ) : null}
 
       <EditScopeDialog
         onOpenChange={setAddMemberScopeDialogOpen}
@@ -1474,16 +1582,28 @@ export function EventDetail({
         title="Add volunteer to recurring event"
       />
 
-      <AddEventMemberDialog
-        eventId={addMemberEventId}
-        existingMembers={event.members}
-        onBeforeAdd={addMemberOnBeforeAdd}
-        onOpenChange={stableOnOpenChange7}
-        open={dialog.isOpen("addMember")}
-        teamMemberIds={
-          team ? new Set(team.members.map((m) => m.userId)) : undefined
-        }
-      />
+      {dialog.isOpen("addMember") ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading volunteers"
+              onOpenChange={stableOnOpenChange7}
+              title="Add volunteer"
+            />
+          }
+        >
+          <AddEventMemberDialog
+            eventId={addMemberEventId}
+            existingMembers={event.members}
+            onBeforeAdd={addMemberOnBeforeAdd}
+            onOpenChange={stableOnOpenChange7}
+            open
+            teamMemberIds={
+              team ? new Set(team.members.map((m) => m.userId)) : undefined
+            }
+          />
+        </Suspense>
+      ) : null}
 
       <AlertDialog
         onOpenChange={stableOnOpenChange8}
@@ -1567,15 +1687,27 @@ export function EventDetail({
         variant="default"
       />
 
-      <ShowInterestDialog
-        eventDate={format(new Date(event.startTime), DATE_TIME)}
-        eventId={event.id}
-        eventName={event.name}
-        occDate={isVirtualOccurrence ? occDate : undefined}
-        sessionId={interestSessionId}
-        onOpenChange={dialog.onOpenChange}
-        open={dialog.isOpen("interest")}
-      />
+      {dialog.isOpen("interest") ? (
+        <Suspense
+          fallback={
+            <PendingDialog
+              description="Loading interest form"
+              onOpenChange={dialog.onOpenChange}
+              title={`Show interest: ${event.name}`}
+            />
+          }
+        >
+          <ShowInterestDialog
+            eventDate={format(new Date(event.startTime), DATE_TIME)}
+            eventId={event.id}
+            eventName={event.name}
+            occDate={isVirtualOccurrence ? occDate : undefined}
+            sessionId={interestSessionId}
+            onOpenChange={dialog.onOpenChange}
+            open
+          />
+        </Suspense>
+      ) : null}
     </AppErrorBoundary>
   );
 }

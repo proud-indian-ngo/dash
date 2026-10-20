@@ -207,7 +207,7 @@ export function EventRow({
   );
 
   return (
-    <li className="hover:bg-muted/50 relative flex items-start gap-3 px-3 py-2.5 transition-colors sm:gap-4 sm:px-4">
+    <li className="hover:bg-muted/50 active:bg-muted/70 relative flex items-start gap-3 px-3 py-2.5 transition-colors sm:gap-4 sm:px-4">
       <div className="w-16 shrink-0 pt-px text-xs tabular-nums sm:w-20">
         {showDate ? (
           <div className="text-foreground font-medium">

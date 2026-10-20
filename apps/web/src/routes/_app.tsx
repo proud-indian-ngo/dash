@@ -22,8 +22,10 @@ import { NotificationBell } from "@/components/layout/notification-bell";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ZeroInit } from "@/components/zero-init";
 import { AppProvider, useApp } from "@/context/app-context";
 import { getCachedAuth } from "@/lib/auth-cache";
+import { loadPostHogAfterLoad } from "@/lib/load-posthog";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
@@ -43,7 +45,6 @@ export const Route = createFileRoute("/_app")({
 });
 
 const loadClientLogger = () => import("@/lib/client-logger");
-const loadPostHog = () => import("@/lib/posthog");
 
 function LogIdentitySync() {
   const { user } = useApp();
@@ -61,7 +62,7 @@ function LogIdentitySync() {
           userId: user.id,
         });
       });
-    loadPostHog()
+    loadPostHogAfterLoad()
       .then(({ identifyUser }) =>
         identifyUser(user.id, { role: user.role ?? "volunteer" })
       )
@@ -159,8 +160,27 @@ function ZeroConnectionMonitor({ onConnected }: { onConnected: () => void }) {
 }
 
 function AppLayout() {
-  const isMobile = useIsMobile();
   const { permissions, session } = Route.useRouteContext();
+
+  return (
+    <ZeroInit
+      permissions={permissions}
+      role={session.user.role}
+      userId={session.user.id}
+    >
+      <AuthenticatedAppLayout permissions={permissions} session={session} />
+    </ZeroInit>
+  );
+}
+
+function AuthenticatedAppLayout({
+  permissions,
+  session,
+}: {
+  permissions: string[];
+  session: ReturnType<typeof Route.useRouteContext>["session"];
+}) {
+  const isMobile = useIsMobile();
   const [zeroConnected, setZeroConnected] = useState(false);
   const handleConnected = useCallback(() => setZeroConnected(true), []);
 

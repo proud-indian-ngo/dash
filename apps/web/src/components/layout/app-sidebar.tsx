@@ -15,9 +15,8 @@ import { membershipHasKalakritiLiaisonAccess } from "@pi-dash/shared/kalakriti";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useLocation } from "@tanstack/react-router";
-import { useState, type ComponentProps } from "react";
+import { lazy, Suspense, useState, type ComponentProps } from "react";
 
-import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { NavUser } from "@/components/layout/nav-user";
 import { SidebarBrand } from "@/components/layout/sidebar-brand";
@@ -38,6 +37,12 @@ import {
 } from "@/lib/nav-items";
 
 import { NavMainGrouped } from "./nav-main";
+
+const ScanDialog = lazy(() =>
+  import("@/components/kalakriti/scan-dialog").then((module) => ({
+    default: module.ScanDialog,
+  }))
+);
 
 const KALAKRITI_YEAR_PATH = /^\/kalakriti\/(\d{4})(?:\/|$)/;
 
@@ -213,20 +218,22 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
 
   return (
     <>
-      {scanEditionId === activeEdition?.id &&
-      canViewEventDay &&
-      activeEdition ? (
-        <ScanDialog
-          key={activeEdition.id}
-          editionId={activeEdition.id}
-          year={activeEdition.year}
-          activities={scanActivities}
-          ledger={scanLedger}
-          onOpenChange={(open) => {
-            if (!open) setScanEditionId(null);
-          }}
-        />
-      ) : null}
+      <Suspense>
+        {scanEditionId === activeEdition?.id &&
+        canViewEventDay &&
+        activeEdition ? (
+          <ScanDialog
+            key={activeEdition.id}
+            editionId={activeEdition.id}
+            year={activeEdition.year}
+            activities={scanActivities}
+            ledger={scanLedger}
+            onOpenChange={(open) => {
+              if (!open) setScanEditionId(null);
+            }}
+          />
+        ) : null}
+      </Suspense>
       <Sidebar collapsible="icon" {...props}>
         <SidebarHeader>
           <SidebarBrand />

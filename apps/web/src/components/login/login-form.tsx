@@ -6,7 +6,12 @@ import {
   parseEventRedirect,
 } from "@pi-dash/shared/event-redirect";
 import { useForm } from "@tanstack/react-form";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  Link,
+  useNavigate,
+  useRouter,
+  useSearch,
+} from "@tanstack/react-router";
 import { log } from "evlog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -15,7 +20,6 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
-import { FormSkeleton } from "@/components/shared/page-skeleton";
 import { authClient } from "@/lib/auth-client";
 import { registerLinkSearch } from "@/lib/auth-route-policy";
 
@@ -44,16 +48,32 @@ function postLoginPath(redirect: string | undefined): string {
 }
 
 export function LoginForm() {
+  const router = useRouter();
   const navigate = useNavigate({
     from: "/login",
   });
   const { status, redirect } = useSearch({ from: "/_auth/login" });
   const eventRedirect = parseEventRedirect(redirect);
-  const { isPending } = authClient.useSession();
   const handledStatusRef = useRef<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+
+  const warmAuthenticatedCode = useEventCallback(() => {
+    // Load code only: protected loaders and Zero still wait for authentication.
+    const pathname = new URL(postLoginPath(redirect), window.location.origin)
+      .pathname;
+    const [routes] = router.getMatchedRoutes(pathname);
+    void Promise.all(routes.map((route) => router.loadRouteChunk(route))).catch(
+      (error) => {
+        log.error({
+          action: "warmAuthenticatedCode",
+          component: "LoginForm",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    );
+  });
 
   useEffect(() => {
     if (!status || handledStatusRef.current === status) {
@@ -163,10 +183,6 @@ export function LoginForm() {
       .finally(() => setResending(false));
   });
 
-  if (isPending) {
-    return <FormSkeleton />;
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
@@ -177,7 +193,11 @@ export function LoginForm() {
           Welcome back to the volunteer dashboard.
         </p>
       </div>
-      <FormLayout className="space-y-4" form={form}>
+      <FormLayout
+        className="space-y-4"
+        form={form}
+        onFocusCapture={warmAuthenticatedCode}
+      >
         {formError ? (
           <div
             className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm"

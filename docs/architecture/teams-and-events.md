@@ -41,6 +41,8 @@ Invites instead of adds on the Cloud API, group JIDs and join links are in [noti
 
 An event (`teamEvent`) belongs to one team. This chapter covers one-time events; series, occurrences and edit scopes are in [recurring events](recurring-events.md).
 
+Event detail loads action forms and secondary tab content on demand. Keep their imports lazy so viewing an event does not download editors or media viewers, or start queries for closed forms.
+
 ### Visibility
 
 `restrictToAccessibleEvents()` (`packages/zero/src/queries/team-event.ts`):
@@ -160,6 +162,6 @@ Settings > WhatsApp groups registers groups by name and JID for teams, events, s
 
 | Page | Who | Notes |
 |---|---|---|
-| Home (`/`) | Every signed-in user; each panel follows its permission or team leadership | People without `requests.view_own` get a welcome card; `external_user` is redirected to `/kalakriti` |
+| Home (`/`) | Every signed-in user; each panel follows its permission or team leadership | People without `requests.view_own` get a welcome card; `external_user` is redirected to `/kalakriti`. The review panel keeps each permitted category visible and says "Nothing waiting" at zero so its layout does not move as queries load. |
 | Analytics (`/analytics`) | `requests.view_all` | Spending tab: reimbursements, advances and vendor payments, dated by when the money was spent (`spentAt`): a claim's expense date, a vendor payment's invoice date (unless rejected) else its first approved payment, an advance's submission. A vendor payment's date moves as it is paid and invoiced, and can differ from the books, which recognise vendor expenses on invoice acceptance. The home dashboard's spend totals use the same date. Outcomes tab: events held, children reached, volunteer hours and their value, with coverage notes and a breakdown by programme or team ([rules](finance-and-programmes.md#outcomes)) |
 | Scheduled messages (`/scheduled-messages`) | `messages.schedule` | Each recipient is a `send-scheduled-whatsapp` job delayed to `scheduledAt`; a message with pending recipients must be cancelled before deletion |
