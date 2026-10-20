@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { trustedClientIp } from "@/lib/client-ip";
 import { completeJob, describeJob } from "@/lib/governance/signing-jobs";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { readRequestBody } from "@/lib/read-request-body";
 
 /**
  * The DSC helper's endpoint (`pidash-sign://` links). No session: the
@@ -11,6 +13,9 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 const TOKEN = /^[A-Za-z0-9_-]{20,128}$/;
 
+/** The largest body the job schemas accept: sixteen 16 KiB certificates. */
+const MAX_BODY_BYTES = 272 * 1024;
+
 function json(body: Record<string, unknown>, status: number): Response {
   return Response.json(body, {
     headers: { "Cache-Control": "no-store" },
@@ -19,8 +24,7 @@ function json(body: Record<string, unknown>, status: number): Response {
 }
 
 function limited(request: Request): Response | null {
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  const ip = trustedClientIp(request) ?? "unknown";
   return checkRateLimit(`signing-job:${ip}`, 30).allowed
     ? null
     : json({ message: "Too many attempts. Wait a minute." }, 429);
@@ -48,8 +52,27 @@ export const Route = createFileRoute("/api/signing/jobs/$token")({
         if (!TOKEN.test(params.token)) {
           return json({ message: "Not a signing link." }, 404);
         }
-        const body = await request.json().catch(() => null);
-        const reply = await completeJob(params.token, body);
+        const body = await readRequestBody(request, {
+          maxBytes: MAX_BODY_BYTES,
+        });
+        if (!body.ok) {
+          return json(
+            {
+              message:
+                body.reason === "too_large"
+                  ? "The helper sent too much."
+                  : "The helper's message didn't arrive. Try again.",
+            },
+            body.reason === "too_large" ? 413 : 400
+          );
+        }
+        let parsed: unknown = null;
+        try {
+          parsed = JSON.parse(body.text);
+        } catch {
+          parsed = null;
+        }
+        const reply = await completeJob(params.token, parsed);
         return json(reply.body, reply.status);
       },
     },

@@ -140,7 +140,10 @@ function TrusteeForm({
 
   const accountOptions = [
     { label: "No dashboard account", value: NO_ACCOUNT },
-    ...accounts.map((a) => ({ label: `${a.name} · ${a.email}`, value: a.id })),
+    ...accounts.map((a) => ({
+      label: a.email ? `${a.name} · ${a.email}` : a.name,
+      value: a.id,
+    })),
   ];
   const kycHint = (stored: boolean, last4: string | null) => {
     if (!context.identifiersAvailable) {

@@ -1,17 +1,36 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
+import pytest
+from cryptography.hazmat.primitives import serialization
 from fastapi.testclient import TestClient
+from pyhanko_certvalidator import ValidationContext
 
+from pidash_signing import validate
 from pidash_signing.app import create_app
 from pidash_signing.validate import ValidationSettings, load_trust_roots, validate_pdf
 
 from .conftest import Pki, blank_pdf, sign
+from .test_remote_sign import b64
 
 
 def settings_with(pki: Pki) -> ValidationSettings:
     return ValidationSettings(trust_roots=[pki.ca_asn1])
+
+
+def with_crl(monkeypatch: pytest.MonkeyPatch, crl: bytes, historical: bool = True) -> None:
+    """Every validation context holds `crl`, or with `historical` off only
+    those checking at the present."""
+
+    def context(**kwargs: Any) -> ValidationContext:
+        if historical or kwargs.get("moment") is None:
+            kwargs["crls"] = [*(kwargs.get("crls") or []), crl]
+        return ValidationContext(**kwargs)
+
+    monkeypatch.setattr(validate, "ValidationContext", context)
 
 
 def test_unsigned_pdf_has_no_signatures(pki: Pki) -> None:
@@ -43,6 +62,44 @@ def test_two_signatures_in_sequence(pki: Pki) -> None:
     report = validate_pdf(twice, settings_with(pki))
     assert report["status"] == "valid"
     assert [s["fieldName"] for s in report["signatures"]] == ["Trustee1", "Trustee2"]
+
+
+def test_a_revoked_signature_stays_trusted_only_with_a_timestamp_before_it(
+    pki: Pki, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime.now(UTC)
+    plain = sign(blank_pdf(), pki)
+    stamped = sign(blank_pdf(), pki, timestamper=pki.timestamper(now - timedelta(hours=2)))
+
+    def revoked_at(at: datetime) -> None:
+        with_crl(monkeypatch, pki.crl_revoking_signer(at))
+
+    revoked_at(now - timedelta(hours=1))
+    [untimed] = validate_pdf(plain, settings_with(pki))["signatures"]
+    assert untimed["intact"] is True
+    assert untimed["trusted"] is False
+    # The timestamp proves the signature was made before the revocation.
+    [older] = validate_pdf(stamped, settings_with(pki))["signatures"]
+    assert older["timestamped"] is True
+    assert older["trusted"] is True
+
+    revoked_at(now - timedelta(hours=3))
+    [after] = validate_pdf(stamped, settings_with(pki))["signatures"]
+    assert "error" not in after
+    assert after["trusted"] is False
+
+
+def test_a_revocation_found_now_counts_when_checking_at_the_timestamp(
+    pki: Pki, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = datetime.now(UTC)
+    stamped = sign(blank_pdf(), pki, timestamper=pki.timestamper(now - timedelta(hours=2)))
+    # Only the check at the present finds the CRL; the fetch at the
+    # timestamp's time fails.
+    with_crl(monkeypatch, pki.crl_revoking_signer(now - timedelta(hours=3)), historical=False)
+    [signature] = validate_pdf(stamped, settings_with(pki))["signatures"]
+    assert signature["timestamped"] is True
+    assert signature["trusted"] is False
 
 
 def test_tampered_bytes_are_invalid(pki: Pki) -> None:
@@ -133,3 +190,43 @@ def test_prepare_adds_empty_fields_that_signers_fill(pki: Pki) -> None:
         headers={"Authorization": "Bearer secret"},
     )
     assert bad.status_code == 422
+
+
+def test_a_system_root_or_unknown_ca_is_not_a_configured_root(pki: Pki) -> None:
+    other = Pki()
+    report = validate_pdf(sign(blank_pdf(), other), settings_with(pki))
+    assert report["signatures"][0]["trusted"] is False
+
+
+def test_certificate_check_needs_a_configured_root(pki: Pki) -> None:
+    client = TestClient(create_app(settings_with(pki), token="secret"))
+    auth = {"Authorization": "Bearer secret"}
+    other = Pki()
+
+    def check(owner: Pki) -> bool:
+        der = owner.signer_cert.public_bytes(serialization.Encoding.DER)
+        ca = owner.ca.public_bytes(serialization.Encoding.DER)
+        response = client.post(
+            "/certificate",
+            headers=auth,
+            json={"certificate": b64(der), "chain": [b64(ca)]},
+        )
+        assert response.status_code == 200
+        return response.json()["trusted"]
+
+    assert check(pki) is True
+    assert check(other) is False
+    # Chains to the root, but may only encrypt, so it can't sign for us.
+    encryption = client.post(
+        "/certificate",
+        headers=auth,
+        json={
+            "certificate": b64(pki.encryption_cert().public_bytes(serialization.Encoding.DER)),
+            "chain": [b64(pki.ca.public_bytes(serialization.Encoding.DER))],
+        },
+    )
+    assert encryption.json()["trusted"] is False
+    assert (
+        client.post("/certificate", headers=auth, json={"certificate": "nope"}).status_code
+        == 400
+    )

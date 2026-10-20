@@ -410,6 +410,12 @@ async function assignVolunteerResponsibility(
     if (membership.state !== "active") {
       throw new Error("Active volunteer not found");
     }
+    // Only a no-login local volunteer is exempt from the gate.
+    if (membership.userId) {
+      await assertSafeguardingAcknowledged(tx, [membership.userId], {
+        self: membership.userId === ctx.userId,
+      });
+    }
   }
 
   const membershipId = membership ? membership.id : args.membershipId;

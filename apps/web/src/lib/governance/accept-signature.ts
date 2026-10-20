@@ -1,11 +1,12 @@
 import {
-  findGovernanceDocumentBySha256,
-  insertGovernanceDocument,
+  fileGovernanceDocumentOnce,
   trusteeNamesForMatching,
 } from "@pi-dash/db/queries/governance";
 import {
   circularResolutions,
+  currentRevision,
   type Decision,
+  getResolution,
   recordSignature,
   setFinalDocument,
 } from "@pi-dash/db/queries/resolutions";
@@ -84,7 +85,7 @@ export async function acceptSignedPdf(input: {
     create: false,
   });
   const [report, copyReport, names] = await Promise.all([
-    validateSignedPdf(input.uploaded),
+    validateSignedPdf(input.uploaded, copy.bytes.byteLength),
     validateSignedPdf(copy.bytes),
     trusteeNamesForMatching(),
   ]);
@@ -131,9 +132,9 @@ export async function acceptSignedPdf(input: {
     today: todayInKolkata(),
     trusteeId: input.trustee.id,
   });
-  const passed = decisions
-    .filter((d) => d.status === "passed")
-    .map((d) => d.resolutionId);
+  // First, so a failure filing the evidence can't lose the notice.
+  enqueueDecided(decisions);
+  const passed = passedIds(decisions);
   if (passed.length > 0) {
     await fileFinalCopy(input.circularId, passed, {
       bytes: input.uploaded,
@@ -141,8 +142,45 @@ export async function acceptSignedPdf(input: {
       report,
     });
   }
-  enqueueDecided(decisions);
   return decisions;
+}
+
+function passedIds(decisions: readonly Decision[]): string[] {
+  return decisions
+    .filter((d) => d.status === "passed")
+    .map((d) => d.resolutionId);
+}
+
+/**
+ * An objection or a declared conflict can pass resolutions too (a conflict
+ * lowers the count needed). They pass on the signatures already given, so
+ * the circular's latest signed PDF is filed as their evidence, as a
+ * signature's would be.
+ */
+export async function fileEvidenceAfterResponse(
+  resolutionId: string,
+  decisions: readonly Decision[]
+): Promise<void> {
+  const passed = passedIds(decisions);
+  if (passed.length === 0) {
+    return;
+  }
+  const row = await getResolution(resolutionId);
+  const revision = row?.circularId
+    ? await currentRevision(row.circularId)
+    : null;
+  if (!(row?.circularId && revision)) {
+    return;
+  }
+  const s3 = await getS3();
+  const bytes = new Uint8Array(
+    await s3.file(revision.latestObjectKey).arrayBuffer()
+  );
+  await fileFinalCopy(row.circularId, passed, {
+    bytes,
+    objectKey: revision.latestObjectKey,
+    report: await validateSignedPdf(bytes),
+  });
 }
 
 /**
@@ -170,27 +208,26 @@ async function fileFinalCopy(
   }
   const numbers = rows.map((r) => r.number ?? "").filter(Boolean);
   const sha256 = sha256Of(signed.bytes);
-  const existing = await findGovernanceDocumentBySha256(sha256);
   const title =
     rows.length === 1
       ? `${first.number ?? ""} ${first.title}`
       : `${numbers.join(", ")} (circular ${circularReference(circularId)})`;
-  const documentId =
-    existing?.id ??
-    (await insertGovernanceDocument({
-      contentType: "application/pdf",
-      datedOn: first.decidedOn ?? todayInKolkata(),
-      kind: "resolution",
-      note: `Passed by circulation as ${numbers.join(", ")}.`,
-      objectKey: signed.objectKey,
-      originalFilename: `${(numbers[0] ?? "resolution").replaceAll("/", "-")}.pdf`,
-      sha256,
-      sizeBytes: signed.bytes.byteLength,
-      sourceFormat: "signed_pdf",
-      title: title.trim().slice(0, DOCUMENT_TITLE_MAX),
-      uploadedBy: first.draftedBy,
-      validationReport: signed.report,
-    }));
+  // Concurrent responses can pass resolutions on the same PDF: each files
+  // it once by its hash and links its own resolutions to the one document.
+  const documentId = await fileGovernanceDocumentOnce({
+    contentType: "application/pdf",
+    datedOn: first.decidedOn ?? todayInKolkata(),
+    kind: "resolution",
+    note: `Passed by circulation as ${numbers.join(", ")}.`,
+    objectKey: signed.objectKey,
+    originalFilename: `${(numbers[0] ?? "resolution").replaceAll("/", "-")}.pdf`,
+    sha256,
+    sizeBytes: signed.bytes.byteLength,
+    sourceFormat: "signed_pdf",
+    title: title.trim().slice(0, DOCUMENT_TITLE_MAX),
+    uploadedBy: first.draftedBy,
+    validationReport: signed.report,
+  });
   for (const row of rows) {
     await setFinalDocument(row.id, documentId);
   }

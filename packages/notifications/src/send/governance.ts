@@ -232,7 +232,7 @@ export async function notifyComplianceDue(options: {
     options.daysLeft === 1 ? "tomorrow" : `in ${options.daysLeft} days`;
   const paragraphs = [
     `"${options.title}" is due ${when}, on ${formatDay(options.dueOn)}.`,
-    "Close it in pi-dash with the filing or record that proves it was done.",
+    "Close it in the Proud Indian dashboard with the filing or record that proves it was done.",
   ];
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Open the calendar",

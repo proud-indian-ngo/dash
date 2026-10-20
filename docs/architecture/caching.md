@@ -24,7 +24,7 @@ Call `invalidatePermissionCache(roleId)` after role or permission changes. It cl
 
 `apps/web/src/lib/rate-limit.ts` holds `checkRateLimit()` and `rateLimitResponse()`. Each caller sets its own key and limit.
 
-The public feed and anonymous log ingestion use the right-most `x-forwarded-for` hop appended by Dokploy's Traefik. Earlier entries and `cf-connecting-ip` are untrusted. Missing or empty final hops share one bucket. This requires the app to be reachable only through the proxy; see the [deployment checklist](../../DEPLOYMENT.md#production-checklist).
+The public feed, anonymous log ingestion and the DSC helper's job endpoint use the right-most `x-forwarded-for` hop appended by Dokploy's Traefik. Earlier entries and `cf-connecting-ip` are untrusted. Missing or empty final hops share one bucket. This requires the app to be reachable only through the proxy; see the [deployment checklist](../../DEPLOYMENT.md#production-checklist).
 
 `/api/public/events` responses are cached in the server for 60 seconds and in browsers for longer, so a centre deactivated in Settings can linger after it leaves the server's cache. If the database can't be read, the last active cost centre codes keep serving for up to a day.
 

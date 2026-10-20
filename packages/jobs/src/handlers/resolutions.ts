@@ -16,9 +16,11 @@ import { todayInKolkata } from "@pi-dash/shared/income";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
-import type {
-  NotifyCircularPayload,
-  NotifyResolutionPayload,
+import {
+  enqueue,
+  inTransaction,
+  type NotifyCircularPayload,
+  type NotifyResolutionPayload,
 } from "../enqueue";
 import { createNotifyHandler } from "./create-handler";
 
@@ -101,7 +103,7 @@ export const handleNotifyResolutionDecided = createNotifyHandler<
 /**
  * Daily: the open resolutions of a circular whose response date has passed
  * fail (or pass, if the last signature arrived on the day), in order, and
- * everyone hears once per circular. Logs counts only.
+ * everyone hears once per circular through the notice job. Logs counts only.
  */
 export async function handleCloseDueResolutions(
   _jobs: Job[],
@@ -114,13 +116,26 @@ export async function handleCloseDueResolutions(
   const ids = await overdueCircularIds(today);
   let closed = 0;
   for (const id of ids) {
-    const decided = (await decideCircular(id, today))
-      .filter((d) => d.status !== "issued")
-      .map((d) => d.resolutionId);
-    closed += decided.length;
-    if (decided.length > 0) {
-      await sendDecided({ resolutionIds: decided });
-    }
+    const decisions = await decideCircular(id, today, async (tx, all) => {
+      const decided = all.filter((d) => d.status !== "issued");
+      if (decided.length === 0) {
+        return;
+      }
+      // Queued in the decision's transaction, not sent here: a retry of
+      // this job no longer finds the circular, but pg-boss retries the
+      // notice job.
+      await enqueue(
+        "notify-resolution-decided",
+        { resolutionIds: decided.map((d) => d.resolutionId) },
+        {
+          db: inTransaction(tx),
+          singletonKey: decided
+            .map((d) => `${d.resolutionId}-${d.status}`)
+            .join("_"),
+        }
+      );
+    });
+    closed += decisions.filter((d) => d.status !== "issued").length;
   }
   log.set({ closed, due: ids.length, event: "resolutions_closed" });
   log.emit();

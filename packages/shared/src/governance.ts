@@ -389,8 +389,11 @@ export function boardOn<T extends TrusteeRow>(
       );
     members.push({ offices, term, trustee });
   }
-  return members.sort((a, b) =>
-    a.trustee.legalName.localeCompare(b.trustee.legalName)
+  // By id among equal names, so the order never depends on the rows'.
+  return members.sort(
+    (a, b) =>
+      a.trustee.legalName.localeCompare(b.trustee.legalName) ||
+      a.trustee.id.localeCompare(b.trustee.id)
   );
 }
 

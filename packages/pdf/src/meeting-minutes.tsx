@@ -26,6 +26,8 @@ import { ProudIndianLockup } from "./proud-indian-lockup";
  */
 
 export interface MinutesItem {
+  /** Who attended this item differently from the attendance list, or another chair. */
+  attendance: string | null;
   /** The resolution text, for a resolution item. */
   body: string | null;
   /** Trustees who declared an interest and stayed out of the item. */
@@ -155,6 +157,9 @@ function Item({ item }: { item: MinutesItem }) {
             </View>
           ))}
         </View>
+      ) : null}
+      {item.attendance ? (
+        <Line style={styles.muted}>{item.attendance}</Line>
       ) : null}
       {item.conflicted.length > 0 ? (
         <Line style={styles.muted}>

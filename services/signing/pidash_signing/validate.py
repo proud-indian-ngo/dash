@@ -10,29 +10,48 @@ import asyncio
 import hashlib
 import io
 import logging
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from asn1crypto import pem, x509
+from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.form_tools import enumerate_fields_in
+from pyhanko.pdf_utils import misc
 from pyhanko.pdf_utils.misc import PdfReadError
-from pyhanko.pdf_utils.reader import PdfFileReader
+from pyhanko.pdf_utils.reader import HistoricalResolver, PdfFileReader, RawPdfPath
 from pyhanko.sign.diff_analysis import (
     DEFAULT_DIFF_POLICY,
+    FieldComparisonContext,
+    FormUpdate,
     FormUpdatingRule,
     GenericFieldModificationRule,
+    ModificationLevel,
     SigFieldCreationRule,
     SigFieldModificationRule,
     StandardDiffPolicy,
+    SuspiciousModification,
 )
+from pyhanko.sign.diff_analysis.commons import (
+    compare_dicts,
+    compare_key_refs,
+    qualify_transforming,
+)
+from pyhanko.sign.diff_analysis.constants import ACROFORM_EXEMPT_STRICT_COMPARISON
+from pyhanko.sign.diff_analysis.form_rules_api import _list_fields
+from pyhanko.sign.diff_analysis.rules_api import Context
+from pyhanko.sign.fields import FieldMDPSpec
 from pyhanko.sign.validation import (
+    EmbeddedPdfSignature,
     async_validate_pdf_signature,
     async_validate_pdf_timestamp,
 )
-from pyhanko.sign.validation.status import SignatureCoverageLevel
-from pyhanko_certvalidator import ValidationContext
+from pyhanko.sign.validation.status import PdfSignatureStatus, SignatureCoverageLevel
+from pyhanko_certvalidator import CertificateValidator, ValidationContext
+from pyhanko_certvalidator.authority import AuthorityWithCert
+from pyhanko_certvalidator.path import ValidationPath
 
 log = logging.getLogger(__name__)
 
@@ -43,14 +62,70 @@ CERT_SUFFIXES = {".pem", ".cer", ".crt", ".der"}
 #: every such stream written before the signed revision as rewritten, so a
 #: signature that locks a filled answers field would fail once anyone else
 #: fills or signs later. A changed appearance must be a new stream instead.
+#: The first signature also turns /SigFlags from 1 to 3 (append only), which
+#: the review from the copy a signer was given has to allow.
+class _FormRule(FormUpdatingRule):
+    """pyHanko's form rule, also for a base without a form.
+
+    A PDF made without signature fields has no /AcroForm, and the first
+    signature creates one holding its own field. pyHanko never compares
+    against a revision without a form (it judges only revisions after a
+    signature), and its rule fails on one, so a base without a form is
+    compared as if it had an empty one: the new form may hold nothing but
+    what the field rules allow, and keys the comparison exempts.
+    """
+
+    def apply(
+        self, old: HistoricalResolver, new: HistoricalResolver
+    ) -> Iterable[tuple[ModificationLevel, FormUpdate]]:
+        if "/AcroForm" in old.root:
+            yield from super().apply(old, new)
+            return
+        # As FormUpdatingRule.apply (pyHanko 0.37), with an empty old form.
+        _, new_form = yield from qualify_transforming(
+            ModificationLevel.LTA_UPDATES,
+            compare_key_refs("/AcroForm", old, old.root, new.root),
+            transform=FormUpdate.curry_ref(
+                field_name=None,
+                context_checked=Context.from_absolute(old, RawPdfPath("/Root", "/AcroForm")),
+            ),
+        )
+        empty = generic.DictionaryObject()
+        compare_dicts(empty, new_form, self.ignored_acroform_keys)
+        _, new_fields = yield from qualify_transforming(
+            ModificationLevel.LTA_UPDATES,
+            compare_key_refs("/Fields", old, empty, new_form),
+            transform=FormUpdate.curry_ref(field_name=None),
+        )
+        _, new_dr = yield from qualify_transforming(
+            ModificationLevel.FORM_FILLING,
+            compare_key_refs("/DR", old, empty, new_form),
+            transform=FormUpdate.curry_ref(field_name=None),
+        )
+        if new_dr is not None:
+            yield from qualify_transforming(
+                ModificationLevel.FORM_FILLING,
+                misc._as_gen(new.collect_dependencies(new_dr, since_revision=old.revision + 1)),
+                transform=FormUpdate.curry_ref(field_name=None),
+            )
+        context = FieldComparisonContext(
+            field_specs=dict(_list_fields(generic.ArrayObject(), new_fields, old_path=None)),
+            old=old,
+            new=new,
+        )
+        for rule in self.field_rules:
+            yield from rule.apply(context)
+
+
 DIFF_POLICY = StandardDiffPolicy(
     global_rules=DEFAULT_DIFF_POLICY.global_rules,
-    form_rule=FormUpdatingRule(
+    form_rule=_FormRule(
         field_rules=[
             SigFieldCreationRule(),
             SigFieldModificationRule(),
             GenericFieldModificationRule(allow_in_place_appearance_stream_changes=False),
-        ]
+        ],
+        ignored_acroform_keys=ACROFORM_EXEMPT_STRICT_COMPARISON | {"/SigFlags"},
     ),
 )
 
@@ -80,14 +155,115 @@ class ValidationSettings:
     trust_roots: list[x509.Certificate]
     allow_fetching: bool = False
 
-    def context(self) -> ValidationContext:
+    def context(
+        self, moment: datetime | None = None, known: ValidationContext | None = None
+    ) -> ValidationContext:
         # The system's roots (the TSA's DigiCert chain, Adobe-trusted CAs)
         # plus the configured ones (the CCA India roots behind every DSC).
+        # At a past `moment`, revocation data issued since still counts, so a
+        # certificate revoked before then is refused and one revoked after
+        # isn't. The CRLs and OCSP responses a `known` context holds carry
+        # over, so a revocation it found still counts if a fetch fails now.
         return ValidationContext(
             extra_trust_roots=self.trust_roots,
             allow_fetching=self.allow_fetching,
             revocation_mode="soft-fail",
+            moment=moment,
+            retroactive_revinfo=moment is not None,
+            crls=known.crls if known is not None else None,
+            ocsps=known.ocsps if known is not None else None,
         )
+
+    def is_configured_root(self, path: ValidationPath | None) -> bool:
+        """Whether a validated path ends in a configured root, not a system one:
+        a public CA's certificate in a trustee's name is no DSC."""
+        if path is None:
+            return False
+        anchor = path.trust_anchor.authority
+        return isinstance(anchor, AuthorityWithCert) and any(
+            anchor.certificate.sha256 == root.sha256 for root in self.trust_roots
+        )
+
+
+async def certificate_trusted(
+    cert: x509.Certificate, chain: list[x509.Certificate], settings: ValidationSettings
+) -> bool:
+    """Whether a certificate chains to a configured root and has the key usage
+    validation requires of a PDF signer (the DSC enrolment check), so an
+    encryption certificate on the same token isn't enrolled."""
+    validator = CertificateValidator(
+        cert, intermediate_certs=chain, validation_context=settings.context()
+    )
+    try:
+        path = await validator.async_validate_path()
+        PdfSignatureStatus.default_usage_constraints().validate(cert)
+    except Exception:  # noqa: BLE001 - any path failure means untrusted
+        return False
+    return settings.is_configured_root(path)
+
+
+async def _signer_trusted(
+    sig: EmbeddedPdfSignature,
+    status: PdfSignatureStatus,
+    settings: ValidationSettings,
+    now: ValidationContext,
+) -> bool:
+    """Whether the signer's certificate chains to a configured root, now or
+    when the signature's trusted timestamp says it was made.
+
+    pyHanko checks the certificate at the context's moment, which is now; the
+    signature timestamp is reported beside it and doesn't move that time. A
+    certificate revoked or expired since a timestamp is checked again at the
+    timestamp's time, with the revocation data `now` (the first check's
+    context) found, so a signature proven older than its revocation stands.
+    """
+    if status.trusted and settings.is_configured_root(status.validation_path):
+        return True
+    ts = status.timestamp_validity
+    if ts is None or not (ts.intact and ts.valid and ts.trusted):
+        return False
+    then = await async_validate_pdf_signature(
+        sig,
+        signer_validation_context=settings.context(moment=ts.timestamp, known=now),
+        diff_policy=DIFF_POLICY,
+        skip_diff=True,
+    )
+    return bool(then.trusted) and settings.is_configured_root(then.validation_path)
+
+
+def _locks(sig: EmbeddedPdfSignature) -> list[dict[str, Any]]:
+    """The fields a signature locks (FieldMDP): the lock in its signature
+    dictionary, which validators enforce, and its field's /Lock. An
+    unreadable lock counts as locking everything."""
+    specs: list[FieldMDPSpec] = []
+    try:
+        if sig.fieldmdp is not None:
+            specs.append(sig.fieldmdp)
+        lock = sig.sig_field.get("/Lock")
+        if lock is not None and "/Action" in lock.get_object():
+            specs.append(FieldMDPSpec.from_pdf_object(lock.get_object()))
+    except Exception:  # noqa: BLE001 - unreadable counts as locking all
+        return [{"action": "all", "fields": []}]
+    return [
+        {"action": str(spec.action.value).lstrip("/").lower(), "fields": list(spec.fields or [])}
+        for spec in specs
+    ]
+
+
+def _certifies(reader: PdfFileReader, sig: EmbeddedPdfSignature) -> bool:
+    """Whether a signature is a certification (DocMDP) signature, by its
+    signature dictionary, its field's /Lock or the document's /Perms, all of
+    which limit what later signatures may change."""
+    try:
+        if sig.docmdp_level is not None:
+            return True
+        perms = reader.root.get("/Perms")
+        if perms is None or "/DocMDP" not in perms.get_object():
+            return False
+        certified = perms.get_object().get_value_as_reference("/DocMDP")
+        return certified == sig.sig_object.container_ref
+    except Exception:  # noqa: BLE001 - unreadable counts as certifying
+        return True
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -133,15 +309,168 @@ def _text_fields(reader: PdfFileReader) -> dict[str, str]:
     }
 
 
-def validate_pdf(data: bytes, settings: ValidationSettings) -> dict[str, Any]:
+def _field_name(widget: generic.DictionaryObject) -> str:
+    """The fully qualified name of the field a widget belongs to."""
+    parts: list[str] = []
+    node: generic.DictionaryObject | None = widget
+    while node is not None:
+        if "/T" in node:
+            parts.append(str(node["/T"]))
+        node = node["/Parent"] if "/Parent" in node else None
+    return ".".join(reversed(parts))
+
+
+#: A field's links to the page and form tree, which the walk doesn't follow.
+TREE_KEYS = {"/P", "/Parent", "/Kids"}
+#: What signing a prepared signature field changes on it.
+SIGNING_KEYS = {"/V", "/AP"}
+
+
+def _digest_object(
+    obj: generic.PdfObject, digest: Any, path: frozenset[tuple[int, int]]
+) -> None:
+    """Feeds an object's resolved content to the digest, whatever objects hold it."""
+    if isinstance(obj, generic.IndirectObject):
+        ref = (obj.idnum, obj.generation)
+        if ref in path:
+            digest.update(b"<cycle>")
+        else:
+            _digest_object(obj.get_object(), digest, path | {ref})
+    elif isinstance(obj, generic.DictionaryObject):
+        digest.update(b"<<")
+        for key in sorted(obj):
+            digest.update(repr(key).encode())
+            _digest_object(obj.raw_get(key), digest, path)
+        digest.update(b">>")
+        if isinstance(obj, generic.StreamObject):
+            digest.update(b"stream")
+            digest.update(obj.encoded_data)
+    elif isinstance(obj, generic.ArrayObject):
+        digest.update(b"[")
+        for index in range(len(obj)):
+            _digest_object(obj.raw_get(index), digest, path)
+        digest.update(b"]")
+    else:
+        digest.update(f"{type(obj).__name__}:{obj!r};".encode())
+
+
+def _rendering(widget: generic.DictionaryObject, signed: bool) -> str:
+    """A digest of everything about a widget and its field that decides how it
+    shows: flags, rect, appearance streams and their resources, /MK, /DA, /Ff
+    and the rest. A field signed since may change only its value and appearance."""
+    digest = hashlib.sha256()
+    node: generic.DictionaryObject | None = widget
+    while node is not None:
+        skipped = TREE_KEYS | (SIGNING_KEYS if signed else set())
+        for key in sorted(k for k in node if k not in skipped):
+            digest.update(repr(key).encode())
+            _digest_object(node.raw_get(key), digest, frozenset())
+        digest.update(b"|")
+        node = node["/Parent"] if "/Parent" in node else None
+    return digest.hexdigest()
+
+
+def _widgets(
+    reader: PdfFileReader, signed: Collection[str] = ()
+) -> list[tuple[str, int, tuple[float, ...], str]]:
+    """Every form field widget on a page: field name, 0-based page, /Rect
+    (normalised) and a digest of how it renders (`signed` fields aside)."""
+    found: list[tuple[str, int, tuple[float, ...], str]] = []
+    for index in range(int(reader.root["/Pages"]["/Count"])):
+        page = reader.find_page_for_modification(index)[0].get_object()
+        for ref in page["/Annots"] if "/Annots" in page else ():
+            annot = ref.get_object()
+            if "/Subtype" not in annot or annot["/Subtype"] != "/Widget":
+                continue
+            x1, y1, x2, y2 = (float(v) for v in annot["/Rect"])
+            rect = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+            name = _field_name(annot)
+            found.append((name, index, rect, _rendering(annot, name in signed)))
+    return found
+
+
+def _signature_fields(reader: PdfFileReader, signed_only: bool = False) -> set[str]:
+    try:
+        fields = reader.root["/AcroForm"]["/Fields"]
+    except KeyError:
+        return set()
+    return {
+        name
+        for name, value, _ in enumerate_fields_in(
+            fields, refs_seen=set(), target_field_type="/Sig"
+        )
+        if value is not None or not signed_only
+    }
+
+
+def _signed_fields(reader: PdfFileReader) -> set[str]:
+    return _signature_fields(reader, signed_only=True)
+
+
+def _changes_since(reader: PdfFileReader, data: bytes, base_length: int) -> str:
+    """The most the revisions appended to the first `base_length` bytes change.
+
+    pyHanko only judges changes made after a signature, so a first signer could
+    otherwise rewrite the text in the revision their signature covers. It also
+    counts a new signature field's widget, and a new appearance, flags or
+    look for an unsigned field's widget, as form filling, so every widget must
+    render as it did (a field signed since may change only its value and
+    appearance), and only a new field signed since may add one. Where that new field's widget sits is for the
+    caller to judge (`widgets`).
+    """
+    try:
+        base = PdfFileReader(io.BytesIO(data[:base_length]), strict=False)
+        last = base.xrefs.total_revisions - 1
+        # The appended update must build on the base's last revision.
+        if reader.xrefs.get_startxref_for_revision(
+            last
+        ) != base.xrefs.get_startxref_for_revision(last):
+            return "OTHER"
+        result = DIFF_POLICY.review_file(reader, last)
+        signed_since = _signed_fields(reader) - _signed_fields(base)
+        before = sorted(_widgets(base, signed_since))
+        known = {w[0] for w in before}
+        # A field that was there renders as it did; one signed since may show
+        # a new appearance.
+        after = sorted(
+            w
+            for w in _widgets(reader, signed_since)
+            if w[0] not in signed_since or w[0] in known
+        )
+        # Asked to, a viewer redraws every field from its value and /DR. A
+        # base without a form asks for nothing.
+        redraw_before, redraw_after = (
+            str(r.root["/AcroForm"].get("/NeedAppearances", False))
+            if "/AcroForm" in r.root
+            else "False"
+            for r in (base, reader)
+        )
+    except Exception:  # noqa: BLE001 - unreadable counts as changed
+        return "OTHER"
+    if (
+        isinstance(result, SuspiciousModification)
+        or before != after
+        or redraw_before != redraw_after
+    ):
+        return "OTHER"
+    return result.modification_level.name
+
+
+def validate_pdf(
+    data: bytes, settings: ValidationSettings, base_length: int | None = None
+) -> dict[str, Any]:
     """Synchronous form of `validate_pdf_async`, for scripts and tests."""
-    return asyncio.run(validate_pdf_async(data, settings))
+    return asyncio.run(validate_pdf_async(data, settings, base_length))
 
 
 async def validate_pdf_async(
-    data: bytes, settings: ValidationSettings
+    data: bytes, settings: ValidationSettings, base_length: int | None = None
 ) -> dict[str, Any]:
-    """Validate every signature in a PDF; `status` sums them up."""
+    """Validate every signature in a PDF; `status` sums them up. With
+    `base_length`, `changesSinceBase` is the most the revisions appended to
+    that many leading bytes (the copy a signer was given) change,
+    `pageCount` and `widgets` say where every field's widget sits, and
+    `baseSignatureFields` names the signature fields that copy already had."""
     checked_at = datetime.now(UTC).isoformat()
     try:
         reader = PdfFileReader(io.BytesIO(data), strict=False)
@@ -189,17 +518,21 @@ async def validate_pdf_async(
                 )
             continue
         try:
+            context = settings.context()
             status = await async_validate_pdf_signature(
-                sig, signer_validation_context=settings.context(), diff_policy=DIFF_POLICY
+                sig, signer_validation_context=context, diff_policy=DIFF_POLICY
             )
+            trusted = await _signer_trusted(sig, status, settings, context)
         except Exception as error:  # noqa: BLE001 - report, don't crash
             all_good = False
             signatures.append(
                 {
+                    "certifies": _certifies(reader, sig),
                     "coversWholeRevision": False,
                     "fieldName": sig.field_name,
                     "intact": False,
                     "issuer": "",
+                    "locks": _locks(sig),
                     "matchedTrusteeId": None,
                     "modificationLevel": None,
                     "notAfter": None,
@@ -225,9 +558,11 @@ async def validate_pdf_async(
         signatures.append(
             {
                 **_certificate_facts(status.signing_cert),
+                "certifies": _certifies(reader, sig),
                 "coversWholeRevision": covers,
                 "fieldName": sig.field_name,
                 "intact": intact,
+                "locks": _locks(sig),
                 "matchedTrusteeId": None,
                 "modificationLevel": (
                     status.modification_level.name
@@ -236,7 +571,7 @@ async def validate_pdf_async(
                 ),
                 "signingTime": _iso(status.signer_reported_dt),
                 "timestamped": status.timestamp_validity is not None,
-                "trusted": bool(status.trusted),
+                "trusted": trusted,
             }
         )
 
@@ -250,4 +585,16 @@ async def validate_pdf_async(
     }
     if document_timestamps:
         report["documentTimestamps"] = document_timestamps
+    if base_length is not None:
+        report["changesSinceBase"] = _changes_since(reader, data, base_length)
+        try:
+            report["pageCount"] = int(reader.root["/Pages"]["/Count"])
+            report["widgets"] = [
+                {"field": field, "page": page, "rect": list(rect)}
+                for field, page, rect, _ in _widgets(reader)
+            ]
+            base = PdfFileReader(io.BytesIO(data[:base_length]), strict=False)
+            report["baseSignatureFields"] = sorted(_signature_fields(base))
+        except Exception:  # noqa: BLE001 - unreadable counts as changed
+            report["changesSinceBase"] = "OTHER"
     return report

@@ -7,13 +7,16 @@ import {
   formatResolutionNumber,
   mayIssueCircular,
   neededFor,
+  officesEndedBy,
   parseResolutionNumber,
   RESOLUTION_TEMPLATES,
   type ResponseState,
+  responseDatePassed,
   signatureFieldBox,
   signaturePageCount,
   signatureSlots,
   tallyCircular,
+  termEndedBy,
   thresholdFor,
 } from "./resolutions";
 
@@ -107,6 +110,11 @@ describe("tallyCircular", () => {
     expect(tally.reason).toContain("response date");
   });
 
+  it("takes responses through the response date and none after it", () => {
+    expect(responseDatePassed("2026-10-25", "2026-10-25")).toBe(false);
+    expect(responseDatePassed("2026-10-25", "2026-10-26")).toBe(true);
+  });
+
   it("needs every other trustee for a removal, never the subject", () => {
     const responses = [
       r("a", "assent"),
@@ -128,6 +136,89 @@ describe("tallyCircular", () => {
       responses: [r("a", "pending", { conflict: true })],
     });
     expect(tally.outcome).toBe("failed");
+  });
+});
+
+describe("officesEndedBy", () => {
+  const term = (id: string, trusteeId: string, endsOn: string | null) => ({
+    basis: "co_option_4_5" as const,
+    endEvidenceDocumentId: null,
+    endedOn: null,
+    endsOn,
+    id,
+    startEvidenceDocumentId: null,
+    startsOn: "2020-01-01",
+    trusteeId,
+  });
+  const office = (id: string, trusteeId: string, startsOn: string) => ({
+    endEvidenceDocumentId: null,
+    endedOn: null,
+    id,
+    office: "secretary" as const,
+    startEvidenceDocumentId: null,
+    startsOn,
+    trusteeId,
+  });
+  // a's fixed term ran out with their office still recorded open; b holds it now.
+  const register = {
+    offices: [
+      office("expired", "a", "2020-01-01"),
+      office("held", "b", "2023-01-01"),
+    ],
+    terms: [term("a-term", "a", "2022-12-31"), term("b-term", "b", null)],
+  };
+
+  it("ends only the office held on the designation day", () => {
+    expect(
+      officesEndedBy(register, {
+        office: "secretary",
+        startsOn: "2024-01-01",
+        trusteeId: "c",
+        type: "office_start",
+      })
+    ).toEqual(["held"]);
+  });
+
+  it("leaves an office that ended with its term out of a later cessation", () => {
+    const effect = {
+      cessationBasis: "resignation" as const,
+      endedOn: "2024-01-01",
+      type: "term_end" as const,
+    };
+    expect(officesEndedBy(register, { ...effect, trusteeId: "a" })).toEqual([]);
+    expect(officesEndedBy(register, { ...effect, trusteeId: "b" })).toEqual([
+      "held",
+    ]);
+  });
+});
+
+describe("termEndedBy", () => {
+  const term = (id: string, startsOn: string, endsOn: string | null) => ({
+    basis: "co_option_4_5" as const,
+    endEvidenceDocumentId: null,
+    endedOn: null,
+    endsOn,
+    id,
+    startEvidenceDocumentId: null,
+    startsOn,
+    trusteeId: "a",
+  });
+  // A term that ran to its end date keeps no recorded end.
+  const terms: TermRow[] = [
+    term("expired", "2019-03-16", "2022-03-15"),
+    term("current", "2023-01-01", "2025-12-31"),
+    { ...term("ended", "2017-01-01", null), endedOn: "2018-01-01" },
+    { ...term("other", "2023-01-01", null), trusteeId: "b" },
+  ];
+
+  it("ends the trustee's latest open term begun before the day", () => {
+    expect(termEndedBy(terms, "a", "2024-06-01")?.id).toBe("current");
+    expect(termEndedBy(terms, "a", "2020-06-01")?.id).toBe("expired");
+  });
+
+  it("finds none when no open term began before the day", () => {
+    expect(termEndedBy(terms, "a", "2019-03-16")).toBeNull();
+    expect(termEndedBy(terms, "c", "2024-06-01")).toBeNull();
   });
 });
 

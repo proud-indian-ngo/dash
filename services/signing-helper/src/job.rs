@@ -98,6 +98,28 @@ pub fn run_link(link: &str) -> Result<()> {
     }
     let url = job_url(allowed, &link.job);
     let job: Job = ureq::get(&url).call().map_err(server_error)?.into_json()?;
+    let body = match job_result(&job, &link, &settings) {
+        Ok(body) => body,
+        Err(error) => {
+            report_failure(&url, &error.to_string());
+            return Err(error);
+        }
+    };
+    let reply: ServerMessage = ureq::post(&url)
+        .send_json(body)
+        .map_err(server_error)?
+        .into_json()?;
+    ui::info(
+        reply
+            .message
+            .as_deref()
+            .unwrap_or("Done. You can return to the dashboard."),
+    );
+    Ok(())
+}
+
+/// What to post back: the certificates to enrol, or the signature made on the token.
+fn job_result(job: &Job, link: &Link, settings: &config::Config) -> Result<serde_json::Value> {
     if job.kind != link.action {
         return Err("The job doesn't match the link.".into());
     }
@@ -109,7 +131,7 @@ pub fn run_link(link: &str) -> Result<()> {
     let Some(pin) = ui::ask_pin(&prompt) else {
         return Err("Signing cancelled.".into());
     };
-    let token = Token::open(&config::module_path(&settings), &pin)?;
+    let token = Token::open(&config::module_path(settings), &pin)?;
     drop(pin);
     let certificates = token.certificates()?;
     if certificates.is_empty() {
@@ -142,17 +164,13 @@ pub fn run_link(link: &str) -> Result<()> {
             "signature": STANDARD.encode(signature),
         })
     };
-    let reply: ServerMessage = ureq::post(&url)
-        .send_json(body)
-        .map_err(server_error)?
-        .into_json()?;
-    ui::info(
-        reply
-            .message
-            .as_deref()
-            .unwrap_or("Done. You can return to the dashboard."),
-    );
-    Ok(())
+    Ok(body)
+}
+
+/// Tells the dashboard the job failed here, so the page stops waiting and
+/// shows why. Best effort: the helper's own window shows the reason anyway.
+fn report_failure(url: &str, message: &str) {
+    let _ = ureq::post(url).send_json(json!({ "failed": message }));
 }
 
 /// `pidash-sign list`: shows the signing certificates on the token, to check a setup.

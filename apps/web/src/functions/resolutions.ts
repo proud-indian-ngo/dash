@@ -39,6 +39,7 @@ import { runSessionAuditedAction } from "@/lib/audit";
 import {
   acceptSignedPdf,
   enqueueDecided,
+  fileEvidenceAfterResponse,
   signedMessage,
 } from "@/lib/governance/accept-signature";
 import {
@@ -47,6 +48,7 @@ import {
   CircularError,
   fieldRequests,
   planIssue,
+  planStillHolds,
   sha256Of,
 } from "@/lib/governance/circulars";
 import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
@@ -55,6 +57,7 @@ import {
   SigningServiceError,
   signingServiceConfigured,
 } from "@/lib/governance/signing-service";
+import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
 import { authMiddleware } from "@/middleware/auth";
@@ -144,14 +147,14 @@ export const issueCircularFn = createServerFn({ method: "POST" })
           });
           const register = await loadRegister(db, today);
           const issuer = await linkedTrustee(session.user.id);
-          const plan = planIssue({
+          const planInput = {
             drafts,
             effectRegisterProblem,
             issuer: issuer ? { trusteeId: issuer.id } : null,
-            register,
             registerAfterEffect,
             today,
-          });
+          };
+          const plan = planIssue({ ...planInput, register });
           const rendered = await generateCircularResolutionPdf({
             authority:
               "Clause 4.18 of the Trust Deed (Doc. No. 864, Book IV, 2018-19)",
@@ -193,6 +196,12 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             })),
             responders: plan.responders,
             responseDueOn: data.responseDueOn,
+            stillPlanned: (current) =>
+              current.deedVersionId === register.deedVersionId &&
+              planStillHolds(plan, () =>
+                planIssue({ ...planInput, register: current })
+              ),
+            today,
           });
           withFireAndForgetLog(
             { circularId, handler: "circular:issued" },
@@ -249,6 +258,7 @@ export const objectToResolutionFn = createServerFn({ method: "POST" })
             trusteeId: me.id,
           });
           enqueueDecided(decisions);
+          await fileEvidenceAfterResponse(data.id, decisions);
           return { status: statusOf(decisions, data.id) };
         })
     );
@@ -292,6 +302,7 @@ export const declareResolutionConflictFn = createServerFn({ method: "POST" })
             trusteeId: me.id,
           });
           enqueueDecided(decisions);
+          await fileEvidenceAfterResponse(data.id, decisions);
           return { status: statusOf(decisions, data.id) };
         })
     );
@@ -425,7 +436,7 @@ export const submitSignedCircularFn = createServerFn({ method: "POST" })
               "The upload wasn't found. Upload it again."
             );
           }
-          const uploaded = new Uint8Array(await uploadedFile.arrayBuffer());
+          const uploaded = await readGovernanceUpload(uploadedFile);
           const decisions = await acceptSignedPdf({
             circularId: data.circularId,
             method: "acrobat_upload",

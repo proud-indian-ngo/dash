@@ -111,8 +111,15 @@ export interface GovernanceValidationReport {
     signingTime: string | null;
     timestamped: boolean;
     intact: boolean;
-    /** The signer's certificate chains to one of the configured roots. */
+    /**
+     * The signer's certificate chains to one of the configured roots and
+     * isn't known revoked, now or when its trusted timestamp says it was made.
+     */
     trusted: boolean;
+    /** A certification (DocMDP) signature, which limits later signatures. */
+    certifies?: boolean;
+    /** The fields the signature locks (FieldMDP), from its dictionary and its field's /Lock. */
+    locks?: { action: "all" | "exclude" | "include"; fields: string[] }[];
     /** The signature covers the whole file as it was when signed. */
     coversWholeRevision: boolean;
     /** Changes made after this signature, as pyHanko reports them. */
@@ -131,6 +138,21 @@ export interface GovernanceValidationReport {
     attachments: string[];
   };
   message?: string;
+  /**
+   * When checked against the copy a signer was given: the most the revisions
+   * appended to it change, as pyHanko reports it ("OTHER" when not allowed).
+   */
+  changesSinceBase?: string;
+  /** With `changesSinceBase`: the file's pages. */
+  pageCount?: number;
+  /** With `changesSinceBase`: every form field's widget, its 0-based page and its normalised /Rect. */
+  widgets?: {
+    field: string;
+    page: number;
+    rect: [number, number, number, number];
+  }[];
+  /** With `changesSinceBase`: the signature fields the copy a signer was given already had. */
+  baseSignatureFields?: string[];
   /** Every text field's value: a circular's answers fields. */
   textFields?: Record<string, string>;
 }
@@ -173,6 +195,8 @@ export const governanceDocument = pgTable(
   (t) => [
     index("governance_document_kind_idx").on(t.kind, t.datedOn),
     uniqueIndex("governance_document_object_key_uidx").on(t.objectKey),
+    // One document per file: resolutions passed on the same PDF share it.
+    uniqueIndex("governance_document_sha256_uidx").on(t.sha256),
   ]
 );
 
@@ -257,10 +281,15 @@ export const trusteeTerm = pgTable(
     /** The day the trustee stopped being one: not in office from this day. */
     endedOn: date("ended_on"),
     endEvidenceDocumentId: evidence("end_evidence_document_id"),
+    /** The resolution that ended this term, when pi-dash ran it. */
+    endSourceResolutionId: uuid("end_source_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
     /** Last day of a fixed term, inclusive; null for life. */
     endsOn: date("ends_on"),
     id: uuid("id").primaryKey(),
-    /** The resolution that started or ended this term, when pi-dash ran it. */
+    /** The resolution that started this term, when pi-dash ran it. */
     sourceResolutionId: uuid("source_resolution_id").references(
       (): AnyPgColumn => resolution.id,
       { onDelete: "restrict" }
@@ -295,9 +324,14 @@ export const trusteeOffice = pgTable(
     /** Not in the office from this day; null while held (it then ends with the term). */
     endedOn: date("ended_on"),
     endEvidenceDocumentId: evidence("end_evidence_document_id"),
+    /** The resolution that ended this office, when pi-dash ran it. */
+    endSourceResolutionId: uuid("end_source_resolution_id").references(
+      (): AnyPgColumn => resolution.id,
+      { onDelete: "restrict" }
+    ),
     id: uuid("id").primaryKey(),
     office: trusteeOfficeEnum("office").notNull(),
-    /** The resolution that designated or ended this office, when pi-dash ran it. */
+    /** The resolution that designated this office holder, when pi-dash ran it. */
     sourceResolutionId: uuid("source_resolution_id").references(
       (): AnyPgColumn => resolution.id,
       { onDelete: "restrict" }

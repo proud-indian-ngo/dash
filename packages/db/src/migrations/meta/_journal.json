@@ -1198,6 +1198,27 @@
       "when": 1792424106386,
       "tag": "0170_governance_circulars_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "7",
+      "when": 1792428557386,
+      "tag": "0171_governance_document_sha256_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1792432830639,
+      "tag": "0172_agenda_item_decision_basis",
+      "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1792433652740,
+      "tag": "0173_trustee_end_source_resolution",
+      "breakpoints": true
     }
   ]
 }

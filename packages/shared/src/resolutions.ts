@@ -6,6 +6,7 @@
 
 import {
   type DeedRules,
+  effectiveOffices,
   isHeldOn,
   officeHolderOn,
   type OfficeRow,
@@ -264,6 +265,63 @@ export function effectSubject(effect: ResolutionEffect): string | null {
   return effect.type === "none" ? null : effect.trusteeId;
 }
 
+/**
+ * The term a cessation on `endedOn` ends: the trustee's latest term with no
+ * recorded end that started before that day. A term that ran to its end
+ * date keeps no recorded end, so a trustee can have more than one.
+ */
+export function termEndedBy(
+  terms: readonly TermRow[],
+  trusteeId: string,
+  endedOn: string
+): TermRow | null {
+  let found: TermRow | null = null;
+  for (const term of terms) {
+    if (
+      term.trusteeId === trusteeId &&
+      term.endedOn === null &&
+      term.startsOn < endedOn &&
+      !(found && found.startsOn > term.startsOn)
+    ) {
+      found = term;
+    }
+  }
+  return found;
+}
+
+/**
+ * The office rows an effect ends: for a cessation or removal, the trustee's
+ * offices still held on its date; for a designation, the office's holder on
+ * its start day. An office with no recorded end that ended with its
+ * holder's term is already over and is left alone.
+ */
+export function officesEndedBy(
+  register: { offices: readonly OfficeRow[]; terms: readonly TermRow[] },
+  effect: ResolutionEffect
+): string[] {
+  let matches: (o: OfficeRow) => boolean;
+  let on: string;
+  if (effect.type === "term_end" || effect.type === "removal") {
+    matches = (o) => o.trusteeId === effect.trusteeId;
+    on = effect.endedOn;
+  } else if (effect.type === "office_start") {
+    matches = (o) => o.office === effect.office;
+    on = effect.startsOn;
+  } else {
+    return [];
+  }
+  // effectiveOffices keeps the order, so index i is the recorded row.
+  return effectiveOffices(register)
+    .filter(
+      (o, i) =>
+        matches(o) &&
+        register.offices[i]?.endedOn === null &&
+        o.startsOn < on &&
+        isHeldOn(o, on)
+    )
+    .map((o) => o.id);
+}
+
 /** Problems with an effect's own fields; register conflicts are checked at issue and pass. */
 export function effectProblem(
   template: ResolutionTemplate,
@@ -334,6 +392,15 @@ export function neededFor(
 }
 
 /**
+ * Whether a circular's response date has passed. Responses are taken
+ * through the day itself and refused after it, so a tally never counts a
+ * late one.
+ */
+export function responseDatePassed(dueOn: string, today: string): boolean {
+  return today > dueOn;
+}
+
+/**
  * Counts a circular's responses against its threshold. Passes when signed
  * assents reach it; fails when enough objections make it unreachable, or
  * when the response date has passed (`dueOn` before `today`).
@@ -377,7 +444,7 @@ export function tallyCircular(input: {
       reason: `${objections === 1 ? "1 objection" : `${objections} objections`} left too few trustees to reach ${needed}.`,
     };
   }
-  if (input.today > input.dueOn) {
+  if (responseDatePassed(input.dueOn, input.today)) {
     return {
       ...base,
       outcome: "failed",

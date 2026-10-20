@@ -1,0 +1,1 @@
+ALTER TABLE "agenda_item" ADD COLUMN "decision_basis" jsonb;

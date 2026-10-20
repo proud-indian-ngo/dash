@@ -15,11 +15,13 @@ export function canSeeGovernance(ctx: Ctx): boolean {
   );
 }
 
-/** Registrations are on filings too, so finance sees them as well. */
+/** Registrations are on filings too, so finance sees them as well, as the page and the writes allow. */
 function canSeeRegistrations(ctx: Ctx): boolean {
   return (
     canSeeGovernance(ctx) ||
-    (ctx !== null && ctx !== undefined && can(ctx, "finance.view"))
+    (ctx !== null &&
+      ctx !== undefined &&
+      (can(ctx, "finance.view") || can(ctx, "finance.manage")))
   );
 }
 

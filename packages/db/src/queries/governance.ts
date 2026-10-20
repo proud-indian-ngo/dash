@@ -319,12 +319,9 @@ export interface NewGovernanceDocument {
   validationReport: GovernanceValidationReport | null;
 }
 
-export async function insertGovernanceDocument(
-  input: NewGovernanceDocument & { id?: string }
-): Promise<string> {
-  const id = input.id ?? uuidv7();
+function documentRow(input: NewGovernanceDocument, id: string) {
   const now = new Date();
-  await db.insert(governanceDocument).values({
+  return {
     contentType: input.contentType,
     createdAt: now,
     datedOn: input.datedOn,
@@ -340,15 +337,45 @@ export async function insertGovernanceDocument(
     uploadedBy: input.uploadedBy,
     validatedAt: input.validationReport ? now : null,
     validationReport: input.validationReport,
-  });
+  };
+}
+
+export async function insertGovernanceDocument(
+  input: NewGovernanceDocument & { id?: string },
+  executor: Pick<typeof db, "insert"> = db
+): Promise<string> {
+  const id = input.id ?? uuidv7();
+  await executor.insert(governanceDocument).values(documentRow(input, id));
+  return id;
+}
+
+/**
+ * The vault document with these contents: a new one, or the one already
+ * there, including one a concurrent call has just filed. Every resolution
+ * passed on the same signed PDF links to the one document.
+ */
+export async function fileGovernanceDocumentOnce(
+  input: NewGovernanceDocument
+): Promise<string> {
+  const [inserted] = await db
+    .insert(governanceDocument)
+    .values(documentRow(input, uuidv7()))
+    .onConflictDoNothing({ target: governanceDocument.sha256 })
+    .returning({ id: governanceDocument.id });
+  const id =
+    inserted?.id ?? (await findGovernanceDocumentBySha256(input.sha256))?.id;
+  if (!id) {
+    throw new Error("The vault document for this file is missing");
+  }
   return id;
 }
 
 /** A document already in the vault with the same contents, if any. */
 export async function findGovernanceDocumentBySha256(
-  sha256: string
+  sha256: string,
+  executor: Pick<typeof db, "select"> = db
 ): Promise<{ id: string; title: string } | null> {
-  const [row] = await db
+  const [row] = await executor
     .select({ id: governanceDocument.id, title: governanceDocument.title })
     .from(governanceDocument)
     .where(eq(governanceDocument.sha256, sha256))

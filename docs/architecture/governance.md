@@ -43,12 +43,12 @@ The pending amendment sets quorum to half the trustees in office with a floor of
 
 ## Trustee register
 
-- PAN, Aadhaar and contact details live in the `private` schema, so Zero never syncs them, and change only through `saveTrusteeFn`. Revealing the full PAN or Aadhaar reference needs `governance.kyc.view` and is audited, like `party.identifier.reveal`.
+- PAN, Aadhaar and contact details live in the `private` schema, so Zero never syncs them, are read with `governance.manage` and change only through `saveTrusteeFn`. The account picker shows emails only with `users.view`. Revealing the full PAN or Aadhaar reference needs `governance.kyc.view` and is audited, like `party.identifier.reveal`.
 - Who held which term and office on a date (`boardOn`), the warnings and the quorum live in `packages/shared/src/governance.ts`, so the pages, the mutators and the reminder job agree.
 - A term's `ends_on` is its last day (inclusive); `ended_on` on a term or office is the first day out. An office with no end of its own ends with its holder's term.
 - Co-Founder is a flag on the trustee, not an office.
 - Every date carries its evidence: start and end documents on terms and offices, and the acceptance on a term. "Unevidenced" is derived from a missing document, never stored.
-- Mutators refuse a change that gives an office two holders, puts an office outside its holder's term, or overlaps a trustee's terms. Problems the register already holds (board size, an unreachable quorum, a vacant MT or President, unevidenced dates) show as warnings instead, since the history has them.
+- Mutators refuse a change that gives an office two holders, puts an office outside its holder's term, or overlaps a trustee's terms. Every such write, and every register change on pass, takes one register-wide advisory lock before reading the register, so concurrent changes are checked in turn. Problems the register already holds (board size, an unreachable quorum, a vacant MT or President, unevidenced dates) show as warnings instead, since the history has them.
 
 ## Deed versions
 
@@ -56,13 +56,13 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 ## Vault and registrations
 
-- Every upload is checked before it's kept: its real type, a duplicate by SHA-256, and its signatures, which are matched to trustees in the register. An email (`.eml`) is read for its headers only, never its body.
-- Downloads need `governance.view`, or `finance.view` for registration certificates. The R2 orphan cleanup keeps every key the vault references.
+- Every upload is checked before it's kept: its real type, a duplicate by SHA-256 (unique, so a simultaneous identical upload is refused too), and its signatures, which are matched to trustees in the register. An email (`.eml`) is read for its headers only, never its body.
+- Downloads need `governance.view`, or `finance.view` or `finance.manage` for registration certificates, matching the Registrations page. The R2 orphan cleanup keeps every key the vault references.
 - A registration (12AB, 80G and others) keeps its certificate as a vault document.
 
 ## Signing service
 
-`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts, pyHanko's verdicts and text-field values (a circular's answers), never document text, and trusts the system roots plus `services/signing/roots/`. It also prepares, fills answers into, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Its validator uses pyHanko's default diff policy, except that a field's appearance may not be rewritten in place: pyHanko otherwise reads every later answers fill as a change to the locked field. Without it, uploads are stored unchecked and can be checked later.
+`services/signing` is an internal pyHanko service with no public route; the web app calls it with a bearer token. It reports certificate facts, pyHanko's verdicts and text-field values (a circular's answers), never document text, and trusts the system roots (for timestamps) plus `services/signing/roots/`, the only roots a signer may chain to. It also prepares, fills answers into, signs and finalises circulars ([resolutions](governance-resolutions.md#signing)). Its validator uses pyHanko's default diff policy, except that a field's appearance may not be rewritten in place: pyHanko otherwise reads every later answers fill as a change to the locked field. Without it, uploads are stored unchecked and can be checked later.
 
 ## Board at design time
 

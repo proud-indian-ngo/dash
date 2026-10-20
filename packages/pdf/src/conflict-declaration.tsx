@@ -84,7 +84,10 @@ export function ConflictDeclaration(props: ConflictDeclarationProps) {
             {props.trustee.offices ? (
               <Fact label="Offices" value={props.trustee.offices} />
             ) : null}
-            <Fact label="Confirmed in pi-dash" value={props.declaredAt} />
+            <Fact
+              label="Confirmed in the Proud Indian dashboard"
+              value={props.declaredAt}
+            />
           </View>
           {props.interests.length === 0 ? (
             <Line style={styles.paragraph}>

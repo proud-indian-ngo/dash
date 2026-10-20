@@ -195,7 +195,8 @@ async function canReadGovernanceDocument(
     permissions.includes("governance.view") ||
     permissions.includes("governance.manage") ||
     (record.kind === "registration_certificate" &&
-      permissions.includes("finance.view"))
+      (permissions.includes("finance.view") ||
+        permissions.includes("finance.manage")))
   );
 }
 

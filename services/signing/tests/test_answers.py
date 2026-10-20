@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
+from pyhanko.sign import fields, signers
 
 from pidash_signing.answers import AnswersError, fill_answers
 from pidash_signing.app import create_app
@@ -241,3 +242,252 @@ def test_api_prepares_and_fills(pki: Pki) -> None:
     assert again.status_code == 422
     assert "already filled" in again.json()["detail"]
     assert client.post("/fill", headers=auth, json={**body, "pdf": "!!"}).status_code == 400
+
+
+def sign_in(pdf: bytes, pki: Pki, field: str, rewrite_page: bytes | None = None) -> bytes:
+    """Acrobat-style signing in one revision, optionally rewriting the page too."""
+    writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
+    if rewrite_page is not None:
+        page = writer.root["/Pages"]["/Kids"][0].get_object()
+        page["/Contents"] = writer.add_object(generic.StreamObject(stream_data=rewrite_page))
+        writer.update_container(page)
+    out = signers.sign_pdf(
+        writer, signers.PdfSignatureMetadata(field_name=field), signer=pki.signer()
+    )
+    return out.getvalue()
+
+
+def test_signing_a_prepared_or_new_field_is_form_filling(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    for signed in (
+        remote_sign(given, pki, "Trustee_a"),
+        sign_in(given, pki, "Trustee_a"),
+        # A signature in a field of its own.
+        sign_in(given, pki, "Signature1"),
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["status"] == "valid"
+        assert report["changesSinceBase"] == "FORM_FILLING"
+
+
+def test_first_signer_rewriting_the_page_is_refused(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    signed = sign_in(given, pki, "Trustee_a", rewrite_page=b"BT 72 700 Td (Altered) Tj ET")
+    report = validate_pdf(signed, settings(pki), base_length=len(given))
+    # The signature alone looks fine: nothing comes after it.
+    assert report["status"] == "valid"
+    assert report["changesSinceBase"] == "OTHER"
+
+
+def sign_new_field(pdf: bytes, pki: Pki, name: str, box: tuple[int, int, int, int]) -> bytes:
+    """A signature in a field of the signer's own, drawn where they like."""
+    writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
+    out = signers.sign_pdf(
+        writer,
+        signers.PdfSignatureMetadata(field_name=name),
+        signer=pki.signer(),
+        new_field_spec=fields.SigFieldSpec(sig_field_name=name, on_page=0, box=box),
+    )
+    return out.getvalue()
+
+
+def test_a_signatures_lock_and_certification_are_reported(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    # The prepared field locks only the trustee's own answers.
+    for signed in (remote_sign(given, pki, "Trustee_a"), sign_in(given, pki, "Trustee_a")):
+        [sig] = validate_pdf(signed, settings(pki))["signatures"]
+        assert sig["certifies"] is False
+        assert sig["locks"]
+        assert all(lock == {"action": "include", "fields": ["Answers_a"]} for lock in sig["locks"])
+    # A field of the signer's own may lock the whole form, which later
+    # trustees' signatures would break.
+    writer = IncrementalPdfFileWriter(io.BytesIO(given))
+    locked_all = signers.sign_pdf(
+        writer,
+        signers.PdfSignatureMetadata(field_name="Signature1"),
+        signer=pki.signer(),
+        new_field_spec=fields.SigFieldSpec(
+            sig_field_name="Signature1",
+            on_page=0,
+            box=(300, 300, 500, 360),
+            field_mdp_spec=fields.FieldMDPSpec(action=fields.FieldMDPAction.ALL),
+        ),
+    ).getvalue()
+    [sig] = validate_pdf(locked_all, settings(pki))["signatures"]
+    assert {"action": "all", "fields": []} in sig["locks"]
+    assert sig["certifies"] is False
+    # Unlocked, in a field of its own.
+    [sig] = validate_pdf(sign_in(given, pki, "Signature1"), settings(pki))["signatures"]
+    assert sig["locks"] == []
+    # A certification signature limits what every later signature may change.
+    writer = IncrementalPdfFileWriter(io.BytesIO(given))
+    certified = signers.sign_pdf(
+        writer,
+        signers.PdfSignatureMetadata(field_name="Trustee_a", certify=True),
+        signer=pki.signer(),
+    ).getvalue()
+    [sig] = validate_pdf(certified, settings(pki))["signatures"]
+    assert sig["certifies"] is True
+
+
+def test_a_new_fields_widget_is_reported_for_the_caller_to_judge(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    for box in ((0, 0, 595, 842), (300, 300, 500, 360)):
+        report = validate_pdf(
+            sign_new_field(given, pki, "Signature1", box), settings(pki), base_length=len(given)
+        )
+        # pyHanko counts a new signature field, whatever it covers, as form filling.
+        assert report["changesSinceBase"] == "FORM_FILLING"
+        assert report["pageCount"] == 1
+        assert {"field": "Signature1", "page": 0, "rect": [float(v) for v in box]} in report[
+            "widgets"
+        ]
+        assert {"field": "Trustee_a", "page": 0, "rect": [300.0, 600.0, 547.0, 672.0]} in report[
+            "widgets"
+        ]
+
+
+def test_the_first_signature_on_a_pdf_without_a_form_is_form_filling(pki: Pki) -> None:
+    # The app's PDFs issued without fields have no /AcroForm, like this one;
+    # Acrobat's first signature creates the form with its own field.
+    given = blank_pdf()
+    assert "/AcroForm" not in PdfFileReader(io.BytesIO(given)).root
+    for signed in (
+        sign_new_field(given, pki, "Signature1", (300, 300, 500, 360)),
+        sign_in(given, pki, "Signature1"),
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["status"] == "valid"
+        assert report["changesSinceBase"] == "FORM_FILLING"
+        assert report["baseSignatureFields"] == []
+
+
+def test_more_than_a_signature_on_a_pdf_without_a_form_is_refused(pki: Pki) -> None:
+    given = blank_pdf()
+    extra = IncrementalPdfFileWriter(io.BytesIO(given))
+    fields.append_signature_field(
+        extra, fields.SigFieldSpec(sig_field_name="Extra", on_page=0, box=(0, 0, 595, 842))
+    )
+    with_extra = signers.sign_pdf(
+        extra,
+        signers.PdfSignatureMetadata(field_name="Signature1"),
+        signer=pki.signer(),
+        new_field_spec=fields.SigFieldSpec(
+            sig_field_name="Signature1", on_page=0, box=(300, 300, 500, 360)
+        ),
+    ).getvalue()
+    for signed in (
+        sign_in(given, pki, "Signature1", rewrite_page=b"BT 72 700 Td (Altered) Tj ET"),
+        # An empty field drawn over the page alongside the signature.
+        with_extra,
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["status"] == "valid"
+        assert report["changesSinceBase"] == "OTHER"
+
+
+def test_the_signature_fields_the_copy_had_are_reported(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    report = validate_pdf(
+        sign_new_field(given, pki, "Trustee_a2", (300, 300, 500, 360)),
+        settings(pki),
+        base_length=len(given),
+    )
+    assert report["baseSignatureFields"] == ["Trustee_a", "Trustee_b"]
+
+
+def new_appearance(writer: IncrementalPdfFileWriter) -> generic.IndirectObject:
+    return writer.add_object(
+        generic.StreamObject(
+            {
+                generic.NameObject("/Type"): generic.NameObject("/XObject"),
+                generic.NameObject("/Subtype"): generic.NameObject("/Form"),
+                generic.NameObject("/BBox"): generic.ArrayObject(
+                    [generic.NumberObject(v) for v in (0, 0, 242, 72)]
+                ),
+            },
+            stream_data=b"0 0 1 rg 0 0 242 72 re f",
+        )
+    )
+
+
+def edit_then_sign(pdf: bytes, pki: Pki, edit) -> bytes:
+    writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
+    for ref in writer.root["/AcroForm"]["/Fields"]:
+        field = ref.get_object()
+        if edit(writer, str(field["/T"]), field):
+            writer.mark_update(ref)
+    out = signers.sign_pdf(
+        writer, signers.PdfSignatureMetadata(field_name="Trustee_a"), signer=pki.signer()
+    )
+    return out.getvalue()
+
+
+def test_changing_another_widget_or_adding_a_field_is_refused(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+
+    def redraw(name: str):
+        def edit(writer, field_name, field) -> bool:
+            if field_name != name:
+                return False
+            field["/AP"] = generic.DictionaryObject({generic.NameObject("/N"): new_appearance(writer)})
+            return True
+
+        return edit
+
+    def move_own_box(writer, field_name, field) -> bool:
+        if field_name != "Trustee_a":
+            return False
+        field["/Rect"] = generic.ArrayObject([generic.NumberObject(v) for v in (0, 0, 595, 842)])
+        return True
+
+    extra = IncrementalPdfFileWriter(io.BytesIO(given))
+    fields.append_signature_field(
+        extra, fields.SigFieldSpec(sig_field_name="Extra", on_page=0, box=(0, 0, 595, 842))
+    )
+    with_extra = signers.sign_pdf(
+        extra, signers.PdfSignatureMetadata(field_name="Trustee_a"), signer=pki.signer()
+    ).getvalue()
+
+    for signed in (
+        # Another trustee's empty answers box, which pyHanko lets anyone fill.
+        edit_then_sign(given, pki, redraw("Answers_b")),
+        # The signer's own answers, drawn to say something else.
+        edit_then_sign(given, pki, redraw("Answers_a")),
+        edit_then_sign(given, pki, move_own_box),
+        # An empty field drawn over the page alongside the signature.
+        with_extra,
+    ):
+        report = validate_pdf(signed, settings(pki), base_length=len(given))
+        assert report["changesSinceBase"] == "OTHER"
+
+
+def test_hiding_or_restyling_a_widget_is_refused(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+
+    def setting(name: str, key: str, value: generic.PdfObject):
+        def edit(writer, field_name, field) -> bool:
+            if field_name != name:
+                return False
+            field[generic.NameObject(key)] = value
+            return True
+
+        return edit
+
+    for edit in (
+        # Hidden, then NoView: the answers still read the same, but no viewer shows them.
+        setting("Answers_a", "/F", generic.NumberObject(2)),
+        setting("Answers_a", "/F", generic.NumberObject(4 | 32)),
+        setting("Answers_b", "/F", generic.NumberObject(2)),
+        setting("Answers_a", "/DA", generic.pdf_string("/Cour 0 Tf 1 g")),
+        setting(
+            "Answers_a",
+            "/MK",
+            generic.DictionaryObject({generic.NameObject("/BG"): generic.ArrayObject([generic.NumberObject(1)])}),
+        ),
+        # No longer read-only.
+        setting("Answers_a", "/Ff", generic.NumberObject(1 << 12)),
+        setting("Trustee_a", "/F", generic.NumberObject(2)),
+    ):
+        report = validate_pdf(edit_then_sign(given, pki, edit), settings(pki), base_length=len(given))
+        assert report["changesSinceBase"] == "OTHER"

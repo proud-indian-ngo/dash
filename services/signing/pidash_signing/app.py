@@ -9,7 +9,7 @@ import hmac
 import os
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from pyhanko.sign import timestamps
@@ -17,7 +17,12 @@ from pyhanko.sign import timestamps
 from . import remote_sign
 from .answers import MAX_VALUE, AnswersError, fill_answers
 from .prepare import FieldRequest, PrepareError, prepare_fields
-from .validate import ValidationSettings, load_trust_roots, validate_pdf_async
+from .validate import (
+    ValidationSettings,
+    certificate_trusted,
+    load_trust_roots,
+    validate_pdf_async,
+)
 
 MAX_PDF_BYTES = 25 * 1024 * 1024
 DEFAULT_ROOTS = Path(__file__).resolve().parent.parent / "roots"
@@ -37,6 +42,11 @@ class SignStartRequest(BaseModel):
     pdf: str = Field(description="The latest PDF, base64")
     fieldName: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_]+$")
     certificate: str = Field(description="The signer's certificate, DER in base64")
+    chain: list[str] = Field(default_factory=list, max_length=8)
+
+
+class CertificateRequest(BaseModel):
+    certificate: str = Field(description="The certificate, DER in base64")
     chain: list[str] = Field(default_factory=list, max_length=8)
 
 
@@ -96,7 +106,12 @@ def create_app(
         return {"ok": True, "trustRoots": len(resolved.trust_roots)}
 
     @app.post("/validate", dependencies=[Depends(require_token)])
-    async def validate(request: Request) -> dict[str, object]:
+    async def validate(
+        request: Request,
+        base: int | None = Query(
+            default=None, ge=1, description="Bytes of the copy the signer was given"
+        ),
+    ) -> dict[str, object]:
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
@@ -104,13 +119,22 @@ def create_app(
                 raise HTTPException(413, "PDF too large")
         if not body:
             raise HTTPException(400, "Empty body")
-        return await validate_pdf_async(bytes(body), resolved)
+        return await validate_pdf_async(bytes(body), resolved, base)
 
     def _b64(value: str, what: str) -> bytes:
         try:
             return base64.b64decode(value, validate=True)
         except (binascii.Error, ValueError) as error:
             raise HTTPException(400, f"{what} is not base64") from error
+
+    @app.post("/certificate", dependencies=[Depends(require_token)])
+    async def certificate(body: CertificateRequest) -> dict[str, bool]:
+        try:
+            cert = remote_sign.load_cert(body.certificate)
+            chain = [remote_sign.load_cert(c) for c in body.chain]
+        except remote_sign.RemoteSignError as error:
+            raise HTTPException(400, str(error)) from error
+        return {"trusted": await certificate_trusted(cert, chain, resolved)}
 
     @app.post("/sign/start", dependencies=[Depends(require_token)])
     async def sign_start(body: SignStartRequest) -> dict[str, str]:
