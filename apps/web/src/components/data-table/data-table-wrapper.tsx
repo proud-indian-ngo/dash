@@ -48,6 +48,7 @@ import {
   ScrollBar,
 } from "@pi-dash/design-system/components/ui/scroll-area";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { useRouter } from "@tanstack/react-router";
 import type {
   ColumnPinningState,
   ColumnSizingState,
@@ -675,6 +676,7 @@ function DataTableWrapperBase<TData extends object>({
     setGroupColumnId(activeGroupBy ? null : groupBy.columnId);
   });
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const router = useRouter();
 
   const debouncedSyncRef = useRef(
     debounce((value: string) => {
@@ -685,12 +687,21 @@ function DataTableWrapperBase<TData extends object>({
     }, 300)
   );
 
-  useEffect(
-    () => () => {
-      debouncedSyncRef.current.cancel();
-    },
-    []
-  );
+  useEffect(() => {
+    const sync = debouncedSyncRef.current;
+    const unsubscribe = router.subscribe(
+      "onBeforeNavigate",
+      ({ pathChanged }) => {
+        if (pathChanged) {
+          sync.cancel();
+        }
+      }
+    );
+    return () => {
+      unsubscribe();
+      sync.cancel();
+    };
+  }, [router]);
 
   // Sync local state when URL changes externally (browser back/forward)
   useEffect(() => {

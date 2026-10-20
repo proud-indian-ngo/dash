@@ -13,16 +13,32 @@ export async function applyQuickFilter(
     exact: true,
     name: `Filter by ${field}`,
   });
-  if (await placeholder.isVisible()) {
-    await placeholder.click();
-  } else {
-    await page.getByRole("button", { exact: true, name: "More" }).click();
-    await page.getByRole("menuitem", { exact: true, name: field }).click();
-  }
-  await page
+  const option = page
     .getByRole("checkbox", { exact: true, name: value })
-    .or(page.getByRole("radio", { exact: true, name: value }))
-    .click();
+    .or(page.getByRole("radio", { exact: true, name: value }));
+  // Toolbar measurement can move a field between its placeholder and More.
+  await expect(async () => {
+    if (await option.isVisible()) {
+      return;
+    }
+    if (
+      await page.getByRole("menu", { exact: true, name: "More" }).isVisible()
+    ) {
+      await page.keyboard.press("Escape");
+    }
+    if (await placeholder.isVisible()) {
+      await placeholder.click({ timeout: 1000 });
+    } else {
+      await page
+        .getByRole("button", { exact: true, name: "More" })
+        .click({ timeout: 1000 });
+      await page
+        .getByRole("menuitem", { exact: true, name: field })
+        .click({ timeout: 1000 });
+    }
+    await expect(option).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+  await option.click();
   const popover = page.getByRole("dialog");
   await expect(async () => {
     if (await popover.isVisible()) {

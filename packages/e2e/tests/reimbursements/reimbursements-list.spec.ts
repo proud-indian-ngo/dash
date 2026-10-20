@@ -176,13 +176,16 @@ test.describe("Reimbursements list", () => {
       type: "group",
     };
     await page.goto(
-      `/reimbursements?filters=${encodeURIComponent(JSON.stringify(filters))}`
+      `/reimbursements?size=1&filters=${encodeURIComponent(JSON.stringify(filters))}`
     );
     const table = reimbursements.list.getTable();
+    const search = reimbursements.list.getSearchInput(
+      "Search reimbursements..."
+    );
+    await search.fill("E2E Seed Reimbursement");
     await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
-    await expect(
-      table.getByText("E2E Upcoming Event Reimbursement")
-    ).toHaveCount(0);
+    await search.fill("E2E Upcoming Event Reimbursement");
+    await expect(page.getByText("No reimbursements found.")).toBeVisible();
     await expect(
       page.getByRole("button", { exact: true, name: "Add filter" })
     ).toBeVisible();

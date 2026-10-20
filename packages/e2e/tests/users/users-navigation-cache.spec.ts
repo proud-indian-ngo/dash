@@ -2,6 +2,37 @@ import { expect, test } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
 test.describe("Users navigation cache", () => {
+  test("search does not interrupt navigation while destination code loads", async ({
+    financeAdminEmail,
+    page,
+  }) => {
+    await page.goto("/users");
+    await expect(
+      page
+        .getByRole("table")
+        .getByRole("button", { name: "Row actions" })
+        .first()
+    ).toBeVisible();
+
+    let delayedChunks = 0;
+    await page.route("**/assets/*.js", async (route) => {
+      delayedChunks += 1;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.continue();
+    });
+
+    await page.getByPlaceholder("Search users...").fill(financeAdminEmail);
+    await page
+      .locator('[data-sidebar="content"]')
+      .getByRole("link", { exact: true, name: "Dashboard" })
+      .click();
+    await expect(page).toHaveURL("/");
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Dashboard" })
+    ).toBeVisible();
+    expect(delayedChunks).toBeGreaterThan(0);
+  });
+
   test("shows cached users while the return visit refreshes", async ({
     financeAdminEmail,
     page,
