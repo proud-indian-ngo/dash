@@ -1,42 +1,78 @@
 import z from "zod";
 
 /**
- * Formal rich text: the Plate JSON the restricted editor preset
- * (`@pi-dash/editor/rich-text-editor`) writes. Paragraphs, bold, italic and
- * underline, bulleted and numbered lists (nested), and simple tables with a
- * header row. Nothing else: no headings, links, images or merged cells.
+ * Formal rich text: the Plate JSON the document editor preset
+ * (`@pi-dash/editor/rich-text-editor`) writes, limited to what a signed
+ * document can show faithfully. Paragraphs and headings 1 to 3 (indented up
+ * to `MAX_INDENT` levels), quotes, dividers, bulleted and numbered lists
+ * (nested), tables with a header row, column widths and cells merged across
+ * a row; bold, italic, underline and strikethrough; links to web and email
+ * addresses. Nothing else: no images, colours, code or cells merged down a
+ * column.
  *
  * Stored as serialized JSON in a text column. `parseRichText` is the only
  * reader: it checks the structure and returns the canonical value, which
- * drops every property but the type, the children and the three marks.
+ * keeps only the type, the children, the marks and the properties above.
  */
 
 export interface RichTextLeaf {
   bold?: true;
   italic?: true;
+  strikethrough?: true;
   text: string;
   underline?: true;
 }
-export interface RichTextParagraph {
+/** A link to a web or email address (`LINK_PROTOCOLS`). */
+export interface RichTextLink {
   children: RichTextLeaf[];
+  type: "a";
+  url: string;
+}
+export type RichTextInline = RichTextLeaf | RichTextLink;
+export interface RichTextParagraph {
+  children: RichTextInline[];
+  /** Levels of indent, 1 to `MAX_INDENT`; absent when not indented. */
+  indent?: number;
   type: "p";
+}
+export interface RichTextHeading {
+  children: RichTextInline[];
+  indent?: number;
+  type: "h1" | "h2" | "h3";
 }
 /** A list item's own text (Plate's list-classic "lic"). */
 export interface RichTextListItemText {
-  children: RichTextLeaf[];
+  children: RichTextInline[];
   type: "lic";
 }
 export interface RichTextListItem {
-  /** Its text, then any nested lists. */
-  children: (RichTextListItemText | RichTextList)[];
+  /** Its text, then any nested lists and quotes. */
+  children: (RichTextListItemText | RichTextList | RichTextQuote)[];
   type: "li";
 }
 export interface RichTextList {
   children: RichTextListItem[];
   type: "ol" | "ul";
 }
+export interface RichTextDivider {
+  children: [{ text: "" }];
+  type: "hr";
+}
+export interface RichTextQuote {
+  children: (RichTextParagraph | RichTextHeading | RichTextList)[];
+  type: "blockquote";
+}
+/** What a table cell holds: any block but a table. */
+export type RichTextCellBlock =
+  | RichTextParagraph
+  | RichTextHeading
+  | RichTextQuote
+  | RichTextDivider
+  | RichTextList;
 export interface RichTextCell {
-  children: (RichTextParagraph | RichTextList)[];
+  children: RichTextCellBlock[];
+  /** Columns it spans, when more than one. */
+  colSpan?: number;
   /** "th" for a header cell. */
   type: "td" | "th";
 }
@@ -46,22 +82,66 @@ export interface RichTextRow {
 }
 export interface RichTextTable {
   children: RichTextRow[];
+  /**
+   * Each column's width in the editor, in pixels; 0 for the editor's default.
+   * Absent until a column is resized.
+   */
+  colSizes?: number[];
   type: "table";
 }
-export type RichTextBlock = RichTextParagraph | RichTextList | RichTextTable;
+export type RichTextBlock =
+  | RichTextParagraph
+  | RichTextHeading
+  | RichTextQuote
+  | RichTextDivider
+  | RichTextList
+  | RichTextTable;
 export type RichTextValue = RichTextBlock[];
 
 export class RichTextError extends Error {}
 
-const MARKS = ["bold", "italic", "underline"] as const;
+const MARKS = ["bold", "italic", "strikethrough", "underline"] as const;
 /** Deepest list nesting kept; the editor moves deeper items up. */
 export const MAX_LIST_DEPTH = 6;
+/** Most levels a paragraph or heading may be indented. */
+export const MAX_INDENT = 4;
 /**
  * Most columns a table may have. The A4 text column is about 500pt; eight
  * columns leave each at least 31pt (`columnWidths` in the PDF), room for a
  * short word or an amount at the 9.5pt table type.
  */
 export const MAX_TABLE_COLUMNS = 8;
+/** What a link may point to: the web or an email address. */
+export const LINK_PROTOCOLS = ["http:", "https:", "mailto:"] as const;
+/** Longest link address kept. */
+export const MAX_LINK_LENGTH = 2000;
+
+const FORMAT_ERROR = "The text isn't in the expected format.";
+
+/** What each node is called in an error. */
+const NAMES: Record<string, string> = {
+  a: "link",
+  blockquote: "quote",
+  code_block: "code block",
+  h1: "heading",
+  h2: "heading",
+  h3: "heading",
+  hr: "divider",
+  img: "image",
+  li: "list item",
+  lic: "list item",
+  ol: "list",
+  p: "paragraph",
+  table: "table",
+  td: "table cell",
+  th: "table cell",
+  tr: "table row",
+  ul: "list",
+};
+
+function nameOf(type: unknown): string {
+  return NAMES[String(type)] ?? String(type);
+}
 
 function isRecord(node: unknown): node is Record<string, unknown> {
   return typeof node === "object" && node !== null && !Array.isArray(node);
@@ -69,7 +149,7 @@ function isRecord(node: unknown): node is Record<string, unknown> {
 
 function childrenOf(node: Record<string, unknown>): unknown[] {
   if (!Array.isArray(node.children) || node.children.length === 0) {
-    throw new RichTextError(`A ${String(node.type)} has no content.`);
+    throw new RichTextError(`A ${nameOf(node.type)} has no content.`);
   }
   return node.children;
 }
@@ -77,7 +157,7 @@ function childrenOf(node: Record<string, unknown>): unknown[] {
 function leaf(node: unknown): RichTextLeaf {
   if (!(isRecord(node) && typeof node.text === "string")) {
     throw new RichTextError(
-      "Only text can sit inside a paragraph: no links, mentions or other inline content."
+      "Only text and links can sit inside a paragraph: no mentions or other inline content."
     );
   }
   const out: RichTextLeaf = { text: node.text };
@@ -87,7 +167,7 @@ function leaf(node: unknown): RichTextLeaf {
     }
     if (!(MARKS as readonly string[]).includes(key)) {
       throw new RichTextError(
-        `Text can be bold, italic or underlined, not ${key}.`
+        `Text can be bold, italic, underlined or struck through, not ${key}.`
       );
     }
     out[key as (typeof MARKS)[number]] = true;
@@ -95,15 +175,73 @@ function leaf(node: unknown): RichTextLeaf {
   return out;
 }
 
-function leaves(node: Record<string, unknown>): RichTextLeaf[] {
-  return childrenOf(node).map(leaf);
+function linkUrl(url: unknown): string {
+  if (typeof url !== "string") {
+    throw new RichTextError(FORMAT_ERROR);
+  }
+  if (url.length > MAX_LINK_LENGTH) {
+    throw new RichTextError("A link's address is too long.");
+  }
+  let protocol: string | undefined;
+  try {
+    protocol = new URL(url).protocol;
+  } catch {
+    // Not a URL: refused below.
+  }
+  if (!(LINK_PROTOCOLS as readonly (string | undefined)[]).includes(protocol)) {
+    throw new RichTextError(
+      "A link goes to a web address (https://) or an email address (mailto:)."
+    );
+  }
+  return url;
 }
+
+function inline(node: unknown): RichTextInline {
+  if (isRecord(node) && node.type === "a") {
+    return {
+      children: childrenOf(node).map(leaf),
+      type: "a",
+      url: linkUrl(node.url),
+    };
+  }
+  return leaf(node);
+}
+
+function inlines(node: Record<string, unknown>): RichTextInline[] {
+  return childrenOf(node).map(inline);
+}
+
+/** A paragraph's or heading's indent, when it has one. */
+function indentOf(node: Record<string, unknown>): { indent?: number } {
+  const { indent } = node;
+  if (indent === undefined || indent === null || indent === 0) {
+    return {};
+  }
+  if (!(Number.isInteger(indent) && Number(indent) > 0)) {
+    throw new RichTextError(FORMAT_ERROR);
+  }
+  if (Number(indent) > MAX_INDENT) {
+    throw new RichTextError("Text is indented at most four levels.");
+  }
+  return { indent: Number(indent) };
+}
+
+/** Where a block sits, for the rules on what may hold what. */
+interface Context {
+  /** Lists it sits in. */
+  depth: number;
+  inQuote: boolean;
+  inTable: boolean;
+}
+
+const TOP: Context = { depth: 0, inQuote: false, inTable: false };
 
 function list(
   node: Record<string, unknown>,
   type: "ol" | "ul",
-  depth: number
+  context: Context
 ): RichTextList {
+  const depth = context.depth + 1;
   if (depth > MAX_LIST_DEPTH) {
     throw new RichTextError("Lists nest at most six levels deep.");
   }
@@ -115,16 +253,21 @@ function list(
       return {
         children: childrenOf(item).map((child) => {
           if (!isRecord(child)) {
-            throw new RichTextError("A list item holds text and lists.");
+            throw new RichTextError(
+              "A list item holds text, lists and quotes."
+            );
           }
           // Plate keeps a list item's text in "lic"; a pasted "p" means the same.
           if (child.type === "lic" || child.type === "p") {
-            return { children: leaves(child), type: "lic" as const };
+            return { children: inlines(child), type: "lic" as const };
           }
           if (child.type === "ul" || child.type === "ol") {
-            return list(child, child.type, depth + 1);
+            return list(child, child.type, { ...context, depth });
           }
-          throw new RichTextError("A list item holds text and lists.");
+          if (child.type === "blockquote") {
+            return parseQuote(child, { ...context, depth });
+          }
+          throw new RichTextError("A list item holds text, lists and quotes.");
         }),
         type: "li" as const,
       };
@@ -133,40 +276,114 @@ function list(
   };
 }
 
-function cell(node: unknown): RichTextCell {
+/** A quote's blocks; text directly inside one (before Plate 53) is a paragraph. */
+function parseQuote(
+  node: Record<string, unknown>,
+  context: Context
+): RichTextQuote {
+  if (context.inQuote) {
+    throw new RichTextError("A quote can't hold another quote or a table.");
+  }
+  const blocks: unknown[] = [];
+  let run: unknown[] = [];
+  for (const child of childrenOf(node)) {
+    if (
+      isRecord(child) &&
+      (typeof child.text === "string" || child.type === "a")
+    ) {
+      run.push(child);
+      continue;
+    }
+    if (run.length > 0) {
+      blocks.push({ children: run, type: "p" });
+      run = [];
+    }
+    blocks.push(child);
+  }
+  if (run.length > 0) {
+    blocks.push({ children: run, type: "p" });
+  }
+  return {
+    children: blocks.map((child) => {
+      const parsed = block(child, { ...context, inQuote: true });
+      if (parsed.type === "hr") {
+        throw new RichTextError("A quote holds text, headings and lists.");
+      }
+      return parsed as RichTextQuote["children"][number];
+    }),
+    type: "blockquote",
+  };
+}
+
+/** A cell's span as Plate reads it: the property, or a pasted attribute. */
+function span(
+  node: Record<string, unknown>,
+  key: "colSpan" | "rowSpan"
+): number {
+  const attributes = isRecord(node.attributes) ? node.attributes : {};
+  const value = Number(node[key]) || Number(attributes[key.toLowerCase()]) || 1;
+  if (!(Number.isInteger(value) && value > 0)) {
+    throw new RichTextError(FORMAT_ERROR);
+  }
+  return value;
+}
+
+function cell(node: unknown, context: Context): RichTextCell {
   if (!(isRecord(node) && (node.type === "td" || node.type === "th"))) {
     throw new RichTextError("A table row holds only cells.");
   }
-  for (const span of [node.colSpan, node.rowSpan]) {
-    if (span !== undefined && span !== null && span !== 1) {
-      throw new RichTextError("Table cells can't be merged.");
-    }
+  if (span(node, "rowSpan") > 1) {
+    throw new RichTextError(
+      "Table cells can be merged across a row, not down a column."
+    );
   }
+  const colSpan = span(node, "colSpan");
   return {
     children: childrenOf(node).map((child) => {
-      if (isRecord(child) && child.type === "p") {
-        return { children: leaves(child), type: "p" as const };
+      if (isRecord(child) && child.type === "table") {
+        throw new RichTextError("A table cell can't hold another table.");
       }
-      if (isRecord(child) && (child.type === "ul" || child.type === "ol")) {
-        return list(child, child.type, 1);
-      }
-      throw new RichTextError(
-        "A table cell holds paragraphs and lists, not another table."
-      );
+      return block(child, { ...context, inTable: true }) as RichTextCellBlock;
     }),
+    ...(colSpan > 1 ? { colSpan } : {}),
     type: node.type,
   };
 }
 
-function parseTable(node: Record<string, unknown>): RichTextTable {
+/** The columns' widths for `columns` columns, or nothing when none is set. */
+function colSizes(value: unknown, columns: number): number[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const sizes = Array.from({ length: columns }, (_, i) => {
+    const size: unknown = value[i];
+    return typeof size === "number" && Number.isFinite(size) && size > 0
+      ? size
+      : 0;
+  });
+  return sizes.some((size) => size > 0) ? sizes : undefined;
+}
+
+function parseTable(
+  node: Record<string, unknown>,
+  context: Context
+): RichTextTable {
+  if (context.inQuote) {
+    throw new RichTextError("A quote can't hold another quote or a table.");
+  }
   const rows = childrenOf(node).map((row) => {
     if (!(isRecord(row) && row.type === "tr")) {
       throw new RichTextError("A table holds only rows.");
     }
-    return { children: childrenOf(row).map(cell), type: "tr" as const };
+    return {
+      children: childrenOf(row).map((c) => cell(c, context)),
+      type: "tr" as const,
+    };
   });
-  const columns = rows[0]?.children.length ?? 0;
-  if (rows.some((row) => row.children.length !== columns)) {
+  const width = (row: RichTextRow) =>
+    row.children.reduce((sum, c) => sum + (c.colSpan ?? 1), 0);
+  const columns = rows[0] ? width(rows[0]) : 0;
+  if (rows.some((row) => width(row) !== columns)) {
     throw new RichTextError("Every row of a table needs the same cells.");
   }
   if (columns > MAX_TABLE_COLUMNS) {
@@ -174,24 +391,41 @@ function parseTable(node: Record<string, unknown>): RichTextTable {
       `A table has at most ${String(MAX_TABLE_COLUMNS)} columns.`
     );
   }
-  return { children: rows, type: "table" };
+  const sizes = colSizes(node.colSizes, columns);
+  return {
+    children: rows,
+    ...(sizes ? { colSizes: sizes } : {}),
+    type: "table",
+  };
 }
 
-function block(node: unknown): RichTextBlock {
+function block(node: unknown, context: Context): RichTextBlock {
   if (!isRecord(node)) {
-    throw new RichTextError("The text isn't in the expected format.");
+    throw new RichTextError(FORMAT_ERROR);
   }
   switch (node.type) {
     case "p":
-      return { children: leaves(node), type: "p" };
+      return { children: inlines(node), ...indentOf(node), type: "p" };
+    case "h1":
+    case "h2":
+    case "h3":
+      return { children: inlines(node), ...indentOf(node), type: node.type };
+    case "hr":
+      return { children: [{ text: "" }], type: "hr" };
+    case "blockquote":
+      return parseQuote(node, context);
     case "ul":
     case "ol":
-      return list(node, node.type, 1);
+      return list(node, node.type, context);
     case "table":
-      return parseTable(node);
+      return parseTable(node, context);
+    case "h4":
+    case "h5":
+    case "h6":
+      throw new RichTextError("Use headings 1 to 3 only.");
     default:
       throw new RichTextError(
-        `Use paragraphs, lists and tables only, not ${String(node.type)}.`
+        `Use paragraphs, headings, quotes, dividers, lists and tables only, not ${nameOf(node.type)}.`
       );
   }
 }
@@ -202,12 +436,12 @@ export function parseRichText(json: string): RichTextValue {
   try {
     raw = JSON.parse(json);
   } catch {
-    throw new RichTextError("The text isn't in the expected format.");
+    throw new RichTextError(FORMAT_ERROR);
   }
   if (!Array.isArray(raw) || raw.length === 0) {
-    throw new RichTextError("The text isn't in the expected format.");
+    throw new RichTextError(FORMAT_ERROR);
   }
-  return raw.map(block);
+  return raw.map((node) => block(node, TOP));
 }
 
 /** JSON with keys sorted, so equal values serialize alike however built. */
@@ -221,8 +455,29 @@ export function serializeRichText(value: RichTextValue): string {
   );
 }
 
-function inlineText(node: { children: RichTextLeaf[] }): string {
-  return node.children.map((l) => l.text).join("");
+/** A link's address as plain text shows it: an email address without "mailto:". */
+function shownUrl(url: string): string {
+  return url.startsWith("mailto:") ? url.slice("mailto:".length) : url;
+}
+
+/**
+ * A link as plain text: its text, then the address in brackets unless the
+ * text already is the address. The PDF prints links the same way.
+ */
+export function linkText(link: RichTextLink): string {
+  const text = link.children.map((l) => l.text).join("");
+  if (!text.trim()) {
+    return shownUrl(link.url);
+  }
+  return text === link.url || text === shownUrl(link.url)
+    ? text
+    : `${text} (${shownUrl(link.url)})`;
+}
+
+function inlineText(node: { children: RichTextInline[] }): string {
+  return node.children
+    .map((part) => ("type" in part ? linkText(part) : part.text))
+    .join("");
 }
 
 const ROMAN: [number, string][] = [
@@ -301,33 +556,60 @@ function listLines(
   numbered: number
 ): string[] {
   const pad = "  ".repeat(indent);
+  const inner = node.type === "ol" ? numbered + 1 : numbered;
   return node.children.flatMap((item, index) => {
     const marker = node.type === "ol" ? `${listNumber(numbered, index)}.` : "-";
-    return item.children.flatMap((child) =>
-      child.type === "lic"
-        ? [`${pad}${marker} ${inlineText(child)}`]
-        : listLines(
-            child,
-            indent + 1,
-            node.type === "ol" ? numbered + 1 : numbered
-          )
-    );
+    return item.children.flatMap((child) => {
+      switch (child.type) {
+        case "lic":
+          return [`${pad}${marker} ${inlineText(child)}`];
+        case "blockquote":
+          return quoteText(child, inner)
+            .split("\n")
+            .map((line) => `${pad}  ${line}`);
+        default:
+          return listLines(child, indent + 1, inner);
+      }
+    });
   });
 }
 
-function blockText(node: RichTextBlock): string {
+/** Each line of a quote after "> ", its blocks apart by a ">" line. */
+function quoteText(node: RichTextQuote, numbered: number): string {
+  return node.children
+    .map((child) => blockText(child, numbered))
+    .filter((text) => text.trim())
+    .join("\n\n")
+    .split("\n")
+    .map((line) => (line ? `> ${line}` : ">"))
+    .join("\n");
+}
+
+/** `numbered` is how many numbered lists the block sits in. */
+function blockText(node: RichTextBlock, numbered = 0): string {
   switch (node.type) {
     case "p":
+    case "h1":
+    case "h2":
+    case "h3":
       return inlineText(node);
+    case "hr":
+      return "---";
+    case "blockquote":
+      return quoteText(node, numbered);
     case "ul":
     case "ol":
-      return listLines(node, 0, 0).join("\n");
+      return listLines(node, 0, numbered).join("\n");
     case "table":
       return node.children
         .map((row) =>
           row.children
             .map((c) =>
-              c.children.map(blockText).filter(Boolean).join(" ").trim()
+              c.children
+                .map((b: RichTextCellBlock) => blockText(b))
+                .filter(Boolean)
+                .join(" ")
+                .trim()
             )
             .join(" | ")
         )
@@ -338,13 +620,15 @@ function blockText(node: RichTextBlock): string {
 }
 
 /**
- * The text without formatting: paragraphs apart by a blank line, list items
- * on their own lines with "1." or "-", table rows on lines with cells apart
- * by " | ". For notifications, checks and anything else that needs plain text.
+ * The text without formatting: blocks apart by a blank line, headings as
+ * their text, list items on their own lines with "1." or "-", quoted lines
+ * after "> ", a divider as "---", links as their text and address (`linkText`),
+ * table rows on lines with cells apart by " | " (a merged cell once). For
+ * notifications, checks and anything else that needs plain text.
  */
 export function richTextToPlain(value: RichTextValue): string {
   return value
-    .map(blockText)
+    .map((node) => blockText(node))
     .filter((text) => text.trim())
     .join("\n\n");
 }
@@ -354,8 +638,17 @@ function blockHasText(
 ): boolean {
   switch (node.type) {
     case "p":
+    case "h1":
+    case "h2":
+    case "h3":
     case "lic":
-      return node.children.some((l) => l.text.trim() !== "");
+      return node.children.some((part) =>
+        ("type" in part ? part.children : [part]).some(
+          (l) => l.text.trim() !== ""
+        )
+      );
+    case "blockquote":
+      return node.children.some(blockHasText);
     case "ul":
     case "ol":
       return node.children.some((item) => item.children.some(blockHasText));
@@ -370,7 +663,7 @@ function blockHasText(
 
 /**
  * Whether there is any text at all: empty lists and tables have none,
- * though their plain text has markers.
+ * though their plain text has markers, and neither has a divider.
  */
 export function richTextHasText(value: RichTextValue): boolean {
   return value.some(blockHasText);
@@ -453,30 +746,64 @@ export function p(...parts: Inline[]): RichTextParagraph {
   return { children: parts.map(leafOf), type: "p" };
 }
 
-function listOf(type: "ol" | "ul", items: (Inline | Inline[])[]): RichTextList {
+/** A quote of paragraphs. */
+export function quote(...paragraphs: RichTextParagraph[]): RichTextQuote {
+  return { children: paragraphs, type: "blockquote" };
+}
+
+/** A list item: its text, then what sits under it (a quote). */
+export function li(
+  text: Inline | Inline[],
+  ...after: RichTextQuote[]
+): RichTextListItem {
   return {
-    children: items.map((item) => ({
-      children: [
-        {
-          children: (Array.isArray(item) ? item : [item]).map(leafOf),
-          type: "lic" as const,
-        },
-      ],
-      type: "li" as const,
-    })),
-    type,
+    children: [
+      {
+        children: (Array.isArray(text) ? text : [text]).map(leafOf),
+        type: "lic",
+      },
+      ...after,
+    ],
+    type: "li",
   };
 }
 
-/** A numbered list; an item is a string, a run, or several runs. */
-export function ol(...items: (Inline | Inline[])[]): RichTextList {
-  return listOf("ol", items);
+/** A numbered list; an item is a string, a run, several runs or an `li`. */
+export function ol(
+  ...items: (Inline | Inline[] | RichTextListItem)[]
+): RichTextList {
+  return {
+    children: items.map((item) =>
+      typeof item === "object" && "type" in item ? item : li(item)
+    ),
+    type: "ol",
+  };
+}
+
+/** A cell spanning `columns` columns, for `table`. */
+interface MergedCell {
+  columns: number;
+  content: Inline;
+}
+
+export function merged(content: Inline, columns: number): MergedCell {
+  return { columns, content };
 }
 
 /** A table: the header row's cells, then each row's. */
-export function table(header: string[], ...rows: string[][]): RichTextTable {
-  const row = (type: "td" | "th", cells: string[]): RichTextRow => ({
-    children: cells.map((text) => ({ children: [p(text)], type })),
+export function table(
+  header: string[],
+  ...rows: (Inline | MergedCell)[][]
+): RichTextTable {
+  const row = (
+    type: "td" | "th",
+    cells: (Inline | MergedCell)[]
+  ): RichTextRow => ({
+    children: cells.map((c) =>
+      typeof c === "object" && "columns" in c
+        ? { children: [p(c.content)], colSpan: c.columns, type }
+        : { children: [p(c)], type }
+    ),
     type: "tr",
   });
   return {
