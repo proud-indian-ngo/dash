@@ -103,6 +103,8 @@ async function collectAllDbKeys(): Promise<{
       SELECT archive_object_key FROM governance_document WHERE archive_object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT minutes_object_key FROM meeting WHERE minutes_object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT object_key FROM conflict_declaration WHERE object_key LIKE ${keyPrefix}
     ) AS all_keys
   `);
 

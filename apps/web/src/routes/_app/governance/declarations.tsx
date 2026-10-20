@@ -13,7 +13,10 @@ import { fiscalYearLabel } from "@pi-dash/shared/compliance";
 import {
   DECLARATION_FIELD_MAX,
   DECLARATION_INTERESTS_MAX,
+  DECLARATION_STATUS_LABELS,
+  type DeclarationStatus,
   type DeclaredInterest,
+  declarationsByTrustee,
 } from "@pi-dash/shared/declarations";
 import { boardOn } from "@pi-dash/shared/governance";
 import { queries } from "@pi-dash/zero/queries";
@@ -25,6 +28,7 @@ import { toast } from "sonner";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { selectField } from "@/components/data-table/filter-fields";
+import { DeclarationSignPanel } from "@/components/governance/declaration-sign-panel";
 import { governanceDocumentHref } from "@/components/governance/evidence";
 import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
@@ -37,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { StatusBadge } from "@/components/shared/status-badge";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { submitConflictDeclarationFn } from "@/functions/declarations";
 import { formatTimestamp } from "@/lib/date-formats";
@@ -51,25 +55,44 @@ export const Route = createFileRoute("/_app/governance/declarations")({
 
 const EMPTY: DeclaredInterest = { nature: "", party: "", relationship: "" };
 
+type RowStatus = DeclarationStatus | "not_yet";
+
 interface TrusteeDeclarationRow {
-  declared: boolean;
+  /** A declaration waits for their signature, beside any in force. */
+  awaiting: boolean;
   documentId: string | null;
   id: string;
-  /** The declared parties, "None", or null before declaring. */
+  /** The parties in the declaration in force, "None", or null without one. */
   interests: string | null;
   name: string;
+  /** Of the declaration in force, or waiting for signature without one. */
+  status: RowStatus;
 }
 
+const STATUS_BADGES: Record<RowStatus, { label: string; tone: StatusTone }> = {
+  awaiting_signature: {
+    label: DECLARATION_STATUS_LABELS.awaiting_signature,
+    tone: "info",
+  },
+  confirmed: { label: DECLARATION_STATUS_LABELS.confirmed, tone: "neutral" },
+  not_yet: { label: "Not yet", tone: "warning" },
+  signed: { label: DECLARATION_STATUS_LABELS.signed, tone: "success" },
+};
+
 const filterFields: FilterField[] = [
-  selectField("status", "Status", [
-    { label: "Declared", value: "declared" },
-    { label: "Not yet", value: "not_yet" },
-  ]),
+  selectField(
+    "status",
+    "Status",
+    (Object.keys(STATUS_BADGES) as RowStatus[]).map((value) => ({
+      label: STATUS_BADGES[value].label,
+      value,
+    }))
+  ),
 ];
 
 function getFilterValue(row: TrusteeDeclarationRow, path: string[]): unknown {
   if (path[0] === "status") {
-    return row.declared ? "declared" : "not_yet";
+    return row.status;
   }
   return;
 }
@@ -101,20 +124,26 @@ function DeclarationsPage() {
   const [declaring, setDeclaring] = useState(false);
   const board = boardOn(input, today);
   const isTrustee = mineTrustees.length > 0;
-  const myDeclaration = mine.find((d) => d.fiscalYear === fiscalYear);
-  const thisYear = new Map(
-    all.filter((d) => d.fiscalYear === fiscalYear).map((d) => [d.trusteeId, d])
+  const my =
+    declarationsByTrustee(mine.filter((d) => d.fiscalYear === fiscalYear))
+      .values()
+      .next().value ?? null;
+  const thisYear = declarationsByTrustee(
+    all.filter((d) => d.fiscalYear === fiscalYear)
   );
   const rows: TrusteeDeclarationRow[] = board.map((m) => {
     const d = thisYear.get(m.trustee.id);
+    const inForce = d?.inForce;
     return {
-      declared: Boolean(d),
-      documentId: d?.documentId ?? null,
+      awaiting: Boolean(d?.awaiting),
+      documentId: inForce?.documentId ?? null,
       id: m.trustee.id,
-      interests: d
-        ? d.interests.map((i) => i.party).join(", ") || "None"
+      interests: inForce
+        ? inForce.interests.map((i) => i.party).join(", ") || "None"
         : null,
       name: m.trustee.legalName,
+      status:
+        inForce?.status ?? (d?.awaiting ? "awaiting_signature" : "not_yet"),
     };
   });
 
@@ -141,13 +170,18 @@ function DeclarationsPage() {
       size: 220,
     },
     {
-      accessorFn: (row) => (row.declared ? "declared" : "not_yet"),
-      cell: ({ row }) =>
-        row.original.declared ? (
-          <StatusBadge tone="success">Declared</StatusBadge>
-        ) : (
-          <StatusBadge tone="warning">Not yet</StatusBadge>
-        ),
+      accessorFn: (row) => row.status,
+      cell: ({ row }) => (
+        <span className="flex flex-wrap gap-1">
+          <StatusBadge tone={STATUS_BADGES[row.original.status].tone}>
+            {STATUS_BADGES[row.original.status].label}
+          </StatusBadge>
+          {row.original.awaiting &&
+          row.original.status !== "awaiting_signature" ? (
+            <StatusBadge tone="info">Update waiting for signature</StatusBadge>
+          ) : null}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
@@ -162,7 +196,8 @@ function DeclarationsPage() {
         kind: "status",
         skeleton: SKELETON_BADGE,
       },
-      size: 130,
+      // Fits "Confirmed without a signature" without truncating.
+      size: 240,
     },
     {
       accessorFn: (row) => row.interests ?? "",
@@ -218,28 +253,38 @@ function DeclarationsPage() {
         actions={
           isTrustee ? (
             <Button onClick={() => setDeclaring(true)} type="button">
-              {myDeclaration ? "Update my declaration" : "Declare my interests"}
+              {my ? "Update my declaration" : "Declare my interests"}
             </Button>
           ) : null
         }
-        description={`Each trustee declares, every financial year, the people and organisations they're connected to (clause 5.3). Finance is warned when a payment goes to one of them. This year: ${fiscalYear}.`}
+        description={`Each trustee declares, every financial year, the people and organisations they're connected to (clause 5.3), and signs the declaration with their DSC. Finance is warned when a payment goes to one of them. This year: ${fiscalYear}.`}
         title="Declarations of interests"
       />
       {isTrustee ? (
-        <section className="mt-6 rounded-md border p-4 text-sm">
-          {myDeclaration ? (
+        <section className="mt-6 flex flex-col gap-4 rounded-md border p-4 text-sm">
+          {my?.inForce ? (
             <p>
-              You declared{" "}
-              {myDeclaration.nothingToDeclare
-                ? "no interests"
-                : `${myDeclaration.interests.length} interest${myDeclaration.interests.length === 1 ? "" : "s"}`}{" "}
-              for {fiscalYear} on{" "}
-              {formatTimestamp(
-                new Date(myDeclaration.declaredAt).toISOString()
-              )}
-              .
+              Your declaration for {fiscalYear} ({describeInterests(my.inForce)}
+              ), made on{" "}
+              {formatTimestamp(new Date(my.inForce.declaredAt).toISOString())},
+              is in force (
+              {DECLARATION_STATUS_LABELS[my.inForce.status].toLowerCase()}).
             </p>
-          ) : (
+          ) : null}
+          {my?.awaiting ? (
+            <>
+              <p>
+                Your new declaration ({describeInterests(my.awaiting)}), made on{" "}
+                {formatTimestamp(
+                  new Date(my.awaiting.declaredAt).toISOString()
+                )}
+                , is waiting for your signature. It counts once you sign it with
+                your DSC.
+              </p>
+              <DeclarationSignPanel declarationId={my.awaiting.id} />
+            </>
+          ) : null}
+          {my ? null : (
             <p>You haven't declared your interests for {fiscalYear} yet.</p>
           )}
         </section>
@@ -278,12 +323,22 @@ function DeclarationsPage() {
       {declaring ? (
         <DeclareDialog
           fiscalYear={fiscalYear}
-          initial={myDeclaration?.interests ?? []}
+          initial={(my?.awaiting ?? my?.inForce)?.interests ?? []}
           onClose={() => setDeclaring(false)}
         />
       ) : null}
     </div>
   );
+}
+
+function describeInterests(d: {
+  interests: readonly DeclaredInterest[];
+  nothingToDeclare: boolean;
+}): string {
+  if (d.nothingToDeclare) {
+    return "no interests";
+  }
+  return `${d.interests.length} interest${d.interests.length === 1 ? "" : "s"}`;
 }
 
 function DeclareDialog({
@@ -307,11 +362,16 @@ function DeclareDialog({
   const handleSubmit = useEventCallback(async () => {
     setBusy(true);
     await submit({ data: { interests: rows } })
-      .then(() => {
+      .then((out) => {
         toast.success(
           rows.length === 0
             ? `Declared: no interests for ${fiscalYear}`
-            : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`
+            : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`,
+          {
+            description: out.fieldsPrepared
+              ? "Sign it with your DSC to make it count."
+              : "Sign it with your DSC to make it count. The signing service is off, so draw the signature box in Acrobat.",
+          }
         );
         onClose();
       })
@@ -339,7 +399,8 @@ function DeclareDialog({
             List the people and organisations you, or a relative, are connected
             to and that deal or may deal with the Trust: a business you own or
             direct, a firm a relative runs, a supplier you're related to. Leave
-            the list empty if there are none.
+            the list empty if there are none. You then sign the declaration with
+            your DSC.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">

@@ -29,6 +29,7 @@ export interface NewSigningJob {
   certificateId?: string | null;
   fieldName?: string | null;
   circularId?: string | null;
+  declarationId?: string | null;
   kind: "enrol" | "sign";
   meetingId?: string | null;
   stateObjectKey?: string | null;
@@ -49,6 +50,7 @@ export async function createSigningJob(
     certificateId: input.certificateId ?? null,
     circularId: input.circularId ?? null,
     createdAt: now,
+    declarationId: input.declarationId ?? null,
     expiresAt: new Date(now.getTime() + SIGNING_JOB_TTL_MS),
     fieldName: input.fieldName ?? null,
     id,

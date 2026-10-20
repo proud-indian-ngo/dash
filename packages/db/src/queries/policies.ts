@@ -1,11 +1,12 @@
 import {
   type DeclaredInterest,
+  declarationsByTrustee,
   paymentWarnings,
   policyVersionOn,
   SAFEGUARDING_POLICY_KEY,
 } from "@pi-dash/shared/declarations";
 import { boardOn } from "@pi-dash/shared/governance";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -18,9 +19,11 @@ import {
 import { trustee } from "../schema/governance";
 import { team } from "../schema/team";
 import { teamEvent } from "../schema/team-event";
-import { loadRegister } from "./resolutions";
+import { loadRegister, type Tx } from "./resolutions";
 
 export class PolicyError extends Error {}
+
+export class DeclarationError extends Error {}
 
 /** The child-safeguarding policy every deployment has; versions are published in the app. */
 export async function ensureSafeguardingPolicy(): Promise<void> {
@@ -108,45 +111,89 @@ export async function safeguardingBlocks(
 
 // ── Declarations ────────────────────────────────────────────────────────────
 
-/** Records a trustee's declaration for a year, replacing an earlier one. */
-export async function saveConflictDeclaration(input: {
+/**
+ * Records a trustee's declaration for a year, waiting for their signature.
+ * It replaces one still waiting; a signed one stays in force until this is
+ * signed.
+ */
+export async function saveDeclarationAwaitingSignature(input: {
   declaredBy: string;
-  documentId: string;
   fiscalYear: string;
   interests: DeclaredInterest[];
+  objectKey: string;
+  sha256: string;
   trusteeId: string;
 }): Promise<void> {
   const now = new Date();
+  const content = {
+    declaredAt: now,
+    declaredBy: input.declaredBy,
+    interests: input.interests,
+    nothingToDeclare: input.interests.length === 0,
+    objectKey: input.objectKey,
+    sha256: input.sha256,
+    updatedAt: now,
+  };
   await db
     .insert(conflictDeclaration)
     .values({
+      ...content,
       createdAt: now,
-      declaredAt: now,
-      declaredBy: input.declaredBy,
-      documentId: input.documentId,
       fiscalYear: input.fiscalYear,
       id: uuidv7(),
-      interests: input.interests,
-      nothingToDeclare: input.interests.length === 0,
+      status: "awaiting_signature",
       trusteeId: input.trusteeId,
-      updatedAt: now,
     })
     .onConflictDoUpdate({
-      set: {
-        declaredAt: now,
-        declaredBy: input.declaredBy,
-        documentId: input.documentId,
-        interests: input.interests,
-        nothingToDeclare: input.interests.length === 0,
-        updatedAt: now,
-      },
+      set: content,
       target: [conflictDeclaration.trusteeId, conflictDeclaration.fiscalYear],
+      targetWhere: sql`${conflictDeclaration.status} = 'awaiting_signature'`,
     });
+}
+
+/** A declaration with its trustee's name and linked account. */
+export async function getConflictDeclaration(id: string) {
+  const [row] = await db
+    .select({
+      declaration: conflictDeclaration,
+      legalName: trustee.legalName,
+      userId: trustee.userId,
+    })
+    .from(conflictDeclaration)
+    .innerJoin(trustee, eq(trustee.id, conflictDeclaration.trusteeId))
+    .where(eq(conflictDeclaration.id, id))
+    .limit(1);
+  return row
+    ? { ...row.declaration, legalName: row.legalName, userId: row.userId }
+    : null;
+}
+
+/** Locks a declaration for the rest of the transaction, so it's signed once. */
+export async function lockConflictDeclaration(tx: Tx, id: string) {
+  const [row] = await tx
+    .select()
+    .from(conflictDeclaration)
+    .where(eq(conflictDeclaration.id, id))
+    .for("update")
+    .limit(1);
+  return row ?? null;
+}
+
+export async function setSignedDeclaration(
+  tx: Tx,
+  id: string,
+  documentId: string
+): Promise<void> {
+  await tx
+    .update(conflictDeclaration)
+    .set({ documentId, status: "signed", updatedAt: new Date() })
+    .where(eq(conflictDeclaration.id, id));
 }
 
 /**
  * Warnings for paying a payee on a day: the payee is a trustee in office
- * then (clause 7.24) or a party a trustee declared for that financial year.
+ * then (clause 7.24) or a party in a trustee's declaration in force for
+ * that financial year.
  */
 export async function paymentGovernanceWarnings(
   payeeName: string,
@@ -155,16 +202,27 @@ export async function paymentGovernanceWarnings(
 ) {
   const register = await loadRegister(db, on);
   const board = boardOn(register, on);
-  const declarations = await db
+  const rows = await db
     .select({
+      declaredAt: conflictDeclaration.declaredAt,
+      id: conflictDeclaration.id,
       interests: conflictDeclaration.interests,
+      status: conflictDeclaration.status,
+      trusteeId: conflictDeclaration.trusteeId,
       trusteeName: trustee.legalName,
     })
     .from(conflictDeclaration)
     .innerJoin(trustee, eq(trustee.id, conflictDeclaration.trusteeId))
-    .where(eq(conflictDeclaration.fiscalYear, fiscalYear));
+    .where(
+      and(
+        eq(conflictDeclaration.fiscalYear, fiscalYear),
+        ne(conflictDeclaration.status, "awaiting_signature")
+      )
+    );
   return paymentWarnings({
-    declarations,
+    declarations: [...declarationsByTrustee(rows).values()].flatMap((d) =>
+      d.inForce ? [d.inForce] : []
+    ),
     payeeName,
     trustees: board.map((m) => ({ legalName: m.trustee.legalName })),
   });

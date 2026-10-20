@@ -4,7 +4,8 @@ import { expect, test } from "../../fixtures/test";
  * Declarations of interests, the policy register and the annual pack
  * against the seeded board: the super admin is Asha Rao, a trustee in
  * office. The seeded vendor payment "E2E Event Vendor Payment" is pending,
- * and Vikram Menon's seeded declaration names its vendor.
+ * and Vikram Menon's seeded declaration, confirmed without a signature,
+ * names its vendor.
  * The child-safeguarding gate itself is covered by unit tests: publishing a
  * gating version here would hold back every other spec's volunteers.
  */
@@ -28,7 +29,7 @@ test.describe("declarations and policies (super admin)", () => {
     ).toBeVisible({ timeout: 20_000 });
   });
 
-  test("a trustee declares an interest and the approver is warned", async ({
+  test("a declaration waits for the trustee's signature before it counts", async ({
     page,
   }) => {
     test.skip(
@@ -36,6 +37,9 @@ test.describe("declarations and policies (super admin)", () => {
       "Declaring stores the declaration's PDF in R2, which CI does not have"
     );
     test.slow();
+    // Signing needs a DSC and the signing service, so the declaration stays
+    // waiting here: the prompt stays and the approver isn't warned.
+    const party = `E2E Unsigned Party ${Date.now()}`;
     await page.goto("/governance/declarations");
     await expect(
       page.getByRole("heading", { name: "Declarations of interests" })
@@ -50,7 +54,7 @@ test.describe("declarations and policies (super admin)", () => {
     await dialog
       .getByLabel("Person or organisation", { exact: true })
       .last()
-      .fill("E2E Event Vendor");
+      .fill(party);
     await dialog
       .getByLabel("Relationship", { exact: true })
       .last()
@@ -58,20 +62,23 @@ test.describe("declarations and policies (super admin)", () => {
     await dialog.getByRole("button", { exact: true, name: "Declare" }).click();
     await expect(dialog).toBeHidden({ timeout: 20_000 });
 
-    const asha = page.getByRole("row").filter({ hasText: "Asha Rao" }).first();
-    await expect(asha).toContainText("Declared");
-    await expect(asha).toContainText("E2E Event Vendor");
-    await expect(asha.getByRole("link", { name: "PDF" })).toHaveAttribute(
-      "href",
-      /kind=governanceDocument/
-    );
-
-    await page.goto(VENDOR_PAYMENT);
+    await expect(page.getByText(/is waiting for your signature/)).toBeVisible();
+    // The Acrobat steps are mounted, open or under "Sign in Acrobat instead".
     await expect(
-      page.getByText("Asha Rao declared an interest in E2E Event Vendor", {
-        exact: false,
+      page.locator("a[href*='kind=declarationPdf']", {
+        hasText: "Download declaration",
       })
-    ).toBeVisible({ timeout: 20_000 });
+    ).toHaveCount(1);
+    const asha = page.getByRole("row").filter({ hasText: "Asha Rao" }).first();
+    await expect(asha).toContainText(/waiting for signature/i);
+    await expect(asha).not.toContainText(party);
+
+    await page.goto("/");
+    const prompt = page.getByRole("region", { name: "Declare your interests" });
+    await expect(prompt).toContainText("waiting for your signature", {
+      timeout: 20_000,
+    });
+    await expect(prompt.getByRole("link", { name: "Sign" })).toBeVisible();
   });
 
   test("publishes a policy version that trustees acknowledge from the dashboard", async ({

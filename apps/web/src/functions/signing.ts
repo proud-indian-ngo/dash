@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { MeetingError } from "@pi-dash/db/queries/meetings";
+import { DeclarationError } from "@pi-dash/db/queries/policies";
 import {
   createSigningJob,
   currentCertificate,
@@ -15,7 +16,10 @@ import z from "zod";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
 import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
-import { startMinutesJob } from "@/lib/governance/signing-jobs";
+import {
+  startDeclarationJob,
+  startMinutesJob,
+} from "@/lib/governance/signing-jobs";
 import {
   SigningServiceError,
   signingServiceConfigured,
@@ -48,6 +52,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
   return run().catch((error: unknown) => {
     if (
       error instanceof CircularError ||
+      error instanceof DeclarationError ||
       error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
@@ -192,6 +197,39 @@ export const startDscMinutesSigningFn = createServerFn({ method: "POST" })
           }
           const job = await startMinutesJob({
             meetingId: data.meetingId,
+            trusteeId: me.id,
+            userId: session.user.id,
+          });
+          return { jobId: job.id, link: helperLink("sign", job.token) };
+        })
+    );
+  });
+
+/** A trustee signs their own declaration of interests with the helper. */
+export const startDscDeclarationSigningFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ declarationId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "governance.sign_declaration.start",
+        target: { id: data.declarationId, type: "conflict_declaration" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          const job = await startDeclarationJob({
+            declarationId: data.declarationId,
             trusteeId: me.id,
             userId: session.user.id,
           });

@@ -4,6 +4,8 @@ import { join, relative } from "node:path";
 
 const AUDITED_SERVER_FUNCTIONS = [
   "submitConflictDeclarationFn",
+  "submitSignedDeclarationFn",
+  "startDscDeclarationSigningFn",
   "sendMeetingNoticeFn",
   "decideAgendaItemFn",
   "markMeetingHeldFn",
@@ -77,6 +79,7 @@ const AUDITED_SERVER_FUNCTIONS = [
 const EXEMPT_SERVER_FUNCTIONS = [
   "getPaymentGovernanceWarnings",
   "getMinutesUploadUrl",
+  "getDeclarationUploadUrl",
   "getSigningJobStatus",
   "getMyDscStatus",
   "getCircularSignUploadUrl",
@@ -156,6 +159,7 @@ const AUDITED_API_MARKERS: Record<string, string[]> = {
     "runAuditedAction",
     "circular.sign",
     "meeting.sign_minutes",
+    "governance.sign_declaration",
   ],
   "routes/api/zero/mutate.ts": [
     "runZeroAuditedMutation",

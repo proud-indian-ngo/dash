@@ -4,7 +4,10 @@ import {
   advancePayment,
   advancePaymentAttachment,
 } from "@pi-dash/db/schema/advance-payment";
-import { policyVersion } from "@pi-dash/db/schema/declarations";
+import {
+  conflictDeclaration,
+  policyVersion,
+} from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
 import {
   circularRevision,
@@ -359,6 +362,31 @@ async function resolveMeetingMinutes(
   };
 }
 
+/** A declaration of interests as generated, before its trustee signs it. */
+async function resolveDeclarationPdf(
+  ref: AssetRef<"declarationPdf">
+): Promise<R2ObjectRecord | null> {
+  const [row] = await db
+    .select({
+      fiscalYear: conflictDeclaration.fiscalYear,
+      key: conflictDeclaration.objectKey,
+      userId: trustee.userId,
+    })
+    .from(conflictDeclaration)
+    .innerJoin(trustee, eq(trustee.id, conflictDeclaration.trusteeId))
+    .where(eq(conflictDeclaration.id, ref.id))
+    .limit(1);
+  if (!row?.key) {
+    return null;
+  }
+  return {
+    access: "resolution",
+    filename: `declaration-${row.fiscalYear}.pdf`,
+    key: row.key,
+    recipientUserIds: row.userId ? [row.userId] : [],
+  };
+}
+
 /** A published policy version's document. */
 async function resolvePolicyDocument(
   ref: AssetRef<"policyDocument">
@@ -417,6 +445,8 @@ function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
       return resolveAdvancePaymentApprovalScreenshot(ref);
     case "circularPdf":
       return resolveCircularPdf(ref);
+    case "declarationPdf":
+      return resolveDeclarationPdf(ref);
     case "eventPhoto":
       return resolveEventPhoto(ref);
     case "governanceDocument":

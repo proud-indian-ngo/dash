@@ -59,6 +59,8 @@ export async function isProtectedR2ObjectReferenced(
         AND ${r2Key} LIKE '%/governance/circulars/' || circular_id::text || '/%'
       UNION ALL
       SELECT 1 FROM meeting WHERE minutes_object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM conflict_declaration WHERE object_key = ${r2Key}
     ) AS referenced
   `);
 

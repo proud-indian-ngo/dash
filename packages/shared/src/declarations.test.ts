@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  declarationsByTrustee,
   normaliseName,
   paymentWarnings,
   policyVersionOn,
@@ -61,5 +62,37 @@ describe("policyVersionOn", () => {
     expect(policyVersionOn(versions, "2026-10-17")?.version).toBe(1);
     expect(policyVersionOn(versions, "2026-11-01")?.version).toBe(2);
     expect(policyVersionOn(versions, "2025-12-31")).toBeNull();
+  });
+});
+
+describe("declarationsByTrustee", () => {
+  const row = (
+    id: string,
+    trusteeId: string,
+    status: "awaiting_signature" | "signed" | "confirmed",
+    declaredAt: number
+  ) => ({ declaredAt, id, status, trusteeId });
+
+  it("counts the last signed declaration, not one waiting for a signature", () => {
+    const byTrustee = declarationsByTrustee([
+      row("a1", "asha", "confirmed", 1),
+      row("a2", "asha", "signed", 3),
+      row("a3", "asha", "awaiting_signature", 5),
+      row("v1", "vikram", "awaiting_signature", 2),
+    ]);
+    expect(byTrustee.get("asha")?.inForce?.id).toBe("a2");
+    expect(byTrustee.get("asha")?.awaiting?.id).toBe("a3");
+    expect(byTrustee.get("vikram")).toEqual({
+      awaiting: row("v1", "vikram", "awaiting_signature", 2),
+      inForce: null,
+    });
+  });
+
+  it("keeps a declaration confirmed without a signature in force", () => {
+    const byTrustee = declarationsByTrustee([
+      row("a1", "asha", "confirmed", 1),
+      row("a2", "asha", "awaiting_signature", 2),
+    ]);
+    expect(byTrustee.get("asha")?.inForce?.id).toBe("a1");
   });
 });
