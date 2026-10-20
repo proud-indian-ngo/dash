@@ -76,4 +76,3 @@ Profiles still show material Zero view construction and Base UI scroll/layout wo
 ## Interpretation
 
 The filter result is reproducible CPU and allocation evidence. Main-route measurements cover navigation and mounting with scale fixtures; they do not establish field INP, production percentiles, all role combinations, image-decoding budgets or overnight leak behavior. Browser resource observations are not minimum system-RAM requirements. Retest the same workloads on an actual target device before setting a hardware support floor.
-
