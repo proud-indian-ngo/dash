@@ -23,6 +23,8 @@
 
 Some state reaches every spec on the stack: a second active cost centre makes every event and request form ask for a city, a closed FY 2026-27 refuses statement imports and line actions dated in it, and a policy version in force sends everyone it is for to the accept page. The seed publishes no version, so no fixture user is held back. Such specs go in `exclusiveLastSpecs` (`project-selection.ts`) and run in `exclusive_last`, the teardown of `setup`, which Playwright starts once every project depending on `setup` has finished. It has no dependencies, so a failure elsewhere doesn't skip it. A teardown doesn't pull in setup, so `run-e2e.sh` adds `global-setup.ts` whenever spec files are named. Other cost centre specs add their centres inactive and run in parallel; seeding deactivates any `E2E…` centre a stopped run left active.
 
+When filtering an exclusive-last spec with `--grep`, include `authenticate as|<test pattern>` so setup recreates logins for the fresh database. Naming the setup file does not exempt its tests from the filter.
+
 ## Global setup and auth
 
 `global-setup.ts` signs in each shared role and each active Kalakriti actor through the API and saves storage state under `.auth/`. Each actor sends a distinct `192.0.2.x` `x-forwarded-for` address, so setup does not use up the localhost rate-limit bucket that browser login tests share.
@@ -94,6 +96,7 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `users-mount.spec.ts` | `USERS_MOUNT_PERFORMANCE` | First/repeat Users navigation plus a separate profiled repeat; preserves CPU throttling throughout |
 | `kalakriti-layout.spec.ts` | `KALAKRITI_LAYOUT_PERFORMANCE` | Food layout shifts with empty and populated eligible rosters on mobile |
 | `governance-navigation.spec.ts` | `GOVERNANCE_PERFORMANCE` | Cold governance pages, layout shifts and first form openings; route JavaScript is measured before forms open |
+| `governance-warm-navigation.spec.ts` | `GOVERNANCE_WARM_PERFORMANCE` | First and repeat visits to nine governance pages from the dashboard, with caches preserved and populated-content readiness |
 | `finance-navigation.spec.ts` | `FINANCE_NAVIGATION_PERFORMANCE` | First and repeat Income and Books navigation from the dashboard on desktop and mobile, with populated route-specific readiness |
 | `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
 | `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
@@ -101,6 +104,8 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 Query benchmarks take three analyzer samples after initial hydration, without timing thresholds. JSON attachments contain counts, timings and sanitized plans, never record contents, filter values or credentials.
 
 The claim-edit, Users-mount and Food-layout reports use `PERFORMANCE_LABEL` to separate baseline, candidate and final runs. Governance uses `GOVERNANCE_PERFORMANCE_LABEL`; `GOVERNANCE_PERFORMANCE_ROUTES` optionally selects comma-separated route names for focused reruns. Compare matched production builds without concurrent builds, tests or profilers.
+
+Warm governance uses `GOVERNANCE_WARM_LABEL` and optional `GOVERNANCE_WARM_ROUTES`. Each destination starts in a fresh context, waits two seconds after dashboard readiness, then measures first and repeat link navigation in the same document. `GOVERNANCE_WARM_IDLE_WAIT_MS` adds a fixed idle window. Meetings checks the populated Past tab count; Registrations checks its empty-state search control because the standard seed has no registration.
 
 Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit in the same context with HTTP and Zero caches preserved. The Export first-use benchmark supports the same mode with `EXPORT_SSR_RETURNING=true`.
 

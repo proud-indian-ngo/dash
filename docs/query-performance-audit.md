@@ -155,6 +155,28 @@ Food reserves its loading geometry; Deed uses the rules/history layout while loa
 
 Two trials were rejected. Splitting the claim editor saved about 35 KB of detail JavaScript, but mobile detail readiness stayed near 1.56 seconds and first edit rose from 511 to 900 ms. Caching table width reduced mobile repeat Users navigation from 269 to 242 ms, but desktop rose from 240 to 288 ms and first visits slowed. Neither trial justified its extra complexity. The opt-in probes remain available; early Event Timing snapshots are diagnostics, not INP.
 
+### Warm governance navigation
+
+Three fresh contexts per destination and viewport used real dashboard links, a two-second dashboard settle, enabled caches and the same throttling. Each first/repeat pair stayed in one document. Baseline medians in milliseconds:
+
+| Page | Desktop first / repeat | Mobile first / repeat |
+|---|---:|---:|
+| Register | 2,405 / 278 | 2,350 / 324 |
+| Documents | 1,879 / 212 | 1,814 / 298 |
+| Deed | 1,163 / 163 | 1,195 / 226 |
+| Resolutions | 2,064 / 260 | 1,931 / 332 |
+| Meetings | 1,181 / 143 | 1,181 / 216 |
+| Compliance | 1,271 / 145 | 1,282 / 326 |
+| Declarations | 1,698 / 215 | 1,648 / 282 |
+| Policies | 1,163 / 145 | 1,164 / 216 |
+| Registrations | 1,802 / 145 | 1,772 / 232 |
+
+All 54 samples reached their readiness marker without page errors. First visits downloaded 46–153 KB of compressed route JavaScript; repeats downloaded none. Compliance had one 626 ms mobile repeat, without a corresponding long-task increase. These are seeded lab timings, not field percentiles. Meetings verifies the populated Past tab count; Registrations has no seeded row.
+
+Documents' signing-status request revalidates in the router's background on repeat visits. Its loader remains blocking on first entry to preserve warning geometry; an extra status cache has no demonstrated navigation benefit.
+
+The register now preloads deed versions alongside trustees because both gate its loading state. Two candidate runs reduced mobile first-visit medians from 2,350 to 2,249 and 2,214 ms; desktop measured 2,364 and 2,316 ms against 2,405. Repeat timing varied, so this supports a modest first-visit improvement only. No additional background warming or form splitting was adopted.
+
 ### Rules these results support
 
 - Global admins skip most permission predicates. Measure the restricted role too: Edition admin roughly doubles the reads of global admin on Students, Entries and Food.
