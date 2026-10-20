@@ -8,7 +8,6 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
-import { format } from "date-fns";
 import { useState } from "react";
 import z from "zod";
 
@@ -30,7 +29,6 @@ import { FormModal } from "@/components/form/form-modal";
 import { DetailsCard, DetailsRow } from "@/components/shared/record-detail";
 import { useApp } from "@/context/app-context";
 import { authClient } from "@/lib/auth-client";
-import { DATE } from "@/lib/date-formats";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   type ChargedRequest,
@@ -83,14 +81,11 @@ function ChangeChargedToForm({
   const zero = useZero();
   const [events] = useQuery(queries.teamEvent.allAccessible());
   // Not an event in a closed city, unless the request is already on it.
-  const { listsEvent } = useRequestCity(
+  const { toEventOptions } = useRequestCity(
     { eventId: request.eventId ?? null },
     true
   );
-  const eventOptions = events.filter(listsEvent).map((e) => ({
-    label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
-    value: e.id,
-  }));
+  const eventOptions = toEventOptions(events);
   if (
     request.event &&
     !eventOptions.some((o) => o.value === request.event?.id)

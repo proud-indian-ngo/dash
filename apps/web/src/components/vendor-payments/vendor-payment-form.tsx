@@ -1,10 +1,9 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import type { ExpenseCategory, TeamEvent, Vendor } from "@pi-dash/zero/schema";
+import type { ExpenseCategory, Vendor } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
-import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { uuidv7 } from "uuidv7";
 
@@ -13,7 +12,6 @@ import type { CurrentChargeProgramme } from "@/components/expenses/charged-to-fi
 import { chargedToPayload } from "@/components/expenses/charged-to-schema";
 import { useRequestCity } from "@/components/expenses/use-request-city";
 import { FormLayout } from "@/components/form/form-layout";
-import { DATE } from "@/lib/date-formats";
 import { newLineItem, toLineItemsPayload } from "@/lib/form-schemas";
 import { handleMutationResult } from "@/lib/mutation-result";
 
@@ -61,15 +59,11 @@ export function VendorPaymentForm({
     value: v.id,
   }));
 
-  const eventList = (events ?? []) as TeamEvent[];
-  const { cityOptions, defaultCostCentreId, listsEvent } = useRequestCity(
+  const { cityOptions, defaultCostCentreId, toEventOptions } = useRequestCity(
     initialValues,
     isEdit
   );
-  const eventOptions = eventList.filter(listsEvent).map((e) => ({
-    label: `${e.name} (${format(new Date(e.startTime), DATE)})`,
-    value: e.id,
-  }));
+  const eventOptions = toEventOptions(events ?? []);
   const vendorPaymentFormSchema = useMemo(
     () => createVendorPaymentFormSchema(cityOptions.length > 1),
     [cityOptions.length]
