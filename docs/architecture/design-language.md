@@ -40,6 +40,7 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 - Radii: theme only (`rounded-md`, `rounded-lg`, `rounded-xl`). `StatusBadge` and `Tag` use 5px. Hairline borders, no offset shadows.
 - Sizes: buttons 32px. Inputs, selects and date pickers 36px, except the 32px table toolbar search. One-line table rows 36px.
 - Touch (`pointer-coarse:`) raises controls to at least 36px: buttons, icon buttons, inputs and tab lists 40px, small buttons 36px, calendar days 40px. Size touch targets this way, not with phone breakpoints, so tablets get them too.
+- Scrollbars: every native scroller gets the thin, theme-tinted bar from the base layer, so containers need no scrollbar classes. Use `ScrollArea` only where a native bar can't do the job, such as the data table's horizontal bar, which must stay visible on macOS overlay scrollbars. Its thumb stays visible when idle so the overflow is discoverable.
 - Sideways scrollers (tab lists, view tabs) hide their scrollbar and use `scroll-fade-x`, which fades an edge only while there is more to scroll.
 
 ## Status and labels
