@@ -550,23 +550,29 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
     timeZone: "Asia/Kolkata",
     year: "numeric",
   }).format(now);
-  // Receipts print the signatory's signature, so seed the image in R2.
-  const signatureKey = `${process.env.R2_KEY_PREFIX}/attachments/receipt-signatures/e2e-receipt-signature.png`;
-  await new S3Client({
-    accessKeyId: process.env.R2_ACCESS_KEY,
-    bucket: process.env.R2_BUCKET_NAME,
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  }).write(
-    signatureKey,
-    Bun.file(
-      path.resolve(
-        import.meta.dirname,
-        "../fixtures/images/receipt-signature.png"
-      )
-    ),
-    { type: "image/png" }
-  );
+  // Receipts print the signatory's signature, so seed the image in R2. CI
+  // has no R2, so there the settings have no signature and the specs that
+  // issue a receipt skip.
+  const signatureKey = process.env.CI
+    ? undefined
+    : `${process.env.R2_KEY_PREFIX}/attachments/receipt-signatures/e2e-receipt-signature.png`;
+  if (signatureKey) {
+    await new S3Client({
+      accessKeyId: process.env.R2_ACCESS_KEY,
+      bucket: process.env.R2_BUCKET_NAME,
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    }).write(
+      signatureKey,
+      Bun.file(
+        path.resolve(
+          import.meta.dirname,
+          "../fixtures/images/receipt-signature.png"
+        )
+      ),
+      { type: "image/png" }
+    );
+  }
   const settings = JSON.stringify({
     orgAddress: "1 Test Road, Testville 560001",
     orgName: "E2E Test Trust",

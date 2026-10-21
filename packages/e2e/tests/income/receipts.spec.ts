@@ -187,6 +187,10 @@ test.describe("Income: donation receipts (finance)", () => {
   });
 
   test("replaces the signatory's signature in Settings", async ({ page }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "The signature is stored in R2, which CI does not have"
+    );
     await page.goto("/settings/org-accounts");
     await waitForZeroReady(page);
     const receipts = page.getByRole("region", { name: "Donation receipts" });
@@ -223,6 +227,10 @@ test.describe("Income: donation receipts (finance)", () => {
     browser,
     page,
   }, testInfo) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
+    );
     test.slow();
     const fy = currentFinancialYear();
     await ensureRegistration(page);
