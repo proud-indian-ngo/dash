@@ -20,6 +20,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import "../context";
+import type { Context } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -291,6 +292,7 @@ export async function resolveJoinTarget(
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: event.postRsvpPoll,
     programmeId: event.programmeId,
+    projectId: event.projectId ?? null,
     publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals,
@@ -472,6 +474,92 @@ async function assertProgrammeChange(
   if (programme.active === false) {
     throw new Error("Choose an active programme");
   }
+}
+
+/**
+ * The project an event write stores: undefined leaves the stored one, null
+ * clears it. Only `finance.manage` sets or clears it; anyone else's save
+ * keeps it. A programme move clears it unless finance names a project under
+ * the new programme. A new pick must sit under the event's programme and
+ * not be closed. On the client the cache may not hold the row, so only the
+ * server enforces existence.
+ */
+export async function eventProjectChange(
+  tx: Transaction<Schema>,
+  args: {
+    canManageFinance: boolean;
+    current: string | null;
+    programmeId: string | null;
+    programmeMoves: boolean;
+    requested: string | null | undefined;
+  }
+): Promise<string | null | undefined> {
+  const requested = args.canManageFinance ? args.requested : undefined;
+  if (requested === undefined) {
+    return args.programmeMoves ? null : undefined;
+  }
+  if (
+    requested === null ||
+    (requested === args.current && !args.programmeMoves)
+  ) {
+    return requested;
+  }
+  const project = await tx.run(zql.project.where("id", requested).one());
+  if (!project) {
+    if (tx.location === "server") {
+      throw new Error("Project not found");
+    }
+    return requested;
+  }
+  if (project.programmeId !== args.programmeId) {
+    throw new Error("Choose a project under the event's programme");
+  }
+  if (project.status === "closed" && requested !== args.current) {
+    throw new Error("Choose a project that isn't closed");
+  }
+  return requested;
+}
+
+/**
+ * A programme move by someone outside finance cleared the event's project,
+ * so its expenses leave that project's grants and budgets: tell finance by
+ * inbox and email. The audit row records the edit itself.
+ */
+async function noticeProjectCleared(
+  ctx: Context,
+  tx: Transaction<Schema>,
+  args: {
+    current: string | null;
+    event: { id: string; name: string };
+    next: string | null | undefined;
+    now: number;
+  }
+) {
+  if (
+    tx.location !== "server" ||
+    can(ctx, "finance.manage") ||
+    !args.current ||
+    args.next !== null
+  ) {
+    return;
+  }
+  const project = await tx.run(zql.project.where("id", args.current).one());
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        "notify-event-project-cleared",
+        {
+          eventId: args.event.id,
+          eventName: args.event.name,
+          projectName: project?.name ?? "its project",
+          updatedAt: args.now,
+        },
+        { traceId: ctx.traceId }
+      );
+    },
+    meta: { eventId: args.event.id, mutator: "teamEvent.projectCleared" },
+  });
 }
 
 /**
@@ -953,6 +1041,8 @@ export const teamEventMutators = {
       id: z.string(),
       inheritVolunteers: z.boolean().optional(),
       programmeId: z.string().optional(),
+      // Finance only. Undefined keeps the stored project; null clears it.
+      projectId: z.string().nullable().optional(),
       isPublic: z.boolean().optional(),
       location: z.string().optional(),
       name: z.string().min(1),
@@ -999,6 +1089,18 @@ export const teamEventMutators = {
           type: "event",
         });
       }
+      const programmeId = await resolveProgrammeId(
+        tx,
+        args.programmeId,
+        args.teamId
+      );
+      const projectId = await eventProjectChange(tx, {
+        canManageFinance: can(ctx, "finance.manage"),
+        current: null,
+        programmeId,
+        programmeMoves: false,
+        requested: args.projectId,
+      });
       await tx.mutate.teamEvent.insert({
         cancelledAt: null,
         // The client may not hold the centres yet; the server always resolves.
@@ -1019,11 +1121,8 @@ export const teamEventMutators = {
         originalDate: null,
         postEventNudgesEnabled: args.postEventNudgesEnabled,
         postRsvpPoll: args.postRsvpPoll,
-        programmeId: await resolveProgrammeId(
-          tx,
-          args.programmeId,
-          args.teamId
-        ),
+        programmeId,
+        projectId: projectId ?? null,
         publicArea: args.publicArea,
         recurrenceRule: args.recurrenceRule,
         reminderIntervals: args.reminderIntervals,
@@ -1419,6 +1518,7 @@ export const teamEventMutators = {
         originalDate: args.originalDate,
         postRsvpPoll: series.postRsvpPoll,
         programmeId: series.programmeId,
+        projectId: series.projectId ?? null,
         publicArea: series.publicArea,
         recurrenceRule: null,
         reminderIntervals: series.reminderIntervals,
@@ -1552,6 +1652,8 @@ export const teamEventMutators = {
       partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
       programmeId: z.string().optional(),
+      // Finance only. Undefined keeps the stored project; null clears it.
+      projectId: z.string().nullable().optional(),
       publicArea: z.string().max(80).optional(),
       reminderIntervals: reminderIntervalsSchema,
       reminderTarget: reminderTargetSchema,
@@ -1595,8 +1697,25 @@ export const teamEventMutators = {
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
       const programmesBefore = await eventProgrammes(tx, [args.id]);
+      const projectId = await eventProjectChange(tx, {
+        canManageFinance: can(ctx, "finance.manage"),
+        current: existing.projectId ?? null,
+        programmeId: args.programmeId ?? existing.programmeId,
+        programmeMoves:
+          args.programmeId !== undefined &&
+          args.programmeId !== existing.programmeId,
+        requested: args.projectId,
+      });
+      await noticeProjectCleared(ctx, tx, {
+        current: existing.projectId ?? null,
+        event: { id: existing.id, name: args.name ?? existing.name },
+        next: projectId,
+        now: args.now,
+      });
 
-      await tx.mutate.teamEvent.update(buildUpdateFields(args));
+      await tx.mutate.teamEvent.update(
+        buildUpdateFields({ ...args, projectId })
+      );
       await clearLeadApprovalsOnMovedEvents(
         tx,
         ctx,
@@ -1711,6 +1830,8 @@ export const teamEventMutators = {
       partners: eventPartnersSchema.optional(),
       postRsvpPoll: z.boolean().optional(),
       programmeId: z.string().optional(),
+      // Finance only. Undefined keeps the stored project; null clears it.
+      projectId: z.string().nullable().optional(),
       publicArea: z.string().max(80).optional(),
       recurrenceRule: recurrenceRuleSchema,
       reminderIntervals: reminderIntervalsSchema,
@@ -1760,13 +1881,31 @@ export const teamEventMutators = {
         args.whatsappGroupId
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
+      const programmeMoves =
+        args.programmeId !== undefined &&
+        args.programmeId !== existing.programmeId;
+      const edit = {
+        ...args,
+        projectId: await eventProjectChange(tx, {
+          canManageFinance: can(ctx, "finance.manage"),
+          current: existing.projectId ?? null,
+          programmeId: args.programmeId ?? existing.programmeId,
+          programmeMoves,
+          requested: args.projectId,
+        }),
+      };
+      await noticeProjectCleared(ctx, tx, {
+        current: existing.projectId ?? null,
+        event: { id: existing.id, name: args.name ?? existing.name },
+        next: edit.projectId,
+        now: args.now,
+      });
       // Programme changes are future-effective: once a series has started,
       // "all" would rewrite past sessions, so it is refused. Before that,
       // every session is still to come.
       if (
         mode === "all" &&
-        args.programmeId !== undefined &&
-        args.programmeId !== existing.programmeId &&
+        programmeMoves &&
         (await seriesHasStarted(tx, existing, args.now))
       ) {
         throw new Error(
@@ -1794,13 +1933,21 @@ export const teamEventMutators = {
 
       let movedOccurrenceIds: string[] = [];
       if (mode === "all") {
-        const changes = changedSeriesArgs(args, existing);
+        const changes = changedSeriesArgs(edit, existing);
         // As the series was before this edit.
         const before = {
           programmeId: existing.programmeId,
+          projectId: existing.projectId ?? null,
           startDate: seriesStartDate(existing.startTime),
         };
-        await updateSeriesAll(tx, args, buildUpdateFields(args));
+        const after = {
+          programmeId: changes.programmeId ?? before.programmeId,
+          projectId:
+            changes.projectId === undefined
+              ? before.projectId
+              : changes.projectId,
+        };
+        await updateSeriesAll(tx, args, buildUpdateFields(edit));
         if (existing.recurrenceRule && !existing.seriesId) {
           // A live start-date row is the first session: it takes what the
           // edit changed, keeping its own details otherwise.
@@ -1811,23 +1958,40 @@ export const teamEventMutators = {
               .one()
           )) as TeamEvent | undefined;
           if (first && !first.cancelledAt) {
-            // A moved start keeps the series' end with it.
-            await tx.mutate.teamEvent.update(
-              sessionFieldsFrom(
-                changes.startTime === undefined
-                  ? changes
-                  : { ...changes, endTime: args.endTime },
+            // A moved start keeps the series' end with it. The project
+            // follows the programme, as the other sessions' does below.
+            const firstFollows =
+              changes.programmeId !== undefined ||
+              (first.programmeId === before.programmeId &&
+                (first.projectId ?? null) === before.projectId);
+            await tx.mutate.teamEvent.update({
+              ...sessionFieldsFrom(
+                {
+                  ...(changes.startTime === undefined
+                    ? changes
+                    : { ...changes, endTime: args.endTime }),
+                  projectId: undefined,
+                },
                 first
-              )
-            );
+              ),
+              ...(firstFollows &&
+                (changes.programmeId !== undefined ||
+                  changes.projectId !== undefined) && {
+                  projectId: after.projectId,
+                }),
+            });
           }
-          // Only reachable before the series starts (guarded above).
-          if (changes.programmeId !== undefined && before.programmeId) {
+          // A programme move is only reachable before the series starts
+          // (guarded above); a project change follows at any time.
+          if (
+            changes.programmeId !== undefined ||
+            changes.projectId !== undefined
+          ) {
             await moveSeriesSessionsToProgramme(tx, {
-              fromProgrammeId: before.programmeId,
+              from: before,
               now: args.now,
               seriesId: args.id,
-              toProgrammeId: changes.programmeId,
+              to: after,
             });
           }
         }
@@ -1840,7 +2004,7 @@ export const teamEventMutators = {
           });
         }
       } else if (mode === "this") {
-        await updateSeriesThis(tx, args, existing, ctx.userId);
+        await updateSeriesThis(tx, edit, existing, ctx.userId);
       } else if (
         mode === "following" &&
         args.originalDate &&
@@ -1849,7 +2013,7 @@ export const teamEventMutators = {
         movedOccurrenceIds = await updateSeriesFollowing(
           tx,
           {
-            ...args,
+            ...edit,
             newSeriesId: args.newSeriesId,
             originalDate: args.originalDate,
           },

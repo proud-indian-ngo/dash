@@ -386,6 +386,13 @@ export const donationTypeValues = [
 ] as const;
 export type DonationType = (typeof donationTypeValues)[number];
 
+/** The donation types a grant agreement can be: CSR or a specific grant. */
+export const grantDonationTypeValues = ["csr", "specific_grant"] as const;
+export type GrantDonationType = (typeof grantDonationTypeValues)[number];
+
+export const grantStatusValues = ["active", "closed"] as const;
+export type GrantStatus = (typeof grantStatusValues)[number];
+
 export const deductionEligibleValues = ["yes", "no", "unknown"] as const;
 export type DeductionEligible = (typeof deductionEligibleValues)[number];
 

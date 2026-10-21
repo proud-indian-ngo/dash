@@ -67,6 +67,8 @@ export async function isProtectedR2ObjectReferenced(
       UNION ALL
       SELECT 1 FROM private.donation_certificate WHERE file_object_key = ${r2Key}
       UNION ALL
+      SELECT 1 FROM grant_agreement WHERE agreement_object_key = ${r2Key}
+      UNION ALL
       SELECT 1 FROM app_config
       WHERE CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}
         THEN value::jsonb ->> 'signatureKey' END = ${r2Key}

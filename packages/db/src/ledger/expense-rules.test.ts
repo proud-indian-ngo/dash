@@ -47,6 +47,7 @@ const claim = (over: Partial<ReimbursementFacts> = {}): ReimbursementFacts => ({
     costCentreId: null,
     eventId: null,
     eventProgrammeId: null,
+    eventProjectId: null,
   },
   claimantName: "Ravi Kumar",
   hasPaymentProof: true,
@@ -84,6 +85,7 @@ const request = (
     costCentreId: null,
     eventId: EVENT,
     eventProgrammeId: EVENT_PROGRAMME,
+    eventProjectId: null,
   },
   id: "00000000-0000-7000-8000-000000000b01",
   invoiceDate: "2026-07-15",
@@ -280,6 +282,7 @@ describe("reimbursementPlan", () => {
           costCentreId: null,
           eventId: EVENT,
           eventProgrammeId: EVENT_PROGRAMME,
+          eventProjectId: null,
         },
       })
     );
@@ -287,6 +290,24 @@ describe("reimbursementPlan", () => {
       eventId: EVENT,
       programmeId: EVENT_PROGRAMME,
       projectId: null,
+    });
+    const eventProject = "00000000-0000-7000-8000-0000000000e9";
+    const toEventProject = reimbursementPlan(
+      claim({
+        charge: {
+          chargedProgrammeId: null,
+          chargedProjectId: null,
+          chargedTo: "event",
+          costCentreId: null,
+          eventId: EVENT,
+          eventProgrammeId: EVENT_PROGRAMME,
+          eventProjectId: eventProject,
+        },
+      })
+    );
+    expect(part(toEventProject, "recognise")?.entries[0]).toMatchObject({
+      programmeId: EVENT_PROGRAMME,
+      projectId: eventProject,
     });
     const admin = reimbursementPlan(
       claim({
@@ -297,6 +318,7 @@ describe("reimbursementPlan", () => {
           costCentreId: null,
           eventId: null,
           eventProgrammeId: null,
+          eventProjectId: null,
         },
       })
     );
@@ -433,6 +455,7 @@ describe("reimbursementPlan", () => {
           costCentreId: null,
           eventId: null,
           eventProgrammeId: null,
+          eventProjectId: null,
         },
       })
     );
@@ -1062,6 +1085,7 @@ describe("provisions a vendor invoice clears", () => {
         costCentreId: null,
         eventId: null,
         eventProgrammeId: null,
+        eventProjectId: null,
       },
       lines: [
         {

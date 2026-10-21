@@ -38,6 +38,7 @@ import { useApp } from "@/context/app-context";
 import { DATE_TIME } from "@/lib/date-formats";
 
 import { ContributionInBank } from "./bank/in-bank-fact";
+import { ContributionGrantFact } from "./contribution-grant";
 import {
   ContributionStatusBadge,
   refundedOfLabel,
@@ -246,6 +247,12 @@ export function ContributionDetailSheet({
     ["Fund", <FundFact key="fund" row={row} />],
     ["Programme", row.programme?.name ?? "—"],
     ["Project", row.project?.name ?? "—"],
+    // Grants are finance data.
+    ...(hasPermission("finance.view")
+      ? ([
+          ["Grant", <ContributionGrantFact contribution={row} key="grant" />],
+        ] as [string, ReactNode][])
+      : []),
     ["Reference", row.reference ?? "—"],
     // Money deposited straight into a bank account: the statement line.
     ...(seesSettlements &&

@@ -1,4 +1,5 @@
 import {
+  Agreement02Icon,
   AnalyticsUpIcon,
   Book02Icon,
   FavouriteIcon,
@@ -272,6 +273,13 @@ const budgetsNavItem: NavItem = {
   icon: PiggyBankIcon,
   title: "Budgets",
   url: "/finance/budgets",
+};
+
+const grantsNavItem: NavItem = {
+  icon: Agreement02Icon,
+  subItems: [{ isHidden: true, title: "Grant", url: "/finance/grants/$id" }],
+  title: "Grants",
+  url: "/finance/grants",
 };
 
 const teamsNavItem: NavItem = {
@@ -555,7 +563,7 @@ export function buildNavItems(permissions: string[] = []): NavItem[] {
     items.push(booksNavItem);
   }
   if (has(permissions, "finance.view")) {
-    items.push(budgetsNavItem);
+    items.push(budgetsNavItem, grantsNavItem);
   }
   items.push(...governanceNavItems(permissions));
   if (has(permissions, "users.manage")) {
@@ -619,7 +627,7 @@ export function buildNavGroups(permissions: string[] = []): NavGroup[] {
     financeItems.push(booksNavItem);
   }
   if (has(permissions, "finance.view")) {
-    financeItems.push(budgetsNavItem);
+    financeItems.push(budgetsNavItem, grantsNavItem);
   }
   if (financeItems.length > 0) {
     groups.push({ items: financeItems, label: "Finance" });

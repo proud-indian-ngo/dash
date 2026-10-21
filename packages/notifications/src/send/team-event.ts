@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { formatEventWhen } from "../event-time";
+import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -421,5 +422,49 @@ export async function notifyEventCancelled({
     topic: TOPICS.EVENTS_SCHEDULE,
     userIds: eventMemberIds,
     whatsappTemplate: template,
+  });
+}
+
+export interface EventProjectClearedOptions {
+  eventId: string;
+  eventName: string;
+  projectName: string;
+  updatedAt: number;
+}
+
+/**
+ * An event moved to another programme by someone outside finance lost its
+ * project, so its expenses leave that project's grants and budgets. Tells
+ * finance, who alone can set a project, by inbox and email.
+ */
+export async function notifyEventProjectCleared({
+  eventId,
+  eventName,
+  projectName,
+  updatedAt,
+}: EventProjectClearedOptions): Promise<void> {
+  const financeUserIds = await getUserIdsWithPermission("finance.manage");
+  const bodyText = `${eventName} moved to another programme, so it no longer names ${projectName}. Its expenses leave that project's grants and budgets until finance sets a project again.`;
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the event",
+    ctaUrl: `${env.APP_URL}/events/${eventId}`,
+    heading: "Event project cleared",
+    paragraphs: [bodyText],
+  });
+  await sendBulkMessage({
+    body: bodyText,
+    clickAction: `/events/${eventId}`,
+    digest: {
+      list: { label: "View grants", path: "/finance/grants" },
+      meta: `No longer on ${projectName}`,
+      name: eventName,
+      status: { label: "Project cleared", tone: "warning" },
+    },
+    emailHtml,
+    idempotencyKey: `event-project-cleared-${eventId}-${updatedAt}`,
+    title: "Event project cleared",
+    topic: TOPICS.FINANCE,
+    userIds: financeUserIds,
+    whatsappTemplate: null,
   });
 }

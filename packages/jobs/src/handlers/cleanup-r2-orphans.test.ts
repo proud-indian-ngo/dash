@@ -139,6 +139,9 @@ describe("handleCleanupR2Orphans", () => {
         "FROM conflict_declaration WHERE object_key LIKE"
       );
       expect(statement).toContain(
+        "FROM grant_agreement WHERE agreement_object_key LIKE"
+      );
+      expect(statement).toContain(
         "SELECT pdf_key FROM private.contribution_receipt_snapshot"
       );
       expect(statement).toContain(

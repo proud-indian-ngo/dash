@@ -9,6 +9,7 @@ export const TOPICS = {
   EVENTS_INTEREST: "Events - Interest",
   EVENTS_PHOTOS: "Events - Photos",
   EVENTS_SCHEDULE: "Events - Schedule",
+  FINANCE: "Finance",
   GOVERNANCE: "Governance",
   KALAKRITI_REGISTRATION: "Kalakriti - Registration",
   KALAKRITI_SCHEDULE: "Kalakriti - Schedule",
@@ -37,6 +38,18 @@ export interface TopicMeta {
 }
 
 export const TOPIC_CATALOG: TopicMeta[] = [
+  {
+    // No WhatsApp template; finance gets these by email and in the inbox.
+    channels: ["inbox", "email"],
+    defaultEnabled: true,
+    description:
+      "Changes that move money between grants or projects, such as an event losing its project.",
+    group: "Finance",
+    id: TOPICS.FINANCE,
+    name: "Finance",
+    required: false,
+    requiredPermission: "finance.manage",
+  },
   {
     // No WhatsApp template yet; trustees get these by email and in the inbox.
     channels: ["inbox", "email"],

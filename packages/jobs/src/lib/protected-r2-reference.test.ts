@@ -81,6 +81,9 @@ describe("withProtectedR2ObjectReferenceLock", () => {
       /contribution_receipt_snapshot WHERE signature_key = \$\d+/
     );
     expect(referenceSql).toContain(
+      "grant_agreement WHERE agreement_object_key"
+    );
+    expect(referenceSql).toContain(
       "kalakriti_competition_entry WHERE music_object_key"
     );
     expect(mocks.execute.mock.invocationCallOrder[1]).toBeLessThan(

@@ -72,6 +72,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Recurring events or the public events feed | `recurring-events.md` |
 | Finance overview: programmes, projects, funds, account heads, Charged to, claim for others, budgets | `finance-and-programmes.md` |
 | Donors, contributions, imports, Razorpay, give.do payouts | `finance-income.md` |
+| Grants: agreements, tranches, grant budgets, utilisation | `finance-grants.md` |
 | Bank statements, credit and debit matching | `finance-bank-statements.md` |
 | Books, posting rules, opening balances, year close, audited figures, CA workbook | `finance-books.md`; figures and CA rules in `finance-ledger-cutover.md` |
 | Donation receipts, donations return (Form 113/114) | `finance-receipts-and-returns.md` |

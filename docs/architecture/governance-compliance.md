@@ -44,4 +44,4 @@
 - Every one of those paths checks on the server (`packages/zero/src/mutators/safeguarding.ts`, and `safeguardingBlocks` for the RSVP), so a new join path must call it too.
 - Not gated: sign-up through an event registration link (the new volunteer is added first and accepts the policy when they open the dashboard), volunteers carried into recurring occurrences, and Kalakriti local volunteers without accounts.
 
-Not built: CSR utilisation certificates, which wait for grants in the ledger (finance Phase 5).
+Not built: CSR utilisation certificates. Grants and their utilisation figures exist ([grants](finance-grants.md)); the certificate PDF and its signing come next.

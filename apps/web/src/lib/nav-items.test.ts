@@ -61,6 +61,7 @@ describe("Kalakriti navigation", () => {
       "Income",
       "Books",
       "Budgets",
+      "Grants",
     ]);
     expect(financeTitles(["donors.manage"])).toContain("Income");
     expect(financeTitles(["finance.manage"])).toContain("Income");
@@ -76,7 +77,7 @@ describe("Kalakriti navigation", () => {
       "Books"
     );
   });
-  it("shows Budgets after Books to finance.view holders only", () => {
+  it("shows Budgets and Grants after Books to finance.view holders only", () => {
     const financeTitles = (permissions: string[]) =>
       buildNavGroups(permissions)
         .find((group) => group.label === "Finance")
@@ -85,8 +86,10 @@ describe("Kalakriti navigation", () => {
       "Income",
       "Books",
       "Budgets",
+      "Grants",
     ]);
     expect(financeTitles(["finance.adjust"])).not.toContain("Budgets");
+    expect(financeTitles(["finance.manage"])).not.toContain("Grants");
   });
   it.each([
     ["/kalakriti", true],

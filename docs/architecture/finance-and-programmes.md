@@ -10,6 +10,7 @@ The dashboard keeps the trust's operational financial record year-round, organis
 | This one | Decisions, dimensions, Charged to, approval policy, cost centres, budgets, outcomes, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursements, payouts, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, income, imports, Razorpay, give.do payouts, Reached bank |
+| [finance-grants.md](finance-grants.md) | Grant agreements, tranches, grant budgets, utilisation |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
 | [finance-books.md](finance-books.md) | Ledger, posting, opening balances, year close, audited figures, CA workbook |
 | [finance-receipts-and-returns.md](finance-receipts-and-returns.md) | Donation receipts, donations return (Form 113/114) |
@@ -45,7 +46,7 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 - `fund`: General Fund (Domestic) is the default; the restricted Corpus Fund is reference data.
 - `org_account` of kind `deposit` (fixed deposit) never takes donations or statement imports. Accounts are deactivated, never deleted.
 - The monthly `ensure-fiscal-years` job keeps the current and next fiscal year present.
-- Teams and events carry `programme_id`; occurrences inherit it when materialised. Events carry no project.
+- Teams and events carry `programme_id`; occurrences inherit it when materialised. Events may also carry a `project_id` under their programme ([Charged to](#expense-charged-to)).
 - Edit forms keep a retired option in the picker, marked inactive.
 
 ### Main bank account
@@ -61,14 +62,15 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 
 Every reimbursement and vendor payment records which work it served in `charged_to`, independent of its expense category:
 
-- `event`: the event's programme. The picker lists standalone events, series and each saved session of a series (one with attendance, members or edits); an unsaved session has no row, so a claim for it goes on the series.
+- `event`: the event's programme and project. The picker lists standalone events, series and each saved session of a series (one with attendance, members or edits); an unsaved session has no row, so a claim for it goes on the series.
 - `programme`: a programme and optional project, for ongoing costs with no event such as rent.
 - `organisation`: admin costs (audit fee, bank charges, website).
 
 One target per request. Advance payments carry none.
 
 - Every consumer goes through `expenseProgrammeOf` (`packages/shared/src/expense-charge.ts`): tables, the Programme filter, the spending chart, the financial-year export and expense posting.
-- A composite foreign key refuses a project under another programme.
+- A composite foreign key refuses a project under another programme, on requests and on events.
+- An event's project is finance-only: the event form shows the Project picker (open projects of the event's programme) only to `finance.manage`, and the mutators ignore the field from anyone else, so their saves keep it. Moving an event to another programme clears it unless finance names one under the new programme in the same save. When that move is made by someone without `finance.manage`, finance users get an inbox and email notice (Finance topic); the audit log records the edit. A project that events name can't move to another programme. Occurrences inherit it ([recurring events](recurring-events.md)). Changing it after posting reposts the event's claims and vendor payments, as a cost centre change does (`finance-books.md`); a closed year keeps what stands.
 - The claimant picks it while pending. Finance (`finance.manage`, or `requests.approve` with `requests.view_all`) changes it later via `setChargedTo`, never on a rejected request or their own, and never once posted.
 - Legacy requests without an event went to the submitter's team programme when unambiguous, else to Unallocated, for finance to clear.
 
@@ -139,7 +141,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 
 - Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
-- Grants (agreements, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
+- Engagement reports, `issued_invoice` as an acknowledgement with no posting.
 - Exports: an FY audit pack replacing `/export`, donor statements.
 
 ### FCRA and FC-4

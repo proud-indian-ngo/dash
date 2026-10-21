@@ -250,6 +250,17 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "voucherAttachmentId",
   "whatsappEnabled",
   "whatsappGroupId",
+  // Grants: names only. The agreement's key and the notes never reach the
+  // ledger.
+  "agreement",
+  "agreementOn",
+  "agreementReference",
+  "contributionId",
+  "grantId",
+  "sanctionedPaise",
+  "scheduleViiItem",
+  "trancheId",
+  "tranches",
   // Governance register and vault
   "basis",
   "cessationBasis",

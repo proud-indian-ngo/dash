@@ -11,13 +11,15 @@ import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
 } from "@pi-dash/shared/event-reminders";
+import { formatPaise } from "@pi-dash/shared/money";
 import { VOLUNTEERS_NEEDED_MAX } from "@pi-dash/shared/social-recap";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm, useSelector } from "@tanstack/react-form";
-import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -30,6 +32,7 @@ import { FormSectionHeading } from "@/components/form/form-section";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { type EventProjectMove, getEventProjectMove } from "@/functions/grants";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -49,6 +53,7 @@ import {
   partnersFormSchema,
   toPartnerFormValues,
 } from "./event-partners-field";
+import { EventProjectField } from "./event-project-field";
 import { buildSocialFields } from "./event-social-fields";
 import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
@@ -71,6 +76,7 @@ const eventFormSchema = z.object({
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
   programmeId: z.string().min(1, "Programme is required"),
+  projectId: z.string().optional(),
   publicArea: z
     .string()
     .max(80, "Keep the area under 80 characters")
@@ -150,6 +156,7 @@ interface InitialValues {
   postEventNudgesEnabled?: boolean | null;
   postRsvpPoll?: boolean | null;
   programmeId?: string | null;
+  projectId?: string | null;
   publicArea?: string | null;
   recurrenceRule?: {
     rrule: string;
@@ -206,6 +213,7 @@ function getDefaultValues(
       initialValues?.programmeId ??
       teamProgrammeId ??
       PROGRAMME_IDS.unallocated,
+    projectId: initialValues?.projectId ?? undefined,
     publicArea: initialValues?.publicArea ?? undefined,
     reminderIntervals: initialValues?.reminderIntervals ?? [],
     reminderTarget: (initialValues?.reminderTarget ??
@@ -259,10 +267,27 @@ function changedProgrammeId(
     : undefined;
 }
 
+/**
+ * The project to send: only from finance, and only when it changed (null
+ * clears it). Everyone else sends nothing, and the server keeps the stored one.
+ */
+function changedProjectId(
+  value: EventFormValues,
+  initialValues: InitialValues | undefined,
+  canManageFinance: boolean
+): string | null | undefined {
+  if (!canManageFinance) {
+    return undefined;
+  }
+  const next = value.projectId ?? null;
+  return next === (initialValues?.projectId ?? null) ? undefined : next;
+}
+
 function buildUpdateMutatorArgs(
   id: string,
   value: EventFormValues,
-  initialValues: InitialValues
+  initialValues: InitialValues,
+  canManageFinance: boolean
 ) {
   return {
     costCentreId: value.costCentreId || undefined,
@@ -279,6 +304,7 @@ function buildUpdateMutatorArgs(
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: changedProgrammeId(value, initialValues),
+    projectId: changedProjectId(value, initialValues, canManageFinance),
     publicArea: value.publicArea?.trim() ?? "",
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
@@ -302,6 +328,7 @@ function buildUpdateSeriesArgs(
   value: EventFormValues,
   editScope: EditScope,
   initialValues: InitialValues,
+  canManageFinance: boolean,
   originalDate?: string
 ) {
   const base = {
@@ -320,6 +347,7 @@ function buildUpdateSeriesArgs(
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: changedProgrammeId(value, initialValues),
+    projectId: changedProjectId(value, initialValues, canManageFinance),
     publicArea: value.publicArea?.trim() ?? "",
     recurrenceRule: value.rrule
       ? {
@@ -354,7 +382,11 @@ function buildUpdateSeriesArgs(
   return base;
 }
 
-function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
+function buildCreateMutatorArgs(
+  teamId: string,
+  value: EventFormValues,
+  canManageFinance: boolean
+) {
   const recurrenceRule = value.rrule
     ? {
         excludeRules: value.excludeRules?.length
@@ -381,6 +413,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: value.programmeId,
+    projectId: changedProjectId(value, undefined, canManageFinance),
     publicArea: value.publicArea?.trim() || undefined,
     recurrenceRule,
     reminderIntervals: value.reminderIntervals.length
@@ -405,7 +438,8 @@ function getMutation(
   originalDate: string | undefined,
   isEdit: boolean,
   teamId: string,
-  kalakritiEditionId: string | undefined
+  kalakritiEditionId: string | undefined,
+  canManageFinance: boolean
 ) {
   if (isEdit && initialValues && kalakritiEditionId) {
     return {
@@ -452,6 +486,7 @@ function getMutation(
             value,
             editScope,
             initialValues,
+            canManageFinance,
             originalDate
           )
         )
@@ -463,7 +498,12 @@ function getMutation(
     return {
       mutation: zero.mutate(
         mutators.teamEvent.update(
-          buildUpdateMutatorArgs(initialValues.id, value, initialValues)
+          buildUpdateMutatorArgs(
+            initialValues.id,
+            value,
+            initialValues,
+            canManageFinance
+          )
         )
       ),
       mutationName: "teamEvent.update",
@@ -471,7 +511,9 @@ function getMutation(
   }
   return {
     mutation: zero.mutate(
-      mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
+      mutators.teamEvent.create(
+        buildCreateMutatorArgs(teamId, value, canManageFinance)
+      )
     ),
     mutationName: "teamEvent.create",
   };
@@ -513,6 +555,14 @@ function EventFormContent({
   const { hasPermission } = useApp();
   const canBackdate =
     hasPermission("events.create_backdated") || userIsTeamLead;
+  // Kalakriti's linked event is managed from Kalakriti, which sets no project.
+  const canManageFinance =
+    hasPermission("finance.manage") && !kalakritiEditionId;
+
+  const loadProjectMove = useServerFn(getEventProjectMove);
+  // Posted spend a project change would move, awaiting finance's confirmation.
+  const [pendingMove, setPendingMove] = useState<EventProjectMove | null>(null);
+  const moveConfirmed = useRef(false);
 
   const form = useForm({
     defaultValues: getDefaultValues(
@@ -521,6 +571,33 @@ function EventFormContent({
       defaultCostCentreId
     ),
     onSubmit: async ({ value }) => {
+      const nextProject = changedProjectId(
+        value,
+        initialValues,
+        canManageFinance
+      );
+      if (
+        isEdit &&
+        initialValues &&
+        nextProject !== undefined &&
+        !moveConfirmed.current
+      ) {
+        const move = await loadProjectMove({
+          data: {
+            eventId:
+              editScope && editScope !== "this"
+                ? (initialValues.seriesId ?? initialValues.id)
+                : initialValues.id,
+            projectId: nextProject,
+            withSessions: Boolean(editScope && editScope !== "this"),
+          },
+        });
+        if (move.postedPaise !== 0) {
+          setPendingMove(move);
+          return;
+        }
+      }
+      moveConfirmed.current = false;
       const { mutation, mutationName } = getMutation(
         zero,
         value,
@@ -529,7 +606,8 @@ function EventFormContent({
         originalDate,
         isEdit,
         teamId,
-        kalakritiEditionId
+        kalakritiEditionId,
+        canManageFinance
       );
       const entityId = isEdit && initialValues ? initialValues.id : "new";
       let successMsg = "Event created";
@@ -588,6 +666,9 @@ function EventFormContent({
   const stableSelector6 = useEventCallback(
     (state: EventFormState) => state.values.whatsappGroupId
   );
+  const stableSelectorProgramme = useEventCallback(
+    (state: EventFormState) => state.values.programmeId
+  );
   const stableSelectorPublic = useEventCallback(
     (state: EventFormState) => state.values.isPublic
   );
@@ -635,6 +716,11 @@ function EventFormContent({
           options={programmeOptions}
           placeholder="Search programmes"
         />
+        {canManageFinance ? (
+          <form.Subscribe selector={stableSelectorProgramme}>
+            {(programmeId) => <EventProjectField programmeId={programmeId} />}
+          </form.Subscribe>
+        ) : null}
         <form.Subscribe selector={stableSelector0}>
           {(startTime) => (
             <DateTimeField
@@ -854,6 +940,40 @@ function EventFormContent({
         onCancel={stableOnCancel7}
         submitLabel={isEdit ? "Save changes" : "Create event"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
+      />
+      <ConfirmDialog
+        confirmLabel="Change project"
+        description={
+          pendingMove ? (
+            <span className="flex flex-col gap-2">
+              <span>
+                {formatPaise(pendingMove.postedPaise)} already in the books on
+                this event moves to the new project when the books next post:
+              </span>
+              {pendingMove.lines.map((line) => (
+                <span
+                  data-testid="event-project-move-line"
+                  key={`${line.fromGrant}-${line.toGrant}`}
+                >
+                  {formatPaise(line.paise)}: {line.fromGrant ?? "no grant"} →{" "}
+                  {line.toGrant ?? "no grant"}
+                </span>
+              ))}
+            </span>
+          ) : null
+        }
+        onConfirm={() => {
+          setPendingMove(null);
+          moveConfirmed.current = true;
+          form.handleSubmit();
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingMove(null);
+          }
+        }}
+        open={pendingMove !== null}
+        title="Move posted spend?"
       />
     </FormLayout>
   );

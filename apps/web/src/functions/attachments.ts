@@ -20,6 +20,7 @@ import {
   avatarUploadSchema,
   eventEditorUploadSchema,
   eventPhotoUploadSchema,
+  grantAgreementUploadSchema,
   kalakritiEntryMusicUploadSchema,
   kalakritiInventoryPhotoUploadSchema,
   kalakritiScorecardUploadSchema,
@@ -146,6 +147,36 @@ export const getVendorPaymentInvoiceUploadUrl = createServerFn({
           mimeType: data.mimeType,
           userId: context.session.user.id,
           vendorPaymentId: data.vendorPaymentId,
+        },
+        error
+      );
+    }
+  });
+
+export const getGrantAgreementUploadUrl = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(grantAgreementUploadSchema)
+  .handler(async ({ data, context }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    try {
+      return await presignProtectedUpload({
+        ...data,
+        keyPrefix: env.R2_KEY_PREFIX,
+        scope: { kind: "grantAgreement" },
+        subfolder: "attachments",
+        user: context.session.user,
+      });
+    } catch (error) {
+      logErrorAndRethrow(
+        { method: "POST", path: "/fn/getGrantAgreementUploadUrl" },
+        {
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          handler: "getGrantAgreementUploadUrl",
+          mimeType: data.mimeType,
+          userId: context.session.user.id,
         },
         error
       );

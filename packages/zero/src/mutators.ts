@@ -28,6 +28,7 @@ import {
   trusteeOfficeMutators,
   trusteeTermMutators,
 } from "./mutators/governance";
+import { grantMutators } from "./mutators/grant";
 import { contributionMutators, otherIncomeMutators } from "./mutators/income";
 import { kalakritiAssignmentMutators } from "./mutators/kalakriti-assignment";
 import { kalakritiAttendeeMutators } from "./mutators/kalakriti-attendee";
@@ -86,6 +87,7 @@ export const mutators = defineMutators({
   expenseCategory: expenseCategoryMutators,
   fund: fundMutators,
   governanceDocument: governanceDocumentMutators,
+  grant: grantMutators,
   kalakritiAssignment: kalakritiAssignmentMutators,
   kalakritiAttendee: kalakritiAttendeeMutators,
   kalakritiAward: kalakritiAwardMutators,

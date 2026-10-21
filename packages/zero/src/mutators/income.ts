@@ -651,6 +651,20 @@ export const contributionMutators = {
         );
       }
     }
+    if (existing.grantId && values.channel === "in_kind") {
+      throw new Error(
+        "This contribution counts towards a grant, and grants count money, not in-kind gifts. Ask finance to unlink it from the grant first."
+      );
+    }
+    if (
+      existing.grantId &&
+      (values.partyId !== existing.partyId ||
+        values.projectId !== (existing.projectId ?? null))
+    ) {
+      throw new Error(
+        "This contribution counts towards a grant, so its donor and project can't change. Ask finance to unlink it from the grant first."
+      );
+    }
     if (
       (values.amountPaise !== existing.amountPaise ||
         values.orgAccountId !== (existing.orgAccountId ?? null) ||

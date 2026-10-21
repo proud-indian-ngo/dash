@@ -34,6 +34,7 @@ import {
   resolutionQueries,
   trusteeQueries,
 } from "./queries/governance";
+import { grantQueries } from "./queries/grant";
 import {
   contributionQueries,
   contributionReceiptQueries,
@@ -92,6 +93,7 @@ export const queries = defineQueries({
   fund: fundQueries,
   gatewaySettlement: gatewaySettlementQueries,
   governanceDocument: governanceDocumentQueries,
+  grant: grantQueries,
   importBatch: importBatchQueries,
   kalakritiAssignment: kalakritiAssignmentQueries,
   kalakritiAttendee: kalakritiAttendeeQueries,

@@ -17,6 +17,7 @@ import {
   resolutionResponse,
   trustee,
 } from "@pi-dash/db/schema/governance";
+import { grantAgreement } from "@pi-dash/db/schema/grant";
 import { meeting } from "@pi-dash/db/schema/meetings";
 import {
   reimbursement,
@@ -364,6 +365,21 @@ async function resolveGovernanceDocument(
     : null;
 }
 
+async function resolveGrantAgreement(
+  ref: AssetRef<"grantAgreement">
+): Promise<R2ObjectRecord | null> {
+  const grant = await db.query.grantAgreement.findFirst({
+    where: eq(grantAgreement.id, ref.id),
+  });
+  return grant?.agreementObjectKey
+    ? {
+        access: "finance",
+        filename: grant.agreementFilename ?? "Agreement",
+        key: grant.agreementObjectKey,
+      }
+    : null;
+}
+
 async function resolveCircularPdf(
   ref: AssetRef<"circularPdf">
 ): Promise<R2ObjectRecord | null> {
@@ -506,6 +522,8 @@ export function findRecord(
       return resolveEventPhoto(ref);
     case "governanceDocument":
       return resolveGovernanceDocument(ref);
+    case "grantAgreement":
+      return resolveGrantAgreement(ref);
     case "kalakritiEntryMusic":
       return resolveKalakritiEntryMusic(ref);
     case "kalakritiInventoryPhoto":

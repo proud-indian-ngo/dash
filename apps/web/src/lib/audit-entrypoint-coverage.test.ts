@@ -104,6 +104,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getDonationsReturnReadiness",
   "getEventEditorUploadUrl",
   "getGovernanceUploadUrl",
+  "getGrantAgreementUploadUrl",
   "getEventPhotoUploadUrl",
   "getKalakritiScorecardUploadUrl",
   "getMissingDonorDetails",

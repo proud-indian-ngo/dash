@@ -294,6 +294,12 @@ export interface NotifyEventUpdatedPayload {
   teamId: string;
   updatedAt: number;
 }
+export interface NotifyEventProjectClearedPayload {
+  eventId: string;
+  eventName: string;
+  projectName: string;
+  updatedAt: number;
+}
 export interface NotifyEventCancelledPayload {
   cancelledAt: number;
   eventId: string;
@@ -773,6 +779,7 @@ export interface JobPayloads {
   "notify-event-update-posted": NotifyEventUpdatePostedPayload;
   "notify-event-update-rejected": NotifyEventUpdateRejectedPayload;
   "notify-event-updated": NotifyEventUpdatedPayload;
+  "notify-event-project-cleared": NotifyEventProjectClearedPayload;
   "notify-event-volunteer-left": NotifyEventVolunteerLeftPayload;
   "notify-kalakriti-guardian-access": NotifyKalakritiGuardianAccessPayload;
   "notify-kalakriti-guardian-reactivated": NotifyKalakritiGuardianReactivatedPayload;

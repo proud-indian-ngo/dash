@@ -14,6 +14,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   pgEnum,
   pgTable,
@@ -26,6 +27,7 @@ import {
 import { user } from "./auth";
 import { contributionReceipt } from "./contribution-receipt";
 import { fund, orgAccount, programme, project } from "./finance-dimensions";
+import { grantAgreement, grantTranche } from "./grant";
 import { importBatch } from "./import-batch";
 import { party } from "./party";
 
@@ -92,6 +94,10 @@ export const contribution = pgTable(
     gatewayTaxPaise: bigint("gateway_tax_paise", { mode: "number" })
       .default(0)
       .notNull(),
+    /** The grant this money was received under; same grantor and project. */
+    grantId: uuid("grant_id"),
+    /** The grant's expected tranche it answers, when known. */
+    grantTrancheId: uuid("grant_tranche_id"),
     id: uuid("id").primaryKey(),
     /** The CSV import that created it, for filtering by batch; null when recorded by hand. */
     importBatchId: uuid("import_batch_id").references(() => importBatch.id, {
@@ -145,6 +151,37 @@ export const contribution = pgTable(
     check(
       "contribution_account_unless_in_kind",
       sql`${t.channel} = 'in_kind' OR ${t.orgAccountId} IS NOT NULL`
+    ),
+    index("contribution_grantId_idx").on(t.grantId),
+    // A linked gift has the grant's grantor, programme and project.
+    foreignKey({
+      columns: [t.grantId, t.partyId, t.programmeId, t.projectId],
+      foreignColumns: [
+        grantAgreement.id,
+        grantAgreement.partyId,
+        grantAgreement.programmeId,
+        grantAgreement.projectId,
+      ],
+      name: "contribution_grant_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [t.grantTrancheId, t.grantId],
+      foreignColumns: [grantTranche.id, grantTranche.grantId],
+      name: "contribution_grant_tranche_fk",
+    }).onDelete("restrict"),
+    // Composite keys skip rows with a null column, so these close the gaps.
+    check(
+      "contribution_grant_project_check",
+      sql`${t.grantId} IS NULL OR (${t.programmeId} IS NOT NULL AND ${t.projectId} IS NOT NULL)`
+    ),
+    // Grants count money, never in-kind gifts.
+    check(
+      "contribution_grant_not_in_kind_check",
+      sql`${t.grantId} IS NULL OR ${t.channel} <> 'in_kind'`
+    ),
+    check(
+      "contribution_grant_tranche_check",
+      sql`${t.grantTrancheId} IS NULL OR ${t.grantId} IS NOT NULL`
     ),
   ]
 );
@@ -231,6 +268,14 @@ export const contributionRelations = relations(
       references: [user.id],
     }),
     fund: one(fund, { fields: [contribution.fundId], references: [fund.id] }),
+    grant: one(grantAgreement, {
+      fields: [contribution.grantId],
+      references: [grantAgreement.id],
+    }),
+    grantTranche: one(grantTranche, {
+      fields: [contribution.grantTrancheId],
+      references: [grantTranche.id],
+    }),
     importBatch: one(importBatch, {
       fields: [contribution.importBatchId],
       references: [importBatch.id],

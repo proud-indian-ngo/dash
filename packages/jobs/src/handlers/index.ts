@@ -75,6 +75,7 @@ import {
   handleNotifyEventCancelled,
   handleNotifyEventCreated,
   handleNotifyEventUpdated,
+  handleNotifyEventProjectCleared,
   handleNotifyRemovedFromEvent,
   handleNotifyUsersAddedToEvent,
 } from "./notify-team-event";
@@ -472,6 +473,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-event-updated",
     NOTIFY_POLL,
     handleNotifyEventUpdated
+  );
+  await boss.work(
+    "notify-event-project-cleared",
+    NOTIFY_POLL,
+    handleNotifyEventProjectCleared
   );
   await boss.work(
     "notify-event-cancelled",

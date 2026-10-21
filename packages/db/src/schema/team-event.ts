@@ -5,6 +5,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   pgEnum,
@@ -19,7 +20,7 @@ import { user } from "./auth";
 import { eventFeedback } from "./event-feedback";
 import { eventInterest } from "./event-interest";
 import { eventPartner } from "./event-partner";
-import { costCentre, programme } from "./finance-dimensions";
+import { costCentre, programme, project } from "./finance-dimensions";
 import { jsonb } from "./jsonb";
 import { reimbursement } from "./reimbursement";
 import { reminderTargetEnum } from "./shared";
@@ -71,6 +72,11 @@ export const teamEvent = pgTable(
       .notNull()
       .default(PROGRAMME_IDS.unallocated)
       .references(() => programme.id, { onDelete: "restrict" }),
+    /**
+     * Project under the event's programme that its expenses count toward.
+     * Finance-only: set by finance.manage, inherited by occurrences.
+     */
+    projectId: uuid("project_id"),
     /** Coarse, admin-confirmed area shown on the public website (never the raw location). */
     publicArea: text("public_area"),
     recurrenceRule: jsonb("recurrence_rule").$type<{
@@ -111,6 +117,13 @@ export const teamEvent = pgTable(
     index("team_event_teamId_idx").on(table.teamId),
     index("team_event_programmeId_idx").on(table.programmeId),
     index("team_event_costCentreId_idx").on(table.costCentreId),
+    index("team_event_projectId_idx").on(table.projectId),
+    // A project must sit under the event's programme.
+    foreignKey({
+      columns: [table.projectId, table.programmeId],
+      foreignColumns: [project.id, project.programmeId],
+      name: "team_event_project_programme_fk",
+    }).onDelete("restrict"),
     index("team_event_seriesId_idx").on(table.seriesId),
     index("team_event_seriesId_id_idx").on(table.seriesId, table.id.asc()),
     // PostgreSQL treats each NULL as distinct in unique indexes, so rows with

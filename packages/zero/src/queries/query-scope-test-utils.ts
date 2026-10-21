@@ -37,6 +37,10 @@ export function matchesScope(
         return value === condition.right.value;
       if (condition.op === "!=" || condition.op === "IS NOT")
         return value !== condition.right.value;
+      if (condition.op === "<=")
+        return Number(value) <= Number(condition.right.value);
+      if (condition.op === ">=")
+        return Number(value) >= Number(condition.right.value);
       throw new Error(`Unsupported comparison ${condition.op}`);
     }
     case "and":

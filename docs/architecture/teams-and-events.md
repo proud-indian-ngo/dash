@@ -58,7 +58,7 @@ Event detail loads action forms and secondary tab content on demand. Keep their 
 | Action | Permission (or a lead of the event's team) | Rules |
 |---|---|---|
 | Create | `events.create` | A start in the past needs `events.create_backdated` or lead |
-| Edit | `events.edit` | Also toggles feedback and sets its deadline |
+| Edit | `events.edit` | Also toggles feedback and sets its deadline. Only `finance.manage` sees and sets the event's project ([Charged to](finance-and-programmes.md#expense-charged-to)) |
 | Cancel | `events.cancel` | Only the permission cancels an event or series session that has started (one that didn't happen), and that cancel sends no notice; a lead without it cannot. For a series this applies to "This event" on the session's own start; "This and following" and "All upcoming events" never remove a started session ([recurring events](recurring-events.md#edit-and-cancel-scope)) |
 | Add or remove members | `events.manage_members` | |
 | Mark attendance | `events.manage_attendance` | Only after start |

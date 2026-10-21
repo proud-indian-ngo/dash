@@ -64,7 +64,7 @@ function searchRow(row: BudgetRow, query: string): boolean {
 const remainingOf = (actualPaise: number, budgetPaise: number | null) =>
   budgetPaise === null ? null : budgetPaise - actualPaise;
 
-function Remaining({
+export function Remaining({
   actualPaise,
   budgetPaise,
 }: {
@@ -86,7 +86,7 @@ function Remaining({
 }
 
 /** A slim "spent of budget" bar with the share spent; red once spend passes the budget. */
-function SpentBar({
+export function SpentBar({
   actualPaise,
   budgetPaise,
 }: {

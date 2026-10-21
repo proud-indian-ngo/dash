@@ -18,6 +18,7 @@ import {
   fiscalYear,
   orgAccount,
   programme,
+  project,
 } from "../schema/finance-dimensions";
 import {
   accountMovement,
@@ -45,7 +46,8 @@ import { INCOME_RULES_VERSION } from "./income-rules";
  * centre (rules version 3): from its event when it has one, else its own;
  * that postings made before (with none) reverse and repost once, entries
  * only; that a frozen year is left as it stands; and that an event whose
- * cost centre changes reposts its requests. Opt in with
+ * cost centre changes reposts its requests, as does one whose project
+ * changes. Opt in with
  * LEDGER_TEST_DATABASE_URL pointing at a local, migrated and seeded
  * database. Every test runs in a transaction that is rolled back.
  */
@@ -673,6 +675,85 @@ it.skipIf(!localDatabase)(
       expect(second.checked).toBeLessThanOrEqual(first.checked);
       expect(await store.read()).toBe(INCOME_RULES_VERSION);
       expect(await postingsOf(tx, id)).toEqual(before);
+    });
+  }
+);
+
+/** Net of each project over a source's expense entries. */
+async function netByProject(tx: LedgerTx, sourceIds: string[]) {
+  const rows = await tx
+    .select({ entry: ledgerEntry })
+    .from(ledgerEntry)
+    .innerJoin(posting, eq(posting.id, ledgerEntry.postingId))
+    .where(inArray(posting.sourceId, sourceIds));
+  const net = new Map<string | null, number>();
+  for (const { entry } of rows) {
+    if (entry.accountHeadId === LEDGER_ACCOUNT_HEAD_IDS.claimsPayable) {
+      continue;
+    }
+    net.set(
+      entry.projectId,
+      (net.get(entry.projectId) ?? 0) +
+        (entry.effect === "increase" ? entry.amountPaise : -entry.amountPaise)
+    );
+  }
+  return net;
+}
+
+it.skipIf(!localDatabase)(
+  "takes an event-charged claim's project from its event, and reposts when the event's project changes",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await foundation(tx);
+      const baseline = await booksDifference(tx);
+      const [first, second] = [uuidv7(), uuidv7()];
+      await tx.insert(project).values(
+        [first, second].map((id) => ({
+          code: `EVT-PRJ-${id}`,
+          createdAt: NOW,
+          id,
+          name: `Event project ${id}`,
+          programmeId: ids.programme,
+          updatedAt: NOW,
+        }))
+      );
+      const eventId = await addEvent(tx, ids, BLR);
+      await tx
+        .update(teamEvent)
+        .set({ projectId: first })
+        .where(eq(teamEvent.id, eventId));
+      const claim = await addClaim(tx, ids, {
+        chargedProgrammeId: null,
+        chargedTo: "event",
+        costCentreId: null,
+        eventId,
+      });
+      await run(tx, claimSource(claim));
+      expect(await netByProject(tx, [claim])).toEqual(
+        new Map([[first, 42_500]])
+      );
+
+      await tx
+        .update(teamEvent)
+        .set({
+          projectId: second,
+          updatedAt: new Date("2099-01-01T06:00:00Z"),
+        })
+        .where(eq(teamEvent.id, eventId));
+      expect(await listIncomeSources(tx, { incremental: true })).toContainEqual(
+        claimSource(claim)
+      );
+      expect(await run(tx, claimSource(claim))).toMatchObject({
+        posted: 1,
+        reversed: 1,
+      });
+      expect(await netByProject(tx, [claim])).toEqual(
+        new Map([
+          [first, 0],
+          [second, 42_500],
+        ])
+      );
+      expect(await booksDifference(tx)).toBe(baseline);
     });
   }
 );
