@@ -79,10 +79,14 @@ The lead of the programme a reimbursement or vendor payment is charged to approv
 - The lead is `programme.lead_user_id` of the programme `expenseProgrammeOf` gives. `leadApproverOf` (`packages/shared/src/approval-policy.ts`) holds the rule for mutators, screens and the reminder job.
 - No lead step when the request is charged to the organisation, its programme is Unallocated or has no lead, or the lead raised it or is its claimant (the beneficiary of a claim for others).
 - The lead approves (`approveAsLead`) or rejects with a reason, a normal rejection, while the request is pending. They need no permission and act only on their programme's requests. On a vendor payment this is the payment approval; payments and the invoice are finance's. Advance payments have no lead step.
-- Finance may approve while the lead's approval is outstanding, with a reason stored in `lead_skip_reason`, written to the history and shown on the request; the audit row records the field name. Whoever approved as lead, or is the lead, can't approve as finance.
+- Finance may approve while the lead's approval is outstanding, with a reason stored in `lead_skip_reason`, written to the history and shown on the request; the audit row records the field name. Outstanding (`leadStepOutstanding`) means the step applies and the lead neither approved nor was skipped, on any move to approved, so overriding a lead's rejection needs a reason too. Whoever approved as lead, or is the lead, can't approve as finance.
+- Creator and claimant can't approve or pay their own request: finance approval, payment proof, approving a vendor payment's payment, and recording one on your own request, which then waits for someone else (founder decision).
+- Requests pending when the step began carry the skip reason "Submitted before lead approval began" and go straight to finance (see `DEPLOYMENT.md`).
 - Stored on the request: `lead_approved_by`, `lead_approved_at`, `lead_skip_reason`. One optional step per request needs no `approval_step` table.
-- Cleared: while pending, by an edit that changes a line (amount, category, description) or Charged to, and by finance re-charging it to another programme; by a reset to pending, with the reason.
-- Without `requests.view_all`, the request queries return your own requests and those charged to a programme you lead, directly or through its event. Payee bank and UPI details on reimbursements are not synced: `getReimbursementPayout` serves them to the claimant and `requests.view_all` holders. Leads open the request's attachments, not its payment proof.
+- Cleared: while pending, by an edit that changes a line (amount, category, description) or Charged to, a change of claimant, finance re-charging it to another programme, or its event moving to another programme; by a reset to pending, with the reason. Once approved or skipped, the lead can no longer act.
+- Without `requests.view_all`, the request queries return your own requests and those charged to a programme you lead (never Unallocated), directly or through its event, without a vendor payment's payments. Payee bank and UPI details on reimbursements are not synced: `getReimbursementPayout` serves them to the claimant and `requests.view_all` holders.
+- Leads open receipts and quotations where the lead step applies to them, never payment proof, cash vouchers, payee signatures or signed vouchers (`isLeadReadableReimbursementFile`, decided by object key prefix, line-item links and history metadata). Signed copies replaced before history recorded their IDs are not recognised.
+- The home dashboard counts and lists what waits for a lead under "Waiting for you"; finance's queue leaves out what still waits for its lead; the lead's own figures count only their own requests. Leads see the "Pending approvals" notification topic.
 - Lists say "Waiting for lead" or "Lead approved" on pending rows and have an Approval filter; "Waiting for you" (a lead's) and "Waiting for lead" (finance's) are attention views. The request page says "Waiting for <lead>", "Approved by <lead> on <date>" or "Approved by finance without the lead: <reason>".
 - Notifications: see [reimbursements.md](reimbursements.md#notifications).
 
@@ -137,7 +141,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 
 ### Other deferred work
 
-- Requests: finance approving or paying their own request is not refused; a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
+- Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
 - Grants (agreements, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
 - Exports: an FY audit pack replacing `/export`, donor statements.

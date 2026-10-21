@@ -341,3 +341,7 @@ SELECT
 The migration's own counts: `SELECT value FROM app_config WHERE key = 'cost_centre_backfill';`.
 
 The next posting run reposts every expense posting (rules version 3).
+
+### Lead approval
+
+`0178_lead_approval` keeps pending requests with finance. Unsyncing payee bank columns rebuilds the replica; clients reload ([details](#zero-cache)).

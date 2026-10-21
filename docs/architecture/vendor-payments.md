@@ -25,7 +25,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - Approve and reject apply only to `pending` requests. Approval ends with `recalculateParentStatus()`, so a request already holding approved payments lands on `partially_paid` or `paid`.
 - Reject is refused once any payment is approved; otherwise it rejects the pending payments too.
 - `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment. It clears the lead's approval.
-- An admin's payment is auto-approved; others need approval, which the server refuses until the request is approved.
+- An admin's payment is auto-approved, except on their own request; others need approval, which the server refuses until the request is approved. Nobody approves the request or a payment on it when they raised it.
 - Only whoever recorded a payment edits or deletes it (delete also needs `requests.delete_own`), while it is pending and the invoice is not locked. The request's owner cannot change a payment someone else recorded. `requests.edit_all` and `requests.delete_all` holders can change any payment.
 
 ## Invoice phase
