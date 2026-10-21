@@ -49,6 +49,25 @@ async function assertUnauthorized(
 
 const FAKE_ID = "00000000-0000-0000-0000-000000000000";
 
+/** Receipt details only finance.manage may save; synthetic values. */
+const RECEIPT_SETTINGS_ARGS = {
+  orgAddress: "1 Test Road, Testville 560001",
+  orgName: "E2E Unauthorized Trust",
+  orgPan: "AAATE0000E",
+  signatoryDesignation: "Treasurer",
+  signatoryName: "E2E Unauthorized",
+  signatureUpload: null,
+};
+
+/** The receipt signature preview is for finance.manage alone. */
+async function assertSignatureHidden(
+  request: import("@playwright/test").APIRequestContext,
+  baseURL: string | undefined
+) {
+  const response = await request.get(`${baseURL}/api/receipts/signature`);
+  expect(response.status()).toBe(403);
+}
+
 test.describe("API authorization — admin-only mutations rejected for volunteer", () => {
   test.beforeEach(({ baseURL: _baseURL }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
@@ -101,6 +120,19 @@ test.describe("API authorization — admin-only mutations rejected for volunteer
       value: "e2e-test-value",
     });
   });
+
+  test("receipt details and signature are off limits to a volunteer", async ({
+    request,
+    baseURL,
+  }) => {
+    await assertUnauthorized(
+      request,
+      baseURL,
+      "appConfig.saveReceiptSettings",
+      RECEIPT_SETTINGS_ARGS
+    );
+    await assertSignatureHidden(request, baseURL);
+  });
 });
 
 test.describe("API authorization — admin role lacks finance + app config", () => {
@@ -125,6 +157,19 @@ test.describe("API authorization — admin role lacks finance + app config", () 
       key: "e2e-test-key",
       value: "e2e-test-value",
     });
+  });
+
+  test("receipt details and signature are off limits to an admin (lacks finance.manage)", async ({
+    request,
+    baseURL,
+  }) => {
+    await assertUnauthorized(
+      request,
+      baseURL,
+      "appConfig.saveReceiptSettings",
+      RECEIPT_SETTINGS_ARGS
+    );
+    await assertSignatureHidden(request, baseURL);
   });
 });
 

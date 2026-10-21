@@ -10,6 +10,7 @@ import {
   type ReceiptGiftFacts,
   blockedReceiptColumnValue,
   giftReceiptBlocks,
+  maskDonorName,
   RECEIPT_COLUMN_LABELS,
   receiptAssessmentLabel,
   receiptBlocksTitle,
@@ -328,6 +329,7 @@ describe("receipt settings", () => {
     orgPan: "aaatx1234x",
     signatoryDesignation: "Treasurer",
     signatoryName: "A. Signatory",
+    signatureKey: "app/attachments/receipt-signatures/signature.png",
   };
 
   it("round-trips and normalises the PAN", () => {
@@ -346,5 +348,32 @@ describe("receipt settings", () => {
     expect(
       parseReceiptSettings(JSON.stringify({ ...settings, signatoryName: " " }))
     ).toBeNull();
+  });
+
+  it("needs a claimed signature: none, or a key outside the signature folder, fails", () => {
+    const { signatureKey: _, ...unsigned } = settings;
+    expect(parseReceiptSettings(JSON.stringify(unsigned))).toBeNull();
+    expect(
+      parseReceiptSettings(
+        JSON.stringify({
+          ...settings,
+          signatureKey: "app/attachments/reimbursements/r/receipt.png",
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe("maskDonorName", () => {
+  it("keeps each word's first letter and hides its length", () => {
+    expect(maskDonorName("  Test   Donor ")).toBe("T••• D•••");
+    expect(maskDonorName("Ā Śarmā")).toBe("Ā••• Ś•••");
+    expect(maskDonorName("Donor")).toBe("D•••");
+  });
+
+  it("starts each word at its first letter or digit and drops bare symbols", () => {
+    expect(maskDonorName("(HUF) Sharma & Sons")).toBe("H••• S••• S•••");
+    expect(maskDonorName("M/s 3M India")).toBe("M••• 3••• I•••");
+    expect(maskDonorName("   ")).toBe("");
   });
 });

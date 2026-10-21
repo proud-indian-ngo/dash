@@ -100,6 +100,22 @@ export function receiptFileName(number: string): string {
   return `${number.replace(/[/\\]/g, "-")}.pdf`;
 }
 
+/**
+ * A donor's name as the public verification page shows it: each word's first
+ * letter or digit and three dots ("Test Donor" as "T••• D•••"). Enough to
+ * match a paper copy; the dots don't give away how long each word is. Words
+ * with no letter or digit, such as "&", are left out.
+ */
+export function maskDonorName(name: string): string {
+  return name
+    .split(/\s+/)
+    .flatMap((word) => {
+      const first = word.match(/[\p{L}\p{N}]/u)?.[0];
+      return first ? [`${first}•••`] : [];
+    })
+    .join(" ");
+}
+
 // ── Wording (founder approved) ──────────────────────────────────────────────
 
 /**
@@ -179,7 +195,16 @@ export interface ReceiptSettings {
   orgPan: string;
   signatoryDesignation: string;
   signatoryName: string;
+  /**
+   * R2 key of the signatory's signature PNG, printed on every receipt. Set
+   * only by `appConfig.saveReceiptSettings`, which claims the upload.
+   */
+  signatureKey: string;
 }
+
+/** Where claimed signature images live, under the attachments folder. */
+export const RECEIPT_SIGNATURE_DURABLE_PREFIX = "receipt-signatures";
+const SIGNATURE_KEY_MAX = 500;
 
 export const RECEIPT_SETTINGS_CONFIG_KEY = "donation_receipt_settings";
 export const RECEIPT_SETTINGS_TEXT_MAX = 120;
@@ -187,50 +212,65 @@ export const RECEIPT_SETTINGS_ADDRESS_MAX = 300;
 
 const ORG_PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
-/** Reads stored settings; null when missing or malformed. */
+export type ReceiptDetails = Omit<ReceiptSettings, "signatureKey">;
+
+/**
+ * Reads stored settings, split so a caller can tell details that are only
+ * missing a signature (saved before signatures were required) from details
+ * that are incomplete. Either part is null when missing or malformed.
+ */
+export function parseReceiptSettingsParts(value: string | null | undefined): {
+  details: ReceiptDetails | null;
+  signatureKey: string | null;
+} {
+  const none = { details: null, signatureKey: null };
+  if (!value) {
+    return none;
+  }
+  let parsed: Partial<Record<string, unknown>>;
+  try {
+    parsed = JSON.parse(value) as Partial<Record<string, unknown>>;
+  } catch {
+    return none;
+  }
+  const text = (key: keyof ReceiptSettings, max: number) => {
+    const raw = parsed[key];
+    const trimmed = typeof raw === "string" ? raw.trim() : "";
+    return trimmed && trimmed.length <= max ? trimmed : null;
+  };
+  const orgName = text("orgName", RECEIPT_SETTINGS_TEXT_MAX);
+  const orgAddress = text("orgAddress", RECEIPT_SETTINGS_ADDRESS_MAX);
+  const orgPan = text("orgPan", 10)?.toUpperCase() ?? null;
+  const signatoryName = text("signatoryName", RECEIPT_SETTINGS_TEXT_MAX);
+  const signatoryDesignation = text(
+    "signatoryDesignation",
+    RECEIPT_SETTINGS_TEXT_MAX
+  );
+  const signatureKey = text("signatureKey", SIGNATURE_KEY_MAX);
+  return {
+    details:
+      orgName &&
+      orgAddress &&
+      orgPan &&
+      ORG_PAN_PATTERN.test(orgPan) &&
+      signatoryName &&
+      signatoryDesignation
+        ? { orgAddress, orgName, orgPan, signatoryDesignation, signatoryName }
+        : null,
+    signatureKey: signatureKey?.includes(
+      `/${RECEIPT_SIGNATURE_DURABLE_PREFIX}/`
+    )
+      ? signatureKey
+      : null,
+  };
+}
+
+/** Reads stored settings; null unless the details and signature are complete. */
 export function parseReceiptSettings(
   value: string | null | undefined
 ): ReceiptSettings | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(value) as Partial<Record<string, unknown>>;
-    const text = (key: keyof ReceiptSettings, max: number) => {
-      const raw = parsed[key];
-      const trimmed = typeof raw === "string" ? raw.trim() : "";
-      return trimmed && trimmed.length <= max ? trimmed : null;
-    };
-    const orgName = text("orgName", RECEIPT_SETTINGS_TEXT_MAX);
-    const orgAddress = text("orgAddress", RECEIPT_SETTINGS_ADDRESS_MAX);
-    const orgPan = text("orgPan", 10)?.toUpperCase() ?? null;
-    const signatoryName = text("signatoryName", RECEIPT_SETTINGS_TEXT_MAX);
-    const signatoryDesignation = text(
-      "signatoryDesignation",
-      RECEIPT_SETTINGS_TEXT_MAX
-    );
-    if (
-      !(
-        orgName &&
-        orgAddress &&
-        orgPan &&
-        ORG_PAN_PATTERN.test(orgPan) &&
-        signatoryName &&
-        signatoryDesignation
-      )
-    ) {
-      return null;
-    }
-    return {
-      orgAddress,
-      orgName,
-      orgPan,
-      signatoryDesignation,
-      signatoryName,
-    };
-  } catch {
-    return null;
-  }
+  const { details, signatureKey } = parseReceiptSettingsParts(value);
+  return details && signatureKey ? { ...details, signatureKey } : null;
 }
 
 export function serializeReceiptSettings(value: ReceiptSettings): string {
@@ -240,6 +280,7 @@ export function serializeReceiptSettings(value: ReceiptSettings): string {
     orgPan: value.orgPan.trim().toUpperCase(),
     signatoryDesignation: value.signatoryDesignation.trim(),
     signatoryName: value.signatoryName.trim(),
+    signatureKey: value.signatureKey,
   });
 }
 

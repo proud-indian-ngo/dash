@@ -102,14 +102,21 @@ export function RecordNotFound({
  * Full-window frame for states outside the app layout (signed out, or the
  * whole app failed): the compact lockup on top, the content centred below.
  */
-export function StandalonePage({ children }: { children: ReactNode }) {
+export function StandalonePage({
+  children,
+  logoHref = "/",
+}: {
+  children: ReactNode;
+  /** Where the lockup leads; public pages point it at the website, not sign-in. */
+  logoHref?: string;
+}) {
   return (
     <main
       className="flex min-h-svh flex-col p-6 md:p-10"
       id="main"
       tabIndex={-1}
     >
-      <a aria-label="Proud Indian" className="self-center" href="/">
+      <a aria-label="Proud Indian" className="self-center" href={logoHref}>
         <img alt="" className="h-6 w-auto dark:hidden" src={lockup} />
         <img
           alt=""

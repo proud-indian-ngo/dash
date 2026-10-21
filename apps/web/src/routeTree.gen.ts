@@ -99,10 +99,12 @@ import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
 import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
 import { Route as ApiReceiptsReceiptIdRouteImport } from './routes/api/receipts/$receiptId'
+import { Route as ApiReceiptsSignatureRouteImport } from './routes/api/receipts/signature'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
+import { Route as VerifyRReceiptIdRouteImport } from './routes/verify/r.$receiptId'
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
 import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
@@ -624,6 +626,11 @@ const ApiReceiptsReceiptIdRoute = ApiReceiptsReceiptIdRouteImport.update({
   path: '/api/receipts/$receiptId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReceiptsSignatureRoute = ApiReceiptsSignatureRouteImport.update({
+  id: '/api/receipts/signature',
+  path: '/api/receipts/signature',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   id: '/api/whatsapp/webhook',
   path: '/api/whatsapp/webhook',
@@ -642,6 +649,11 @@ const ApiZeroQueryRoute = ApiZeroQueryRouteImport.update({
 const KalakritiYearScheduleRoute = KalakritiYearScheduleRouteImport.update({
   id: '/kalakriti/$year/schedule',
   path: '/kalakriti/$year/schedule',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyRReceiptIdRoute = VerifyRReceiptIdRouteImport.update({
+  id: '/verify/r/$receiptId',
+  path: '/verify/r/$receiptId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppFinanceBooksIndexRoute = AppFinanceBooksIndexRouteImport.update({
@@ -1093,10 +1105,12 @@ export interface FileRoutesByFullPath {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
   '/governance/': typeof AppGovernanceIndexRoute
@@ -1242,10 +1256,12 @@ export interface FileRoutesByTo {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
   '/governance': typeof AppGovernanceIndexRoute
@@ -1403,10 +1419,12 @@ export interface FileRoutesById {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/governance/': typeof AppGovernanceIndexRoute
@@ -1566,10 +1584,12 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/donors/'
     | '/events/'
     | '/governance/'
@@ -1715,10 +1735,12 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/donors'
     | '/events'
     | '/governance'
@@ -1875,10 +1897,12 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/_app/donors/'
     | '/_app/events/'
     | '/_app/governance/'
@@ -1982,10 +2006,12 @@ export interface RootRouteChildren {
   ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiReceiptsReceiptIdRoute: typeof ApiReceiptsReceiptIdRoute
+  ApiReceiptsSignatureRoute: typeof ApiReceiptsSignatureRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
   KalakritiYearScheduleRoute: typeof KalakritiYearScheduleRoute
+  VerifyRReceiptIdRoute: typeof VerifyRReceiptIdRoute
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
@@ -2640,6 +2666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReceiptsReceiptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/receipts/signature': {
+      id: '/api/receipts/signature'
+      path: '/api/receipts/signature'
+      fullPath: '/api/receipts/signature'
+      preLoaderRoute: typeof ApiReceiptsSignatureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/whatsapp/webhook': {
       id: '/api/whatsapp/webhook'
       path: '/api/whatsapp/webhook'
@@ -2666,6 +2699,13 @@ declare module '@tanstack/react-router' {
       path: '/kalakriti/$year/schedule'
       fullPath: '/kalakriti/$year/schedule'
       preLoaderRoute: typeof KalakritiYearScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify/r/$receiptId': {
+      id: '/verify/r/$receiptId'
+      path: '/verify/r/$receiptId'
+      fullPath: '/verify/r/$receiptId'
+      preLoaderRoute: typeof VerifyRReceiptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/finance/books/': {
@@ -3600,10 +3640,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiReceiptsReceiptIdRoute: ApiReceiptsReceiptIdRoute,
+  ApiReceiptsSignatureRoute: ApiReceiptsSignatureRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
   KalakritiYearScheduleRoute: KalakritiYearScheduleRoute,
+  VerifyRReceiptIdRoute: VerifyRReceiptIdRoute,
   ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,

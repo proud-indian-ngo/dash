@@ -220,6 +220,34 @@ describe("audit metadata", () => {
     expect(JSON.stringify(config)).not.toContain("1200000");
   });
 
+  it("records receipt details by field name, and a new signature without its key", () => {
+    const args = {
+      orgAddress: "1 Test Road",
+      orgName: "Example Trust",
+      orgPan: "AAATE0000E",
+      signatoryDesignation: "Treasurer",
+      signatoryName: "Test Signatory",
+    };
+    const replaced = summarizeZeroMutation(
+      "appConfig.saveReceiptSettings",
+      { ...args, signatureUpload: "app/attachments/tmp/u/signature.png" },
+      "actor-1"
+    );
+    expect(replaced.target).toEqual({
+      id: "donation_receipt_settings",
+      type: "appConfig",
+    });
+    expect(replaced.metadata?.changedFields).toContain("signature");
+    expect(JSON.stringify(replaced)).not.toContain("signature.png");
+    expect(JSON.stringify(replaced)).not.toContain("AAATE0000E");
+    const kept = summarizeZeroMutation(
+      "appConfig.saveReceiptSettings",
+      { ...args, signatureUpload: null },
+      "actor-1"
+    );
+    expect(kept.metadata?.changedFields).not.toContain("signature");
+  });
+
   it("records a signed voucher upload by IDs, never its object key", () => {
     const summary = summarizeZeroMutation(
       "reimbursement.attachSignedVoucher",

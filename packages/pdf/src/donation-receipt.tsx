@@ -15,7 +15,14 @@ import {
   RECEIPT_TITLE,
   receipt80GLine,
 } from "@pi-dash/shared/receipts";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 
 import {
   DANGER,
@@ -23,10 +30,13 @@ import {
   documentDate,
   Fact,
   Line,
+  INK,
   Meta,
+  MUTED,
   productStyles,
 } from "./product-pdf";
 import { ProudIndianLockup } from "./proud-indian-lockup";
+import { QrCode } from "./qr-code";
 
 export { wholeWords } from "./product-pdf";
 
@@ -53,10 +63,20 @@ export interface DonationReceiptProps {
   org: { address: string; name: string; pan: string };
   registration: { sectionCode: string; urn: string; urnIssuedOn: string };
   signatory: { designation: string; name: string };
+  /**
+   * The signatory's signature PNG, frozen with the receipt. Null only for
+   * receipts issued before signatures were added, which print the name alone.
+   */
+  signatureImage: Buffer | null;
+  /** The signed verification page the QR code opens. */
+  verifyUrl: string;
   /** Set when the receipt was voided; the PDF says so on every page. */
   voided: { reason: string } | null;
   with80G: boolean;
 }
+
+// About 22 mm with its quiet zone, which phones scan from a printed page.
+const QR_SIZE = 64;
 
 const styles = {
   ...productStyles,
@@ -65,10 +85,22 @@ const styles = {
     note: { fontSize: 9, lineHeight: 1.5 },
     notes: { flex: 1 },
     signature: { width: 190 },
+    // The signature sits on the rule above the name, as on paper.
+    signatory: { borderTop: `0.75pt solid ${INK}`, paddingTop: 5 },
+    signatureImage: {
+      height: 44,
+      objectFit: "contain",
+      objectPosition: "left bottom",
+      width: 150,
+    },
+    signatureSpace: { height: 48, justifyContent: "flex-end", marginTop: 6 },
     signatureFor: {
       fontSize: 9.5,
       lineHeight: 1.45,
     },
+    // The code's white quiet zone is the gap to the notes, so no margin.
+    verify: { alignItems: "center", marginLeft: -6, width: QR_SIZE },
+    verifyCaption: { color: MUTED, fontSize: 7.5, marginTop: -4 },
     voidMarker: {
       border: `1.25pt solid ${DANGER}`,
       borderRadius: 4,
@@ -193,6 +225,10 @@ export function DonationReceipt(props: DonationReceiptProps) {
         </View>
 
         <View style={styles.closing} wrap={false}>
+          <View style={styles.verify}>
+            <QrCode size={QR_SIZE} value={props.verifyUrl} />
+            <Text style={styles.verifyCaption}>Scan to verify</Text>
+          </View>
           <View style={styles.notes}>
             {props.with80G ? (
               <>
@@ -207,7 +243,15 @@ export function DonationReceipt(props: DonationReceiptProps) {
           </View>
           <View style={styles.signature}>
             <Line style={styles.signatureFor}>For {org.name}</Line>
-            <View style={styles.signatureBlock}>
+            <View style={styles.signatureSpace}>
+              {props.signatureImage ? (
+                <Image
+                  src={{ data: props.signatureImage, format: "png" }}
+                  style={styles.signatureImage}
+                />
+              ) : null}
+            </View>
+            <View style={styles.signatory}>
               <Line style={[styles.text, styles.signatureName]}>
                 {signatory.name}
               </Line>
