@@ -104,7 +104,7 @@ function GrantsPage() {
           title="No grants"
         />
       ) : (
-        <div className="mt-4 grid gap-4">
+        <div className="mt-4 grid gap-4 *:min-w-0">
           {error ? (
             <ErrorState
               actions={
