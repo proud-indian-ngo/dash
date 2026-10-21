@@ -30,7 +30,7 @@ export const donationFilingStatusEnum = privateSchema.enum(
 
 export const donationCertificateMatchEnum = privateSchema.enum(
   "donation_certificate_match",
-  ["pre_arn", "details", "manual"]
+  ["details", "manual"]
 );
 
 export const donationCertificateEmailFailureEnum = privateSchema.enum(
@@ -42,7 +42,7 @@ export const donationCertificateEmailFailureEnum = privateSchema.enum(
  * One Form 113 upload. Recording it freezes the rows and keeps the exact
  * upload file; finance then records the portal's acknowledgement number and
  * transaction ID. A prepared filing may be discarded, which frees its gifts
- * but keeps its number and Pre-ARNs so neither is ever reused.
+ * but keeps its number so it is never reused.
  */
 export const donationFiling = privateSchema.table(
   "donation_filing",
@@ -121,17 +121,10 @@ export const donationFilingRow = privateSchema.table(
     partyId: uuid("party_id")
       .notNull()
       .references(() => party.id, { onDelete: "restrict" }),
-    /**
-     * The portal-issued Pre-Acknowledgement Number written on the row; null
-     * when the column was left empty, or once its filing is discarded (the
-     * portal still counts it unconsumed, so it can be used again).
-     */
-    preArn: text("pre_arn"),
     /** "Sr. No." in the upload file, from 1. */
     srNo: integer("sr_no").notNull(),
   },
   (t) => [
-    uniqueIndex("donation_filing_row_pre_arn_uidx").on(t.preArn),
     uniqueIndex("donation_filing_row_filing_sr_uidx").on(t.filingId, t.srNo),
     index("donation_filing_row_partyId_idx").on(t.partyId),
   ]
@@ -170,12 +163,7 @@ export const donationCertificate = privateSchema.table(
   {
     /** The certificate's own acknowledgement number, needed for revisions. */
     acknowledgementNumber: text("acknowledgement_number").notNull(),
-    /**
-     * When finance confirmed the match. A Pre-ARN match whose ID agrees is
-     * confirmed as it is stored; a details or manual match, or a Pre-ARN
-     * match whose ID differs, waits for review and is never emailed until
-     * confirmed.
-     */
+    /** When finance confirmed the match; required before email. */
     confirmedAt: timestamp("confirmed_at"),
     confirmedBy: text("confirmed_by").references(() => user.id, {
       onDelete: "set null",

@@ -1,5 +1,5 @@
 CREATE TYPE "private"."donation_certificate_email_failure" AS ENUM('no_email', 'suppressed', 'not_configured', 'failed');--> statement-breakpoint
-CREATE TYPE "private"."donation_certificate_match" AS ENUM('pre_arn', 'details', 'manual');--> statement-breakpoint
+CREATE TYPE "private"."donation_certificate_match" AS ENUM('details', 'manual');--> statement-breakpoint
 CREATE TYPE "private"."donation_filing_status" AS ENUM('prepared', 'submitted', 'discarded');--> statement-breakpoint
 CREATE TABLE "private"."donation_certificate" (
 	"acknowledgement_number" text NOT NULL,
@@ -67,7 +67,6 @@ CREATE TABLE "private"."donation_filing_row" (
 	"mode_code" text NOT NULL,
 	"name" text NOT NULL,
 	"party_id" uuid NOT NULL,
-	"pre_arn" text,
 	"sr_no" integer NOT NULL
 );
 --> statement-breakpoint
@@ -90,6 +89,5 @@ CREATE INDEX "donation_certificate_filingId_idx" ON "private"."donation_certific
 CREATE UNIQUE INDEX "donation_filing_fy_sequence_uidx" ON "private"."donation_filing" USING btree ("fiscal_year","sequence");--> statement-breakpoint
 CREATE UNIQUE INDEX "donation_filing_object_key_uidx" ON "private"."donation_filing" USING btree ("file_object_key");--> statement-breakpoint
 CREATE INDEX "donation_filing_gift_rowId_idx" ON "private"."donation_filing_gift" USING btree ("row_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "donation_filing_row_pre_arn_uidx" ON "private"."donation_filing_row" USING btree ("pre_arn");--> statement-breakpoint
 CREATE UNIQUE INDEX "donation_filing_row_filing_sr_uidx" ON "private"."donation_filing_row" USING btree ("filing_id","sr_no");--> statement-breakpoint
 CREATE INDEX "donation_filing_row_partyId_idx" ON "private"."donation_filing_row" USING btree ("party_id");

@@ -122,14 +122,12 @@ describe("donation filing server functions", () => {
     await expect(
       call(fns.recordDonationFiling, {
         financialYear: "2026-27",
-        preArns: null,
       })
     ).rejects.toThrow("Forbidden");
     granted = ["finance.view_sensitive"];
     await expect(
       call(fns.recordDonationFiling, {
         financialYear: "2026-27",
-        preArns: null,
       })
     ).rejects.toThrow("Forbidden");
     expect(calls).toEqual([]);
@@ -137,7 +135,6 @@ describe("donation filing server functions", () => {
     granted = ["finance.manage", "finance.view_sensitive"];
     await call(fns.recordDonationFiling, {
       financialYear: "2026-27",
-      preArns: null,
     });
     expect(calls).toEqual(["record:2026-27"]);
     expect(audits).toEqual([
@@ -146,12 +143,11 @@ describe("donation filing server functions", () => {
         finalMetadata: {
           financialYear: "2026-27",
           giftCount: 5,
-          preArnsGiven: 0,
           rowCount: 3,
           sequence: 1,
         },
         finalTarget: { id: FILING, type: "donation_filing" },
-        metadata: { financialYear: "2026-27", preArnsGiven: 0 },
+        metadata: { financialYear: "2026-27" },
         target: { type: "donation_filing" },
       },
     ]);
@@ -162,7 +158,6 @@ describe("donation filing server functions", () => {
     await expect(
       call(fns.recordDonationFiling, {
         financialYear: "2025-26",
-        preArns: null,
       })
     ).rejects.toThrow("2026-27 onward");
     expect(audits).toEqual([]);

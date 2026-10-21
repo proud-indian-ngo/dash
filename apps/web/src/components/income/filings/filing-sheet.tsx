@@ -102,9 +102,8 @@ const REVIEW_REASONS: Record<
   NonNullable<FilingRowView["certificate"]>["matchedBy"],
   string
 > = {
-  details: "Matched by ID number, amount and name, not by Pre-ARN.",
+  details: "Matched by the labelled donor ID number, amount and name.",
   manual: "Assigned to this row by hand.",
-  pre_arn: "Matched by Pre-ARN, but its ID number differs from the row's.",
 };
 
 const maskedId = (row: FilingRowView) =>
@@ -179,7 +178,6 @@ function RowItem({
           <span className="text-muted-foreground truncate font-mono text-xs tabular-nums">
             {[
               `${row.srNo}`,
-              row.preArn ?? "No Pre-ARN",
               formatPaise(row.amountPaise),
               row.donationTypeCode,
               row.modeCode,
@@ -284,7 +282,6 @@ function ReviewPanel({
     ["Amount", formatPaise(row.amountPaise)],
     ["Donation type", row.donationTypeCode],
     ["Mode of receipt", row.modeCode],
-    ["Pre-ARN", row.preArn ?? "None"],
     ["Form 114 number", certificate.acknowledgementNumber],
   ];
   return (

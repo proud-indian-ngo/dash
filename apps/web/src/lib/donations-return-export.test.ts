@@ -101,7 +101,6 @@ const fy = {
 
 const firstFiling = {
   filedGifts: new Map(),
-  preArns: null,
   reader: undefined,
   sequence: 1,
 };
@@ -132,7 +131,6 @@ describe("buildUploadFile", () => {
     expect(built.rows[0]).toMatchObject({
       giftIds: ["g1", "g2"],
       idType: "pan",
-      preArn: null,
       srNo: 1,
     });
     expect([...built.giftNetPaise]).toEqual([
@@ -181,41 +179,20 @@ describe("buildUploadFile", () => {
     }
   });
 
-  it("leaves out gifts already in a filing and writes portal Pre-ARNs in Sr. No. order", async () => {
+  it("leaves out filed gifts and keeps the portal acknowledgement column empty", async () => {
     const built = await buildUploadFile(fy, {
       filedGifts: new Map([
         ["g1", { amountPaise: 100_000, filingSequence: 1 }],
       ]),
-      preArns: ["PORTAL000001", "PORTAL000002"],
       reader: undefined,
       sequence: 2,
     });
     expect(built.giftCount).toBe(1);
-    expect(built.rows.map((row) => [row.giftIds, row.preArn])).toEqual([
-      [["g2"], "PORTAL000001"],
-    ]);
+    expect(built.rows.map((row) => row.giftIds)).toEqual([["g2"]]);
     expect(built.file.csv.split("\n")[1]).toContain(
-      "1,PORTAL000001,Permanent Account Number,"
+      "1,,Permanent Account Number,"
     );
     expect(built.file.csv.split("\n")[1]?.endsWith(",400.00")).toBe(true);
-  });
-
-  it("refuses fewer unused Pre-ARNs than rows", async () => {
-    const original = facts;
-    facts = () => ({
-      ...original(),
-      gifts: [
-        gift({ channel: "cash", id: "c1", reportingMode: "cash" }),
-        gift({ channel: "cash", id: "c2", reportingMode: "cash" }),
-      ],
-    });
-    try {
-      await expect(
-        buildUploadFile(fy, { ...firstFiling, preArns: ["PORTAL000001"] })
-      ).rejects.toThrow("2 rows but only 1 unused Pre-ARNs");
-    } finally {
-      facts = original;
-    }
   });
 
   it("refuses when every ready gift is already filed", async () => {

@@ -1,11 +1,4 @@
-import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@pi-dash/design-system/components/ui/toggle-group";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { parsePreArnList } from "@pi-dash/shared/donations-return";
 import { formatPaise } from "@pi-dash/shared/money";
 import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
@@ -81,18 +74,11 @@ export function RecordFilingDialog({
 }) {
   const record = useServerFn(recordDonationFiling);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"none" | "portal">("none");
-  const [pasted, setPasted] = useState("");
-  const parsed = parsePreArnList(pasted);
-  const preArnsReady =
-    mode === "none" ||
-    (parsed.invalid.length === 0 && parsed.values.length >= rowCount);
   const handleRecord = useEventCallback(async () => {
     setBusy(true);
     await record({
       data: {
         financialYear,
-        preArns: mode === "portal" ? parsed.values : null,
       },
     })
       .then((result) => {
@@ -131,62 +117,9 @@ export function RecordFilingDialog({
             template before uploading it.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex flex-col gap-2">
-          <Label>Pre-Acknowledgement Numbers</Label>
-          <ToggleGroup
-            aria-label="Pre-Acknowledgement Numbers"
-            className="w-full"
-            onValueChange={(next) => {
-              const picked = next[0];
-              if (picked === "none" || picked === "portal") {
-                setMode(picked);
-              }
-            }}
-            size="sm"
-            value={[mode]}
-            variant="outline"
-          >
-            <ToggleGroupItem className="flex-1" value="none">
-              None
-            </ToggleGroupItem>
-            <ToggleGroupItem className="flex-1" value="portal">
-              From the portal
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {mode === "none" ? (
-            <p className="text-muted-foreground text-sm">
-              The column is left empty. Certificates are then matched by the
-              donor's ID number, amount and name, and you confirm each one.
-            </p>
-          ) : (
-            <>
-              <Textarea
-                aria-label="Portal Pre-ARNs"
-                className="max-h-40 min-h-24 font-mono"
-                onChange={(event) => setPasted(event.target.value)}
-                placeholder="Paste the Pre-ARNs the portal generated, one per line"
-                value={pasted}
-              />
-              <p
-                className={
-                  preArnsReady
-                    ? "text-muted-foreground text-sm"
-                    : "text-destructive text-sm"
-                }
-              >
-                {parsed.invalid.length > 0
-                  ? `These aren't Pre-ARNs (10 to 21 letters and digits, with a digit): ${parsed.invalid.slice(0, 10).join(", ")}${parsed.invalid.length > 10 ? ` and ${parsed.invalid.length - 10} more` : ""}. Paste only the Pre-ARN column.`
-                  : `${parsed.values.length} pasted for ${rowCount} ${rowCount === 1 ? "row" : "rows"}, given out in Sr. No. order. Any already used in a filing are skipped.`}
-              </p>
-            </>
-          )}
-        </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={busy || !preArnsReady}
-            onClick={handleRecord}
-          >
+          <AlertDialogAction disabled={busy} onClick={handleRecord}>
             {busy ? "Recording..." : "Record filing"}
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -361,8 +294,7 @@ export function DiscardFilingDialog({
           </AlertDialogTitle>
           <AlertDialogDescription>
             Only for a file that was never uploaded to the portal. Its gifts go
-            back to ready for the next filing; its number and Pre-ARNs are not
-            reused.
+            back to ready for the next filing; its number is not reused.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

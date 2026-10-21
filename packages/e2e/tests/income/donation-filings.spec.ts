@@ -102,20 +102,9 @@ test.describe("Donations return filings", () => {
       timeout: 15_000,
     });
 
-    // Record with Pre-ARNs pasted from the portal (fake ones): the upload
-    // file downloads with one on every row, in Sr. No. order.
+    // Every portal upload row keeps the acknowledgement column empty.
     await page.getByRole("button", { name: "Record filing" }).click();
     const confirm = page.getByRole("alertdialog");
-    await confirm.getByRole("button", { name: "From the portal" }).click();
-    const prefix = `E2EPRE${Date.now().toString(36).toUpperCase()}`;
-    await confirm
-      .getByRole("textbox", { name: "Portal Pre-ARNs" })
-      .fill(
-        Array.from(
-          { length: 10 },
-          (_, index) => `${prefix}${String(index + 1).padStart(3, "0")}`
-        ).join("\n")
-      );
     const downloadPromise = page.waitForEvent("download");
     await confirm.getByRole("button", { name: "Record filing" }).click();
     const download = await downloadPromise;
@@ -128,12 +117,10 @@ test.describe("Donations return filings", () => {
     expect(header?.startsWith("Sr. No.,Pre Acknowledgement Number,")).toBe(
       true
     );
-    expect(lines[0]?.startsWith(`1,${prefix}001,`)).toBe(true);
+    expect(lines.every((line) => /^\d+,,/.test(line))).toBe(true);
     const readyLine = lines.find((line) => line.includes(READY_DONOR));
     expect(readyLine).toMatch(
-      new RegExp(
-        `^\\d+,${prefix}\\d{3},Permanent Account Number,${READY_DONOR_PAN},`
-      )
+      new RegExp(`^\\d+,,Permanent Account Number,${READY_DONOR_PAN},`)
     );
 
     // The new filing opens; its gifts now count as filed.
@@ -184,28 +171,36 @@ test.describe("Donations return filings", () => {
     });
     await upload.getByRole("button", { name: "Upload certificates" }).click();
     const result = upload.getByTestId("certificate-upload-result");
-    // The first row's certificate has no Pre-ARN: matched by details, it
-    // waits for review.
-    await expect(
-      result.getByRole("region", { exact: true, name: "Matched" })
-    ).toContainText(`Matched (${zip.rowCount - 1})`, { timeout: 30_000 });
+    // Every details match waits for confirmation before it can be emailed.
     await expect(
       result.getByRole("region", { name: "Needs review" })
-    ).toContainText("Needs review (1)");
+    ).toContainText(`Needs review (${zip.rowCount})`, { timeout: 30_000 });
     await expect(
       result.getByRole("region", { name: "Not matched" })
     ).toContainText("stray.pdf");
     await upload.getByRole("button", { name: "Done" }).click();
     const review = sheet.getByTestId("filing-row-review");
-    await expect(review).toHaveCount(1);
+    await expect(review).toHaveCount(zip.rowCount);
+    await expect(
+      sheet.getByRole("button", { name: "Email certificates" })
+    ).toBeDisabled();
+    const beforeReview = await helper<{ jobs: number }>(
+      "email-jobs",
+      filing.id
+    );
+    expect(beforeReview.jobs).toBe(0);
     // The certificate opens beside the row as filed, to compare them.
-    await review.getByRole("button", { name: "Review certificate" }).click();
-    const panel = page.getByTestId("certificate-review");
-    await expect(panel).toBeVisible();
-    await expect(panel).toContainText("ending");
-    await panel.getByRole("button", { name: "Confirm match" }).click();
-    await expect(page.getByText("Certificate confirmed")).toBeVisible();
-    await expect(sheet.getByTestId("filing-row-review")).toHaveCount(0);
+    for (let remaining = zip.rowCount; remaining > 0; remaining--) {
+      await review
+        .first()
+        .getByRole("button", { name: "Review certificate" })
+        .click();
+      const panel = page.getByTestId("certificate-review");
+      await expect(panel).toBeVisible();
+      await expect(panel).toContainText("ending");
+      await panel.getByRole("button", { name: "Confirm match" }).click();
+      await expect(review).toHaveCount(remaining - 1);
+    }
     const readyRow = sheet
       .getByTestId("filing-row")
       .filter({ hasText: READY_DONOR });

@@ -742,7 +742,7 @@ export type ReturnFileRow = Pick<
   | "idNumber"
   | "modeCode"
   | "name"
-> & { preArn: string | null };
+>;
 
 /** The upload file's header and cells, in `RETURN_COLUMNS` order. */
 export function returnFileCells(
@@ -760,7 +760,7 @@ export function returnFileCells(
         idNumber: row.idNumber,
         mode: row.modeCode,
         name: row.name,
-        preAcknowledgementNumber: row.preArn ?? "",
+        preAcknowledgementNumber: "",
         sectionCode: registration.sectionCode,
         srNo: String(index + 1),
         urn: registration.urn,
@@ -771,48 +771,13 @@ export function returnFileCells(
   };
 }
 
-// ── Filings and Pre-ARNs ────────────────────────────────────────────────────
+// ── Filings ────────────────────────────────────────────────────
 
 /**
  * The portal takes at most 25,000 rows per Form 113 upload; a larger return
  * needs another filing.
  */
 export const MAX_FILING_ROWS = 25_000;
-
-/**
- * A Pre-Acknowledgement Number as the portal issues it. The portal caps it
- * at 21 letters and digits; its exact format is unpublished, so a value
- * must also be at least 10 characters with a digit. That keeps out what a
- * pasted portal table carries besides the numbers (serial numbers, status
- * words such as "UNCONSUMED"), which would otherwise match any certificate
- * printing the same token. Pre-ARNs come from the portal in batches; the
- * dashboard never makes them up.
- */
-export const PRE_ARN_PATTERN = /^(?=[A-Z]*\d)[A-Z0-9]{10,21}$/;
-
-/**
- * Reads a pasted list of Pre-ARNs (one per line, or separated by spaces,
- * commas or semicolons), upper-cased, repeats dropped, in the order given.
- */
-export function parsePreArnList(text: string): {
-  invalid: string[];
-  values: string[];
-} {
-  const values: string[] = [];
-  const invalid: string[] = [];
-  for (const token of text.split(/[\s,;]+/)) {
-    const value = token.trim().toUpperCase();
-    if (!value) {
-      continue;
-    }
-    if (!PRE_ARN_PATTERN.test(value)) {
-      invalid.push(token.trim());
-    } else if (!values.includes(value)) {
-      values.push(value);
-    }
-  }
-  return { invalid, values };
-}
 
 /**
  * A certificate email queued this long ago, neither sent nor failed, is
@@ -838,29 +803,17 @@ export const FILING_DRIFT_LABELS: Record<FilingDrift, string> = {
 
 /** An upload row with its place in a filing. */
 export interface FilingPlanRow extends ReturnExportRow {
-  /** Portal-issued, or null when the column is left empty. */
-  preArn: string | null;
   srNo: number;
 }
 
-/**
- * Numbers a filing's rows (in upload order) and, when portal-issued
- * Pre-ARNs are given, assigns them in Sr. No. order. Refuses more rows than
- * one upload takes, or fewer Pre-ARNs than rows.
- */
 export function planFilingRows(
-  rows: readonly ReturnExportRow[],
-  preArns: readonly string[] | null
+  rows: readonly ReturnExportRow[]
 ): FilingPlanRow[] {
   if (rows.length > MAX_FILING_ROWS) {
     throw new Error(`A filing takes at most ${MAX_FILING_ROWS} rows`);
   }
-  if (preArns && preArns.length < rows.length) {
-    throw new Error("Fewer Pre-ARNs than rows");
-  }
   return rows.map((row, index) => ({
     ...row,
-    preArn: preArns ? (preArns[index] ?? null) : null,
     srNo: index + 1,
   }));
 }

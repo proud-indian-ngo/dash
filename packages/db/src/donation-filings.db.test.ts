@@ -17,7 +17,6 @@ import {
   loadFiledSequences,
   nextFilingSequence,
   type NewFilingRow,
-  usedPreArns,
 } from "./queries/donation-filings";
 import { loadReturnFacts } from "./queries/donations-return";
 // biome-ignore lint/performance/noNamespaceImport: the test database needs the full Drizzle schema.
@@ -121,8 +120,7 @@ async function fixture(tx: FilingTx) {
 function planRow(
   partyId: string,
   giftIds: string[],
-  srNo: number,
-  preArn: string | null = null
+  srNo: number
 ): NewFilingRow {
   return {
     address: "1 Test Road, Testville, India, 560001",
@@ -135,7 +133,6 @@ function planRow(
     modeCode: "Electronic modes including account payee cheque/draft",
     name: "Filing Test Donor",
     partyId,
-    preArn,
     srNo,
   };
 }
@@ -175,18 +172,11 @@ it.skipIf(!localDatabase)(
       const donorId = await donor("donor@example.test");
       const first = await gift(donorId);
       const second = await gift(donorId);
-      const preArn = `TESTPRE${uuidv7().slice(-8).toUpperCase()}`;
-      const filing = await record(tx, actorId, [
-        planRow(donorId, [first], 1, preArn),
-      ]);
+      const filing = await record(tx, actorId, [planRow(donorId, [first], 1)]);
       const [row] = await tx
         .select()
         .from(donationFilingRow)
         .where(eq(donationFilingRow.filingId, filing.id));
-      expect(row?.preArn).toBe(preArn);
-      expect([...(await usedPreArns(tx, [preArn, "TESTUNUSED1"]))]).toEqual([
-        preArn,
-      ]);
       expect(row?.idNumberEncrypted).not.toContain("AAAPT1234T");
       expect(
         revealSecret(
@@ -264,7 +254,7 @@ it.skipIf(!localDatabase)(
           // Row 3 matched by details and still waits for review.
           ...(row.srNo === 3
             ? { matchedBy: "details" as const }
-            : { confirmedAt: NOW, matchedBy: "pre_arn" as const }),
+            : { confirmedAt: NOW, matchedBy: "details" as const }),
           rowId: row.id,
         });
       }

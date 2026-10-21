@@ -19,9 +19,8 @@ import { removeDonationFilings } from "./donation-filings-reset";
  *
  * - `reset`: removes every filing (see donation-filings-reset.ts).
  * - `latest <fy>`: the year's newest filing.
- * - `certificates <filingId>`: a ZIP of a synthetic Form 114 per row (the
- *   first without its Pre-ARN, so it matches by details and needs review)
- *   plus one that fits no row, as base64.
+ * - `certificates <filingId>`: a ZIP of a synthetic Form 114 per row, all
+ *   requiring confirmation, plus one that fits no row, as base64.
  * - `email-jobs <filingId>`: how many email jobs were queued for the
  *   filing's certificates (captured in pg-boss; E2E has no Resend key, so
  *   nothing is delivered).
@@ -54,7 +53,7 @@ if (action === "reset") {
     .where(eq(donationFilingRow.filingId, arg))
     .orderBy(asc(donationFilingRow.srNo));
   const files: Record<string, Uint8Array> = {};
-  for (const [index, row] of rows.entries()) {
+  for (const row of rows) {
     files[`114/${row.srNo}.pdf`] = syntheticCertificatePdf({
       acknowledgementNumber: `E2E114${String(Date.now()).slice(-6)}${String(row.srNo).padStart(4, "0")}`,
       amount: rupees(row.amountPaise),
@@ -62,7 +61,6 @@ if (action === "reset") {
       donorName: row.name,
       idNumber: revealSecret(row.idNumberEncrypted, filingRowIdContext(row.id)),
       mode: row.modeCode,
-      preArn: index === 0 ? undefined : (row.preArn ?? undefined),
     });
   }
   files["114/stray.pdf"] = syntheticCertificatePdf({

@@ -23,7 +23,6 @@ import {
   rejectCertificate,
   confirmCertificate,
   undoFilingSubmission,
-  usedPreArns,
 } from "@pi-dash/db/queries/donation-filings";
 import { env } from "@pi-dash/env/server";
 import { enqueue, inTransaction } from "@pi-dash/jobs/enqueue";
@@ -108,19 +107,14 @@ export interface RecordedFiling {
  */
 export const recordFiling = (
   fy: FinancialYearRange,
-  /** Portal-issued Pre-ARNs as pasted, or null to leave the column empty. */
-  preArns: readonly string[] | null,
   userId: string
 ): Promise<RecordedFiling> =>
   safely("record", () =>
     db.transaction(async (tx) => {
       await lockFilingYear(tx, fy.label);
       const sequence = await nextFilingSequence(tx, fy.label);
-      // Pre-ARNs already on a row of any filing are skipped, never reused.
-      const used = preArns ? await usedPreArns(tx, preArns) : new Set();
       const draft = await buildUploadFile(fy, {
         filedGifts: await loadFiledSequences(tx),
-        preArns: preArns?.filter((value) => !used.has(value)) ?? null,
         reader: tx,
         sequence,
       });
@@ -187,8 +181,8 @@ export interface CertificateUploadResult {
   matched: {
     acknowledgementNumber: string;
     fileName: string;
-    matchedBy: "pre_arn" | "details";
-    needsReview: boolean;
+    matchedBy: "details";
+    needsReview: true;
     rowId: string;
   }[];
   unmatched: { fileName: string; reason: UnmatchedReason }[];
@@ -214,7 +208,6 @@ async function filingContext(filing: FilingHeader): Promise<FilingContext> {
     acknowledgementNumber: filing.acknowledgementNumber,
     fiscalYear: filing.fiscalYear,
     otherAcknowledgementNumbers: others.acknowledgementNumbers,
-    otherPreArns: others.preArns,
   };
 }
 
@@ -346,7 +339,6 @@ export const uploadCertificates = (
           acknowledgementNumber: decision.acknowledgementNumber,
           fileSha256: fileRead.sha256,
           matchedBy: decision.matchedBy,
-          needsReview: decision.needsReview,
           rowId: decision.rowId,
           sourceName: file.name,
         }),
@@ -415,7 +407,6 @@ export const assignCertificate = (
             acknowledgementNumber: assessed.acknowledgementNumber,
             fileSha256: sha256(file.bytes),
             matchedBy: "manual",
-            needsReview: true,
             rowId,
             sourceName: file.name,
           }),

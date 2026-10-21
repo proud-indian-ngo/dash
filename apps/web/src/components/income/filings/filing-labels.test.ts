@@ -26,7 +26,7 @@ const row = (
         emailQueuedAt: null,
         fileName: "Form-114-114000000000001.pdf",
         id: "c1",
-        matchedBy: "pre_arn",
+        matchedBy: "details",
         ...certificate,
       }
     : null,
@@ -40,7 +40,6 @@ const row = (
   modeCode: "Cash",
   name: "Asha Rao",
   partyId: "p1",
-  preArn: null,
   srNo: 1,
   ...overrides,
 });

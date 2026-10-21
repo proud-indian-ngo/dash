@@ -77,15 +77,13 @@ export interface UploadFileDraft {
 
 /**
  * The portal upload for the next filing: one row per donor, donation type
- * and mode, ready gifts not already in a filing, each row with its Pre-ARN.
+ * and mode, ready gifts not already in a filing.
  * Reads through the recording transaction so the rows match what is frozen.
  */
 export async function buildUploadFile(
   fy: FinancialYearRange,
   filing: {
     filedGifts: ReadonlyMap<string, FiledGift>;
-    /** Unused portal-issued Pre-ARNs, in order; null leaves the column empty. */
-    preArns: readonly string[] | null;
     reader: Parameters<typeof loadReturnFacts>[2];
     sequence: number;
   }
@@ -137,12 +135,7 @@ export async function buildUploadFile(
     );
   }
   const aggregated = aggregateReturnRows(ready);
-  if (filing.preArns && filing.preArns.length < aggregated.length) {
-    throw new DonationsReturnError(
-      `The filing has ${aggregated.length} rows but only ${filing.preArns.length} unused Pre-ARNs were given. Generate more on the portal, or file without Pre-ARNs.`
-    );
-  }
-  const planned = planFilingRows(aggregated, filing.preArns);
+  const planned = planFilingRows(aggregated);
   const cells = returnFileCells(planned, registration);
   return {
     file: {

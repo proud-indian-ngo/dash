@@ -11,8 +11,6 @@ export interface SyntheticCertificate {
   donorName: string;
   idNumber: string;
   mode: string;
-  /** The row's Pre-ARN, when the certificate carries one. */
-  preArn?: string;
   /** Printed after the donor's name, when given. */
   address?: string;
   /** False prints the ID without its label, as an unknown layout might. */
@@ -70,9 +68,6 @@ export function syntheticCertificatePdf(
     certificate.idLabel === false
       ? `Donor ${certificate.idNumber}`
       : `Unique Identification Number of the donor: ${certificate.idNumber}`,
-    ...(certificate.preArn
-      ? [`Pre-Acknowledgement Number: ${certificate.preArn}`]
-      : []),
     `Donation Type: ${certificate.donationType}`,
     `Mode of receipt: ${certificate.mode}`,
     `Amount of donation (Indian Rupees): ${certificate.amount}`,

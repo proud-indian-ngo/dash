@@ -5,8 +5,6 @@ import {
 } from "@pi-dash/db/queries/donation-filings";
 import {
   FIRST_RETURN_DAY,
-  MAX_FILING_ROWS,
-  PRE_ARN_PATTERN,
   parseReturnYear,
 } from "@pi-dash/shared/donations-return";
 import { INCOME_PERMISSIONS, todayInKolkata } from "@pi-dash/shared/income";
@@ -78,15 +76,6 @@ export const recordDonationFiling = createServerFn({ method: "POST" })
   .validator(
     z.object({
       financialYear: z.string().max(10),
-      /** Portal-issued, in the order to assign; null leaves the column empty. */
-      preArns: z
-        .array(z.string().regex(PRE_ARN_PATTERN))
-        .max(MAX_FILING_ROWS * 2)
-        .refine(
-          (values) => new Set(values).size === values.length,
-          "Each Pre-ARN may be given once"
-        )
-        .nullable(),
     })
   )
   .handler(async ({ context, data }): Promise<RecordedFiling> => {
@@ -109,17 +98,15 @@ export const recordDonationFiling = createServerFn({ method: "POST" })
         action: "donation_filing.record",
         metadata: {
           financialYear: fy.label,
-          preArnsGiven: data.preArns?.length ?? 0,
         },
         target: { type: "donation_filing" },
       },
-      () => recordFiling(fy, data.preArns, session.user.id),
+      () => recordFiling(fy, session.user.id),
       undefined,
       (result) => ({ id: result.filingId, type: "donation_filing" }),
       (result) => ({
         financialYear: fy.label,
         giftCount: result.giftCount,
-        preArnsGiven: data.preArns?.length ?? 0,
         rowCount: result.rowCount,
         sequence: result.sequence,
       })

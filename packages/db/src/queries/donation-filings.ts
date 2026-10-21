@@ -6,17 +6,7 @@ import {
   type FilingDrift,
   type FilingPlanRow,
 } from "@pi-dash/shared/donations-return";
-import {
-  and,
-  asc,
-  count,
-  eq,
-  inArray,
-  isNotNull,
-  max,
-  ne,
-  sql,
-} from "drizzle-orm";
+import { and, asc, count, eq, inArray, max, ne, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -126,24 +116,6 @@ export async function loadGiftFiling(
   return row ?? null;
 }
 
-/**
- * Pre-ARNs among `values` already on a row of a prepared or submitted
- * filing (discarding a filing clears its rows' Pre-ARNs).
- */
-export async function usedPreArns(
-  tx: FilingTx,
-  values: readonly string[]
-): Promise<Set<string>> {
-  if (values.length === 0) {
-    return new Set();
-  }
-  const rows = await tx
-    .select({ preArn: donationFilingRow.preArn })
-    .from(donationFilingRow)
-    .where(inArray(donationFilingRow.preArn, [...values]));
-  return new Set(rows.flatMap((row) => (row.preArn ? [row.preArn] : [])));
-}
-
 export interface NewFilingRow extends FilingPlanRow {
   idType: Exclude<PartyIdType, "none">;
 }
@@ -215,7 +187,6 @@ export async function insertFiling(tx: FilingTx, filing: NewFiling) {
         modeCode: row.modeCode,
         name: row.name,
         partyId: row.partyId,
-        preArn: row.preArn,
         srNo: row.srNo,
       },
     };
@@ -234,21 +205,8 @@ export async function insertFiling(tx: FilingTx, filing: NewFiling) {
     status: "prepared",
     totalPaise: rows.reduce((sum, row) => sum + row.value.amountPaise, 0),
   });
-  try {
-    for (const part of chunks(rows)) {
-      await tx.insert(donationFilingRow).values(part.map((row) => row.value));
-    }
-  } catch (error) {
-    const violation = constraintViolation(error);
-    if (violation?.constraint !== "donation_filing_row_pre_arn_uidx") {
-      throw error;
-    }
-    const preArn = rows.find(
-      (row) => row.value.preArn && violation.detail.includes(row.value.preArn)
-    )?.value.preArn;
-    throw new FilingError(
-      `The Pre-ARN ${preArn ?? "given"} was just used by another filing. Record this filing again with unused Pre-ARNs.`
-    );
+  for (const part of chunks(rows)) {
+    await tx.insert(donationFilingRow).values(part.map((row) => row.value));
   }
   const links = rows.flatMap((row) =>
     row.giftIds.map((contributionId) => ({
@@ -368,8 +326,7 @@ export async function undoFilingSubmission(filingId: string): Promise<void> {
 
 /**
  * Discards a filing that was never submitted: its gifts are free for the
- * next filing, and so are its Pre-ARNs (the portal counts them unconsumed);
- * its number stays used.
+ * next filing; its number stays used.
  */
 export async function discardFiling(
   filingId: string,
@@ -389,11 +346,6 @@ export async function discardFiling(
     await tx
       .delete(donationFilingGift)
       .where(eq(donationFilingGift.filingId, filingId));
-    // The portal never saw them, so they stay unconsumed there: free them.
-    await tx
-      .update(donationFilingRow)
-      .set({ preArn: null })
-      .where(eq(donationFilingRow.filingId, filingId));
     await tx
       .update(donationFiling)
       .set({ discardedAt: now, discardedBy: userId, status: "discarded" })
@@ -597,7 +549,6 @@ export interface FilingRowView {
   modeCode: string;
   name: string;
   partyId: string;
-  preArn: string | null;
   srNo: number;
 }
 
@@ -628,7 +579,6 @@ export async function loadFilingRows(
       modeCode: donationFilingRow.modeCode,
       name: donationFilingRow.name,
       partyId: donationFilingRow.partyId,
-      preArn: donationFilingRow.preArn,
       srNo: donationFilingRow.srNo,
     })
     .from(donationFilingRow)
@@ -669,7 +619,6 @@ export async function loadFilingRows(
     modeCode: row.modeCode,
     name: row.name,
     partyId: row.partyId,
-    preArn: row.preArn,
     srNo: row.srNo,
   }));
 }
@@ -713,7 +662,6 @@ export interface FilingMatchRow {
   idNumber: string | null;
   modeCode: string;
   name: string;
-  preArn: string | null;
 }
 
 export async function loadFilingMatchRows(
@@ -729,7 +677,6 @@ export async function loadFilingMatchRows(
       idNumberEncrypted: donationFilingRow.idNumberEncrypted,
       modeCode: donationFilingRow.modeCode,
       name: donationFilingRow.name,
-      preArn: donationFilingRow.preArn,
     })
     .from(donationFilingRow)
     .leftJoin(
@@ -762,7 +709,6 @@ export async function loadFilingMatchRows(
       idNumber,
       modeCode: row.modeCode,
       name: row.name,
-      preArn: row.preArn,
     };
   });
 }
@@ -774,8 +720,6 @@ export interface NewCertificate {
   fileSha256: string;
   id: string;
   matchedBy: CertificateMatch;
-  /** Stored unconfirmed, for finance to review. */
-  needsReview: boolean;
   rowId: string;
   /** The uploaded file's name, for messages; not stored. */
   sourceName: string;
@@ -784,8 +728,8 @@ export interface NewCertificate {
 /**
  * Stores matched certificates against a submitted filing, then runs
  * `storeFiles` (the R2 writes) before the rows commit, so a refused insert
- * writes no file. A certificate that needs no review is confirmed as
- * stored. An acknowledgement number already stored is reported as a
+ * writes no file. Every certificate waits for confirmation before email.
+ * An acknowledgement number already stored is reported as a
  * FilingError naming the file.
  */
 export async function insertCertificates(
@@ -808,10 +752,10 @@ export async function insertCertificates(
     try {
       for (const part of chunks(certificates)) {
         await tx.insert(donationCertificate).values(
-          part.map(({ needsReview, sourceName: _source, ...certificate }) => ({
+          part.map(({ sourceName: _source, ...certificate }) => ({
             ...certificate,
-            confirmedAt: needsReview ? null : now,
-            confirmedBy: needsReview ? null : userId,
+            confirmedAt: null,
+            confirmedBy: null,
             createdAt: now,
             createdBy: userId,
             filingId,
@@ -839,35 +783,15 @@ export async function insertCertificates(
   });
 }
 
-/**
- * What other filings already hold, so a certificate of another filing or
- * year is refused: their rows' Pre-ARNs and their certificates' numbers.
- */
+/** Certificate numbers held by other filings, so they cannot be assigned here. */
 export async function loadOtherFilingMarks(filingId: string): Promise<{
   acknowledgementNumbers: Set<string>;
-  preArns: Set<string>;
 }> {
-  const [preArns, acks] = await Promise.all([
-    db
-      .select({ preArn: donationFilingRow.preArn })
-      .from(donationFilingRow)
-      .where(
-        and(
-          ne(donationFilingRow.filingId, filingId),
-          isNotNull(donationFilingRow.preArn)
-        )
-      ),
-    db
-      .select({ ack: donationCertificate.acknowledgementNumber })
-      .from(donationCertificate)
-      .where(ne(donationCertificate.filingId, filingId)),
-  ]);
-  return {
-    acknowledgementNumbers: new Set(acks.map((row) => row.ack)),
-    preArns: new Set(
-      preArns.flatMap((row) => (row.preArn ? [row.preArn] : []))
-    ),
-  };
+  const acks = await db
+    .select({ ack: donationCertificate.acknowledgementNumber })
+    .from(donationCertificate)
+    .where(ne(donationCertificate.filingId, filingId));
+  return { acknowledgementNumbers: new Set(acks.map((row) => row.ack)) };
 }
 
 /** Locks a certificate of a submitted filing for a review decision. */

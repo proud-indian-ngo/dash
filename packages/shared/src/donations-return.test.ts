@@ -11,7 +11,6 @@ import {
   giftOutcomeLabel,
   MAX_FILING_ROWS,
   planFilingRows,
-  parsePreArnList,
   idNumberLooksValid,
   joinReturnAddress,
   missingDonorDetailsPartyIds,
@@ -493,7 +492,7 @@ describe("upload file", () => {
 
   it("fills every column in order", () => {
     const cells = returnFileCells(
-      planFilingRows(aggregateReturnRows([readyGift()]), ["PORTALPRE0001"]),
+      planFilingRows(aggregateReturnRows([readyGift()])),
       {
         sectionCode: "Section 80G",
         urn: "AAATP1234AF20214",
@@ -504,7 +503,7 @@ describe("upload file", () => {
     expect(cells.rows).toEqual([
       [
         "1",
-        "PORTALPRE0001",
+        "",
         "Permanent Account Number",
         "ABCDE1234F",
         "Section 80G",
@@ -519,52 +518,20 @@ describe("upload file", () => {
     ]);
   });
 
-  it("reads a pasted list of portal Pre-ARNs, refusing what can't be one", () => {
-    expect(
-      parsePreArnList(" pre0000000001\nPRE0000000002, PRE0000000001;\n\n")
-    ).toEqual({ invalid: [], values: ["PRE0000000001", "PRE0000000002"] });
-    // What a pasted portal table carries besides the numbers: serial
-    // numbers, status words, short or over-long values.
-    expect(
-      parsePreArnList(
-        "1 UNCONSUMED PRE0000000003 ABCDEFGHIJ PRE-000000001 AB12 A123456789012345678901"
-      )
-    ).toEqual({
-      invalid: [
-        "1",
-        "UNCONSUMED",
-        "ABCDEFGHIJ",
-        "PRE-000000001",
-        "AB12",
-        "A123456789012345678901",
-      ],
-      values: ["PRE0000000003"],
-    });
-  });
-
-  it("numbers a filing's rows and gives out Pre-ARNs in Sr. No. order, or none", () => {
+  it("numbers a filing's rows in upload order and enforces the row limit", () => {
     const rows = aggregateReturnRows([
       readyGift(),
       readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
     ]);
-    expect(
-      planFilingRows(rows, ["PRE0000000001", "PRE0000000002"]).map((row) => [
-        row.srNo,
-        row.preArn,
-        row.name,
-      ])
-    ).toEqual([
-      [1, "PRE0000000001", "Asha Rao"],
-      [2, "PRE0000000002", "Bina Shah"],
+    expect(planFilingRows(rows).map((row) => [row.srNo, row.name])).toEqual([
+      [1, "Asha Rao"],
+      [2, "Bina Shah"],
     ]);
-    expect(planFilingRows(rows, null).map((row) => row.preArn)).toEqual([
-      null,
-      null,
-    ]);
-    expect(() => planFilingRows(rows, ["PRE0000000001"])).toThrow(
-      "Fewer Pre-ARNs than rows"
-    );
-    expect(MAX_FILING_ROWS).toBe(25_000);
+    expect(() =>
+      planFilingRows(
+        Array.from({ length: MAX_FILING_ROWS + 1 }, () => rows[0]!)
+      )
+    ).toThrow("at most 25000 rows");
   });
 
   it("formats amounts in rupees with two decimals", () => {

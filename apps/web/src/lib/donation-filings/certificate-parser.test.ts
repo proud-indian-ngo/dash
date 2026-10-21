@@ -26,7 +26,6 @@ const row = (overrides: Partial<MatchRow>): MatchRow => ({
   idNumber: "AAAPE1234E",
   modeCode: ELECTRONIC,
   name: "Asha Rao",
-  preArn: "PORTALPRE0000001",
   ...overrides,
 });
 
@@ -37,7 +36,6 @@ const ROWS: MatchRow[] = [
     id: "r2",
     idNumber: "BBBPE5678F",
     name: "Bina Shah",
-    preArn: "PORTALPRE0000002",
   }),
   // The second donor again, by cash, for the same amount.
   row({
@@ -46,7 +44,6 @@ const ROWS: MatchRow[] = [
     idNumber: "BBBPE5678F",
     modeCode: "Cash",
     name: "Bina Shah",
-    preArn: "PORTALPRE0000003",
   }),
 ];
 
@@ -54,7 +51,6 @@ const filing = (overrides: Partial<FilingContext> = {}): FilingContext => ({
   acknowledgementNumber: "113000000000009",
   fiscalYear: "2026-27",
   otherAcknowledgementNumbers: new Set(),
-  otherPreArns: new Set(),
   ...overrides,
 });
 
@@ -67,7 +63,6 @@ const certificate = (
   donorName: "Asha Rao",
   idNumber: "AAAPE1234E",
   mode: ELECTRONIC,
-  preArn: "PORTALPRE0000001",
   ...overrides,
 });
 
@@ -100,7 +95,7 @@ describe("reading a certificate", () => {
     expect(fields.amountPaise).toBe(250_000);
     expect(fields.donationType).toBe("Specific grant");
     expect(fields.mode).toBe("Cash");
-    expect(fields.tokens.has("PORTALPRE0000001")).toBe(true);
+    expect(fields.donorName).toBe("asha rao");
   });
 
   it("never takes prose after the label for an acknowledgement number", () => {
@@ -130,40 +125,8 @@ describe("reading a certificate", () => {
 });
 
 describe("matching certificates to filing rows", () => {
-  it("matches by the portal Pre-ARN and keeps the certificate's own number", async () => {
-    expect(await decide([certificate()])).toEqual([
-      {
-        acknowledgementNumber: "114000000000001",
-        kind: "matched",
-        matchedBy: "pre_arn",
-        needsReview: false,
-        rowId: "r1",
-      },
-    ]);
-  });
-
-  it("takes the Pre-ARN as the number when the certificate reuses it unlabelled", async () => {
-    const fields = await fieldsOf(certificate());
-    fields.acknowledgementNumbers = [];
-    expect(
-      matchCertificates(
-        [{ fields, name: "a.pdf", sha256: "x" }],
-        ROWS,
-        filing({ acknowledgementNumber: null })
-      )
-    ).toEqual([
-      {
-        acknowledgementNumber: "PORTALPRE0000001",
-        kind: "matched",
-        matchedBy: "pre_arn",
-        needsReview: false,
-        rowId: "r1",
-      },
-    ]);
-  });
-
   it("proposes a details match (for review) from the ID, amount and name", async () => {
-    expect(await decide([certificate({ preArn: undefined })])).toEqual([
+    expect(await decide([certificate()])).toEqual([
       {
         acknowledgementNumber: "114000000000001",
         kind: "matched",
@@ -181,7 +144,6 @@ describe("matching certificates to filing rows", () => {
       id: "short",
       idNumber: "56003",
       name: "Ravi Kumar",
-      preArn: null,
     });
     const value = certificate({
       address: "4 Lake Road, Bengaluru, 560034",
@@ -189,13 +151,12 @@ describe("matching certificates to filing rows", () => {
       donorName: "Ravi Kumar",
       idLabel: false,
       idNumber: "ZZZPZ9999Z",
-      preArn: undefined,
     });
     expect(await decide([value], [shortRow])).toEqual([
       { kind: "unmatched", reason: "no_row" },
     ]);
     // Even printed as its own token, an ID under eight characters is too
-    // short to match without a Pre-ARN.
+    // short for automatic matching.
     expect(await decide([{ ...value, idNumber: "56003" }], [shortRow])).toEqual(
       [{ kind: "unmatched", reason: "no_row" }]
     );
@@ -209,11 +170,9 @@ describe("matching certificates to filing rows", () => {
   });
 
   it("needs the donor's name and the whole amount, not digits in a date", async () => {
-    expect(
-      await decide([
-        certificate({ donorName: "Someone Else", preArn: undefined }),
-      ])
-    ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
+    expect(await decide([certificate({ donorName: "Someone Else" })])).toEqual([
+      { kind: "unmatched", reason: "no_row" },
+    ]);
     // ₹2,026 against a certificate printing only "Tax year: 2026-27".
     const fields = readCertificateFields(
       "Name of the donor: Asha Rao Unique Identification Number of the donor: AAAPE1234E Tax year: 2026-27 Acknowledgement Number: 114000000000001"
@@ -221,7 +180,7 @@ describe("matching certificates to filing rows", () => {
     expect(
       matchCertificates(
         [{ fields, name: "a.pdf", sha256: "x" }],
-        [row({ amountPaise: 202_600, preArn: null })],
+        [row({ amountPaise: 202_600 })],
         filing()
       )
     ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
@@ -235,7 +194,6 @@ describe("matching certificates to filing rows", () => {
           donorName: "Bina Shah",
           idNumber: "BBBPE5678F",
           mode: "Cash",
-          preArn: undefined,
         }),
       ])
     ).toEqual([
@@ -264,7 +222,7 @@ describe("matching certificates to filing rows", () => {
   });
 
   it("needs a number of its own when matched by details", async () => {
-    const fields = await fieldsOf(certificate({ preArn: undefined }));
+    const fields = await fieldsOf(certificate());
     fields.acknowledgementNumbers = ["113000000000009"];
     expect(
       matchCertificates(
@@ -283,7 +241,6 @@ describe("matching certificates to filing rows", () => {
         amount: "1,000.00",
         donorName: "Bina Shah",
         idNumber: "BBBPE5678F",
-        preArn: "PORTALPRE0000002",
       }),
     ]);
     expect(decisions.map((decision) => decision.kind)).toEqual([
@@ -327,26 +284,51 @@ describe("matching certificates to filing rows", () => {
     ).toEqual([{ kind: "unmatched", reason: "row_has_certificate" }]);
   });
 
-  it("sends a Pre-ARN match to review when the labelled ID differs from the row's", async () => {
-    expect(await decide([certificate({ idNumber: "ZZZPZ9999Z" })])).toEqual([
-      {
-        acknowledgementNumber: "114000000000001",
-        kind: "matched",
-        matchedBy: "pre_arn",
-        needsReview: true,
-        rowId: "r1",
-      },
-    ]);
+  it("refuses a different labelled ID and missing labels", async () => {
+    for (const value of [
+      certificate({ idNumber: "ZZZPZ9999Z" }),
+      certificate({ idLabel: false }),
+    ]) {
+      expect(await decide([value])).toEqual([
+        { kind: "unmatched", reason: "no_row" },
+      ]);
+    }
+  });
+
+  it("requires labelled amount and donor name, and a complete name match", async () => {
+    for (const raw of [
+      "Asha Rao Unique Identification Number: AAAPE1234E Amount: 2500.00 Acknowledgement Number: 114000000000001",
+      "Name of the donor: Asha Rao Unique Identification Number: AAAPE1234E 2500.00 Acknowledgement Number: 114000000000001",
+      "Name of the donor: Asha Rao Junior Unique Identification Number: AAAPE1234E Amount: 2500.00 Acknowledgement Number: 114000000000001",
+    ]) {
+      expect(
+        matchCertificates(
+          [{ fields: readCertificateFields(raw), name: "a.pdf", sha256: "x" }],
+          ROWS,
+          filing()
+        )
+      ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
+    }
+  });
+
+  it("requires a labelled certificate number even when an unlabelled number is printed", async () => {
+    const raw = await extractPdfText(syntheticCertificatePdf(certificate()));
+    const fields = readCertificateFields(
+      raw.replace("Acknowledgement Number: ", "")
+    );
+    expect(
+      matchCertificates(
+        [{ fields, name: "a.pdf", sha256: "x" }],
+        ROWS,
+        filing()
+      )
+    ).toEqual([{ kind: "unmatched", reason: "no_acknowledgement" }]);
+    expect(assessAssignedCertificate(fields, filing())).toEqual({
+      reason: "no_acknowledgement",
+    });
   });
 
   it("refuses a certificate of another filing or year", async () => {
-    expect(
-      await decide(
-        [certificate({ preArn: "PORTALPRE0000099" })],
-        ROWS,
-        filing({ otherPreArns: new Set(["PORTALPRE0000099"]) })
-      )
-    ).toEqual([{ kind: "unmatched", reason: "other_filing" }]);
     expect(
       await decide(
         [certificate()],
@@ -360,13 +342,19 @@ describe("matching certificates to filing rows", () => {
   });
 
   it("lets finance assign a certificate by hand, still checked", async () => {
-    const fields = await fieldsOf(certificate({ preArn: undefined }));
+    const fields = await fieldsOf(certificate());
     expect(assessAssignedCertificate(fields, filing())).toEqual({
       acknowledgementNumber: "114000000000001",
     });
     expect(
       assessAssignedCertificate(fields, filing({ fiscalYear: "2025-26" }))
     ).toEqual({ reason: "other_year" });
+    expect(
+      assessAssignedCertificate(
+        fields,
+        filing({ otherAcknowledgementNumbers: new Set(["114000000000001"]) })
+      )
+    ).toEqual({ reason: "acknowledgement_in_use" });
     fields.acknowledgementNumbers = [];
     expect(assessAssignedCertificate(fields, filing())).toEqual({
       reason: "no_acknowledgement",

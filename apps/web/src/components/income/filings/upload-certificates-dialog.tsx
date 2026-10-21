@@ -175,9 +175,9 @@ export function UploadCertificatesDialog({
             Upload certificates for filing {filing?.sequence}
           </DialogTitle>
           <DialogDescription>
-            Each PDF is matched to its row by Pre-ARN. One matched only by the
-            donor's ID number, amount and name waits for you to confirm it.
-            Nothing is emailed yet.
+            Each PDF is matched by the labelled donor ID number, amount and
+            name. Every match waits for you to confirm it. Nothing is emailed
+            yet.
           </DialogDescription>
         </DialogHeader>
         {filing && !result ? (
@@ -198,23 +198,11 @@ export function UploadCertificatesDialog({
               data-testid="certificate-upload-result"
             >
               <ResultList
-                items={result.matched
-                  .filter((item) => !item.needsReview)
-                  .map((item) => ({
-                    detail: `${rowName(item.rowId)} · by Pre-ARN · ${item.acknowledgementNumber}`,
-                    key: item.fileName,
-                    name: item.fileName,
-                  }))}
-                title="Matched"
-              />
-              <ResultList
-                items={result.matched
-                  .filter((item) => item.needsReview)
-                  .map((item) => ({
-                    detail: `${rowName(item.rowId)} · ${item.matchedBy === "pre_arn" ? "by Pre-ARN, but its ID differs from the row's" : "by ID number, amount and name"} · ${item.acknowledgementNumber}. Confirm it on the row before it can be emailed.`,
-                    key: item.fileName,
-                    name: item.fileName,
-                  }))}
+                items={result.matched.map((item) => ({
+                  detail: `${rowName(item.rowId)} · by ID number, amount and name · ${item.acknowledgementNumber}. Confirm it on the row before it can be emailed.`,
+                  key: item.fileName,
+                  name: item.fileName,
+                }))}
                 title="Needs review"
               />
               <ResultList

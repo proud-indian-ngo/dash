@@ -3920,8 +3920,6 @@ async function seedDonationFilings(adminId: string): Promise<void> {
         modeCode: "Electronic modes including account payee cheque/draft",
         name: PARTIES[0]?.displayName ?? "Seed donor",
         partyId: DONOR_ID,
-        // A fake portal-issued Pre-ARN.
-        preArn: "SEEDPRE000000001",
         srNo: 1,
       })
       .onConflictDoNothing();
@@ -3947,7 +3945,7 @@ async function seedDonationFilings(adminId: string): Promise<void> {
         fileSha256: "1".repeat(64),
         filingId: SEED_FILING_ID,
         id: "01930000-0000-7000-8000-0000000009f3",
-        matchedBy: "pre_arn",
+        matchedBy: "details",
         rowId: SEED_FILING_ROW_ID,
       })
       .onConflictDoNothing();
