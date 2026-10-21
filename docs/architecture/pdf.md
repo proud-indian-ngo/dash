@@ -42,6 +42,7 @@ Rendered on demand from the frozen snapshot; nothing is stored. Snapshot-to-prop
 
 - At the input maximums it spills to a second page; notes and signature move together, and a voided receipt repeats a VOID marker on every page.
 - A run over 40 characters with no spaces may break mid-word, and react-pdf draws a hyphen there.
+- The verification QR sits left of the notes, so it adds no height. Its modules shrink as the link grows: the production link must stay at QR version 6 (about 0.5 mm modules), which a unit test holds.
 
 ## Cash voucher
 

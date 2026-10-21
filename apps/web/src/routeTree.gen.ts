@@ -103,6 +103,7 @@ import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/we
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
 import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$year/schedule'
+import { Route as VerifyRReceiptIdRouteImport } from './routes/verify/r.$receiptId'
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
 import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
@@ -644,6 +645,11 @@ const KalakritiYearScheduleRoute = KalakritiYearScheduleRouteImport.update({
   path: '/kalakriti/$year/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerifyRReceiptIdRoute = VerifyRReceiptIdRouteImport.update({
+  id: '/verify/r/$receiptId',
+  path: '/verify/r/$receiptId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppFinanceBooksIndexRoute = AppFinanceBooksIndexRouteImport.update({
   id: '/finance/books/',
   path: '/finance/books/',
@@ -1097,6 +1103,7 @@ export interface FileRoutesByFullPath {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/donors/': typeof AppDonorsIndexRoute
   '/events/': typeof AppEventsIndexRoute
   '/governance/': typeof AppGovernanceIndexRoute
@@ -1246,6 +1253,7 @@ export interface FileRoutesByTo {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/donors': typeof AppDonorsIndexRoute
   '/events': typeof AppEventsIndexRoute
   '/governance': typeof AppGovernanceIndexRoute
@@ -1407,6 +1415,7 @@ export interface FileRoutesById {
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
   '/kalakriti/$year/schedule': typeof KalakritiYearScheduleRoute
+  '/verify/r/$receiptId': typeof VerifyRReceiptIdRoute
   '/_app/donors/': typeof AppDonorsIndexRoute
   '/_app/events/': typeof AppEventsIndexRoute
   '/_app/governance/': typeof AppGovernanceIndexRoute
@@ -1570,6 +1579,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/donors/'
     | '/events/'
     | '/governance/'
@@ -1719,6 +1729,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/donors'
     | '/events'
     | '/governance'
@@ -1879,6 +1890,7 @@ export interface FileRouteTypes {
     | '/api/zero/mutate'
     | '/api/zero/query'
     | '/kalakriti/$year/schedule'
+    | '/verify/r/$receiptId'
     | '/_app/donors/'
     | '/_app/events/'
     | '/_app/governance/'
@@ -1986,6 +1998,7 @@ export interface RootRouteChildren {
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
   KalakritiYearScheduleRoute: typeof KalakritiYearScheduleRoute
+  VerifyRReceiptIdRoute: typeof VerifyRReceiptIdRoute
   ApiJobsIndexRoute: typeof ApiJobsIndexRoute
   ApiImmichOriginalIdRoute: typeof ApiImmichOriginalIdRoute
   ApiImmichThumbnailIdRoute: typeof ApiImmichThumbnailIdRoute
@@ -2666,6 +2679,13 @@ declare module '@tanstack/react-router' {
       path: '/kalakriti/$year/schedule'
       fullPath: '/kalakriti/$year/schedule'
       preLoaderRoute: typeof KalakritiYearScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify/r/$receiptId': {
+      id: '/verify/r/$receiptId'
+      path: '/verify/r/$receiptId'
+      fullPath: '/verify/r/$receiptId'
+      preLoaderRoute: typeof VerifyRReceiptIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/finance/books/': {
@@ -3604,6 +3624,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,
   KalakritiYearScheduleRoute: KalakritiYearScheduleRoute,
+  VerifyRReceiptIdRoute: VerifyRReceiptIdRoute,
   ApiJobsIndexRoute: ApiJobsIndexRoute,
   ApiImmichOriginalIdRoute: ApiImmichOriginalIdRoute,
   ApiImmichThumbnailIdRoute: ApiImmichThumbnailIdRoute,

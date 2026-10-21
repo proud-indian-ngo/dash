@@ -8,6 +8,8 @@ import {
 } from "@pi-dash/pdf/generate-donation-receipt.tsx";
 import { receiptFileName } from "@pi-dash/shared/receipts";
 
+import { receiptVerifyUrl } from "./receipt-verification";
+
 /**
  * Renders a receipt's PDF from its frozen snapshot, for the download route
  * and the email job alike. Server only: the result carries the donor's full
@@ -15,6 +17,7 @@ import { receiptFileName } from "@pi-dash/shared/receipts";
  */
 
 export function receiptPdfProps(
+  receiptId: string,
   document: ReceiptDocument
 ): DonationReceiptProps {
   return {
@@ -30,6 +33,7 @@ export function receiptPdfProps(
     org: document.org,
     registration: document.registration,
     signatory: document.signatory,
+    verifyUrl: receiptVerifyUrl(receiptId),
     voided:
       document.voidedAt && document.voidReason
         ? { reason: document.voidReason }
@@ -52,6 +56,8 @@ export async function renderReceiptPdf(
   if (!document) {
     return null;
   }
-  const pdf = await generateDonationReceiptPdf(receiptPdfProps(document));
+  const pdf = await generateDonationReceiptPdf(
+    receiptPdfProps(receiptId, document)
+  );
   return { document, filename: receiptFileName(document.number), pdf };
 }

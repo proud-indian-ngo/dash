@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
@@ -71,6 +71,33 @@ async function clearDetailsAddress(): Promise<void> {
   if (cleared !== 1) {
     throw new Error("The receipt details donor isn't seeded");
   }
+}
+
+/** The signed path a receipt's QR code opens. */
+async function verifyPath(receiptId: string): Promise<string> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "verify-path",
+      receiptId,
+    ],
+    { env: process.env }
+  );
+  return (JSON.parse(stdout.trim()) as { path: string }).path;
+}
+
+/** Opens a verification link signed out, as someone scanning a printed receipt would. */
+async function openSignedOut(
+  browser: Browser,
+  baseURL: string | undefined,
+  link: string
+): Promise<Page> {
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  await page.goto(link);
+  return page;
 }
 
 /** The table row of one of the receipt donor's gifts, by its reference. */
@@ -157,7 +184,9 @@ test.describe("Income: donation receipts (finance)", () => {
     );
   });
 
-  test("issues, downloads and voids a receipt for a direct gift", async ({
+  test("issues, downloads, verifies and voids a receipt for a direct gift", async ({
+    baseURL,
+    browser,
     page,
   }, testInfo) => {
     test.slow();
@@ -245,6 +274,30 @@ test.describe("Income: donation receipts (finance)", () => {
     expect(body.startsWith("%PDF-")).toBe(true);
     expect(body).toContain(`(${number})`);
 
+    // The QR code's link confirms the receipt to anyone, with the donor masked.
+    const receiptId = new URL(href ?? "", page.url()).pathname
+      .split("/")
+      .at(-1);
+    const link = await verifyPath(receiptId ?? "");
+    const verifier = await openSignedOut(browser, baseURL, link);
+    await expect(
+      verifier.getByRole("heading", { name: "Genuine receipt" })
+    ).toBeVisible({ timeout: 15_000 });
+    const details = verifier.getByRole("region", { name: "Receipt details" });
+    await expect(details).toContainText(number);
+    await expect(details).toContainText("E••• R••• D•••");
+    await expect(details).not.toContainText(RECEIPT_DONOR);
+    await expect(details).toContainText("Eligible");
+    // A link with another signature verifies nothing.
+    const tampered = await verifier.goto(
+      `${link.slice(0, -1)}${link.endsWith("A") ? "B" : "A"}`
+    );
+    expect(tampered?.status()).toBe(404);
+    await expect(
+      verifier.getByRole("heading", { name: "We couldn't verify this receipt" })
+    ).toBeVisible();
+    await expect(verifier.getByText(number)).toHaveCount(0);
+
     // The table shows the number, still Received, and the Issued filter finds it.
     await page.keyboard.press("Escape");
     const issued = await giftRow(page, UPI_REFERENCE, "issued");
@@ -299,6 +352,16 @@ test.describe("Income: donation receipts (finance)", () => {
     );
     await page.keyboard.press("Escape");
     await expect(row.getByTestId("receipt-status")).toHaveText("Voided");
+
+    // The same link now says the receipt was cancelled.
+    await verifier.goto(link);
+    await expect(
+      verifier.getByRole("heading", { name: "Cancelled receipt" })
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      verifier.getByRole("region", { name: "Receipt details" })
+    ).toContainText(number);
+    await verifier.context().close();
 
     // The table shows it Ready to issue again.
     const again = await giftRow(page, UPI_REFERENCE);

@@ -854,10 +854,8 @@ export async function voidReceiptIn(
 
 // ── Reading a receipt ───────────────────────────────────────────────────────
 
-/** The full document for the PDF, with the decrypted ID number. Server only. */
-export async function loadReceiptDocument(
-  receiptId: string
-): Promise<ReceiptDocument | null> {
+/** A receipt with its frozen snapshot, or undefined when it doesn't exist. */
+async function selectReceiptWithSnapshot(receiptId: string) {
   const [row] = await db
     .select({
       document: contributionReceiptSnapshot.document,
@@ -874,12 +872,24 @@ export async function loadReceiptDocument(
     )
     .where(eq(contributionReceipt.id, receiptId))
     .limit(1);
+  return row
+    ? {
+        ...row,
+        snapshot: row.document as unknown as ReceiptDocumentSnapshot,
+      }
+    : undefined;
+}
+
+/** The full document for the PDF, with the decrypted ID number. Server only. */
+export async function loadReceiptDocument(
+  receiptId: string
+): Promise<ReceiptDocument | null> {
+  const row = await selectReceiptWithSnapshot(receiptId);
   if (!row) {
     return null;
   }
-  const snapshot = row.document as unknown as ReceiptDocumentSnapshot;
   return {
-    ...snapshot,
+    ...row.snapshot,
     donorIdNumber: row.idNumberEncrypted
       ? decryptSecret(row.idNumberEncrypted, snapshotIdContext(receiptId))
       : null,
@@ -887,6 +897,40 @@ export async function loadReceiptDocument(
     number: row.number,
     voidedAt: row.voidedAt,
     voidReason: row.voidReason,
+  };
+}
+
+/** What the public verification page may show; never the donor's ID or address. */
+export interface ReceiptVerificationFacts {
+  amountPaise: number;
+  channel: ContributionChannel;
+  donorName: string;
+  issuedOn: string;
+  number: string;
+  orgPan: string;
+  urn: string;
+  voidedAt: Date | null;
+  with80G: boolean;
+}
+
+/** A receipt's facts from its frozen snapshot, so they match the PDF; null when it doesn't exist. */
+export async function loadReceiptVerificationFacts(
+  receiptId: string
+): Promise<ReceiptVerificationFacts | null> {
+  const row = await selectReceiptWithSnapshot(receiptId);
+  if (!row) {
+    return null;
+  }
+  return {
+    amountPaise: row.snapshot.gift.amountPaise,
+    channel: row.snapshot.gift.channel,
+    donorName: row.snapshot.donor.name,
+    issuedOn: row.issuedOn,
+    number: row.number,
+    orgPan: row.snapshot.org.pan,
+    urn: row.snapshot.registration.urn,
+    voidedAt: row.voidedAt,
+    with80G: row.snapshot.with80G,
   };
 }
 

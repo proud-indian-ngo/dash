@@ -10,6 +10,7 @@ import {
   type ReceiptGiftFacts,
   blockedReceiptColumnValue,
   giftReceiptBlocks,
+  maskDonorName,
   RECEIPT_COLUMN_LABELS,
   receiptAssessmentLabel,
   receiptBlocksTitle,
@@ -346,5 +347,19 @@ describe("receipt settings", () => {
     expect(
       parseReceiptSettings(JSON.stringify({ ...settings, signatoryName: " " }))
     ).toBeNull();
+  });
+});
+
+describe("maskDonorName", () => {
+  it("keeps each word's first letter and hides its length", () => {
+    expect(maskDonorName("  Test   Donor ")).toBe("T••• D•••");
+    expect(maskDonorName("Ā Śarmā")).toBe("Ā••• Ś•••");
+    expect(maskDonorName("Donor")).toBe("D•••");
+  });
+
+  it("starts each word at its first letter or digit and drops bare symbols", () => {
+    expect(maskDonorName("(HUF) Sharma & Sons")).toBe("H••• S••• S•••");
+    expect(maskDonorName("M/s 3M India")).toBe("M••• 3••• I•••");
+    expect(maskDonorName("   ")).toBe("");
   });
 });

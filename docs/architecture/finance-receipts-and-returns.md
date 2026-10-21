@@ -14,6 +14,8 @@ Rules start in `packages/shared/src/receipts.ts`.
 - Eligibility: direct gift on or after the start, `received`, no refund, INR, not a platform donor, donor with name and address with PIN. The 80G line (needing a valid ID, printed in full) is left out when the gift is excluded, the donor opted out, or cash is above ₹2,000; the receipt then says no deduction certificate is issued. The trust's particulars and 80G registration must be set first.
 - `donors.receipt` (finance admins and super admins) issues, voids with a reason and emails. Issuing sets the gift `receipted`; voiding returns it to `received`. Reading also needs an income permission. Every fetch of the PDF, including opening it in the viewer, is audited as a download because it carries the full ID.
 - The PDF is rendered on demand, never stored. Email is manual only, through a job with an idempotency key.
+- Every receipt carries a QR code that opens a public page saying whether Proud Indian issued it and whether it was voided. The page shows what a forger would change (amount, mode, the 80G line, the trust's PAN and URN) and the donor only as initials, never the ID or address, so a leaked link shows little. Refunds aren't shown: only gateway gifts are refunded, and those are never receipted here.
+- The link is an HMAC of the receipt ID under a key derived from `DATA_ENCRYPTION_KEY`, on the `APP_URL` origin. Both are printed on paper for good: the key never changes, and the origin must keep serving or redirecting `/verify/r/*`. A bad signature reads as an unknown receipt. The PDF is not digitally signed, because a printed copy loses the signature and a self-signed one shows as untrusted; the QR survives printing.
 - Receipts have no ledger effect.
 
 ## Donations return (Form 113/114)

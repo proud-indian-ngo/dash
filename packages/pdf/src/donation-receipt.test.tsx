@@ -12,6 +12,7 @@ import {
   type DonationReceiptProps,
   generateDonationReceiptPdf,
 } from "./generate-donation-receipt";
+import { pdfWords } from "./pdf-text.test-helper";
 
 /** Repeats a phrase to exactly `length` characters. */
 function textOf(length: number, phrase: string): string {
@@ -72,6 +73,8 @@ const sampleReceipt: DonationReceiptProps = {
     urnIssuedOn: "2025-01-01",
   },
   signatory: { designation: "Treasurer", name: "Test Signatory" },
+  verifyUrl:
+    "https://dash.example.org/verify/r/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b?s=ABEiM0RVZneImaq7zN3u_w",
   voided: null,
   with80G: true,
 };
@@ -91,6 +94,16 @@ describe("donation receipt PDF", () => {
     const first = await generateDonationReceiptPdf(sampleReceipt);
     const second = await generateDonationReceiptPdf(sampleReceipt);
     expect(second.equals(first)).toBe(true);
+  });
+
+  it("prints the verification QR code for the receipt's link", async () => {
+    const pdf = await generateDonationReceiptPdf(sampleReceipt);
+    expect((await pdfWords(pdf)).join(" ")).toContain("Scan to verify");
+    const other = await generateDonationReceiptPdf({
+      ...sampleReceipt,
+      verifyUrl: sampleReceipt.verifyUrl.replace("s=AB", "s=BA"),
+    });
+    expect(other.equals(pdf)).toBe(false);
   });
 
   it("embeds the product fonts", async () => {

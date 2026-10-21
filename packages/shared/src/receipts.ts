@@ -100,6 +100,22 @@ export function receiptFileName(number: string): string {
   return `${number.replace(/[/\\]/g, "-")}.pdf`;
 }
 
+/**
+ * A donor's name as the public verification page shows it: each word's first
+ * letter or digit and three dots ("Test Donor" as "T••• D•••"). Enough to
+ * match a paper copy; the dots don't give away how long each word is. Words
+ * with no letter or digit, such as "&", are left out.
+ */
+export function maskDonorName(name: string): string {
+  return name
+    .split(/\s+/)
+    .flatMap((word) => {
+      const first = word.match(/[\p{L}\p{N}]/u)?.[0];
+      return first ? [`${first}•••`] : [];
+    })
+    .join(" ");
+}
+
 // ── Wording (founder approved) ──────────────────────────────────────────────
 
 /**
