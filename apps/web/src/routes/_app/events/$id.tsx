@@ -7,7 +7,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { RecordNotFound } from "@/components/shared/not-found-state";
-import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
+import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import { EventDetail } from "@/components/teams/events/event-detail";
 import type { EventRow } from "@/components/teams/events/events-table";
 import { applyOccurrenceDate } from "@/components/teams/events/events-table-helpers";
@@ -280,7 +280,7 @@ function EventDetailRouteComponent() {
   if (!event && isAwaitingResult(eventStatus)) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <DetailPageSkeleton />
+        <RecordDetailSkeleton />
       </div>
     );
   }

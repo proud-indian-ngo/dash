@@ -9,7 +9,6 @@ import {
   buttonVariants,
 } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
@@ -40,6 +39,7 @@ import { ResolutionStatusBadge } from "@/components/governance/resolution-status
 import { effectText } from "@/components/governance/resolution-text";
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -128,7 +128,7 @@ function CircularPage() {
             This circular doesn't exist, or it wasn't sent to you.
           </p>
         ) : (
-          <Skeleton className="h-40 w-full" />
+          <RecordDetailSkeleton />
         )}
       </div>
     );

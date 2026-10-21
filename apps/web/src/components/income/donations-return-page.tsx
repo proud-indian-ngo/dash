@@ -62,6 +62,7 @@ import {
 import { formatReceivedOn } from "@/components/income/income-date";
 import type { ContributionRow } from "@/components/income/income-types";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { StatsSkeleton } from "@/components/shared/page-skeleton";
 import { StatsCards, type StatItem } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
@@ -484,11 +485,27 @@ export function DonationsReturnPage() {
         ) : null}
 
         {state.kind === "loading" ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-8 w-full max-w-xl" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
+          <>
+            <StatsSkeleton />
+            <div className="flex flex-col gap-2 rounded-lg border p-4">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-2 w-full" />
+            </div>
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2].map((card) => (
+                <div
+                  className="flex items-start gap-3 rounded-lg border px-4 py-3"
+                  key={card}
+                >
+                  <Skeleton className="size-5 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-56" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : null}
 
         {data && summary ? (

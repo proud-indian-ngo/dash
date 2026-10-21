@@ -38,7 +38,7 @@ mock.module("@tanstack/react-router", () => ({
   useNavigate: () => () => undefined,
 }));
 mock.module("@/components/shared/page-skeleton", () => ({
-  DetailPageSkeleton: () => <span>Loading request</span>,
+  RecordDetailSkeleton: () => <span>Loading request</span>,
 }));
 mock.module("@/components/reimbursements/reimbursement-detail", () => ({
   ReimbursementDetail: ({ request }: { request: { title: string } }) => (

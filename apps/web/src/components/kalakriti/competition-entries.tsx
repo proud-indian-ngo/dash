@@ -32,7 +32,10 @@ import { ScanDialog } from "@/components/kalakriti/scan-dialog";
 import { useResultSnapshot } from "@/components/kalakriti/use-result-snapshot";
 import { useTransportStatusSnapshot } from "@/components/kalakriti/use-transport-status-snapshot";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import type { KalakritiEditionAccess } from "@/functions/kalakriti-access";
 import { getKalakritiNextSlots } from "@/functions/kalakriti-performance-order";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
@@ -239,7 +242,12 @@ export function CompetitionEntries({
     !session &&
     (isAwaitingResult(sessionsResult) || entriesResult.type !== "complete")
   )
-    return <TableSkeleton />;
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeaderSkeleton />
+        <TableSkeleton />
+      </div>
+    );
   const participants = [
     ...new Map(
       sessionEntries.flatMap((entry) =>

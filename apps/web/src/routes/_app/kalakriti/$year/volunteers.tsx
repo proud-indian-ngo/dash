@@ -38,7 +38,11 @@ import {
   VolunteersTable,
 } from "@/components/kalakriti/volunteers-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import {
   getKalakritiRosterUserMetadata,
   type KalakritiRosterUserMetadata,
@@ -485,7 +489,13 @@ function KalakritiVolunteersPage() {
   }
 
   if (metadataState === "loading" && rosterResult.type !== "error") {
-    return <TableSkeleton />;
+    return (
+      <div aria-busy="true" className="space-y-4">
+        <PageHeaderSkeleton />
+        <StatsSkeleton count={2} />
+        <TableSkeleton />
+      </div>
+    );
   }
 
   return (

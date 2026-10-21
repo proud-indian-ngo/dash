@@ -56,7 +56,10 @@ import { Loader } from "@/components/loader";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import { PendingDialog } from "@/components/shared/pending-dialog";
 import {
   Sheet,
@@ -599,7 +602,14 @@ function IncomeRouteComponent() {
             className="mt-4 grid gap-6 *:min-w-0"
             value="settlements"
           >
-            <Suspense fallback={<TableSkeleton />}>
+            <Suspense
+              fallback={
+                <>
+                  <StatsSkeleton />
+                  <TableSkeleton />
+                </>
+              }
+            >
               <SettlementsTab />
             </Suspense>
           </TabsContent>

@@ -39,6 +39,7 @@ import { lazy, Suspense, useState } from "react";
 import { AccountsRail } from "@/components/books/accounts-rail";
 import { auditedDriftCount } from "@/components/books/audited-lines";
 import { BalanceSummaryPanel } from "@/components/books/balance-summary-tab";
+import { BooksSkeleton } from "@/components/books/books-skeleton";
 import {
   CaWorkbookLabel,
   caWorkbookBlocker,
@@ -151,12 +152,7 @@ function BooksPage() {
   const accounts = booksAccounts(books);
 
   if (books.cashLoading) {
-    return (
-      <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <PageHeader title="Books" />
-        <TableSkeleton />
-      </div>
-    );
+    return <BooksSkeleton />;
   }
   if (!year) {
     return (

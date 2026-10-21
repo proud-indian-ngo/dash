@@ -10,7 +10,7 @@ import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-d
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
+import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { epochToLocalDate } from "@/lib/local-date";
@@ -101,7 +101,7 @@ function ReimbursementDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <DetailPageSkeleton />
+        <RecordDetailSkeleton />
       </div>
     );
   }

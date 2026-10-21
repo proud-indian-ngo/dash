@@ -40,7 +40,7 @@ import {
 } from "@/components/books/use-books";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import { SectionListSkeleton } from "@/components/shared/page-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { assertAnyPermission } from "@/lib/route-guards";
@@ -155,7 +155,7 @@ function AuditedFiguresPage() {
     return (
       <div className={CONTAINER}>
         <PageHeader title="Audited figures" />
-        <TableSkeleton />
+        <SectionListSkeleton className="mt-6 max-w-4xl" sections={3} />
       </div>
     );
   }

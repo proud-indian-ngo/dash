@@ -37,7 +37,10 @@ import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
-import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -172,7 +175,10 @@ function DeclarationsPage() {
   if (initialLoading) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <DetailPageSkeleton />
+        <div className="space-y-6">
+          <PageHeaderSkeleton />
+          <TableSkeleton />
+        </div>
       </div>
     );
   }

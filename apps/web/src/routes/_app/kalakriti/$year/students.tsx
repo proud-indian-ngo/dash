@@ -21,7 +21,11 @@ import {
 } from "@/components/kalakriti/student-form-dialog";
 import { StudentTable } from "@/components/kalakriti/student-table";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   createDashboardFilterQuery,
@@ -312,11 +316,9 @@ function KalakritiStudentsPage() {
       (centersResult.type !== "complete" || linkedCenterAvailable))
   )
     return (
-      <div
-        aria-label="Loading Students"
-        className="flex min-h-48 items-center justify-center"
-        role="status"
-      >
+      <div aria-busy="true" className="space-y-6">
+        <PageHeaderSkeleton />
+        <StatsSkeleton count={3} />
         <TableSkeleton />
       </div>
     );

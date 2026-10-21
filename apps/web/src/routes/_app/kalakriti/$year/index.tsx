@@ -317,12 +317,23 @@ function KalakritiEditionOverview() {
           </AlertAction>
         </Alert>
       ) : (
-        <div
-          aria-label="Loading dashboard"
-          className="grid gap-4 sm:grid-cols-2"
-        >
-          <Skeleton className="h-40" />
-          <Skeleton className="h-40" />
+        <div aria-label="Loading dashboard" className="flex flex-col gap-5">
+          <div className="space-y-4 rounded-xl border p-4">
+            <Skeleton className="h-5 w-48" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((metric) => (
+                <div className="space-y-2" key={metric}>
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-6 w-12" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((card) => (
+              <Skeleton className="h-32" key={card} />
+            ))}
+          </div>
         </div>
       )}
       {dashboard ? (

@@ -7,7 +7,6 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Label } from "@pi-dash/design-system/components/ui/label";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
@@ -55,6 +54,7 @@ import {
 import { SegmentedChoice } from "@/components/governance/segmented-choice";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
 import { markMeetingHeldFn, sendMeetingNoticeFn } from "@/functions/meetings";
 import { useRecordTitle } from "@/hooks/use-record-title";
@@ -120,7 +120,7 @@ function MeetingPage() {
             This meeting doesn't exist, or its notice didn't go to you.
           </p>
         ) : (
-          <Skeleton className="h-40 w-full" />
+          <DetailPageSkeleton />
         )}
       </div>
     );

@@ -17,6 +17,7 @@ import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
+import { FormSkeleton } from "@/components/shared/page-skeleton";
 import {
   type SocialPostRow,
   SocialPostsTable,
@@ -119,7 +120,7 @@ function PostsTab() {
 function SettingsTab() {
   const [configs, result] = useQuery(queries.appConfig.all());
   if (configs.length === 0 && isAwaitingResult(result)) {
-    return null;
+    return <FormSkeleton className="max-w-3xl" fields={4} />;
   }
   return <SocialSettings configs={configs} />;
 }

@@ -142,7 +142,7 @@ Time-based lists that are not tables (the events page):
 - Date, date-time and range pickers open through `ResponsivePicker` (`@/components/shared/responsive-picker`): a popover on wider screens, a bottom drawer titled with the field label and closed with Done on phones, where a popover opened mid-form lands off-screen.
 - Field outlines use `--control` (checkboxes and off switches `--control-strong`). Text fields, selects, comboboxes and date pickers darken to `--control-strong` on hover unless disabled, invalid or focused. An invalid field keeps its label neutral; its red outline and the message below carry the error.
 - `FormActions`: Cancel then verb, right-aligned, everywhere except scan panels, which keep the action left (away from toasts, for repeated scans).
-- Loading: `DetailPageSkeleton` and `TableSkeleton` (`@/components/shared/page-skeleton`). Spinners only for actions in progress and inside dialogs.
+- Loading: a skeleton with the loaded page's layout (header, stats, rail, side column, table), built from `@/components/shared/page-skeleton` (`RecordDetailSkeleton` for pages on `RecordDetailLayout`). Spinners only for actions in progress and inside dialogs.
 - Empty and error states: `NotFoundState` (`@/components/shared/not-found-state`), a muted icon tile, page-title type, one sentence, at most one primary button, no illustrations.
   - Missing records: `RecordNotFound` (noun and a "Back to …" link).
   - Unknown addresses for signed-in people hit the `_app/$` route so the sidebar stays.

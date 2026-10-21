@@ -8,7 +8,7 @@ import * as z from "zod";
 
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { DetailPageSkeleton } from "@/components/shared/page-skeleton";
+import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment-detail";
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
@@ -109,7 +109,7 @@ function VendorPaymentDetailRouteComponent() {
   if (isLoading) {
     return (
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-        <DetailPageSkeleton />
+        <RecordDetailSkeleton />
       </div>
     );
   }

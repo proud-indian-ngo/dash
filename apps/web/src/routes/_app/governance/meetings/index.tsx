@@ -2,6 +2,7 @@ import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Input } from "@pi-dash/design-system/components/ui/input";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import {
   Tabs,
   TabsList,
@@ -27,7 +28,6 @@ import {
 import { MeetingFormDialog } from "@/components/governance/meeting-form-dialog";
 import { MeetingStatusBadge } from "@/components/governance/meeting-status";
 import { PageHeader } from "@/components/shared/page-header";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { useIndiaToday } from "@/hooks/use-india-today";
@@ -249,7 +249,20 @@ function MeetingsPage() {
           </div>
         </div>
 
-        {isLoading ? <TableSkeleton rows={3} /> : null}
+        {isLoading ? (
+          <div
+            aria-busy="true"
+            className="divide-y overflow-hidden rounded-lg border"
+          >
+            <Skeleton className="h-7 rounded-none" />
+            {[0, 1, 2].map((row) => (
+              <div className="space-y-2 px-3 py-3 sm:px-4" key={row}>
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {!isLoading && visible.length > 0 ? (
           <ul className="overflow-hidden rounded-lg border">
