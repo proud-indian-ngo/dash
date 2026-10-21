@@ -6,7 +6,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
 import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-participation-rules-dialog";
 import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
-import { FormSkeleton } from "@/components/shared/page-skeleton";
+import { SectionListSkeleton } from "@/components/shared/page-skeleton";
 
 const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -57,7 +57,7 @@ function EditionSettingsPage() {
   }
 
   if (!editionDetails) {
-    return <FormSkeleton className="max-w-3xl" fields={4} />;
+    return <SectionListSkeleton className="max-w-3xl gap-8" />;
   }
 
   const canEditParticipation =

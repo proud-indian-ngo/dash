@@ -25,7 +25,11 @@ import {
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { PeoplePageSummary } from "@/components/kalakriti/people-page-summary";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  PageHeaderSkeleton,
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import {
   archiveKalakritiGuardian,
   inviteKalakritiGuardian,
@@ -245,11 +249,9 @@ function KalakritiGuardiansPage() {
     centersResult.type !== "complete"
   ) {
     return (
-      <div
-        aria-label="Loading Guardian coverage"
-        className="flex min-h-48 items-center justify-center"
-        role="status"
-      >
+      <div aria-busy="true" className="space-y-4">
+        <PageHeaderSkeleton />
+        <StatsSkeleton count={3} />
         <TableSkeleton />
       </div>
     );

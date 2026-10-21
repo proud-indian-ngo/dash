@@ -9,7 +9,6 @@ import {
   Button,
   buttonVariants,
 } from "@pi-dash/design-system/components/ui/button";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { RESOLUTION_THRESHOLD_LABELS } from "@pi-dash/shared/governance";
@@ -42,6 +41,7 @@ import { ResolutionStatusBadge } from "@/components/governance/resolution-status
 import { effectText } from "@/components/governance/resolution-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import {
   Dialog,
   DialogContent,
@@ -110,7 +110,7 @@ function ResolutionPage() {
             This resolution doesn't exist, or it wasn't sent to you.
           </p>
         ) : (
-          <Skeleton className="h-40 w-full" />
+          <RecordDetailSkeleton />
         )}
       </div>
     );

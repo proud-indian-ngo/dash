@@ -9,7 +9,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { env } from "@pi-dash/env/web";
 import type {
   ImportBatchSource,
@@ -27,6 +26,11 @@ import { ReviewTable } from "@/components/income/import/review-table";
 import type { WizardBatch } from "@/components/income/import/wizard-types";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
+import {
+  PageHeaderSkeleton,
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
@@ -97,8 +101,10 @@ function ImportBatchPage() {
   if (!batch) {
     if (result.type !== "complete") {
       return (
-        <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
-          <Skeleton className="h-8 w-64" />
+        <div className="app-container mx-auto grid max-w-7xl gap-6 px-2 py-6 sm:px-4">
+          <PageHeaderSkeleton />
+          <StatsSkeleton />
+          <TableSkeleton rows={8} />
         </div>
       );
     }

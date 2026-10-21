@@ -44,7 +44,10 @@ import { useBudgetActuals } from "@/components/budgets/use-budget-actuals";
 import { ErrorState } from "@/components/shared/error-state";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { TableSkeleton } from "@/components/shared/page-skeleton";
+import {
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/shared/page-skeleton";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import { assertPermission } from "@/lib/route-guards";
@@ -103,7 +106,10 @@ function BudgetsPage() {
       <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
         <PageHeader title="Budgets" />
         {isLoading ? (
-          <TableSkeleton />
+          <div className="mt-4 grid gap-3 *:min-w-0">
+            <StatsSkeleton />
+            <TableSkeleton />
+          </div>
         ) : (
           <NotFoundState
             description="Financial years appear here once they are set up."

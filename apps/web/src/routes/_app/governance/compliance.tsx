@@ -15,7 +15,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@pi-dash/design-system/components/ui/collapsible";
-import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import {
   Tabs,
@@ -62,6 +61,7 @@ import {
 } from "@/components/governance/register-data";
 import { useAccountOptions } from "@/components/governance/use-account-options";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
+import { SectionListSkeleton } from "@/components/shared/page-skeleton";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
   Dialog,
@@ -396,7 +396,7 @@ function CompliancePage() {
         </TabsList>
       </Tabs>
       <div className="mt-4 flex flex-col gap-6">
-        {isLoading ? <Skeleton className="h-24 w-full" /> : null}
+        {isLoading ? <SectionListSkeleton /> : null}
         {!isLoading && shown.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nothing here.</p>
         ) : null}
