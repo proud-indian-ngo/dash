@@ -17,12 +17,13 @@ kill_pid() {
   KILLED=$((KILLED + 1))
 }
 
-# Returns 0 (true) if the process's command line references REPO_ROOT.
+# Returns 0 (true) if the process's command line references REPO_ROOT. The
+# trailing slash keeps /x/pi-dash from matching sibling worktrees like /x/pi-dash-wt1.
 # Uses command line (not lsof) to avoid false positives from Docker/OrbStack
 # helpers that have open file descriptors into the repo via volume mounts.
 is_repo_process() {
   local pid=$1
-  ps -p "$pid" -o command= 2>/dev/null | grep -qF "$REPO_ROOT"
+  ps -p "$pid" -o command= 2>/dev/null | grep -qF "$REPO_ROOT/"
 }
 
 # --- Phase 1: Kill by port ---------------------------------------------------
@@ -60,16 +61,32 @@ for pattern in "zero-cache-dev" "vite.*dev" "email dev"; do
   done
 done
 
-# --- Phase 2b: Kill processes holding SQLite lock files -----------------------
-echo "Phase 2b: Killing processes holding pi-dash SQLite locks..."
-for pid in $(lsof -t /tmp/pi-dash*.db* 2>/dev/null || true); do
-  [ "$pid" = "$$" ] && continue
-  kill_pid "$pid" "SQLite lock holder"
-done
+# --- Phase 2b: Kill processes holding this checkout's SQLite replicas ---------
+# Only this checkout's dev and E2E replicas: other worktrees may be running.
+WT_ID=$(get_worktree_id)
+WT_SUFFIX=""
+[ "$WT_ID" -gt 0 ] && WT_SUFFIX="-wt${WT_ID}"
+shopt -s nullglob
+REPLICA_FILES=(
+  /tmp/pi-dash-wt"${WT_ID}".db*
+  /tmp/pi-dash-test"${WT_SUFFIX}".db*
+  /tmp/pi-dash-test"${WT_SUFFIX}"-stack*.db*
+)
+shopt -u nullglob
 
-# --- Phase 3: Clean stale SQLite lock files -----------------------------------
+echo "Phase 2b: Killing processes holding this checkout's SQLite replicas..."
+if [ "${#REPLICA_FILES[@]}" -gt 0 ]; then
+  for pid in $(lsof -t "${REPLICA_FILES[@]}" 2>/dev/null || true); do
+    [ "$pid" = "$$" ] && continue
+    kill_pid "$pid" "SQLite lock holder"
+  done
+fi
+
+# --- Phase 3: Clean this checkout's stale SQLite files ------------------------
 echo "Phase 3: Cleaning stale SQLite files..."
-rm -f /tmp/pi-dash*.db* 2>/dev/null || true
+if [ "${#REPLICA_FILES[@]}" -gt 0 ]; then
+  rm -f "${REPLICA_FILES[@]}"
+fi
 
 # --- Summary ------------------------------------------------------------------
 if [ "$KILLED" -eq 0 ]; then
