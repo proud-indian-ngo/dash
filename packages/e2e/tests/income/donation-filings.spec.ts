@@ -251,5 +251,12 @@ test.describe("Donations return filings", () => {
     await expect(
       edit.getByRole("textbox", { name: "Amount (₹)" })
     ).toBeDisabled();
+    // The donor can't be changed: no typing, no focus, no new donor.
+    const donor = edit.getByRole("combobox", { name: "Donor" });
+    await expect(donor).toBeDisabled();
+    await expect(donor).not.toBeFocused();
+    await expect(
+      edit.getByRole("button", { name: "New donor" })
+    ).toBeDisabled();
   });
 });
