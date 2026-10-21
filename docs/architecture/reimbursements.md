@@ -13,7 +13,7 @@ Voiding is a separate flag beside the unchanged status. Mutators live in `packag
 |---|---|---|---|---|
 | Submit | | `pending` | `requests.create` | Expense date not in the future |
 | Edit | `pending` | same | Owner with `requests.edit_own`, or `requests.edit_all` | |
-| Edit | any | same | `requests.edit_all_statuses` | See "Edits after approval" |
+| Edit | any | same | `requests.edit_all_statuses` | See "Edits after approval"; never the lines of your own approved claim |
 | Approve as lead | `pending` | same | The programme lead | Records `lead_approved_by` and `_at`; only while the lead step applies |
 | Approve | `pending` | `approved` | `requests.approve` | Needs a payment screenshot, new or already stored. With the lead step outstanding, needs a reason; never the lead's own approver, the claimant or the creator |
 | Reject | `pending` | `rejected` | `requests.approve`, or the programme lead | Needs a reason |
@@ -120,10 +120,11 @@ Jobs are enqueued after commit from the mutators; delivery is described in [noti
 |---|---|
 | Submitted | The programme lead when the lead step applies, else every `requests.approve` holder |
 | Approved as lead | Every `requests.approve` holder |
+| Waiting for a lead again (approval cleared, reset, claimant changed, re-charged, event moved) | That programme lead |
 | Raised for someone | The claimant |
 | Approved | The claimant, with the approver's note |
 | Rejected (by finance or the lead) | The claimant, with the reason |
 | Waiting 3+ days (daily) | Whoever it waits for: the programme lead (linked to the list's "Waiting for you"), else every `requests.approve` holder |
 | Claimant changed | The new and the previous claimant |
 
-Reset, void, edits and Charged to changes notify no one, even when they clear the lead's approval. Every message reuses the `request_submitted`, `request_not_approved` and `requests_awaiting_approval` WhatsApp templates; vendor payments follow the same rules. Advance payments still send their own submitted, approved and rejected jobs.
+Void notifies no one; reset, edits, claimant and Charged to changes notify only a lead the request now waits for. Every message reuses the `request_submitted`, `request_not_approved` and `requests_awaiting_approval` WhatsApp templates; vendor payments follow the same rules. Advance payments still send their own submitted, approved and rejected jobs.
