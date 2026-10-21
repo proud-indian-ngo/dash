@@ -35,6 +35,7 @@ import {
 } from "./expense-charge";
 import {
   assertIsWaitingLead,
+  assertNotOwnRequest,
   chargeChanges,
   financeLeadStep,
   LEAD_APPROVAL_CLEARED_NOTE,
@@ -260,6 +261,7 @@ export const vendorPaymentMutators = {
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "approved");
+      assertNotOwnRequest(ctx, entity);
       const leadStep = await financeLeadStep(
         tx,
         ctx,

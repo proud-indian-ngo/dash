@@ -6,7 +6,11 @@ import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { vendorPayment } from "@pi-dash/db/schema/vendor";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { notifyStaleRequests } from "@pi-dash/notifications/send/reminders";
-import { leadApproverOf } from "@pi-dash/shared/approval-policy";
+import {
+  leadApproverOf,
+  leadStepOutstanding,
+  waitingForYouPath,
+} from "@pi-dash/shared/approval-policy";
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import { and, count, eq, lt } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -30,6 +34,7 @@ interface StaleRow {
   createdBy?: null | string;
   eventProgrammeId: null | string;
   leadApprovedAt: Date | null;
+  leadSkipReason: null | string;
   userId: string;
 }
 
@@ -54,6 +59,7 @@ export async function handleRemindStaleRequests(
           createdBy: reimbursement.createdBy,
           eventProgrammeId: teamEvent.programmeId,
           leadApprovedAt: reimbursement.leadApprovedAt,
+          leadSkipReason: reimbursement.leadSkipReason,
           userId: reimbursement.userId,
         })
         .from(reimbursement)
@@ -70,6 +76,7 @@ export async function handleRemindStaleRequests(
           chargedTo: vendorPayment.chargedTo,
           eventProgrammeId: teamEvent.programmeId,
           leadApprovedAt: vendorPayment.leadApprovedAt,
+          leadSkipReason: vendorPayment.leadSkipReason,
           userId: vendorPayment.userId,
         })
         .from(vendorPayment)
@@ -101,14 +108,20 @@ export async function handleRemindStaleRequests(
   const waitingLead = ({
     eventProgrammeId,
     leadApprovedAt,
+    leadSkipReason,
     ...row
-  }: StaleRow) =>
-    leadApprovedAt
-      ? null
-      : leadApproverOf(
-          { ...row, event: { programmeId: eventProgrammeId } },
-          (programmeId) => leads.get(programmeId)
-        );
+  }: StaleRow) => {
+    const lead = leadApproverOf(
+      { ...row, event: { programmeId: eventProgrammeId } },
+      (programmeId) => leads.get(programmeId)
+    );
+    return leadStepOutstanding(
+      { leadApprovedAt: leadApprovedAt?.getTime() ?? null, leadSkipReason },
+      lead
+    )
+      ? lead
+      : null;
+  };
   const finance = emptyCounts();
   finance.advancePayments = advancePaymentCount;
   const byLead = new Map<string, Counts>();
@@ -143,24 +156,41 @@ export async function handleRemindStaleRequests(
 
   // Each person hears of what waits for them; someone who is both a lead
   // and in finance gets one reminder with both.
-  const recipients = new Map<string, Counts>();
+  // A lead-only reminder opens the list filtered to what waits for them;
+  // finance's opens the dashboard.
+  const recipients = new Map<string, { counts: Counts; path?: string }>();
   if (financeTotal > 0) {
     for (const userId of await getUserIdsWithPermission("requests.approve")) {
-      recipients.set(userId, { ...finance });
+      recipients.set(userId, { counts: { ...finance } });
     }
   }
   for (const [userId, counts] of byLead) {
-    const current = recipients.get(userId) ?? emptyCounts();
-    recipients.set(userId, {
-      advancePayments: current.advancePayments + counts.advancePayments,
-      reimbursements: current.reimbursements + counts.reimbursements,
-      vendorPayments: current.vendorPayments + counts.vendorPayments,
-    });
+    const current = recipients.get(userId);
+    recipients.set(
+      userId,
+      current
+        ? {
+            counts: {
+              advancePayments:
+                current.counts.advancePayments + counts.advancePayments,
+              reimbursements:
+                current.counts.reimbursements + counts.reimbursements,
+              vendorPayments:
+                current.counts.vendorPayments + counts.vendorPayments,
+            },
+          }
+        : {
+            counts,
+            path: waitingForYouPath(
+              counts.reimbursements > 0 ? "/reimbursements" : "/vendor-payments"
+            ),
+          }
+    );
   }
 
   const results = await Promise.allSettled(
-    [...recipients].map(([userId, counts]) =>
-      notifyStaleRequests({ counts, userId })
+    [...recipients].map(([userId, { counts, path }]) =>
+      notifyStaleRequests({ counts, path, userId })
     )
   );
 

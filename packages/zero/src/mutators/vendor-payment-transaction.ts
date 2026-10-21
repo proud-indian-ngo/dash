@@ -11,6 +11,7 @@ import {
   INVOICE_LOCKED_STATUSES,
   PAYABLE_STATUSES,
 } from "../vendor-payment-constants";
+import { assertNotOwnRequest } from "./lead-approval";
 import { queueLedgerPosting } from "./ledger-queue";
 import {
   assertCanDelete,
@@ -203,6 +204,7 @@ export const vendorPaymentTransactionMutators = {
         );
       }
       assertNotVoided(vendorPayment);
+      assertNotOwnRequest(ctx, vendorPayment);
 
       await assertWithinPaymentCap(tx, vpId, entity.amountPaise, args.id);
 
@@ -315,7 +317,9 @@ export const vendorPaymentTransactionMutators = {
 
     const now = Date.now();
 
-    const isApprover = can(ctx, "requests.approve");
+    // An approver's payment is approved at once, but never on their own
+    // request: someone else in finance approves it (founder decision).
+    const isApprover = can(ctx, "requests.approve") && !isVpOwner;
 
     await tx.mutate.vendorPaymentTransaction.insert({
       amountPaise: args.amountPaise,

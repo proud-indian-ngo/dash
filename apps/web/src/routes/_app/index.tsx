@@ -40,11 +40,17 @@ import { TipStrip } from "@/components/shared/tip-strip";
 import type { StatItem } from "@/components/stats/stats-cards";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
+import { useLeadsAProgramme } from "@/hooks/use-leads-a-programme";
 import {
   dateRangeSearchParams,
   filterByDateRange,
   resolveDateRange,
 } from "@/lib/date-range";
+import {
+  type LeadApprovalRequest,
+  requestApprovalState,
+  requestApprovalValue,
+} from "@/lib/lead-approval";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { spentAt, sumTotal, type WithStatusAndLineItems } from "@/lib/stats";
 import { isTeamLead } from "@/lib/team-utils";
@@ -246,6 +252,7 @@ function OrientedDashboard() {
   const [myEvents] = useQuery(queries.teamEvent.byCurrentUserAll());
   const [vendorPayments] = useQuery(queries.vendorPayment.all());
   const [eventInterests] = useQuery(queries.eventInterest.byCurrentUser());
+  const leadsAProgramme = useLeadsAProgramme();
 
   // Team leads can approve event photos/updates/interest for their teams
   const isLeadOfAnyTeam = teams.some((t) =>
@@ -282,33 +289,33 @@ function OrientedDashboard() {
   );
 
   // Spend counts under the date the money was spent, as on Analytics.
-  const filteredReimbursements = filterByDateRange(
-    reimbursements,
-    dateRange,
-    spentAt
-  );
-  const filteredAdvancePayments = filterByDateRange(
-    advancePayments,
-    dateRange,
-    spentAt
-  );
-  const filteredVendorPayments = filterByDateRange(
-    vendorPayments,
-    dateRange,
-    spentAt
-  );
 
   // Pending work uses unfiltered data: it's actionable regardless of age.
-  const pendingReimbursements = reimbursements.filter(
-    (item) => item.status === "pending"
-  );
+  // Finance reviews what no longer waits for a programme lead; a lead's
+  // own queue is the requests waiting for them ("Approval policy").
+  const userId = session?.user.id;
+  const readyForFinance = (item: LeadApprovalRequest) =>
+    item.status === "pending" && requestApprovalState(item).kind !== "waiting";
+  const waitingForMe = (item: LeadApprovalRequest) =>
+    requestApprovalValue(item, userId) === "you";
+  const pendingReimbursements = reimbursements.filter(readyForFinance);
   const pendingAdvancePayments = advancePayments.filter(
     (item) => item.status === "pending"
   );
-  const pendingVendorPayments = vendorPayments.filter(
-    (item) => item.status === "pending"
-  );
+  const pendingVendorPayments = vendorPayments.filter(readyForFinance);
+  const leadReimbursements = reimbursements.filter(waitingForMe);
+  const leadVendorPayments = vendorPayments.filter(waitingForMe);
+  // Without requests.view_all, the "My" figures are the person's own:
+  // the request lists also hold their programme's requests when they lead.
+  const isMine = (item: { userId: string }) =>
+    canViewAllRequests || item.userId === userId;
+  const myReimbursements = reimbursements.filter(isMine);
+  const myAdvancePayments = advancePayments.filter(isMine);
+  const myVendorPayments = vendorPayments.filter(isMine);
   const reviewPermissions = {
+    canApproveAsLead:
+      leadsAProgramme ||
+      leadReimbursements.length + leadVendorPayments.length > 0,
     canApproveRequests: canApprove,
     canApproveUpdates,
     canManageInterest,
@@ -320,10 +327,28 @@ function OrientedDashboard() {
     eventInterests: pendingInterests,
     eventPhotos: pendingPhotos,
     eventUpdates: pendingUpdates,
+    leadReimbursements,
+    leadVendorPayments,
     permissions: reviewPermissions,
     reimbursements: pendingReimbursements,
     vendorPayments: pendingVendorPayments,
   });
+
+  const filteredReimbursements = filterByDateRange(
+    myReimbursements,
+    dateRange,
+    spentAt
+  );
+  const filteredAdvancePayments = filterByDateRange(
+    myAdvancePayments,
+    dateRange,
+    spentAt
+  );
+  const filteredVendorPayments = filterByDateRange(
+    myVendorPayments,
+    dateRange,
+    spentAt
+  );
 
   const stats = computeDashboardStats({
     advancePayments: filteredAdvancePayments,
@@ -332,8 +357,9 @@ function OrientedDashboard() {
     canViewUsers,
     canViewVendors,
     events,
-    ownPendingCount:
-      pendingReimbursements.length + pendingAdvancePayments.length,
+    ownPendingCount: [...myReimbursements, ...myAdvancePayments].filter(
+      (item) => item.status === "pending"
+    ).length,
     reimbursements: filteredReimbursements,
     teams,
     users,
@@ -389,6 +415,8 @@ function OrientedDashboard() {
           eventPhotos={pendingPhotos}
           eventUpdates={pendingUpdates}
           isLoading={isLoading}
+          leadReimbursements={leadReimbursements}
+          leadVendorPayments={leadVendorPayments}
           permissions={reviewPermissions}
           reimbursements={pendingReimbursements}
           vendorPayments={pendingVendorPayments}
@@ -399,12 +427,12 @@ function OrientedDashboard() {
         <div className="min-w-0 space-y-6">
           <MyTeams isLoading={isLoading} teams={teams} />
           <RecentActivity
-            advancePayments={advancePayments}
+            advancePayments={myAdvancePayments}
             eventInterests={eventInterests}
             events={myEvents}
             isLoading={isLoading}
-            reimbursements={reimbursements}
-            vendorPayments={vendorPayments}
+            reimbursements={myReimbursements}
+            vendorPayments={myVendorPayments}
           />
         </div>
         <div className="min-w-0">

@@ -21,6 +21,8 @@ import { meeting } from "@pi-dash/db/schema/meetings";
 import {
   reimbursement,
   reimbursementAttachment,
+  reimbursementHistory,
+  reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { scheduledMessage } from "@pi-dash/db/schema/scheduled-message";
 import { teamMember } from "@pi-dash/db/schema/team";
@@ -33,10 +35,13 @@ import {
   vendorPaymentTransaction,
   vendorPaymentTransactionAttachment,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
+import { leadApproverOf } from "@pi-dash/shared/approval-policy";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
+import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import { circularReference } from "@pi-dash/shared/resolutions";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 
+import { isLeadReadableReimbursementFile } from "./lead-attachment-access";
 import {
   authorizeEventPhoto,
   authorizeR2Object,
@@ -203,24 +208,29 @@ async function resolveEventPhoto(
 }
 
 /**
- * The lead of the programme a request is charged to: they approve it before
- * finance, so they read its receipts and quotations too (not its payment
- * proof).
+ * The programme lead a request waits or waited for, when the lead step
+ * applies to them ("Approval policy"): they approve it before finance, so
+ * they read its receipts and quotations.
  */
-async function chargedProgrammeLeadIds(parent: {
+async function leadApproverIds(parent: {
   chargedProgrammeId: null | string;
-  chargedTo: string;
+  chargedTo: ExpenseChargedTo;
+  createdBy?: null | string;
   eventId: null | string;
+  userId: string;
 }): Promise<string[]> {
-  let programmeId =
-    parent.chargedTo === "programme" ? parent.chargedProgrammeId : null;
+  let eventProgrammeId: null | string = null;
   if (parent.chargedTo === "event" && parent.eventId) {
     const event = await db.query.teamEvent.findFirst({
       columns: { programmeId: true },
       where: eq(teamEvent.id, parent.eventId),
     });
-    programmeId = event?.programmeId ?? null;
+    eventProgrammeId = event?.programmeId ?? null;
   }
+  const programmeId =
+    parent.chargedTo === "programme"
+      ? parent.chargedProgrammeId
+      : eventProgrammeId;
   if (!programmeId) {
     return [];
   }
@@ -228,7 +238,11 @@ async function chargedProgrammeLeadIds(parent: {
     columns: { leadUserId: true },
     where: eq(programme.id, programmeId),
   });
-  return row?.leadUserId ? [row.leadUserId] : [];
+  const lead = leadApproverOf(
+    { ...parent, event: { programmeId: eventProgrammeId } },
+    () => row?.leadUserId
+  );
+  return lead ? [lead] : [];
 }
 
 async function resolveReimbursementAttachment(
@@ -243,12 +257,36 @@ async function resolveReimbursementAttachment(
   const parent = await db.query.reimbursement.findFirst({
     where: eq(reimbursement.id, attachment.reimbursementId),
   });
-  return parent
-    ? requestRecord(attachment.objectKey, attachment.filename, [
-        parent.userId,
-        ...(await chargedProgrammeLeadIds(parent)),
-      ])
-    : null;
+  if (!parent) {
+    return null;
+  }
+  const [lineItems, history] = await Promise.all([
+    db.query.reimbursementLineItem.findMany({
+      columns: {
+        payeeSignatureAttachmentId: true,
+        signedVoucherAttachmentId: true,
+        voucherAttachmentId: true,
+      },
+      where: eq(reimbursementLineItem.reimbursementId, parent.id),
+    }),
+    db.query.reimbursementHistory.findMany({
+      columns: { metadata: true },
+      where: and(
+        eq(reimbursementHistory.reimbursementId, parent.id),
+        isNotNull(reimbursementHistory.metadata)
+      ),
+    }),
+  ]);
+  const leadReadable = isLeadReadableReimbursementFile({
+    history,
+    id: attachment.id,
+    lineItems,
+    objectKey: attachment.objectKey,
+  });
+  return requestRecord(attachment.objectKey, attachment.filename, [
+    parent.userId,
+    ...(leadReadable ? await leadApproverIds(parent) : []),
+  ]);
 }
 
 async function resolveReimbursementApprovalScreenshot(
@@ -296,7 +334,7 @@ async function resolveVendorPaymentAttachment(
   return parent
     ? requestRecord(attachment.objectKey, attachment.filename, [
         parent.userId,
-        ...(await chargedProgrammeLeadIds(parent)),
+        ...(await leadApproverIds(parent)),
       ])
     : null;
 }
@@ -473,7 +511,9 @@ async function resolveKalakritiInventoryPhoto(
   return record ? { access: "kalakritiInventoryPhoto", ...record } : null;
 }
 
-function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
+export function findRecord(
+  ref: AttachmentAssetRef
+): Promise<R2ObjectRecord | null> {
   switch (ref.kind) {
     case "advancePaymentAttachment":
       return resolveAdvancePaymentAttachment(ref);

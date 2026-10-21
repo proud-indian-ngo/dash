@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const hoisted = <T>(factory: () => T): T => factory();
 
+const listMocks = hoisted(() => ({
+  reimbursementHistory: mock(),
+  reimbursementLineItem: mock(),
+}));
+
 const queryMocks = hoisted(() => ({
   advancePayment: mock(),
   advancePaymentAttachment: mock(),
   eventPhoto: mock(),
   kalakritiInventoryItem: mock(),
+  programme: mock(),
   reimbursement: mock(),
   reimbursementAttachment: mock(),
   scheduledMessage: mock(),
@@ -21,12 +27,20 @@ const queryMocks = hoisted(() => ({
 
 mock.module("@pi-dash/db", () => ({
   db: {
-    query: Object.fromEntries(
-      Object.entries(queryMocks).map(([name, findFirst]) => [
-        name,
-        { findFirst },
-      ])
-    ),
+    query: {
+      ...Object.fromEntries(
+        Object.entries(queryMocks).map(([name, findFirst]) => [
+          name,
+          { findFirst, findMany: async () => [] },
+        ])
+      ),
+      ...Object.fromEntries(
+        Object.entries(listMocks).map(([name, findMany]) => [
+          name,
+          { findFirst: async () => null, findMany },
+        ])
+      ),
+    },
   },
 }));
 mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
@@ -35,6 +49,7 @@ mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
 
 import {
   type AuthorizedR2ObjectDeps,
+  findRecord,
   resolveAuthorizedEventPhoto,
   resolveAuthorizedR2Object,
 } from "./authorized-r2-object";
@@ -60,6 +75,10 @@ beforeEach(() => {
   for (const mock of Object.values(queryMocks)) {
     mock.mockReset();
     mock.mockResolvedValue(null);
+  }
+  for (const mock of Object.values(listMocks)) {
+    mock.mockReset();
+    mock.mockResolvedValue([]);
   }
 });
 
@@ -178,6 +197,74 @@ describe("resolveAuthorizedR2Object", () => {
       filename: "receipt.pdf",
       key: "legacy/receipt.pdf",
     });
+  });
+
+  it("lets the programme lead open a receipt, never a payee signature", async () => {
+    const lead = { user: { id: "lead", role: "volunteer" } };
+    queryMocks.reimbursementAttachment.mockResolvedValue({
+      filename: "receipt.pdf",
+      id: "attachment-1",
+      objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      reimbursementId: "request-1",
+      type: "file",
+    });
+    queryMocks.reimbursement.mockResolvedValue({
+      chargedProgrammeId: "programme-1",
+      chargedTo: "programme",
+      createdBy: "owner",
+      eventId: null,
+      id: "request-1",
+      userId: "owner",
+    });
+    queryMocks.programme.mockResolvedValue({ leadUserId: "lead" });
+    const ref = {
+      id: "attachment-1",
+      kind: "reimbursementAttachment",
+    } as const;
+
+    const deps = createDeps({ findRecord });
+    await expect(resolveAuthorizedR2Object(lead, ref, deps)).resolves.toEqual({
+      filename: "receipt.pdf",
+      key: "app/attachments/reimbursements/request-1/receipt.pdf",
+    });
+
+    listMocks.reimbursementLineItem.mockResolvedValue([
+      {
+        payeeSignatureAttachmentId: "attachment-1",
+        signedVoucherAttachmentId: null,
+        voucherAttachmentId: null,
+      },
+    ]);
+    await expect(
+      resolveAuthorizedR2Object(lead, ref, deps)
+    ).rejects.toBeInstanceOf(R2ObjectAccessError);
+  });
+
+  it("gives a lead nothing on the Unallocated holder", async () => {
+    const lead = { user: { id: "lead", role: "volunteer" } };
+    queryMocks.reimbursementAttachment.mockResolvedValue({
+      filename: "receipt.pdf",
+      id: "attachment-1",
+      objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      reimbursementId: "request-1",
+      type: "file",
+    });
+    queryMocks.reimbursement.mockResolvedValue({
+      chargedProgrammeId: "01930000-0000-7000-8000-000000000009",
+      chargedTo: "programme",
+      createdBy: "owner",
+      eventId: null,
+      id: "request-1",
+      userId: "owner",
+    });
+    queryMocks.programme.mockResolvedValue({ leadUserId: "lead" });
+    await expect(
+      resolveAuthorizedR2Object(
+        lead,
+        { id: "attachment-1", kind: "reimbursementAttachment" },
+        createDeps({ findRecord })
+      )
+    ).rejects.toBeInstanceOf(R2ObjectAccessError);
   });
 
   it("resolves a reimbursement approval screenshot by parent ID", async () => {

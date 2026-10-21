@@ -1,5 +1,9 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { getTopicChannels, TOPIC_CATALOG } from "@pi-dash/notifications/topics";
+import {
+  getTopicChannels,
+  TOPIC_CATALOG,
+  TOPICS,
+} from "@pi-dash/notifications/topics";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -8,6 +12,7 @@ import { toast } from "sonner";
 
 import { NotificationPreferenceGrid } from "@/components/settings/notification-preference-grid";
 import { useApp } from "@/context/app-context";
+import { useLeadsAProgramme } from "@/hooks/use-leads-a-programme";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { isAwaitingResult } from "@/lib/zero-result";
 
@@ -22,8 +27,13 @@ export function NotificationsSection() {
 
   const prefMap = new Map(preferences.map((p) => [p.topicId, p]));
 
+  // Programme leads hear of requests waiting for them without the permission.
+  const leadsAProgramme = useLeadsAProgramme();
   const visibleTopics = TOPIC_CATALOG.filter(
-    (meta) => !meta.requiredPermission || hasPermission(meta.requiredPermission)
+    (meta) =>
+      !meta.requiredPermission ||
+      hasPermission(meta.requiredPermission) ||
+      (meta.id === TOPICS.REQUESTS_SUBMISSIONS && leadsAProgramme)
   );
 
   const topicsWithPrefs = visibleTopics.map((meta) => {

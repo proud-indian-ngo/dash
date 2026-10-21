@@ -13,15 +13,11 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
+    await reimbursements.createReimbursement("Approve Buttons");
+    // Nobody approves their own request.
+    await expect(reimbursements.detail.getApproveButton()).toBeHidden();
 
-    const pendingRow = reimbursements.list.getPendingRow();
-    const hasPending = (await pendingRow.count()) > 0;
-    test.skip(!hasPending, "No pending reimbursements available");
-
-    await pendingRow.click();
-
+    await reimbursements.handOverInDatabase();
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await expect(reimbursements.detail.getRejectButton()).toBeVisible();
   });
@@ -53,6 +49,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Approve Needs Screenshot");
+    await reimbursements.handOverInDatabase();
     await reimbursements.detail.stubScreenshotUpload();
     await reimbursements.detail.getApproveButton().click();
     const dialog = reimbursements.detail.getAlertDialog();
@@ -81,6 +78,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Approve Existing Screenshot");
+    await reimbursements.handOverInDatabase();
     await reimbursements.rejectWithStoredScreenshotInDatabase();
     await reimbursements.detail.stubScreenshotUpload();
     await reimbursements.detail.getApproveButton().click();
@@ -112,6 +110,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     );
 
     await reimbursements.createReimbursement("Approv Flow Test");
+    await reimbursements.handOverInDatabase();
 
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await reimbursements.detail.approve();
@@ -131,6 +130,7 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     await reimbursements.createReimbursement("Denial Flow Test");
+    await reimbursements.handOverInDatabase();
 
     await reimbursements.detail.reject("Not eligible");
 

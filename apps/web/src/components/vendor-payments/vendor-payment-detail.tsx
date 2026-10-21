@@ -302,8 +302,9 @@ export function VendorPaymentDetail({
   // approve meanwhile, with a reason.
   const isWaitingLead = useIsWaitingLead(request);
   const leadWaiting = waitingLeadOf(request);
+  // Nobody approves or pays a request they raised.
   const showApproveAction =
-    !voided && canApprove && !isWaitingLead && status === "pending";
+    !voided && canApprove && !isOwner && !isWaitingLead && status === "pending";
   // A request paid before approval was required can only be approved.
   const showRejectAction =
     showApproveAction &&

@@ -59,6 +59,23 @@ test.describe("Programme lead approval", () => {
       await leadPage.getByRole("tab", { name: /Waiting for you/ }).click();
       await expect(leadMain.getByText(led.title)).toBeVisible();
 
+      // The dashboard lists what waits for them and opens that view.
+      await leadPage.goto("/");
+      await waitForZeroReady(leadPage);
+      const review = leadPage.getByRole("region", {
+        name: "Waiting for review",
+      });
+      await expect(
+        review.getByText("Reimbursements as programme lead")
+      ).toBeVisible({ timeout: 30_000 });
+      await review
+        .getByRole("link", { name: "Review reimbursements as programme lead" })
+        .click();
+      await expect(leadPage).toHaveURL(/\/reimbursements\?filters=/);
+      await expect(leadMain.getByText(led.title)).toBeVisible({
+        timeout: 30_000,
+      });
+
       await leadPage.goto(`/reimbursements/${led.id}`);
       await waitForZeroReady(leadPage);
       await expect(

@@ -570,7 +570,10 @@ export function ReimbursementsTable({
             request={r}
           />
         );
-        if (!(showReview && r.status === "pending" && !voided)) {
+        // Nobody approves a request they raised or claim.
+        const isOwn =
+          isOwner || ("createdBy" in r && r.createdBy === currentUserId);
+        if (!(showReview && r.status === "pending" && !voided && !isOwn)) {
           return actions;
         }
         return (

@@ -1,3 +1,4 @@
+import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
@@ -47,9 +48,18 @@ function visibleTo(q: typeof zql.reimbursement, userId: string | undefined) {
   return q.where(({ cmp, exists, or }) =>
     or(
       cmp("userId", userId),
-      exists("chargedProgramme", (p) => p.where("leadUserId", userId)),
+      // The Unallocated holder has no lead step, so no lead sees its requests.
+      exists("chargedProgramme", (p) =>
+        p
+          .where("leadUserId", userId)
+          .where("id", "!=", PROGRAMME_IDS.unallocated)
+      ),
       exists("event", (e) =>
-        e.whereExists("programme", (p) => p.where("leadUserId", userId))
+        e.whereExists("programme", (p) =>
+          p
+            .where("leadUserId", userId)
+            .where("id", "!=", PROGRAMME_IDS.unallocated)
+        )
       )
     )
   );

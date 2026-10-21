@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { leadApprovalStateOf, leadApproverOf } from "./approval-policy";
+import {
+  approvalFilterQuery,
+  leadApprovalStateOf,
+  leadApproverOf,
+  leadStepOutstanding,
+  waitingForYouPath,
+} from "./approval-policy";
 import { PROGRAMME_IDS } from "./constants";
 
 const leads: Record<string, string | null> = {
@@ -79,5 +85,24 @@ describe("leadApprovalStateOf", () => {
         "lead-edu"
       )
     ).toEqual({ kind: "skipped", reason: "Urgent" });
+  });
+});
+
+describe("leadStepOutstanding", () => {
+  it("holds until the lead approves or finance has a reason, at any status", () => {
+    expect(leadStepOutstanding({}, "lead-edu")).toBe(true);
+    expect(leadStepOutstanding({ leadApprovedAt: 5 }, "lead-edu")).toBe(false);
+    expect(leadStepOutstanding({ leadSkipReason: "Urgent" }, "lead-edu")).toBe(
+      false
+    );
+    expect(leadStepOutstanding({}, null)).toBe(false);
+  });
+});
+
+describe("waitingForYouPath", () => {
+  it("opens the list on the Approval filter's Waiting for you", () => {
+    const path = waitingForYouPath("/reimbursements");
+    const filters = new URL(`https://x${path}`).searchParams.get("filters");
+    expect(JSON.parse(filters ?? "")).toEqual(approvalFilterQuery("you"));
   });
 });

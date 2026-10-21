@@ -22,7 +22,12 @@ export function useReimbursementPayout(
   enabled: boolean
 ): PayoutState {
   const load = useServerFn(getReimbursementPayout);
-  const [state, setState] = useState<PayoutState>({ kind: "loading" });
+  // Keyed by request: after navigating from A to B, A's details are never
+  // shown or saved for B.
+  const [loaded, setLoaded] = useState<{ id: string; state: PayoutState }>({
+    id: "",
+    state: { kind: "loading" },
+  });
   const { id, updatedAt } = request;
 
   useEffect(() => {
@@ -33,7 +38,7 @@ export function useReimbursementPayout(
     load({ data: { id } })
       .then((payout) => {
         if (!cancelled) {
-          setState({ kind: "ready", payout });
+          setLoaded({ id, state: { kind: "ready", payout } });
         }
       })
       .catch((error: unknown) => {
@@ -43,7 +48,7 @@ export function useReimbursementPayout(
           component: "useReimbursementPayout",
         });
         if (!cancelled) {
-          setState({ kind: "error" });
+          setLoaded({ id, state: { kind: "error" } });
         }
       });
     return () => {
@@ -51,5 +56,13 @@ export function useReimbursementPayout(
     };
   }, [enabled, id, updatedAt, load]);
 
-  return state;
+  return payoutStateFor(loaded, id);
+}
+
+/** Another request's result reads as loading. */
+export function payoutStateFor(
+  loaded: { id: string; state: PayoutState },
+  id: string
+): PayoutState {
+  return loaded.id === id ? loaded.state : { kind: "loading" };
 }

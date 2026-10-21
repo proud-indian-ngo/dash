@@ -69,7 +69,8 @@ export function VendorPaymentTransactions({
   const [editingTransaction, setEditingTransaction] =
     useState<VendorPaymentTransactionWithRelations | null>(null);
 
-  const canApprove = hasPermission("requests.approve");
+  // Nobody approves or pays their own request (founder decision).
+  const canApprove = hasPermission("requests.approve") && !isOwner;
   const canRecord = hasPermission("requests.record_payment");
   const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(request.status as string);
   const canEditAll = hasPermission("requests.edit_all") && !isInvoiceLocked;

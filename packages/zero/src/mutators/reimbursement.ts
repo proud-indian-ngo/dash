@@ -57,6 +57,7 @@ import {
 } from "./kalakriti-row-locks";
 import {
   assertIsWaitingLead,
+  assertNotOwnRequest,
   chargeChanges,
   financeLeadStep,
   LEAD_APPROVAL_CLEARED_NOTE,
@@ -500,6 +501,7 @@ export const reimbursementMutators = {
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
+      assertNotOwnRequest(ctx, entity);
       const leadStep = await financeLeadStep(
         tx,
         ctx,
@@ -700,6 +702,7 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
+      assertNotOwnRequest(ctx, entity);
       if (entity.status !== "approved") {
         throw new Error("Only an approved reimbursement takes payment proof");
       }
@@ -838,6 +841,13 @@ export const reimbursementMutators = {
           now,
           previousId ? "Signed voucher replaced" : "Signed voucher uploaded"
         ),
+        // Names the files, so a replaced copy stays out of a programme
+        // lead's reach (`isLeadReadableReimbursementFile`).
+        metadata: {
+          attachmentId: signedCopy.id,
+          lineItemId: args.lineItemId,
+          replacedAttachmentId: previousId ?? null,
+        },
         reimbursementId: args.reimbursementId,
       });
     }
@@ -1013,15 +1023,35 @@ export const reimbursementMutators = {
       ]);
 
       const now = Date.now();
+      // A new claimant is a new request to judge: the lead looks again.
+      const clearsLead =
+        entity.status === "pending" && Boolean(entity.leadApprovedAt);
       await tx.mutate.reimbursement.update({
         id: args.id,
         updatedAt: now,
         userId: args.userId,
+        ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
       });
       await writePayout(tx, args.id, bank);
+      if (clearsLead) {
+        await tx.mutate.reimbursementHistory.insert({
+          ...buildHistoryInsert(
+            ctx.userId,
+            "updated",
+            now,
+            LEAD_APPROVAL_CLEARED_NOTE
+          ),
+          reimbursementId: args.id,
+        });
+      }
 
       const lineItems = await tx.run(
         zql.reimbursementLineItem.where("reimbursementId", args.id)
+      );
+      const unlinkedAttachmentIds = lineItems.flatMap((item) =>
+        [item.voucherAttachmentId, item.signedVoucherAttachmentId].filter(
+          (id): id is string => Boolean(id)
+        )
       );
       for (const item of lineItems) {
         if (item.voucherAttachmentId || item.signedVoucherAttachmentId) {
@@ -1041,7 +1071,11 @@ export const reimbursementMutators = {
           now,
           `Claimant changed from ${fromName} to ${toName}. Reason: ${args.reason}`
         ),
-        metadata: { fromUserId: previousClaimantId, toUserId: args.userId },
+        metadata: {
+          fromUserId: previousClaimantId,
+          toUserId: args.userId,
+          unlinkedAttachmentIds,
+        },
         reimbursementId: args.id,
       });
 

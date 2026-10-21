@@ -10,6 +10,7 @@ import {
   reimbursementHistory,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { vendorPayment } from "@pi-dash/db/schema/vendor";
 import { and, eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -188,10 +189,55 @@ async function generateVouchers(id: string) {
   return { generated: items.length, id };
 }
 
+/**
+ * Hands the request to the test volunteer as its claimant (and creator), as
+ * if they had raised it: nobody approves or pays their own request, so a
+ * spec that creates a request as the approver hands it over first.
+ */
+async function handOver(type: string, id: string) {
+  const email = process.env.VOLUNTEER_EMAIL;
+  if (!email) {
+    throw new Error("VOLUNTEER_EMAIL is not set");
+  }
+  const [volunteer] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email));
+  if (!volunteer) {
+    throw new Error(`Test volunteer ${email} not found`);
+  }
+  const now = new Date();
+  const rows =
+    type === "reimbursement"
+      ? await db
+          .update(reimbursement)
+          .set({
+            createdBy: volunteer.id,
+            updatedAt: now,
+            userId: volunteer.id,
+          })
+          .where(eq(reimbursement.id, id))
+          .returning({ id: reimbursement.id })
+      : await db
+          .update(vendorPayment)
+          .set({ updatedAt: now, userId: volunteer.id })
+          .where(eq(vendorPayment.id, id))
+          .returning({ id: vendorPayment.id });
+  if (rows.length === 0) {
+    throw new Error(`${type} ${id} not found`);
+  }
+  return { id, userId: volunteer.id };
+}
+
 const [action, type = "", id = ""] = process.argv.slice(2);
 let result: unknown;
 if (action === "approve") {
   result = await approve(type, id);
+} else if (
+  action === "hand-over" &&
+  (type === "reimbursement" || type === "vendor-payment")
+) {
+  result = await handOver(type, id);
 } else if (action === "generate-voucher" && type === "reimbursement") {
   result = await generateVouchers(id);
 } else if (action === "link-voucher" && type === "reimbursement") {

@@ -1,5 +1,8 @@
 import { expect, test } from "../../fixtures/test";
-import { createVendorPayment } from "../../helpers/vendor-payment";
+import {
+  createVendorPayment,
+  handOverVendorPayment,
+} from "../../helpers/vendor-payment";
 
 const APPROVER_ROLES = new Set(["super_admin", "finance_admin"]);
 
@@ -46,6 +49,7 @@ test.describe("Vendor payment approval (super_admin + finance_admin)", () => {
   test("approve a vendor payment request", async ({ page }) => {
     test.slow();
     const title = await createVendorPayment(page, "Approve");
+    await handOverVendorPayment(page);
 
     await expect(
       page.getByRole("heading", { level: 1, name: title })
@@ -61,6 +65,7 @@ test.describe("Vendor payment approval (super_admin + finance_admin)", () => {
   test("reject a vendor payment request with reason", async ({ page }) => {
     test.slow();
     const title = await createVendorPayment(page, "Reject");
+    await handOverVendorPayment(page);
 
     await expect(
       page.getByRole("heading", { level: 1, name: title })

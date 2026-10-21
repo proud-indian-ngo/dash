@@ -13,6 +13,7 @@ test.describe("Reimbursements grouped by status", () => {
     page,
   }) => {
     const title = await reimbursements.createReimbursement("Group Approve");
+    await reimbursements.handOverInDatabase();
 
     await reimbursements.navigateToList();
     await reimbursements.list.waitForTableData();

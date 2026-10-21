@@ -1,8 +1,10 @@
 import {
   type ApprovalRequest,
+  CLEARED_LEAD_APPROVAL,
   LEAD_AND_FINANCE_DIFFER_MESSAGE,
   LEAD_SKIP_REASON_MESSAGE,
   leadApproverOf,
+  leadStepOutstanding,
 } from "@pi-dash/shared/approval-policy";
 import type { ExpenseChargeFields } from "@pi-dash/shared/expense-charge";
 import type { Transaction } from "@rocicorp/zero";
@@ -10,6 +12,7 @@ import z from "zod";
 
 import type { Context } from "../context";
 import { type Schema, zql } from "../schema";
+import { buildHistoryInsert } from "./submission-helpers";
 
 type Tx = Transaction<Schema>;
 
@@ -144,11 +147,11 @@ export async function financeLeadStep(
   if (entity.leadApprovedBy && entity.leadApprovedBy === ctx.userId) {
     throw new Error(LEAD_AND_FINANCE_DIFFER_MESSAGE);
   }
-  if (entity.leadApprovedAt) {
+  if (entity.leadApprovedAt || entity.leadSkipReason) {
     return {};
   }
   const lead = await leadApproverFor(tx, entity);
-  if (!lead) {
+  if (!leadStepOutstanding(entity, lead)) {
     return {};
   }
   if (lead === ctx.userId) {
@@ -177,6 +180,9 @@ export async function assertIsWaitingLead(
   if (entity.status !== "pending") {
     throw new Error("Only a pending request waits for the programme lead");
   }
+  if (entity.leadApprovedAt || entity.leadSkipReason) {
+    throw new Error("This request no longer waits for the programme lead");
+  }
   const lead = await leadApproverFor(tx, entity);
   if (lead === undefined) {
     return false;
@@ -188,3 +194,100 @@ export async function assertIsWaitingLead(
   }
   return true;
 }
+
+export const OWN_REQUEST_APPROVAL_MESSAGE =
+  "You can't approve or pay a request you raised or are paid by";
+
+/**
+ * Finance never approves or pays a request they raised (`createdBy`) or
+ * claim (`userId`): someone else in finance does (founder decision).
+ */
+export function assertNotOwnRequest(
+  ctx: Context,
+  entity: { createdBy?: null | string; userId: string }
+): void {
+  if (entity.userId === ctx.userId || entity.createdBy === ctx.userId) {
+    throw new Error(OWN_REQUEST_APPROVAL_MESSAGE);
+  }
+}
+
+/** Each event's programme now, to compare before and after an edit. */
+export async function eventProgrammes(
+  tx: Tx,
+  eventIds: readonly string[]
+): Promise<Map<string, null | string>> {
+  const rows = await Promise.all(
+    eventIds.map((id) => tx.run(zql.teamEvent.where("id", id).one()))
+  );
+  return new Map(
+    rows.flatMap((row) => (row ? [[row.id, row.programmeId ?? null]] : []))
+  );
+}
+
+/**
+ * An event moved to another programme: the lead approval on its pending
+ * claims and vendor payments belonged to the old programme's lead, so it is
+ * cleared and the new lead looks at them.
+ */
+export async function clearLeadApprovalsOnMovedEvents(
+  tx: Tx,
+  before: ReadonlyMap<string, null | string>,
+  actorId: string,
+  now: number
+): Promise<void> {
+  const after = await eventProgrammes(tx, [...before.keys()]);
+  const moved = [...before].filter(
+    ([id, programmeId]) => after.has(id) && after.get(id) !== programmeId
+  );
+  for (const [eventId] of moved) {
+    const [reimbursements, vendorPayments] = await Promise.all([
+      tx.run(
+        zql.reimbursement
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .where("leadApprovedAt", "IS NOT", null)
+      ),
+      tx.run(
+        zql.vendorPayment
+          .where("eventId", eventId)
+          .where("status", "pending")
+          .where("leadApprovedAt", "IS NOT", null)
+      ),
+    ]);
+    for (const row of reimbursements) {
+      await tx.mutate.reimbursement.update({
+        id: row.id,
+        ...CLEARED_LEAD_APPROVAL,
+        updatedAt: now,
+      });
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          actorId,
+          "updated",
+          now,
+          LEAD_APPROVAL_MOVED_NOTE
+        ),
+        reimbursementId: row.id,
+      });
+    }
+    for (const row of vendorPayments) {
+      await tx.mutate.vendorPayment.update({
+        id: row.id,
+        ...CLEARED_LEAD_APPROVAL,
+        updatedAt: now,
+      });
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          actorId,
+          "updated",
+          now,
+          LEAD_APPROVAL_MOVED_NOTE
+        ),
+        vendorPaymentId: row.id,
+      });
+    }
+  }
+}
+
+export const LEAD_APPROVAL_MOVED_NOTE =
+  "Programme lead's approval cleared: the event moved to another programme";

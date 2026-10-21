@@ -1,9 +1,14 @@
 import {
+  APPROVAL_FILTER_PATH,
+  type ApprovalFilterValue,
   type ApprovalRequest,
   type LeadApprovalState,
   leadApprovalStateOf,
   leadApproverOf,
+  leadStepOutstanding,
 } from "@pi-dash/shared/approval-policy";
+
+export type { ApprovalFilterValue };
 
 /** A programme as the request queries load it, with its lead's name. */
 interface LeadProgramme {
@@ -49,12 +54,15 @@ export function requestApprovalState(
   return leadApprovalStateOf(request, requestLead(request)?.id ?? null);
 }
 
-/** For finance's approve dialog: the lead still to approve, if any. */
+/**
+ * For finance's approve dialog: the lead whose step is outstanding, if any.
+ * The same predicate as the approve mutators, on any move to approved.
+ */
 export function waitingLeadOf(
   request: LeadApprovalRequest
 ): { leadName: string } | undefined {
   const lead = requestLead(request);
-  return lead && requestApprovalState(request).kind === "waiting"
+  return lead && leadStepOutstanding(request, lead.id)
     ? { leadName: lead.name }
     : undefined;
 }
@@ -69,12 +77,9 @@ export const APPROVAL_FILTER = {
     { label: "Waiting for you", value: "you" },
     { label: "Waiting for the lead", value: "lead" },
     { label: "Ready for finance", value: "ready" },
-  ],
-  path: "approval",
+  ] satisfies { label: string; value: ApprovalFilterValue }[],
+  path: APPROVAL_FILTER_PATH,
 } as const;
-
-export type ApprovalFilterValue =
-  (typeof APPROVAL_FILTER.options)[number]["value"];
 
 /** The row's "Approval" filter value; null once it is decided. */
 export function requestApprovalValue(

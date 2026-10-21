@@ -6,6 +6,7 @@ mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
 import {
   LEAD_AND_FINANCE_DIFFER_MESSAGE,
   LEAD_SKIP_REASON_MESSAGE,
+  LEGACY_LEAD_SKIP_REASON,
 } from "@pi-dash/shared/approval-policy";
 
 import type { AsyncTask } from "../../context";
@@ -17,9 +18,15 @@ import {
 } from "../../queries/query-scope-test-utils";
 import { reimbursementQueries } from "../../queries/reimbursement";
 import { vendorPaymentQueries } from "../../queries/vendor-payment";
-import { LEAD_APPROVAL_CLEARED_NOTE } from "../lead-approval";
+import {
+  clearLeadApprovalsOnMovedEvents,
+  eventProgrammes,
+  LEAD_APPROVAL_CLEARED_NOTE,
+  OWN_REQUEST_APPROVAL_MESSAGE,
+} from "../lead-approval";
 import { reimbursementMutators } from "../reimbursement";
 import { vendorPaymentMutators } from "../vendor-payment";
+import { vendorPaymentTransactionMutators } from "../vendor-payment-transaction";
 
 type Row = Record<string, unknown>;
 
@@ -135,6 +142,14 @@ function ctx(userId: string, permissions: string[] = []) {
     beforeCommitTasks: [] as AsyncTask[],
     copyR2Object: mock(),
     enqueue,
+    loadPrivateUser: async (id: string) => ({
+      banned: false,
+      email: `${id}@example.com`,
+      isActive: true,
+      name: id,
+      phone: null,
+      role: "volunteer",
+    }),
     lockR2Object: mock(),
     permissions,
     r2KeyPrefix: "app",
@@ -674,11 +689,216 @@ describe("a programme lead sees the requests charged to their programme", () => 
     ).toEqual(["arts-1"]);
   });
 
+  it("never shows a request on the Unallocated holder to its lead", () => {
+    const tables = scopeTables();
+    tables.programme?.push({ id: UNALLOCATED, leadUserId: "lead-edu" });
+    const row: ScopeRow = {
+      chargedProgrammeId: UNALLOCATED,
+      eventId: null,
+      id: "held-1",
+      userId: "a",
+    };
+    const { ast } = reimbursementQueries.all.fn({
+      args: undefined,
+      ctx: leadCtx("lead-edu"),
+    } as never) as unknown as { ast: ScopeAst };
+    expect(matchesScope(row, ast.where, tables)).toBe(false);
+  });
+
   it("won't open another programme's request", () => {
     const query = reimbursementQueries.byId.fn({
       args: { id: "edu-1" },
       ctx: leadCtx("lead-arts"),
     } as never);
     expect(visible(query)).toEqual([]);
+  });
+});
+
+describe("finance's reason, on any move to approved", () => {
+  it("asks again when finance overrides the lead's rejection", async () => {
+    const db = createDb({ reimbursement: [reimbursementRow()] });
+    await run(reimbursementMutators.reject, db, ctx("lead-edu"), {
+      id: "r-1",
+      reason: "Not ours",
+    });
+    const override = ctx("finance", [...FINANCE, "requests.edit_all_statuses"]);
+    await expect(
+      run(reimbursementMutators.approve, db, override, { id: "r-1" })
+    ).rejects.toThrow(LEAD_SKIP_REASON_MESSAGE);
+    await run(reimbursementMutators.approve, db, override, {
+      id: "r-1",
+      leadSkipReason: "Agreed with the trustees",
+    });
+    expect(rows(db, "reimbursement")[0]).toMatchObject({
+      leadSkipReason: "Agreed with the trustees",
+      status: "approved",
+    });
+  });
+
+  it("needs no reason, and no lead, for a request pending before the step began", async () => {
+    const db = createDb({
+      reimbursement: [
+        reimbursementRow({ leadSkipReason: LEGACY_LEAD_SKIP_REASON }),
+      ],
+    });
+    await expect(
+      run(reimbursementMutators.approveAsLead, db, ctx("lead-edu"), {
+        id: "r-1",
+      })
+    ).rejects.toThrow("no longer waits for the programme lead");
+    await run(reimbursementMutators.approve, db, financeCtx(), { id: "r-1" });
+    expect(rows(db, "reimbursement")[0]).toMatchObject({
+      leadSkipReason: LEGACY_LEAD_SKIP_REASON,
+      status: "approved",
+    });
+  });
+});
+
+describe("nobody approves or pays their own request", () => {
+  it("refuses finance approving a claim they make or raised", async () => {
+    for (const overrides of [
+      { createdBy: "finance", userId: "finance" },
+      { createdBy: "finance" },
+    ]) {
+      const db = createDb({
+        reimbursement: [
+          reimbursementRow({ chargedProgrammeId: "nolead", ...overrides }),
+        ],
+      });
+      await expect(
+        run(reimbursementMutators.approve, db, financeCtx(), { id: "r-1" })
+      ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+    }
+  });
+
+  it("refuses finance approving, or approving a payment on, their own vendor payment", async () => {
+    const vp = {
+      approvalScreenshotKey: null,
+      chargedProgrammeId: "nolead",
+      chargedProjectId: null,
+      chargedTo: "programme",
+      costCentreId: "blr",
+      eventId: null,
+      id: "vp-1",
+      leadApprovedAt: null,
+      leadSkipReason: null,
+      status: "pending",
+      title: "Lunch",
+      userId: "finance",
+      vendorId: "v-1",
+      voidedAt: null,
+    };
+    const db = createDb({ vendorPayment: [vp] });
+    await expect(
+      run(vendorPaymentMutators.approve, db, financeCtx(), { id: "vp-1" })
+    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+
+    const paid = createDb({
+      vendorPayment: [{ ...vp, status: "approved" }],
+      vendorPaymentLineItem: [
+        {
+          amountPaise: 10_000,
+          categoryId: "food",
+          id: "l",
+          vendorPaymentId: "vp-1",
+        },
+      ],
+      vendorPaymentTransaction: [
+        {
+          amountPaise: 5000,
+          id: "t-1",
+          status: "pending",
+          userId: "someone",
+          vendorPaymentId: "vp-1",
+          voidedAt: null,
+        },
+      ],
+    });
+    await expect(
+      run(vendorPaymentTransactionMutators.approve, paid, financeCtx(), {
+        id: "t-1",
+      })
+    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+
+    // Recording a payment on their own request leaves it for someone else.
+    await run(
+      vendorPaymentTransactionMutators.create,
+      paid,
+      ctx("finance", [...FINANCE, "requests.record_payment"]),
+      {
+        amountPaise: 1000,
+        attachments: [],
+        id: "t-2",
+        transactionDate: Date.UTC(2026, 9, 1),
+        vendorPaymentId: "vp-1",
+      }
+    );
+    expect(
+      rows(paid, "vendorPaymentTransaction").find((t) => t.id === "t-2")
+    ).toMatchObject({ reviewedBy: null, status: "pending" });
+  });
+});
+
+describe("the lead's approval is cleared when the request changes hands", () => {
+  const approvedByLead = () =>
+    reimbursementRow({ leadApprovedAt: 1, leadApprovedBy: "lead-edu" });
+
+  it("refuses the lead acting again once they approved", async () => {
+    const db = createDb({ reimbursement: [approvedByLead()] });
+    for (const mutator of [
+      reimbursementMutators.approveAsLead,
+      reimbursementMutators.reject,
+    ]) {
+      await expect(
+        run(mutator, db, ctx("lead-edu"), { id: "r-1", reason: "No" })
+      ).rejects.toThrow("no longer waits for the programme lead");
+    }
+  });
+
+  it("clears it when the claimant changes while pending", async () => {
+    const db = createDb({ bankAccount: [], reimbursement: [approvedByLead()] });
+    await run(
+      reimbursementMutators.changeClaimant,
+      db,
+      ctx("finance", [...FINANCE, "requests.create_for_others"]),
+      {
+        bankAccountId: null,
+        id: "r-1",
+        previousUserId: "claimant",
+        reason: "Paid by someone else",
+        userId: "lead-arts",
+      }
+    );
+    expect(rows(db, "reimbursement")[0]).toMatchObject({
+      leadApprovedBy: null,
+      userId: "lead-arts",
+    });
+  });
+
+  it("clears it on pending claims when their event moves to another programme", async () => {
+    const db = createDb({
+      reimbursement: [
+        {
+          ...approvedByLead(),
+          chargedProgrammeId: null,
+          chargedTo: "event",
+          eventId: "ev-arts",
+        },
+        {
+          ...approvedByLead(),
+          chargedProgrammeId: null,
+          chargedTo: "event",
+          eventId: "ev-arts",
+          id: "r-done",
+          status: "approved",
+        },
+      ],
+    });
+    const before = await eventProgrammes(db.tx as never, ["ev-arts"]);
+    Object.assign(db.tables.teamEvent?.[0] ?? {}, { programmeId: "edu" });
+    await clearLeadApprovalsOnMovedEvents(db.tx as never, before, "admin", 5);
+    const [pending, approved] = rows(db, "reimbursement");
+    expect(pending?.leadApprovedAt).toBeNull();
+    expect(approved?.leadApprovedBy).toBe("lead-edu");
   });
 });

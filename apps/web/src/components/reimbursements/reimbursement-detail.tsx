@@ -11,6 +11,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   formatCashVoucherLimit,
@@ -156,10 +157,16 @@ export function ReimbursementDetail({
   // An approved claim takes its payment screenshot after approval too: the
   // books post it only with one (finance layer 3-3a).
   const hasPaymentProof = Boolean(request.approvalScreenshotKey);
+  // Nobody approves or pays a request they raised or claim.
+  const { data: session } = authClient.useSession();
+  const isOwnRequest =
+    request.userId === session?.user?.id ||
+    ("createdBy" in request && request.createdBy === session?.user?.id);
   const showPaymentProof =
     request.type === "reimbursement" &&
     request.status === "approved" &&
     !voided &&
+    !isOwnRequest &&
     hasPermission("requests.approve");
   const [paymentProofOpen, setPaymentProofOpen] = useState(
     openPaymentProof && showPaymentProof
@@ -184,7 +191,8 @@ export function ReimbursementDetail({
     !isWaitingLead &&
     (request.status === "pending" || canUpdateAnyStatus);
   const editAction = voided ? undefined : onEdit;
-  const showApproveAction = showAdminActions && request.status !== "approved";
+  const showApproveAction =
+    showAdminActions && !isOwnRequest && request.status !== "approved";
   const showRejectAction = showAdminActions && request.status !== "rejected";
   const showResetAction = showAdminActions && request.status !== "pending";
 
@@ -923,12 +931,28 @@ function BankAccountCard({ request }: { request: RequestDetailData }) {
   const { hasPermission } = useApp();
   const { data: session } = authClient.useSession();
   const isReimbursementRequest = request.type === "reimbursement";
-  const payout = useReimbursementPayout(
-    request,
+  const canReadPayout =
     isReimbursementRequest &&
-      (request.userId === session?.user?.id ||
-        hasPermission("requests.view_all"))
-  );
+    (request.userId === session?.user?.id ||
+      hasPermission("requests.view_all"));
+  const payout = useReimbursementPayout(request, canReadPayout);
+  if (canReadPayout && payout.kind !== "ready") {
+    return (
+      <DetailsCard title="Paid to">
+        {payout.kind === "loading" ? (
+          <DetailsRow label="Pay by">
+            <Skeleton className="h-4 w-32" />
+          </DetailsRow>
+        ) : (
+          <DetailsRow label="Pay by">
+            <span className="text-destructive">
+              Couldn&apos;t load the payment details. Reload to try again.
+            </span>
+          </DetailsRow>
+        )}
+      </DetailsCard>
+    );
+  }
   let fields: PayoutFields = {};
   if (!isReimbursementRequest) {
     fields = request;

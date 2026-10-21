@@ -525,7 +525,15 @@ export function VendorPaymentsTable({
             payment={request}
           />
         );
-        if (!(showReview && request.status === "pending" && !voided)) {
+        // Nobody approves a request they raised.
+        if (
+          !(
+            showReview &&
+            request.status === "pending" &&
+            !voided &&
+            request.userId !== currentUserId
+          )
+        ) {
           return actions;
         }
         return (

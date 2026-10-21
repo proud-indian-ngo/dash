@@ -18,4 +18,31 @@ END $$;--> statement-breakpoint
 ALTER TABLE "programme" DROP COLUMN "finance_threshold_paise";--> statement-breakpoint
 DELETE FROM "app_config" WHERE "key" = 'finance_threshold_default_paise';--> statement-breakpoint
 ALTER TABLE "reimbursement" ADD CONSTRAINT "reimbursement_lead_approval_chk" CHECK ("reimbursement"."lead_approved_at" IS NULL OR "reimbursement"."lead_skip_reason" IS NULL);--> statement-breakpoint
-ALTER TABLE "vendor_payment" ADD CONSTRAINT "vendor_payment_lead_approval_chk" CHECK ("vendor_payment"."lead_approved_at" IS NULL OR "vendor_payment"."lead_skip_reason" IS NULL);
+ALTER TABLE "vendor_payment" ADD CONSTRAINT "vendor_payment_lead_approval_chk" CHECK ("vendor_payment"."lead_approved_at" IS NULL OR "vendor_payment"."lead_skip_reason" IS NULL);--> statement-breakpoint
+-- Requests already pending when lead approval begins go straight to finance,
+-- as they would have: they don't start waiting for a lead.
+UPDATE "reimbursement" r
+SET "lead_skip_reason" = 'Submitted before lead approval began'
+FROM "programme" p
+WHERE r."status" = 'pending'
+  AND r."charged_to" <> 'organisation'
+  AND p."id" = COALESCE(
+    r."charged_programme_id",
+    (SELECT e."programme_id" FROM "team_event" e WHERE e."id" = r."event_id")
+  )
+  AND p."id" <> '01930000-0000-7000-8000-000000000009'
+  AND p."lead_user_id" IS NOT NULL
+  AND p."lead_user_id" <> r."user_id"
+  AND p."lead_user_id" IS DISTINCT FROM r."created_by";--> statement-breakpoint
+UPDATE "vendor_payment" v
+SET "lead_skip_reason" = 'Submitted before lead approval began'
+FROM "programme" p
+WHERE v."status" = 'pending'
+  AND v."charged_to" <> 'organisation'
+  AND p."id" = COALESCE(
+    v."charged_programme_id",
+    (SELECT e."programme_id" FROM "team_event" e WHERE e."id" = v."event_id")
+  )
+  AND p."id" <> '01930000-0000-7000-8000-000000000009'
+  AND p."lead_user_id" IS NOT NULL
+  AND p."lead_user_id" <> v."user_id";

@@ -5,6 +5,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { LEGACY_LEAD_SKIP_REASON } from "@pi-dash/shared/approval-policy";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { format } from "date-fns";
@@ -38,7 +39,10 @@ export function leadApprovalText(request: LeadRequest): string | null {
     case "lead_approved":
       return `Approved by ${request.leadApprover?.name ?? "the programme lead"} on ${format(state.at, DATE)}`;
     case "skipped":
-      return `Approved by finance without the lead: ${state.reason}`;
+      // Pending when lead approval began: it never waited for a lead.
+      return state.reason === LEGACY_LEAD_SKIP_REASON
+        ? "Not needed: submitted before lead approval began"
+        : `Approved by finance without the lead: ${state.reason}`;
     default:
       return null;
   }

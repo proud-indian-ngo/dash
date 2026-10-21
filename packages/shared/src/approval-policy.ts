@@ -76,6 +76,56 @@ export function leadApprovalStateOf(
   return { kind: "none" };
 }
 
+/**
+ * Whether finance must give a reason to approve: the lead step applies and
+ * the lead has neither approved nor been skipped. It holds for any move to
+ * approved, from pending or from a (lead's) rejection. The approve mutators
+ * and the approve dialog both use it.
+ */
+export function leadStepOutstanding(
+  request: Pick<ApprovalRequest, "leadApprovedAt" | "leadSkipReason">,
+  leadUserId: null | string | undefined
+): boolean {
+  return (
+    Boolean(leadUserId) && !request.leadApprovedAt && !request.leadSkipReason
+  );
+}
+
+/**
+ * Stored as the skip reason on requests pending when lead approval began,
+ * so they don't suddenly wait for a lead.
+ */
+export const LEGACY_LEAD_SKIP_REASON = "Submitted before lead approval began";
+
+/** The list "Approval" filter's field, and its URL query for one value. */
+export const APPROVAL_FILTER_PATH = "approval";
+
+export type ApprovalFilterValue = "lead" | "ready" | "you";
+
+export function approvalFilterQuery(value: ApprovalFilterValue) {
+  return {
+    combinator: "and" as const,
+    id: "root",
+    rules: [
+      {
+        id: `approval-${value}`,
+        operator: "is",
+        path: [APPROVAL_FILTER_PATH],
+        type: "rule" as const,
+        value,
+      },
+    ],
+    type: "group" as const,
+  };
+}
+
+/** A list path filtered to what waits for you as programme lead. */
+export function waitingForYouPath(
+  list: "/reimbursements" | "/vendor-payments"
+): string {
+  return `${list}?filters=${encodeURIComponent(JSON.stringify(approvalFilterQuery("you")))}`;
+}
+
 /** The columns that clear a lead approval (an edit, a re-charge, a reset). */
 export const CLEARED_LEAD_APPROVAL = {
   leadApprovedAt: null,
