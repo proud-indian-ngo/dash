@@ -417,6 +417,7 @@ test.describe("Income: donation receipts (finance)", () => {
     page,
   }) => {
     test.slow();
+    await ensureRegistration(page);
     await clearDetailsAddress();
     const reference = `E2E-AUTO-DETAILS-${Date.now()}`;
     await recordContribution(page, DETAILS_DONOR, reference);
