@@ -109,6 +109,7 @@ function AddMemberFormContent({
           <>
             <UserPicker
               excludeUserIds={existingUserIds}
+              inputId={field.name}
               onValueChange={field.handleChange}
               users={eligibleUsers}
               value={field.state.value ?? []}

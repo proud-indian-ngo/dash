@@ -114,6 +114,7 @@ function AddEventMemberFormContent({
             excludeUserIds={existingUserIds}
             highlightedUserIds={teamMemberIds}
             highlightLabel="Team Member"
+            inputId={field.name}
             onValueChange={field.handleChange}
             users={eligibleUsers}
             value={field.state.value ?? []}
