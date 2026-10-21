@@ -480,6 +480,24 @@ describe("checkSignedUpload", () => {
         },
       })
     ).toThrow("doesn't check out");
+    expect(() =>
+      checkSignedUpload({
+        ...base,
+        report: {
+          baseSignatureFields: boxes,
+          checkedAt: "",
+          signatures: [
+            sig("Trustee_mt"),
+            sig("Trustee_sec", {
+              coversWholeRevision: false,
+              error: "TimeoutError",
+              intact: false,
+            }),
+          ],
+          status: "invalid",
+        },
+      })
+    ).toThrow("couldn't be checked (TimeoutError)");
   });
 
   it("refuses a signature in another trustee's box", () => {

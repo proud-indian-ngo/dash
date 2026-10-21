@@ -64,7 +64,7 @@ pub fn module_path(config: &Config) -> PathBuf {
     }
     #[cfg(target_os = "windows")]
     {
-        PathBuf::from(r"C:\Windows\System32\castle.dll")
+        PathBuf::from(r"C:\Windows\System32\HYP2003csp11IND.dll")
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {

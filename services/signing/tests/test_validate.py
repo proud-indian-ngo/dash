@@ -102,6 +102,26 @@ def test_a_revocation_found_now_counts_when_checking_at_the_timestamp(
     assert signature["trusted"] is False
 
 
+def test_a_revocation_fetch_that_times_out_is_checked_without_fetching(
+    pki: Pki, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = validate.async_validate_pdf_signature
+
+    async def unreachable_responder(sig: Any, signer_validation_context: Any, **kwargs: Any) -> Any:
+        if signer_validation_context.fetching_allowed:
+            raise TimeoutError
+        return await real(sig, signer_validation_context=signer_validation_context, **kwargs)
+
+    monkeypatch.setattr(validate, "async_validate_pdf_signature", unreachable_responder)
+    settings = ValidationSettings(trust_roots=[pki.ca_asn1], allow_fetching=True)
+    report = validate_pdf(sign(blank_pdf(), pki), settings)
+    assert report["status"] == "valid"
+    [signature] = report["signatures"]
+    assert signature["intact"] is True
+    assert signature["trusted"] is True
+    assert "error" not in signature
+
+
 def test_tampered_bytes_are_invalid(pki: Pki) -> None:
     signed = bytearray(sign(blank_pdf(), pki))
     # Flip a byte inside the signed page dictionary.
