@@ -4,13 +4,15 @@
  *
  * Usage:
  *   bun run whatsapp:templates status
- *   bun run whatsapp:templates submit [--dry-run] [name ...]
+ *   bun run whatsapp:templates submit [--dry-run] [--document-header-handle HANDLE] [name ...]
  *   bun run whatsapp:templates edit [--dry-run] [--limit N] [--continue] [name ...]
  *
  * `status` lists each template's review status on Meta and flags any Meta
  * moved to another category or rejected. `submit` creates the templates
  * that don't exist on Meta yet (or only the names given); existing ones are
  * left alone, so it's safe to run again after adding a template.
+ * A new DOCUMENT template also needs Meta's uploaded sample handle via
+ * `--document-header-handle`; dry runs may omit it.
  *
  * `edit` replaces the components (header, body, footer, buttons) of
  * templates on Meta whose text differs from ours, keeping their names, via
@@ -38,7 +40,7 @@ const DEFAULT_GRAPH_VERSION = "v25.0";
 
 const USAGE = `Usage:
   bun run whatsapp:templates status
-  bun run whatsapp:templates submit [--dry-run] [name ...]
+  bun run whatsapp:templates submit [--dry-run] [--document-header-handle HANDLE] [name ...]
   bun run whatsapp:templates edit [--dry-run] [--limit N] [--continue] [name ...]
 `;
 
@@ -189,8 +191,15 @@ function selectTemplates(names: string[]): readonly WhatsAppTemplate[] {
 }
 
 async function submit(args: string[]): Promise<void> {
-  const dryRun = args.includes("--dry-run");
-  const selected = selectTemplates(args.filter((arg) => !arg.startsWith("--")));
+  const options = [...args];
+  const documentHeaderHandle = parseStringOption(
+    options,
+    "--document-header-handle"
+  );
+  const dryRun = options.includes("--dry-run");
+  const selected = selectTemplates(
+    options.filter((arg) => !arg.startsWith("--"))
+  );
 
   const cfg = config();
   const existing = new Set(
@@ -201,11 +210,24 @@ async function submit(args: string[]): Promise<void> {
   let failed = 0;
   let skipped = 0;
   for (const template of selected) {
-    const payload = toTemplatePayload(template, cfg.appUrl);
+    const payload = toTemplatePayload(
+      template,
+      cfg.appUrl,
+      documentHeaderHandle
+    );
     if (existing.has(remoteKey(payload.name, payload.language))) {
       skipped += 1;
       process.stdout.write(`exists   ${template.name}\n`);
       continue;
+    }
+    if (
+      !dryRun &&
+      template.headerFormat === "DOCUMENT" &&
+      !documentHeaderHandle
+    ) {
+      fail(
+        `${template.name} needs --document-header-handle with Meta's uploaded sample handle`
+      );
     }
     if (dryRun) {
       process.stdout.write(
@@ -240,6 +262,19 @@ async function submit(args: string[]): Promise<void> {
   if (failed > 0) {
     process.exit(1);
   }
+}
+
+function parseStringOption(args: string[], option: string): string | undefined {
+  const at = args.indexOf(option);
+  if (at === -1) {
+    return;
+  }
+  const value = args[at + 1];
+  if (!value || value.startsWith("--")) {
+    fail(`${option} needs a value`);
+  }
+  args.splice(at, 2);
+  return value;
 }
 
 /**

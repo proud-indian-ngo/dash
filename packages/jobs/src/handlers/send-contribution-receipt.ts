@@ -8,6 +8,7 @@ import { EmailSendError, sendEmail } from "@pi-dash/email/mailer";
 import { formatPaise } from "@pi-dash/shared/money";
 import { formatReceiptDate } from "@pi-dash/shared/receipts";
 
+import { safeReceiptJobError } from "../lib/receipt-errors";
 import { renderReceiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptPayload } from "../types";
 import { createNotifyHandler } from "./create-handler";
@@ -69,6 +70,9 @@ export async function sendContributionReceipt(
     return { outcome: "missing" };
   }
   const { document } = rendered;
+  if (document.voidedAt) {
+    return { outcome: "voided" };
+  }
   const html = await deps.renderEmail({
     amount: formatPaise(document.gift.amountPaise),
     donorName: document.donor.name,
@@ -105,7 +109,10 @@ export async function sendContributionReceipt(
 export const handleSendContributionReceipt = createNotifyHandler<
   SendContributionReceiptPayload,
   { outcome: ReceiptEmailOutcome }
->(
-  "send-contribution-receipt",
-  async () => (data) => sendContributionReceipt(data)
-);
+>("send-contribution-receipt", async () => async (data) => {
+  try {
+    return await sendContributionReceipt(data);
+  } catch (error) {
+    throw safeReceiptJobError(error, "receipt_email_failed");
+  }
+});

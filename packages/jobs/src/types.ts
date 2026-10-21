@@ -128,10 +128,16 @@ export interface GenerateCashVoucherPayload {
   reimbursementId: string;
 }
 
-// Donation receipt email (manual "Email receipt"); IDs only.
+// Automatic donation receipt creation; IDs only.
+export interface IssueContributionReceiptPayload {
+  actorId: string;
+  contributionId: string;
+}
+
+// Donation receipt delivery; IDs only.
 export interface SendContributionReceiptPayload {
   receiptId: string;
-  /** One per click, so a deliberate resend is a new email but a retry is not. */
+  /** Stable for automatic delivery; one per click for a deliberate resend. */
   requestId: string;
 }
 
@@ -836,7 +842,9 @@ export interface JobPayloads {
   "remind-compliance-items": Record<string, never>;
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
+  "issue-contribution-receipt": IssueContributionReceiptPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
+  "send-contribution-receipt-whatsapp": SendContributionReceiptPayload;
   "send-donation-certificate": SendDonationCertificatePayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;

@@ -29,8 +29,18 @@ type NeedsPath<N extends WhatsAppTemplateName> =
       : true
     : false;
 
+type NeedsDocument<N extends WhatsAppTemplateName> =
+  TemplateNamed<N> extends { headerFormat: "DOCUMENT" } ? true : false;
+
+export interface WhatsAppDocument {
+  bytes: Uint8Array;
+  filename: string;
+}
+
 /** A filled-in template, ready to send or hold for the batching window. */
 export interface WhatsAppTemplateMessage {
+  /** The PDF attached through a DOCUMENT template header. */
+  document?: WhatsAppDocument;
   name: WhatsAppTemplateName;
   params: Record<string, string>;
   /** The dashboard path the button opens, without the leading slash. */
@@ -99,13 +109,18 @@ export function flattenParameter(value: string): string {
 }
 
 /**
- * Build a template message. The parameter names and whether a button path
- * is needed come from `templates.ts`, so a mismatch fails type checking.
+ * Build a template message. Parameter names and the required delivery value
+ * (a button path or document) come from `templates.ts`, so a mismatch fails
+ * type checking.
  */
 export function whatsappTemplate<N extends WhatsAppTemplateName>(
   name: N,
   params: TemplateParams<N>,
-  ...path: NeedsPath<N> extends true ? [path: string] : []
+  ...delivery: NeedsDocument<N> extends true
+    ? [document: WhatsAppDocument]
+    : NeedsPath<N> extends true
+      ? [path: string]
+      : []
 ): WhatsAppTemplateMessage {
   const flat = Object.fromEntries(
     Object.entries(params as Record<string, string>).map(([key, value]) => [
@@ -113,8 +128,13 @@ export function whatsappTemplate<N extends WhatsAppTemplateName>(
       flattenParameter(value),
     ])
   );
-  const [buttonPath] = path as [string?];
+  const [deliveryOption] = delivery as [string | WhatsAppDocument | undefined];
+  const document =
+    typeof deliveryOption === "object" ? deliveryOption : undefined;
+  const buttonPath =
+    typeof deliveryOption === "string" ? deliveryOption : undefined;
   return {
+    ...(document === undefined ? {} : { document }),
     name,
     params: fitToBody(TEMPLATE_BODIES.get(name) ?? "", flat),
     ...(buttonPath === undefined

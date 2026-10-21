@@ -14,13 +14,17 @@ import {
   sendCloudText,
 } from "./cloud";
 import { logGowaSend } from "./gowa-log";
-import { sendWhatsAppMessage } from "./messaging";
+import {
+  isWhatsAppGatewayEnabled,
+  sendWhatsAppDocument,
+  sendWhatsAppMessage,
+} from "./messaging";
 import { storedTemplateText } from "./preview";
 import type { WhatsAppTemplateMessage } from "./template-message";
 import { WHATSAPP_TEMPLATES } from "./templates";
 
 export interface WhatsAppNotification {
-  /** Sent through Meta's Cloud API when it's configured. */
+  /** Sent through Meta, or supplies a document for the GoWA fallback. */
   template?: WhatsAppTemplateMessage;
   /** Sent through GoWA when the Cloud API isn't configured. */
   text: string;
@@ -35,6 +39,7 @@ export type WhatsAppSendOutcome =
   | "sent"
   | "duplicate"
   | "no_template"
+  | "not_configured"
   | "rejected";
 
 /**
@@ -142,11 +147,31 @@ export async function sendWhatsAppNotification(
   options: { idempotencyKey: string; userId?: string }
 ): Promise<WhatsAppSendOutcome> {
   if (!isCloudApiEnabled()) {
-    const messageId = await sendWhatsAppMessage(phone, notification.text, {
-      idempotencyKey: options.idempotencyKey,
-    });
+    if (!isWhatsAppGatewayEnabled()) {
+      const log = createRequestLogger({
+        method: "POST",
+        path: "sendWhatsAppNotification",
+      });
+      log.set({
+        event: "whatsapp_not_configured",
+        idempotencyKey: options.idempotencyKey,
+        userId: options.userId,
+      });
+      log.warn("whatsapp_not_configured");
+      log.emit();
+      return "not_configured";
+    }
+    const document = notification.template?.document;
+    const messageId = document
+      ? await sendWhatsAppDocument(phone, document, notification.text, {
+          idempotencyKey: options.idempotencyKey,
+        })
+      : await sendWhatsAppMessage(phone, notification.text, {
+          idempotencyKey: options.idempotencyKey,
+        });
     await logGowaSend(
       {
+        ...(document ? { attachmentCount: 1 } : {}),
         idempotencyKey: options.idempotencyKey,
         kind: "direct",
         source: "notification",

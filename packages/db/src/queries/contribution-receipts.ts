@@ -671,6 +671,24 @@ export interface IssueReceiptsResult {
   skipped: { contributionId: string; reason: string }[];
 }
 
+/** Automatic jobs must never replace a receipt that finance deliberately voided. */
+export async function hasReceiptHistoryIn(
+  tx: ReceiptTx,
+  contributionId: string
+): Promise<boolean> {
+  await tx
+    .select({ id: contribution.id })
+    .from(contribution)
+    .where(eq(contribution.id, contributionId))
+    .for("update");
+  const [receipt] = await tx
+    .select({ id: contributionReceipt.id })
+    .from(contributionReceipt)
+    .where(eq(contributionReceipt.contributionId, contributionId))
+    .limit(1);
+  return receipt !== undefined;
+}
+
 /**
  * Issues receipts for the given gifts, in date order, inside `tx`. Gifts that
  * are no longer eligible (changed since the review) are skipped and
@@ -897,6 +915,31 @@ export interface ReceiptEmailTarget {
   number: string;
   partyId: string;
   voided: boolean;
+}
+
+/** Private contact lookup for the receipt WhatsApp job; never synced. */
+export async function loadReceiptWhatsAppTarget(receiptId: string) {
+  const [row] = await db
+    .select({
+      email: partyPrivate.email,
+      phone: partyPrivate.phone,
+      voidedAt: contributionReceipt.voidedAt,
+    })
+    .from(contributionReceipt)
+    .innerJoin(
+      contribution,
+      eq(contribution.id, contributionReceipt.contributionId)
+    )
+    .leftJoin(partyPrivate, eq(partyPrivate.partyId, contribution.partyId))
+    .where(eq(contributionReceipt.id, receiptId))
+    .limit(1);
+  return row
+    ? {
+        email: row.email?.trim() || null,
+        phone: row.phone?.trim() || null,
+        voided: row.voidedAt !== null,
+      }
+    : null;
 }
 
 /** Who a receipt is emailed to: the donor's current email address. */

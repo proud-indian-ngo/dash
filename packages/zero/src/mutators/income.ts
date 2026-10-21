@@ -29,6 +29,10 @@ import {
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { positivePaiseSchema } from "@pi-dash/shared/money";
+import {
+  DIRECT_RECEIPT_CHANNELS,
+  RECEIPTING_START_DAY,
+} from "@pi-dash/shared/receipts";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
@@ -562,6 +566,24 @@ export const contributionMutators = {
         suggestionReason: null,
         updatedAt: now,
       });
+    }
+    if (
+      tx.location === "server" &&
+      DIRECT_RECEIPT_CHANNELS.includes(values.channel) &&
+      args.receivedOn >= RECEIPTING_START_DAY
+    ) {
+      const { inTransaction } = await import("@pi-dash/jobs/enqueue");
+      await requireEnqueue(ctx)(
+        "issue-contribution-receipt",
+        { actorId: ctx.userId, contributionId: args.id },
+        {
+          db: inTransaction(
+            requireServerTransaction(tx as unknown as LockableKalakritiTx)
+          ),
+          singletonKey: args.id,
+          traceId: ctx.traceId,
+        }
+      );
     }
     queueLedgerPosting(
       ctx,

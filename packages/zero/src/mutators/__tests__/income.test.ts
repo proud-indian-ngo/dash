@@ -142,6 +142,7 @@ async function run(
 }
 
 const donorsCtx = {
+  enqueue: async () => "job",
   permissions: ["donors.view", "donors.manage"],
   role: "finance_admin",
   userId: "fin-1",
@@ -1178,6 +1179,7 @@ describe("other income mutators", () => {
 
 describe("recording a donation from a bank statement line", () => {
   const bothCtx = {
+    enqueue: async () => "job",
     permissions: ["donors.manage", "finance.manage"],
     role: "finance_admin",
     userId: "fin-1",
@@ -1331,17 +1333,23 @@ describe("queueing the books after a change", () => {
       "contribution.update",
       "contribution.delete",
     ]);
-    // Nothing is queued until the transaction has committed.
-    expect(sent).toEqual([]);
+    // Receipt creation is durable in the donation transaction; books follow commit.
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject([
+      "issue-contribution-receipt",
+      { actorId: "fin-1", contributionId: "c-1" },
+      { singletonKey: "c-1", traceId: "trace-1" },
+    ]);
+    expect(sent[0]?.[2]).toHaveProperty("db");
     for (const task of ctx.asyncTasks) {
       await task.fn();
     }
-    expect(sent[0]).toEqual([
+    expect(sent[1]).toEqual([
       "ledger-post-source",
       { sourceId: "c-1", sourceType: "contribution" },
       { singletonKey: "contribution:c-1", traceId: "trace-1" },
     ]);
-    expect(sent).toHaveLength(3);
+    expect(sent).toHaveLength(4);
   });
 
   it("queues the posting of other income", async () => {
@@ -1365,6 +1373,42 @@ describe("queueing the books after a change", () => {
         { singletonKey: "other_income:oi-1", traceId: "trace-1" },
       ],
     ]);
+  });
+
+  it("doesn't queue automatic receipts for gateway, in-kind or pre-start gifts", async () => {
+    for (const overrides of [
+      RAZORPAY_GIFT,
+      { channel: "give_do", orgAccountId: "acc-gd" },
+      {
+        channel: "in_kind",
+        orgAccountId: null,
+        inKindDescription: "Books",
+        inKindValuationBasis: "Cost",
+      },
+      { receivedOn: "2026-03-31" },
+    ]) {
+      const db = createDb();
+      const { ctx, sent } = withQueue(donorsCtx);
+      await run(contributionMutators.create, db, ctx, contribution(overrides));
+      expect(sent).toEqual([]);
+    }
+  });
+
+  it("fails the transaction if the receipt job cannot be stored", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        {
+          ...donorsCtx,
+          enqueue: async () => {
+            throw new Error("queue unavailable");
+          },
+        },
+        contribution()
+      )
+    ).rejects.toThrow("queue unavailable");
   });
 
   it("queues nothing from the client's optimistic run", async () => {

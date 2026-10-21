@@ -24,6 +24,7 @@ import { handleGenerateCashVoucher } from "./generate-cash-voucher";
 import { handleImmichDeleteAlbum } from "./immich-delete-album";
 import { handleImmichDeleteAsset } from "./immich-delete-asset";
 import { handleImmichSyncPhoto } from "./immich-sync-photo";
+import { handleIssueContributionReceipt } from "./issue-contribution-receipt";
 import { handleLedgerPostPending, handleLedgerPostSource } from "./ledger-post";
 import { handleNotifyMeetingNotice } from "./meetings";
 import {
@@ -124,6 +125,7 @@ import { handleRetimestampGovernanceArchives } from "./retimestamp-governance-ar
 import { handleScanWhatsAppGroups } from "./scan-whatsapp-groups";
 import { handleSendBulkNotification } from "./send-bulk-notification";
 import { handleSendContributionReceipt } from "./send-contribution-receipt";
+import { handleSendContributionReceiptWhatsApp } from "./send-contribution-receipt-whatsapp";
 import { handleSendDonationCertificate } from "./send-donation-certificate";
 import { handleSendEventRsvpPolls } from "./send-event-rsvp-polls";
 import { handleSendNotification } from "./send-notification";
@@ -281,6 +283,16 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "send-donation-certificate",
     NOTIFY_POLL,
     handleSendDonationCertificate
+  );
+  await boss.work(
+    "issue-contribution-receipt",
+    NOTIFY_POLL,
+    handleIssueContributionReceipt
+  );
+  await boss.work(
+    "send-contribution-receipt-whatsapp",
+    NOTIFY_POLL,
+    handleSendContributionReceiptWhatsApp
   );
   await boss.work(
     "send-scheduled-message",

@@ -55,6 +55,21 @@ describe("renderWhatsAppPreview", () => {
     expect(preview.body).toEqual([[{ bold: false, text: "Hi {{name}}." }]]);
   });
 
+  it("uses the donor footer and no text header for attached receipt PDFs", () => {
+    const preview = renderWhatsAppPreview(
+      {
+        body: "Your donation receipt is attached.",
+        footer: "Proud Indian · Thank you for your support",
+        header: "Donation receipt",
+        headerFormat: "DOCUMENT",
+      },
+      {}
+    );
+    expect(preview.footer).toBe("Proud Indian · Thank you for your support");
+    expect(preview.header).toBeNull();
+    expect(preview.button).toBeNull();
+  });
+
   it("stores the header with the body and reads older body-only rows", () => {
     const template = {
       body: "Hi {{name}}.\n\n*Team:* {{team}} now",

@@ -9,14 +9,15 @@
  * - parameters are named, lowercase, and each needs an example;
  * - the body is at most 1024 characters and can't start or end with a
  *   parameter, even one followed only by punctuation;
- * - the text header is at most 60 characters; ours are static, with no
- *   parameter, markdown or emoji;
+ * - text headers are at most 60 characters; ours are static, with no
+ *   parameter, markdown or emoji; document headers need an uploaded sample;
  * - there must be enough fixed words per parameter (2 failed, 2.5 passed);
  * - buttons can't link to chat.whatsapp.com;
  * - parameter values can't contain new lines, so values are flattened
  *   before sending.
  *
- * House style, also checked there: a static header names what happened;
+ * House style, also checked there: a static text header names what happened,
+ * or a document header attaches the file the message is about;
  * the body opens with a plain sentence, then a blank line and the facts as
  * `*Label:* {{value}}` lines when there are two or more. No line is only a
  * parameter, `*bold*` markers pair up on each line, and there is never more
@@ -44,8 +45,12 @@ export interface WhatsAppTemplate {
   dashboardPath?: string;
   /** One example value per `{{parameter}}` in the body. */
   examples: Record<string, string>;
-  /** A static text header: a short title for what happened. */
+  /** A short label for the header; document labels are metadata only. */
   header?: string;
+  /** Defaults to TEXT. DOCUMENT templates attach a file when sent. */
+  headerFormat?: "TEXT" | "DOCUMENT";
+  /** Override the dashboard-oriented default for external recipients. */
+  footer?: string;
   /** A short title for the dashboard, where the template name would show. */
   label: string;
   name: string;
@@ -58,6 +63,22 @@ export const DASHBOARD_BUTTON_TEXT = "Open dashboard";
 const EVENT_DETAILS_EXAMPLE = "on Sat, 18 Oct, 10:00 AM at Cubbon Park";
 
 export const WHATSAPP_TEMPLATES = [
+  // ── Donation receipts ────────────────────────────────────────────────────
+  {
+    body: "Thank you for your donation to Proud Indian.\n\n*Amount:* {{amount}}\n*Receipt number:* {{number}}\n*Date received:* {{received_on}}\n\nYour donation receipt is attached as a PDF.",
+    category: "UTILITY",
+    examples: {
+      amount: "₹5,000",
+      number: "PI-2026-0012",
+      received_on: "21 October 2026",
+    },
+    footer: "Proud Indian · Thank you for your support",
+    header: "Donation receipt",
+    headerFormat: "DOCUMENT",
+    label: "Donation receipt",
+    name: "donation_receipt",
+  },
+
   // ── Account ───────────────────────────────────────────────────────────────
   {
     body: "Hi {{name}}, your Proud Indian Dashboard account is ready.\n\nYou can sign in now.",
@@ -821,6 +842,11 @@ interface UrlButton {
 type TemplateComponent =
   | { format: "TEXT"; text: string; type: "HEADER" }
   | {
+      example?: { header_handle: string[] };
+      format: "DOCUMENT";
+      type: "HEADER";
+    }
+  | {
       example?: { body_text_named_params: NamedParameter[] };
       text: string;
       type: "BODY";
@@ -853,7 +879,8 @@ function urlButton(text: string, base: string, example?: string): UrlButton {
  */
 export function toTemplatePayload(
   template: WhatsAppTemplate,
-  appUrl: string
+  appUrl: string,
+  documentHeaderHandle?: string
 ): TemplateCreatePayload {
   const parameters = templateParameters(template.body);
   const buttons: UrlButton[] = [];
@@ -872,13 +899,23 @@ export function toTemplatePayload(
     components: [
       ...(template.header === undefined
         ? []
-        : [
-            {
-              format: "TEXT" as const,
-              text: template.header,
-              type: "HEADER" as const,
-            },
-          ]),
+        : template.headerFormat === "DOCUMENT"
+          ? [
+              {
+                ...(documentHeaderHandle
+                  ? { example: { header_handle: [documentHeaderHandle] } }
+                  : {}),
+                format: "DOCUMENT" as const,
+                type: "HEADER" as const,
+              },
+            ]
+          : [
+              {
+                format: "TEXT" as const,
+                text: template.header,
+                type: "HEADER" as const,
+              },
+            ]),
       {
         ...(parameters.length > 0
           ? {
@@ -893,7 +930,7 @@ export function toTemplatePayload(
         text: template.body,
         type: "BODY",
       },
-      { text: TEMPLATE_FOOTER, type: "FOOTER" },
+      { text: template.footer ?? TEMPLATE_FOOTER, type: "FOOTER" },
       ...(buttons.length > 0 ? [{ buttons, type: "BUTTONS" as const }] : []),
     ],
     language: TEMPLATE_LANGUAGE,

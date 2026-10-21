@@ -10,7 +10,10 @@ mock.module("@pi-dash/db", () => ({ db: {} }));
 mock.module("@pi-dash/env/server", () => ({
   env: { BETTER_AUTH_URL: "http://localhost:3000" },
 }));
-mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue: async () => null }));
+mock.module("@pi-dash/jobs/enqueue", () => ({
+  enqueue: async () => null,
+  inTransaction: (tx: unknown) => tx,
+}));
 mock.module("@pi-dash/observability", () => ({
   withFireAndForgetLog: () => undefined,
 }));

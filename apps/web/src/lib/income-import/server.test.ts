@@ -13,6 +13,14 @@ let contributionIds: (string | null)[] = [];
 let mapping: Record<string, string> | null = null;
 let insertBatch: () => Promise<void> = async () => undefined;
 const logged: unknown[] = [];
+const receiptJobs: { name: string; data: unknown; options: unknown }[] = [];
+mock.module("@pi-dash/jobs/enqueue", () => ({
+  enqueue: async (name: string, data: unknown, options: unknown) => {
+    receiptJobs.push({ name, data, options });
+    return "job";
+  },
+  inTransaction: (tx: unknown) => tx,
+}));
 let source = "generic_csv";
 let rows: () => Record<string, string>[];
 let storedIdentities: {
@@ -263,6 +271,7 @@ const { parseCsv } = await import("./parse-csv");
 const { reviewSummaryLine, summarizeReview } = await import("./review-summary");
 
 beforeEach(() => {
+  receiptJobs.length = 0;
   accountKind = null;
   batchProgramme = null;
   batchFund = null;
@@ -468,6 +477,16 @@ describe("channel rules", () => {
     );
     expect(result).toMatchObject({ errors: 1, imported: 1 });
     expect(calls.contributions.map((c) => c.channel)).toEqual(["upi"]);
+    expect(receiptJobs).toEqual([
+      {
+        name: "issue-contribution-receipt",
+        data: { actorId: "user-1", contributionId: calls.contributions[0]?.id },
+        options: {
+          db: calls.contributionTxs[0],
+          singletonKey: calls.contributions[0]?.id,
+        },
+      },
+    ]);
   });
 
   it("refuses give.do rows into the Razorpay clearing account", async () => {
@@ -683,6 +702,7 @@ describe("runImportBatch for give.do", () => {
     expect(calls.saves).toBe(1);
     expect(result).toMatchObject({ errors: 1, imported: 2, newDonors: 1 });
     expect(calls.contributions).toHaveLength(2);
+    expect(receiptJobs).toEqual([]);
     for (const contribution of calls.contributions) {
       expect(contribution).toMatchObject({
         channel: "give_do",

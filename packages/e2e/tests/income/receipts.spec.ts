@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
@@ -13,6 +13,7 @@ const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
 const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
 const DETAILS_DONOR = "E2E Receipt Details Donor";
 const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
+const ACCOUNT = "E2E Bank Account";
 
 /** The financial year running now in India, whose series the receipt starts. */
 function currentFinancialYear(): string {
@@ -71,6 +72,62 @@ async function clearDetailsAddress(): Promise<void> {
   if (cleared !== 1) {
     throw new Error("The receipt details donor isn't seeded");
   }
+}
+
+type AutomaticReceiptInspection = {
+  jobs: { name: string; outcome: string | null; state: string }[];
+  receiptCount: number;
+};
+
+/** Reads sanitized receipt and job state for one contribution reference. */
+async function inspectAutomatic(
+  reference: string
+): Promise<AutomaticReceiptInspection> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "inspect-automatic",
+      reference,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as AutomaticReceiptInspection;
+}
+
+async function pickOption(
+  scope: Locator,
+  page: Page,
+  label: string,
+  text: string
+) {
+  const combobox = scope.getByRole("combobox", { name: label });
+  await combobox.click();
+  await combobox.fill(text);
+  const option = page.getByRole("option").filter({ hasText: text }).first();
+  await expect(option).toBeVisible({ timeout: 10_000 });
+  await option.click();
+}
+
+/** Records a normal direct contribution through the Income form. */
+async function recordContribution(
+  page: Page,
+  donor: string,
+  reference: string
+) {
+  await page.goto("/income");
+  await waitForZeroReady(page);
+  await page.getByRole("button", { name: "Record contribution" }).click();
+  const dialog = page.getByRole("dialog", { name: "Record contribution" });
+  await expect(dialog).toBeVisible();
+  await pickOption(dialog, page, "Donor", donor);
+  await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("500");
+  await pickOption(dialog, page, "Deposited into", ACCOUNT);
+  await dialog
+    .getByRole("textbox", { exact: true, name: "Reference" })
+    .fill(reference);
+  await clickUntilDialogCloses(dialog, "Save contribution");
 }
 
 /** The table row of one of the receipt donor's gifts, by its reference. */
@@ -315,6 +372,74 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(
       reopened.getByTestId("contribution-issue-receipt")
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("automatically emails a new direct gift's receipt and skips WhatsApp when both contacts exist", async ({
+    page,
+  }) => {
+    test.slow();
+    await ensureRegistration(page);
+    const reference = `E2E-AUTO-RECEIPT-${Date.now()}`;
+    await recordContribution(page, RECEIPT_DONOR, reference);
+
+    const row = await giftRow(page, reference);
+    await expect(row.getByTestId("contribution-receipt-cell")).toContainText(
+      `PI/${currentFinancialYear()}/`,
+      { timeout: 30_000 }
+    );
+    await expect
+      .poll(async () => await inspectAutomatic(reference), {
+        timeout: 30_000,
+      })
+      .toEqual({
+        jobs: [
+          {
+            name: "issue-contribution-receipt",
+            outcome: "issued",
+            state: "completed",
+          },
+          {
+            name: "send-contribution-receipt",
+            outcome: "not_configured",
+            state: "completed",
+          },
+          {
+            name: "send-contribution-receipt-whatsapp",
+            outcome: "email_available",
+            state: "completed",
+          },
+        ],
+        receiptCount: 1,
+      });
+  });
+
+  test("does not issue or dispatch an automatic receipt without donor details", async ({
+    page,
+  }) => {
+    test.slow();
+    await clearDetailsAddress();
+    const reference = `E2E-AUTO-DETAILS-${Date.now()}`;
+    await recordContribution(page, DETAILS_DONOR, reference);
+
+    const row = await giftRow(page, reference, undefined, DETAILS_DONOR);
+    await expect(row.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Needs details",
+      { timeout: 15_000 }
+    );
+    await expect
+      .poll(async () => await inspectAutomatic(reference), {
+        timeout: 30_000,
+      })
+      .toEqual({
+        jobs: [
+          {
+            name: "issue-contribution-receipt",
+            outcome: "not_ready",
+            state: "completed",
+          },
+        ],
+        receiptCount: 0,
+      });
   });
 
   test("a gift waiting on the donor's address is Ready to issue once it is added", async ({

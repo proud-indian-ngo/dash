@@ -606,6 +606,7 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
     ),
     idNumberLast4: visibleTail(RECEIPT_DONOR_PAN),
     idType: "pan" as const,
+    phone: "+919999990741",
     pincode: "560001",
     state: "Karnataka",
     updatedAt: now,
