@@ -660,6 +660,21 @@ describe("contribution mutators", () => {
         contribution({ ...linked, projectId: null })
       )
     ).rejects.toThrow("Ask finance to unlink it from the grant first");
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({
+          ...linked,
+          channel: "in_kind",
+          inKindDescription: "Books",
+          inKindValuationBasis: "Invoice",
+          orgAccountId: null,
+          reportingMode: "in_kind",
+        })
+      )
+    ).rejects.toThrow("not in-kind gifts");
     await run(
       contributionMutators.update,
       db,

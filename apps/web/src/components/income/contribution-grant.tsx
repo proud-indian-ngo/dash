@@ -1,6 +1,7 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { grantLinkIssue } from "@pi-dash/shared/grants";
+import { grantLinkIssue, grantPeriodIssue } from "@pi-dash/shared/grants";
+import { epochDayToIso } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -167,19 +168,33 @@ export function ContributionGrantFact({
   const grants = useGrants();
   const [open, setOpen] = useState(false);
   const linked = grants.find((g) => g.id === contribution.grantId);
-  const eligible = grants.filter(
-    (g) =>
-      grantLinkIssue(
-        {
-          channel: contribution.channel,
-          partyId: contribution.partyId,
-          programmeId: contribution.programmeId ?? null,
-          projectId: contribution.projectId ?? null,
-          status: contribution.status,
-        },
-        g
-      ) === null
-  );
+  const receivedOn = epochDayToIso(contribution.receivedOn);
+  const periodOf = (g: Grant) => ({
+    endsOn: epochDayToIso(g.endsOn),
+    id: g.id,
+    startsOn: epochDayToIso(g.startsOn),
+    title: g.title,
+  });
+  const projectGrants = grants
+    .filter((g) => g.projectId === contribution.projectId)
+    .map(periodOf);
+  const gift = {
+    channel: contribution.channel,
+    partyId: contribution.partyId,
+    programmeId: contribution.programmeId ?? null,
+    projectId: contribution.projectId ?? null,
+    status: contribution.status,
+  };
+  const eligible = grants
+    .filter((g) => grantLinkIssue(gift, g) === null)
+    .filter((g) => grantPeriodIssue(receivedOn, g.id, projectGrants) === null);
+  // Inside a grant's period, only that grant qualifies; outside every
+  // period, any of the project's grants does.
+  const outsidePeriods =
+    eligible.length > 0 &&
+    !projectGrants.some(
+      (g) => g.startsOn <= receivedOn && receivedOn <= g.endsOn
+    );
   const choices = linked
     ? [linked, ...eligible.filter((g) => g.id !== linked.id)]
     : eligible;
@@ -216,7 +231,9 @@ export function ContributionGrantFact({
                   {linked ? "Grant link" : "Link to grant"}
                 </DialogTitle>
                 <DialogDescription>
-                  The contribution counts as money received under the grant.
+                  {outsidePeriods
+                    ? "Received outside every grant's period, so it can count towards any of this project's grants, as an advance or a late tranche."
+                    : "The contribution counts as money received under the grant whose period covers its date."}
                 </DialogDescription>
               </DialogHeader>
               {open ? (

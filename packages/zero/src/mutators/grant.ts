@@ -3,8 +3,8 @@ import {
   grantStatusValues,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
-import { grantLinkIssue } from "@pi-dash/shared/grants";
-import { GIVER_ROLES } from "@pi-dash/shared/income";
+import { grantLinkIssue, grantPeriodIssue } from "@pi-dash/shared/grants";
+import { epochDayToIso, GIVER_ROLES } from "@pi-dash/shared/income";
 import { paiseSchema, positivePaiseSchema } from "@pi-dash/shared/money";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
@@ -386,6 +386,22 @@ export const grantMutators = {
       );
       if (issue) {
         throw new Error(issue);
+      }
+      const projectGrants = await tx.run(
+        zql.grantAgreement.where("projectId", grant.projectId)
+      );
+      const periodIssue = grantPeriodIssue(
+        epochDayToIso(gift.receivedOn),
+        grant.id,
+        projectGrants.map((g) => ({
+          endsOn: epochDayToIso(g.endsOn),
+          id: g.id,
+          startsOn: epochDayToIso(g.startsOn),
+          title: g.title,
+        }))
+      );
+      if (periodIssue) {
+        throw new Error(periodIssue);
       }
       if (args.trancheId) {
         const tranche = await tx.run(

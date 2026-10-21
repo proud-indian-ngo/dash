@@ -22,6 +22,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
         partyId: "grantor",
         programmeId: "prog-1",
         projectId: "proj-1",
+        receivedOn: Date.UTC(2026, 9, 1),
         status: "received",
       },
     ],
@@ -201,6 +202,27 @@ describe("grant.linkContribution", () => {
       await expect(link(db)).rejects.toThrow();
       expect(db.tables.contribution?.[0]?.grantId).toBeNull();
     }
+  });
+
+  it("links a receipt to the grant whose period covers it, any outside one", async () => {
+    const db = createDb();
+    await save(db);
+    await save(db, {
+      endsOn: "2028-03-31",
+      id: "grant-2",
+      startsOn: "2027-04-01",
+    });
+    // Received on 1 Oct 2026, inside the first grant.
+    await expect(link(db, { grantId: "grant-2" })).rejects.toThrow(
+      /counts towards that grant/
+    );
+    await link(db);
+    // An advance before both periods may go to either.
+    Object.assign(db.tables.contribution?.[0] ?? {}, {
+      receivedOn: Date.UTC(2026, 0, 15),
+    });
+    await link(db, { grantId: "grant-2" });
+    expect(db.tables.contribution?.[0]?.grantId).toBe("grant-2");
   });
 
   it("refuses another grant's tranche", async () => {

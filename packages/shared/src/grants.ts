@@ -65,6 +65,33 @@ export function grantLinkIssue(
   return null;
 }
 
+/** A grant's period as ISO days, for matching a receipt to it. */
+export interface GrantPeriod {
+  endsOn: string;
+  id: string;
+  startsOn: string;
+  title: string;
+}
+
+/**
+ * Why a gift received on `receivedOn` can't count towards `grantId`, given
+ * every grant on the same project: a receipt inside a grant's period
+ * belongs to that grant. A receipt outside every period (an advance or a
+ * late tranche) may count towards any of them.
+ */
+export function grantPeriodIssue(
+  receivedOn: string,
+  grantId: string,
+  projectGrants: readonly GrantPeriod[]
+): string | null {
+  const covering = projectGrants.find(
+    (g) => g.startsOn <= receivedOn && receivedOn <= g.endsOn
+  );
+  return covering && covering.id !== grantId
+    ? `It was received during "${covering.title}", so it counts towards that grant`
+    : null;
+}
+
 /** A contribution linked to a grant, gross (`GrantReceipt`). */
 export interface GrantReceiptInput {
   contributionId: string;

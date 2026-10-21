@@ -514,3 +514,15 @@ it.skipIf(!localDatabase)(
     });
   }
 );
+
+it.skipIf(!localDatabase)(
+  "has the exclusion constraint that keeps a project's grants apart",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const rows = await tx.execute<{ type: string }>(
+        sql`SELECT contype AS type FROM pg_constraint WHERE conname = 'grant_agreement_project_period_excl'`
+      );
+      expect([...rows].map((r) => r.type)).toEqual(["x"]);
+    });
+  }
+);

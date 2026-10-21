@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { grantLinkIssue, grantTranches, grantUtilisation } from "./grants";
+import {
+  grantLinkIssue,
+  grantPeriodIssue,
+  grantTranches,
+  grantUtilisation,
+} from "./grants";
 
 const receipt = (
   contributionId: string,
@@ -213,5 +218,22 @@ describe("grantLinkIssue", () => {
     expect(grantLinkIssue({ ...gift, channel: "in_kind" }, grant)).toMatch(
       /in-kind/
     );
+  });
+});
+
+describe("grantPeriodIssue", () => {
+  const grants = [
+    { endsOn: "2027-03-31", id: "g1", startsOn: "2026-04-01", title: "First" },
+    { endsOn: "2028-03-31", id: "g2", startsOn: "2027-04-01", title: "Second" },
+  ];
+
+  it("keeps a receipt inside a period with that grant", () => {
+    expect(grantPeriodIssue("2026-10-01", "g1", grants)).toBeNull();
+    expect(grantPeriodIssue("2026-10-01", "g2", grants)).toMatch(/First/);
+  });
+
+  it("lets a receipt outside every period count towards any grant", () => {
+    expect(grantPeriodIssue("2026-03-01", "g1", grants)).toBeNull();
+    expect(grantPeriodIssue("2028-05-01", "g1", grants)).toBeNull();
   });
 });
