@@ -780,11 +780,15 @@ export function returnFileCells(
 export const MAX_FILING_ROWS = 25_000;
 
 /**
- * A Pre-Acknowledgement Number as the portal issues it: letters and digits,
- * at most 21 (the exact format is unverified). Pre-ARNs come from the portal
- * in batches; the dashboard never makes them up.
+ * A Pre-Acknowledgement Number as the portal issues it. The portal caps it
+ * at 21 letters and digits; its exact format is unpublished, so a value
+ * must also be at least 10 characters with a digit. That keeps out what a
+ * pasted portal table carries besides the numbers (serial numbers, status
+ * words such as "UNCONSUMED"), which would otherwise match any certificate
+ * printing the same token. Pre-ARNs come from the portal in batches; the
+ * dashboard never makes them up.
  */
-export const PRE_ARN_PATTERN = /^[A-Z0-9]{1,21}$/;
+export const PRE_ARN_PATTERN = /^(?=[A-Z]*\d)[A-Z0-9]{10,21}$/;
 
 /**
  * Reads a pasted list of Pre-ARNs (one per line, or separated by spaces,
@@ -817,10 +821,16 @@ export function parsePreArnList(text: string): {
 export const CERTIFICATE_EMAIL_STALE_MS = 60 * 60 * 1000;
 
 /** How a filed row's gifts differ now from what was filed. */
-export type FilingDrift = "amount" | "reversed" | "excluded" | "donor";
+export type FilingDrift =
+  | "amount"
+  | "reversed"
+  | "excluded"
+  | "donor"
+  | "donation_type";
 
 export const FILING_DRIFT_LABELS: Record<FilingDrift, string> = {
   amount: "Amount changed",
+  donation_type: "Donation type changed",
   donor: "Donor changed",
   excluded: "Gift now excluded",
   reversed: "Gift reversed",

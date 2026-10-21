@@ -752,11 +752,14 @@ describe("contribution mutators", () => {
           status: "received",
         },
       ],
-      donationFilingGift: [{ contributionId: "c-1" }],
+      donationFilingGift: [
+        { contributionId: "c-1", sequence: 1, status: "prepared" },
+      ],
     });
+    // Not uploaded yet: discard the filing first.
     await expect(
       run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
-    ).rejects.toThrow("in a donations return filing");
+    ).rejects.toThrow("Discard that filing first");
     expect(db.tables.contribution).toHaveLength(1);
   });
 
@@ -767,6 +770,7 @@ describe("contribution mutators", () => {
           amountPaise: 500_000,
           channel: "upi",
           deductionEligible: "unknown",
+          donationType: "voluntary",
           fundId: "fund-1",
           id: "c-1",
           orgAccountId: "acc-1",
@@ -777,7 +781,9 @@ describe("contribution mutators", () => {
           status: "received",
         },
       ],
-      donationFilingGift: [{ contributionId: "c-1" }],
+      donationFilingGift: [
+        { contributionId: "c-1", sequence: 2, status: "submitted" },
+      ],
     });
     // Notes and classification still change.
     await run(
@@ -794,10 +800,11 @@ describe("contribution mutators", () => {
       { channel: "neft" },
       { reportingMode: "other" },
       { deductionEligible: "no", eligibilityReason: "Not a donation" },
+      { donationType: "corpus" },
     ]) {
       await expect(
         run(contributionMutators.update, db, donorsCtx, contribution(change))
-      ).rejects.toThrow("in a donations return filing");
+      ).rejects.toThrow("in donations return filing 2");
     }
   });
 

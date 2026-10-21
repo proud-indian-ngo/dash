@@ -1,11 +1,22 @@
-import type { PartyIdType } from "@pi-dash/shared/constants";
+import type { DonationType, PartyIdType } from "@pi-dash/shared/constants";
 import {
   CERTIFICATE_EMAIL_STALE_MS,
+  RETURN_DONATION_TYPE_CODES,
   type FiledGift,
   type FilingDrift,
   type FilingPlanRow,
 } from "@pi-dash/shared/donations-return";
-import { and, asc, count, eq, inArray, max, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  inArray,
+  isNotNull,
+  max,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -96,7 +107,10 @@ export async function loadFiledSequences(
   );
 }
 
-/** Pre-ARNs among `values` already on a row of any filing. */
+/**
+ * Pre-ARNs among `values` already on a row of a prepared or submitted
+ * filing (discarding a filing clears its rows' Pre-ARNs).
+ */
 export async function usedPreArns(
   tx: FilingTx,
   values: readonly string[]
@@ -201,8 +215,21 @@ export async function insertFiling(tx: FilingTx, filing: NewFiling) {
     status: "prepared",
     totalPaise: rows.reduce((sum, row) => sum + row.value.amountPaise, 0),
   });
-  for (const part of chunks(rows)) {
-    await tx.insert(donationFilingRow).values(part.map((row) => row.value));
+  try {
+    for (const part of chunks(rows)) {
+      await tx.insert(donationFilingRow).values(part.map((row) => row.value));
+    }
+  } catch (error) {
+    const violation = constraintViolation(error);
+    if (violation?.constraint !== "donation_filing_row_pre_arn_uidx") {
+      throw error;
+    }
+    const preArn = rows.find(
+      (row) => row.value.preArn && violation.detail.includes(row.value.preArn)
+    )?.value.preArn;
+    throw new FilingError(
+      `The Pre-ARN ${preArn ?? "given"} was just used by another filing. Record this filing again with unused Pre-ARNs.`
+    );
   }
   const links = rows.flatMap((row) =>
     row.giftIds.map((contributionId) => ({
@@ -322,7 +349,8 @@ export async function undoFilingSubmission(filingId: string): Promise<void> {
 
 /**
  * Discards a filing that was never submitted: its gifts are free for the
- * next filing, while its number and Pre-ARNs stay used.
+ * next filing, and so are its Pre-ARNs (the portal counts them unconsumed);
+ * its number stays used.
  */
 export async function discardFiling(
   filingId: string,
@@ -342,6 +370,11 @@ export async function discardFiling(
     await tx
       .delete(donationFilingGift)
       .where(eq(donationFilingGift.filingId, filingId));
+    // The portal never saw them, so they stay unconsumed there: free them.
+    await tx
+      .update(donationFilingRow)
+      .set({ preArn: null })
+      .where(eq(donationFilingRow.filingId, filingId));
     await tx
       .update(donationFiling)
       .set({ discardedAt: now, discardedBy: userId, status: "discarded" })
@@ -351,7 +384,7 @@ export async function discardFiling(
 
 /**
  * How each row's gifts differ now from what was filed: net amount after
- * refunds, a reversal, an Exclude choice, or another donor. Such a row
+ * refunds, a reversal, an Exclude choice, another donor or donation type. Such a row
  * needs a revision on the portal.
  */
 export async function loadFilingDrift(
@@ -364,6 +397,7 @@ export async function loadFilingDrift(
     .select({
       amountPaise: contribution.amountPaise,
       deductionEligible: contribution.deductionEligible,
+      donationType: contribution.donationType,
       filedPaise: donationFilingGift.amountPaise,
       partyId: contribution.partyId,
       refundedPaise: sql<string>`(
@@ -371,6 +405,7 @@ export async function loadFilingDrift(
         from ${contributionRefund}
         where ${contributionRefund.contributionId} = ${contribution.id}
       )`,
+      rowDonationTypeCode: donationFilingRow.donationTypeCode,
       rowId: donationFilingGift.rowId,
       rowPartyId: donationFilingRow.partyId,
       status: contribution.status,
@@ -399,6 +434,12 @@ export async function loadFilingDrift(
     }
     if (gift.partyId !== gift.rowPartyId) {
       reasons.add("donor");
+    }
+    if (
+      RETURN_DONATION_TYPE_CODES[gift.donationType as DonationType] !==
+      gift.rowDonationTypeCode
+    ) {
+      reasons.add("donation_type");
     }
     if (reasons.size > 0) {
       drift.set(gift.rowId, reasons);
@@ -713,19 +754,26 @@ export interface NewCertificate {
   fileSha256: string;
   id: string;
   matchedBy: CertificateMatch;
+  /** Stored unconfirmed, for finance to review. */
+  needsReview: boolean;
   rowId: string;
+  /** The uploaded file's name, for messages; not stored. */
+  sourceName: string;
 }
 
 /**
- * Stores matched certificates against a submitted filing, in one
- * transaction. A Pre-ARN match is confirmed as stored; a details match waits
- * for finance to confirm it.
+ * Stores matched certificates against a submitted filing, then runs
+ * `storeFiles` (the R2 writes) before the rows commit, so a refused insert
+ * writes no file. A certificate that needs no review is confirmed as
+ * stored. An acknowledgement number already stored is reported as a
+ * FilingError naming the file.
  */
 export async function insertCertificates(
   filingId: string,
   certificates: readonly NewCertificate[],
   userId: string,
-  now: Date
+  now: Date,
+  storeFiles: () => Promise<void>
 ): Promise<void> {
   if (certificates.length === 0) {
     return;
@@ -737,19 +785,69 @@ export async function insertCertificates(
         "Record the portal's acknowledgement before adding certificates."
       );
     }
-    for (const part of chunks(certificates)) {
-      await tx.insert(donationCertificate).values(
-        part.map((certificate) => ({
-          ...certificate,
-          confirmedAt: certificate.matchedBy === "pre_arn" ? now : null,
-          confirmedBy: certificate.matchedBy === "pre_arn" ? userId : null,
-          createdAt: now,
-          createdBy: userId,
-          filingId,
-        }))
-      );
+    try {
+      for (const part of chunks(certificates)) {
+        await tx.insert(donationCertificate).values(
+          part.map(({ needsReview, sourceName: _source, ...certificate }) => ({
+            ...certificate,
+            confirmedAt: needsReview ? null : now,
+            confirmedBy: needsReview ? null : userId,
+            createdAt: now,
+            createdBy: userId,
+            filingId,
+          }))
+        );
+      }
+    } catch (error) {
+      const violation = constraintViolation(error);
+      if (violation?.constraint === "donation_certificate_ack_uidx") {
+        const file = certificates.find((certificate) =>
+          violation.detail.includes(certificate.acknowledgementNumber)
+        );
+        throw new FilingError(
+          `${file?.sourceName ?? "A certificate"} carries an acknowledgement number already stored for another certificate.`
+        );
+      }
+      if (violation?.constraint === "donation_certificate_row_uidx") {
+        throw new FilingError(
+          "A row already got a certificate meanwhile. Upload again to see the result."
+        );
+      }
+      throw error;
     }
+    await storeFiles();
   });
+}
+
+/**
+ * What other filings already hold, so a certificate of another filing or
+ * year is refused: their rows' Pre-ARNs and their certificates' numbers.
+ */
+export async function loadOtherFilingMarks(filingId: string): Promise<{
+  acknowledgementNumbers: Set<string>;
+  preArns: Set<string>;
+}> {
+  const [preArns, acks] = await Promise.all([
+    db
+      .select({ preArn: donationFilingRow.preArn })
+      .from(donationFilingRow)
+      .where(
+        and(
+          ne(donationFilingRow.filingId, filingId),
+          isNotNull(donationFilingRow.preArn)
+        )
+      ),
+    db
+      .select({ ack: donationCertificate.acknowledgementNumber })
+      .from(donationCertificate)
+      .where(ne(donationCertificate.filingId, filingId)),
+  ]);
+  return {
+    acknowledgementNumbers: new Set(acks.map((row) => row.ack)),
+    preArns: new Set(
+      preArns.flatMap((row) => (row.preArn ? [row.preArn] : []))
+    ),
+  };
 }
 
 /** Locks a certificate of a submitted filing for a review decision. */
@@ -822,8 +920,8 @@ export interface CertificateEmailPlan {
  * Claims confirmed certificates for emailing in the caller's transaction,
  * so the jobs are sent only if the claim commits. Without `certificateIds`
  * it takes every certificate of the filing never emailed and not on its way
- * (a failed send, or one queued over `CERTIFICATE_EMAIL_STALE_MS` ago with
- * no outcome, is taken again); with them it is an explicit resend of those,
+ * (a failed send is taken again under a new request; one queued over
+ * `CERTIFICATE_EMAIL_STALE_MS` ago with no outcome, under its own request); with them it is an explicit resend of those,
  * unless one is still on its way.
  * Each claim gets a new request ID: the job sends only while the certificate
  * still carries it, so one certificate never has two sends in flight. The
@@ -845,6 +943,7 @@ export async function claimCertificateEmails(
       emailedAt: donationCertificate.emailedAt,
       emailFailure: donationCertificate.emailFailure,
       emailQueuedAt: donationCertificate.emailQueuedAt,
+      emailRequestId: donationCertificate.emailRequestId,
       emailState: emailStateSql,
       id: donationCertificate.id,
       name: donationFilingRow.name,
@@ -895,7 +994,17 @@ export async function claimCertificateEmails(
       plan.suppressed.push(certificate.name);
       continue;
     }
-    const requestId = uuidv7();
+    // A stuck send keeps its request, so it goes out under the same
+    // idempotency key and can't be sent twice if the first one did go.
+    const stuck =
+      certificate.emailRequestId !== null &&
+      certificate.emailQueuedAt !== null &&
+      certificate.emailedAt === null &&
+      certificate.emailFailure === null;
+    const requestId =
+      stuck && certificate.emailRequestId
+        ? certificate.emailRequestId
+        : uuidv7();
     await tx
       .update(donationCertificate)
       .set({

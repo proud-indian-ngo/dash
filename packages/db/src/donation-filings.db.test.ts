@@ -285,6 +285,8 @@ it.skipIf(!localDatabase)(
       expect(stale.claimed.map((entry) => entry.certificateId)).toEqual([
         emailed,
       ]);
+      // Under its original request, so Resend's idempotency key holds.
+      expect(stale.claimed[0]?.requestId).toBe(first.claimed[0]?.requestId);
 
       // A failed send is claimed again, under a new request.
       await tx

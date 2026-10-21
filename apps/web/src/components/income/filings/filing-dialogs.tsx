@@ -175,7 +175,7 @@ export function RecordFilingDialog({
                 }
               >
                 {parsed.invalid.length > 0
-                  ? `Not a Pre-ARN (letters and digits, at most 21): ${parsed.invalid.slice(0, 3).join(", ")}`
+                  ? `These aren't Pre-ARNs (10 to 21 letters and digits, with a digit): ${parsed.invalid.slice(0, 10).join(", ")}${parsed.invalid.length > 10 ? ` and ${parsed.invalid.length - 10} more` : ""}. Paste only the Pre-ARN column.`
                   : `${parsed.values.length} pasted for ${rowCount} ${rowCount === 1 ? "row" : "rows"}, given out in Sr. No. order. Any already used in a filing are skipped.`}
               </p>
             </>

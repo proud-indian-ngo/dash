@@ -155,6 +155,9 @@ const ACK_LABEL =
 /** The donor's ID after its label; assumed wording. */
 const ID_LABEL =
   /unique\s+identification\s+number(?:\s+of\s+the\s+donor)?\s*[:\-–]?\s*([A-Z0-9][A-Z0-9\-/]*)/i;
+/** The tax or financial year the certificate is for; assumed wording. */
+const YEAR_LABEL =
+  /(?:tax|financial)\s+year\s*[:\-–]?\s*(\d{4})\s*-\s*(\d{2}|\d{4})\b/i;
 /** The amount after a label starting "Amount"; assumed wording. */
 const AMOUNT_LABEL =
   /amount[^:\d]{0,40}[:\-–]\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*(?:\.\d{1,2})?)(?![\d,])/i;
@@ -184,6 +187,8 @@ export interface CertificateFields {
   amountPaise: number | null;
   /** The donation type after its label, as a known code; null when absent. */
   donationType: string | null;
+  /** The year after its label, as "2026-27"; null when there is no label. */
+  fiscalYear: string | null;
   /** The donor's ID after its label, normalised; null when there is no label. */
   idNumber: string | null;
   /** The mode of receipt after its label, as a known code; null when absent. */
@@ -199,6 +204,7 @@ export function readCertificateFields(raw: string): CertificateFields {
   const text = spaced.toLowerCase();
   const amount = AMOUNT_LABEL.exec(spaced)?.[1];
   const id = ID_LABEL.exec(spaced)?.[1];
+  const year = YEAR_LABEL.exec(spaced);
   return {
     acknowledgementNumbers: [...spaced.matchAll(ACK_LABEL)]
       .map((match) => (match[1] ?? "").toUpperCase())
@@ -211,6 +217,7 @@ export function readCertificateFields(raw: string): CertificateFields {
       "donation type",
       RETURN_DONATION_TYPE_VALUES
     ),
+    fiscalYear: year ? `${year[1]}-${(year[2] ?? "").slice(-2)}` : null,
     idNumber: id ? normalizeIdNumber(id) : null,
     mode: labelledValue(
       text,
@@ -243,8 +250,12 @@ export type CertificateDecision =
   | {
       acknowledgementNumber: string;
       kind: "matched";
-      /** A details match waits for finance to confirm it. */
       matchedBy: "pre_arn" | "details";
+      /**
+       * Finance confirms it before it counts: every details match, and a
+       * Pre-ARN match whose labelled ID differs from the row's.
+       */
+      needsReview: boolean;
       rowId: string;
     }
   /** The same file (or certificate) is already stored for the row. */
@@ -321,19 +332,55 @@ function rowsByDetails(
   return byLabels.length === 1 ? byLabels : candidates;
 }
 
+/** The filing a certificate is matched against, and what other filings hold. */
+export interface FilingContext {
+  /** The filing's own acknowledgement number, never a certificate's. */
+  acknowledgementNumber: string | null;
+  /** "2026-27". */
+  fiscalYear: string;
+  otherAcknowledgementNumbers: ReadonlySet<string>;
+  otherPreArns: ReadonlySet<string>;
+}
+
+/** The certificate's own number: the first labelled one that isn't the filing's. */
+const ownAcknowledgement = (fields: CertificateFields, filing: FilingContext) =>
+  fields.acknowledgementNumbers.find(
+    (number) => number !== filing.acknowledgementNumber?.toUpperCase()
+  ) ?? null;
+
+/** Refuses a certificate that belongs to another filing or year. */
+function otherFilingReason(
+  fields: CertificateFields,
+  filing: FilingContext
+): UnmatchedReason | null {
+  if ([...fields.tokens].some((token) => filing.otherPreArns.has(token))) {
+    return "other_filing";
+  }
+  if (fields.fiscalYear !== null && fields.fiscalYear !== filing.fiscalYear) {
+    return "other_year";
+  }
+  return null;
+}
+
 /**
  * Matches one certificate: by the row's portal Pre-ARN when the certificate
  * carries it as a whole token, else by the donor's ID, the amount and the
- * donor's name (labelled type and mode break a tie). A details match is
- * only a proposal: finance confirms it before it counts. The certificate's
- * acknowledgement number is the first labelled number that isn't the
- * filing's own, else the Pre-ARN it reuses.
+ * donor's name (labelled type and mode break a tie). A details match, or a
+ * Pre-ARN match whose labelled ID differs from the row's, is only a
+ * proposal that finance confirms. The certificate's acknowledgement number
+ * is the first labelled number that isn't the filing's own, else the
+ * Pre-ARN it reuses. A certificate carrying another filing's Pre-ARN or
+ * certificate number, or another year, is refused.
  */
 export function matchCertificate(
   fields: CertificateFields,
   rows: readonly MatchRow[],
-  filingAcknowledgementNumber: string | null
+  filing: FilingContext
 ): Exclude<CertificateDecision, { kind: "already_stored" }> {
+  const elsewhere = otherFilingReason(fields, filing);
+  if (elsewhere) {
+    return { kind: "unmatched", reason: elsewhere };
+  }
   const byPreArn = rows.filter(
     (row) => row.preArn !== null && fields.tokens.has(row.preArn)
   );
@@ -355,15 +402,49 @@ export function matchCertificate(
   if (!row) {
     return { kind: "unmatched", reason: "no_row" };
   }
-  const labelled = fields.acknowledgementNumbers.find(
-    (number) => number !== filingAcknowledgementNumber?.toUpperCase()
-  );
   const acknowledgementNumber =
-    labelled ?? (matchedBy === "pre_arn" ? row.preArn : null);
+    ownAcknowledgement(fields, filing) ??
+    (matchedBy === "pre_arn" ? row.preArn : null);
   if (!acknowledgementNumber) {
     return { kind: "unmatched", reason: "no_acknowledgement" };
   }
-  return { acknowledgementNumber, kind: "matched", matchedBy, rowId: row.id };
+  if (filing.otherAcknowledgementNumbers.has(acknowledgementNumber)) {
+    return { kind: "unmatched", reason: "acknowledgement_in_use" };
+  }
+  const idAgrees =
+    row.idNumber !== null &&
+    (fields.idNumber === null ||
+      fields.idNumber === normalizeIdNumber(row.idNumber));
+  return {
+    acknowledgementNumber,
+    kind: "matched",
+    matchedBy,
+    needsReview: matchedBy === "details" || !idAgrees,
+    rowId: row.id,
+  };
+}
+
+/**
+ * A certificate finance assigns to a row by hand (one the matching left
+ * unmatched): it still needs its own acknowledgement number, must not
+ * belong to another filing or year, and always goes to review.
+ */
+export function assessAssignedCertificate(
+  fields: CertificateFields,
+  filing: FilingContext
+): { acknowledgementNumber: string } | { reason: UnmatchedReason } {
+  const elsewhere = otherFilingReason(fields, filing);
+  if (elsewhere) {
+    return { reason: elsewhere };
+  }
+  const acknowledgementNumber = ownAcknowledgement(fields, filing);
+  if (!acknowledgementNumber) {
+    return { reason: "no_acknowledgement" };
+  }
+  if (filing.otherAcknowledgementNumbers.has(acknowledgementNumber)) {
+    return { reason: "acknowledgement_in_use" };
+  }
+  return { acknowledgementNumber };
 }
 
 export interface ReadCertificate {
@@ -380,7 +461,7 @@ export interface ReadCertificate {
 export function matchCertificates(
   files: readonly ReadCertificate[],
   rows: readonly MatchRow[],
-  filingAcknowledgementNumber: string | null
+  filing: FilingContext
 ): CertificateDecision[] {
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const takenRows = new Set<string>();
@@ -393,11 +474,7 @@ export function matchCertificates(
     if (!file.fields) {
       return { kind: "unmatched", reason: "unreadable" };
     }
-    const decision = matchCertificate(
-      file.fields,
-      rows,
-      filingAcknowledgementNumber
-    );
+    const decision = matchCertificate(file.fields, rows, filing);
     if (decision.kind !== "matched") {
       return decision;
     }

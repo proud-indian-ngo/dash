@@ -16,6 +16,7 @@ import {
 import { runSessionAuditedAction } from "@/lib/audit";
 import { MAX_CERTIFICATE_UPLOAD_BYTES } from "@/lib/donation-filings/certificate-terms";
 import {
+  assignCertificate,
   type CertificateUploadResult,
   discard,
   loadRows,
@@ -60,6 +61,10 @@ export const recordDonationFiling = createServerFn({ method: "POST" })
       preArns: z
         .array(z.string().regex(PRE_ARN_PATTERN))
         .max(MAX_FILING_ROWS * 2)
+        .refine(
+          (values) => new Set(values).size === values.length,
+          "Each Pre-ARN may be given once"
+        )
         .nullable(),
     })
   )
@@ -185,6 +190,10 @@ export const reviewDonationCertificate = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "finance.manage");
+    // Confirming means having compared the PDF, which shows the full ID.
+    if (data.decision === "confirm") {
+      await assertServerPermission(context.session, "finance.view_sensitive");
+    }
     if (!context.session) {
       throw new HttpError(401, "Unauthorized");
     }
@@ -259,6 +268,46 @@ export const uploadDonationCertificates = createServerFn({ method: "POST" })
         matchedCount: result.matched.length,
         unmatchedCount: result.unmatched.length,
       })
+    );
+  });
+
+/**
+ * Attaches one certificate PDF to a row by hand, for one matching couldn't
+ * place; it goes to review.
+ */
+export const assignDonationCertificate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    filingInput.extend({
+      base64: z
+        .string()
+        .min(1)
+        .max(Math.ceil(MAX_CERTIFICATE_UPLOAD_BYTES / 3) * 4)
+        .regex(/^[A-Za-z0-9+/]*={0,2}$/),
+      fileName: z.string().trim().min(1).max(200),
+      rowId: z.uuid(),
+    })
+  )
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "donation_certificate.assign",
+        target: { id: data.filingId, type: "donation_filing" },
+      },
+      () =>
+        assignCertificate(
+          data.filingId,
+          data.rowId,
+          { base64: data.base64, fileName: data.fileName },
+          session.user.id
+        )
     );
   });
 

@@ -3,7 +3,9 @@ import { describe, expect, it } from "bun:test";
 import { strToU8, zipSync } from "fflate";
 
 import {
+  assessAssignedCertificate,
   extractPdfText,
+  type FilingContext,
   type MatchRow,
   matchCertificates,
   readCertificateFields,
@@ -48,6 +50,14 @@ const ROWS: MatchRow[] = [
   }),
 ];
 
+const filing = (overrides: Partial<FilingContext> = {}): FilingContext => ({
+  acknowledgementNumber: "113000000000009",
+  fiscalYear: "2026-27",
+  otherAcknowledgementNumbers: new Set(),
+  otherPreArns: new Set(),
+  ...overrides,
+});
+
 const certificate = (
   overrides: Partial<SyntheticCertificate> = {}
 ): SyntheticCertificate => ({
@@ -70,7 +80,7 @@ async function fieldsOf(value: SyntheticCertificate) {
 async function decide(
   values: SyntheticCertificate[],
   rows: MatchRow[] = ROWS,
-  filingAck: string | null = "113000000000009"
+  context: FilingContext = filing()
 ) {
   const files = await Promise.all(
     values.map(async (value, index) => ({
@@ -79,7 +89,7 @@ async function decide(
       sha256: `sha-${index}`,
     }))
   );
-  return matchCertificates(files, rows, filingAck);
+  return matchCertificates(files, rows, context);
 }
 
 describe("reading a certificate", () => {
@@ -126,6 +136,7 @@ describe("matching certificates to filing rows", () => {
         acknowledgementNumber: "114000000000001",
         kind: "matched",
         matchedBy: "pre_arn",
+        needsReview: false,
         rowId: "r1",
       },
     ]);
@@ -135,12 +146,17 @@ describe("matching certificates to filing rows", () => {
     const fields = await fieldsOf(certificate());
     fields.acknowledgementNumbers = [];
     expect(
-      matchCertificates([{ fields, name: "a.pdf", sha256: "x" }], ROWS, null)
+      matchCertificates(
+        [{ fields, name: "a.pdf", sha256: "x" }],
+        ROWS,
+        filing({ acknowledgementNumber: null })
+      )
     ).toEqual([
       {
         acknowledgementNumber: "PORTALPRE0000001",
         kind: "matched",
         matchedBy: "pre_arn",
+        needsReview: false,
         rowId: "r1",
       },
     ]);
@@ -152,6 +168,7 @@ describe("matching certificates to filing rows", () => {
         acknowledgementNumber: "114000000000001",
         kind: "matched",
         matchedBy: "details",
+        needsReview: true,
         rowId: "r1",
       },
     ]);
@@ -205,7 +222,7 @@ describe("matching certificates to filing rows", () => {
       matchCertificates(
         [{ fields, name: "a.pdf", sha256: "x" }],
         [row({ amountPaise: 202_600, preArn: null })],
-        null
+        filing()
       )
     ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
   });
@@ -226,6 +243,7 @@ describe("matching certificates to filing rows", () => {
         acknowledgementNumber: "114000000000001",
         kind: "matched",
         matchedBy: "details",
+        needsReview: true,
         rowId: "r3",
       },
     ]);
@@ -237,7 +255,11 @@ describe("matching certificates to filing rows", () => {
     );
     expect(fields.mode).toBeNull();
     expect(
-      matchCertificates([{ fields, name: "a.pdf", sha256: "x" }], ROWS, null)
+      matchCertificates(
+        [{ fields, name: "a.pdf", sha256: "x" }],
+        ROWS,
+        filing({ acknowledgementNumber: null })
+      )
     ).toEqual([{ kind: "unmatched", reason: "several_rows" }]);
   });
 
@@ -248,7 +270,7 @@ describe("matching certificates to filing rows", () => {
       matchCertificates(
         [{ fields, name: "a.pdf", sha256: "x" }],
         ROWS,
-        "113000000000009"
+        filing()
       )
     ).toEqual([{ kind: "unmatched", reason: "no_acknowledgement" }]);
   });
@@ -305,12 +327,58 @@ describe("matching certificates to filing rows", () => {
     ).toEqual([{ kind: "unmatched", reason: "row_has_certificate" }]);
   });
 
+  it("sends a Pre-ARN match to review when the labelled ID differs from the row's", async () => {
+    expect(await decide([certificate({ idNumber: "ZZZPZ9999Z" })])).toEqual([
+      {
+        acknowledgementNumber: "114000000000001",
+        kind: "matched",
+        matchedBy: "pre_arn",
+        needsReview: true,
+        rowId: "r1",
+      },
+    ]);
+  });
+
+  it("refuses a certificate of another filing or year", async () => {
+    expect(
+      await decide(
+        [certificate({ preArn: "PORTALPRE0000099" })],
+        ROWS,
+        filing({ otherPreArns: new Set(["PORTALPRE0000099"]) })
+      )
+    ).toEqual([{ kind: "unmatched", reason: "other_filing" }]);
+    expect(
+      await decide(
+        [certificate()],
+        ROWS,
+        filing({ otherAcknowledgementNumbers: new Set(["114000000000001"]) })
+      )
+    ).toEqual([{ kind: "unmatched", reason: "acknowledgement_in_use" }]);
+    expect(
+      await decide([certificate()], ROWS, filing({ fiscalYear: "2027-28" }))
+    ).toEqual([{ kind: "unmatched", reason: "other_year" }]);
+  });
+
+  it("lets finance assign a certificate by hand, still checked", async () => {
+    const fields = await fieldsOf(certificate({ preArn: undefined }));
+    expect(assessAssignedCertificate(fields, filing())).toEqual({
+      acknowledgementNumber: "114000000000001",
+    });
+    expect(
+      assessAssignedCertificate(fields, filing({ fiscalYear: "2025-26" }))
+    ).toEqual({ reason: "other_year" });
+    fields.acknowledgementNumbers = [];
+    expect(assessAssignedCertificate(fields, filing())).toEqual({
+      reason: "no_acknowledgement",
+    });
+  });
+
   it("reports a file whose text couldn't be read", () => {
     expect(
       matchCertificates(
         [{ fields: null, name: "x.pdf", sha256: "x" }],
         ROWS,
-        null
+        filing()
       )
     ).toEqual([{ kind: "unmatched", reason: "unreadable" }]);
   });

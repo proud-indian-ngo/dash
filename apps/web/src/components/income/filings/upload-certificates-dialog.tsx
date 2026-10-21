@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
+import { toast } from "sonner";
 import z from "zod";
 
 import { CustomField } from "@/components/form/custom-field";
@@ -17,7 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { uploadDonationCertificates } from "@/functions/donation-filings";
+import {
+  assignDonationCertificate,
+  uploadDonationCertificates,
+} from "@/functions/donation-filings";
 import {
   MAX_CERTIFICATE_UPLOAD_BYTES,
   UNMATCHED_REASON_LABELS,
@@ -195,7 +199,7 @@ export function UploadCertificatesDialog({
             >
               <ResultList
                 items={result.matched
-                  .filter((item) => item.matchedBy === "pre_arn")
+                  .filter((item) => !item.needsReview)
                   .map((item) => ({
                     detail: `${rowName(item.rowId)} · by Pre-ARN · ${item.acknowledgementNumber}`,
                     key: item.fileName,
@@ -205,9 +209,9 @@ export function UploadCertificatesDialog({
               />
               <ResultList
                 items={result.matched
-                  .filter((item) => item.matchedBy === "details")
+                  .filter((item) => item.needsReview)
                   .map((item) => ({
-                    detail: `${rowName(item.rowId)} · by ID number, amount and name · ${item.acknowledgementNumber}. Confirm it on the row before it can be emailed.`,
+                    detail: `${rowName(item.rowId)} · ${item.matchedBy === "pre_arn" ? "by Pre-ARN, but its ID differs from the row's" : "by ID number, amount and name"} · ${item.acknowledgementNumber}. Confirm it on the row before it can be emailed.`,
                     key: item.fileName,
                     name: item.fileName,
                   }))}
@@ -236,6 +240,132 @@ export function UploadCertificatesDialog({
               </Button>
             </DialogFooter>
           </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const assignSchema = z.object({
+  file: z
+    .custom<File>((file) => file instanceof File, "Choose the certificate PDF")
+    .refine(
+      (file) => file.size <= MAX_CERTIFICATE_UPLOAD_BYTES,
+      "The file is larger than 20 MB"
+    ),
+});
+
+function AssignForm({
+  filingId,
+  onCancel,
+  onAssigned,
+  rowId,
+}: {
+  filingId: string;
+  onCancel: () => void;
+  onAssigned: () => void;
+  rowId: string;
+}) {
+  const assign = useServerFn(assignDonationCertificate);
+  const [error, setError] = useState<string | null>(null);
+  const form = useForm({
+    defaultValues: { file: null as File | null },
+    onSubmit: async ({ value }) => {
+      if (!value.file) {
+        return;
+      }
+      setError(null);
+      try {
+        await assign({
+          data: {
+            base64: await fileBase64(value.file),
+            fileName: value.file.name,
+            filingId,
+            rowId,
+          },
+        });
+        toast.success("Certificate added for review");
+        onAssigned();
+      } catch (caught) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The certificate couldn't be added."
+        );
+      }
+    },
+    validators: { onChange: assignSchema, onSubmit: assignSchema },
+  });
+  return (
+    <FormLayout form={form}>
+      <CustomField<File | null>
+        description="One Form 114 PDF from the portal's ZIP."
+        isRequired
+        label="Certificate"
+        name="file"
+      >
+        {(field) => (
+          <Input
+            accept=".pdf,application/pdf"
+            data-testid="assign-certificate-input"
+            id={field.name}
+            onBlur={field.handleBlur}
+            onChange={(event) =>
+              field.handleChange(event.target.files?.[0] ?? null)
+            }
+            type="file"
+          />
+        )}
+      </CustomField>
+      {error ? (
+        <p className="text-destructive text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <FormActions
+        onCancel={onCancel}
+        submitLabel="Add certificate"
+        submittingLabel="Reading certificate..."
+      />
+    </FormLayout>
+  );
+}
+
+/**
+ * Attaches a certificate matching couldn't place to the row finance picks
+ * (such as two cash rows of one donor and amount). It goes to review.
+ */
+export function AssignCertificateDialog({
+  onAssigned,
+  onOpenChange,
+  target,
+}: {
+  onAssigned: () => void;
+  onOpenChange: (open: boolean) => void;
+  target: { filingId: string; rowId: string; rowName: string } | null;
+}) {
+  return (
+    <Dialog onOpenChange={onOpenChange} open={target !== null}>
+      <DialogContent className="sm:max-w-(--dialog-md)">
+        <DialogHeader>
+          <DialogTitle>Add certificate for {target?.rowName}</DialogTitle>
+          <DialogDescription>
+            For a certificate the upload couldn't match. It still needs its own
+            acknowledgement number and the filing's year, and you confirm it on
+            the row before it can be emailed.
+          </DialogDescription>
+        </DialogHeader>
+        {target ? (
+          <AssignForm
+            filingId={target.filingId}
+            key={target.rowId}
+            onAssigned={() => {
+              onOpenChange(false);
+              onAssigned();
+            }}
+            onCancel={() => onOpenChange(false)}
+            rowId={target.rowId}
+          />
         ) : null}
       </DialogContent>
     </Dialog>

@@ -520,13 +520,26 @@ describe("upload file", () => {
   });
 
   it("reads a pasted list of portal Pre-ARNs, refusing what can't be one", () => {
-    expect(parsePreArnList(" pre0001\nPRE0002, PRE0001;\n\nPRE0003 ")).toEqual({
-      invalid: [],
-      values: ["PRE0001", "PRE0002", "PRE0003"],
+    expect(
+      parsePreArnList(" pre0000000001\nPRE0000000002, PRE0000000001;\n\n")
+    ).toEqual({ invalid: [], values: ["PRE0000000001", "PRE0000000002"] });
+    // What a pasted portal table carries besides the numbers: serial
+    // numbers, status words, short or over-long values.
+    expect(
+      parsePreArnList(
+        "1 UNCONSUMED PRE0000000003 ABCDEFGHIJ PRE-000000001 AB12 A123456789012345678901"
+      )
+    ).toEqual({
+      invalid: [
+        "1",
+        "UNCONSUMED",
+        "ABCDEFGHIJ",
+        "PRE-000000001",
+        "AB12",
+        "A123456789012345678901",
+      ],
+      values: ["PRE0000000003"],
     });
-    expect(parsePreArnList("PRE-0001 ABCDEFGHIJKLMNOPQRSTUVW").invalid).toEqual(
-      ["PRE-0001", "ABCDEFGHIJKLMNOPQRSTUVW"]
-    );
   });
 
   it("numbers a filing's rows and gives out Pre-ARNs in Sr. No. order, or none", () => {
@@ -535,20 +548,20 @@ describe("upload file", () => {
       readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
     ]);
     expect(
-      planFilingRows(rows, ["PRE0001", "PRE0002", "PRE0003"]).map((row) => [
+      planFilingRows(rows, ["PRE0000000001", "PRE0000000002"]).map((row) => [
         row.srNo,
         row.preArn,
         row.name,
       ])
     ).toEqual([
-      [1, "PRE0001", "Asha Rao"],
-      [2, "PRE0002", "Bina Shah"],
+      [1, "PRE0000000001", "Asha Rao"],
+      [2, "PRE0000000002", "Bina Shah"],
     ]);
     expect(planFilingRows(rows, null).map((row) => row.preArn)).toEqual([
       null,
       null,
     ]);
-    expect(() => planFilingRows(rows, ["PRE0001"])).toThrow(
+    expect(() => planFilingRows(rows, ["PRE0000000001"])).toThrow(
       "Fewer Pre-ARNs than rows"
     );
     expect(MAX_FILING_ROWS).toBe(25_000);

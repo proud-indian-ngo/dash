@@ -79,6 +79,7 @@ function useFilingRows(filingId: string, version: number) {
 }
 
 export interface FilingSheetActions {
+  onAssign: (filing: FilingSummary, row: FilingRowView) => void;
   onDiscard: (filing: FilingSummary) => void;
   onEmail: (request: {
     certificateIds?: string[];
@@ -92,6 +93,15 @@ export interface FilingSheetActions {
   onUpload: (filing: FilingSummary, rowNames: Map<string, string>) => void;
 }
 
+const REVIEW_REASONS: Record<
+  NonNullable<FilingRowView["certificate"]>["matchedBy"],
+  string
+> = {
+  details: "Matched by ID number, amount and name, not by Pre-ARN.",
+  manual: "Assigned to this row by hand.",
+  pre_arn: "Matched by Pre-ARN, but its ID number differs from the row's.",
+};
+
 const maskedId = (row: FilingRowView) =>
   row.idNumberLast4
     ? `${row.idCode} ending ${row.idNumberLast4}`
@@ -101,11 +111,13 @@ function RowItem({
   canManage,
   canViewSensitive,
   onPreview,
+  onAssign,
   onResend,
   onReview,
   row,
 }: {
   canManage: boolean;
+  onAssign: (row: FilingRowView) => void;
   canViewSensitive: boolean;
   onPreview: (row: FilingRowView) => void;
   onResend: (row: FilingRowView) => void;
@@ -115,8 +127,16 @@ function RowItem({
   const status = certificateStatus(row);
   const certificate = row.certificate;
   const reviewing = certificate !== null && !certificate.confirmedAt;
-  const actions = certificate
+  const actions = !certificate
     ? [
+        canManage && {
+          icon: Upload04Icon,
+          id: "assign",
+          label: "Add certificate for this row",
+          onSelect: () => onAssign(row),
+        },
+      ]
+    : [
         canViewSensitive && {
           icon: ViewIcon,
           id: "view",
@@ -142,8 +162,7 @@ function RowItem({
             label: certificate.emailedAt ? "Resend email" : "Send email",
             onSelect: () => onResend(row),
           },
-      ]
-    : [];
+      ];
   return (
     <li
       className="flex items-center gap-3 px-4 py-2.5 text-sm"
@@ -183,8 +202,8 @@ function RowItem({
             data-testid="filing-row-review"
           >
             <span>
-              Matched by ID number, amount and name, not by Pre-ARN. Check the
-              certificate shows {row.name}, {maskedId(row)} and{" "}
+              {REVIEW_REASONS[certificate.matchedBy]} Check the certificate
+              shows {row.name}, {maskedId(row)} and{" "}
               {formatPaise(row.amountPaise)} before confirming.
             </span>
             <div className="flex flex-wrap gap-2">
@@ -200,14 +219,16 @@ function RowItem({
               ) : null}
               {canManage ? (
                 <>
-                  <Button
-                    onClick={() => onReview(certificate.id, "confirm")}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    Confirm match
-                  </Button>
+                  {canViewSensitive ? (
+                    <Button
+                      onClick={() => onReview(certificate.id, "confirm")}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Confirm match
+                    </Button>
+                  ) : null}
                   <Button
                     onClick={() => onReview(certificate.id, "reject")}
                     size="sm"
@@ -489,6 +510,7 @@ function FilingSheetBody({
                   canViewSensitive={canViewSensitive}
                   key={row.id}
                   onPreview={setPreview}
+                  onAssign={(target) => actions.onAssign(filing, target)}
                   onResend={handleResend}
                   onReview={actions.onReview}
                   row={row}

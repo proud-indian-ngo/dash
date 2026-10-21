@@ -29,6 +29,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "reverseAuditedFiguresFn",
   "reverseOpeningBalancesFn",
   "skipAuditedFiguresFn",
+  "assignDonationCertificate",
   "createBankStatementImport",
   "createContributionImport",
   "createGovernanceDocument",

@@ -30,7 +30,7 @@ export const donationFilingStatusEnum = privateSchema.enum(
 
 export const donationCertificateMatchEnum = privateSchema.enum(
   "donation_certificate_match",
-  ["pre_arn", "details"]
+  ["pre_arn", "details", "manual"]
 );
 
 export const donationCertificateEmailFailureEnum = privateSchema.enum(
@@ -121,7 +121,11 @@ export const donationFilingRow = privateSchema.table(
     partyId: uuid("party_id")
       .notNull()
       .references(() => party.id, { onDelete: "restrict" }),
-    /** The portal-issued Pre-Acknowledgement Number written on the row; null when the column was left empty. */
+    /**
+     * The portal-issued Pre-Acknowledgement Number written on the row; null
+     * when the column was left empty, or once its filing is discarded (the
+     * portal still counts it unconsumed, so it can be used again).
+     */
     preArn: text("pre_arn"),
     /** "Sr. No." in the upload file, from 1. */
     srNo: integer("sr_no").notNull(),
@@ -167,9 +171,10 @@ export const donationCertificate = privateSchema.table(
     /** The certificate's own acknowledgement number, needed for revisions. */
     acknowledgementNumber: text("acknowledgement_number").notNull(),
     /**
-     * When finance confirmed the match. A Pre-ARN match is confirmed as it
-     * is stored; a details match waits for review and is never emailed
-     * until confirmed.
+     * When finance confirmed the match. A Pre-ARN match whose ID agrees is
+     * confirmed as it is stored; a details or manual match, or a Pre-ARN
+     * match whose ID differs, waits for review and is never emailed until
+     * confirmed.
      */
     confirmedAt: timestamp("confirmed_at"),
     confirmedBy: text("confirmed_by").references(() => user.id, {
@@ -183,7 +188,7 @@ export const donationCertificate = privateSchema.table(
     emailFailure: donationCertificateEmailFailureEnum("email_failure"),
     emailQueuedAt: timestamp("email_queued_at"),
     emailRequestId: uuid("email_request_id"),
-    /** The file's name as uploaded (inside the ZIP, if any). */
+    /** `Form-114-<acknowledgement>.pdf`, the name it is served and emailed under. */
     fileName: text("file_name").notNull(),
     fileObjectKey: text("file_object_key").notNull(),
     fileSha256: text("file_sha256").notNull(),

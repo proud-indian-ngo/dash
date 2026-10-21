@@ -20,7 +20,10 @@ import {
 } from "./filing-dialogs";
 import { FILING_STATUS } from "./filing-labels";
 import { FilingSheet, type FilingSheetActions } from "./filing-sheet";
-import { UploadCertificatesDialog } from "./upload-certificates-dialog";
+import {
+  AssignCertificateDialog,
+  UploadCertificatesDialog,
+} from "./upload-certificates-dialog";
 
 function filingFacts(filing: FilingSummary): string {
   const facts = [
@@ -116,7 +119,18 @@ export function FilingsSection({
         });
       });
   });
+  const [assigning, setAssigning] = useState<{
+    filingId: string;
+    rowId: string;
+    rowName: string;
+  } | null>(null);
   const actions: FilingSheetActions = {
+    onAssign: (filing, row) =>
+      setAssigning({
+        filingId: filing.id,
+        rowId: row.id,
+        rowName: `${row.srNo} · ${row.name}`,
+      }),
     onDiscard: setDiscarding,
     onEmail: setEmailing,
     onReview: handleReview,
@@ -211,6 +225,15 @@ export function FilingsSection({
         }}
         onUploaded={refresh}
         rowNames={uploading?.rowNames ?? new Map()}
+      />
+      <AssignCertificateDialog
+        onAssigned={refresh}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAssigning(null);
+          }
+        }}
+        target={assigning}
       />
       <EmailCertificatesDialog
         manualNames={emailing?.manualNames ?? []}

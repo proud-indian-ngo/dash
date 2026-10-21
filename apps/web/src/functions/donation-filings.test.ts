@@ -40,6 +40,10 @@ mock.module("@/lib/audit", () => ({
   },
 }));
 mock.module("@/lib/donation-filings/server", () => ({
+  assignCertificate: async () => {
+    calls.push("assign");
+    return { acknowledgementNumber: "114000000000001" };
+  },
   discard: async () => {
     calls.push("discard");
   },
@@ -196,7 +200,7 @@ describe("donation filing server functions", () => {
     }
     expect(calls).toEqual([]);
 
-    granted = ["finance.manage"];
+    granted = ["finance.manage", "finance.view_sensitive"];
     for (const [fn, data] of commands) {
       await call(fn, data);
     }
@@ -228,6 +232,32 @@ describe("donation filing server functions", () => {
       resend: false,
       suppressedCount: 0,
     });
+  });
+
+  it("needs finance.view_sensitive as well to confirm a match, not to reject one", async () => {
+    granted = ["finance.manage"];
+    const certificateId = "0190a000-0000-7000-8000-0000000000c1";
+    await expect(
+      call(fns.reviewDonationCertificate, {
+        certificateId,
+        decision: "confirm",
+      })
+    ).rejects.toThrow("Forbidden");
+    await call(fns.reviewDonationCertificate, {
+      certificateId,
+      decision: "reject",
+    });
+    await call(fns.assignDonationCertificate, {
+      base64: "JVBERg==",
+      fileName: "a.pdf",
+      filingId: FILING,
+      rowId: "0190a000-0000-7000-8000-0000000000a1",
+    });
+    expect(calls).toEqual(["reject", "assign"]);
+    expect(audits.map((audit) => audit.action)).toEqual([
+      "donation_certificate.reject",
+      "donation_certificate.assign",
+    ]);
   });
 
   it("audits an explicit resend as one", async () => {

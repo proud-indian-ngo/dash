@@ -6,6 +6,7 @@ import {
   claimCertificateEmails,
   discardFiling,
   FilingError,
+  type FilingHeader,
   type FilingRowView,
   type FilingSubmission,
   insertCertificates,
@@ -14,6 +15,7 @@ import {
   loadFilingHeader,
   loadFilingMatchRows,
   loadFilingRows,
+  loadOtherFilingMarks,
   lockFilingYear,
   type NewCertificate,
   nextFilingSequence,
@@ -29,8 +31,10 @@ import type { FinancialYearRange } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
 import {
+  assessAssignedCertificate,
   CertificateUploadError,
   extractPdfText,
+  type FilingContext,
   matchCertificates,
   type ReadCertificate,
   readCertificateFields,
@@ -38,6 +42,7 @@ import {
 } from "@/lib/donation-filings/certificate-parser";
 import {
   MAX_CERTIFICATE_UPLOAD_BYTES,
+  UNMATCHED_REASON_LABELS,
   type UnmatchedReason,
 } from "@/lib/donation-filings/certificate-terms";
 import {
@@ -183,10 +188,104 @@ export interface CertificateUploadResult {
     acknowledgementNumber: string;
     fileName: string;
     matchedBy: "pre_arn" | "details";
+    needsReview: boolean;
     rowId: string;
   }[];
   unmatched: { fileName: string; reason: UnmatchedReason }[];
 }
+
+/**
+ * Reads an upload (the portal's ZIP or single PDFs), matches each PDF to a
+ * row of the filing and stores the matched ones. Unmatched files are
+ * reported, never stored.
+ */
+/** Reads a PDF's certificate fields; null when its text can't be read. */
+async function readFields(bytes: Uint8Array) {
+  try {
+    return readCertificateFields(await extractPdfText(bytes));
+  } catch {
+    return null;
+  }
+}
+
+async function filingContext(filing: FilingHeader): Promise<FilingContext> {
+  const others = await loadOtherFilingMarks(filing.id);
+  return {
+    acknowledgementNumber: filing.acknowledgementNumber,
+    fiscalYear: filing.fiscalYear,
+    otherAcknowledgementNumbers: others.acknowledgementNumbers,
+    otherPreArns: others.preArns,
+  };
+}
+
+async function requireSubmittedFiling(filingId: string) {
+  const filing = await loadFilingHeader(filingId);
+  if (!filing) {
+    throw new FilingError("Filing not found.");
+  }
+  if (filing.status !== "submitted") {
+    throw new FilingError(
+      "Record the portal's acknowledgement before adding certificates."
+    );
+  }
+  return filing;
+}
+
+function decodeUpload(base64: string) {
+  const bytes = new Uint8Array(Buffer.from(base64, "base64"));
+  if (bytes.byteLength > MAX_CERTIFICATE_UPLOAD_BYTES) {
+    throw new CertificateUploadError(
+      "The file is too large. Upload the certificates in parts."
+    );
+  }
+  return bytes;
+}
+
+/**
+ * Inserts the certificates and writes their PDFs before the rows commit:
+ * nothing is written for a refused insert, and the files written are
+ * deleted again when the transaction fails.
+ */
+async function storeCertificates(
+  filingId: string,
+  items: readonly { bytes: Uint8Array; certificate: NewCertificate }[],
+  userId: string
+) {
+  const s3 = getS3();
+  const written: string[] = [];
+  try {
+    await insertCertificates(
+      filingId,
+      items.map((item) => item.certificate),
+      userId,
+      new Date(),
+      async () => {
+        for (const item of items) {
+          await s3.write(item.certificate.fileObjectKey, item.bytes, {
+            type: "application/pdf",
+          });
+          written.push(item.certificate.fileObjectKey);
+        }
+      }
+    );
+  } catch (error) {
+    await Promise.allSettled(written.map((key) => s3.delete(key)));
+    throw error;
+  }
+}
+
+const newCertificate = (
+  filingId: string,
+  values: Omit<NewCertificate, "fileName" | "fileObjectKey" | "id">
+): NewCertificate => {
+  const id = uuidv7();
+  return {
+    ...values,
+    fileName: certificateFileName(values.acknowledgementNumber),
+    fileObjectKey: `${filingFolder(filingId)}/certificates/${id}.pdf`,
+    id,
+  };
+};
 
 /**
  * Reads an upload (the portal's ZIP or single PDFs), matches each PDF to a
@@ -199,36 +298,21 @@ export const uploadCertificates = (
   userId: string
 ): Promise<CertificateUploadResult> =>
   safely("certificates", async () => {
-    const filing = await loadFilingHeader(filingId);
-    if (!filing) {
-      throw new FilingError("Filing not found.");
-    }
-    if (filing.status !== "submitted") {
-      throw new FilingError(
-        "Record the portal's acknowledgement before adding certificates."
-      );
-    }
-    const bytes = new Uint8Array(Buffer.from(upload.base64, "base64"));
-    if (bytes.byteLength > MAX_CERTIFICATE_UPLOAD_BYTES) {
-      throw new CertificateUploadError(
-        "The file is too large. Upload the certificates in parts."
-      );
-    }
+    const filing = await requireSubmittedFiling(filingId);
+    const bytes = decodeUpload(upload.base64);
     const { files, skipped } = unpackCertificateUpload(upload.fileName, bytes);
     const read: ReadCertificate[] = [];
     for (const file of files) {
-      let fields: ReadCertificate["fields"] = null;
-      try {
-        fields = readCertificateFields(await extractPdfText(file.bytes));
-      } catch {
-        fields = null;
-      }
-      read.push({ fields, name: file.name, sha256: sha256(file.bytes) });
+      read.push({
+        fields: await readFields(file.bytes),
+        name: file.name,
+        sha256: sha256(file.bytes),
+      });
     }
     const decisions = matchCertificates(
       read,
       await loadFilingMatchRows(filingId),
-      filing.acknowledgementNumber
+      await filingContext(filing)
     );
     const result: CertificateUploadResult = {
       alreadyStored: [],
@@ -238,8 +322,7 @@ export const uploadCertificates = (
         reason: file.reason,
       })),
     };
-    const toStore: NewCertificate[] = [];
-    const s3 = getS3();
+    const toStore: { bytes: Uint8Array; certificate: NewCertificate }[] = [];
     for (const [index, decision] of decisions.entries()) {
       const file = files[index];
       const fileRead = read[index];
@@ -257,27 +340,90 @@ export const uploadCertificates = (
         });
         continue;
       }
-      const id = uuidv7();
-      const fileObjectKey = `${filingFolder(filingId)}/certificates/${id}.pdf`;
-      await s3.write(fileObjectKey, file.bytes, { type: "application/pdf" });
       toStore.push({
-        acknowledgementNumber: decision.acknowledgementNumber,
-        fileName: certificateFileName(decision.acknowledgementNumber),
-        fileObjectKey,
-        fileSha256: fileRead.sha256,
-        id,
-        matchedBy: decision.matchedBy,
-        rowId: decision.rowId,
+        bytes: file.bytes,
+        certificate: newCertificate(filingId, {
+          acknowledgementNumber: decision.acknowledgementNumber,
+          fileSha256: fileRead.sha256,
+          matchedBy: decision.matchedBy,
+          needsReview: decision.needsReview,
+          rowId: decision.rowId,
+          sourceName: file.name,
+        }),
       });
       result.matched.push({
         acknowledgementNumber: decision.acknowledgementNumber,
         fileName: file.name,
         matchedBy: decision.matchedBy,
+        needsReview: decision.needsReview,
         rowId: decision.rowId,
       });
     }
-    await insertCertificates(filingId, toStore, userId, new Date());
+    await storeCertificates(filingId, toStore, userId);
     return result;
+  });
+
+/**
+ * Finance assigns one certificate PDF to a row by hand, for a certificate
+ * matching couldn't place (such as two cash rows of the same donor and
+ * amount). It goes to review like a details match.
+ */
+export const assignCertificate = (
+  filingId: string,
+  rowId: string,
+  upload: { base64: string; fileName: string },
+  userId: string
+): Promise<{ acknowledgementNumber: string }> =>
+  safely("certificates", async () => {
+    const filing = await requireSubmittedFiling(filingId);
+    const { files } = unpackCertificateUpload(
+      upload.fileName,
+      decodeUpload(upload.base64)
+    );
+    const [file] = files;
+    if (!file || files.length > 1) {
+      throw new CertificateUploadError("Choose one certificate PDF.");
+    }
+    const row = (await loadFilingMatchRows(filingId)).find(
+      (candidate) => candidate.id === rowId
+    );
+    if (!row) {
+      throw new FilingError("That row isn't in this filing.");
+    }
+    if (row.certificate) {
+      throw new FilingError("That row already has a certificate.");
+    }
+    const fields = await readFields(file.bytes);
+    if (!fields) {
+      throw new CertificateUploadError(UNMATCHED_REASON_LABELS.unreadable);
+    }
+    const assessed = assessAssignedCertificate(
+      fields,
+      await filingContext(filing)
+    );
+    if ("reason" in assessed) {
+      throw new CertificateUploadError(
+        UNMATCHED_REASON_LABELS[assessed.reason]
+      );
+    }
+    await storeCertificates(
+      filingId,
+      [
+        {
+          bytes: file.bytes,
+          certificate: newCertificate(filingId, {
+            acknowledgementNumber: assessed.acknowledgementNumber,
+            fileSha256: sha256(file.bytes),
+            matchedBy: "manual",
+            needsReview: true,
+            rowId,
+            sourceName: file.name,
+          }),
+        },
+      ],
+      userId
+    );
+    return assessed;
   });
 
 export interface QueuedCertificateEmails {

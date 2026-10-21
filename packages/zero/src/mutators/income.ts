@@ -351,23 +351,38 @@ const FILING_LOCKED_FIELDS = [
   "receivedOn",
   "channel",
   "reportingMode",
+  "donationType",
 ] as const;
 
 /**
- * Whether a donations return filing holds the gift (server only: filings
- * are private). Its frozen row points at the gift, so the gift stays.
+ * The live donations return filing holding the gift, if any (server only:
+ * filings are private). Its frozen row points at the gift, so the gift and
+ * what the row reported stay.
  */
-async function isFiledGift(tx: Tx, id: string): Promise<boolean> {
+async function filingOfGift(
+  tx: Tx,
+  id: string
+): Promise<{ sequence: number; status: string } | null> {
   if (tx.location !== "server") {
-    return false;
+    return null;
   }
   const { sql } = await import("drizzle-orm");
-  const rows = await requireServerTransaction(
+  const rows = (await requireServerTransaction(
     tx as unknown as LockableKalakritiTx
   ).execute(
-    sql`select 1 from private.donation_filing_gift where contribution_id = ${id}`
-  );
-  return rows.length > 0;
+    sql`select f.sequence, f.status from private.donation_filing_gift g join private.donation_filing f on f.id = g.filing_id where g.contribution_id = ${id}`
+  )) as unknown as { sequence: number; status: string }[];
+  return rows[0] ?? null;
+}
+
+/** Why a filed gift can't change: discard a filing not yet uploaded, else revise on the portal. */
+function filedGiftMessage(
+  filing: { sequence: number; status: string },
+  action: string
+): string {
+  return filing.status === "prepared"
+    ? `This gift is in filing ${filing.sequence}, which isn't uploaded yet, so it ${action}. Discard that filing first.`
+    : `This gift is in donations return filing ${filing.sequence}, so it ${action}. Correct it with a revision on the portal.`;
 }
 
 async function requireEditableContribution(tx: Tx, id: string) {
@@ -586,10 +601,9 @@ export const contributionMutators = {
         "This contribution is matched to a bank statement line. Unmatch the line first."
       );
     }
-    if (await isFiledGift(tx, args.id)) {
-      throw new Error(
-        "This gift is in a donations return filing, so it can't be deleted"
-      );
+    const filing = await filingOfGift(tx, args.id);
+    if (filing) {
+      throw new Error(filedGiftMessage(filing, "can't be deleted"));
     }
     await tx.mutate.contribution.delete({ id: args.id });
     queueLedgerPosting(
@@ -621,16 +635,21 @@ export const contributionMutators = {
     });
     // A filed gift's row is frozen: what the return reported stays as filed.
     if (
-      (FILING_LOCKED_FIELDS.some(
+      FILING_LOCKED_FIELDS.some(
         (field) => (existing[field] ?? null) !== (values[field] ?? null)
       ) ||
-        eligibility.deductionEligible !==
-          (existing.deductionEligible ?? "unknown")) &&
-      (await isFiledGift(tx, args.id))
+      eligibility.deductionEligible !==
+        (existing.deductionEligible ?? "unknown")
     ) {
-      throw new Error(
-        "This gift is in a donations return filing, so its amount, donor, date, channel, mode of receipt and tax certificate choice can't change. Correct it with a revision on the portal."
-      );
+      const filing = await filingOfGift(tx, args.id);
+      if (filing) {
+        throw new Error(
+          filedGiftMessage(
+            filing,
+            "can't change its amount, donor, date, channel, mode of receipt, donation type or tax certificate choice"
+          )
+        );
+      }
     }
     if (
       (values.amountPaise !== existing.amountPaise ||
