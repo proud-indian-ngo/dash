@@ -1,6 +1,6 @@
 {
-  "id": "afe6ae9a-f4a3-4bf1-b05e-d588e8111fed",
-  "prevId": "a3b53056-14af-4ee8-8f8a-6f9b8e7c96ce",
+  "id": "16bc4495-863c-4b65-b858-6df40027fd4a",
+  "prevId": "3cd36072-6d8d-4019-a4ba-e6d2e22f4115",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -22195,12 +22195,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "pre_arn": {
-          "name": "pre_arn",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "sr_no": {
           "name": "sr_no",
           "type": "integer",
@@ -22209,21 +22203,6 @@
         }
       },
       "indexes": {
-        "donation_filing_row_pre_arn_uidx": {
-          "name": "donation_filing_row_pre_arn_uidx",
-          "columns": [
-            {
-              "expression": "pre_arn",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "donation_filing_row_filing_sr_uidx": {
           "name": "donation_filing_row_filing_sr_uidx",
           "columns": [
@@ -25515,7 +25494,6 @@
       "name": "donation_certificate_match",
       "schema": "private",
       "values": [
-        "pre_arn",
         "details",
         "manual"
       ]
