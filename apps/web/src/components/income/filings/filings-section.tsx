@@ -240,7 +240,7 @@ export function FilingsSection({
           if (!open) confirmMatches.cancel();
         }}
         open={confirmMatches.isOpen}
-        title={`Confirm ${confirmMatches.payload?.certificateIds.length ?? 0} certificate matches?`}
+        title="Confirm PAN matches?"
         variant="default"
       />
       <SubmitFilingDialog
