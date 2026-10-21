@@ -2,6 +2,7 @@ import { db } from "@pi-dash/db";
 import {
   issueReceiptsIn,
   type IssueReceiptsResult,
+  loadReceiptConfig,
   loadReceiptCandidates,
   loadReceiptEmailTarget,
   loadReceiptReadiness,
@@ -12,7 +13,11 @@ import {
   voidReceiptIn,
 } from "@pi-dash/db/queries/contribution-receipts";
 import { getEmailSuppression } from "@pi-dash/db/queries/email-suppression";
-import { enqueue } from "@pi-dash/jobs/enqueue";
+import { enqueue, inTransaction } from "@pi-dash/jobs/enqueue";
+import {
+  ReceiptSignatureError,
+  readReceiptSignature,
+} from "@pi-dash/jobs/lib/receipt-pdf";
 import { uuidv7 } from "uuidv7";
 
 import { withSafeErrors } from "@/lib/safe-errors";
@@ -55,9 +60,36 @@ export const issueReceipts = (
   contributionIds: string[],
   actorId: string
 ): Promise<IssueReceiptsResult> =>
-  safely("issue", () =>
-    db.transaction((tx) => issueReceiptsIn(tx, { actorId, contributionIds }))
-  );
+  safely("issue", async () => {
+    // A receipt's number can't be given back, so refuse before issuing one
+    // that could never render.
+    const { settings } = await loadReceiptConfig();
+    if (settings) {
+      try {
+        await readReceiptSignature(settings.signatureKey);
+      } catch (error) {
+        if (error instanceof ReceiptSignatureError) {
+          throw new ReceiptError(
+            "The signatory's signature can't be read. Upload it again in Settings → Organisation accounts."
+          );
+        }
+        throw error;
+      }
+    }
+    return await db.transaction(async (tx) => {
+      const result = await issueReceiptsIn(tx, { actorId, contributionIds });
+      // Each PDF is stored once the receipts commit, so the first copy a
+      // donor gets is the stored one. Queued only if the issue commits.
+      for (const receipt of result.issued) {
+        await enqueue(
+          "store-contribution-receipt-pdf",
+          { receiptId: receipt.id },
+          { db: inTransaction(tx) }
+        );
+      }
+      return result;
+    });
+  });
 
 export const voidReceipt = (
   input: { reason: string; receiptId: string },

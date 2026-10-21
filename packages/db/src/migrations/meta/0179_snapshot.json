@@ -1,6 +1,6 @@
 {
-  "id": "09865da0-ed65-45db-9a91-c626fb4d517f",
-  "prevId": "d78129bd-23ea-4d9d-9d03-45a369014f6a",
+  "id": "5c93a8ce-a4f7-410d-b42f-6542677969ef",
+  "prevId": "335ada6c-c131-46aa-b532-4f1b230c463d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -17174,13 +17174,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "purpose": {
-          "name": "purpose",
-          "type": "reimbursement_attachment_purpose",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
         "reimbursement_id": {
           "name": "reimbursement_id",
           "type": "uuid",
@@ -22945,14 +22938,63 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pdf_key": {
+          "name": "pdf_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_sha256": {
+          "name": "pdf_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "receipt_id": {
           "name": "receipt_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "signature_key": {
+          "name": "signature_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contribution_receipt_snapshot_pdf_key_idx": {
+          "name": "contribution_receipt_snapshot_pdf_key_idx",
+          "columns": [
+            {
+              "expression": "pdf_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_receipt_snapshot_signature_key_idx": {
+          "name": "contribution_receipt_snapshot_signature_key_idx",
+          "columns": [
+            {
+              "expression": "signature_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",
@@ -24075,17 +24117,6 @@
         "volunteer",
         "judge",
         "partner"
-      ]
-    },
-    "public.reimbursement_attachment_purpose": {
-      "name": "reimbursement_attachment_purpose",
-      "schema": "public",
-      "values": [
-        "receipt",
-        "payment_proof",
-        "voucher",
-        "signed_voucher",
-        "payee_signature"
       ]
     },
     "public.reimbursement_status": {
