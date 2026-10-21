@@ -46,7 +46,7 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 - `fund`: General Fund (Domestic) is the default; the restricted Corpus Fund is reference data.
 - `org_account` of kind `deposit` (fixed deposit) never takes donations or statement imports. Accounts are deactivated, never deleted.
 - The monthly `ensure-fiscal-years` job keeps the current and next fiscal year present.
-- Teams and events carry `programme_id`; occurrences inherit it when materialised. Events carry no project.
+- Teams and events carry `programme_id`; occurrences inherit it when materialised. Events may also carry a `project_id` under their programme ([Charged to](#expense-charged-to)).
 - Edit forms keep a retired option in the picker, marked inactive.
 
 ### Main bank account
@@ -62,14 +62,15 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 
 Every reimbursement and vendor payment records which work it served in `charged_to`, independent of its expense category:
 
-- `event`: the event's programme. The picker lists standalone events, series and each saved session of a series (one with attendance, members or edits); an unsaved session has no row, so a claim for it goes on the series.
+- `event`: the event's programme and project. The picker lists standalone events, series and each saved session of a series (one with attendance, members or edits); an unsaved session has no row, so a claim for it goes on the series.
 - `programme`: a programme and optional project, for ongoing costs with no event such as rent.
 - `organisation`: admin costs (audit fee, bank charges, website).
 
 One target per request. Advance payments carry none.
 
 - Every consumer goes through `expenseProgrammeOf` (`packages/shared/src/expense-charge.ts`): tables, the Programme filter, the spending chart, the financial-year export and expense posting.
-- A composite foreign key refuses a project under another programme.
+- A composite foreign key refuses a project under another programme, on requests and on events.
+- An event's project is finance-only: the event form shows the Project picker (open projects of the event's programme) only to `finance.manage`, and the mutators ignore the field from anyone else, so their saves keep it. Moving an event to another programme clears it unless finance names one under the new programme in the same save. Occurrences inherit it ([recurring events](recurring-events.md)). Changing it after posting reposts the event's claims and vendor payments, as a cost centre change does (`finance-books.md`); a closed year keeps what stands.
 - The claimant picks it while pending. Finance (`finance.manage`, or `requests.approve` with `requests.view_all`) changes it later via `setChargedTo`, never on a rejected request or their own, and never once posted.
 - Legacy requests without an event went to the submitter's team programme when unambiguous, else to Unallocated, for finance to clear.
 

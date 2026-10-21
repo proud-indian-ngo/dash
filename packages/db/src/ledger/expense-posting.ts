@@ -173,6 +173,7 @@ async function chargeFacts(
         .select({
           costCentreId: teamEvent.costCentreId,
           programmeId: teamEvent.programmeId,
+          projectId: teamEvent.projectId,
         })
         .from(teamEvent)
         .where(eq(teamEvent.id, request.eventId))
@@ -186,6 +187,8 @@ async function chargeFacts(
     eventId: request.eventId,
     eventProgrammeId:
       request.chargedTo === "event" ? (event?.programmeId ?? null) : null,
+    eventProjectId:
+      request.chargedTo === "event" ? (event?.projectId ?? null) : null,
   };
 }
 
@@ -850,8 +853,8 @@ function vendorPaymentWatermark(id: SQL): SQL {
 /**
  * When an expense source's record, or anything its posting reads, last
  * changed: the request (approval, edits, charge and status all touch it),
- * its lines, their categories, the charged event (its programme) and the
- * bank accounts; for a payment, also its request. Null when the record is
+ * its lines, their categories, the charged event (its programme and
+ * project) and the bank accounts; for a payment, also its request. Null when the record is
  * gone.
  */
 export function expenseSourceWatermark(type: ExpenseSourceType, id: SQL): SQL {

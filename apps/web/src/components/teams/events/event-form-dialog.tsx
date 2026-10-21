@@ -49,6 +49,7 @@ import {
   partnersFormSchema,
   toPartnerFormValues,
 } from "./event-partners-field";
+import { EventProjectField } from "./event-project-field";
 import { buildSocialFields } from "./event-social-fields";
 import { RecurrenceBuilder } from "./recurrence-builder";
 import { ReminderIntervalsField } from "./reminder-intervals-field";
@@ -71,6 +72,7 @@ const eventFormSchema = z.object({
   postEventNudgesEnabled: z.boolean(),
   postRsvpPoll: z.boolean(),
   programmeId: z.string().min(1, "Programme is required"),
+  projectId: z.string().optional(),
   publicArea: z
     .string()
     .max(80, "Keep the area under 80 characters")
@@ -150,6 +152,7 @@ interface InitialValues {
   postEventNudgesEnabled?: boolean | null;
   postRsvpPoll?: boolean | null;
   programmeId?: string | null;
+  projectId?: string | null;
   publicArea?: string | null;
   recurrenceRule?: {
     rrule: string;
@@ -206,6 +209,7 @@ function getDefaultValues(
       initialValues?.programmeId ??
       teamProgrammeId ??
       PROGRAMME_IDS.unallocated,
+    projectId: initialValues?.projectId ?? undefined,
     publicArea: initialValues?.publicArea ?? undefined,
     reminderIntervals: initialValues?.reminderIntervals ?? [],
     reminderTarget: (initialValues?.reminderTarget ??
@@ -259,10 +263,27 @@ function changedProgrammeId(
     : undefined;
 }
 
+/**
+ * The project to send: only from finance, and only when it changed (null
+ * clears it). Everyone else sends nothing, and the server keeps the stored one.
+ */
+function changedProjectId(
+  value: EventFormValues,
+  initialValues: InitialValues | undefined,
+  canManageFinance: boolean
+): string | null | undefined {
+  if (!canManageFinance) {
+    return undefined;
+  }
+  const next = value.projectId ?? null;
+  return next === (initialValues?.projectId ?? null) ? undefined : next;
+}
+
 function buildUpdateMutatorArgs(
   id: string,
   value: EventFormValues,
-  initialValues: InitialValues
+  initialValues: InitialValues,
+  canManageFinance: boolean
 ) {
   return {
     costCentreId: value.costCentreId || undefined,
@@ -279,6 +300,7 @@ function buildUpdateMutatorArgs(
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: changedProgrammeId(value, initialValues),
+    projectId: changedProjectId(value, initialValues, canManageFinance),
     publicArea: value.publicArea?.trim() ?? "",
     reminderIntervals: value.reminderIntervals.length
       ? value.reminderIntervals
@@ -302,6 +324,7 @@ function buildUpdateSeriesArgs(
   value: EventFormValues,
   editScope: EditScope,
   initialValues: InitialValues,
+  canManageFinance: boolean,
   originalDate?: string
 ) {
   const base = {
@@ -320,6 +343,7 @@ function buildUpdateSeriesArgs(
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: changedProgrammeId(value, initialValues),
+    projectId: changedProjectId(value, initialValues, canManageFinance),
     publicArea: value.publicArea?.trim() ?? "",
     recurrenceRule: value.rrule
       ? {
@@ -354,7 +378,11 @@ function buildUpdateSeriesArgs(
   return base;
 }
 
-function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
+function buildCreateMutatorArgs(
+  teamId: string,
+  value: EventFormValues,
+  canManageFinance: boolean
+) {
   const recurrenceRule = value.rrule
     ? {
         excludeRules: value.excludeRules?.length
@@ -381,6 +409,7 @@ function buildCreateMutatorArgs(teamId: string, value: EventFormValues) {
     postEventNudgesEnabled: value.postEventNudgesEnabled,
     postRsvpPoll: value.postRsvpPoll,
     programmeId: value.programmeId,
+    projectId: changedProjectId(value, undefined, canManageFinance),
     publicArea: value.publicArea?.trim() || undefined,
     recurrenceRule,
     reminderIntervals: value.reminderIntervals.length
@@ -405,7 +434,8 @@ function getMutation(
   originalDate: string | undefined,
   isEdit: boolean,
   teamId: string,
-  kalakritiEditionId: string | undefined
+  kalakritiEditionId: string | undefined,
+  canManageFinance: boolean
 ) {
   if (isEdit && initialValues && kalakritiEditionId) {
     return {
@@ -452,6 +482,7 @@ function getMutation(
             value,
             editScope,
             initialValues,
+            canManageFinance,
             originalDate
           )
         )
@@ -463,7 +494,12 @@ function getMutation(
     return {
       mutation: zero.mutate(
         mutators.teamEvent.update(
-          buildUpdateMutatorArgs(initialValues.id, value, initialValues)
+          buildUpdateMutatorArgs(
+            initialValues.id,
+            value,
+            initialValues,
+            canManageFinance
+          )
         )
       ),
       mutationName: "teamEvent.update",
@@ -471,7 +507,9 @@ function getMutation(
   }
   return {
     mutation: zero.mutate(
-      mutators.teamEvent.create(buildCreateMutatorArgs(teamId, value))
+      mutators.teamEvent.create(
+        buildCreateMutatorArgs(teamId, value, canManageFinance)
+      )
     ),
     mutationName: "teamEvent.create",
   };
@@ -513,6 +551,9 @@ function EventFormContent({
   const { hasPermission } = useApp();
   const canBackdate =
     hasPermission("events.create_backdated") || userIsTeamLead;
+  // Kalakriti's linked event is managed from Kalakriti, which sets no project.
+  const canManageFinance =
+    hasPermission("finance.manage") && !kalakritiEditionId;
 
   const form = useForm({
     defaultValues: getDefaultValues(
@@ -529,7 +570,8 @@ function EventFormContent({
         originalDate,
         isEdit,
         teamId,
-        kalakritiEditionId
+        kalakritiEditionId,
+        canManageFinance
       );
       const entityId = isEdit && initialValues ? initialValues.id : "new";
       let successMsg = "Event created";
@@ -588,6 +630,9 @@ function EventFormContent({
   const stableSelector6 = useEventCallback(
     (state: EventFormState) => state.values.whatsappGroupId
   );
+  const stableSelectorProgramme = useEventCallback(
+    (state: EventFormState) => state.values.programmeId
+  );
   const stableSelectorPublic = useEventCallback(
     (state: EventFormState) => state.values.isPublic
   );
@@ -635,6 +680,11 @@ function EventFormContent({
           options={programmeOptions}
           placeholder="Search programmes"
         />
+        {canManageFinance ? (
+          <form.Subscribe selector={stableSelectorProgramme}>
+            {(programmeId) => <EventProjectField programmeId={programmeId} />}
+          </form.Subscribe>
+        ) : null}
         <form.Subscribe selector={stableSelector0}>
           {(startTime) => (
             <DateTimeField

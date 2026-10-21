@@ -71,6 +71,7 @@ export function buildExceptionInsert(
     postEventNudgesEnabled: boolean;
     costCentreId: string;
     programmeId: string;
+    projectId: string | null;
     reminderIntervals: number[] | null;
     reminderTarget: string;
     whatsappGroupId: string | null;
@@ -101,6 +102,11 @@ export function buildExceptionInsert(
       overrides.postEventNudgesEnabled ?? series.postEventNudgesEnabled,
     postRsvpPoll: overrides.postRsvpPoll ?? series.postRsvpPoll,
     programmeId: overrides.programmeId ?? series.programmeId,
+    // Undefined inherits the series' project; null means none.
+    projectId:
+      overrides.projectId === undefined
+        ? (series.projectId ?? null)
+        : overrides.projectId,
     // A cleared area ("") stores null, so the session shows the series' area.
     publicArea:
       overrides.publicArea === undefined
@@ -142,6 +148,8 @@ export interface UpdateArgs {
   postEventNudgesEnabled?: boolean;
   postRsvpPoll?: boolean;
   programmeId?: string;
+  /** Undefined leaves the project alone; null clears it. */
+  projectId?: string | null;
   publicArea?: string;
   reminderIntervals?: number[] | null;
   reminderTarget?: ReminderTarget;
@@ -166,6 +174,7 @@ export function buildUpdateFields(args: UpdateArgs) {
       costCentreId: args.costCentreId,
     }),
     ...(args.programmeId !== undefined && { programmeId: args.programmeId }),
+    ...(args.projectId !== undefined && { projectId: args.projectId }),
     ...(args.startTime !== undefined && { startTime: args.startTime }),
     ...(args.endTime !== undefined && { endTime: args.endTime }),
     ...(args.isPublic !== undefined && { isPublic: args.isPublic }),
@@ -252,30 +261,36 @@ export function changedSeriesArgs(
 }
 
 /**
- * "All events" changing the programme before the series starts: saved
- * sessions still on the old programme follow, as the group does; one given
- * its own programme keeps it. Returns the moved ids.
+ * "All events" changing the programme (before the series starts) or the
+ * project: saved sessions still on the series' old programme follow, as the
+ * group does, taking the series' project; on a project change alone, those
+ * still on the old project follow. One given its own keeps it. Returns the
+ * moved ids.
  */
 export async function moveSeriesSessionsToProgramme(
   tx: Tx,
   args: {
-    fromProgrammeId: string;
+    from: { programmeId: string | null; projectId: string | null };
     now: number;
     seriesId: string;
-    toProgrammeId: string;
+    to: { programmeId: string | null; projectId: string | null };
   }
 ): Promise<string[]> {
+  const programmeMoves = args.from.programmeId !== args.to.programmeId;
   const sessions = (await tx.run(
     zql.teamEvent.where("seriesId", args.seriesId)
   )) as TeamEvent[];
   const following = sessions.filter(
-    (session) => session.programmeId === args.fromProgrammeId
+    (session) =>
+      session.programmeId === args.from.programmeId &&
+      (programmeMoves || (session.projectId ?? null) === args.from.projectId)
   );
   await Promise.all(
     following.map((session) =>
       tx.mutate.teamEvent.update({
         id: session.id,
-        programmeId: args.toProgrammeId,
+        ...(programmeMoves && { programmeId: args.to.programmeId }),
+        projectId: args.to.projectId,
         updatedAt: args.now,
       })
     )
@@ -381,6 +396,7 @@ export async function updateSeriesThis(
     feedbackDeadline?: number | null;
     postRsvpPoll?: boolean;
     programmeId?: string;
+    projectId?: string | null;
     rsvpPollLeadMinutes?: number;
     postEventNudgesEnabled?: boolean;
     reminderIntervals?: number[] | null;
@@ -417,6 +433,7 @@ export async function updateSeriesThis(
           postEventNudgesEnabled: args.postEventNudgesEnabled,
           postRsvpPoll: args.postRsvpPoll,
           programmeId: args.programmeId,
+          projectId: args.projectId,
           publicArea: args.publicArea,
           reminderIntervals: args.reminderIntervals,
           reminderTarget: args.reminderTarget,
@@ -510,6 +527,7 @@ export async function updateSeriesFollowing(
     rsvpPollLeadMinutes?: number;
     postEventNudgesEnabled?: boolean;
     programmeId?: string;
+    projectId?: string | null;
     reminderIntervals?: number[] | null;
     reminderTarget?: ReminderTarget;
     whatsappGroupId?: string | null;
@@ -574,6 +592,10 @@ export async function updateSeriesFollowing(
     rsvpPollLeadMinutes:
       args.rsvpPollLeadMinutes ?? existing.rsvpPollLeadMinutes,
     programmeId: args.programmeId ?? existing.programmeId,
+    projectId:
+      args.projectId === undefined
+        ? (existing.projectId ?? null)
+        : args.projectId,
     seriesId: null,
     startTime: newStart,
     updatedAt: args.now,

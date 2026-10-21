@@ -246,6 +246,8 @@ export interface ExpenseChargeFacts {
   eventId: string | null;
   /** The event's current programme, when charged to an event. */
   eventProgrammeId: string | null;
+  /** The event's current project, when charged to an event. */
+  eventProjectId: string | null;
 }
 
 export interface ExpenseLineFacts {
@@ -267,7 +269,10 @@ function dimensionsOf(charge: ExpenseChargeFacts, partyId: string | null) {
     chargedProgrammeId: charge.chargedProgrammeId,
     chargedProjectId: charge.chargedProjectId,
     chargedTo: charge.chargedTo,
-    event: { programmeId: charge.eventProgrammeId },
+    event: {
+      programmeId: charge.eventProgrammeId,
+      projectId: charge.eventProjectId,
+    },
   });
   return {
     costCentreId: charge.costCentreId,

@@ -18,6 +18,16 @@ describe("expenseProgrammeOf", () => {
     ).toEqual({ isAdmin: false, programmeId: "edu", projectId: null });
   });
 
+  it("takes the event's project when it names one", () => {
+    expect(
+      expenseProgrammeOf({
+        chargedProjectId: "ignored",
+        chargedTo: "event",
+        event: { programmeId: "edu", projectId: "class-2026" },
+      })
+    ).toEqual({ isAdmin: false, programmeId: "edu", projectId: "class-2026" });
+  });
+
   it("is unknown while the event has not loaded", () => {
     expect(expenseProgrammeOf({ chargedTo: "event", event: null })).toEqual({
       isAdmin: false,

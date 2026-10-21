@@ -32,6 +32,7 @@ interface PollCandidate {
   location: string | null;
   name: string;
   programmeId: string;
+  projectId: string | null;
   recurrenceRule: {
     rrule: string;
     exdates?: string[];
@@ -73,6 +74,7 @@ function toSeriesParent(event: PollCandidate): SeriesParent {
     location: event.location,
     name: event.name,
     programmeId: event.programmeId,
+    projectId: event.projectId,
     recurrenceRule: event.recurrenceRule,
     reminderIntervals: event.reminderIntervals,
     startTime: event.startTime,
@@ -178,6 +180,7 @@ async function loadCandidates(): Promise<PollCandidate[]> {
       location: teamEvent.location,
       name: teamEvent.name,
       programmeId: teamEvent.programmeId,
+      projectId: teamEvent.projectId,
       recurrenceRule: teamEvent.recurrenceRule,
       reminderIntervals: teamEvent.reminderIntervals,
       rsvpPollLeadMinutes: teamEvent.rsvpPollLeadMinutes,

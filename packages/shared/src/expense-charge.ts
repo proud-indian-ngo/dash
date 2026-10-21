@@ -47,7 +47,8 @@ export interface ExpenseProgramme {
  * The programme and project a request's money counts against. Every place
  * that derives a request's programme (tables, filters, the spending chart,
  * the financial-year export, expense posting) goes through this rule:
- * event → the event's current programme (events carry no project);
+ * event → the event's current programme and project (finance sets an
+ * event's project);
  * programme → the chosen programme and optional project;
  * organisation → admin, no programme.
  */
@@ -55,7 +56,7 @@ export function expenseProgrammeOf(request: {
   chargedProgrammeId?: string | null;
   chargedProjectId?: string | null;
   chargedTo?: ExpenseChargedTo | null;
-  event?: { programmeId?: string | null } | null;
+  event?: { programmeId?: string | null; projectId?: string | null } | null;
 }): ExpenseProgramme {
   switch (request.chargedTo) {
     case "organisation":
@@ -70,7 +71,7 @@ export function expenseProgrammeOf(request: {
       return {
         isAdmin: false,
         programmeId: request.event?.programmeId ?? null,
-        projectId: null,
+        projectId: request.event?.projectId ?? null,
       };
   }
 }

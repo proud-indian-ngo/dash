@@ -89,6 +89,7 @@ const SERIES_BASE = {
   postEventNudgesEnabled: true,
   postRsvpPoll: false,
   programmeId: "prog-1",
+  projectId: "proj-1" as string | null,
   publicArea: "Iblur",
   recurrenceRule: { rrule: "FREQ=WEEKLY" },
   reminderIntervals: [60, 1440],
@@ -131,6 +132,22 @@ describe("buildExceptionInsert", () => {
       buildUpdateFields({ id: "e", now: NOW, programmeId: "prog-2" })
         .programmeId
     ).toBe("prog-2");
+  });
+
+  it("copies the series' project unless the exception sets or clears it", () => {
+    const insert = (projectId?: string | null) =>
+      buildExceptionInsert("exc-1", SERIES_BASE, "2026-04-15", "u", NOW, {
+        ...(projectId !== undefined && { projectId }),
+      }).projectId;
+    expect(insert()).toBe("proj-1");
+    expect(insert("proj-2")).toBe("proj-2");
+    expect(insert(null)).toBeNull();
+    expect(buildUpdateFields({ id: "e", now: NOW })).not.toHaveProperty(
+      "projectId"
+    );
+    expect(
+      buildUpdateFields({ id: "e", now: NOW, projectId: null }).projectId
+    ).toBeNull();
   });
 
   it("copies the series' cost centre unless the exception picks another", () => {

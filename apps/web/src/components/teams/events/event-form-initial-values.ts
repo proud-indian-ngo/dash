@@ -66,6 +66,10 @@ function buildEventEditInitialValues(
       editScope === "following" && seriesParent
         ? seriesParent.programmeId
         : event.programmeId,
+    projectId:
+      editScope === "following" && seriesParent
+        ? seriesParent.projectId
+        : event.projectId,
     publicArea: event.publicArea,
     recurrenceRule: recurrence,
     reminderIntervals: event.reminderIntervals as number[] | null,
@@ -161,6 +165,7 @@ export function buildEventDuplicateInitialValues(
     postEventNudgesEnabled: event.postEventNudgesEnabled,
     postRsvpPoll: !!event.postRsvpPoll,
     programmeId: event.programmeId,
+    projectId: event.projectId,
     publicArea: event.publicArea,
     recurrenceRule: null,
     reminderIntervals: event.reminderIntervals as number[] | null,

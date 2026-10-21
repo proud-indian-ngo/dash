@@ -111,6 +111,7 @@ interface RawChargeRow {
   eventCostCentreId?: string | null;
   eventId?: string | null;
   eventProgrammeId?: string | null;
+  eventProjectId?: string | null;
 }
 
 interface RawResultRow extends RawChargeRow {
@@ -175,7 +176,7 @@ function chargeCells(
     chargedProgrammeId: row.chargedProgrammeId,
     chargedProjectId: row.chargedProjectId,
     chargedTo: row.chargedTo,
-    event: { programmeId: row.eventProgrammeId },
+    event: { programmeId: row.eventProgrammeId, projectId: row.eventProjectId },
   });
   let programmeName = "";
   if (isAdmin) {
@@ -244,6 +245,7 @@ async function queryRequestRows(
     selectFields.chargedProgrammeId = config.chargeCols.chargedProgrammeId;
     selectFields.chargedProjectId = config.chargeCols.chargedProjectId;
     selectFields.eventProgrammeId = teamEvent.programmeId;
+    selectFields.eventProjectId = teamEvent.projectId;
     selectFields.eventId = config.chargeCols.eventId;
     selectFields.eventCostCentreId = teamEvent.costCentreId;
     groupByFields.push(
@@ -252,6 +254,7 @@ async function queryRequestRows(
       config.chargeCols.chargedProjectId,
       config.chargeCols.eventId,
       teamEvent.programmeId,
+      teamEvent.projectId,
       teamEvent.costCentreId
     );
   }
@@ -385,6 +388,7 @@ async function queryVendorPaymentRows(
       chargedProjectId: vendorPayment.chargedProjectId,
       chargedTo: vendorPayment.chargedTo,
       eventProgrammeId: teamEvent.programmeId,
+      eventProjectId: teamEvent.projectId,
       noInvoiceReason: vendorPayment.noInvoiceReason,
       status: vendorPayment.status,
       submittedAt: vendorPayment.submittedAt,
@@ -422,7 +426,8 @@ async function queryVendorPaymentRows(
       vendorPayment.chargedTo,
       vendorPayment.chargedProgrammeId,
       vendorPayment.chargedProjectId,
-      teamEvent.programmeId
+      teamEvent.programmeId,
+      teamEvent.projectId
     );
 
   const vendorPaymentIds = results.map((result) => result.id);
