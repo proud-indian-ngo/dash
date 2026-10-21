@@ -24,6 +24,7 @@ import {
 } from "@pi-dash/shared/meetings";
 import {
   RESOLUTION_TEMPLATES,
+  templateBody,
   thresholdFor,
 } from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
@@ -33,6 +34,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 
+import { RichText } from "@/components/editor/rich-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
@@ -187,7 +189,7 @@ export function MeetingAgenda(props: AgendaContext) {
               agenda={{ itemId: adding.itemId, meetingId: meeting.id }}
               draftId={adding.resolutionId}
               initial={draftValuesFrom({
-                body: RESOLUTION_TEMPLATES.ordinary.text,
+                body: templateBody("ordinary"),
                 effect: { type: "none" },
                 templateKey: "ordinary",
                 title: "",
@@ -430,13 +432,7 @@ function AgendaItemCard({
           )}
         </span>
       </div>
-      {item.resolution
-        ? paragraphs(item.resolution.body).map((p, i) => (
-            <p className="text-sm whitespace-pre-line" key={`b${String(i)}`}>
-              {p}
-            </p>
-          ))
-        : null}
+      {item.resolution ? <RichText content={item.resolution.body} /> : null}
       {item.kind === "note_circulars" ? (
         <ul className="flex flex-col gap-1 text-sm">
           {(item.notedResolutionIds ?? []).map((id) => {

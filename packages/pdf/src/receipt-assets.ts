@@ -10,6 +10,8 @@ const directory = path.resolve(import.meta.dirname, "../assets/fonts");
 export const receiptAssets = {
   sansRegular: path.join(directory, "Geist-Regular.ttf"),
   sansSemiBold: path.join(directory, "Geist-SemiBold.ttf"),
+  sansItalic: path.join(directory, "Geist-Italic.ttf"),
+  sansSemiBoldItalic: path.join(directory, "Geist-SemiBoldItalic.ttf"),
   displaySemiBold: path.join(directory, "BricolageGrotesque-SemiBold.ttf"),
   monoRegular: path.join(directory, "PaperMono-Regular.ttf"),
   monoMedium: path.join(directory, "PaperMono-Medium.ttf"),

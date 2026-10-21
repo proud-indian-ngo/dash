@@ -2,6 +2,10 @@ import { fiscalYearLabel } from "@pi-dash/shared/compliance";
 import { DEED_VERSION_1, deedVersionOn } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { kolkataInstant } from "@pi-dash/shared/meetings";
+import {
+  plainTextToRichText,
+  serializeRichText,
+} from "@pi-dash/shared/rich-text";
 
 import { db } from ".";
 import {
@@ -289,7 +293,11 @@ export async function ensureMeetingFixtures(): Promise<void> {
   await db
     .insert(resolution)
     .values({
-      body: "RESOLVED THAT the budget for 2027-28, as placed before the Board, be and is hereby approved.",
+      body: serializeRichText(
+        plainTextToRichText(
+          "RESOLVED THAT the budget for 2027-28, as placed before the Board, be and is hereby approved."
+        )
+      ),
       createdAt: now,
       effect: { type: "none" },
       historical: false,

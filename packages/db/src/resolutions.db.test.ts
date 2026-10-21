@@ -1,4 +1,8 @@
 import { answersText } from "@pi-dash/shared/resolutions";
+import {
+  plainTextToRichText,
+  serializeRichText,
+} from "@pi-dash/shared/rich-text";
 import { and, eq, inArray } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -131,7 +135,9 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
     resolutionIds.push(...ids);
     await db.insert(schema.resolution).values(
       effects.map((effect, i) => ({
-        body: "RESOLVED THAT the test passes.",
+        body: serializeRichText(
+          plainTextToRichText("RESOLVED THAT the test passes.")
+        ),
         createdAt: now,
         effect,
         id: ids[i] as string,

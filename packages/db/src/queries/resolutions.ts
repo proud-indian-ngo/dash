@@ -20,6 +20,10 @@ import {
   tallyCircular,
   termEndedBy,
 } from "@pi-dash/shared/resolutions";
+import {
+  plainTextToRichText,
+  serializeRichText,
+} from "@pi-dash/shared/rich-text";
 import { and, asc, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -1158,7 +1162,7 @@ export async function recordHistoricalResolution(
   const now = new Date();
   try {
     await db.insert(resolution).values({
-      body: "",
+      body: serializeRichText(plainTextToRichText("")),
       createdAt: now,
       decidedAt: now,
       decidedOn: input.decidedOn,

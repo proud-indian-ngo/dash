@@ -9,13 +9,20 @@ import { receiptAssets } from "./receipt-assets";
  * design language: the donation receipt and the cash voucher.
  */
 
-// The product language's fonts: Geist to read, Bricolage 600 for the title,
+// The product language's fonts: Geist to read (italics from the Geist
+// release, which the design package lacks), Bricolage 600 for the title,
 // Paper Mono for the amount, numbers and dates (Bricolage has no ₹).
 Font.register({
   family: "ReceiptSans",
   fonts: [
     { fontWeight: 400, src: receiptAssets.sansRegular },
     { fontWeight: 600, src: receiptAssets.sansSemiBold },
+    { fontStyle: "italic", fontWeight: 400, src: receiptAssets.sansItalic },
+    {
+      fontStyle: "italic",
+      fontWeight: 600,
+      src: receiptAssets.sansSemiBoldItalic,
+    },
   ],
 });
 Font.register({
@@ -39,6 +46,17 @@ Font.register({
   fonts: [
     { fontWeight: 400, src: kalakritiIdCardAssets.regularFont },
     { fontWeight: 600, src: kalakritiIdCardAssets.boldFont },
+    // No italic: an italic run's fallback glyphs print upright.
+    {
+      fontStyle: "italic",
+      fontWeight: 400,
+      src: kalakritiIdCardAssets.regularFont,
+    },
+    {
+      fontStyle: "italic",
+      fontWeight: 600,
+      src: kalakritiIdCardAssets.boldFont,
+    },
   ],
 });
 
@@ -149,13 +167,16 @@ export function wholeWords(word: string): string[] {
 
 export function Line({
   children,
+  hyphenate = wholeWords,
   style,
 }: {
   children: ReactNode;
+  /** Where a word may break, as `wholeWords`; a narrow box breaks more. */
+  hyphenate?: (word: string) => string[];
   style?: Styles[string] | Styles[string][];
 }) {
   return (
-    <Text hyphenationCallback={wholeWords} style={style}>
+    <Text hyphenationCallback={hyphenate} style={style}>
       {children}
     </Text>
   );

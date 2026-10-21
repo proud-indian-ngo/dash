@@ -5,9 +5,11 @@ import { cn } from "@pi-dash/design-system/lib/utils";
 import type { ComponentProps } from "react";
 
 /**
- * The ⋯ trigger for a table row's ResponsiveActionMenu. Fits a 36px row;
- * grows on touch screens to what the 52px actions column holds, and the
- * menu trigger's 44px hit area covers the rest.
+ * The ⋯ trigger for a table row's ResponsiveActionMenu. Fits a 36px row
+ * (its cell's padding and border leave 27px, so it overhangs by a pixel each
+ * way, keeping data rows as tall as skeleton rows); grows on touch screens to
+ * what the 52px actions column holds, and the menu trigger's 44px hit area
+ * covers the rest.
  */
 export function RowActionsButton({
   className,
@@ -16,7 +18,7 @@ export function RowActionsButton({
   return (
     <Button
       aria-label="Row actions"
-      className={cn("size-7 pointer-coarse:size-9", className)}
+      className={cn("-my-px size-7 pointer-coarse:size-9", className)}
       data-testid="row-actions"
       size="icon"
       type="button"

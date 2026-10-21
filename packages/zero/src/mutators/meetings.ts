@@ -11,8 +11,8 @@ import {
 } from "@pi-dash/shared/meetings";
 import {
   RESOLUTION_TEMPLATES,
-  RESOLUTION_TEXT_MAX,
   RESOLUTION_TITLE_MAX,
+  resolutionBodySchema,
   resolutionTemplateKeyValues,
 } from "@pi-dash/shared/resolutions";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
@@ -251,7 +251,7 @@ export const agendaItemMutators = {
       notes: z.string().max(MEETING_NOTES_MAX).nullable().optional(),
       resolution: z
         .object({
-          body: z.string().max(RESOLUTION_TEXT_MAX),
+          body: resolutionBodySchema,
           effect: effectInput,
           id: z.string(),
           templateKey: z.enum(resolutionTemplateKeyValues),
