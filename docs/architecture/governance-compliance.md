@@ -6,7 +6,7 @@
 ## Calendar
 
 - The default items and their due dates are code (`packages/shared/src/compliance.ts`), in the April-to-March financial year. A renewal is due 183 days before an 80G or 12AB registration expires, the last day the Act allows an application; a term-end item 90 days before a trustee's last day.
-- Form 109 (accumulation of income) is due 31 August, two months before the income-tax return; the CA has yet to confirm the date. In a year with nothing set apart it is marked not needed.
+- Form 109 (accumulation of income) is due 31 August, two months before the income-tax return. In a year with nothing set apart it is marked not needed.
 - Templates are ensured by key on every server start. The app changes only their owner and whether they're on, so those edits survive a deploy. With no owner, an item goes to everyone with `governance.manage`.
 - A daily job creates items for the next 400 days. Each carries a source key, so running it again adds nothing. Another reminds 30, 7 and 1 days before an open item is due.
 

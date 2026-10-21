@@ -82,6 +82,5 @@ The seeds hold a fictional board of the same shape (Asha Rao, Vikram Menon, Meer
 
 ## Open questions
 
-1. Ink-signed circulars after go-live: historical imports, or a first-class method with scan upload?
-2. Version 2 values await counsel's final amendment wording.
-3. Windows PKCS#11 path for the HyperSecu driver, to read from a trustee's laptop.
+1. Version 2 values await counsel's final amendment wording.
+2. Windows PKCS#11 path for the HyperSecu driver, to read from a trustee's laptop.
