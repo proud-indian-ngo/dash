@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { trustedClientIp } from "@/lib/client-ip";
-import { completeJob, describeJob } from "@/lib/governance/signing-jobs";
+import {
+  completeJob,
+  describeJob,
+  refuseOutdatedHelper,
+} from "@/lib/governance/signing-jobs";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { readRequestBody } from "@/lib/read-request-body";
 
@@ -12,6 +16,9 @@ import { readRequestBody } from "@/lib/read-request-body";
  */
 
 const TOKEN = /^[A-Za-z0-9_-]{20,128}$/;
+
+/** The helper's version, so a helper too old for the dashboard is refused. */
+const VERSION_HEADER = "X-Pidash-Sign-Version";
 
 /** The largest body the job schemas accept: sixteen 16 KiB certificates. */
 const MAX_BODY_BYTES = 272 * 1024;
@@ -41,6 +48,13 @@ export const Route = createFileRoute("/api/signing/jobs/$token")({
         if (!TOKEN.test(params.token)) {
           return json({ message: "Not a signing link." }, 404);
         }
+        const outdated = await refuseOutdatedHelper(
+          params.token,
+          request.headers.get(VERSION_HEADER)
+        );
+        if (outdated) {
+          return json(outdated.body, outdated.status);
+        }
         const reply = await describeJob(params.token);
         return json(reply.body, reply.status);
       },
@@ -51,6 +65,13 @@ export const Route = createFileRoute("/api/signing/jobs/$token")({
         }
         if (!TOKEN.test(params.token)) {
           return json({ message: "Not a signing link." }, 404);
+        }
+        const outdated = await refuseOutdatedHelper(
+          params.token,
+          request.headers.get(VERSION_HEADER)
+        );
+        if (outdated) {
+          return json(outdated.body, outdated.status);
         }
         const body = await readRequestBody(request, {
           maxBytes: MAX_BODY_BYTES,

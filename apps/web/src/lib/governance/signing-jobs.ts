@@ -280,6 +280,47 @@ export async function startDeclarationJob(input: {
   });
 }
 
+/**
+ * The oldest helper the job API serves. Raise it when the helper must
+ * change with the dashboard; older helpers send no version at all.
+ */
+const MIN_HELPER_VERSION = [0, 2, 0];
+
+export const OUTDATED_HELPER_MESSAGE =
+  "Update the signing helper: this one is too old for the dashboard. Download the new one from the Signing helper page, then try again.";
+
+function helperCurrent(version: string | null): boolean {
+  const parts = version
+    ?.match(/^(\d+)\.(\d+)\.(\d+)$/)
+    ?.slice(1)
+    .map(Number);
+  if (!parts) {
+    return false;
+  }
+  for (const [index, minimum] of MIN_HELPER_VERSION.entries()) {
+    const part = parts[index] ?? 0;
+    if (part !== minimum) {
+      return part > minimum;
+    }
+  }
+  return true;
+}
+
+/**
+ * Refuses a helper older than the dashboard serves, and fails its job with
+ * the reason, since an old helper doesn't report failures the page can show.
+ */
+export async function refuseOutdatedHelper(
+  token: string,
+  version: string | null
+): Promise<JobReply | null> {
+  if (helperCurrent(version)) {
+    return null;
+  }
+  await completeJob(token, { failed: OUTDATED_HELPER_MESSAGE });
+  return { body: { message: OUTDATED_HELPER_MESSAGE }, status: 426 };
+}
+
 /** GET: what the helper should do, without revealing more than it needs. */
 export async function describeJob(token: string): Promise<JobReply> {
   const job = await openJobForToken(token);

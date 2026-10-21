@@ -37,7 +37,7 @@ test.describe("declarations (super admin)", () => {
       "Declaring stores the declaration's PDF in R2, which CI does not have"
     );
     test.slow();
-    // Signing needs a DSC and the signing service, so the declaration stays
+    // Signing needs a DSC, so the declaration stays
     // waiting here: the prompt stays and the approver isn't warned.
     const party = `E2E Unsigned Party ${Date.now()}`;
     await page.goto("/governance/declarations");

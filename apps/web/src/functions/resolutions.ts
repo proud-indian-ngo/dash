@@ -55,7 +55,6 @@ import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
 import {
   prepareSignatureFields,
   SigningServiceError,
-  signingServiceConfigured,
 } from "@/lib/governance/signing-service";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
@@ -173,13 +172,10 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             responseDueOn: data.responseDueOn,
             signers: plan.signers,
           });
-          const fieldsPrepared = signingServiceConfigured();
-          const pdf = fieldsPrepared
-            ? await prepareSignatureFields(
-                new Uint8Array(rendered),
-                fieldRequests(plan.signers.map((s) => s.trusteeId))
-              )
-            : new Uint8Array(rendered);
+          const pdf = await prepareSignatureFields(
+            new Uint8Array(rendered),
+            fieldRequests(plan.signers.map((s) => s.trusteeId))
+          );
           const objectKey = circularKey(circularId, "issued.pdf");
           const s3 = await getS3();
           await s3.write(objectKey, pdf, { type: "application/pdf" });
@@ -187,7 +183,7 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             circularId,
             deedVersionId: register.deedVersionId,
             issuerTrusteeId: plan.issuerTrusteeId,
-            pdf: { fieldsPrepared, objectKey, sha256: sha256Of(pdf) },
+            pdf: { objectKey, sha256: sha256Of(pdf) },
             resolutions: plan.resolutions.map((r) => ({
               id: r.id,
               renderedFrom:
@@ -211,7 +207,6 @@ export const issueCircularFn = createServerFn({ method: "POST" })
           );
           return {
             circularId,
-            fieldsPrepared,
             responders: plan.responders.length,
           };
         })
@@ -339,9 +334,6 @@ export const getCircularSigningCopyUrl = createServerFn({ method: "POST" })
           const copy = await signingCopy(data.circularId, me.id, {
             create: true,
           });
-          if (!copy.objectKey) {
-            return { url: null };
-          }
           const s3 = await getS3();
           return {
             url: s3.presign(copy.objectKey, { expiresIn: 300, method: "GET" }),

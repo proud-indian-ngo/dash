@@ -151,7 +151,6 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       deedVersionId: null,
       issuerTrusteeId: trustees[0] as string,
       pdf: {
-        fieldsPrepared: true,
         objectKey: `test/${circularId}/issued.pdf`,
         sha256: "a".repeat(64),
       },

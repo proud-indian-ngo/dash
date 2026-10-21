@@ -108,8 +108,8 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SIGNING_SERVICE_URL` | No | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Unset stores governance documents unchecked, to check later |
-| `SIGNING_SERVICE_TOKEN` | No | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
+| `SIGNING_SERVICE_URL` | Yes | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Issuing circulars, making minutes and recording declarations need it; unset, they fail with "needs the signing service" and signed uploads are refused |
+| `SIGNING_SERVICE_TOKEN` | Yes | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
 
 ### Observability
 
@@ -178,6 +178,12 @@ zero-cache logs, with literal values redacted, slow hydrations and advancements 
 `services/signing` runs as `signing`, reachable only from the web service. Deploy it before the web app when both change. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
 The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
+
+When a change spans the helper, release in this order, since the dashboard refuses helpers older than `MIN_HELPER_VERSION` and web must not deploy before the release exists:
+
+1. Merge, then push the tag `signing-helper-vX.Y.Z`.
+2. Approve the `signing-helper-release` environment and wait for the release. Confirm it has the `.dmg`, the app `.zip`, the `.exe`, `pidash-sign-manifest.json` and its `.sig`.
+3. Deploy the signing service, then web.
 
 ### WhatsApp gateway (optional)
 

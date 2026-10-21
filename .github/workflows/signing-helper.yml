@@ -15,6 +15,15 @@ defaults:
     working-directory: services/signing-helper
 
 # Only GitHub-owned actions are allowed here; the runners' rustup and gh do the rest.
+# Builds bake in the one dashboard the helper signs for: the PIDASH_SIGN_SERVER
+# repository variable, or production. No paid certificates: the Mac app is
+# ad-hoc signed and the Windows exe unsigned. Releases carry a manifest signed
+# with the SIGNING_HELPER_RELEASE_KEY secret (Ed25519 PEM) of the
+# signing-helper-release environment, which needs approval; installed helpers
+# check that signature before updating themselves.
+env:
+  PIDASH_SIGN_SERVER: ${{ vars.PIDASH_SIGN_SERVER || 'https://dash.proudindian.ngo' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -25,7 +34,6 @@ jobs:
 
   macos:
     needs: test
-    if: startsWith(github.ref, 'refs/tags/signing-helper-v')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,38 +45,76 @@ jobs:
           lipo -create -output pidash-sign \
             target/aarch64-apple-darwin/release/pidash-sign \
             target/x86_64-apple-darwin/release/pidash-sign
-          tar -czf pidash-sign-macos-universal.tar.gz pidash-sign
+      - run: macos/build-dmg.sh pidash-sign pidash-sign-macos.dmg pidash-sign-macos.zip
       - uses: actions/upload-artifact@v7
         with:
           name: macos
-          path: services/signing-helper/pidash-sign-macos-universal.tar.gz
+          path: |
+            services/signing-helper/pidash-sign-macos.dmg
+            services/signing-helper/pidash-sign-macos.zip
 
   windows:
     needs: test
-    if: startsWith(github.ref, 'refs/tags/signing-helper-v')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - run: rustup update stable --no-self-update; rustup default stable
         shell: pwsh
       - run: cargo build --release --locked
-      - run: Compress-Archive -Path target/release/pidash-sign.exe -DestinationPath pidash-sign-windows-x64.zip
+      - run: Copy-Item target/release/pidash-sign.exe pidash-sign-windows-x64.exe
         shell: pwsh
       - uses: actions/upload-artifact@v7
         with:
           name: windows
-          path: services/signing-helper/pidash-sign-windows-x64.zip
+          path: services/signing-helper/pidash-sign-windows-x64.exe
 
+  # The dashboard links to releases/latest, so every helper release is marked latest.
   release:
     needs: [macos, windows]
+    if: startsWith(github.ref, 'refs/tags/signing-helper-v')
     runs-on: ubuntu-latest
+    environment: signing-helper-release
     defaults:
       run:
         working-directory: .
     steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source
+          sparse-checkout: services/signing-helper
+      # Helpers compare the manifest's version with their own, so a tag that
+      # disagrees with Cargo.toml would update them on every link.
+      - name: Check the tag matches Cargo.toml
+        run: |
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' source/services/signing-helper/Cargo.toml | head -1)
+          test "${GITHUB_REF_NAME#signing-helper-v}" = "$cargo" \
+            || { echo "Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $cargo"; exit 1; }
       - uses: actions/download-artifact@v8
         with:
+          path: dist
           merge-multiple: true
-      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes pidash-sign-macos-universal.tar.gz pidash-sign-windows-x64.zip
+      # A key the helpers don't know would make every update fail silently.
+      - name: Sign the update manifest
+        working-directory: dist
+        run: |
+          trap 'rm -f release-key.pem' EXIT
+          printenv RELEASE_KEY > release-key.pem
+          expected=$(sed -n 's/^const RELEASE_KEY: &str = "\(.*\)";/\1/p' ../source/services/signing-helper/src/update.rs)
+          actual=$(openssl pkey -in release-key.pem -pubout -outform DER | tail -c 32 | xxd -p -c 64)
+          test -n "$expected" && test "$expected" = "$actual" \
+            || { echo "SIGNING_HELPER_RELEASE_KEY doesn't match RELEASE_KEY in update.rs"; exit 1; }
+          jq -n --arg version "${GITHUB_REF_NAME#signing-helper-v}" \
+            --arg mac "$(sha256sum pidash-sign-macos.zip | cut -d' ' -f1)" \
+            --arg win "$(sha256sum pidash-sign-windows-x64.exe | cut -d' ' -f1)" \
+            '{version: $version, files: {"pidash-sign-macos.zip": $mac, "pidash-sign-windows-x64.exe": $win}}' \
+            > pidash-sign-manifest.json
+          openssl pkeyutl -sign -inkey release-key.pem -rawin \
+            -in pidash-sign-manifest.json -out pidash-sign-manifest.json.sig
+          openssl pkeyutl -verify -inkey release-key.pem -rawin \
+            -in pidash-sign-manifest.json -sigfile pidash-sign-manifest.json.sig
+        env:
+          RELEASE_KEY: ${{ secrets.SIGNING_HELPER_RELEASE_KEY }}
+      - working-directory: dist
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes --latest pidash-sign-macos.dmg pidash-sign-macos.zip pidash-sign-windows-x64.exe pidash-sign-manifest.json pidash-sign-manifest.json.sig
         env:
           GH_TOKEN: ${{ github.token }}

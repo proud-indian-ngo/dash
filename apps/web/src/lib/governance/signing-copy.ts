@@ -21,8 +21,8 @@ export interface SigningCopy {
   basedOnSha256: string;
   bytes: Uint8Array;
   fieldName: string;
-  /** Where the copy is kept; null when there's no answers field to fill. */
-  objectKey: string | null;
+  /** Where the copy is kept. */
+  objectKey: string;
 }
 
 /**
@@ -70,17 +70,6 @@ export async function signingCopy(
     }
     return bytes;
   };
-  // Signers of a circular issued without fields draw their own box: there's
-  // no answers field, so the PDF can't record an objection beside a
-  // signature, and a trustee who objected doesn't sign it.
-  if (!revision.fieldsPrepared) {
-    if (state.answers.some((a) => a.answer !== "assent")) {
-      throw new CircularError(
-        "This circular was issued without answer boxes, so a signature on it would read as assent to every resolution. Yours aren't all assents, so it can't be signed; your responses are recorded."
-      );
-    }
-    return { ...base, bytes: await readLatest(), objectKey: null };
-  }
   const digest = sha256Of(
     new TextEncoder().encode(`${revision.latestSha256}\n${answers}`)
   ).slice(0, 24);

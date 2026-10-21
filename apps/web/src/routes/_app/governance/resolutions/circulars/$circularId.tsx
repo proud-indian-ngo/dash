@@ -171,7 +171,6 @@ function CircularPage() {
     ),
   ].sort((a, b) => a[1].localeCompare(b[1]));
   const signatures = row.signatures ?? [];
-  const fieldsPrepared = row.revisions?.[0]?.fieldsPrepared ?? true;
   const pdfHref = getProtectedAttachmentHref(
     { id: circularId, kind: "circularPdf" },
     "inline"
@@ -340,7 +339,6 @@ function CircularPage() {
               <CircularSignPanel
                 assents={assents}
                 circularId={circularId}
-                fieldsPrepared={fieldsPrepared}
                 otherAnswers={otherAnswers}
               />
             </div>

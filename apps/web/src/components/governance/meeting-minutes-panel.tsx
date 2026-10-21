@@ -87,12 +87,8 @@ export function MeetingMinutesPanel({
   const handleGenerate = useEventCallback(async () => {
     setGenerating(true);
     await generate({ data: { id: meeting.id } })
-      .then((out) => {
-        toast.success(
-          out.fieldsPrepared
-            ? "Minutes ready for the chair to sign"
-            : "Minutes ready. The signing service is off, so the chair draws the signature box in Acrobat."
-        );
+      .then(() => {
+        toast.success("Minutes ready for the chair to sign");
       })
       .catch((error: unknown) => {
         toast.error("Couldn't make the minutes", {

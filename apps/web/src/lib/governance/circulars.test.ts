@@ -617,114 +617,27 @@ describe("checkSignedUpload", () => {
     }
   });
 
-  it("accepts a box the signer drew on the last page when the PDF had no fields", () => {
-    const report = (
-      rect: [number, number, number, number],
-      page = 1,
-      name = "Signature2"
-    ): GovernanceValidationReport => ({
+  it("refuses a signature outside the trustee's own box", () => {
+    const report = (name: string): GovernanceValidationReport => ({
       checkedAt: "",
-      signatures: [sig("Signature1", { signerName: "ASHA RAO" }), sig(name)],
-      // Issued without fields: only the first signer's own field.
-      baseSignatureFields: ["Signature1"],
+      signatures: [sig("Trustee_mt", { signerName: "ASHA RAO" }), sig(name)],
+      baseSignatureFields: boxes,
       changesSinceBase: "FORM_FILLING",
-      pageCount: 2,
       status: "valid",
       textFields,
-      widgets: [
-        { field: "Signature1", page: 1, rect: [300, 600, 547, 672] },
-        { field: name, page, rect },
-      ],
     });
-    const added = checkSignedUpload({
-      ...base,
-      report: report([300, 470, 547, 542]),
-    });
-    expect(added.fieldName).toBe("Signature2");
     expect(() =>
-      checkSignedUpload({ ...base, report: report([0, 0, 595, 842]) })
-    ).toThrow("more of the circular");
+      checkSignedUpload({ ...base, report: report("Signature1") })
+    ).toThrow("Sign in your own box");
     expect(() =>
-      checkSignedUpload({ ...base, report: report([300, 470, 547, 542], 0) })
-    ).toThrow("more of the circular");
-    // A new field is judged as one whatever it's called, even the name a
-    // prepared box for the signer would have had.
-    expect(
-      checkSignedUpload({
-        ...base,
-        report: report([300, 470, 547, 542], 1, "Trustee_sec"),
-      }).fieldName
-    ).toBe("Trustee_sec");
-    expect(() =>
-      checkSignedUpload({
-        ...base,
-        report: report([0, 0, 595, 842], 1, "Trustee_sec"),
-      })
-    ).toThrow("more of the circular");
-    expect(() =>
-      checkSignedUpload({
-        ...base,
-        report: report([300, 470, 547, 542], 0, "Trustee_sec"),
-      })
-    ).toThrow("more of the circular");
-    expect(() =>
-      checkSignedUpload({
-        ...base,
-        report: report([300, 470, 547, 542], 1, "Signature1"),
-      })
+      checkSignedUpload({ ...base, report: report("Trustee_mt") })
     ).toThrow("your own name");
     expect(() =>
       checkSignedUpload({
         ...base,
-        report: {
-          ...report([300, 470, 547, 542]),
-          baseSignatureFields: undefined,
-        },
+        report: { ...report("Trustee_sec"), baseSignatureFields: undefined },
       })
     ).toThrow("couldn't be checked");
-  });
-
-  describe("a signature in a field of its own beside the trustee's box", () => {
-    const prepared = [
-      { field: "Trustee_mt", page: 1, rect: [300, 620, 547, 692] },
-      { field: "Answers_mt", page: 1, rect: [48, 586, 278, 636] },
-      { field: "Trustee_sec", page: 1, rect: [300, 492, 547, 564] },
-      { field: "Answers_sec", page: 1, rect: [48, 458, 278, 508] },
-    ] satisfies GovernanceValidationReport["widgets"];
-    const withNewField = (
-      rect: [number, number, number, number],
-      page = 1
-    ): GovernanceValidationReport => ({
-      checkedAt: "",
-      signatures: [
-        sig("Trustee_mt", { signerName: "ASHA RAO" }),
-        sig("Signature1"),
-      ],
-      baseSignatureFields: boxes,
-      changesSinceBase: "FORM_FILLING",
-      pageCount: 2,
-      status: "valid",
-      textFields,
-      widgets: [...prepared, { field: "Signature1", page, rect }],
-    });
-
-    it("refuses it, since the helper and Acrobat sign the box", () => {
-      expect(() =>
-        checkSignedUpload({
-          ...base,
-          report: withNewField([320, 300, 520, 360]),
-        })
-      ).toThrow("Sign in your own box");
-    });
-
-    it("refuses one whose place on the page wasn't reported", () => {
-      expect(() =>
-        checkSignedUpload({
-          ...base,
-          report: { ...withNewField([300, 492, 547, 564]), widgets: undefined },
-        })
-      ).toThrow("couldn't be checked");
-    });
   });
 
   it("refuses when the signing service can't check it", () => {

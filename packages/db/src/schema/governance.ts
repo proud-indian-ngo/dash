@@ -143,14 +143,6 @@ export interface GovernanceValidationReport {
    * appended to it change, as pyHanko reports it ("OTHER" when not allowed).
    */
   changesSinceBase?: string;
-  /** With `changesSinceBase`: the file's pages. */
-  pageCount?: number;
-  /** With `changesSinceBase`: every form field's widget, its 0-based page and its normalised /Rect. */
-  widgets?: {
-    field: string;
-    page: number;
-    rect: [number, number, number, number];
-  }[];
   /** With `changesSinceBase`: the signature fields the copy a signer was given already had. */
   baseSignatureFields?: string[];
   /** Every text field's value: a circular's answers fields. */
@@ -453,8 +445,6 @@ export const circularRevision = pgTable(
       .notNull()
       .references(() => circular.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull(),
-    /** False when the signing service wasn't set up at issue: signers then draw their own box. */
-    fieldsPrepared: boolean("fields_prepared").default(true).notNull(),
     id: uuid("id").primaryKey(),
     /** The PDF with every signature so far; each signer extends it. */
     latestObjectKey: text("latest_object_key").notNull(),

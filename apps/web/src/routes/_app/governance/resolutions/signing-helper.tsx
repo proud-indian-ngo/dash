@@ -1,12 +1,11 @@
-import { Copy01Icon } from "@hugeicons/core-free-icons";
+import { Download04Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
+import { buttonVariants } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useState, useSyncExternalStore } from "react";
-import { toast } from "sonner";
 
 import { SegmentedChoice } from "@/components/governance/segmented-choice";
 import { PageHeader } from "@/components/shared/page-header";
@@ -20,8 +19,12 @@ export const Route = createFileRoute(
   }),
 });
 
-const SCRIPTS =
-  "https://raw.githubusercontent.com/proud-indian-ngo/dash/master/services/signing-helper/install";
+/** Every helper release is marked latest (see the signing-helper workflow). */
+const DOWNLOADS = {
+  mac: "https://github.com/proud-indian-ngo/dash/releases/latest/download/pidash-sign-macos.dmg",
+  windows:
+    "https://github.com/proud-indian-ngo/dash/releases/latest/download/pidash-sign-windows-x64.exe",
+} as const;
 
 type Platform = "mac" | "windows";
 
@@ -42,25 +45,20 @@ function serverPlatform(): Platform {
   return "mac";
 }
 
-function Command({ children }: { children: string }) {
-  const copy = useEventCallback(() =>
-    navigator.clipboard
-      .writeText(children)
-      .then(() => toast.success("Command copied"))
-      .catch(() =>
-        toast.error("Couldn't copy. Select the command and copy it manually.")
-      )
-  );
+function DownloadButton({ platform }: { platform: Platform }) {
   return (
-    <div className="bg-muted flex items-start gap-2 rounded-md p-3">
-      <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed break-all">
-        {children}
-      </code>
-      <Button onClick={copy} size="sm" type="button" variant="outline">
-        <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
-        Copy
-      </Button>
-    </div>
+    <a
+      className={buttonVariants({
+        className: "self-start",
+        size: "sm",
+        variant: "outline",
+      })}
+      download
+      href={DOWNLOADS[platform]}
+    >
+      <HugeiconsIcon className="size-4" icon={Download04Icon} strokeWidth={2} />
+      {platform === "mac" ? "Download for Mac" : "Download for Windows"}
+    </a>
   );
 }
 
@@ -100,10 +98,6 @@ function SigningHelperPage() {
       setChosen(value);
     }
   });
-  const server =
-    typeof window === "undefined"
-      ? "https://your-dashboard"
-      : window.location.origin;
 
   return (
     <div className="app-container mx-auto max-w-3xl px-2 py-6 sm:px-4">
@@ -127,23 +121,29 @@ function SigningHelperPage() {
           </p>
         </Step>
         <Step number={2} title="Install the helper">
+          <DownloadButton platform={platform} />
           {platform === "mac" ? (
-            <>
-              <p>Open Terminal and paste:</p>
-              <Command>{`curl -fsSL ${SCRIPTS}/install-macos.sh | bash -s -- ${server}`}</Command>
-            </>
+            <p>
+              Open the downloaded file and drag Proud Indian Signing into
+              Applications. If macOS doesn't let you (your account isn't an
+              administrator), put it in the Applications folder inside your home
+              folder instead. Then open it once from there: the first time,
+              macOS says it can't check the app. Choose Done, open System
+              Settings, then Privacy &amp; Security, choose Open Anyway next to
+              Proud Indian Signing, and confirm.
+            </p>
           ) : (
-            <>
-              <p>Open PowerShell (not as administrator) and paste:</p>
-              <Command>{`& ([scriptblock]::Create((iwr -useb ${SCRIPTS}/install-windows.ps1))) -Server ${server}`}</Command>
-              <p className="text-muted-foreground">
-                Windows may warn that the program is from an unknown publisher
-                until the helper is signed; choose More info, then Run anyway.
-              </p>
-            </>
+            <p>
+              If your browser says the file isn't commonly downloaded, choose
+              Keep in its downloads list. Open the downloaded file. Windows says
+              it protected your PC, because the helper isn't from a paid
+              publisher; choose More info, then Run anyway. The helper installs
+              itself for your Windows account and says when it's ready.
+            </p>
           )}
           <p className="text-muted-foreground">
-            You install it once per laptop.
+            You install it once per laptop. It keeps itself up to date: when a
+            new version is out, it updates the next time you sign.
           </p>
         </Step>
         <Step number={3} title="Set up your DSC">
@@ -156,7 +156,7 @@ function SigningHelperPage() {
         </Step>
       </ol>
       <p className="text-muted-foreground mt-4 text-sm">
-        The helper only signs for this dashboard ({server}). If anything goes
+        The helper only signs for the Proud Indian dashboard. If anything goes
         wrong you can still download the circular, sign it in Acrobat and upload
         it.
       </p>

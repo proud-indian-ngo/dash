@@ -65,7 +65,6 @@ import {
 import {
   prepareSignatureFields,
   SigningServiceError,
-  signingServiceConfigured,
 } from "@/lib/governance/signing-service";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
@@ -567,13 +566,10 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
             startsAt: startsFmt.format(row.startsAt),
             title: row.title,
           });
-          const fieldsPrepared = signingServiceConfigured();
-          const pdf = fieldsPrepared
-            ? await prepareSignatureFields(
-                new Uint8Array(rendered),
-                fieldRequests([chairId])
-              )
-            : new Uint8Array(rendered);
+          const pdf = await prepareSignatureFields(
+            new Uint8Array(rendered),
+            fieldRequests([chairId])
+          );
           const sha256 = sha256Of(pdf);
           const objectKey = meetingKey(
             row.id,
@@ -586,7 +582,6 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
             renderedFrom: row.updatedAt,
             sha256,
           });
-          return { fieldsPrepared };
         })
     );
   });

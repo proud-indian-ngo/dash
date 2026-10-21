@@ -1240,6 +1240,13 @@
       "when": 1792521143682,
       "tag": "0176_resolution_body_rich_text",
       "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1792561841329,
+      "tag": "0177_drop_circular_fields_prepared",
+      "breakpoints": true
     }
   ]
 }

@@ -416,15 +416,13 @@ function DeclareDialog({
   const handleSubmit = useEventCallback(async () => {
     setBusy(true);
     await submit({ data: { interests: rows } })
-      .then((out) => {
+      .then(() => {
         toast.success(
           rows.length === 0
             ? `Declared: no interests for ${fiscalYear}`
             : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`,
           {
-            description: out.fieldsPrepared
-              ? "Sign it with your DSC to make it count."
-              : "Sign it with your DSC to make it count. The signing service is off, so draw the signature box in Acrobat.",
+            description: "Sign it with your DSC to make it count.",
           }
         );
         onClose();

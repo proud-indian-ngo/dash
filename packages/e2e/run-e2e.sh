@@ -70,19 +70,21 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   export E2E_ZERO_PORT=$((STACK_PORT + 1))
   export E2E_ZERO_CS_PORT=$((STACK_PORT + 2))
   export E2E_DB_PORT=$((STACK_PORT + 3))
+  export E2E_SIGNING_PORT=$((STACK_PORT + 4))
   # The run lock means anything on these ports is left over from an earlier
   # run in this checkout (one stopped before its teardown), so clear it first.
   STALE_SUFFIX=""
   [ "$WT_ID" -gt 0 ] && STALE_SUFFIX="-wt${WT_ID}"
-  STALE_CONTAINER="pi-dash-postgres-test${STALE_SUFFIX}-stack${E2E_STACK_INDEX}"
-  if docker ps -aq --filter "name=^${STALE_CONTAINER}$" | grep -q .; then
-    echo "Removing leftover E2E database container $STALE_CONTAINER"
-    docker rm -f "$STALE_CONTAINER" >/dev/null
-  fi
+  for STALE_CONTAINER in "pi-dash-postgres-test${STALE_SUFFIX}-stack${E2E_STACK_INDEX}" "pi-dash-signing-test${STALE_SUFFIX}-stack${E2E_STACK_INDEX}"; do
+    if docker ps -aq --filter "name=^${STALE_CONTAINER}$" | grep -q .; then
+      echo "Removing leftover E2E container $STALE_CONTAINER"
+      docker rm -f "$STALE_CONTAINER" >/dev/null
+    fi
+  done
   for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT"; do
     stop_port_processes "$port" || true
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT"; do
     if [ -n "$(port_listener_pids "$port")" ]; then
       echo "ERROR: stack port $port is already in use"
       exit 1
@@ -95,6 +97,7 @@ TEST_WEB_PORT="$E2E_WEB_PORT"
 TEST_ZERO_PORT="$E2E_ZERO_PORT"
 TEST_ZERO_CS_PORT="$E2E_ZERO_CS_PORT"
 TEST_DB_HOST_PORT="$E2E_DB_PORT"
+TEST_SIGNING_PORT="$E2E_SIGNING_PORT"
 
 # Worktree-unique suffixes for containers, volumes, and temp files
 WT_SUFFIX=""
@@ -135,6 +138,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  signing-test:
+    build: ${REPO_ROOT}/services/signing
+    image: pi-dash-signing-e2e${WT_SUFFIX}
+    container_name: pi-dash-signing-test${WT_SUFFIX}
+    environment:
+      SIGNING_SERVICE_TOKEN: e2e-signing-token
+    ports:
+      - "${TEST_SIGNING_PORT}:8080"
 volumes:
   ${TEST_VOLUME}:
 YAML
@@ -181,6 +192,9 @@ docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
+# Issuing circulars, minutes and declarations needs the signing service.
+echo "Starting the signing service on port $TEST_SIGNING_PORT..."
+docker compose -f "$E2E_COMPOSE_FILE" up -d --build signing-test
 
 # Wait for healthy (timeout after 30s)
 echo "Waiting for test database to be ready..."
@@ -190,6 +204,17 @@ until docker exec "$TEST_CONTAINER" pg_isready -U postgres 2>/dev/null; do
   WAIT=$((WAIT + 1))
   if [ "$WAIT" -ge 30 ]; then
     echo "ERROR: Test database failed to become ready within 30s"
+    exit 1
+  fi
+done
+
+WAIT=0
+until curl -sf --max-time 2 "http://localhost:$TEST_SIGNING_PORT/health" >/dev/null 2>&1; do
+  sleep 1
+  WAIT=$((WAIT + 1))
+  if [ "$WAIT" -ge 30 ]; then
+    echo "ERROR: The signing service failed to start within 30s"
+    docker logs "pi-dash-signing-test${WT_SUFFIX}"
     exit 1
   fi
 done
@@ -222,6 +247,9 @@ export SKIP_VALIDATION=true
 export ZERO_APP_ID=zero
 # The HTTP health endpoint waits for workers and initial replication.
 export ZERO_LAZY_STARTUP=false
+
+export SIGNING_SERVICE_URL="http://localhost:$TEST_SIGNING_PORT"
+export SIGNING_SERVICE_TOKEN=e2e-signing-token
 
 # Social API photo links need a signing secret; a fixed test value is fine.
 export SOCIAL_MEDIA_SIGNING_SECRET="${SOCIAL_MEDIA_SIGNING_SECRET:-e2e-social-media-signing-secret-0000}"
