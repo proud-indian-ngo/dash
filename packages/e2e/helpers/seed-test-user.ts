@@ -55,6 +55,7 @@ import dotenv from "dotenv";
 import { and, eq, isNull, like } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
+import { removeDonationFilings } from "./donation-filings-reset";
 import { seedKalakritiReleaseFixture } from "./kalakriti-release-fixture";
 
 dotenv.config({
@@ -417,9 +418,11 @@ const READY_DONOR_PAN = "AAAPE1234E";
  * tax-certificate switch the spec flips (reset here on every run), and a
  * donor with a PAN and an address whose gift is ready for the upload file
  * (only when DATA_ENCRYPTION_KEY is set, as in CI and local runs). The 80G
- * registration is cleared so the spec enters it through Settings.
+ * registration is cleared so the spec enters it through Settings. Filings
+ * an earlier run recorded are removed, so every gift starts unfiled.
  */
 async function ensureReturnFixtures(userId: string): Promise<void> {
+  await removeDonationFilings();
   const now = new Date();
   const todayInIndia = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
@@ -508,6 +511,8 @@ async function ensureReturnFixtures(userId: string): Promise<void> {
     const values = {
       addressLine1: "12, MG Road",
       city: "Bengaluru",
+      // The filings spec emails this donor's certificate (never delivered).
+      email: "ready-donor@pi-dash.test",
       idNumberEncrypted: encryptSecret(
         READY_DONOR_PAN,
         partyIdNumberContext(READY_DONOR_ID)

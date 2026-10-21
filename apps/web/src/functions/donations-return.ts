@@ -1,4 +1,9 @@
 import {
+  type FilingSummary,
+  listFilings,
+  loadFiledSequences,
+} from "@pi-dash/db/queries/donation-filings";
+import {
   countImportRowsWaiting,
   loadReturnFacts,
   loadReturnRegistration,
@@ -24,7 +29,6 @@ import {
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
   buildAllGiftsFile,
-  buildUploadFile,
   DonationsReturnError,
   type ReturnFile,
 } from "@/lib/donations-return-export";
@@ -34,11 +38,12 @@ import { authMiddleware } from "@/middleware/auth";
 
 /**
  * The donations return (Form 113, formerly 10BD). The readiness read needs
- * one of the income permissions and returns gift and party IDs, outcomes
- * and counts only, never contact details or ID numbers. The export needs
- * `finance.view_sensitive`, decrypts ID numbers on the server, and is
- * audited as `donations_return.export` with the year, file and counts,
- * because it reveals identifiers in bulk (plain exports are not audited).
+ * one of the income permissions and returns gift and party IDs, outcomes,
+ * counts and the year's filings, never contact details or ID numbers. The
+ * CA's export needs `finance.view_sensitive` and is audited as
+ * `donations_return.export` with the year and counts, because it reveals
+ * identifiers (masked) in bulk. The upload file comes from recording a
+ * filing (`donation-filings.ts`).
  */
 
 const MESSAGES = {
@@ -84,8 +89,10 @@ export interface ReadinessGift {
 export interface DonationsReturnReadiness {
   dueOn: string;
   endsOn: string;
-  /** Upload rows the export will contain (donor × donation type × mode). */
+  /** Upload rows the next filing will hold (donor × donation type × mode). */
   exportRowCount: number;
+  /** The year's filings, newest first. */
+  filings: FilingSummary[];
   financialYear: string;
   gifts: ReadinessGift[];
   /** False when the encryption key is missing: IDs are unchecked and can't be exported. */
@@ -108,7 +115,11 @@ export const getDonationsReturnReadiness = createServerFn({ method: "POST" })
     return await safely("read", async () => {
       // IDs are decrypted to check their format; no value leaves here.
       const facts = await loadReturnFacts(fy, "validate");
-      const { gifts, summary } = assessReturn(facts.gifts, facts.donors);
+      const { gifts, summary } = assessReturn(
+        facts.gifts,
+        facts.donors,
+        await loadFiledSequences()
+      );
       const exportRowCount = new Set(
         facts.gifts
           .filter((_, index) => gifts[index]?.outcome.kind === "ready")
@@ -118,6 +129,7 @@ export const getDonationsReturnReadiness = createServerFn({ method: "POST" })
         dueOn: returnDueOn(fy),
         endsOn: fy.endsOn,
         exportRowCount,
+        filings: await listFilings(fy.label),
         financialYear: fy.label,
         identifiersAvailable: facts.identifiersAvailable,
         gifts: gifts.map((gift, index) => ({
@@ -138,16 +150,13 @@ export const getDonationsReturnReadiness = createServerFn({ method: "POST" })
     });
   });
 
-const exportInput = yearInput.extend({ file: z.enum(["upload", "all"]) });
-
 /**
- * "upload": the ready rows in the portal's column order, full ID numbers.
- * "all": every gift of the year with its status and reason for the CA, ID
- * numbers masked to their last four characters.
+ * Every gift of the year with its status and reason for the CA, ID numbers
+ * masked to their last four characters.
  */
 export const exportDonationsReturn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(exportInput)
+  .validator(yearInput)
   .handler(async ({ context, data }): Promise<ReturnFile> => {
     await assertServerPermission(context.session, "finance.view_sensitive");
     if (!context.session) {
@@ -157,16 +166,13 @@ export const exportDonationsReturn = createServerFn({ method: "POST" })
     const fy = requireYear(data.financialYear);
     // Built in memory first so the ledger row can carry the counts; nothing
     // leaves the server until the audited action below returns it.
-    const built = await safely("export", () =>
-      data.file === "upload" ? buildUploadFile(fy) : buildAllGiftsFile(fy)
-    );
+    const built = await safely("export", () => buildAllGiftsFile(fy));
     return await runSessionAuditedAction(
       session,
       context.headers,
       {
         action: "donations_return.export",
         metadata: {
-          file: data.file,
           financialYear: fy.label,
           giftCount: built.giftCount,
           rowCount: built.rowCount,

@@ -130,7 +130,9 @@ test.describe("Donations return (finance)", () => {
     ).toContainText("Donor doesn't want a tax certificate");
   });
 
-  test("sets the 80G registration and exports both files", async ({ page }) => {
+  test("sets the 80G registration and exports the CA's file", async ({
+    page,
+  }) => {
     test.slow();
     await page.goto("/settings/org-accounts");
     await waitForZeroReady(page);
@@ -150,29 +152,10 @@ test.describe("Donations return (finance)", () => {
     });
 
     await openReturn(page);
-    const uploadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Export for upload" }).click();
-    const upload = await uploadPromise;
-    expect(upload.suggestedFilename()).toMatch(
-      /^donations-return-FY\d{4}-\d{2}-upload\.csv$/
-    );
-    const [header, ...rows] = (await downloadText(upload)).split("\n");
-    expect(header).toBe(
-      "Sr. No.,Pre Acknowledgement Number,ID Code,Unique Identification Number,Section Code,Unique Registration Number (URN),Date of Issuance of Unique Registration Number,Name of donor,Address of donor,Donation Type,Mode of receipt,Amount of donation (Indian Rupees)"
-    );
-    const readyRow = rows.find((row) => row.includes(READY_DONOR));
-    expect(readyRow).toContain(
-      `Permanent Account Number,${READY_DONOR_PAN},Section 80G,AAATP1234AF20214,`
-    );
-    expect(readyRow).toContain(
-      '"12, MG Road, Bengaluru, Karnataka, India, 560001"'
-    );
-    expect(readyRow).toContain(
-      "Specific grant,Electronic modes including account payee cheque/draft,2500.00"
-    );
-    // Blocked and opted-out donors never reach the upload file.
-    expect(rows.some((row) => row.includes(RETURN_DONOR))).toBe(false);
-    expect(rows.some((row) => row.includes("E2E Seed Donor"))).toBe(false);
+    // The upload file comes from recording a filing (donation-filings.spec.ts).
+    await expect(
+      page.getByRole("button", { name: "Record filing" })
+    ).toBeEnabled();
 
     const allPromise = page.waitForEvent("download");
     await clickPageAction(page, "All gifts (for your CA)");
@@ -192,7 +175,7 @@ test.describe("Donations return access", () => {
     await openReturn(page);
     await expect(page.getByTestId("return-check-missing_id")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Export for upload" })
+      page.getByRole("button", { name: "Record filing" })
     ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "More actions" })

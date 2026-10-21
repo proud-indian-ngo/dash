@@ -107,6 +107,10 @@ async function collectAllDbKeys(): Promise<{
       UNION ALL
       SELECT object_key FROM conflict_declaration WHERE object_key LIKE ${keyPrefix}
       UNION ALL
+      SELECT file_object_key FROM private.donation_filing WHERE file_object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT file_object_key FROM private.donation_certificate WHERE file_object_key LIKE ${keyPrefix}
+      UNION ALL
       SELECT CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}
         THEN value::jsonb ->> 'signatureKey' END FROM app_config
       UNION ALL

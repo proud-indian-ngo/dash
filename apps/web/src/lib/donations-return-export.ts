@@ -1,5 +1,9 @@
 import { loadLiveReceiptNumbers } from "@pi-dash/db/queries/contribution-receipts";
 import {
+  loadFiledSequences,
+  type NewFilingRow,
+} from "@pi-dash/db/queries/donation-filings";
+import {
   loadReturnFacts,
   loadReturnRegistration,
 } from "@pi-dash/db/queries/donations-return";
@@ -7,7 +11,9 @@ import type { PartyIdType } from "@pi-dash/shared/constants";
 import {
   aggregateReturnRows,
   assessReturn,
+  type FiledGift,
   giftOutcomeLabel,
+  planFilingRows,
   type ReturnExportGift,
   returnFileCells,
   TAX_CERTIFICATE_LABELS,
@@ -60,24 +66,43 @@ export interface BuiltReturnFile {
 const fileName = (fy: FinancialYearRange, kind: string) =>
   `donations-return-FY${fy.label}-${kind}.csv`;
 
-/** The portal upload: one row per donor, donation type and mode, ready gifts only. */
+/** A filing's upload file and the rows it froze. */
+export interface UploadFileDraft {
+  file: ReturnFile;
+  giftCount: number;
+  /** Each gift's net amount as filed. */
+  giftNetPaise: Map<string, number>;
+  rows: NewFilingRow[];
+}
+
+/**
+ * The portal upload for the next filing: one row per donor, donation type
+ * and mode, ready gifts not already in a filing.
+ * Reads through the recording transaction so the rows match what is frozen.
+ */
 export async function buildUploadFile(
-  fy: FinancialYearRange
-): Promise<BuiltReturnFile> {
+  fy: FinancialYearRange,
+  filing: {
+    filedGifts: ReadonlyMap<string, FiledGift>;
+    reader: Parameters<typeof loadReturnFacts>[2];
+    sequence: number;
+  }
+): Promise<UploadFileDraft> {
   const registration = await loadReturnRegistration();
   if (!registration) {
     throw new DonationsReturnError(
       "Add the 80G registration (URN and its date of issue) in Settings → Organisation accounts first."
     );
   }
-  const facts = await loadReturnFacts(fy, "reveal");
+  const facts = await loadReturnFacts(fy, "reveal", filing.reader);
   if (!facts.identifiersAvailable) {
     throw new DonationsReturnError(
       "Identifiers unavailable (encryption key not set)."
     );
   }
-  const { gifts } = assessReturn(facts.gifts, facts.donors);
+  const { gifts } = assessReturn(facts.gifts, facts.donors, filing.filedGifts);
   const ready: ReturnExportGift[] = [];
+  const idTypes = new Map<string, Exclude<PartyIdType, "none">>();
   facts.gifts.forEach((gift, index) => {
     const assessed = gifts[index];
     if (assessed?.outcome.kind !== "ready") {
@@ -85,10 +110,11 @@ export async function buildUploadFile(
     }
     const donor = facts.donors.get(gift.partyId);
     const details = facts.exportDetails.get(gift.partyId);
-    if (!(donor && details?.idNumber)) {
+    if (!(donor && donor.idType !== "none" && details?.idNumber)) {
       // A ready gift always has a readable ID; refuse rather than write a gap.
       throw new Error("A ready gift is missing its donor's details");
     }
+    idTypes.set(gift.partyId, donor.idType);
     ready.push({
       address: details.address,
       channel: gift.channel,
@@ -105,18 +131,23 @@ export async function buildUploadFile(
   });
   if (ready.length === 0) {
     throw new DonationsReturnError(
-      "No gift is ready for the return yet. Fix the items on this page first."
+      "No gift is ready for a new filing. Fix the items on this page, or wait for new gifts."
     );
   }
-  const rows = aggregateReturnRows(ready);
-  const cells = returnFileCells(rows, registration);
+  const aggregated = aggregateReturnRows(ready);
+  const planned = planFilingRows(aggregated);
+  const cells = returnFileCells(planned, registration);
   return {
     file: {
       csv: buildCsv(cells.headers, cells.rows, { formulaGuard: false }),
-      filename: fileName(fy, "upload"),
+      filename: fileName(fy, `filing-${filing.sequence}`),
     },
     giftCount: ready.length,
-    rowCount: rows.length,
+    giftNetPaise: new Map(ready.map((gift) => [gift.giftId, gift.netPaise])),
+    rows: planned.map((row) => ({
+      ...row,
+      idType: idTypes.get(row.partyId) as Exclude<PartyIdType, "none">,
+    })),
   };
 }
 
@@ -203,7 +234,11 @@ export async function loadAllGiftsRows(
   reader?: Parameters<typeof loadReturnFacts>[2]
 ): Promise<AllGiftsRow[]> {
   const facts = await loadReturnFacts(fy, "validate", reader);
-  const { gifts } = assessReturn(facts.gifts, facts.donors);
+  const { gifts } = assessReturn(
+    facts.gifts,
+    facts.donors,
+    await loadFiledSequences(reader)
+  );
   const receiptNumbers = await loadLiveReceiptNumbers(
     facts.gifts.map((gift) => gift.id),
     reader

@@ -104,10 +104,13 @@ export async function loadReturnFacts(
       id: contribution.id,
       partyId: contribution.partyId,
       receivedOn: contribution.receivedOn,
+      // Drizzle leaves the columns of a one-table select unqualified, so the
+      // correlation names the outer row explicitly; a bare "id" would be
+      // the refund's own.
       refundedPaise: sql<string>`(
-        select coalesce(sum(${contributionRefund.amountPaise}), 0)
-        from ${contributionRefund}
-        where ${contributionRefund.contributionId} = ${contribution.id}
+        select coalesce(sum(r.amount_paise), 0)
+        from ${contributionRefund} r
+        where r.contribution_id = ${contribution}.${sql.identifier("id")}
       )`,
       reportingMode: contribution.reportingMode,
       status: contribution.status,

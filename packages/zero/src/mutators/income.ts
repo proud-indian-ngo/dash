@@ -344,6 +344,47 @@ async function lockContribution(tx: Tx, id: string): Promise<void> {
   );
 }
 
+/** What a filed gift's frozen row reported, so it can't change after filing. */
+const FILING_LOCKED_FIELDS = [
+  "amountPaise",
+  "partyId",
+  "receivedOn",
+  "channel",
+  "reportingMode",
+  "donationType",
+] as const;
+
+/**
+ * The live donations return filing holding the gift, if any (server only:
+ * filings are private). Its frozen row points at the gift, so the gift and
+ * what the row reported stay.
+ */
+async function filingOfGift(
+  tx: Tx,
+  id: string
+): Promise<{ sequence: number; status: string } | null> {
+  if (tx.location !== "server") {
+    return null;
+  }
+  const { sql } = await import("drizzle-orm");
+  const rows = (await requireServerTransaction(
+    tx as unknown as LockableKalakritiTx
+  ).execute(
+    sql`select f.sequence, f.status from private.donation_filing_gift g join private.donation_filing f on f.id = g.filing_id where g.contribution_id = ${id}`
+  )) as unknown as { sequence: number; status: string }[];
+  return rows[0] ?? null;
+}
+
+/** Why a filed gift can't change: discard a filing not yet uploaded, else revise on the portal. */
+function filedGiftMessage(
+  filing: { sequence: number; status: string },
+  action: string
+): string {
+  return filing.status === "prepared"
+    ? `This gift is in filing ${filing.sequence}, which isn't uploaded yet, so it ${action}. Discard that filing first.`
+    : `This gift is in donations return filing ${filing.sequence}, so it ${action}. Correct it with a revision on the portal.`;
+}
+
 async function requireEditableContribution(tx: Tx, id: string) {
   // Lock order: the statement line lock before the contribution row, as
   // matching and the line actions take them (advisory lock, then the row's
@@ -560,6 +601,10 @@ export const contributionMutators = {
         "This contribution is matched to a bank statement line. Unmatch the line first."
       );
     }
+    const filing = await filingOfGift(tx, args.id);
+    if (filing) {
+      throw new Error(filedGiftMessage(filing, "can't be deleted"));
+    }
     await tx.mutate.contribution.delete({ id: args.id });
     queueLedgerPosting(
       ctx,
@@ -583,6 +628,28 @@ export const contributionMutators = {
       throw new Error(
         "Razorpay has settled this contribution to the bank, so its amount, donor, date, account and channel can't change"
       );
+    }
+    const eligibility = normalizeEligibility(args, {
+      deductionEligible: existing.deductionEligible ?? "unknown",
+      eligibilityReason: existing.eligibilityReason ?? null,
+    });
+    // A filed gift's row is frozen: what the return reported stays as filed.
+    if (
+      FILING_LOCKED_FIELDS.some(
+        (field) => (existing[field] ?? null) !== (values[field] ?? null)
+      ) ||
+      eligibility.deductionEligible !==
+        (existing.deductionEligible ?? "unknown")
+    ) {
+      const filing = await filingOfGift(tx, args.id);
+      if (filing) {
+        throw new Error(
+          filedGiftMessage(
+            filing,
+            "can't change its amount, donor, date, channel, mode of receipt, donation type or tax certificate choice"
+          )
+        );
+      }
     }
     if (
       (values.amountPaise !== existing.amountPaise ||
@@ -616,10 +683,7 @@ export const contributionMutators = {
     assertFundFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
-      ...normalizeEligibility(args, {
-        deductionEligible: existing.deductionEligible ?? "unknown",
-        eligibilityReason: existing.eligibilityReason ?? null,
-      }),
+      ...eligibility,
       id: args.id,
       updatedAt: Date.now(),
     });

@@ -45,6 +45,11 @@ describe("buildChecklist", () => {
     gift("platform", { blocks: ["intermediary_as_donor"], kind: "blocked" }),
     gift("csr", { kind: "ready" }, { donationType: "csr" }),
     gift(
+      "filed-csr",
+      { filingSequence: 2, kind: "filed" },
+      { donationType: "csr" }
+    ),
+    gift(
       "csr-excluded",
       { kind: "excluded", reason: "gift_excluded" },
       { donationType: "csr" }
@@ -61,6 +66,7 @@ describe("buildChecklist", () => {
       "missing_id",
       "missing_details",
       "invalid_id",
+      "filed",
       "waiting",
       "excluded",
       "partly_refunded",
@@ -71,6 +77,7 @@ describe("buildChecklist", () => {
       "blocking",
       "blocking",
       "blocking",
+      "info",
       "info",
       "info",
       "info",
@@ -94,11 +101,16 @@ describe("buildChecklist", () => {
     ]);
     expect(ids(sections, "partly_refunded")).toEqual(["partly"]);
     expect(ids(sections, "intermediary")).toEqual(["platform"]);
-    // Only CSR gifts in the return, with their count and total.
-    expect(ids(sections, "csr")).toEqual(["csr"]);
+    // Only CSR gifts in the return, filed or not, with their count and total.
+    expect(ids(sections, "csr")).toEqual(["csr", "filed-csr"]);
     expect(
       sections.find((section) => section.id === "csr")?.description
-    ).toMatch(/^1 included \(₹1,000\.00\)\. A company's CSR spending/);
+    ).toMatch(/^2 included \(₹2,000\.00\)\. A company's CSR spending/);
+    // A filed gift leaves the blocking checks and shows its filing.
+    expect(ids(sections, "filed")).toEqual(["filed-csr"]);
+    expect(
+      sections.find((section) => section.id === "filed")?.rows[0]?.note
+    ).toBe("Filing 2");
     expect(
       sections.find((section) => section.id === "partly_refunded")?.showNet
     ).toBe(true);

@@ -47,16 +47,12 @@ mock.module("@/lib/donations-return-export", () => ({
       rowCount: 7,
     };
   },
-  buildUploadFile: async (fy: { label: string }) => {
-    builds.push(`upload:${fy.label}`);
-    auditOrder.push("build");
-    return {
-      file: { csv: "x,y", filename: "upload.csv" },
-      giftCount: 5,
-      rowCount: 3,
-    };
-  },
   DonationsReturnError,
+}));
+let filed = new Map<string, { amountPaise: number; filingSequence: number }>();
+mock.module("@pi-dash/db/queries/donation-filings", () => ({
+  listFilings: async () => [],
+  loadFiledSequences: async () => filed,
 }));
 mock.module("@pi-dash/db/queries/donations-return", () => ({
   countImportRowsWaiting: async () => 4,
@@ -148,52 +144,35 @@ describe("exportDonationsReturn", () => {
   it("needs finance.view_sensitive and builds nothing without it", async () => {
     granted = ["finance.view", "donors.view", "finance.manage"];
     await expect(
-      call(fns.exportDonationsReturn, {
-        file: "upload",
-        financialYear: "2026-27",
-      })
+      call(fns.exportDonationsReturn, { financialYear: "2026-27" })
     ).rejects.toThrow("Forbidden");
     expect(permissionChecks).toEqual(["finance.view_sensitive"]);
     expect(builds).toEqual([]);
     expect(audits).toEqual([]);
   });
 
-  it("audits the export with the year, file and counts only", async () => {
+  it("audits the export with the year and counts only", async () => {
     granted = ["finance.view_sensitive"];
     const result = await call(fns.exportDonationsReturn, {
-      file: "upload",
       financialYear: "2026-27",
     });
-    expect(result).toEqual({ csv: "x,y", filename: "upload.csv" });
+    expect(result).toEqual({ csv: "a,b", filename: "all.csv" });
     expect(audits).toEqual([
       {
         action: "donations_return.export",
-        metadata: {
-          file: "upload",
-          financialYear: "2026-27",
-          giftCount: 5,
-          rowCount: 3,
-        },
+        metadata: { financialYear: "2026-27", giftCount: 7, rowCount: 7 },
         target: { type: "donations_return" },
       },
     ]);
     // The file is returned only through the audited action.
     expect(auditOrder).toEqual(["build", "audit"]);
-
-    await call(fns.exportDonationsReturn, {
-      file: "all",
-      financialYear: "2026-27",
-    });
-    expect(builds).toEqual(["upload:2026-27", "all:2026-27"]);
+    expect(builds).toEqual(["all:2026-27"]);
   });
 
   it("refuses a year before the first return", async () => {
     granted = ["finance.view_sensitive"];
     await expect(
-      call(fns.exportDonationsReturn, {
-        file: "upload",
-        financialYear: "2025-26",
-      })
+      call(fns.exportDonationsReturn, { financialYear: "2025-26" })
     ).rejects.toThrow("2026-27 onward");
     expect(builds).toEqual([]);
     expect(audits).toEqual([]);
@@ -244,5 +223,30 @@ describe("getDonationsReturnReadiness", () => {
       "partyId",
       "refundedPaise",
     ]);
+  });
+
+  it("counts filed gifts apart and leaves them out of the next filing", async () => {
+    granted = ["finance.view"];
+    filed = new Map([["g1", { amountPaise: 90_000, filingSequence: 1 }]]);
+    try {
+      const result = (await call(fns.getDonationsReturnReadiness, {
+        financialYear: "2026-27",
+      })) as Awaited<
+        ReturnType<
+          typeof import("./donations-return").getDonationsReturnReadiness
+        >
+      >;
+      expect(result.summary.filedCount).toBe(1);
+      // The filed amount, not the gift's amount now.
+      expect(result.summary.filedPaise).toBe(90_000);
+      expect(result.summary.readyCount).toBe(1);
+      expect(result.gifts[0]?.outcome).toEqual({
+        filingSequence: 1,
+        kind: "filed",
+      });
+      expect(result.exportRowCount).toBe(1);
+    } finally {
+      filed = new Map();
+    }
   });
 });

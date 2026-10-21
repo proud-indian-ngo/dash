@@ -73,6 +73,11 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   loadLiveReceiptNumbers: async () => new Map([["g1", "PI/2026-27/0001"]]),
 }));
 
+let filed = new Map<string, { amountPaise: number; filingSequence: number }>();
+mock.module("@pi-dash/db/queries/donation-filings", () => ({
+  loadFiledSequences: async () => filed,
+}));
+
 mock.module("@pi-dash/db/queries/donations-return", () => ({
   loadReturnFacts: async (_range: unknown, idMode: string) => {
     idModes.push(idMode);
@@ -94,6 +99,12 @@ const fy = {
   startsOn: "2026-04-01",
 };
 
+const firstFiling = {
+  filedGifts: new Map(),
+  reader: undefined,
+  sequence: 1,
+};
+
 describe("buildUploadFile", () => {
   beforeEach(() => {
     registration = {
@@ -106,18 +117,27 @@ describe("buildUploadFile", () => {
 
   it("needs the 80G registration", async () => {
     registration = null;
-    await expect(buildUploadFile(fy)).rejects.toBeInstanceOf(
+    await expect(buildUploadFile(fy, firstFiling)).rejects.toBeInstanceOf(
       DonationsReturnError
     );
     expect(idModes).toEqual([]);
   });
 
   it("writes ready gifts only, aggregated, net of refunds, with CSV escaping", async () => {
-    const built = await buildUploadFile(fy);
+    const built = await buildUploadFile(fy, firstFiling);
     expect(idModes).toEqual(["reveal"]);
     expect(built.giftCount).toBe(2);
-    expect(built.rowCount).toBe(1);
-    expect(built.file.filename).toBe("donations-return-FY2026-27-upload.csv");
+    expect(built.rows).toHaveLength(1);
+    expect(built.rows[0]).toMatchObject({
+      giftIds: ["g1", "g2"],
+      idType: "pan",
+      srNo: 1,
+    });
+    expect([...built.giftNetPaise]).toEqual([
+      ["g1", 100_000],
+      ["g2", 40_000],
+    ]);
+    expect(built.file.filename).toBe("donations-return-FY2026-27-filing-1.csv");
     const lines = built.file.csv.split("\n");
     expect(lines[0]).toBe(
       "Sr. No.,Pre Acknowledgement Number,ID Code,Unique Identification Number,Section Code,Unique Registration Number (URN),Date of Issuance of Unique Registration Number,Name of donor,Address of donor,Donation Type,Mode of receipt,Amount of donation (Indian Rupees)"
@@ -146,8 +166,8 @@ describe("buildUploadFile", () => {
       };
     };
     try {
-      const built = await buildUploadFile(fy);
-      expect(built.rowCount).toBe(2);
+      const built = await buildUploadFile(fy, firstFiling);
+      expect(built.rows).toHaveLength(2);
       const lines = built.file.csv.split("\n");
       expect(lines[1]).toContain(`Permanent Account Number,${PAN},`);
       // No formula apostrophe in the portal file.
@@ -159,11 +179,40 @@ describe("buildUploadFile", () => {
     }
   });
 
+  it("leaves out filed gifts and keeps the portal acknowledgement column empty", async () => {
+    const built = await buildUploadFile(fy, {
+      filedGifts: new Map([
+        ["g1", { amountPaise: 100_000, filingSequence: 1 }],
+      ]),
+      reader: undefined,
+      sequence: 2,
+    });
+    expect(built.giftCount).toBe(1);
+    expect(built.rows.map((row) => row.giftIds)).toEqual([["g2"]]);
+    expect(built.file.csv.split("\n")[1]).toContain(
+      "1,,Permanent Account Number,"
+    );
+    expect(built.file.csv.split("\n")[1]?.endsWith(",400.00")).toBe(true);
+  });
+
+  it("refuses when every ready gift is already filed", async () => {
+    await expect(
+      buildUploadFile(fy, {
+        ...firstFiling,
+        filedGifts: new Map([
+          ["g1", { amountPaise: 100_000, filingSequence: 1 }],
+          ["g2", { amountPaise: 40_000, filingSequence: 1 }],
+        ]),
+        sequence: 2,
+      })
+    ).rejects.toThrow("No gift is ready for a new filing");
+  });
+
   it("refuses without the encryption key", async () => {
     const original = facts;
     facts = () => ({ ...original(), identifiersAvailable: false });
     try {
-      await expect(buildUploadFile(fy)).rejects.toThrow(
+      await expect(buildUploadFile(fy, firstFiling)).rejects.toThrow(
         "Identifiers unavailable"
       );
     } finally {
@@ -178,7 +227,9 @@ describe("buildUploadFile", () => {
       gifts: [gift({ id: "g3", partyId: "p2" })],
     });
     try {
-      await expect(buildUploadFile(fy)).rejects.toThrow("No gift is ready");
+      await expect(buildUploadFile(fy, firstFiling)).rejects.toThrow(
+        "No gift is ready"
+      );
     } finally {
       facts = original;
     }
@@ -221,6 +272,17 @@ describe("buildAllGiftsFile", () => {
     expect(lines[2]).toContain("500.00,100.00,400.00");
     expect(lines[3]).toContain("Needs attention,No ID number");
     expect(lines[4]).toContain("Excluded,Gift excluded: Not a donation");
+  });
+
+  it("marks gifts already in a filing", async () => {
+    filed = new Map([["g1", { amountPaise: 100_000, filingSequence: 2 }]]);
+    try {
+      const lines = (await buildAllGiftsFile(fy)).file.csv.split("\n");
+      expect(lines[1]).toContain("Filed,Filing 2");
+      expect(lines[2]).toContain("Ready,");
+    } finally {
+      filed = new Map();
+    }
   });
 });
 

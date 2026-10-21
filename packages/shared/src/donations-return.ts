@@ -180,7 +180,9 @@ export type GiftOutcome =
   | { kind: "waiting" }
   | { kind: "excluded"; reason: ReturnExclusion }
   | { kind: "ready" }
-  | { blocks: ReturnBlock[]; kind: "blocked" };
+  | { blocks: ReturnBlock[]; kind: "blocked" }
+  /** In a recorded filing; its row is frozen, whatever the gift says now. */
+  | { filingSequence: number; kind: "filed" };
 
 /**
  * An address the return accepts: the first line and a PIN code. The state is
@@ -312,7 +314,10 @@ export interface ReturnSummary {
   donorCount: number;
   excludedCount: number;
   excludedPaise: number;
-  /** Gifts in the return: ready plus blocked. */
+  /** Gifts already in a recorded filing. */
+  filedCount: number;
+  filedPaise: number;
+  /** Gifts in the return: filed, ready and blocked. */
   inReturnCount: number;
   inReturnPaise: number;
   readyCount: number;
@@ -321,16 +326,32 @@ export interface ReturnSummary {
 }
 
 const isInReturn = (outcome: GiftOutcome) =>
-  outcome.kind === "ready" || outcome.kind === "blocked";
+  outcome.kind === "ready" ||
+  outcome.kind === "blocked" ||
+  outcome.kind === "filed";
 
-/** Classifies every gift of a year and totals the result. */
+/** A gift in a live filing: the filing's number and the net amount it filed. */
+export interface FiledGift {
+  amountPaise: number;
+  filingSequence: number;
+}
+
+/**
+ * Classifies every gift of a year and totals the result. A gift in a live
+ * filing (`filedGifts`, by gift ID) is "filed" at the amount it was filed at,
+ * whatever it looks like now, so a later filing never repeats it.
+ */
 export function assessReturn(
   gifts: readonly ReturnGiftFacts[],
-  donors: ReadonlyMap<string, ReturnDonorFacts>
+  donors: ReadonlyMap<string, ReturnDonorFacts>,
+  filedGifts: ReadonlyMap<string, FiledGift> = new Map()
 ): { gifts: AssessedGift[]; summary: ReturnSummary } {
   const assessed = gifts.map((gift): AssessedGift => {
     const donor = donors.get(gift.partyId);
-    const outcome = classifyGift(gift, donor);
+    const filing = filedGifts.get(gift.id);
+    const outcome: GiftOutcome = filing
+      ? { filingSequence: filing.filingSequence, kind: "filed" }
+      : classifyGift(gift, donor);
     const received =
       outcome.kind !== "waiting" &&
       !(
@@ -345,7 +366,11 @@ export function assessReturn(
         received &&
         !isPlatformIntermediary(gift.partyId) &&
         donorDetailBlocks(donor).length > 0,
-      netPaise: outcome.kind === "waiting" ? 0 : netGiftPaise(gift),
+      netPaise: filing
+        ? filing.amountPaise
+        : outcome.kind === "waiting"
+          ? 0
+          : netGiftPaise(gift),
       outcome,
       partyId: gift.partyId,
       refundedPaise: gift.refundedPaise,
@@ -365,6 +390,7 @@ export function assessReturn(
   const ready = sum("ready");
   const blocked = sum("blocked");
   const excluded = sum("excluded");
+  const filed = sum("filed");
   const inReturn = sum("in_return");
   return {
     gifts: assessed,
@@ -378,6 +404,8 @@ export function assessReturn(
       ).size,
       excludedCount: excluded.count,
       excludedPaise: excluded.paise,
+      filedCount: filed.count,
+      filedPaise: filed.paise,
       inReturnCount: inReturn.count,
       inReturnPaise: inReturn.paise,
       readyCount: ready.count,
@@ -636,7 +664,8 @@ export interface ReturnExportRow {
   address: string;
   amountPaise: number;
   donationTypeCode: string;
-  giftCount: number;
+  /** The gifts the row adds up, in the order they were added. */
+  giftIds: string[];
   idCode: string;
   idNumber: string;
   modeCode: string;
@@ -679,14 +708,14 @@ export function aggregateReturnRows(
     const existing = rows.get(key);
     if (existing) {
       existing.amountPaise = sumPaise([existing.amountPaise, gift.netPaise]);
-      existing.giftCount += 1;
+      existing.giftIds.push(gift.giftId);
       continue;
     }
     rows.set(key, {
       address: gift.address,
       amountPaise: gift.netPaise,
       donationTypeCode: RETURN_DONATION_TYPE_CODES[gift.donationType],
-      giftCount: 1,
+      giftIds: [gift.giftId],
       idCode,
       idNumber: normalizeIdNumber(gift.idNumber),
       modeCode: RETURN_MODE_CODES[effectiveReportingMode(gift)],
@@ -703,9 +732,21 @@ export function aggregateReturnRows(
   );
 }
 
+/** What one line of the upload file prints. */
+export type ReturnFileRow = Pick<
+  ReturnExportRow,
+  | "address"
+  | "amountPaise"
+  | "donationTypeCode"
+  | "idCode"
+  | "idNumber"
+  | "modeCode"
+  | "name"
+>;
+
 /** The upload file's header and cells, in `RETURN_COLUMNS` order. */
 export function returnFileCells(
-  rows: readonly ReturnExportRow[],
+  rows: readonly ReturnFileRow[],
   registration: ReturnRegistration
 ): { headers: string[]; rows: string[][] } {
   return {
@@ -730,6 +771,53 @@ export function returnFileCells(
   };
 }
 
+// ── Filings ────────────────────────────────────────────────────
+
+/**
+ * The portal takes at most 25,000 rows per Form 113 upload; a larger return
+ * needs another filing.
+ */
+export const MAX_FILING_ROWS = 25_000;
+
+/**
+ * A certificate email queued this long ago, neither sent nor failed, is
+ * taken as stuck: "Email certificates" queues it again.
+ */
+export const CERTIFICATE_EMAIL_STALE_MS = 60 * 60 * 1000;
+
+/** How a filed row's gifts differ now from what was filed. */
+export type FilingDrift =
+  | "amount"
+  | "reversed"
+  | "excluded"
+  | "donor"
+  | "donation_type";
+
+export const FILING_DRIFT_LABELS: Record<FilingDrift, string> = {
+  amount: "Amount changed",
+  donation_type: "Donation type changed",
+  donor: "Donor changed",
+  excluded: "Gift now excluded",
+  reversed: "Gift reversed",
+};
+
+/** An upload row with its place in a filing. */
+export interface FilingPlanRow extends ReturnExportRow {
+  srNo: number;
+}
+
+export function planFilingRows(
+  rows: readonly ReturnExportRow[]
+): FilingPlanRow[] {
+  if (rows.length > MAX_FILING_ROWS) {
+    throw new Error(`A filing takes at most ${MAX_FILING_ROWS} rows`);
+  }
+  return rows.map((row, index) => ({
+    ...row,
+    srNo: index + 1,
+  }));
+}
+
 /** Label for a gift's outcome in the "All gifts" file and on the page. */
 export function giftOutcomeLabel(outcome: GiftOutcome): {
   reason: string;
@@ -738,6 +826,8 @@ export function giftOutcomeLabel(outcome: GiftOutcome): {
   switch (outcome.kind) {
     case "ready":
       return { reason: "", status: "Ready" };
+    case "filed":
+      return { reason: `Filing ${outcome.filingSequence}`, status: "Filed" };
     case "waiting":
       return { reason: "Not received yet", status: "Waiting" };
     case "excluded":

@@ -135,6 +135,13 @@ export interface SendContributionReceiptPayload {
   requestId: string;
 }
 
+// Form 114 certificate email ("Email certificates"); IDs only.
+export interface SendDonationCertificatePayload {
+  certificateId: string;
+  /** The claim that queued it; a job whose claim was replaced does nothing. */
+  requestId: string;
+}
+
 // Stores an issued receipt's PDF; IDs only.
 export interface StoreContributionReceiptPdfPayload {
   receiptId: string;
@@ -828,6 +835,7 @@ export interface JobPayloads {
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
+  "send-donation-certificate": SendDonationCertificatePayload;
   "store-contribution-receipt-pdf": StoreContributionReceiptPdfPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;

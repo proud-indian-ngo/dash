@@ -44,11 +44,14 @@ export const getRoles = createServerFn({ method: "GET" })
           id: role.id,
           isSystem: role.isSystem,
           name: role.name,
+          // The outer row is named explicitly: Drizzle leaves a one-table
+          // select's columns unqualified, and a bare "id" in the user
+          // subquery would be the user's own.
           permissionCount: sql<number>`(
-            select count(*)::int from role_permission rp where rp.role_id = ${role.id}
+            select count(*)::int from role_permission rp where rp.role_id = ${role}.${sql.identifier("id")}
           )`,
           userCount: sql<number>`(
-            select count(*)::int from "user" u where u.role = ${role.id}
+            select count(*)::int from "user" u where u.role = ${role}.${sql.identifier("id")}
           )`,
         })
         .from(role)

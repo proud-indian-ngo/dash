@@ -24,3 +24,7 @@ export const trusteePanContext = (trusteeId: string) =>
 /** `private.trustee_private.aadhaar_reference_encrypted`, keyed by trustee ID. */
 export const trusteeAadhaarContext = (trusteeId: string) =>
   `trustee_private.aadhaar_reference:${trusteeId}`;
+
+/** `private.donation_filing_row.id_number_encrypted`, keyed by filing row ID. */
+export const filingRowIdContext = (rowId: string) =>
+  `donation_filing_row.id_number:${rowId}`;

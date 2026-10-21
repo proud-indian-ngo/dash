@@ -19,6 +19,7 @@ export type ChecklistSectionId =
   | "missing_id"
   | "missing_details"
   | "invalid_id"
+  | "filed"
   | "waiting"
   | "excluded"
   | "partly_refunded"
@@ -54,7 +55,9 @@ const hasBlock = (outcome: GiftOutcome, block: ReturnBlock) =>
   outcome.kind === "blocked" && outcome.blocks.includes(block);
 
 const inReturn = (outcome: GiftOutcome) =>
-  outcome.kind === "ready" || outcome.kind === "blocked";
+  outcome.kind === "ready" ||
+  outcome.kind === "blocked" ||
+  outcome.kind === "filed";
 
 function toRow(gift: ReadinessGift, note: string | null = null): ChecklistRow {
   return {
@@ -138,6 +141,19 @@ export function buildChecklist(
         .map((gift) => toRow(gift)),
       target: "donor",
       title: "ID numbers that don't look valid",
+    },
+    {
+      description:
+        "Gifts in a recorded filing. Their rows are frozen, so a later change to the gift or donor doesn't reach the portal; correcting a filed row needs a revision on the portal.",
+      id: "filed",
+      kind: "info",
+      rows: gifts.flatMap((gift) =>
+        gift.outcome.kind === "filed"
+          ? [toRow(gift, `Filing ${gift.outcome.filingSequence}`)]
+          : []
+      ),
+      target: "gift",
+      title: "Filed",
     },
     {
       description:

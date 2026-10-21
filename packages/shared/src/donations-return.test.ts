@@ -9,6 +9,8 @@ import {
   defaultReturnYear,
   formatReturnAmount,
   giftOutcomeLabel,
+  MAX_FILING_ROWS,
+  planFilingRows,
   idNumberLooksValid,
   joinReturnAddress,
   missingDonorDetailsPartyIds,
@@ -288,6 +290,8 @@ describe("assessReturn and missing donor details", () => {
       donorCount: 2,
       excludedCount: 1,
       excludedPaise: 300_000,
+      filedCount: 0,
+      filedPaise: 0,
       inReturnCount: 2,
       inReturnPaise: 700_000,
       readyCount: 1,
@@ -297,6 +301,42 @@ describe("assessReturn and missing donor details", () => {
     // p2 lacks an ID for a gift in the return; p3 opted out (no ID needed)
     // but still lacks an address.
     expect(missingDonorDetailsPartyIds(gifts).sort()).toEqual(["p2", "p3"]);
+  });
+
+  it("counts a filed gift as filed, never ready again, whatever it looks like now", () => {
+    const { gifts, summary } = assessReturn(
+      [
+        gift({ id: "a" }),
+        gift({ amountPaise: 200_000, id: "b" }),
+        // Filed while the donor had an ID; the donor has none now.
+        gift({ amountPaise: 300_000, id: "c", partyId: "p2" }),
+      ],
+      new Map([
+        ["p1", donor()],
+        ["p2", donor({ hasIdNumber: false, partyId: "p2" })],
+      ]),
+      new Map([
+        ["a", { amountPaise: 450_000, filingSequence: 1 }],
+        ["c", { amountPaise: 300_000, filingSequence: 1 }],
+      ])
+    );
+    expect(gifts.map((assessed) => assessed.outcome)).toEqual([
+      { filingSequence: 1, kind: "filed" },
+      { kind: "ready" },
+      { filingSequence: 1, kind: "filed" },
+    ]);
+    expect(summary).toMatchObject({
+      blockedCount: 0,
+      filedCount: 2,
+      filedPaise: 750_000,
+      inReturnCount: 3,
+      readyCount: 1,
+      readyPaise: 200_000,
+    });
+    expect(giftOutcomeLabel(gifts[0]?.outcome ?? { kind: "ready" })).toEqual({
+      reason: "Filing 1",
+      status: "Filed",
+    });
   });
 
   it("does not chase an opted-out donor for an ID number", () => {
@@ -425,26 +465,21 @@ describe("upload file", () => {
       }),
     ]);
     expect(
-      rows.map((row) => [
-        row.name,
-        row.modeCode,
-        row.amountPaise,
-        row.giftCount,
-      ])
+      rows.map((row) => [row.name, row.modeCode, row.amountPaise, row.giftIds])
     ).toEqual([
-      ["Asha Rao", "Cash", 20_000, 1],
-      ["Asha Rao", "Cash", 10_000, 1],
+      ["Asha Rao", "Cash", 20_000, ["g3"]],
+      ["Asha Rao", "Cash", 10_000, ["g4"]],
       [
         "Asha Rao",
         "Electronic modes including account payee cheque/draft",
         150_000,
-        2,
+        ["g1", "g2"],
       ],
       [
         "Bina Shah",
         "Electronic modes including account payee cheque/draft",
         100_000,
-        1,
+        ["g1"],
       ],
     ]);
   });
@@ -456,11 +491,14 @@ describe("upload file", () => {
   });
 
   it("fills every column in order", () => {
-    const cells = returnFileCells(aggregateReturnRows([readyGift()]), {
-      sectionCode: "Section 80G",
-      urn: "AAATP1234AF20214",
-      urnIssuedOn: "2021-05-28",
-    });
+    const cells = returnFileCells(
+      planFilingRows(aggregateReturnRows([readyGift()])),
+      {
+        sectionCode: "Section 80G",
+        urn: "AAATP1234AF20214",
+        urnIssuedOn: "2021-05-28",
+      }
+    );
     expect(cells.headers).toHaveLength(12);
     expect(cells.rows).toEqual([
       [
@@ -478,6 +516,22 @@ describe("upload file", () => {
         "1000.00",
       ],
     ]);
+  });
+
+  it("numbers a filing's rows in upload order and enforces the row limit", () => {
+    const rows = aggregateReturnRows([
+      readyGift(),
+      readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
+    ]);
+    expect(planFilingRows(rows).map((row) => [row.srNo, row.name])).toEqual([
+      [1, "Asha Rao"],
+      [2, "Bina Shah"],
+    ]);
+    expect(() =>
+      planFilingRows(
+        Array.from({ length: MAX_FILING_ROWS + 1 }, () => rows[0]!)
+      )
+    ).toThrow("at most 25000 rows");
   });
 
   it("formats amounts in rupees with two decimals", () => {

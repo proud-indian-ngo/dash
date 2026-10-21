@@ -79,6 +79,9 @@ function ComboboxFieldControl({
         {...fieldErrorProps(field, submitted)}
         aria-required={isRequired}
         className="w-full"
+        // The root's disabled state isn't enough: the input itself must be
+        // disabled to refuse focus and typing.
+        disabled={disabled}
         id={id ?? field.name}
         onBlur={field.handleBlur}
         placeholder={placeholder}

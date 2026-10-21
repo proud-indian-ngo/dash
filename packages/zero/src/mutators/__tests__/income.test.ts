@@ -96,15 +96,21 @@ function createDb(
     dbTransaction: {
       wrappedTransaction: {
         execute: async (query: { queryChunks?: unknown[] }) => {
-          locks.push(
-            (query.queryChunks ?? [])
-              .map((chunk) =>
-                typeof chunk === "object" && chunk && "value" in chunk
-                  ? (chunk as { value: string[] }).value.join("")
-                  : String(chunk)
-              )
-              .join("?")
-          );
+          const rendered = (query.queryChunks ?? [])
+            .map((chunk) =>
+              typeof chunk === "object" && chunk && "value" in chunk
+                ? (chunk as { value: string[] }).value.join("")
+                : String(chunk)
+            )
+            .join("?");
+          // The filed-gift check reads the private filing links.
+          if (rendered.includes("donation_filing_gift")) {
+            return (tables.donationFilingGift ?? []).filter((row) =>
+              rendered.includes(String(row.contributionId))
+            );
+          }
+          locks.push(rendered);
+          return [];
         },
       },
     },
@@ -732,6 +738,74 @@ describe("contribution mutators", () => {
       "A receipt was issued for this gift; it can't be deleted"
     );
     expect(db.tables.contribution).toHaveLength(1);
+  });
+
+  it("refuses to delete a gift in a donations return filing", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+      donationFilingGift: [
+        { contributionId: "c-1", sequence: 1, status: "prepared" },
+      ],
+    });
+    // Not uploaded yet: discard the filing first.
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow("Discard that filing first");
+    expect(db.tables.contribution).toHaveLength(1);
+  });
+
+  it("keeps what a donations return filing reported about a filed gift", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          amountPaise: 500_000,
+          channel: "upi",
+          deductionEligible: "unknown",
+          donationType: "voluntary",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          receivedOn: Date.UTC(2026, 9, 1),
+          reportingMode: "electronic_or_account_payee",
+          status: "received",
+        },
+      ],
+      donationFilingGift: [
+        { contributionId: "c-1", sequence: 2, status: "submitted" },
+      ],
+    });
+    // Notes and classification still change.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ notes: "Filed" })
+    );
+    expect(db.tables.contribution?.[0]?.notes).toBe("Filed");
+    for (const change of [
+      { amountPaise: 400_000 },
+      { partyId: "sponsor-1" },
+      { receivedOn: "2026-10-02" },
+      { channel: "neft" },
+      { reportingMode: "other" },
+      { deductionEligible: "no", eligibilityReason: "Not a donation" },
+      { donationType: "corpus" },
+    ]) {
+      await expect(
+        run(contributionMutators.update, db, donorsCtx, contribution(change))
+      ).rejects.toThrow("in donations return filing 2");
+    }
   });
 
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {

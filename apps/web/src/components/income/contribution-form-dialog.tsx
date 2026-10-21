@@ -76,6 +76,7 @@ import {
   type FormValues,
   OTHER_REASON,
 } from "./contribution-form-schema";
+import { giftFilingNote, useGiftFiling } from "./filings/use-gift-filing";
 import type { ContributionRow } from "./income-types";
 import { withCurrentOption } from "./picker-options";
 import {
@@ -381,12 +382,17 @@ function ContributionForm({
     contribution !== null && isGatewayContribution(contribution)
   );
   const hasRefund = (contribution?.refunds?.length ?? 0) > 0;
-  const refundLocked = hasRefund || settlementLock !== "unlocked";
+  // A donations return filing fixes what it reported about the gift.
+  const giftFiling = useGiftFiling(contribution?.id ?? null);
+  const filingNote = giftFilingNote(giftFiling);
+  const filingLocked = giftFiling.kind !== "none";
+  const refundLocked =
+    hasRefund || settlementLock !== "unlocked" || filingLocked;
   const settlementProvider =
     contribution?.channel === "give_do" ? "give.do" : "Razorpay";
   const lockedNote = hasRefund
     ? "Fixed: a refund is recorded against this contribution."
-    : refundLocked
+    : settlementLock !== "unlocked"
       ? settlementLock === "locked"
         ? `Fixed: ${settlementProvider} has settled this contribution to the bank.`
         : `Fixed until the dashboard has checked whether ${settlementProvider} settled it.`
@@ -574,6 +580,15 @@ function ContributionForm({
   return (
     <>
       <FormLayout form={form}>
+        {filingNote ? (
+          <div
+            className="border-warning/30 bg-warning/10 text-warning-foreground dark:bg-warning-foreground/10 rounded-md border p-3 text-sm"
+            data-testid="contribution-filing-note"
+            role="note"
+          >
+            {filingNote}
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
           <div className="min-w-0 flex-1">
             <ComboboxField
@@ -645,7 +660,7 @@ function ContributionForm({
                         ? CHEQUE_MODE_NOTE
                         : undefined
                   }
-                  disabled={fixed}
+                  disabled={fixed || filingLocked}
                   isRequired
                   label="Reporting mode"
                   name="reportingMode"
@@ -754,6 +769,7 @@ function ContributionForm({
                   />
                 )}
                 <SelectField
+                  disabled={filingLocked}
                   isRequired
                   label="Donation type"
                   name="donationType"
@@ -768,6 +784,7 @@ function ContributionForm({
                 ) : null}
                 <SelectField
                   description="Whether this gift goes in the donations return (Form 113). Follow donor uses the donor's own choice."
+                  disabled={filingLocked}
                   label="Tax certificate"
                   name="deductionEligible"
                   options={taxCertificateOptions}

@@ -1,6 +1,6 @@
 # Finance: receipts and the donations return
 
-Donation receipts and their numbering, and the donations return (Form 113/114) readiness page and export.
+Donation receipts and their numbering, and the donations return (Form 113/114): readiness, filings, and Form 114 certificates.
 
 Donor records in [finance-income.md](finance-income.md); overview in [finance-and-programmes.md](finance-and-programmes.md).
 
@@ -35,7 +35,34 @@ Every received gift of the year is a candidate, any channel (give.do gifts go in
 
 ### Readiness page and export
 
-- The readiness page lists what blocks filing, including CSR gifts for the CA to decide. Without `DATA_ENCRYPTION_KEY` IDs are unchecked and the upload file is refused.
-- The export needs `finance.view_sensitive` and is audited because it reveals identifiers in bulk. It writes either the portal upload file (one row per donor, donation type and mode, each cash gift its own row; ready gifts only; net amounts in rupees) or a CA file of every gift with status and reason, ID masked.
-- Codes are written as full text. Voluntary and CSR map to "Specific grant", matching the FY 2025-26 filing. The official Form 113 template could not be verified, so columns follow the FY 2025-26 Form 10BD; check against the portal before each upload.
-- The 80G registration (URN, date, section code) is entered in Settings, never seeded. The upload file is refused until it is set.
+- The readiness page lists what blocks filing, including CSR gifts for the CA to decide, and which gifts are filed. Without `DATA_ENCRYPTION_KEY` IDs are unchecked and no filing can be recorded.
+- The CA's file of every gift (status and reason, ID masked) needs `finance.view_sensitive` and is audited because it reveals identifiers in bulk. The portal upload file comes only from recording a filing, so every uploaded row is tracked.
+- Upload rows: one per donor, donation type and mode, each cash gift its own row; ready gifts only; net amounts in rupees. Codes are written as full text. Voluntary and CSR map to "Specific grant", matching the FY 2025-26 filing. The official Form 113 template could not be verified, so columns follow the FY 2025-26 Form 10BD; check against the portal before each upload.
+- The 80G registration (URN, date, section code) is entered in Settings, never seeded. No filing is recorded until it is set.
+
+### Filings (Form 113)
+
+Code: `packages/db/src/queries/donation-filings.ts`, `apps/web/src/lib/donation-filings/`. Tables are in the `private` schema and read through server functions.
+
+- "Record filing" (`finance.manage` and `finance.view_sensitive`, because it hands back full IDs) freezes the ready gifts not already filed into the year's next filing: `donation_filing`, its `donation_filing_row`s (the donor's name, address, ID type and code, amount, type and mode as written, ID encrypted under the row) and `donation_filing_gift` linking each gift to its row with its net amount as filed. The exact upload file is kept in private R2 storage, and the stored rows are exactly what it holds. One filing per year is recorded at a time, and the gift is the link's key, so no gift is ever in two live filings, of any year. A later filing holds only gifts not yet filed.
+- The required Pre-Acknowledgement Number column is always empty.
+- After uploading the file, finance records the filing date, acknowledgement number and transaction ID (correctable later). A submission can be taken back to prepared while no certificate is attached. A filing never submitted can be discarded, which frees its gifts; its filing number stays used.
+- Filed rows never change. A filed gift's amount, donor, date, channel, mode of receipt, donation type and tax certificate choice can't be edited, and it can't be deleted; while its filing isn't uploaded yet, the message says to discard the filing instead. Refunds and reversals still happen; each filing lists the rows whose gifts changed since filing (net amount after refunds, reversal, Exclude, donor, donation type) as needing a portal revision, and the filings list counts them. Revisions (modify or delete rows, quoting the certificate number) are not built.
+- The readiness page counts filed gifts at the amounts they were filed at.
+- Downloading the upload file needs `finance.view_sensitive` and is audited as `donation_filing.download`.
+
+### Form 114 certificates
+
+- Finance uploads the portal's ZIP (or single PDFs) against a submitted filing. Each PDF's text is read and matched to a row:
+  - By the labelled donor ID (at least eight characters, never part of another number), amount and donor name. Labelled donation type and mode break ties. Finance can bulk-confirm unique PAN matches; other ID types and manual assignments need individual PDF review. Both confirmation paths require `finance.manage` and `finance.view_sensitive`, record who confirmed and when, and leave emailing separate. No certificate is emailed until confirmed.
+  - By hand: for a certificate matching couldn't place (two cash rows of one donor and amount), finance adds that PDF on the row. It goes to review too.
+- A certificate carrying another filing's certificate number, or a labelled tax year other than the filing's, is refused. Rows are inserted before any file is written to R2, and files written are deleted if the insert fails.
+- Matched certificates are stored as `donation_certificate` (the row, the certificate's own labelled acknowledgement number (required even for manual assignment), the PDF in private R2, how it matched, who confirmed it). Unmatched files are listed with the reason and not kept; a row takes one certificate, and a re-uploaded file is recognised.
+- Unverified assumptions, all in `certificate-parser.ts`: a certificate prints its own number (with a digit) after an "Acknowledgement Number" label, the donor's ID after "Unique Identification Number", the amount after a label starting "Amount", and the donor's name after its label, as extractable text. ZIP file names are never used.
+- "Email certificates" (`finance.manage`) queues one `send-donation-certificate` job per confirmed certificate not yet emailed or on its way, in the claim's transaction. A failed send is taken again under a new request; one queued over an hour ago with no outcome (shown as stuck) is queued again under its own request, so Resend's idempotency key keeps it from going twice; only an explicit resend repeats a sent one, and a row offers it only while nothing is on its way. The job sends only while the certificate carries its request, under a Resend idempotency key, so a certificate is never emailed twice by accident. It goes to the donor's current address with the PDF attached. The send time is recorded only when Resend accepts it; "another request with this key is in progress" is retried, a key reused for another payload is recorded as failed, and other failures are recorded and retried. Donors without a usable address (none, or bounced) are listed for sending by hand. Certificates are due to donors by 31 May.
+- Viewing or downloading a certificate needs `finance.view_sensitive` and is audited as `donation_certificate.download`.
+
+### Verify on the portal before relying on it
+
+- The Form 113 template: columns, order and code lists in `donations-return.ts`, including the ID codes (`RETURN_ID_CODES`).
+- The certificate layout the parser assumes, including its labelled acknowledgement number and donor details.
