@@ -5,13 +5,28 @@ import z from "zod";
 import { can } from "../permissions";
 import { zql } from "../schema";
 
-function withBase(q: typeof zql.reimbursement) {
+/**
+ * `viewerId` limits files to receipts unless the viewer is the claimant: a
+ * programme lead never syncs payment proof, vouchers, signed vouchers or
+ * payee signatures.
+ */
+function withBase(q: typeof zql.reimbursement, viewerId?: string) {
   return (
     q
       .related("lineItems", (li) =>
         li.orderBy("sortOrder", "asc").related("category")
       )
-      .related("attachments", (a) => a.orderBy("createdAt", "asc"))
+      .related("attachments", (a) =>
+        (viewerId === undefined
+          ? a
+          : a.where(({ cmp, exists, or }) =>
+              or(
+                cmp("purpose", "receipt"),
+                exists("reimbursement", (r) => r.where("userId", viewerId))
+              )
+            )
+        ).orderBy("createdAt", "asc")
+      )
       .related("history", (h) => h.orderBy("createdAt", "asc"))
       .related("user")
       // "Raised by X for Y" when finance raised it for someone else.
@@ -27,9 +42,9 @@ function withRelated(q: typeof zql.reimbursement) {
  * Analytics, the tables and the request header show the programme the request
  * is charged to: the event's programme, or the one chosen without an event.
  */
-function withProgramme(q: typeof zql.reimbursement) {
+function withProgramme(q: typeof zql.reimbursement, viewerId?: string) {
   return (
-    withBase(q)
+    withBase(q, viewerId)
       // The programme's lead approves before finance ("Approval policy").
       .related("event", (e) => e.related("programme", (p) => p.related("lead")))
       .related("chargedProgramme", (p) => p.related("lead"))
@@ -69,10 +84,10 @@ export const reimbursementQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
       ? withProgramme(zql.reimbursement).orderBy("createdAt", "desc")
-      : withProgramme(visibleTo(zql.reimbursement, ctx?.userId)).orderBy(
-          "createdAt",
-          "desc"
-        )
+      : withProgramme(
+          visibleTo(zql.reimbursement, ctx?.userId),
+          ctx?.userId ?? "__never_match__"
+        ).orderBy("createdAt", "desc")
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.reimbursement)
@@ -99,7 +114,10 @@ export const reimbursementQueries = {
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
         ? withProgramme(zql.reimbursement).where("id", id).one()
-        : withProgramme(visibleTo(zql.reimbursement, ctx?.userId))
+        : withProgramme(
+            visibleTo(zql.reimbursement, ctx?.userId),
+            ctx?.userId ?? "__never_match__"
+          )
             .where("id", id)
             .one()
   ),

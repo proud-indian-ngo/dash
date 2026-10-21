@@ -640,6 +640,15 @@ export const vendorPaymentTransactionMutators = {
       if (!hasEditAll) {
         assertCanModify(entity, userId, false, "transaction");
       }
+      // An approved payment on your own request keeps its amount: changing
+      // it would pay yourself without anyone else approving.
+      if (
+        parentVp &&
+        entity.status === "approved" &&
+        args.amountPaise !== entity.amountPaise
+      ) {
+        assertNotOwnRequest(ctx, parentVp);
+      }
 
       // Rejected transactions don't contribute to the balance, so the cap
       // doesn't apply — skip to allow admin corrections on rejected records.

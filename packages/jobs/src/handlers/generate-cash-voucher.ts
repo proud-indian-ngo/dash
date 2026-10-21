@@ -5,6 +5,7 @@ import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import {
   reimbursement,
   reimbursementAttachment,
+  reimbursementHistory,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { env } from "@pi-dash/env/server";
@@ -49,6 +50,8 @@ async function commitVoucherAttachment(opts: {
     objectKey: string;
     reimbursementId: string;
   };
+  /** Who the history row names for an unlinked signed copy. */
+  approverUserId: string;
   lineItemId: string;
   rendered: RenderedFrom;
 }): Promise<
@@ -69,6 +72,8 @@ async function commitVoucherAttachment(opts: {
         payeePhone: reimbursementLineItem.payeePhone,
         payeeSignatureAttachmentId:
           reimbursementLineItem.payeeSignatureAttachmentId,
+        signedVoucherAttachmentId:
+          reimbursementLineItem.signedVoucherAttachmentId,
         voucherAttachmentId: reimbursementLineItem.voucherAttachmentId,
       })
       .from(reimbursementLineItem)
@@ -94,13 +99,29 @@ async function commitVoucherAttachment(opts: {
       id: opts.attachment.id,
       mimeType: opts.attachment.mimeType,
       objectKey: opts.attachment.objectKey,
+      purpose: "voucher",
       reimbursementId: opts.attachment.reimbursementId,
       type: "file",
       url: null,
     });
 
     // A new voucher number makes an earlier signed copy stale: unlink it
-    // (the file stays among the request's attachments).
+    // (the file stays among the request's attachments), and record it so
+    // the history names every signed copy.
+    if (current.signedVoucherAttachmentId) {
+      await tx.insert(reimbursementHistory).values({
+        action: "updated",
+        actorId: opts.approverUserId,
+        createdAt: new Date(),
+        id: uuidv7(),
+        metadata: {
+          lineItemId: opts.lineItemId,
+          unlinkedAttachmentIds: [current.signedVoucherAttachmentId],
+        },
+        note: "Signed voucher unlinked: the voucher was regenerated",
+        reimbursementId: opts.attachment.reimbursementId,
+      });
+    }
     await tx
       .update(reimbursementLineItem)
       .set({
@@ -288,6 +309,7 @@ async function generateCashVoucher(data: GenerateCashVoucherPayload) {
   //    (harmless — no DB row points to it).
   const attachmentId = uuidv7();
   const committed = await commitVoucherAttachment({
+    approverUserId: data.approverUserId,
     attachment: {
       filename,
       id: attachmentId,

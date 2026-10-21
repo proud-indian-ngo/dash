@@ -71,7 +71,11 @@ import {
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
 import { authClient } from "@/lib/auth-client";
-import { waitingLeadOf } from "@/lib/lead-approval";
+import {
+  isReceipt,
+  seesRequestEvidence,
+  waitingLeadOf,
+} from "@/lib/lead-approval";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -162,6 +166,16 @@ export function ReimbursementDetail({
   const isOwnRequest =
     request.userId === session?.user?.id ||
     ("createdBy" in request && request.createdBy === session?.user?.id);
+  // A programme lead sees the receipts, not how or whom finance paid.
+  const seesEvidence = seesRequestEvidence(
+    request,
+    session?.user?.id,
+    hasPermission("requests.view_all")
+  );
+  const shownAttachments =
+    !seesEvidence && isReimbursement(request)
+      ? request.attachments.filter(isReceipt)
+      : request.attachments;
   const showPaymentProof =
     request.type === "reimbursement" &&
     request.status === "approved" &&
@@ -464,11 +478,14 @@ export function ReimbursementDetail({
             generatingVoucherId={generatingVoucherId}
             onGenerateVoucher={handleGenerateVoucher}
             request={request}
+            seesEvidence={seesEvidence}
             total={total}
             voided={voided}
           />
 
-          {request.status === "approved" && approvalScreenshot ? (
+          {seesEvidence &&
+          request.status === "approved" &&
+          approvalScreenshot ? (
             <RecordSection title="Payment proof">
               <div className="flex items-center gap-3 rounded-lg border p-2">
                 <FilePreviewButton
@@ -535,10 +552,10 @@ export function ReimbursementDetail({
             </RecordSection>
           ) : null}
 
-          {request.attachments.length > 0 ? (
+          {shownAttachments.length > 0 ? (
             <RecordSection title="Attachments">
               <AttachmentList
-                attachments={request.attachments}
+                attachments={shownAttachments}
                 kind={attachmentKind}
               />
             </RecordSection>
@@ -778,6 +795,7 @@ function LineItemsTable({
   generatingVoucherId,
   onGenerateVoucher,
   request,
+  seesEvidence,
   total,
   voided,
 }: {
@@ -785,11 +803,14 @@ function LineItemsTable({
   generatingVoucherId: string | null;
   onGenerateVoucher: (lineItemId: string) => void;
   request: RequestDetailData;
+  /** Vouchers and payee signatures: not for a programme lead. */
+  seesEvidence: boolean;
   total: number;
   voided: boolean;
 }) {
   const isReimb = isReimbursement(request);
-  const showVoucherCol = isReimb && request.status === "approved";
+  const showVoucherCol =
+    seesEvidence && isReimb && request.status === "approved";
   const voucherLimitPaise = useCashVoucherLimit();
   const { hasPermission, user } = useApp();
   // The claimant, finance or an approver may attach the signed copy.
@@ -834,7 +855,7 @@ function LineItemsTable({
                   <td className="text-muted-foreground px-3 py-2 max-md:col-span-full max-md:p-0">
                     {item.description}
                     <PaidToLine claimantName={request.user?.name} item={item} />
-                    {isReimb ? (
+                    {isReimb && seesEvidence ? (
                       <PayeeSignatureLine
                         attachments={request.attachments}
                         canCollect={canCollectSignature}

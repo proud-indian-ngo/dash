@@ -1599,8 +1599,8 @@ export const teamEventMutators = {
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
       await clearLeadApprovalsOnMovedEvents(
         tx,
+        ctx,
         programmesBefore,
-        ctx.userId,
         args.now
       );
       if (args.partners) {
@@ -1860,8 +1860,8 @@ export const teamEventMutators = {
 
       await clearLeadApprovalsOnMovedEvents(
         tx,
+        ctx,
         programmesBefore,
-        ctx.userId,
         args.now
       );
 

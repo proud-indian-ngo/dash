@@ -367,9 +367,11 @@ export function VendorPaymentDetail({
     });
   });
 
-  const invoiceAttachments = request.attachments.filter(
-    (att) => att.purpose === "invoice"
-  );
+  // A programme lead sees the quotations, not the invoice files.
+  const invoiceAttachments =
+    isOwner || hasPermission("requests.view_all")
+      ? request.attachments.filter((att) => att.purpose === "invoice")
+      : [];
   const quotationAttachments = request.attachments.filter(
     (att) => att.purpose !== "invoice"
   );

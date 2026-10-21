@@ -12,6 +12,7 @@ import z from "zod";
 
 import type { Context } from "../context";
 import { type Schema, zql } from "../schema";
+import { userName } from "./claimant";
 import { buildHistoryInsert } from "./submission-helpers";
 
 type Tx = Transaction<Schema>;
@@ -225,68 +226,184 @@ export async function eventProgrammes(
 }
 
 /**
- * An event moved to another programme: the lead approval on its pending
+ * An event moved to another programme. A lead approval on its pending
  * claims and vendor payments belonged to the old programme's lead, so it is
- * cleared and the new lead looks at them.
+ * cleared; whoever each now waits for hears of it.
  */
 export async function clearLeadApprovalsOnMovedEvents(
   tx: Tx,
+  ctx: Context,
   before: ReadonlyMap<string, null | string>,
-  actorId: string,
   now: number
 ): Promise<void> {
   const after = await eventProgrammes(tx, [...before.keys()]);
   const moved = [...before].filter(
     ([id, programmeId]) => after.has(id) && after.get(id) !== programmeId
   );
-  for (const [eventId] of moved) {
+  for (const [eventId, programmeBefore] of moved) {
     const [reimbursements, vendorPayments] = await Promise.all([
       tx.run(
-        zql.reimbursement
-          .where("eventId", eventId)
-          .where("status", "pending")
-          .where("leadApprovedAt", "IS NOT", null)
+        zql.reimbursement.where("eventId", eventId).where("status", "pending")
       ),
       tx.run(
-        zql.vendorPayment
-          .where("eventId", eventId)
-          .where("status", "pending")
-          .where("leadApprovedAt", "IS NOT", null)
+        zql.vendorPayment.where("eventId", eventId).where("status", "pending")
       ),
     ]);
     for (const row of reimbursements) {
-      await tx.mutate.reimbursement.update({
-        id: row.id,
-        ...CLEARED_LEAD_APPROVAL,
-        updatedAt: now,
-      });
-      await tx.mutate.reimbursementHistory.insert({
-        ...buildHistoryInsert(
-          actorId,
-          "updated",
-          now,
-          LEAD_APPROVAL_MOVED_NOTE
-        ),
-        reimbursementId: row.id,
+      const cleared = Boolean(row.leadApprovedAt);
+      if (cleared) {
+        await tx.mutate.reimbursement.update({
+          id: row.id,
+          ...CLEARED_LEAD_APPROVAL,
+          updatedAt: now,
+        });
+        await tx.mutate.reimbursementHistory.insert({
+          ...buildHistoryInsert(
+            ctx.userId,
+            "updated",
+            now,
+            LEAD_APPROVAL_MOVED_NOTE
+          ),
+          reimbursementId: row.id,
+        });
+      }
+      await notifyIfLeadNowWaiting(tx, ctx, "reimbursement", {
+        after: cleared ? { ...row, ...CLEARED_LEAD_APPROVAL } : row,
+        before: row,
+        beforeProgrammeId: programmeBefore,
+        now,
       });
     }
     for (const row of vendorPayments) {
-      await tx.mutate.vendorPayment.update({
-        id: row.id,
-        ...CLEARED_LEAD_APPROVAL,
-        updatedAt: now,
-      });
-      await tx.mutate.vendorPaymentHistory.insert({
-        ...buildHistoryInsert(
-          actorId,
-          "updated",
-          now,
-          LEAD_APPROVAL_MOVED_NOTE
-        ),
-        vendorPaymentId: row.id,
+      const cleared = Boolean(row.leadApprovedAt);
+      if (cleared) {
+        await tx.mutate.vendorPayment.update({
+          id: row.id,
+          ...CLEARED_LEAD_APPROVAL,
+          updatedAt: now,
+        });
+        await tx.mutate.vendorPaymentHistory.insert({
+          ...buildHistoryInsert(
+            ctx.userId,
+            "updated",
+            now,
+            LEAD_APPROVAL_MOVED_NOTE
+          ),
+          vendorPaymentId: row.id,
+        });
+      }
+      await notifyIfLeadNowWaiting(tx, ctx, "vendorPayment", {
+        after: cleared ? { ...row, ...CLEARED_LEAD_APPROVAL } : row,
+        before: row,
+        beforeProgrammeId: programmeBefore,
+        now,
       });
     }
   }
+}
+
+type NotifiedRequest = ApprovalRequest & { id: string; title: string };
+
+/** The lead a pending request waits for now, if any (server only). */
+async function waitingLeadOf(
+  tx: Tx,
+  request: ApprovalRequest,
+  programmeId?: null | string
+): Promise<null | string> {
+  if (request.status !== "pending") {
+    return null;
+  }
+  let lead: null | string | undefined;
+  if (programmeId === undefined) {
+    lead = await leadApproverFor(tx, request);
+  } else {
+    const programme = programmeId
+      ? await tx.run(zql.programme.where("id", programmeId).one())
+      : undefined;
+    lead = programmeId
+      ? leadApproverOf(
+          {
+            ...request,
+            chargedProgrammeId: programmeId,
+            chargedTo: "programme",
+          },
+          () => programme?.leadUserId
+        )
+      : null;
+  }
+  return lead && leadStepOutstanding(request, lead) ? lead : null;
+}
+
+/**
+ * After an edit, a reset, a claimant change or a re-charge: when the request
+ * now waits for a lead it didn't wait for before (their approval was
+ * cleared, or it moved to their programme), tell that lead, with the
+ * `request_submitted` message under a key of its own.
+ * `beforeProgrammeId` names the programme before an event moved.
+ */
+export async function notifyIfLeadNowWaiting(
+  tx: Tx,
+  ctx: Context,
+  kind: "reimbursement" | "vendorPayment",
+  {
+    after,
+    before,
+    beforeProgrammeId,
+    now,
+  }: {
+    after: NotifiedRequest;
+    before: NotifiedRequest;
+    beforeProgrammeId?: null | string;
+    now: number;
+  }
+): Promise<void> {
+  if (tx.location !== "server") {
+    return;
+  }
+  const [was, is] = await Promise.all([
+    waitingLeadOf(tx, before, beforeProgrammeId),
+    waitingLeadOf(tx, after),
+  ]);
+  if (!is || is === was) {
+    return;
+  }
+  const submitterName = await userName(tx, after.userId);
+  const { id, title } = after;
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      if (kind === "reimbursement") {
+        await enqueue(
+          "notify-reimbursement-submitted",
+          {
+            leadUserId: is,
+            leadWaitingAgainAt: now,
+            reimbursementId: id,
+            submitterName,
+            title,
+          },
+          { traceId: ctx.traceId }
+        );
+      } else {
+        await enqueue(
+          "notify-vendor-payment-submitted",
+          {
+            leadUserId: is,
+            leadWaitingAgainAt: now,
+            submitterName,
+            title,
+            vendorPaymentId: id,
+          },
+          { traceId: ctx.traceId }
+        );
+      }
+    },
+    meta: {
+      leadUserId: is,
+      mutator: `${kind}:leadWaitingAgain`,
+      requestId: id,
+    },
+  });
 }
 
 export const LEAD_APPROVAL_MOVED_NOTE =

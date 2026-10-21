@@ -44,6 +44,8 @@ interface SubmittedOptions {
   leadApproval?: { at: number; leadName: string };
   /** The programme lead who reviews it first, instead of finance. */
   leadUserId?: string;
+  /** It waits for that lead again (their approval cleared, or it moved). */
+  leadWaitingAgainAt?: number;
   submitterName: string;
   title: string;
 }
@@ -178,6 +180,7 @@ export function createSubmissionNotifier({
       entityId,
       leadApproval,
       leadUserId,
+      leadWaitingAgainAt,
       title,
       submitterName,
     }) {
@@ -193,12 +196,16 @@ export function createSubmissionNotifier({
       let baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
       if (leadApproval) {
         baseMessage = `${leadApproval.leadName} approved "${title}" as programme lead — it needs your review.`;
+      } else if (leadUserId && leadWaitingAgainAt) {
+        baseMessage = `"${title}" from ${submitterName} is waiting for your review as programme lead again.`;
       } else if (leadUserId) {
         baseMessage = `${submitterName} submitted "${title}" — it needs your review as programme lead.`;
       }
       let idempotencyKey = `${idempotencyPrefix}-submitted-${entityId}`;
       if (leadApproval) {
         idempotencyKey = `${idempotencyPrefix}-lead-approved-${entityId}-${leadApproval.at}`;
+      } else if (leadUserId && leadWaitingAgainAt) {
+        idempotencyKey = `${idempotencyPrefix}-lead-waiting-again-${entityId}-${leadUserId}-${leadWaitingAgainAt}`;
       } else if (leadUserId) {
         idempotencyKey = `${idempotencyPrefix}-submitted-${entityId}-lead`;
       }

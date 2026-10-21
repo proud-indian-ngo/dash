@@ -109,3 +109,22 @@ export function pendingApprovalLabel(
   }
   return state.kind === "lead_approved" ? "Lead approved" : null;
 }
+
+/**
+ * Whether the viewer sees a request's payment evidence (payment proof,
+ * vouchers, signed vouchers, payee signatures): its claimant, and those who
+ * see everyone's requests. A programme lead sees its receipts only, the
+ * same allowlist the attachment download enforces.
+ */
+export function seesRequestEvidence(
+  request: { userId: string },
+  viewerId: string | undefined,
+  canViewAll: boolean
+): boolean {
+  return canViewAll || request.userId === viewerId;
+}
+
+/** The files a viewer without the evidence may open: the receipts. */
+export function isReceipt(attachment: { purpose?: null | string }): boolean {
+  return attachment.purpose === "receipt";
+}

@@ -138,6 +138,7 @@ async function linkVoucher(id: string) {
       id: attachmentId,
       mimeType: "application/pdf",
       objectKey: `${prefix}/vouchers/${id}/${attachmentId}-cash-voucher-E2E.pdf`,
+      purpose: "voucher",
       reimbursementId: id,
       type: "file",
       url: null,

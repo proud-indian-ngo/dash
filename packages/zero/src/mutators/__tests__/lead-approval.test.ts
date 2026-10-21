@@ -896,9 +896,260 @@ describe("the lead's approval is cleared when the request changes hands", () => 
     });
     const before = await eventProgrammes(db.tx as never, ["ev-arts"]);
     Object.assign(db.tables.teamEvent?.[0] ?? {}, { programmeId: "edu" });
-    await clearLeadApprovalsOnMovedEvents(db.tx as never, before, "admin", 5);
+    const adminCtx = ctx("admin", ["events.edit"]);
+    await clearLeadApprovalsOnMovedEvents(
+      db.tx as never,
+      adminCtx as never,
+      before,
+      5
+    );
+    // The new programme's lead hears it waits for them.
+    await Promise.all(adminCtx.asyncTasks.map((task) => task.fn()));
+    expect(enqueue).toHaveBeenCalledWith(
+      "notify-reimbursement-submitted",
+      expect.objectContaining({
+        leadUserId: "lead-edu",
+        leadWaitingAgainAt: 5,
+        reimbursementId: "r-1",
+      }),
+      { traceId: "trace-1" }
+    );
     const [pending, approved] = rows(db, "reimbursement");
     expect(pending?.leadApprovedAt).toBeNull();
     expect(approved?.leadApprovedBy).toBe("lead-edu");
+  });
+});
+
+describe("self-approval after approval", () => {
+  it("refuses changing the lines of your own approved reimbursement", async () => {
+    const db = createDb({
+      reimbursement: [
+        reimbursementRow({
+          createdBy: "finance",
+          leadSkipReason: "x",
+          status: "approved",
+          userId: "finance",
+        }),
+      ],
+      reimbursementLineItem: [lineItem()],
+    });
+    const editor = ctx("finance", [
+      ...FINANCE,
+      "requests.edit_all",
+      "requests.edit_all_statuses",
+    ]);
+    const args = {
+      attachments: [],
+      chargedProgrammeId: "edu",
+      chargedTo: "programme",
+      costCentreId: "blr",
+      expenseDate: Date.UTC(2026, 9, 1),
+      id: "r-1",
+      title: "Snacks",
+    };
+    await expect(
+      run(reimbursementMutators.update, db, editor, {
+        ...args,
+        lineItems: [
+          {
+            amountPaise: 90_000,
+            categoryId: "food",
+            description: "Snacks",
+            id: "li-1",
+          },
+        ],
+      })
+    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+    // The title alone is fine.
+    await run(reimbursementMutators.update, db, editor, {
+      ...args,
+      lineItems: [
+        {
+          amountPaise: 50_000,
+          categoryId: "food",
+          description: "Snacks",
+          id: "li-1",
+        },
+      ],
+      title: "Snacks for class",
+    });
+  });
+
+  const ownVp = (status: string) => ({
+    chargedProgrammeId: "nolead",
+    chargedTo: "programme",
+    costCentreId: "blr",
+    eventId: null,
+    id: "vp-1",
+    status,
+    title: "Lunch",
+    userId: "finance",
+    vendorId: "v-1",
+    voidedAt: null,
+  });
+
+  it("refuses resizing an approved payment on your own vendor payment", async () => {
+    const db = createDb({
+      vendorPayment: [ownVp("partially_paid")],
+      vendorPaymentLineItem: [
+        {
+          amountPaise: 10_000,
+          categoryId: "food",
+          id: "l",
+          vendorPaymentId: "vp-1",
+        },
+      ],
+      vendorPaymentTransaction: [
+        {
+          amountPaise: 5000,
+          id: "t-1",
+          status: "approved",
+          userId: "someone",
+          vendorPaymentId: "vp-1",
+          voidedAt: null,
+        },
+      ],
+      vendorPaymentTransactionAttachment: [],
+    });
+    await expect(
+      run(
+        vendorPaymentTransactionMutators.update,
+        db,
+        ctx("finance", [...FINANCE, "requests.edit_all"]),
+        {
+          amountPaise: 9000,
+          attachments: [],
+          id: "t-1",
+          transactionDate: Date.UTC(2026, 9, 1),
+        }
+      )
+    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+  });
+
+  it("refuses approving the invoice of your own vendor payment", async () => {
+    const db = createDb({ vendorPayment: [ownVp("invoice_pending")] });
+    await expect(
+      run(vendorPaymentMutators.approveInvoice, db, financeCtx(), {
+        id: "vp-1",
+      })
+    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+  });
+});
+
+describe("the lead hears when a request waits for them again", () => {
+  it("on an edit that clears their approval, and on a reset", async () => {
+    const db = createDb({
+      reimbursement: [
+        reimbursementRow({ leadApprovedAt: 1, leadApprovedBy: "lead-edu" }),
+      ],
+      reimbursementLineItem: [lineItem()],
+    });
+    const claimant = ctx("claimant", ["requests.create", "requests.edit_own"]);
+    await run(reimbursementMutators.update, db, claimant, {
+      attachments: [],
+      chargedProgrammeId: "edu",
+      chargedTo: "programme",
+      costCentreId: "blr",
+      expenseDate: Date.UTC(2026, 9, 1),
+      id: "r-1",
+      lineItems: [
+        {
+          amountPaise: 70_000,
+          categoryId: "food",
+          description: "Snacks",
+          id: "li-1",
+        },
+      ],
+      title: "Snacks",
+    });
+    await Promise.all(claimant.asyncTasks.map((task) => task.fn()));
+    expect(enqueue).toHaveBeenCalledWith(
+      "notify-reimbursement-submitted",
+      expect.objectContaining({
+        leadUserId: "lead-edu",
+        leadWaitingAgainAt: expect.any(Number),
+      }),
+      { traceId: "trace-1" }
+    );
+
+    enqueue.mockReset();
+    Object.assign(rows(db, "reimbursement")[0] ?? {}, {
+      leadApprovedAt: null,
+      leadSkipReason: "Urgent",
+      status: "approved",
+    });
+    const finance = ctx("finance", [...FINANCE, "requests.edit_all_statuses"]);
+    await run(reimbursementMutators.resetToPending, db, finance, { id: "r-1" });
+    await Promise.all(finance.asyncTasks.map((task) => task.fn()));
+    expect(enqueue).toHaveBeenCalledWith(
+      "notify-reimbursement-submitted",
+      expect.objectContaining({ leadUserId: "lead-edu" }),
+      { traceId: "trace-1" }
+    );
+  });
+
+  it("when finance moves it onto a programme with a lead, not when it stays", async () => {
+    const db = createDb({
+      reimbursement: [
+        reimbursementRow({
+          chargedProgrammeId: null,
+          chargedTo: "organisation",
+        }),
+      ],
+    });
+    const finance = financeCtx();
+    await run(reimbursementMutators.setChargedTo, db, finance, {
+      chargedProgrammeId: "arts",
+      chargedTo: "programme",
+      id: "r-1",
+    });
+    await Promise.all(finance.asyncTasks.map((task) => task.fn()));
+    expect(enqueue).toHaveBeenCalledWith(
+      "notify-reimbursement-submitted",
+      expect.objectContaining({ leadUserId: "lead-arts" }),
+      { traceId: "trace-1" }
+    );
+
+    enqueue.mockReset();
+    const again = financeCtx();
+    await run(reimbursementMutators.setChargedTo, db, again, {
+      chargedProgrammeId: "arts",
+      chargedTo: "programme",
+      id: "r-1",
+    });
+    await Promise.all(again.asyncTasks.map((task) => task.fn()));
+    expect(
+      enqueue.mock.calls.filter(
+        ([name]) => name === "notify-reimbursement-submitted"
+      )
+    ).toEqual([]);
+  });
+});
+
+describe("a programme lead syncs only the receipts", () => {
+  it("filters a lead's attachments to receipts; the claimant keeps all", () => {
+    const tables: ScopeTables = {
+      reimbursement: [{ id: "r-1", userId: "claimant" }],
+    };
+    const files: ScopeRow[] = [
+      { id: "a", purpose: "receipt", reimbursementId: "r-1" },
+      { id: "b", purpose: "payment_proof", reimbursementId: "r-1" },
+      { id: "c", purpose: "signed_voucher", reimbursementId: "r-1" },
+      { id: "d", purpose: "payee_signature", reimbursementId: "r-1" },
+    ];
+    const attachmentsFor = (userId: string) => {
+      const { ast } = reimbursementQueries.byId.fn({
+        args: { id: "r-1" },
+        ctx: { permissions: ["requests.view_own"], role: "volunteer", userId },
+      } as never) as unknown as {
+        ast: { related: { subquery: ScopeAst & { alias: string } }[] };
+      };
+      const sub = ast.related.find((r) => r.subquery.alias === "attachments");
+      return files
+        .filter((row) => matchesScope(row, sub?.subquery.where, tables))
+        .map((row) => row.id);
+    };
+    expect(attachmentsFor("lead-edu")).toEqual(["a"]);
+    expect(attachmentsFor("claimant")).toEqual(["a", "b", "c", "d"]);
   });
 });

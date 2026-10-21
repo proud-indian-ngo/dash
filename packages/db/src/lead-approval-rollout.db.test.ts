@@ -88,3 +88,73 @@ it.skipIf(!localDatabase)(
     }
   }
 );
+
+const purposeStatements = readFileSync(
+  join(
+    import.meta.dirname,
+    "migrations/0179_reimbursement_attachment_purpose.sql"
+  ),
+  "utf8"
+)
+  .split("--> statement-breakpoint")
+  .map((statement) => statement.trim())
+  .filter((statement) =>
+    statement
+      .replaceAll(/^--.*$/gm, "")
+      .trim()
+      .startsWith("UPDATE ")
+  );
+
+it.skipIf(!localDatabase)(
+  "classifies files so a lead only ever reaches receipts, legacy signed copies included",
+  async () => {
+    const client = new SQL(databaseUrl as string, { max: 1 });
+    try {
+      await client.begin(async (sql: TransactionSQL) => {
+        await sql.unsafe(
+          `CREATE TEMP TABLE reimbursement_attachment (id uuid PRIMARY KEY, reimbursement_id text, object_key text, created_at timestamp, purpose text DEFAULT 'receipt') ON COMMIT DROP;
+           CREATE TEMP TABLE reimbursement_line_item (id text PRIMARY KEY, voucher_attachment_id uuid, signed_voucher_attachment_id uuid, payee_signature_attachment_id uuid) ON COMMIT DROP;
+           CREATE TEMP TABLE reimbursement_history (id text PRIMARY KEY, reimbursement_id text, note text, metadata jsonb, created_at timestamp) ON COMMIT DROP;
+           INSERT INTO reimbursement_attachment VALUES
+             ('00000000-0000-7000-8000-000000000001', 'r1', 'app/attachments/reimbursements/r1/receipt.jpg', '2026-05-01', 'receipt'),
+             ('00000000-0000-7000-8000-000000000002', 'r1', 'app/approval-screenshots/reimbursements/r1/approval-screenshots/p.png', '2026-05-02', 'receipt'),
+             ('00000000-0000-7000-8000-000000000003', 'r1', 'app/vouchers/r1/v.pdf', '2026-05-02', 'receipt'),
+             ('00000000-0000-7000-8000-000000000004', 'r1', 'app/attachments/reimbursements/r1/signature.png', '2026-05-01', 'receipt'),
+             ('00000000-0000-7000-8000-000000000005', 'r1', 'app/attachments/reimbursements/r1/old-signed.jpg', '2026-05-03', 'receipt'),
+             ('00000000-0000-7000-8000-000000000006', 'r1', 'app/attachments/reimbursements/r1/linked-signed.jpg', '2026-05-04', 'receipt'),
+             ('00000000-0000-7000-8000-000000000007', 'r2', 'app/attachments/reimbursements/r2/receipt.jpg', '2026-06-01', 'receipt');
+           INSERT INTO reimbursement_line_item VALUES
+             ('li1', '00000000-0000-7000-8000-000000000003', '00000000-0000-7000-8000-000000000006', NULL);
+           INSERT INTO reimbursement_history VALUES
+             ('h1', 'r1', 'Payee signature collected from Ravi', '{"attachmentId":"00000000-0000-7000-8000-000000000004"}', '2026-05-01'),
+             ('h2', 'r1', 'Signed voucher uploaded', NULL, '2026-05-03');`
+        );
+        for (const statement of purposeStatements) {
+          await sql.unsafe(statement);
+        }
+        const rows = (await sql.unsafe(
+          "SELECT right(id::text, 1) AS n, purpose FROM reimbursement_attachment ORDER BY id"
+        )) as { n: string; purpose: string }[];
+        expect(
+          Object.fromEntries(rows.map((row) => [row.n, row.purpose]))
+        ).toEqual({
+          "1": "receipt",
+          "2": "payment_proof",
+          "3": "voucher",
+          "4": "payee_signature",
+          // Replaced long ago: no link, no ID in history, still refused.
+          "5": "signed_voucher",
+          "6": "signed_voucher",
+          "7": "receipt",
+        });
+        throw new Rollback();
+      });
+    } catch (error) {
+      if (!(error instanceof Rollback)) {
+        throw error;
+      }
+    } finally {
+      await client.close();
+    }
+  }
+);

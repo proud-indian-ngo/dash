@@ -65,6 +65,7 @@ import {
   leadApproverFor,
   leadSkipReasonArg,
   linesChange,
+  notifyIfLeadNowWaiting,
   programmeChanges,
 } from "./lead-approval";
 import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
@@ -262,6 +263,7 @@ async function keepProofAsAttachment(
     id,
     mimeType: imageMimeTypeOf(objectKey),
     objectKey,
+    purpose: "payment_proof",
     reimbursementId,
     type: "file",
     url: null,
@@ -818,6 +820,7 @@ export const reimbursementMutators = {
       await tx.mutate.reimbursementAttachment.insert({
         createdAt: now,
         filename: signedCopy.filename,
+        purpose: "signed_voucher",
         id: signedCopy.id,
         mimeType: signedCopy.mimeType ?? null,
         objectKey,
@@ -948,6 +951,7 @@ export const reimbursementMutators = {
       await tx.mutate.reimbursementAttachment.insert({
         createdAt: now,
         filename: PAYEE_SIGNATURE_FILENAME,
+        purpose: "payee_signature",
         id: args.attachmentId,
         mimeType: PAYEE_SIGNATURE_MIME_TYPE,
         objectKey,
@@ -1001,6 +1005,8 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
+      // As it was, to tell whether it now waits for a lead.
+      const entityBefore = { ...entity };
       if (entity.userId !== args.previousUserId) {
         throw new Error("The claimant changed meanwhile. Reload and try again");
       }
@@ -1082,6 +1088,15 @@ export const reimbursementMutators = {
       if (tx.location !== "server") {
         return;
       }
+      await notifyIfLeadNowWaiting(tx, ctx, "reimbursement", {
+        after: {
+          ...entity,
+          ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
+          userId: args.userId,
+        },
+        before: entityBefore,
+        now,
+      });
       // The payout names the claimant: a posted request is reversed and
       // reposted to the new one.
       queuePosting(ctx, tx, args.id, "reimbursement.changeClaimant");
@@ -1191,8 +1206,12 @@ export const reimbursementMutators = {
       "created",
       now,
       {
+        // Files attached with the claim are its receipts.
         insertAttachment: (data) =>
-          tx.mutate.reimbursementAttachment.insert(data),
+          tx.mutate.reimbursementAttachment.insert({
+            ...data,
+            purpose: "receipt",
+          }),
         insertHistory: (data) =>
           tx.mutate.reimbursementHistory.insert({
             ...data,
@@ -1438,6 +1457,8 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
+      // As it was, to tell whether it now waits for a lead.
+      const entityBefore = { ...entity };
 
       if (entity.status === "pending") {
         throw new Error("Reimbursement is already pending");
@@ -1472,6 +1493,11 @@ export const reimbursementMutators = {
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         reimbursementId: args.id,
       });
+      await notifyIfLeadNowWaiting(tx, ctx, "reimbursement", {
+        after: { ...entity, ...CLEARED_LEAD_APPROVAL, status: "pending" },
+        before: entityBefore,
+        now,
+      });
       // Un-approving a posted request reverses it in the books.
       queuePosting(ctx, tx, args.id, "reimbursement.resetToPending");
     }
@@ -1486,6 +1512,8 @@ export const reimbursementMutators = {
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
     assertNotVoided(entity);
+    // As it was, to tell whether it now waits for a lead.
+    const entityBefore = { ...entity };
     assertCanChangeCharge(ctx, entity);
     if (await isPostedInBooks(tx, ledgerSource(args.id))) {
       throw new Error(POSTED_CHARGE_MESSAGE);
@@ -1526,6 +1554,15 @@ export const reimbursementMutators = {
         reimbursementId: args.id,
       });
     }
+    await notifyIfLeadNowWaiting(tx, ctx, "reimbursement", {
+      after: {
+        ...entity,
+        ...charge,
+        ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
+      },
+      before: entityBefore,
+      now,
+    });
     queuePosting(ctx, tx, args.id, "reimbursement.setChargedTo");
   }),
 
@@ -1565,6 +1602,8 @@ export const reimbursementMutators = {
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
     assertNotVoided(entity);
+    // As it was, to tell whether it now waits for a lead.
+    const entityBefore = { ...entity };
     assertCanModify(
       entity,
       userId,
@@ -1588,6 +1627,13 @@ export const reimbursementMutators = {
       tx.run(zql.reimbursementLineItem.where("reimbursementId", args.id)),
       tx.run(zql.reimbursementAttachment.where("reimbursementId", args.id)),
     ]);
+    const purposeByObjectKey = new Map(
+      attachmentsBefore.flatMap((attachment) =>
+        attachment.objectKey
+          ? [[attachment.objectKey, attachment.purpose] as const]
+          : []
+      )
+    );
     // Kept payment proof is evidence: only an approver may remove it.
     const keptIds = new Set(args.attachments.map((a) => a.id));
     if (
@@ -1623,6 +1669,13 @@ export const reimbursementMutators = {
       limitPaise: await readCashVoucherLimit(tx),
     });
 
+    // Nobody changes what they're paid on their own approved request.
+    if (
+      entity.status === "approved" &&
+      linesChange(itemsBefore, args.lineItems)
+    ) {
+      assertNotOwnRequest(ctx, entity);
+    }
     // What the lead approved changed: they look at it again.
     const clearsLead =
       entity.status === "pending" &&
@@ -1651,6 +1704,16 @@ export const reimbursementMutators = {
         reimbursementId: args.id,
       });
     }
+    await notifyIfLeadNowWaiting(tx, ctx, "reimbursement", {
+      after: {
+        ...entity,
+        ...charge,
+        ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
+        title: args.title,
+      },
+      before: entityBefore,
+      now,
+    });
 
     await replaceRelations(
       fk(args.id),
@@ -1662,8 +1725,16 @@ export const reimbursementMutators = {
         deleteAttachment: (data) =>
           tx.mutate.reimbursementAttachment.delete(data),
         deleteLineItem: (data) => tx.mutate.reimbursementLineItem.delete(data),
+        // The edit form re-saves every file: one already on the request
+        // keeps what it is (by its stored object), a new one is a receipt.
         insertAttachment: (data) =>
-          tx.mutate.reimbursementAttachment.insert(data),
+          tx.mutate.reimbursementAttachment.insert({
+            ...data,
+            purpose:
+              (data.objectKey
+                ? purposeByObjectKey.get(data.objectKey)
+                : undefined) ?? "receipt",
+          }),
         insertHistory: (data) => tx.mutate.reimbursementHistory.insert(data),
         insertLineItem: withPlannedVoucherFields(voucherPlans, (data) =>
           tx.mutate.reimbursementLineItem.insert(data)

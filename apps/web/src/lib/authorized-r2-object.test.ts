@@ -2,11 +2,6 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 const hoisted = <T>(factory: () => T): T => factory();
 
-const listMocks = hoisted(() => ({
-  reimbursementHistory: mock(),
-  reimbursementLineItem: mock(),
-}));
-
 const queryMocks = hoisted(() => ({
   advancePayment: mock(),
   advancePaymentAttachment: mock(),
@@ -32,12 +27,6 @@ mock.module("@pi-dash/db", () => ({
         Object.entries(queryMocks).map(([name, findFirst]) => [
           name,
           { findFirst, findMany: async () => [] },
-        ])
-      ),
-      ...Object.fromEntries(
-        Object.entries(listMocks).map(([name, findMany]) => [
-          name,
-          { findFirst: async () => null, findMany },
         ])
       ),
     },
@@ -75,10 +64,6 @@ beforeEach(() => {
   for (const mock of Object.values(queryMocks)) {
     mock.mockReset();
     mock.mockResolvedValue(null);
-  }
-  for (const mock of Object.values(listMocks)) {
-    mock.mockReset();
-    mock.mockResolvedValue([]);
   }
 });
 
@@ -199,12 +184,13 @@ describe("resolveAuthorizedR2Object", () => {
     });
   });
 
-  it("lets the programme lead open a receipt, never a payee signature", async () => {
+  it("lets the programme lead open receipts only", async () => {
     const lead = { user: { id: "lead", role: "volunteer" } };
     queryMocks.reimbursementAttachment.mockResolvedValue({
       filename: "receipt.pdf",
       id: "attachment-1",
       objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      purpose: "receipt",
       reimbursementId: "request-1",
       type: "file",
     });
@@ -228,16 +214,30 @@ describe("resolveAuthorizedR2Object", () => {
       key: "app/attachments/reimbursements/request-1/receipt.pdf",
     });
 
-    listMocks.reimbursementLineItem.mockResolvedValue([
-      {
-        payeeSignatureAttachmentId: "attachment-1",
-        signedVoucherAttachmentId: null,
-        voucherAttachmentId: null,
-      },
-    ]);
+    // Anything but a receipt is refused: a payee signature, or a legacy
+    // signed voucher with no link or history that the migration marked.
+    for (const purpose of [
+      "payee_signature",
+      "signed_voucher",
+      "payment_proof",
+      "voucher",
+    ]) {
+      queryMocks.reimbursementAttachment.mockResolvedValue({
+        filename: "file.png",
+        id: "attachment-1",
+        objectKey: "app/attachments/reimbursements/request-1/file.png",
+        purpose,
+        reimbursementId: "request-1",
+        type: "file",
+      });
+      await expect(
+        resolveAuthorizedR2Object(lead, ref, deps)
+      ).rejects.toBeInstanceOf(R2ObjectAccessError);
+    }
+    // The claimant still opens their own.
     await expect(
-      resolveAuthorizedR2Object(lead, ref, deps)
-    ).rejects.toBeInstanceOf(R2ObjectAccessError);
+      resolveAuthorizedR2Object(session, ref, deps)
+    ).resolves.toMatchObject({ filename: "file.png" });
   });
 
   it("gives a lead nothing on the Unallocated holder", async () => {
@@ -246,6 +246,7 @@ describe("resolveAuthorizedR2Object", () => {
       filename: "receipt.pdf",
       id: "attachment-1",
       objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      purpose: "receipt",
       reimbursementId: "request-1",
       type: "file",
     });

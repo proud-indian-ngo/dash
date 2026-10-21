@@ -67,6 +67,8 @@ export interface NotifyReimbursementSubmittedPayload {
   leadApproval?: LeadApprovalNotice;
   /** The programme lead who reviews first; finance otherwise. */
   leadUserId?: string;
+  /** The request waits for that lead again (cleared or moved), at this time. */
+  leadWaitingAgainAt?: number;
   reimbursementId: string;
   submitterName: string;
   title: string;
@@ -159,6 +161,8 @@ export interface NotifyVendorPaymentSubmittedPayload {
   leadApproval?: LeadApprovalNotice;
   /** The programme lead who reviews first; finance otherwise. */
   leadUserId?: string;
+  /** The request waits for that lead again (cleared or moved), at this time. */
+  leadWaitingAgainAt?: number;
   submitterName: string;
   title: string;
   vendorPaymentId: string;

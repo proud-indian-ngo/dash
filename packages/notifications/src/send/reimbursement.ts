@@ -21,6 +21,7 @@ const notifier = createSubmissionNotifier({
 export async function notifyReimbursementSubmitted(options: {
   leadApproval?: { at: number; leadName: string };
   leadUserId?: string;
+  leadWaitingAgainAt?: number;
   reimbursementId: string;
   submitterName: string;
   title: string;
@@ -29,6 +30,7 @@ export async function notifyReimbursementSubmitted(options: {
     entityId: options.reimbursementId,
     leadApproval: options.leadApproval,
     leadUserId: options.leadUserId,
+    leadWaitingAgainAt: options.leadWaitingAgainAt,
     submitterName: options.submitterName,
     title: options.title,
   });

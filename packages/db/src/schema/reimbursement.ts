@@ -35,6 +35,27 @@ export const reimbursementStatusEnum = pgEnum(
   reimbursementStatusValues
 );
 
+/**
+ * What a reimbursement file is. Only receipts the claimant or creator
+ * attached reach the programme lead ("Approval policy"); payment proof,
+ * cash vouchers, signed vouchers and payee signatures never do.
+ */
+export const reimbursementAttachmentPurposeValues = [
+  "receipt",
+  "payment_proof",
+  "voucher",
+  "signed_voucher",
+  "payee_signature",
+] as const;
+
+export type ReimbursementAttachmentPurpose =
+  (typeof reimbursementAttachmentPurposeValues)[number];
+
+export const reimbursementAttachmentPurposeEnum = pgEnum(
+  "reimbursement_attachment_purpose",
+  reimbursementAttachmentPurposeValues
+);
+
 // Tables
 export const reimbursement = pgTable(
   "reimbursement",
@@ -210,6 +231,8 @@ export const reimbursementAttachment = pgTable(
     id: uuid("id").primaryKey(),
     mimeType: text("mime_type"),
     objectKey: text("object_key"),
+    /** Set by whoever adds the file; never defaulted, so nothing is a receipt by accident. */
+    purpose: reimbursementAttachmentPurposeEnum("purpose").notNull(),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),

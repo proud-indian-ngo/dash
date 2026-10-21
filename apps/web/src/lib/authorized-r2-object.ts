@@ -21,8 +21,6 @@ import { meeting } from "@pi-dash/db/schema/meetings";
 import {
   reimbursement,
   reimbursementAttachment,
-  reimbursementHistory,
-  reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import { scheduledMessage } from "@pi-dash/db/schema/scheduled-message";
 import { teamMember } from "@pi-dash/db/schema/team";
@@ -39,9 +37,8 @@ import { leadApproverOf } from "@pi-dash/shared/approval-policy";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import { circularReference } from "@pi-dash/shared/resolutions";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
-import { isLeadReadableReimbursementFile } from "./lead-attachment-access";
 import {
   authorizeEventPhoto,
   authorizeR2Object,
@@ -260,32 +257,11 @@ async function resolveReimbursementAttachment(
   if (!parent) {
     return null;
   }
-  const [lineItems, history] = await Promise.all([
-    db.query.reimbursementLineItem.findMany({
-      columns: {
-        payeeSignatureAttachmentId: true,
-        signedVoucherAttachmentId: true,
-        voucherAttachmentId: true,
-      },
-      where: eq(reimbursementLineItem.reimbursementId, parent.id),
-    }),
-    db.query.reimbursementHistory.findMany({
-      columns: { metadata: true },
-      where: and(
-        eq(reimbursementHistory.reimbursementId, parent.id),
-        isNotNull(reimbursementHistory.metadata)
-      ),
-    }),
-  ]);
-  const leadReadable = isLeadReadableReimbursementFile({
-    history,
-    id: attachment.id,
-    lineItems,
-    objectKey: attachment.objectKey,
-  });
+  // Allowlist: the lead opens only receipts, never payment proof, vouchers,
+  // signed vouchers or payee signatures.
   return requestRecord(attachment.objectKey, attachment.filename, [
     parent.userId,
-    ...(leadReadable ? await leadApproverIds(parent) : []),
+    ...(attachment.purpose === "receipt" ? await leadApproverIds(parent) : []),
   ]);
 }
 
@@ -331,10 +307,13 @@ async function resolveVendorPaymentAttachment(
   const parent = await db.query.vendorPayment.findFirst({
     where: eq(vendorPayment.id, attachment.vendorPaymentId),
   });
+  // The lead judges the request by its quotation, not the invoice.
   return parent
     ? requestRecord(attachment.objectKey, attachment.filename, [
         parent.userId,
-        ...(await leadApproverIds(parent)),
+        ...(attachment.purpose === "quotation"
+          ? await leadApproverIds(parent)
+          : []),
       ])
     : null;
 }
