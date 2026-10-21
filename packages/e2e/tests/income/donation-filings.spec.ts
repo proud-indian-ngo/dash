@@ -99,9 +99,20 @@ test.describe("Donations return filings", () => {
       timeout: 15_000,
     });
 
-    // Record: the upload file downloads with a Pre-ARN on every row.
+    // Record with Pre-ARNs pasted from the portal (fake ones): the upload
+    // file downloads with one on every row, in Sr. No. order.
     await page.getByRole("button", { name: "Record filing" }).click();
     const confirm = page.getByRole("alertdialog");
+    await confirm.getByRole("button", { name: "From the portal" }).click();
+    const prefix = `E2EPRE${Date.now().toString(36).toUpperCase()}`;
+    await confirm
+      .getByRole("textbox", { name: "Portal Pre-ARNs" })
+      .fill(
+        Array.from(
+          { length: 10 },
+          (_, index) => `${prefix}${String(index + 1).padStart(3, "0")}`
+        ).join("\n")
+      );
     const downloadPromise = page.waitForEvent("download");
     await confirm.getByRole("button", { name: "Record filing" }).click();
     const download = await downloadPromise;
@@ -114,11 +125,11 @@ test.describe("Donations return filings", () => {
     expect(header?.startsWith("Sr. No.,Pre Acknowledgement Number,")).toBe(
       true
     );
-    const short = fy.replace(/^\d{2}(\d{2})-(\d{2})$/, "$1$2");
+    expect(lines[0]?.startsWith(`1,${prefix}001,`)).toBe(true);
     const readyLine = lines.find((line) => line.includes(READY_DONOR));
     expect(readyLine).toMatch(
       new RegExp(
-        `^\\d+,PI${short}F01R\\d{5},Permanent Account Number,${READY_DONOR_PAN},`
+        `^\\d+,${prefix}\\d{3},Permanent Account Number,${READY_DONOR_PAN},`
       )
     );
 
@@ -170,13 +181,24 @@ test.describe("Donations return filings", () => {
     });
     await upload.getByRole("button", { name: "Upload certificates" }).click();
     const result = upload.getByTestId("certificate-upload-result");
+    // The first row's certificate has no Pre-ARN: matched by details, it
+    // waits for review.
     await expect(
       result.getByRole("region", { exact: true, name: "Matched" })
-    ).toContainText(`Matched (${zip.rowCount})`, { timeout: 30_000 });
+    ).toContainText(`Matched (${zip.rowCount - 1})`, { timeout: 30_000 });
+    await expect(
+      result.getByRole("region", { name: "Needs review" })
+    ).toContainText("Needs review (1)");
     await expect(
       result.getByRole("region", { name: "Not matched" })
     ).toContainText("stray.pdf");
     await upload.getByRole("button", { name: "Done" }).click();
+    const review = sheet.getByTestId("filing-row-review");
+    await expect(review).toHaveCount(1);
+    await expect(review).toContainText("ending");
+    await review.getByRole("button", { name: "Confirm match" }).click();
+    await expect(page.getByText("Certificate confirmed")).toBeVisible();
+    await expect(sheet.getByTestId("filing-row-review")).toHaveCount(0);
     const readyRow = sheet
       .getByTestId("filing-row")
       .filter({ hasText: READY_DONOR });

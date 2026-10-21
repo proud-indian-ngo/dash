@@ -1,5 +1,10 @@
 import type { PartyIdType } from "@pi-dash/shared/constants";
-import type { FilingPlanRow } from "@pi-dash/shared/donations-return";
+import {
+  CERTIFICATE_EMAIL_STALE_MS,
+  type FiledGift,
+  type FilingDrift,
+  type FilingPlanRow,
+} from "@pi-dash/shared/donations-return";
 import { and, asc, count, eq, inArray, max, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -7,6 +12,7 @@ import { db } from "..";
 import { encryptSecret, revealSecret, visibleTail } from "../encryption";
 import { filingRowIdContext } from "../encryption-contexts";
 import { user } from "../schema/auth";
+import { contribution, contributionRefund } from "../schema/income";
 import {
   donationCertificate,
   donationFiling,
@@ -64,13 +70,16 @@ export async function nextFilingSequence(
   return (row?.last ?? 0) + 1;
 }
 
-/** Gift ID to filing number, for gifts in a live filing of the year. */
+/**
+ * Every gift in a live filing, of any year: its filing's number and the net
+ * amount it was filed at. Discarded filings hold no links.
+ */
 export async function loadFiledSequences(
-  fiscalYear: string,
   reader: Reader = db
-): Promise<Map<string, number>> {
+): Promise<Map<string, FiledGift>> {
   const rows = await reader
     .select({
+      amountPaise: donationFilingGift.amountPaise,
       contributionId: donationFilingGift.contributionId,
       sequence: donationFiling.sequence,
     })
@@ -78,9 +87,28 @@ export async function loadFiledSequences(
     .innerJoin(
       donationFiling,
       eq(donationFiling.id, donationFilingGift.filingId)
-    )
-    .where(eq(donationFiling.fiscalYear, fiscalYear));
-  return new Map(rows.map((row) => [row.contributionId, row.sequence]));
+    );
+  return new Map(
+    rows.map((row) => [
+      row.contributionId,
+      { amountPaise: row.amountPaise, filingSequence: row.sequence },
+    ])
+  );
+}
+
+/** Pre-ARNs among `values` already on a row of any filing. */
+export async function usedPreArns(
+  tx: FilingTx,
+  values: readonly string[]
+): Promise<Set<string>> {
+  if (values.length === 0) {
+    return new Set();
+  }
+  const rows = await tx
+    .select({ preArn: donationFilingRow.preArn })
+    .from(donationFilingRow)
+    .where(inArray(donationFilingRow.preArn, [...values]));
+  return new Set(rows.flatMap((row) => (row.preArn ? [row.preArn] : [])));
 }
 
 export interface NewFilingRow extends FilingPlanRow {
@@ -89,6 +117,8 @@ export interface NewFilingRow extends FilingPlanRow {
 
 export interface NewFiling {
   createdBy: string;
+  /** Each gift's net amount as filed. */
+  giftNetPaise: ReadonlyMap<string, number>;
   file: { name: string; objectKey: string; sha256: string };
   fiscalYear: string;
   id: string;
@@ -108,10 +138,29 @@ function chunks<T>(items: readonly T[]): T[][] {
   return out;
 }
 
+/** The violated constraint and detail of a database error, through its causes. */
+function constraintViolation(
+  error: unknown
+): { constraint: string; detail: string } | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current instanceof Object; depth += 1) {
+    const e = current as Record<string, unknown>;
+    if (typeof e.constraint === "string") {
+      return {
+        constraint: e.constraint,
+        detail: typeof e.detail === "string" ? e.detail : "",
+      };
+    }
+    current = e.cause;
+  }
+  return null;
+}
+
 /**
  * Writes a filing, its frozen rows and the links from each gift to its row,
  * in the caller's transaction. A gift already in a live filing fails the
- * whole insert on the link's primary key.
+ * whole insert on the link's primary key, reported as a FilingError naming
+ * the gift's donor.
  */
 export async function insertFiling(tx: FilingTx, filing: NewFiling) {
   const rows = filing.rows.map((row) => {
@@ -157,13 +206,32 @@ export async function insertFiling(tx: FilingTx, filing: NewFiling) {
   }
   const links = rows.flatMap((row) =>
     row.giftIds.map((contributionId) => ({
+      amountPaise: filing.giftNetPaise.get(contributionId) ?? 0,
       contributionId,
       filingId: filing.id,
       rowId: row.value.id,
     }))
   );
-  for (const part of chunks(links)) {
-    await tx.insert(donationFilingGift).values(part);
+  try {
+    for (const part of chunks(links)) {
+      await tx.insert(donationFilingGift).values(part);
+    }
+  } catch (error) {
+    const violation = constraintViolation(error);
+    if (violation?.constraint !== "donation_filing_gift_pkey") {
+      throw error;
+    }
+    const giftId = links.find((link) =>
+      violation.detail.includes(link.contributionId)
+    )?.contributionId;
+    const donor = rows.find((row) =>
+      giftId ? row.giftIds.includes(giftId) : false
+    )?.value.name;
+    throw new FilingError(
+      giftId
+        ? `The gift ${giftId}${donor ? ` from ${donor}` : ""} is already in another filing.`
+        : "A gift is already in another filing."
+    );
   }
 }
 
@@ -219,6 +287,40 @@ export async function recordFilingSubmission(
 }
 
 /**
+ * Takes a recorded submission back (wrong references, or recorded before
+ * the upload went through): the filing is prepared again. Only while no
+ * certificate is attached, since certificates belong to the submission.
+ */
+export async function undoFilingSubmission(filingId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const filing = await lockFiling(tx, filingId);
+    if (filing.status !== "submitted") {
+      throw new FilingError("Only a submitted filing can be taken back.");
+    }
+    const [attached] = await tx
+      .select({ total: count() })
+      .from(donationCertificate)
+      .where(eq(donationCertificate.filingId, filingId));
+    if ((attached?.total ?? 0) > 0) {
+      throw new FilingError(
+        "Certificates are attached to this filing, so its submission can't be taken back."
+      );
+    }
+    await tx
+      .update(donationFiling)
+      .set({
+        acknowledgementNumber: null,
+        filedOn: null,
+        status: "prepared",
+        submittedAt: null,
+        submittedBy: null,
+        transactionId: null,
+      })
+      .where(eq(donationFiling.id, filingId));
+  });
+}
+
+/**
  * Discards a filing that was never submitted: its gifts are free for the
  * next filing, while its number and Pre-ARNs stay used.
  */
@@ -247,9 +349,69 @@ export async function discardFiling(
   });
 }
 
+/**
+ * How each row's gifts differ now from what was filed: net amount after
+ * refunds, a reversal, an Exclude choice, or another donor. Such a row
+ * needs a revision on the portal.
+ */
+export async function loadFilingDrift(
+  filingIds: readonly string[]
+): Promise<Map<string, FilingDrift[]>> {
+  if (filingIds.length === 0) {
+    return new Map();
+  }
+  const gifts = await db
+    .select({
+      amountPaise: contribution.amountPaise,
+      deductionEligible: contribution.deductionEligible,
+      filedPaise: donationFilingGift.amountPaise,
+      partyId: contribution.partyId,
+      refundedPaise: sql<string>`(
+        select coalesce(sum(${contributionRefund.amountPaise}), 0)
+        from ${contributionRefund}
+        where ${contributionRefund.contributionId} = ${contribution.id}
+      )`,
+      rowId: donationFilingGift.rowId,
+      rowPartyId: donationFilingRow.partyId,
+      status: contribution.status,
+    })
+    .from(donationFilingGift)
+    .innerJoin(
+      contribution,
+      eq(contribution.id, donationFilingGift.contributionId)
+    )
+    .innerJoin(
+      donationFilingRow,
+      eq(donationFilingRow.id, donationFilingGift.rowId)
+    )
+    .where(inArray(donationFilingGift.filingId, [...filingIds]));
+  const drift = new Map<string, Set<FilingDrift>>();
+  for (const gift of gifts) {
+    const reasons = drift.get(gift.rowId) ?? new Set<FilingDrift>();
+    const net = Math.max(0, gift.amountPaise - Number(gift.refundedPaise));
+    if (gift.status === "reversed") {
+      reasons.add("reversed");
+    } else if (net !== gift.filedPaise) {
+      reasons.add("amount");
+    }
+    if (gift.deductionEligible === "no") {
+      reasons.add("excluded");
+    }
+    if (gift.partyId !== gift.rowPartyId) {
+      reasons.add("donor");
+    }
+    if (reasons.size > 0) {
+      drift.set(gift.rowId, reasons);
+    }
+  }
+  return new Map([...drift].map(([rowId, reasons]) => [rowId, [...reasons]]));
+}
+
 export interface FilingSummary {
   acknowledgementNumber: string | null;
   certificateCount: number;
+  /** Rows whose gifts changed since filing (they need a portal revision). */
+  driftCount: number;
   createdAt: Date;
   createdByName: string | null;
   emailedCount: number;
@@ -314,11 +476,24 @@ export async function listFilings(
     )
     .groupBy(donationCertificate.filingId);
   const byFiling = new Map(counts.map((row) => [row.filingId, row]));
+  const live = filings.filter((filing) => filing.status !== "discarded");
+  const drift = await loadFilingDrift(live.map((filing) => filing.id));
+  const driftRows =
+    drift.size === 0
+      ? []
+      : await db
+          .select({
+            filingId: donationFilingRow.filingId,
+            id: donationFilingRow.id,
+          })
+          .from(donationFilingRow)
+          .where(inArray(donationFilingRow.id, [...drift.keys()]));
   return filings.map((filing) => {
     const tally = byFiling.get(filing.id);
     return {
       ...filing,
       certificateCount: tally?.certificates ?? 0,
+      driftCount: driftRows.filter((row) => row.filingId === filing.id).length,
       emailedCount: tally?.emailed ?? 0,
       emailFailedCount: tally?.failed ?? 0,
       emailQueuedCount: tally?.queued ?? 0,
@@ -326,31 +501,42 @@ export async function listFilings(
   });
 }
 
+/** The name a certificate's PDF is served and emailed under. */
+export const certificateFileName = (acknowledgementNumber: string) =>
+  `Form-114-${acknowledgementNumber}.pdf`;
+
 /** Whether the donor can be emailed now: an address that never bounced. */
 export type DonorEmailState = "ok" | "none" | "suppressed";
 
 export interface FilingCertificateView {
   acknowledgementNumber: string;
+  /** Null while a details match waits for finance to confirm it. */
+  confirmedAt: Date | null;
   emailedAt: Date | null;
   emailFailure: CertificateEmailFailure | null;
   emailQueuedAt: Date | null;
+  /** `Form-114-<acknowledgement>.pdf`, never the name inside the ZIP. */
   fileName: string;
   id: string;
   matchedBy: CertificateMatch;
 }
 
-/** A frozen row as the page shows it: never the ID number. */
+/** A frozen row as the page shows it: the ID masked, never in full. */
 export interface FilingRowView {
   amountPaise: number;
   certificate: FilingCertificateView | null;
   donationTypeCode: string;
+  /** How its gifts changed since filing; empty when they haven't. */
+  drift: FilingDrift[];
   emailState: DonorEmailState;
   giftCount: number;
   id: string;
+  idCode: string;
+  idNumberLast4: string | null;
   modeCode: string;
   name: string;
   partyId: string;
-  preArn: string;
+  preArn: string | null;
   srNo: number;
 }
 
@@ -366,16 +552,18 @@ export async function loadFilingRows(
     .select({
       amountPaise: donationFilingRow.amountPaise,
       certificateAck: donationCertificate.acknowledgementNumber,
+      certificateConfirmedAt: donationCertificate.confirmedAt,
       certificateEmailedAt: donationCertificate.emailedAt,
       certificateEmailFailure: donationCertificate.emailFailure,
       certificateEmailQueuedAt: donationCertificate.emailQueuedAt,
-      certificateFileName: donationCertificate.fileName,
       certificateId: donationCertificate.id,
       certificateMatchedBy: donationCertificate.matchedBy,
       donationTypeCode: donationFilingRow.donationTypeCode,
       emailState: emailStateSql,
       giftCount: donationFilingRow.giftCount,
       id: donationFilingRow.id,
+      idCode: donationFilingRow.idCode,
+      idNumberLast4: donationFilingRow.idNumberLast4,
       modeCode: donationFilingRow.modeCode,
       name: donationFilingRow.name,
       partyId: donationFilingRow.partyId,
@@ -394,24 +582,29 @@ export async function loadFilingRows(
     )
     .where(eq(donationFilingRow.filingId, filingId))
     .orderBy(asc(donationFilingRow.srNo));
+  const drift = await loadFilingDrift([filingId]);
   return rows.map((row) => ({
     amountPaise: row.amountPaise,
     certificate:
       row.certificateId && row.certificateAck && row.certificateMatchedBy
         ? {
             acknowledgementNumber: row.certificateAck,
+            confirmedAt: row.certificateConfirmedAt,
             emailedAt: row.certificateEmailedAt,
             emailFailure: row.certificateEmailFailure,
             emailQueuedAt: row.certificateEmailQueuedAt,
-            fileName: row.certificateFileName ?? "",
+            fileName: certificateFileName(row.certificateAck),
             id: row.certificateId,
             matchedBy: row.certificateMatchedBy,
           }
         : null,
     donationTypeCode: row.donationTypeCode,
+    drift: drift.get(row.id) ?? [],
     emailState: row.emailState,
     giftCount: row.giftCount,
     id: row.id,
+    idCode: row.idCode,
+    idNumberLast4: row.idNumberLast4,
     modeCode: row.modeCode,
     name: row.name,
     partyId: row.partyId,
@@ -459,7 +652,7 @@ export interface FilingMatchRow {
   idNumber: string | null;
   modeCode: string;
   name: string;
-  preArn: string;
+  preArn: string | null;
 }
 
 export async function loadFilingMatchRows(
@@ -523,7 +716,11 @@ export interface NewCertificate {
   rowId: string;
 }
 
-/** Stores matched certificates against a submitted filing, in one transaction. */
+/**
+ * Stores matched certificates against a submitted filing, in one
+ * transaction. A Pre-ARN match is confirmed as stored; a details match waits
+ * for finance to confirm it.
+ */
 export async function insertCertificates(
   filingId: string,
   certificates: readonly NewCertificate[],
@@ -544,12 +741,68 @@ export async function insertCertificates(
       await tx.insert(donationCertificate).values(
         part.map((certificate) => ({
           ...certificate,
+          confirmedAt: certificate.matchedBy === "pre_arn" ? now : null,
+          confirmedBy: certificate.matchedBy === "pre_arn" ? userId : null,
           createdAt: now,
           createdBy: userId,
           filingId,
         }))
       );
     }
+  });
+}
+
+/** Locks a certificate of a submitted filing for a review decision. */
+async function lockCertificateForReview(tx: FilingTx, certificateId: string) {
+  const [certificate] = await tx
+    .select({
+      confirmedAt: donationCertificate.confirmedAt,
+      filingId: donationCertificate.filingId,
+    })
+    .from(donationCertificate)
+    .where(eq(donationCertificate.id, certificateId))
+    .for("update");
+  if (!certificate) {
+    throw new FilingError("Certificate not found.");
+  }
+  if (certificate.confirmedAt) {
+    throw new FilingError("This certificate is already confirmed.");
+  }
+  return certificate;
+}
+
+/**
+ * Finance confirms a details match after comparing the certificate with
+ * the row; only then can it be emailed.
+ */
+export async function confirmCertificate(
+  certificateId: string,
+  userId: string,
+  now: Date
+): Promise<{ filingId: string }> {
+  return await db.transaction(async (tx) => {
+    const certificate = await lockCertificateForReview(tx, certificateId);
+    await tx
+      .update(donationCertificate)
+      .set({ confirmedAt: now, confirmedBy: userId })
+      .where(eq(donationCertificate.id, certificateId));
+    return { filingId: certificate.filingId };
+  });
+}
+
+/**
+ * Finance rejects a details match: the certificate is removed, so its row
+ * has none again. Its file is left for the orphan cleanup.
+ */
+export async function rejectCertificate(
+  certificateId: string
+): Promise<{ filingId: string }> {
+  return await db.transaction(async (tx) => {
+    const certificate = await lockCertificateForReview(tx, certificateId);
+    await tx
+      .delete(donationCertificate)
+      .where(eq(donationCertificate.id, certificateId));
+    return { filingId: certificate.filingId };
   });
 }
 
@@ -566,10 +819,12 @@ export interface CertificateEmailPlan {
 }
 
 /**
- * Claims certificates for emailing in the caller's transaction, so the jobs
- * are sent only if the claim commits. Without `certificateIds` it takes every
- * certificate of the filing never emailed and not already on its way (a
- * failed send is taken again); with them it is an explicit resend of those.
+ * Claims confirmed certificates for emailing in the caller's transaction,
+ * so the jobs are sent only if the claim commits. Without `certificateIds`
+ * it takes every certificate of the filing never emailed and not on its way
+ * (a failed send, or one queued over `CERTIFICATE_EMAIL_STALE_MS` ago with
+ * no outcome, is taken again); with them it is an explicit resend of those,
+ * unless one is still on its way.
  * Each claim gets a new request ID: the job sends only while the certificate
  * still carries it, so one certificate never has two sends in flight. The
  * filing's row lock serialises claims, so two clicks can't both claim.
@@ -586,9 +841,10 @@ export async function claimCertificateEmails(
   }
   const candidates = await tx
     .select({
+      confirmedAt: donationCertificate.confirmedAt,
       emailedAt: donationCertificate.emailedAt,
       emailFailure: donationCertificate.emailFailure,
-      emailRequestId: donationCertificate.emailRequestId,
+      emailQueuedAt: donationCertificate.emailQueuedAt,
       emailState: emailStateSql,
       id: donationCertificate.id,
       name: donationFilingRow.name,
@@ -618,11 +874,16 @@ export async function claimCertificateEmails(
     suppressed: [],
   };
   for (const certificate of candidates) {
+    const onItsWay =
+      certificate.emailQueuedAt !== null &&
+      certificate.emailedAt === null &&
+      certificate.emailFailure === null &&
+      input.now.getTime() - certificate.emailQueuedAt.getTime() <
+        CERTIFICATE_EMAIL_STALE_MS;
     const due =
-      input.certificateIds !== undefined ||
-      (certificate.emailedAt === null &&
-        (certificate.emailRequestId === null ||
-          certificate.emailFailure !== null));
+      certificate.confirmedAt !== null &&
+      !onItsWay &&
+      (input.certificateIds !== undefined || certificate.emailedAt === null);
     if (!due) {
       continue;
     }

@@ -1,4 +1,5 @@
 import {
+  certificateFileName,
   loadCertificateFile,
   loadFilingHeader,
 } from "@pi-dash/db/queries/donation-filings";
@@ -157,7 +158,7 @@ export function handleCertificateDownload(
         return certificate
           ? {
               contentType: "application/pdf",
-              fileName: `Form-114-${certificate.acknowledgementNumber}.pdf`,
+              fileName: certificateFileName(certificate.acknowledgementNumber),
               objectKey: certificate.fileObjectKey,
             }
           : null;

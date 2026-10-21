@@ -4,6 +4,7 @@ import {
   Edit02Icon,
   Mail01Icon,
   MoreHorizontalIcon,
+  Undo02Icon,
   Upload04Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
@@ -15,6 +16,7 @@ import type {
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { FILING_DRIFT_LABELS } from "@pi-dash/shared/donations-return";
 import { formatPaise } from "@pi-dash/shared/money";
 import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
@@ -32,6 +34,7 @@ import { getDonationFilingRows } from "@/functions/donation-filings";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 
 import {
+  canSendRow,
   certificateStatus,
   emailableCount,
   FILING_STATUS,
@@ -83,25 +86,35 @@ export interface FilingSheetActions {
     filingId: string;
     manualNames: string[];
   }) => void;
+  onReview: (certificateId: string, decision: "confirm" | "reject") => void;
   onSubmit: (filing: FilingSummary) => void;
+  onUndoSubmission: (filing: FilingSummary) => void;
   onUpload: (filing: FilingSummary, rowNames: Map<string, string>) => void;
 }
+
+const maskedId = (row: FilingRowView) =>
+  row.idNumberLast4
+    ? `${row.idCode} ending ${row.idNumberLast4}`
+    : `${row.idCode} (hidden)`;
 
 function RowItem({
   canManage,
   canViewSensitive,
   onPreview,
   onResend,
+  onReview,
   row,
 }: {
   canManage: boolean;
   canViewSensitive: boolean;
   onPreview: (row: FilingRowView) => void;
   onResend: (row: FilingRowView) => void;
+  onReview: FilingSheetActions["onReview"];
   row: FilingRowView;
 }) {
   const status = certificateStatus(row);
   const certificate = row.certificate;
+  const reviewing = certificate !== null && !certificate.confirmedAt;
   const actions = certificate
     ? [
         canViewSensitive && {
@@ -123,7 +136,7 @@ function RowItem({
           ),
         },
         canManage &&
-          row.emailState === "ok" && {
+          canSendRow(row) && {
             icon: Mail01Icon,
             id: "resend",
             label: certificate.emailedAt ? "Resend email" : "Send email",
@@ -141,7 +154,7 @@ function RowItem({
         <span className="text-muted-foreground truncate font-mono text-xs tabular-nums">
           {[
             `${row.srNo}`,
-            row.preArn,
+            row.preArn ?? "No Pre-ARN",
             formatPaise(row.amountPaise),
             row.donationTypeCode,
             row.modeCode,
@@ -154,6 +167,59 @@ function RowItem({
               ? ` · emailed ${format(certificate.emailedAt, DATE_TIME)}`
               : ""}
           </span>
+        ) : null}
+        {row.drift.length > 0 ? (
+          <span
+            className="text-warning-foreground text-xs"
+            data-testid="filing-row-drift"
+          >
+            Changed since filing, needs a portal revision:{" "}
+            {row.drift.map((reason) => FILING_DRIFT_LABELS[reason]).join(", ")}
+          </span>
+        ) : null}
+        {reviewing ? (
+          <div
+            className="mt-1 flex flex-col gap-1.5 rounded-md border p-2 text-xs"
+            data-testid="filing-row-review"
+          >
+            <span>
+              Matched by ID number, amount and name, not by Pre-ARN. Check the
+              certificate shows {row.name}, {maskedId(row)} and{" "}
+              {formatPaise(row.amountPaise)} before confirming.
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {canViewSensitive ? (
+                <Button
+                  onClick={() => onPreview(row)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Open certificate
+                </Button>
+              ) : null}
+              {canManage ? (
+                <>
+                  <Button
+                    onClick={() => onReview(certificate.id, "confirm")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Confirm match
+                  </Button>
+                  <Button
+                    onClick={() => onReview(certificate.id, "reject")}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    Not this row
+                  </Button>
+                </>
+              ) : null}
+            </div>
+          </div>
         ) : null}
       </div>
       <StatusBadge data-testid="filing-row-status" tone={status.tone}>
@@ -320,6 +386,14 @@ function FilingSheetBody({
         onSelect: () => actions.onSubmit(filing),
       },
     canManage &&
+      submitted &&
+      filing.certificateCount === 0 && {
+        icon: Undo02Icon,
+        id: "undo-submission",
+        label: "Take back submission",
+        onSelect: () => actions.onUndoSubmission(filing),
+      },
+    canManage &&
       filing.status === "prepared" && {
         destructive: true,
         icon: Delete02Icon,
@@ -416,6 +490,7 @@ function FilingSheetBody({
                   key={row.id}
                   onPreview={setPreview}
                   onResend={handleResend}
+                  onReview={actions.onReview}
                   row={row}
                 />
               ))}

@@ -1,6 +1,8 @@
 import type { FilingRowView } from "@pi-dash/db/queries/donation-filings";
 import {
   FIRST_RETURN_DAY,
+  MAX_FILING_ROWS,
+  PRE_ARN_PATTERN,
   parseReturnYear,
 } from "@pi-dash/shared/donations-return";
 import { INCOME_PERMISSIONS, todayInKolkata } from "@pi-dash/shared/income";
@@ -21,7 +23,9 @@ import {
   queueCertificateEmails,
   type RecordedFiling,
   recordFiling,
+  reviewCertificate,
   submitFiling,
+  undoSubmission,
   uploadCertificates,
 } from "@/lib/donation-filings/server";
 import { DonationsReturnError } from "@/lib/donations-return-export";
@@ -49,7 +53,16 @@ export const getDonationFilingRows = createServerFn({ method: "POST" })
 
 export const recordDonationFiling = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ financialYear: z.string().max(10) }))
+  .validator(
+    z.object({
+      financialYear: z.string().max(10),
+      /** Portal-issued, in the order to assign; null leaves the column empty. */
+      preArns: z
+        .array(z.string().regex(PRE_ARN_PATTERN))
+        .max(MAX_FILING_ROWS * 2)
+        .nullable(),
+    })
+  )
   .handler(async ({ context, data }): Promise<RecordedFiling> => {
     await assertServerPermission(context.session, "finance.manage");
     await assertServerPermission(context.session, "finance.view_sensitive");
@@ -68,15 +81,19 @@ export const recordDonationFiling = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "donation_filing.record",
-        metadata: { financialYear: fy.label },
+        metadata: {
+          financialYear: fy.label,
+          preArnsGiven: data.preArns?.length ?? 0,
+        },
         target: { type: "donation_filing" },
       },
-      () => recordFiling(fy, session.user.id),
+      () => recordFiling(fy, data.preArns, session.user.id),
       undefined,
       (result) => ({ id: result.filingId, type: "donation_filing" }),
       (result) => ({
         financialYear: fy.label,
         giftCount: result.giftCount,
+        preArnsGiven: data.preArns?.length ?? 0,
         rowCount: result.rowCount,
         sequence: result.sequence,
       })
@@ -131,6 +148,56 @@ export const submitDonationFiling = createServerFn({ method: "POST" })
           },
           session.user.id
         )
+    );
+  });
+
+/** Takes a recorded submission back while no certificate is attached. */
+export const undoDonationFilingSubmission = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(filingInput)
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "donation_filing.undo_submission",
+        target: { id: data.filingId, type: "donation_filing" },
+      },
+      () => undoSubmission(data.filingId)
+    );
+  });
+
+/**
+ * Confirms a certificate matched by donor details, after finance compared
+ * it with the row, or rejects it (the certificate is removed).
+ */
+export const reviewDonationCertificate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      certificateId: z.uuid(),
+      decision: z.enum(["confirm", "reject"]),
+    })
+  )
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: `donation_certificate.${data.decision}`,
+        target: { id: data.certificateId, type: "donation_certificate" },
+      },
+      () =>
+        reviewCertificate(data.certificateId, data.decision, session.user.id)
     );
   });
 

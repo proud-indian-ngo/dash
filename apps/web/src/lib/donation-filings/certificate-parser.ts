@@ -1,4 +1,8 @@
-import { normalizeIdNumber } from "@pi-dash/shared/donations-return";
+import {
+  normalizeIdNumber,
+  RETURN_DONATION_TYPE_VALUES,
+  RETURN_MODE_CODES,
+} from "@pi-dash/shared/donations-return";
 import { unzipSync } from "fflate";
 
 import type { UnmatchedReason } from "./certificate-terms";
@@ -12,11 +16,14 @@ import type { UnmatchedReason } from "./certificate-terms";
  * UNVERIFIED, from the portal's user manual and FAQ only:
  * - The portal's download is a ZIP of one PDF per uploaded row; file names
  *   inside it are unknown, so names are never used to match.
- * - A certificate reuses the row's Pre-ARN when the row had one.
- * - A certificate prints its own acknowledgement number after a label like
- *   "Acknowledgement Number" or "Acknowledgement No." (`ACK_LABEL`).
- * - It prints the donor's ID number and the amount; it may print the
- *   donation type and mode as the upload file wrote them.
+ * - A certificate reuses the row's portal-issued Pre-ARN when the row had
+ *   one, printed as a token of its own.
+ * - A certificate prints its own acknowledgement number (with at least one
+ *   digit) after a label like "Acknowledgement Number" (`ACK_LABEL`).
+ * - It prints the donor's name, the ID number after "Unique Identification
+ *   Number" (`ID_LABEL`) and the amount after a label starting "Amount"
+ *   (`AMOUNT_LABEL`); it may print "Donation Type" and "Mode of receipt"
+ *   as the upload file wrote them.
  * - Its text can be extracted (it is not a scanned image).
  */
 
@@ -138,33 +145,85 @@ export async function extractPdfText(bytes: Uint8Array): Promise<string> {
   }
 }
 
-/** Our Pre-ARN anywhere in the text (see `formatPreArn`). */
-const PRE_ARN_IN_TEXT = /PI\d{4}F\d{2}R\d{5}/g;
-/** The certificate's own number after its label; assumed wording. */
+/**
+ * The certificate's own number after its label; assumed wording. The value
+ * must hold a digit, so prose such as "Acknowledgement Number generated
+ * for" is never taken for one.
+ */
 const ACK_LABEL =
-  /(?<!pre-?\s*)acknowledge?ment\s*(?:receipt\s*)?(?:number|no\.?)\s*(?:of\s+form\s*114\s*)?[:\-–]?\s*([A-Z0-9]{8,21})\b/gi;
+  /(?<!pre-?\s*)acknowledge?ment\s*(?:receipt\s*)?(?:number|no\.?)\s*(?:of\s+form\s*114\s*)?[:\-–]?\s*((?=[A-Z]*\d)[A-Z0-9]{8,21})\b/gi;
+/** The donor's ID after its label; assumed wording. */
+const ID_LABEL =
+  /unique\s+identification\s+number(?:\s+of\s+the\s+donor)?\s*[:\-–]?\s*([A-Z0-9][A-Z0-9\-/]*)/i;
+/** The amount after a label starting "Amount"; assumed wording. */
+const AMOUNT_LABEL =
+  /amount[^:\d]{0,40}[:\-–]\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*(?:\.\d{1,2})?)(?![\d,])/i;
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The first known value printed right after a label, as the upload wrote it. */
+function labelledValue(
+  text: string,
+  label: string,
+  values: readonly string[]
+): string | null {
+  const match = new RegExp(
+    `${label}\\s*[:\\-–]?\\s*(${values.map((value) => escapeRegExp(value.toLowerCase())).join("|")})`
+  ).exec(text);
+  const found = match?.[1];
+  return found
+    ? (values.find((value) => value.toLowerCase() === found) ?? null)
+    : null;
+}
 
 export interface CertificateFields {
   /** Labelled acknowledgement numbers, in reading order. */
   acknowledgementNumbers: string[];
-  /** Upper case with every space removed, for numbers split across runs. */
-  compact: string;
-  /** Pre-ARNs (ours) printed on the certificate. */
-  preArns: string[];
+  /** The amount after its label, in paise; null when there is no label. */
+  amountPaise: number | null;
+  /** The donation type after its label, as a known code; null when absent. */
+  donationType: string | null;
+  /** The donor's ID after its label, normalised; null when there is no label. */
+  idNumber: string | null;
+  /** The mode of receipt after its label, as a known code; null when absent. */
+  mode: string | null;
   /** Lower case with runs of space collapsed. */
   text: string;
+  /** Every run of letters and digits, upper case. */
+  tokens: ReadonlySet<string>;
 }
 
 export function readCertificateFields(raw: string): CertificateFields {
-  const compact = raw.replace(/\s+/g, "").toUpperCase();
-  const text = raw.replace(/\s+/g, " ").trim().toLowerCase();
+  const spaced = raw.replace(/\s+/g, " ").trim();
+  const text = spaced.toLowerCase();
+  const amount = AMOUNT_LABEL.exec(spaced)?.[1];
+  const id = ID_LABEL.exec(spaced)?.[1];
   return {
-    acknowledgementNumbers: [...raw.replace(/\s+/g, " ").matchAll(ACK_LABEL)]
+    acknowledgementNumbers: [...spaced.matchAll(ACK_LABEL)]
       .map((match) => (match[1] ?? "").toUpperCase())
       .filter(Boolean),
-    compact,
-    preArns: [...new Set(compact.match(PRE_ARN_IN_TEXT) ?? [])],
+    amountPaise: amount
+      ? Math.round(Number(amount.replaceAll(",", "")) * 100)
+      : null,
+    donationType: labelledValue(
+      text,
+      "donation type",
+      RETURN_DONATION_TYPE_VALUES
+    ),
+    idNumber: id ? normalizeIdNumber(id) : null,
+    mode: labelledValue(
+      text,
+      "mode of receipt",
+      Object.values(RETURN_MODE_CODES)
+    ),
     text,
+    tokens: new Set(
+      spaced
+        .toUpperCase()
+        .split(/[^A-Z0-9]+/)
+        .filter(Boolean)
+    ),
   };
 }
 
@@ -176,13 +235,15 @@ export interface MatchRow {
   id: string;
   idNumber: string | null;
   modeCode: string;
-  preArn: string;
+  name: string;
+  preArn: string | null;
 }
 
 export type CertificateDecision =
   | {
       acknowledgementNumber: string;
       kind: "matched";
+      /** A details match waits for finance to confirm it. */
       matchedBy: "pre_arn" | "details";
       rowId: string;
     }
@@ -190,81 +251,101 @@ export type CertificateDecision =
   | { kind: "already_stored"; rowId: string }
   | { kind: "unmatched"; reason: UnmatchedReason };
 
-const AMOUNT_FORMATS = (paise: number): string[] => {
+/**
+ * Shortest ID matched without a Pre-ARN: a shorter one could turn up inside
+ * any other number on the certificate.
+ */
+export const MIN_DETAILS_ID_LENGTH = 8;
+
+/**
+ * Whether the amount is printed: the labelled amount when there is one,
+ * else a whole formatted amount that isn't part of a date, year or other
+ * number.
+ */
+function printsAmount(fields: CertificateFields, paise: number): boolean {
+  if (fields.amountPaise !== null) {
+    return fields.amountPaise === paise;
+  }
   const rupees = paise / 100;
-  const whole = Number.isInteger(rupees);
   const grouped = new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
   }).format(rupees);
   const plain = rupees.toFixed(2);
-  return [
-    grouped,
-    plain,
-    ...(whole ? [grouped.slice(0, -3), plain.slice(0, -3)] : []),
-  ];
-};
-
-const escapeRegExp = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Whether the amount is printed as a number of its own, in any usual form. */
-function printsAmount(text: string, paise: number): boolean {
-  return AMOUNT_FORMATS(paise).some((format) =>
-    new RegExp(`(?<![\\d,.])${escapeRegExp(format)}(?![\\d,]|\\.\\d)`).test(
-      text
-    )
+  const formats = [grouped, plain];
+  if (Number.isInteger(rupees)) {
+    formats.push(grouped.slice(0, -3));
+  }
+  return formats.some((format) =>
+    new RegExp(
+      `(?<![\\d,./\\-])${escapeRegExp(format)}(?![\\d,/\\-]|\\.\\d)`
+    ).test(fields.text)
   );
 }
 
-function rowByDetails(
+/** Whether the donor's ID is printed: after its label, else as a whole token. */
+function printsId(fields: CertificateFields, idNumber: string): boolean {
+  const id = normalizeIdNumber(idNumber);
+  return fields.idNumber !== null
+    ? fields.idNumber === id
+    : fields.tokens.has(id);
+}
+
+const printsName = (fields: CertificateFields, name: string) =>
+  fields.text.includes(name.replace(/\s+/g, " ").trim().toLowerCase());
+
+function rowsByDetails(
   fields: CertificateFields,
   rows: readonly MatchRow[]
 ): MatchRow[] {
-  const byIdAndAmount = rows.filter(
+  const candidates = rows.filter(
     (row) =>
       row.idNumber !== null &&
-      fields.compact.includes(normalizeIdNumber(row.idNumber)) &&
-      printsAmount(fields.text, row.amountPaise)
+      normalizeIdNumber(row.idNumber).length >= MIN_DETAILS_ID_LENGTH &&
+      printsId(fields, row.idNumber) &&
+      printsAmount(fields, row.amountPaise) &&
+      printsName(fields, row.name)
   );
-  if (byIdAndAmount.length <= 1) {
-    return byIdAndAmount;
+  if (candidates.length <= 1) {
+    return candidates;
   }
-  // A donor with several rows of the same amount: the type and mode decide,
-  // and if they don't, the certificate stays ambiguous.
-  const byTypeAndMode = byIdAndAmount.filter(
+  // A donor with several rows of the same amount: the labelled type and
+  // mode decide, and if they don't, the certificate stays ambiguous.
+  const byLabels = candidates.filter(
     (row) =>
-      fields.text.includes(row.donationTypeCode.toLowerCase()) &&
-      fields.text.includes(row.modeCode.toLowerCase())
+      fields.donationType !== null &&
+      fields.mode !== null &&
+      row.donationTypeCode === fields.donationType &&
+      row.modeCode === fields.mode
   );
-  return byTypeAndMode.length === 1 ? byTypeAndMode : byIdAndAmount;
+  return byLabels.length === 1 ? byLabels : candidates;
 }
 
 /**
- * Matches one certificate: by our Pre-ARN when it carries one of this
- * filing's, else by the donor's ID number and the amount (type and mode
- * break a tie). Its acknowledgement number is the first labelled number that
- * isn't the filing's own, else the Pre-ARN it reuses.
+ * Matches one certificate: by the row's portal Pre-ARN when the certificate
+ * carries it as a whole token, else by the donor's ID, the amount and the
+ * donor's name (labelled type and mode break a tie). A details match is
+ * only a proposal: finance confirms it before it counts. The certificate's
+ * acknowledgement number is the first labelled number that isn't the
+ * filing's own, else the Pre-ARN it reuses.
  */
 export function matchCertificate(
   fields: CertificateFields,
   rows: readonly MatchRow[],
   filingAcknowledgementNumber: string | null
 ): Exclude<CertificateDecision, { kind: "already_stored" }> {
-  const byPreArn = new Map(rows.map((row) => [row.preArn, row]));
+  const byPreArn = rows.filter(
+    (row) => row.preArn !== null && fields.tokens.has(row.preArn)
+  );
   let matchedBy: "pre_arn" | "details" = "pre_arn";
   let row: MatchRow | undefined;
-  if (fields.preArns.length > 0) {
-    const ours = fields.preArns.filter((preArn) => byPreArn.has(preArn));
-    if (ours.length === 0) {
-      return { kind: "unmatched", reason: "other_filing" };
-    }
-    if (ours.length > 1) {
-      return { kind: "unmatched", reason: "several_rows" };
-    }
-    row = byPreArn.get(ours[0] as string);
+  if (byPreArn.length > 1) {
+    return { kind: "unmatched", reason: "several_rows" };
+  }
+  if (byPreArn.length === 1) {
+    row = byPreArn[0];
   } else {
-    const candidates = rowByDetails(fields, rows);
+    const candidates = rowsByDetails(fields, rows);
     if (candidates.length > 1) {
       return { kind: "unmatched", reason: "several_rows" };
     }
@@ -278,7 +359,7 @@ export function matchCertificate(
     (number) => number !== filingAcknowledgementNumber?.toUpperCase()
   );
   const acknowledgementNumber =
-    labelled ?? (matchedBy === "pre_arn" ? row.preArn : undefined);
+    labelled ?? (matchedBy === "pre_arn" ? row.preArn : null);
   if (!acknowledgementNumber) {
     return { kind: "unmatched", reason: "no_acknowledgement" };
   }

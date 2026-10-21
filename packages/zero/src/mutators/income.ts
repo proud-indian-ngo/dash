@@ -344,6 +344,15 @@ async function lockContribution(tx: Tx, id: string): Promise<void> {
   );
 }
 
+/** What a filed gift's frozen row reported, so it can't change after filing. */
+const FILING_LOCKED_FIELDS = [
+  "amountPaise",
+  "partyId",
+  "receivedOn",
+  "channel",
+  "reportingMode",
+] as const;
+
 /**
  * Whether a donations return filing holds the gift (server only: filings
  * are private). Its frozen row points at the gift, so the gift stays.
@@ -606,6 +615,23 @@ export const contributionMutators = {
         "Razorpay has settled this contribution to the bank, so its amount, donor, date, account and channel can't change"
       );
     }
+    const eligibility = normalizeEligibility(args, {
+      deductionEligible: existing.deductionEligible ?? "unknown",
+      eligibilityReason: existing.eligibilityReason ?? null,
+    });
+    // A filed gift's row is frozen: what the return reported stays as filed.
+    if (
+      (FILING_LOCKED_FIELDS.some(
+        (field) => (existing[field] ?? null) !== (values[field] ?? null)
+      ) ||
+        eligibility.deductionEligible !==
+          (existing.deductionEligible ?? "unknown")) &&
+      (await isFiledGift(tx, args.id))
+    ) {
+      throw new Error(
+        "This gift is in a donations return filing, so its amount, donor, date, channel, mode of receipt and tax certificate choice can't change. Correct it with a revision on the portal."
+      );
+    }
     if (
       (values.amountPaise !== existing.amountPaise ||
         values.orgAccountId !== (existing.orgAccountId ?? null) ||
@@ -638,10 +664,7 @@ export const contributionMutators = {
     assertFundFitsType(values);
     await tx.mutate.contribution.update({
       ...values,
-      ...normalizeEligibility(args, {
-        deductionEligible: existing.deductionEligible ?? "unknown",
-        eligibilityReason: existing.eligibilityReason ?? null,
-      }),
+      ...eligibility,
       id: args.id,
       updatedAt: Date.now(),
     });

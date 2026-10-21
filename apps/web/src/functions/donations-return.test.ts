@@ -49,7 +49,7 @@ mock.module("@/lib/donations-return-export", () => ({
   },
   DonationsReturnError,
 }));
-let filed = new Map<string, number>();
+let filed = new Map<string, { amountPaise: number; filingSequence: number }>();
 mock.module("@pi-dash/db/queries/donation-filings", () => ({
   listFilings: async () => [],
   loadFiledSequences: async () => filed,
@@ -227,7 +227,7 @@ describe("getDonationsReturnReadiness", () => {
 
   it("counts filed gifts apart and leaves them out of the next filing", async () => {
     granted = ["finance.view"];
-    filed = new Map([["g1", 1]]);
+    filed = new Map([["g1", { amountPaise: 90_000, filingSequence: 1 }]]);
     try {
       const result = (await call(fns.getDonationsReturnReadiness, {
         financialYear: "2026-27",
@@ -237,6 +237,8 @@ describe("getDonationsReturnReadiness", () => {
         >
       >;
       expect(result.summary.filedCount).toBe(1);
+      // The filed amount, not the gift's amount now.
+      expect(result.summary.filedPaise).toBe(90_000);
       expect(result.summary.readyCount).toBe(1);
       expect(result.gifts[0]?.outcome).toEqual({
         filingSequence: 1,

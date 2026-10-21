@@ -7,6 +7,7 @@ mock.module("@/lib/api-auth", () => ({
 mock.module("@/lib/audit", () => ({ runSessionAuditedAction: mock() }));
 mock.module("@/lib/s3", () => ({ getS3: mock() }));
 mock.module("@pi-dash/db/queries/donation-filings", () => ({
+  certificateFileName: (ack: string) => `Form-114-${ack}.pdf`,
   loadCertificateFile: async (id: string) =>
     id === CERTIFICATE
       ? {

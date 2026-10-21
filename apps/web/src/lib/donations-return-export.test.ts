@@ -73,7 +73,7 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   loadLiveReceiptNumbers: async () => new Map([["g1", "PI/2026-27/0001"]]),
 }));
 
-let filed = new Map<string, number>();
+let filed = new Map<string, { amountPaise: number; filingSequence: number }>();
 mock.module("@pi-dash/db/queries/donation-filings", () => ({
   loadFiledSequences: async () => filed,
 }));
@@ -100,7 +100,8 @@ const fy = {
 };
 
 const firstFiling = {
-  filedSequences: new Map<string, number>(),
+  filedGifts: new Map(),
+  preArns: null,
   reader: undefined,
   sequence: 1,
 };
@@ -131,16 +132,20 @@ describe("buildUploadFile", () => {
     expect(built.rows[0]).toMatchObject({
       giftIds: ["g1", "g2"],
       idType: "pan",
-      preArn: "PI2627F01R00001",
+      preArn: null,
       srNo: 1,
     });
+    expect([...built.giftNetPaise]).toEqual([
+      ["g1", 100_000],
+      ["g2", 40_000],
+    ]);
     expect(built.file.filename).toBe("donations-return-FY2026-27-filing-1.csv");
     const lines = built.file.csv.split("\n");
     expect(lines[0]).toBe(
       "Sr. No.,Pre Acknowledgement Number,ID Code,Unique Identification Number,Section Code,Unique Registration Number (URN),Date of Issuance of Unique Registration Number,Name of donor,Address of donor,Donation Type,Mode of receipt,Amount of donation (Indian Rupees)"
     );
     expect(lines[1]).toBe(
-      `1,PI2627F01R00001,Permanent Account Number,${PAN},Section 80G,AAATP1234AF20214,28-05-2021,Asha Rao,"Flat 2, ""Rose Villa"", Bengaluru, 560001",Specific grant,Electronic modes including account payee cheque/draft,1400.00`
+      `1,,Permanent Account Number,${PAN},Section 80G,AAATP1234AF20214,28-05-2021,Asha Rao,"Flat 2, ""Rose Villa"", Bengaluru, 560001",Specific grant,Electronic modes including account payee cheque/draft,1400.00`
     );
     expect(lines).toHaveLength(2);
   });
@@ -176,30 +181,51 @@ describe("buildUploadFile", () => {
     }
   });
 
-  it("leaves out gifts already in a filing and numbers the next filing's rows", async () => {
+  it("leaves out gifts already in a filing and writes portal Pre-ARNs in Sr. No. order", async () => {
     const built = await buildUploadFile(fy, {
-      filedSequences: new Map([["g1", 1]]),
+      filedGifts: new Map([
+        ["g1", { amountPaise: 100_000, filingSequence: 1 }],
+      ]),
+      preArns: ["PORTAL000001", "PORTAL000002"],
       reader: undefined,
       sequence: 2,
     });
     expect(built.giftCount).toBe(1);
     expect(built.rows.map((row) => [row.giftIds, row.preArn])).toEqual([
-      [["g2"], "PI2627F02R00001"],
+      [["g2"], "PORTAL000001"],
     ]);
     expect(built.file.csv.split("\n")[1]).toContain(
-      "1,PI2627F02R00001,Permanent Account Number,"
+      "1,PORTAL000001,Permanent Account Number,"
     );
     expect(built.file.csv.split("\n")[1]?.endsWith(",400.00")).toBe(true);
+  });
+
+  it("refuses fewer unused Pre-ARNs than rows", async () => {
+    const original = facts;
+    facts = () => ({
+      ...original(),
+      gifts: [
+        gift({ channel: "cash", id: "c1", reportingMode: "cash" }),
+        gift({ channel: "cash", id: "c2", reportingMode: "cash" }),
+      ],
+    });
+    try {
+      await expect(
+        buildUploadFile(fy, { ...firstFiling, preArns: ["PORTAL000001"] })
+      ).rejects.toThrow("2 rows but only 1 unused Pre-ARNs");
+    } finally {
+      facts = original;
+    }
   });
 
   it("refuses when every ready gift is already filed", async () => {
     await expect(
       buildUploadFile(fy, {
-        filedSequences: new Map([
-          ["g1", 1],
-          ["g2", 1],
+        ...firstFiling,
+        filedGifts: new Map([
+          ["g1", { amountPaise: 100_000, filingSequence: 1 }],
+          ["g2", { amountPaise: 40_000, filingSequence: 1 }],
         ]),
-        reader: undefined,
         sequence: 2,
       })
     ).rejects.toThrow("No gift is ready for a new filing");
@@ -272,7 +298,7 @@ describe("buildAllGiftsFile", () => {
   });
 
   it("marks gifts already in a filing", async () => {
-    filed = new Map([["g1", 2]]);
+    filed = new Map([["g1", { amountPaise: 100_000, filingSequence: 2 }]]);
     try {
       const lines = (await buildAllGiftsFile(fy)).file.csv.split("\n");
       expect(lines[1]).toContain("Filed,Filing 2");

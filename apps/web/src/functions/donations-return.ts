@@ -118,7 +118,7 @@ export const getDonationsReturnReadiness = createServerFn({ method: "POST" })
       const { gifts, summary } = assessReturn(
         facts.gifts,
         facts.donors,
-        await loadFiledSequences(fy.label)
+        await loadFiledSequences()
       );
       const exportRowCount = new Set(
         facts.gifts

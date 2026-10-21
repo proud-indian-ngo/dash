@@ -1,5 +1,4 @@
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
-import { formatPreArn } from "@pi-dash/shared/donations-return";
 import { SQL } from "bun";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -10,11 +9,13 @@ import { revealSecret } from "./encryption";
 import { filingRowIdContext } from "./encryption-contexts";
 import {
   claimCertificateEmails,
+  FilingError,
   type FilingTx,
   insertFiling,
   loadFiledSequences,
   nextFilingSequence,
   type NewFilingRow,
+  usedPreArns,
 } from "./queries/donation-filings";
 // biome-ignore lint/performance/noNamespaceImport: the test database needs the full Drizzle schema.
 import * as schema from "./schema";
@@ -117,8 +118,8 @@ async function fixture(tx: FilingTx) {
 function planRow(
   partyId: string,
   giftIds: string[],
-  sequence: number,
-  srNo: number
+  srNo: number,
+  preArn: string | null = null
 ): NewFilingRow {
   return {
     address: "1 Test Road, Testville, India, 560001",
@@ -131,20 +132,19 @@ function planRow(
     modeCode: "Electronic modes including account payee cheque/draft",
     name: "Filing Test Donor",
     partyId,
-    preArn: formatPreArn(FY, sequence, srNo),
+    preArn,
     srNo,
   };
 }
 
-async function record(
-  tx: FilingTx,
-  actorId: string,
-  rows: (sequence: number) => NewFilingRow[]
-) {
+async function record(tx: FilingTx, actorId: string, rows: NewFilingRow[]) {
   const id = uuidv7();
   const sequence = await nextFilingSequence(tx, FY);
   await insertFiling(tx, {
     createdBy: actorId,
+    giftNetPaise: new Map(
+      rows.flatMap((row) => row.giftIds.map((id) => [id, 100_000]))
+    ),
     file: {
       name: `filing-${sequence}.csv`,
       objectKey: `test/donation-filings/${id}/filing.csv`,
@@ -153,7 +153,7 @@ async function record(
     fiscalYear: FY,
     id,
     now: NOW,
-    rows: rows(sequence),
+    rows,
     sequence,
   });
   return { id, sequence };
@@ -167,14 +167,18 @@ it.skipIf(!localDatabase)(
       const donorId = await donor("donor@example.test");
       const first = await gift(donorId);
       const second = await gift(donorId);
-      const filing = await record(tx, actorId, (sequence) => [
-        planRow(donorId, [first], sequence, 1),
+      const preArn = `TESTPRE${uuidv7().slice(-8).toUpperCase()}`;
+      const filing = await record(tx, actorId, [
+        planRow(donorId, [first], 1, preArn),
       ]);
       const [row] = await tx
         .select()
         .from(donationFilingRow)
         .where(eq(donationFilingRow.filingId, filing.id));
-      expect(row?.preArn).toBe(formatPreArn(FY, filing.sequence, 1));
+      expect(row?.preArn).toBe(preArn);
+      expect([...(await usedPreArns(tx, [preArn, "TESTUNUSED1"]))]).toEqual([
+        preArn,
+      ]);
       expect(row?.idNumberEncrypted).not.toContain("AAAPT1234T");
       expect(
         revealSecret(
@@ -183,23 +187,29 @@ it.skipIf(!localDatabase)(
         )
       ).toBe("AAAPT1234T");
 
-      const filed = await loadFiledSequences(FY, tx);
-      expect(filed.get(first)).toBe(filing.sequence);
+      const filed = await loadFiledSequences(tx);
+      expect(filed.get(first)).toEqual({
+        amountPaise: 100_000,
+        filingSequence: filing.sequence,
+      });
       expect(filed.has(second)).toBe(false);
 
-      // A later filing that repeats a filed gift is refused as a whole.
+      // A later filing that repeats a filed gift is refused as a whole,
+      // naming the gift.
       await expect(
         tx.transaction((inner) =>
-          record(inner as unknown as FilingTx, actorId, (sequence) => [
-            planRow(donorId, [first, second], sequence, 1),
+          record(inner as unknown as FilingTx, actorId, [
+            planRow(donorId, [first, second], 1),
           ])
         )
-      ).rejects.toThrow();
-      const next = await record(tx, actorId, (sequence) => [
-        planRow(donorId, [second], sequence, 1),
-      ]);
+      ).rejects.toThrow(
+        new FilingError(
+          `The gift ${first} from Filing Test Donor is already in another filing.`
+        )
+      );
+      const next = await record(tx, actorId, [planRow(donorId, [second], 1)]);
       expect(next.sequence).toBe(filing.sequence + 1);
-      expect((await loadFiledSequences(FY, tx)).get(second)).toBe(
+      expect((await loadFiledSequences(tx)).get(second)?.filingSequence).toBe(
         next.sequence
       );
     });
@@ -213,9 +223,10 @@ it.skipIf(!localDatabase)(
       const { actorId, donor } = await fixture(tx);
       const withEmail = await donor("donor@example.test");
       const withoutEmail = await donor(null);
-      const filing = await record(tx, actorId, (sequence) => [
-        planRow(withEmail, [], sequence, 1),
-        planRow(withoutEmail, [], sequence, 2),
+      const filing = await record(tx, actorId, [
+        planRow(withEmail, [], 1),
+        planRow(withoutEmail, [], 2),
+        planRow(withEmail, [], 3),
       ]);
       await tx
         .update(donationFiling)
@@ -242,16 +253,19 @@ it.skipIf(!localDatabase)(
           fileSha256: id,
           filingId: filing.id,
           id,
-          matchedBy: "pre_arn",
+          // Row 3 matched by details and still waits for review.
+          ...(row.srNo === 3
+            ? { matchedBy: "details" as const }
+            : { confirmedAt: NOW, matchedBy: "pre_arn" as const }),
           rowId: row.id,
         });
       }
       const [emailed] = certificateIds as [string, string];
-      const claim = (ids?: string[]) =>
+      const claim = (ids?: string[], now = NOW) =>
         claimCertificateEmails(tx, {
           certificateIds: ids,
           filingId: filing.id,
-          now: NOW,
+          now,
         });
 
       const first = await claim();
@@ -259,8 +273,18 @@ it.skipIf(!localDatabase)(
         emailed,
       ]);
       expect(first.noEmail).toEqual(["Filing Test Donor"]);
-      // Queued and not failed: a second click claims nothing.
+      // Queued and not failed: a second click, or a resend, claims nothing;
+      // the unconfirmed details match is never claimed.
       expect((await claim()).claimed).toEqual([]);
+      expect((await claim([emailed])).claimed).toEqual([]);
+      // Queued over an hour ago with no outcome: stuck, so claimed again.
+      const stale = await claim(
+        undefined,
+        new Date(NOW.getTime() + 2 * 60 * 60 * 1000)
+      );
+      expect(stale.claimed.map((entry) => entry.certificateId)).toEqual([
+        emailed,
+      ]);
 
       // A failed send is claimed again, under a new request.
       await tx

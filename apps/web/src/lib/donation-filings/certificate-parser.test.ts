@@ -14,14 +14,17 @@ import {
   syntheticCertificatePdf,
 } from "./synthetic-certificate.test-helper";
 
+const ELECTRONIC = "Electronic modes including account payee cheque/draft";
+
 const row = (overrides: Partial<MatchRow>): MatchRow => ({
   amountPaise: 250_000,
   certificate: null,
   donationTypeCode: "Specific grant",
   id: "r1",
   idNumber: "AAAPE1234E",
-  modeCode: "Electronic modes including account payee cheque/draft",
-  preArn: "PI2627F01R00001",
+  modeCode: ELECTRONIC,
+  name: "Asha Rao",
+  preArn: "PORTALPRE0000001",
   ...overrides,
 });
 
@@ -31,7 +34,8 @@ const ROWS: MatchRow[] = [
     amountPaise: 100_000,
     id: "r2",
     idNumber: "BBBPE5678F",
-    preArn: "PI2627F01R00002",
+    name: "Bina Shah",
+    preArn: "PORTALPRE0000002",
   }),
   // The second donor again, by cash, for the same amount.
   row({
@@ -39,7 +43,8 @@ const ROWS: MatchRow[] = [
     id: "r3",
     idNumber: "BBBPE5678F",
     modeCode: "Cash",
-    preArn: "PI2627F01R00003",
+    name: "Bina Shah",
+    preArn: "PORTALPRE0000003",
   }),
 ];
 
@@ -49,10 +54,10 @@ const certificate = (
   acknowledgementNumber: "114000000000001",
   amount: "2,500.00",
   donationType: "Specific grant",
-  donorName: "Asha (Test) Rao",
+  donorName: "Asha Rao",
   idNumber: "AAAPE1234E",
-  mode: "Electronic modes including account payee cheque/draft",
-  preArn: "PI2627F01R00001",
+  mode: ELECTRONIC,
+  preArn: "PORTALPRE0000001",
   ...overrides,
 });
 
@@ -78,12 +83,21 @@ async function decide(
 }
 
 describe("reading a certificate", () => {
-  it("finds the acknowledgement number, Pre-ARN, ID and amount in the PDF text", async () => {
-    const fields = await fieldsOf(certificate());
+  it("finds the labelled acknowledgement number, ID, amount, type and mode", async () => {
+    const fields = await fieldsOf(certificate({ mode: "Cash" }));
     expect(fields.acknowledgementNumbers).toEqual(["114000000000001"]);
-    expect(fields.preArns).toEqual(["PI2627F01R00001"]);
-    expect(fields.compact).toContain("AAAPE1234E");
-    expect(fields.text).toContain("2,500.00");
+    expect(fields.idNumber).toBe("AAAPE1234E");
+    expect(fields.amountPaise).toBe(250_000);
+    expect(fields.donationType).toBe("Specific grant");
+    expect(fields.mode).toBe("Cash");
+    expect(fields.tokens.has("PORTALPRE0000001")).toBe(true);
+  });
+
+  it("never takes prose after the label for an acknowledgement number", () => {
+    const fields = readCertificateFields(
+      "Acknowledgement Number generated for this certificate is shown below. Acknowledgement No. 114999000000123"
+    );
+    expect(fields.acknowledgementNumbers).toEqual(["114999000000123"]);
   });
 
   it("unpacks the PDFs of a ZIP and lists anything else", () => {
@@ -106,7 +120,7 @@ describe("reading a certificate", () => {
 });
 
 describe("matching certificates to filing rows", () => {
-  it("matches by Pre-ARN and keeps the certificate's own number", async () => {
+  it("matches by the portal Pre-ARN and keeps the certificate's own number", async () => {
     expect(await decide([certificate()])).toEqual([
       {
         acknowledgementNumber: "114000000000001",
@@ -124,7 +138,7 @@ describe("matching certificates to filing rows", () => {
       matchCertificates([{ fields, name: "a.pdf", sha256: "x" }], ROWS, null)
     ).toEqual([
       {
-        acknowledgementNumber: "PI2627F01R00001",
+        acknowledgementNumber: "PORTALPRE0000001",
         kind: "matched",
         matchedBy: "pre_arn",
         rowId: "r1",
@@ -132,7 +146,7 @@ describe("matching certificates to filing rows", () => {
     ]);
   });
 
-  it("falls back to the donor's ID and amount without a Pre-ARN", async () => {
+  it("proposes a details match (for review) from the ID, amount and name", async () => {
     expect(await decide([certificate({ preArn: undefined })])).toEqual([
       {
         acknowledgementNumber: "114000000000001",
@@ -143,11 +157,65 @@ describe("matching certificates to filing rows", () => {
     ]);
   });
 
-  it("breaks a tie between a donor's rows by donation type and mode", async () => {
+  it("never matches an ID inside another number, such as a PIN code (reviewer's case)", async () => {
+    // The short ID 56003 used to match inside the PIN code 560034.
+    const shortRow = row({
+      amountPaise: 100_000,
+      id: "short",
+      idNumber: "56003",
+      name: "Ravi Kumar",
+      preArn: null,
+    });
+    const value = certificate({
+      address: "4 Lake Road, Bengaluru, 560034",
+      amount: "1,000.00",
+      donorName: "Ravi Kumar",
+      idLabel: false,
+      idNumber: "ZZZPZ9999Z",
+      preArn: undefined,
+    });
+    expect(await decide([value], [shortRow])).toEqual([
+      { kind: "unmatched", reason: "no_row" },
+    ]);
+    // Even printed as its own token, an ID under eight characters is too
+    // short to match without a Pre-ARN.
+    expect(await decide([{ ...value, idNumber: "56003" }], [shortRow])).toEqual(
+      [{ kind: "unmatched", reason: "no_row" }]
+    );
+    // A long ID only inside a longer number doesn't match either.
+    expect(
+      await decide(
+        [{ ...value, idNumber: "X12345678901" }],
+        [{ ...shortRow, idNumber: "12345678" }]
+      )
+    ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
+  });
+
+  it("needs the donor's name and the whole amount, not digits in a date", async () => {
+    expect(
+      await decide([
+        certificate({ donorName: "Someone Else", preArn: undefined }),
+      ])
+    ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
+    // ₹2,026 against a certificate printing only "Tax year: 2026-27".
+    const fields = readCertificateFields(
+      "Name of the donor: Asha Rao Unique Identification Number of the donor: AAAPE1234E Tax year: 2026-27 Acknowledgement Number: 114000000000001"
+    );
+    expect(
+      matchCertificates(
+        [{ fields, name: "a.pdf", sha256: "x" }],
+        [row({ amountPaise: 202_600, preArn: null })],
+        null
+      )
+    ).toEqual([{ kind: "unmatched", reason: "no_row" }]);
+  });
+
+  it("breaks a tie between a donor's rows by the labelled type and mode", async () => {
     expect(
       await decide([
         certificate({
-          amount: "1000",
+          amount: "1,000.00",
+          donorName: "Bina Shah",
           idNumber: "BBBPE5678F",
           mode: "Cash",
           preArn: undefined,
@@ -163,25 +231,14 @@ describe("matching certificates to filing rows", () => {
     ]);
   });
 
-  it("leaves unmatched what fits no row, several rows or another filing", async () => {
-    const decisions = await decide([
-      // Wrong amount for the donor.
-      certificate({ amount: "2,400.00", preArn: undefined }),
-      // Same donor and amount on two rows, mode not printed apart.
-      certificate({
-        amount: "1,000.00",
-        idNumber: "BBBPE5678F",
-        mode: "Others",
-        preArn: undefined,
-      }),
-      // A Pre-ARN from filing 2.
-      certificate({ preArn: "PI2627F02R00001" }),
-    ]);
-    expect(decisions).toEqual([
-      { kind: "unmatched", reason: "no_row" },
-      { kind: "unmatched", reason: "several_rows" },
-      { kind: "unmatched", reason: "other_filing" },
-    ]);
+  it("ignores 'cash' in boilerplate when breaking a tie", () => {
+    const fields = readCertificateFields(
+      "A donation in cash above Rs 2,000 is not deductible. Name of the donor: Bina Shah Unique Identification Number of the donor: BBBPE5678F Amount of donation: 1,000.00 Acknowledgement Number: 114000000000002"
+    );
+    expect(fields.mode).toBeNull();
+    expect(
+      matchCertificates([{ fields, name: "a.pdf", sha256: "x" }], ROWS, null)
+    ).toEqual([{ kind: "unmatched", reason: "several_rows" }]);
   });
 
   it("needs a number of its own when matched by details", async () => {
@@ -202,8 +259,9 @@ describe("matching certificates to filing rows", () => {
       certificate({ acknowledgementNumber: "114000000000002" }),
       certificate({
         amount: "1,000.00",
+        donorName: "Bina Shah",
         idNumber: "BBBPE5678F",
-        preArn: "PI2627F01R00002",
+        preArn: "PORTALPRE0000002",
       }),
     ]);
     expect(decisions.map((decision) => decision.kind)).toEqual([
@@ -211,14 +269,10 @@ describe("matching certificates to filing rows", () => {
       "unmatched",
       "unmatched",
     ]);
-    expect(decisions[1]).toEqual({
-      kind: "unmatched",
-      reason: "duplicate_in_upload",
-    });
-    expect(decisions[2]).toEqual({
-      kind: "unmatched",
-      reason: "acknowledgement_in_use",
-    });
+    expect(decisions.slice(1)).toEqual([
+      { kind: "unmatched", reason: "duplicate_in_upload" },
+      { kind: "unmatched", reason: "acknowledgement_in_use" },
+    ]);
   });
 
   it("recognises a re-uploaded certificate and refuses a different one for a row that has one", async () => {

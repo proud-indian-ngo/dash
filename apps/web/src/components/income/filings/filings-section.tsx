@@ -1,9 +1,16 @@
 import type { FilingSummary } from "@pi-dash/db/queries/donation-filings";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatPaise } from "@pi-dash/shared/money";
+import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  reviewDonationCertificate,
+  undoDonationFilingSubmission,
+} from "@/functions/donation-filings";
 import { DATE } from "@/lib/date-formats";
 
 import {
@@ -30,6 +37,11 @@ function filingFacts(filing: FilingSummary): string {
     );
   } else {
     facts.push(`recorded ${format(filing.createdAt, DATE)}`);
+  }
+  if (filing.driftCount > 0) {
+    facts.push(
+      `${filing.driftCount} ${filing.driftCount === 1 ? "row needs" : "rows need"} a portal revision`
+    );
   }
   return facts.join(" · ");
 }
@@ -70,10 +82,46 @@ export function FilingsSection({
   };
   const openFiling =
     filings.find((filing) => filing.id === openFilingId) ?? null;
+  const review = useServerFn(reviewDonationCertificate);
+  const undo = useServerFn(undoDonationFilingSubmission);
+  const handleReview = useEventCallback(
+    async (certificateId: string, decision: "confirm" | "reject") => {
+      await review({ data: { certificateId, decision } })
+        .then(() => {
+          toast.success(
+            decision === "confirm"
+              ? "Certificate confirmed"
+              : "Certificate removed from the row"
+          );
+          refresh();
+        })
+        .catch((error: unknown) => {
+          toast.error("Couldn't update the certificate", {
+            description:
+              error instanceof Error ? error.message : "Something went wrong",
+          });
+        });
+    }
+  );
+  const handleUndo = useEventCallback(async (filing: FilingSummary) => {
+    await undo({ data: { filingId: filing.id } })
+      .then(() => {
+        toast.success(`Filing ${filing.sequence} is waiting for upload again`);
+        refresh();
+      })
+      .catch((error: unknown) => {
+        toast.error("Couldn't take the submission back", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      });
+  });
   const actions: FilingSheetActions = {
     onDiscard: setDiscarding,
     onEmail: setEmailing,
+    onReview: handleReview,
     onSubmit: setSubmitting,
+    onUndoSubmission: handleUndo,
     onUpload: (filing, rowNames) => setUploading({ filing, rowNames }),
   };
 

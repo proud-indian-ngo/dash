@@ -13,6 +13,10 @@ export interface SyntheticCertificate {
   mode: string;
   /** The row's Pre-ARN, when the certificate carries one. */
   preArn?: string;
+  /** Printed after the donor's name, when given. */
+  address?: string;
+  /** False prints the ID without its label, as an unknown layout might. */
+  idLabel?: boolean;
 }
 
 const escapePdfText = (value: string) =>
@@ -60,7 +64,12 @@ export function syntheticCertificatePdf(
     "Name of the donee: E2E Test Trust",
     "PAN of the donee: AAATE0000E",
     `Name of the donor: ${certificate.donorName}`,
-    `Unique Identification Number of the donor: ${certificate.idNumber}`,
+    ...(certificate.address
+      ? [`Address of the donor: ${certificate.address}`]
+      : []),
+    certificate.idLabel === false
+      ? `Donor ${certificate.idNumber}`
+      : `Unique Identification Number of the donor: ${certificate.idNumber}`,
     ...(certificate.preArn
       ? [`Pre-Acknowledgement Number: ${certificate.preArn}`]
       : []),

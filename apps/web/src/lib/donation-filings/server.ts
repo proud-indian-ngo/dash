@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { db } from "@pi-dash/db";
 import {
+  certificateFileName,
   claimCertificateEmails,
   discardFiling,
   FilingError,
@@ -17,10 +18,13 @@ import {
   type NewCertificate,
   nextFilingSequence,
   recordFilingSubmission,
+  rejectCertificate,
+  confirmCertificate,
+  undoFilingSubmission,
+  usedPreArns,
 } from "@pi-dash/db/queries/donation-filings";
 import { env } from "@pi-dash/env/server";
 import { enqueue, inTransaction } from "@pi-dash/jobs/enqueue";
-import { MAX_FILINGS_PER_YEAR } from "@pi-dash/shared/donations-return";
 import type { FinancialYearRange } from "@pi-dash/shared/income";
 import { uuidv7 } from "uuidv7";
 
@@ -58,7 +62,9 @@ const MESSAGES = {
   email: "The certificates couldn't be queued for email.",
   record: "The filing couldn't be recorded.",
   rows: "The filing couldn't be loaded.",
+  review: "The certificate couldn't be updated.",
   submit: "The submission couldn't be saved.",
+  undo: "The submission couldn't be taken back.",
 } as const;
 
 const safely = <T>(step: keyof typeof MESSAGES, work: () => Promise<T>) =>
@@ -97,19 +103,19 @@ export interface RecordedFiling {
  */
 export const recordFiling = (
   fy: FinancialYearRange,
+  /** Portal-issued Pre-ARNs as pasted, or null to leave the column empty. */
+  preArns: readonly string[] | null,
   userId: string
 ): Promise<RecordedFiling> =>
   safely("record", () =>
     db.transaction(async (tx) => {
       await lockFilingYear(tx, fy.label);
       const sequence = await nextFilingSequence(tx, fy.label);
-      if (sequence > MAX_FILINGS_PER_YEAR) {
-        throw new DonationsReturnError(
-          `A year takes at most ${MAX_FILINGS_PER_YEAR} filings.`
-        );
-      }
+      // Pre-ARNs already on a row of any filing are skipped, never reused.
+      const used = preArns ? await usedPreArns(tx, preArns) : new Set();
       const draft = await buildUploadFile(fy, {
-        filedSequences: await loadFiledSequences(fy.label, tx),
+        filedGifts: await loadFiledSequences(tx),
+        preArns: preArns?.filter((value) => !used.has(value)) ?? null,
         reader: tx,
         sequence,
       });
@@ -119,6 +125,7 @@ export const recordFiling = (
       await getS3().write(objectKey, bytes, { type: "text/csv" });
       await insertFiling(tx, {
         createdBy: userId,
+        giftNetPaise: draft.giftNetPaise,
         file: {
           name: draft.file.filename,
           objectKey,
@@ -150,6 +157,21 @@ export const submitFiling = (
 ): Promise<void> =>
   safely("submit", () =>
     recordFilingSubmission(filingId, submission, userId, new Date())
+  );
+
+export const undoSubmission = (filingId: string): Promise<void> =>
+  safely("undo", () => undoFilingSubmission(filingId));
+
+/** Confirms or rejects a details match after finance compared it. */
+export const reviewCertificate = (
+  certificateId: string,
+  decision: "confirm" | "reject",
+  userId: string
+): Promise<{ filingId: string }> =>
+  safely("review", () =>
+    decision === "confirm"
+      ? confirmCertificate(certificateId, userId, new Date())
+      : rejectCertificate(certificateId)
   );
 
 export const discard = (filingId: string, userId: string): Promise<void> =>
@@ -240,7 +262,7 @@ export const uploadCertificates = (
       await s3.write(fileObjectKey, file.bytes, { type: "application/pdf" });
       toStore.push({
         acknowledgementNumber: decision.acknowledgementNumber,
-        fileName: file.name.split("/").at(-1) ?? file.name,
+        fileName: certificateFileName(decision.acknowledgementNumber),
         fileObjectKey,
         fileSha256: fileRead.sha256,
         id,

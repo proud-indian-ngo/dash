@@ -7,13 +7,11 @@ import {
   CASH_DEDUCTION_LIMIT_PAISE,
   classifyGift,
   defaultReturnYear,
-  formatPreArn,
   formatReturnAmount,
   giftOutcomeLabel,
   MAX_FILING_ROWS,
   planFilingRows,
-  PRE_ARN_MAX_LENGTH,
-  PRE_ARN_PATTERN,
+  parsePreArnList,
   idNumberLooksValid,
   joinReturnAddress,
   missingDonorDetailsPartyIds,
@@ -319,8 +317,8 @@ describe("assessReturn and missing donor details", () => {
         ["p2", donor({ hasIdNumber: false, partyId: "p2" })],
       ]),
       new Map([
-        ["a", 1],
-        ["c", 1],
+        ["a", { amountPaise: 450_000, filingSequence: 1 }],
+        ["c", { amountPaise: 300_000, filingSequence: 1 }],
       ])
     );
     expect(gifts.map((assessed) => assessed.outcome)).toEqual([
@@ -331,7 +329,7 @@ describe("assessReturn and missing donor details", () => {
     expect(summary).toMatchObject({
       blockedCount: 0,
       filedCount: 2,
-      filedPaise: 800_000,
+      filedPaise: 750_000,
       inReturnCount: 3,
       readyCount: 1,
       readyPaise: 200_000,
@@ -495,7 +493,7 @@ describe("upload file", () => {
 
   it("fills every column in order", () => {
     const cells = returnFileCells(
-      planFilingRows(aggregateReturnRows([readyGift()]), "2026-27", 1),
+      planFilingRows(aggregateReturnRows([readyGift()]), ["PORTALPRE0001"]),
       {
         sectionCode: "Section 80G",
         urn: "AAATP1234AF20214",
@@ -506,7 +504,7 @@ describe("upload file", () => {
     expect(cells.rows).toEqual([
       [
         "1",
-        "PI2627F01R00001",
+        "PORTALPRE0001",
         "Permanent Account Number",
         "ABCDE1234F",
         "Section 80G",
@@ -521,46 +519,39 @@ describe("upload file", () => {
     ]);
   });
 
-  it("gives each row of a filing its own Pre-ARN", () => {
-    expect(formatPreArn("2026-27", 1, 3)).toBe("PI2627F01R00003");
-    expect(formatPreArn("2099-00", 99, MAX_FILING_ROWS)).toBe(
-      "PI9900F99R25000"
+  it("reads a pasted list of portal Pre-ARNs, refusing what can't be one", () => {
+    expect(parsePreArnList(" pre0001\nPRE0002, PRE0001;\n\nPRE0003 ")).toEqual({
+      invalid: [],
+      values: ["PRE0001", "PRE0002", "PRE0003"],
+    });
+    expect(parsePreArnList("PRE-0001 ABCDEFGHIJKLMNOPQRSTUVW").invalid).toEqual(
+      ["PRE-0001", "ABCDEFGHIJKLMNOPQRSTUVW"]
     );
-    const longest = formatPreArn("2026-27", 99, MAX_FILING_ROWS);
-    expect(longest.length).toBeLessThanOrEqual(PRE_ARN_MAX_LENGTH);
-    expect(longest).toMatch(/^[A-Z0-9]+$/);
-    expect(PRE_ARN_PATTERN.test(longest)).toBe(true);
-    expect(() => formatPreArn("2026", 1, 1)).toThrow();
-    expect(() => formatPreArn("2026-27", 0, 1)).toThrow();
-    expect(() => formatPreArn("2026-27", 100, 1)).toThrow();
-    expect(() => formatPreArn("2026-27", 1, MAX_FILING_ROWS + 1)).toThrow();
   });
 
-  it("never repeats a Pre-ARN across rows, filings or years", () => {
-    const seen = new Set<string>();
-    for (const year of ["2026-27", "2027-28"]) {
-      for (let filing = 1; filing <= 3; filing++) {
-        for (let row = 1; row <= 50; row++) {
-          seen.add(formatPreArn(year, filing, row));
-        }
-      }
-    }
-    expect(seen.size).toBe(2 * 3 * 50);
-  });
-
-  it("numbers a filing's rows in upload order", () => {
-    const rows = planFilingRows(
-      aggregateReturnRows([
-        readyGift(),
-        readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
-      ]),
-      "2026-27",
-      2
-    );
-    expect(rows.map((row) => [row.srNo, row.preArn, row.name])).toEqual([
-      [1, "PI2627F02R00001", "Asha Rao"],
-      [2, "PI2627F02R00002", "Bina Shah"],
+  it("numbers a filing's rows and gives out Pre-ARNs in Sr. No. order, or none", () => {
+    const rows = aggregateReturnRows([
+      readyGift(),
+      readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
     ]);
+    expect(
+      planFilingRows(rows, ["PRE0001", "PRE0002", "PRE0003"]).map((row) => [
+        row.srNo,
+        row.preArn,
+        row.name,
+      ])
+    ).toEqual([
+      [1, "PRE0001", "Asha Rao"],
+      [2, "PRE0002", "Bina Shah"],
+    ]);
+    expect(planFilingRows(rows, null).map((row) => row.preArn)).toEqual([
+      null,
+      null,
+    ]);
+    expect(() => planFilingRows(rows, ["PRE0001"])).toThrow(
+      "Fewer Pre-ARNs than rows"
+    );
+    expect(MAX_FILING_ROWS).toBe(25_000);
   });
 
   it("formats amounts in rupees with two decimals", () => {

@@ -3,6 +3,8 @@ CREATE TYPE "private"."donation_certificate_match" AS ENUM('pre_arn', 'details')
 CREATE TYPE "private"."donation_filing_status" AS ENUM('prepared', 'submitted', 'discarded');--> statement-breakpoint
 CREATE TABLE "private"."donation_certificate" (
 	"acknowledgement_number" text NOT NULL,
+	"confirmed_at" timestamp,
+	"confirmed_by" text,
 	"created_at" timestamp NOT NULL,
 	"created_by" text,
 	"emailed_at" timestamp,
@@ -44,6 +46,7 @@ CREATE TABLE "private"."donation_filing" (
 );
 --> statement-breakpoint
 CREATE TABLE "private"."donation_filing_gift" (
+	"amount_paise" bigint NOT NULL,
 	"contribution_id" uuid PRIMARY KEY NOT NULL,
 	"filing_id" uuid NOT NULL,
 	"row_id" uuid NOT NULL
@@ -64,10 +67,11 @@ CREATE TABLE "private"."donation_filing_row" (
 	"mode_code" text NOT NULL,
 	"name" text NOT NULL,
 	"party_id" uuid NOT NULL,
-	"pre_arn" text NOT NULL,
+	"pre_arn" text,
 	"sr_no" integer NOT NULL
 );
 --> statement-breakpoint
+ALTER TABLE "private"."donation_certificate" ADD CONSTRAINT "donation_certificate_confirmed_by_user_id_fk" FOREIGN KEY ("confirmed_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "private"."donation_certificate" ADD CONSTRAINT "donation_certificate_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "private"."donation_certificate" ADD CONSTRAINT "donation_certificate_filing_id_donation_filing_id_fk" FOREIGN KEY ("filing_id") REFERENCES "private"."donation_filing"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "private"."donation_certificate" ADD CONSTRAINT "donation_certificate_row_id_donation_filing_row_id_fk" FOREIGN KEY ("row_id") REFERENCES "private"."donation_filing_row"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint

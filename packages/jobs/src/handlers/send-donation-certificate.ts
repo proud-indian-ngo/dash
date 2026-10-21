@@ -1,4 +1,5 @@
 import {
+  certificateFileName,
   loadCertificateEmailTarget,
   markCertificateEmailed,
   markCertificateEmailFailed,
@@ -18,7 +19,8 @@ export type CertificateEmailOutcome =
   | "missing"
   | "no_email"
   | "suppressed"
-  | "not_configured";
+  | "not_configured"
+  | "failed";
 
 export interface CertificateEmailDependencies {
   getSuppression: typeof getEmailSuppression;
@@ -85,7 +87,7 @@ export async function sendDonationCertificate(
       attachments: [
         {
           content: Buffer.from(pdf),
-          filename: `Form-114-${target.acknowledgementNumber}.pdf`,
+          filename: certificateFileName(target.acknowledgementNumber),
         },
       ],
       html,
@@ -97,12 +99,22 @@ export async function sendDonationCertificate(
       return await fail("not_configured");
     }
   } catch (error) {
-    // 409: this key was already used, so an earlier attempt sent it.
-    if (!(error instanceof EmailSendError && error.statusCode === 409)) {
-      await deps.markFailed(data.certificateId, data.requestId, "failed");
+    const code = error instanceof EmailSendError ? error.code : null;
+    // Another attempt with this key is still in flight at Resend: retry
+    // later, when Resend answers with that attempt's result.
+    if (code === "concurrent_idempotent_requests") {
       throw error;
     }
+    await deps.markFailed(data.certificateId, data.requestId, "failed");
+    // The key was used for a different email: a retry would fail the same
+    // way, so stop here; "Email certificates" queues a new request.
+    if (code === "invalid_idempotent_request") {
+      return { outcome: "failed" };
+    }
+    throw error;
   }
+  // Only a send Resend accepted (a retry of a sent key returns the same
+  // accepted result) is stamped as sent.
   await deps.markEmailed(data.certificateId, data.requestId, new Date());
   return { outcome: "sent" };
 }

@@ -171,8 +171,9 @@ export function UploadCertificatesDialog({
             Upload certificates for filing {filing?.sequence}
           </DialogTitle>
           <DialogDescription>
-            Each PDF is matched to its row by Pre-ARN, else by the donor's ID
-            number and amount. Nothing is emailed yet.
+            Each PDF is matched to its row by Pre-ARN. One matched only by the
+            donor's ID number, amount and name waits for you to confirm it.
+            Nothing is emailed yet.
           </DialogDescription>
         </DialogHeader>
         {filing && !result ? (
@@ -193,12 +194,24 @@ export function UploadCertificatesDialog({
               data-testid="certificate-upload-result"
             >
               <ResultList
-                items={result.matched.map((item) => ({
-                  detail: `${rowName(item.rowId)} · ${item.matchedBy === "pre_arn" ? "by Pre-ARN" : "by ID number and amount"} · ${item.acknowledgementNumber}`,
-                  key: item.fileName,
-                  name: item.fileName,
-                }))}
+                items={result.matched
+                  .filter((item) => item.matchedBy === "pre_arn")
+                  .map((item) => ({
+                    detail: `${rowName(item.rowId)} · by Pre-ARN · ${item.acknowledgementNumber}`,
+                    key: item.fileName,
+                    name: item.fileName,
+                  }))}
                 title="Matched"
+              />
+              <ResultList
+                items={result.matched
+                  .filter((item) => item.matchedBy === "details")
+                  .map((item) => ({
+                    detail: `${rowName(item.rowId)} · by ID number, amount and name · ${item.acknowledgementNumber}. Confirm it on the row before it can be emailed.`,
+                    key: item.fileName,
+                    name: item.fileName,
+                  }))}
+                title="Needs review"
               />
               <ResultList
                 items={result.unmatched.map((item) => ({

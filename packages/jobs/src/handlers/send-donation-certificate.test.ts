@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Keep the real database, Resend and R2 out of the test.
 mock.module("@pi-dash/db/queries/donation-filings", () => ({
+  certificateFileName: (ack: string) => `Form-114-${ack}.pdf`,
   loadCertificateEmailTarget: async () => null,
   markCertificateEmailed: async () => undefined,
   markCertificateEmailFailed: async () => undefined,
@@ -13,9 +14,11 @@ mock.module("@pi-dash/email", () => ({
   renderDonationCertificateEmail: async () => "",
 }));
 class EmailSendError extends Error {
+  readonly code: string;
   readonly statusCode: number | null;
   constructor(code: string, message: string, statusCode: number | null) {
     super(`Resend ${code}: ${message}`);
+    this.code = code;
     this.statusCode = statusCode;
   }
 }
@@ -157,17 +160,41 @@ describe("sendDonationCertificate", () => {
     expect(failed).toEqual(["c1:q1:failed"]);
   });
 
-  it("treats Resend's 409 for its key as already sent", async () => {
+  it("retries while another attempt with its key is in flight, marking nothing", async () => {
+    await expect(
+      sendDonationCertificate(
+        payload,
+        deps({
+          send: async () => {
+            throw new EmailSendError(
+              "concurrent_idempotent_requests",
+              "in progress",
+              409
+            );
+          },
+        })
+      )
+    ).rejects.toThrow("in progress");
+    expect(failed).toEqual([]);
+    expect(marked).toEqual([]);
+  });
+
+  it("records a reused key with another payload as failed, without a retry", async () => {
     expect(
       await sendDonationCertificate(
         payload,
         deps({
           send: async () => {
-            throw new EmailSendError("conflict", "key used", 409);
+            throw new EmailSendError(
+              "invalid_idempotent_request",
+              "payload differs",
+              409
+            );
           },
         })
       )
-    ).toEqual({ outcome: "sent" });
-    expect(marked).toEqual(["c1:q1"]);
+    ).toEqual({ outcome: "failed" });
+    expect(failed).toEqual(["c1:q1:failed"]);
+    expect(marked).toEqual([]);
   });
 });

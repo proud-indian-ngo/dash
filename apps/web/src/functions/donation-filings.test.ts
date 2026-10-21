@@ -61,8 +61,15 @@ mock.module("@/lib/donation-filings/server", () => ({
       sequence: 1,
     };
   },
+  reviewCertificate: async (_id: string, decision: string) => {
+    calls.push(decision);
+    return { filingId: FILING };
+  },
   submitFiling: async () => {
     calls.push("submit");
+  },
+  undoSubmission: async () => {
+    calls.push("undo");
   },
   uploadCertificates: async () => {
     calls.push("upload");
@@ -109,16 +116,25 @@ describe("donation filing server functions", () => {
   it("records a filing only with finance.manage and finance.view_sensitive", async () => {
     granted = ["finance.manage"];
     await expect(
-      call(fns.recordDonationFiling, { financialYear: "2026-27" })
+      call(fns.recordDonationFiling, {
+        financialYear: "2026-27",
+        preArns: null,
+      })
     ).rejects.toThrow("Forbidden");
     granted = ["finance.view_sensitive"];
     await expect(
-      call(fns.recordDonationFiling, { financialYear: "2026-27" })
+      call(fns.recordDonationFiling, {
+        financialYear: "2026-27",
+        preArns: null,
+      })
     ).rejects.toThrow("Forbidden");
     expect(calls).toEqual([]);
 
     granted = ["finance.manage", "finance.view_sensitive"];
-    await call(fns.recordDonationFiling, { financialYear: "2026-27" });
+    await call(fns.recordDonationFiling, {
+      financialYear: "2026-27",
+      preArns: null,
+    });
     expect(calls).toEqual(["record:2026-27"]);
     expect(audits).toEqual([
       {
@@ -126,11 +142,12 @@ describe("donation filing server functions", () => {
         finalMetadata: {
           financialYear: "2026-27",
           giftCount: 5,
+          preArnsGiven: 0,
           rowCount: 3,
           sequence: 1,
         },
         finalTarget: { id: FILING, type: "donation_filing" },
-        metadata: { financialYear: "2026-27" },
+        metadata: { financialYear: "2026-27", preArnsGiven: 0 },
         target: { type: "donation_filing" },
       },
     ]);
@@ -139,12 +156,15 @@ describe("donation filing server functions", () => {
   it("refuses a year before the first return", async () => {
     granted = ["finance.manage", "finance.view_sensitive"];
     await expect(
-      call(fns.recordDonationFiling, { financialYear: "2025-26" })
+      call(fns.recordDonationFiling, {
+        financialYear: "2025-26",
+        preArns: null,
+      })
     ).rejects.toThrow("2026-27 onward");
     expect(audits).toEqual([]);
   });
 
-  it("needs finance.manage to submit, discard, add certificates and email them", async () => {
+  it("needs finance.manage to submit, discard, take back, review, add certificates and email them", async () => {
     granted = ["finance.view", "finance.view_sensitive", "donors.manage"];
     const commands: [unknown, Record<string, unknown>][] = [
       [
@@ -157,6 +177,14 @@ describe("donation filing server functions", () => {
         },
       ],
       [fns.discardDonationFiling, { filingId: FILING }],
+      [fns.undoDonationFilingSubmission, { filingId: FILING }],
+      [
+        fns.reviewDonationCertificate,
+        {
+          certificateId: "0190a000-0000-7000-8000-0000000000c1",
+          decision: "confirm",
+        },
+      ],
       [
         fns.uploadDonationCertificates,
         { base64: "JVBERg==", fileName: "a.pdf", filingId: FILING },
@@ -172,20 +200,29 @@ describe("donation filing server functions", () => {
     for (const [fn, data] of commands) {
       await call(fn, data);
     }
-    expect(calls).toEqual(["submit", "discard", "upload", "email"]);
+    expect(calls).toEqual([
+      "submit",
+      "discard",
+      "undo",
+      "confirm",
+      "upload",
+      "email",
+    ]);
     expect(audits.map((audit) => audit.action)).toEqual([
       "donation_filing.submit",
       "donation_filing.discard",
+      "donation_filing.undo_submission",
+      "donation_certificate.confirm",
       "donation_certificate.upload",
       "donation_certificate.email",
     ]);
-    expect(audits[2]?.finalMetadata).toEqual({
+    expect(audits[4]?.finalMetadata).toEqual({
       alreadyStoredCount: 0,
       matchedCount: 1,
       unmatchedCount: 2,
     });
     // Counts only: never the names of donors without an email address.
-    expect(audits[3]?.finalMetadata).toEqual({
+    expect(audits[5]?.finalMetadata).toEqual({
       noEmailCount: 1,
       queuedCount: 2,
       resend: false,

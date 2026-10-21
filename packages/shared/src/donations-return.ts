@@ -330,23 +330,28 @@ const isInReturn = (outcome: GiftOutcome) =>
   outcome.kind === "blocked" ||
   outcome.kind === "filed";
 
+/** A gift in a live filing: the filing's number and the net amount it filed. */
+export interface FiledGift {
+  amountPaise: number;
+  filingSequence: number;
+}
+
 /**
- * Classifies every gift of a year and totals the result. A gift in a
- * recorded filing (`filedSequences`, gift ID to the filing's number) is
- * "filed" whatever it looks like now, so a later filing never repeats it.
+ * Classifies every gift of a year and totals the result. A gift in a live
+ * filing (`filedGifts`, by gift ID) is "filed" at the amount it was filed at,
+ * whatever it looks like now, so a later filing never repeats it.
  */
 export function assessReturn(
   gifts: readonly ReturnGiftFacts[],
   donors: ReadonlyMap<string, ReturnDonorFacts>,
-  filedSequences: ReadonlyMap<string, number> = new Map()
+  filedGifts: ReadonlyMap<string, FiledGift> = new Map()
 ): { gifts: AssessedGift[]; summary: ReturnSummary } {
   const assessed = gifts.map((gift): AssessedGift => {
     const donor = donors.get(gift.partyId);
-    const filingSequence = filedSequences.get(gift.id);
-    const outcome: GiftOutcome =
-      filingSequence === undefined
-        ? classifyGift(gift, donor)
-        : { filingSequence, kind: "filed" };
+    const filing = filedGifts.get(gift.id);
+    const outcome: GiftOutcome = filing
+      ? { filingSequence: filing.filingSequence, kind: "filed" }
+      : classifyGift(gift, donor);
     const received =
       outcome.kind !== "waiting" &&
       !(
@@ -361,7 +366,11 @@ export function assessReturn(
         received &&
         !isPlatformIntermediary(gift.partyId) &&
         donorDetailBlocks(donor).length > 0,
-      netPaise: outcome.kind === "waiting" ? 0 : netGiftPaise(gift),
+      netPaise: filing
+        ? filing.amountPaise
+        : outcome.kind === "waiting"
+          ? 0
+          : netGiftPaise(gift),
       outcome,
       partyId: gift.partyId,
       refundedPaise: gift.refundedPaise,
@@ -733,7 +742,7 @@ export type ReturnFileRow = Pick<
   | "idNumber"
   | "modeCode"
   | "name"
-> & { preArn: string };
+> & { preArn: string | null };
 
 /** The upload file's header and cells, in `RETURN_COLUMNS` order. */
 export function returnFileCells(
@@ -751,7 +760,7 @@ export function returnFileCells(
         idNumber: row.idNumber,
         mode: row.modeCode,
         name: row.name,
-        preAcknowledgementNumber: row.preArn,
+        preAcknowledgementNumber: row.preArn ?? "",
         sectionCode: registration.sectionCode,
         srNo: String(index + 1),
         urn: registration.urn,
@@ -770,67 +779,78 @@ export function returnFileCells(
  */
 export const MAX_FILING_ROWS = 25_000;
 
-/** The portal accepts a Pre-Acknowledgement Number of at most 21 letters and digits. */
-export const PRE_ARN_MAX_LENGTH = 21;
+/**
+ * A Pre-Acknowledgement Number as the portal issues it: letters and digits,
+ * at most 21 (the exact format is unverified). Pre-ARNs come from the portal
+ * in batches; the dashboard never makes them up.
+ */
+export const PRE_ARN_PATTERN = /^[A-Z0-9]{1,21}$/;
 
 /**
- * The Pre-ARN pi-dash writes on each row of a filing:
- * `PI` + the year's two short years + `F` + the filing's number in the year
- * (two digits) + `R` + the row's serial number (five digits), so FY 2026-27
- * filing 1 row 3 is `PI2627F01R00003` (15 characters). It names one row of
- * one filing, so it is unique for good: discarded filings keep their numbers.
- *
- * ASSUMPTION: the portal accepts a Pre-ARN it did not issue. Its own Pre-ARNs
- * come in batches for manual receipts; if it rejects ours, the column is
- * left empty and certificates are matched by donor details instead.
+ * Reads a pasted list of Pre-ARNs (one per line, or separated by spaces,
+ * commas or semicolons), upper-cased, repeats dropped, in the order given.
  */
-export const PRE_ARN_PATTERN = /^PI\d{4}F\d{2}R\d{5}$/;
-
-export const MAX_FILINGS_PER_YEAR = 99;
-
-export function formatPreArn(
-  fiscalYear: string,
-  filingSequence: number,
-  srNo: number
-): string {
-  const years = /^\d{2}(\d{2})-(\d{2})$/.exec(fiscalYear);
-  if (!years) {
-    throw new Error(`Not a financial year label: ${fiscalYear}`);
+export function parsePreArnList(text: string): {
+  invalid: string[];
+  values: string[];
+} {
+  const values: string[] = [];
+  const invalid: string[] = [];
+  for (const token of text.split(/[\s,;]+/)) {
+    const value = token.trim().toUpperCase();
+    if (!value) {
+      continue;
+    }
+    if (!PRE_ARN_PATTERN.test(value)) {
+      invalid.push(token.trim());
+    } else if (!values.includes(value)) {
+      values.push(value);
+    }
   }
-  if (
-    !Number.isInteger(filingSequence) ||
-    filingSequence < 1 ||
-    filingSequence > MAX_FILINGS_PER_YEAR
-  ) {
-    throw new Error(`Filing number out of range: ${filingSequence}`);
-  }
-  if (!Number.isInteger(srNo) || srNo < 1 || srNo > MAX_FILING_ROWS) {
-    throw new Error(`Row number out of range: ${srNo}`);
-  }
-  return `PI${years[1]}${years[2]}F${String(filingSequence).padStart(2, "0")}R${String(srNo).padStart(5, "0")}`;
+  return { invalid, values };
 }
+
+/**
+ * A certificate email queued this long ago, neither sent nor failed, is
+ * taken as stuck: "Email certificates" queues it again.
+ */
+export const CERTIFICATE_EMAIL_STALE_MS = 60 * 60 * 1000;
+
+/** How a filed row's gifts differ now from what was filed. */
+export type FilingDrift = "amount" | "reversed" | "excluded" | "donor";
+
+export const FILING_DRIFT_LABELS: Record<FilingDrift, string> = {
+  amount: "Amount changed",
+  donor: "Donor changed",
+  excluded: "Gift now excluded",
+  reversed: "Gift reversed",
+};
 
 /** An upload row with its place in a filing. */
 export interface FilingPlanRow extends ReturnExportRow {
-  preArn: string;
+  /** Portal-issued, or null when the column is left empty. */
+  preArn: string | null;
   srNo: number;
 }
 
 /**
- * Numbers a filing's rows (in upload order) and gives each its Pre-ARN.
- * Refuses more rows than one upload takes.
+ * Numbers a filing's rows (in upload order) and, when portal-issued
+ * Pre-ARNs are given, assigns them in Sr. No. order. Refuses more rows than
+ * one upload takes, or fewer Pre-ARNs than rows.
  */
 export function planFilingRows(
   rows: readonly ReturnExportRow[],
-  fiscalYear: string,
-  filingSequence: number
+  preArns: readonly string[] | null
 ): FilingPlanRow[] {
   if (rows.length > MAX_FILING_ROWS) {
     throw new Error(`A filing takes at most ${MAX_FILING_ROWS} rows`);
   }
+  if (preArns && preArns.length < rows.length) {
+    throw new Error("Fewer Pre-ARNs than rows");
+  }
   return rows.map((row, index) => ({
     ...row,
-    preArn: formatPreArn(fiscalYear, filingSequence, index + 1),
+    preArn: preArns ? (preArns[index] ?? null) : null,
     srNo: index + 1,
   }));
 }

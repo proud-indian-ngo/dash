@@ -3920,13 +3920,15 @@ async function seedDonationFilings(adminId: string): Promise<void> {
         modeCode: "Electronic modes including account payee cheque/draft",
         name: PARTIES[0]?.displayName ?? "Seed donor",
         partyId: DONOR_ID,
-        preArn: "PI2627F01R00001",
+        // A fake portal-issued Pre-ARN.
+        preArn: "SEEDPRE000000001",
         srNo: 1,
       })
       .onConflictDoNothing();
     await tx
       .insert(donationFilingGift)
       .values({
+        amountPaise: 2_500_000,
         contributionId: "01930000-0000-7000-8000-000000000611",
         filingId: SEED_FILING_ID,
         rowId: SEED_FILING_ROW_ID,
@@ -3936,6 +3938,8 @@ async function seedDonationFilings(adminId: string): Promise<void> {
       .insert(donationCertificate)
       .values({
         acknowledgementNumber: "SEED114000000001",
+        confirmedAt: now,
+        confirmedBy: adminId,
         createdAt: now,
         createdBy: adminId,
         fileName: "1.pdf",

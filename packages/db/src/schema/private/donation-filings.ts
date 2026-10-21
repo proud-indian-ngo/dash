@@ -121,8 +121,8 @@ export const donationFilingRow = privateSchema.table(
     partyId: uuid("party_id")
       .notNull()
       .references(() => party.id, { onDelete: "restrict" }),
-    /** The Pre-Acknowledgement Number written on the row (`formatPreArn`). */
-    preArn: text("pre_arn").notNull(),
+    /** The portal-issued Pre-Acknowledgement Number written on the row; null when the column was left empty. */
+    preArn: text("pre_arn"),
     /** "Sr. No." in the upload file, from 1. */
     srNo: integer("sr_no").notNull(),
   },
@@ -140,6 +140,8 @@ export const donationFilingRow = privateSchema.table(
 export const donationFilingGift = privateSchema.table(
   "donation_filing_gift",
   {
+    /** The gift's net amount as filed, so later changes show as drift. */
+    amountPaise: bigint("amount_paise", { mode: "number" }).notNull(),
     contributionId: uuid("contribution_id")
       .primaryKey()
       .references(() => contribution.id, { onDelete: "restrict" }),
@@ -164,6 +166,15 @@ export const donationCertificate = privateSchema.table(
   {
     /** The certificate's own acknowledgement number, needed for revisions. */
     acknowledgementNumber: text("acknowledgement_number").notNull(),
+    /**
+     * When finance confirmed the match. A Pre-ARN match is confirmed as it
+     * is stored; a details match waits for review and is never emailed
+     * until confirmed.
+     */
+    confirmedAt: timestamp("confirmed_at"),
+    confirmedBy: text("confirmed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull(),
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",

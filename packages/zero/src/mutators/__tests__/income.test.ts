@@ -760,6 +760,47 @@ describe("contribution mutators", () => {
     expect(db.tables.contribution).toHaveLength(1);
   });
 
+  it("keeps what a donations return filing reported about a filed gift", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          amountPaise: 500_000,
+          channel: "upi",
+          deductionEligible: "unknown",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          receivedOn: Date.UTC(2026, 9, 1),
+          reportingMode: "electronic_or_account_payee",
+          status: "received",
+        },
+      ],
+      donationFilingGift: [{ contributionId: "c-1" }],
+    });
+    // Notes and classification still change.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ notes: "Filed" })
+    );
+    expect(db.tables.contribution?.[0]?.notes).toBe("Filed");
+    for (const change of [
+      { amountPaise: 400_000 },
+      { partyId: "sponsor-1" },
+      { receivedOn: "2026-10-02" },
+      { channel: "neft" },
+      { reportingMode: "other" },
+      { deductionEligible: "no", eligibilityReason: "Not a donation" },
+    ]) {
+      await expect(
+        run(contributionMutators.update, db, donorsCtx, contribution(change))
+      ).rejects.toThrow("in a donations return filing");
+    }
+  });
+
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {
     const recorded = {
       amountPaise: 500_000,

@@ -11,6 +11,7 @@ import type { PartyIdType } from "@pi-dash/shared/constants";
 import {
   aggregateReturnRows,
   assessReturn,
+  type FiledGift,
   giftOutcomeLabel,
   planFilingRows,
   type ReturnExportGift,
@@ -69,6 +70,8 @@ const fileName = (fy: FinancialYearRange, kind: string) =>
 export interface UploadFileDraft {
   file: ReturnFile;
   giftCount: number;
+  /** Each gift's net amount as filed. */
+  giftNetPaise: Map<string, number>;
   rows: NewFilingRow[];
 }
 
@@ -80,7 +83,9 @@ export interface UploadFileDraft {
 export async function buildUploadFile(
   fy: FinancialYearRange,
   filing: {
-    filedSequences: ReadonlyMap<string, number>;
+    filedGifts: ReadonlyMap<string, FiledGift>;
+    /** Unused portal-issued Pre-ARNs, in order; null leaves the column empty. */
+    preArns: readonly string[] | null;
     reader: Parameters<typeof loadReturnFacts>[2];
     sequence: number;
   }
@@ -97,11 +102,7 @@ export async function buildUploadFile(
       "Identifiers unavailable (encryption key not set)."
     );
   }
-  const { gifts } = assessReturn(
-    facts.gifts,
-    facts.donors,
-    filing.filedSequences
-  );
+  const { gifts } = assessReturn(facts.gifts, facts.donors, filing.filedGifts);
   const ready: ReturnExportGift[] = [];
   const idTypes = new Map<string, Exclude<PartyIdType, "none">>();
   facts.gifts.forEach((gift, index) => {
@@ -135,11 +136,13 @@ export async function buildUploadFile(
       "No gift is ready for a new filing. Fix the items on this page, or wait for new gifts."
     );
   }
-  const planned = planFilingRows(
-    aggregateReturnRows(ready),
-    fy.label,
-    filing.sequence
-  );
+  const aggregated = aggregateReturnRows(ready);
+  if (filing.preArns && filing.preArns.length < aggregated.length) {
+    throw new DonationsReturnError(
+      `The filing has ${aggregated.length} rows but only ${filing.preArns.length} unused Pre-ARNs were given. Generate more on the portal, or file without Pre-ARNs.`
+    );
+  }
+  const planned = planFilingRows(aggregated, filing.preArns);
   const cells = returnFileCells(planned, registration);
   return {
     file: {
@@ -147,6 +150,7 @@ export async function buildUploadFile(
       filename: fileName(fy, `filing-${filing.sequence}`),
     },
     giftCount: ready.length,
+    giftNetPaise: new Map(ready.map((gift) => [gift.giftId, gift.netPaise])),
     rows: planned.map((row) => ({
       ...row,
       idType: idTypes.get(row.partyId) as Exclude<PartyIdType, "none">,
@@ -240,7 +244,7 @@ export async function loadAllGiftsRows(
   const { gifts } = assessReturn(
     facts.gifts,
     facts.donors,
-    await loadFiledSequences(fy.label, reader)
+    await loadFiledSequences(reader)
   );
   const receiptNumbers = await loadLiveReceiptNumbers(
     facts.gifts.map((gift) => gift.id),

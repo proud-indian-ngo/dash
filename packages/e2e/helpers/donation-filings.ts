@@ -20,8 +20,8 @@ import { removeDonationFilings } from "./donation-filings-reset";
  * - `reset`: removes every filing (see donation-filings-reset.ts).
  * - `latest <fy>`: the year's newest filing.
  * - `certificates <filingId>`: a ZIP of a synthetic Form 114 per row (the
- *   first without its Pre-ARN, so it matches by ID and amount) plus one
- *   that fits no row, as base64.
+ *   first without its Pre-ARN, so it matches by details and needs review)
+ *   plus one that fits no row, as base64.
  * - `email-jobs <filingId>`: how many email jobs were queued for the
  *   filing's certificates (captured in pg-boss; E2E has no Resend key, so
  *   nothing is delivered).
@@ -62,7 +62,7 @@ if (action === "reset") {
       donorName: row.name,
       idNumber: revealSecret(row.idNumberEncrypted, filingRowIdContext(row.id)),
       mode: row.modeCode,
-      preArn: index === 0 ? undefined : row.preArn,
+      preArn: index === 0 ? undefined : (row.preArn ?? undefined),
     });
   }
   files["114/stray.pdf"] = syntheticCertificatePdf({
