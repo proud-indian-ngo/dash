@@ -471,7 +471,7 @@ export function ReimbursementsTable({
         kind: "status",
         skeleton: SKELETON_STATUS,
       },
-      size: 140,
+      size: 170,
     },
     {
       accessorFn: (row) => sumAmounts(row.lineItems),

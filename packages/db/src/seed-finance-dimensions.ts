@@ -19,8 +19,7 @@ import {
 
 /**
  * The finance reference rows every environment needs: programmes, cost
- * centres, the general fund, fiscal years with their periods and the default
- * approval threshold. Migration 0112 inserts the same rows in production;
+ * centres, the general fund and fiscal years with their periods. Migration 0112 inserts the same rows in production;
  * environments built with `drizzle-kit push` (CI, fresh dev databases) call
  * this instead. Every insert ignores conflicts, so it is safe to re-run.
  * It also ensures the books' fund, account heads and database guards, which

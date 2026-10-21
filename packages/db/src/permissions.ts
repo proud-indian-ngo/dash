@@ -422,7 +422,7 @@ export const PERMISSIONS = [
   {
     category: "finance",
     description:
-      "Manage programmes, projects, funds, account heads, cost centres, organisation accounts, fiscal periods and approval thresholds",
+      "Manage programmes, projects, funds, account heads, cost centres, organisation accounts and fiscal periods",
     id: "finance.manage",
     name: "Manage Finance Setup",
   },
