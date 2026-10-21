@@ -3,6 +3,9 @@ import { createRequestLogger } from "evlog";
 import { render } from "react-email";
 
 import { sendEmail } from "./mailer";
+import DonationCertificateEmail, {
+  type DonationCertificateEmailProps,
+} from "./templates/donation-certificate-email";
 import DonationReceiptEmail, {
   type DonationReceiptEmailProps,
 } from "./templates/donation-receipt-email";
@@ -74,6 +77,18 @@ export function renderNotificationDigestEmail(
 ): Promise<string> {
   return render(
     <NotificationDigestEmail
+      appName={env.APP_NAME}
+      appUrl={env.APP_URL}
+      {...props}
+    />
+  );
+}
+
+export function renderDonationCertificateEmail(
+  props: DonationCertificateEmailProps
+): Promise<string> {
+  return render(
+    <DonationCertificateEmail
       appName={env.APP_NAME}
       appUrl={env.APP_URL}
       {...props}

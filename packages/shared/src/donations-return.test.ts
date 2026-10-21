@@ -7,8 +7,13 @@ import {
   CASH_DEDUCTION_LIMIT_PAISE,
   classifyGift,
   defaultReturnYear,
+  formatPreArn,
   formatReturnAmount,
   giftOutcomeLabel,
+  MAX_FILING_ROWS,
+  planFilingRows,
+  PRE_ARN_MAX_LENGTH,
+  PRE_ARN_PATTERN,
   idNumberLooksValid,
   joinReturnAddress,
   missingDonorDetailsPartyIds,
@@ -288,6 +293,8 @@ describe("assessReturn and missing donor details", () => {
       donorCount: 2,
       excludedCount: 1,
       excludedPaise: 300_000,
+      filedCount: 0,
+      filedPaise: 0,
       inReturnCount: 2,
       inReturnPaise: 700_000,
       readyCount: 1,
@@ -297,6 +304,42 @@ describe("assessReturn and missing donor details", () => {
     // p2 lacks an ID for a gift in the return; p3 opted out (no ID needed)
     // but still lacks an address.
     expect(missingDonorDetailsPartyIds(gifts).sort()).toEqual(["p2", "p3"]);
+  });
+
+  it("counts a filed gift as filed, never ready again, whatever it looks like now", () => {
+    const { gifts, summary } = assessReturn(
+      [
+        gift({ id: "a" }),
+        gift({ amountPaise: 200_000, id: "b" }),
+        // Filed while the donor had an ID; the donor has none now.
+        gift({ amountPaise: 300_000, id: "c", partyId: "p2" }),
+      ],
+      new Map([
+        ["p1", donor()],
+        ["p2", donor({ hasIdNumber: false, partyId: "p2" })],
+      ]),
+      new Map([
+        ["a", 1],
+        ["c", 1],
+      ])
+    );
+    expect(gifts.map((assessed) => assessed.outcome)).toEqual([
+      { filingSequence: 1, kind: "filed" },
+      { kind: "ready" },
+      { filingSequence: 1, kind: "filed" },
+    ]);
+    expect(summary).toMatchObject({
+      blockedCount: 0,
+      filedCount: 2,
+      filedPaise: 800_000,
+      inReturnCount: 3,
+      readyCount: 1,
+      readyPaise: 200_000,
+    });
+    expect(giftOutcomeLabel(gifts[0]?.outcome ?? { kind: "ready" })).toEqual({
+      reason: "Filing 1",
+      status: "Filed",
+    });
   });
 
   it("does not chase an opted-out donor for an ID number", () => {
@@ -425,26 +468,21 @@ describe("upload file", () => {
       }),
     ]);
     expect(
-      rows.map((row) => [
-        row.name,
-        row.modeCode,
-        row.amountPaise,
-        row.giftCount,
-      ])
+      rows.map((row) => [row.name, row.modeCode, row.amountPaise, row.giftIds])
     ).toEqual([
-      ["Asha Rao", "Cash", 20_000, 1],
-      ["Asha Rao", "Cash", 10_000, 1],
+      ["Asha Rao", "Cash", 20_000, ["g3"]],
+      ["Asha Rao", "Cash", 10_000, ["g4"]],
       [
         "Asha Rao",
         "Electronic modes including account payee cheque/draft",
         150_000,
-        2,
+        ["g1", "g2"],
       ],
       [
         "Bina Shah",
         "Electronic modes including account payee cheque/draft",
         100_000,
-        1,
+        ["g1"],
       ],
     ]);
   });
@@ -456,16 +494,19 @@ describe("upload file", () => {
   });
 
   it("fills every column in order", () => {
-    const cells = returnFileCells(aggregateReturnRows([readyGift()]), {
-      sectionCode: "Section 80G",
-      urn: "AAATP1234AF20214",
-      urnIssuedOn: "2021-05-28",
-    });
+    const cells = returnFileCells(
+      planFilingRows(aggregateReturnRows([readyGift()]), "2026-27", 1),
+      {
+        sectionCode: "Section 80G",
+        urn: "AAATP1234AF20214",
+        urnIssuedOn: "2021-05-28",
+      }
+    );
     expect(cells.headers).toHaveLength(12);
     expect(cells.rows).toEqual([
       [
         "1",
-        "",
+        "PI2627F01R00001",
         "Permanent Account Number",
         "ABCDE1234F",
         "Section 80G",
@@ -477,6 +518,48 @@ describe("upload file", () => {
         "Electronic modes including account payee cheque/draft",
         "1000.00",
       ],
+    ]);
+  });
+
+  it("gives each row of a filing its own Pre-ARN", () => {
+    expect(formatPreArn("2026-27", 1, 3)).toBe("PI2627F01R00003");
+    expect(formatPreArn("2099-00", 99, MAX_FILING_ROWS)).toBe(
+      "PI9900F99R25000"
+    );
+    const longest = formatPreArn("2026-27", 99, MAX_FILING_ROWS);
+    expect(longest.length).toBeLessThanOrEqual(PRE_ARN_MAX_LENGTH);
+    expect(longest).toMatch(/^[A-Z0-9]+$/);
+    expect(PRE_ARN_PATTERN.test(longest)).toBe(true);
+    expect(() => formatPreArn("2026", 1, 1)).toThrow();
+    expect(() => formatPreArn("2026-27", 0, 1)).toThrow();
+    expect(() => formatPreArn("2026-27", 100, 1)).toThrow();
+    expect(() => formatPreArn("2026-27", 1, MAX_FILING_ROWS + 1)).toThrow();
+  });
+
+  it("never repeats a Pre-ARN across rows, filings or years", () => {
+    const seen = new Set<string>();
+    for (const year of ["2026-27", "2027-28"]) {
+      for (let filing = 1; filing <= 3; filing++) {
+        for (let row = 1; row <= 50; row++) {
+          seen.add(formatPreArn(year, filing, row));
+        }
+      }
+    }
+    expect(seen.size).toBe(2 * 3 * 50);
+  });
+
+  it("numbers a filing's rows in upload order", () => {
+    const rows = planFilingRows(
+      aggregateReturnRows([
+        readyGift(),
+        readyGift({ giftId: "g2", name: "Bina Shah", partyId: "p2" }),
+      ]),
+      "2026-27",
+      2
+    );
+    expect(rows.map((row) => [row.srNo, row.preArn, row.name])).toEqual([
+      [1, "PI2627F02R00001", "Asha Rao"],
+      [2, "PI2627F02R00002", "Bina Shah"],
     ]);
   });
 

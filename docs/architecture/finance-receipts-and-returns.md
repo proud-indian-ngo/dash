@@ -1,6 +1,6 @@
 # Finance: receipts and the donations return
 
-Donation receipts and their numbering, and the donations return (Form 113/114) readiness page and export.
+Donation receipts and their numbering, and the donations return (Form 113/114): readiness, filings, and Form 114 certificates.
 
 Donor records in [finance-income.md](finance-income.md); overview in [finance-and-programmes.md](finance-and-programmes.md).
 
@@ -31,7 +31,24 @@ Every received gift of the year is a candidate, any channel (give.do gifts go in
 
 ### Readiness page and export
 
-- The readiness page lists what blocks filing, including CSR gifts for the CA to decide. Without `DATA_ENCRYPTION_KEY` IDs are unchecked and the upload file is refused.
-- The export needs `finance.view_sensitive` and is audited because it reveals identifiers in bulk. It writes either the portal upload file (one row per donor, donation type and mode, each cash gift its own row; ready gifts only; net amounts in rupees) or a CA file of every gift with status and reason, ID masked.
-- Codes are written as full text. Voluntary and CSR map to "Specific grant", matching the FY 2025-26 filing. The official Form 113 template could not be verified, so columns follow the FY 2025-26 Form 10BD; check against the portal before each upload.
-- The 80G registration (URN, date, section code) is entered in Settings, never seeded. The upload file is refused until it is set.
+- The readiness page lists what blocks filing, including CSR gifts for the CA to decide, and which gifts are filed. Without `DATA_ENCRYPTION_KEY` IDs are unchecked and no filing can be recorded.
+- The CA's file of every gift (status and reason, ID masked) needs `finance.view_sensitive` and is audited because it reveals identifiers in bulk. The portal upload file comes only from recording a filing, so every uploaded row is tracked.
+- Upload rows: one per donor, donation type and mode, each cash gift its own row; ready gifts only; net amounts in rupees. Codes are written as full text. Voluntary and CSR map to "Specific grant", matching the FY 2025-26 filing. The official Form 113 template could not be verified, so columns follow the FY 2025-26 Form 10BD; check against the portal before each upload.
+- The 80G registration (URN, date, section code) is entered in Settings, never seeded. No filing is recorded until it is set.
+
+### Filings (Form 113)
+
+Code: `packages/db/src/queries/donation-filings.ts`, `apps/web/src/lib/donation-filings/`. Tables are in the `private` schema and read through server functions.
+
+- "Record filing" (`finance.manage` and `finance.view_sensitive`, because it hands back full IDs) freezes the ready gifts not already filed into the year's next filing: `donation_filing`, its `donation_filing_row`s (the donor's name, address, ID type and code, amount, type and mode as written, ID encrypted under the row) and `donation_filing_gift` linking each gift to its row. The exact upload file is kept in private R2 storage. One filing per year is recorded at a time, and the gift is the link's key, so no gift is ever filed twice. A later filing holds only gifts not yet filed.
+- Each row gets a Pre-ARN written into the file: `PI`, the two short years, `F`, the filing number (two digits), `R`, the serial number (five digits), so FY 2026-27 filing 1 row 3 is `PI2627F01R00003`. Numbers and Pre-ARNs are never reused. At most 25,000 rows per filing (the portal's limit) and 99 filings a year.
+- After uploading the file, finance records the filing date, acknowledgement number and transaction ID (correctable later). A filing never submitted can be discarded, which frees its gifts.
+- Filed rows never change. A gift edited or refunded after filing stays filed as it was; correcting it needs a portal revision quoting the certificate number, which the dashboard doesn't prepare. Revisions (modify or delete rows) are not built. A filed gift can't be deleted.
+- Downloading the upload file needs `finance.view_sensitive` and is audited as `donation_filing.download`.
+
+### Form 114 certificates
+
+- Finance uploads the portal's ZIP (or single PDFs) against a submitted filing. Each PDF's text is read and matched to a row by our Pre-ARN, else by the donor's ID number and amount, with donation type and mode breaking a tie. Matched certificates are stored as `donation_certificate` (the row, the certificate's own acknowledgement number, the PDF in private R2). Unmatched files are listed with the reason and not kept; a row takes one certificate, and a re-uploaded file is recognised.
+- Unverified assumptions, all in `certificate-parser.ts`: the portal accepts a Pre-ARN it didn't issue (its own come in batches for manual receipts; if it rejects ours, matching falls back to ID and amount); a certificate reuses the row's Pre-ARN; it prints its own number after an "Acknowledgement Number" label, the donor's ID and the amount, as extractable text. ZIP file names are never used.
+- "Email certificates" (`finance.manage`) queues one `send-donation-certificate` job per certificate not yet emailed or on its way, in the claim's transaction; a failed send is taken again, and only an explicit resend repeats a sent one. The job sends only while the certificate carries its request, with a Resend idempotency key, so a certificate is never emailed twice by accident. It goes to the donor's current address with the PDF attached and records the send time, or why not: no address, bounced, email not set up, or a failed send (retried). Donors without a usable address are listed for sending by hand. Certificates are due to donors by 31 May.
+- Viewing or downloading a certificate needs `finance.view_sensitive` and is audited as `donation_certificate.download`.

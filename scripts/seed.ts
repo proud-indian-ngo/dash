@@ -27,12 +27,16 @@ import { createHash } from "node:crypto";
  *   advancePayment, advancePaymentLineItem, advancePaymentAttachment, advancePaymentHistory,
  *   vendor, vendorPayment, vendorPaymentLineItem, vendorPaymentAttachment, vendorPaymentHistory,
  *   vendorPaymentTransaction, vendorPaymentTransactionAttachment, vendorPaymentTransactionHistory,
+ *   donationFiling, donationFilingRow, donationFilingGift, donationCertificate
+ *   (with DATA_ENCRYPTION_KEY),
  *   notification,
  *   scheduledMessage, scheduledMessageRecipient
  */
 
 import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
+import { encryptSecret, hasEncryptionKey } from "@pi-dash/db/encryption";
+import { filingRowIdContext } from "@pi-dash/db/encryption-contexts";
 import { importedRowRetention } from "@pi-dash/db/import-retention";
 import { postOpeningBalance } from "@pi-dash/db/ledger/opening-balance";
 import {
@@ -110,6 +114,12 @@ import {
 import { openingBalance } from "@pi-dash/db/schema/ledger";
 import { notification } from "@pi-dash/db/schema/notification";
 import { party, partyRole } from "@pi-dash/db/schema/party";
+import {
+  donationCertificate,
+  donationFiling,
+  donationFilingGift,
+  donationFilingRow,
+} from "@pi-dash/db/schema/private/donation-filings";
 import { emailSuppression } from "@pi-dash/db/schema/private/email-suppression";
 import {
   collectionEvent,
@@ -3851,6 +3861,96 @@ async function seedBudgets(): Promise<void> {
   log("Budgets ready");
 }
 
+// ── Donations return filings ────────────────────────────────────────────────
+
+const SEED_FILING_ID = "01930000-0000-7000-8000-0000000009f1";
+const SEED_FILING_ROW_ID = "01930000-0000-7000-8000-0000000009f2";
+
+/**
+ * A submitted filing for FY 2026-27 holding the NEFT seed gift, with its
+ * certificate matched and not yet emailed. The files are fake keys, so
+ * downloads find nothing in dev. Needs DATA_ENCRYPTION_KEY for the row's ID.
+ */
+async function seedDonationFilings(adminId: string): Promise<void> {
+  if (!hasEncryptionKey()) {
+    log("Donations return filing skipped (no DATA_ENCRYPTION_KEY)");
+    return;
+  }
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(donationFiling)
+      .values({
+        acknowledgementNumber: "SEED113000000001",
+        createdAt: now,
+        createdBy: adminId,
+        fileName: "donations-return-FY2026-27-filing-1.csv",
+        fileObjectKey: "dev/donation-filings/seed/filing-1.csv",
+        fileSha256: "0".repeat(64),
+        filedOn: "2026-10-01",
+        fiscalYear: "2026-27",
+        giftCount: 1,
+        id: SEED_FILING_ID,
+        rowCount: 1,
+        sequence: 1,
+        status: "submitted",
+        submittedAt: now,
+        submittedBy: adminId,
+        totalPaise: 2_500_000,
+        transactionId: "SEEDTXN0001",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(donationFilingRow)
+      .values({
+        address: "1 Seed Street, Bengaluru, Karnataka, India, 560001",
+        amountPaise: 2_500_000,
+        createdAt: now,
+        donationTypeCode: "Specific grant",
+        filingId: SEED_FILING_ID,
+        giftCount: 1,
+        id: SEED_FILING_ROW_ID,
+        idCode: "Permanent Account Number",
+        // A fake PAN.
+        idNumberEncrypted: encryptSecret(
+          "AAAPZ0000Z",
+          filingRowIdContext(SEED_FILING_ROW_ID)
+        ),
+        idNumberLast4: "000Z",
+        idType: "pan",
+        modeCode: "Electronic modes including account payee cheque/draft",
+        name: PARTIES[0]?.displayName ?? "Seed donor",
+        partyId: DONOR_ID,
+        preArn: "PI2627F01R00001",
+        srNo: 1,
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(donationFilingGift)
+      .values({
+        contributionId: "01930000-0000-7000-8000-000000000611",
+        filingId: SEED_FILING_ID,
+        rowId: SEED_FILING_ROW_ID,
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(donationCertificate)
+      .values({
+        acknowledgementNumber: "SEED114000000001",
+        createdAt: now,
+        createdBy: adminId,
+        fileName: "1.pdf",
+        fileObjectKey: "dev/donation-filings/seed/certificates/1.pdf",
+        fileSha256: "1".repeat(64),
+        filingId: SEED_FILING_ID,
+        id: "01930000-0000-7000-8000-0000000009f3",
+        matchedBy: "pre_arn",
+        rowId: SEED_FILING_ROW_ID,
+      })
+      .onConflictDoNothing();
+  });
+  log("Donations return filing ready");
+}
+
 // ── Governance ───────────────────────────────────────────────────────────────
 
 async function seedGovernance(userMap: Map<string, string>): Promise<void> {
@@ -3883,6 +3983,7 @@ async function main(): Promise<void> {
   await seedFinanceDimensions();
   await seedParties(getUser(userMap, "admin@pi-dash.dev"));
   await seedIncome(getUser(userMap, "admin@pi-dash.dev"));
+  await seedDonationFilings(getUser(userMap, "admin@pi-dash.dev"));
   await seedBooks(getUser(userMap, "admin@pi-dash.dev"));
   await seedBankAccounts(userMap);
   await seedWhatsappGroups();

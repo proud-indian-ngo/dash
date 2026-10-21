@@ -46,6 +46,7 @@
         "helpers/charged-to.ts",
         "helpers/legacy-contribution.ts",
         "helpers/receipts.ts",
+        "helpers/donation-filings.ts",
         "helpers/request-approval.ts",
         "helpers/lead-approval.ts",
         "helpers/kalakriti-event-day-transport.ts",

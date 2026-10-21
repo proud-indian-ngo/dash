@@ -96,15 +96,21 @@ function createDb(
     dbTransaction: {
       wrappedTransaction: {
         execute: async (query: { queryChunks?: unknown[] }) => {
-          locks.push(
-            (query.queryChunks ?? [])
-              .map((chunk) =>
-                typeof chunk === "object" && chunk && "value" in chunk
-                  ? (chunk as { value: string[] }).value.join("")
-                  : String(chunk)
-              )
-              .join("?")
-          );
+          const rendered = (query.queryChunks ?? [])
+            .map((chunk) =>
+              typeof chunk === "object" && chunk && "value" in chunk
+                ? (chunk as { value: string[] }).value.join("")
+                : String(chunk)
+            )
+            .join("?");
+          // The filed-gift check reads the private filing links.
+          if (rendered.includes("donation_filing_gift")) {
+            return (tables.donationFilingGift ?? []).filter((row) =>
+              rendered.includes(String(row.contributionId))
+            );
+          }
+          locks.push(rendered);
+          return [];
         },
       },
     },
@@ -731,6 +737,26 @@ describe("contribution mutators", () => {
     ).rejects.toThrow(
       "A receipt was issued for this gift; it can't be deleted"
     );
+    expect(db.tables.contribution).toHaveLength(1);
+  });
+
+  it("refuses to delete a gift in a donations return filing", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: null,
+          status: "received",
+        },
+      ],
+      donationFilingGift: [{ contributionId: "c-1" }],
+    });
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow("in a donations return filing");
     expect(db.tables.contribution).toHaveLength(1);
   });
 

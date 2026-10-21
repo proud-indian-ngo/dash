@@ -135,6 +135,13 @@ export interface SendContributionReceiptPayload {
   requestId: string;
 }
 
+// Form 114 certificate email ("Email certificates"); IDs only.
+export interface SendDonationCertificatePayload {
+  certificateId: string;
+  /** The claim that queued it; a job whose claim was replaced does nothing. */
+  requestId: string;
+}
+
 // Advance Payment
 export interface NotifyAdvancePaymentSubmittedPayload {
   advancePaymentId: string;
@@ -823,6 +830,7 @@ export interface JobPayloads {
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
+  "send-donation-certificate": SendDonationCertificatePayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;

@@ -99,7 +99,8 @@ const specPattern = (file: string) =>
  * Specs that change state every other spec relies on, such as a second
  * active cost centre (every event and request form then asks for a city)
  * or a closed financial year (its imports and line actions are refused),
- * or a policy version in force (everyone it is for must accept it first).
+ * or a policy version in force (everyone it is for must accept it first),
+ * or a recorded donations filing (it freezes every ready gift of the year).
  * They run in the `exclusive_last` project, setup's teardown: after every
  * other project, with one worker.
  */
@@ -108,6 +109,7 @@ const exclusiveLastSpecs = [
   "finance/books-year-close.spec.ts",
   "governance/policy-gate.spec.ts",
   "governance/safeguarding-gate.spec.ts",
+  "income/donation-filings.spec.ts",
 ];
 
 export const exclusiveLastPatterns = exclusiveLastSpecs.map(specPattern);

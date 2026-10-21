@@ -88,6 +88,8 @@ import { Route as AppVendorPaymentsNewRouteImport } from './routes/_app/vendor-p
 import { Route as AppVendorsIndexRouteImport } from './routes/_app/vendors/index'
 import { Route as ApiAttachmentsDownloadRouteImport } from './routes/api/attachments/download'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiDonationCertificatesCertificateIdRouteImport } from './routes/api/donation-certificates/$certificateId'
+import { Route as ApiDonationFilingsFilingIdRouteImport } from './routes/api/donation-filings/$filingId'
 import { Route as ApiEmailUnsubscribeRouteImport } from './routes/api/email/unsubscribe'
 import { Route as ApiEmailWebhookRouteImport } from './routes/api/email/webhook'
 import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
@@ -569,6 +571,18 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDonationCertificatesCertificateIdRoute =
+  ApiDonationCertificatesCertificateIdRouteImport.update({
+    id: '/api/donation-certificates/$certificateId',
+    path: '/api/donation-certificates/$certificateId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDonationFilingsFilingIdRoute =
+  ApiDonationFilingsFilingIdRouteImport.update({
+    id: '/api/donation-filings/$filingId',
+    path: '/api/donation-filings/$filingId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiEmailUnsubscribeRoute = ApiEmailUnsubscribeRouteImport.update({
   id: '/api/email/unsubscribe',
   path: '/api/email/unsubscribe',
@@ -1083,6 +1097,8 @@ export interface FileRoutesByFullPath {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/donation-certificates/$certificateId': typeof ApiDonationCertificatesCertificateIdRoute
+  '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
@@ -1232,6 +1248,8 @@ export interface FileRoutesByTo {
   '/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/donation-certificates/$certificateId': typeof ApiDonationCertificatesCertificateIdRoute
+  '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
@@ -1393,6 +1411,8 @@ export interface FileRoutesById {
   '/_app/vendor-payments/new': typeof AppVendorPaymentsNewRoute
   '/api/attachments/download': typeof ApiAttachmentsDownloadRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/donation-certificates/$certificateId': typeof ApiDonationCertificatesCertificateIdRoute
+  '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
@@ -1556,6 +1576,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/donation-certificates/$certificateId'
+    | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
     | '/api/jobs/$id'
@@ -1705,6 +1727,8 @@ export interface FileRouteTypes {
     | '/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/donation-certificates/$certificateId'
+    | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
     | '/api/jobs/$id'
@@ -1865,6 +1889,8 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments/new'
     | '/api/attachments/download'
     | '/api/auth/$'
+    | '/api/donation-certificates/$certificateId'
+    | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
     | '/api/jobs/$id'
@@ -1972,6 +1998,8 @@ export interface RootRouteChildren {
   ApiVersionRoute: typeof ApiVersionRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDonationCertificatesCertificateIdRoute: typeof ApiDonationCertificatesCertificateIdRoute
+  ApiDonationFilingsFilingIdRoute: typeof ApiDonationFilingsFilingIdRoute
   ApiEmailUnsubscribeRoute: typeof ApiEmailUnsubscribeRoute
   ApiEmailWebhookRoute: typeof ApiEmailWebhookRoute
   ApiJobsIdRoute: typeof ApiJobsIdRouteWithChildren
@@ -2561,6 +2589,20 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/donation-certificates/$certificateId': {
+      id: '/api/donation-certificates/$certificateId'
+      path: '/api/donation-certificates/$certificateId'
+      fullPath: '/api/donation-certificates/$certificateId'
+      preLoaderRoute: typeof ApiDonationCertificatesCertificateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/donation-filings/$filingId': {
+      id: '/api/donation-filings/$filingId'
+      path: '/api/donation-filings/$filingId'
+      fullPath: '/api/donation-filings/$filingId'
+      preLoaderRoute: typeof ApiDonationFilingsFilingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/email/unsubscribe': {
@@ -3590,6 +3632,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionRoute: ApiVersionRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDonationCertificatesCertificateIdRoute:
+    ApiDonationCertificatesCertificateIdRoute,
+  ApiDonationFilingsFilingIdRoute: ApiDonationFilingsFilingIdRoute,
   ApiEmailUnsubscribeRoute: ApiEmailUnsubscribeRoute,
   ApiEmailWebhookRoute: ApiEmailWebhookRoute,
   ApiJobsIdRoute: ApiJobsIdRouteWithChildren,

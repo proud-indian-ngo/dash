@@ -31,6 +31,7 @@ import {
   getGiveDoPayoutImport,
   runGiveDoPayoutImport,
 } from "@/functions/give-do-payouts";
+import { fileBase64 } from "@/lib/file-base64";
 import type { PayoutReview, PayoutRunResult } from "@/lib/give-do-payout/types";
 import type { RowDecision } from "@/lib/income-import/classify";
 import { MAX_IMPORT_FILE_BYTES } from "@/lib/income-import/fields";
@@ -45,15 +46,6 @@ const uploadSchema = z.object({
   fundId: z.uuid("Choose a fund"),
   orgAccountId: z.uuid("Choose a give.do clearing account"),
 });
-
-async function fileBase64(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 8192) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
-  }
-  return btoa(binary);
-}
 
 function PayoutUploadForm({
   accounts,

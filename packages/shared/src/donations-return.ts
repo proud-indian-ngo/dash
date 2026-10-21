@@ -180,7 +180,9 @@ export type GiftOutcome =
   | { kind: "waiting" }
   | { kind: "excluded"; reason: ReturnExclusion }
   | { kind: "ready" }
-  | { blocks: ReturnBlock[]; kind: "blocked" };
+  | { blocks: ReturnBlock[]; kind: "blocked" }
+  /** In a recorded filing; its row is frozen, whatever the gift says now. */
+  | { filingSequence: number; kind: "filed" };
 
 /**
  * An address the return accepts: the first line and a PIN code. The state is
@@ -312,7 +314,10 @@ export interface ReturnSummary {
   donorCount: number;
   excludedCount: number;
   excludedPaise: number;
-  /** Gifts in the return: ready plus blocked. */
+  /** Gifts already in a recorded filing. */
+  filedCount: number;
+  filedPaise: number;
+  /** Gifts in the return: filed, ready and blocked. */
   inReturnCount: number;
   inReturnPaise: number;
   readyCount: number;
@@ -321,16 +326,27 @@ export interface ReturnSummary {
 }
 
 const isInReturn = (outcome: GiftOutcome) =>
-  outcome.kind === "ready" || outcome.kind === "blocked";
+  outcome.kind === "ready" ||
+  outcome.kind === "blocked" ||
+  outcome.kind === "filed";
 
-/** Classifies every gift of a year and totals the result. */
+/**
+ * Classifies every gift of a year and totals the result. A gift in a
+ * recorded filing (`filedSequences`, gift ID to the filing's number) is
+ * "filed" whatever it looks like now, so a later filing never repeats it.
+ */
 export function assessReturn(
   gifts: readonly ReturnGiftFacts[],
-  donors: ReadonlyMap<string, ReturnDonorFacts>
+  donors: ReadonlyMap<string, ReturnDonorFacts>,
+  filedSequences: ReadonlyMap<string, number> = new Map()
 ): { gifts: AssessedGift[]; summary: ReturnSummary } {
   const assessed = gifts.map((gift): AssessedGift => {
     const donor = donors.get(gift.partyId);
-    const outcome = classifyGift(gift, donor);
+    const filingSequence = filedSequences.get(gift.id);
+    const outcome: GiftOutcome =
+      filingSequence === undefined
+        ? classifyGift(gift, donor)
+        : { filingSequence, kind: "filed" };
     const received =
       outcome.kind !== "waiting" &&
       !(
@@ -365,6 +381,7 @@ export function assessReturn(
   const ready = sum("ready");
   const blocked = sum("blocked");
   const excluded = sum("excluded");
+  const filed = sum("filed");
   const inReturn = sum("in_return");
   return {
     gifts: assessed,
@@ -378,6 +395,8 @@ export function assessReturn(
       ).size,
       excludedCount: excluded.count,
       excludedPaise: excluded.paise,
+      filedCount: filed.count,
+      filedPaise: filed.paise,
       inReturnCount: inReturn.count,
       inReturnPaise: inReturn.paise,
       readyCount: ready.count,
@@ -636,7 +655,8 @@ export interface ReturnExportRow {
   address: string;
   amountPaise: number;
   donationTypeCode: string;
-  giftCount: number;
+  /** The gifts the row adds up, in the order they were added. */
+  giftIds: string[];
   idCode: string;
   idNumber: string;
   modeCode: string;
@@ -679,14 +699,14 @@ export function aggregateReturnRows(
     const existing = rows.get(key);
     if (existing) {
       existing.amountPaise = sumPaise([existing.amountPaise, gift.netPaise]);
-      existing.giftCount += 1;
+      existing.giftIds.push(gift.giftId);
       continue;
     }
     rows.set(key, {
       address: gift.address,
       amountPaise: gift.netPaise,
       donationTypeCode: RETURN_DONATION_TYPE_CODES[gift.donationType],
-      giftCount: 1,
+      giftIds: [gift.giftId],
       idCode,
       idNumber: normalizeIdNumber(gift.idNumber),
       modeCode: RETURN_MODE_CODES[effectiveReportingMode(gift)],
@@ -703,9 +723,21 @@ export function aggregateReturnRows(
   );
 }
 
+/** What one line of the upload file prints. */
+export type ReturnFileRow = Pick<
+  ReturnExportRow,
+  | "address"
+  | "amountPaise"
+  | "donationTypeCode"
+  | "idCode"
+  | "idNumber"
+  | "modeCode"
+  | "name"
+> & { preArn: string };
+
 /** The upload file's header and cells, in `RETURN_COLUMNS` order. */
 export function returnFileCells(
-  rows: readonly ReturnExportRow[],
+  rows: readonly ReturnFileRow[],
   registration: ReturnRegistration
 ): { headers: string[]; rows: string[][] } {
   return {
@@ -719,7 +751,7 @@ export function returnFileCells(
         idNumber: row.idNumber,
         mode: row.modeCode,
         name: row.name,
-        preAcknowledgementNumber: "",
+        preAcknowledgementNumber: row.preArn,
         sectionCode: registration.sectionCode,
         srNo: String(index + 1),
         urn: registration.urn,
@@ -730,6 +762,79 @@ export function returnFileCells(
   };
 }
 
+// ── Filings and Pre-ARNs ────────────────────────────────────────────────────
+
+/**
+ * The portal takes at most 25,000 rows per Form 113 upload; a larger return
+ * needs another filing.
+ */
+export const MAX_FILING_ROWS = 25_000;
+
+/** The portal accepts a Pre-Acknowledgement Number of at most 21 letters and digits. */
+export const PRE_ARN_MAX_LENGTH = 21;
+
+/**
+ * The Pre-ARN pi-dash writes on each row of a filing:
+ * `PI` + the year's two short years + `F` + the filing's number in the year
+ * (two digits) + `R` + the row's serial number (five digits), so FY 2026-27
+ * filing 1 row 3 is `PI2627F01R00003` (15 characters). It names one row of
+ * one filing, so it is unique for good: discarded filings keep their numbers.
+ *
+ * ASSUMPTION: the portal accepts a Pre-ARN it did not issue. Its own Pre-ARNs
+ * come in batches for manual receipts; if it rejects ours, the column is
+ * left empty and certificates are matched by donor details instead.
+ */
+export const PRE_ARN_PATTERN = /^PI\d{4}F\d{2}R\d{5}$/;
+
+export const MAX_FILINGS_PER_YEAR = 99;
+
+export function formatPreArn(
+  fiscalYear: string,
+  filingSequence: number,
+  srNo: number
+): string {
+  const years = /^\d{2}(\d{2})-(\d{2})$/.exec(fiscalYear);
+  if (!years) {
+    throw new Error(`Not a financial year label: ${fiscalYear}`);
+  }
+  if (
+    !Number.isInteger(filingSequence) ||
+    filingSequence < 1 ||
+    filingSequence > MAX_FILINGS_PER_YEAR
+  ) {
+    throw new Error(`Filing number out of range: ${filingSequence}`);
+  }
+  if (!Number.isInteger(srNo) || srNo < 1 || srNo > MAX_FILING_ROWS) {
+    throw new Error(`Row number out of range: ${srNo}`);
+  }
+  return `PI${years[1]}${years[2]}F${String(filingSequence).padStart(2, "0")}R${String(srNo).padStart(5, "0")}`;
+}
+
+/** An upload row with its place in a filing. */
+export interface FilingPlanRow extends ReturnExportRow {
+  preArn: string;
+  srNo: number;
+}
+
+/**
+ * Numbers a filing's rows (in upload order) and gives each its Pre-ARN.
+ * Refuses more rows than one upload takes.
+ */
+export function planFilingRows(
+  rows: readonly ReturnExportRow[],
+  fiscalYear: string,
+  filingSequence: number
+): FilingPlanRow[] {
+  if (rows.length > MAX_FILING_ROWS) {
+    throw new Error(`A filing takes at most ${MAX_FILING_ROWS} rows`);
+  }
+  return rows.map((row, index) => ({
+    ...row,
+    preArn: formatPreArn(fiscalYear, filingSequence, index + 1),
+    srNo: index + 1,
+  }));
+}
+
 /** Label for a gift's outcome in the "All gifts" file and on the page. */
 export function giftOutcomeLabel(outcome: GiftOutcome): {
   reason: string;
@@ -738,6 +843,8 @@ export function giftOutcomeLabel(outcome: GiftOutcome): {
   switch (outcome.kind) {
     case "ready":
       return { reason: "", status: "Ready" };
+    case "filed":
+      return { reason: `Filing ${outcome.filingSequence}`, status: "Filed" };
     case "waiting":
       return { reason: "Not received yet", status: "Waiting" };
     case "excluded":

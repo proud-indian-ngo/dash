@@ -5,6 +5,7 @@ import {
   CheckmarkCircle02Icon,
   Coins01Icon,
   FileDownloadIcon,
+  FileUploadIcon,
   InformationCircleIcon,
   MinusSignCircleIcon,
   UserLove01Icon,
@@ -59,6 +60,8 @@ import {
   type ChecklistSection,
   donorCount,
 } from "@/components/income/donations-return-checklist";
+import { RecordFilingDialog } from "@/components/income/filings/filing-dialogs";
+import { FilingsSection } from "@/components/income/filings/filings-section";
 import { formatReceivedOn } from "@/components/income/income-date";
 import type { ContributionRow } from "@/components/income/income-types";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
@@ -267,6 +270,7 @@ function ChecklistCard({
 export function DonationsReturnPage() {
   const { hasPermission } = useApp();
   const canExport = hasPermission("finance.view_sensitive");
+  const canRecordFiling = canExport && hasPermission("finance.manage");
   const canManageDonors = hasPermission("donors.manage");
   const canManageFinance = hasPermission("finance.manage");
   const [fyParam, setFyParam] = useQueryState("fy", parseAsString);
@@ -277,10 +281,13 @@ export function DonationsReturnPage() {
   const giftRows = contributions as ContributionRow[];
   const partyRows = parties as PartyRow[];
   const [donorVersion, setDonorVersion] = useState(0);
+  const [filingVersion, setFilingVersion] = useState(0);
   const { retry, state } = useReadiness(
     financialYear,
-    `${contributionsSignature(giftRows)}|${donorVersion}`
+    `${contributionsSignature(giftRows)}|${donorVersion}|${filingVersion}`
   );
+  const [recording, setRecording] = useState(false);
+  const [openFilingId, setOpenFilingId] = useState<string | null>(null);
 
   const giftsById = new Map(giftRows.map((row) => [row.id, row]));
   const partiesById = new Map(partyRows.map((row) => [row.id, row]));
@@ -297,17 +304,13 @@ export function DonationsReturnPage() {
     : null;
 
   const exportFile = useServerFn(exportDonationsReturn);
-  const [exporting, setExporting] = useState<"upload" | "all" | null>(null);
-  const runExport = useEventCallback(async (file: "upload" | "all") => {
-    setExporting(file);
-    await exportFile({ data: { file, financialYear } })
+  const [exporting, setExporting] = useState(false);
+  const exportAll = useEventCallback(async () => {
+    setExporting(true);
+    await exportFile({ data: { financialYear } })
       .then((result) => {
         saveText(result.csv, result.filename);
-        toast.success(
-          file === "upload"
-            ? "Return file downloaded. Check it against the portal's template before uploading."
-            : "All gifts downloaded"
-        );
+        toast.success("All gifts downloaded");
       })
       .catch((error: unknown) => {
         log.error({
@@ -320,10 +323,8 @@ export function DonationsReturnPage() {
             error instanceof Error ? error.message : "Something went wrong",
         });
       })
-      .finally(() => setExporting(null));
+      .finally(() => setExporting(false));
   });
-  const exportUpload = useEventCallback(() => runExport("upload"));
-  const exportAll = useEventCallback(() => runExport("all"));
   const handleYear = useEventCallback((value: string | null) => {
     if (value) {
       setFyParam(value);
@@ -346,7 +347,10 @@ export function DonationsReturnPage() {
   ).length;
   const readyShare =
     summary && summary.inReturnCount > 0
-      ? Math.round((summary.readyCount / summary.inReturnCount) * 100)
+      ? Math.round(
+          ((summary.readyCount + summary.filedCount) / summary.inReturnCount) *
+            100
+        )
       : 0;
 
   const stats: StatItem[] = summary
@@ -363,8 +367,14 @@ export function DonationsReturnPage() {
           value: summary.donorCount,
         },
         {
+          description: formatPaise(summary.filedPaise),
+          icon: FileUploadIcon,
+          label: "Filed",
+          value: summary.filedCount,
+        },
+        {
           icon: CheckmarkCircle02Icon,
-          label: "Ready",
+          label: "Ready to file",
           tone: summary.readyCount > 0 ? "success" : "neutral",
           value: summary.readyCount,
         },
@@ -423,31 +433,30 @@ export function DonationsReturnPage() {
                 ))}
               </SelectContent>
             </Select>
+            {canRecordFiling ? (
+              <Button
+                disabled={
+                  !data?.registrationReady ||
+                  !data?.identifiersAvailable ||
+                  (summary?.readyCount ?? 0) === 0
+                }
+                onClick={() => setRecording(true)}
+                type="button"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={FileUploadIcon}
+                  strokeWidth={2}
+                />
+                Record filing
+              </Button>
+            ) : null}
             {canExport ? (
               <>
-                <Button
-                  disabled={
-                    exporting !== null ||
-                    !data?.registrationReady ||
-                    !data?.identifiersAvailable ||
-                    (summary?.readyCount ?? 0) === 0
-                  }
-                  onClick={exportUpload}
-                  type="button"
-                >
-                  <HugeiconsIcon
-                    className="size-4"
-                    icon={FileDownloadIcon}
-                    strokeWidth={2}
-                  />
-                  {exporting === "upload"
-                    ? "Exporting..."
-                    : "Export for upload"}
-                </Button>
                 <PageHeaderMenu
                   actions={[
                     {
-                      disabled: exporting !== null || !data,
+                      disabled: exporting || !data,
                       icon: FileDownloadIcon,
                       id: "all-gifts",
                       label: "All gifts (for your CA)",
@@ -519,8 +528,9 @@ export function DonationsReturnPage() {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                 <span className="font-medium">
-                  {summary.readyCount} of {summary.inReturnCount}{" "}
-                  {summary.inReturnCount === 1 ? "gift" : "gifts"} ready
+                  {summary.filedCount} filed and {summary.readyCount} ready of{" "}
+                  {summary.inReturnCount}{" "}
+                  {summary.inReturnCount === 1 ? "gift" : "gifts"}
                 </span>
                 <span className="text-muted-foreground font-mono text-xs tabular-nums">
                   {blockingDone}/{blockingTotal} checks clear
@@ -531,10 +541,11 @@ export function DonationsReturnPage() {
                 className="text-muted-foreground text-sm"
                 data-testid="return-export-summary"
               >
-                The upload file will hold {data.exportRowCount}{" "}
+                The next filing will hold {data.exportRowCount}{" "}
                 {data.exportRowCount === 1 ? "row" : "rows"} (one per donor,
                 donation type and mode of receipt) totalling{" "}
-                {formatPaise(summary.readyPaise)}.
+                {formatPaise(summary.readyPaise)}. Gifts already filed never go
+                in again.
               </p>
             </section>
 
@@ -568,6 +579,15 @@ export function DonationsReturnPage() {
                 ) : null}
               </div>
             )}
+
+            <FilingsSection
+              canManage={canManageFinance}
+              canViewSensitive={canExport}
+              filings={data.filings}
+              onChanged={() => setFilingVersion((n) => n + 1)}
+              openFilingId={openFilingId}
+              setOpenFilingId={setOpenFilingId}
+            />
 
             <div className="flex flex-col gap-3">
               {sections.map((section) =>
@@ -611,6 +631,19 @@ export function DonationsReturnPage() {
         </p>
       </div>
 
+      {data && summary ? (
+        <RecordFilingDialog
+          financialYear={financialYear}
+          onOpenChange={setRecording}
+          onRecorded={(filingId) => {
+            setFilingVersion((n) => n + 1);
+            setOpenFilingId(filingId);
+          }}
+          open={recording}
+          readyPaise={summary.readyPaise}
+          rowCount={data.exportRowCount}
+        />
+      ) : null}
       <DonorDetailSheet
         canManage={canManageDonors}
         onEdit={setEditingParty}

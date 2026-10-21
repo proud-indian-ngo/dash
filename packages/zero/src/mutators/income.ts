@@ -344,6 +344,23 @@ async function lockContribution(tx: Tx, id: string): Promise<void> {
   );
 }
 
+/**
+ * Whether a donations return filing holds the gift (server only: filings
+ * are private). Its frozen row points at the gift, so the gift stays.
+ */
+async function isFiledGift(tx: Tx, id: string): Promise<boolean> {
+  if (tx.location !== "server") {
+    return false;
+  }
+  const { sql } = await import("drizzle-orm");
+  const rows = await requireServerTransaction(
+    tx as unknown as LockableKalakritiTx
+  ).execute(
+    sql`select 1 from private.donation_filing_gift where contribution_id = ${id}`
+  );
+  return rows.length > 0;
+}
+
 async function requireEditableContribution(tx: Tx, id: string) {
   // Lock order: the statement line lock before the contribution row, as
   // matching and the line actions take them (advisory lock, then the row's
@@ -558,6 +575,11 @@ export const contributionMutators = {
     if (await matchedLine(tx, args.id)) {
       throw new Error(
         "This contribution is matched to a bank statement line. Unmatch the line first."
+      );
+    }
+    if (await isFiledGift(tx, args.id)) {
+      throw new Error(
+        "This gift is in a donations return filing, so it can't be deleted"
       );
     }
     await tx.mutate.contribution.delete({ id: args.id });

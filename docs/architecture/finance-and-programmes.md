@@ -135,10 +135,6 @@ Kept from the agreed design; none of this is built unless stated.
 
 Built as consumed: income and an equal consumption, medium `in_kind`, no movement, excluded from cash views. Holding in-kind gifts as assets waits for a fixed asset register. In-kind corpus gifts net to nothing in the Corpus Fund (CA to advise).
 
-### Filing tracking and Form 114
-
-`donation_filing`, `donation_filing_row` (frozen donor snapshot, add/revise/delete, acknowledgement references) and `donation_certificate` (Form 114 received and emailed). Submitted rows are immutable; corrections are new filings.
-
 ### Other deferred work
 
 - Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
@@ -154,7 +150,7 @@ FCRA activation is its own gate before any foreign contribution; until then ever
 
 Follows the trust's DPDP compliance guide, with DPDP obligations from about 12 May 2027.
 
-- Encrypted and never synced: party ID numbers, party bank account numbers, receipt snapshot IDs. Planned: `org_account` bank details, payee account numbers on requests, filing-row donor IDs.
+- Encrypted and never synced: party ID numbers, party bank account numbers, receipt snapshot IDs, filing-row donor IDs. Planned: `org_account` bank details, payee account numbers on requests.
 - Retention classes, held per record: financial evidence ten years from the end of the tax year; import payloads months (built: 30 days unimported, 180 days after a run); money-related audit rows ten years, others thirteen months. Only `import_row` carries the retention columns today.
 - Expiry runs as a privileged process, never through product mutations, and preserves the append-only books.
 - `collection_event` records the basis and notice per collection. Receipt processing (section 7(a)) and statutory disclosure (7(d)) don't authorise fundraising messages; that needs its own consent.
