@@ -4,9 +4,10 @@ import {
   Clock01Icon,
   Unlink04Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { type ReactNode, useId, useState } from "react";
 
 import {
   NotFoundState,
@@ -47,6 +48,70 @@ function ContactButton() {
     >
       Contact Proud Indian
     </Button>
+  );
+}
+
+async function sha256Hex(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await file.arrayBuffer()
+  );
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
+/**
+ * Checks a PDF copy against the file as issued, by hash, in the browser:
+ * the file never leaves the device. Any re-save changes the bytes, so a
+ * mismatch says the file differs, not that it was forged.
+ */
+function PdfCopyCheck({ sha256 }: { sha256: string }) {
+  const id = useId();
+  const [outcome, setOutcome] = useState<"match" | "differs" | null>(null);
+  const check = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setOutcome(null);
+    if (file) {
+      setOutcome((await sha256Hex(file)) === sha256 ? "match" : "differs");
+    }
+  };
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className="mt-4 rounded-xl border p-4"
+    >
+      <h2 className="text-sm font-medium" id={`${id}-title`}>
+        Check a PDF copy
+      </h2>
+      <p className="text-muted-foreground mt-1 text-sm" id={`${id}-hint`}>
+        Have the receipt as a PDF? Choose it to check it hasn't been changed.
+        The file stays on your device.
+      </p>
+      <input
+        accept="application/pdf"
+        aria-describedby={`${id}-hint`}
+        aria-label="Receipt PDF to check"
+        className="file:bg-muted mt-3 w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
+        onChange={check}
+        type="file"
+      />
+      {outcome ? (
+        <p
+          className={`mt-3 flex items-start gap-2 text-sm ${outcome === "match" ? "text-success-foreground" : "text-destructive"}`}
+          role="status"
+        >
+          <HugeiconsIcon
+            className="mt-0.5 size-4 shrink-0"
+            icon={outcome === "match" ? CheckmarkBadge01Icon : CancelCircleIcon}
+            strokeWidth={2}
+          />
+          {outcome === "match"
+            ? "This is the exact file Proud Indian issued."
+            : "This isn't the exact file Proud Indian issued. It may have been edited, or saved again by another app. Compare its details with the ones above."}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -121,6 +186,7 @@ function ReceiptVerificationPage() {
             <span className="font-mono">{result.urn}</span>
           </DetailsRow>
         </DetailsCard>
+        {result.pdfSha256 ? <PdfCopyCheck sha256={result.pdfSha256} /> : null}
       </div>
     </Frame>
   );

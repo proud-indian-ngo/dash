@@ -329,6 +329,7 @@ describe("receipt settings", () => {
     orgPan: "aaatx1234x",
     signatoryDesignation: "Treasurer",
     signatoryName: "A. Signatory",
+    signatureKey: "app/attachments/receipt-signatures/signature.png",
   };
 
   it("round-trips and normalises the PAN", () => {
@@ -346,6 +347,19 @@ describe("receipt settings", () => {
     ).toBeNull();
     expect(
       parseReceiptSettings(JSON.stringify({ ...settings, signatoryName: " " }))
+    ).toBeNull();
+  });
+
+  it("needs a claimed signature: none, or a key outside the signature folder, fails", () => {
+    const { signatureKey: _, ...unsigned } = settings;
+    expect(parseReceiptSettings(JSON.stringify(unsigned))).toBeNull();
+    expect(
+      parseReceiptSettings(
+        JSON.stringify({
+          ...settings,
+          signatureKey: "app/attachments/reimbursements/r/receipt.png",
+        })
+      )
     ).toBeNull();
   });
 });

@@ -12,11 +12,17 @@ import {
   RECEIPT_ID_TYPE_LABELS,
   RECEIPT_MODE_LABELS,
   RECEIPT_NO_DEDUCTION_NOTE,
-  RECEIPT_NO_SIGNATURE_NOTE,
   RECEIPT_TITLE,
   receipt80GLine,
 } from "@pi-dash/shared/receipts";
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 
 import {
   DANGER,
@@ -24,6 +30,7 @@ import {
   documentDate,
   Fact,
   Line,
+  INK,
   Meta,
   MUTED,
   productStyles,
@@ -56,6 +63,11 @@ export interface DonationReceiptProps {
   org: { address: string; name: string; pan: string };
   registration: { sectionCode: string; urn: string; urnIssuedOn: string };
   signatory: { designation: string; name: string };
+  /**
+   * The signatory's signature PNG, frozen with the receipt. Null only for
+   * receipts issued before signatures were added, which print the name alone.
+   */
+  signatureImage: Buffer | null;
   /** The signed verification page the QR code opens. */
   verifyUrl: string;
   /** Set when the receipt was voided; the PDF says so on every page. */
@@ -72,9 +84,16 @@ const styles = {
     closing: { flexDirection: "row", gap: 28, marginTop: 24 },
     note: { fontSize: 9, lineHeight: 1.5 },
     notes: { flex: 1 },
-    noSignature: { color: MUTED, marginTop: 8 },
     signature: { width: 190 },
-    signatory: { marginTop: 10 },
+    // The signature sits on the rule above the name, as on paper.
+    signatory: { borderTop: `0.75pt solid ${INK}`, paddingTop: 5 },
+    signatureImage: {
+      height: 44,
+      objectFit: "contain",
+      objectPosition: "left bottom",
+      width: 150,
+    },
+    signatureSpace: { height: 48, justifyContent: "flex-end", marginTop: 6 },
     signatureFor: {
       fontSize: 9.5,
       lineHeight: 1.45,
@@ -224,16 +243,20 @@ export function DonationReceipt(props: DonationReceiptProps) {
           </View>
           <View style={styles.signature}>
             <Line style={styles.signatureFor}>For {org.name}</Line>
-            {/* No blank signature line: nobody signs the receipt (see RECEIPT_NO_SIGNATURE_NOTE). */}
+            <View style={styles.signatureSpace}>
+              {props.signatureImage ? (
+                <Image
+                  src={{ data: props.signatureImage, format: "png" }}
+                  style={styles.signatureImage}
+                />
+              ) : null}
+            </View>
             <View style={styles.signatory}>
               <Line style={[styles.text, styles.signatureName]}>
                 {signatory.name}
               </Line>
               <Text style={styles.small}>{signatory.designation}</Text>
               <Text style={styles.small}>Authorised signatory</Text>
-              <Line style={[styles.note, styles.noSignature]}>
-                {RECEIPT_NO_SIGNATURE_NOTE}
-              </Line>
             </View>
           </View>
         </View>

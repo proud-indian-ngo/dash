@@ -140,13 +140,6 @@ export const RECEIPT_CERTIFICATE_NOTE =
 export const RECEIPT_NO_DEDUCTION_NOTE =
   "No tax deduction certificate is issued for this donation.";
 
-/**
- * Printed under the signatory instead of a signature (CA to confirm). No rule
- * found requires the trust's own receipt to be signed; the QR code checks it.
- */
-export const RECEIPT_NO_SIGNATURE_NOTE =
-  "This is a computer-generated receipt and does not need a signature.";
-
 export const RECEIPT_TITLE = "Donation receipt";
 
 const MONTHS = [
@@ -202,7 +195,16 @@ export interface ReceiptSettings {
   orgPan: string;
   signatoryDesignation: string;
   signatoryName: string;
+  /**
+   * R2 key of the signatory's signature PNG, printed on every receipt. Set
+   * only by `appConfig.saveReceiptSettings`, which claims the upload.
+   */
+  signatureKey: string;
 }
+
+/** Where claimed signature images live, under the attachments folder. */
+export const RECEIPT_SIGNATURE_DURABLE_PREFIX = "receipt-signatures";
+const SIGNATURE_KEY_MAX = 500;
 
 export const RECEIPT_SETTINGS_CONFIG_KEY = "donation_receipt_settings";
 export const RECEIPT_SETTINGS_TEXT_MAX = 120;
@@ -232,6 +234,7 @@ export function parseReceiptSettings(
       "signatoryDesignation",
       RECEIPT_SETTINGS_TEXT_MAX
     );
+    const signatureKey = text("signatureKey", SIGNATURE_KEY_MAX);
     if (
       !(
         orgName &&
@@ -239,7 +242,8 @@ export function parseReceiptSettings(
         orgPan &&
         ORG_PAN_PATTERN.test(orgPan) &&
         signatoryName &&
-        signatoryDesignation
+        signatoryDesignation &&
+        signatureKey?.includes(`/${RECEIPT_SIGNATURE_DURABLE_PREFIX}/`)
       )
     ) {
       return null;
@@ -250,6 +254,7 @@ export function parseReceiptSettings(
       orgPan,
       signatoryDesignation,
       signatoryName,
+      signatureKey,
     };
   } catch {
     return null;
@@ -263,6 +268,7 @@ export function serializeReceiptSettings(value: ReceiptSettings): string {
     orgPan: value.orgPan.trim().toUpperCase(),
     signatoryDesignation: value.signatoryDesignation.trim(),
     signatoryName: value.signatoryName.trim(),
+    signatureKey: value.signatureKey,
   });
 }
 

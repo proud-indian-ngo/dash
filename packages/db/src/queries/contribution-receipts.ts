@@ -97,7 +97,12 @@ export interface ReceiptDocumentSnapshot {
   org: { address: string; name: string; pan: string };
   registration: ReturnRegistration;
   signatory: { designation: string; name: string };
-  version: 1;
+  /**
+   * R2 key of the signatory's signature at issue. Version 1 snapshots, from
+   * before signatures, have none and are read as null.
+   */
+  signatureKey: string | null;
+  version: 1 | 2;
   with80G: boolean;
 }
 
@@ -106,6 +111,8 @@ export interface ReceiptDocument extends ReceiptDocumentSnapshot {
   donorIdNumber: string | null;
   issuedOn: string;
   number: string;
+  /** The PDF as issued, once stored. */
+  stored: { key: string; sha256: string } | null;
   voidedAt: Date | null;
   voidReason: string | null;
 }
@@ -773,7 +780,8 @@ export async function issueReceiptsIn(
         designation: settings.signatoryDesignation,
         name: settings.signatoryName,
       },
-      version: 1,
+      signatureKey: settings.signatureKey,
+      version: 2,
       with80G,
     };
     await tx.insert(contributionReceiptSnapshot).values({
@@ -862,6 +870,8 @@ async function selectReceiptWithSnapshot(receiptId: string) {
       idNumberEncrypted: contributionReceiptSnapshot.idNumberEncrypted,
       issuedOn: contributionReceipt.issuedOn,
       number: contributionReceipt.number,
+      pdfKey: contributionReceiptSnapshot.pdfKey,
+      pdfSha256: contributionReceiptSnapshot.pdfSha256,
       voidedAt: contributionReceipt.voidedAt,
       voidReason: contributionReceipt.voidReason,
     })
@@ -872,12 +882,14 @@ async function selectReceiptWithSnapshot(receiptId: string) {
     )
     .where(eq(contributionReceipt.id, receiptId))
     .limit(1);
-  return row
-    ? {
-        ...row,
-        snapshot: row.document as unknown as ReceiptDocumentSnapshot,
-      }
-    : undefined;
+  if (!row) {
+    return undefined;
+  }
+  const document = row.document as unknown as ReceiptDocumentSnapshot;
+  return {
+    ...row,
+    snapshot: { ...document, signatureKey: document.signatureKey ?? null },
+  };
 }
 
 /** The full document for the PDF, with the decrypted ID number. Server only. */
@@ -895,9 +907,32 @@ export async function loadReceiptDocument(
       : null,
     issuedOn: row.issuedOn,
     number: row.number,
+    stored:
+      row.pdfKey && row.pdfSha256
+        ? { key: row.pdfKey, sha256: row.pdfSha256 }
+        : null,
     voidedAt: row.voidedAt,
     voidReason: row.voidReason,
   };
+}
+
+/**
+ * Records the PDF stored for a receipt, unless one already was: the first
+ * store wins, so a download racing the issue job keeps the same file.
+ */
+export async function recordStoredReceiptPdf(
+  receiptId: string,
+  stored: { key: string; sha256: string }
+): Promise<void> {
+  await db
+    .update(contributionReceiptSnapshot)
+    .set({ pdfKey: stored.key, pdfSha256: stored.sha256 })
+    .where(
+      and(
+        eq(contributionReceiptSnapshot.receiptId, receiptId),
+        isNull(contributionReceiptSnapshot.pdfKey)
+      )
+    );
 }
 
 /** What the public verification page may show; never the donor's ID or address. */
@@ -908,6 +943,8 @@ export interface ReceiptVerificationFacts {
   issuedOn: string;
   number: string;
   orgPan: string;
+  /** SHA-256 of the PDF as issued; null until it is stored. */
+  pdfSha256: string | null;
   urn: string;
   voidedAt: Date | null;
   with80G: boolean;
@@ -928,6 +965,7 @@ export async function loadReceiptVerificationFacts(
     issuedOn: row.issuedOn,
     number: row.number,
     orgPan: row.snapshot.org.pan,
+    pdfSha256: row.pdfSha256,
     urn: row.snapshot.registration.urn,
     voidedAt: row.voidedAt,
     with80G: row.snapshot.with80G,

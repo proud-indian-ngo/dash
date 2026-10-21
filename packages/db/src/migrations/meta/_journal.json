@@ -1247,6 +1247,13 @@
       "when": 1792561841329,
       "tag": "0177_drop_circular_fields_prepared",
       "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1792590438276,
+      "tag": "0178_receipt_stored_pdf",
+      "breakpoints": true
     }
   ]
 }

@@ -99,6 +99,7 @@ import { Route as ApiPublicEventsRouteImport } from './routes/api/public/events'
 import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public/openapi[.]json'
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
 import { Route as ApiReceiptsReceiptIdRouteImport } from './routes/api/receipts/$receiptId'
+import { Route as ApiReceiptsSignatureRouteImport } from './routes/api/receipts/signature'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
@@ -625,6 +626,11 @@ const ApiReceiptsReceiptIdRoute = ApiReceiptsReceiptIdRouteImport.update({
   path: '/api/receipts/$receiptId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReceiptsSignatureRoute = ApiReceiptsSignatureRouteImport.update({
+  id: '/api/receipts/signature',
+  path: '/api/receipts/signature',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   id: '/api/whatsapp/webhook',
   path: '/api/whatsapp/webhook',
@@ -1099,6 +1105,7 @@ export interface FileRoutesByFullPath {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1249,6 +1256,7 @@ export interface FileRoutesByTo {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1411,6 +1419,7 @@ export interface FileRoutesById {
   '/api/public/openapi.json': typeof ApiPublicOpenapiDotjsonRoute
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
+  '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1575,6 +1584,7 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1725,6 +1735,7 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1886,6 +1897,7 @@ export interface FileRouteTypes {
     | '/api/public/openapi.json'
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
+    | '/api/receipts/signature'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1994,6 +2006,7 @@ export interface RootRouteChildren {
   ApiPublicOpenapiDotjsonRoute: typeof ApiPublicOpenapiDotjsonRoute
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiReceiptsReceiptIdRoute: typeof ApiReceiptsReceiptIdRoute
+  ApiReceiptsSignatureRoute: typeof ApiReceiptsSignatureRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -2651,6 +2664,13 @@ declare module '@tanstack/react-router' {
       path: '/api/receipts/$receiptId'
       fullPath: '/api/receipts/$receiptId'
       preLoaderRoute: typeof ApiReceiptsReceiptIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/receipts/signature': {
+      id: '/api/receipts/signature'
+      path: '/api/receipts/signature'
+      fullPath: '/api/receipts/signature'
+      preLoaderRoute: typeof ApiReceiptsSignatureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/whatsapp/webhook': {
@@ -3620,6 +3640,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicOpenapiDotjsonRoute: ApiPublicOpenapiDotjsonRoute,
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiReceiptsReceiptIdRoute: ApiReceiptsReceiptIdRoute,
+  ApiReceiptsSignatureRoute: ApiReceiptsSignatureRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,

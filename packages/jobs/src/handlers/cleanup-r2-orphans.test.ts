@@ -138,6 +138,12 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM conflict_declaration WHERE object_key LIKE"
       );
+      expect(statement).toContain(
+        "SELECT pdf_key FROM private.contribution_receipt_snapshot"
+      );
+      expect(statement).toContain(
+        "SELECT document ->> 'signatureKey' FROM private.contribution_receipt_snapshot"
+      );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

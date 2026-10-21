@@ -21,6 +21,8 @@ export type ReceiptVerification =
       mode: string;
       number: string;
       orgPan: string;
+      /** SHA-256 of the PDF as issued, to check a copy; null until stored. */
+      pdfSha256: string | null;
       status: "valid" | "void";
       urn: string;
       /** India date the receipt was voided; null while it is valid. */
@@ -67,6 +69,7 @@ export async function verifyReceiptLink(
     mode: RECEIPT_MODE_LABELS[facts.channel],
     number: facts.number,
     orgPan: facts.orgPan,
+    pdfSha256: facts.pdfSha256,
     status: facts.voidedAt ? "void" : "valid",
     urn: facts.urn,
     voidedOn: facts.voidedAt

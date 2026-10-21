@@ -81,6 +81,7 @@ const SETTINGS = JSON.stringify({
   orgPan: "AAATT0000T",
   signatoryDesignation: "Test Treasurer",
   signatoryName: "Test Signatory",
+  signatureKey: "test/attachments/receipt-signatures/signature.png",
 });
 const REGISTRATION = JSON.stringify({
   sectionCode: "Section 80G",

@@ -12,7 +12,7 @@ import {
   voidReceiptIn,
 } from "@pi-dash/db/queries/contribution-receipts";
 import { getEmailSuppression } from "@pi-dash/db/queries/email-suppression";
-import { enqueue } from "@pi-dash/jobs/enqueue";
+import { enqueue, inTransaction } from "@pi-dash/jobs/enqueue";
 import { uuidv7 } from "uuidv7";
 
 import { withSafeErrors } from "@/lib/safe-errors";
@@ -56,7 +56,19 @@ export const issueReceipts = (
   actorId: string
 ): Promise<IssueReceiptsResult> =>
   safely("issue", () =>
-    db.transaction((tx) => issueReceiptsIn(tx, { actorId, contributionIds }))
+    db.transaction(async (tx) => {
+      const result = await issueReceiptsIn(tx, { actorId, contributionIds });
+      // Each PDF is stored once the receipts commit, so the first copy a
+      // donor gets is the stored one. Queued only if the issue commits.
+      for (const receipt of result.issued) {
+        await enqueue(
+          "store-contribution-receipt-pdf",
+          { receiptId: receipt.id },
+          { db: inTransaction(tx), singletonKey: `receipt-pdf-${receipt.id}` }
+        );
+      }
+      return result;
+    })
   );
 
 export const voidReceipt = (

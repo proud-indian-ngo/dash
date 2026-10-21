@@ -13,6 +13,7 @@ import {
   generateDonationReceiptPdf,
 } from "./generate-donation-receipt";
 import { pdfWords } from "./pdf-text.test-helper";
+import { syntheticSignaturePng } from "./synthetic-signature.test-helper";
 
 /** Repeats a phrase to exactly `length` characters. */
 function textOf(length: number, phrase: string): string {
@@ -73,6 +74,7 @@ const sampleReceipt: DonationReceiptProps = {
     urnIssuedOn: "2025-01-01",
   },
   signatory: { designation: "Treasurer", name: "Test Signatory" },
+  signatureImage: syntheticSignaturePng(),
   verifyUrl:
     "https://dash.example.org/verify/r/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b?s=ABEiM0RVZneImaq7zN3u_w",
   voided: null,
@@ -104,6 +106,20 @@ describe("donation receipt PDF", () => {
       verifyUrl: sampleReceipt.verifyUrl.replace("s=AB", "s=BA"),
     });
     expect(other.equals(pdf)).toBe(false);
+  });
+
+  it("draws the signature image, and leaves it out for older receipts", async () => {
+    const images = (pdf: Buffer) =>
+      [...pdf.toString("latin1").matchAll(/\/Subtype \/Image\b/g)].length;
+    const signed = await generateDonationReceiptPdf(sampleReceipt);
+    const unsigned = await generateDonationReceiptPdf({
+      ...sampleReceipt,
+      signatureImage: null,
+    });
+    expect(images(signed)).toBeGreaterThan(images(unsigned));
+    expect((await pdfWords(unsigned)).join(" ")).toContain(
+      "Test Signatory Treasurer Authorised signatory"
+    );
   });
 
   it("embeds the product fonts", async () => {

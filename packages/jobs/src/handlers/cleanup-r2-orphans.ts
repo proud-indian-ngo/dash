@@ -6,6 +6,7 @@ import { scheduledMessage } from "@pi-dash/db/schema/scheduled-message";
 import { env } from "@pi-dash/env/server";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { notifyR2CleanupResults } from "@pi-dash/notifications/send/reminders";
+import { RECEIPT_SETTINGS_CONFIG_KEY } from "@pi-dash/shared/receipts";
 import { S3Client } from "bun";
 import { isNotNull, sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
@@ -105,6 +106,14 @@ async function collectAllDbKeys(): Promise<{
       SELECT minutes_object_key FROM meeting WHERE minutes_object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT object_key FROM conflict_declaration WHERE object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT value::jsonb ->> 'signatureKey' FROM app_config
+      WHERE key = ${RECEIPT_SETTINGS_CONFIG_KEY}
+      UNION ALL
+      SELECT pdf_key FROM private.contribution_receipt_snapshot WHERE pdf_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT document ->> 'signatureKey' FROM private.contribution_receipt_snapshot
+      WHERE document ->> 'signatureKey' IS NOT NULL
     ) AS all_keys
   `);
 

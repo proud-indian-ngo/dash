@@ -27,7 +27,7 @@ mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
 }));
 mock.module("../lib/receipt-pdf", () => ({
-  renderReceiptPdf: async () => null,
+  receiptPdf: async () => null,
 }));
 
 const { sendContributionReceipt } = await import("./send-contribution-receipt");

@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -184,6 +186,38 @@ test.describe("Income: donation receipts (finance)", () => {
     );
   });
 
+  test("replaces the signatory's signature in Settings", async ({ page }) => {
+    await page.goto("/settings/org-accounts");
+    await waitForZeroReady(page);
+    const receipts = page.getByRole("region", { name: "Donation receipts" });
+    await receipts
+      .getByRole("button", { name: "Edit receipt details" })
+      .click();
+    // The stored signature previews from storage before it is replaced.
+    const preview = receipts.getByRole("img", {
+      name: "Signatory's signature",
+    });
+    await expect
+      .poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+    await receipts
+      .getByLabel("Signatory's signature")
+      .setInputFiles(
+        path.resolve(
+          import.meta.dirname,
+          "../../fixtures/images/receipt-signature.png"
+        )
+      );
+    await expect(preview).toHaveAttribute("src", /^blob:/);
+    await receipts
+      .getByRole("button", { name: "Save receipt details" })
+      .click();
+    await expect(page.getByText("Receipt details saved")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(receipts).toContainText("signed by E2E Signatory");
+  });
+
   test("issues, downloads, verifies and voids a receipt for a direct gift", async ({
     baseURL,
     browser,
@@ -273,6 +307,12 @@ test.describe("Income: donation receipts (finance)", () => {
     const body = (await response.body()).toString("latin1");
     expect(body.startsWith("%PDF-")).toBe(true);
     expect(body).toContain(`(${number})`);
+    // Every fetch serves the one stored file.
+    const downloadPath = await download.path();
+    const downloaded = await readFile(downloadPath);
+    const sha = (bytes: Buffer) =>
+      createHash("sha256").update(bytes).digest("hex");
+    expect(sha(await response.body())).toBe(sha(downloaded));
 
     // The QR code's link confirms the receipt to anyone, with the donor masked.
     const receiptId = new URL(href ?? "", page.url()).pathname
@@ -288,6 +328,22 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(details).toContainText("E••• R••• D•••");
     await expect(details).not.toContainText(RECEIPT_DONOR);
     await expect(details).toContainText("Eligible");
+    // The donor's PDF checks out byte for byte; an edited copy doesn't.
+    const pdfCheck = verifier.getByLabel("Receipt PDF to check");
+    await pdfCheck.setInputFiles(downloadPath);
+    await expect(verifier.getByRole("status").last()).toHaveText(
+      "This is the exact file Proud Indian issued."
+    );
+    const edited = Buffer.from(downloaded);
+    edited[edited.length - 20] = (edited[edited.length - 20] ?? 0) ^ 1;
+    await pdfCheck.setInputFiles({
+      buffer: edited,
+      mimeType: "application/pdf",
+      name: "edited.pdf",
+    });
+    await expect(verifier.getByRole("status").last()).toContainText(
+      "isn't the exact file Proud Indian issued"
+    );
     // A link with another signature verifies nothing.
     const tampered = await verifier.goto(
       `${link.slice(0, -1)}${link.endsWith("A") ? "B" : "A"}`

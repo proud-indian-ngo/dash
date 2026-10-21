@@ -35,6 +35,13 @@ export const contributionReceiptSnapshot = privateSchema.table(
     document: jsonb("document").notNull(),
     /** Encrypted; null when the receipt carries no 80G line. */
     idNumberEncrypted: text("id_number_encrypted"),
+    /**
+     * R2 key of the PDF as issued, rendered once and served from then on, so
+     * an issued receipt never changes. Null until it is first stored.
+     */
+    pdfKey: text("pdf_key"),
+    /** SHA-256 of that PDF, hex; the verification page checks a copy against it. */
+    pdfSha256: text("pdf_sha256"),
     receiptId: uuid("receipt_id")
       .primaryKey()
       .references(() => contributionReceipt.id, { onDelete: "restrict" }),
