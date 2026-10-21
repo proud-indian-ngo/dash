@@ -149,11 +149,16 @@ describe("an event's project", () => {
 
   it("is cleared when the event moves to another programme", async () => {
     const db = createDb();
-    await update(db.tx, lead, { programmeId: "arts" });
+    const asyncTasks: { meta: Row }[] = [];
+    await update(db.tx, { ...lead, asyncTasks }, { programmeId: "arts" });
     expect(db.row("event-1")).toMatchObject({
       programmeId: "arts",
       projectId: null,
     });
+    // Finance hears that the event's spend left the project.
+    expect(asyncTasks.map((t) => t.meta.mutator)).toContain(
+      "teamEvent.projectCleared"
+    );
     // Finance can name one under the new programme in the same save.
     const again = createDb();
     await update(again.tx, finance, {
@@ -238,5 +243,43 @@ describe("an event's project", () => {
     expect(db.row("event-1")?.projectId).toBe("drive-2026");
     expect(db.row("occ-1")?.projectId).toBe("drive-2026");
     expect(db.row("occ-2")?.projectId).toBeNull();
+  });
+
+  it("moves later saved sessions on a This and following project change", async () => {
+    const session = (id: string, date: string, projectId: string | null) => ({
+      ...event,
+      id,
+      originalDate: date,
+      projectId,
+      recurrenceRule: null,
+      seriesId: "event-1",
+      startTime: Date.parse(`${date}T04:30:00Z`),
+    });
+    const db = createDb([
+      { ...event, recurrenceRule: { rrule: "FREQ=WEEKLY" } },
+      session("occ-1", "2026-11-14", "class-2026"),
+      session("occ-2", "2026-11-21", "class-2026"),
+      session("occ-3", "2026-11-28", null),
+      session("occ-4", "2026-12-05", "class-2026"),
+    ]);
+    await teamEventMutators.updateSeries.fn({
+      args: {
+        id: "event-1",
+        mode: "following",
+        newSeriesId: "series-2",
+        now: NOW,
+        originalDate: "2026-11-21",
+        projectId: "drive-2026",
+      },
+      ctx: finance,
+      tx: db.tx,
+    } as never);
+    expect(db.row("series-2")?.projectId).toBe("drive-2026");
+    // Before the split: unchanged.
+    expect(db.row("occ-1")?.projectId).toBe("class-2026");
+    expect(db.row("occ-2")?.projectId).toBe("drive-2026");
+    expect(db.row("occ-4")?.projectId).toBe("drive-2026");
+    // Given its own (none): kept.
+    expect(db.row("occ-3")?.projectId).toBeNull();
   });
 });

@@ -11,13 +11,15 @@ import {
   DEFAULT_RSVP_POLL_LEAD_MINUTES,
   RSVP_POLL_LEAD_PRESETS,
 } from "@pi-dash/shared/event-reminders";
+import { formatPaise } from "@pi-dash/shared/money";
 import { VOLUNTEERS_NEEDED_MAX } from "@pi-dash/shared/social-recap";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { WhatsappGroup } from "@pi-dash/zero/schema";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm, useSelector } from "@tanstack/react-form";
-import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useRef, useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
@@ -30,6 +32,7 @@ import { FormSectionHeading } from "@/components/form/form-section";
 import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { type EventProjectMove, getEventProjectMove } from "@/functions/grants";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { handleMutationResult } from "@/lib/mutation-result";
@@ -555,6 +559,11 @@ function EventFormContent({
   const canManageFinance =
     hasPermission("finance.manage") && !kalakritiEditionId;
 
+  const loadProjectMove = useServerFn(getEventProjectMove);
+  // Posted spend a project change would move, awaiting finance's confirmation.
+  const [pendingMove, setPendingMove] = useState<EventProjectMove | null>(null);
+  const moveConfirmed = useRef(false);
+
   const form = useForm({
     defaultValues: getDefaultValues(
       initialValues,
@@ -562,6 +571,33 @@ function EventFormContent({
       defaultCostCentreId
     ),
     onSubmit: async ({ value }) => {
+      const nextProject = changedProjectId(
+        value,
+        initialValues,
+        canManageFinance
+      );
+      if (
+        isEdit &&
+        initialValues &&
+        nextProject !== undefined &&
+        !moveConfirmed.current
+      ) {
+        const move = await loadProjectMove({
+          data: {
+            eventId:
+              editScope && editScope !== "this"
+                ? (initialValues.seriesId ?? initialValues.id)
+                : initialValues.id,
+            projectId: nextProject,
+            withSessions: Boolean(editScope && editScope !== "this"),
+          },
+        });
+        if (move.postedPaise !== 0) {
+          setPendingMove(move);
+          return;
+        }
+      }
+      moveConfirmed.current = false;
       const { mutation, mutationName } = getMutation(
         zero,
         value,
@@ -904,6 +940,40 @@ function EventFormContent({
         onCancel={stableOnCancel7}
         submitLabel={isEdit ? "Save changes" : "Create event"}
         submittingLabel={isEdit ? "Saving..." : "Creating..."}
+      />
+      <ConfirmDialog
+        confirmLabel="Change project"
+        description={
+          pendingMove ? (
+            <span className="flex flex-col gap-2">
+              <span>
+                {formatPaise(pendingMove.postedPaise)} already in the books on
+                this event moves to the new project when the books next post:
+              </span>
+              {pendingMove.lines.map((line) => (
+                <span
+                  data-testid="event-project-move-line"
+                  key={`${line.fromGrant}-${line.toGrant}`}
+                >
+                  {formatPaise(line.paise)}: {line.fromGrant ?? "no grant"} →{" "}
+                  {line.toGrant ?? "no grant"}
+                </span>
+              ))}
+            </span>
+          ) : null
+        }
+        onConfirm={() => {
+          setPendingMove(null);
+          moveConfirmed.current = true;
+          form.handleSubmit();
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingMove(null);
+          }
+        }}
+        open={pendingMove !== null}
+        title="Move posted spend?"
       />
     </FormLayout>
   );

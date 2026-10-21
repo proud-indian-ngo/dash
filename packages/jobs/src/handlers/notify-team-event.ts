@@ -2,6 +2,7 @@ import {
   notifyAddedToEvent,
   notifyEventCancelled,
   notifyEventCreated,
+  notifyEventProjectCleared,
   notifyEventUpdated,
   notifyRemovedFromEvent,
   notifyUsersAddedToEvent,
@@ -11,6 +12,7 @@ import type {
   NotifyAddedToEventPayload,
   NotifyEventCancelledPayload,
   NotifyEventCreatedPayload,
+  NotifyEventProjectClearedPayload,
   NotifyEventUpdatedPayload,
   NotifyRemovedFromEventPayload,
   NotifyUsersAddedToEventPayload,
@@ -51,4 +53,10 @@ export const handleNotifyRemovedFromEvent =
   createNotifyHandler<NotifyRemovedFromEventPayload>(
     "notify-removed-from-event",
     async () => notifyRemovedFromEvent
+  );
+
+export const handleNotifyEventProjectCleared =
+  createNotifyHandler<NotifyEventProjectClearedPayload>(
+    "notify-event-project-cleared",
+    async () => notifyEventProjectCleared
   );

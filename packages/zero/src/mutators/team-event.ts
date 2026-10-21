@@ -20,6 +20,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import "../context";
+import type { Context } from "../context";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -517,6 +518,48 @@ export async function eventProjectChange(
     throw new Error("Choose a project that isn't closed");
   }
   return requested;
+}
+
+/**
+ * A programme move by someone outside finance cleared the event's project,
+ * so its expenses leave that project's grants and budgets: tell finance by
+ * inbox and email. The audit row records the edit itself.
+ */
+async function noticeProjectCleared(
+  ctx: Context,
+  tx: Transaction<Schema>,
+  args: {
+    current: string | null;
+    event: { id: string; name: string };
+    next: string | null | undefined;
+    now: number;
+  }
+) {
+  if (
+    tx.location !== "server" ||
+    can(ctx, "finance.manage") ||
+    !args.current ||
+    args.next !== null
+  ) {
+    return;
+  }
+  const project = await tx.run(zql.project.where("id", args.current).one());
+  ctx.asyncTasks?.push({
+    fn: async () => {
+      const { enqueue } = await import("@pi-dash/jobs/enqueue");
+      await enqueue(
+        "notify-event-project-cleared",
+        {
+          eventId: args.event.id,
+          eventName: args.event.name,
+          projectName: project?.name ?? "its project",
+          updatedAt: args.now,
+        },
+        { traceId: ctx.traceId }
+      );
+    },
+    meta: { eventId: args.event.id, mutator: "teamEvent.projectCleared" },
+  });
 }
 
 /**
@@ -1663,6 +1706,12 @@ export const teamEventMutators = {
           args.programmeId !== existing.programmeId,
         requested: args.projectId,
       });
+      await noticeProjectCleared(ctx, tx, {
+        current: existing.projectId ?? null,
+        event: { id: existing.id, name: args.name ?? existing.name },
+        next: projectId,
+        now: args.now,
+      });
 
       await tx.mutate.teamEvent.update(
         buildUpdateFields({ ...args, projectId })
@@ -1845,6 +1894,12 @@ export const teamEventMutators = {
           requested: args.projectId,
         }),
       };
+      await noticeProjectCleared(ctx, tx, {
+        current: existing.projectId ?? null,
+        event: { id: existing.id, name: args.name ?? existing.name },
+        next: edit.projectId,
+        now: args.now,
+      });
       // Programme changes are future-effective: once a series has started,
       // "all" would rewrite past sessions, so it is refused. Before that,
       // every session is still to come.

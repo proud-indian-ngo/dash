@@ -314,6 +314,17 @@ describe("moving a project to another programme", () => {
     ).rejects.toThrow("This project has a budget");
   });
 
+  it("refuses while events name the project", async () => {
+    const db = createDb({
+      programme: programmes,
+      project: [project()],
+      teamEvent: [{ id: "e-1", programmeId: "prog-1", projectId: "proj-1" }],
+    });
+    await expect(
+      run(projectMutators.update, db, financeCtx, move)
+    ).rejects.toThrow("Events name this project");
+  });
+
   it("moves a project nothing is charged to", async () => {
     const db = createDb({ programme: programmes, project: [project()] });
     await run(projectMutators.update, db, financeCtx, move);

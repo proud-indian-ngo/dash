@@ -627,6 +627,7 @@ export async function updateSeriesFollowing(
   const moving = saved.filter(
     (e) => e.originalDate !== null && e.originalDate >= args.originalDate
   );
+  const projectChanges = series.projectId !== (existing.projectId ?? null);
   await Promise.all(
     moving.map((e) =>
       tx.mutate.teamEvent.update({
@@ -638,6 +639,14 @@ export async function updateSeriesFollowing(
         updatedAt: args.now,
         ...(e.whatsappGroupId === existing.whatsappGroupId
           ? { whatsappGroupId: series.whatsappGroupId }
+          : {}),
+        // A project change moves later saved sessions still on the old
+        // project and on the series' programme; one given its own keeps it.
+        ...(projectChanges &&
+        e.originalDate !== args.originalDate &&
+        e.programmeId === series.programmeId &&
+        (e.projectId ?? null) === (existing.projectId ?? null)
+          ? { projectId: series.projectId }
           : {}),
       })
     )

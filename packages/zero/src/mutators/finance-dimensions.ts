@@ -363,6 +363,11 @@ export const projectMutators = {
           "A grant funds this project, so it can't move to another programme."
         );
       }
+      if (await tx.run(zql.teamEvent.where("projectId", args.id).one())) {
+        throw new Error(
+          "Events name this project, so it can't move to another programme. Change their project first."
+        );
+      }
     }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()
