@@ -74,6 +74,7 @@
         "helpers/series-first-session.ts",
         "helpers/outcomes.ts",
         "helpers/social-page.ts",
+        "helpers/safeguarding-gate.ts",
         "helpers/seed-kalakriti-performance.ts",
         "helpers/profile-kalakriti-dashboard.ts",
         "helpers/profile-audit-performance.ts",
