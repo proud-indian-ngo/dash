@@ -78,6 +78,19 @@ function createDb(
     },
   });
   const tx = {
+    // Payee details aren't synced: the server writes them with Drizzle, on
+    // the request just inserted or changed (one per test).
+    dbTransaction: {
+      wrappedTransaction: {
+        update: () => ({
+          set: (values: Row) => ({
+            where: async () => {
+              Object.assign(tables.reimbursement?.at(-1) ?? {}, values);
+            },
+          }),
+        }),
+      },
+    },
     location,
     mutate: new Proxy(
       {},
@@ -270,7 +283,7 @@ describe("reimbursement.create for someone else", () => {
     );
   });
 
-  it("runs on the client without the server's checks", async () => {
+  it("runs on the client without the server's checks or payee details", async () => {
     const db = createDb({}, "client");
     await reimbursementMutators.create.fn({
       args: {
@@ -282,10 +295,10 @@ describe("reimbursement.create for someone else", () => {
       tx: db.tx,
     } as never);
     expect(db.rows("reimbursement")[0]).toMatchObject({
-      bankAccountNumber: "111122223333",
       createdBy: "asha",
       userId: "ravi",
     });
+    expect(db.rows("reimbursement")[0]?.bankAccountNumber).toBeUndefined();
   });
 
   it("refuses a bank account that isn't the claimant's", async () => {

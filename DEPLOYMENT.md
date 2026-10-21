@@ -12,7 +12,7 @@ External services, each optional unless its variables are required below: Cloudf
 
 ## Environment variables
 
-Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` passes variables to each service. The contracts are `packages/env/src/server.ts` and `web.ts` ([how they load](docs/architecture/env-and-secrets.md)); they hold the formats, defaults and some purposes not repeated here. "Prod" means required when `NODE_ENV=production`. Empty strings count as unset. Every key, token and secret is a secret.
+Copy `.env.sample` to `.env` locally. Production uses `docker-compose.prod.yml`. Contracts: `packages/env/src/server.ts` and `web.ts` ([loading](docs/architecture/env-and-secrets.md)). "Prod" means required with `NODE_ENV=production`; empty strings are unset. Keep keys, tokens and secrets private.
 
 ### Core, auth and encryption
 
@@ -341,3 +341,7 @@ SELECT
 The migration's own counts: `SELECT value FROM app_config WHERE key = 'cost_centre_backfill';`.
 
 The next posting run reposts every expense posting (rules version 3).
+
+### Lead approval
+
+Lead approval keeps already-pending requests with finance. Unsyncing payee bank columns rebuilds the replica; clients reload ([details](#zero-cache)).

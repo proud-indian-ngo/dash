@@ -9,6 +9,7 @@ import {
   policyVersion,
 } from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { programme } from "@pi-dash/db/schema/finance-dimensions";
 import {
   circularRevision,
   governanceDocument,
@@ -32,7 +33,9 @@ import {
   vendorPaymentTransaction,
   vendorPaymentTransactionAttachment,
 } from "@pi-dash/db/schema/vendor-payment-transaction";
+import { leadApproverOf } from "@pi-dash/shared/approval-policy";
 import type { AttachmentAssetRef } from "@pi-dash/shared/asset-ref";
+import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
 import { circularReference } from "@pi-dash/shared/resolutions";
 import { and, desc, eq } from "drizzle-orm";
 
@@ -201,6 +204,44 @@ async function resolveEventPhoto(
   };
 }
 
+/**
+ * The programme lead a request waits or waited for, when the lead step
+ * applies to them ("Approval policy"): they approve it before finance, so
+ * they read its receipts and quotations.
+ */
+async function leadApproverIds(parent: {
+  chargedProgrammeId: null | string;
+  chargedTo: ExpenseChargedTo;
+  createdBy?: null | string;
+  eventId: null | string;
+  userId: string;
+}): Promise<string[]> {
+  let eventProgrammeId: null | string = null;
+  if (parent.chargedTo === "event" && parent.eventId) {
+    const event = await db.query.teamEvent.findFirst({
+      columns: { programmeId: true },
+      where: eq(teamEvent.id, parent.eventId),
+    });
+    eventProgrammeId = event?.programmeId ?? null;
+  }
+  const programmeId =
+    parent.chargedTo === "programme"
+      ? parent.chargedProgrammeId
+      : eventProgrammeId;
+  if (!programmeId) {
+    return [];
+  }
+  const row = await db.query.programme.findFirst({
+    columns: { leadUserId: true },
+    where: eq(programme.id, programmeId),
+  });
+  const lead = leadApproverOf(
+    { ...parent, event: { programmeId: eventProgrammeId } },
+    () => row?.leadUserId
+  );
+  return lead ? [lead] : [];
+}
+
 async function resolveReimbursementAttachment(
   ref: AssetRef<"reimbursementAttachment">
 ): Promise<R2ObjectRecord | null> {
@@ -213,9 +254,15 @@ async function resolveReimbursementAttachment(
   const parent = await db.query.reimbursement.findFirst({
     where: eq(reimbursement.id, attachment.reimbursementId),
   });
-  return parent
-    ? requestRecord(attachment.objectKey, attachment.filename, [parent.userId])
-    : null;
+  if (!parent) {
+    return null;
+  }
+  // Allowlist: the lead opens only receipts, never payment proof, vouchers,
+  // signed vouchers or payee signatures.
+  return requestRecord(attachment.objectKey, attachment.filename, [
+    parent.userId,
+    ...(attachment.purpose === "receipt" ? await leadApproverIds(parent) : []),
+  ]);
 }
 
 async function resolveReimbursementApprovalScreenshot(
@@ -260,8 +307,14 @@ async function resolveVendorPaymentAttachment(
   const parent = await db.query.vendorPayment.findFirst({
     where: eq(vendorPayment.id, attachment.vendorPaymentId),
   });
+  // The lead judges the request by its quotation, not the invoice.
   return parent
-    ? requestRecord(attachment.objectKey, attachment.filename, [parent.userId])
+    ? requestRecord(attachment.objectKey, attachment.filename, [
+        parent.userId,
+        ...(attachment.purpose === "quotation"
+          ? await leadApproverIds(parent)
+          : []),
+      ])
     : null;
 }
 
@@ -437,7 +490,9 @@ async function resolveKalakritiInventoryPhoto(
   return record ? { access: "kalakritiInventoryPhoto", ...record } : null;
 }
 
-function findRecord(ref: AttachmentAssetRef): Promise<R2ObjectRecord | null> {
+export function findRecord(
+  ref: AttachmentAssetRef
+): Promise<R2ObjectRecord | null> {
   switch (ref.kind) {
     case "advancePaymentAttachment":
       return resolveAdvancePaymentAttachment(ref);

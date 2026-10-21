@@ -89,7 +89,7 @@ Rules for changing relationships, preloads and indexes are in `.agents/skills/qu
 - Team detail preloads only the Team query. Its event-history subscription starts when the authorised Team component renders.
 - Event detail subscribes to aggregate feedback only for feedback managers. Participants fetch their own feedback through a server function.
 - `reimbursement.byEvent` and `vendorPayment.byEvent` are summary projections (line items, submitter, plus vendor for vendor payments) shared by event metrics and the Expenses tab.
-- Reimbursement and vendor payment `all` and `byId` nest the event's `programme` (requests store none of their own); `byCurrentUser` omits it.
+- Reimbursement and vendor payment `all` and `byId` nest the event's `programme` (requests store none of their own) and each programme's `lead`, for the lead approval step; `byCurrentUser` omits them. Without `requests.view_all` they also return requests charged to a programme the viewer leads, through `chargedProgramme` or the event's `programme`.
 - `teamEvent.byTeam` loads each event's `programme` and `partners`, and each edited occurrence's own, for the events table and edit prefill.
 - The notification inbox query is served by the `(user_id, archived, created_at DESC, id ASC)` index.
 

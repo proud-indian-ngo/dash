@@ -29,6 +29,10 @@ import type { TeamEvent, TeamEventMember } from "../schema";
 import { type Schema, zql } from "../schema";
 import { pickCostCentreId } from "./cost-centre-pick";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
+import {
+  clearLeadApprovalsOnMovedEvents,
+  eventProgrammes,
+} from "./lead-approval";
 import { assertSafeToJoinEvent } from "./safeguarding";
 import {
   buildUpdateFields,
@@ -1590,8 +1594,15 @@ export const teamEventMutators = {
         args.whatsappGroupId
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
+      const programmesBefore = await eventProgrammes(tx, [args.id]);
 
       await tx.mutate.teamEvent.update(buildUpdateFields(args));
+      await clearLeadApprovalsOnMovedEvents(
+        tx,
+        ctx,
+        programmesBefore,
+        args.now
+      );
       if (args.partners) {
         await replaceEventPartners(
           tx,
@@ -1763,6 +1774,24 @@ export const teamEventMutators = {
         );
       }
 
+      // Requests on a session that changes programme lose their lead
+      // approval: the series and every saved session, before and after.
+      const programmeChanges =
+        args.programmeId !== undefined &&
+        args.programmeId !== existing.programmeId;
+      const seriesRoot = existing.seriesId ?? existing.id;
+      const programmesBefore = programmeChanges
+        ? await eventProgrammes(tx, [
+            seriesRoot,
+            args.id,
+            ...(
+              (await tx.run(
+                zql.teamEvent.where("seriesId", seriesRoot)
+              )) as TeamEvent[]
+            ).map((session) => session.id),
+          ])
+        : new Map<string, null | string>();
+
       let movedOccurrenceIds: string[] = [];
       if (mode === "all") {
         const changes = changedSeriesArgs(args, existing);
@@ -1828,6 +1857,13 @@ export const teamEventMutators = {
           ctx.userId
         );
       }
+
+      await clearLeadApprovalsOnMovedEvents(
+        tx,
+        ctx,
+        programmesBefore,
+        args.now
+      );
 
       const writeTarget = resolveSeriesWriteTarget({ ...args, mode }, existing);
       if (args.partners && writeTarget) {

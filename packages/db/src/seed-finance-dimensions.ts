@@ -1,7 +1,5 @@
 import {
-  APP_CONFIG_FINANCE_THRESHOLD_KEY,
   COST_CENTRE_IDS,
-  DEFAULT_FINANCE_THRESHOLD_PAISE,
   FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   PROGRAMME_IDS,
@@ -11,7 +9,6 @@ import { buildFiscalPeriods } from "./fiscal-years";
 import { db } from "./index";
 import { ensureLedgerTriggers } from "./ledger/immutability";
 import { ensureLedgerReferenceData } from "./ledger/reference-data";
-import { appConfig } from "./schema/app-config";
 import {
   costCentre,
   fiscalPeriod,
@@ -22,8 +19,7 @@ import {
 
 /**
  * The finance reference rows every environment needs: programmes, cost
- * centres, the general fund, fiscal years with their periods and the default
- * approval threshold. Migration 0112 inserts the same rows in production;
+ * centres, the general fund and fiscal years with their periods. Migration 0112 inserts the same rows in production;
  * environments built with `drizzle-kit push` (CI, fresh dev databases) call
  * this instead. Every insert ignores conflicts, so it is safe to re-run.
  * It also ensures the books' fund, account heads and database guards, which
@@ -146,15 +142,6 @@ export async function ensureFinanceDimensions(): Promise<void> {
     )
   );
   await db.insert(fiscalPeriod).values(periods).onConflictDoNothing();
-
-  await db
-    .insert(appConfig)
-    .values({
-      key: APP_CONFIG_FINANCE_THRESHOLD_KEY,
-      updatedAt: now,
-      value: String(DEFAULT_FINANCE_THRESHOLD_PAISE),
-    })
-    .onConflictDoNothing();
 
   await ensureLedgerReferenceData();
   await ensureLedgerTriggers();

@@ -35,6 +35,27 @@ export const reimbursementStatusEnum = pgEnum(
   reimbursementStatusValues
 );
 
+/**
+ * What a reimbursement file is. Only receipts the claimant or creator
+ * attached reach the programme lead ("Approval policy"); payment proof,
+ * cash vouchers, signed vouchers and payee signatures never do.
+ */
+export const reimbursementAttachmentPurposeValues = [
+  "receipt",
+  "payment_proof",
+  "voucher",
+  "signed_voucher",
+  "payee_signature",
+] as const;
+
+export type ReimbursementAttachmentPurpose =
+  (typeof reimbursementAttachmentPurposeValues)[number];
+
+export const reimbursementAttachmentPurposeEnum = pgEnum(
+  "reimbursement_attachment_purpose",
+  reimbursementAttachmentPurposeValues
+);
+
 // Tables
 export const reimbursement = pgTable(
   "reimbursement",
@@ -76,6 +97,16 @@ export const reimbursement = pgTable(
     }),
     expenseDate: date("expense_date", { mode: "string" }).notNull(),
     id: uuid("id").primaryKey(),
+    /**
+     * When the programme lead approved, before finance (see "Approval
+     * policy"). Cleared when an edit changes what they approved.
+     */
+    leadApprovedAt: timestamp("lead_approved_at"),
+    leadApprovedBy: text("lead_approved_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** Finance approved while the lead's approval was outstanding, and why. */
+    leadSkipReason: text("lead_skip_reason"),
     rejectionReason: text("rejection_reason"),
     reviewedAt: timestamp("reviewed_at"),
     reviewedBy: text("reviewed_by").references(() => user.id, {
@@ -126,6 +157,10 @@ export const reimbursement = pgTable(
     check(
       "reimbursement_rejection_reason_chk",
       sql`((status = 'rejected'::reimbursement_status) AND (rejection_reason IS NOT NULL)) OR ((status <> 'rejected'::reimbursement_status) AND (rejection_reason IS NULL))`
+    ),
+    check(
+      "reimbursement_lead_approval_chk",
+      sql`${table.leadApprovedAt} IS NULL OR ${table.leadSkipReason} IS NULL`
     ),
     check(
       "reimbursement_void_chk",
@@ -196,6 +231,8 @@ export const reimbursementAttachment = pgTable(
     id: uuid("id").primaryKey(),
     mimeType: text("mime_type"),
     objectKey: text("object_key"),
+    /** Set by whoever adds the file; never defaulted, so nothing is a receipt by accident. */
+    purpose: reimbursementAttachmentPurposeEnum("purpose").notNull(),
     reimbursementId: uuid("reimbursement_id")
       .notNull()
       .references(() => reimbursement.id, { onDelete: "cascade" }),
@@ -250,6 +287,11 @@ export const reimbursementRelations = relations(
       references: [teamEvent.id],
     }),
     history: many(reimbursementHistory),
+    leadApprover: one(user, {
+      fields: [reimbursement.leadApprovedBy],
+      references: [user.id],
+      relationName: "reimbursement_lead_approver",
+    }),
     lineItems: many(reimbursementLineItem),
     reviewer: one(user, {
       fields: [reimbursement.reviewedBy],

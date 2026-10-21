@@ -26,7 +26,16 @@ interface ApproveDialogProps {
   /** The record already holds a payment screenshot that approval can reuse. */
   hasExistingScreenshot?: boolean;
   hideScreenshot?: boolean;
-  onConfirm: (message: string, screenshotKey?: string) => Promise<boolean>;
+  /**
+   * The programme lead hasn't approved yet: finance may still approve, with
+   * a reason ("Approval policy").
+   */
+  leadWaiting?: { leadName: string };
+  onConfirm: (
+    message: string,
+    screenshotKey?: string,
+    leadSkipReason?: string
+  ) => Promise<boolean>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   /** Facts the approver checks before approving, such as what it is charged to. */
@@ -38,12 +47,14 @@ export function ApproveDialog({
   entityLabel,
   hasExistingScreenshot = false,
   hideScreenshot = false,
+  leadWaiting,
   onConfirm,
   onOpenChange,
   open,
   summary,
 }: ApproveDialogProps) {
   const [message, setMessage] = useState("");
+  const [leadSkipReason, setLeadSkipReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const upload = usePaymentScreenshotUpload("ApproveDialog", entityId);
@@ -52,6 +63,7 @@ export function ApproveDialog({
   const cleanup = useEventCallback(() => {
     upload.reset();
     setMessage("");
+    setLeadSkipReason("");
     setReplacing(false);
     setSubmitting(false);
   });
@@ -70,7 +82,11 @@ export function ApproveDialog({
     async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       setSubmitting(true);
-      await onConfirm(message, screenshotKey ?? undefined)
+      await onConfirm(
+        message,
+        screenshotKey ?? undefined,
+        leadWaiting ? leadSkipReason.trim() : undefined
+      )
         .then((confirmed) => {
           if (confirmed) {
             cleanup();
@@ -93,6 +109,11 @@ export function ApproveDialog({
     (event: React.ChangeEvent<HTMLTextAreaElement>) =>
       setMessage(event.target.value)
   );
+  const handleLeadSkipReasonChange = useEventCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) =>
+      setLeadSkipReason(event.target.value)
+  );
+  const missingLeadSkipReason = Boolean(leadWaiting) && !leadSkipReason.trim();
   const missingScreenshot = !(
     hideScreenshot ||
     screenshotKey ||
@@ -119,6 +140,30 @@ export function ApproveDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         {summary ? <div className="text-sm">{summary}</div> : null}
+        {leadWaiting ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="lead-skip-reason">
+              Reason to approve without {leadWaiting.leadName}
+              <span aria-hidden="true" className="text-destructive">
+                {" "}
+                *
+              </span>
+            </Label>
+            <Textarea
+              aria-describedby="lead-skip-reason-description"
+              className="min-h-16"
+              id="lead-skip-reason"
+              maxLength={500}
+              onChange={handleLeadSkipReasonChange}
+              required
+              value={leadSkipReason}
+            />
+            <FieldDescription id="lead-skip-reason-description">
+              The programme lead hasn&apos;t approved this yet. The reason is
+              shown on the request.
+            </FieldDescription>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-2">
           <Label htmlFor="approve-message">Message (optional)</Label>
           <Textarea
@@ -168,7 +213,12 @@ export function ApproveDialog({
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
-            disabled={uploading || submitting || missingScreenshot}
+            disabled={
+              uploading ||
+              submitting ||
+              missingScreenshot ||
+              missingLeadSkipReason
+            }
             onClick={stableOnClick2}
           >
             {actionLabel}

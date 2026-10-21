@@ -10,6 +10,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { DataTableAttentionView } from "@/components/data-table/data-table-view-tabs";
+import { useLeadApprovalAttentionViews } from "@/components/expenses/lead-approval-attention-views";
 import { useUnallocatedAttentionView } from "@/components/expenses/unallocated-attention-view";
 import { VoidDialog } from "@/components/form/void-dialog";
 import { useMissingProofAttentionView } from "@/components/reimbursements/missing-proof-attention-view";
@@ -84,9 +85,12 @@ function ReimbursementsRouteComponent() {
   const voidedFilter = useVoidedFilter(allData);
   const unallocatedView = useUnallocatedAttentionView(reimbursements);
   const missingProofView = useMissingProofAttentionView(allData);
-  const attentionViews = [unallocatedView, missingProofView].filter(
-    (view): view is DataTableAttentionView => view !== null
-  );
+  const leadViews = useLeadApprovalAttentionViews(reimbursements);
+  const attentionViews = [
+    ...leadViews,
+    unallocatedView,
+    missingProofView,
+  ].filter((view): view is DataTableAttentionView => view !== null);
   const [voidTarget, setVoidTarget] = useState<RequestRow | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
 

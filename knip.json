@@ -47,6 +47,7 @@
         "helpers/legacy-contribution.ts",
         "helpers/receipts.ts",
         "helpers/request-approval.ts",
+        "helpers/lead-approval.ts",
         "helpers/kalakriti-event-day-transport.ts",
         "helpers/kalakriti-station-subject.ts",
         "helpers/kalakriti-person-qr.ts",

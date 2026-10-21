@@ -11,6 +11,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   formatCashVoucherLimit,
@@ -24,6 +25,11 @@ import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
+import {
+  LeadApprovalCard,
+  LeadReviewButtons,
+  useIsWaitingLead,
+} from "@/components/expenses/lead-approval";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
@@ -35,6 +41,7 @@ import {
 } from "@/components/reimbursements/payee-signature";
 import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
+import { useReimbursementPayout } from "@/components/reimbursements/use-reimbursement-payout";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { contactActions } from "@/components/shared/contact-actions";
 import { FilePreviewButton } from "@/components/shared/file-preview";
@@ -63,6 +70,12 @@ import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
+import { authClient } from "@/lib/auth-client";
+import {
+  isReceipt,
+  seesRequestEvidence,
+  waitingLeadOf,
+} from "@/lib/lead-approval";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -148,10 +161,26 @@ export function ReimbursementDetail({
   // An approved claim takes its payment screenshot after approval too: the
   // books post it only with one (finance layer 3-3a).
   const hasPaymentProof = Boolean(request.approvalScreenshotKey);
+  // Nobody approves or pays a request they raised or claim.
+  const { data: session } = authClient.useSession();
+  const isOwnRequest =
+    request.userId === session?.user?.id ||
+    ("createdBy" in request && request.createdBy === session?.user?.id);
+  // A programme lead sees the receipts, not how or whom finance paid.
+  const seesEvidence = seesRequestEvidence(
+    request,
+    session?.user?.id,
+    hasPermission("requests.view_all")
+  );
+  const shownAttachments =
+    !seesEvidence && isReimbursement(request)
+      ? request.attachments.filter(isReceipt)
+      : request.attachments;
   const showPaymentProof =
     request.type === "reimbursement" &&
     request.status === "approved" &&
     !voided &&
+    !isOwnRequest &&
     hasPermission("requests.approve");
   const [paymentProofOpen, setPaymentProofOpen] = useState(
     openPaymentProof && showPaymentProof
@@ -166,12 +195,18 @@ export function ReimbursementDetail({
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
   const { label, tone } = getStatusBadge(request.status);
+  // The programme lead approves first ("Approval policy"); finance may still
+  // approve meanwhile, with a reason.
+  const isWaitingLead = useIsWaitingLead(request);
+  const leadWaiting = waitingLeadOf(request);
   const showAdminActions =
     !voided &&
     canApprove &&
+    !isWaitingLead &&
     (request.status === "pending" || canUpdateAnyStatus);
   const editAction = voided ? undefined : onEdit;
-  const showApproveAction = showAdminActions && request.status !== "approved";
+  const showApproveAction =
+    showAdminActions && !isOwnRequest && request.status !== "approved";
   const showRejectAction = showAdminActions && request.status !== "rejected";
   const showResetAction = showAdminActions && request.status !== "pending";
 
@@ -187,17 +222,25 @@ export function ReimbursementDetail({
   } as const;
 
   const handleApprove = useEventCallback(
-    async (message: string, screenshotKey?: string) => {
+    async (
+      message: string,
+      screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
       const res = await zero.mutate(
         mutatorNs.approve({
           approvalScreenshotKey: screenshotKey,
           id: request.id,
+          leadSkipReason,
           note: message || undefined,
         })
       ).server;
       handleMutationResult(res, {
         entityId: request.id,
-        errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          `Couldn't approve ${typeLabel.toLowerCase()}`
+        ),
         mutation: `${mutatorName}.approve`,
         successMsg: `${typeLabel} approved`,
       });
@@ -294,11 +337,18 @@ export function ReimbursementDetail({
         <PageHeader
           actions={
             <>
+              {isWaitingLead && request.type === "reimbursement" ? (
+                <LeadReviewButtons kind="reimbursement" request={request} />
+              ) : null}
               {showApproveAction ? (
                 <Button
                   onClick={stableOnClick0}
                   type="button"
-                  variant={request.status === "pending" ? "default" : "outline"}
+                  variant={
+                    request.status === "pending" && !leadWaiting
+                      ? "default"
+                      : "outline"
+                  }
                 >
                   <HugeiconsIcon
                     className="size-4"
@@ -393,7 +443,10 @@ export function ReimbursementDetail({
           aside={
             <>
               {isReimbursement(request) ? (
-                <ChargedToCard kind="reimbursement" request={request} />
+                <>
+                  <LeadApprovalCard request={request} />
+                  <ChargedToCard kind="reimbursement" request={request} />
+                </>
               ) : null}
               {isReimbursement(request) &&
               request.status === "approved" &&
@@ -425,11 +478,14 @@ export function ReimbursementDetail({
             generatingVoucherId={generatingVoucherId}
             onGenerateVoucher={handleGenerateVoucher}
             request={request}
+            seesEvidence={seesEvidence}
             total={total}
             voided={voided}
           />
 
-          {request.status === "approved" && approvalScreenshot ? (
+          {seesEvidence &&
+          request.status === "approved" &&
+          approvalScreenshot ? (
             <RecordSection title="Payment proof">
               <div className="flex items-center gap-3 rounded-lg border p-2">
                 <FilePreviewButton
@@ -496,10 +552,10 @@ export function ReimbursementDetail({
             </RecordSection>
           ) : null}
 
-          {request.attachments.length > 0 ? (
+          {shownAttachments.length > 0 ? (
             <RecordSection title="Attachments">
               <AttachmentList
-                attachments={request.attachments}
+                attachments={shownAttachments}
                 kind={attachmentKind}
               />
             </RecordSection>
@@ -510,6 +566,7 @@ export function ReimbursementDetail({
           entityId={request.id}
           entityLabel={typeLabel.toLowerCase()}
           hasExistingScreenshot={Boolean(request.approvalScreenshotKey)}
+          leadWaiting={leadWaiting}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
@@ -738,6 +795,7 @@ function LineItemsTable({
   generatingVoucherId,
   onGenerateVoucher,
   request,
+  seesEvidence,
   total,
   voided,
 }: {
@@ -745,11 +803,14 @@ function LineItemsTable({
   generatingVoucherId: string | null;
   onGenerateVoucher: (lineItemId: string) => void;
   request: RequestDetailData;
+  /** Vouchers and payee signatures: not for a programme lead. */
+  seesEvidence: boolean;
   total: number;
   voided: boolean;
 }) {
   const isReimb = isReimbursement(request);
-  const showVoucherCol = isReimb && request.status === "approved";
+  const showVoucherCol =
+    seesEvidence && isReimb && request.status === "approved";
   const voucherLimitPaise = useCashVoucherLimit();
   const { hasPermission, user } = useApp();
   // The claimant, finance or an approver may attach the signed copy.
@@ -794,7 +855,7 @@ function LineItemsTable({
                   <td className="text-muted-foreground px-3 py-2 max-md:col-span-full max-md:p-0">
                     {item.description}
                     <PaidToLine claimantName={request.user?.name} item={item} />
-                    {isReimb ? (
+                    {isReimb && seesEvidence ? (
                       <PayeeSignatureLine
                         attachments={request.attachments}
                         canCollect={canCollectSignature}
@@ -855,12 +916,19 @@ function LineItemsTable({
   );
 }
 
-function getBankDetails(request: RequestDetailData) {
+interface PayoutFields {
+  bankAccountIfscCode?: null | string;
+  bankAccountName?: null | string;
+  bankAccountNumber?: null | string;
+  bankAccountUpiId?: null | string;
+}
+
+function getBankDetails(payout: PayoutFields) {
   return {
-    ifsc: request.bankAccountIfscCode?.trim() || null,
-    name: request.bankAccountName?.trim() || null,
-    number: request.bankAccountNumber?.trim() || null,
-    upi: request.bankAccountUpiId?.trim() || null,
+    ifsc: payout.bankAccountIfscCode?.trim() || null,
+    name: payout.bankAccountName?.trim() || null,
+    number: payout.bankAccountNumber?.trim() || null,
+    upi: payout.bankAccountUpiId?.trim() || null,
   };
 }
 
@@ -875,8 +943,44 @@ function payByLabel(bank: ReturnType<typeof getBankDetails>): string | null {
   return bank.number ? "Bank transfer" : null;
 }
 
+/**
+ * Where the claimant is paid. A reimbursement's details aren't synced
+ * (programme leads see the request, not the payee), so they load from the
+ * server for the claimant and those who see everyone's requests.
+ */
 function BankAccountCard({ request }: { request: RequestDetailData }) {
-  const bank = getBankDetails(request);
+  const { hasPermission } = useApp();
+  const { data: session } = authClient.useSession();
+  const isReimbursementRequest = request.type === "reimbursement";
+  const canReadPayout =
+    isReimbursementRequest &&
+    (request.userId === session?.user?.id ||
+      hasPermission("requests.view_all"));
+  const payout = useReimbursementPayout(request, canReadPayout);
+  if (canReadPayout && payout.kind !== "ready") {
+    return (
+      <DetailsCard title="Paid to">
+        {payout.kind === "loading" ? (
+          <DetailsRow label="Pay by">
+            <Skeleton className="h-4 w-32" />
+          </DetailsRow>
+        ) : (
+          <DetailsRow label="Pay by">
+            <span className="text-destructive">
+              Couldn&apos;t load the payment details. Reload to try again.
+            </span>
+          </DetailsRow>
+        )}
+      </DetailsCard>
+    );
+  }
+  let fields: PayoutFields = {};
+  if (!isReimbursementRequest) {
+    fields = request;
+  } else if (payout.kind === "ready") {
+    fields = payout.payout;
+  }
+  const bank = getBankDetails(fields);
 
   if (!(bank.name || bank.number || bank.ifsc || bank.upi)) {
     return null;

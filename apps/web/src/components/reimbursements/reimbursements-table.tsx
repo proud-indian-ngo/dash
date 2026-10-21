@@ -51,6 +51,7 @@ import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
+import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
@@ -223,7 +224,11 @@ export function ReimbursementsTable({
     : "request";
 
   const handleApprove = useEventCallback(
-    async (message: string, screenshotKey?: string) => {
+    async (
+      message: string,
+      screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
       const { row } = review;
       if (!row) {
         return false;
@@ -234,6 +239,7 @@ export function ReimbursementsTable({
         ns.approve({
           approvalScreenshotKey: screenshotKey,
           id: row.id,
+          leadSkipReason,
           note: message || undefined,
         })
       ).server;
@@ -441,9 +447,12 @@ export function ReimbursementsTable({
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, tone } = getStatusBadge(row.original.status);
+        // A pending request says who it waits for ("Approval policy").
         return (
           <span className="inline-flex items-center gap-1">
-            <StatusBadge tone={tone}>{label}</StatusBadge>
+            <StatusBadge tone={tone}>
+              {pendingApprovalLabel(row.original) ?? label}
+            </StatusBadge>
             {isVoided(row.original) ? <VoidBadge /> : null}
           </span>
         );
@@ -462,7 +471,7 @@ export function ReimbursementsTable({
         kind: "status",
         skeleton: SKELETON_STATUS,
       },
-      size: 140,
+      size: 170,
     },
     {
       accessorFn: (row) => sumAmounts(row.lineItems),
@@ -561,7 +570,10 @@ export function ReimbursementsTable({
             request={r}
           />
         );
-        if (!(showReview && r.status === "pending" && !voided)) {
+        // Nobody approves a request they raised or claim.
+        const isOwn =
+          isOwner || ("createdBy" in r && r.createdBy === currentUserId);
+        if (!(showReview && r.status === "pending" && !voided && !isOwn)) {
           return actions;
         }
         return (
@@ -622,6 +634,11 @@ export function ReimbursementsTable({
     costCentres.active,
     hasPermission("requests.view_all")
   );
+  const stableGetFilterValue = useEventCallback(
+    (row: RequestRow, path: string[]) =>
+      getReimbursementFilterValue(row, path, currentUserId)
+  );
+  const reviewLeadWaiting = review.row ? waitingLeadOf(review.row) : undefined;
   const stableSearch = useEventCallback((row: RequestRow, query: string) =>
     searchReimbursement(row, query, cityOf)
   );
@@ -638,7 +655,7 @@ export function ReimbursementsTable({
           filter={{
             attentionViews,
             fields: filterFields,
-            getValue: getReimbursementFilterValue,
+            getValue: stableGetFilterValue,
             viewField: "status",
           }}
           getRowId={stableGetRowId1}
@@ -672,6 +689,7 @@ export function ReimbursementsTable({
         entityId={review.row?.id ?? ""}
         entityLabel={reviewLabel}
         hasExistingScreenshot={Boolean(review.row?.approvalScreenshotKey)}
+        leadWaiting={reviewLeadWaiting}
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}

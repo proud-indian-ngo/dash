@@ -99,6 +99,17 @@ export class ReimbursementPage {
     });
   }
 
+  /**
+   * Makes the test volunteer the open request's claimant and creator, so
+   * the signed-in approver may approve it: nobody approves their own.
+   */
+  async handOverInDatabase(): Promise<void> {
+    await this.runApprovalFixture("hand-over");
+    await expect(this.detail.getApproveButton()).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
   /** Runs the real voucher job for the open reimbursement (needs R2). */
   async generateVoucherInDatabase(): Promise<void> {
     await this.runApprovalFixture("generate-voucher");

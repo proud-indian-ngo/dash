@@ -287,11 +287,6 @@ export const FISCAL_YEAR_IDS = {
 /** Upper bound for any paise value crossing the JavaScript boundary. */
 export const MAX_PAISE = Number.MAX_SAFE_INTEGER;
 
-/** Default finance-approval threshold when no programme override is set. */
-export const APP_CONFIG_FINANCE_THRESHOLD_KEY =
-  "finance_threshold_default_paise";
-export const DEFAULT_FINANCE_THRESHOLD_PAISE = 10_000_00;
-
 // ── Parties ─────────────────────────────────────────────────────────────────
 
 export const partyKindValues = ["person", "organisation"] as const;

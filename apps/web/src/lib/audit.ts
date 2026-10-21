@@ -76,11 +76,12 @@ const SAFE_CHANGED_FIELD_NAMES = new Set([
   "code",
   "endsOn",
   "fcraRole",
-  "financeThresholdPaise",
   "fundSource",
   "key",
   "kind",
   "leadUserId",
+  // Finance approved without the programme lead: the field name only.
+  "leadSkipReason",
   // A budget's lines: the field name only, never the amounts.
   "lines",
   "parentId",

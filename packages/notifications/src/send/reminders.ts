@@ -27,6 +27,8 @@ function formatEventTime(epochMs: number): string {
 }
 
 interface StaleRequestsOptions {
+  /** Where the email and inbox link open; the dashboard by default. */
+  path?: string;
   counts: {
     advancePayments: number;
     reimbursements: number;
@@ -50,6 +52,7 @@ interface PhotoApprovalReminderOptions {
 export async function notifyStaleRequests({
   userId,
   counts,
+  path = "/",
 }: StaleRequestsOptions): Promise<void> {
   const total =
     counts.reimbursements + counts.advancePayments + counts.vendorPayments;
@@ -73,13 +76,13 @@ export async function notifyStaleRequests({
   const body = `You've got ${parts.join(", ")} waiting for your review — some have been sitting for 3+ days.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Review now",
-    ctaUrl: `${env.APP_URL}/`,
+    ctaUrl: `${env.APP_URL}${path}`,
     heading: "Requests need attention",
     paragraphs: [body],
   });
   await sendMessage({
     body,
-    clickAction: "/",
+    clickAction: path,
     digest: {
       actionLabel: "Review",
       meta: `${parts.join(", ")} waiting 3+ days`,

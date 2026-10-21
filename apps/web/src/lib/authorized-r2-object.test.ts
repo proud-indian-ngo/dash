@@ -7,6 +7,7 @@ const queryMocks = hoisted(() => ({
   advancePaymentAttachment: mock(),
   eventPhoto: mock(),
   kalakritiInventoryItem: mock(),
+  programme: mock(),
   reimbursement: mock(),
   reimbursementAttachment: mock(),
   scheduledMessage: mock(),
@@ -21,12 +22,14 @@ const queryMocks = hoisted(() => ({
 
 mock.module("@pi-dash/db", () => ({
   db: {
-    query: Object.fromEntries(
-      Object.entries(queryMocks).map(([name, findFirst]) => [
-        name,
-        { findFirst },
-      ])
-    ),
+    query: {
+      ...Object.fromEntries(
+        Object.entries(queryMocks).map(([name, findFirst]) => [
+          name,
+          { findFirst, findMany: async () => [] },
+        ])
+      ),
+    },
   },
 }));
 mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
@@ -35,6 +38,7 @@ mock.module("@pi-dash/db/queries/resolve-permissions", () => ({
 
 import {
   type AuthorizedR2ObjectDeps,
+  findRecord,
   resolveAuthorizedEventPhoto,
   resolveAuthorizedR2Object,
 } from "./authorized-r2-object";
@@ -178,6 +182,90 @@ describe("resolveAuthorizedR2Object", () => {
       filename: "receipt.pdf",
       key: "legacy/receipt.pdf",
     });
+  });
+
+  it("lets the programme lead open receipts only", async () => {
+    const lead = { user: { id: "lead", role: "volunteer" } };
+    queryMocks.reimbursementAttachment.mockResolvedValue({
+      filename: "receipt.pdf",
+      id: "attachment-1",
+      objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      purpose: "receipt",
+      reimbursementId: "request-1",
+      type: "file",
+    });
+    queryMocks.reimbursement.mockResolvedValue({
+      chargedProgrammeId: "programme-1",
+      chargedTo: "programme",
+      createdBy: "owner",
+      eventId: null,
+      id: "request-1",
+      userId: "owner",
+    });
+    queryMocks.programme.mockResolvedValue({ leadUserId: "lead" });
+    const ref = {
+      id: "attachment-1",
+      kind: "reimbursementAttachment",
+    } as const;
+
+    const deps = createDeps({ findRecord });
+    await expect(resolveAuthorizedR2Object(lead, ref, deps)).resolves.toEqual({
+      filename: "receipt.pdf",
+      key: "app/attachments/reimbursements/request-1/receipt.pdf",
+    });
+
+    // Anything but a receipt is refused: a payee signature, or a legacy
+    // signed voucher with no link or history that the migration marked.
+    for (const purpose of [
+      "payee_signature",
+      "signed_voucher",
+      "payment_proof",
+      "voucher",
+    ]) {
+      queryMocks.reimbursementAttachment.mockResolvedValue({
+        filename: "file.png",
+        id: "attachment-1",
+        objectKey: "app/attachments/reimbursements/request-1/file.png",
+        purpose,
+        reimbursementId: "request-1",
+        type: "file",
+      });
+      await expect(
+        resolveAuthorizedR2Object(lead, ref, deps)
+      ).rejects.toBeInstanceOf(R2ObjectAccessError);
+    }
+    // The claimant still opens their own.
+    await expect(
+      resolveAuthorizedR2Object(session, ref, deps)
+    ).resolves.toMatchObject({ filename: "file.png" });
+  });
+
+  it("gives a lead nothing on the Unallocated holder", async () => {
+    const lead = { user: { id: "lead", role: "volunteer" } };
+    queryMocks.reimbursementAttachment.mockResolvedValue({
+      filename: "receipt.pdf",
+      id: "attachment-1",
+      objectKey: "app/attachments/reimbursements/request-1/receipt.pdf",
+      purpose: "receipt",
+      reimbursementId: "request-1",
+      type: "file",
+    });
+    queryMocks.reimbursement.mockResolvedValue({
+      chargedProgrammeId: "01930000-0000-7000-8000-000000000009",
+      chargedTo: "programme",
+      createdBy: "owner",
+      eventId: null,
+      id: "request-1",
+      userId: "owner",
+    });
+    queryMocks.programme.mockResolvedValue({ leadUserId: "lead" });
+    await expect(
+      resolveAuthorizedR2Object(
+        lead,
+        { id: "attachment-1", kind: "reimbursementAttachment" },
+        createDeps({ findRecord })
+      )
+    ).rejects.toBeInstanceOf(R2ObjectAccessError);
   });
 
   it("resolves a reimbursement approval screenshot by parent ID", async () => {

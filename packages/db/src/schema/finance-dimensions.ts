@@ -60,11 +60,8 @@ export const programme = pgTable(
     code: text("code").notNull(),
     createdAt: timestamp("created_at").notNull(),
     description: text("description"),
-    /** Overrides app_config finance_threshold_default_paise when set. */
-    financeThresholdPaise: bigint("finance_threshold_paise", {
-      mode: "number",
-    }),
     id: uuid("id").primaryKey(),
+    /** Approves the programme's requests before finance ("Approval policy"). */
     leadUserId: text("lead_user_id").references(() => user.id, {
       onDelete: "set null",
     }),

@@ -1117,6 +1117,7 @@ async function migrateAttachments(
       );
       await tx.insert(schema.reimbursementAttachment).values({
         id: attId,
+        purpose: "receipt",
         reimbursementId: newParentId,
         ...attValues,
         createdAt,

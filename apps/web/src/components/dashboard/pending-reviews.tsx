@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { cn } from "@pi-dash/design-system/lib/utils";
+import { approvalFilterQuery } from "@pi-dash/shared/approval-policy";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -75,7 +76,12 @@ export interface PendingReviewsProps {
   eventPhotos: readonly EventPhotoPendingItem[];
   eventUpdates: readonly EventUpdatePendingItem[];
   isLoading?: boolean;
+  /** Pending requests waiting for the person as programme lead. */
+  leadReimbursements?: readonly FinancialPendingItem[];
+  leadVendorPayments?: readonly VendorPaymentPendingItem[];
   permissions: {
+    /** Leads a programme, so approves its requests before finance. */
+    canApproveAsLead?: boolean;
     canApproveRequests: boolean;
     canManageInterest: boolean;
     canManagePhotos: boolean;
@@ -143,11 +149,16 @@ export function countPendingReviews({
   eventInterests,
   eventPhotos,
   eventUpdates,
+  leadReimbursements = [],
+  leadVendorPayments = [],
   permissions,
   reimbursements,
   vendorPayments,
 }: Omit<PendingReviewsProps, "isLoading">): number {
   return (
+    (permissions.canApproveAsLead
+      ? leadReimbursements.length + leadVendorPayments.length
+      : 0) +
     (permissions.canApproveRequests
       ? reimbursements.length + advancePayments.length + vendorPayments.length
       : 0) +
@@ -259,12 +270,15 @@ function FinancialRow({
   items,
   isLoading,
   label,
+  search = { status: "pending" },
   to,
 }: {
   icon: IconSvgElement;
   items: readonly FinancialPendingItem[] | readonly VendorPaymentPendingItem[];
   isLoading?: boolean;
   label: string;
+  /** The list's filter; pending requests by default. */
+  search?: Record<string, unknown>;
   to: "/reimbursements" | "/vendor-payments";
 }) {
   const hasItems = items.length > 0;
@@ -282,7 +296,7 @@ function FinancialRow({
           <Link
             className="inline-flex items-center gap-1"
             aria-label={`Review ${label.toLowerCase()}`}
-            search={{ status: "pending" }}
+            search={search as never}
             to={to}
           >
             <ReviewLinkLabel />
@@ -346,11 +360,14 @@ export function PendingReviews({
   eventPhotos,
   eventUpdates,
   isLoading,
+  leadReimbursements = [],
+  leadVendorPayments = [],
   permissions,
   reimbursements,
   vendorPayments,
 }: PendingReviewsProps) {
   const {
+    canApproveAsLead = false,
     canApproveRequests,
     canManageInterest,
     canManagePhotos,
@@ -358,6 +375,7 @@ export function PendingReviews({
   } = permissions;
 
   const hasAnyPermission =
+    canApproveAsLead ||
     canApproveRequests ||
     canManagePhotos ||
     canApproveUpdates ||
@@ -372,6 +390,8 @@ export function PendingReviews({
     eventInterests,
     eventPhotos,
     eventUpdates,
+    leadReimbursements,
+    leadVendorPayments,
     permissions,
     reimbursements,
     vendorPayments,
@@ -405,6 +425,26 @@ export function PendingReviews({
       </CardHeader>
       <CardContent className="px-0">
         <div className="divide-y">
+          {canApproveAsLead ? (
+            <>
+              <FinancialRow
+                icon={Invoice01Icon}
+                isLoading={isLoading}
+                items={leadReimbursements}
+                label="Reimbursements as programme lead"
+                search={{ filters: approvalFilterQuery("you") }}
+                to="/reimbursements"
+              />
+              <FinancialRow
+                icon={Store01Icon}
+                isLoading={isLoading}
+                items={leadVendorPayments}
+                label="Vendor payments as programme lead"
+                search={{ filters: approvalFilterQuery("you") }}
+                to="/vendor-payments"
+              />
+            </>
+          ) : null}
           {canApproveRequests ? (
             <>
               <FinancialRow

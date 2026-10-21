@@ -18,6 +18,11 @@ import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
+import {
+  LeadApprovalCard,
+  LeadReviewButtons,
+  useIsWaitingLead,
+} from "@/components/expenses/lead-approval";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
@@ -41,6 +46,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { useUserContact } from "@/hooks/use-user-contact";
+import { waitingLeadOf } from "@/lib/lead-approval";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -129,7 +135,9 @@ function VendorPaymentLineItemsTable({
 
 function VendorPaymentHeader({
   cityName,
+  isWaitingLead,
   label,
+  leadWaiting,
   onApprove,
   onEdit,
   onReject,
@@ -143,7 +151,11 @@ function VendorPaymentHeader({
 }: {
   /** Its cost centre's name: the event's for a payment on an event. */
   cityName: string;
+  /** The viewer is the programme lead it waits for. */
+  isWaitingLead: boolean;
   label: string;
+  /** The programme lead hasn't approved: finance's Approve isn't the step waiting. */
+  leadWaiting: boolean;
   onApprove: () => void;
   onEdit?: () => void;
   onReject: () => void;
@@ -161,13 +173,21 @@ function VendorPaymentHeader({
     <PageHeader
       actions={
         <>
+          {isWaitingLead ? (
+            <LeadReviewButtons kind="vendorPayment" request={request} />
+          ) : null}
           {showApproveAction ? (
             <Button
               onClick={onApprove}
               type="button"
               // Past "pending" this is an admin status override; the step
-              // actually waiting (an invoice, a payment) carries the primary.
-              variant={request.status === "pending" ? "default" : "outline"}
+              // actually waiting (an invoice, a payment, the programme
+              // lead) carries the primary.
+              variant={
+                request.status === "pending" && !leadWaiting
+                  ? "default"
+                  : "outline"
+              }
             >
               <HugeiconsIcon
                 className="size-4"
@@ -278,7 +298,13 @@ export function VendorPaymentDetail({
     // Rejected payments stay as history and do not block a reset.
     request.transactions.every((t) => t.status === "rejected") &&
     !(request.invoiceNumber || request.invoiceDate || request.noInvoiceReason);
-  const showApproveAction = !voided && canApprove && status === "pending";
+  // The programme lead approves first ("Approval policy"); finance may still
+  // approve meanwhile, with a reason.
+  const isWaitingLead = useIsWaitingLead(request);
+  const leadWaiting = waitingLeadOf(request);
+  // Nobody approves or pays a request they raised.
+  const showApproveAction =
+    !voided && canApprove && !isOwner && !isWaitingLead && status === "pending";
   // A request paid before approval was required can only be approved.
   const showRejectAction =
     showApproveAction &&
@@ -288,21 +314,31 @@ export function VendorPaymentDetail({
 
   const total = sumAmounts(request.lineItems);
 
-  const handleApprove = useEventCallback(async (message: string) => {
-    const res = await zero.mutate(
-      mutators.vendorPayment.approve({
-        id: request.id,
-        note: message || undefined,
-      })
-    ).server;
-    handleMutationResult(res, {
-      entityId: request.id,
-      errorMsg: "Couldn't approve vendor payment",
-      mutation: "vendorPayment.approve",
-      successMsg: "Vendor payment approved",
-    });
-    return res.type !== "error";
-  });
+  const handleApprove = useEventCallback(
+    async (
+      message: string,
+      _screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
+      const res = await zero.mutate(
+        mutators.vendorPayment.approve({
+          id: request.id,
+          leadSkipReason,
+          note: message || undefined,
+        })
+      ).server;
+      handleMutationResult(res, {
+        entityId: request.id,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          "Couldn't approve vendor payment"
+        ),
+        mutation: "vendorPayment.approve",
+        successMsg: "Vendor payment approved",
+      });
+      return res.type !== "error";
+    }
+  );
 
   const handleReject = useEventCallback(async (reason: string) => {
     const res = await zero.mutate(
@@ -331,9 +367,11 @@ export function VendorPaymentDetail({
     });
   });
 
-  const invoiceAttachments = request.attachments.filter(
-    (att) => att.purpose === "invoice"
-  );
+  // A programme lead sees the quotations, not the invoice files.
+  const invoiceAttachments =
+    isOwner || hasPermission("requests.view_all")
+      ? request.attachments.filter((att) => att.purpose === "invoice")
+      : [];
   const quotationAttachments = request.attachments.filter(
     (att) => att.purpose !== "invoice"
   );
@@ -366,7 +404,9 @@ export function VendorPaymentDetail({
       <div className="flex flex-col gap-6">
         <VendorPaymentHeader
           cityName={costCentres.nameOf(requestCostCentreId(request))}
+          isWaitingLead={isWaitingLead}
           label={label}
+          leadWaiting={Boolean(leadWaiting)}
           onApprove={stableOnApprove0}
           onEdit={voided ? undefined : onEdit}
           onReject={stableOnReject1}
@@ -382,6 +422,7 @@ export function VendorPaymentDetail({
         <RecordDetailLayout
           aside={
             <>
+              <LeadApprovalCard request={request} />
               <ChargedToCard kind="vendorPayment" request={request} />
               <VendorDetailCards
                 ownsApprovedPayment={
@@ -438,6 +479,7 @@ export function VendorPaymentDetail({
           entityId={request.id}
           entityLabel="vendor payment"
           hideScreenshot
+          leadWaiting={leadWaiting}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}

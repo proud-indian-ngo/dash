@@ -1,3 +1,4 @@
+import { CLEARED_LEAD_APPROVAL } from "@pi-dash/shared/approval-policy";
 import { vendorPaymentNoInvoiceReasonValues } from "@pi-dash/shared/constants";
 import { provisionHeadOf } from "@pi-dash/shared/provisions";
 import {
@@ -19,6 +20,7 @@ import {
   INVOICE_LOCKED_STATUSES,
   INVOICE_UPLOADABLE_STATUSES,
 } from "../vendor-payment-constants";
+import { userName } from "./claimant";
 import {
   costCentreAfterRecharge,
   pickRequestCostCentreId,
@@ -31,6 +33,19 @@ import {
   POSTED_CHARGE_MESSAGE,
   setChargedToSchema,
 } from "./expense-charge";
+import {
+  assertIsWaitingLead,
+  assertNotOwnRequest,
+  chargeChanges,
+  financeLeadStep,
+  LEAD_APPROVAL_CLEARED_NOTE,
+  LEAD_SKIPPED_NOTE,
+  leadApproverFor,
+  leadSkipReasonArg,
+  linesChange,
+  notifyIfLeadNowWaiting,
+  programmeChanges,
+} from "./lead-approval";
 import {
   isPostedInBooks,
   type LedgerSourceRef,
@@ -235,6 +250,7 @@ export const vendorPaymentMutators = {
     z.object({
       approvalScreenshotKey: z.string().optional(),
       id: z.string(),
+      ...leadSkipReasonArg,
       note: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -246,6 +262,13 @@ export const vendorPaymentMutators = {
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "approved");
+      assertNotOwnRequest(ctx, entity);
+      const leadStep = await financeLeadStep(
+        tx,
+        ctx,
+        entity,
+        args.leadSkipReason
+      );
 
       const now = Date.now();
       const requestedApprovalScreenshotKey =
@@ -279,12 +302,24 @@ export const vendorPaymentMutators = {
       await tx.mutate.vendorPayment.update({
         approvalScreenshotKey,
         id: args.id,
+        ...leadStep,
         rejectionReason: null,
         reviewedAt: now,
         reviewedBy: userId,
         status: "approved",
         updatedAt: now,
       });
+      if (leadStep.leadSkipReason) {
+        await tx.mutate.vendorPaymentHistory.insert({
+          ...buildHistoryInsert(
+            userId,
+            "updated",
+            now,
+            LEAD_SKIPPED_NOTE(leadStep.leadSkipReason)
+          ),
+          vendorPaymentId: args.id,
+        });
+      }
 
       // Auto-approve the linked vendor if it's still pending
       const vendor = await tx.run(
@@ -397,6 +432,70 @@ export const vendorPaymentMutators = {
     }
   ),
 
+  /**
+   * The programme lead approves a pending vendor payment charged to their
+   * programme; finance then approves the payment. Finance is told only now
+   * (or at submission when there is no lead step).
+   */
+  approveAsLead: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
+      assertEntityExists(entity, "Vendor payment");
+      assertNotVoided(entity);
+      if (!(await assertIsWaitingLead(tx, ctx, entity))) {
+        return;
+      }
+      if (entity.leadApprovedAt) {
+        throw new Error("You've already approved this as the programme lead");
+      }
+      const now = Date.now();
+      await tx.mutate.vendorPayment.update({
+        id: args.id,
+        leadApprovedAt: now,
+        leadApprovedBy: ctx.userId,
+        updatedAt: now,
+      });
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          "Approved as programme lead"
+        ),
+        vendorPaymentId: args.id,
+      });
+      if (tx.location !== "server") {
+        return;
+      }
+      const { title } = entity;
+      const [leadName, submitterName] = await Promise.all([
+        userName(tx, ctx.userId),
+        userName(tx, entity.userId),
+      ]);
+      ctx.asyncTasks?.push({
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue(
+            "notify-vendor-payment-submitted",
+            {
+              leadApproval: { at: now, leadName },
+              submitterName,
+              title,
+              vendorPaymentId: args.id,
+            },
+            { traceId: ctx.traceId }
+          );
+        },
+        meta: {
+          mutator: "vendorPayment.approveAsLead",
+          vendorPaymentId: args.id,
+        },
+      });
+    }
+  ),
+
   approveInvoice: defineMutator(
     z.object({
       id: z.string(),
@@ -414,6 +513,8 @@ export const vendorPaymentMutators = {
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
+      // Nobody approves the invoice of a request they raised.
+      assertNotOwnRequest(ctx, entity);
       assertNotVoided(entity);
 
       if (entity.status !== "invoice_pending") {
@@ -490,6 +591,7 @@ export const vendorPaymentMutators = {
 
     await tx.mutate.vendorPayment.insert({
       approvalScreenshotKey: null,
+      ...CLEARED_LEAD_APPROVAL,
       ...charge,
       costCentreId: await pickRequestCostCentreId(tx, {
         costCentreId: args.costCentreId,
@@ -542,12 +644,15 @@ export const vendorPaymentMutators = {
       const { title } = args;
       const submitter = await tx.run(zql.user.where("id", userId).one());
       const submitterName = submitter?.name;
+      // The programme lead reviews first; finance hears once they approve.
+      const leadUserId = await leadApproverFor(tx, { ...charge, userId });
       ctx.asyncTasks?.push({
         fn: async () => {
           const { enqueue } = await import("@pi-dash/jobs/enqueue");
           await enqueue(
             "notify-vendor-payment-submitted",
             {
+              leadUserId: leadUserId ?? undefined,
               submitterName: submitterName ?? "Someone",
               title,
               vendorPaymentId,
@@ -666,11 +771,20 @@ export const vendorPaymentMutators = {
   reject: defineMutator(
     z.object({ id: z.string(), reason: z.string().trim().min(1) }),
     async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "requests.approve");
+      assertIsLoggedIn(ctx);
       const { userId } = ctx;
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
+      // The programme lead rejects a pending request waiting for them.
+      if (
+        !(
+          can(ctx, "requests.approve") ||
+          (await assertIsWaitingLead(tx, ctx, entity))
+        )
+      ) {
+        return;
+      }
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "rejected");
@@ -870,6 +984,8 @@ export const vendorPaymentMutators = {
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
+      // As it was, to tell whether it now waits for a lead.
+      const entityBefore = { ...entity };
 
       if (entity.status === "pending") {
         throw new Error("Vendor payment is already pending");
@@ -915,6 +1031,8 @@ export const vendorPaymentMutators = {
       await tx.mutate.vendorPayment.update({
         approvalScreenshotKey: null,
         id: args.id,
+        // The lead looks at it again.
+        ...CLEARED_LEAD_APPROVAL,
         rejectionReason: null,
         reviewedAt: null,
         reviewedBy: null,
@@ -925,6 +1043,11 @@ export const vendorPaymentMutators = {
       await tx.mutate.vendorPaymentHistory.insert({
         ...buildHistoryInsert(userId, "submitted", now, "Reset to pending"),
         vendorPaymentId: args.id,
+      });
+      await notifyIfLeadNowWaiting(tx, ctx, "vendorPayment", {
+        after: { ...entity, ...CLEARED_LEAD_APPROVAL, status: "pending" },
+        before: entityBefore,
+        now,
       });
       queueLedgerPosting(
         ctx,
@@ -1071,22 +1194,51 @@ export const vendorPaymentMutators = {
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     assertNotVoided(entity);
+    // As it was, to tell whether it now waits for a lead.
+    const entityBefore = { ...entity };
     assertCanChangeCharge(ctx, entity);
     if (await isPostedInBooks(tx, ledgerSource(args.id))) {
       throw new Error(POSTED_CHARGE_MESSAGE);
     }
     const charge = await resolveExpenseCharge(tx, args, entity);
     const note = await chargeChangeNote(tx, entity, charge);
+    // The lead approved it for their programme; another programme's lead
+    // looks at it afresh.
+    const clearsLead =
+      entity.status === "pending" &&
+      Boolean(entity.leadApprovedAt) &&
+      (await programmeChanges(tx, entity, charge));
     const now = Date.now();
     await tx.mutate.vendorPayment.update({
       id: args.id,
       updatedAt: now,
       ...charge,
       costCentreId: await costCentreAfterRecharge(tx, entity, charge.eventId),
+      ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
     });
     await tx.mutate.vendorPaymentHistory.insert({
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       vendorPaymentId: args.id,
+    });
+    if (clearsLead) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          LEAD_APPROVAL_CLEARED_NOTE
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
+    await notifyIfLeadNowWaiting(tx, ctx, "vendorPayment", {
+      after: {
+        ...entity,
+        ...charge,
+        ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
+      },
+      before: entityBefore,
+      now,
     });
     queueLedgerPosting(
       ctx,
@@ -1164,6 +1316,8 @@ export const vendorPaymentMutators = {
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     assertNotVoided(entity);
+    // As it was, to tell whether it now waits for a lead.
+    const entityBefore = { ...entity };
     if (!(hasEditAll || canEditAnyStatus)) {
       assertCanModify(
         entity,
@@ -1201,9 +1355,21 @@ export const vendorPaymentMutators = {
     );
     const provisionCleared = new Set<string>();
     const provisionKeptResized = new Set<string>();
+    // What the lead approved changed: they look at it again.
+    const clearsLead =
+      entity.status === "pending" &&
+      Boolean(entity.leadApprovedAt) &&
+      (chargeChanges(entity, charge) ||
+        linesChange(
+          await tx.run(
+            zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
+          ),
+          args.lineItems
+        ));
 
     await tx.mutate.vendorPayment.update({
       ...charge,
+      ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
       costCentreId: await pickRequestCostCentreId(
         tx,
         { costCentreId: args.costCentreId, eventId: charge.eventId },
@@ -1271,6 +1437,27 @@ export const vendorPaymentMutators = {
       })
     );
 
+    if (clearsLead) {
+      await tx.mutate.vendorPaymentHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          LEAD_APPROVAL_CLEARED_NOTE
+        ),
+        vendorPaymentId: args.id,
+      });
+    }
+    await notifyIfLeadNowWaiting(tx, ctx, "vendorPayment", {
+      after: {
+        ...entity,
+        ...charge,
+        ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
+        title: args.title,
+      },
+      before: entityBefore,
+      now,
+    });
     if (provisionKeptResized.size > 0) {
       await tx.mutate.vendorPaymentHistory.insert({
         ...buildHistoryInsert(

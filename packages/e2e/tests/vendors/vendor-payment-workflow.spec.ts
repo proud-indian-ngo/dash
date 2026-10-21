@@ -5,6 +5,7 @@ import { expect, test } from "../../fixtures/test";
 import {
   createVendorPayment,
   createVolunteerVP,
+  handOverVendorPayment,
 } from "../../helpers/vendor-payment";
 
 test.describe("Vendor payment workflow (admin)", () => {
@@ -49,6 +50,7 @@ test.describe("Vendor payment workflow (admin)", () => {
   }) => {
     test.slow();
     await createVendorPayment(page, "Full");
+    await handOverVendorPayment(page);
 
     // Payments wait for approval
     await expect(
@@ -129,6 +131,7 @@ test.describe("Vendor payment workflow (admin)", () => {
   }) => {
     test.slow();
     const title = await createVendorPayment(page, "NoInvoice");
+    await handOverVendorPayment(page);
     const fyStart = currentFinancialYear().startsOn.slice(0, 4);
     const transactionDate = new Date();
     transactionDate.setDate(10);
@@ -240,6 +243,7 @@ test.describe("Vendor payment workflow (admin)", () => {
   test("no-invoice reason rejection and resubmission", async ({ page }) => {
     test.slow();
     await createVendorPayment(page, "NoInvoiceReject");
+    await handOverVendorPayment(page);
 
     await page.getByRole("button", { name: "Approve" }).first().click();
     await approveInDialog(page);
@@ -325,6 +329,7 @@ test.describe("Vendor payment workflow (admin)", () => {
   test("invoice rejection and resubmission flow", async ({ page }) => {
     test.slow();
     await createVendorPayment(page, "InvReject");
+    await handOverVendorPayment(page);
 
     // Approve VP
     await page.getByRole("button", { name: "Approve" }).first().click();

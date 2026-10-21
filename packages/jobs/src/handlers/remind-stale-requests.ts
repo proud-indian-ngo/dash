@@ -1,16 +1,42 @@
 import { db } from "@pi-dash/db";
 import { advancePayment } from "@pi-dash/db/schema/advance-payment";
+import { programme } from "@pi-dash/db/schema/finance-dimensions";
 import { reimbursement } from "@pi-dash/db/schema/reimbursement";
+import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { vendorPayment } from "@pi-dash/db/schema/vendor";
 import { getUserIdsWithPermission } from "@pi-dash/notifications/helpers";
 import { notifyStaleRequests } from "@pi-dash/notifications/send/reminders";
-import { count, sql } from "drizzle-orm";
+import {
+  leadApproverOf,
+  leadStepOutstanding,
+  waitingForYouPath,
+} from "@pi-dash/shared/approval-policy";
+import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
+import { and, count, eq, lt } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 import type { RemindStaleRequestsPayload } from "../enqueue";
 
 const STALE_THRESHOLD_DAYS = 3;
+
+type Counts = Parameters<typeof notifyStaleRequests>[0]["counts"];
+
+const emptyCounts = (): Counts => ({
+  advancePayments: 0,
+  reimbursements: 0,
+  vendorPayments: 0,
+});
+
+interface StaleRow {
+  chargedProgrammeId: null | string;
+  chargedTo: ExpenseChargedTo;
+  createdBy?: null | string;
+  eventProgrammeId: null | string;
+  leadApprovedAt: Date | null;
+  leadSkipReason: null | string;
+  userId: string;
+}
 
 export async function handleRemindStaleRequests(
   _jobs: Job<RemindStaleRequestsPayload>[]
@@ -24,57 +50,147 @@ export async function handleRemindStaleRequests(
     Date.now() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
   );
 
-  const [reimbursementCount, advancePaymentCount, vendorPaymentCount] =
+  const [reimbursements, vendorPayments, advancePaymentCount, programmes] =
     await Promise.all([
       db
-        .select({ value: count() })
+        .select({
+          chargedProgrammeId: reimbursement.chargedProgrammeId,
+          chargedTo: reimbursement.chargedTo,
+          createdBy: reimbursement.createdBy,
+          eventProgrammeId: teamEvent.programmeId,
+          leadApprovedAt: reimbursement.leadApprovedAt,
+          leadSkipReason: reimbursement.leadSkipReason,
+          userId: reimbursement.userId,
+        })
         .from(reimbursement)
+        .leftJoin(teamEvent, eq(teamEvent.id, reimbursement.eventId))
         .where(
-          sql`${reimbursement.status} = 'pending' AND ${reimbursement.submittedAt} < ${threshold}`
-        )
-        .then((r) => r[0]?.value ?? 0),
+          and(
+            eq(reimbursement.status, "pending"),
+            lt(reimbursement.submittedAt, threshold)
+          )
+        ),
+      db
+        .select({
+          chargedProgrammeId: vendorPayment.chargedProgrammeId,
+          chargedTo: vendorPayment.chargedTo,
+          eventProgrammeId: teamEvent.programmeId,
+          leadApprovedAt: vendorPayment.leadApprovedAt,
+          leadSkipReason: vendorPayment.leadSkipReason,
+          userId: vendorPayment.userId,
+        })
+        .from(vendorPayment)
+        .leftJoin(teamEvent, eq(teamEvent.id, vendorPayment.eventId))
+        .where(
+          and(
+            eq(vendorPayment.status, "pending"),
+            lt(vendorPayment.submittedAt, threshold)
+          )
+        ),
       db
         .select({ value: count() })
         .from(advancePayment)
         .where(
-          sql`${advancePayment.status} = 'pending' AND ${advancePayment.submittedAt} < ${threshold}`
+          and(
+            eq(advancePayment.status, "pending"),
+            lt(advancePayment.submittedAt, threshold)
+          )
         )
         .then((r) => r[0]?.value ?? 0),
       db
-        .select({ value: count() })
-        .from(vendorPayment)
-        .where(
-          sql`${vendorPayment.status} = 'pending' AND ${vendorPayment.submittedAt} < ${threshold}`
-        )
-        .then((r) => r[0]?.value ?? 0),
+        .select({ id: programme.id, leadUserId: programme.leadUserId })
+        .from(programme),
     ]);
 
-  const total = reimbursementCount + advancePaymentCount + vendorPaymentCount;
+  // A request waits for its programme lead while the lead step is
+  // outstanding ("Approval policy"), else for finance.
+  const leads = new Map(programmes.map((p) => [p.id, p.leadUserId]));
+  const waitingLead = ({
+    eventProgrammeId,
+    leadApprovedAt,
+    leadSkipReason,
+    ...row
+  }: StaleRow) => {
+    const lead = leadApproverOf(
+      { ...row, event: { programmeId: eventProgrammeId } },
+      (programmeId) => leads.get(programmeId)
+    );
+    return leadStepOutstanding(
+      { leadApprovedAt: leadApprovedAt?.getTime() ?? null, leadSkipReason },
+      lead
+    )
+      ? lead
+      : null;
+  };
+  const finance = emptyCounts();
+  finance.advancePayments = advancePaymentCount;
+  const byLead = new Map<string, Counts>();
+  const tally = (rows: readonly StaleRow[], kind: keyof Counts) => {
+    for (const row of rows) {
+      const lead = waitingLead(row);
+      let counts = finance;
+      if (lead) {
+        counts = byLead.get(lead) ?? emptyCounts();
+        byLead.set(lead, counts);
+      }
+      counts[kind] += 1;
+    }
+  };
+  tally(reimbursements, "reimbursements");
+  tally(vendorPayments, "vendorPayments");
+
+  const financeTotal =
+    finance.reimbursements + finance.advancePayments + finance.vendorPayments;
   log.set({
     advancePaymentCount,
-    reimbursementCount,
-    total,
-    vendorPaymentCount,
+    leadCount: byLead.size,
+    reimbursementCount: reimbursements.length,
+    vendorPaymentCount: vendorPayments.length,
   });
 
-  if (total === 0) {
+  if (financeTotal === 0 && byLead.size === 0) {
     log.set({ event: "no_stale_requests" });
     log.emit();
     return;
   }
 
-  const approverIds = await getUserIdsWithPermission("requests.approve");
+  // Each person hears of what waits for them; someone who is both a lead
+  // and in finance gets one reminder with both.
+  // A lead-only reminder opens the list filtered to what waits for them;
+  // finance's opens the dashboard.
+  const recipients = new Map<string, { counts: Counts; path?: string }>();
+  if (financeTotal > 0) {
+    for (const userId of await getUserIdsWithPermission("requests.approve")) {
+      recipients.set(userId, { counts: { ...finance } });
+    }
+  }
+  for (const [userId, counts] of byLead) {
+    const current = recipients.get(userId);
+    recipients.set(
+      userId,
+      current
+        ? {
+            counts: {
+              advancePayments:
+                current.counts.advancePayments + counts.advancePayments,
+              reimbursements:
+                current.counts.reimbursements + counts.reimbursements,
+              vendorPayments:
+                current.counts.vendorPayments + counts.vendorPayments,
+            },
+          }
+        : {
+            counts,
+            path: waitingForYouPath(
+              counts.reimbursements > 0 ? "/reimbursements" : "/vendor-payments"
+            ),
+          }
+    );
+  }
 
   const results = await Promise.allSettled(
-    approverIds.map((userId) =>
-      notifyStaleRequests({
-        counts: {
-          advancePayments: advancePaymentCount,
-          reimbursements: reimbursementCount,
-          vendorPayments: vendorPaymentCount,
-        },
-        userId,
-      })
+    [...recipients].map(([userId, { counts, path }]) =>
+      notifyStaleRequests({ counts, path, userId })
     )
   );
 
@@ -82,13 +198,11 @@ export async function handleRemindStaleRequests(
   log.set({
     event: "job_complete",
     failures: failures.length,
-    notified: approverIds.length,
+    notified: recipients.size,
   });
   log.emit();
 
   if (failures.length > 0) {
-    throw new Error(
-      `${failures.length}/${approverIds.length} reminder(s) failed`
-    );
+    throw new Error(`${failures.length}/${recipients.size} reminder(s) failed`);
   }
 }

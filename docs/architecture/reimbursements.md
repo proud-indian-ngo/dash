@@ -1,9 +1,9 @@
 # Reimbursements
 
-> **Load when**: reimbursement lifecycle, approve, reject, reset, void, edits after approval, `requests.*` permissions, expense categories, saved bank accounts, UPI payout, claim for others, advance payments, financial-year export.
+> **Load when**: reimbursement lifecycle, lead approval, approve, reject, reset, void, edits after approval, `requests.*` permissions, expense categories, saved bank accounts, UPI payout, claim for others, advance payments, financial-year export.
 > **Related**: `finance-and-programmes.md` (Charged to), `cash-vouchers.md`, `finance-books.md`, `finance-bank-statements.md`, `file-uploads.md`, `audit-log.md`
 
-A reimbursement repays someone who spent their own money on Proud Indian's work. Finance pays the claimant first, by bank transfer or UPI, and then approves the request with the payment screenshot. Approval therefore means "paid": there is no separate paid status.
+A reimbursement repays someone who spent their own money on Proud Indian's work. The lead of the programme it is charged to approves it first ("Approval policy" in [finance-and-programmes.md](finance-and-programmes.md#approval-policy)). Finance then pays the claimant, by bank transfer or UPI, and approves the request with the payment screenshot. Approval therefore means "paid": there is no separate paid status.
 
 ## Statuses and transitions
 
@@ -13,17 +13,19 @@ Voiding is a separate flag beside the unchanged status. Mutators live in `packag
 |---|---|---|---|---|
 | Submit | | `pending` | `requests.create` | Expense date not in the future |
 | Edit | `pending` | same | Owner with `requests.edit_own`, or `requests.edit_all` | |
-| Edit | any | same | `requests.edit_all_statuses` | See "Edits after approval" |
-| Approve | `pending` | `approved` | `requests.approve` | Needs a payment screenshot, new or already stored |
-| Reject | `pending` | `rejected` | `requests.approve` | Needs a reason |
+| Edit | any | same | `requests.edit_all_statuses` | See "Edits after approval"; never the lines of your own approved claim |
+| Approve as lead | `pending` | same | The programme lead | Records `lead_approved_by` and `_at`; only while the lead step applies |
+| Approve | `pending` | `approved` | `requests.approve` | Needs a payment screenshot, new or already stored. With the lead step outstanding, needs a reason; never the lead's own approver, the claimant or the creator |
+| Reject | `pending` | `rejected` | `requests.approve`, or the programme lead | Needs a reason |
 | Approve or reject from another status | `rejected` / `approved` | the other | `requests.approve` and `requests.edit_all_statuses` | Reject refused while a bank debit is matched |
-| Reset to pending | `approved` / `rejected` | `pending` | `requests.edit_all_statuses` | Refused while a bank debit is matched; the screenshot is kept as an attachment |
+| Reset to pending | `approved` / `rejected` | `pending` | `requests.edit_all_statuses` | Refused while a bank debit is matched; the screenshot is kept as an attachment; the lead's approval and finance's reason are cleared |
 | Void | any | flag set | `requests.void` | Needs a reason; refused while a bank debit is matched |
 | Delete | `pending` (owner) or any (`requests.delete_all`) | gone | Owner with `requests.delete_own`, or `requests.delete_all` | Refused once posted, voided or matched |
 | Change claimant | any | same | `requests.create_for_others` | Needs a reason |
 | Change Charged to | `pending` / `approved` | same | `finance.manage`, or `requests.approve` with `requests.view_all` | Never your own request; refused once posted |
 
 - Every mutator refuses a voided request; voiding twice changes nothing.
+- While pending, an edit that changes a line or Charged to, or finance re-charging it to another programme, clears the lead's approval.
 - Each transition writes a history row and queues posting. The books then post, repost or reverse it; see "Expense posting rules" in [finance-books.md](finance-books.md).
 - Role defaults: volunteers can create, view, edit and delete their own requests. `admin` and `finance_admin` can view, edit and delete everyone's. Only `finance_admin` and `super_admin` can approve, void and claim for others. `requests.edit_all_statuses` is left out of both admin roles, so by default only `super_admin` holds it.
 - The same delete rule (`assertCanDelete`) covers advance payments, vendor payments and vendor payment transactions.
@@ -70,7 +72,7 @@ Finance pays outside the dashboard by bank transfer or UPI, whichever suits them
 
 ### Storage, reveal and audit
 
-- Payout details are plain text and sync through Zero. The request's copy syncs to anyone who can see the request: the claimant, and `requests.view_all` holders.
+- Payout details are plain text. A reimbursement's copy is not synced, because programme leads see the request: `getReimbursementPayout` (`apps/web/src/functions/reimbursement-payout.ts`) serves it to the claimant and `requests.view_all` holders, and mutators write it on the server. Advance payments still sync theirs.
 - Saved entries sync to their owner. `bankAccount.bankAccountsForClaimant` also lets `requests.create_for_others` holders read another person's entries.
 - Nothing is encrypted and there is no reveal step, unlike vendor bank accounts. Encrypting payee account numbers on requests is planned under "Data protection" in [finance-and-programmes.md](finance-and-programmes.md).
 - Audit metadata records only changed field names, never values; see [audit-log.md](audit-log.md).
@@ -116,10 +118,13 @@ Jobs are enqueued after commit from the mutators; delivery is described in [noti
 
 | Event | Reaches |
 |---|---|
-| Submitted | Every `requests.approve` holder |
+| Submitted | The programme lead when the lead step applies, else every `requests.approve` holder |
+| Approved as lead | Every `requests.approve` holder |
+| Waiting for a lead again (approval cleared, reset, claimant changed, re-charged, event moved) | That programme lead |
 | Raised for someone | The claimant |
 | Approved | The claimant, with the approver's note |
-| Rejected | The claimant, with the reason |
+| Rejected (by finance or the lead) | The claimant, with the reason |
+| Waiting 3+ days (daily) | Whoever it waits for: the programme lead (linked to the list's "Waiting for you"), else every `requests.approve` holder |
 | Claimant changed | The new and the previous claimant |
 
-Reset, void, edits and Charged to changes notify no one. Advance payments still send their own submitted, approved and rejected jobs.
+Void notifies no one; reset, edits, claimant and Charged to changes notify only a lead the request now waits for. Every message reuses the `request_submitted`, `request_not_approved` and `requests_awaiting_approval` WhatsApp templates; vendor payments follow the same rules. Advance payments still send their own submitted, approved and rejected jobs.

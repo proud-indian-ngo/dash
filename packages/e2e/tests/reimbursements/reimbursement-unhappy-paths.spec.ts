@@ -81,6 +81,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
     await reimbursements.createReimbursement("API Approve No Screenshot");
+    await reimbursements.handOverInDatabase();
     const reimbursementId = reimbursements.currentRequestId();
 
     const body = buildMutateBody("reimbursement.approve", {
@@ -107,6 +108,7 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     const reimbursements = new ReimbursementPage(page, "reimbursement");
 
     await reimbursements.createReimbursement("API Double Approve");
+    await reimbursements.handOverInDatabase();
     await reimbursements.approveInDatabase();
 
     const body = buildMutateBody("reimbursement.approve", {

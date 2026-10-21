@@ -92,6 +92,7 @@ test.describe("Cash voucher", () => {
     test.slow();
 
     await reimbursements.createReimbursementWithVoucher("Voucher Approval");
+    await reimbursements.handOverInDatabase();
 
     await expect(reimbursements.detail.getApproveButton()).toBeVisible();
     await reimbursements.detail.approve();

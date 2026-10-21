@@ -50,4 +50,6 @@ Server functions and API routes throw expected failures as `HttpError` (`apps/we
 
 Client-side mutator runs are optimistic; the server pass is authoritative. Gate a protected route in `beforeLoad` and its UI action with `hasPermission`, and test `Route.options.beforeLoad` directly with denied and allowed contexts.
 
+Programme leads act without a permission on the reimbursements and vendor payments charged to their programme: they see them and approve or reject them before finance ("Approval policy" in [finance-and-programmes.md](finance-and-programmes.md#approval-policy)). The check is the programme's `lead_user_id`, enforced in the mutators and the request queries.
+
 A user's email and phone need `users.view`. The exception is a team's or event's own people: those who manage a team's or event's members see those members' contacts ([teams](teams-and-events.md#teams), [event members](teams-and-events.md#members-and-self-join)), and interest reviewers see pending requesters' ([interest](teams-and-events.md#interest)). Team leads qualify for their own teams. External users' contacts are never shown either way.

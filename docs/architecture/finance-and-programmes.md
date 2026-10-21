@@ -1,13 +1,13 @@
 # Finance and programmes
 
-> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, cost centres, budgets, outcomes, volunteer hour value, deferred finance work, FCRA, retention.
+> **Load when**: finance overview, programmes, projects, funds, main bank account, account heads, Charged to, approval policy, programme lead approval, cost centres, budgets, outcomes, volunteer hour value, deferred finance work, FCRA, retention.
 > **Related**: `authorization.md`, `data-layer.md`, `reimbursements.md`, `vendor-payments.md`, `cash-vouchers.md`
 
 The dashboard keeps the trust's operational financial record year-round, organised by programme: expenses, income, donors, receipts and a single-entry set of books. The CA keeps the statutory books and takes year-end exports from the dashboard. The ledger starts at the cutover, 1 April 2026.
 
 | Chapter | Covers |
 |---|---|
-| This one | Decisions, dimensions, Charged to, cost centres, budgets, outcomes, deferred work, data protection |
+| This one | Decisions, dimensions, Charged to, approval policy, cost centres, budgets, outcomes, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursements, payouts, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, income, imports, Razorpay, give.do payouts, Reached bank |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
@@ -40,7 +40,7 @@ The founder confirmed the rules marked "founder decision"; the CA may still revi
 
 Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.view`; writing needs `finance.manage`.
 
-- `programme` includes a seeded "Unallocated" holder. Pickers never offer it for a new pick. Its `finance_threshold_paise` is stored but not enforced.
+- `programme` includes a seeded "Unallocated" holder. Pickers never offer it for a new pick. `lead_user_id` is the programme lead (see "Approval policy").
 - `project` sits under one programme and syncs only to `finance.view`.
 - `fund`: General Fund (Domestic) is the default; the restricted Corpus Fund is reference data.
 - `org_account` of kind `deposit` (fixed deposit) never takes donations or statement imports. Accounts are deactivated, never deleted.
@@ -71,6 +71,24 @@ One target per request. Advance payments carry none.
 - A composite foreign key refuses a project under another programme.
 - The claimant picks it while pending. Finance (`finance.manage`, or `requests.approve` with `requests.view_all`) changes it later via `setChargedTo`, never on a rejected request or their own, and never once posted.
 - Legacy requests without an event went to the submitter's team programme when unambiguous, else to Unallocated, for finance to clear.
+
+## Approval policy
+
+The lead of the programme a reimbursement or vendor payment is charged to approves it first; finance then approves and pays it as before. There is no amount threshold (founder decision).
+
+- The lead is `programme.lead_user_id` of the programme `expenseProgrammeOf` gives. `leadApproverOf` (`packages/shared/src/approval-policy.ts`) holds the rule for mutators, screens and the reminder job.
+- No lead step when the request is charged to the organisation, its programme is Unallocated or has no lead, or the lead raised it or is its claimant (the beneficiary of a claim for others).
+- The lead approves (`approveAsLead`) or rejects with a reason, a normal rejection, while the request is pending. They need no permission and act only on their programme's requests. On a vendor payment this is the payment approval; payments and the invoice are finance's. Advance payments have no lead step.
+- Finance may approve while the lead's approval is outstanding, with a reason stored in `lead_skip_reason`, written to the history and shown on the request; the audit row records the field name. Outstanding (`leadStepOutstanding`) means the step applies and the lead neither approved nor was skipped, on any move to approved, so overriding a lead's rejection needs a reason too. Whoever approved as lead, or is the lead, can't approve as finance.
+- Creator and claimant can't approve or pay their own request: finance approval, payment proof, invoice approval, approving a vendor payment's payment, and recording one on your own request, which then waits for someone else. After approval they can't change their own claim's lines or an approved payment's amount on their own vendor payment (founder decision).
+- Requests pending when the step began carry the skip reason "Submitted before lead approval began" and go straight to finance (see `DEPLOYMENT.md`).
+- Stored on the request: `lead_approved_by`, `lead_approved_at`, `lead_skip_reason`. One optional step per request needs no `approval_step` table.
+- Cleared: while pending, by an edit that changes a line (amount, category, description) or Charged to, a change of claimant, finance re-charging it to another programme, or its event moving to another programme; by a reset to pending, with the reason. Once approved or skipped, the lead can no longer act. Whenever a request comes to wait for a lead it didn't wait for before (cleared, reset, claimant changed, re-charged or its event moved), that lead gets the `request_submitted` message again.
+- Without `requests.view_all`, the request queries return your own requests and those charged to a programme you lead (never Unallocated), directly or through its event, without a vendor payment's payments. Payee bank and UPI details on reimbursements are not synced: `getReimbursementPayout` serves them to the claimant and `requests.view_all` holders.
+- Leads sync and open only receipts (`reimbursement_attachment.purpose = receipt`) and quotations, where the lead step applies to them. Every insert sets the purpose (receipt, payment_proof, voucher, signed_voucher, payee_signature); the edit form keeps a file's purpose by its stored object. Migration `0179` classified existing files by key prefix, line-item links and history, treating any file added after a request's first signed voucher upload as a signed voucher, so a legacy replaced copy is refused. Voucher regeneration records the signed copy it unlinks.
+- The home dashboard counts and lists what waits for a lead under "Waiting for you"; finance's queue leaves out what still waits for its lead; the lead's own figures count only their own requests. Leads see the "Pending approvals" notification topic.
+- Lists say "Waiting for lead" or "Lead approved" on pending rows and have an Approval filter; "Waiting for you" (a lead's) and "Waiting for lead" (finance's) are attention views. The request page says "Waiting for <lead>", "Approved by <lead> on <date>" or "Approved by finance without the lead: <reason>".
+- Notifications: see [reimbursements.md](reimbursements.md#notifications).
 
 ## Cost centres
 
@@ -113,13 +131,6 @@ Analytics → Outcomes ([teams and events](teams-and-events.md#other-pages)) der
 
 Kept from the agreed design; none of this is built unless stated.
 
-### Approval policy
-
-- Programme-lead approval always, by a user who leads that programme; finance approval as well above a threshold (programme override, else `app_config.finance_threshold_default_paise`; both stored today). A lead who is the claimant skips the lead step and finance approves regardless of amount.
-- Creator, claimant and identifiable beneficiary can't approve or pay their own request; lead and finance must be different people; an approver may also pay. Nothing approves automatically.
-- Planned `approval_step` table and permissions `finance.approve_lead`, `finance.approve`, `finance.confirm_payment`. Today approval uses `requests.approve`.
-- A team lead may move an event between programmes until an expense links to it; after that only `finance.manage`.
-
 ### In-kind
 
 Built as consumed: income and an equal consumption, medium `in_kind`, no movement, excluded from cash views. Holding in-kind gifts as assets waits for a fixed asset register. In-kind corpus gifts net to nothing in the Corpus Fund (CA to advise).
@@ -130,7 +141,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 
 ### Other deferred work
 
-- Requests: frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on reimbursements still sync).
+- Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
 - Grants (agreements, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
 - Exports: an FY audit pack replacing `/export`, donor statements.

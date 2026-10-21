@@ -127,7 +127,6 @@ function programme(overrides: Row = {}): Row {
     cause: "education",
     code: "EDU",
     description: null,
-    financeThresholdPaise: null,
     id: "prog-1",
     leadUserId: null,
     name: "Education",
@@ -206,7 +205,7 @@ describe("programme mutators", () => {
 
   it("keeps existing values for omitted fields on update", async () => {
     const db = createDb({
-      programme: [programme({ active: false, financeThresholdPaise: 500_00 })],
+      programme: [programme({ active: false, description: "Classes" })],
     });
     await run(programmeMutators.update, db, financeCtx, {
       code: "EDU",
@@ -215,7 +214,7 @@ describe("programme mutators", () => {
     });
     const row = db.tables.programme?.[0];
     expect(row?.active).toBe(false);
-    expect(row?.financeThresholdPaise).toBe(500_00);
+    expect(row?.description).toBe("Classes");
     expect(row?.cause).toBe("education");
   });
 

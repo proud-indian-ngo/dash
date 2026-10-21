@@ -1,6 +1,6 @@
 # Vendor payments
 
-> **Load when**: vendor payment, VP, `vendorPayment`, status state machine, invoice or no-invoice approval, payment recording, vendor details, bank-account reveal.
+> **Load when**: vendor payment, VP, `vendorPayment`, lead approval, status state machine, invoice or no-invoice approval, payment recording, vendor details, bank-account reveal.
 > **Related**: `authorization.md`, `finance-books.md` (expense posting), `finance-bank-statements.md` (debit matching)
 
 A vendor payment (VP) is approved twice: first the payment, then the invoice. The rule: no payment before approval, and the invoice comes only after payment.
@@ -19,12 +19,13 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 
 ## Payment phase
 
+- The lead of the programme it is charged to approves it first, or rejects it; finance may approve without them, with a reason. See "Approval policy" in `finance-and-programmes.md`. The lead step covers only this approval, not payments or the invoice.
 - Finance can change what the request is charged to at approval or later; see "Charged to" in `finance-and-programmes.md`.
 - Approvers are warned when the vendor is a trustee or a party a trustee declared ([declarations](governance-compliance.md#declarations-of-interests)).
 - Approve and reject apply only to `pending` requests. Approval ends with `recalculateParentStatus()`, so a request already holding approved payments lands on `partially_paid` or `paid`.
 - Reject is refused once any payment is approved; otherwise it rejects the pending payments too.
-- `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment.
-- An admin's payment is auto-approved; others need approval, which the server refuses until the request is approved.
+- `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment. It clears the lead's approval.
+- An admin's payment is auto-approved, except on their own request; others need approval, which the server refuses until the request is approved. Nobody approves the request or a payment on it when they raised it.
 - Only whoever recorded a payment edits or deletes it (delete also needs `requests.delete_own`), while it is pending and the invoice is not locked. The request's owner cannot change a payment someone else recorded. `requests.edit_all` and `requests.delete_all` holders can change any payment.
 
 ## Invoice phase

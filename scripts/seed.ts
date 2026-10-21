@@ -2802,6 +2802,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       id: ID.ra01,
       mimeType: "application/pdf",
       objectKey: "dev/reimbursements/bus-pass-receipt.pdf",
+      purpose: "receipt",
       reimbursementId: ID.reimb01,
       type: "file",
     })
@@ -2812,6 +2813,7 @@ async function seedReimbursements(userMap: Map<string, string>): Promise<void> {
       createdAt: past(9),
       filename: "Online receipt link",
       id: ID.ra02,
+      purpose: "receipt",
       reimbursementId: ID.reimb01,
       type: "url",
       url: "https://example.com/receipt-verification/12345",

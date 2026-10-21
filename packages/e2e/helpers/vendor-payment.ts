@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Page } from "@playwright/test";
 
 import { expect, waitForZeroReady } from "../fixtures/test";
@@ -192,4 +196,34 @@ export async function createVolunteerVP(
   });
 
   return title;
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Makes the test volunteer the open vendor payment's submitter, so the
+ * signed-in approver may approve it and its payments: nobody approves or
+ * pays their own request.
+ */
+export async function handOverVendorPayment(page: Page): Promise<void> {
+  const id = /\/vendor-payments\/([0-9a-f-]{36})$/.exec(
+    new URL(page.url()).pathname
+  )?.[1];
+  if (!id) {
+    throw new Error(`Not on a vendor payment page: ${page.url()}`);
+  }
+  await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "request-approval.ts"),
+      "hand-over",
+      "vendor-payment",
+      id,
+    ],
+    { env: process.env }
+  );
+  await expect(
+    page.getByRole("button", { exact: true, name: "Approve" })
+  ).toBeVisible({ timeout: 15_000 });
 }
