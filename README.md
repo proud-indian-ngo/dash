@@ -16,7 +16,7 @@ The libraries are in each `package.json`. The external services are:
 ## What it does
 
 - People and access: users, roles and permissions, bans, password resets, orientation tracking. See [auth](docs/architecture/auth.md) and [authorization](docs/architecture/authorization.md).
-- Requests and expenses: reimbursements and advance payments with line items, approval, cash vouchers, payee signatures, payment proof and "Charged to". See [reimbursements](docs/architecture/reimbursements.md), [cash vouchers](docs/architecture/cash-vouchers.md) and [finance overview](docs/architecture/finance-and-programmes.md).
+- Requests and expenses: reimbursements and advance payments with line items, programme lead then finance approval, cash vouchers, payee signatures, payment proof and "Charged to". See [reimbursements](docs/architecture/reimbursements.md), [cash vouchers](docs/architecture/cash-vouchers.md) and [finance overview](docs/architecture/finance-and-programmes.md).
 - Vendors: supplier profiles, vendor payments, payment transactions and invoice approval. See [vendor payments](docs/architecture/vendor-payments.md).
 - Events and teams: teams with leads, one-time and recurring events, attendance, interest requests, updates, photos synced to Immich, anonymous feedback. See [teams and events](docs/architecture/teams-and-events.md) and [recurring events](docs/architecture/recurring-events.md).
 - Analytics: spending over time, and outcomes (children reached, volunteer hours and their value) derived from recorded events. See [outcomes](docs/architecture/finance-and-programmes.md#outcomes).
