@@ -79,6 +79,13 @@ export interface GovernanceDocumentR2ObjectRecord {
   kind: string;
 }
 
+/** A grant's signed agreement: finance. */
+export interface FinanceR2ObjectRecord {
+  access: "finance";
+  filename: string;
+  key: string;
+}
+
 /** A circular's PDF, or minutes or a declaration for signing: governance, and the trustees who sign it. */
 export interface ResolutionR2ObjectRecord {
   access: "resolution";
@@ -102,6 +109,7 @@ export interface KalakritiInventoryPhotoR2ObjectRecord {
 }
 
 export type R2ObjectRecord =
+  | FinanceR2ObjectRecord
   | PolicyR2ObjectRecord
   | EventPhotoR2ObjectRecord
   | GovernanceDocumentR2ObjectRecord
@@ -221,6 +229,10 @@ export async function authorizeR2Object(
     allowed = await deps.canReadKalakritiScorecard(session, record);
   } else if (record.access === "governanceDocument") {
     allowed = await canReadGovernanceDocument(session, record, deps);
+  } else if (record.access === "finance") {
+    allowed = (await deps.resolvePermissions(getRole(session))).some(
+      (p) => p === "finance.view" || p === "finance.manage"
+    );
   } else if (record.access === "policy") {
     allowed = true;
   } else if (record.access === "resolution") {

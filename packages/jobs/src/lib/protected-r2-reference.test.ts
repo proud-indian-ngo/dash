@@ -73,6 +73,9 @@ describe("withProtectedR2ObjectReferenceLock", () => {
     expect(referenceSql).toContain("meeting WHERE minutes_object_key");
     expect(referenceSql).toContain("conflict_declaration WHERE object_key");
     expect(referenceSql).toContain(
+      "grant_agreement WHERE agreement_object_key"
+    );
+    expect(referenceSql).toContain(
       "kalakriti_competition_entry WHERE music_object_key"
     );
     expect(mocks.execute.mock.invocationCallOrder[1]).toBeLessThan(

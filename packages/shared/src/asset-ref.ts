@@ -4,6 +4,7 @@ export const attachmentDownloadKindValues = [
   "circularPdf",
   "declarationPdf",
   "governanceDocument",
+  "grantAgreement",
   "kalakritiEntryMusic",
   "kalakritiInventoryPhoto",
   "kalakritiScorecard",
@@ -30,6 +31,7 @@ export type AttachmentDownloadRef =
   | { id: string; kind: "circularPdf" }
   | { id: string; kind: "declarationPdf" }
   | { id: string; kind: "governanceDocument" }
+  | { id: string; kind: "grantAgreement" }
   | { id: string; kind: "kalakritiEntryMusic" }
   | { id: string; kind: "kalakritiInventoryPhoto" }
   | { id: string; kind: "kalakritiScorecard" }

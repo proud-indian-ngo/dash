@@ -1,12 +1,44 @@
 import { BUDGETABLE_REFERENCE_HEAD_IDS } from "@pi-dash/shared/budgets";
 import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { paiseSchema } from "@pi-dash/shared/money";
-import { defineMutator } from "@rocicorp/zero";
+import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
 import "../context";
 import { assertHasPermission } from "../permissions";
-import { zql } from "../schema";
+import { type Schema, zql } from "../schema";
+
+/**
+ * Heads a budget already holds stay allowed; new ones must be an expense
+ * head an expense category posts to, or in-kind consumed or gateway charges
+ * (`budgetableHeadIds`). Categories may not be on the client, so the server
+ * checks. Grant budgets use the same heads.
+ */
+export async function assertBudgetableHeads(
+  tx: Transaction<Schema>,
+  headIds: readonly string[],
+  heldHeadIds: readonly string[]
+) {
+  if (tx.location !== "server") {
+    return;
+  }
+  const held = new Set(heldHeadIds);
+  for (const headId of headIds) {
+    if (held.has(headId)) {
+      continue;
+    }
+    const [head, category] = await Promise.all([
+      tx.run(zql.accountHead.where("id", headId).one()),
+      tx.run(zql.expenseCategory.where("accountHeadId", headId).one()),
+    ]);
+    const reference = BUDGETABLE_REFERENCE_HEAD_IDS.includes(headId);
+    if (head?.type !== "expense" || !(category || reference)) {
+      throw new Error(
+        "Only the expense heads of expense categories, in-kind consumed and gateway charges can be budgeted"
+      );
+    }
+  }
+}
 
 const saveInput = z.object({
   fiscalYearId: z.string(),
@@ -74,32 +106,11 @@ export const budgetMutators = {
         throw new Error("Project not found under this programme");
       }
     }
-    // Heads the budget already holds stay allowed; new ones must be an
-    // expense head an expense category posts to, or in-kind consumed or
-    // gateway charges (`budgetableHeadIds`). Categories may not be on the
-    // client, so the server checks.
-    const held = new Set(existing?.lines.map((l) => l.accountHeadId));
-    if (tx.location === "server") {
-      for (const line of args.lines) {
-        if (held.has(line.accountHeadId)) {
-          continue;
-        }
-        const [head, category] = await Promise.all([
-          tx.run(zql.accountHead.where("id", line.accountHeadId).one()),
-          tx.run(
-            zql.expenseCategory.where("accountHeadId", line.accountHeadId).one()
-          ),
-        ]);
-        const reference = BUDGETABLE_REFERENCE_HEAD_IDS.includes(
-          line.accountHeadId
-        );
-        if (head?.type !== "expense" || !(category || reference)) {
-          throw new Error(
-            "Only the expense heads of expense categories, in-kind consumed and gateway charges can be budgeted"
-          );
-        }
-      }
-    }
+    await assertBudgetableHeads(
+      tx,
+      args.lines.map((l) => l.accountHeadId),
+      existing?.lines.map((l) => l.accountHeadId) ?? []
+    );
 
     const now = Date.now();
     if (args.lines.length === 0) {

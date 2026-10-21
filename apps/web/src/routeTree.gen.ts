@@ -108,6 +108,8 @@ import { Route as KalakritiYearScheduleRouteImport } from './routes/kalakriti/$y
 import { Route as AppFinanceBooksIndexRouteImport } from './routes/_app/finance/books/index'
 import { Route as AppFinanceBooksAuditedRouteImport } from './routes/_app/finance/books/audited'
 import { Route as AppFinanceBooksOpeningRouteImport } from './routes/_app/finance/books/opening'
+import { Route as AppFinanceGrantsIndexRouteImport } from './routes/_app/finance/grants/index'
+import { Route as AppFinanceGrantsIdRouteImport } from './routes/_app/finance/grants/$id'
 import { Route as AppGovernanceMeetingsIndexRouteImport } from './routes/_app/governance/meetings/index'
 import { Route as AppGovernanceMeetingsMeetingIdRouteImport } from './routes/_app/governance/meetings/$meetingId'
 import { Route as AppGovernanceResolutionsIndexRouteImport } from './routes/_app/governance/resolutions/index'
@@ -673,6 +675,16 @@ const AppFinanceBooksOpeningRoute = AppFinanceBooksOpeningRouteImport.update({
   path: '/finance/books/opening',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFinanceGrantsIndexRoute = AppFinanceGrantsIndexRouteImport.update({
+  id: '/finance/grants/',
+  path: '/finance/grants/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinanceGrantsIdRoute = AppFinanceGrantsIdRouteImport.update({
+  id: '/finance/grants/$id',
+  path: '/finance/grants/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppGovernanceMeetingsIndexRoute =
   AppGovernanceMeetingsIndexRouteImport.update({
     id: '/meetings/',
@@ -1128,6 +1140,7 @@ export interface FileRoutesByFullPath {
   '/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/finance/grants/$id': typeof AppFinanceGrantsIdRoute
   '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
@@ -1168,6 +1181,7 @@ export interface FileRoutesByFullPath {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/finance/grants/': typeof AppFinanceGrantsIndexRoute
   '/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
   '/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank/': typeof AppIncomeBankIndexRoute
@@ -1277,6 +1291,7 @@ export interface FileRoutesByTo {
   '/api/jobs': typeof ApiJobsIndexRoute
   '/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/finance/grants/$id': typeof AppFinanceGrantsIdRoute
   '/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
@@ -1316,6 +1331,7 @@ export interface FileRoutesByTo {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/finance/books': typeof AppFinanceBooksIndexRoute
+  '/finance/grants': typeof AppFinanceGrantsIndexRoute
   '/governance/meetings': typeof AppGovernanceMeetingsIndexRoute
   '/governance/resolutions': typeof AppGovernanceResolutionsIndexRoute
   '/income/bank': typeof AppIncomeBankIndexRoute
@@ -1442,6 +1458,7 @@ export interface FileRoutesById {
   '/_app/kalakriti/$year/settings': typeof AppKalakritiYearSettingsRouteRouteWithChildren
   '/_app/finance/books/audited': typeof AppFinanceBooksAuditedRoute
   '/_app/finance/books/opening': typeof AppFinanceBooksOpeningRoute
+  '/_app/finance/grants/$id': typeof AppFinanceGrantsIdRoute
   '/_app/governance/meetings/$meetingId': typeof AppGovernanceMeetingsMeetingIdRoute
   '/_app/governance/resolutions/$resolutionId': typeof AppGovernanceResolutionsResolutionIdRoute
   '/_app/governance/resolutions/signing-helper': typeof AppGovernanceResolutionsSigningHelperRoute
@@ -1482,6 +1499,7 @@ export interface FileRoutesById {
   '/api/social/v1/stats': typeof ApiSocialV1StatsRoute
   '/api/whatsapp/cloud/webhook': typeof ApiWhatsappCloudWebhookRoute
   '/_app/finance/books/': typeof AppFinanceBooksIndexRoute
+  '/_app/finance/grants/': typeof AppFinanceGrantsIndexRoute
   '/_app/governance/meetings/': typeof AppGovernanceMeetingsIndexRoute
   '/_app/governance/resolutions/': typeof AppGovernanceResolutionsIndexRoute
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
@@ -1607,6 +1625,7 @@ export interface FileRouteTypes {
     | '/kalakriti/$year/settings'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/finance/grants/$id'
     | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
     | '/governance/resolutions/signing-helper'
@@ -1647,6 +1666,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books/'
+    | '/finance/grants/'
     | '/governance/meetings/'
     | '/governance/resolutions/'
     | '/income/bank/'
@@ -1756,6 +1776,7 @@ export interface FileRouteTypes {
     | '/api/jobs'
     | '/finance/books/audited'
     | '/finance/books/opening'
+    | '/finance/grants/$id'
     | '/governance/meetings/$meetingId'
     | '/governance/resolutions/$resolutionId'
     | '/governance/resolutions/signing-helper'
@@ -1795,6 +1816,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/finance/books'
+    | '/finance/grants'
     | '/governance/meetings'
     | '/governance/resolutions'
     | '/income/bank'
@@ -1920,6 +1942,7 @@ export interface FileRouteTypes {
     | '/_app/kalakriti/$year/settings'
     | '/_app/finance/books/audited'
     | '/_app/finance/books/opening'
+    | '/_app/finance/grants/$id'
     | '/_app/governance/meetings/$meetingId'
     | '/_app/governance/resolutions/$resolutionId'
     | '/_app/governance/resolutions/signing-helper'
@@ -1960,6 +1983,7 @@ export interface FileRouteTypes {
     | '/api/social/v1/stats'
     | '/api/whatsapp/cloud/webhook'
     | '/_app/finance/books/'
+    | '/_app/finance/grants/'
     | '/_app/governance/meetings/'
     | '/_app/governance/resolutions/'
     | '/_app/income/bank/'
@@ -2729,6 +2753,20 @@ declare module '@tanstack/react-router' {
       path: '/finance/books/opening'
       fullPath: '/finance/books/opening'
       preLoaderRoute: typeof AppFinanceBooksOpeningRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finance/grants/': {
+      id: '/_app/finance/grants/'
+      path: '/finance/grants'
+      fullPath: '/finance/grants/'
+      preLoaderRoute: typeof AppFinanceGrantsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/finance/grants/$id': {
+      id: '/_app/finance/grants/$id'
+      path: '/finance/grants/$id'
+      fullPath: '/finance/grants/$id'
+      preLoaderRoute: typeof AppFinanceGrantsIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/governance/meetings/': {
@@ -3542,8 +3580,10 @@ interface AppRouteChildren {
   AppFinanceBudgetsRoute: typeof AppFinanceBudgetsRoute
   AppFinanceBooksAuditedRoute: typeof AppFinanceBooksAuditedRoute
   AppFinanceBooksOpeningRoute: typeof AppFinanceBooksOpeningRoute
+  AppFinanceGrantsIdRoute: typeof AppFinanceGrantsIdRoute
   AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
   AppFinanceBooksIndexRoute: typeof AppFinanceBooksIndexRoute
+  AppFinanceGrantsIndexRoute: typeof AppFinanceGrantsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -3570,8 +3610,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppFinanceBudgetsRoute: AppFinanceBudgetsRoute,
   AppFinanceBooksAuditedRoute: AppFinanceBooksAuditedRoute,
   AppFinanceBooksOpeningRoute: AppFinanceBooksOpeningRoute,
+  AppFinanceGrantsIdRoute: AppFinanceGrantsIdRoute,
   AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,
   AppFinanceBooksIndexRoute: AppFinanceBooksIndexRoute,
+  AppFinanceGrantsIndexRoute: AppFinanceGrantsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

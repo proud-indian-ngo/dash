@@ -14,6 +14,7 @@ interface SessionLike {
 export type ProtectedUploadScope =
   | { kind: "approvalScreenshot" }
   | { kind: "governanceDocument" }
+  | { kind: "grantAgreement" }
   | { eventId: string; kind: "eventPhoto" }
   | {
       centerId: string;
@@ -248,6 +249,12 @@ export async function authorizeProtectedUpload(
   if (
     scope.kind === "governanceDocument" &&
     permissions.includes("governance.manage")
+  ) {
+    return;
+  }
+  if (
+    scope.kind === "grantAgreement" &&
+    permissions.includes("finance.manage")
   ) {
     return;
   }

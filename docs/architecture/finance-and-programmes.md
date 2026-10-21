@@ -10,6 +10,7 @@ The dashboard keeps the trust's operational financial record year-round, organis
 | This one | Decisions, dimensions, Charged to, approval policy, cost centres, budgets, outcomes, deferred work, data protection |
 | [reimbursements.md](reimbursements.md) | Reimbursements, payouts, claim for others, advance payments, financial-year export |
 | [finance-income.md](finance-income.md) | Donors, income, imports, Razorpay, give.do payouts, Reached bank |
+| [finance-grants.md](finance-grants.md) | Grant agreements, tranches, grant budgets, utilisation |
 | [finance-bank-statements.md](finance-bank-statements.md) | Bank statement lines, credit and debit matching, bank charges |
 | [finance-books.md](finance-books.md) | Ledger, posting, opening balances, year close, audited figures, CA workbook |
 | [finance-receipts-and-returns.md](finance-receipts-and-returns.md) | Donation receipts, donations return (Form 113/114) |
@@ -139,7 +140,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 
 - Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
-- Grants (agreements, tranches, expenditure allocation, cash-basis utilisation certificates), engagement reports, `issued_invoice` as an acknowledgement with no posting. Grants are contributions for now.
+- Engagement reports, `issued_invoice` as an acknowledgement with no posting.
 - Exports: an FY audit pack replacing `/export`, donor statements.
 
 ### FCRA and FC-4

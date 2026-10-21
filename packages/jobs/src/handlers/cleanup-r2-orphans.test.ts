@@ -138,6 +138,9 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM conflict_declaration WHERE object_key LIKE"
       );
+      expect(statement).toContain(
+        "FROM grant_agreement WHERE agreement_object_key LIKE"
+      );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

@@ -65,6 +65,8 @@ export async function isProtectedR2ObjectReferenced(
       SELECT 1 FROM private.donation_filing WHERE file_object_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM private.donation_certificate WHERE file_object_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM grant_agreement WHERE agreement_object_key = ${r2Key}
     ) AS referenced
   `);
 

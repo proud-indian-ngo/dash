@@ -57,6 +57,10 @@ Approving a reimbursement or advance payment requires a payment screenshot, beca
 
 The signer takes the payment ID only to authorise the user. The key stays under the current user's `attachments/tmp/`.
 
+### Grant agreements
+
+One file per grant: `finance.manage` uploads, finance roles read. See [grants](finance-grants.md#the-grant).
+
 ### Kalakriti Entry music
 
 - Audio types have their own allow-list. Do not add them to `ALLOWED_MIME_TYPES`.

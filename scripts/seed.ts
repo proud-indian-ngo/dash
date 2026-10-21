@@ -30,7 +30,8 @@ import { createHash } from "node:crypto";
  *   donationFiling, donationFilingRow, donationFilingGift, donationCertificate
  *   (with DATA_ENCRYPTION_KEY),
  *   notification,
- *   scheduledMessage, scheduledMessageRecipient
+ *   scheduledMessage, scheduledMessageRecipient,
+ *   project, grantAgreement, grantTranche, grantBudgetLine
  */
 
 import { auth } from "@pi-dash/auth";
@@ -61,11 +62,20 @@ import { eventReminderSent } from "@pi-dash/db/schema/event-reminder";
 import { eventRsvpPoll, eventRsvpVote } from "@pi-dash/db/schema/event-rsvp";
 import { eventUpdate } from "@pi-dash/db/schema/event-update";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
-import { accountHead, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import {
+  accountHead,
+  orgAccount,
+  project,
+} from "@pi-dash/db/schema/finance-dimensions";
 import {
   gatewaySettlement,
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
+import {
+  grantAgreement,
+  grantBudgetLine,
+  grantTranche,
+} from "@pi-dash/db/schema/grant";
 import { importBatch } from "@pi-dash/db/schema/import-batch";
 import {
   contribution,
@@ -3953,6 +3963,107 @@ async function seedDonationFilings(adminId: string): Promise<void> {
   log("Donations return filing ready");
 }
 
+const SEED_GRANT = {
+  grantId: "01930000-0000-7000-8000-000000000954",
+  lineId: "01930000-0000-7000-8000-000000000957",
+  partyId: "01930000-0000-7000-8000-000000000951",
+  projectId: "01930000-0000-7000-8000-000000000953",
+  roleId: "01930000-0000-7000-8000-000000000952",
+  trancheIds: [
+    "01930000-0000-7000-8000-000000000955",
+    "01930000-0000-7000-8000-000000000956",
+  ],
+};
+
+/** A CSR grant funding one Education project, with two tranches and a budget (fake figures). */
+async function seedGrants(): Promise<void> {
+  log("Seeding grants...");
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      displayName: "Northwind Foundation (seed)",
+      id: SEED_GRANT.partyId,
+      kind: "organisation",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: SEED_GRANT.roleId,
+      partyId: SEED_GRANT.partyId,
+      role: "grantor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(project)
+    .values({
+      code: "SEED-LIB",
+      createdAt: now,
+      id: SEED_GRANT.projectId,
+      name: "Library corners (seed)",
+      programmeId: PROGRAMME_IDS.education,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(grantAgreement)
+    .values({
+      agreementOn: "2026-04-10",
+      agreementReference: "NWF/CSR/2026/07",
+      createdAt: now,
+      donationType: "csr",
+      endsOn: "2027-03-31",
+      id: SEED_GRANT.grantId,
+      partyId: SEED_GRANT.partyId,
+      programmeId: PROGRAMME_IDS.education,
+      projectId: SEED_GRANT.projectId,
+      sanctionedPaise: 5_00_000_00,
+      scheduleViiItem: "(ii) Promoting education",
+      startsOn: "2026-04-01",
+      title: "Library corners CSR grant (seed)",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(grantTranche)
+    .values([
+      {
+        amountPaise: 3_00_000_00,
+        expectedOn: "2026-05-01",
+        grantId: SEED_GRANT.grantId,
+        id: SEED_GRANT.trancheIds[0] as string,
+      },
+      {
+        amountPaise: 2_00_000_00,
+        expectedOn: "2026-11-01",
+        grantId: SEED_GRANT.grantId,
+        id: SEED_GRANT.trancheIds[1] as string,
+      },
+    ])
+    .onConflictDoNothing();
+  const [supplies] = await db
+    .select({ id: accountHead.id })
+    .from(accountHead)
+    .where(eq(accountHead.code, "EXPENSE_SUPPLIES"))
+    .limit(1);
+  if (supplies) {
+    await db
+      .insert(grantBudgetLine)
+      .values({
+        accountHeadId: supplies.id,
+        amountPaise: 4_00_000_00,
+        grantId: SEED_GRANT.grantId,
+        id: SEED_GRANT.lineId,
+      })
+      .onConflictDoNothing();
+  }
+  log("Grants ready");
+}
+
 // ── Governance ───────────────────────────────────────────────────────────────
 
 async function seedGovernance(userMap: Map<string, string>): Promise<void> {
@@ -3999,6 +4110,7 @@ async function main(): Promise<void> {
   await seedAdvancePayments(userMap);
   await seedVendors(userMap);
   await seedBudgets();
+  await seedGrants();
   await seedBankDebits(getUser(userMap, "admin@pi-dash.dev"));
   await seedScheduledMessages(userMap);
   await seedNotificationPreferences(userMap);

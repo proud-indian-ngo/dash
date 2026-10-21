@@ -42,7 +42,7 @@ import {
   openingBalance,
   posting,
 } from "@pi-dash/db/schema/ledger";
-import { party } from "@pi-dash/db/schema/party";
+import { party, partyRole } from "@pi-dash/db/schema/party";
 import {
   reimbursement,
   reimbursementLineItem,
@@ -140,6 +140,10 @@ import { uuidv7 } from "uuidv7";
  *   charged to the programme and 600 to its project, out of whichever bank
  *   account is main (never changing it). FY 2027-28 because the books specs freeze and close
  *   FY 2026-27 while other specs run; nothing freezes the later year.
+ * - `grant-fixture <run>`: Finance → Grants. The budget fixture's records,
+ *   plus a grantor of this run and its NEFT gift of 2,000 on the project,
+ *   received on 1 Oct 2026 into the main bank account. Reports the names
+ *   and the gift's reference.
  * - `probe-guards`: tries to change and remove posted books rows, each in
  *   a rolled-back savepoint, and reports which statements the database
  *   refused. Proves the append-only guards exist in this database, whether
@@ -772,6 +776,61 @@ async function budgetFixture(run: string) {
   return names;
 }
 
+async function grantFixture(run: string) {
+  const names = await budgetFixture(run);
+  const [grantProject] = await db
+    .select({ id: project.id, programmeId: project.programmeId })
+    .from(project)
+    .where(eq(project.name, names.project))
+    .limit(1);
+  const [main] = await db
+    .select({ id: orgAccount.id })
+    .from(orgAccount)
+    .where(eq(orgAccount.isMain, true))
+    .limit(1);
+  if (!(grantProject && main)) {
+    throw new Error("The grant fixture's project or bank account is missing");
+  }
+  const now = new Date();
+  const partyId = uuidv7();
+  const grantor = `E2E Grantor ${run}`;
+  const reference = `E2EGRANT${run.replace(/[^A-Za-z0-9]/g, "").slice(-10)}`;
+  await db.transaction(async (tx) => {
+    await tx.insert(party).values({
+      createdAt: now,
+      displayName: grantor,
+      id: partyId,
+      kind: "organisation",
+      updatedAt: now,
+    });
+    await tx.insert(partyRole).values({
+      active: true,
+      id: uuidv7(),
+      partyId,
+      role: "grantor",
+      since: now,
+    });
+    await tx.insert(contribution).values({
+      amountPaise: 200_000,
+      channel: "neft",
+      createdAt: now,
+      donationType: "csr",
+      fundId: GENERAL_FUND_ID,
+      id: uuidv7(),
+      orgAccountId: main.id,
+      partyId,
+      programmeId: grantProject.programmeId,
+      projectId: grantProject.id,
+      receivedOn: "2026-10-01",
+      reference,
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    });
+  });
+  return { ...names, grantor, reference };
+}
+
 async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
   await auditedFixture(yearLabel);
@@ -1226,6 +1285,8 @@ if (action === "close-year") {
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
 } else if (action === "budget-fixture") {
   result = await budgetFixture(label);
+} else if (action === "grant-fixture") {
+  result = await grantFixture(label);
 } else if (action === "expense-fixture") {
   result = await expenseFixture(label);
 } else if (action === "edit-claim") {

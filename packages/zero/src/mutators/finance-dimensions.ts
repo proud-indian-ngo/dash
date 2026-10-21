@@ -358,6 +358,11 @@ export const projectMutators = {
           "This project has a budget, so it can't move to another programme. Remove its budgets first."
         );
       }
+      if (await tx.run(zql.grantAgreement.where("projectId", args.id).one())) {
+        throw new Error(
+          "A grant funds this project, so it can't move to another programme."
+        );
+      }
     }
     const byCode = await tx.run(
       zql.project.where("code", args.code).where("id", "!=", args.id).one()

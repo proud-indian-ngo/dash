@@ -58,6 +58,7 @@ const protectedUploadSchema = z
   });
 
 export const requestUploadSchema = protectedUploadSchema;
+export const grantAgreementUploadSchema = protectedUploadSchema;
 export const vendorPaymentInvoiceUploadSchema = protectedUploadSchema.and(
   z.object({
     vendorPaymentId: z.string().refine(isAssetId, "Invalid vendor payment ID"),

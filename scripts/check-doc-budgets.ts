@@ -14,6 +14,7 @@ const DEFAULT_BUDGET = 3000;
 const BUDGETS: Record<string, number> = {
   ".ruler/agent-guide.md": 1200,
   "README.md": 1200,
+  "docs/architecture/finance-grants.md": 1200,
 };
 
 /** Third-party skills and agent definitions are not ours to trim. */

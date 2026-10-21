@@ -652,6 +652,15 @@ export const contributionMutators = {
       }
     }
     if (
+      existing.grantId &&
+      (values.partyId !== existing.partyId ||
+        values.projectId !== (existing.projectId ?? null))
+    ) {
+      throw new Error(
+        "This contribution counts towards a grant, so its donor and project can't change. Unlink it from the grant first."
+      );
+    }
+    if (
       (values.amountPaise !== existing.amountPaise ||
         values.orgAccountId !== (existing.orgAccountId ?? null) ||
         !DIRECT_DEPOSIT_CHANNELS.includes(values.channel)) &&

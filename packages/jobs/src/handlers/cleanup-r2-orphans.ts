@@ -109,6 +109,8 @@ async function collectAllDbKeys(): Promise<{
       SELECT file_object_key FROM private.donation_filing WHERE file_object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT file_object_key FROM private.donation_certificate WHERE file_object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT agreement_object_key FROM grant_agreement WHERE agreement_object_key LIKE ${keyPrefix}
     ) AS all_keys
   `);
 

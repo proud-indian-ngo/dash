@@ -628,6 +628,47 @@ describe("contribution mutators", () => {
     ).rejects.toThrow("The project belongs to a different programme");
   });
 
+  it("keeps the donor and project of a gift that counts towards a grant", async () => {
+    const db = createDb({
+      contribution: [
+        {
+          fundId: "fund-1",
+          grantId: "grant-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "grantor-1",
+          programmeId: "prog-arts",
+          projectId: "proj-k3",
+          status: "received",
+        },
+      ],
+    });
+    const linked = { partyId: "grantor-1", projectId: "proj-k3" };
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ ...linked, partyId: "donor-1" })
+      )
+    ).rejects.toThrow("Unlink it from the grant first");
+    await expect(
+      run(
+        contributionMutators.update,
+        db,
+        donorsCtx,
+        contribution({ ...linked, projectId: null })
+      )
+    ).rejects.toThrow("Unlink it from the grant first");
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ ...linked, amountPaise: 600_000 })
+    );
+    expect(db.tables.contribution?.[0]?.amountPaise).toBe(600_000);
+  });
+
   it("refuses the Unallocated programme on create and update", async () => {
     const db = createDb();
     await expect(
