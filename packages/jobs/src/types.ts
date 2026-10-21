@@ -58,7 +58,15 @@ export interface SendScheduledWhatsAppPayload {
 // -- Domain-specific notification payloads ------------------------------------
 
 // Reimbursement
+/** Set when the programme lead approved, so finance now reviews it. */
+export interface LeadApprovalNotice {
+  at: number;
+  leadName: string;
+}
 export interface NotifyReimbursementSubmittedPayload {
+  leadApproval?: LeadApprovalNotice;
+  /** The programme lead who reviews first; finance otherwise. */
+  leadUserId?: string;
   reimbursementId: string;
   submitterName: string;
   title: string;
@@ -148,6 +156,9 @@ export interface NotifyAdvancePaymentRejectedPayload {
 
 // Vendor Payment
 export interface NotifyVendorPaymentSubmittedPayload {
+  leadApproval?: LeadApprovalNotice;
+  /** The programme lead who reviews first; finance otherwise. */
+  leadUserId?: string;
   submitterName: string;
   title: string;
   vendorPaymentId: string;

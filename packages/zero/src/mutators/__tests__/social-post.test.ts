@@ -211,10 +211,10 @@ describe("appConfig key gating", () => {
     ).rejects.toThrow("Unauthorized");
   });
 
-  it("lets finance.manage write only the finance threshold key", () => {
+  it("lets finance.manage write only finance keys", () => {
     const ctx = { permissions: ["finance.manage"], userId: "u" };
     expect(() =>
-      assertCanWriteAppConfig(ctx as never, "finance_threshold_default_paise")
+      assertCanWriteAppConfig(ctx as never, "cash_voucher_limit_paise")
     ).not.toThrow();
     expect(() =>
       assertCanWriteAppConfig(ctx as never, "notifications_disabled")

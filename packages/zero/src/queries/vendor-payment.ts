@@ -32,18 +32,42 @@ function withRelated(q: typeof zql.vendorPayment) {
  * is charged to: the event's programme, or the one chosen without an event.
  */
 function withProgramme(q: typeof zql.vendorPayment) {
-  return withBase(q)
-    .related("event", (e) => e.related("programme"))
-    .related("chargedProgramme");
+  return (
+    withBase(q)
+      // The programme's lead approves before finance ("Approval policy").
+      .related("event", (e) => e.related("programme", (p) => p.related("lead")))
+      .related("chargedProgramme", (p) => p.related("lead"))
+      .related("leadApprover")
+  );
+}
+
+/**
+ * Without `requests.view_all`: your own requests, and those charged to a
+ * programme you lead, which you approve before finance.
+ */
+function visibleTo(q: typeof zql.vendorPayment, userId: string | undefined) {
+  if (!userId) {
+    return q.where("userId", "__never_match__");
+  }
+  return q.where(({ cmp, exists, or }) =>
+    or(
+      cmp("userId", userId),
+      exists("chargedProgramme", (p) => p.where("leadUserId", userId)),
+      exists("event", (e) =>
+        e.whereExists("programme", (p) => p.where("leadUserId", userId))
+      )
+    )
+  );
 }
 
 export const vendorPaymentQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
       ? withProgramme(zql.vendorPayment).orderBy("createdAt", "desc")
-      : withProgramme(zql.vendorPayment)
-          .where("userId", ctx?.userId)
-          .orderBy("createdAt", "desc")
+      : withProgramme(visibleTo(zql.vendorPayment, ctx?.userId)).orderBy(
+          "createdAt",
+          "desc"
+        )
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
     withRelated(zql.vendorPayment)
@@ -71,9 +95,8 @@ export const vendorPaymentQueries = {
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
         ? withProgramme(zql.vendorPayment).where("id", id).one()
-        : withProgramme(zql.vendorPayment)
+        : withProgramme(visibleTo(zql.vendorPayment, ctx?.userId))
             .where("id", id)
-            .where("userId", ctx?.userId)
             .one()
   ),
 };

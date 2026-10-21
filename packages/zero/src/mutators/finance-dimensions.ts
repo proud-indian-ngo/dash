@@ -40,7 +40,6 @@ const programmeInput = z.object({
   cause: z.string().trim().max(60).nullable().optional(),
   code,
   description: z.string().trim().max(500).nullable().optional(),
-  financeThresholdPaise: paise.nullable().optional(),
   id: z.string(),
   leadUserId: z.string().nullable().optional(),
   name,
@@ -232,7 +231,6 @@ export const programmeMutators = {
       code: args.code,
       createdAt: now,
       description: args.description ?? null,
-      financeThresholdPaise: args.financeThresholdPaise ?? null,
       id: args.id,
       leadUserId: args.leadUserId ?? null,
       name: args.name,
@@ -281,10 +279,6 @@ export const programmeMutators = {
         args.description === undefined
           ? existing.description
           : args.description,
-      financeThresholdPaise:
-        args.financeThresholdPaise === undefined
-          ? existing.financeThresholdPaise
-          : args.financeThresholdPaise,
       id: args.id,
       leadUserId:
         args.leadUserId === undefined ? existing.leadUserId : args.leadUserId,

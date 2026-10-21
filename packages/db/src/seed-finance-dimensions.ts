@@ -1,7 +1,5 @@
 import {
-  APP_CONFIG_FINANCE_THRESHOLD_KEY,
   COST_CENTRE_IDS,
-  DEFAULT_FINANCE_THRESHOLD_PAISE,
   FISCAL_YEAR_IDS,
   GENERAL_FUND_ID,
   PROGRAMME_IDS,
@@ -11,7 +9,6 @@ import { buildFiscalPeriods } from "./fiscal-years";
 import { db } from "./index";
 import { ensureLedgerTriggers } from "./ledger/immutability";
 import { ensureLedgerReferenceData } from "./ledger/reference-data";
-import { appConfig } from "./schema/app-config";
 import {
   costCentre,
   fiscalPeriod,
@@ -146,15 +143,6 @@ export async function ensureFinanceDimensions(): Promise<void> {
     )
   );
   await db.insert(fiscalPeriod).values(periods).onConflictDoNothing();
-
-  await db
-    .insert(appConfig)
-    .values({
-      key: APP_CONFIG_FINANCE_THRESHOLD_KEY,
-      updatedAt: now,
-      value: String(DEFAULT_FINANCE_THRESHOLD_PAISE),
-    })
-    .onConflictDoNothing();
 
   await ensureLedgerReferenceData();
   await ensureLedgerTriggers();

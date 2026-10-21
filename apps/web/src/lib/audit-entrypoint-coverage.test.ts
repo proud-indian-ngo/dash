@@ -99,6 +99,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getDeliveryOverview",
   "getDeliveryPreview",
   "getPartyDetails",
+  "getReimbursementPayout",
   "getProfilePictureUploadUrl",
   "getReceiptCandidates",
   "getRazorpaySettings",

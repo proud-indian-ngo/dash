@@ -132,6 +132,16 @@ export const vendorPayment = pgTable(
       onDelete: "set null",
     }),
     /**
+     * When the programme lead approved the payment, before finance (see
+     * "Approval policy"). Cleared when an edit changes what they approved.
+     */
+    leadApprovedAt: timestamp("lead_approved_at"),
+    leadApprovedBy: text("lead_approved_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** Finance approved while the lead's approval was outstanding, and why. */
+    leadSkipReason: text("lead_skip_reason"),
+    /**
      * Set instead of the invoice number and date when the payment has no
      * invoice; the proof sits in the `invoice` attachments.
      */
@@ -193,6 +203,10 @@ export const vendorPayment = pgTable(
     check(
       "vendor_payment_invoice_or_no_invoice_chk",
       sql`${table.noInvoiceReason} IS NULL OR ${table.invoiceNumber} IS NULL`
+    ),
+    check(
+      "vendor_payment_lead_approval_chk",
+      sql`${table.leadApprovedAt} IS NULL OR ${table.leadSkipReason} IS NULL`
     ),
     check(
       "vendor_payment_void_chk",
@@ -311,6 +325,11 @@ export const vendorPaymentRelations = relations(
       fields: [vendorPayment.invoiceReviewedBy],
       references: [user.id],
       relationName: "vendor_payment_invoice_reviewer",
+    }),
+    leadApprover: one(user, {
+      fields: [vendorPayment.leadApprovedBy],
+      references: [user.id],
+      relationName: "vendor_payment_lead_approver",
     }),
     lineItems: many(vendorPaymentLineItem),
     reviewer: one(user, {

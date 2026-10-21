@@ -24,6 +24,11 @@ import { useState } from "react";
 
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ChargedToCard } from "@/components/expenses/charged-to-card";
+import {
+  LeadApprovalCard,
+  LeadReviewButtons,
+  useIsWaitingLead,
+} from "@/components/expenses/lead-approval";
 import { ApproveDialog } from "@/components/form/approve-dialog";
 import { RejectDialog } from "@/components/form/reject-dialog";
 import { VoidDialog } from "@/components/form/void-dialog";
@@ -35,6 +40,7 @@ import {
 } from "@/components/reimbursements/payee-signature";
 import { PaymentProofDialog } from "@/components/reimbursements/payment-proof-dialog";
 import { reimbursementHeaderMeta } from "@/components/reimbursements/reimbursement-header-meta";
+import { useReimbursementPayout } from "@/components/reimbursements/use-reimbursement-payout";
 import { VoucherSignedCopy } from "@/components/reimbursements/voucher-signed-copy";
 import { contactActions } from "@/components/shared/contact-actions";
 import { FilePreviewButton } from "@/components/shared/file-preview";
@@ -63,6 +69,8 @@ import {
   getAttachmentDownloadHref,
   getAttachmentPreviewHref,
 } from "@/lib/attachment-links";
+import { authClient } from "@/lib/auth-client";
+import { waitingLeadOf } from "@/lib/lead-approval";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -166,9 +174,14 @@ export function ReimbursementDetail({
   const { ns: mutatorNs, name: mutatorName } = mutatorMap[request.type];
 
   const { label, tone } = getStatusBadge(request.status);
+  // The programme lead approves first ("Approval policy"); finance may still
+  // approve meanwhile, with a reason.
+  const isWaitingLead = useIsWaitingLead(request);
+  const leadWaiting = waitingLeadOf(request);
   const showAdminActions =
     !voided &&
     canApprove &&
+    !isWaitingLead &&
     (request.status === "pending" || canUpdateAnyStatus);
   const editAction = voided ? undefined : onEdit;
   const showApproveAction = showAdminActions && request.status !== "approved";
@@ -187,17 +200,25 @@ export function ReimbursementDetail({
   } as const;
 
   const handleApprove = useEventCallback(
-    async (message: string, screenshotKey?: string) => {
+    async (
+      message: string,
+      screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
       const res = await zero.mutate(
         mutatorNs.approve({
           approvalScreenshotKey: screenshotKey,
           id: request.id,
+          leadSkipReason,
           note: message || undefined,
         })
       ).server;
       handleMutationResult(res, {
         entityId: request.id,
-        errorMsg: `Couldn't approve ${typeLabel.toLowerCase()}`,
+        errorMsg: getMutationResultErrorMessage(
+          res.type === "error" ? res.error : undefined,
+          `Couldn't approve ${typeLabel.toLowerCase()}`
+        ),
         mutation: `${mutatorName}.approve`,
         successMsg: `${typeLabel} approved`,
       });
@@ -294,11 +315,18 @@ export function ReimbursementDetail({
         <PageHeader
           actions={
             <>
+              {isWaitingLead && request.type === "reimbursement" ? (
+                <LeadReviewButtons kind="reimbursement" request={request} />
+              ) : null}
               {showApproveAction ? (
                 <Button
                   onClick={stableOnClick0}
                   type="button"
-                  variant={request.status === "pending" ? "default" : "outline"}
+                  variant={
+                    request.status === "pending" && !leadWaiting
+                      ? "default"
+                      : "outline"
+                  }
                 >
                   <HugeiconsIcon
                     className="size-4"
@@ -393,7 +421,10 @@ export function ReimbursementDetail({
           aside={
             <>
               {isReimbursement(request) ? (
-                <ChargedToCard kind="reimbursement" request={request} />
+                <>
+                  <LeadApprovalCard request={request} />
+                  <ChargedToCard kind="reimbursement" request={request} />
+                </>
               ) : null}
               {isReimbursement(request) &&
               request.status === "approved" &&
@@ -510,6 +541,7 @@ export function ReimbursementDetail({
           entityId={request.id}
           entityLabel={typeLabel.toLowerCase()}
           hasExistingScreenshot={Boolean(request.approvalScreenshotKey)}
+          leadWaiting={leadWaiting}
           onConfirm={handleApprove}
           onOpenChange={setApproveOpen}
           open={approveOpen}
@@ -855,12 +887,19 @@ function LineItemsTable({
   );
 }
 
-function getBankDetails(request: RequestDetailData) {
+interface PayoutFields {
+  bankAccountIfscCode?: null | string;
+  bankAccountName?: null | string;
+  bankAccountNumber?: null | string;
+  bankAccountUpiId?: null | string;
+}
+
+function getBankDetails(payout: PayoutFields) {
   return {
-    ifsc: request.bankAccountIfscCode?.trim() || null,
-    name: request.bankAccountName?.trim() || null,
-    number: request.bankAccountNumber?.trim() || null,
-    upi: request.bankAccountUpiId?.trim() || null,
+    ifsc: payout.bankAccountIfscCode?.trim() || null,
+    name: payout.bankAccountName?.trim() || null,
+    number: payout.bankAccountNumber?.trim() || null,
+    upi: payout.bankAccountUpiId?.trim() || null,
   };
 }
 
@@ -875,8 +914,28 @@ function payByLabel(bank: ReturnType<typeof getBankDetails>): string | null {
   return bank.number ? "Bank transfer" : null;
 }
 
+/**
+ * Where the claimant is paid. A reimbursement's details aren't synced
+ * (programme leads see the request, not the payee), so they load from the
+ * server for the claimant and those who see everyone's requests.
+ */
 function BankAccountCard({ request }: { request: RequestDetailData }) {
-  const bank = getBankDetails(request);
+  const { hasPermission } = useApp();
+  const { data: session } = authClient.useSession();
+  const isReimbursementRequest = request.type === "reimbursement";
+  const payout = useReimbursementPayout(
+    request,
+    isReimbursementRequest &&
+      (request.userId === session?.user?.id ||
+        hasPermission("requests.view_all"))
+  );
+  let fields: PayoutFields = {};
+  if (!isReimbursementRequest) {
+    fields = request;
+  } else if (payout.kind === "ready") {
+    fields = payout.payout;
+  }
+  const bank = getBankDetails(fields);
 
   if (!(bank.name || bank.number || bank.ifsc || bank.upi)) {
     return null;

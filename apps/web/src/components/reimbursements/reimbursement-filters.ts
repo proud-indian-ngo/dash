@@ -12,6 +12,7 @@ import {
   cityFilterOptions,
   LEGACY_CITY_FILTER_PARAM,
 } from "@/lib/cost-centre-filter";
+import { APPROVAL_FILTER, requestApprovalValue } from "@/lib/lead-approval";
 import {
   MISSING_PROOF_FILTER,
   requestPaymentProofValue,
@@ -54,10 +55,14 @@ function computeTotalRupees(lineItems: RequestRow["lineItems"]): number {
 
 export function getReimbursementFilterValue(
   row: RequestRow,
-  path: string[]
+  path: string[],
+  /** Whose "Waiting for you" the Approval filter means. */
+  currentUserId?: string
 ): unknown {
   const [key] = path;
   switch (key) {
+    case APPROVAL_FILTER.path:
+      return requestApprovalValue(row, currentUserId);
     case "city":
       // The event's cost centre for a claim on an event, else its own.
       return requestCostCentreId(row);
@@ -98,6 +103,9 @@ export function createReimbursementFilterFields(
 ): FilterField[] {
   return [
     selectField("status", "Status", STATUS_OPTIONS),
+    selectField(APPROVAL_FILTER.path, APPROVAL_FILTER.label, [
+      ...APPROVAL_FILTER.options,
+    ]),
     selectField("type", "Type", TYPE_OPTIONS),
     selectField("city", "City", cityFilterOptions(activeCostCentres)),
     selectField(

@@ -195,7 +195,6 @@ describe("audit metadata", () => {
       {
         active: false,
         code: "EDU",
-        financeThresholdPaise: 2_500_000,
         id: TARGET_ID,
         leadUserId: "actor-1",
         name: "Education",
@@ -205,7 +204,6 @@ describe("audit metadata", () => {
     expect(programme.metadata?.changedFields).toEqual([
       "active",
       "code",
-      "financeThresholdPaise",
       "id",
       "leadUserId",
       "name",
@@ -213,7 +211,7 @@ describe("audit metadata", () => {
 
     const config = summarizeZeroMutation(
       "appConfig.upsert",
-      { key: "finance_threshold_default_paise", value: "1200000" },
+      { key: "cash_voucher_limit_paise", value: "1200000" },
       "actor-1"
     );
     expect(config.metadata?.changedFields).toEqual(["key", "value"]);

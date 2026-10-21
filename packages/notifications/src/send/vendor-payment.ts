@@ -66,12 +66,16 @@ function invoiceApprovedTemplate(options: {
 }
 
 export async function notifyVendorPaymentSubmitted(options: {
+  leadApproval?: { at: number; leadName: string };
+  leadUserId?: string;
   submitterName: string;
   title: string;
   vendorPaymentId: string;
 }): Promise<void> {
   await notifier.notifySubmitted({
     entityId: options.vendorPaymentId,
+    leadApproval: options.leadApproval,
+    leadUserId: options.leadUserId,
     submitterName: options.submitterName,
     title: options.title,
   });

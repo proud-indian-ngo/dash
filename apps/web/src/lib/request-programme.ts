@@ -5,10 +5,15 @@ import {
   expenseProgrammeOf,
   isUnallocatedCharge,
 } from "@pi-dash/shared/expense-charge";
-import type { Programme, TeamEvent } from "@pi-dash/zero/schema";
+import type { Programme, TeamEvent, User } from "@pi-dash/zero/schema";
+
+/** A programme with its lead, who approves its requests before finance. */
+export type ProgrammeWithLead = Programme & { lead?: User | undefined };
 
 /** A request's event, with the programme a request charged to it inherits. */
-export type RequestEvent = TeamEvent & { programme?: Programme | undefined };
+export type RequestEvent = TeamEvent & {
+  programme?: ProgrammeWithLead | undefined;
+};
 
 /** What the request tables, filters and the spending chart read of a request. */
 export interface ChargedRequest {

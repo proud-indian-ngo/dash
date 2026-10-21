@@ -50,6 +50,7 @@ import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
+import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
 import { handleMutationResult } from "@/lib/mutation-result";
 import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
 import {
@@ -221,25 +222,36 @@ export function VendorPaymentsTable({
   const showReview =
     hasPermission("requests.approve") &&
     groupColumnId === STATUS_GROUP_BY.columnId;
-  const handleApprove = useEventCallback(async (message: string) => {
-    const { row } = review;
-    if (!row) {
-      return false;
+  const handleApprove = useEventCallback(
+    async (
+      message: string,
+      _screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
+      const { row } = review;
+      if (!row) {
+        return false;
+      }
+      const res = await zero.mutate(
+        mutators.vendorPayment.approve({
+          id: row.id,
+          leadSkipReason,
+          note: message || undefined,
+        })
+      ).server;
+      handleMutationResult(res, {
+        entityId: row.id,
+        errorMsg: "Couldn't approve vendor payment",
+        mutation: "vendorPayment.approve",
+        successMsg: "Vendor payment approved",
+      });
+      return res.type !== "error";
     }
-    const res = await zero.mutate(
-      mutators.vendorPayment.approve({
-        id: row.id,
-        note: message || undefined,
-      })
-    ).server;
-    handleMutationResult(res, {
-      entityId: row.id,
-      errorMsg: "Couldn't approve vendor payment",
-      mutation: "vendorPayment.approve",
-      successMsg: "Vendor payment approved",
-    });
-    return res.type !== "error";
-  });
+  );
+  const stableGetFilterValue = useEventCallback(
+    (row: VendorPaymentWithRelations, path: string[]) =>
+      getVendorPaymentFilterValue(row, path, currentUserId)
+  );
   const handleReject = useEventCallback(async (reason: string) => {
     const { row } = review;
     if (!row) {
@@ -460,9 +472,12 @@ export function VendorPaymentsTable({
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, tone } = getStatusBadge(row.original.status);
+        // A pending request says who it waits for ("Approval policy").
         return (
           <span className="inline-flex items-center gap-1">
-            <StatusBadge tone={tone}>{label}</StatusBadge>
+            <StatusBadge tone={tone}>
+              {pendingApprovalLabel(row.original) ?? label}
+            </StatusBadge>
             {isVoided(row.original) ? <VoidBadge /> : null}
           </span>
         );
@@ -561,7 +576,7 @@ export function VendorPaymentsTable({
         filter={{
           attentionViews,
           fields: filterFields,
-          getValue: getVendorPaymentFilterValue,
+          getValue: stableGetFilterValue,
           viewField: "status",
         }}
         getRowId={stableGetRowId0}
@@ -595,6 +610,7 @@ export function VendorPaymentsTable({
         entityId={review.row?.id ?? ""}
         entityLabel="vendor payment"
         hideScreenshot
+        leadWaiting={review.row ? waitingLeadOf(review.row) : undefined}
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}

@@ -48,6 +48,9 @@ mock.module("@/components/reimbursements/reimbursement-detail", () => ({
 mock.module("@/components/reimbursements/reimbursement-form", () => ({
   ReimbursementForm: () => null,
 }));
+mock.module("@/components/reimbursements/use-reimbursement-payout", () => ({
+  useReimbursementPayout: () => ({ kind: "loading" }),
+}));
 mock.module("@/components/shared/not-found-state", () => ({
   RecordNotFound: ({ noun }: { noun: string }) => <span>{noun} not found</span>,
 }));

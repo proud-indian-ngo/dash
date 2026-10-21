@@ -19,12 +19,16 @@ const notifier = createSubmissionNotifier({
 });
 
 export async function notifyReimbursementSubmitted(options: {
+  leadApproval?: { at: number; leadName: string };
+  leadUserId?: string;
   reimbursementId: string;
   submitterName: string;
   title: string;
 }): Promise<void> {
   await notifier.notifySubmitted({
     entityId: options.reimbursementId,
+    leadApproval: options.leadApproval,
+    leadUserId: options.leadUserId,
     submitterName: options.submitterName,
     title: options.title,
   });

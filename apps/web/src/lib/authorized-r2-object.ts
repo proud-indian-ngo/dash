@@ -9,6 +9,7 @@ import {
   policyVersion,
 } from "@pi-dash/db/schema/declarations";
 import { eventPhoto } from "@pi-dash/db/schema/event-photo";
+import { programme } from "@pi-dash/db/schema/finance-dimensions";
 import {
   circularRevision,
   governanceDocument,
@@ -201,6 +202,35 @@ async function resolveEventPhoto(
   };
 }
 
+/**
+ * The lead of the programme a request is charged to: they approve it before
+ * finance, so they read its receipts and quotations too (not its payment
+ * proof).
+ */
+async function chargedProgrammeLeadIds(parent: {
+  chargedProgrammeId: null | string;
+  chargedTo: string;
+  eventId: null | string;
+}): Promise<string[]> {
+  let programmeId =
+    parent.chargedTo === "programme" ? parent.chargedProgrammeId : null;
+  if (parent.chargedTo === "event" && parent.eventId) {
+    const event = await db.query.teamEvent.findFirst({
+      columns: { programmeId: true },
+      where: eq(teamEvent.id, parent.eventId),
+    });
+    programmeId = event?.programmeId ?? null;
+  }
+  if (!programmeId) {
+    return [];
+  }
+  const row = await db.query.programme.findFirst({
+    columns: { leadUserId: true },
+    where: eq(programme.id, programmeId),
+  });
+  return row?.leadUserId ? [row.leadUserId] : [];
+}
+
 async function resolveReimbursementAttachment(
   ref: AssetRef<"reimbursementAttachment">
 ): Promise<R2ObjectRecord | null> {
@@ -214,7 +244,10 @@ async function resolveReimbursementAttachment(
     where: eq(reimbursement.id, attachment.reimbursementId),
   });
   return parent
-    ? requestRecord(attachment.objectKey, attachment.filename, [parent.userId])
+    ? requestRecord(attachment.objectKey, attachment.filename, [
+        parent.userId,
+        ...(await chargedProgrammeLeadIds(parent)),
+      ])
     : null;
 }
 
@@ -261,7 +294,10 @@ async function resolveVendorPaymentAttachment(
     where: eq(vendorPayment.id, attachment.vendorPaymentId),
   });
   return parent
-    ? requestRecord(attachment.objectKey, attachment.filename, [parent.userId])
+    ? requestRecord(attachment.objectKey, attachment.filename, [
+        parent.userId,
+        ...(await chargedProgrammeLeadIds(parent)),
+      ])
     : null;
 }
 

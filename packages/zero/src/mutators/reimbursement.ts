@@ -1,3 +1,4 @@
+import { CLEARED_LEAD_APPROVAL } from "@pi-dash/shared/approval-policy";
 import {
   CASH_VOUCHER_LIMIT_CONFIG_KEY,
   cashVoucherLimitError,
@@ -34,6 +35,7 @@ import {
 import {
   assertEligibleClaimant,
   claimantBankFields,
+  type ClaimantBankFields,
   resolveClaimant,
   userName,
 } from "./claimant";
@@ -53,6 +55,17 @@ import {
   type LockableKalakritiTx,
   requireServerTransaction,
 } from "./kalakriti-row-locks";
+import {
+  assertIsWaitingLead,
+  chargeChanges,
+  financeLeadStep,
+  LEAD_APPROVAL_CLEARED_NOTE,
+  LEAD_SKIPPED_NOTE,
+  leadApproverFor,
+  leadSkipReasonArg,
+  linesChange,
+  programmeChanges,
+} from "./lead-approval";
 import { isPostedInBooks, queueLedgerPosting } from "./ledger-queue";
 import {
   assertApprovalScreenshot,
@@ -307,6 +320,35 @@ async function lockReimbursement(
   return { status: row.status, voidedAt: row.voidedAt?.getTime() ?? null };
 }
 
+/**
+ * Payee bank and UPI details aren't synced: programme leads see the request
+ * but not where the claimant is paid. The server writes them in the same
+ * transaction; `undefined` leaves a part as it was.
+ */
+async function writePayout(
+  tx: Transaction<Schema>,
+  id: string,
+  fields: Partial<ClaimantBankFields>
+) {
+  if (tx.location !== "server") {
+    return;
+  }
+  const set = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  );
+  if (Object.keys(set).length === 0) {
+    return;
+  }
+  const [{ reimbursement }, { eq }] = await Promise.all([
+    import("@pi-dash/db/schema/reimbursement"),
+    import("drizzle-orm"),
+  ]);
+  await requireServerTransaction(tx as unknown as LockableKalakritiTx)
+    .update(reimbursement)
+    .set(set)
+    .where(eq(reimbursement.id, id));
+}
+
 const PAYEE_SIGNATURE_FILENAME = "payee-signature.png";
 
 const PAID_TO_CLAIMANT_SIGNATURE_MESSAGE =
@@ -431,14 +473,15 @@ function queueVouchers(
   });
 }
 
-const entityFields = (args: z.infer<typeof createSchema>) => ({
+const payoutFields = (
+  args: z.infer<typeof createSchema>
+): Partial<ClaimantBankFields> => ({
   // "" clears a part the newly chosen account doesn't have; undefined
   // leaves it as it was.
   bankAccountIfscCode: clearable(args.bankAccountIfscCode),
   bankAccountName: args.bankAccountName,
   bankAccountNumber: clearable(args.bankAccountNumber),
   bankAccountUpiId: clearable(args.bankAccountUpiId, normalizeUpiHandle),
-  expenseDate: args.expenseDate,
 });
 
 export const reimbursementMutators = {
@@ -446,6 +489,7 @@ export const reimbursementMutators = {
     z.object({
       approvalScreenshotKey: z.string().optional(),
       id: z.string(),
+      ...leadSkipReasonArg,
       note: z.string().optional(),
     }),
     async ({ tx, ctx, args }) => {
@@ -456,6 +500,12 @@ export const reimbursementMutators = {
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
+      const leadStep = await financeLeadStep(
+        tx,
+        ctx,
+        entity,
+        args.leadSkipReason
+      );
 
       const now = Date.now();
       const requestedApprovalScreenshotKey =
@@ -489,6 +539,7 @@ export const reimbursementMutators = {
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey,
         id: args.id,
+        ...leadStep,
         rejectionReason: null,
         reviewedAt: now,
         reviewedBy: userId,
@@ -496,6 +547,17 @@ export const reimbursementMutators = {
         updatedAt: now,
       });
 
+      if (leadStep.leadSkipReason) {
+        await tx.mutate.reimbursementHistory.insert({
+          ...buildHistoryInsert(
+            userId,
+            "updated",
+            now,
+            LEAD_SKIPPED_NOTE(leadStep.leadSkipReason)
+          ),
+          reimbursementId: args.id,
+        });
+      }
       await tx.mutate.reimbursementHistory.insert({
         ...buildHistoryInsert(userId, "approved", now, args.note),
         reimbursementId: args.id,
@@ -557,6 +619,70 @@ export const reimbursementMutators = {
           },
         });
       }
+    }
+  ),
+  /**
+   * The programme lead approves a pending request charged to their
+   * programme; finance then approves and pays it. Finance is told only now
+   * (or at submission when there is no lead step).
+   */
+  approveAsLead: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const found = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(found, "Reimbursement");
+      const entity = { ...found, ...(await lockReimbursement(tx, found.id)) };
+      assertNotVoided(entity);
+      if (!(await assertIsWaitingLead(tx, ctx, entity))) {
+        return;
+      }
+      if (entity.leadApprovedAt) {
+        throw new Error("You've already approved this as the programme lead");
+      }
+      const now = Date.now();
+      await tx.mutate.reimbursement.update({
+        id: args.id,
+        leadApprovedAt: now,
+        leadApprovedBy: ctx.userId,
+        updatedAt: now,
+      });
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          "Approved as programme lead"
+        ),
+        reimbursementId: args.id,
+      });
+      if (tx.location !== "server") {
+        return;
+      }
+      const { title } = entity;
+      const [leadName, submitterName] = await Promise.all([
+        userName(tx, ctx.userId),
+        userName(tx, entity.userId),
+      ]);
+      ctx.asyncTasks?.push({
+        fn: async () => {
+          const { enqueue } = await import("@pi-dash/jobs/enqueue");
+          await enqueue(
+            "notify-reimbursement-submitted",
+            {
+              leadApproval: { at: now, leadName },
+              reimbursementId: args.id,
+              submitterName,
+              title,
+            },
+            { traceId: ctx.traceId }
+          );
+        },
+        meta: {
+          mutator: "reimbursement.approveAsLead",
+          reimbursementId: args.id,
+        },
+      });
     }
   ),
   /**
@@ -891,8 +1017,8 @@ export const reimbursementMutators = {
         id: args.id,
         updatedAt: now,
         userId: args.userId,
-        ...bank,
       });
+      await writePayout(tx, args.id, bank);
 
       const lineItems = await tx.run(
         zql.reimbursementLineItem.where("reimbursementId", args.id)
@@ -1007,7 +1133,9 @@ export const reimbursementMutators = {
       approvalScreenshotKey: null,
       createdAt: now,
       createdBy: userId,
+      expenseDate: args.expenseDate,
       id: args.id,
+      ...CLEARED_LEAD_APPROVAL,
       rejectionReason: null,
       reviewedAt: null,
       reviewedBy: null,
@@ -1016,11 +1144,10 @@ export const reimbursementMutators = {
       title: args.title,
       updatedAt: now,
       userId: claimantId,
-      ...entityFields(args),
-      ...bank,
       ...charge,
       costCentreId,
     });
+    await writePayout(tx, args.id, bank ?? payoutFields(args));
 
     await insertRelations(
       fk(args.id),
@@ -1054,12 +1181,19 @@ export const reimbursementMutators = {
       const submitterName = forOthers
         ? `${creatorName} for ${claimantName}`
         : submitter?.name;
+      // The programme lead reviews first; finance hears once they approve.
+      const leadUserId = await leadApproverFor(tx, {
+        ...charge,
+        createdBy: userId,
+        userId: claimantId,
+      });
       ctx.asyncTasks?.push({
         fn: async () => {
           const { enqueue } = await import("@pi-dash/jobs/enqueue");
           await enqueue(
             "notify-reimbursement-submitted",
             {
+              leadUserId: leadUserId ?? undefined,
               reimbursementId,
               submitterName: submitterName ?? "Someone",
               title,
@@ -1199,12 +1333,18 @@ export const reimbursementMutators = {
   reject: defineMutator(
     z.object({ id: z.string(), reason: z.string().trim().min(1) }),
     async ({ tx, ctx, args }) => {
-      assertHasPermission(ctx, "requests.approve");
+      assertIsLoggedIn(ctx);
       const { userId } = ctx;
-      const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
+      const isApprover = can(ctx, "requests.approve");
+      const canEditAnyStatus =
+        isApprover && can(ctx, "requests.edit_all_statuses");
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
+      // The programme lead rejects a pending request waiting for them.
+      if (!(isApprover || (await assertIsWaitingLead(tx, ctx, entity)))) {
+        return;
+      }
       assertPending(entity, "reimbursement", "rejected", canEditAnyStatus);
       // An approved claim a bank debit pays can't be un-approved (layer 3-3b).
       await assertNotMatchedToBank(tx, [ledgerSource(args.id)]);
@@ -1285,6 +1425,8 @@ export const reimbursementMutators = {
       await tx.mutate.reimbursement.update({
         approvalScreenshotKey: null,
         id: args.id,
+        // The lead looks at it again.
+        ...CLEARED_LEAD_APPROVAL,
         rejectionReason: null,
         reviewedAt: null,
         reviewedBy: null,
@@ -1321,17 +1463,35 @@ export const reimbursementMutators = {
       entity,
       charge.eventId
     );
+    // The lead approved it for their programme; another programme's lead
+    // looks at it afresh.
+    const clearsLead =
+      entity.status === "pending" &&
+      Boolean(entity.leadApprovedAt) &&
+      (await programmeChanges(tx, entity, charge));
     const now = Date.now();
     await tx.mutate.reimbursement.update({
       id: args.id,
       updatedAt: now,
       ...charge,
       costCentreId,
+      ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
     });
     await tx.mutate.reimbursementHistory.insert({
       ...buildHistoryInsert(ctx.userId, "updated", now, note),
       reimbursementId: args.id,
     });
+    if (clearsLead) {
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          ctx.userId,
+          "updated",
+          now,
+          LEAD_APPROVAL_CLEARED_NOTE
+        ),
+        reimbursementId: args.id,
+      });
+    }
     queuePosting(ctx, tx, args.id, "reimbursement.setChargedTo");
   }),
 
@@ -1429,14 +1589,34 @@ export const reimbursementMutators = {
       limitPaise: await readCashVoucherLimit(tx),
     });
 
+    // What the lead approved changed: they look at it again.
+    const clearsLead =
+      entity.status === "pending" &&
+      Boolean(entity.leadApprovedAt) &&
+      (chargeChanges(entity, charge) ||
+        linesChange(itemsBefore, args.lineItems));
+
     await tx.mutate.reimbursement.update({
+      expenseDate: args.expenseDate,
       id: args.id,
       title: args.title,
       updatedAt: now,
-      ...entityFields(args),
       ...charge,
       costCentreId,
+      ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
     });
+    await writePayout(tx, args.id, payoutFields(args));
+    if (clearsLead) {
+      await tx.mutate.reimbursementHistory.insert({
+        ...buildHistoryInsert(
+          userId,
+          "updated",
+          now,
+          LEAD_APPROVAL_CLEARED_NOTE
+        ),
+        reimbursementId: args.id,
+      });
+    }
 
     await replaceRelations(
       fk(args.id),

@@ -40,6 +40,10 @@ interface SubmissionNotifierConfig {
 
 interface SubmittedOptions {
   entityId: string;
+  /** The programme lead approved; finance now reviews it. */
+  leadApproval?: { at: number; leadName: string };
+  /** The programme lead who reviews it first, instead of finance. */
+  leadUserId?: string;
   submitterName: string;
   title: string;
 }
@@ -170,13 +174,34 @@ export function createSubmissionNotifier({
         ),
       });
     },
-    async notifySubmitted({ entityId, title, submitterName }) {
-      const [approverIds, lineItems] = await Promise.all([
-        getUserIdsWithPermission("requests.approve"),
+    async notifySubmitted({
+      entityId,
+      leadApproval,
+      leadUserId,
+      title,
+      submitterName,
+    }) {
+      // Waiting for the programme lead: only they hear of it. Finance hears
+      // once the lead approves, or at once when there is no lead step.
+      const [recipientIds, lineItems] = await Promise.all([
+        leadUserId
+          ? [leadUserId]
+          : getUserIdsWithPermission("requests.approve"),
         getLineItems(entityId),
       ]);
       const totalSuffix = formatTotalSuffix(lineItems);
-      const baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
+      let baseMessage = `${submitterName} submitted "${title}" — it needs your review.`;
+      if (leadApproval) {
+        baseMessage = `${leadApproval.leadName} approved "${title}" as programme lead — it needs your review.`;
+      } else if (leadUserId) {
+        baseMessage = `${submitterName} submitted "${title}" — it needs your review as programme lead.`;
+      }
+      let idempotencyKey = `${idempotencyPrefix}-submitted-${entityId}`;
+      if (leadApproval) {
+        idempotencyKey = `${idempotencyPrefix}-lead-approved-${entityId}-${leadApproval.at}`;
+      } else if (leadUserId) {
+        idempotencyKey = `${idempotencyPrefix}-submitted-${entityId}-lead`;
+      }
       const fullUrl = `${env.APP_URL}/${routePrefix}/${entityId}`;
       const emailHtml = await renderNotificationEmail({
         ctaLabel: `Review ${entityLabel.toLowerCase()}`,
@@ -198,10 +223,10 @@ export function createSubmissionNotifier({
           status: { label: "Needs review", tone: "warning" },
         },
         emailHtml,
-        idempotencyKey: `${idempotencyPrefix}-submitted-${entityId}`,
+        idempotencyKey,
         title: `👀 New ${entityLabel.toLowerCase()} to review`,
         topic: submittedTopic,
-        userIds: approverIds,
+        userIds: recipientIds,
         whatsappTemplate: whatsappTemplate(
           "request_submitted",
           {

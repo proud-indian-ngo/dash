@@ -9,6 +9,7 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { useLeadApprovalAttentionViews } from "@/components/expenses/lead-approval-attention-views";
 import { useUnallocatedAttentionView } from "@/components/expenses/unallocated-attention-view";
 import { VoidDialog } from "@/components/form/void-dialog";
 import { PageHeader } from "@/components/shared/page-header";
@@ -72,6 +73,10 @@ function VendorPaymentsRouteComponent() {
   );
   const voidedFilter = useVoidedFilter(data);
   const unallocatedView = useUnallocatedAttentionView(data);
+  const attentionViews = [
+    ...useLeadApprovalAttentionViews(data),
+    ...(unallocatedView ? [unallocatedView] : []),
+  ];
   const [voidTarget, setVoidTarget] =
     useState<VendorPaymentWithRelations | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
@@ -140,7 +145,7 @@ function VendorPaymentsRouteComponent() {
           items={computeVendorPaymentStats(data.filter((vp) => !isVoided(vp)))}
         />
         <VendorPaymentsTable
-          attentionViews={unallocatedView ? [unallocatedView] : undefined}
+          attentionViews={attentionViews}
           canDelete={canDelete}
           data={voidedFilter.rows}
           isLoading={isLoading}

@@ -3,10 +3,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import {
-  APP_CONFIG_FINANCE_THRESHOLD_KEY,
-  DEFAULT_FINANCE_THRESHOLD_PAISE,
-} from "@pi-dash/shared/constants";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import type { Programme } from "@pi-dash/zero/schema";
@@ -28,25 +24,14 @@ import { VolunteerHourValueCard } from "@/components/settings/sections/volunteer
 import {
   SettingsCard,
   SettingsListItem,
-  SettingsRow,
 } from "@/components/settings/settings-ui";
 import {
   getProgrammeLeadCandidates,
   type PrivateUserCandidate,
 } from "@/functions/users-for-picker";
-import {
-  formatPaiseCompact,
-  isValidRupeesInput,
-  paiseToRupeesInput,
-  optionalRupeesToPaise,
-} from "@/lib/paise";
 import { reportMutationResult } from "@/lib/report-mutation-result";
 
 const NO_LEAD = "__none__";
-
-const rupees = z
-  .string()
-  .refine(isValidRupeesInput, "Enter a rupee amount up to two decimals");
 
 const programmeSchema = z.object({
   active: z.boolean(),
@@ -58,16 +43,11 @@ const programmeSchema = z.object({
     .max(16)
     .regex(/^[A-Z0-9_-]+$/i, "Letters, digits, - or _ only"),
   description: z.string().trim().max(500).optional(),
-  financeThreshold: rupees,
   leadUserId: z.string().optional(),
   name: z.string().trim().min(1, "Name is required").max(120),
 });
 
 type ProgrammeFormValues = z.infer<typeof programmeSchema>;
-
-const thresholdSchema = z.object({
-  threshold: rupees.refine((v) => v.trim() !== "", "Enter an amount"),
-});
 
 function ProgrammeForm({
   initialValues,
@@ -112,7 +92,7 @@ function ProgrammeForm({
               ? "Loading eligible people..."
               : leadCandidatesState === "error"
                 ? "Programme leads could not be loaded. Close and reopen this form to retry."
-                : undefined
+                : "Approves the programme's reimbursements and vendor payments before finance."
           }
           disabled={leadCandidatesState !== "ready"}
           emptyMessage="No matching people."
@@ -120,12 +100,6 @@ function ProgrammeForm({
           name="leadUserId"
           options={leadOptions}
           placeholder="Search by name"
-        />
-        <InputField
-          description="Requests above this amount also need finance approval. Leave empty to use the default; 0 sends every request to finance."
-          inputMode="decimal"
-          label="Finance approval threshold (₹)"
-          name="financeThreshold"
         />
         <CheckboxField
           description="Inactive programmes stay on old records but cannot be picked for new events. Programmes are never deleted."
@@ -142,45 +116,9 @@ function ProgrammeForm({
   );
 }
 
-function DefaultThresholdForm({
-  initialValue,
-  onCancel,
-  onSubmit,
-}: {
-  initialValue: string;
-  onCancel: () => void;
-  onSubmit: (threshold: string) => void | Promise<void>;
-}) {
-  const form = useForm({
-    defaultValues: { threshold: initialValue },
-    onSubmit: async ({ value }) => {
-      await onSubmit(value.threshold);
-    },
-    validators: { onChange: thresholdSchema, onSubmit: thresholdSchema },
-  });
-  return (
-    <FormLayout form={form}>
-      <div className="flex flex-col gap-3 py-2">
-        <InputField
-          inputMode="decimal"
-          isRequired
-          label="Default finance approval threshold (₹)"
-          name="threshold"
-        />
-        <FormActions
-          onCancel={onCancel}
-          submitLabel="Save threshold"
-          submittingLabel="Saving..."
-        />
-      </div>
-    </FormLayout>
-  );
-}
-
 type InlineMode =
   | { kind: "create" }
   | { kind: "edit"; programme: Programme }
-  | { kind: "threshold" }
   | null;
 
 function leadLabel(
@@ -194,22 +132,18 @@ function leadLabel(
 }
 
 function ProgrammeRow({
-  defaultThresholdPaise,
   leadName,
   onEdit,
   programme,
 }: {
-  defaultThresholdPaise: number;
   leadName: string | undefined;
   onEdit: (programme: Programme) => void;
   programme: Programme;
 }) {
   const handleEdit = useEventCallback(() => onEdit(programme));
-  const threshold = programme.financeThresholdPaise ?? defaultThresholdPaise;
   const detailParts = [
     programme.code,
     leadLabel(programme.leadUserId, leadName),
-    `Finance above ${formatPaiseCompact(threshold)}${programme.financeThresholdPaise === null ? " (default)" : ""}`,
   ];
 
   return (
@@ -242,7 +176,6 @@ function ProgrammeRow({
 export function ProgrammesSection() {
   const zero = useZero();
   const [programmes] = useQuery(queries.programme.all());
-  const [configs] = useQuery(queries.appConfig.all());
   const [inlineMode, setInlineMode] = useState<InlineMode>(null);
   const [leadCandidates, setLeadCandidates] = useState<{
     state: "error" | "loading" | "ready";
@@ -281,13 +214,6 @@ export function ProgrammesSection() {
   }, [candidateLoadKey]);
 
   const programmeList = programmes ?? [];
-  const configured = configs?.find(
-    (c) => c.key === APP_CONFIG_FINANCE_THRESHOLD_KEY
-  )?.value;
-  const parsedDefault = configured ? Number(configured) : Number.NaN;
-  const defaultThresholdPaise = Number.isFinite(parsedDefault)
-    ? parsedDefault
-    : DEFAULT_FINANCE_THRESHOLD_PAISE;
   const userNames = new Map(leadCandidates.users.map((u) => [u.id, u.name]));
   const leadOptions = [
     { label: "No lead", value: NO_LEAD },
@@ -299,7 +225,6 @@ export function ProgrammesSection() {
     cause: values.cause?.trim() || null,
     code: values.code.toUpperCase(),
     description: values.description?.trim() || null,
-    financeThresholdPaise: optionalRupeesToPaise(values.financeThreshold),
     id,
     leadUserId:
       values.leadUserId && values.leadUserId !== NO_LEAD
@@ -348,26 +273,6 @@ export function ProgrammesSection() {
     }
   });
 
-  const handleThreshold = useEventCallback(async (threshold: string) => {
-    const paise =
-      optionalRupeesToPaise(threshold) ?? DEFAULT_FINANCE_THRESHOLD_PAISE;
-    const res = await zero.mutate(
-      mutators.appConfig.upsert({
-        key: APP_CONFIG_FINANCE_THRESHOLD_KEY,
-        value: String(paise),
-      })
-    ).server;
-    reportMutationResult(res, {
-      entityId: APP_CONFIG_FINANCE_THRESHOLD_KEY,
-      errorMsg: "Failed to update default threshold",
-      mutation: "appConfig.upsert",
-      successMsg: "Default threshold updated",
-    });
-    if (res.type !== "error") {
-      setInlineMode(null);
-    }
-  });
-
   const openCreate = useEventCallback(() => {
     setLeadCandidates((previous) => ({
       state: "loading",
@@ -375,9 +280,6 @@ export function ProgrammesSection() {
     }));
     setInlineMode({ kind: "create" });
   });
-  const openThreshold = useEventCallback(() =>
-    setInlineMode({ kind: "threshold" })
-  );
   const cancelInline = useEventCallback(() => setInlineMode(null));
   const handleEditRequest = useEventCallback((programme: Programme) => {
     setLeadCandidates((previous) => ({
@@ -389,33 +291,6 @@ export function ProgrammesSection() {
 
   return (
     <div className="flex flex-col gap-4">
-      <SettingsCard title="Approval threshold">
-        {inlineMode?.kind === "threshold" ? (
-          <div className="bg-muted/30 px-4 py-3">
-            <DefaultThresholdForm
-              initialValue={paiseToRupeesInput(defaultThresholdPaise)}
-              onCancel={cancelInline}
-              onSubmit={handleThreshold}
-            />
-          </div>
-        ) : (
-          <SettingsRow
-            description="Requests above this amount need finance approval after the programme lead, unless the programme sets its own threshold."
-            title={`Default: ${formatPaiseCompact(defaultThresholdPaise)}`}
-          >
-            <Button
-              aria-label="Edit default threshold"
-              onClick={openThreshold}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Edit
-            </Button>
-          </SettingsRow>
-        )}
-      </SettingsCard>
-
       <VolunteerHourValueCard />
 
       <CashVoucherLimitCard />
@@ -448,7 +323,6 @@ export function ProgrammesSection() {
                 active: true,
                 code: "",
                 description: "",
-                financeThreshold: "",
                 leadUserId: NO_LEAD,
                 name: "",
               }}
@@ -470,9 +344,6 @@ export function ProgrammesSection() {
                   cause: programme.cause ?? "",
                   code: programme.code,
                   description: programme.description ?? "",
-                  financeThreshold: paiseToRupeesInput(
-                    programme.financeThresholdPaise
-                  ),
                   leadUserId: programme.leadUserId ?? NO_LEAD,
                   name: programme.name,
                 }}
@@ -485,7 +356,6 @@ export function ProgrammesSection() {
             </div>
           ) : (
             <ProgrammeRow
-              defaultThresholdPaise={defaultThresholdPaise}
               key={programme.id}
               leadName={
                 programme.leadUserId

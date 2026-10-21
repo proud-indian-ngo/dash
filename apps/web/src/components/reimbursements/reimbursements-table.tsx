@@ -51,6 +51,7 @@ import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
+import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
 import { handleMutationResult } from "@/lib/mutation-result";
 import {
   isReimbursement,
@@ -223,7 +224,11 @@ export function ReimbursementsTable({
     : "request";
 
   const handleApprove = useEventCallback(
-    async (message: string, screenshotKey?: string) => {
+    async (
+      message: string,
+      screenshotKey?: string,
+      leadSkipReason?: string
+    ) => {
       const { row } = review;
       if (!row) {
         return false;
@@ -234,6 +239,7 @@ export function ReimbursementsTable({
         ns.approve({
           approvalScreenshotKey: screenshotKey,
           id: row.id,
+          leadSkipReason,
           note: message || undefined,
         })
       ).server;
@@ -441,9 +447,12 @@ export function ReimbursementsTable({
       accessorFn: (row) => row.status,
       cell: ({ row }) => {
         const { label, tone } = getStatusBadge(row.original.status);
+        // A pending request says who it waits for ("Approval policy").
         return (
           <span className="inline-flex items-center gap-1">
-            <StatusBadge tone={tone}>{label}</StatusBadge>
+            <StatusBadge tone={tone}>
+              {pendingApprovalLabel(row.original) ?? label}
+            </StatusBadge>
             {isVoided(row.original) ? <VoidBadge /> : null}
           </span>
         );
@@ -622,6 +631,11 @@ export function ReimbursementsTable({
     costCentres.active,
     hasPermission("requests.view_all")
   );
+  const stableGetFilterValue = useEventCallback(
+    (row: RequestRow, path: string[]) =>
+      getReimbursementFilterValue(row, path, currentUserId)
+  );
+  const reviewLeadWaiting = review.row ? waitingLeadOf(review.row) : undefined;
   const stableSearch = useEventCallback((row: RequestRow, query: string) =>
     searchReimbursement(row, query, cityOf)
   );
@@ -638,7 +652,7 @@ export function ReimbursementsTable({
           filter={{
             attentionViews,
             fields: filterFields,
-            getValue: getReimbursementFilterValue,
+            getValue: stableGetFilterValue,
             viewField: "status",
           }}
           getRowId={stableGetRowId1}
@@ -672,6 +686,7 @@ export function ReimbursementsTable({
         entityId={review.row?.id ?? ""}
         entityLabel={reviewLabel}
         hasExistingScreenshot={Boolean(review.row?.approvalScreenshotKey)}
+        leadWaiting={reviewLeadWaiting}
         onConfirm={handleApprove}
         onOpenChange={review.handleOpenChange}
         open={review.approveOpen}

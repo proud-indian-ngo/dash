@@ -8,10 +8,12 @@ import * as z from "zod";
 
 import { ReimbursementDetail } from "@/components/reimbursements/reimbursement-detail";
 import { ReimbursementForm } from "@/components/reimbursements/reimbursement-form";
+import { useReimbursementPayout } from "@/components/reimbursements/use-reimbursement-payout";
 import { RecordNotFound } from "@/components/shared/not-found-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { RecordDetailSkeleton } from "@/components/shared/page-skeleton";
 import { useApp } from "@/context/app-context";
+import type { ReimbursementPayout } from "@/functions/reimbursement-payout";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { epochToLocalDate } from "@/lib/local-date";
 import type { RequestDetailData, RequestType } from "@/lib/reimbursement-types";
@@ -121,8 +123,14 @@ function ReimbursementDetailRouteComponent() {
   return <ResolvedRequestView resolved={resolved} />;
 }
 
-function buildInitialValues(resolved: ResolvedRequest) {
+function buildInitialValues(
+  resolved: ResolvedRequest,
+  payout: ReimbursementPayout | null
+) {
   const { data: request, type: requestType, expenseDate } = resolved;
+  // A reimbursement's payee details load from the server; an advance
+  // payment still carries its own.
+  const bank = payout ?? ("bankAccountName" in request ? request : null);
 
   return {
     id: request.id,
@@ -130,12 +138,12 @@ function buildInitialValues(resolved: ResolvedRequest) {
     type: requestType,
     // The request's own city; one on an event takes the event's.
     costCentreId: request.costCentreId ?? undefined,
-    ...("bankAccountName" in request
+    ...(bank
       ? {
-          bankAccountIfscCode: request.bankAccountIfscCode ?? undefined,
-          bankAccountName: request.bankAccountName ?? undefined,
-          bankAccountNumber: request.bankAccountNumber ?? undefined,
-          bankAccountUpiId: request.bankAccountUpiId ?? undefined,
+          bankAccountIfscCode: bank.bankAccountIfscCode ?? undefined,
+          bankAccountName: bank.bankAccountName ?? undefined,
+          bankAccountNumber: bank.bankAccountNumber ?? undefined,
+          bankAccountUpiId: bank.bankAccountUpiId ?? undefined,
         }
       : {}),
     ...("eventId" in request ? { eventId: request.eventId ?? undefined } : {}),
@@ -171,6 +179,12 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   const isAdminEditingAnotherUser =
     (canEditAll || canEditAnyStatus) && request.userId !== session.user.id;
   const showEditForm = canEdit && mode === "edit";
+  const payout = useReimbursementPayout(
+    request,
+    showEditForm && requestType === "reimbursement"
+  );
+  const payoutPending =
+    requestType === "reimbursement" && payout.kind !== "ready";
 
   const typeLabel = REQUEST_TYPE_LABELS[requestType];
   const setEditMode = (enabled: boolean) => {
@@ -217,23 +231,37 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
               title={`Edit ${typeLabel.toLowerCase()}`}
             />
             <div className="mt-6">
-              <ReimbursementForm
-                claimantName={
-                  request.userId === session.user.id
-                    ? undefined
-                    : (request.user?.name ?? "")
-                }
-                currentChargeProgramme={
-                  "chargedProgramme" in request && request.chargedProgramme
-                    ? request.chargedProgramme
-                    : null
-                }
-                disableBankAccountSelection={isAdminEditingAnotherUser}
-                initialValues={buildInitialValues(resolved)}
-                onCancel={stableOnCancel1}
-                onSaved={stableOnSaved2}
-                requestType={requestType}
-              />
+              {payoutPending ? (
+                payout.kind === "error" ? (
+                  <p className="text-destructive text-sm">
+                    Couldn&apos;t load the payment details. Reload the page to
+                    try again.
+                  </p>
+                ) : (
+                  <RecordDetailSkeleton />
+                )
+              ) : (
+                <ReimbursementForm
+                  claimantName={
+                    request.userId === session.user.id
+                      ? undefined
+                      : (request.user?.name ?? "")
+                  }
+                  currentChargeProgramme={
+                    "chargedProgramme" in request && request.chargedProgramme
+                      ? request.chargedProgramme
+                      : null
+                  }
+                  disableBankAccountSelection={isAdminEditingAnotherUser}
+                  initialValues={buildInitialValues(
+                    resolved,
+                    payout.kind === "ready" ? payout.payout : null
+                  )}
+                  onCancel={stableOnCancel1}
+                  onSaved={stableOnSaved2}
+                  requestType={requestType}
+                />
+              )}
             </div>
           </>
         ) : (

@@ -4,7 +4,6 @@ import type {
   AdvancePaymentHistory,
   AdvancePaymentLineItem,
   ExpenseCategory,
-  Programme,
   Reimbursement,
   ReimbursementAttachment,
   ReimbursementHistory,
@@ -12,7 +11,7 @@ import type {
   User,
 } from "@pi-dash/zero/schema";
 
-import type { RequestEvent } from "@/lib/request-programme";
+import type { ProgrammeWithLead, RequestEvent } from "@/lib/request-programme";
 
 export type RequestType = "reimbursement" | "advance_payment";
 
@@ -23,7 +22,9 @@ export type ReimbursementRequestRow = Reimbursement & {
   >;
   user: User | undefined;
   event: RequestEvent | undefined;
-  chargedProgramme?: Programme | undefined;
+  chargedProgramme?: ProgrammeWithLead | undefined;
+  /** Who approved it as programme lead. */
+  leadApprover?: User | undefined;
 };
 
 export type AdvancePaymentRequestRow = AdvancePayment & {
@@ -47,7 +48,9 @@ export type ReimbursementDetailData = Reimbursement & {
   /** Who raised it, when finance raised it for the claimant. */
   creator?: User | undefined;
   event: RequestEvent | undefined;
-  chargedProgramme?: Programme | undefined;
+  chargedProgramme?: ProgrammeWithLead | undefined;
+  /** Who approved it as programme lead. */
+  leadApprover?: User | undefined;
 };
 
 export type AdvancePaymentDetailData = AdvancePayment & {
