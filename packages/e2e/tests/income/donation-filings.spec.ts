@@ -206,8 +206,12 @@ test.describe("Donations return filings", () => {
     await confirmPan.click();
     let bulkDialog = page.getByRole("alertdialog");
     await expect(bulkDialog).toContainText("PAN, donor name and amount");
+    const confirmationScreenshot = test
+      .info()
+      .outputPath("bulk-pan-matches.png");
+    await page.screenshot({ path: confirmationScreenshot });
     await test.info().attach("Bulk PAN match confirmation", {
-      body: await page.screenshot(),
+      path: confirmationScreenshot,
       contentType: "image/png",
     });
     await bulkDialog

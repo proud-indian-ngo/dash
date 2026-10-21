@@ -94,29 +94,29 @@ export function FilingsSection({
   const confirmMatches = useConfirmAction<
     Parameters<FilingSheetActions["onConfirmPanMatches"]>[0]
   >({
-    onConfirm: async (request) => {
-      try {
-        const count = await confirmPanMatches({ data: request });
-        toast.success(
-          `${count} ${count === 1 ? "certificate" : "certificates"} confirmed`
-        );
-        return { type: "success" };
-      } catch (error) {
-        log.error({
-          action: "donationCertificate.confirmPanMatches",
-          component: "FilingsSection",
-          entityId: request.filingId,
-          error: "Confirming PAN matches failed",
-        });
-        return {
-          type: "error",
-          error: {
-            message:
-              error instanceof Error ? error.message : "Something went wrong",
-          },
-        };
-      }
-    },
+    onConfirm: async (request) =>
+      await confirmPanMatches({ data: request })
+        .then((count) => {
+          toast.success(
+            `${count} ${count === 1 ? "certificate" : "certificates"} confirmed`
+          );
+          return { type: "success" };
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "donationCertificate.confirmPanMatches",
+            component: "FilingsSection",
+            entityId: request.filingId,
+            error: "Confirming PAN matches failed",
+          });
+          return {
+            type: "error",
+            error: {
+              message:
+                error instanceof Error ? error.message : "Something went wrong",
+            },
+          };
+        }),
     onError: (description) =>
       toast.error("Couldn't confirm the certificates", { description }),
     onSuccess: refresh,
