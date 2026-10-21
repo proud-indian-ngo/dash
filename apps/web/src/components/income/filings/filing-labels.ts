@@ -3,7 +3,10 @@ import type {
   FilingRowView,
   FilingStatus,
 } from "@pi-dash/db/queries/donation-filings";
-import { CERTIFICATE_EMAIL_STALE_MS } from "@pi-dash/shared/donations-return";
+import {
+  CERTIFICATE_EMAIL_STALE_MS,
+  RETURN_ID_CODES,
+} from "@pi-dash/shared/donations-return";
 
 import type { StatusTone } from "@/components/shared/status-badge";
 
@@ -26,6 +29,19 @@ const EMAIL_FAILURE_LABELS: Record<CertificateEmailFailure, string> = {
 };
 
 type Certificate = NonNullable<FilingRowView["certificate"]>;
+
+/** Details matching already requires a unique full ID, name and amount match. */
+export function bulkConfirmableCertificateIds(
+  rows: readonly FilingRowView[]
+): string[] {
+  return rows.flatMap((row) =>
+    row.idCode === RETURN_ID_CODES.pan &&
+    row.certificate?.matchedBy === "details" &&
+    !row.certificate.confirmedAt
+      ? [row.certificate.id]
+      : []
+  );
+}
 
 /**
  * A send queued and still without an outcome. One queued over

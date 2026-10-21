@@ -22,6 +22,7 @@ import {
   recordFilingSubmission,
   rejectCertificate,
   confirmCertificate,
+  confirmPanCertificates,
   undoFilingSubmission,
 } from "@pi-dash/db/queries/donation-filings";
 import { env } from "@pi-dash/env/server";
@@ -171,6 +172,22 @@ export const reviewCertificate = (
     decision === "confirm"
       ? confirmCertificate(certificateId, userId, new Date())
       : rejectCertificate(certificateId)
+  );
+
+export const confirmPanMatches = (
+  filingId: string,
+  certificateIds: readonly string[],
+  userId: string
+): Promise<number> =>
+  safely("review", () =>
+    db.transaction((tx) =>
+      confirmPanCertificates(tx, {
+        certificateIds,
+        filingId,
+        now: new Date(),
+        userId,
+      })
+    )
   );
 
 export const discard = (filingId: string, userId: string): Promise<void> =>

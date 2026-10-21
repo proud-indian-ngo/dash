@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import type { FilingRowView } from "@pi-dash/db/queries/donation-filings";
 
 import {
+  bulkConfirmableCertificateIds,
   canSendRow,
   certificateStatus,
   emailableCount,
@@ -45,6 +46,22 @@ const row = (
 });
 
 describe("certificate status", () => {
+  it("offers bulk confirmation only for unconfirmed automatic PAN matches", () => {
+    const pending = row({ id: "eligible", confirmedAt: null });
+    expect(
+      bulkConfirmableCertificateIds([
+        pending,
+        row({ id: "manual", confirmedAt: null, matchedBy: "manual" }),
+        row(
+          { id: "passport", confirmedAt: null },
+          { idCode: "Passport number" }
+        ),
+        row({ id: "confirmed" }),
+        row(null),
+      ])
+    ).toEqual(["eligible"]);
+  });
+
   it("holds a details match for review: never emailed or sent by hand until confirmed", () => {
     const pending = row({ confirmedAt: null, matchedBy: "details" });
     expect(certificateStatus(pending, NOW).label).toBe("Needs review");

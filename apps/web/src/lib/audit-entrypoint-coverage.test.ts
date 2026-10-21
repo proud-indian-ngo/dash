@@ -58,6 +58,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "revealTrusteeKycFn",
   "revealVendorBankAccount",
   "reviewDonationCertificate",
+  "confirmDonationPanMatches",
   "revokeSocialApiTokenFn",
   "reviewBankStatementImport",
   "reviewContributionImport",

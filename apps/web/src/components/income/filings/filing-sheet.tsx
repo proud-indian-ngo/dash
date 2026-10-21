@@ -34,6 +34,7 @@ import { getDonationFilingRows } from "@/functions/donation-filings";
 import { DATE, DATE_TIME } from "@/lib/date-formats";
 
 import {
+  bulkConfirmableCertificateIds,
   canSendRow,
   certificateStatus,
   emailInFlight,
@@ -82,6 +83,10 @@ function useFilingRows(filingId: string, version: number) {
 }
 
 export interface FilingSheetActions {
+  onConfirmPanMatches: (request: {
+    certificateIds: string[];
+    filingId: string;
+  }) => void;
   onAssign: (filing: FilingSummary, row: FilingRowView) => void;
   onDiscard: (filing: FilingSummary) => void;
   onEmail: (request: {
@@ -394,6 +399,7 @@ function FilingSheetBody({
   }, [sending, settle]);
   const [preview, setPreview] = useState<FilingRowView | null>(null);
   const rows = state.kind === "ready" ? state.rows : [];
+  const panMatches = bulkConfirmableCertificateIds(rows);
   const manual = manualSendRows(rows);
   const emailable = emailableCount(rows);
   const status = FILING_STATUS[filing.status];
@@ -561,6 +567,23 @@ function FilingSheetBody({
         ) : null}
 
         <RecordSection title="Rows">
+          {canManage &&
+          canViewSensitive &&
+          submitted &&
+          panMatches.length > 0 ? (
+            <Button
+              onClick={() =>
+                actions.onConfirmPanMatches({
+                  certificateIds: panMatches,
+                  filingId: filing.id,
+                })
+              }
+              type="button"
+              variant="outline"
+            >
+              Confirm PAN matches ({panMatches.length})
+            </Button>
+          ) : null}
           {state.kind === "loading" ? (
             <div className="flex flex-col gap-2 rounded-lg border p-4">
               <Skeleton className="h-4 w-48" />
