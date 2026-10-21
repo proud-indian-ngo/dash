@@ -12,6 +12,7 @@ import {
   RECEIPT_ID_TYPE_LABELS,
   RECEIPT_MODE_LABELS,
   RECEIPT_NO_DEDUCTION_NOTE,
+  RECEIPT_NO_SIGNATURE_NOTE,
   RECEIPT_TITLE,
   receipt80GLine,
 } from "@pi-dash/shared/receipts";
@@ -71,7 +72,9 @@ const styles = {
     closing: { flexDirection: "row", gap: 28, marginTop: 24 },
     note: { fontSize: 9, lineHeight: 1.5 },
     notes: { flex: 1 },
+    noSignature: { color: MUTED, marginTop: 8 },
     signature: { width: 190 },
+    signatory: { marginTop: 10 },
     signatureFor: {
       fontSize: 9.5,
       lineHeight: 1.45,
@@ -221,12 +224,16 @@ export function DonationReceipt(props: DonationReceiptProps) {
           </View>
           <View style={styles.signature}>
             <Line style={styles.signatureFor}>For {org.name}</Line>
-            <View style={styles.signatureBlock}>
+            {/* No blank signature line: nobody signs the receipt (see RECEIPT_NO_SIGNATURE_NOTE). */}
+            <View style={styles.signatory}>
               <Line style={[styles.text, styles.signatureName]}>
                 {signatory.name}
               </Line>
               <Text style={styles.small}>{signatory.designation}</Text>
               <Text style={styles.small}>Authorised signatory</Text>
+              <Line style={[styles.note, styles.noSignature]}>
+                {RECEIPT_NO_SIGNATURE_NOTE}
+              </Line>
             </View>
           </View>
         </View>

@@ -140,6 +140,13 @@ export const RECEIPT_CERTIFICATE_NOTE =
 export const RECEIPT_NO_DEDUCTION_NOTE =
   "No tax deduction certificate is issued for this donation.";
 
+/**
+ * Printed under the signatory instead of a signature (CA to confirm). No rule
+ * found requires the trust's own receipt to be signed; the QR code checks it.
+ */
+export const RECEIPT_NO_SIGNATURE_NOTE =
+  "This is a computer-generated receipt and does not need a signature.";
+
 export const RECEIPT_TITLE = "Donation receipt";
 
 const MONTHS = [
