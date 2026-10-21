@@ -5,6 +5,7 @@ import {
   reimbursement,
   reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
+import { vendorPayment } from "@pi-dash/db/schema/vendor";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import { eq } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
@@ -16,6 +17,9 @@ import { uuidv7 } from "uuidv7";
  *
  * `setup <stamp>`: two programmes, one led by the test volunteer and one by
  * the test admin, and a pending claim by the super admin charged to each.
+ * `setup-vendor-payment <stamp>`: a pending payment by the super admin
+ * charged to a programme led by the admin.
+ * `vendor-payment-status <id>`: the persisted status of that payment.
  */
 
 async function userIdOf(email: string | undefined) {
@@ -116,9 +120,62 @@ async function setup(stamp: string) {
   };
 }
 
-const [action, stamp = ""] = process.argv.slice(2);
-if (action !== "setup" || !stamp) {
+async function setupVendorPayment(stamp: string) {
+  const [adminId, claimantId, vendor] = await Promise.all([
+    userIdOf(process.env.ADMIN_EMAIL),
+    userIdOf(process.env.SUPER_ADMIN_EMAIL),
+    db.query.vendor.findFirst({
+      where: (table, ops) =>
+        ops.eq(table.id, "e2e00000-0000-0000-0000-000000000003"),
+    }),
+  ]);
+  if (!vendor) {
+    throw new Error("No seeded vendor");
+  }
+  const programmeId = await addProgramme(
+    `E2E Vendor reject ${stamp}`,
+    `VR${stamp}`,
+    adminId
+  );
+  const id = uuidv7();
+  const now = new Date();
+  await db.insert(vendorPayment).values({
+    chargedProgrammeId: programmeId,
+    chargedTo: "programme",
+    costCentreId: COST_CENTRE_IDS.bangalore,
+    createdAt: now,
+    id,
+    status: "pending",
+    submittedAt: now,
+    title: `E2E Vendor reject ${stamp}`,
+    updatedAt: now,
+    userId: claimantId,
+    vendorId: vendor.id,
+  });
+  return { id };
+}
+
+async function vendorPaymentStatus(id: string) {
+  const [row] = await db
+    .select({ status: vendorPayment.status })
+    .from(vendorPayment)
+    .where(eq(vendorPayment.id, id));
+  if (!row) {
+    throw new Error(`No vendor payment ${id}`);
+  }
+  return row.status;
+}
+
+const [action, value = ""] = process.argv.slice(2);
+let result: unknown;
+if (action === "setup" && value) {
+  result = await setup(value);
+} else if (action === "setup-vendor-payment" && value) {
+  result = await setupVendorPayment(value);
+} else if (action === "vendor-payment-status" && value) {
+  result = await vendorPaymentStatus(value);
+} else {
   throw new Error(`Unknown action ${action}`);
 }
-process.stdout.write(`${JSON.stringify(await setup(stamp))}\n`);
+process.stdout.write(`${JSON.stringify(result)}\n`);
 process.exit(0);

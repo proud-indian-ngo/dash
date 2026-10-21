@@ -1,4 +1,10 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { expect, test } from "../../fixtures/test";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Expanded API authorization tests verifying additional admin-only mutations
@@ -79,10 +85,38 @@ test.describe("API authorization — expanded mutations rejected for volunteer",
     request,
     baseURL,
   }) => {
-    await assertUnauthorized(request, baseURL, "vendorPayment.reject", {
-      id: FAKE_ID,
+    const helper = path.resolve(
+      import.meta.dirname,
+      "../../helpers/lead-approval.ts"
+    );
+    const { stdout } = await execFileAsync(
+      "bun",
+      ["run", helper, "setup-vendor-payment", String(Date.now())],
+      { env: process.env }
+    );
+    const { id } = JSON.parse(stdout.trim()) as { id: string };
+    const body = buildMutateBody("vendorPayment.reject", {
+      id,
       reason: "test",
     });
+    const response = await request.post(
+      `${baseURL}/api/zero/mutate?schema=zero_0&appID=zero`,
+      { data: body }
+    );
+    expect(response.ok()).toBe(true);
+    const json = await response.json();
+    expect(json.mutations).toBeDefined();
+    expect(json.mutations[0].result.error).toBe("app");
+    expect(json.mutations[0].result.message).toBe(
+      "Only the lead of the programme this request is charged to can do this"
+    );
+
+    const { stdout: status } = await execFileAsync(
+      "bun",
+      ["run", helper, "vendor-payment-status", id],
+      { env: process.env }
+    );
+    expect(JSON.parse(status.trim())).toBe("pending");
   });
 
   // ── Team ────────────────────────────────────────────────────────────────────
