@@ -47,13 +47,13 @@ function GrantsPage() {
   const lastDay = grants
     .map((g) => epochDayToIso(g.endsOn))
     .reduce((latest, day) => (day > latest ? day : latest), todayInKolkata());
-  const { error, retry, rows } = useGrantUtilisation({
-    from: null,
-    grantId: null,
-    to: lastDay,
-  });
+  // Wait for the grants to sync, so the range is fetched once.
+  const synced = !isAwaitingResult(grantsResult);
+  const { error, retry, rows } = useGrantUtilisation(
+    synced ? { from: null, grantId: null, to: lastDay } : null
+  );
 
-  const isLoading = grants.length === 0 && isAwaitingResult(grantsResult);
+  const isLoading = grants.length === 0 && !synced;
   const sumFor = (
     list: readonly { grantId: string; paise: number }[] | undefined,
     grantId: string
@@ -69,6 +69,7 @@ function GrantsPage() {
     programmeName: g.programme?.name ?? "Programme",
     projectName: g.project?.name ?? "Project",
     receivedPaise: sumFor(rows?.receipts, g.id),
+    refundedPaise: sumFor(rows?.refunds, g.id),
     sanctionedPaise: g.sanctionedPaise,
     spentPaise: sumFor(rows?.spend, g.id),
     startsOn: g.startsOn,
@@ -94,17 +95,6 @@ function GrantsPage() {
         <div className="mt-4">
           <TableSkeleton />
         </div>
-      ) : error ? (
-        <div className="mt-6">
-          <ErrorState
-            actions={
-              <Button onClick={retry} type="button">
-                Try again
-              </Button>
-            }
-            error={error}
-          />
-        </div>
       ) : grants.length === 0 ? (
         <NotFoundState
           actions={newGrantButton}
@@ -114,8 +104,22 @@ function GrantsPage() {
           title="No grants"
         />
       ) : (
-        <div className="mt-4">
-          <GrantsTable data={data} isLoading={false} />
+        <div className="mt-4 grid gap-4">
+          {error ? (
+            <ErrorState
+              actions={
+                <Button onClick={retry} type="button">
+                  Try again
+                </Button>
+              }
+              error={error}
+            />
+          ) : null}
+          <GrantsTable
+            data={data}
+            figuresFailed={Boolean(error)}
+            isLoading={false}
+          />
         </div>
       )}
       <GrantFormDialog

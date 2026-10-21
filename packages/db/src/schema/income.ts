@@ -174,6 +174,11 @@ export const contribution = pgTable(
       "contribution_grant_project_check",
       sql`${t.grantId} IS NULL OR (${t.programmeId} IS NOT NULL AND ${t.projectId} IS NOT NULL)`
     ),
+    // Grants count money, never in-kind gifts.
+    check(
+      "contribution_grant_not_in_kind_check",
+      sql`${t.grantId} IS NULL OR ${t.channel} <> 'in_kind'`
+    ),
     check(
       "contribution_grant_tranche_check",
       sql`${t.grantTrancheId} IS NULL OR ${t.grantId} IS NOT NULL`

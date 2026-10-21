@@ -111,10 +111,6 @@ function GrantForm({
   const [parties] = useQuery(queries.party.all());
   const [programmes] = useQuery(queries.programme.active());
   const [projects] = useQuery(queries.project.all());
-  const [grants] = useQuery(queries.grant.all());
-  const funded = new Set(
-    grants.filter((g) => g.id !== grant?.id).map((g) => g.projectId)
-  );
 
   const grantorOptions = withCurrentOption(
     parties
@@ -227,7 +223,7 @@ function GrantForm({
         <form.Subscribe selector={(state) => state.values.programmeId}>
           {(programmeId) => (
             <SelectField
-              description="A project has one grant."
+              description="A project's grants can't overlap in time."
               disabled={!programmeId}
               isRequired
               label="Project"
@@ -236,9 +232,7 @@ function GrantForm({
                 projects
                   .filter(
                     (p) =>
-                      p.programmeId === programmeId &&
-                      p.status !== "closed" &&
-                      !funded.has(p.id)
+                      p.programmeId === programmeId && p.status !== "closed"
                   )
                   .map((p) => ({ label: p.name, value: p.id })),
                 grant?.projectId,

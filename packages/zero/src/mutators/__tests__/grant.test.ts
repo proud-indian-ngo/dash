@@ -15,6 +15,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
     accountHead: [{ id: "h-travel", type: "expense" }],
     contribution: [
       {
+        channel: "neft",
         grantId: null,
         grantTrancheId: null,
         id: "gift-1",
@@ -121,13 +122,20 @@ describe("grant.save", () => {
     ).rejects.toThrow();
   });
 
-  it("funds one project with one grant", async () => {
+  it("lets a project have several grants, never overlapping", async () => {
     const db = createDb();
     await save(db);
     expect(db.tables.grantAgreement).toHaveLength(1);
-    await expect(save(db, { id: "grant-2" })).rejects.toThrow(/already funded/);
-    await save(db, { id: "grant-2", projectId: "proj-2" });
-    expect(db.tables.grantAgreement).toHaveLength(2);
+    await expect(
+      save(db, { endsOn: "2027-06-30", id: "grant-2", startsOn: "2027-03-31" })
+    ).rejects.toThrow(/can't overlap/);
+    await save(db, {
+      endsOn: "2028-03-31",
+      id: "grant-2",
+      startsOn: "2027-04-01",
+    });
+    await save(db, { id: "grant-3", projectId: "proj-2" });
+    expect(db.tables.grantAgreement).toHaveLength(3);
   });
 
   it("needs a grantor that gives in its own right", async () => {
@@ -185,6 +193,7 @@ describe("grant.linkContribution", () => {
       { partyId: "someone-else" },
       { projectId: "proj-2" },
       { status: "reversed" },
+      { channel: "in_kind" },
     ]) {
       const db = createDb();
       await save(db);

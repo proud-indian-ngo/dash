@@ -65,8 +65,11 @@ export const grantAgreement = pgTable(
     updatedAt: timestamp("updated_at").notNull(),
   },
   (t) => [
-    // A grant funds one project, and a project has at most one grant.
-    unique("grant_agreement_project_unique").on(t.projectId),
+    // A grant funds one project; a project's grants never overlap in time.
+    // The exclusion constraint `grant_agreement_project_period_excl`
+    // (btree_gist, daterange) lives in migration 0180, since Drizzle can't
+    // declare one.
+    index("grant_agreement_projectId_idx").on(t.projectId),
     foreignKey({
       columns: [t.projectId, t.programmeId],
       foreignColumns: [project.id, project.programmeId],

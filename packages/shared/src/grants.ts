@@ -13,8 +13,19 @@ export const GRANT_STATUS_LABELS: Record<GrantStatus, string> = {
   closed: "Closed",
 };
 
+/**
+ * Statuses of a linked contribution whose money arrived: refunds of a
+ * refunded one count separately, on their own dates.
+ */
+export const GRANT_RECEIPT_STATUSES = [
+  "received",
+  "receipted",
+  "refunded",
+] as const;
+
 /** The facts of a contribution that decide whether it can count towards a grant. */
 export interface GrantLinkContribution {
+  channel: string;
   partyId: string;
   programmeId: string | null;
   projectId: string | null;
@@ -30,7 +41,7 @@ export interface GrantLinkTarget {
 /**
  * Why a contribution can't be linked to a grant, or null when it can: it
  * must come from the grantor, sit on the grant's programme and project,
- * and not be reversed.
+ * be money (grants count cash, never in-kind gifts) and not be reversed.
  */
 export function grantLinkIssue(
   gift: GrantLinkContribution,
@@ -38,6 +49,9 @@ export function grantLinkIssue(
 ): string | null {
   if (gift.status === "reversed") {
     return "A reversed contribution can't count towards a grant";
+  }
+  if (gift.channel === "in_kind") {
+    return "An in-kind gift can't count towards a grant";
   }
   if (gift.partyId !== grant.partyId) {
     return "Only the grantor's contributions can count towards this grant";
@@ -51,13 +65,21 @@ export function grantLinkIssue(
   return null;
 }
 
-/** A contribution linked to a grant, net of its refunds (`GrantReceipt`). */
+/** A contribution linked to a grant, gross (`GrantReceipt`). */
 export interface GrantReceiptInput {
   contributionId: string;
   paise: number;
   receivedOn: string;
   reference: string | null;
   trancheId: string | null;
+}
+
+/** A refund of a linked contribution, on its own date (`GrantRefund`). */
+export interface GrantRefundInput {
+  contributionId: string;
+  paise: number;
+  reference: string | null;
+  refundedOn: string;
 }
 
 /** Spend on one head, before the range or within it (`GrantSpend`). */
@@ -78,38 +100,52 @@ export interface GrantHeadLine {
 }
 
 export interface GrantUtilisation {
-  /** Received before the range less spent before it. */
+  /** Received less refunded less spent, before the range. */
   broughtForwardPaise: number;
-  /** Brought forward plus received less spent in the range. */
+  /** Brought forward plus received less refunded less spent in the range. */
   closingPaise: number;
   /** One line per budgeted or spent head, budgeted heads first. */
   heads: GrantHeadLine[];
   /** Received within the range, oldest first. */
   received: GrantReceiptInput[];
   receivedPaise: number;
+  /** Refunded within the range, oldest first. */
+  refunds: GrantRefundInput[];
+  refundedPaise: number;
   spentPaise: number;
   /** The position at the end of the range, from the grant's start. */
-  toDate: { receivedPaise: number; spentPaise: number; unspentPaise: number };
+  toDate: {
+    receivedPaise: number;
+    refundedPaise: number;
+    spentPaise: number;
+    unspentPaise: number;
+  };
 }
 
 /**
  * A grant's utilisation for a range, GFR 12-A style: unspent brought
- * forward, received in the range (each contribution), spent in the range
- * by head, closing unspent. `from` null means from the start, so nothing
- * is brought forward. Receipts and spend must already end at the range's
- * end, as `loadGrantUtilisation` returns them.
+ * forward, received in the range (each contribution), refunded in the
+ * range, spent in the range by head, closing unspent. Every figure is
+ * dated, so one range's closing is the next range's brought forward and a
+ * later refund never changes an earlier range. `from` null means from the
+ * start, so nothing is brought forward. The inputs must already end at the
+ * range's end, as `loadGrantUtilisation` returns them.
  */
 export function grantUtilisation(input: {
   budgetLines: readonly { accountHeadId: string; amountPaise: number }[];
   from: string | null;
   receipts: readonly GrantReceiptInput[];
+  refunds: readonly GrantRefundInput[];
   spend: readonly GrantSpendInput[];
 }): GrantUtilisation {
   const { from } = input;
-  const before = input.receipts.filter((r) => from && r.receivedOn < from);
+  const inRange = (day: string) => !from || day >= from;
   const received = input.receipts
-    .filter((r) => !from || r.receivedOn >= from)
+    .filter((r) => inRange(r.receivedOn))
     .sort((a, b) => a.receivedOn.localeCompare(b.receivedOn));
+  const refunds = input.refunds
+    .filter((r) => inRange(r.refundedOn))
+    .sort((a, b) => a.refundedOn.localeCompare(b.refundedOn));
 
   const byHead = new Map<string, GrantHeadLine>();
   for (const line of input.budgetLines) {
@@ -140,26 +176,32 @@ export function grantUtilisation(input: {
       (b.budgetPaise ?? 0) - (a.budgetPaise ?? 0)
   );
 
-  const receivedBefore = sum(before.map((r) => r.paise));
-  const spentBefore = sum(
-    input.spend.filter((s) => s.period === "before").map((s) => s.paise)
-  );
+  const totalReceived = sum(input.receipts.map((r) => r.paise));
+  const totalRefunded = sum(input.refunds.map((r) => r.paise));
   const receivedPaise = sum(received.map((r) => r.paise));
+  const refundedPaise = sum(refunds.map((r) => r.paise));
   const spentPaise = sum(heads.map((h) => h.periodPaise));
-  const broughtForwardPaise = receivedBefore - spentBefore;
-  const toDateReceived = receivedBefore + receivedPaise;
-  const toDateSpent = spentBefore + spentPaise;
+  const totalSpent = sum(heads.map((h) => h.toDatePaise));
+  const broughtForwardPaise =
+    totalReceived -
+    receivedPaise -
+    (totalRefunded - refundedPaise) -
+    (totalSpent - spentPaise);
   return {
     broughtForwardPaise,
-    closingPaise: broughtForwardPaise + receivedPaise - spentPaise,
+    closingPaise:
+      broughtForwardPaise + receivedPaise - refundedPaise - spentPaise,
     heads,
     received,
     receivedPaise,
+    refundedPaise,
+    refunds,
     spentPaise,
     toDate: {
-      receivedPaise: toDateReceived,
-      spentPaise: toDateSpent,
-      unspentPaise: toDateReceived - toDateSpent,
+      receivedPaise: totalReceived,
+      refundedPaise: totalRefunded,
+      spentPaise: totalSpent,
+      unspentPaise: totalReceived - totalRefunded - totalSpent,
     },
   };
 }

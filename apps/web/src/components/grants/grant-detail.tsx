@@ -20,6 +20,7 @@ import {
   DONATION_TYPE_LABELS,
   epochDayToIso,
   netReceivedPaise,
+  refundSummary,
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { formatPaise } from "@pi-dash/shared/money";
@@ -235,6 +236,7 @@ export function GrantDetail({
         budgetLines: grant.budgetLines,
         from: range.from,
         receipts: rows.receipts,
+        refunds: rows.refunds,
         spend: rows.spend,
       })
     : null;
@@ -411,8 +413,12 @@ export function GrantDetail({
                   },
                   {
                     icon: MoneyReceive01Icon,
+                    hint: "Net of refunds",
                     label: "Received",
-                    value: formatPaise(utilisation?.toDate.receivedPaise ?? 0),
+                    value: formatPaise(
+                      (utilisation?.toDate.receivedPaise ?? 0) -
+                        (utilisation?.toDate.refundedPaise ?? 0)
+                    ),
                   },
                   {
                     icon: MoneySend01Icon,
@@ -441,6 +447,11 @@ export function GrantDetail({
                       label="Received"
                       sub={`${utilisation.received.length} contribution${utilisation.received.length === 1 ? "" : "s"}`}
                       value={formatPaise(utilisation.receivedPaise)}
+                    />
+                    <Line
+                      label="Refunded"
+                      sub={`${utilisation.refunds.length} refund${utilisation.refunds.length === 1 ? "" : "s"}`}
+                      value={formatPaise(utilisation.refundedPaise)}
                     />
                     <Line
                       label="Spent"
@@ -479,7 +490,7 @@ export function GrantDetail({
                 </Button>
               ) : null
             }
-            title="Tranches"
+            title="Tranches · received to date"
           >
             {grant.tranches.length === 0 ? (
               muted("No tranches are scheduled.")
@@ -615,6 +626,13 @@ export function GrantDetail({
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
+                      {refundSummary(c) ? (
+                        <Tag>
+                          {refundSummary(c)?.partly
+                            ? "Partly refunded"
+                            : "Refunded"}
+                        </Tag>
+                      ) : null}
                       <span className="font-mono tabular-nums">
                         {formatPaise(netReceivedPaise(c))}
                       </span>

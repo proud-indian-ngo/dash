@@ -130,17 +130,21 @@ export const grantMutators = {
       if (!programme?.active || programme.id === PROGRAMME_IDS.unallocated) {
         throw new Error("Pick an active programme, not Unallocated");
       }
-      const taken = await tx.run(
-        zql.grantAgreement
-          .where("projectId", args.projectId)
-          .where("id", "!=", args.id)
-          .one()
+    }
+    // A project may have several grants, never two at once; the database's
+    // exclusion constraint backs this up.
+    const overlapping = await tx.run(
+      zql.grantAgreement
+        .where("projectId", args.projectId)
+        .where("id", "!=", args.id)
+        .where("startsOn", "<=", isoDateToEpoch(args.endsOn))
+        .where("endsOn", ">=", isoDateToEpoch(args.startsOn))
+        .one()
+    );
+    if (overlapping) {
+      throw new Error(
+        `"${overlapping.title}" already funds this project in these dates. A project's grants can't overlap.`
       );
-      if (taken) {
-        throw new Error(
-          `This project is already funded by "${taken.title}". A project has one grant.`
-        );
-      }
     }
     if (existing && (moved || existing.partyId !== args.partyId)) {
       const linked = await tx.run(
@@ -372,6 +376,7 @@ export const grantMutators = {
       const grant = await requireGrant(tx, args.grantId);
       const issue = grantLinkIssue(
         {
+          channel: gift.channel,
           partyId: gift.partyId,
           programmeId: gift.programmeId ?? null,
           projectId: gift.projectId ?? null,

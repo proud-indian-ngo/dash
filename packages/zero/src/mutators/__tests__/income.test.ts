@@ -651,7 +651,7 @@ describe("contribution mutators", () => {
         donorsCtx,
         contribution({ ...linked, partyId: "donor-1" })
       )
-    ).rejects.toThrow("Unlink it from the grant first");
+    ).rejects.toThrow("Ask finance to unlink it from the grant first");
     await expect(
       run(
         contributionMutators.update,
@@ -659,7 +659,7 @@ describe("contribution mutators", () => {
         donorsCtx,
         contribution({ ...linked, projectId: null })
       )
-    ).rejects.toThrow("Unlink it from the grant first");
+    ).rejects.toThrow("Ask finance to unlink it from the grant first");
     await run(
       contributionMutators.update,
       db,

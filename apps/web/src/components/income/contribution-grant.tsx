@@ -36,23 +36,34 @@ function useGrants() {
 
 function LinkForm({
   contribution,
-  grant,
+  grants,
   onOpenChange,
 }: {
   contribution: ContributionRow;
-  grant: Grant;
+  /** The grants it can count towards; the linked one first, if any. */
+  grants: readonly Grant[];
   onOpenChange: (open: boolean) => void;
 }) {
   const zero = useZero();
-  const linked = contribution.grantId === grant.id;
-  const tranches = [...grant.tranches].sort(
-    (a, b) => a.expectedOn - b.expectedOn
-  );
+  const linked = grants.some((g) => g.id === contribution.grantId);
   const form = useForm({
     defaultValues: {
+      grantId: grants[0]?.id ?? "",
       trancheId: (linked && contribution.grantTrancheId) || NO_TRANCHE,
     },
+    listeners: {
+      onChange: ({ fieldApi, formApi }) => {
+        // Tranches belong to one grant.
+        if (fieldApi.name === "grantId") {
+          formApi.setFieldValue("trancheId", NO_TRANCHE);
+        }
+      },
+    },
     onSubmit: async ({ value }) => {
+      const grant = grants.find((g) => g.id === value.grantId);
+      if (!grant) {
+        return;
+      }
       const res = await zero.mutate(
         mutators.grant.linkContribution({
           contributionId: contribution.id,
@@ -93,17 +104,36 @@ function LinkForm({
 
   return (
     <FormLayout form={form}>
-      <SelectField
-        label="Tranche"
-        name="trancheId"
-        options={[
-          { label: "No tranche", value: NO_TRANCHE },
-          ...tranches.map((t, i) => ({
-            label: `Tranche ${i + 1} · ${formatReceivedOn(t.expectedOn)} · ${formatPaise(t.amountPaise)}`,
-            value: t.id,
-          })),
-        ]}
-      />
+      {grants.length > 1 ? (
+        <SelectField
+          label="Grant"
+          name="grantId"
+          options={grants.map((g) => ({
+            label: `${g.title} · ${formatReceivedOn(g.startsOn)} – ${formatReceivedOn(g.endsOn)}`,
+            value: g.id,
+          }))}
+        />
+      ) : null}
+      <form.Subscribe selector={(state) => state.values.grantId}>
+        {(grantId) => {
+          const tranches = [
+            ...(grants.find((g) => g.id === grantId)?.tranches ?? []),
+          ].sort((a, b) => a.expectedOn - b.expectedOn);
+          return (
+            <SelectField
+              label="Tranche"
+              name="trancheId"
+              options={[
+                { label: "No tranche", value: NO_TRANCHE },
+                ...tranches.map((t, i) => ({
+                  label: `Tranche ${i + 1} · ${formatReceivedOn(t.expectedOn)} · ${formatPaise(t.amountPaise)}`,
+                  value: t.id,
+                })),
+              ]}
+            />
+          );
+        }}
+      </form.Subscribe>
       {linked ? (
         <div>
           <Button onClick={unlink} type="button" variant="outline">
@@ -114,7 +144,7 @@ function LinkForm({
       <FormActions
         disableWhenInvalid={false}
         onCancel={cancel}
-        submitLabel={linked ? "Save tranche" : "Link contribution"}
+        submitLabel={linked ? "Save link" : "Link contribution"}
         submittingLabel="Saving..."
       />
     </FormLayout>
@@ -123,9 +153,9 @@ function LinkForm({
 
 /**
  * The contribution sheet's Grant fact (finance.view): the grant it counts
- * towards, and for finance.manage a dialog to link it. A grant funds one
- * project, so the only grant it can count towards is its project's, and
- * only when the grantor gave it.
+ * towards, and for finance.manage a dialog to link it. Only grants on the
+ * contribution's project, from its giver, qualify (`grantLinkIssue`); a
+ * project's grants never overlap in time, so there is usually one.
  */
 export function ContributionGrantFact({
   contribution,
@@ -137,19 +167,22 @@ export function ContributionGrantFact({
   const grants = useGrants();
   const [open, setOpen] = useState(false);
   const linked = grants.find((g) => g.id === contribution.grantId);
-  const candidate = grants.find((g) => g.projectId === contribution.projectId);
-  const issue = candidate
-    ? grantLinkIssue(
+  const eligible = grants.filter(
+    (g) =>
+      grantLinkIssue(
         {
+          channel: contribution.channel,
           partyId: contribution.partyId,
           programmeId: contribution.programmeId ?? null,
           projectId: contribution.projectId ?? null,
           status: contribution.status,
         },
-        candidate
-      )
-    : "No grant funds this contribution's project";
-  const target = linked ?? (issue ? null : candidate);
+        g
+      ) === null
+  );
+  const choices = linked
+    ? [linked, ...eligible.filter((g) => g.id !== linked.id)]
+    : eligible;
 
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -165,37 +198,37 @@ export function ContributionGrantFact({
       ) : (
         <span className="text-muted-foreground">Not linked</span>
       )}
-      {canManage && target ? (
-        <Button
-          className="h-auto px-1.5 py-0.5 text-xs"
-          onClick={() => setOpen(true)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {linked ? "Change" : "Link to grant"}
-        </Button>
-      ) : null}
-      {target ? (
-        <Dialog onOpenChange={setOpen} open={open}>
-          <DialogContent className="sm:max-w-(--dialog-md)">
-            <DialogHeader>
-              <DialogTitle>
-                {linked ? "Grant link" : "Link to grant"}
-              </DialogTitle>
-              <DialogDescription>
-                {`${target.title}: this contribution counts as money received under the grant.`}
-              </DialogDescription>
-            </DialogHeader>
-            {open ? (
-              <LinkForm
-                contribution={contribution}
-                grant={target}
-                onOpenChange={setOpen}
-              />
-            ) : null}
-          </DialogContent>
-        </Dialog>
+      {canManage && choices.length > 0 ? (
+        <>
+          <Button
+            className="h-auto px-1.5 py-0.5 text-xs"
+            onClick={() => setOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {linked ? "Change" : "Link to grant"}
+          </Button>
+          <Dialog onOpenChange={setOpen} open={open}>
+            <DialogContent className="sm:max-w-(--dialog-md)">
+              <DialogHeader>
+                <DialogTitle>
+                  {linked ? "Grant link" : "Link to grant"}
+                </DialogTitle>
+                <DialogDescription>
+                  The contribution counts as money received under the grant.
+                </DialogDescription>
+              </DialogHeader>
+              {open ? (
+                <LinkForm
+                  contribution={contribution}
+                  grants={choices}
+                  onOpenChange={setOpen}
+                />
+              ) : null}
+            </DialogContent>
+          </Dialog>
+        </>
       ) : null}
     </span>
   );

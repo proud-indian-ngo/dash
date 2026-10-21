@@ -205,6 +205,13 @@ it.skipIf(!localDatabase)(
         receivedOn: "2026-10-12",
         status: "pending",
       });
+      // Refunded in full: received gross, then the refund on its own date.
+      const refunded = gift(ids, {
+        amountPaise: 40_000,
+        grantId: ids.grant,
+        receivedOn: "2026-10-20",
+        status: "refunded",
+      });
       // Received after the range ends.
       const later = gift(ids, {
         amountPaise: 90_000,
@@ -213,16 +220,24 @@ it.skipIf(!localDatabase)(
       });
       await tx
         .insert(contribution)
-        .values([first, second, reversed, pending, later]);
-      // A partial refund comes off its gift.
-      await tx.insert(contributionRefund).values({
-        amountPaise: 20_000,
-        contributionId: second.id,
-        createdAt: NOW,
-        id: uuidv7(),
-        refundedOn: "2026-10-15",
-        source: "manual",
-      });
+        .values([first, second, reversed, pending, refunded, later]);
+      // Refunds are their own rows, by refund date; one after the range.
+      await tx.insert(contributionRefund).values(
+        (
+          [
+            [second.id, 20_000, "2026-10-15"],
+            [refunded.id, 40_000, "2026-11-02"],
+            [second.id, 5000, "2026-12-20"],
+          ] as const
+        ).map(([contributionId, amountPaise, refundedOn]) => ({
+          amountPaise,
+          contributionId,
+          createdAt: NOW,
+          id: uuidv7(),
+          refundedOn,
+          source: "manual" as const,
+        }))
+      );
 
       const spend = async (
         economicOn: string,
@@ -281,9 +296,14 @@ it.skipIf(!localDatabase)(
         rows.receipts.map((r) => [r.contributionId, r.paise, r.trancheId])
       ).toEqual([
         [first.id, 500_000, ids.tranche],
-        [second.id, 280_000, null],
+        [second.id, 300_000, null],
+        [refunded.id, 40_000, null],
       ]);
       expect(rows.receipts[0]?.reference).toBe("UTR-1");
+      expect(rows.refunds.map((r) => [r.contributionId, r.paise])).toEqual([
+        [second.id, 20_000],
+        [refunded.id, 40_000],
+      ]);
       expect(
         rows.spend
           .map((s) => [s.accountHeadId, s.period, s.paise])
@@ -303,7 +323,8 @@ it.skipIf(!localDatabase)(
         grantIds: [ids.grant],
         to: "2027-03-31",
       });
-      expect(toDate.receipts).toHaveLength(3);
+      expect(toDate.receipts).toHaveLength(4);
+      expect(toDate.refunds).toHaveLength(3);
       expect(toDate.spend.every((s) => s.period === "within")).toBe(true);
       expect(toDate.spend.reduce((total, s) => total + s.paise, 0)).toBe(
         177_000
@@ -313,7 +334,7 @@ it.skipIf(!localDatabase)(
 );
 
 it.skipIf(!localDatabase)(
-  "refuses a second grant on a project and links that don't match the grant",
+  "refuses an overlapping grant on a project and links that don't match the grant",
   async () => {
     await inRolledBackTransaction(async (tx) => {
       const ids = await fixture(tx);
@@ -334,9 +355,34 @@ it.skipIf(!localDatabase)(
           })
         )
       ).toBe(true);
+      // The next period on the same project is fine.
+      expect(
+        await refused(tx, () =>
+          tx.insert(grantAgreement).values({
+            createdAt: NOW,
+            donationType: "specific_grant",
+            endsOn: "2028-03-31",
+            id: uuidv7(),
+            partyId: ids.otherGiver,
+            programmeId: ids.programme,
+            projectId: ids.project,
+            sanctionedPaise: 100,
+            startsOn: "2027-04-01",
+            title: "Next grant",
+            updatedAt: NOW,
+          })
+        )
+      ).toBe(false);
       // Another giver, another project, or no project at all.
       for (const values of [
         { partyId: ids.otherGiver },
+        {
+          channel: "in_kind" as const,
+          inKindDescription: "Books",
+          inKindValuationBasis: "Invoice",
+          orgAccountId: null,
+          reportingMode: "in_kind" as const,
+        },
         { projectId: ids.otherProject },
         { projectId: null },
       ]) {
@@ -377,6 +423,94 @@ it.skipIf(!localDatabase)(
           )
         )
       ).toBe(false);
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "nets voids by the reversed entry's date and counts cash only",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await fixture(tx);
+      const spend = async (
+        economicOn: string,
+        amountPaise: number,
+        medium: "in_kind" | "monetary" = "monetary"
+      ) =>
+        (
+          await post(
+            tx,
+            {
+              action: "recognise",
+              economicOn,
+              entries: [
+                {
+                  accountHeadId: ids.travel,
+                  amountPaise,
+                  effect: "increase",
+                  fundId: GENERAL_FUND_ID,
+                  medium,
+                  programmeId: ids.programme,
+                  projectId: ids.project,
+                },
+              ],
+              movements: [],
+              sourceId: uuidv7(),
+              sourceType: "test_source",
+            },
+            { actorId: null, now: NOW }
+          )
+        ).posting;
+      const voidOn = async (postingId: string, on: string) =>
+        await reverse(tx, postingId, {
+          actorId: null,
+          now: NOW,
+          on,
+          reason: "Grant test void",
+        });
+      const total = async (from: string | null, to: string) => {
+        const rows = await loadGrantUtilisation(tx, {
+          from,
+          grantIds: [ids.grant],
+          to,
+        });
+        return {
+          before: rows.spend
+            .filter((s) => s.period === "before")
+            .reduce((sum, s) => sum + s.paise, 0),
+          within: rows.spend
+            .filter((s) => s.period === "within")
+            .reduce((sum, s) => sum + s.paise, 0),
+        };
+      };
+
+      // Spent in the period, voided after the grant ended: the void still
+      // takes it off, on the void's own date.
+      await voidOn((await spend("2026-07-01", 50_000)).id, "2027-04-10");
+      // Spent before the grant started, voided inside its period: neither
+      // counts, so nothing goes negative.
+      await voidOn((await spend("2026-05-01", 30_000)).id, "2026-08-01");
+      // Spent in the period and voided after the range: still spent then.
+      await voidOn((await spend("2026-09-01", 20_000)).id, "2027-04-20");
+      // In-kind consumption is not cash.
+      await spend("2026-09-15", 9000, "in_kind");
+
+      // Up to the end of the grant, before any void after it.
+      expect(await total(null, "2027-03-31")).toEqual({
+        before: 0,
+        within: 70_000,
+      });
+      // After both voids: everything nets to nothing.
+      expect(await total(null, "2027-04-30")).toEqual({
+        before: 0,
+        within: 0,
+      });
+      // A range starting after the spend: it is brought forward, and the
+      // voids land within the range.
+      expect(await total("2027-01-01", "2027-04-30")).toEqual({
+        before: 70_000,
+        within: -70_000,
+      });
     });
   }
 );

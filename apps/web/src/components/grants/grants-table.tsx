@@ -24,8 +24,9 @@ export interface GrantRow {
   programmeId: string;
   programmeName: string;
   projectName: string;
-  /** Null while the figures load. */
+  /** Null while the figures load. Gross; refunds are separate. */
   receivedPaise: number | null;
+  refundedPaise: number | null;
   sanctionedPaise: number;
   spentPaise: number | null;
   startsOn: number;
@@ -62,6 +63,7 @@ function amountColumn(
   id: string,
   title: string,
   get: (row: GrantRow) => number | null,
+  failed: boolean,
   danger?: (row: GrantRow) => boolean
 ): DataGridColumnDef<GrantRow> {
   return {
@@ -69,7 +71,7 @@ function amountColumn(
     cell: ({ row }) => {
       const value = get(row.original);
       if (value === null) {
-        return SKELETON_AMOUNT;
+        return failed ? "—" : SKELETON_AMOUNT;
       }
       return (
         <span className={danger?.(row.original) ? "text-destructive" : ""}>
@@ -92,15 +94,20 @@ function amountColumn(
 }
 
 const unspentOf = (row: GrantRow) =>
-  row.receivedPaise === null || row.spentPaise === null
+  row.receivedPaise === null ||
+  row.refundedPaise === null ||
+  row.spentPaise === null
     ? null
-    : row.receivedPaise - row.spentPaise;
+    : row.receivedPaise - row.refundedPaise - row.spentPaise;
 
 /** Finance → Grants: one row per agreement, money to date from the books. */
 export function GrantsTable({
   data,
+  figuresFailed,
   isLoading,
 }: {
+  /** The money figures couldn't load; the page shows the error. */
+  figuresFailed: boolean;
   data: GrantRow[];
   isLoading: boolean;
 }) {
@@ -206,10 +213,24 @@ export function GrantsTable({
       meta: { headerTitle: "Period", kind: "date", skeleton: SKELETON_TEXT },
       size: 210,
     },
-    amountColumn("sanctioned", "Sanctioned", (row) => row.sanctionedPaise),
-    amountColumn("received", "Received", (row) => row.receivedPaise),
-    amountColumn("spent", "Spent", (row) => row.spentPaise),
-    amountColumn("unspent", "Unspent", unspentOf, (row) => {
+    amountColumn(
+      "sanctioned",
+      "Sanctioned",
+      (row) => row.sanctionedPaise,
+      false
+    ),
+    // Net of refunds, so received less spent is unspent.
+    amountColumn(
+      "received",
+      "Received",
+      (row) =>
+        row.receivedPaise === null || row.refundedPaise === null
+          ? null
+          : row.receivedPaise - row.refundedPaise,
+      figuresFailed
+    ),
+    amountColumn("spent", "Spent", (row) => row.spentPaise, figuresFailed),
+    amountColumn("unspent", "Unspent", unspentOf, figuresFailed, (row) => {
       const unspent = unspentOf(row);
       return unspent !== null && unspent < 0;
     }),

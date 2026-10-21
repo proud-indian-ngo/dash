@@ -161,6 +161,33 @@ test.describe("Grants", () => {
     );
     await expect(utilisation).toContainText("Received0 contributions₹0.00");
     await expect(utilisation).toContainText("Closing unspent₹1,400.00");
+
+    // Unlinking takes the money off the grant.
+    await page
+      .getByTestId("grant-contributions")
+      .getByRole("button", { name: "Row actions" })
+      .click();
+    await page.getByRole("menuitem", { name: "Unlink from grant" }).click();
+    await expect(
+      page.getByText("No contributions are linked yet", { exact: false })
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(utilisation).toContainText("Unspent brought forward-₹600.00", {
+      timeout: 15_000,
+    });
+  });
+
+  test("finance.view reads grants but can't add or change them", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    await page.goto("/finance/grants");
+    await waitForZeroReady(page);
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Grants" })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "New grant" })).toHaveCount(
+      0
+    );
   });
 
   test("a volunteer can't open grants", async ({ page }, testInfo) => {

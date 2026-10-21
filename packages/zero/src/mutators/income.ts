@@ -657,7 +657,7 @@ export const contributionMutators = {
         values.projectId !== (existing.projectId ?? null))
     ) {
       throw new Error(
-        "This contribution counts towards a grant, so its donor and project can't change. Unlink it from the grant first."
+        "This contribution counts towards a grant, so its donor and project can't change. Ask finance to unlink it from the grant first."
       );
     }
     if (
