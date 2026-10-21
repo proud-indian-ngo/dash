@@ -7,18 +7,17 @@ import {
   Line,
   Page,
   Path,
-  Rect,
   Svg,
   Text,
   View,
 } from "@react-pdf/renderer";
-import QRCode from "qrcode";
 
 import { kalakritiIdCardAssets } from "./kalakriti-id-card-assets";
 import {
   fitIdCardText,
   kalakritiIdCardSheet,
 } from "./kalakriti-id-card-layout";
+import { QrCode } from "./qr-code";
 
 interface Person {
   id: string;
@@ -196,25 +195,7 @@ function FestivalArtwork({ color }: { color: string }) {
 
 function PersonQr({ id, type }: Pick<KalakritiIdCardData, "id" | "type">) {
   const payload = parseKalakritiPersonQr(JSON.stringify({ id, type }));
-  const { modules } = QRCode.create(JSON.stringify(payload), {
-    errorCorrectionLevel: "M",
-  });
-  const quiet = 4;
-  const size = modules.size + quiet * 2;
-  let modulesPath = "";
-  for (let row = 0; row < modules.size; row++) {
-    for (let column = 0; column < modules.size; column++) {
-      if (modules.get(row, column)) {
-        modulesPath += `M${column + quiet} ${row + quiet}h1v1h-1z`;
-      }
-    }
-  }
-  return (
-    <Svg width={mm(QR_MM)} height={mm(QR_MM)} viewBox={`0 0 ${size} ${size}`}>
-      <Rect x={0} y={0} width={size} height={size} fill="#ffffff" />
-      <Path d={modulesPath} fill="#000000" />
-    </Svg>
-  );
+  return <QrCode size={mm(QR_MM)} value={JSON.stringify(payload)} />;
 }
 
 export function KalakritiIdCard({

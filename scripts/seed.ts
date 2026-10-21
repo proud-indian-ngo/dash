@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import path from "node:path";
 /**
  * Comprehensive dev seed — covers all data models with realistic data.
  * Fully idempotent: safe to run multiple times without creating duplicates.
@@ -189,6 +190,7 @@ import {
 } from "@pi-dash/shared/constants";
 import { normaliseExpenseCharge } from "@pi-dash/shared/expense-charge";
 import { getKalakritiCenterTransportStatus } from "@pi-dash/zero/kalakriti-center-scan-rules";
+import { S3Client } from "bun";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -3718,8 +3720,46 @@ async function seedSocial(): Promise<void> {
   log("social API data ready");
 }
 
+/**
+ * Uploads the E2E fixture signature for development receipts. Without R2
+ * credentials the receipt details stay incomplete; add a signature in
+ * Settings to issue receipts.
+ */
+async function seedReceiptSignature(): Promise<string | null> {
+  const prefix = process.env.R2_KEY_PREFIX;
+  if (!prefix) {
+    log("No R2_KEY_PREFIX: upload the signatory's signature in Settings");
+    return null;
+  }
+  const key = `${prefix}/attachments/receipt-signatures/dev-receipt-signature.png`;
+  try {
+    await new S3Client({
+      accessKeyId: process.env.R2_ACCESS_KEY,
+      bucket: process.env.R2_BUCKET_NAME,
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    }).write(
+      key,
+      Bun.file(
+        path.resolve(
+          import.meta.dirname,
+          "../packages/e2e/fixtures/images/receipt-signature.png"
+        )
+      ),
+      { type: "image/png" }
+    );
+    return key;
+  } catch (error) {
+    log(
+      `Signature upload failed (${error instanceof Error ? error.name : typeof error}): upload the signatory's signature in Settings to issue receipts`
+    );
+    return null;
+  }
+}
+
 async function seedAppConfig(): Promise<void> {
   log("Seeding app config...");
+  const signatureKey = await seedReceiptSignature();
   const configs = [
     { key: "org_name", value: "Proud Indian NGO" },
     { key: "org_city", value: "Bangalore" },
@@ -3738,6 +3778,7 @@ async function seedAppConfig(): Promise<void> {
         orgPan: "AAATE0000E",
         signatoryDesignation: "Treasurer",
         signatoryName: "Dev Signatory",
+        signatureKey,
       }),
     },
     {

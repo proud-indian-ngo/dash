@@ -6,7 +6,7 @@ import { SQL, type TransactionSQL } from "bun";
 import { expect, it } from "vitest";
 
 /**
- * The lead approval rollout in migration 0178: requests pending at
+ * The lead approval rollout: requests pending at
  * migration time that the lead step would now hold get the system skip
  * reason, so they keep going straight to finance. Opt in with
  * LEAD_APPROVAL_TEST_DATABASE_URL pointing at a local database (a
@@ -24,7 +24,7 @@ const localDatabase =
 class Rollback extends Error {}
 
 const rolloutStatements = readFileSync(
-  join(import.meta.dirname, "migrations/0178_lead_approval.sql"),
+  join(import.meta.dirname, "migrations/0179_lead_approval.sql"),
   "utf8"
 )
   .split("--> statement-breakpoint")
@@ -92,7 +92,7 @@ it.skipIf(!localDatabase)(
 const purposeStatements = readFileSync(
   join(
     import.meta.dirname,
-    "migrations/0179_reimbursement_attachment_purpose.sql"
+    "migrations/0180_reimbursement_attachment_purpose.sql"
   ),
   "utf8"
 )

@@ -1,6 +1,6 @@
 {
-  "id": "8d0ef12b-3a06-4303-8f87-a3273e759d19",
-  "prevId": "16bc4495-863c-4b65-b858-6df40027fd4a",
+  "id": "002d5f5d-3df1-49d6-b39c-7c86d38d2bb4",
+  "prevId": "f4edbb4e-18fe-4257-8534-8bf25e8c960f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7409,21 +7409,6 @@
         }
       },
       "indexes": {
-        "grant_agreement_projectId_idx": {
-          "name": "grant_agreement_projectId_idx",
-          "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "grant_agreement_partyId_idx": {
           "name": "grant_agreement_partyId_idx",
           "columns": [
@@ -7485,6 +7470,13 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "grant_agreement_project_unique": {
+          "name": "grant_agreement_project_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_id"
+          ]
+        },
         "grant_agreement_link_unique": {
           "name": "grant_agreement_link_unique",
           "nullsNotDistinct": false,
@@ -8416,10 +8408,6 @@
         "contribution_grant_project_check": {
           "name": "contribution_grant_project_check",
           "value": "\"contribution\".\"grant_id\" IS NULL OR (\"contribution\".\"programme_id\" IS NOT NULL AND \"contribution\".\"project_id\" IS NOT NULL)"
-        },
-        "contribution_grant_not_in_kind_check": {
-          "name": "contribution_grant_not_in_kind_check",
-          "value": "\"contribution\".\"grant_id\" IS NULL OR \"contribution\".\"channel\" <> 'in_kind'"
         },
         "contribution_grant_tranche_check": {
           "name": "contribution_grant_tranche_check",
@@ -24152,14 +24140,63 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pdf_key": {
+          "name": "pdf_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_sha256": {
+          "name": "pdf_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "receipt_id": {
           "name": "receipt_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "signature_key": {
+          "name": "signature_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contribution_receipt_snapshot_pdf_key_idx": {
+          "name": "contribution_receipt_snapshot_pdf_key_idx",
+          "columns": [
+            {
+              "expression": "pdf_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_receipt_snapshot_signature_key_idx": {
+          "name": "contribution_receipt_snapshot_signature_key_idx",
+          "columns": [
+            {
+              "expression": "signature_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",

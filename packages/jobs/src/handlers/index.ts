@@ -135,6 +135,7 @@ import {
 import { handleSendSingleRsvpPoll } from "./send-single-rsvp-poll";
 import { handleSendWeeklyEventsDigest } from "./send-weekly-events-digest";
 import { handleSendWhatsApp } from "./send-whatsapp";
+import { handleStoreContributionReceiptPdf } from "./store-contribution-receipt-pdf";
 import { handleSyncPublicEventsDeploy } from "./sync-public-events-deploy";
 import { handleSyncWhatsAppStatus } from "./sync-user";
 import {
@@ -718,6 +719,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "generate-cash-voucher",
     NOTIFY_POLL,
     handleGenerateCashVoucher
+  );
+  await boss.work(
+    "store-contribution-receipt-pdf",
+    NOTIFY_POLL,
+    handleStoreContributionReceiptPdf
   );
 
   // User sync handlers (5s polling — external API)

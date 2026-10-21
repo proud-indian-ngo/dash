@@ -22,6 +22,7 @@ import {
   DIRECT_RECEIPT_CHANNELS,
   formatReceiptNumber,
   parseReceiptSettings,
+  parseReceiptSettingsParts,
   RECEIPT_SETTINGS_CONFIG_KEY,
   RECEIPTING_START_DAY,
   receiptCarries80G,
@@ -106,6 +107,10 @@ export interface ReceiptDocument extends ReceiptDocumentSnapshot {
   donorIdNumber: string | null;
   issuedOn: string;
   number: string;
+  /** R2 key of the signature frozen at issue; null before signatures. */
+  signatureKey: string | null;
+  /** The PDF as issued, once stored. */
+  stored: StoredReceiptPdf | null;
   voidedAt: Date | null;
   voidReason: string | null;
 }
@@ -117,6 +122,8 @@ const blank = (value: string | null | undefined) => !value?.trim();
 export interface ReceiptConfig {
   registration: ReturnRegistration | null;
   settings: ReceiptSettings | null;
+  /** The details are complete but no signature was uploaded yet. */
+  signatureMissing: boolean;
 }
 
 export async function loadReceiptConfig(
@@ -132,20 +139,26 @@ export async function loadReceiptConfig(
       ])
     );
   const value = (key: string) => rows.find((row) => row.key === key)?.value;
+  const parts = parseReceiptSettingsParts(value(RECEIPT_SETTINGS_CONFIG_KEY));
   return {
     registration: parseReturnRegistration(
       value(RETURN_REGISTRATION_CONFIG_KEY)
     ),
     settings: parseReceiptSettings(value(RECEIPT_SETTINGS_CONFIG_KEY)),
+    signatureMissing: Boolean(parts.details && !parts.signatureKey),
   };
 }
 
 /** What is missing before any receipt can be issued; empty when ready. */
 export function receiptConfigGaps(config: ReceiptConfig): string[] {
   const gaps: string[] = [];
-  if (!config.settings) {
+  if (config.signatureMissing) {
     gaps.push(
-      "Fill in the receipt details (trust name, address, PAN and signatory) in Settings → Organisation accounts."
+      "Upload the signatory's signature in Settings → Organisation accounts."
+    );
+  } else if (!config.settings) {
+    gaps.push(
+      "Fill in the receipt details (trust name, address, PAN, signatory and signature) in Settings → Organisation accounts."
     );
   }
   if (!config.registration) {
@@ -784,6 +797,7 @@ export async function issueReceiptsIn(
           ? encryptSecret(donor.idNumber, snapshotIdContext(receiptId))
           : null,
       receiptId,
+      signatureKey: settings.signatureKey,
     });
     await tx
       .update(contribution)
@@ -854,16 +868,17 @@ export async function voidReceiptIn(
 
 // ── Reading a receipt ───────────────────────────────────────────────────────
 
-/** The full document for the PDF, with the decrypted ID number. Server only. */
-export async function loadReceiptDocument(
-  receiptId: string
-): Promise<ReceiptDocument | null> {
+/** A receipt with its frozen snapshot, or undefined when it doesn't exist. */
+async function selectReceiptWithSnapshot(receiptId: string) {
   const [row] = await db
     .select({
       document: contributionReceiptSnapshot.document,
       idNumberEncrypted: contributionReceiptSnapshot.idNumberEncrypted,
       issuedOn: contributionReceipt.issuedOn,
       number: contributionReceipt.number,
+      pdfKey: contributionReceiptSnapshot.pdfKey,
+      pdfSha256: contributionReceiptSnapshot.pdfSha256,
+      signatureKey: contributionReceiptSnapshot.signatureKey,
       voidedAt: contributionReceipt.voidedAt,
       voidReason: contributionReceipt.voidReason,
     })
@@ -875,18 +890,111 @@ export async function loadReceiptDocument(
     .where(eq(contributionReceipt.id, receiptId))
     .limit(1);
   if (!row) {
+    return undefined;
+  }
+  return {
+    ...row,
+    snapshot: row.document as unknown as ReceiptDocumentSnapshot,
+  };
+}
+
+/** The full document for the PDF, with the decrypted ID number. Server only. */
+export async function loadReceiptDocument(
+  receiptId: string
+): Promise<ReceiptDocument | null> {
+  const row = await selectReceiptWithSnapshot(receiptId);
+  if (!row) {
     return null;
   }
-  const snapshot = row.document as unknown as ReceiptDocumentSnapshot;
   return {
-    ...snapshot,
+    ...row.snapshot,
     donorIdNumber: row.idNumberEncrypted
       ? decryptSecret(row.idNumberEncrypted, snapshotIdContext(receiptId))
       : null,
     issuedOn: row.issuedOn,
     number: row.number,
+    signatureKey: row.signatureKey,
+    stored:
+      row.pdfKey && row.pdfSha256
+        ? { key: row.pdfKey, sha256: row.pdfSha256 }
+        : null,
     voidedAt: row.voidedAt,
     voidReason: row.voidReason,
+  };
+}
+
+export interface StoredReceiptPdf {
+  key: string;
+  sha256: string;
+}
+
+/**
+ * Records the PDF stored for a receipt unless one already was, and returns
+ * the one on record: the first store wins, so racing stores (a download and
+ * the issue job, perhaps on different builds) all serve the same file.
+ */
+export async function recordStoredReceiptPdf(
+  receiptId: string,
+  stored: StoredReceiptPdf,
+  executor: ReceiptTx | typeof db = db
+): Promise<StoredReceiptPdf> {
+  await executor
+    .update(contributionReceiptSnapshot)
+    .set({ pdfKey: stored.key, pdfSha256: stored.sha256 })
+    .where(
+      and(
+        eq(contributionReceiptSnapshot.receiptId, receiptId),
+        isNull(contributionReceiptSnapshot.pdfKey)
+      )
+    );
+  const [row] = await executor
+    .select({
+      key: contributionReceiptSnapshot.pdfKey,
+      sha256: contributionReceiptSnapshot.pdfSha256,
+    })
+    .from(contributionReceiptSnapshot)
+    .where(eq(contributionReceiptSnapshot.receiptId, receiptId))
+    .limit(1);
+  if (!(row?.key && row.sha256)) {
+    throw new Error("Receipt PDF wasn't recorded");
+  }
+  return { key: row.key, sha256: row.sha256 };
+}
+
+/** What the public verification page may show; never the donor's ID or address. */
+export interface ReceiptVerificationFacts {
+  amountPaise: number;
+  channel: ContributionChannel;
+  donorName: string;
+  issuedOn: string;
+  number: string;
+  orgPan: string;
+  /** SHA-256 of the PDF as issued; null until it is stored. */
+  pdfSha256: string | null;
+  urn: string;
+  voidedAt: Date | null;
+  with80G: boolean;
+}
+
+/** A receipt's facts from its frozen snapshot, so they match the PDF; null when it doesn't exist. */
+export async function loadReceiptVerificationFacts(
+  receiptId: string
+): Promise<ReceiptVerificationFacts | null> {
+  const row = await selectReceiptWithSnapshot(receiptId);
+  if (!row) {
+    return null;
+  }
+  return {
+    amountPaise: row.snapshot.gift.amountPaise,
+    channel: row.snapshot.gift.channel,
+    donorName: row.snapshot.donor.name,
+    issuedOn: row.issuedOn,
+    number: row.number,
+    orgPan: row.snapshot.org.pan,
+    pdfSha256: row.pdfSha256,
+    urn: row.snapshot.registration.urn,
+    voidedAt: row.voidedAt,
+    with80G: row.snapshot.with80G,
   };
 }
 
