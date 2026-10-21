@@ -35,6 +35,7 @@ type Style = Styles[string];
 
 const RULE = `0.5pt solid ${INK}`;
 const CELL_PADDING = 5;
+const CELL_PADDING_Y = 4;
 /** Least room, in ems, a list item's text keeps beside a hanging marker. */
 const MIN_TEXT_EMS = 4;
 /** Points per level of a paragraph's or heading's indent. */
@@ -58,8 +59,8 @@ const styles = StyleSheet.create({
   cell: {
     borderBottom: RULE,
     borderRight: RULE,
+    paddingBottom: CELL_PADDING_Y,
     paddingHorizontal: CELL_PADDING,
-    paddingVertical: 4,
   },
   header: { backgroundColor: FIELD, fontWeight: 600 },
   item: { flexDirection: "row" },
@@ -67,6 +68,7 @@ const styles = StyleSheet.create({
   quote: { borderLeft: `1.5pt solid ${MUTED}` },
   row: { flexDirection: "row" },
   table: { borderLeft: RULE, borderTop: RULE },
+  tableEdge: { left: 0, position: "absolute", right: 0 },
 });
 
 /** Narrowest and widest a column's weight goes, in characters. */
@@ -501,6 +503,8 @@ function Table({
                     { width: `${String(share)}%` },
                   ]}
                 >
+                  {/* The top padding, repeated above a split cell's continuation. */}
+                  <View fixed style={{ height: CELL_PADDING_Y }} />
                   <Blocks
                     blocks={cell.children}
                     first
@@ -513,6 +517,13 @@ function Table({
           </View>
         );
       })}
+      {/* A row split across pages is left open where it breaks; these rules,
+          repeated on every page the table spans, close each part of it. */}
+      <View fixed style={[styles.tableEdge, { borderTop: RULE, top: 0 }]} />
+      <View
+        fixed
+        style={[styles.tableEdge, { borderBottom: RULE, bottom: 0 }]}
+      />
     </View>
   );
 }
