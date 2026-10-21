@@ -60,7 +60,7 @@ function document(overrides: Partial<ReceiptDocument> = {}): ReceiptDocument {
     signatory: { designation: "Treasurer", name: "Test Signatory" },
     signatureKey: SIGNATURE_KEY,
     stored: null,
-    version: 2,
+    version: 1,
     voidedAt: null,
     voidReason: null,
     with80G: false,
@@ -68,7 +68,15 @@ function document(overrides: Partial<ReceiptDocument> = {}): ReceiptDocument {
   };
 }
 
-function harness(doc: ReceiptDocument | null, files: Record<string, Buffer>) {
+const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+const SIGNED_KEY = `app/receipts/${RECEIPT_ID}/stored.pdf`;
+const NEW_KEY = new RegExp(`^app/receipts/${RECEIPT_ID}/[0-9a-f-]{36}\\.pdf$`);
+
+function harness(
+  doc: ReceiptDocument | null,
+  files: Record<string, Buffer>,
+  winner?: { key: string; sha256: string }
+) {
   const writes: { data: Buffer; key: string }[] = [];
   const deps = {
     file: (key: string) => ({
@@ -86,12 +94,16 @@ function harness(doc: ReceiptDocument | null, files: Record<string, Buffer>) {
       stat: async () => ({ size: files[key]?.byteLength ?? 0 }),
       write: async (data: Buffer) => {
         writes.push({ data, key });
+        files[key] = data;
         return data.byteLength;
       },
     }),
     keyPrefix: "app",
     loadDocument: mock(async () => doc),
-    recordStored: mock(async () => undefined),
+    recordStored: mock(
+      async (_id: string, stored: { key: string; sha256: string }) =>
+        winner ?? stored
+    ),
     render: mock(async (props: { signatureImage: Buffer | null }) =>
       Buffer.from(`pdf:${props.signatureImage ? "signed" : "unsigned"}`)
     ),
@@ -99,28 +111,40 @@ function harness(doc: ReceiptDocument | null, files: Record<string, Buffer>) {
   return { deps, writes };
 }
 
+const signature = () => ({ [SIGNATURE_KEY]: pngHeader() });
+
 describe("receiptPdf", () => {
-  it("renders an unstored receipt with its signature, then stores it", async () => {
-    const { deps, writes } = harness(document(), {
-      [SIGNATURE_KEY]: pngHeader(),
-    });
+  it("renders an unstored receipt with its signature and stores it under a random key", async () => {
+    const { deps, writes } = harness(document(), signature());
     const result = await receiptPdf(RECEIPT_ID, deps as never);
     expect(result?.pdf.toString()).toBe("pdf:signed");
     expect(result?.filename).toBe("PI-2026-27-0001.pdf");
-    expect(writes.map((w) => w.key)).toEqual([
-      `app/receipts/${RECEIPT_ID}.pdf`,
-    ]);
+    expect(writes).toHaveLength(1);
+    const key = writes[0]?.key ?? "";
+    // Random, never the hash the verify page shows.
+    expect(key).toMatch(NEW_KEY);
+    expect(key).not.toContain(sha("pdf:signed"));
     expect(deps.recordStored).toHaveBeenCalledWith(RECEIPT_ID, {
-      key: `app/receipts/${RECEIPT_ID}.pdf`,
-      sha256: createHash("sha256").update("pdf:signed").digest("hex"),
+      key,
+      sha256: sha("pdf:signed"),
     });
   });
 
+  it("serves the winner's file when another store recorded first", async () => {
+    const winnerKey = `app/receipts/${RECEIPT_ID}/${sha("other build")}.pdf`;
+    const { deps } = harness(
+      document(),
+      { ...signature(), [winnerKey]: Buffer.from("other build") },
+      { key: winnerKey, sha256: sha("other build") }
+    );
+    const result = await receiptPdf(RECEIPT_ID, deps as never);
+    expect(result?.pdf.toString()).toBe("other build");
+  });
+
   it("serves a stored receipt as stored, without rendering", async () => {
-    const key = `app/receipts/${RECEIPT_ID}.pdf`;
     const { deps, writes } = harness(
-      document({ stored: { key, sha256: "x" } }),
-      { [key]: Buffer.from("stored bytes") }
+      document({ stored: { key: SIGNED_KEY, sha256: sha("stored bytes") } }),
+      { [SIGNED_KEY]: Buffer.from("stored bytes") }
     );
     const result = await receiptPdf(RECEIPT_ID, deps as never);
     expect(result?.pdf.toString()).toBe("stored bytes");
@@ -128,18 +152,45 @@ describe("receiptPdf", () => {
     expect(writes).toEqual([]);
   });
 
+  it("refuses a stored file that no longer matches its hash", async () => {
+    const { deps } = harness(
+      document({ stored: { key: SIGNED_KEY, sha256: sha("issued") } }),
+      { [SIGNED_KEY]: Buffer.from("overwritten") }
+    );
+    await expect(receiptPdf(RECEIPT_ID, deps as never)).rejects.toThrow(
+      "doesn't match its hash"
+    );
+  });
+
+  it("puts back a missing stored file only when a fresh render matches", async () => {
+    const repaired = harness(
+      document({ stored: { key: SIGNED_KEY, sha256: sha("pdf:signed") } }),
+      signature()
+    );
+    const result = await receiptPdf(RECEIPT_ID, repaired.deps as never);
+    expect(result?.pdf.toString()).toBe("pdf:signed");
+    expect(repaired.writes.map((w) => w.key)).toEqual([SIGNED_KEY]);
+
+    const changed = harness(
+      document({ stored: { key: SIGNED_KEY, sha256: sha("older template") } }),
+      signature()
+    );
+    await expect(receiptPdf(RECEIPT_ID, changed.deps as never)).rejects.toThrow(
+      "can't be re-created"
+    );
+    expect(changed.writes).toEqual([]);
+  });
+
   it("renders a voided receipt afresh and never stores it", async () => {
-    const key = `app/receipts/${RECEIPT_ID}.pdf`;
     const { deps, writes } = harness(
       document({
-        stored: { key, sha256: "x" },
+        stored: { key: SIGNED_KEY, sha256: "x" },
         voidReason: "Wrong donor",
         voidedAt: new Date("2026-05-05T00:00:00Z"),
       }),
-      { [SIGNATURE_KEY]: pngHeader() }
+      signature()
     );
     await receiptPdf(RECEIPT_ID, deps as never);
-    expect(deps.render).toHaveBeenCalledTimes(1);
     expect(deps.render.mock.calls[0]?.[0]).toMatchObject({
       voided: { reason: "Wrong donor" },
     });
@@ -156,7 +207,7 @@ describe("receiptPdf", () => {
   });
 
   it("prints a receipt issued before signatures without one", async () => {
-    const { deps } = harness(document({ signatureKey: null, version: 1 }), {});
+    const { deps } = harness(document({ signatureKey: null }), {});
     const result = await receiptPdf(RECEIPT_ID, deps as never);
     expect(result?.pdf.toString()).toBe("pdf:unsigned");
   });

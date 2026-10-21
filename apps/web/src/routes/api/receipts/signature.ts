@@ -1,8 +1,27 @@
 import { loadReceiptConfig } from "@pi-dash/db/queries/contribution-receipts";
 import { createFileRoute } from "@tanstack/react-router";
+import { createRequestLogger } from "evlog";
 
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 import { getS3 } from "@/lib/s3";
+import { safeErrorName } from "@/lib/safe-errors";
+
+export interface ReceiptSignatureDependencies {
+  assertPermission: typeof assertServerPermission;
+  getSession: typeof requireSession;
+  loadConfig: typeof loadReceiptConfig;
+  read: (key: string) => Promise<ArrayBuffer | null>;
+}
+
+const defaults: ReceiptSignatureDependencies = {
+  assertPermission: assertServerPermission,
+  getSession: requireSession,
+  loadConfig: loadReceiptConfig,
+  read: async (key) => {
+    const file = getS3().file(key);
+    return (await file.exists()) ? await file.arrayBuffer() : null;
+  },
+};
 
 /**
  * The signatory's signature receipts print, for the Settings preview.
@@ -10,29 +29,48 @@ import { getS3 } from "@/lib/s3";
  * is what a forger would want. Never cached.
  */
 export async function handleReceiptSignature(
-  request: Request
+  request: Request,
+  deps: ReceiptSignatureDependencies = defaults
 ): Promise<Response> {
-  const result = await requireSession(request);
+  const result = await deps.getSession(request);
   if (result.error) {
     return result.error;
   }
   try {
-    await assertServerPermission(result.session, "finance.manage");
+    await deps.assertPermission(result.session, "finance.manage");
   } catch {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { settings } = await loadReceiptConfig();
-  const file = settings ? getS3().file(settings.signatureKey) : null;
-  if (!(file && (await file.exists()))) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+  try {
+    const { settings } = await deps.loadConfig();
+    const image = settings ? await deps.read(settings.signatureKey) : null;
+    if (!image) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    return new Response(image, {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0",
+        "Content-Type": "image/png",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    const log = createRequestLogger({
+      method: "GET",
+      path: "/api/receipts/signature",
+    });
+    log.set({
+      errorName: safeErrorName(error),
+      event: "receipt_signature_read_failed",
+      userId: result.session.user.id,
+    });
+    log.error(new Error("Receipt signature read failed"));
+    log.emit();
+    return Response.json(
+      { error: "The signature couldn't be loaded." },
+      { status: 500 }
+    );
   }
-  return new Response(await file.arrayBuffer(), {
-    headers: {
-      "Cache-Control": "private, no-store, max-age=0",
-      "Content-Type": "image/png",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
 
 export const Route = createFileRoute("/api/receipts/signature")({

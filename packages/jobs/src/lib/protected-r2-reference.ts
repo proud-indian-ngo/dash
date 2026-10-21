@@ -64,11 +64,12 @@ export async function isProtectedR2ObjectReferenced(
       SELECT 1 FROM conflict_declaration WHERE object_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM app_config
-      WHERE key = ${RECEIPT_SETTINGS_CONFIG_KEY}
-        AND value::jsonb ->> 'signatureKey' = ${r2Key}
+      WHERE CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}
+        THEN value::jsonb ->> 'signatureKey' END = ${r2Key}
       UNION ALL
-      SELECT 1 FROM private.contribution_receipt_snapshot
-      WHERE pdf_key = ${r2Key} OR document ->> 'signatureKey' = ${r2Key}
+      SELECT 1 FROM private.contribution_receipt_snapshot WHERE pdf_key = ${r2Key}
+      UNION ALL
+      SELECT 1 FROM private.contribution_receipt_snapshot WHERE signature_key = ${r2Key}
     ) AS referenced
   `);
 

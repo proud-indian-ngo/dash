@@ -142,7 +142,7 @@ describe("handleCleanupR2Orphans", () => {
         "SELECT pdf_key FROM private.contribution_receipt_snapshot"
       );
       expect(statement).toContain(
-        "SELECT document ->> 'signatureKey' FROM private.contribution_receipt_snapshot"
+        "SELECT signature_key FROM private.contribution_receipt_snapshot"
       );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();

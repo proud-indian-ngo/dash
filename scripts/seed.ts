@@ -3704,7 +3704,12 @@ async function seedSocial(): Promise<void> {
  * Settings to issue receipts.
  */
 async function seedReceiptSignature(): Promise<string | null> {
-  const key = `${process.env.R2_KEY_PREFIX}/attachments/receipt-signatures/dev-receipt-signature.png`;
+  const prefix = process.env.R2_KEY_PREFIX;
+  if (!prefix) {
+    log("No R2_KEY_PREFIX: upload the signatory's signature in Settings");
+    return null;
+  }
+  const key = `${prefix}/attachments/receipt-signatures/dev-receipt-signature.png`;
   try {
     await new S3Client({
       accessKeyId: process.env.R2_ACCESS_KEY,
@@ -3722,9 +3727,9 @@ async function seedReceiptSignature(): Promise<string | null> {
       { type: "image/png" }
     );
     return key;
-  } catch {
+  } catch (error) {
     log(
-      "No R2: upload the signatory's signature in Settings to issue receipts"
+      `Signature upload failed (${error instanceof Error ? error.name : typeof error}): upload the signatory's signature in Settings to issue receipts`
     );
     return null;
   }

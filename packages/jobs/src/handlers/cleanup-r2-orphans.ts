@@ -107,13 +107,12 @@ async function collectAllDbKeys(): Promise<{
       UNION ALL
       SELECT object_key FROM conflict_declaration WHERE object_key LIKE ${keyPrefix}
       UNION ALL
-      SELECT value::jsonb ->> 'signatureKey' FROM app_config
-      WHERE key = ${RECEIPT_SETTINGS_CONFIG_KEY}
+      SELECT CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}
+        THEN value::jsonb ->> 'signatureKey' END FROM app_config
       UNION ALL
       SELECT pdf_key FROM private.contribution_receipt_snapshot WHERE pdf_key LIKE ${keyPrefix}
       UNION ALL
-      SELECT document ->> 'signatureKey' FROM private.contribution_receipt_snapshot
-      WHERE document ->> 'signatureKey' IS NOT NULL
+      SELECT signature_key FROM private.contribution_receipt_snapshot WHERE signature_key LIKE ${keyPrefix}
     ) AS all_keys
   `);
 

@@ -9,7 +9,7 @@ import {
   RECEIPT_SETTINGS_CONFIG_KEY,
   RECEIPT_SETTINGS_TEXT_MAX,
   RECEIPTING_START_LABEL,
-  type ReceiptSettings,
+  type ReceiptDetails,
 } from "@pi-dash/shared/receipts";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
@@ -17,11 +17,16 @@ import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
 
+import { CustomField } from "@/components/form/custom-field";
 import { FormActions } from "@/components/form/form-actions";
+import {
+  type FormFieldApi,
+  fieldErrorProps,
+} from "@/components/form/form-context";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { TextareaField } from "@/components/form/textarea-field";
@@ -49,8 +54,6 @@ const detailsSchema = z.object({
   signatoryName: text("Signatory", RECEIPT_SETTINGS_TEXT_MAX),
 });
 
-type ReceiptDetails = Omit<ReceiptSettings, "signatureKey">;
-
 /** Uploads the prepared PNG to a temporary key for the mutator to claim. */
 async function uploadSignature(
   png: Blob,
@@ -77,25 +80,48 @@ async function uploadSignature(
 }
 
 const SIGNATURE_PREVIEW_URL = "/api/receipts/signature";
+const SIGNATURE_REQUIRED = "Upload the signatory's signature";
+
+/** The signature receipts print, on white as on the receipt. */
+function SignaturePreview({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <p className="text-destructive text-sm">
+        The stored signature couldn't be loaded. Upload it again.
+      </p>
+    );
+  }
+  return (
+    <img
+      alt="Signatory's signature"
+      className="h-20 w-60 rounded-md border bg-white object-contain p-2"
+      height={80}
+      onError={() => setFailed(true)}
+      src={src}
+      width={240}
+    />
+  );
+}
 
 /**
- * The signatory's signature: the stored one, or a newly chosen image already
- * turned into the PNG receipts print, shown on white as on the receipt.
+ * Picks the signature: any photo or scan, turned into the PNG receipts
+ * print before it is shown, so the preview is what will print.
  */
-function SignatureInput({
-  error,
+function SignaturePicker({
+  field,
   hasStored,
-  onChange,
-  value,
+  onPreparing,
+  submitted,
 }: {
-  error: string | null;
+  field: FormFieldApi<Blob | null>;
   hasStored: boolean;
-  onChange: (png: Blob) => void;
-  value: Blob | null;
+  onPreparing: (preparing: boolean) => void;
+  submitted: boolean;
 }) {
-  const id = useId();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const value = field.state.value;
   useEffect(() => {
     if (!value) {
       setPreviewUrl(null);
@@ -113,44 +139,34 @@ function SignatureInput({
       return;
     }
     setPreparing(true);
+    onPreparing(true);
     try {
-      onChange(await receiptSignaturePng(file));
+      field.handleChange(await receiptSignaturePng(file));
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Couldn't read that image"
       );
     }
     setPreparing(false);
+    onPreparing(false);
   };
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium" htmlFor={id}>
-        Signatory's signature
-      </label>
-      <p className="text-muted-foreground text-sm" id={`${id}-description`}>
-        A photo or scan of the signature in dark ink on white paper. The paper
-        is removed; receipts print the ink above the signatory's name.
-      </p>
-      {shown ? (
-        <img
-          alt="Signatory's signature"
-          className="h-20 w-60 rounded-md border bg-white object-contain p-2"
-          height={80}
-          src={shown}
-          width={240}
-        />
-      ) : null}
+    <div className="flex flex-col gap-2">
+      {shown ? <SignaturePreview key={shown} src={shown} /> : null}
       <input
-        accept="image/png,image/jpeg"
-        aria-describedby={`${id}-description`}
-        aria-invalid={error ? true : undefined}
+        {...fieldErrorProps(field, submitted)}
+        accept="image/png,image/jpeg,image/webp"
         className="file:bg-muted w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
         disabled={preparing}
-        id={id}
+        id={field.name}
         onChange={choose}
         type="file"
       />
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
+      {preparing ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          Preparing the signature...
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -166,18 +182,20 @@ function DetailsForm({
   onCancel: () => void;
   onSubmit: (values: ReceiptDetails, signature: Blob | null) => Promise<void>;
 }) {
-  const [signature, setSignature] = useState<Blob | null>(null);
-  const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const schema = detailsSchema
+    .extend({ signature: z.instanceof(Blob).nullable() })
+    .refine((values) => values.signature || hasStoredSignature, {
+      message: SIGNATURE_REQUIRED,
+      path: ["signature"],
+    });
   const form = useForm({
-    defaultValues: initialValues,
+    defaultValues: { ...initialValues, signature: null as Blob | null },
     onSubmit: async ({ value }) => {
-      if (!(signature || hasStoredSignature)) {
-        setSignatureError("Upload the signatory's signature");
-        return;
-      }
-      await onSubmit(value, signature);
+      const { signature, ...details } = value;
+      await onSubmit(details, signature);
     },
-    validators: { onChange: detailsSchema, onSubmit: detailsSchema },
+    validators: { onChange: schema, onSubmit: schema },
   });
   return (
     <FormLayout form={form}>
@@ -205,16 +223,23 @@ function DetailsForm({
           label="Signatory designation"
           name="signatoryDesignation"
         />
-        <SignatureInput
-          error={signatureError}
-          hasStored={hasStoredSignature}
-          onChange={(png) => {
-            setSignature(png);
-            setSignatureError(null);
-          }}
-          value={signature}
-        />
+        <CustomField<Blob | null>
+          description="A photo or scan of the signature in dark ink on white paper. The paper is removed; receipts print the ink above the signatory's name."
+          isRequired
+          label="Signatory's signature"
+          name="signature"
+        >
+          {(field, submitted) => (
+            <SignaturePicker
+              field={field}
+              hasStored={hasStoredSignature}
+              onPreparing={setPreparing}
+              submitted={submitted}
+            />
+          )}
+        </CustomField>
         <FormActions
+          disabled={preparing}
           onCancel={onCancel}
           submitLabel="Save receipt details"
           submittingLabel="Saving..."
@@ -338,6 +363,16 @@ export function DonationReceiptsSection() {
           }
           title={stored ? stored.orgName : "Receipt details"}
         >
+          {canManage && stored ? (
+            // Shown here too, so a replaced signature is seen without Edit.
+            <img
+              alt="Current signature"
+              className="h-10 w-28 rounded border bg-white object-contain p-1"
+              height={40}
+              src={SIGNATURE_PREVIEW_URL}
+              width={112}
+            />
+          ) : null}
           {canManage ? (
             <Button
               aria-label="Edit receipt details"

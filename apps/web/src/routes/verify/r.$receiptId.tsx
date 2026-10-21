@@ -61,6 +61,19 @@ async function sha256Hex(file: File): Promise<string> {
   ).join("");
 }
 
+/** Larger than any receipt; a bigger file isn't one. */
+const MAX_CHECK_BYTES = 10 * 1024 * 1024;
+
+type CheckOutcome = "checking" | "differs" | "failed" | "match" | "too_large";
+
+const OUTCOME_TEXT: Record<Exclude<CheckOutcome, "checking">, string> = {
+  differs:
+    "This isn't the exact file Proud Indian issued. It may have been edited, or saved again by another app. Compare its details with the ones above.",
+  failed: "That file couldn't be read. Try choosing it again.",
+  match: "This is the exact file Proud Indian issued.",
+  too_large: "That file is too large to be one of our receipts.",
+};
+
 /**
  * Checks a PDF copy against the file as issued, by hash, in the browser:
  * the file never leaves the device. Any re-save changes the bytes, so a
@@ -68,14 +81,27 @@ async function sha256Hex(file: File): Promise<string> {
  */
 function PdfCopyCheck({ sha256 }: { sha256: string }) {
   const id = useId();
-  const [outcome, setOutcome] = useState<"match" | "differs" | null>(null);
+  const [outcome, setOutcome] = useState<CheckOutcome | null>(null);
   const check = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    setOutcome(null);
-    if (file) {
-      setOutcome((await sha256Hex(file)) === sha256 ? "match" : "differs");
+    // Cleared so choosing the same file again checks it again.
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    if (file.size > MAX_CHECK_BYTES) {
+      setOutcome("too_large");
+      return;
+    }
+    setOutcome("checking");
+    const hash = await sha256Hex(file).catch(() => null);
+    if (hash === null) {
+      setOutcome("failed");
+    } else {
+      setOutcome(hash === sha256 ? "match" : "differs");
     }
   };
+  const settled = outcome && outcome !== "checking" ? outcome : null;
   return (
     <section
       aria-labelledby={`${id}-title`}
@@ -93,24 +119,29 @@ function PdfCopyCheck({ sha256 }: { sha256: string }) {
         aria-describedby={`${id}-hint`}
         aria-label="Receipt PDF to check"
         className="file:bg-muted mt-3 w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm file:font-medium"
+        disabled={outcome === "checking"}
         onChange={check}
         type="file"
       />
-      {outcome ? (
-        <p
-          className={`mt-3 flex items-start gap-2 text-sm ${outcome === "match" ? "text-success-foreground" : "text-destructive"}`}
-          role="status"
-        >
-          <HugeiconsIcon
-            className="mt-0.5 size-4 shrink-0"
-            icon={outcome === "match" ? CheckmarkBadge01Icon : CancelCircleIcon}
-            strokeWidth={2}
-          />
-          {outcome === "match"
-            ? "This is the exact file Proud Indian issued."
-            : "This isn't the exact file Proud Indian issued. It may have been edited, or saved again by another app. Compare its details with the ones above."}
-        </p>
-      ) : null}
+      {/* Mounted before any result, so screen readers announce it. */}
+      <p
+        className={`mt-3 flex items-start gap-2 text-sm empty:hidden ${settled === "match" ? "text-success-foreground" : settled ? "text-destructive" : "text-muted-foreground"}`}
+        role="status"
+      >
+        {outcome === "checking" ? "Checking..." : null}
+        {settled ? (
+          <>
+            <HugeiconsIcon
+              className="mt-0.5 size-4 shrink-0"
+              icon={
+                settled === "match" ? CheckmarkBadge01Icon : CancelCircleIcon
+              }
+              strokeWidth={2}
+            />
+            {OUTCOME_TEXT[settled]}
+          </>
+        ) : null}
+      </p>
     </section>
   );
 }
@@ -186,7 +217,10 @@ function ReceiptVerificationPage() {
             <span className="font-mono">{result.urn}</span>
           </DetailsRow>
         </DetailsCard>
-        {result.pdfSha256 ? <PdfCopyCheck sha256={result.pdfSha256} /> : null}
+        {/* A cancelled receipt isn't valid whatever file you hold. */}
+        {valid && result.pdfSha256 ? (
+          <PdfCopyCheck sha256={result.pdfSha256} />
+        ) : null}
       </div>
     </Frame>
   );

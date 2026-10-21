@@ -1,4 +1,4 @@
-import { integer, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 import { contributionReceipt } from "../contribution-receipt";
 import { jsonb } from "../jsonb";
@@ -36,8 +36,8 @@ export const contributionReceiptSnapshot = privateSchema.table(
     /** Encrypted; null when the receipt carries no 80G line. */
     idNumberEncrypted: text("id_number_encrypted"),
     /**
-     * R2 key of the PDF as issued, rendered once and served from then on, so
-     * an issued receipt never changes. Null until it is first stored.
+     * R2 key of the PDF as issued (`receipts/<id>/<random>.pdf`), rendered
+     * once and served from then on. Null until it is first stored.
      */
     pdfKey: text("pdf_key"),
     /** SHA-256 of that PDF, hex; the verification page checks a copy against it. */
@@ -45,5 +45,15 @@ export const contributionReceiptSnapshot = privateSchema.table(
     receiptId: uuid("receipt_id")
       .primaryKey()
       .references(() => contributionReceipt.id, { onDelete: "restrict" }),
-  }
+    /**
+     * R2 key of the signatory's signature at issue. Null for receipts issued
+     * before signatures, which print the name alone.
+     */
+    signatureKey: text("signature_key"),
+  },
+  // Every R2 delete checks whether a key is still referenced here.
+  (t) => [
+    index("contribution_receipt_snapshot_pdf_key_idx").on(t.pdfKey),
+    index("contribution_receipt_snapshot_signature_key_idx").on(t.signatureKey),
+  ]
 );

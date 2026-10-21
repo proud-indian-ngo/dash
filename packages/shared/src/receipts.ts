@@ -212,53 +212,65 @@ export const RECEIPT_SETTINGS_ADDRESS_MAX = 300;
 
 const ORG_PAN_PATTERN = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
-/** Reads stored settings; null when missing or malformed. */
+export type ReceiptDetails = Omit<ReceiptSettings, "signatureKey">;
+
+/**
+ * Reads stored settings, split so a caller can tell details that are only
+ * missing a signature (saved before signatures were required) from details
+ * that are incomplete. Either part is null when missing or malformed.
+ */
+export function parseReceiptSettingsParts(value: string | null | undefined): {
+  details: ReceiptDetails | null;
+  signatureKey: string | null;
+} {
+  const none = { details: null, signatureKey: null };
+  if (!value) {
+    return none;
+  }
+  let parsed: Partial<Record<string, unknown>>;
+  try {
+    parsed = JSON.parse(value) as Partial<Record<string, unknown>>;
+  } catch {
+    return none;
+  }
+  const text = (key: keyof ReceiptSettings, max: number) => {
+    const raw = parsed[key];
+    const trimmed = typeof raw === "string" ? raw.trim() : "";
+    return trimmed && trimmed.length <= max ? trimmed : null;
+  };
+  const orgName = text("orgName", RECEIPT_SETTINGS_TEXT_MAX);
+  const orgAddress = text("orgAddress", RECEIPT_SETTINGS_ADDRESS_MAX);
+  const orgPan = text("orgPan", 10)?.toUpperCase() ?? null;
+  const signatoryName = text("signatoryName", RECEIPT_SETTINGS_TEXT_MAX);
+  const signatoryDesignation = text(
+    "signatoryDesignation",
+    RECEIPT_SETTINGS_TEXT_MAX
+  );
+  const signatureKey = text("signatureKey", SIGNATURE_KEY_MAX);
+  return {
+    details:
+      orgName &&
+      orgAddress &&
+      orgPan &&
+      ORG_PAN_PATTERN.test(orgPan) &&
+      signatoryName &&
+      signatoryDesignation
+        ? { orgAddress, orgName, orgPan, signatoryDesignation, signatoryName }
+        : null,
+    signatureKey: signatureKey?.includes(
+      `/${RECEIPT_SIGNATURE_DURABLE_PREFIX}/`
+    )
+      ? signatureKey
+      : null,
+  };
+}
+
+/** Reads stored settings; null unless the details and signature are complete. */
 export function parseReceiptSettings(
   value: string | null | undefined
 ): ReceiptSettings | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(value) as Partial<Record<string, unknown>>;
-    const text = (key: keyof ReceiptSettings, max: number) => {
-      const raw = parsed[key];
-      const trimmed = typeof raw === "string" ? raw.trim() : "";
-      return trimmed && trimmed.length <= max ? trimmed : null;
-    };
-    const orgName = text("orgName", RECEIPT_SETTINGS_TEXT_MAX);
-    const orgAddress = text("orgAddress", RECEIPT_SETTINGS_ADDRESS_MAX);
-    const orgPan = text("orgPan", 10)?.toUpperCase() ?? null;
-    const signatoryName = text("signatoryName", RECEIPT_SETTINGS_TEXT_MAX);
-    const signatoryDesignation = text(
-      "signatoryDesignation",
-      RECEIPT_SETTINGS_TEXT_MAX
-    );
-    const signatureKey = text("signatureKey", SIGNATURE_KEY_MAX);
-    if (
-      !(
-        orgName &&
-        orgAddress &&
-        orgPan &&
-        ORG_PAN_PATTERN.test(orgPan) &&
-        signatoryName &&
-        signatoryDesignation &&
-        signatureKey?.includes(`/${RECEIPT_SIGNATURE_DURABLE_PREFIX}/`)
-      )
-    ) {
-      return null;
-    }
-    return {
-      orgAddress,
-      orgName,
-      orgPan,
-      signatoryDesignation,
-      signatoryName,
-      signatureKey,
-    };
-  } catch {
-    return null;
-  }
+  const { details, signatureKey } = parseReceiptSettingsParts(value);
+  return details && signatureKey ? { ...details, signatureKey } : null;
 }
 
 export function serializeReceiptSettings(value: ReceiptSettings): string {

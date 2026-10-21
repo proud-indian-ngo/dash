@@ -13,6 +13,7 @@ import {
   issueReceiptsIn,
   loadReceiptReadiness,
   ReceiptError,
+  recordStoredReceiptPdf,
   type ReceiptTx,
   voidReceiptIn,
 } from "./queries/contribution-receipts";
@@ -417,6 +418,7 @@ it.skipIf(!localDatabase)(
           contributionId: contributionReceipt.contributionId,
           document: contributionReceiptSnapshot.document,
           idNumberEncrypted: contributionReceiptSnapshot.idNumberEncrypted,
+          signatureKey: contributionReceiptSnapshot.signatureKey,
         })
         .from(contributionReceiptSnapshot)
         .innerJoin(
@@ -432,6 +434,11 @@ it.skipIf(!localDatabase)(
         with80G: true,
       });
       expect(byGift.get(ok)?.idNumberEncrypted).toBeTruthy();
+      // The signature is frozen at issue, so a later replacement can't
+      // change this receipt.
+      expect(byGift.get(ok)?.signatureKey).toBe(
+        "test/attachments/receipt-signatures/signature.png"
+      );
       expect(byGift.get(withoutLine)?.document).toMatchObject({
         donor: { idType: null },
         with80G: false,
@@ -633,5 +640,27 @@ it.skipIf(!localDatabase)(
       await removeCommitted(database, fixture, gifts);
       await client.close();
     }
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "keeps the first stored PDF on record when stores race",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const fixture = await foundation(tx);
+      const giftId = await gift(tx, fixture, await donor(tx, fixture));
+      const result = await issueReceiptsIn(
+        tx,
+        { actorId: fixture.actorId, contributionIds: [giftId] },
+        { now: NOW }
+      );
+      const receiptId = result.issued[0]?.id ?? "";
+      const first = { key: `test/receipts/${receiptId}/a.pdf`, sha256: "a" };
+      const second = { key: `test/receipts/${receiptId}/b.pdf`, sha256: "b" };
+      expect(await recordStoredReceiptPdf(receiptId, first, tx)).toEqual(first);
+      expect(await recordStoredReceiptPdf(receiptId, second, tx)).toEqual(
+        first
+      );
+    });
   }
 );

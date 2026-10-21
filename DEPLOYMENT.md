@@ -25,7 +25,7 @@ Copy `.env.sample` to `.env` locally; in production `docker-compose.prod.yml` pa
 | `DATA_ENCRYPTION_KEY` | Prod | `openssl rand -base64 32`. Also keys import hashes and receipt QR links. Never change it once data exists. Scripts that write encrypted values must use the production key |
 | `COOKIE_DOMAIN` | No | Cross-subdomain cookie domain |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | No | Account for `bun run auth:seed-admin` |
-| `APP_URL` | No | App URL in notification footers. Receipt QR codes print it (else `BETTER_AUTH_URL`); keep that origin serving `/verify/r/*` |
+| `APP_URL` | No | URL in notification footers and receipt QR codes (else `BETTER_AUTH_URL`); keep it serving `/verify/r/*` |
 | `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name |
 | `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window |
 
@@ -285,7 +285,7 @@ After the books, income posting and receipts migrations, a finance admin:
 
 1. Enters opening balances at Finance → Books → Opening balances once the CA has confirmed the audited FY 2025-26 balance sheet. Never seed or script real figures.
 2. Chooses Post pending on Finance → Books once. It backfills postings from 1 April 2026 and is safe to repeat; the `ledger-post-pending` job runs daily at 03:30 IST. Then clears the "Waiting to post" list.
-3. Fills in Settings → Organisation accounts → Donation receipts (registered name, address, PAN, signatory) and checks the 80G URN and date. Never seed the real values.
+3. Fills in Settings → Organisation accounts → Donation receipts (name, address, PAN, signatory, signature; issuing needs the signature) and checks the 80G URN and date. Never seed the real values.
 
 - The server creates reference account heads on start; a code clash logs "Books reference data missing".
 - Finance admins and super admins get the book-keeping permissions and `donors.receipt` automatically.

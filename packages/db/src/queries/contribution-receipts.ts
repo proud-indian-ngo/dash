@@ -22,6 +22,7 @@ import {
   DIRECT_RECEIPT_CHANNELS,
   formatReceiptNumber,
   parseReceiptSettings,
+  parseReceiptSettingsParts,
   RECEIPT_SETTINGS_CONFIG_KEY,
   RECEIPTING_START_DAY,
   receiptCarries80G,
@@ -97,12 +98,7 @@ export interface ReceiptDocumentSnapshot {
   org: { address: string; name: string; pan: string };
   registration: ReturnRegistration;
   signatory: { designation: string; name: string };
-  /**
-   * R2 key of the signatory's signature at issue. Version 1 snapshots, from
-   * before signatures, have none and are read as null.
-   */
-  signatureKey: string | null;
-  version: 1 | 2;
+  version: 1;
   with80G: boolean;
 }
 
@@ -111,8 +107,10 @@ export interface ReceiptDocument extends ReceiptDocumentSnapshot {
   donorIdNumber: string | null;
   issuedOn: string;
   number: string;
+  /** R2 key of the signature frozen at issue; null before signatures. */
+  signatureKey: string | null;
   /** The PDF as issued, once stored. */
-  stored: { key: string; sha256: string } | null;
+  stored: StoredReceiptPdf | null;
   voidedAt: Date | null;
   voidReason: string | null;
 }
@@ -124,6 +122,8 @@ const blank = (value: string | null | undefined) => !value?.trim();
 export interface ReceiptConfig {
   registration: ReturnRegistration | null;
   settings: ReceiptSettings | null;
+  /** The details are complete but no signature was uploaded yet. */
+  signatureMissing: boolean;
 }
 
 export async function loadReceiptConfig(
@@ -139,20 +139,26 @@ export async function loadReceiptConfig(
       ])
     );
   const value = (key: string) => rows.find((row) => row.key === key)?.value;
+  const parts = parseReceiptSettingsParts(value(RECEIPT_SETTINGS_CONFIG_KEY));
   return {
     registration: parseReturnRegistration(
       value(RETURN_REGISTRATION_CONFIG_KEY)
     ),
     settings: parseReceiptSettings(value(RECEIPT_SETTINGS_CONFIG_KEY)),
+    signatureMissing: Boolean(parts.details && !parts.signatureKey),
   };
 }
 
 /** What is missing before any receipt can be issued; empty when ready. */
 export function receiptConfigGaps(config: ReceiptConfig): string[] {
   const gaps: string[] = [];
-  if (!config.settings) {
+  if (config.signatureMissing) {
     gaps.push(
-      "Fill in the receipt details (trust name, address, PAN and signatory) in Settings → Organisation accounts."
+      "Upload the signatory's signature in Settings → Organisation accounts."
+    );
+  } else if (!config.settings) {
+    gaps.push(
+      "Fill in the receipt details (trust name, address, PAN, signatory and signature) in Settings → Organisation accounts."
     );
   }
   if (!config.registration) {
@@ -780,8 +786,7 @@ export async function issueReceiptsIn(
         designation: settings.signatoryDesignation,
         name: settings.signatoryName,
       },
-      signatureKey: settings.signatureKey,
-      version: 2,
+      version: 1,
       with80G,
     };
     await tx.insert(contributionReceiptSnapshot).values({
@@ -792,6 +797,7 @@ export async function issueReceiptsIn(
           ? encryptSecret(donor.idNumber, snapshotIdContext(receiptId))
           : null,
       receiptId,
+      signatureKey: settings.signatureKey,
     });
     await tx
       .update(contribution)
@@ -872,6 +878,7 @@ async function selectReceiptWithSnapshot(receiptId: string) {
       number: contributionReceipt.number,
       pdfKey: contributionReceiptSnapshot.pdfKey,
       pdfSha256: contributionReceiptSnapshot.pdfSha256,
+      signatureKey: contributionReceiptSnapshot.signatureKey,
       voidedAt: contributionReceipt.voidedAt,
       voidReason: contributionReceipt.voidReason,
     })
@@ -885,10 +892,9 @@ async function selectReceiptWithSnapshot(receiptId: string) {
   if (!row) {
     return undefined;
   }
-  const document = row.document as unknown as ReceiptDocumentSnapshot;
   return {
     ...row,
-    snapshot: { ...document, signatureKey: document.signatureKey ?? null },
+    snapshot: row.document as unknown as ReceiptDocumentSnapshot,
   };
 }
 
@@ -907,6 +913,7 @@ export async function loadReceiptDocument(
       : null,
     issuedOn: row.issuedOn,
     number: row.number,
+    signatureKey: row.signatureKey,
     stored:
       row.pdfKey && row.pdfSha256
         ? { key: row.pdfKey, sha256: row.pdfSha256 }
@@ -916,15 +923,22 @@ export async function loadReceiptDocument(
   };
 }
 
+export interface StoredReceiptPdf {
+  key: string;
+  sha256: string;
+}
+
 /**
- * Records the PDF stored for a receipt, unless one already was: the first
- * store wins, so a download racing the issue job keeps the same file.
+ * Records the PDF stored for a receipt unless one already was, and returns
+ * the one on record: the first store wins, so racing stores (a download and
+ * the issue job, perhaps on different builds) all serve the same file.
  */
 export async function recordStoredReceiptPdf(
   receiptId: string,
-  stored: { key: string; sha256: string }
-): Promise<void> {
-  await db
+  stored: StoredReceiptPdf,
+  executor: ReceiptTx | typeof db = db
+): Promise<StoredReceiptPdf> {
+  await executor
     .update(contributionReceiptSnapshot)
     .set({ pdfKey: stored.key, pdfSha256: stored.sha256 })
     .where(
@@ -933,6 +947,18 @@ export async function recordStoredReceiptPdf(
         isNull(contributionReceiptSnapshot.pdfKey)
       )
     );
+  const [row] = await executor
+    .select({
+      key: contributionReceiptSnapshot.pdfKey,
+      sha256: contributionReceiptSnapshot.pdfSha256,
+    })
+    .from(contributionReceiptSnapshot)
+    .where(eq(contributionReceiptSnapshot.receiptId, receiptId))
+    .limit(1);
+  if (!(row?.key && row.sha256)) {
+    throw new Error("Receipt PDF wasn't recorded");
+  }
+  return { key: row.key, sha256: row.sha256 };
 }
 
 /** What the public verification page may show; never the donor's ID or address. */

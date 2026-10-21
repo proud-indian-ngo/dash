@@ -55,7 +55,7 @@ Approving a reimbursement or advance payment requires a payment screenshot, beca
 
 ### Receipt signature
 
-The signatory's signature goes through the request signer (`attachments/tmp/`) and is claimed to `attachments/receipt-signatures/` with the payee signature's content check. Settings preview it through `/api/receipts/signature`, `finance.manage` only.
+The signatory's signature goes through the request signer and is claimed with the payee signature's content check. Only `finance.manage` may see it, since it is what a forger would want.
 
 ### Vendor-payment invoices
 

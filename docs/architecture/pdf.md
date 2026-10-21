@@ -38,7 +38,7 @@ Bricolage and Paper Mono are instanced with fontTools from the variable woff2 fi
 
 ## Donation receipt
 
-Rendered once from the frozen snapshot and stored ([receipts](finance-receipts-and-returns.md#donation-receipts-and-numbering)); `packages/jobs/src/lib/receipt-pdf.ts` maps the snapshot to props and serves the stored file. Amounts in words use lakh and crore. The deterministic bytes still matter: a download racing the store job writes the same file.
+Rendered once from the frozen snapshot and stored ([receipts](finance-receipts-and-returns.md#donation-receipts-and-numbering)); `packages/jobs/src/lib/receipt-pdf.ts` maps the snapshot to props and serves the stored file. Amounts in words use lakh and crore. Deterministic bytes still matter before a receipt is stored: an email retry attaches the same file, and a store repairing a lost object must render the hash on record.
 
 - At the input maximums it spills to a second page; notes and signature move together, and a voided receipt repeats a VOID marker on every page.
 - A run over 40 characters with no spaces may break mid-word, and react-pdf draws a hyphen there.
