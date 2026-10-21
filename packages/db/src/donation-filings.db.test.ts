@@ -1,4 +1,5 @@
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
+import { assessReturn } from "@pi-dash/shared/donations-return";
 import { SQL } from "bun";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -9,6 +10,7 @@ import { revealSecret } from "./encryption";
 import { filingRowIdContext } from "./encryption-contexts";
 import {
   claimCertificateEmails,
+  loadFilingDrift,
   FilingError,
   type FilingTx,
   insertFiling,
@@ -17,11 +19,12 @@ import {
   type NewFilingRow,
   usedPreArns,
 } from "./queries/donation-filings";
+import { loadReturnFacts } from "./queries/donations-return";
 // biome-ignore lint/performance/noNamespaceImport: the test database needs the full Drizzle schema.
 import * as schema from "./schema";
 import { user } from "./schema/auth";
 import { orgAccount } from "./schema/finance-dimensions";
-import { contribution } from "./schema/income";
+import { contribution, contributionRefund } from "./schema/income";
 import { party } from "./schema/party";
 import {
   donationCertificate,
@@ -137,14 +140,19 @@ function planRow(
   };
 }
 
-async function record(tx: FilingTx, actorId: string, rows: NewFilingRow[]) {
+async function record(
+  tx: FilingTx,
+  actorId: string,
+  rows: NewFilingRow[],
+  giftNetPaise?: Map<string, number>
+) {
   const id = uuidv7();
   const sequence = await nextFilingSequence(tx, FY);
   await insertFiling(tx, {
     createdBy: actorId,
-    giftNetPaise: new Map(
-      rows.flatMap((row) => row.giftIds.map((id) => [id, 100_000]))
-    ),
+    giftNetPaise:
+      giftNetPaise ??
+      new Map(rows.flatMap((row) => row.giftIds.map((id) => [id, 100_000]))),
     file: {
       name: `filing-${sequence}.csv`,
       objectKey: `test/donation-filings/${id}/filing.csv`,
@@ -312,6 +320,53 @@ it.skipIf(!localDatabase)(
         .from(donationCertificate)
         .where(eq(donationCertificate.id, emailed));
       expect(state?.emailedAt).toBeNull();
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "reads a partial refund, so the gift is filed at its net amount and shows no drift",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { actorId, donor, gift } = await fixture(tx);
+      const donorId = await donor("donor@example.test");
+      const giftId = await gift(donorId);
+      await tx.insert(contributionRefund).values({
+        amountPaise: 30_000,
+        contributionId: giftId,
+        createdAt: NOW,
+        id: uuidv7(),
+        refundedOn: "2097-05-10",
+        source: "manual",
+      });
+      const facts = await loadReturnFacts(
+        { endsOn: "2098-03-31", startsOn: "2097-04-01" },
+        "none",
+        tx
+      );
+      const facts0 = facts.gifts.find((entry) => entry.id === giftId);
+      expect(facts0?.refundedPaise).toBe(30_000);
+      const assessed = assessReturn(facts.gifts, facts.donors).gifts.find(
+        (entry) => entry.id === giftId
+      );
+      expect(assessed?.netPaise).toBe(70_000);
+
+      const filing = await record(
+        tx,
+        actorId,
+        [{ ...planRow(donorId, [giftId], 1), amountPaise: 70_000 }],
+        new Map([[giftId, assessed?.netPaise ?? 0]])
+      );
+      const [row] = await tx
+        .select({
+          amountPaise: donationFilingRow.amountPaise,
+          id: donationFilingRow.id,
+        })
+        .from(donationFilingRow)
+        .where(eq(donationFilingRow.filingId, filing.id));
+      expect(row?.amountPaise).toBe(70_000);
+      // Filed at net, so the refund already counted is no drift.
+      expect((await loadFilingDrift([filing.id], tx)).size).toBe(0);
     });
   }
 );
