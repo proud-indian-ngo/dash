@@ -12,7 +12,7 @@ import hmac
 import io
 import logging
 from collections.abc import Collection
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -254,6 +254,16 @@ async def _signer_trusted(
         skip_diff=True,
     )
     return bool(then.trusted) and settings.is_configured_root(then.validation_path)
+
+
+async def _check_signature(
+    sig: EmbeddedPdfSignature, settings: ValidationSettings
+) -> tuple[PdfSignatureStatus, bool]:
+    context = settings.context()
+    status = await async_validate_pdf_signature(
+        sig, signer_validation_context=context, diff_policy=DIFF_POLICY
+    )
+    return status, await _signer_trusted(sig, status, settings, context)
 
 
 def _locks(sig: EmbeddedPdfSignature) -> list[dict[str, Any]]:
@@ -531,12 +541,21 @@ async def validate_pdf_async(
                 )
             continue
         try:
-            context = settings.context()
-            status = await async_validate_pdf_signature(
-                sig, signer_validation_context=context, diff_policy=DIFF_POLICY
-            )
-            trusted = await _signer_trusted(sig, status, settings, context)
+            try:
+                status, trusted = await _check_signature(sig, settings)
+            except TimeoutError:
+                # pyHanko's soft-fail covers a responder that refuses the
+                # connection but not one that never answers, as Indian CAs'
+                # OCSP servers do outside India. Either way the revocation
+                # data is unavailable, so check without fetching.
+                if not settings.allow_fetching:
+                    raise
+                log.warning("Revocation fetch timed out for %s; checking without fetching", sig.field_name)
+                status, trusted = await _check_signature(
+                    sig, replace(settings, allow_fetching=False)
+                )
         except Exception as error:  # noqa: BLE001 - report, don't crash
+            log.exception("Checking the signature in %s failed", sig.field_name)
             all_good = False
             signatures.append(
                 {

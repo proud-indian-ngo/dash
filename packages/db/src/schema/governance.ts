@@ -126,6 +126,8 @@ export interface GovernanceValidationReport {
     modificationLevel: string | null;
     /** Trustee whose name matches the certificate, when one does. */
     matchedTrusteeId: string | null;
+    /** Set when the check itself failed: the exception's class name. */
+    error?: string;
   }[];
   /** Email headers for an .eml; never the body. */
   email?: {

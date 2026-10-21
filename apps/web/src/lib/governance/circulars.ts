@@ -319,6 +319,11 @@ export function checkSignedUpload(
   if (added.fieldName !== check.fieldName) {
     throw new CircularError("Sign in the box with your own name.");
   }
+  if (added.error) {
+    throw new CircularError(
+      `Your signature couldn't be checked (${added.error}). Try again in a few minutes.`
+    );
+  }
   if (!(added.intact && added.coversWholeRevision)) {
     throw new CircularError(
       "Your signature doesn't check out: the file changed after it was signed."
