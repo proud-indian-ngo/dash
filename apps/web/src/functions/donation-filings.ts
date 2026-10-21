@@ -5,6 +5,7 @@ import {
 } from "@pi-dash/db/queries/donation-filings";
 import {
   FIRST_RETURN_DAY,
+  MAX_FILING_ROWS,
   parseReturnYear,
 } from "@pi-dash/shared/donations-return";
 import { INCOME_PERMISSIONS, todayInKolkata } from "@pi-dash/shared/income";
@@ -19,6 +20,7 @@ import { runSessionAuditedAction } from "@/lib/audit";
 import { MAX_CERTIFICATE_UPLOAD_BYTES } from "@/lib/donation-filings/certificate-terms";
 import {
   assignCertificate,
+  confirmPanMatches,
   type CertificateUploadResult,
   discard,
   loadRows,
@@ -215,6 +217,36 @@ export const reviewDonationCertificate = createServerFn({ method: "POST" })
       },
       () =>
         reviewCertificate(data.certificateId, data.decision, session.user.id)
+    );
+  });
+
+/** Bulk confirmation is limited to automatic matches with a PAN as the donor ID. */
+export const confirmDonationPanMatches = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    filingInput.extend({
+      certificateIds: z.array(z.uuid()).min(1).max(MAX_FILING_ROWS),
+    })
+  )
+  .handler(async ({ context, data }): Promise<number> => {
+    await assertServerPermission(context.session, "finance.manage");
+    await assertServerPermission(context.session, "finance.view_sensitive");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "donation_certificate.confirm_pan_matches",
+        target: { id: data.filingId, type: "donation_filing" },
+      },
+      () =>
+        confirmPanMatches(data.filingId, data.certificateIds, session.user.id),
+      undefined,
+      undefined,
+      (confirmedCount) => ({ confirmedCount })
     );
   });
 
