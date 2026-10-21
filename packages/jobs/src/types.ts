@@ -135,6 +135,11 @@ export interface SendContributionReceiptPayload {
   requestId: string;
 }
 
+// Stores an issued receipt's PDF; IDs only.
+export interface StoreContributionReceiptPdfPayload {
+  receiptId: string;
+}
+
 // Advance Payment
 export interface NotifyAdvancePaymentSubmittedPayload {
   advancePaymentId: string;
@@ -823,6 +828,7 @@ export interface JobPayloads {
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
+  "store-contribution-receipt-pdf": StoreContributionReceiptPdfPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;
   "send-notification": NotificationPayload;
   "send-scheduled-message": ScheduledMessagePayload;

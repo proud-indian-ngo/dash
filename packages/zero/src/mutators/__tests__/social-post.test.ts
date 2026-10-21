@@ -249,7 +249,7 @@ describe("appConfig key gating", () => {
     expect(db.writes).toHaveLength(1);
   });
 
-  it("lets finance.manage write complete receipt details only", async () => {
+  it("saves receipt details only through saveReceiptSettings", async () => {
     const ctx = { permissions: ["finance.manage"], userId: "u" };
     const key = "donation_receipt_settings";
     expect(() =>
@@ -259,24 +259,13 @@ describe("appConfig key gating", () => {
       )
     ).toThrow("Unauthorized");
     const db = createDb();
-    const details = {
-      orgAddress: "1 Test Road, Testville 560001",
-      orgName: "Example Trust",
-      orgPan: "AAATE0000E",
-      signatoryDesignation: "Treasurer",
-      signatoryName: "Test Signatory",
-    };
-    await run(appConfigMutators.upsert, db, ctx as never, {
-      key,
-      value: JSON.stringify(details),
-    });
     await expect(
       run(appConfigMutators.upsert, db, ctx as never, {
         key,
-        value: JSON.stringify({ ...details, orgPan: "not a pan" }),
+        value: JSON.stringify(receiptDetails),
       })
-    ).rejects.toThrow("receipt details");
-    expect(db.writes).toHaveLength(1);
+    ).rejects.toThrow("Save the receipt details from Settings");
+    expect(db.writes).toEqual([]);
   });
 
   it("lets settings.app_config write any key", () => {
@@ -293,5 +282,105 @@ describe("appConfig key gating", () => {
       value: "true",
     });
     expect(db.writes).toHaveLength(1);
+  });
+});
+
+const receiptDetails = {
+  orgAddress: "1 Test Road, Testville 560001",
+  orgName: "Example Trust",
+  orgPan: "aaate0000e",
+  signatoryDesignation: "Treasurer",
+  signatoryName: "Test Signatory",
+};
+
+function receiptCtx() {
+  return {
+    asyncTasks: [] as unknown[],
+    beforeCommitTasks: [] as unknown[],
+    copyR2Object: async () => undefined,
+    enqueue: async () => null,
+    lockR2Object: async () => undefined,
+    lockR2ObjectForClaim: async () => undefined,
+    permissions: ["finance.manage"],
+    r2KeyPrefix: "app",
+    rollbackTasks: [] as unknown[],
+    userId: "u",
+  };
+}
+
+function savedReceiptSettings(db: ReturnType<typeof createDb>): Row {
+  const write = db.writes.at(-1);
+  return JSON.parse(String(write?.row.value)) as Row;
+}
+
+describe("appConfig.saveReceiptSettings", () => {
+  it("claims a new signature upload and stores its durable key", async () => {
+    const db = createDb();
+    const ctx = receiptCtx();
+    await run(appConfigMutators.saveReceiptSettings, db, ctx, {
+      ...receiptDetails,
+      signatureUpload: "app/attachments/tmp/u/0199-signature.png",
+    });
+    expect(savedReceiptSettings(db)).toMatchObject({
+      orgPan: "AAATE0000E",
+      signatureKey: "app/attachments/receipt-signatures/0199-signature.png",
+    });
+    // The copy (with the PNG checks) runs before commit.
+    expect(ctx.beforeCommitTasks.length).toBeGreaterThan(0);
+  });
+
+  it("keeps the stored signature when no new one is uploaded", async () => {
+    const signatureKey = "app/attachments/receipt-signatures/old.png";
+    const db = createDb({
+      appConfig: [
+        {
+          key: "donation_receipt_settings",
+          value: JSON.stringify({ ...receiptDetails, signatureKey }),
+        },
+      ],
+    });
+    await run(appConfigMutators.saveReceiptSettings, db, receiptCtx(), {
+      ...receiptDetails,
+      signatoryName: "New Signatory",
+      signatureUpload: null,
+    });
+    expect(savedReceiptSettings(db)).toMatchObject({
+      signatoryName: "New Signatory",
+      signatureKey,
+    });
+  });
+
+  it("refuses details without a signature, another user's upload, or a bad PAN", async () => {
+    const db = createDb();
+    await expect(
+      run(appConfigMutators.saveReceiptSettings, db, receiptCtx(), {
+        ...receiptDetails,
+        signatureUpload: null,
+      })
+    ).rejects.toThrow("Upload the signatory's signature");
+    await expect(
+      run(appConfigMutators.saveReceiptSettings, db, receiptCtx(), {
+        ...receiptDetails,
+        signatureUpload: "app/attachments/tmp/someone-else/signature.png",
+      })
+    ).rejects.toThrow("Invalid attachment object key");
+    await expect(
+      run(appConfigMutators.saveReceiptSettings, db, receiptCtx(), {
+        ...receiptDetails,
+        orgPan: "not a pan",
+        signatureUpload: "app/attachments/tmp/u/signature.png",
+      })
+    ).rejects.toThrow("receipt details");
+    expect(db.writes).toEqual([]);
+  });
+
+  it("refuses someone without finance.manage", async () => {
+    const db = createDb();
+    await expect(
+      run(appConfigMutators.saveReceiptSettings, db, volunteerCtx, {
+        ...receiptDetails,
+        signatureUpload: "app/attachments/tmp/vol-1/signature.png",
+      })
+    ).rejects.toThrow("Unauthorized");
   });
 });

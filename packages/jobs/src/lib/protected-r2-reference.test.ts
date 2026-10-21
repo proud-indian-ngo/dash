@@ -72,6 +72,14 @@ describe("withProtectedR2ObjectReferenceLock", () => {
     expect(referenceSql).toContain("circular_signature WHERE object_key");
     expect(referenceSql).toContain("meeting WHERE minutes_object_key");
     expect(referenceSql).toContain("conflict_declaration WHERE object_key");
+    // Receipt signatures (settings and frozen snapshots) and stored PDFs.
+    expect(referenceSql).toContain("value::jsonb ->> 'signatureKey' END =");
+    expect(referenceSql).toMatch(
+      /contribution_receipt_snapshot WHERE pdf_key = \$\d+/
+    );
+    expect(referenceSql).toMatch(
+      /contribution_receipt_snapshot WHERE signature_key = \$\d+/
+    );
     expect(referenceSql).toContain(
       "kalakriti_competition_entry WHERE music_object_key"
     );

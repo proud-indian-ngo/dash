@@ -4,6 +4,7 @@ import { auditLog } from "@pi-dash/db/schema/audit-log";
 import { user } from "@pi-dash/db/schema/auth";
 import { role } from "@pi-dash/db/schema/permission";
 import { parseTraceparent } from "@pi-dash/observability/trace-context";
+import { RECEIPT_SETTINGS_CONFIG_KEY } from "@pi-dash/shared/receipts";
 import { and, eq, inArray } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import { uuidv7 } from "uuidv7";
@@ -687,6 +688,23 @@ export function summarizeZeroMutation(
         type: "kalakritiAward",
         ...(isSafeIdentifier(values.entryId) ? { id: values.entryId } : {}),
       },
+    };
+  }
+  // Receipt details: name the settings key, and whether the signature was
+  // replaced (the change most worth tracing), never the upload's key.
+  if (action === "appConfig.saveReceiptSettings") {
+    return {
+      metadata: {
+        changedFields: [
+          "orgAddress",
+          "orgName",
+          "orgPan",
+          "signatoryDesignation",
+          "signatoryName",
+          ...(values.signatureUpload ? ["signature"] : []),
+        ],
+      },
+      target: { id: RECEIPT_SETTINGS_CONFIG_KEY, type: "appConfig" },
     };
   }
   // The new signed voucher copy is nested; record its attachment ID only.
