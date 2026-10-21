@@ -189,7 +189,7 @@ test.describe("Donations return filings", () => {
       filing.id
     );
     expect(beforeReview.jobs).toBe(0);
-    // Individual PDF review remains available alongside bulk PAN confirmation.
+    // Individual PDF review remains available; bulk confirmation handles the whole batch.
     await review
       .first()
       .getByRole("button", { name: "Review certificate" })
@@ -197,10 +197,15 @@ test.describe("Donations return filings", () => {
     const panel = page.getByTestId("certificate-review");
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("ending");
-    await panel.getByRole("button", { name: "Confirm match" }).click();
-    await expect(review).toHaveCount(zip.rowCount - 1);
+    await expect(
+      panel.getByRole("button", { name: "Confirm match" })
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(panel).not.toBeVisible();
+    await expect(review).toHaveCount(zip.rowCount);
+    expect(zip.rowCount).toBeGreaterThan(1);
     const confirmPan = sheet.getByRole("button", {
-      name: `Confirm PAN matches (${zip.rowCount - 1})`,
+      name: `Confirm PAN matches (${zip.rowCount})`,
       exact: true,
     });
     await confirmPan.click();
@@ -217,7 +222,7 @@ test.describe("Donations return filings", () => {
     await bulkDialog
       .getByRole("button", { name: "Cancel", exact: true })
       .click();
-    await expect(review).toHaveCount(zip.rowCount - 1);
+    await expect(review).toHaveCount(zip.rowCount);
     await confirmPan.click();
     bulkDialog = page.getByRole("alertdialog");
     await bulkDialog
