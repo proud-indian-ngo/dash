@@ -10,7 +10,7 @@ mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
 }));
 mock.module("../lib/receipt-pdf", () => ({
-  renderReceiptPdf: async () => null,
+  receiptPdf: async () => null,
 }));
 
 const { sendContributionReceiptWhatsApp } =
@@ -70,7 +70,7 @@ describe("receipt WhatsApp delivery", () => {
     ]);
   });
 
-  it("skips WhatsApp when email exists, without rendering or sending the PDF", async () => {
+  it("skips WhatsApp when email exists, without fetching or sending the PDF", async () => {
     const renderPdf = mock(async () => null);
     expect(
       await sendContributionReceiptWhatsApp(
@@ -105,7 +105,7 @@ describe("receipt WhatsApp delivery", () => {
     expect(sent).toEqual([]);
   });
 
-  it("rechecks a void that happened before PDF rendering", async () => {
+  it("rechecks a void that happened before PDF retrieval", async () => {
     const deps = dependencies();
     const rendered = await deps.renderPdf(payload.receiptId);
     expect(
@@ -119,6 +119,16 @@ describe("receipt WhatsApp delivery", () => {
         })
       )
     ).toEqual({ outcome: "voided" });
+    expect(sent).toEqual([]);
+  });
+
+  it("skips a receipt that disappears before PDF retrieval", async () => {
+    expect(
+      await sendContributionReceiptWhatsApp(
+        payload,
+        dependencies({ renderPdf: async () => null })
+      )
+    ).toEqual({ outcome: "missing" });
     expect(sent).toEqual([]);
   });
 

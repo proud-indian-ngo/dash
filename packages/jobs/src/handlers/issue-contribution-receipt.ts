@@ -12,9 +12,12 @@ import {
   enqueue,
   inTransaction,
   type IssueContributionReceiptPayload,
-  type SendContributionReceiptPayload,
 } from "../enqueue";
 import { safeReceiptJobError } from "../lib/receipt-errors";
+import {
+  readReceiptSignature,
+  ReceiptSignatureError,
+} from "../lib/receipt-pdf";
 import { createNotifyHandler } from "./create-handler";
 
 export type AutomaticReceiptOutcome =
@@ -33,35 +36,26 @@ export type AutomaticReceiptOutcome =
         | "donor_details_unavailable";
     };
 
-type DeliveryQueue =
-  | "send-contribution-receipt"
-  | "send-contribution-receipt-whatsapp";
-
 type TransactionRunner = <T>(work: (tx: ReceiptTx) => Promise<T>) => Promise<T>;
 
 export interface IssueContributionReceiptDependencies {
   configGaps: typeof receiptConfigGaps;
-  enqueueDelivery: (
-    name: DeliveryQueue,
-    payload: SendContributionReceiptPayload,
-    options: {
-      db: ReturnType<typeof inTransaction>;
-      singletonKey: string;
-    }
-  ) => Promise<string | null>;
+  enqueueJob: typeof enqueue;
   hasHistory: typeof hasReceiptHistoryIn;
   issue: typeof issueReceiptsIn;
   loadConfig: typeof loadReceiptConfig;
+  readSignature: typeof readReceiptSignature;
   runTransaction: TransactionRunner;
   transactionDb: typeof inTransaction;
 }
 
 const defaults: IssueContributionReceiptDependencies = {
   configGaps: receiptConfigGaps,
-  enqueueDelivery: enqueue,
+  enqueueJob: enqueue,
   hasHistory: hasReceiptHistoryIn,
   issue: issueReceiptsIn,
   loadConfig: loadReceiptConfig,
+  readSignature: readReceiptSignature,
   runTransaction: (work) => db.transaction(work),
   transactionDb: inTransaction,
 };
@@ -90,7 +84,7 @@ function notReadyReason(
 }
 
 /**
- * Issues one automatic receipt and queues both delivery channels atomically.
+ * Issues one automatic receipt and queues storage and both delivery channels atomically.
  * Expected readiness failures are returned as bounded codes; unexpected
  * errors are stripped before pg-boss persists or logs them.
  */
@@ -104,12 +98,16 @@ export async function issueContributionReceipt(
         return { outcome: "existing_receipt" };
       }
       const config = await deps.loadConfig(tx);
-      if (deps.configGaps(config).length > 0) {
+      if (
+        deps.configGaps(config).length > 0 ||
+        !config.settings?.signatureKey
+      ) {
         return {
           outcome: "config_missing",
           reason: "receipt_configuration_incomplete",
         };
       }
+      await deps.readSignature(config.settings.signatureKey);
 
       const result = await deps.issue(tx, {
         actorId: data.actorId,
@@ -129,9 +127,14 @@ export async function issueContributionReceipt(
         db: deps.transactionDb(tx),
         singletonKey: `automatic:${issued.id}`,
       };
+      await deps.enqueueJob(
+        "store-contribution-receipt-pdf",
+        { receiptId: issued.id },
+        options
+      );
       const payload = { receiptId: issued.id, requestId: "automatic" };
-      await deps.enqueueDelivery("send-contribution-receipt", payload, options);
-      await deps.enqueueDelivery(
+      await deps.enqueueJob("send-contribution-receipt", payload, options);
+      await deps.enqueueJob(
         "send-contribution-receipt-whatsapp",
         payload,
         options
@@ -139,6 +142,12 @@ export async function issueContributionReceipt(
       return { outcome: "issued", receiptId: issued.id };
     });
   } catch (error) {
+    if (error instanceof ReceiptSignatureError) {
+      return {
+        outcome: "config_missing",
+        reason: "receipt_configuration_incomplete",
+      };
+    }
     if (error instanceof ReceiptError) {
       return { outcome: "not_ready", reason: "donor_details_unavailable" };
     }

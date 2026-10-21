@@ -53,6 +53,10 @@ Approving a reimbursement or advance payment requires a payment screenshot, beca
 - Reimbursements never lose a screenshot while the claim exists: a replaced or reset screenshot is kept as an attachment, and only approvers can remove it. Advance payments still delete it.
 - `reimbursement.addPaymentProof` adds proof to a request approved before the rule. See `finance-books.md`.
 
+### Receipt signature
+
+The signatory's signature goes through the request signer and is claimed with the payee signature's content check. Only `finance.manage` may see it, since it is what a forger would want.
+
 ### Vendor-payment invoices
 
 The signer takes the payment ID only to authorise the user. The key stays under the current user's `attachments/tmp/`.

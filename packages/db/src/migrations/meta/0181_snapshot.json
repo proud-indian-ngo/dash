@@ -1,6 +1,6 @@
 {
-  "id": "3cd36072-6d8d-4019-a4ba-e6d2e22f4115",
-  "prevId": "18b5890e-e358-4c69-bc2f-3b883e5dd7df",
+  "id": "88c5bab4-1f8c-4b7d-b90f-a31a1749f414",
+  "prevId": "61f14c16-1d42-496c-b5c3-f8fc6353d6d4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7286,386 +7286,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.grant_agreement": {
-      "name": "grant_agreement",
-      "schema": "",
-      "columns": {
-        "agreement_filename": {
-          "name": "agreement_filename",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "agreement_mime_type": {
-          "name": "agreement_mime_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "agreement_object_key": {
-          "name": "agreement_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "agreement_on": {
-          "name": "agreement_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "agreement_reference": {
-          "name": "agreement_reference",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "donation_type": {
-          "name": "donation_type",
-          "type": "grant_donation_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ends_on": {
-          "name": "ends_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "party_id": {
-          "name": "party_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "programme_id": {
-          "name": "programme_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sanctioned_paise": {
-          "name": "sanctioned_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "schedule_vii_item": {
-          "name": "schedule_vii_item",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "starts_on": {
-          "name": "starts_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "grant_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'active'"
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "grant_agreement_partyId_idx": {
-          "name": "grant_agreement_partyId_idx",
-          "columns": [
-            {
-              "expression": "party_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "grant_agreement_party_id_party_id_fk": {
-          "name": "grant_agreement_party_id_party_id_fk",
-          "tableFrom": "grant_agreement",
-          "tableTo": "party",
-          "columnsFrom": [
-            "party_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "grant_agreement_programme_id_programme_id_fk": {
-          "name": "grant_agreement_programme_id_programme_id_fk",
-          "tableFrom": "grant_agreement",
-          "tableTo": "programme",
-          "columnsFrom": [
-            "programme_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "grant_agreement_project_programme_fk": {
-          "name": "grant_agreement_project_programme_fk",
-          "tableFrom": "grant_agreement",
-          "tableTo": "project",
-          "columnsFrom": [
-            "project_id",
-            "programme_id"
-          ],
-          "columnsTo": [
-            "id",
-            "programme_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "grant_agreement_project_unique": {
-          "name": "grant_agreement_project_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "project_id"
-          ]
-        },
-        "grant_agreement_link_unique": {
-          "name": "grant_agreement_link_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "party_id",
-            "programme_id",
-            "project_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "grant_agreement_sanctioned_positive": {
-          "name": "grant_agreement_sanctioned_positive",
-          "value": "\"grant_agreement\".\"sanctioned_paise\" > 0"
-        },
-        "grant_agreement_period_check": {
-          "name": "grant_agreement_period_check",
-          "value": "\"grant_agreement\".\"ends_on\" >= \"grant_agreement\".\"starts_on\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.grant_budget_line": {
-      "name": "grant_budget_line",
-      "schema": "",
-      "columns": {
-        "account_head_id": {
-          "name": "account_head_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_paise": {
-          "name": "amount_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "grant_id": {
-          "name": "grant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "grant_budget_line_account_head_id_account_head_id_fk": {
-          "name": "grant_budget_line_account_head_id_account_head_id_fk",
-          "tableFrom": "grant_budget_line",
-          "tableTo": "account_head",
-          "columnsFrom": [
-            "account_head_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "grant_budget_line_grant_id_grant_agreement_id_fk": {
-          "name": "grant_budget_line_grant_id_grant_agreement_id_fk",
-          "tableFrom": "grant_budget_line",
-          "tableTo": "grant_agreement",
-          "columnsFrom": [
-            "grant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "grant_budget_line_grant_head_unique": {
-          "name": "grant_budget_line_grant_head_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "grant_id",
-            "account_head_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "grant_budget_line_amount_check": {
-          "name": "grant_budget_line_amount_check",
-          "value": "\"grant_budget_line\".\"amount_paise\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.grant_tranche": {
-      "name": "grant_tranche",
-      "schema": "",
-      "columns": {
-        "amount_paise": {
-          "name": "amount_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expected_on": {
-          "name": "expected_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "grant_id": {
-          "name": "grant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "grant_tranche_grantId_idx": {
-          "name": "grant_tranche_grantId_idx",
-          "columns": [
-            {
-              "expression": "grant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "grant_tranche_grant_id_grant_agreement_id_fk": {
-          "name": "grant_tranche_grant_id_grant_agreement_id_fk",
-          "tableFrom": "grant_tranche",
-          "tableTo": "grant_agreement",
-          "columnsFrom": [
-            "grant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "grant_tranche_id_grant_unique": {
-          "name": "grant_tranche_id_grant_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "grant_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "grant_tranche_amount_positive": {
-          "name": "grant_tranche_amount_positive",
-          "value": "\"grant_tranche\".\"amount_paise\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.import_batch": {
       "name": "import_batch",
       "schema": "",
@@ -8025,18 +7645,6 @@
           "notNull": true,
           "default": 0
         },
-        "grant_id": {
-          "name": "grant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "grant_tranche_id": {
-          "name": "grant_tranche_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "id": {
           "name": "id",
           "type": "uuid",
@@ -8232,21 +7840,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "contribution_grantId_idx": {
-          "name": "contribution_grantId_idx",
-          "columns": [
-            {
-              "expression": "grant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -8353,40 +7946,6 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
-        },
-        "contribution_grant_fk": {
-          "name": "contribution_grant_fk",
-          "tableFrom": "contribution",
-          "tableTo": "grant_agreement",
-          "columnsFrom": [
-            "grant_id",
-            "party_id",
-            "programme_id",
-            "project_id"
-          ],
-          "columnsTo": [
-            "id",
-            "party_id",
-            "programme_id",
-            "project_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "contribution_grant_tranche_fk": {
-          "name": "contribution_grant_tranche_fk",
-          "tableFrom": "contribution",
-          "tableTo": "grant_tranche",
-          "columnsFrom": [
-            "grant_tranche_id",
-            "grant_id"
-          ],
-          "columnsTo": [
-            "id",
-            "grant_id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -8404,14 +7963,6 @@
         "contribution_account_unless_in_kind": {
           "name": "contribution_account_unless_in_kind",
           "value": "\"contribution\".\"channel\" = 'in_kind' OR \"contribution\".\"org_account_id\" IS NOT NULL"
-        },
-        "contribution_grant_project_check": {
-          "name": "contribution_grant_project_check",
-          "value": "\"contribution\".\"grant_id\" IS NULL OR (\"contribution\".\"programme_id\" IS NOT NULL AND \"contribution\".\"project_id\" IS NOT NULL)"
-        },
-        "contribution_grant_tranche_check": {
-          "name": "contribution_grant_tranche_check",
-          "value": "\"contribution\".\"grant_tranche_id\" IS NULL OR \"contribution\".\"grant_id\" IS NOT NULL"
         }
       },
       "isRLSEnabled": false
@@ -24104,14 +23655,63 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pdf_key": {
+          "name": "pdf_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_sha256": {
+          "name": "pdf_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "receipt_id": {
           "name": "receipt_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "signature_key": {
+          "name": "signature_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contribution_receipt_snapshot_pdf_key_idx": {
+          "name": "contribution_receipt_snapshot_pdf_key_idx",
+          "columns": [
+            {
+              "expression": "pdf_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_receipt_snapshot_signature_key_idx": {
+          "name": "contribution_receipt_snapshot_signature_key_idx",
+          "columns": [
+            {
+              "expression": "signature_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",
@@ -24846,22 +24446,6 @@
         "co_option_4_5",
         "appointment_7_9",
         "reappointment"
-      ]
-    },
-    "public.grant_donation_type": {
-      "name": "grant_donation_type",
-      "schema": "public",
-      "values": [
-        "csr",
-        "specific_grant"
-      ]
-    },
-    "public.grant_status": {
-      "name": "grant_status",
-      "schema": "public",
-      "values": [
-        "active",
-        "closed"
       ]
     },
     "public.import_batch_source": {

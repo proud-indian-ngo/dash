@@ -32,4 +32,5 @@ Both treat empty strings as unset. Without `RESEND_API_KEY` and `EMAIL_FROM`, em
 
 - Keep real values in `.env` or the host's environment. `.env.sample` holds names and sample values only.
 - `DATA_ENCRYPTION_KEY` encrypts finance-private fields (`packages/db/src/encryption.ts`) and keys contribution-import and bank-statement hashes. Outside production the hashes fall back to a key derived from `BETTER_AUTH_SECRET`. Changing the key, or moving from the fallback to a real key, silently changes the hashes: re-uploads without an external ID column stop matching, and rows with external IDs show as changed. The `h1:` prefix names the scheme, not the key, so there is no rotation path. See "Import hashes and the key" in `finance-income.md`.
+- The key also signs receipt verification links, printed as QR codes; changing it breaks every printed receipt's link. Outside production those links sign with the `BETTER_AUTH_SECRET` fallback, so they never verify against production.
 - Scripts that write encrypted values must run with the production key.

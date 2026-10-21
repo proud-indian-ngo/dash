@@ -7,13 +7,24 @@ class ReceiptError extends Error {
   }
 }
 
+class ReceiptSignatureError extends Error {}
+
+mock.module("../lib/receipt-pdf", () => ({
+  readReceiptSignature: async () => Buffer.from("signature"),
+  ReceiptSignatureError,
+}));
+
 mock.module("@pi-dash/db", () => ({
   db: { transaction: async () => undefined },
 }));
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   hasReceiptHistoryIn: async () => false,
   issueReceiptsIn: async () => ({ issued: [], skipped: [] }),
-  loadReceiptConfig: async () => ({ registration: null, settings: null }),
+  loadReceiptConfig: async () => ({
+    registration: null,
+    settings: null,
+    signatureMissing: false,
+  }),
   receiptConfigGaps: () => [],
   ReceiptError,
 }));
@@ -34,13 +45,21 @@ const tx = { transaction: true } as never;
 const transactionAdapter = { adapter: true } as never;
 const readyConfig = {
   registration: {} as never,
-  settings: {} as never,
+  settings: {
+    orgAddress: "Test address",
+    orgName: "Test Trust",
+    orgPan: "AAATE0000E",
+    signatoryDesignation: "Trustee",
+    signatoryName: "Test Signatory",
+    signatureKey: "attachments/receipt-signatures/signature.png",
+  },
+  signatureMissing: false,
 };
 
 function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
   return {
     configGaps: () => [],
-    enqueueDelivery: async () => "job-1",
+    enqueueJob: async () => "job-1",
     hasHistory: async () => false,
     issue: async () => ({
       issued: [
@@ -53,6 +72,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
       skipped: [],
     }),
     loadConfig: async () => readyConfig,
+    readSignature: async () => Buffer.from("signature"),
     runTransaction: async (work) => work(tx),
     transactionDb: () => transactionAdapter,
     ...overrides,
@@ -60,6 +80,96 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
 }
 
 describe("issueContributionReceipt", () => {
+  it("verifies the configured signature before issuing or allocating a number", async () => {
+    const steps: string[] = [];
+    const issue = dependencies().issue;
+    await issueContributionReceipt(
+      payload,
+      dependencies({
+        readSignature: async (key) => {
+          expect(key).toBe(readyConfig.settings.signatureKey);
+          steps.push("signature");
+          return Buffer.from("signature");
+        },
+        issue: async (...args) => {
+          steps.push("issue");
+          return issue(...args);
+        },
+      })
+    );
+    expect(steps).toEqual(["signature", "issue"]);
+  });
+
+  it.each([null, { ...readyConfig.settings, signatureKey: "" }])(
+    "refuses missing settings or a missing signature key",
+    async (settings) => {
+      const issue = mock(dependencies().issue);
+      const enqueueJob = mock(dependencies().enqueueJob);
+      const readSignature = mock(dependencies().readSignature);
+      expect(
+        await issueContributionReceipt(
+          payload,
+          dependencies({
+            enqueueJob,
+            issue,
+            loadConfig: async () => ({ ...readyConfig, settings }),
+            readSignature,
+          })
+        )
+      ).toEqual({
+        outcome: "config_missing",
+        reason: "receipt_configuration_incomplete",
+      });
+      expect(readSignature).not.toHaveBeenCalled();
+      expect(issue).not.toHaveBeenCalled();
+      expect(enqueueJob).not.toHaveBeenCalled();
+    }
+  );
+
+  it("refuses an unreadable signature without issuing or queuing jobs", async () => {
+    const issue = mock(dependencies().issue);
+    const enqueueJob = mock(dependencies().enqueueJob);
+    expect(
+      await issueContributionReceipt(
+        payload,
+        dependencies({
+          enqueueJob,
+          issue,
+          readSignature: async () => {
+            throw new ReceiptSignatureError("private signature key");
+          },
+        })
+      )
+    ).toEqual({
+      outcome: "config_missing",
+      reason: "receipt_configuration_incomplete",
+    });
+    expect(issue).not.toHaveBeenCalled();
+    expect(enqueueJob).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes transient signature storage errors and lets the job retry", async () => {
+    const issue = mock(dependencies().issue);
+    const enqueueJob = mock(dependencies().enqueueJob);
+    const promise = issueContributionReceipt(
+      payload,
+      dependencies({
+        enqueueJob,
+        issue,
+        readSignature: async () => {
+          throw new Error("private signature key donor@example.com");
+        },
+      })
+    );
+    await expect(promise).rejects.toThrow(
+      "issue_contribution_receipt_failed: Error"
+    );
+    await expect(promise).rejects.not.toThrow("private signature key");
+    await expect(promise).rejects.not.toThrow("donor@example.com");
+    expect(issue).not.toHaveBeenCalled();
+    expect(enqueueJob).not.toHaveBeenCalled();
+  });
+
   it("leaves the contribution unchanged when receipt configuration is missing", async () => {
     let checkedHistory = false;
     let issued = false;
@@ -77,7 +187,11 @@ describe("issueContributionReceipt", () => {
             issued = true;
             return { issued: [], skipped: [] };
           },
-          loadConfig: async () => ({ registration: null, settings: null }),
+          loadConfig: async () => ({
+            registration: null,
+            settings: null,
+            signatureMissing: false,
+          }),
         })
       )
     ).toEqual({
@@ -95,7 +209,7 @@ describe("issueContributionReceipt", () => {
       await issueContributionReceipt(
         payload,
         dependencies({
-          enqueueDelivery: async () => {
+          enqueueJob: async () => {
             enqueued = true;
             return null;
           },
@@ -135,10 +249,10 @@ describe("issueContributionReceipt", () => {
     expect(issued).toBe(false);
   });
 
-  it("queues email and WhatsApp delivery through the issuing transaction", async () => {
+  it("queues PDF storage, email and WhatsApp through the issuing transaction", async () => {
     const deliveries: Array<{
       name: string;
-      options: { db: unknown; singletonKey: string };
+      options: unknown;
       payload: unknown;
     }> = [];
 
@@ -146,7 +260,7 @@ describe("issueContributionReceipt", () => {
       await issueContributionReceipt(
         payload,
         dependencies({
-          enqueueDelivery: async (name, deliveryPayload, options) => {
+          enqueueJob: async (name, deliveryPayload, options) => {
             deliveries.push({ name, options, payload: deliveryPayload });
             return `job-${deliveries.length}`;
           },
@@ -154,6 +268,14 @@ describe("issueContributionReceipt", () => {
       )
     ).toEqual({ outcome: "issued", receiptId: "receipt-1" });
     expect(deliveries).toEqual([
+      {
+        name: "store-contribution-receipt-pdf",
+        options: {
+          db: transactionAdapter,
+          singletonKey: "automatic:receipt-1",
+        },
+        payload: { receiptId: "receipt-1" },
+      },
       {
         name: "send-contribution-receipt",
         options: {
@@ -171,10 +293,15 @@ describe("issueContributionReceipt", () => {
         payload: { receiptId: "receipt-1", requestId: "automatic" },
       },
     ]);
+    expect(deliveries[1]?.options).toBe(deliveries[0]?.options);
+    expect(deliveries[2]?.options).toBe(deliveries[0]?.options);
   });
 
-  it("propagates a sanitized enqueue error so the issue transaction rolls back", async () => {
-    let enqueueCalls = 0;
+  it.each([
+    "store-contribution-receipt-pdf",
+    "send-contribution-receipt",
+    "send-contribution-receipt-whatsapp",
+  ])("rolls back issuance when %s enqueue fails", async (failedQueue) => {
     let rolledBack = false;
     const raw = new Error("donor@example.com enqueue failed", {
       cause: { code: "23505" },
@@ -183,9 +310,8 @@ describe("issueContributionReceipt", () => {
     const promise = issueContributionReceipt(
       payload,
       dependencies({
-        enqueueDelivery: async () => {
-          enqueueCalls += 1;
-          if (enqueueCalls === 2) {
+        enqueueJob: async (name) => {
+          if (name === failedQueue) {
             throw raw;
           }
           return "job-1";
@@ -213,7 +339,7 @@ describe("issueContributionReceipt", () => {
     let issueCount = 0;
     let deliveryCount = 0;
     const deps = dependencies({
-      enqueueDelivery: async () => {
+      enqueueJob: async () => {
         deliveryCount += 1;
         return `job-${deliveryCount}`;
       },
@@ -242,7 +368,7 @@ describe("issueContributionReceipt", () => {
       outcome: "existing_receipt",
     });
     expect(issueCount).toBe(1);
-    expect(deliveryCount).toBe(2);
+    expect(deliveryCount).toBe(3);
   });
 
   it("turns donor ID decryption failures into a non-retrying outcome", async () => {

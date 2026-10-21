@@ -141,6 +141,12 @@ describe("handleCleanupR2Orphans", () => {
       expect(statement).toContain(
         "FROM grant_agreement WHERE agreement_object_key LIKE"
       );
+      expect(statement).toContain(
+        "SELECT pdf_key FROM private.contribution_receipt_snapshot"
+      );
+      expect(statement).toContain(
+        "SELECT signature_key FROM private.contribution_receipt_snapshot"
+      );
       expect(mocks.withReferenceLock).not.toHaveBeenCalled();
       expect(mocks.deleteObject).not.toHaveBeenCalled();
     }

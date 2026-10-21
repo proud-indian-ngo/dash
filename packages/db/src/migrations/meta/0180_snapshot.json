@@ -1,6 +1,6 @@
 {
-  "id": "18b5890e-e358-4c69-bc2f-3b883e5dd7df",
-  "prevId": "09865da0-ed65-45db-9a91-c626fb4d517f",
+  "id": "61f14c16-1d42-496c-b5c3-f8fc6353d6d4",
+  "prevId": "5c93a8ce-a4f7-410d-b42f-6542677969ef",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -21080,716 +21080,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "private.donation_certificate": {
-      "name": "donation_certificate",
-      "schema": "private",
-      "columns": {
-        "acknowledgement_number": {
-          "name": "acknowledgement_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "confirmed_at": {
-          "name": "confirmed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "confirmed_by": {
-          "name": "confirmed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "emailed_at": {
-          "name": "emailed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email_failure": {
-          "name": "email_failure",
-          "type": "donation_certificate_email_failure",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email_queued_at": {
-          "name": "email_queued_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email_request_id": {
-          "name": "email_request_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_object_key": {
-          "name": "file_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_sha256": {
-          "name": "file_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filing_id": {
-          "name": "filing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "matched_by": {
-          "name": "matched_by",
-          "type": "donation_certificate_match",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "row_id": {
-          "name": "row_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "donation_certificate_row_uidx": {
-          "name": "donation_certificate_row_uidx",
-          "columns": [
-            {
-              "expression": "row_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "donation_certificate_ack_uidx": {
-          "name": "donation_certificate_ack_uidx",
-          "columns": [
-            {
-              "expression": "acknowledgement_number",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "donation_certificate_object_key_uidx": {
-          "name": "donation_certificate_object_key_uidx",
-          "columns": [
-            {
-              "expression": "file_object_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "donation_certificate_filingId_idx": {
-          "name": "donation_certificate_filingId_idx",
-          "columns": [
-            {
-              "expression": "filing_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "donation_certificate_confirmed_by_user_id_fk": {
-          "name": "donation_certificate_confirmed_by_user_id_fk",
-          "tableFrom": "donation_certificate",
-          "tableTo": "user",
-          "columnsFrom": [
-            "confirmed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "donation_certificate_created_by_user_id_fk": {
-          "name": "donation_certificate_created_by_user_id_fk",
-          "tableFrom": "donation_certificate",
-          "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "donation_certificate_filing_id_donation_filing_id_fk": {
-          "name": "donation_certificate_filing_id_donation_filing_id_fk",
-          "tableFrom": "donation_certificate",
-          "tableTo": "donation_filing",
-          "schemaTo": "private",
-          "columnsFrom": [
-            "filing_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "donation_certificate_row_id_donation_filing_row_id_fk": {
-          "name": "donation_certificate_row_id_donation_filing_row_id_fk",
-          "tableFrom": "donation_certificate",
-          "tableTo": "donation_filing_row",
-          "schemaTo": "private",
-          "columnsFrom": [
-            "row_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "private.donation_filing": {
-      "name": "donation_filing",
-      "schema": "private",
-      "columns": {
-        "acknowledgement_number": {
-          "name": "acknowledgement_number",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "discarded_at": {
-          "name": "discarded_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "discarded_by": {
-          "name": "discarded_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_object_key": {
-          "name": "file_object_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_sha256": {
-          "name": "file_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filed_on": {
-          "name": "filed_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fiscal_year": {
-          "name": "fiscal_year",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "gift_count": {
-          "name": "gift_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "row_count": {
-          "name": "row_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sequence": {
-          "name": "sequence",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "donation_filing_status",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'prepared'"
-        },
-        "submitted_at": {
-          "name": "submitted_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "submitted_by": {
-          "name": "submitted_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "total_paise": {
-          "name": "total_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "transaction_id": {
-          "name": "transaction_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "donation_filing_fy_sequence_uidx": {
-          "name": "donation_filing_fy_sequence_uidx",
-          "columns": [
-            {
-              "expression": "fiscal_year",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sequence",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "donation_filing_object_key_uidx": {
-          "name": "donation_filing_object_key_uidx",
-          "columns": [
-            {
-              "expression": "file_object_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "donation_filing_created_by_user_id_fk": {
-          "name": "donation_filing_created_by_user_id_fk",
-          "tableFrom": "donation_filing",
-          "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "donation_filing_discarded_by_user_id_fk": {
-          "name": "donation_filing_discarded_by_user_id_fk",
-          "tableFrom": "donation_filing",
-          "tableTo": "user",
-          "columnsFrom": [
-            "discarded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "donation_filing_submitted_by_user_id_fk": {
-          "name": "donation_filing_submitted_by_user_id_fk",
-          "tableFrom": "donation_filing",
-          "tableTo": "user",
-          "columnsFrom": [
-            "submitted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "donation_filing_submitted_fields": {
-          "name": "donation_filing_submitted_fields",
-          "value": "(\"private\".\"donation_filing\".\"status\" = 'submitted') = (\"private\".\"donation_filing\".\"filed_on\" IS NOT NULL AND \"private\".\"donation_filing\".\"acknowledgement_number\" IS NOT NULL AND \"private\".\"donation_filing\".\"transaction_id\" IS NOT NULL)"
-        },
-        "donation_filing_discarded_fields": {
-          "name": "donation_filing_discarded_fields",
-          "value": "(\"private\".\"donation_filing\".\"status\" = 'discarded') = (\"private\".\"donation_filing\".\"discarded_at\" IS NOT NULL)"
-        },
-        "donation_filing_sequence_positive": {
-          "name": "donation_filing_sequence_positive",
-          "value": "\"private\".\"donation_filing\".\"sequence\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "private.donation_filing_gift": {
-      "name": "donation_filing_gift",
-      "schema": "private",
-      "columns": {
-        "amount_paise": {
-          "name": "amount_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "contribution_id": {
-          "name": "contribution_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "filing_id": {
-          "name": "filing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "row_id": {
-          "name": "row_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "donation_filing_gift_rowId_idx": {
-          "name": "donation_filing_gift_rowId_idx",
-          "columns": [
-            {
-              "expression": "row_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "donation_filing_gift_contribution_id_contribution_id_fk": {
-          "name": "donation_filing_gift_contribution_id_contribution_id_fk",
-          "tableFrom": "donation_filing_gift",
-          "tableTo": "contribution",
-          "columnsFrom": [
-            "contribution_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "donation_filing_gift_filing_id_donation_filing_id_fk": {
-          "name": "donation_filing_gift_filing_id_donation_filing_id_fk",
-          "tableFrom": "donation_filing_gift",
-          "tableTo": "donation_filing",
-          "schemaTo": "private",
-          "columnsFrom": [
-            "filing_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "donation_filing_gift_row_id_donation_filing_row_id_fk": {
-          "name": "donation_filing_gift_row_id_donation_filing_row_id_fk",
-          "tableFrom": "donation_filing_gift",
-          "tableTo": "donation_filing_row",
-          "schemaTo": "private",
-          "columnsFrom": [
-            "row_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "private.donation_filing_row": {
-      "name": "donation_filing_row",
-      "schema": "private",
-      "columns": {
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_paise": {
-          "name": "amount_paise",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "donation_type_code": {
-          "name": "donation_type_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "filing_id": {
-          "name": "filing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "gift_count": {
-          "name": "gift_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "id_code": {
-          "name": "id_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id_number_encrypted": {
-          "name": "id_number_encrypted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id_number_last4": {
-          "name": "id_number_last4",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "id_type": {
-          "name": "id_type",
-          "type": "party_id_type",
-          "typeSchema": "private",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mode_code": {
-          "name": "mode_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "party_id": {
-          "name": "party_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sr_no": {
-          "name": "sr_no",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "donation_filing_row_filing_sr_uidx": {
-          "name": "donation_filing_row_filing_sr_uidx",
-          "columns": [
-            {
-              "expression": "filing_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "sr_no",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "donation_filing_row_partyId_idx": {
-          "name": "donation_filing_row_partyId_idx",
-          "columns": [
-            {
-              "expression": "party_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "donation_filing_row_filing_id_donation_filing_id_fk": {
-          "name": "donation_filing_row_filing_id_donation_filing_id_fk",
-          "tableFrom": "donation_filing_row",
-          "tableTo": "donation_filing",
-          "schemaTo": "private",
-          "columnsFrom": [
-            "filing_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "donation_filing_row_party_id_party_id_fk": {
-          "name": "donation_filing_row_party_id_party_id_fk",
-          "tableFrom": "donation_filing_row",
-          "tableTo": "party",
-          "columnsFrom": [
-            "party_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "private.email_batch_recipients": {
       "name": "email_batch_recipients",
       "schema": "private",
@@ -23655,14 +22945,63 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pdf_key": {
+          "name": "pdf_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_sha256": {
+          "name": "pdf_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "receipt_id": {
           "name": "receipt_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "signature_key": {
+          "name": "signature_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contribution_receipt_snapshot_pdf_key_idx": {
+          "name": "contribution_receipt_snapshot_pdf_key_idx",
+          "columns": [
+            {
+              "expression": "pdf_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_receipt_snapshot_signature_key_idx": {
+          "name": "contribution_receipt_snapshot_signature_key_idx",
+          "columns": [
+            {
+              "expression": "signature_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",
@@ -24977,33 +24316,6 @@
         "pending",
         "approved",
         "rejected"
-      ]
-    },
-    "private.donation_certificate_email_failure": {
-      "name": "donation_certificate_email_failure",
-      "schema": "private",
-      "values": [
-        "no_email",
-        "suppressed",
-        "not_configured",
-        "failed"
-      ]
-    },
-    "private.donation_certificate_match": {
-      "name": "donation_certificate_match",
-      "schema": "private",
-      "values": [
-        "details",
-        "manual"
-      ]
-    },
-    "private.donation_filing_status": {
-      "name": "donation_filing_status",
-      "schema": "private",
-      "values": [
-        "prepared",
-        "submitted",
-        "discarded"
       ]
     },
     "private.email_message_status": {

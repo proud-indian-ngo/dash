@@ -1,4 +1,4 @@
-import { renderReceiptPdf } from "@pi-dash/jobs/lib/receipt-pdf";
+import { receiptPdf } from "@pi-dash/jobs/lib/receipt-pdf";
 import { createFileRoute } from "@tanstack/react-router";
 import { createRequestLogger } from "evlog";
 import { z } from "zod";
@@ -11,19 +11,19 @@ export interface ReceiptPdfDependencies {
   assertPermission: typeof assertServerPermission;
   audit: typeof runSessionAuditedAction;
   getSession: typeof requireSession;
-  render: typeof renderReceiptPdf;
+  render: typeof receiptPdf;
 }
 
 const defaults: ReceiptPdfDependencies = {
   assertPermission: assertServerPermission,
   audit: runSessionAuditedAction,
   getSession: requireSession,
-  render: renderReceiptPdf,
+  render: receiptPdf,
 };
 
 /**
- * A receipt's PDF, rendered on demand from its frozen snapshot (nothing is
- * stored). `donors.receipt` only, because the PDF carries the donor's full
+ * A receipt's PDF as issued (stored on first render; see `receiptPdf`).
+ * `donors.receipt` only, because the PDF carries the donor's full
  * ID number; each download is audited as `contribution_receipt.download`
  * with the receipt ID, as revealing an identifier is. Voided receipts still
  * download, marked void. `?disposition=inline` opens it in the browser

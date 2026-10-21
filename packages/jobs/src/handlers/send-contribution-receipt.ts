@@ -9,7 +9,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { formatReceiptDate } from "@pi-dash/shared/receipts";
 
 import { safeReceiptJobError } from "../lib/receipt-errors";
-import { renderReceiptPdf } from "../lib/receipt-pdf";
+import { receiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptPayload } from "../types";
 import { createNotifyHandler } from "./create-handler";
 
@@ -27,7 +27,7 @@ export interface ReceiptEmailDependencies {
   loadTarget: typeof loadReceiptEmailTarget;
   markEmailed: typeof markReceiptEmailed;
   renderEmail: typeof renderDonationReceiptEmail;
-  renderPdf: typeof renderReceiptPdf;
+  renderPdf: typeof receiptPdf;
   send: typeof sendEmail;
 }
 
@@ -36,7 +36,7 @@ const defaults: ReceiptEmailDependencies = {
   loadTarget: loadReceiptEmailTarget,
   markEmailed: markReceiptEmailed,
   renderEmail: renderDonationReceiptEmail,
-  renderPdf: renderReceiptPdf,
+  renderPdf: receiptPdf,
   send: sendEmail,
 };
 

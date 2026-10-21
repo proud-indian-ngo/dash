@@ -5,19 +5,19 @@ import { sendWhatsAppNotification } from "@pi-dash/whatsapp/notify";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { safeReceiptJobError } from "../lib/receipt-errors";
-import { renderReceiptPdf } from "../lib/receipt-pdf";
+import { receiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptPayload } from "../types";
 import { createNotifyHandler } from "./create-handler";
 
 interface ReceiptWhatsAppDependencies {
   loadTarget: typeof loadReceiptWhatsAppTarget;
-  renderPdf: typeof renderReceiptPdf;
+  renderPdf: typeof receiptPdf;
   send: typeof sendWhatsAppNotification;
 }
 
 const defaults: ReceiptWhatsAppDependencies = {
   loadTarget: loadReceiptWhatsAppTarget,
-  renderPdf: renderReceiptPdf,
+  renderPdf: receiptPdf,
   send: sendWhatsAppNotification,
 };
 

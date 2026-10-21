@@ -6,7 +6,7 @@ mock.module("@/lib/api-auth", () => ({
 }));
 mock.module("@/lib/audit", () => ({ runSessionAuditedAction: mock() }));
 mock.module("@pi-dash/jobs/lib/receipt-pdf", () => ({
-  renderReceiptPdf: mock(),
+  receiptPdf: mock(),
 }));
 
 const { handleReceiptPdf } = await import("./$receiptId");

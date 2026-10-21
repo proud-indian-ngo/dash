@@ -119,6 +119,7 @@ export const QUEUE_NAMES: JobName[] = [
   "send-scheduled-whatsapp",
   "send-weekly-events-digest",
   "send-whatsapp",
+  "store-contribution-receipt-pdf",
   "sync-public-events-deploy",
   "sync-whatsapp-status",
   "whatsapp-add-member",

@@ -1,6 +1,6 @@
 {
-  "id": "16bc4495-863c-4b65-b858-6df40027fd4a",
-  "prevId": "3cd36072-6d8d-4019-a4ba-e6d2e22f4115",
+  "id": "f4edbb4e-18fe-4257-8534-8bf25e8c960f",
+  "prevId": "88c5bab4-1f8c-4b7d-b90f-a31a1749f414",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -19606,12 +19606,6 @@
           "notNull": true,
           "default": "'01930000-0000-7000-8000-000000000009'"
         },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "public_area": {
           "name": "public_area",
           "type": "text",
@@ -19752,21 +19746,6 @@
           "columns": [
             {
               "expression": "cost_centre_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "team_event_projectId_idx": {
-          "name": "team_event_projectId_idx",
-          "columns": [
-            {
-              "expression": "project_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -19928,21 +19907,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "team_event_project_programme_fk": {
-          "name": "team_event_project_programme_fk",
-          "tableFrom": "team_event",
-          "tableTo": "project",
-          "columnsFrom": [
-            "project_id",
-            "programme_id"
-          ],
-          "columnsTo": [
-            "id",
-            "programme_id"
-          ],
-          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -24140,14 +24104,63 @@
           "primaryKey": false,
           "notNull": false
         },
+        "pdf_key": {
+          "name": "pdf_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pdf_sha256": {
+          "name": "pdf_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "receipt_id": {
           "name": "receipt_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "signature_key": {
+          "name": "signature_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "contribution_receipt_snapshot_pdf_key_idx": {
+          "name": "contribution_receipt_snapshot_pdf_key_idx",
+          "columns": [
+            {
+              "expression": "pdf_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribution_receipt_snapshot_signature_key_idx": {
+          "name": "contribution_receipt_snapshot_signature_key_idx",
+          "columns": [
+            {
+              "expression": "signature_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",
