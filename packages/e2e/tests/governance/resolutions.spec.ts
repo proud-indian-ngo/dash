@@ -10,6 +10,18 @@ import { expect, test } from "../../fixtures/test";
  * the pass rules with signatures are covered by unit and database tests.
  */
 
+/**
+ * Inserts `item` from the editor's Insert menu. Toolbar menus are toggle
+ * items, so they're found by their label rather than as buttons.
+ */
+async function insert(page: Page, dialog: Locator, item: string) {
+  await dialog.getByLabel("Insert", { exact: true }).click();
+  await page.getByRole("menuitem", { exact: true, name: item }).click();
+  // The editor takes focus back a moment after the change; keys typed
+  // before then reach the Insert button, and Enter reopens its menu.
+  await expect(dialog.getByRole("textbox", { name: "Text" })).toBeFocused();
+}
+
 /** Replaces the rich text in the dialog's Text editor with `text`. */
 async function writeText(page: Page, dialog: Locator, text: string) {
   const editor = dialog.getByRole("textbox", { name: "Text" });
@@ -245,7 +257,7 @@ test.describe("resolution text", () => {
     await page.keyboard.press("ControlOrMeta+b");
     await page.keyboard.type(" the budget be approved under these heads:");
     await page.keyboard.press("Enter");
-    await dialog.getByRole("button", { exact: true, name: "Table" }).click();
+    await insert(page, dialog, "Table");
     await dialog.getByRole("columnheader").first().click();
     // A 3 by 3 table with a header row; Tab moves to the next cell.
     for (const cell of ["Head", "Purpose", "Amount", "Kalakriti", "Prizes"]) {
@@ -253,7 +265,7 @@ test.describe("resolution text", () => {
       await page.keyboard.press("Tab");
     }
     await page.keyboard.type("4,50,000");
-    await dialog.getByRole("button", { name: "Add row" }).click();
+    await page.getByRole("button", { name: "Insert row after" }).click();
     await dialog.getByRole("button", { name: "Create draft" }).click();
 
     await expect(page.getByRole("heading", { name: title })).toBeVisible({
@@ -324,6 +336,116 @@ test.describe("resolution text", () => {
     ).toHaveCSS("list-style-type", "decimal");
   });
 
+  test("drafts a resolution with a heading, a quote, a link and merged cells", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+    const title = `E2E document text ${Date.now()}`;
+    await page.goto("/governance/resolutions");
+    await page.getByRole("button", { name: "New circular" }).click();
+    const dialog = page.getByRole("dialog", { name: "New circular" });
+    await dialog.getByRole("textbox", { name: "Title" }).fill(title);
+    const editor = dialog.getByRole("textbox", { name: "Text" });
+
+    // A document offers no fourth heading, code, images or to-do lists.
+    await writeText(page, dialog, "RESOLVED THAT the Board adopts:");
+    await dialog.getByLabel("Turn into", { exact: true }).click();
+    await expect(
+      page.getByRole("menuitemradio", { name: "Heading 3" })
+    ).toBeVisible();
+    for (const name of ["Code", "Toggle list", "To-do list"]) {
+      await expect(page.getByRole("menuitemradio", { name })).toHaveCount(0);
+    }
+    await page.keyboard.press("Escape");
+    await dialog.getByLabel("Insert", { exact: true }).click();
+    for (const name of ["Code", "Image", "Toggle list", "To-do list"]) {
+      await expect(
+        page.getByRole("menuitem", { exact: true, name })
+      ).toHaveCount(0);
+    }
+    await page.keyboard.press("Escape");
+
+    await editor.getByText("RESOLVED THAT the Board adopts:").click();
+    await insert(page, dialog, "Heading 2");
+    await page.keyboard.type("Schedule of duties");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Clause 4.2 reads:");
+    await insert(page, dialog, "Quote");
+    await page.keyboard.type("No adult is alone with a child.");
+    // Enter on an empty line leaves the quote.
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Duties:");
+
+    // A new table has the cursor in its first cell.
+    await insert(page, dialog, "Table");
+    for (const cell of ["Duty", "Owner", "Review"]) {
+      await page.keyboard.type(cell);
+      await page.keyboard.press("Tab");
+    }
+    await page.keyboard.type("Total");
+    // Cells merge across a row, never down a column.
+    const cells = editor.locator("td[data-table-cell-id]");
+    // A selection dragged across cells, in steps as a hand moves.
+    const drag = async (from: Locator, to: Locator) => {
+      const a = (await from.boundingBox())!;
+      const b = (await to.boundingBox())!;
+      await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, {
+        steps: 10,
+      });
+      await page.mouse.up();
+    };
+    const selected = editor.locator('[data-table-cell-selected="true"]');
+    const merge = page.getByRole("button", { name: "Merge cells" });
+    await drag(cells.nth(0), cells.nth(3));
+    await expect(selected).toHaveCount(2);
+    // The table's toolbar for selected cells waits 150ms before showing.
+    await page.waitForTimeout(500);
+    await expect(merge).toHaveCount(0);
+    // Dragging from selected cells would move them, so collapse it first.
+    await cells.nth(2).click();
+    await drag(cells.nth(0), cells.nth(1));
+    await expect(selected).toHaveCount(2);
+    await merge.click();
+    await expect(editor.locator('td[colspan="2"]')).toHaveText("Total");
+
+    // The line after the table.
+    await editor.locator(':scope > [data-slate-node="element"]').last().click();
+    await page.keyboard.type("Read the policy");
+    for (let i = 0; i < "the policy".length; i++) {
+      await page.keyboard.press("Shift+ArrowLeft");
+    }
+    // Slate reads the browser's selection at most every 100ms.
+    await page.waitForTimeout(200);
+    await dialog.getByLabel("Link", { exact: true }).click();
+    await expect(page.getByPlaceholder("Text to display")).toHaveValue(
+      "the policy"
+    );
+    // An address without a scheme is a web address.
+    await page.getByPlaceholder("Paste link").fill("proudindian.ngo/policies");
+    await page.keyboard.press("Enter");
+    await expect(
+      editor.getByRole("link", { name: "the policy" })
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Create draft" }).click();
+
+    await expect(page.getByRole("heading", { name: title })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Schedule of duties" })
+    ).toBeVisible();
+    await expect(page.locator("blockquote")).toHaveText(
+      "No adult is alone with a child."
+    );
+    await expect(
+      page.getByRole("link", { name: "the policy" })
+    ).toHaveAttribute("href", "https://proudindian.ngo/policies");
+    await expect(page.locator('td[colspan="2"]')).toHaveText("Total");
+  });
+
   test("reaches every table action on a phone", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
     // iPhone 12 Pro.
@@ -333,23 +455,30 @@ test.describe("resolution text", () => {
     const dialog = page.getByRole("dialog", { name: "New circular" });
     await writeText(page, dialog, "RESOLVED THAT:");
     await page.keyboard.press("Enter");
-    await dialog.getByRole("button", { exact: true, name: "Table" }).click();
+    // Phones keep one toolbar row; blocks come from the slash menu.
+    await page.keyboard.type("/table");
+    await page.keyboard.press("Enter");
     await dialog.getByRole("columnheader").first().click();
-    const actions = dialog.getByRole("group", { name: "Table" });
     for (const name of [
-      "Add row",
-      "Add column",
-      "Remove row",
-      "Remove column",
-      "Remove table",
+      "Delete table",
+      "Insert row before",
+      "Insert row after",
+      "Delete row",
+      "Insert column before",
+      "Insert column after",
+      "Delete column",
     ]) {
-      const box = await actions.getByRole("button", { name }).boundingBox();
+      const box = await page.getByRole("button", { name }).boundingBox();
       expect(box, name).not.toBeNull();
       expect(box!.x, name).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width, name).toBeLessThanOrEqual(390);
     }
+    // A document's table has no colours or border styles to pick.
+    await expect(
+      page.getByRole("button", { name: "Background color" })
+    ).toHaveCount(0);
     // Columns stop at the cap: three now, five more allowed.
-    const addColumn = actions.getByRole("button", { name: "Add column" });
+    const addColumn = page.getByRole("button", { name: "Insert column after" });
     for (let i = 0; i < 5; i++) {
       await addColumn.click();
     }

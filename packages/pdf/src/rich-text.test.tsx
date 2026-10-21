@@ -11,6 +11,7 @@ import {
   parseRichText,
   type RichTextTable,
   richTextToPlain,
+  serializeRichText,
 } from "@pi-dash/shared/rich-text";
 
 import { generateCircularResolutionPdf } from "./circular-resolution";
@@ -82,7 +83,42 @@ describe("columnWidths", () => {
   });
 });
 
+describe("columnWidths with the editor's sizes", () => {
+  const sized = (colSizes: number[]) =>
+    columnWidths({
+      children: [
+        {
+          children: colSizes.map(() => ({ children: [p("x")], type: "td" })),
+          type: "tr",
+        },
+      ],
+      colSizes,
+      type: "table",
+    } as RichTextTable);
+
+  it("follows the sizes, a 0 counting as the editor's 120", () => {
+    const widths = sized([100, 300, 0]);
+    expect(widths[0]).toBeCloseTo((100 / 520) * 100);
+    expect(widths[1]).toBeCloseTo((300 / 520) * 100);
+    expect(widths[2]).toBeCloseTo((120 / 520) * 100);
+  });
+
+  it("keeps every column at least half an equal share", () => {
+    const widths = sized([10, 10, 2000, 10, 10, 10, 10, 10]);
+    for (const width of widths) {
+      expect(width).toBeGreaterThanOrEqual(50 / MAX_TABLE_COLUMNS - 1e-9);
+    }
+    expect(widths.reduce((sum, w) => sum + w, 0)).toBeCloseTo(100);
+  });
+});
+
 describe("rich text in the PDF", () => {
+  it("draws the existing sample unchanged by the newer formats", () => {
+    expect(serializeRichText(parseRichText(richSample))).toBe(
+      serializeRichText(JSON.parse(richSample))
+    );
+  });
+
   it("draws every word of a table cell holding the longest text allowed", async () => {
     const words = Array.from(
       { length: 2400 },
@@ -127,25 +163,40 @@ describe("rich text in the PDF", () => {
   });
 
   /**
-   * Draws one table row of `cells` (each cell's blocks) and checks every line
-   * stays in its column and every one of `texts` is drawn whole.
+   * Draws one table row of `cells` (each cell's blocks, and the columns it
+   * spans) and checks every line stays in its cell and every one of `texts`
+   * is drawn whole.
    */
-  async function expectInsideColumns(cells: unknown[][], texts: string[]) {
+  async function expectInsideCells(
+    cells: { children: unknown[]; colSpan?: number }[],
+    texts: string[],
+    colSizes?: number[]
+  ) {
     const table = {
       children: [
         {
-          children: cells.map((children) => ({ children, type: "td" })),
+          children: cells.map((c) => ({ ...c, type: "td" })),
           type: "tr",
         },
       ],
+      ...(colSizes ? { colSizes } : {}),
       type: "table",
     };
     const runs = await pdfTextRuns(await circular([table]));
     // The columns' edges on the page: 48pt margins on A4.
-    const edges = columnWidths(table as RichTextTable).reduce(
+    const edges = columnWidths(
+      parseRichText(JSON.stringify([table]))[0] as RichTextTable
+    ).reduce(
       (acc, w) => [...acc, acc.at(-1)! + (w * (595.28 - 96)) / 100],
       [48]
     );
+    // Each cell's edges: the first and past the last column it spans.
+    let column = 0;
+    const bounds = cells.map((c) => {
+      const left = edges[column]!;
+      column += c.colSpan ?? 1;
+      return { left, right: edges[column]! };
+    });
     // The table's text: what's drawn between the title and "Passes with".
     const cellRuns = runs.slice(
       runs.findIndex((r) => r.str === "Rich text") + 1,
@@ -153,12 +204,19 @@ describe("rich text in the PDF", () => {
     );
     expect(cellRuns.length).toBeGreaterThanOrEqual(texts.length);
     for (const run of cellRuns) {
-      const column = edges.findLastIndex((e) => e <= run.x + 0.5);
-      expect(run.x + run.width).toBeLessThanOrEqual(edges[column + 1]! + 0.5);
+      const cell = bounds.findLast((b) => b.left <= run.x + 0.5)!;
+      expect(run.x + run.width).toBeLessThanOrEqual(cell.right + 0.5);
     }
     // Lines join back into every text once the break hyphens are dropped.
     const joined = cellRuns.map((r) => r.str.replace(/-$/, "")).join("");
     expect(texts.filter((t) => !joined.includes(t))).toEqual([]);
+  }
+
+  function expectInsideColumns(cells: unknown[][], texts: string[]) {
+    return expectInsideCells(
+      cells.map((children) => ({ children })),
+      texts
+    );
   }
 
   it("breaks a long run without spaces inside its own column", async () => {
@@ -202,6 +260,141 @@ describe("rich text in the PDF", () => {
         [1, 2, 3, 4, 5, 6].map((l) => `WXYZ${String(c)}${String(l)}`)
       )
     );
+  });
+
+  it("keeps headings and quotes inside the narrowest columns", async () => {
+    const cells = Array.from({ length: MAX_TABLE_COLUMNS }, (_, c) => [
+      { children: [{ text: `HEAD${String(c)}WWWWWW` }], type: "h1" },
+      { children: [p(`QUOTE${String(c)}WWWWW`)], type: "blockquote" },
+      { children: [{ text: `IND${String(c)}WWWWWWW` }], indent: 4, type: "p" },
+    ]);
+    await expectInsideColumns(
+      cells,
+      cells.flatMap((_, c) => [
+        `HEAD${String(c)}WWWWWW`,
+        `QUOTE${String(c)}WWWWW`,
+        `IND${String(c)}WWWWWWW`,
+      ])
+    );
+  });
+
+  it("keeps merged cells inside the columns they span", async () => {
+    const url = (n: number) => `https://example.org/merged${String(n)}abcdefgh`;
+    await expectInsideCells(
+      [
+        { children: [p(`${url(0)} ${url(1)}`)], colSpan: 3 },
+        { children: [p("x")] },
+        { children: [p(url(2))], colSpan: 2 },
+        { children: [p(url(3))], colSpan: 2 },
+      ],
+      [url(0), url(1), url(2), url(3)]
+    );
+  });
+
+  it("keeps cells inside columns sized in the editor", async () => {
+    const words = ["SIZEDWWWWWWWWWW0", "SIZEDWWWWWWWWWW1", "SIZEDWWWWWWWWWW2"];
+    await expectInsideCells(
+      words.map((w) => ({ children: [p(w)] })),
+      words,
+      [40, 600, 0]
+    );
+  });
+
+  it("draws every word of headings, quotes, dividers, links and merged cells", async () => {
+    const body = [
+      { children: [{ text: "Heading-one words" }], type: "h1" },
+      { children: [{ text: "Heading-two words" }], indent: 2, type: "h2" },
+      { children: [{ text: "Heading-three words" }], type: "h3" },
+      {
+        children: [
+          { text: "Struck", strikethrough: true },
+          { text: " and " },
+          { strikethrough: true, text: "both", underline: true },
+          { text: " then " },
+          {
+            children: [{ bold: true, text: "the deed" }],
+            type: "a",
+            url: "https://example.org/deed",
+          },
+          { text: " or " },
+          {
+            children: [{ text: "office@proudindian.ngo" }],
+            type: "a",
+            url: "mailto:office@proudindian.ngo",
+          },
+          { text: " or " },
+          {
+            children: [{ text: "https://example.org/same" }],
+            type: "a",
+            url: "https://example.org/same",
+          },
+        ],
+        indent: 4,
+        type: "p",
+      },
+      {
+        children: [
+          { text: "The policy in full is on the safeguarding page, at " },
+          {
+            children: [{ text: "the policy page" }],
+            type: "a",
+            url: "https://proudindian.ngo/policies/child-safeguarding-and-protection",
+          },
+          { text: "." },
+        ],
+        type: "p",
+      },
+      { children: [{ text: "" }], type: "hr" },
+      {
+        children: [
+          p("Quoted clause text"),
+          { children: [item("quoted item")], type: "ol" },
+        ],
+        type: "blockquote",
+      },
+      {
+        children: [
+          item("Clause one", {
+            children: [p("substituted text")],
+            type: "blockquote",
+          }),
+          item("Clause two"),
+        ],
+        type: "ol",
+      },
+      {
+        children: [
+          row("th", ["Head", "Purpose", "Amount"]),
+          {
+            children: [
+              { children: [p("Total label")], colSpan: 2, type: "td" },
+              { children: [p("Rs 9,99,000")], type: "td" },
+            ],
+            type: "tr",
+          },
+        ],
+        colSizes: [100, 300, 0],
+        type: "table",
+      },
+    ];
+    const pdf = await circular(body);
+    const drawn = (await pdfWords(pdf)).join(" ");
+    const expected = richTextToPlain(parseRichText(JSON.stringify(body)))
+      .split(/[\s|]+/)
+      .filter((w) => w && w !== "-" && w !== ">" && w !== "---");
+    expect(expected.filter((w) => !drawn.includes(w))).toEqual([]);
+    // A link's address follows its text; one whose text is the address shows it once.
+    expect(drawn).toContain("the deed (https://example.org/deed)");
+    expect(drawn).toContain("office@proudindian.ngo or");
+    expect(drawn.match(/example\.org\/same/g)).toHaveLength(1);
+    // A long address that fits a line isn't broken with a hyphen.
+    expect(await pdfWords(pdf)).toContain(
+      "(https://proudindian.ngo/policies/child-safeguarding-and-protection)."
+    );
+    // The quoted clause is numbered with its item and keeps its own text.
+    const words = await pdfWords(pdf);
+    expect(words[words.indexOf("Clause") - 1]).toBe("1.");
+    expect(words[words.indexOf("quoted") - 1]).toBe("1.");
   });
 
   it("numbers by the numbered lists an item sits in", async () => {
@@ -252,7 +445,7 @@ describe("resolution templates in the PDF", () => {
     const expected = resolutionTemplateKeyValues.flatMap((key) =>
       richTextToPlain(RESOLUTION_TEMPLATES[key].body)
         .split(/[\s|]+/)
-        .filter((w) => w && w !== "-")
+        .filter((w) => w && w !== "-" && w !== ">")
     );
     expect(expected.filter((w) => !drawn.includes(w))).toEqual([]);
   });

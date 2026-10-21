@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 
-import { getBlockType, setBlockType } from "../editor/transforms";
+import { setBlockType } from "../editor/transforms";
 import { ToolbarButton, ToolbarMenuGroup } from "./toolbar";
 
 const turnIntoItems = [
@@ -54,17 +54,17 @@ const turnIntoItems = [
   {
     icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />,
     label: "Bulleted list",
-    value: KEYS.ul,
+    value: KEYS.ulClassic,
   },
   {
     icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />,
     label: "Numbered list",
-    value: KEYS.ol,
+    value: KEYS.olClassic,
   },
   {
     icon: <HugeiconsIcon icon={CheckmarkSquare01Icon} />,
     label: "To-do list",
-    value: KEYS.listTodo,
+    value: KEYS.taskList,
   },
   {
     icon: <HugeiconsIcon icon={ArrowRight01Icon} />,
@@ -89,14 +89,12 @@ export function TurnIntoToolbarButton() {
 
   const value = useSelectionFragmentProp({
     defaultValue: KEYS.p,
-    getProp: (node) => getBlockType(node as TElement),
+    getProp: (node) => (node as TElement).type,
   });
-  const selectedItem = React.useMemo(
-    () =>
-      turnIntoItems.find((item) => item.value === (value ?? KEYS.p)) ??
-      turnIntoItems[0]!,
-    [value]
-  );
+  // Only what this editor's plugins can hold.
+  const items = turnIntoItems.filter((item) => item.value in editor.plugins);
+  const selectedItem =
+    items.find((item) => item.value === (value ?? KEYS.p)) ?? items[0]!;
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
@@ -124,7 +122,7 @@ export function TurnIntoToolbarButton() {
           }}
           label="Turn into"
         >
-          {turnIntoItems.map(({ icon, label, value: itemValue }) => (
+          {items.map(({ icon, label, value: itemValue }) => (
             <DropdownMenuRadioItem key={itemValue} value={itemValue}>
               {icon}
               {label}

@@ -1,0 +1,30 @@
+/**
+ * Bodies stored before resolution text took headings, quotes, links and
+ * merged cells: each template as it was. They must parse and serialize to
+ * the same bytes, so stored values need no migration.
+ */
+export const storedBodies: Record<string, string> = {
+  ordinary: '[{"children":[{"bold":true,"text":"RESOLVED THAT "}],"type":"p"}]',
+  appointment:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" [name] be and is hereby appointed a Trustee of the Trust for a term from [date] to [date], and that [name] be requested to accept the trusteeship in writing."}],"type":"p"}]',
+  cessation:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" the Board records that [name] ceased to be a Trustee of the Trust with effect from [date], by [reason]."}],"type":"p"}]',
+  office_bearer:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" [name] be and is hereby designated [office] of the Trust with effect from [date]."}],"type":"p"}]',
+  bank_operation:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":", with effect from [date], the Trust\'s [current/savings] account No. [number] with [bank], [branch] branch (IFSC [code]) be operated as follows:"}],"type":"p"},{"children":[{"children":[{"children":[{"children":[{"text":"Name"}],"type":"p"}],"type":"th"},{"children":[{"children":[{"text":"Office"}],"type":"p"}],"type":"th"},{"children":[{"children":[{"text":"Operates"}],"type":"p"}],"type":"th"}],"type":"tr"},{"children":[{"children":[{"children":[{"text":"[name]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[office]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[singly up to Rs [amount] / jointly]"}],"type":"p"}],"type":"td"}],"type":"tr"},{"children":[{"children":[{"children":[{"text":"[name]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[office]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[singly up to Rs [amount] / jointly]"}],"type":"p"}],"type":"td"}],"type":"tr"}],"type":"table"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" every other person cease to be an authorised signatory on the account."}],"type":"p"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" a copy of this resolution, certified as true by the Managing Trustee, be furnished to the bank."}],"type":"p"}]',
+  registered_office:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" the registered office of the Trust be shifted to [address] with effect from [date]."}],"type":"p"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" the Managing Trustee be authorised to update the address with the bank, the income-tax department, NGO Darpan and every other authority that holds it."}],"type":"p"}]',
+  deed_amendment:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":", subject to the prior approval of the Commissioner of Income-tax under clause 9.3 of the Trust Deed, the Trust Deed be amended as follows:"}],"type":"p"},{"children":[{"children":[{"children":[{"text":"Clause [number] be substituted by: \\"[new text]\\"."}],"type":"lic"}],"type":"li"},{"children":[{"children":[{"text":"Clause [number] be inserted after clause [number]: \\"[new text]\\"."}],"type":"lic"}],"type":"li"}],"type":"ol"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" the Managing Trustee be authorised to apply for the Commissioner\'s approval and to register the deed of amendment."}],"type":"p"}]',
+  removal:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":", the Board having heard [name] on [date], and for the reasons recorded in writing, [name] be and is hereby removed as a Trustee of the Trust with effect from [date]."}],"type":"p"}]',
+  budget_approval:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" the budget of the Trust for the financial year [year], as placed before the Board and summarised below, be and is hereby approved:"}],"type":"p"},{"children":[{"children":[{"children":[{"children":[{"text":"Head"}],"type":"p"}],"type":"th"},{"children":[{"children":[{"text":"Purpose"}],"type":"p"}],"type":"th"},{"children":[{"children":[{"text":"Amount (Rs)"}],"type":"p"}],"type":"th"}],"type":"tr"},{"children":[{"children":[{"children":[{"text":"[head]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[purpose]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[amount]"}],"type":"p"}],"type":"td"}],"type":"tr"},{"children":[{"children":[{"children":[{"text":"[head]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[purpose]"}],"type":"p"}],"type":"td"},{"children":[{"children":[{"text":"[amount]"}],"type":"p"}],"type":"td"}],"type":"tr"}],"type":"table"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" no head be exceeded by more than [ten] per cent without the Board\'s approval."}],"type":"p"}]',
+  accounts_approval:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" the audited Balance Sheet as at 31 March [year] and the Income and Expenditure Account for the year ended on that date, together with the auditor\'s report, as placed before the Board, be and are hereby approved and adopted."}],"type":"p"},{"children":[{"bold":true,"text":"RESOLVED FURTHER THAT"},{"text":" the Managing Trustee be authorised to sign the accounts on behalf of the Board."}],"type":"p"}]',
+  auditor_appointment:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" [firm], Chartered Accountants (Firm Registration No. [number]), be and is hereby appointed auditor of the Trust for the financial year [year], at a fee of Rs [amount] plus applicable taxes."}],"type":"p"}]',
+  accumulation:
+    '[{"children":[{"bold":true,"text":"RESOLVED THAT"},{"text":" a sum of Rs [amount] out of the income of the financial year [year] be accumulated and set apart for [specific purpose], to be applied within [period] years, and that the statement of accumulation (Form 109) be filed with the income-tax authorities."}],"type":"p"}]',
+};

@@ -131,6 +131,13 @@ export function SlashInputElement(
   props: PlateElementProps<TComboboxInputElement>
 ) {
   const { editor, element } = props;
+  // Only what this editor's plugins can hold.
+  const shown = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.value in editor.plugins),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <PlateElement {...props} as="span">
@@ -140,7 +147,7 @@ export function SlashInputElement(
         <InlineComboboxContent>
           <InlineComboboxEmpty>No results</InlineComboboxEmpty>
 
-          {groups.map(({ group, items }) => (
+          {shown.map(({ group, items }) => (
             <InlineComboboxGroup key={group}>
               <InlineComboboxGroupLabel>{group}</InlineComboboxGroupLabel>
 

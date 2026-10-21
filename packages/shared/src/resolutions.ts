@@ -21,9 +21,12 @@ import {
 } from "./governance";
 import {
   bold,
+  li,
+  merged,
   ol,
   p,
   parseRichText,
+  quote,
   richTextHasText,
   richTextSchema,
   type RichTextValue,
@@ -220,7 +223,8 @@ export const RESOLUTION_TEMPLATES: Record<
       table(
         ["Head", "Purpose", "Amount (Rs)"],
         ["[head]", "[purpose]", "[amount]"],
-        ["[head]", "[purpose]", "[amount]"]
+        ["[head]", "[purpose]", "[amount]"],
+        [merged(bold("Total"), 2), bold("[total]")]
       ),
       p(
         bold("RESOLVED FURTHER THAT"),
@@ -284,8 +288,14 @@ export const RESOLUTION_TEMPLATES: Record<
         ", subject to the prior approval of the Commissioner of Income-tax under clause 9.3 of the Trust Deed, the Trust Deed be amended as follows:"
       ),
       ol(
-        'Clause [number] be substituted by: "[new text]".',
-        'Clause [number] be inserted after clause [number]: "[new text]".'
+        li(
+          "Clause [number] be substituted by the following:",
+          quote(p("[new text of the clause]"))
+        ),
+        li(
+          "The following be inserted after clause [number] as clause [number]:",
+          quote(p("[text of the new clause]"))
+        )
       ),
       p(
         bold("RESOLVED FURTHER THAT"),

@@ -36,7 +36,6 @@ import {
   useTableCellBorders,
   useTableColSizes,
   useTableElement,
-  useTableMergeState,
   useTableSelectionDom,
   useTableValue,
 } from "@platejs/table/react";
@@ -78,6 +77,11 @@ import {
 } from "platejs/react";
 import * as React from "react";
 
+import {
+  useCanAddColumn,
+  useDocumentTable,
+  useTableMerge,
+} from "../editor/plugins/document-table";
 import { blockSelectionVariants } from "./block-selection";
 import {
   ColorDropdownMenuItems,
@@ -830,7 +834,7 @@ function ExpandedSelectionTableFloatingToolbarContent(
   props: React.ComponentProps<typeof PopoverContent>
 ) {
   const { tf } = useEditorPlugin(TablePlugin);
-  const { canMerge, canSplit } = useTableMergeState();
+  const { canMerge, canSplit } = useTableMerge();
 
   if (!(canMerge || canSplit)) {
     return null;
@@ -853,7 +857,7 @@ function CollapsedTableFloatingToolbarContent(
   const { tf } = useEditorPlugin(TablePlugin);
   const element = useElement<TTableElement>();
   const { props: buttonProps } = useRemoveNodeButton({ element });
-  const { canSplit } = useTableMergeState();
+  const { canSplit } = useTableMerge();
 
   return (
     <TableFloatingToolbarContent
@@ -912,6 +916,9 @@ function TableFloatingToolbarContent({
   onMerge?: () => void;
   onSplit?: () => void;
 }) {
+  // A document's tables have no colours or border styles to pick.
+  const document = useDocumentTable();
+  const canAddColumn = useCanAddColumn();
   return (
     <PopoverContent
       contentEditable={false}
@@ -924,9 +931,11 @@ function TableFloatingToolbarContent({
       }
     >
       <ToolbarGroup>
-        <ColorDropdownMenu tooltip="Background color">
-          <HugeiconsIcon icon={PaintBucketIcon} />
-        </ColorDropdownMenu>
+        {!document && (
+          <ColorDropdownMenu tooltip="Background color">
+            <HugeiconsIcon icon={PaintBucketIcon} />
+          </ColorDropdownMenu>
+        )}
         {canMerge && onMerge && (
           <ToolbarButton
             onClick={onMerge}
@@ -946,17 +955,19 @@ function TableFloatingToolbarContent({
           </ToolbarButton>
         )}
 
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            render={<ToolbarButton tooltip="Cell borders" />}
-          >
-            <HugeiconsIcon icon={GridIcon} />
-          </DropdownMenuTrigger>
+        {!document && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger
+              render={<ToolbarButton tooltip="Cell borders" />}
+            >
+              <HugeiconsIcon icon={GridIcon} />
+            </DropdownMenuTrigger>
 
-          <DropdownMenuPortal>
-            <TableBordersDropdownMenuContent />
-          </DropdownMenuPortal>
-        </DropdownMenu>
+            <DropdownMenuPortal>
+              <TableBordersDropdownMenuContent />
+            </DropdownMenuPortal>
+          </DropdownMenu>
+        )}
 
         {collapsedInside && (
           <ToolbarGroup>
@@ -994,6 +1005,7 @@ function TableFloatingToolbarContent({
       {collapsedInside && (
         <ToolbarGroup>
           <ToolbarButton
+            disabled={!canAddColumn}
             onClick={onInsertColumnBefore}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert column before"
@@ -1001,6 +1013,7 @@ function TableFloatingToolbarContent({
             <HugeiconsIcon icon={ArrowLeft01Icon} />
           </ToolbarButton>
           <ToolbarButton
+            disabled={!canAddColumn}
             onClick={onInsertColumnAfter}
             onMouseDown={(e) => e.preventDefault()}
             tooltip="Insert column after"
@@ -1343,6 +1356,8 @@ const TableCellResizeControls = React.memo(function TableCellResizeControls({
   const bottomHandleKey = `bottom:${rowIndex}:${colIndex}`;
   const leftHandleKey = `left:${rowIndex}:${colIndex}`;
   const isLeftHandle = colIndex === 0 && !disableMarginLeft;
+  // A document's rows take their text's height, as the PDF draws them.
+  const hasBottomHandle = !useDocumentTable();
 
   return (
     <div
@@ -1372,28 +1387,30 @@ const TableCellResizeControls = React.memo(function TableCellResizeControls({
           clearResizePreview(rightHandleKey);
         }}
       />
-      <div
-        className="pointer-events-auto absolute -bottom-1 left-0 z-40 h-2 w-full cursor-row-resize touch-none"
-        onPointerDown={(event) => {
-          startResize(event, {
-            colIndex,
-            direction: "bottom",
-            handleKey: bottomHandleKey,
-            rowIndex,
-          });
-        }}
-        onPointerEnter={(event) => {
-          setResizePreview(event, {
-            colIndex,
-            direction: "bottom",
-            handleKey: bottomHandleKey,
-            rowIndex,
-          });
-        }}
-        onPointerLeave={() => {
-          clearResizePreview(bottomHandleKey);
-        }}
-      />
+      {hasBottomHandle && (
+        <div
+          className="pointer-events-auto absolute -bottom-1 left-0 z-40 h-2 w-full cursor-row-resize touch-none"
+          onPointerDown={(event) => {
+            startResize(event, {
+              colIndex,
+              direction: "bottom",
+              handleKey: bottomHandleKey,
+              rowIndex,
+            });
+          }}
+          onPointerEnter={(event) => {
+            setResizePreview(event, {
+              colIndex,
+              direction: "bottom",
+              handleKey: bottomHandleKey,
+              rowIndex,
+            });
+          }}
+          onPointerLeave={() => {
+            clearResizePreview(bottomHandleKey);
+          }}
+        />
+      )}
       {isLeftHandle && (
         <div
           className="pointer-events-auto absolute top-0 -left-1 z-40 h-full w-2 cursor-col-resize touch-none"

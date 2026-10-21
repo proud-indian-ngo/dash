@@ -27,9 +27,13 @@ Bricolage and Paper Mono are instanced with fontTools from the variable woff2 fi
 
 `src/rich-text.tsx` draws stored rich text (`@pi-dash/shared/rich-text`) for the circular and the minutes, in the caller's paragraph style.
 
-- Bold is SemiBold, italic and underline are real; empty paragraphs take no space.
+- Bold is SemiBold; italic, underline and strikethrough are real; empty paragraphs take no space.
+- Headings are semibold at 1.5, 0.5 and 0pt over the text size (12, 11 and 10.5pt on a circular), below the 13pt resolution title. An indent level is 18pt, short of a narrow cell's least room for text.
+- A quote has a grey left rule; a divider is a hairline.
+- A link prints its text and then its address in brackets unless the text is the address, since a signed copy can't be clicked through. A word holding an address stays whole while it fits the line, because react-pdf draws a hyphen wherever it breaks a word.
 - Lists hang the text after the marker; numbered lists go 1, a, i by the numbered lists they sit in (`listNumber`), as the pages do.
-- Tables have thin black borders and a bold header row on a light wash. Half the width is shared equally and half follows each column's longest cell (6 to 40 characters' weight), so at the eight-column cap no column is under 31pt. A row taller than the space left breaks across pages like text, so no cell is cut.
+- Tables have thin black borders and a bold header row on a light wash. Columns follow the editor's widths in proportion when it set them; otherwise half the width is shared equally and half follows each column's longest cell (6 to 40 characters' weight). Either way no column is under half an equal share, 31pt at the eight-column cap. A merged cell takes the widths of its columns. A row taller than the space left breaks across pages like text, so no cell is cut.
+- Cells merge only across a row. react-pdf lays a table out as flex rows, with no table or grid layout: a cell spanning rows would need row heights it can't share, spans that interleave can't be nested as flex boxes, and a row breaking across pages would cut a tall merged cell.
 - The signature pages draw at fixed page coordinates, so rich text moves nothing there.
 
 ## Donation receipt

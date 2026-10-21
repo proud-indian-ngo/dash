@@ -12,7 +12,7 @@ import {
 } from "./dropdown-menu";
 import { cn } from "@pi-dash/design-system/lib/utils";
 
-import { TablePlugin, useTableMergeState } from "@platejs/table/react";
+import { TablePlugin } from "@platejs/table/react";
 import {
   ArrowDown01Icon,
   ArrowLeft01Icon,
@@ -30,6 +30,11 @@ import { KEYS } from "platejs";
 import { useEditorPlugin, useEditorSelector } from "platejs/react";
 import * as React from "react";
 
+import {
+  useCanAddColumn,
+  useDocumentTable,
+  useTableMerge,
+} from "../editor/plugins/document-table";
 import { ToolbarButton } from "./toolbar";
 
 export function TableToolbarButton(
@@ -42,7 +47,8 @@ export function TableToolbarButton(
 
   const { editor, tf } = useEditorPlugin(TablePlugin);
   const [open, setOpen] = React.useState(false);
-  const mergeState = useTableMergeState();
+  const mergeState = useTableMerge();
+  const canAddColumn = useCanAddColumn();
 
   return (
     <DropdownMenu modal={false} onOpenChange={setOpen} open={open} {...props}>
@@ -79,7 +85,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!mergeState.canMerge}
-                onSelect={() => {
+                onClick={() => {
                   tf.table.merge();
                   editor.tf.focus();
                 }}
@@ -90,7 +96,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!mergeState.canSplit}
-                onSelect={() => {
+                onClick={() => {
                   tf.table.split();
                   editor.tf.focus();
                 }}
@@ -113,7 +119,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!tableSelected}
-                onSelect={() => {
+                onClick={() => {
                   tf.insert.tableRow({ before: true });
                   editor.tf.focus();
                 }}
@@ -124,7 +130,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!tableSelected}
-                onSelect={() => {
+                onClick={() => {
                   tf.insert.tableRow();
                   editor.tf.focus();
                 }}
@@ -135,7 +141,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!tableSelected}
-                onSelect={() => {
+                onClick={() => {
                   tf.remove.tableRow();
                   editor.tf.focus();
                 }}
@@ -157,8 +163,8 @@ export function TableToolbarButton(
             <DropdownMenuSubContent>
               <DropdownMenuItem
                 className="min-w-[180px]"
-                disabled={!tableSelected}
-                onSelect={() => {
+                disabled={!(tableSelected && canAddColumn)}
+                onClick={() => {
                   tf.insert.tableColumn({ before: true });
                   editor.tf.focus();
                 }}
@@ -168,8 +174,8 @@ export function TableToolbarButton(
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="min-w-[180px]"
-                disabled={!tableSelected}
-                onSelect={() => {
+                disabled={!(tableSelected && canAddColumn)}
+                onClick={() => {
                   tf.insert.tableColumn();
                   editor.tf.focus();
                 }}
@@ -180,7 +186,7 @@ export function TableToolbarButton(
               <DropdownMenuItem
                 className="min-w-[180px]"
                 disabled={!tableSelected}
-                onSelect={() => {
+                onClick={() => {
                   tf.remove.tableColumn();
                   editor.tf.focus();
                 }}
@@ -194,7 +200,7 @@ export function TableToolbarButton(
           <DropdownMenuItem
             className="min-w-[180px]"
             disabled={!tableSelected}
-            onSelect={() => {
+            onClick={() => {
               tf.remove.table();
               editor.tf.focus();
             }}
@@ -210,6 +216,8 @@ export function TableToolbarButton(
 
 function TablePicker() {
   const { editor, tf } = useEditorPlugin(TablePlugin);
+  // A document's tables start with a header row.
+  const header = useDocumentTable();
 
   const [tablePicker, setTablePicker] = React.useState({
     grid: Array.from({ length: 8 }, () => Array.from({ length: 8 }).fill(0)),
@@ -236,7 +244,7 @@ function TablePicker() {
     <div
       className="flex! m-0 flex-col p-0"
       onClick={() => {
-        tf.insert.table(tablePicker.size, { select: true });
+        tf.insert.table({ ...tablePicker.size, header }, { select: true });
         editor.tf.focus();
       }}
       role="button"

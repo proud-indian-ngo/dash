@@ -18,8 +18,8 @@ const RichTextEditor = lazy(() =>
 );
 
 /**
- * A rich text field (`@pi-dash/shared/rich-text`): paragraphs, bold, italic,
- * underline, lists and simple tables. The value is Plate JSON.
+ * A rich text field (`@pi-dash/shared/rich-text`): the event updates editor
+ * kept to what a signed document can show. The value is Plate JSON.
  */
 export function RichTextField({
   description,

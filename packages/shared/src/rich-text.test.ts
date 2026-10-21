@@ -15,10 +15,14 @@ import {
   parseRichText,
   plainTextToRichText,
   RichTextError,
+  type RichTextLeaf,
+  type RichTextTable,
+  serializeRichText,
   richTextHasText,
   richTextToPlain,
   type RichTextValue,
 } from "./rich-text";
+import { storedBodies } from "./rich-text.test-fixtures";
 
 const p = (text: string) => ({ children: [{ text }], type: "p" });
 
@@ -76,27 +80,115 @@ const sample = [
   },
 ];
 
+const item = (text: string, ...after: unknown[]) => ({
+  children: [{ children: [{ text }], type: "lic" }, ...after],
+  type: "li",
+});
+
+/** Every format the document editor offers, canonical. */
+const everyFormat = [
+  { children: [{ text: "Schedule" }], type: "h1" },
+  { children: [{ text: "Part A" }], indent: 1, type: "h2" },
+  { children: [{ text: "Heads" }], type: "h3" },
+  {
+    children: [
+      { text: "See " },
+      {
+        children: [{ bold: true, text: "the deed" }],
+        type: "a",
+        url: "https://example.org/deed",
+      },
+      { text: ", write to " },
+      {
+        children: [{ text: "office@proudindian.ngo" }],
+        type: "a",
+        url: "mailto:office@proudindian.ngo",
+      },
+      { strikethrough: true, text: " struck" },
+    ],
+    indent: 4,
+    type: "p",
+  },
+  { children: [{ text: "" }], type: "hr" },
+  {
+    children: [p("Quoted"), { children: [item("in a quote")], type: "ul" }],
+    type: "blockquote",
+  },
+  {
+    children: [
+      item("Clause 4 be substituted by:", {
+        children: [p("new text")],
+        type: "blockquote",
+      }),
+    ],
+    type: "ol",
+  },
+  {
+    children: [
+      {
+        children: [
+          { children: [p("Head")], type: "th" },
+          { children: [p("Purpose")], type: "th" },
+          { children: [p("Amount")], type: "th" },
+        ],
+        type: "tr",
+      },
+      {
+        children: [
+          {
+            children: [{ children: [{ text: "Total" }], type: "h3" }],
+            colSpan: 2,
+            type: "td",
+          },
+          {
+            children: [
+              { children: [p("q")], type: "blockquote" },
+              { children: [{ text: "" }], type: "hr" },
+            ],
+            type: "td",
+          },
+        ],
+        type: "tr",
+      },
+    ],
+    colSizes: [120, 240, 0],
+    type: "table",
+  },
+];
+
 describe("parseRichText", () => {
   it("keeps paragraphs, marks, nested lists and tables", () => {
     expect(parseRichText(JSON.stringify(sample))).toEqual(sample);
   });
 
-  it("drops editor properties and false marks", () => {
+  it("drops editor properties, decoration and false marks", () => {
     const value = parseRichText(
       JSON.stringify([
         {
           children: [{ bold: false, text: "a" }],
           id: "x",
+          indent: 0,
           type: "p",
         },
         {
           children: [
             {
-              children: [{ children: [p("b")], colSpan: 1, type: "td" }],
+              children: [
+                {
+                  background: "#ff0",
+                  borders: { top: { size: 2 } },
+                  children: [p("b")],
+                  colSpan: 1,
+                  rowSpan: 1,
+                  type: "td",
+                },
+              ],
+              size: 80,
               type: "tr",
             },
           ],
-          colSizes: [120],
+          colSizes: [0],
+          marginLeft: 20,
           type: "table",
         },
       ])
@@ -110,6 +202,95 @@ describe("parseRichText", () => {
         type: "table",
       },
     ]);
+  });
+
+  it("keeps stored bodies byte for byte, so they need no migration", () => {
+    const stored = [...Object.values(storedBodies), JSON.stringify(sample)];
+    expect(Object.keys(storedBodies)).toHaveLength(12);
+    for (const json of stored) {
+      expect(serializeRichText(parseRichText(json))).toBe(
+        serializeRichText(JSON.parse(json))
+      );
+    }
+    for (const json of Object.values(storedBodies)) {
+      expect(serializeRichText(parseRichText(json))).toBe(json);
+    }
+  });
+
+  it("keeps every format the document editor offers", () => {
+    expect(parseRichText(JSON.stringify(everyFormat))).toEqual(everyFormat);
+  });
+
+  it("is idempotent: the canonical value parses to itself", () => {
+    const once = serializeRichText(
+      parseRichText(
+        JSON.stringify([
+          ...everyFormat,
+          {
+            children: [{ text: "loose quote text" }],
+            id: "q",
+            type: "blockquote",
+          },
+        ])
+      )
+    );
+    expect(serializeRichText(parseRichText(once))).toBe(once);
+    // Text directly in a quote (before Plate 53) becomes its paragraph.
+    expect(JSON.parse(once).at(-1)).toEqual({
+      children: [p("loose quote text")],
+      type: "blockquote",
+    });
+  });
+
+  it("reads a pasted colspan attribute as Plate does", () => {
+    const [table] = parseRichText(
+      JSON.stringify([
+        {
+          children: [
+            {
+              children: [
+                {
+                  attributes: { colspan: "2" },
+                  children: [p("a")],
+                  type: "td",
+                },
+              ],
+              type: "tr",
+            },
+            {
+              children: [
+                { children: [p("b")], type: "td" },
+                { children: [p("c")], type: "td" },
+              ],
+              type: "tr",
+            },
+          ],
+          type: "table",
+        },
+      ])
+    );
+    expect((table as RichTextTable).children[0]?.children[0]?.colSpan).toBe(2);
+  });
+
+  it("keeps column widths, one per column", () => {
+    const [table] = parseRichText(
+      JSON.stringify([
+        {
+          children: [
+            {
+              children: [
+                { children: [p("a")], type: "td" },
+                { children: [p("b")], type: "td" },
+              ],
+              type: "tr",
+            },
+          ],
+          colSizes: [200, "x", 40],
+          type: "table",
+        },
+      ])
+    );
+    expect(table).toMatchObject({ colSizes: [200, 0] });
   });
 
   it("refuses a table wider than the column cap", () => {
@@ -134,54 +315,138 @@ describe("parseRichText", () => {
     );
   });
 
+  const cellTable = (...cells: unknown[]) => [
+    {
+      children: [{ children: cells, type: "tr" }],
+      type: "table",
+    },
+  ];
+  const linkTo = (url: string) => [
+    { children: [{ children: [{ text: "x" }], type: "a", url }], type: "p" },
+  ];
+
   it.each([
-    ["a heading", [{ children: [{ text: "x" }], type: "h1" }]],
     [
-      "a link",
+      "a fourth-level heading",
+      [{ children: [{ text: "x" }], type: "h4" }],
+      "Use headings 1 to 3 only.",
+    ],
+    [
+      "a link to a script",
+      linkTo("javascript:alert(1)"),
+      "A link goes to a web address (https://) or an email address (mailto:).",
+    ],
+    [
+      "a link that isn't an address",
+      linkTo("example.org"),
+      "A link goes to a web address (https://) or an email address (mailto:).",
+    ],
+    [
+      "a link too long",
+      linkTo(`https://example.org/${"x".repeat(2000)}`),
+      "A link's address is too long.",
+    ],
+    [
+      "a colour",
+      [{ children: [{ color: "red", text: "x" }], type: "p" }],
+      "Text can be bold, italic, underlined or struck through, not color.",
+    ],
+    [
+      "a highlight",
+      [{ children: [{ highlight: true, text: "x" }], type: "p" }],
+      "Text can be bold, italic, underlined or struck through, not highlight.",
+    ],
+    [
+      "inline code",
+      [{ children: [{ code: true, text: "x" }], type: "p" }],
+      "Text can be bold, italic, underlined or struck through, not code.",
+    ],
+    [
+      "a mention",
       [
         {
-          children: [
-            { children: [{ text: "x" }], type: "a", url: "https://x" },
-          ],
+          children: [{ children: [{ text: "" }], type: "mention", value: "x" }],
           type: "p",
         },
       ],
+      "Only text and links can sit inside a paragraph: no mentions or other inline content.",
     ],
-    ["a colour", [{ children: [{ color: "red", text: "x" }], type: "p" }]],
     [
-      "strikethrough",
-      [{ children: [{ strikethrough: true, text: "x" }], type: "p" }],
+      "an image",
+      [{ children: [{ text: "" }], type: "img", url: "x" }],
+      "Use paragraphs, headings, quotes, dividers, lists and tables only, not image.",
     ],
-    ["an image", [{ children: [{ text: "" }], type: "img", url: "x" }]],
     [
-      "a merged cell",
-      [
-        {
-          children: [
-            {
-              children: [{ children: [p("x")], colSpan: 2, type: "td" }],
-              type: "tr",
-            },
-          ],
-          type: "table",
-        },
-      ],
+      "a code block",
+      [{ children: [p("x")], type: "code_block" }],
+      "Use paragraphs, headings, quotes, dividers, lists and tables only, not code block.",
+    ],
+    [
+      "a toggle",
+      [{ children: [{ text: "x" }], type: "toggle" }],
+      "Use paragraphs, headings, quotes, dividers, lists and tables only, not toggle.",
+    ],
+    [
+      "a cell merged down a column",
+      cellTable({ children: [p("x")], rowSpan: 2, type: "td" }),
+      "Table cells can be merged across a row, not down a column.",
+    ],
+    [
+      "a pasted rowspan",
+      cellTable({
+        attributes: { rowspan: "2" },
+        children: [p("x")],
+        type: "td",
+      }),
+      "Table cells can be merged across a row, not down a column.",
     ],
     [
       "a table in a table",
+      cellTable({
+        children: [{ children: [{ children: [], type: "tr" }], type: "table" }],
+        type: "td",
+      }),
+      "A table cell can't hold another table.",
+    ],
+    [
+      "a table in a quote",
+      [
+        {
+          children: cellTable({ children: [p("x")], type: "td" }),
+          type: "blockquote",
+        },
+      ],
+      "A quote can't hold another quote or a table.",
+    ],
+    [
+      "a quote in a quote",
+      [
+        {
+          children: [{ children: [p("x")], type: "blockquote" }],
+          type: "blockquote",
+        },
+      ],
+      "A quote can't hold another quote or a table.",
+    ],
+    [
+      "a table in a list",
       [
         {
           children: [
             {
-              children: [
-                { children: [{ children: [], type: "table" }], type: "td" },
-              ],
-              type: "tr",
+              children: cellTable({ children: [p("x")], type: "td" }),
+              type: "li",
             },
           ],
-          type: "table",
+          type: "ul",
         },
       ],
+      "A list item holds text, lists and quotes.",
+    ],
+    [
+      "an indent past the limit",
+      [{ ...p("x"), indent: 5 }],
+      "Text is indented at most four levels.",
     ],
     [
       "ragged rows",
@@ -200,10 +465,35 @@ describe("parseRichText", () => {
           type: "table",
         },
       ],
+      "Every row of a table needs the same cells.",
     ],
-    ["an empty document", []],
-  ])("refuses %s", (_, value) => {
-    expect(() => parseRichText(JSON.stringify(value))).toThrow(RichTextError);
+    [
+      "merged cells wider than the table",
+      [
+        {
+          children: [
+            {
+              children: [{ children: [p("a")], colSpan: 3, type: "td" }],
+              type: "tr",
+            },
+            {
+              children: [
+                { children: [p("b")], type: "td" },
+                { children: [p("c")], type: "td" },
+              ],
+              type: "tr",
+            },
+          ],
+          type: "table",
+        },
+      ],
+      "Every row of a table needs the same cells.",
+    ],
+    ["an empty document", [], "The text isn't in the expected format."],
+  ])("refuses %s", (_, value, message) => {
+    expect(() => parseRichText(JSON.stringify(value))).toThrow(
+      new RichTextError(message)
+    );
   });
 
   it("refuses plain text", () => {
@@ -219,6 +509,40 @@ describe("richTextToPlain", () => {
         "1. Programmes\n  - Kalakriti\n2. Office",
         "Head | Amount\nKalakriti | Rs 2,00,000",
       ].join("\n\n")
+    );
+  });
+
+  it("writes headings, quotes, dividers, links and merged cells", () => {
+    expect(richTextToPlain(everyFormat as RichTextValue)).toBe(
+      [
+        "Schedule",
+        "Part A",
+        "Heads",
+        "See the deed (https://example.org/deed), write to office@proudindian.ngo struck",
+        "---",
+        "> Quoted\n>\n> - in a quote",
+        "1. Clause 4 be substituted by:\n  > new text",
+        "Head | Purpose | Amount\nTotal | > q ---",
+      ].join("\n\n")
+    );
+  });
+
+  it("writes a link's address once when the text already is it", () => {
+    const link = (text: string, url: string) =>
+      richTextToPlain(
+        parseRichText(
+          JSON.stringify([
+            { children: [{ children: [{ text }], type: "a", url }], type: "p" },
+          ])
+        )
+      );
+    expect(link("https://example.org", "https://example.org")).toBe(
+      "https://example.org"
+    );
+    expect(link("a@b.org", "mailto:a@b.org")).toBe("a@b.org");
+    expect(link("", "https://example.org")).toBe("https://example.org");
+    expect(link("site", "https://example.org")).toBe(
+      "site (https://example.org)"
     );
   });
 
@@ -283,6 +607,30 @@ describe("richTextHasText", () => {
     const value = parseRichText(JSON.stringify([p(""), emptyList, emptyTable]));
     expect(richTextToPlain(value)).not.toBe("");
     expect(richTextHasText(value)).toBe(false);
+  });
+
+  it("finds no text in a divider or an empty quote, and text in a link", () => {
+    const hr = { children: [{ text: "" }], type: "hr" };
+    const emptyQuote = { children: [p(" ")], type: "blockquote" };
+    expect(
+      richTextHasText(parseRichText(JSON.stringify([hr, emptyQuote])))
+    ).toBe(false);
+    expect(
+      richTextHasText(
+        parseRichText(
+          JSON.stringify([
+            {
+              children: [
+                { text: "" },
+                { children: [{ text: "x" }], type: "a", url: "https://x.org" },
+                { text: "" },
+              ],
+              type: "p",
+            },
+          ])
+        )
+      )
+    ).toBe(true);
   });
 
   it("finds text in a list item or a cell", () => {
@@ -380,10 +728,10 @@ describe("resolutionBodySchema", () => {
 
   it("explains a refused format", () => {
     const result = resolutionBodySchema.safeParse(
-      JSON.stringify([{ children: [{ text: "x" }], type: "blockquote" }])
+      JSON.stringify([{ children: [p("x")], type: "code_block" }])
     );
     expect(result.error?.issues[0]?.message).toBe(
-      "Use paragraphs, lists and tables only, not blockquote."
+      "Use paragraphs, headings, quotes, dividers, lists and tables only, not code block."
     );
   });
 });
@@ -419,7 +767,7 @@ describe("resolution templates", () => {
         if (block.type !== "p") {
           continue;
         }
-        const [lead, ...rest] = block.children;
+        const [lead, ...rest] = block.children as RichTextLeaf[];
         expect(lead?.text).toMatch(/^RESOLVED (FURTHER )?THAT ?$/);
         expect(lead?.bold).toBe(true);
         expect(rest.every((l) => !l.bold)).toBe(true);

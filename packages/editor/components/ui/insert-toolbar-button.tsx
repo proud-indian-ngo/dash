@@ -102,17 +102,17 @@ const groups: Group[] = [
       {
         icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} />,
         label: "Bulleted list",
-        value: KEYS.ul,
+        value: KEYS.ulClassic,
       },
       {
         icon: <HugeiconsIcon icon={LeftToRightListNumberIcon} />,
         label: "Numbered list",
-        value: KEYS.ol,
+        value: KEYS.olClassic,
       },
       {
         icon: <HugeiconsIcon icon={CheckmarkSquare01Icon} />,
         label: "To-do list",
-        value: KEYS.listTodo,
+        value: KEYS.taskList,
       },
       {
         icon: <HugeiconsIcon icon={ArrowRight01Icon} />,
@@ -161,6 +161,13 @@ const groups: Group[] = [
 export function InsertToolbarButton() {
   const editor = useEditorRef();
   const [open, setOpen] = React.useState(false);
+  // Only what this editor's plugins can hold.
+  const shown = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.value in editor.plugins),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
@@ -176,13 +183,13 @@ export function InsertToolbarButton() {
         className="flex max-h-[500px] min-w-[180px] flex-col overflow-y-auto"
         align="start"
       >
-        {groups.map(({ group, items: nestedItems }) => (
+        {shown.map(({ group, items: nestedItems }) => (
           <ToolbarMenuGroup key={group} label={group}>
             {nestedItems.map(({ icon, label, value, onSelect }) => (
               <DropdownMenuItem
                 key={value}
                 className="min-w-[180px]"
-                onSelect={() => {
+                onClick={() => {
                   onSelect(editor, value);
                   editor.tf.focus();
                 }}
