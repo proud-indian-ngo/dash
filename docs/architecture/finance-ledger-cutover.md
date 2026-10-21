@@ -130,12 +130,15 @@ Founder answers are recorded under each question; the CA confirms or corrects th
    4. **Proposal**: a FY 2026-27 refund of an earlier gift reduces FY 2026-27 income on the refund day.
    - **Founder**: capture date, gross; items 2 and 4 as proposed, so no gift falls between the years.
 2. **Income presentation.** The statements show all income as "Donations received", including corporate engagement money. Keep one line, or sub-lines (CSR, Goodera, individual)? Donation type and channel are recorded on every gift, so either works.
+   - **Founder**: split by type (CSR, other corporate such as Goodera, individual).
 3. **Expense heads.** The receipts and payments account lists payments by activity. The dashboard tags each expense with programme, optional project and event, and an account head from the expense categories (Resource Cost, Procurement, Transportation, Food or Refreshment, Logistics, Others, Scholarship). Can those columns build the activity lines? List any fixed heads needed (audit fees, website hosting, depreciation).
+   - **Founder**: one line per programme, plus fixed heads for admin costs (audit fees, bank charges, website hosting, depreciation).
 4. **Depreciation.** **Proposal**: the CA calculates it at year end and the dashboard records the figure; it never computes depreciation.
    - **Founder**: as proposed. The treasurer enters the signed figures; a fixed asset carried at less posts as depreciation.
 5. **Audit fee provision of 10,000.** Does the FY 2025-26 fee, paid in FY 2026-27, clear the opening liability rather than count as expense?
    - **Founder** (17 October 2026): the payment clears the provision and any excess is expense, as built (section 3). This replaces an earlier answer to expense it. Built fallback: a write-back in the signed statements is entered with the audited figures, under `Year-end adjustments (audited) — income` by default. CA to confirm the head.
 6. **Column headers in the signed I&E** read "31-March-2025" and "31-March-2024" for FY 2025-26 and FY 2024-25 figures. Is a corrected copy needed?
+   - **Founder**: yes, ask for a corrected copy.
 7. **Opening figures.** Confirm every amount in section 2, the per-asset WDV rates (and gross and accumulated depreciation, if available), and that there were no payables, advances, receivables or gateway balances at 31 March 2026.
 8. **TDS.** Does the trust deduct TDS on any payments, and under which sections?
    - **Founder**: none; the withholding fields stay unused.
