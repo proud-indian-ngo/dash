@@ -4,7 +4,7 @@ pre-commit:
     fix:
       priority: 4
       glob: "*.{js,ts,jsx,tsx}"
-      run: bunx oxfmt --threads=2 {staged_files} && bunx oxlint --fix {staged_files}
+      run: bunx oxfmt --threads=2 --no-error-on-unmatched-pattern {staged_files} && bunx oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
     typecheck:
