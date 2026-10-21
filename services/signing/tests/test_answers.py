@@ -257,13 +257,11 @@ def sign_in(pdf: bytes, pki: Pki, field: str, rewrite_page: bytes | None = None)
     return out.getvalue()
 
 
-def test_signing_a_prepared_or_new_field_is_form_filling(pki: Pki) -> None:
+def test_signing_a_prepared_field_is_form_filling(pki: Pki) -> None:
     given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
     for signed in (
         remote_sign(given, pki, "Trustee_a"),
         sign_in(given, pki, "Trustee_a"),
-        # A signature in a field of its own.
-        sign_in(given, pki, "Signature1"),
     ):
         report = validate_pdf(signed, settings(pki), base_length=len(given))
         assert report["status"] == "valid"
@@ -279,7 +277,9 @@ def test_first_signer_rewriting_the_page_is_refused(pki: Pki) -> None:
     assert report["changesSinceBase"] == "OTHER"
 
 
-def sign_new_field(pdf: bytes, pki: Pki, name: str, box: tuple[int, int, int, int]) -> bytes:
+def sign_new_field(
+    pdf: bytes, pki: Pki, name: str, box: tuple[int, int, int, int] | None
+) -> bytes:
     """A signature in a field of the signer's own, drawn where they like."""
     writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
     out = signers.sign_pdf(
@@ -330,60 +330,71 @@ def test_a_signatures_lock_and_certification_are_reported(pki: Pki) -> None:
     assert sig["certifies"] is True
 
 
-def test_a_new_fields_widget_is_reported_for_the_caller_to_judge(pki: Pki) -> None:
+def test_a_signature_in_a_new_field_is_refused(pki: Pki) -> None:
     given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
-    for box in ((0, 0, 595, 842), (300, 300, 500, 360)):
-        report = validate_pdf(
-            sign_new_field(given, pki, "Signature1", box), settings(pki), base_length=len(given)
-        )
-        # pyHanko counts a new signature field, whatever it covers, as form filling.
-        assert report["changesSinceBase"] == "FORM_FILLING"
-        assert report["pageCount"] == 1
-        assert {"field": "Signature1", "page": 0, "rect": [float(v) for v in box]} in report[
-            "widgets"
-        ]
-        assert {"field": "Trustee_a", "page": 0, "rect": [300.0, 600.0, 547.0, 672.0]} in report[
-            "widgets"
-        ]
-
-
-def test_the_first_signature_on_a_pdf_without_a_form_is_form_filling(pki: Pki) -> None:
-    # The app's PDFs issued without fields have no /AcroForm, like this one;
-    # Acrobat's first signature creates the form with its own field.
-    given = blank_pdf()
-    assert "/AcroForm" not in PdfFileReader(io.BytesIO(given)).root
     for signed in (
+        sign_new_field(given, pki, "Signature1", (0, 0, 595, 842)),
         sign_new_field(given, pki, "Signature1", (300, 300, 500, 360)),
         sign_in(given, pki, "Signature1"),
     ):
         report = validate_pdf(signed, settings(pki), base_length=len(given))
-        assert report["status"] == "valid"
-        assert report["changesSinceBase"] == "FORM_FILLING"
-        assert report["baseSignatureFields"] == []
-
-
-def test_more_than_a_signature_on_a_pdf_without_a_form_is_refused(pki: Pki) -> None:
-    given = blank_pdf()
-    extra = IncrementalPdfFileWriter(io.BytesIO(given))
-    fields.append_signature_field(
-        extra, fields.SigFieldSpec(sig_field_name="Extra", on_page=0, box=(0, 0, 595, 842))
-    )
-    with_extra = signers.sign_pdf(
-        extra,
-        signers.PdfSignatureMetadata(field_name="Signature1"),
-        signer=pki.signer(),
-        new_field_spec=fields.SigFieldSpec(
-            sig_field_name="Signature1", on_page=0, box=(300, 300, 500, 360)
-        ),
-    ).getvalue()
-    for signed in (
-        sign_in(given, pki, "Signature1", rewrite_page=b"BT 72 700 Td (Altered) Tj ET"),
-        # An empty field drawn over the page alongside the signature.
-        with_extra,
-    ):
-        report = validate_pdf(signed, settings(pki), base_length=len(given))
-        assert report["status"] == "valid"
+        # pyHanko counts a new signature field as form filling; the copy's own
+        # widgets are all a signer may touch.
         assert report["changesSinceBase"] == "OTHER"
+
+
+def sign_field_off_the_pages(pdf: bytes, pki: Pki, name: str) -> bytes:
+    """A signature in a new field whose widget no page lists in /Annots."""
+    writer = IncrementalPdfFileWriter(io.BytesIO(pdf))
+    field = writer.add_object(
+        generic.DictionaryObject(
+            {
+                generic.NameObject("/FT"): generic.NameObject("/Sig"),
+                generic.NameObject("/T"): generic.pdf_string(name),
+                generic.NameObject("/Type"): generic.NameObject("/Annot"),
+                generic.NameObject("/Subtype"): generic.NameObject("/Widget"),
+                generic.NameObject("/F"): generic.NumberObject(4),
+                generic.NameObject("/Rect"): generic.ArrayObject(
+                    [generic.NumberObject(0)] * 4
+                ),
+            }
+        )
+    )
+    writer.root["/AcroForm"]["/Fields"].append(field)
+    writer.update_container(writer.root["/AcroForm"]["/Fields"])
+    out = signers.sign_pdf(
+        writer, signers.PdfSignatureMetadata(field_name=name), signer=pki.signer()
+    )
+    return out.getvalue()
+
+
+def test_a_new_field_without_a_widget_on_a_page(pki: Pki) -> None:
+    given = fill_answers(prepared(), "Answers_a", ANSWERS_A)
+    # An invisible widget is still on the page, so the widgets changed.
+    invisible = sign_new_field(given, pki, "Signature1", None)
+    report = validate_pdf(invisible, settings(pki), base_length=len(given))
+    assert report["changesSinceBase"] == "OTHER"
+    # A widget no page lists passes the widget comparison as form filling.
+    # The dashboard's checkSignedUpload (apps/web/src/lib/governance/circulars.ts)
+    # refuses it: the signed field isn't one of baseSignatureFields.
+    off_the_pages = sign_field_off_the_pages(given, pki, "Signature1")
+    report = validate_pdf(off_the_pages, settings(pki), base_length=len(given))
+    assert report["changesSinceBase"] == "FORM_FILLING"
+    assert report["baseSignatureFields"] == ["Trustee_a", "Trustee_b"]
+    assert [sig["fieldName"] for sig in report["signatures"]] == ["Signature1"]
+
+
+def test_a_copy_without_a_form_is_refused(pki: Pki) -> None:
+    # Every signed copy is issued with its fields, so a base without a form
+    # is never a signer's copy.
+    given = blank_pdf()
+    report = validate_pdf(
+        sign_new_field(given, pki, "Signature1", (300, 300, 500, 360)),
+        settings(pki),
+        base_length=len(given),
+    )
+    assert report["changesSinceBase"] == "OTHER"
+    assert report["baseSignatureFields"] == []
 
 
 def test_the_signature_fields_the_copy_had_are_reported(pki: Pki) -> None:

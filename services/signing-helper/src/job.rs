@@ -62,6 +62,10 @@ struct ServerMessage {
     message: Option<String>,
 }
 
+/// Sent with every request, so the dashboard can refuse a helper too old for it.
+const VERSION_HEADER: &str = "X-Pidash-Sign-Version";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn job_url(server: &str, job: &str) -> String {
     format!("{}/api/signing/jobs/{job}", server.trim_end_matches('/'))
 }
@@ -86,9 +90,9 @@ fn reply<T: DeserializeOwned>(
 pub fn run_link(link: &str) -> Result<()> {
     let link = parse_link(link)?;
     let settings = config::load();
-    let Some(allowed) = settings.server.as_deref() else {
+    let Some(allowed) = config::server(&settings) else {
         return Err(format!(
-            "The helper isn't set up for a dashboard. Run the installer again (config: {}).",
+            "This helper wasn't built for a dashboard. Download it from the dashboard again, or set the server in {}.",
             config::config_path().display()
         )
         .into());
@@ -102,7 +106,14 @@ pub fn run_link(link: &str) -> Result<()> {
     }
     let url = job_url(allowed, &link.job);
     // A refusal's body carries the dashboard's message, so statuses aren't errors.
-    let job: Job = reply(ureq::get(&url).config().http_status_as_error(false).build().call())?;
+    let job: Job = reply(
+        ureq::get(&url)
+            .header(VERSION_HEADER, VERSION)
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .call(),
+    )?;
     let body = match job_result(&job, &link, &settings) {
         Ok(body) => body,
         Err(error) => {
@@ -112,6 +123,7 @@ pub fn run_link(link: &str) -> Result<()> {
     };
     let done: ServerMessage = reply(
         ureq::post(&url)
+            .header(VERSION_HEADER, VERSION)
             .config()
             .http_status_as_error(false)
             .build()
@@ -177,7 +189,9 @@ fn job_result(job: &Job, link: &Link, settings: &config::Config) -> Result<serde
 /// Tells the dashboard the job failed here, so the page stops waiting and
 /// shows why. Best effort: the helper's own window shows the reason anyway.
 fn report_failure(url: &str, message: &str) {
-    let _ = ureq::post(url).send_json(json!({ "failed": message }));
+    let _ = ureq::post(url)
+        .header(VERSION_HEADER, VERSION)
+        .send_json(json!({ "failed": message }));
 }
 
 /// `pidash-sign list`: shows the signing certificates on the token, to check a setup.

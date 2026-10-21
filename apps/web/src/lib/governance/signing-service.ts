@@ -59,8 +59,8 @@ export class SigningServiceError extends Error {}
 
 /**
  * Adds per signer an empty signature field and the read-only answers field
- * it locks to an issued circular. Throws when the service is missing or
- * refuses: a circular without fields can't be signed in place.
+ * it locks to a circular, minutes or declaration. Throws when the service is
+ * missing or refuses: every signer signs in a field the document was made with.
  */
 export async function prepareSignatureFields(
   pdf: Uint8Array,
@@ -75,7 +75,7 @@ export async function prepareSignatureFields(
 ): Promise<Uint8Array> {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     throw new SigningServiceError(
-      "Issuing needs the signing service, which isn't set up here."
+      "Making this document needs the signing service, which isn't set up here."
     );
   }
   const response = await fetchImpl(

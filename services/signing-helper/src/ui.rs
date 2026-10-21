@@ -8,7 +8,7 @@ fn printable(text: &str) -> String {
     text.replace('\'', "\u{2019}").replace('"', "\u{201D}")
 }
 
-fn headless() -> bool {
+pub fn headless() -> bool {
     std::env::var("PIDASH_SIGN_HEADLESS").is_ok_and(|v| v == "1")
 }
 

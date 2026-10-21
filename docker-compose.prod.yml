@@ -87,7 +87,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
       APP_ENV: ${APP_ENV:-production}
-      # internal pyHanko service for governance PDFs (services/signing); unset stores signed PDFs unchecked
+      # internal pyHanko service for governance PDFs (services/signing); issuing circulars, minutes and declarations needs it
       SIGNING_SERVICE_URL: ${SIGNING_SERVICE_URL:-http://signing:8080}
       SIGNING_SERVICE_TOKEN: ${SIGNING_SERVICE_TOKEN:-}
       # rebuilds proudindian.ngo when the public events feed changes (sync-public-events-deploy); unset disables it

@@ -1,8 +1,9 @@
 //! Where the helper may connect, and which PKCS#11 driver to load.
 //!
-//! The installer writes `config.json` with the one pi-dash server it trusts;
-//! a link naming any other server is refused, so a crafted link can't get
-//! the token to sign for someone else.
+//! The release build bakes in the one dashboard it trusts
+//! (`PIDASH_SIGN_SERVER` at build time); `config.json` may override it and
+//! the driver, for a test dashboard. A link naming any other server is
+//! refused, so a crafted link can't get the token to sign for someone else.
 
 use std::path::PathBuf;
 
@@ -10,10 +11,12 @@ use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
-    /// "https://dash.example.org": the only server the helper talks to.
+    /// "https://dash.example.org": replaces the built-in server.
     pub server: Option<String>,
     /// Path to the token's PKCS#11 library.
     pub module: Option<String>,
+    /// Where to look for new releases, for testing updates; GitHub by default.
+    pub updates: Option<String>,
 }
 
 pub fn config_path() -> PathBuf {
@@ -40,6 +43,11 @@ pub fn load() -> Config {
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default()
+}
+
+/// The only server the helper talks to: the config's, or the one built in.
+pub fn server(config: &Config) -> Option<&str> {
+    config.server.as_deref().or(option_env!("PIDASH_SIGN_SERVER"))
 }
 
 /// The token driver: `PIDASH_PKCS11_MODULE`, the config, or the HyperSecu default.

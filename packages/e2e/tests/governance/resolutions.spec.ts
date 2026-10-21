@@ -6,8 +6,8 @@ import { expect, test } from "../../fixtures/test";
  * Circulars against the seeded board: the super admin is the Managing
  * Trustee (Asha Rao) and the admin the Joint Managing Trustee (Vikram
  * Menon), the two trustees in office. Each test drafts its own
- * resolutions. Signing needs the signing service, which E2E doesn't run;
- * the pass rules with signatures are covered by unit and database tests.
+ * resolutions. Signing needs a DSC, so the pass rules with signatures are
+ * covered by unit and database tests.
  */
 
 /**
@@ -504,5 +504,24 @@ test.describe("circular resolutions (another trustee)", () => {
     await expect(
       page.getByText(/Only the Managing Trustee can issue/)
     ).toBeVisible();
+  });
+});
+
+test.describe("signing helper", () => {
+  test("offers the helper's download for each computer", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+    await page.goto("/governance/resolutions/signing-helper");
+    await page.getByRole("button", { name: "Mac" }).click();
+    await expect(
+      page.getByRole("link", { name: "Download for Mac" })
+    ).toHaveAttribute("href", /\/releases\/latest\/download\/.+\.dmg$/);
+    await expect(page.getByText(/Open Anyway/)).toBeVisible();
+    await page.getByRole("button", { name: "Windows" }).click();
+    await expect(
+      page.getByRole("link", { name: "Download for Windows" })
+    ).toHaveAttribute("href", /\/releases\/latest\/download\/.+\.exe$/);
+    await expect(page.getByText(/Run anyway/)).toBeVisible();
   });
 });

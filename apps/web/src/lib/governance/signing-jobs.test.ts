@@ -122,6 +122,8 @@ const {
   certificateFacts,
   completeJob,
   describeJob,
+  OUTDATED_HELPER_MESSAGE,
+  refuseOutdatedHelper,
   startDeclarationJob,
   startMinutesJob,
 } = await import("./signing-jobs");
@@ -203,6 +205,23 @@ describe("helper jobs", () => {
     expect(closed).toEqual([
       { claim: CLAIM, error: "No DSC token is plugged in.", id: "job-1" },
     ]);
+  });
+
+  it("refuses a helper older than the dashboard serves and fails its job", async () => {
+    for (const version of [null, "0.1.1", "nonsense"]) {
+      closed.length = 0;
+      const reply = await refuseOutdatedHelper("t".repeat(43), version);
+      expect(reply).toEqual({
+        body: { message: OUTDATED_HELPER_MESSAGE },
+        status: 426,
+      });
+      expect(closed).toEqual([
+        { claim: CLAIM, error: OUTDATED_HELPER_MESSAGE, id: "job-1" },
+      ]);
+    }
+    for (const version of ["0.2.0", "0.10.0", "1.0.0"]) {
+      expect(await refuseOutdatedHelper("t".repeat(43), version)).toBeNull();
+    }
   });
 
   it("refuses a token holding someone else's certificate", async () => {

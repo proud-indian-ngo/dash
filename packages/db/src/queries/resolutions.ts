@@ -361,7 +361,7 @@ export interface IssueInput {
   deedVersionId: string | null;
   issuerTrusteeId: string;
   /** The prepared PDF, already stored. */
-  pdf: { fieldsPrepared: boolean; objectKey: string; sha256: string };
+  pdf: { objectKey: string; sha256: string };
   /**
    * The drafts it carries, in order, each with the threshold it passes by
    * and the `updatedAt` the PDF was rendered from.
@@ -427,7 +427,6 @@ export async function issueCircular(input: IssueInput): Promise<void> {
     await tx.insert(circularRevision).values({
       circularId: input.circularId,
       createdAt: now,
-      fieldsPrepared: input.pdf.fieldsPrepared,
       id: uuidv7(),
       latestObjectKey: input.pdf.objectKey,
       latestSha256: input.pdf.sha256,

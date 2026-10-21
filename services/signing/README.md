@@ -8,5 +8,5 @@ Every route except `GET /health` needs `Authorization: Bearer $SIGNING_SERVICE_T
 cd services/signing
 uv sync
 uv run pytest
-SIGNING_SERVICE_TOKEN=dev uv run uvicorn pidash_signing.app:app --port 8090
+SIGNING_SERVICE_TOKEN=local-signing-token uv run uvicorn pidash_signing.app:app --port 8090
 ```

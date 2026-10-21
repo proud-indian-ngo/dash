@@ -13,7 +13,6 @@ let state: {
   openAssents: number;
 } | null;
 let revision: {
-  fieldsPrepared: boolean;
   latestObjectKey: string;
   latestSha256: string;
 } | null;
@@ -57,7 +56,6 @@ describe("signingCopy", () => {
       openAssents: 1,
     };
     revision = {
-      fieldsPrepared: true,
       latestObjectKey: "latest.pdf",
       latestSha256: sha(LATEST),
     };
@@ -95,7 +93,6 @@ describe("signingCopy", () => {
 
   it("refuses when the latest PDF doesn't match its record", async () => {
     revision = {
-      fieldsPrepared: true,
       latestObjectKey: "latest.pdf",
       latestSha256: "f".repeat(64),
     };
@@ -117,24 +114,5 @@ describe("signingCopy", () => {
     await expect(signingCopy("c1", "t1", { create: true })).rejects.toThrow(
       "nothing left"
     );
-  });
-
-  it("without answer boxes, signs the latest copy only when every answer is assent", async () => {
-    revision = {
-      fieldsPrepared: false,
-      latestObjectKey: "latest.pdf",
-      latestSha256: sha(LATEST),
-    };
-    await expect(signingCopy("c1", "t1", { create: true })).rejects.toThrow(
-      "without answer boxes"
-    );
-    state = {
-      answers: [{ answer: "assent", position: 1 }],
-      fieldName: "Trustee_a",
-      openAssents: 1,
-    };
-    const copy = await signingCopy("c1", "t1", { create: true });
-    expect(copy).toMatchObject({ bytes: LATEST, objectKey: null });
-    expect(fillAnswers).not.toHaveBeenCalled();
   });
 });

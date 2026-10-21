@@ -11,7 +11,7 @@ import hashlib
 import hmac
 import io
 import logging
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -21,29 +21,18 @@ from asn1crypto import algos, keys, pem, x509
 from cryptography.exceptions import InvalidSignature
 from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.form_tools import enumerate_fields_in
-from pyhanko.pdf_utils import misc
 from pyhanko.pdf_utils.misc import PdfReadError
-from pyhanko.pdf_utils.reader import HistoricalResolver, PdfFileReader, RawPdfPath
+from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.diff_analysis import (
     DEFAULT_DIFF_POLICY,
-    FieldComparisonContext,
-    FormUpdate,
     FormUpdatingRule,
     GenericFieldModificationRule,
-    ModificationLevel,
     SigFieldCreationRule,
     SigFieldModificationRule,
     StandardDiffPolicy,
     SuspiciousModification,
 )
-from pyhanko.sign.diff_analysis.commons import (
-    compare_dicts,
-    compare_key_refs,
-    qualify_transforming,
-)
 from pyhanko.sign.diff_analysis.constants import ACROFORM_EXEMPT_STRICT_COMPARISON
-from pyhanko.sign.diff_analysis.form_rules_api import _list_fields
-from pyhanko.sign.diff_analysis.rules_api import Context
 from pyhanko.sign.fields import FieldMDPSpec
 from pyhanko.sign.validation import (
     EmbeddedPdfSignature,
@@ -71,62 +60,9 @@ CERT_SUFFIXES = {".pem", ".cer", ".crt", ".der"}
 #: fills or signs later. A changed appearance must be a new stream instead.
 #: The first signature also turns /SigFlags from 1 to 3 (append only), which
 #: the review from the copy a signer was given has to allow.
-class _FormRule(FormUpdatingRule):
-    """pyHanko's form rule, also for a base without a form.
-
-    A PDF made without signature fields has no /AcroForm, and the first
-    signature creates one holding its own field. pyHanko never compares
-    against a revision without a form (it judges only revisions after a
-    signature), and its rule fails on one, so a base without a form is
-    compared as if it had an empty one: the new form may hold nothing but
-    what the field rules allow, and keys the comparison exempts.
-    """
-
-    def apply(
-        self, old: HistoricalResolver, new: HistoricalResolver
-    ) -> Iterable[tuple[ModificationLevel, FormUpdate]]:
-        if "/AcroForm" in old.root:
-            yield from super().apply(old, new)
-            return
-        # As FormUpdatingRule.apply (pyHanko 0.37), with an empty old form.
-        _, new_form = yield from qualify_transforming(
-            ModificationLevel.LTA_UPDATES,
-            compare_key_refs("/AcroForm", old, old.root, new.root),
-            transform=FormUpdate.curry_ref(
-                field_name=None,
-                context_checked=Context.from_absolute(old, RawPdfPath("/Root", "/AcroForm")),
-            ),
-        )
-        empty = generic.DictionaryObject()
-        compare_dicts(empty, new_form, self.ignored_acroform_keys)
-        _, new_fields = yield from qualify_transforming(
-            ModificationLevel.LTA_UPDATES,
-            compare_key_refs("/Fields", old, empty, new_form),
-            transform=FormUpdate.curry_ref(field_name=None),
-        )
-        _, new_dr = yield from qualify_transforming(
-            ModificationLevel.FORM_FILLING,
-            compare_key_refs("/DR", old, empty, new_form),
-            transform=FormUpdate.curry_ref(field_name=None),
-        )
-        if new_dr is not None:
-            yield from qualify_transforming(
-                ModificationLevel.FORM_FILLING,
-                misc._as_gen(new.collect_dependencies(new_dr, since_revision=old.revision + 1)),
-                transform=FormUpdate.curry_ref(field_name=None),
-            )
-        context = FieldComparisonContext(
-            field_specs=dict(_list_fields(generic.ArrayObject(), new_fields, old_path=None)),
-            old=old,
-            new=new,
-        )
-        for rule in self.field_rules:
-            yield from rule.apply(context)
-
-
 DIFF_POLICY = StandardDiffPolicy(
     global_rules=DEFAULT_DIFF_POLICY.global_rules,
-    form_rule=_FormRule(
+    form_rule=FormUpdatingRule(
         field_rules=[
             SigFieldCreationRule(),
             SigFieldModificationRule(),
@@ -502,10 +438,9 @@ def _changes_since(reader: PdfFileReader, data: bytes, base_length: int) -> str:
     pyHanko only judges changes made after a signature, so a first signer could
     otherwise rewrite the text in the revision their signature covers. It also
     counts a new signature field's widget, and a new appearance, flags or
-    look for an unsigned field's widget, as form filling, so every widget must
-    render as it did (a field signed since may change only its value and
-    appearance), and only a new field signed since may add one. Where that new field's widget sits is for the
-    caller to judge (`widgets`).
+    look for an unsigned field's widget, as form filling, so the widgets must
+    be the ones the base had, each rendering as it did (a field signed since
+    may change only its value and appearance).
     """
     try:
         base = PdfFileReader(io.BytesIO(data[:base_length]), strict=False)
@@ -518,20 +453,10 @@ def _changes_since(reader: PdfFileReader, data: bytes, base_length: int) -> str:
         result = DIFF_POLICY.review_file(reader, last)
         signed_since = _signed_fields(reader) - _signed_fields(base)
         before = sorted(_widgets(base, signed_since))
-        known = {w[0] for w in before}
-        # A field that was there renders as it did; one signed since may show
-        # a new appearance.
-        after = sorted(
-            w
-            for w in _widgets(reader, signed_since)
-            if w[0] not in signed_since or w[0] in known
-        )
-        # Asked to, a viewer redraws every field from its value and /DR. A
-        # base without a form asks for nothing.
+        after = sorted(_widgets(reader, signed_since))
+        # Asked to, a viewer redraws every field from its value and /DR.
         redraw_before, redraw_after = (
             str(r.root["/AcroForm"].get("/NeedAppearances", False))
-            if "/AcroForm" in r.root
-            else "False"
             for r in (base, reader)
         )
     except Exception:  # noqa: BLE001 - unreadable counts as changed
@@ -557,9 +482,8 @@ async def validate_pdf_async(
 ) -> dict[str, Any]:
     """Validate every signature in a PDF; `status` sums them up. With
     `base_length`, `changesSinceBase` is the most the revisions appended to
-    that many leading bytes (the copy a signer was given) change,
-    `pageCount` and `widgets` say where every field's widget sits, and
-    `baseSignatureFields` names the signature fields that copy already had."""
+    that many leading bytes (the copy a signer was given) change, and
+    `baseSignatureFields` names the signature fields that copy had."""
     checked_at = datetime.now(UTC).isoformat()
     try:
         reader = PdfFileReader(io.BytesIO(data), strict=False)
@@ -677,11 +601,6 @@ async def validate_pdf_async(
     if base_length is not None:
         report["changesSinceBase"] = _changes_since(reader, data, base_length)
         try:
-            report["pageCount"] = int(reader.root["/Pages"]["/Count"])
-            report["widgets"] = [
-                {"field": field, "page": page, "rect": list(rect)}
-                for field, page, rect, _ in _widgets(reader)
-            ]
             base = PdfFileReader(io.BytesIO(data[:base_length]), strict=False)
             report["baseSignatureFields"] = sorted(_signature_fields(base))
         except Exception:  # noqa: BLE001 - unreadable counts as changed

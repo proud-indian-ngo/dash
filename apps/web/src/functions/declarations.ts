@@ -35,7 +35,6 @@ import {
 import {
   prepareSignatureFields,
   SigningServiceError,
-  signingServiceConfigured,
 } from "@/lib/governance/signing-service";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
@@ -126,14 +125,10 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
                 .join(", "),
             },
           });
-          // Without the signing service, the trustee draws the box in Acrobat.
-          const fieldsPrepared = signingServiceConfigured();
-          const pdf = fieldsPrepared
-            ? await prepareSignatureFields(
-                new Uint8Array(rendered),
-                fieldRequests([member.trustee.id])
-              )
-            : new Uint8Array(rendered);
+          const pdf = await prepareSignatureFields(
+            new Uint8Array(rendered),
+            fieldRequests([member.trustee.id])
+          );
           const sha256 = sha256Of(pdf);
           const objectKey = declarationKey(
             member.trustee.id,
@@ -149,7 +144,7 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
             sha256,
             trusteeId: member.trustee.id,
           });
-          return { fieldsPrepared, fiscalYear };
+          return { fiscalYear };
         })
     );
   });

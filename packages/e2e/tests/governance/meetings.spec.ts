@@ -8,8 +8,7 @@ import { expect, test } from "../../fixtures/test";
  * Vikram Menon and Meera Iyer were in office that day, and version 2 of the
  * deed (a quorum of half the board, at least two, video counting) was in
  * force. The first test takes the seeded meeting through to its minutes;
- * the others create their own meetings. Signing the minutes needs the
- * signing service, which E2E doesn't run.
+ * the others create their own meetings. Signing the minutes needs a DSC.
  */
 
 const SEEDED_MEETING = "Board meeting, October 2026";
@@ -110,6 +109,16 @@ test.describe("board meetings (super admin)", () => {
     // Making the minutes stores the PDF in R2, which CI does not have.
     if (!process.env.CI) {
       await minutes.getByRole("button", { name: "Make the minutes" }).click();
+      // Folded behind the DSC button when the signing helper is available.
+      const otherWays = minutes.getByRole("button", {
+        name: "Sign in Acrobat instead",
+      });
+      await expect(
+        otherWays.or(minutes.getByRole("link", { name: "Download minutes" }))
+      ).toBeVisible({ timeout: 30_000 });
+      if (await otherWays.isVisible()) {
+        await otherWays.click();
+      }
       await expect(
         minutes.getByRole("link", { name: "Download minutes" })
       ).toHaveAttribute("href", /kind=meetingMinutes/, { timeout: 30_000 });

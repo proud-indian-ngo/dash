@@ -19,7 +19,6 @@ import {
   getCircularSignUploadUrl,
   submitSignedCircularFn,
 } from "@/functions/resolutions";
-import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
 import { DscSignSection } from "./dsc-sign-section";
 import { useVoteReauth } from "./use-vote-reauth";
@@ -36,13 +35,11 @@ function errorText(error: unknown, fallback: string): string {
 export function CircularSignPanel({
   assents,
   circularId,
-  fieldsPrepared,
   otherAnswers,
 }: {
   /** Positions of the open resolutions signing assents to. */
   assents: number[];
   circularId: string;
-  fieldsPrepared: boolean;
   /** Their objections and conflicts, as the signature will record them. */
   otherAnswers: string[];
 }) {
@@ -55,16 +52,12 @@ export function CircularSignPanel({
   const [downloading, setDownloading] = useState(false);
   // Without the helper, the other ways are the only ways, so they show open.
   const [dscAvailable, setDscAvailable] = useState<boolean | null>(null);
-  const latestHref = getProtectedAttachmentHref({
-    id: circularId,
-    kind: "circularPdf",
-  });
 
   const handleDownload = useEventCallback(async () => {
     setDownloading(true);
     await copyUrl({ data: { circularId } })
       .then(({ url }) => {
-        window.location.href = url ?? latestHref;
+        window.location.href = url;
       })
       .catch((error: unknown) => {
         toast.error("Couldn't prepare your copy", {
@@ -124,13 +117,12 @@ export function CircularSignPanel({
             type="button"
           >
             {downloading ? "Preparing your copy..." : "Download your copy"}
-          </button>
-          {fieldsPrepared ? " (your answers are filled in)" : null}
+          </button>{" "}
+          (your answers are filled in)
         </li>
         <li>
-          {fieldsPrepared
-            ? "Sign the box beside your name in Acrobat or Reader with your DSC token, and save."
-            : "In Acrobat or Reader, click the box beside your name and sign it with your DSC token; if it isn't clickable, choose Use a certificate and draw over it. Then save."}
+          Sign the box beside your name in Acrobat or Reader with your DSC
+          token, and save.
         </li>
         <li>
           Upload the signed copy. If someone signs first, or you change an

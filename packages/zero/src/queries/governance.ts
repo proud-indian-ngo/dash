@@ -167,7 +167,6 @@ export const resolutionQueries = {
 const circularDetail = () =>
   zql.circular
     .related("issuedBy")
-    .related("revisions", (q) => q.orderBy("revision", "desc").limit(1))
     .related("signatures", (q) => q.related("trustee"))
     .related("resolutions", (q) =>
       q
