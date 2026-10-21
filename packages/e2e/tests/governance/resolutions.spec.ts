@@ -17,6 +17,9 @@ import { expect, test } from "../../fixtures/test";
 async function insert(page: Page, dialog: Locator, item: string) {
   await dialog.getByLabel("Insert", { exact: true }).click();
   await page.getByRole("menuitem", { exact: true, name: item }).click();
+  // The editor takes focus back a moment after the change; keys typed
+  // before then reach the Insert button, and Enter reopens its menu.
+  await expect(dialog.getByRole("textbox", { name: "Text" })).toBeFocused();
 }
 
 /** Replaces the rich text in the dialog's Text editor with `text`. */
