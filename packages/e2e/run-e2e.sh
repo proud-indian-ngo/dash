@@ -264,6 +264,8 @@ export ZERO_CHANGE_STREAMER_PORT="$TEST_ZERO_CS_PORT"
 ZERO_PID=$!
 
 # Wait for zero-cache to finish initial replication and start its workers.
+# A fresh replica copies every table and builds its indexes first, which
+# takes well over 30s on a loaded machine; a crash still fails at once.
 ZERO_STARTED=$SECONDS
 until curl -sf --max-time 2 "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; do
   if ! kill -0 "$ZERO_PID" 2>/dev/null; then
@@ -271,8 +273,8 @@ until curl -sf --max-time 2 "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; 
     exit 1
   fi
   sleep 1
-  if [ "$((SECONDS - ZERO_STARTED))" -ge 30 ]; then
-    echo "ERROR: zero-cache failed to start within 30s"
+  if [ "$((SECONDS - ZERO_STARTED))" -ge 90 ]; then
+    echo "ERROR: zero-cache failed to start within 90s"
     exit 1
   fi
 done

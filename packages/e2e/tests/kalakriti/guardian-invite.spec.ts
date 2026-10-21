@@ -130,16 +130,26 @@ test("Guardian login gains Edition access and loses it after archival", async ({
       await expect(
         page.getByText("Guardian access archived", { exact: true })
       ).toBeVisible();
-      expect(
-        (await fixture<GuardianInviteState>("state")).membershipState
-      ).toBe("archived");
+      // Archiving the last membership bans the account and revokes its
+      // sessions in the same transaction.
+      expect(await fixture<GuardianInviteState>("state")).toMatchObject({
+        banned: true,
+        membershipState: "archived",
+      });
 
       // Keep the existing client and its successful access check alive.
-      // Client navigation must consult the server again after revocation.
+      // Client navigation must consult the server again after revocation:
+      // the Edition access check refuses the page, unless Zero notices the
+      // revoked session first and sends the guardian to log in.
       await guardianPage.goBack();
       await expect(
-        guardianPage.getByRole("heading", { name: "Page not found" })
+        guardianPage
+          .getByRole("heading", { name: "Page not found" })
+          .or(guardianPage.getByRole("heading", { name: "Log in" }))
       ).toBeVisible();
+      await expect(
+        guardianPage.getByRole("heading", { name: `Kalakriti ${YEAR}` })
+      ).toBeHidden();
     } finally {
       await guardianContext.close();
     }

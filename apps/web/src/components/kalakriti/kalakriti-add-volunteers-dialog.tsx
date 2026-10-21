@@ -183,6 +183,7 @@ function KalakritiAddVolunteersForm({
           <UserPicker
             emptyMessage="No matching central volunteers found."
             excludeUserIds={excludeUserIds}
+            inputId={field.name}
             onValueChange={field.handleChange}
             placeholder="Search central volunteers..."
             users={users}

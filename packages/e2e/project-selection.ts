@@ -104,6 +104,7 @@ const exclusiveLastSpecs = [
   "settings/cost-centre-activation.spec.ts",
   "finance/books-year-close.spec.ts",
   "governance/policy-gate.spec.ts",
+  "governance/safeguarding-gate.spec.ts",
 ];
 
 export const exclusiveLastPatterns = exclusiveLastSpecs.map(specPattern);
