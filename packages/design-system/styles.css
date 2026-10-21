@@ -296,14 +296,10 @@
     @apply border-border outline-ring/50;
   }
 
-  /* Native scrollbars everywhere: thin, theme-tinted, darker while the pointer is over the scroller. */
+  /* Native scrollbars everywhere: thin and theme-tinted. No :hover tint: restyling every hovered ancestor made select options in dialogs unclickable (Kalakriti results E2E). */
   * {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklab, var(--muted-foreground) 35%, transparent) transparent;
-  }
-
-  *:hover {
-    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent) transparent;
   }
 
   /* Touch: no grey tap flash (controls have their own :active state) and no double-tap delay. */
