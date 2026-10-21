@@ -10,6 +10,7 @@ import { revealSecret } from "./encryption";
 import { filingRowIdContext } from "./encryption-contexts";
 import {
   claimCertificateEmails,
+  confirmPanCertificates,
   loadFilingDrift,
   FilingError,
   type FilingTx,
@@ -310,6 +311,107 @@ it.skipIf(!localDatabase)(
         .from(donationCertificate)
         .where(eq(donationCertificate.id, emailed));
       expect(state?.emailedAt).toBeNull();
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "bulk-confirms only selected automatic PAN matches in a submitted filing, once",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const { actorId, donor } = await fixture(tx);
+      const donorId = await donor("donor@example.test");
+      const filing = await record(
+        tx,
+        actorId,
+        Array.from({ length: 6 }, (_, index) => ({
+          ...planRow(donorId, [], index + 1),
+          ...(index === 3
+            ? { idCode: "Passport number", idType: "passport" as const }
+            : {}),
+        }))
+      );
+      const otherFiling = await record(tx, actorId, [planRow(donorId, [], 1)]);
+      const rows = await tx
+        .select({ id: donationFilingRow.id, srNo: donationFilingRow.srNo })
+        .from(donationFilingRow)
+        .where(eq(donationFilingRow.filingId, filing.id))
+        .orderBy(donationFilingRow.srNo);
+      const ids: string[] = [];
+      for (const row of rows) {
+        const id = uuidv7();
+        ids.push(id);
+        await tx.insert(donationCertificate).values({
+          acknowledgementNumber: `TEST114${id}`,
+          confirmedAt: row.srNo === 5 ? NOW : null,
+          confirmedBy: row.srNo === 5 ? actorId : null,
+          createdAt: NOW,
+          fileName: `${row.srNo}.pdf`,
+          fileObjectKey: `test/${id}.pdf`,
+          fileSha256: id,
+          filingId: filing.id,
+          id,
+          matchedBy: row.srNo === 3 ? "manual" : "details",
+          rowId: row.id,
+        });
+      }
+      const [otherRow] = await tx
+        .select({ id: donationFilingRow.id })
+        .from(donationFilingRow)
+        .where(eq(donationFilingRow.filingId, otherFiling.id));
+      if (!otherRow) throw new Error("Missing other filing row");
+      const foreignId = uuidv7();
+      await tx.insert(donationCertificate).values({
+        acknowledgementNumber: `TEST114${foreignId}`,
+        createdAt: NOW,
+        fileName: "other.pdf",
+        fileObjectKey: `test/${foreignId}.pdf`,
+        fileSha256: foreignId,
+        filingId: otherFiling.id,
+        id: foreignId,
+        matchedBy: "details",
+        rowId: otherRow.id,
+      });
+      const certificateIds = [...ids.slice(0, 5), foreignId];
+      const confirmedAt = new Date(NOW.getTime() + 60_000);
+      const confirm = () =>
+        confirmPanCertificates(tx, {
+          certificateIds,
+          filingId: filing.id,
+          now: confirmedAt,
+          userId: actorId,
+        });
+      await expect(confirm()).rejects.toThrow("submitted filing");
+      await tx
+        .update(donationFiling)
+        .set({
+          acknowledgementNumber: "TEST113",
+          filedOn: "2097-06-01",
+          status: "submitted",
+          transactionId: "TESTTXN",
+        })
+        .where(eq(donationFiling.id, filing.id));
+      expect(await confirm()).toBe(2);
+      expect(await confirm()).toBe(0);
+      const certificates = await tx
+        .select()
+        .from(donationCertificate)
+        .where(eq(donationCertificate.filingId, filing.id));
+      for (const [index, id] of ids.entries()) {
+        const certificate = certificates.find((item) => item.id === id);
+        expect(certificate?.confirmedAt).toEqual(
+          index < 2 ? confirmedAt : index === 4 ? NOW : null
+        );
+        expect(certificate?.confirmedBy).toBe(
+          index < 2 || index === 4 ? actorId : null
+        );
+        expect(certificate?.emailQueuedAt).toBeNull();
+      }
+      const [foreign] = await tx
+        .select()
+        .from(donationCertificate)
+        .where(eq(donationCertificate.id, foreignId));
+      expect(foreign?.confirmedAt).toBeNull();
     });
   }
 );

@@ -3,14 +3,18 @@ import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callbac
 import { formatPaise } from "@pi-dash/shared/money";
 import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
+import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  confirmDonationPanMatches,
   reviewDonationCertificate,
   undoDonationFilingSubmission,
 } from "@/functions/donation-filings";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { DATE } from "@/lib/date-formats";
 
 import {
@@ -86,6 +90,37 @@ export function FilingsSection({
   const openFiling =
     filings.find((filing) => filing.id === openFilingId) ?? null;
   const review = useServerFn(reviewDonationCertificate);
+  const confirmPanMatches = useServerFn(confirmDonationPanMatches);
+  const confirmMatches = useConfirmAction<
+    Parameters<FilingSheetActions["onConfirmPanMatches"]>[0]
+  >({
+    onConfirm: async (request) =>
+      await confirmPanMatches({ data: request })
+        .then((count) => {
+          toast.success(
+            `${count} ${count === 1 ? "certificate" : "certificates"} confirmed`
+          );
+          return { type: "success" };
+        })
+        .catch((error: unknown) => {
+          log.error({
+            action: "donationCertificate.confirmPanMatches",
+            component: "FilingsSection",
+            entityId: request.filingId,
+            error: "Confirming PAN matches failed",
+          });
+          return {
+            type: "error",
+            error: {
+              message:
+                error instanceof Error ? error.message : "Something went wrong",
+            },
+          };
+        }),
+    onError: (description) =>
+      toast.error("Couldn't confirm the certificates", { description }),
+    onSuccess: refresh,
+  });
   const undo = useServerFn(undoDonationFilingSubmission);
   const handleReview = useEventCallback(
     async (certificateId: string, decision: "confirm" | "reject") => {
@@ -125,6 +160,7 @@ export function FilingsSection({
     rowName: string;
   } | null>(null);
   const actions: FilingSheetActions = {
+    onConfirmPanMatches: confirmMatches.trigger,
     onAssign: (filing, row) =>
       setAssigning({
         filingId: filing.id,
@@ -193,6 +229,19 @@ export function FilingsSection({
           }
         }}
         version={version}
+      />
+      <ConfirmDialog
+        confirmLabel="Confirm matches"
+        description="Each certificate uniquely matches the filed PAN, donor name and amount. Manually assigned certificates and other ID types still need individual review. This confirms the matches; it doesn't email the certificates."
+        loading={confirmMatches.isLoading}
+        loadingLabel="Confirming..."
+        onConfirm={confirmMatches.confirm}
+        onOpenChange={(open) => {
+          if (!open) confirmMatches.cancel();
+        }}
+        open={confirmMatches.isOpen}
+        title={`Confirm ${confirmMatches.payload?.certificateIds.length ?? 0} certificate matches?`}
+        variant="default"
       />
       <SubmitFilingDialog
         defaults={{

@@ -40,6 +40,10 @@ mock.module("@/lib/audit", () => ({
   },
 }));
 mock.module("@/lib/donation-filings/server", () => ({
+  confirmPanMatches: async () => {
+    calls.push("confirm_pan_matches");
+    return 2;
+  },
   assignCertificate: async () => {
     calls.push("assign");
     return { acknowledgementNumber: "114000000000001" };
@@ -106,6 +110,34 @@ describe("donation filing server functions", () => {
     granted = [];
     calls = [];
     audits = [];
+  });
+
+  it("requires both finance permissions for bulk confirmation and audits only its count", async () => {
+    const data = {
+      certificateIds: ["0190a000-0000-7000-8000-0000000000c1"],
+      filingId: FILING,
+    };
+    for (const permissions of [
+      [],
+      ["finance.manage"],
+      ["finance.view_sensitive"],
+    ]) {
+      granted = permissions;
+      await expect(call(fns.confirmDonationPanMatches, data)).rejects.toThrow(
+        "Forbidden"
+      );
+    }
+    expect(calls).toEqual([]);
+    granted = ["finance.manage", "finance.view_sensitive"];
+    expect(await call(fns.confirmDonationPanMatches, data)).toBe(2);
+    expect(calls).toEqual(["confirm_pan_matches"]);
+    expect(audits).toEqual([
+      {
+        action: "donation_certificate.confirm_pan_matches",
+        finalMetadata: { confirmedCount: 2 },
+        target: { id: FILING, type: "donation_filing" },
+      },
+    ]);
   });
 
   it("lets anyone who can see Income read a filing's rows, and no one else", async () => {

@@ -2,11 +2,22 @@ import type { DonationType, PartyIdType } from "@pi-dash/shared/constants";
 import {
   CERTIFICATE_EMAIL_STALE_MS,
   RETURN_DONATION_TYPE_CODES,
+  RETURN_ID_CODES,
   type FiledGift,
   type FilingDrift,
   type FilingPlanRow,
 } from "@pi-dash/shared/donations-return";
-import { and, asc, count, eq, inArray, max, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  inArray,
+  isNull,
+  max,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -830,6 +841,52 @@ export async function confirmCertificate(
       .where(eq(donationCertificate.id, certificateId));
     return { filingId: certificate.filingId };
   });
+}
+
+/** Confirms only the selected, unconfirmed certificates uniquely matched by PAN, name and amount. */
+export async function confirmPanCertificates(
+  tx: FilingTx,
+  input: {
+    certificateIds: readonly string[];
+    filingId: string;
+    now: Date;
+    userId: string;
+  }
+): Promise<number> {
+  const filing = await lockFiling(tx, input.filingId);
+  if (filing.status !== "submitted") {
+    throw new FilingError(
+      "Only a submitted filing's matches can be confirmed."
+    );
+  }
+  if (input.certificateIds.length === 0) {
+    return 0;
+  }
+  const confirmed = await tx
+    .update(donationCertificate)
+    .set({ confirmedAt: input.now, confirmedBy: input.userId })
+    .where(
+      and(
+        eq(donationCertificate.filingId, input.filingId),
+        inArray(donationCertificate.id, input.certificateIds),
+        eq(donationCertificate.matchedBy, "details"),
+        isNull(donationCertificate.confirmedAt),
+        inArray(
+          donationCertificate.rowId,
+          tx
+            .select({ id: donationFilingRow.id })
+            .from(donationFilingRow)
+            .where(
+              and(
+                eq(donationFilingRow.filingId, input.filingId),
+                eq(donationFilingRow.idCode, RETURN_ID_CODES.pan)
+              )
+            )
+        )
+      )
+    )
+    .returning({ id: donationCertificate.id });
+  return confirmed.length;
 }
 
 /**

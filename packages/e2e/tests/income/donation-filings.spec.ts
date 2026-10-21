@@ -189,18 +189,47 @@ test.describe("Donations return filings", () => {
       filing.id
     );
     expect(beforeReview.jobs).toBe(0);
-    // The certificate opens beside the row as filed, to compare them.
-    for (let remaining = zip.rowCount; remaining > 0; remaining--) {
-      await review
-        .first()
-        .getByRole("button", { name: "Review certificate" })
-        .click();
-      const panel = page.getByTestId("certificate-review");
-      await expect(panel).toBeVisible();
-      await expect(panel).toContainText("ending");
-      await panel.getByRole("button", { name: "Confirm match" }).click();
-      await expect(review).toHaveCount(remaining - 1);
-    }
+    // Individual PDF review remains available alongside bulk PAN confirmation.
+    await review
+      .first()
+      .getByRole("button", { name: "Review certificate" })
+      .click();
+    const panel = page.getByTestId("certificate-review");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("ending");
+    await panel.getByRole("button", { name: "Confirm match" }).click();
+    await expect(review).toHaveCount(zip.rowCount - 1);
+    const confirmPan = sheet.getByRole("button", {
+      name: `Confirm PAN matches (${zip.rowCount - 1})`,
+      exact: true,
+    });
+    await confirmPan.click();
+    let bulkDialog = page.getByRole("alertdialog");
+    await expect(bulkDialog).toContainText("PAN, donor name and amount");
+    const confirmationScreenshot = test
+      .info()
+      .outputPath("bulk-pan-matches.png");
+    await page.screenshot({ path: confirmationScreenshot });
+    await test.info().attach("Bulk PAN match confirmation", {
+      path: confirmationScreenshot,
+      contentType: "image/png",
+    });
+    await bulkDialog
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(review).toHaveCount(zip.rowCount - 1);
+    await confirmPan.click();
+    bulkDialog = page.getByRole("alertdialog");
+    await bulkDialog
+      .getByRole("button", { name: "Confirm matches", exact: true })
+      .click();
+    await expect(review).toHaveCount(0);
+    await expect(
+      sheet.getByRole("button", { name: /Confirm PAN matches/ })
+    ).toHaveCount(0);
+    expect((await helper<{ jobs: number }>("email-jobs", filing.id)).jobs).toBe(
+      0
+    );
     const readyRow = sheet
       .getByTestId("filing-row")
       .filter({ hasText: READY_DONOR });
