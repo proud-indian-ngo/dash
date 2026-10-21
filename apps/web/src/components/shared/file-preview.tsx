@@ -156,10 +156,12 @@ function ZoomControls({
 }
 
 function FilePreviewContent({
+  aside,
   fileName,
   mimeType,
   src,
 }: {
+  aside?: ReactNode;
   fileName: string;
   mimeType?: null | string;
   src: string;
@@ -361,12 +363,28 @@ function FilePreviewContent({
           />
         </DialogClose>
       </DialogHeader>
-      <div
-        className="-mx-5 -mb-5 min-h-0 overflow-auto overscroll-contain px-3 pb-20 sm:px-5"
-        data-preview-scroll
-      >
-        {body}
-      </div>
+      {aside ? (
+        // The file beside what it is checked against: side by side on wider
+        // screens, the details under the pages on phones.
+        <div className="-mx-5 -mb-5 grid min-h-0 grid-rows-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_20rem] sm:grid-rows-1">
+          <div
+            className="min-h-0 overflow-auto overscroll-contain px-3 pb-20 sm:px-5"
+            data-preview-scroll
+          >
+            {body}
+          </div>
+          <aside className="bg-background max-h-[45dvh] overflow-auto border-t p-4 sm:max-h-none sm:border-t-0 sm:border-l">
+            {aside}
+          </aside>
+        </div>
+      ) : (
+        <div
+          className="-mx-5 -mb-5 min-h-0 overflow-auto overscroll-contain px-3 pb-20 sm:px-5"
+          data-preview-scroll
+        >
+          {body}
+        </div>
+      )}
       {showsPdf && pageCount !== null ? (
         <ZoomControls onChange={setZoom} zoom={zoom} />
       ) : null}
@@ -388,12 +406,15 @@ interface FilePreviewProps {
  * Download saves that copy.
  */
 export function FilePreviewDialog({
+  aside,
   fileName,
   mimeType,
   onOpenChange,
   open,
   src,
 }: FilePreviewProps & {
+  /** Shown beside the file, such as the record it is checked against. */
+  aside?: ReactNode;
   onOpenChange: (open: boolean) => void;
   open: boolean;
 }) {
@@ -413,6 +434,7 @@ export function FilePreviewDialog({
           showCloseButton={false}
         >
           <FilePreviewContent
+            aside={aside}
             fileName={fileName}
             mimeType={mimeType}
             src={src}

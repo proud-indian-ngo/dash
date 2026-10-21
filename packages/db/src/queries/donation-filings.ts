@@ -107,6 +107,25 @@ export async function loadFiledSequences(
   );
 }
 
+/** The live filing holding a gift, if any. */
+export async function loadGiftFiling(
+  contributionId: string
+): Promise<{ sequence: number; status: FilingStatus } | null> {
+  const [row] = await db
+    .select({
+      sequence: donationFiling.sequence,
+      status: donationFiling.status,
+    })
+    .from(donationFilingGift)
+    .innerJoin(
+      donationFiling,
+      eq(donationFiling.id, donationFilingGift.filingId)
+    )
+    .where(eq(donationFilingGift.contributionId, contributionId))
+    .limit(1);
+  return row ?? null;
+}
+
 /**
  * Pre-ARNs among `values` already on a row of a prepared or submitted
  * filing (discarding a filing clears its rows' Pre-ARNs).
@@ -388,12 +407,13 @@ export async function discardFiling(
  * needs a revision on the portal.
  */
 export async function loadFilingDrift(
-  filingIds: readonly string[]
+  filingIds: readonly string[],
+  reader: Reader = db
 ): Promise<Map<string, FilingDrift[]>> {
   if (filingIds.length === 0) {
     return new Map();
   }
-  const gifts = await db
+  const gifts = await reader
     .select({
       amountPaise: contribution.amountPaise,
       deductionEligible: contribution.deductionEligible,
@@ -401,9 +421,9 @@ export async function loadFilingDrift(
       filedPaise: donationFilingGift.amountPaise,
       partyId: contribution.partyId,
       refundedPaise: sql<string>`(
-        select coalesce(sum(${contributionRefund.amountPaise}), 0)
-        from ${contributionRefund}
-        where ${contributionRefund.contributionId} = ${contribution.id}
+        select coalesce(sum(r.amount_paise), 0)
+        from ${contributionRefund} r
+        where r.contribution_id = ${contribution}.${sql.identifier("id")}
       )`,
       rowDonationTypeCode: donationFilingRow.donationTypeCode,
       rowId: donationFilingGift.rowId,

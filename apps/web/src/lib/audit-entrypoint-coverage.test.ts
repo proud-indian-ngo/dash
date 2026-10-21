@@ -99,6 +99,7 @@ const EXEMPT_SERVER_FUNCTIONS = [
   "getContributionSettlementLock",
   "getDebitSuggestions",
   "getDonationFilingRows",
+  "getGiftFiling",
   "getDonationsReturnReadiness",
   "getEventEditorUploadUrl",
   "getGovernanceUploadUrl",

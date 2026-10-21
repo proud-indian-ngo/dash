@@ -7,6 +7,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
+import { ListPage } from "../../pages/list-page";
 
 /**
  * A donations return filing end to end: record it (freezing every ready
@@ -18,6 +19,8 @@ import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
  */
 
 const READY_DONOR = "E2E Ready Donor";
+/** The ready donor's gift (see seed-test-user.ts). */
+const READY_REFERENCE = "E2E-RETURN-736";
 /** Seeded encrypted for the ready donor (see seed-test-user.ts). */
 const READY_DONOR_PAN = "AAAPE1234E";
 
@@ -195,8 +198,12 @@ test.describe("Donations return filings", () => {
     await upload.getByRole("button", { name: "Done" }).click();
     const review = sheet.getByTestId("filing-row-review");
     await expect(review).toHaveCount(1);
-    await expect(review).toContainText("ending");
-    await review.getByRole("button", { name: "Confirm match" }).click();
+    // The certificate opens beside the row as filed, to compare them.
+    await review.getByRole("button", { name: "Review certificate" }).click();
+    const panel = page.getByTestId("certificate-review");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("ending");
+    await panel.getByRole("button", { name: "Confirm match" }).click();
     await expect(page.getByText("Certificate confirmed")).toBeVisible();
     await expect(sheet.getByTestId("filing-row-review")).toHaveCount(0);
     const readyRow = sheet
@@ -213,8 +220,11 @@ test.describe("Donations return filings", () => {
       .getByRole("button", { name: "Email certificates" })
       .click();
     await expect(page.getByText(/queued for email/)).toBeVisible();
+    // The job's outcome shows without a reload. E2E has no Resend key, so
+    // the email is captured as a job and recorded as not set up.
     await expect(readyRow.getByTestId("filing-row-status")).toHaveText(
-      /Sending|Email isn't set up/
+      "Email isn't set up",
+      { timeout: 30_000 }
     );
     const jobs = await helper<{ certificates: number; jobs: number }>(
       "email-jobs",
@@ -222,5 +232,24 @@ test.describe("Donations return filings", () => {
     );
     expect(jobs.certificates).toBe(zip.rowCount);
     expect(jobs.jobs).toBeGreaterThan(0);
+
+    // The filed gift's edit form fixes what the filing reported, up front.
+    await page.keyboard.press("Escape");
+    await page.goto("/income");
+    await waitForZeroReady(page);
+    await page
+      .getByPlaceholder("Search donor or reference...")
+      .fill(READY_REFERENCE);
+    const giftRow = page.getByRole("row").filter({ hasText: READY_DONOR });
+    await expect(giftRow).toHaveCount(1, { timeout: 15_000 });
+    await new ListPage(page).openRowActionAndClick(giftRow, "Edit");
+    const edit = page.getByRole("dialog", { name: "Edit contribution" });
+    await expect(edit.getByTestId("contribution-filing-note")).toContainText(
+      "Correct it with a revision on the portal",
+      { timeout: 15_000 }
+    );
+    await expect(
+      edit.getByRole("textbox", { name: "Amount (₹)" })
+    ).toBeDisabled();
   });
 });

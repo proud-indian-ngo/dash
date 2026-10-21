@@ -1,4 +1,8 @@
-import type { FilingRowView } from "@pi-dash/db/queries/donation-filings";
+import {
+  type FilingRowView,
+  type FilingStatus,
+  loadGiftFiling,
+} from "@pi-dash/db/queries/donation-filings";
 import {
   FIRST_RETURN_DAY,
   MAX_FILING_ROWS,
@@ -51,6 +55,23 @@ export const getDonationFilingRows = createServerFn({ method: "POST" })
     await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
     return await loadRows(data.filingId);
   });
+
+/**
+ * The live filing holding a gift, so the edit form can fix what the filing
+ * reported up front. A read: gift and filing numbers only.
+ */
+export const getGiftFiling = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ contributionId: z.uuid() }))
+  .handler(
+    async ({
+      context,
+      data,
+    }): Promise<{ sequence: number; status: FilingStatus } | null> => {
+      await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
+      return await loadGiftFiling(data.contributionId);
+    }
+  );
 
 export const recordDonationFiling = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

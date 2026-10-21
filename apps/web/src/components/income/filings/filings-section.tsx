@@ -133,6 +133,7 @@ export function FilingsSection({
       }),
     onDiscard: setDiscarding,
     onEmail: setEmailing,
+    onEmailsSettled: onChanged,
     onReview: handleReview,
     onSubmit: setSubmitting,
     onUndoSubmission: handleUndo,

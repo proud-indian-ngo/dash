@@ -21,7 +21,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { FilePreviewDialog } from "@/components/shared/file-preview";
@@ -36,12 +36,15 @@ import { DATE, DATE_TIME } from "@/lib/date-formats";
 import {
   canSendRow,
   certificateStatus,
+  emailInFlight,
   emailableCount,
   FILING_STATUS,
   manualSendRows,
 } from "./filing-labels";
 
 const filingFileUrl = (filingId: string) => `/api/donation-filings/${filingId}`;
+const EMAIL_POLL_MS = 4000;
+
 const certificateUrl = (certificateId: string, inline = false) =>
   `/api/donation-certificates/${certificateId}${inline ? "?disposition=inline" : ""}`;
 
@@ -90,6 +93,8 @@ export interface FilingSheetActions {
   onReview: (certificateId: string, decision: "confirm" | "reject") => void;
   onSubmit: (filing: FilingSummary) => void;
   onUndoSubmission: (filing: FilingSummary) => void;
+  /** The emails on their way have all reached an outcome. */
+  onEmailsSettled: () => void;
   onUpload: (filing: FilingSummary, rowNames: Map<string, string>) => void;
 }
 
@@ -165,108 +170,154 @@ function RowItem({
       ];
   return (
     <li
-      className="flex items-center gap-3 px-4 py-2.5 text-sm"
+      className="flex flex-col gap-2 px-4 py-2.5 text-sm"
       data-testid="filing-row"
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-medium">{row.name}</span>
-        <span className="text-muted-foreground truncate font-mono text-xs tabular-nums">
-          {[
-            `${row.srNo}`,
-            row.preArn ?? "No Pre-ARN",
-            formatPaise(row.amountPaise),
-            row.donationTypeCode,
-            row.modeCode,
-          ].join(" · ")}
-        </span>
-        {certificate ? (
-          <span className="text-muted-foreground truncate text-xs">
-            {`Form 114 ${certificate.acknowledgementNumber}`}
-            {certificate.emailedAt
-              ? ` · emailed ${format(certificate.emailedAt, DATE_TIME)}`
-              : ""}
+      <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate font-medium">{row.name}</span>
+          <span className="text-muted-foreground truncate font-mono text-xs tabular-nums">
+            {[
+              `${row.srNo}`,
+              row.preArn ?? "No Pre-ARN",
+              formatPaise(row.amountPaise),
+              row.donationTypeCode,
+              row.modeCode,
+            ].join(" · ")}
           </span>
-        ) : null}
-        {row.drift.length > 0 ? (
-          <span
-            className="text-warning-foreground text-xs"
-            data-testid="filing-row-drift"
-          >
-            Changed since filing, needs a portal revision:{" "}
-            {row.drift.map((reason) => FILING_DRIFT_LABELS[reason]).join(", ")}
-          </span>
-        ) : null}
-        {reviewing ? (
-          <div
-            className="mt-1 flex flex-col gap-1.5 rounded-md border p-2 text-xs"
-            data-testid="filing-row-review"
-          >
-            <span>
-              {REVIEW_REASONS[certificate.matchedBy]} Check the certificate
-              shows {row.name}, {maskedId(row)} and{" "}
-              {formatPaise(row.amountPaise)} before confirming.
+          {certificate ? (
+            <span className="text-muted-foreground truncate text-xs">
+              {`Form 114 ${certificate.acknowledgementNumber}`}
+              {certificate.emailedAt
+                ? ` · emailed ${format(certificate.emailedAt, DATE_TIME)}`
+                : ""}
             </span>
-            <div className="flex flex-wrap gap-2">
-              {canViewSensitive ? (
-                <Button
-                  onClick={() => onPreview(row)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Open certificate
-                </Button>
-              ) : null}
-              {canManage ? (
-                <>
-                  {canViewSensitive ? (
-                    <Button
-                      onClick={() => onReview(certificate.id, "confirm")}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Confirm match
-                    </Button>
-                  ) : null}
-                  <Button
-                    onClick={() => onReview(certificate.id, "reject")}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    Not this row
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          </div>
+          ) : null}
+        </div>
+        <StatusBadge data-testid="filing-row-status" tone={status.tone}>
+          {status.label}
+        </StatusBadge>
+        {actions.some(Boolean) ? (
+          <ResponsiveActionMenu
+            actions={actions}
+            title={`Certificate for ${row.name}`}
+            trigger={
+              <Button
+                aria-label={`Actions for ${row.name}`}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <HugeiconsIcon
+                  className="size-4"
+                  icon={MoreHorizontalIcon}
+                  strokeWidth={2}
+                />
+              </Button>
+            }
+          />
         ) : null}
       </div>
-      <StatusBadge data-testid="filing-row-status" tone={status.tone}>
-        {status.label}
-      </StatusBadge>
-      {actions.some(Boolean) ? (
-        <ResponsiveActionMenu
-          actions={actions}
-          title={`Certificate for ${row.name}`}
-          trigger={
+      {row.drift.length > 0 ? (
+        <p
+          className="text-warning-foreground text-xs"
+          data-testid="filing-row-drift"
+        >
+          Changed since filing, needs a portal revision:{" "}
+          {row.drift.map((reason) => FILING_DRIFT_LABELS[reason]).join(", ")}
+        </p>
+      ) : null}
+      {reviewing ? (
+        <div
+          className="border-warning/30 bg-warning/10 dark:bg-warning-foreground/10 flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
+          data-testid="filing-row-review"
+        >
+          <span className="text-warning-foreground min-w-0 flex-1">
+            {REVIEW_REASONS[certificate.matchedBy]} Check it before it can be
+            emailed.
+          </span>
+          {canViewSensitive ? (
             <Button
-              aria-label={`Actions for ${row.name}`}
-              size="icon-sm"
+              onClick={() => onPreview(row)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Review certificate
+            </Button>
+          ) : canManage ? (
+            <Button
+              onClick={() => onReview(certificate.id, "reject")}
+              size="sm"
               type="button"
               variant="ghost"
             >
-              <HugeiconsIcon
-                className="size-4"
-                icon={MoreHorizontalIcon}
-                strokeWidth={2}
-              />
+              Not this row
             </Button>
-          }
-        />
+          ) : null}
+        </div>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Beside a certificate under review: the row it was matched to, to compare
+ * with the PDF, and the decision.
+ */
+function ReviewPanel({
+  canManage,
+  onDecide,
+  row,
+}: {
+  canManage: boolean;
+  onDecide: (decision: "confirm" | "reject") => void;
+  row: FilingRowView;
+}) {
+  const certificate = row.certificate;
+  if (!certificate) {
+    return null;
+  }
+  const facts: [string, string][] = [
+    ["Donor", row.name],
+    ["ID", maskedId(row)],
+    ["Amount", formatPaise(row.amountPaise)],
+    ["Donation type", row.donationTypeCode],
+    ["Mode of receipt", row.modeCode],
+    ["Pre-ARN", row.preArn ?? "None"],
+    ["Form 114 number", certificate.acknowledgementNumber],
+  ];
+  return (
+    <div className="flex flex-col gap-4" data-testid="certificate-review">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium">Row {row.srNo} as filed</h3>
+        <p className="text-muted-foreground text-xs">
+          {REVIEW_REASONS[certificate.matchedBy]} Confirm only if the
+          certificate shows this donor, ID and amount.
+        </p>
+      </div>
+      <dl className="flex flex-col gap-2.5">
+        {facts.map(([label, value]) => (
+          <DetailsRow key={label} label={label}>
+            {value}
+          </DetailsRow>
+        ))}
+      </dl>
+      {canManage ? (
+        <div className="flex flex-col gap-2">
+          <Button onClick={() => onDecide("confirm")} type="button">
+            Confirm match
+          </Button>
+          <Button
+            onClick={() => onDecide("reject")}
+            type="button"
+            variant="outline"
+          >
+            Not this row
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -321,7 +372,29 @@ function FilingSheetBody({
   filing: FilingSummary;
   version: number;
 }) {
-  const state = useFilingRows(filing.id, version);
+  // While a send is on its way, the rows are read again every few seconds,
+  // so each email's outcome shows without a reload (filings don't sync).
+  const [poll, setPoll] = useState(0);
+  const state = useFilingRows(filing.id, version * 100_000 + poll);
+  const sending =
+    state.kind === "ready" &&
+    state.rows.some(
+      (row) =>
+        row.certificate !== null && emailInFlight(row.certificate) === "sending"
+    );
+  const wasSending = useRef(false);
+  const settle = useEventCallback(() => actions.onEmailsSettled());
+  useEffect(() => {
+    if (wasSending.current && !sending) {
+      settle();
+    }
+    wasSending.current = sending;
+    if (!sending) {
+      return;
+    }
+    const timer = setInterval(() => setPoll((n) => n + 1), EMAIL_POLL_MS);
+    return () => clearInterval(timer);
+  }, [sending, settle]);
   const [preview, setPreview] = useState<FilingRowView | null>(null);
   const rows = state.kind === "ready" ? state.rows : [];
   const manual = manualSendRows(rows);
@@ -522,6 +595,21 @@ function FilingSheetBody({
       </div>
       {preview?.certificate ? (
         <FilePreviewDialog
+          aside={
+            preview.certificate.confirmedAt ? undefined : (
+              <ReviewPanel
+                canManage={canManage && submitted}
+                onDecide={(decision) => {
+                  const id = preview.certificate?.id;
+                  setPreview(null);
+                  if (id) {
+                    actions.onReview(id, decision);
+                  }
+                }}
+                row={preview}
+              />
+            )
+          }
           fileName={`Form 114 ${preview.certificate.acknowledgementNumber}`}
           mimeType="application/pdf"
           onOpenChange={(open) => {
