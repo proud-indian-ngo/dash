@@ -9,6 +9,10 @@ Turborepo with Bun workspaces. `project-structure.md` maps the packages.
 
 Add `COPY packages/<name>/package.json packages/<name>/` to the `Dockerfile` copy layer before `RUN bun install`, or the Docker build breaks.
 
+## Remote cache
+
+Turbo's remote cache is a self-hosted [turborepo-remote-cache](https://github.com/ducktors/turborepo-remote-cache) at `cache.thari.in`, a Dokploy compose service storing on local disk; a sidecar deletes artifacts older than 7 days. `turbo.json` turns on artifact signing, so the server and every client share `TURBO_REMOTE_CACHE_SIGNATURE_KEY` and an unsigned or wrongly signed artifact is a miss. `TURBO_TOKEN` and the key live in `.env` and in the repository's GitHub secrets. Without them, as in fork PRs, Turbo warns and builds.
+
 ## Docker build
 
 - `bun install` runs with `--ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.

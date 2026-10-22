@@ -14,8 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TURBO_TELEMETRY_DISABLED: "1"
-      TURBO_API: "https://turbo.ducktors.dev"
-      TURBO_TOKEN: "turbotokenoss"
+      TURBO_API: "https://cache.thari.in"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
       TURBO_TEAM: "pi-dash"
     steps:
       - uses: actions/checkout@v7
@@ -131,6 +132,8 @@ jobs:
       RAZORPAY_WEBHOOK_SECRET: e2e-razorpay-webhook-secret
       VITE_ZERO_URL: http://localhost:4848
       VITE_CDN_URL: http://localhost:3099
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
       # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
       E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
