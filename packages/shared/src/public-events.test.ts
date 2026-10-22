@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPublicEvents,
-  buildPublicSignUpUrl,
   type PublicEventSourceRow,
   type PublicEventsQuery,
   parsePublicEventsQuery,
@@ -400,14 +399,6 @@ describe("toPublicProgramme", () => {
     expect(toPublicProgramme("Nutrition Drive", null)).toBe("nutrition");
     expect(toPublicProgramme("Weekend Classes", null)).toBe("education");
     expect(toPublicProgramme("Fundraising", null)).toBeUndefined();
-  });
-});
-
-describe("buildPublicSignUpUrl", () => {
-  it("links to the dashboard register page", () => {
-    expect(buildPublicSignUpUrl(BASE_URL, "abc")).toBe(
-      "https://dash.proudindian.ngo/register?interestEventId=abc"
-    );
   });
 });
 

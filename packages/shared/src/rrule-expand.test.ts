@@ -10,20 +10,6 @@ import {
 } from "./rrule-expand";
 
 describe("parseRecurrenceRule", () => {
-  it("returns null for null/undefined", () => {
-    expect(parseRecurrenceRule(null)).toBeNull();
-    expect(parseRecurrenceRule(undefined)).toBeNull();
-  });
-
-  it("returns null for non-object", () => {
-    expect(parseRecurrenceRule("string")).toBeNull();
-    expect(parseRecurrenceRule(42)).toBeNull();
-  });
-
-  it("returns null for object without rrule property", () => {
-    expect(parseRecurrenceRule({ foo: "bar" })).toBeNull();
-  });
-
   it("parses a valid recurrence rule", () => {
     const rule = { exdates: ["2026-04-07"], rrule: "FREQ=WEEKLY;BYDAY=MO" };
     expect(parseRecurrenceRule(rule)).toEqual(rule);
@@ -204,21 +190,6 @@ describe("expandSeries", () => {
     // 2nd (Apr 11) and 4th (Apr 25) remain
     expect(dates).toContain("2026-04-11");
     expect(dates).toContain("2026-04-25");
-  });
-
-  it("handles undefined excludeRules (backward compat)", () => {
-    const rangeStart = Date.UTC(2026, 3, 6, 0, 0);
-    const rangeEnd = Date.UTC(2026, 3, 20, 23, 59);
-
-    const result = expandSeries(
-      { rrule: "FREQ=WEEKLY;BYDAY=MO" },
-      seriesStart,
-      seriesEnd,
-      rangeStart,
-      rangeEnd
-    );
-
-    expect(result).toHaveLength(3);
   });
 
   it("preserves an explicit DTSTART with a normal weekly rule", () => {

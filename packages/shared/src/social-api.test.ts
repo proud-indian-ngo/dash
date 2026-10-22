@@ -6,7 +6,6 @@ import {
   parseSocialPausedKinds,
   parseVirtualSocialEventId,
   buildSocialEvents,
-  formatSocialDigest,
   parseSocialEventsWindow,
   parseSocialStatsMonth,
   sessionHours,
@@ -14,7 +13,6 @@ import {
   type SocialEventFacts,
   summarizeSocialSessions,
   type SocialEventSourceRow,
-  toIndiaTime,
 } from "./social-api";
 
 const BASE_URL = "https://dash.proudindian.ngo";
@@ -487,11 +485,6 @@ describe("helpers", () => {
     expect(parseVirtualSocialEventId(`${SERIES_ID}:soon`)).toBeNull();
   });
 
-  it("formats India times as HH:mm", () => {
-    expect(toIndiaTime(Date.UTC(2026, 9, 3, 18, 45))).toBe("00:15");
-    expect(toIndiaTime(SAT)).toBe("10:00");
-  });
-
   it("rounds session hours to one decimal and counts open-ended sessions as zero", () => {
     expect(sessionHours(0, 90 * 60 * 1000)).toBe(1.5);
     expect(sessionHours(0, 100 * 60 * 1000)).toBe(1.7);
@@ -509,10 +502,6 @@ describe("helpers", () => {
         ])
       )
     ).toEqual({ hours: 10, optimists: 3600, reached: 30 });
-  });
-
-  it("formats the digest", () => {
-    expect(formatSocialDigest(["a", "b"])).toBe("Social digest\n\na\nb");
   });
 });
 

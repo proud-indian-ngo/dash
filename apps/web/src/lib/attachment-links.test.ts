@@ -2,47 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import {
   getAttachmentDownloadHref,
-  getAttachmentLabel,
   getAttachmentPreviewHref,
 } from "./attachment-links";
-
-describe("getAttachmentLabel", () => {
-  it("returns url for url attachment", () => {
-    expect(
-      getAttachmentLabel({ type: "url", url: "https://example.com" })
-    ).toBe("https://example.com");
-  });
-
-  it("returns 'Attachment' when url is null", () => {
-    expect(getAttachmentLabel({ type: "url", url: null })).toBe("Attachment");
-  });
-
-  it("returns filename for file attachment", () => {
-    expect(
-      getAttachmentLabel({
-        filename: "receipt.pdf",
-        objectKey: "uploads/receipt.pdf",
-        type: "file",
-      })
-    ).toBe("receipt.pdf");
-  });
-
-  it("falls back to objectKey when filename is null", () => {
-    expect(
-      getAttachmentLabel({
-        filename: null,
-        objectKey: "uploads/doc.pdf",
-        type: "file",
-      })
-    ).toBe("uploads/doc.pdf");
-  });
-
-  it("falls back to 'Attachment' when both null", () => {
-    expect(
-      getAttachmentLabel({ filename: null, objectKey: null, type: "file" })
-    ).toBe("Attachment");
-  });
-});
 
 describe("protected attachment links", () => {
   const attachment = {

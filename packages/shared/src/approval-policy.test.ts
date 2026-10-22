@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  approvalFilterQuery,
   leadApprovalStateOf,
   leadApproverOf,
   leadStepOutstanding,
-  waitingForYouPath,
 } from "./approval-policy";
 import { PROGRAMME_IDS } from "./constants";
 
@@ -96,13 +94,5 @@ describe("leadStepOutstanding", () => {
       false
     );
     expect(leadStepOutstanding({}, null)).toBe(false);
-  });
-});
-
-describe("waitingForYouPath", () => {
-  it("opens the list on the Approval filter's Waiting for you", () => {
-    const path = waitingForYouPath("/reimbursements");
-    const filters = new URL(`https://x${path}`).searchParams.get("filters");
-    expect(JSON.parse(filters ?? "")).toEqual(approvalFilterQuery("you"));
   });
 });

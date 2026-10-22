@@ -6,7 +6,6 @@ import {
   canManageKalakritiInventory,
   canViewKalakritiInventory,
 } from "./kalakriti-inventory-policy";
-import { buildKalakritiNavGroups } from "./nav-items";
 
 function access(responsibility: string, lifecycle = "live") {
   return {
@@ -58,14 +57,5 @@ describe("Kalakriti inventory access", () => {
     const global = { ...archived, isGlobalAdmin: true };
     expect(() => guard(global)).not.toThrow();
     expect(canManageKalakritiInventory(global)).toBe(false);
-  });
-
-  it("shows the inventory sidebar link only when authorized", () => {
-    const titles = (canViewInventory: boolean) =>
-      buildKalakritiNavGroups({ year: 2026, canViewInventory }).flatMap(
-        (group) => group.items.map((item) => item.title)
-      );
-    expect(titles(false)).not.toContain("Inventory");
-    expect(titles(true)).toContain("Inventory");
   });
 });

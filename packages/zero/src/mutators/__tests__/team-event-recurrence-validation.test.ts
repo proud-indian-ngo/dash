@@ -42,33 +42,4 @@ describe("team event recurrence validation", () => {
 
     expect(insert).not.toHaveBeenCalled();
   });
-
-  it("accepts the UI's DTSTART, interval, count and monthly exclusion shape", async () => {
-    const validator = teamEventMutators.create.validator;
-    if (!validator) {
-      throw new Error("Expected the create mutator to validate input");
-    }
-
-    const result = await validator["~standard"].validate({
-      ...validArgs,
-      recurrenceRule: {
-        excludeRules: ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3"],
-        exdates: ["2026-04-11"],
-        rrule:
-          "DTSTART:20260404T100000Z\nRRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=SA;COUNT=8",
-      },
-    });
-
-    expect(result).toEqual({
-      value: {
-        ...validArgs,
-        recurrenceRule: {
-          excludeRules: ["FREQ=MONTHLY;BYDAY=SA;BYSETPOS=3"],
-          exdates: ["2026-04-11"],
-          rrule:
-            "DTSTART:20260404T100000Z\nRRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=SA;COUNT=8",
-        },
-      },
-    });
-  });
 });

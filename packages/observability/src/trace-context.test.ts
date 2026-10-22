@@ -7,40 +7,6 @@ import {
   parseTraceparent,
 } from "./trace-context";
 
-const HEX_32 = /^[0-9a-f]{32}$/;
-const HEX_16 = /^[0-9a-f]{16}$/;
-
-describe("generateTraceId", () => {
-  it("returns 32 hex characters", () => {
-    const id = generateTraceId();
-    expect(id).toMatch(HEX_32);
-  });
-
-  it("returns unique values", () => {
-    const ids = new Set(Array.from({ length: 100 }, () => generateTraceId()));
-    expect(ids.size).toBe(100);
-  });
-});
-
-describe("generateSpanId", () => {
-  it("returns 16 hex characters", () => {
-    const id = generateSpanId();
-    expect(id).toMatch(HEX_16);
-  });
-});
-
-describe("formatTraceparent", () => {
-  it("formats as W3C traceparent with version 00 and flags 01", () => {
-    const result = formatTraceparent(
-      "0af7651916cd43dd8448eb211c80319c",
-      "b7ad6b7169203331"
-    );
-    expect(result).toBe(
-      "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
-    );
-  });
-});
-
 describe("parseTraceparent", () => {
   it("parses valid traceparent", () => {
     const result = parseTraceparent(

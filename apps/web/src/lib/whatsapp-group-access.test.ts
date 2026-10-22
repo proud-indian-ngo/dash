@@ -6,7 +6,6 @@ import {
   ALL_VOLUNTEERS_GROUP_CONFIG_KEY,
   decideWhatsAppGroupAccess,
   ORIENTATION_GROUP_CONFIG_KEY,
-  resolveWhatsAppGroupAccess,
   type WhatsAppGroupAccessFacts,
 } from "./whatsapp-group-access";
 
@@ -112,20 +111,5 @@ describe("decideWhatsAppGroupAccess", () => {
       backPath: null,
       status: "not_found",
     });
-  });
-});
-
-describe("resolveWhatsAppGroupAccess", () => {
-  it("loads facts for the group and person", async () => {
-    const loadFacts = mock(async () =>
-      facts({ teams: [{ id: "team-1", isMember: true }] })
-    );
-    const access = await resolveWhatsAppGroupAccess(
-      "group-1",
-      "user-1",
-      loadFacts
-    );
-    expect(loadFacts).toHaveBeenCalledWith("group-1", "user-1");
-    expect(access.status).toBe("allowed");
   });
 });

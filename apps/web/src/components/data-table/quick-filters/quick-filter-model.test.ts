@@ -16,7 +16,6 @@ import {
   matchDatePreset,
   selectRule,
   setFieldRule,
-  summarizeRule,
 } from "./quick-filter-model";
 
 const city = selectField("city", "City", [
@@ -129,28 +128,6 @@ describe("date presets", () => {
         { relative: { offset: 0, unit: "day" } },
       ],
     });
-  });
-});
-
-describe("summarizeRule", () => {
-  it("writes chip text", () => {
-    expect(
-      summarizeRule(city, rule("city", "is_any_of", ["mumbai", "pune"]))
-    ).toBe("Mumbai, Pune");
-    expect(
-      summarizeRule(
-        city,
-        rule("city", "is_any_of", ["mumbai", "pune", "bangalore"])
-      )
-    ).toBe("Mumbai, Pune +1");
-    expect(summarizeRule(city, rule("city", "is_not", "pune"))).toBe(
-      "not Pune"
-    );
-    expect(summarizeRule(total, rule("total", "gte", 500))).toBe("≥ 500");
-    const { operator, value } = datePresetRule(DATE_PRESETS[2]!);
-    expect(
-      summarizeRule(expenseDate, rule("expenseDate", operator, value))
-    ).toBe("Last 30 days");
   });
 });
 

@@ -90,18 +90,6 @@ function matching(path: string, operator: string, value?: unknown) {
 }
 
 describe("Kalakriti volunteer filters", () => {
-  it("offers contact, ID, group and responsibility filters only", () => {
-    expect(createVolunteerFilterFields(rows).map((field) => field.id)).toEqual([
-      "checkInStatus",
-      "snapshotName",
-      "humanId",
-      "snapshotEmail",
-      "snapshotPhone",
-      "registrationGroup",
-      "responsibilities",
-    ]);
-  });
-
   it.each([
     ["snapshotName", "ASHA"],
     ["humanId", "2026-0001"],

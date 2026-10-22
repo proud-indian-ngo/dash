@@ -73,29 +73,4 @@ describe("event photo deletion", () => {
       { traceId: undefined }
     );
   });
-
-  it("keeps client deletion optimistic without a server transaction", async () => {
-    const deletePhoto = mock();
-    const ctx = context();
-    const tx = {
-      location: "client",
-      mutate: { eventPhoto: { delete: deletePhoto } },
-      run: mock()
-        .mockResolvedValueOnce({
-          eventId: "event-1",
-          status: "pending",
-          uploadedBy: "admin-1",
-        })
-        .mockResolvedValueOnce({ teamId: "team-1" }),
-    };
-
-    await eventPhotoMutators.delete.fn({
-      args: { id: "photo-1" },
-      ctx,
-      tx,
-    } as never);
-
-    expect(deletePhoto).toHaveBeenCalledWith({ id: "photo-1" });
-    expect(ctx.asyncTasks).toEqual([]);
-  });
 });

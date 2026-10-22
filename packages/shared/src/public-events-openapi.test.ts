@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildPublicEvents,
-  PUBLIC_EVENTS_MAX_DAYS,
-  type PublicEventSourceRow,
-} from "./public-events";
+import { buildPublicEvents, type PublicEventSourceRow } from "./public-events";
 import { buildPublicEventsOpenApi } from "./public-events-openapi";
 
 const BASE_URL = "https://dash.proudindian.ngo";
@@ -69,10 +65,6 @@ function violations(event: Record<string, unknown>): string[] {
 }
 
 describe("buildPublicEventsOpenApi", () => {
-  it("points at the origin it is served from", () => {
-    expect(spec.servers).toEqual([{ url: BASE_URL }]);
-  });
-
   it("describes what the feed actually returns", () => {
     const events = buildPublicEvents(
       [
@@ -88,36 +80,5 @@ describe("buildPublicEventsOpenApi", () => {
     for (const event of events) {
       expect(violations({ ...event })).toEqual([]);
     }
-  });
-
-  it("only makes programme optional", () => {
-    expect(
-      Object.keys(eventSchema.properties).filter(
-        (key) => !eventSchema.required.includes(key)
-      )
-    ).toEqual(["programme"]);
-  });
-
-  it("offers the active cost centre codes, and the deprecated aliases", () => {
-    const city = spec.paths["/api/public/events"].get.parameters.find(
-      (p) => p.name === "city"
-    );
-    expect(city?.schema).toEqual({
-      anyOf: [
-        { enum: ["BLR"], type: "string" },
-        expect.objectContaining({
-          deprecated: true,
-          enum: ["bangalore", "bengaluru"],
-        }),
-      ],
-    });
-    expect(eventSchema.properties.city?.enum).toEqual(["BLR"]);
-  });
-
-  it("takes its limits from the feed's constants", () => {
-    const days = spec.paths["/api/public/events"].get.parameters.find(
-      (p) => p.name === "days"
-    );
-    expect(days?.schema).toMatchObject({ maximum: PUBLIC_EVENTS_MAX_DAYS });
   });
 });

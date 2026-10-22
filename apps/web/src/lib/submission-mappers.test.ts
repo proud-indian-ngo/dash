@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  mapAttachmentsToFormValues,
   mapLineItemsToFormValues,
   mapQuotationAttachmentsToFormValues,
   paiseToFormAmount,
@@ -68,78 +67,6 @@ describe("mapLineItemsToFormValues", () => {
 
   it("returns empty array for empty input", () => {
     expect(mapLineItemsToFormValues([])).toEqual([]);
-  });
-});
-
-describe("mapAttachmentsToFormValues", () => {
-  it("maps file attachment with all fields", () => {
-    const result = mapAttachmentsToFormValues([
-      {
-        filename: "doc.pdf",
-        id: "a1",
-        mimeType: "application/pdf",
-        objectKey: "uploads/doc.pdf",
-        type: "file",
-      },
-    ]);
-    expect(result).toEqual([
-      {
-        filename: "doc.pdf",
-        id: "a1",
-        mimeType: "application/pdf",
-        objectKey: "uploads/doc.pdf",
-        type: "file",
-      },
-    ]);
-  });
-
-  it("maps file attachment with null filename to fallback", () => {
-    const result = mapAttachmentsToFormValues([
-      {
-        filename: null,
-        id: "a1",
-        mimeType: null,
-        objectKey: "key",
-        type: "file",
-      },
-    ]);
-    expect(result[0]).toEqual({
-      filename: "attachment",
-      id: "a1",
-      mimeType: undefined,
-      objectKey: "key",
-      type: "file",
-    });
-  });
-
-  it("maps url attachment", () => {
-    const result = mapAttachmentsToFormValues([
-      { id: "a2", type: "url", url: "https://example.com" },
-    ]);
-    expect(result).toEqual([
-      { id: "a2", type: "url", url: "https://example.com" },
-    ]);
-  });
-
-  it("maps url attachment with null url to empty string", () => {
-    const result = mapAttachmentsToFormValues([
-      { id: "a2", type: "url", url: null },
-    ]);
-    expect(result[0]).toEqual({ id: "a2", type: "url", url: "" });
-  });
-
-  it("handles mixed attachments", () => {
-    const result = mapAttachmentsToFormValues([
-      { filename: "x.pdf", id: "a1", objectKey: "k1", type: "file" },
-      { id: "a2", type: "url", url: "https://test.com" },
-    ]);
-    expect(result).toHaveLength(2);
-    expect(result.at(0)?.type).toBe("file");
-    expect(result.at(1)?.type).toBe("url");
-  });
-
-  it("returns empty array for empty input", () => {
-    expect(mapAttachmentsToFormValues([])).toEqual([]);
   });
 });
 

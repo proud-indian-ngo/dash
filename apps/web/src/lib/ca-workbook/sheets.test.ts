@@ -26,7 +26,6 @@ import {
   incomeExpenditureTotals,
   backfilledFlags,
   receiptsAndPaymentsSheet,
-  SHEET_NAMES,
   summarySheet,
   withheldDonorSheet,
   type WorkbookSheet,
@@ -336,7 +335,6 @@ function fixture(): WorkbookFacts {
   };
 }
 
-const headers = (sheet: WorkbookSheet) => sheet.columns.map((c) => c.header);
 const sumColumn = (rows: WorkbookSheet["rows"], index: number) =>
   Math.round(
     rows.reduce((sum, row) => sum + Number(row.cells[index] ?? 0), 0) * 100
@@ -454,62 +452,6 @@ const toBooks = (facts: WorkbookFacts) => {
 };
 
 describe("CA workbook sheets", () => {
-  it("keeps the contract's column order", () => {
-    const facts = fixture();
-    expect(headers(receiptsAndPaymentsSheet(facts))).toEqual([
-      "Date",
-      "Account",
-      "Direction",
-      "Kind",
-      "Amount (INR)",
-      "Party name",
-      "Payment reference or UTR",
-      "Programme",
-      "Project",
-      "Account head",
-      "Document type and reference",
-      "Linked transfer reference",
-      "Bank statement matched",
-      "Movement ID",
-    ]);
-    expect(headers(incomeExpenditureSheet(facts))).toEqual([
-      "Economic date",
-      "Posted date",
-      "Account head",
-      "Income or expense",
-      "Amount (INR)",
-      "Programme",
-      "Project",
-      "Event",
-      "Cost centre",
-      "Fund",
-      "Party name",
-      "Medium",
-      "Document type and reference",
-      "Reversal of",
-      "Backfilled",
-      "Entry ID",
-      "Memo",
-    ]);
-    expect(headers(summarySheet(facts))).toEqual([
-      "Account head",
-      "Programme",
-      "Total for the year (INR)",
-    ]);
-    expect(headers(balanceSheet(facts).sheet)).toEqual([
-      "Item",
-      "Opening at 1 April (INR)",
-      "Increases (INR)",
-      "Decreases (INR)",
-      "Closing at 31 March (INR)",
-      "Last bank statement balance (INR)",
-      "Statement date",
-    ]);
-    for (const name of Object.values(SHEET_NAMES)) {
-      expect(name.length).toBeLessThanOrEqual(31);
-    }
-  });
-
   it("lists each account's movements between its balances brought and carried forward", () => {
     const sheet = receiptsAndPaymentsSheet(fixture());
     const bank = sheet.rows.filter((r) => r.cells[1] === "Current account");

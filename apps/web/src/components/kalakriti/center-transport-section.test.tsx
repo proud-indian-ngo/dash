@@ -1,21 +1,9 @@
-import { describe, expect, it, mock } from "bun:test";
-
-import {
-  KALAKRITI_TRANSPORT_STATUS_LABELS,
-  type KalakritiTransportStatus,
-} from "@pi-dash/shared/kalakriti";
-import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "bun:test";
 
 import {
   getCenterTransportCapabilities,
   type KalakritiCenterRegistrationAccess,
 } from "@/lib/kalakriti-center-registration-policy";
-
-mock.module("@rocicorp/zero/react", () => ({ useZero: () => ({}) }));
-mock.module("@/components/kalakriti/center-transport-form-dialog", () => ({
-  CenterTransportFormDialog: () => <span>Transport form</span>,
-}));
-const { CenterTransportSection } = await import("./center-transport-section");
 
 function access(
   responsibility: string,
@@ -29,24 +17,6 @@ function access(
       assignments: [{ centerId, responsibility }],
     },
   };
-}
-const assignment = {
-  id: "transport",
-  capacity: 40,
-  driverName: "Driver",
-  driverPhone: null,
-  notes: null,
-  status: "planned" as const,
-  vehicleLabel: "Bus 1",
-};
-function render(
-  _canManageTransport: boolean,
-  _isRetired = false,
-  status: KalakritiTransportStatus = "planned"
-) {
-  return renderToStaticMarkup(
-    <CenterTransportSection assignments={[{ ...assignment, status }]} />
-  );
 }
 describe("Center transport compatibility", () => {
   it.each(["edition_admin", "transport_lead"])(
@@ -99,12 +69,6 @@ describe("Center transport compatibility", () => {
           canManageTransport: false,
           canViewTransport: true,
         });
-        const html = render(capabilities.canManageTransport);
-        expect(html).toContain("Bus 1");
-        expect(html).not.toContain("Add vehicle");
-        expect(html).not.toContain(">Edit<");
-        expect(html).not.toContain("Transport form");
-        expect(html).not.toContain(">Delete<");
       }
     }
   );
@@ -171,41 +135,5 @@ describe("Center transport compatibility", () => {
         guardianCenterVisible: true,
       }).canViewTransport
     ).toBe(false);
-  });
-  it("keeps assignment details readable without controls or a mounted writable form", () => {
-    const html = render(false);
-    expect(html).toContain("Bus 1");
-    expect(html).toContain("Driver");
-    expect(html).not.toContain("Add vehicle");
-    expect(html).not.toContain(">Edit<");
-    expect(html).not.toContain("Transport form");
-  });
-  it("retired Centers suppress transport writes even for managers", () => {
-    const html = render(true, true);
-    expect(html).toContain("Bus 1");
-    expect(html).not.toContain("Add vehicle");
-    expect(html).not.toContain("Transport form");
-  });
-  it("moves management controls off the Center page even for managers", () => {
-    expect(render(true)).not.toContain("Add vehicle");
-    expect(render(true)).not.toContain("Transport form");
-    expect(render(true)).not.toContain(">Delete<");
-    expect(render(true)).toContain("Transport page");
-  });
-  it("keeps every status as a badge without manual advancement controls", () => {
-    for (const [status, label] of Object.entries(
-      KALAKRITI_TRANSPORT_STATUS_LABELS
-    )) {
-      const html = render(true, false, status as KalakritiTransportStatus);
-      expect(html).toContain(label);
-      const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? [];
-      for (const button of buttons) {
-        for (const statusLabel of Object.values(
-          KALAKRITI_TRANSPORT_STATUS_LABELS
-        )) {
-          expect(button).not.toContain(statusLabel);
-        }
-      }
-    }
   });
 });

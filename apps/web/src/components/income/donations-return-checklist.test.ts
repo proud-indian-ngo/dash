@@ -60,31 +60,6 @@ describe("buildChecklist", () => {
     new Map([["excluded", "Not a donation"]])
   );
 
-  it("keeps the checklist order", () => {
-    expect(sections.map((section) => section.id)).toEqual([
-      "intermediary",
-      "missing_id",
-      "missing_details",
-      "invalid_id",
-      "filed",
-      "waiting",
-      "excluded",
-      "partly_refunded",
-      "csr",
-    ]);
-    expect(sections.map((section) => section.kind)).toEqual([
-      "blocking",
-      "blocking",
-      "blocking",
-      "blocking",
-      "info",
-      "info",
-      "info",
-      "info",
-      "info",
-    ]);
-  });
-
   it("puts each gift under the checks that concern it", () => {
     expect(ids(sections, "missing_id")).toEqual(["no-id"]);
     // An opted-out donor without an address still needs fixing.

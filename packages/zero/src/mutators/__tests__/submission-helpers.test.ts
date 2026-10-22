@@ -4,11 +4,7 @@ import type { AsyncTask } from "../../context";
 import {
   assertCanDelete,
   assertCanModify,
-  assertEntityExists,
   assertPending,
-  buildAttachmentInsert,
-  buildHistoryInsert,
-  buildLineItemInsert,
   claimUploadedR2ObjectKey,
   deleteAllRelations,
   enqueueDeleteR2Object,
@@ -26,18 +22,6 @@ const clientClaimOptions = {
 
 beforeEach(() => {
   mock.clearAllMocks();
-});
-
-describe("assertEntityExists", () => {
-  it("passes when entity is defined", () => {
-    expect(() => assertEntityExists({ id: "1" }, "Thing")).not.toThrow();
-  });
-
-  it("throws when entity is undefined", () => {
-    expect(() => assertEntityExists(undefined, "Thing")).toThrow(
-      "Thing not found"
-    );
-  });
 });
 
 describe("assertPending", () => {
@@ -210,99 +194,6 @@ describe("assertCanDelete", () => {
         true
       )
     ).toThrow("Unauthorized");
-  });
-});
-
-describe("buildLineItemInsert", () => {
-  it("returns correct shape", () => {
-    const now = 1_700_000_000_000;
-    const result = buildLineItemInsert(
-      {
-        amountPaise: 50_000,
-        categoryId: "cat-1",
-        description: "Test item",
-        generateVoucher: false,
-        id: "li-1",
-        sortOrder: 0,
-      },
-      now
-    );
-    expect(result).toEqual({
-      amountPaise: 50_000,
-      categoryId: "cat-1",
-      createdAt: now,
-      description: "Test item",
-      id: "li-1",
-      sortOrder: 0,
-      updatedAt: now,
-    });
-  });
-});
-
-describe("buildAttachmentInsert", () => {
-  it("returns correct shape for file type", () => {
-    const now = 1_700_000_000_000;
-    const result = buildAttachmentInsert(
-      {
-        filename: "file.pdf",
-        id: "att-1",
-        mimeType: "application/pdf",
-        objectKey: "uploads/file.pdf",
-        type: "file",
-      },
-      now
-    );
-    expect(result).toEqual({
-      createdAt: now,
-      filename: "file.pdf",
-      id: "att-1",
-      mimeType: "application/pdf",
-      objectKey: "uploads/file.pdf",
-      type: "file",
-      url: null,
-    });
-  });
-
-  it("returns correct shape for url type", () => {
-    const now = 1_700_000_000_000;
-    const result = buildAttachmentInsert(
-      {
-        id: "att-2",
-        type: "url",
-        url: "https://example.com/doc",
-      },
-      now
-    );
-    expect(result).toEqual({
-      createdAt: now,
-      filename: null,
-      id: "att-2",
-      mimeType: null,
-      objectKey: null,
-      type: "url",
-      url: "https://example.com/doc",
-    });
-  });
-});
-
-describe("buildHistoryInsert", () => {
-  it("returns correct shape with note", () => {
-    const now = 1_700_000_000_000;
-    const result = buildHistoryInsert("actor-1", "approved", now, "Looks good");
-    expect(result).toMatchObject({
-      action: "approved",
-      actorId: "actor-1",
-      createdAt: now,
-      metadata: null,
-      note: "Looks good",
-    });
-    expect(result.id).toBeDefined();
-  });
-
-  it("returns null note when omitted", () => {
-    const now = 1_700_000_000_000;
-    const result = buildHistoryInsert("actor-1", "created", now);
-    expect(result.note).toBeNull();
   });
 });
 

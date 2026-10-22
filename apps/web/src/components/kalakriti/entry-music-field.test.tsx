@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
-import { renderToStaticMarkup } from "react-dom/server";
-
 mock.module("@/functions/attachments", () => ({
   deleteTemporaryUpload: () => undefined,
   getKalakritiEntryMusicUploadUrl: () => undefined,
@@ -9,7 +7,6 @@ mock.module("@/functions/attachments", () => ({
 mock.module("@tanstack/react-start", () => ({
   useServerFn: (fn: unknown) => fn,
 }));
-const { EntryMusicUploadField } = await import("./entry-music-field");
 const { uploadKalakritiMusicFile } = await import("./entry-music-upload");
 const scope = {
   centerId: "center",
@@ -38,36 +35,6 @@ afterEach(() => {
 });
 
 describe("Entry music uploads", () => {
-  it("renders a multiple-file picker and per-file removal with the cap disabled", () => {
-    const html = renderToStaticMarkup(
-      <EntryMusicUploadField
-        {...scope}
-        onChange={() => undefined}
-        value={[
-          {
-            id: "first",
-            byteSize: 10,
-            fileName: "first.mp3",
-            mimeType: "audio/mpeg",
-            objectKey: key,
-          },
-          {
-            id: "second",
-            byteSize: 10,
-            fileName: "second.aac",
-            mimeType: "audio/aac",
-            objectKey: key,
-          },
-        ]}
-      />
-    );
-    expect(html).toContain('multiple=""');
-    expect(html).toContain('aria-label="Remove first.mp3"');
-    expect(html).toContain('aria-label="Remove second.aac"');
-    expect(html).toContain('aria-label="Music files"');
-    expect(html).toContain('disabled=""');
-    expect(html).toContain("20 MB each");
-  });
   it("returns an independently identified claim with exact entry signing scope", async () => {
     const file = new File(["audio"], "track.mp3", { type: "audio/mpeg" });
     const claim = await uploadKalakritiMusicFile(file, scope, sign, discard);

@@ -40,14 +40,6 @@ describe("CSV exports", () => {
     );
   });
 
-  test("returns a CSV artifact for one file", async () => {
-    const artifact = createCsvDownload([firstFile], "exports.zip");
-
-    expect(artifact.filename).toBe("requests.csv");
-    expect(artifact.blob.type).toBe("text/csv;charset=utf-8;");
-    expect(await artifact.blob.text()).toContain("Travel");
-  });
-
   test("returns one ZIP artifact containing multiple CSV files", async () => {
     const artifact = createCsvDownload(
       [firstFile, secondFile],

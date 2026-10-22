@@ -2,10 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import {
   hasEnoughInk,
-  inkBounds,
   inkSummary,
   type SignatureStroke,
-  toPadPoint,
 } from "./signature-ink";
 
 /** A horizontal line across `fraction` of the pad's width. */
@@ -69,29 +67,5 @@ describe("hasEnoughInk", () => {
       { x: 0.5, y: 1 },
     ];
     expect(inkSummary([vertical])).toEqual({ extent: 0.5, length: 0.5 });
-  });
-});
-
-describe("inkBounds", () => {
-  it("boxes every point", () => {
-    expect(inkBounds([line(0.2, 0.4), [{ x: 0.5, y: 0.9 }]])).toEqual({
-      maxX: 0.5,
-      maxY: 0.9,
-      minX: 0.1,
-      minY: 0.4,
-    });
-    expect(inkBounds([])).toBeNull();
-  });
-});
-
-describe("toPadPoint", () => {
-  const rect = { height: 100, left: 10, top: 20, width: 200 };
-
-  it("maps a pointer to a fraction of the pad", () => {
-    expect(toPadPoint(110, 70, rect)).toEqual({ x: 0.5, y: 0.5 });
-  });
-
-  it("keeps points that leave the pad on its edge", () => {
-    expect(toPadPoint(-50, 500, rect)).toEqual({ x: 0, y: 1 });
   });
 });

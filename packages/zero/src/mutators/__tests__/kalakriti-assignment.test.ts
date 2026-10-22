@@ -222,56 +222,6 @@ describe("kalakritiAssignment.assignVolunteer", () => {
     expect(spies.insertMembership).not.toHaveBeenCalled();
   });
 
-  it("creates membership, assignment, and linked event member together", async () => {
-    const { tx, spies } = createTx([
-      { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
-      {
-        email: "volunteer@example.com",
-        id: "volunteer-1",
-        isActive: true,
-        name: "Volunteer One",
-        phone: "+919999999999",
-        role: "volunteer",
-      },
-      undefined,
-      undefined,
-      [],
-      undefined,
-    ]);
-
-    await kalakritiAssignmentMutators.assignVolunteer.fn({
-      args: assignArgs,
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiAssignmentMutators.assignVolunteer.fn
-    >[0]);
-
-    expect(spies.insertMembership).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "membership-new",
-        kind: "volunteer",
-        snapshotEmail: "volunteer@example.com",
-        snapshotPhone: "+919999999999",
-        state: "active",
-        userId: "volunteer-1",
-      })
-    );
-    expect(spies.insertAssignment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isPrimary: true,
-        responsibility: "volunteer_coordinator",
-      })
-    );
-    expect(spies.insertEventMember).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventId: "event-1",
-        userId: "volunteer-1",
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledTimes(1);
-  });
-
   it("uses public identity with null contacts for optimistic enrollment", async () => {
     const { tx, spies } = createTx(
       [

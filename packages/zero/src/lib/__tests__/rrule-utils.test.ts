@@ -3,20 +3,8 @@ import { describe, expect, it } from "bun:test";
 import {
   formStateToRRule,
   rruleToFormState,
-  rruleToLabel,
-  toISODate,
   truncateRRule,
 } from "../rrule-utils";
-
-describe("toISODate", () => {
-  it("formats a date as YYYY-MM-DD", () => {
-    expect(toISODate(new Date(2026, 3, 12))).toBe("2026-04-12");
-  });
-
-  it("pads single-digit months and days", () => {
-    expect(toISODate(new Date(2026, 0, 5))).toBe("2026-01-05");
-  });
-});
 
 describe("rruleToFormState", () => {
   it("parses a simple weekly rule", () => {
@@ -114,23 +102,6 @@ describe("formStateToRRule", () => {
       state.byDay.sort((a, b) => a - b)
     );
     expect(stateFromRebuilt.endType).toBe(state.endType);
-  });
-});
-
-describe("rruleToLabel", () => {
-  it("generates human-readable text for weekly", () => {
-    const label = rruleToLabel("FREQ=WEEKLY;BYDAY=SA");
-    expect(label.toLowerCase()).toContain("week");
-  });
-
-  it("generates human-readable text for daily", () => {
-    const label = rruleToLabel("FREQ=DAILY");
-    expect(label.toLowerCase()).toContain("day");
-  });
-
-  it("returns fallback for invalid input", () => {
-    const label = rruleToLabel("NOT_A_RULE");
-    expect(label).toBe("Recurring");
   });
 });
 

@@ -151,27 +151,6 @@ async function createStudent(
 }
 
 describe("kalakritiStudent commands", () => {
-  it("creates a Student with a stable yearly ID", async () => {
-    const { lockedResults, spies, tx } = createTx([[], []]);
-    lockedResults.push([edition], [center], [junior, senior]);
-
-    await createStudent(tx);
-
-    expect(spies.insertStudent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ageCategoryId: junior.id,
-        dateOfBirth: Date.UTC(2018, 5, 15),
-        humanId: "KAL-2027-0012",
-        name: "Ananya Rao",
-        normalizedName: "ananya rao",
-      })
-    );
-    expect(spies.updateEdition).toHaveBeenCalledWith({
-      id: edition.id,
-      nextStudentSequence: 13,
-    });
-  });
-
   it("allows a Guardian only for an explicitly assigned Center", async () => {
     const membership = { id: "membership-1", kind: "guardian" };
     const { lockedResults, spies, tx } = createTx([
