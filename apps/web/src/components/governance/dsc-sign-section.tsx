@@ -2,7 +2,12 @@ import { Key01Icon, SignatureIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
-import { launchHelper, watchJob } from "@signr/browser";
+import {
+  type JobStatus,
+  launchHelper,
+  type WatchOptions,
+  watchJob,
+} from "@signr/browser";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -26,6 +31,28 @@ const allowInsecureOrigins =
   import.meta.env.DEV || import.meta.env.VITE_E2E === "true";
 
 type DscStatus = Awaited<ReturnType<typeof getMyDscStatus>>;
+
+/**
+ * How a job is watched: `setNotClaimed(true)` when no helper claimed it
+ * within a few seconds, and back to false as soon as one does (the
+ * first-contact trust dialog can hold the claim past that).
+ */
+export function helperJobWatch(
+  getStatus: () => Promise<JobStatus>,
+  signal: AbortSignal,
+  setNotClaimed: (notClaimed: boolean) => void
+): WatchOptions {
+  return {
+    getStatus,
+    onChange: (status) => {
+      if (status.state !== "pending") {
+        setNotClaimed(false);
+      }
+    },
+    onNotClaimed: () => setNotClaimed(true),
+    signal,
+  };
+}
 
 /**
  * Opens a `signr://` link and watches the job until the helper finishes
@@ -53,11 +80,13 @@ function useHelperJob(targetKey: string) {
           return null;
         }
         launchHelper(link, { allowInsecureOrigins });
-        const status = await watchJob({
-          getStatus: () => poll({ data: { token } }),
-          onNotClaimed: () => setNotClaimed(true),
-          signal: controller.signal,
-        });
+        const status = await watchJob(
+          helperJobWatch(
+            () => poll({ data: { token } }),
+            controller.signal,
+            setNotClaimed
+          )
+        );
         setNotClaimed(false);
         return status;
       } catch (error) {
@@ -140,7 +169,7 @@ export function DscSignSection({
         }
       })
       .catch((error: unknown) => {
-        toast.error("Couldn't start the helper", {
+        toast.error("Your DSC wasn't set up", {
           description: error instanceof Error ? error.message : undefined,
         });
       })
