@@ -66,15 +66,18 @@ if (!listOutput.trim()) {
   process.exit(1);
 }
 
-const testLines = listOutput
+const listedLines = listOutput
   .split("\n")
   .map((l) => l.trim())
-  .filter((l) => l.startsWith("[") && l.includes("›"))
-  // Skip setup project tests — they run as dependencies, not in shards — and
-  // setup's teardown (exclusive_last), which runs in every shard anyway.
-  .filter(
-    (l) => !(l.startsWith("[setup]") || l.startsWith("[exclusive_last]"))
-  );
+  .filter((l) => l.startsWith("[") && l.includes("›"));
+// Setup tests run as dependencies in every shard. Setup's teardown
+// (exclusive_last) runs only in shard 1; CI skips it in the others.
+const exclusiveLines = listedLines.filter((l) =>
+  l.startsWith("[exclusive_last]")
+);
+const testLines = listedLines.filter(
+  (l) => !(l.startsWith("[setup]") || l.startsWith("[exclusive_last]"))
+);
 
 if (testLines.length === 0) {
   console.error("No tests found from --list output. Raw output:");
@@ -98,7 +101,7 @@ interface TestEntry {
   line: string;
 }
 
-const entries: TestEntry[] = testLines.map((line) => {
+function lookupDuration(line: string): number {
   // Try exact match first, then match ignoring line:col numbers
   let duration = durations[line];
   if (duration === undefined) {
@@ -112,14 +115,26 @@ const entries: TestEntry[] = testLines.map((line) => {
       }
     }
   }
-  return { duration: duration ?? DEFAULT_DURATION_MS, line };
-});
+  return duration ?? DEFAULT_DURATION_MS;
+}
+
+const entries: TestEntry[] = testLines.map((line) => ({
+  duration: lookupDuration(line),
+  line,
+}));
 
 // 4. Greedy bin-packing (Longest Processing Time first)
 // Sort by duration descending, assign each test to the shard with lowest total
 const shards: { lines: string[]; totalMs: number }[] = Array.from(
   { length: totalShards },
   () => ({ lines: [], totalMs: 0 })
+);
+
+// exclusive_last runs alone in shard 1 after everything else. Counting it
+// once, not per idle worker, matched measured shard times better.
+shards[0].totalMs = exclusiveLines.reduce(
+  (sum, line) => sum + lookupDuration(line),
+  0
 );
 
 entries.sort((a, b) => b.duration - a.duration);

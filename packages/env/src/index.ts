@@ -9,11 +9,14 @@ import { type EnvSource, loadEnvFiles } from "./load-env-files";
 // both, so `DATABASE_URL=... bun run <script>` in a worktree uses that URL.
 // Skip .env.worktree when VITE_E2E is set — run-e2e.sh already exported
 // correct port overrides and .env.worktree contains dev ports that would
-// clobber the E2E values.
-const envPath = findUp(".env", process.cwd());
-const worktreeEnvPath = process.env.VITE_E2E
-  ? undefined
-  : findUp(".env.worktree", process.cwd());
+// clobber the E2E values. HERMETIC_ENV skips every file and port detection,
+// so scripts/build-e2e.sh builds the same output locally and in CI.
+const hermetic = process.env.HERMETIC_ENV === "1";
+const envPath = hermetic ? undefined : findUp(".env", process.cwd());
+const worktreeEnvPath =
+  hermetic || process.env.VITE_E2E
+    ? undefined
+    : findUp(".env.worktree", process.cwd());
 const sources = loadEnvFiles(process.env, {
   base: envPath ? readFileSync(envPath, "utf8") : undefined,
   worktree: worktreeEnvPath ? readFileSync(worktreeEnvPath, "utf8") : undefined,
@@ -27,7 +30,7 @@ export function envSource(name: string): EnvSource | undefined {
   return sources.get(name);
 }
 
-if (!(worktreeEnvPath || process.env.WORKTREE_ID)) {
+if (!(hermetic || worktreeEnvPath || process.env.WORKTREE_ID)) {
   // Layer 2: Auto-detect git worktree and compute ports from path hash.
   // This makes `claude --worktree` and `isolation: "worktree"` work with zero setup.
   autoDetectWorktreePorts();

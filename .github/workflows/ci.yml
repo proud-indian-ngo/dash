@@ -14,19 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TURBO_TELEMETRY_DISABLED: "1"
-      TURBO_API: "https://turbo.ducktors.dev"
-      TURBO_TOKEN: "turbotokenoss"
+      TURBO_API: "https://cache.thari.in"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
       TURBO_TEAM: "pi-dash"
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Create test env
         run: |
@@ -65,9 +61,8 @@ jobs:
 
   prepare-shards:
     runs-on: ubuntu-latest
-    outputs:
-      shards: ${{ steps.shards.outputs.shards }}
     env:
+      # Keep in step with the e2e job's matrix.
       E2E_SHARDS: "8"
       TURBO_TELEMETRY_DISABLED: "1"
       SKIP_VALIDATION: "true"
@@ -77,11 +72,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Restore test durations cache
         uses: actions/cache/restore@v6
@@ -93,52 +83,23 @@ jobs:
             e2e-durations-master
             e2e-durations-
       - name: Generate shard lists
-        id: shards
-        run: |
-          bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
-          echo "shards=$(jq -cn --argjson n "$E2E_SHARDS" '[range(1; $n + 1)]')" >> "$GITHUB_OUTPUT"
+        run: bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
       - name: Upload shard lists
         uses: actions/upload-artifact@v7
         with:
           name: shard-lists
           path: packages/e2e/shard-lists/
           retention-days: 1
-      - name: Build web app
-        env:
-          NODE_ENV: production
-          VITE_E2E: "true"
-          BETTER_AUTH_URL: http://localhost:3099
-          BETTER_AUTH_SECRET: ci-test-secret-value-at-least-32-chars-long
-          CORS_ORIGIN: http://localhost:3099
-          VITE_ZERO_URL: http://localhost:4848
-          VITE_CDN_URL: http://localhost:3099
-        run: cd apps/web && bun run build
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: web-build
-          path: apps/web/.output/
-          include-hidden-files: true
-          retention-days: 1
 
+  # Starts alongside prepare-shards and waits for its shard lists only before
+  # the tests, so planning overlaps setup.
   e2e:
     runs-on: ubuntu-latest
-    needs: prepare-shards
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.prepare-shards.outputs.shards) }}
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_DB: pi-dash-test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: test
-        options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
-        ports:
-          - 5433:5432
+        # One entry per shard; prepare-shards' E2E_SHARDS must match.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       NODE_ENV: test
       VITE_E2E: "true"
@@ -169,34 +130,25 @@ jobs:
       RAZORPAY_WEBHOOK_SECRET: e2e-razorpay-webhook-secret
       VITE_ZERO_URL: http://localhost:4848
       VITE_CDN_URL: http://localhost:3099
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+      # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
+      E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Enable logical replication
+      # Pulls and starts in the background; "Wait for Postgres" checks it. A
+      # service container waits on a backed-off health check and needs a
+      # restart to enable logical replication.
+      - name: Start Postgres
         run: |
-          docker exec ${{ job.services.postgres.id }} \
-            psql -U postgres \
-              -c "ALTER SYSTEM SET wal_level = 'logical';" \
-              -c "ALTER SYSTEM SET max_connections = 300;"
-          docker restart ${{ job.services.postgres.id }}
-          # Wait for postgres to be ready again
-          for _ in $(seq 1 30); do
-            if pg_isready -h localhost -p 5433 -U postgres 2>/dev/null; then
-              echo "postgres ready"
-              break
-            fi
-            sleep 1
-          done
+          (docker run -d --name postgres -p 5433:5432 \
+            -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
+            postgres:18 -c wal_level=logical -c max_connections=300 > /tmp/postgres.log 2>&1) &
+
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
 
       - name: Resolve zero-cache image
         id: zero-cache
@@ -204,6 +156,33 @@ jobs:
           ZERO_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"@rocicorp\/zero": \["@rocicorp\/zero@([^"]+)"/); if (!match) throw new Error("Could not resolve @rocicorp/zero version from bun.lock"); console.log(match[1]);')
           echo "version=${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=rocicorp/zero:${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache zero-cache image
+        uses: actions/cache@v6
+        with:
+          path: /tmp/zero-cache-image.tar
+          key: zero-cache-${{ runner.os }}-${{ steps.zero-cache.outputs.version }}
+      # Load in the background; "Start zero-cache" waits for it.
+      - name: Start zero-cache image load
+        run: |
+          (
+            if [ -f /tmp/zero-cache-image.tar ]; then
+              docker load -i /tmp/zero-cache-image.tar
+            else
+              docker pull "${{ steps.zero-cache.outputs.image }}" &&
+                docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
+            fi > /tmp/zero-image.log 2>&1
+            echo $? > /tmp/zero-image.exit
+          ) > /dev/null 2>&1 &
+
+      - run: bun install --frozen-lockfile
+
+      # Restore the build from Turbo's remote cache (the pre-push hook fills
+      # it) or build while Postgres, Playwright and zero-cache get ready.
+      # "Wait for web build" collects the result before the tests start.
+      - name: Start web build
+        run: |
+          (bash scripts/build-e2e.sh > /tmp/web-build.log 2>&1; echo $? > /tmp/web-build.exit) > /dev/null 2>&1 &
 
       - name: Restore Playwright cache
         id: playwright-cache
@@ -221,6 +200,20 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
+      - name: Wait for Postgres
+        run: |
+          for _ in $(seq 1 60); do
+            if pg_isready -h localhost -p 5433 -U postgres >/dev/null 2>&1; then
+              echo "postgres ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "postgres failed to start"
+          cat /tmp/postgres.log
+          docker logs postgres 2>&1 | tail -50
+          exit 1
+
       - name: Push schema to test database
         run: cd packages/db && bunx drizzle-kit push
 
@@ -230,28 +223,11 @@ jobs:
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: web-build
-          path: apps/web/.output/
-
-      - name: Cache zero-cache image
-        id: zero-cache-image
-        uses: actions/cache@v6
-        with:
-          path: /tmp/zero-cache-image.tar
-          key: zero-cache-${{ runner.os }}-${{ steps.zero-cache.outputs.version }}
-      - name: Load or pull zero-cache image
-        run: |
-          if [ -f /tmp/zero-cache-image.tar ]; then
-            docker load -i /tmp/zero-cache-image.tar
-          else
-            docker pull "${{ steps.zero-cache.outputs.image }}"
-            docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
-          fi
       - name: Start zero-cache
         run: |
+          until [ -f /tmp/zero-image.exit ]; do sleep 1; done
+          cat /tmp/zero-image.log
+          [ "$(cat /tmp/zero-image.exit)" = 0 ]
           docker run -d --name zero-cache --network host \
             -e ZERO_UPSTREAM_DB="$ZERO_UPSTREAM_DB" \
             -e ZERO_APP_PUBLICATIONS=pi_dash_public \
@@ -277,11 +253,31 @@ jobs:
           docker logs zero-cache
           exit 1
 
+      - name: Wait for shard lists
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          until gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[].name' | grep -qx shard-lists; do
+            sleep 2
+          done
       - name: Download shard lists
         uses: actions/download-artifact@v8
         with:
           name: shard-lists
           path: packages/e2e/shard-lists/
+
+      - name: Wait for web build
+        timeout-minutes: 10
+        run: |
+          until [ -f /tmp/web-build.exit ]; do sleep 1; done
+          status=$(cat /tmp/web-build.exit)
+          if [ "$status" != 0 ]; then
+            cat /tmp/web-build.log
+            exit "$status"
+          fi
+          tail -n 5 /tmp/web-build.log
 
       - name: Run Playwright tests
         run: bunx playwright test --config packages/e2e/playwright.config.ts --test-list=packages/e2e/shard-lists/shard-${{ matrix.shard }}.txt
@@ -330,28 +326,40 @@ jobs:
         with:
           pattern: test-durations-*
           path: /tmp/durations
-      - name: Merge and cache durations
+      - name: Restore previous durations
+        if: needs.e2e.result == 'success'
+        uses: actions/cache/restore@v6
+        with:
+          path: packages/e2e/.test-durations.json
+          key: e2e-durations-${{ github.ref_name }}
+          restore-keys: |
+            e2e-durations-${{ github.ref_name }}-
+            e2e-durations-master
+            e2e-durations-
+      - name: Merge durations
         if: needs.e2e.result == 'success'
         run: |
-          # Merge all shard duration files into one
-          echo '{}' > /tmp/merged-durations.json
-          for f in /tmp/durations/*/; do
-            if [ -f "${f}.test-durations.json" ]; then
-              # Merge using jq-like approach with node
-              node -e "
-                const a = JSON.parse(require('fs').readFileSync('/tmp/merged-durations.json', 'utf8'));
-                const b = JSON.parse(require('fs').readFileSync('${f}.test-durations.json', 'utf8'));
-                Object.assign(a, b);
-                require('fs').writeFileSync('/tmp/merged-durations.json', JSON.stringify(a, null, 2));
-              "
-            fi
-          done
-          echo "Merged durations: $(node -e "console.log(Object.keys(JSON.parse(require('fs').readFileSync('/tmp/merged-durations.json','utf8'))).length)") tests"
-          mkdir -p packages/e2e
-          cp /tmp/merged-durations.json packages/e2e/.test-durations.json
+          # Keeps the tests this run saw, each averaged with its previous
+          # duration, so one slow or fast run moves the shard plan only halfway.
+          node <<'EOF'
+          const fs = require("fs");
+          const file = "packages/e2e/.test-durations.json";
+          const previous = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
+          const merged = {};
+          for (const dir of fs.readdirSync("/tmp/durations")) {
+            const shardFile = `/tmp/durations/${dir}/.test-durations.json`;
+            if (!fs.existsSync(shardFile)) continue;
+            for (const [test, ms] of Object.entries(JSON.parse(fs.readFileSync(shardFile, "utf8")))) {
+              merged[test] = test in previous ? Math.round((previous[test] + ms) / 2) : ms;
+            }
+          }
+          fs.mkdirSync("packages/e2e", { recursive: true });
+          fs.writeFileSync(file, JSON.stringify(merged, null, 2));
+          console.log(`Merged durations: ${Object.keys(merged).length} tests`);
+          EOF
       - name: Save durations cache
         if: needs.e2e.result == 'success'
         uses: actions/cache/save@v6
         with:
           path: packages/e2e/.test-durations.json
-          key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}
+          key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
