@@ -76,6 +76,7 @@ function LinkForm({
         entityId: contribution.id,
         errorMsg: "Couldn't link the contribution",
         mutation: "grant.linkContribution",
+        showCertificateRefusal: true,
         successMsg: `Counted towards ${grant.title}`,
       });
       if (res.type !== "error") {
@@ -95,6 +96,7 @@ function LinkForm({
       entityId: contribution.id,
       errorMsg: "Couldn't unlink the contribution",
       mutation: "grant.linkContribution",
+      showCertificateRefusal: true,
       successMsg: "Contribution unlinked",
     });
     if (res.type !== "error") {

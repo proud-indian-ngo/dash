@@ -258,6 +258,7 @@ function ContributionsTab({
       entityId: (row) => row.id,
       errorMsg: "Couldn't delete contribution",
       mutation: "contribution.delete",
+      showCertificateRefusal: true,
       successMsg: "Contribution deleted",
     },
     onConfirm: async (row) => {

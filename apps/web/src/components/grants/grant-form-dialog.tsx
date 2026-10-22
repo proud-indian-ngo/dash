@@ -176,6 +176,7 @@ function GrantForm({
         entityId: id,
         errorMsg: "Couldn't save the grant",
         mutation: "grant.save",
+        showCertificateRefusal: true,
         successMsg: grant ? "Grant updated" : "Grant added",
       });
       if (res.type === "error") {

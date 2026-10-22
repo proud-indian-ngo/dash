@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  certificateRefusal,
   getMutationResultErrorMessage,
   joinErrorMessage,
 } from "./mutation-result";
@@ -40,5 +41,29 @@ describe("joinErrorMessage", () => {
         "Couldn't join event"
       )
     ).toBe("Couldn't join event");
+  });
+});
+
+describe("certificateRefusal", () => {
+  it("passes a certificate's refusal through and hides anything else", () => {
+    const refusal =
+      "Utilisation certificate UC/2026-27/002 covers this, so unlinking this contribution would change its figures. Cancel it first, then prepare a new one.";
+    expect(
+      certificateRefusal({ error: new Error(refusal), type: "error" })
+    ).toBe(refusal);
+    expect(
+      certificateRefusal({
+        error: new Error(
+          "This grant has utilisation certificates, so it is kept. Close it instead."
+        ),
+        type: "error",
+      })
+    ).toContain("Close it instead");
+    expect(
+      certificateRefusal({
+        error: new Error("relation does not exist"),
+        type: "error",
+      })
+    ).toBeUndefined();
   });
 });

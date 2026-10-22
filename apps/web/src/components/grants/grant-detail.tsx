@@ -170,6 +170,7 @@ export function GrantDetail({
       entityId: grant.id,
       errorMsg: "Couldn't delete the grant",
       mutation: "grant.delete",
+      showCertificateRefusal: true,
       successMsg: "Grant deleted",
     },
     onConfirm: () =>
@@ -204,6 +205,7 @@ export function GrantDetail({
       entityId: grant.id,
       errorMsg: "Couldn't change the grant's status",
       mutation: "grant.save",
+      showCertificateRefusal: true,
       successMsg: next === "closed" ? "Grant closed" : "Grant reopened",
     });
   };
@@ -219,6 +221,7 @@ export function GrantDetail({
       entityId: contributionId,
       errorMsg: "Couldn't unlink the contribution",
       mutation: "grant.linkContribution",
+      showCertificateRefusal: true,
       successMsg: "Contribution unlinked",
     });
     if (res.type !== "error") {
