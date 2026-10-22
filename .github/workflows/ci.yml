@@ -61,9 +61,8 @@ jobs:
 
   prepare-shards:
     runs-on: ubuntu-latest
-    outputs:
-      shards: ${{ steps.shards.outputs.shards }}
     env:
+      # Keep in step with the e2e job's matrix.
       E2E_SHARDS: "8"
       TURBO_TELEMETRY_DISABLED: "1"
       SKIP_VALIDATION: "true"
@@ -84,10 +83,7 @@ jobs:
             e2e-durations-master
             e2e-durations-
       - name: Generate shard lists
-        id: shards
-        run: |
-          bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
-          echo "shards=$(jq -cn --argjson n "$E2E_SHARDS" '[range(1; $n + 1)]')" >> "$GITHUB_OUTPUT"
+        run: bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
       - name: Upload shard lists
         uses: actions/upload-artifact@v7
         with:
@@ -95,13 +91,15 @@ jobs:
           path: packages/e2e/shard-lists/
           retention-days: 1
 
+  # Starts alongside prepare-shards and waits for its shard lists only before
+  # the tests, so planning overlaps setup.
   e2e:
     runs-on: ubuntu-latest
-    needs: prepare-shards
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.prepare-shards.outputs.shards) }}
+        # One entry per shard; prepare-shards' E2E_SHARDS must match.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       NODE_ENV: test
       VITE_E2E: "true"
@@ -255,6 +253,15 @@ jobs:
           docker logs zero-cache
           exit 1
 
+      - name: Wait for shard lists
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          until gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+            --jq '.artifacts[].name' | grep -qx shard-lists; do
+            sleep 2
+          done
       - name: Download shard lists
         uses: actions/download-artifact@v8
         with:
