@@ -14,7 +14,9 @@ import {
   getCloudTemplate,
   isTransientCloudError,
   resetCloudTemplateCache,
+  sendCloudTemplate,
 } from "./cloud";
+import { whatsappTemplate } from "./template-message";
 
 const templatesPage = () =>
   new Response(
@@ -94,5 +96,68 @@ describe("getCloudTemplate", () => {
     fetchMock.mockImplementation(async () => templatesPage());
     await getCloudTemplate("x", now + 6 * 60_000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("sendCloudTemplate", () => {
+  it("uploads a PDF and references its media ID in the document header", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: "media-1" }))
+      .mockResolvedValueOnce(Response.json({ messages: [{ id: "wamid.1" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const message = whatsappTemplate(
+      "donation_receipt",
+      {
+        amount: "₹5,000",
+        number: "PI-2026-0012",
+        received_on: "21 October 2026",
+      },
+      {
+        bytes: new Uint8Array([37, 80, 68, 70]),
+        filename: "receipt-PI-2026-0012.pdf",
+      }
+    );
+
+    await expect(sendCloudTemplate("+91 99999 99999", message)).resolves.toBe(
+      "wamid.1"
+    );
+
+    const [uploadUrl, uploadInit] = fetchMock.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    expect(uploadUrl).toBe("https://graph.facebook.com/v25.0/phone/media");
+    expect(uploadInit.headers).toEqual({ Authorization: "Bearer token" });
+    const form = uploadInit.body as FormData;
+    expect(form.get("messaging_product")).toBe("whatsapp");
+    expect(form.get("type")).toBe("application/pdf");
+    expect((form.get("file") as File).name).toBe("receipt-PI-2026-0012.pdf");
+
+    const [, sendInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(sendInit.body as string)).toMatchObject({
+      messaging_product: "whatsapp",
+      template: {
+        components: [
+          {
+            parameters: [
+              {
+                document: {
+                  filename: "receipt-PI-2026-0012.pdf",
+                  id: "media-1",
+                },
+                type: "document",
+              },
+            ],
+            type: "header",
+          },
+          { type: "body" },
+        ],
+        name: "donation_receipt",
+      },
+      to: "919999999999",
+      type: "template",
+    });
   });
 });

@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   cloudEnabled: true,
   deleted: 0,
+  gatewayEnabled: true,
   inserted: [] as unknown[],
   logGowaSend: vi.fn(async () => undefined),
   insertReturns: [{ key: "k" }] as unknown[],
   sendCloudTemplate: vi.fn(async () => "wamid.1"),
+  sendWhatsAppDocument: vi.fn(
+    async (): Promise<string | undefined> => "3EB0PDF"
+  ),
   sendWhatsAppMessage: vi.fn(
     async (): Promise<string | undefined> => "3EB0GOWA"
   ),
@@ -71,6 +75,8 @@ vi.mock("./cloud", () => {
 });
 vi.mock("./gowa-log", () => ({ logGowaSend: mocks.logGowaSend }));
 vi.mock("./messaging", () => ({
+  isWhatsAppGatewayEnabled: () => mocks.gatewayEnabled,
+  sendWhatsAppDocument: mocks.sendWhatsAppDocument,
   sendWhatsAppMessage: mocks.sendWhatsAppMessage,
 }));
 
@@ -87,10 +93,24 @@ const template = whatsappTemplate(
   { team: "Sunday" },
   "/teams/t1"
 );
+const document = {
+  bytes: new Uint8Array([37, 80, 68, 70]),
+  filename: "receipt.pdf",
+};
+const receiptTemplate = whatsappTemplate(
+  "donation_receipt",
+  {
+    amount: "₹5,000",
+    number: "PI-2026-0012",
+    received_on: "21 October 2026",
+  },
+  document
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.cloudEnabled = true;
+  mocks.gatewayEnabled = true;
   mocks.deleted = 0;
   mocks.inserted = [];
   mocks.insertReturns = [{ key: "k" }];
@@ -195,6 +215,49 @@ describe("sendWhatsAppNotification", () => {
       },
       ["3EB0GOWA"]
     );
+  });
+
+  it("sends a receipt PDF through GoWA with the fallback text as its caption", async () => {
+    mocks.cloudEnabled = false;
+    await expect(
+      sendWhatsAppNotification(
+        "919876543210",
+        { template: receiptTemplate, text: "Your receipt is attached." },
+        { idempotencyKey: "receipt-1" }
+      )
+    ).resolves.toBe("sent");
+
+    expect(mocks.sendWhatsAppDocument).toHaveBeenCalledWith(
+      "919876543210",
+      document,
+      "Your receipt is attached.",
+      { idempotencyKey: "receipt-1" }
+    );
+    expect(mocks.logGowaSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attachmentCount: 1,
+        idempotencyKey: "receipt-1",
+        text: "Your receipt is attached.",
+      }),
+      ["3EB0PDF"]
+    );
+    expect(mocks.sendWhatsAppMessage).not.toHaveBeenCalled();
+  });
+
+  it("reports not_configured without logging a send when neither provider is configured", async () => {
+    mocks.cloudEnabled = false;
+    mocks.gatewayEnabled = false;
+
+    await expect(
+      sendWhatsAppNotification(
+        "919876543210",
+        { template: receiptTemplate, text: "Your receipt is attached." },
+        { idempotencyKey: "receipt-1" }
+      )
+    ).resolves.toBe("not_configured");
+    expect(mocks.sendWhatsAppDocument).not.toHaveBeenCalled();
+    expect(mocks.sendWhatsAppMessage).not.toHaveBeenCalled();
+    expect(mocks.logGowaSend).not.toHaveBeenCalled();
   });
 });
 

@@ -90,6 +90,9 @@ describe("WhatsApp templates", () => {
       if ("buttonText" in template) {
         expect(template.buttonText.length).toBeLessThanOrEqual(25);
       }
+      if ("footer" in template) {
+        expect(template.footer.length).toBeLessThanOrEqual(60);
+      }
     }
   });
 });
@@ -154,6 +157,32 @@ describe("toTemplatePayload", () => {
       { text: find("account_deactivated").body, type: "BODY" },
       { text: "Proud Indian · Change alerts in Settings", type: "FOOTER" },
     ]);
+  });
+
+  it("registers the donation receipt with a document sample and donor footer", () => {
+    const payload = toTemplatePayload(
+      find("donation_receipt"),
+      APP_URL,
+      "sample-upload-handle"
+    );
+    expect(payload.components).toEqual([
+      {
+        example: { header_handle: ["sample-upload-handle"] },
+        format: "DOCUMENT",
+        type: "HEADER",
+      },
+      expect.objectContaining({ type: "BODY" }),
+      {
+        text: "Proud Indian · Thank you for your support",
+        type: "FOOTER",
+      },
+    ]);
+  });
+
+  it("can compare a document template without a sample handle", () => {
+    expect(
+      toTemplatePayload(find("donation_receipt"), APP_URL).components[0]
+    ).toEqual({ format: "DOCUMENT", type: "HEADER" });
   });
 
   it("labels the group invite button and links it through the dashboard", () => {

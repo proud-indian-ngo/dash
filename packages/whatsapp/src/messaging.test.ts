@@ -21,7 +21,11 @@ vi.mock("./client", () => ({
   getWhatsAppHeaders: () => ({}),
 }));
 
-import { sendWhatsAppMedia, sendWhatsAppMessage } from "./messaging";
+import {
+  sendWhatsAppDocument,
+  sendWhatsAppMedia,
+  sendWhatsAppMessage,
+} from "./messaging";
 
 const signedUrl =
   "https://account.r2.cloudflarestorage.com/bucket/agenda.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=secret";
@@ -71,6 +75,37 @@ describe("sendWhatsAppMessage", () => {
 
     expect(await sendWhatsAppMessage("919999999999", "Hello")).toBe("3EB0ABC");
     expect(await sendWhatsAppMessage("919999999999", "Hello")).toBeUndefined();
+  });
+});
+
+describe("sendWhatsAppDocument", () => {
+  it("uploads the PDF buffer with a hashed delivery key and caption", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(Response.json({ results: { message_id: "3EB0PDF" } }));
+    vi.stubGlobal("fetch", fetch);
+
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    await expect(
+      sendWhatsAppDocument(
+        "+91 99999 99999",
+        { bytes, filename: "receipt.pdf" },
+        "Thank you",
+        { idempotencyKey: "receipt-1" }
+      )
+    ).resolves.toBe("3EB0PDF");
+
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://whatsapp.example.test/send/file");
+    expect(init.headers).toEqual({
+      "Idempotency-Key": createHash("sha256").update("receipt-1").digest("hex"),
+    });
+    const form = init.body as FormData;
+    expect(form.get("phone")).toBe("919999999999");
+    expect(form.get("caption")).toBe("Thank you");
+    expect((form.get("file") as File).name).toBe("receipt.pdf");
+    expect(loggedText()).not.toContain("919999999999");
+    expect(loggedText()).not.toContain(JSON.stringify([...bytes]));
   });
 });
 

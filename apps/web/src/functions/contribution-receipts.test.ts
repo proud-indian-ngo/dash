@@ -68,7 +68,12 @@ mock.module("@/lib/receipts/server", () => ({
     needsDetails: [],
     ready: [GIFT],
   }),
+  loadContacts: record("contacts", {
+    [RECEIPT]: { email: "usable", phone: true },
+  }),
   queueReceiptEmail: record("email", { contributionId: GIFT }),
+  queueReceiptNow: record("now", { contributionId: GIFT }),
+  queueReceiptWhatsApp: record("whatsapp", { contributionId: GIFT }),
   voidReceipt: record("void", { contributionId: GIFT, id: RECEIPT }),
 }));
 mock.module("@tanstack/react-start", () => ({
@@ -112,13 +117,20 @@ describe("receipt server functions", () => {
       call(fns.emailContributionReceipt, { receiptId: RECEIPT })
     ).rejects.toThrow("Forbidden");
     await expect(
+      call(fns.whatsappContributionReceipt, { receiptId: RECEIPT })
+    ).rejects.toThrow("Forbidden");
+    await expect(
+      call(fns.sendContributionReceiptNow, { receiptId: RECEIPT })
+    ).rejects.toThrow("Forbidden");
+    await expect(
       call(fns.getReceiptCandidates, { giftIds: null })
     ).rejects.toThrow("Forbidden");
+    await expect(call(fns.getReceiptContacts, {})).rejects.toThrow("Forbidden");
     expect(calls).toEqual([]);
     expect(audits).toEqual([]);
   });
 
-  it("audits issue, void and email with IDs and counts only", async () => {
+  it("audits issue, void and the sends with IDs and counts only", async () => {
     granted = ["donors.receipt"];
     await call(fns.issueContributionReceipts, { giftIds: [GIFT] });
     await call(fns.voidContributionReceipt, {
@@ -126,7 +138,9 @@ describe("receipt server functions", () => {
       receiptId: RECEIPT,
     });
     await call(fns.emailContributionReceipt, { receiptId: RECEIPT });
-    expect(calls).toEqual(["issue", "void", "email"]);
+    await call(fns.whatsappContributionReceipt, { receiptId: RECEIPT });
+    await call(fns.sendContributionReceiptNow, { receiptId: RECEIPT });
+    expect(calls).toEqual(["issue", "void", "email", "whatsapp", "now"]);
     expect(audits).toEqual([
       {
         action: "contribution_receipt.issue",
@@ -145,6 +159,14 @@ describe("receipt server functions", () => {
       },
       {
         action: "contribution_receipt.email",
+        target: { id: RECEIPT, type: "contribution_receipt" },
+      },
+      {
+        action: "contribution_receipt.whatsapp",
+        target: { id: RECEIPT, type: "contribution_receipt" },
+      },
+      {
+        action: "contribution_receipt.send_now",
         target: { id: RECEIPT, type: "contribution_receipt" },
       },
     ]);
@@ -174,10 +196,11 @@ describe("receipt server functions", () => {
     expect(calls).toEqual([]);
   });
 
-  it("reads candidates without auditing", async () => {
+  it("reads candidates and contact flags without auditing", async () => {
     granted = ["donors.receipt"];
     await call(fns.getReceiptCandidates, { giftIds: [GIFT] });
-    expect(calls).toEqual(["candidates"]);
+    await call(fns.getReceiptContacts, {});
+    expect(calls).toEqual(["candidates", "contacts"]);
     expect(audits).toEqual([]);
   });
 });

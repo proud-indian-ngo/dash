@@ -2,7 +2,9 @@ import {
   Cancel01Icon,
   Download04Icon,
   Mail01Icon,
+  SentIcon,
   ViewIcon,
+  WhatsappIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -24,30 +26,49 @@ import { DATE_TIME } from "@/lib/date-formats";
 
 import { formatReceivedOn } from "../income-date";
 import {
+  type ReceiptContacts,
+  receiptDeliveryLabel,
+  receiptDeliveryNoteLabel,
   type ReceiptRow,
   receiptDonorName,
   receiptPdfUrl,
+  receiptSendOptions,
 } from "./receipt-types";
 import { ReceiptStatusBadge } from "./receipts-table";
+import type { ReceiptSend } from "./use-send-receipt";
+
+const sentOn = (
+  time: number | null | undefined,
+  never: string,
+  reason: string | null
+) => {
+  if (time) {
+    return format(new Date(time), DATE_TIME);
+  }
+  return reason ? `${never} (${reason})` : never;
+};
 
 /**
- * A receipt: who it was issued to and by, the gift, and its void reason.
- * Issuers get Download, Email and Void in the header.
+ * A receipt: who it was issued to and by, the gift, its delivery and its
+ * void reason. Issuers get the sends, Download and Void in the header.
  */
 export function ReceiptDetailSheet({
   canIssue,
-  emailing,
-  onEmail,
+  contacts,
   onOpenChange,
+  onSend,
   onVoid,
   receipt,
+  sending,
 }: {
   canIssue: boolean;
-  emailing: boolean;
-  onEmail: (row: ReceiptRow) => void;
+  contacts: ReceiptContacts | undefined;
   onOpenChange: (open: boolean) => void;
+  onSend: (how: ReceiptSend, row: ReceiptRow) => void;
   onVoid: (row: ReceiptRow) => void;
   receipt: ReceiptRow | null;
+  /** A send is being queued; one at a time. */
+  sending: boolean;
 }) {
   if (!receipt) {
     return (
@@ -58,6 +79,9 @@ export function ReceiptDetailSheet({
   }
   const row = receipt;
   const gift = row.contribution;
+  const live = !row.voidedAt;
+  const options = receiptSendOptions(row, contacts, Date.now());
+  const note = receiptDeliveryNoteLabel(row);
   const facts: [string, ReactNode][] = [
     ["Issued to", receiptDonorName(row)],
     ["Issued on", formatReceivedOn(row.issuedOn)],
@@ -71,10 +95,19 @@ export function ReceiptDetailSheet({
         : "—",
     ],
     [
+      "Delivery",
+      <span data-testid="receipt-delivery" key="delivery">
+        {receiptDeliveryLabel(row)}
+      </span>,
+    ],
+    ...(note ? ([["Last send", note]] as [string, ReactNode][]) : []),
+    [
       "Emailed",
-      row.emailedAt
-        ? format(new Date(row.emailedAt), DATE_TIME)
-        : "Not emailed",
+      sentOn(row.emailedAt, "Not emailed", live ? options.email : null),
+    ],
+    [
+      "WhatsApp",
+      sentOn(row.whatsappSentAt, "Not sent", live ? options.whatsapp : null),
     ],
     ...(row.voidedAt
       ? ([
@@ -84,7 +117,6 @@ export function ReceiptDetailSheet({
         ] as [string, ReactNode][])
       : []),
   ];
-  const live = !row.voidedAt;
   return (
     <Sheet onOpenChange={onOpenChange} open>
       <SheetContent>
@@ -105,10 +137,25 @@ export function ReceiptDetailSheet({
                   />
                   View
                 </FilePreviewButton>
+                {live && options.now ? (
+                  <Button
+                    disabled={sending || options.now.blocked !== null}
+                    onClick={() => onSend("now", row)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={SentIcon}
+                      strokeWidth={2}
+                    />
+                    Send now
+                  </Button>
+                ) : null}
                 {live ? (
                   <Button
-                    disabled={emailing}
-                    onClick={() => onEmail(row)}
+                    disabled={sending || options.email !== null}
+                    onClick={() => onSend("email", row)}
                     type="button"
                     variant="outline"
                   >
@@ -136,6 +183,15 @@ export function ReceiptDetailSheet({
                     },
                     ...(live
                       ? [
+                          {
+                            disabled: sending || options.whatsapp !== null,
+                            icon: WhatsappIcon,
+                            id: "whatsapp",
+                            label: options.whatsapp
+                              ? `Send on WhatsApp (${options.whatsapp})`
+                              : "Send on WhatsApp",
+                            onSelect: () => onSend("whatsapp", row),
+                          },
                           {
                             destructive: true,
                             icon: Cancel01Icon,

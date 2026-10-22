@@ -5,6 +5,10 @@ import { GIVE_INDIA_PARTY_ID } from "./constants";
 import {
   assessReceipt,
   formatReceiptNumber,
+  RECEIPT_AUTO_SEND_GRACE_MS,
+  receiptAwaitsAutoSend,
+  receiptDeliveryNote,
+  receiptDeliveryState,
   parseReceiptSettings,
   type ReceiptDonorFacts,
   type ReceiptGiftFacts,
@@ -375,5 +379,74 @@ describe("maskDonorName", () => {
     expect(maskDonorName("(HUF) Sharma & Sons")).toBe("H••• S••• S•••");
     expect(maskDonorName("M/s 3M India")).toBe("M••• 3••• I•••");
     expect(maskDonorName("   ")).toBe("");
+  });
+});
+
+describe("receipt delivery", () => {
+  const NOW = 1_000_000;
+  const waiting = { autoSendAt: NOW + 1000 };
+
+  it("waits for the automatic send, then shows it sending", () => {
+    expect(receiptDeliveryState(waiting, NOW)).toEqual({
+      at: NOW + 1000,
+      kind: "scheduled",
+    });
+    expect(receiptAwaitsAutoSend(waiting, NOW)).toBe(true);
+    // Past the window it is the job's turn, not Send now's.
+    expect(receiptDeliveryState(waiting, NOW + 2000)).toEqual({
+      kind: "sending",
+    });
+    expect(receiptAwaitsAutoSend(waiting, NOW + 2000)).toBe(false);
+    expect(receiptDeliveryState({}, NOW)).toEqual({ kind: "not_sent" });
+  });
+
+  it("stops showing Sending once the grace after the window passes", () => {
+    const due = NOW + 1000;
+    expect(
+      receiptDeliveryState(waiting, due + RECEIPT_AUTO_SEND_GRACE_MS - 1)
+    ).toEqual({ kind: "sending" });
+    // A job that ended without recording anything: not left "Sending".
+    expect(
+      receiptDeliveryState(waiting, due + RECEIPT_AUTO_SEND_GRACE_MS)
+    ).toEqual({ kind: "not_sent" });
+  });
+
+  it("stops waiting once sent or voided, but not after a failed attempt", () => {
+    for (const receipt of [
+      { ...waiting, emailedAt: NOW },
+      { ...waiting, whatsappSentAt: NOW },
+      { ...waiting, voidedAt: NOW },
+    ]) {
+      expect(receiptAwaitsAutoSend(receipt, NOW)).toBe(false);
+    }
+    // A manual WhatsApp send failed; the automatic email still comes.
+    const failed = { ...waiting, deliveryFailure: "whatsapp_no_template" };
+    expect(receiptAwaitsAutoSend(failed, NOW)).toBe(true);
+    expect(receiptDeliveryNote(failed, NOW)).toBe("whatsapp_no_template");
+  });
+
+  it("shows the failure, not a past schedule, once the automatic send gave up", () => {
+    const gaveUp = { autoSendAt: NOW - 1000, deliveryFailure: "email_failed" };
+    expect(receiptDeliveryState(gaveUp, NOW)).toEqual({
+      failure: "email_failed",
+      kind: "failed",
+    });
+    expect(receiptDeliveryNote(gaveUp, NOW)).toBeNull();
+  });
+
+  it("lets a send that went out win over a later failure, kept as a note", () => {
+    const resendFailed = {
+      deliveryFailure: "whatsapp_no_template",
+      emailedAt: NOW,
+    };
+    expect(receiptDeliveryState(resendFailed, NOW)).toEqual({
+      at: NOW,
+      channel: "email",
+      kind: "sent",
+    });
+    expect(receiptDeliveryNote(resendFailed, NOW)).toBe("whatsapp_no_template");
+    expect(
+      receiptDeliveryState({ emailedAt: NOW, whatsappSentAt: NOW + 1 }, NOW)
+    ).toEqual({ at: NOW + 1, channel: "whatsapp", kind: "sent" });
   });
 });

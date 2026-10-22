@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Browser, Page } from "@playwright/test";
+import type { Browser, Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
@@ -15,6 +15,7 @@ const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
 const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
 const DETAILS_DONOR = "E2E Receipt Details Donor";
 const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
+const ACCOUNT = "E2E Bank Account";
 
 /** The financial year running now in India, whose series the receipt starts. */
 function currentFinancialYear(): string {
@@ -73,6 +74,69 @@ async function clearDetailsAddress(): Promise<void> {
   if (cleared !== 1) {
     throw new Error("The receipt details donor isn't seeded");
   }
+}
+
+type AutomaticReceiptInspection = {
+  autoSendMinutes: number | null;
+  jobs: {
+    delayMinutes?: number | null;
+    name: string;
+    outcome: string | null;
+    state: string;
+  }[];
+  receiptCount: number;
+  storedPdfCount: number;
+};
+
+/** Reads sanitized receipt and job state for one contribution reference. */
+async function inspectAutomatic(
+  reference: string
+): Promise<AutomaticReceiptInspection> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "inspect-automatic",
+      reference,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as AutomaticReceiptInspection;
+}
+
+async function pickOption(
+  scope: Locator,
+  page: Page,
+  label: string,
+  text: string
+) {
+  const combobox = scope.getByRole("combobox", { name: label });
+  await combobox.click();
+  await combobox.fill(text);
+  const option = page.getByRole("option").filter({ hasText: text }).first();
+  await expect(option).toBeVisible({ timeout: 10_000 });
+  await option.click();
+}
+
+/** Records a normal direct contribution through the Income form. */
+async function recordContribution(
+  page: Page,
+  donor: string,
+  reference: string
+) {
+  await page.goto("/income");
+  await waitForZeroReady(page);
+  await page.getByRole("button", { name: "Record contribution" }).click();
+  const dialog = page.getByRole("dialog", { name: "Record contribution" });
+  await expect(dialog).toBeVisible();
+  await pickOption(dialog, page, "Donor", donor);
+  await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("500");
+  await pickOption(dialog, page, "Deposited into", ACCOUNT);
+  await dialog
+    .getByRole("textbox", { exact: true, name: "Reference" })
+    .fill(reference);
+  await clickUntilDialogCloses(dialog, "Save contribution");
 }
 
 /** The signed path a receipt's QR code opens. */
@@ -442,6 +506,159 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(
       reopened.getByTestId("contribution-issue-receipt")
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("issues a new direct gift's receipt at once and holds delivery until finance sends it", async ({
+    page,
+  }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
+    );
+    test.slow();
+    await ensureRegistration(page);
+    const reference = `E2E-AUTO-RECEIPT-${Date.now()}`;
+    await recordContribution(page, RECEIPT_DONOR, reference);
+
+    const giftCell = (await giftRow(page, reference)).getByTestId(
+      "contribution-receipt-cell"
+    );
+    await expect(giftCell).toContainText(`PI/${currentFinancialYear()}/`, {
+      timeout: 30_000,
+    });
+    const number = ((await giftCell.textContent()) ?? "").trim();
+    // Issued and stored now; delivery waits the one-hour window.
+    await expect
+      .poll(async () => await inspectAutomatic(reference), {
+        timeout: 30_000,
+      })
+      .toEqual({
+        autoSendMinutes: 60,
+        jobs: [
+          {
+            name: "deliver-contribution-receipt",
+            delayMinutes: 60,
+            outcome: null,
+            state: "created",
+          },
+          {
+            name: "issue-contribution-receipt",
+            outcome: "issued",
+            state: "completed",
+          },
+          {
+            name: "store-contribution-receipt-pdf",
+            outcome: null,
+            state: "completed",
+          },
+        ],
+        receiptCount: 1,
+        storedPdfCount: 1,
+      });
+
+    await page.goto("/income?tab=receipts");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search number or donor...").fill(number);
+    const row = page.getByRole("row").filter({ hasText: number });
+    const delivery = row.getByTestId("receipt-delivery");
+    await expect(delivery).toContainText("Sends automatically on");
+
+    // The donor has a phone, so WhatsApp is offered; Send now uses the rule.
+    await row.getByTestId("row-actions").click();
+    await expect(
+      page.getByRole("menuitem", { exact: true, name: "Send on WhatsApp" })
+    ).toBeEnabled();
+    await page.getByRole("menuitem", { name: "Send now" }).click();
+    await expect(
+      page.getByText(`Receipt ${number} is queued to send`)
+    ).toBeVisible();
+    // The donor has email, so it goes by email; the test run has no email
+    // service, which the row reports rather than hiding.
+    await expect(delivery).toHaveText("Not sent: email isn't set up", {
+      timeout: 30_000,
+    });
+    await row.getByTestId("row-actions").click();
+    await expect(page.getByRole("menuitem", { name: "Send now" })).toHaveCount(
+      0
+    );
+    // An explicit WhatsApp send goes even though the donor has email.
+    await page
+      .getByRole("menuitem", { exact: true, name: "Send on WhatsApp" })
+      .click();
+    await expect(delivery).toHaveText("Not sent: WhatsApp isn't set up", {
+      timeout: 30_000,
+    });
+    // Send now ran the automatic delivery at once (email, as the donor has
+    // an address); the delayed copy still waits and will find it delivered
+    // or try again.
+    await expect
+      .poll(async () => (await inspectAutomatic(reference)).jobs, {
+        timeout: 30_000,
+      })
+      .toEqual([
+        {
+          name: "deliver-contribution-receipt",
+          outcome: "not_configured",
+          state: "completed",
+        },
+        {
+          name: "deliver-contribution-receipt",
+          delayMinutes: 60,
+          outcome: null,
+          state: "created",
+        },
+        {
+          name: "issue-contribution-receipt",
+          outcome: "issued",
+          state: "completed",
+        },
+        {
+          name: "send-contribution-receipt-whatsapp",
+          outcome: "not_configured",
+          state: "completed",
+        },
+        {
+          name: "store-contribution-receipt-pdf",
+          outcome: null,
+          state: "completed",
+        },
+      ]);
+  });
+
+  test("does not issue or dispatch an automatic receipt without donor details", async ({
+    page,
+  }) => {
+    test.skip(
+      Boolean(process.env.CI),
+      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
+    );
+    test.slow();
+    await ensureRegistration(page);
+    await clearDetailsAddress();
+    const reference = `E2E-AUTO-DETAILS-${Date.now()}`;
+    await recordContribution(page, DETAILS_DONOR, reference);
+
+    const row = await giftRow(page, reference, undefined, DETAILS_DONOR);
+    await expect(row.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Needs details",
+      { timeout: 15_000 }
+    );
+    await expect
+      .poll(async () => await inspectAutomatic(reference), {
+        timeout: 30_000,
+      })
+      .toEqual({
+        autoSendMinutes: null,
+        jobs: [
+          {
+            name: "issue-contribution-receipt",
+            outcome: "not_ready",
+            state: "completed",
+          },
+        ],
+        receiptCount: 0,
+        storedPdfCount: 0,
+      });
   });
 
   test("a gift waiting on the donor's address is Ready to issue once it is added", async ({

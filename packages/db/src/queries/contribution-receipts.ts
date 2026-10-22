@@ -28,6 +28,7 @@ import {
   receiptCarries80G,
   type ReceiptAssessment,
   type ReceiptBlock,
+  type ReceiptDeliveryFailure,
   type ReceiptDonorFacts,
   type ReceiptSettings,
 } from "@pi-dash/shared/receipts";
@@ -35,6 +36,7 @@ import {
   and,
   asc,
   eq,
+  gt,
   gte,
   inArray,
   isNull,
@@ -51,6 +53,7 @@ import { contributionReceipt } from "../schema/contribution-receipt";
 import { programme, project } from "../schema/finance-dimensions";
 import { contribution, contributionRefund } from "../schema/income";
 import { party } from "../schema/party";
+import { emailSuppression } from "../schema/private/email-suppression";
 import { partyPrivate } from "../schema/private/party-private";
 import {
   contributionReceiptCounter,
@@ -684,6 +687,24 @@ export interface IssueReceiptsResult {
   skipped: { contributionId: string; reason: string }[];
 }
 
+/** Automatic jobs must never replace a receipt that finance deliberately voided. */
+export async function hasReceiptHistoryIn(
+  tx: ReceiptTx,
+  contributionId: string
+): Promise<boolean> {
+  await tx
+    .select({ id: contribution.id })
+    .from(contribution)
+    .where(eq(contribution.id, contributionId))
+    .for("update");
+  const [receipt] = await tx
+    .select({ id: contributionReceipt.id })
+    .from(contributionReceipt)
+    .where(eq(contributionReceipt.contributionId, contributionId))
+    .limit(1);
+  return receipt !== undefined;
+}
+
 /**
  * Issues receipts for the given gifts, in date order, inside `tx`. Gifts that
  * are no longer eligible (changed since the review) are skipped and
@@ -691,7 +712,12 @@ export interface IssueReceiptsResult {
  */
 export async function issueReceiptsIn(
   tx: ReceiptTx,
-  input: { actorId: string; contributionIds: string[] },
+  input: {
+    actorId: string;
+    /** Set for automatic issues: when the receipt goes to the donor. */
+    autoSendAt?: Date;
+    contributionIds: string[];
+  },
   options: { now?: Date } = {}
 ): Promise<IssueReceiptsResult> {
   const now = options.now ?? new Date();
@@ -750,6 +776,7 @@ export async function issueReceiptsIn(
     const receiptId = uuidv7();
     const number = formatReceiptNumber(fiscalYear, sequence);
     await tx.insert(contributionReceipt).values({
+      autoSendAt: input.autoSendAt ?? null,
       contributionId: gift.id,
       createdAt: now,
       fiscalYear,
@@ -796,6 +823,7 @@ export async function issueReceiptsIn(
         with80G && donor.idNumber
           ? encryptSecret(donor.idNumber, snapshotIdContext(receiptId))
           : null,
+      partyId: gift.partyId,
       receiptId,
       signatureKey: settings.signatureKey,
     });
@@ -998,28 +1026,42 @@ export async function loadReceiptVerificationFacts(
   };
 }
 
-export interface ReceiptEmailTarget {
+/** Where a receipt can be delivered; private, never synced. */
+export interface ReceiptDeliveryTarget {
   contributionId: string;
+  /** Already emailed or sent on WhatsApp. */
+  delivered: boolean;
+  /**
+   * The gift's donor is no longer the one the receipt was issued to (edited
+   * before the lock), so nothing may be sent to the gift's donor.
+   */
+  donorChanged: boolean;
   /** The donor's current email, or null. */
   email: string | null;
-  number: string;
-  partyId: string;
+  /** The donor's current phone number, or null. */
+  phone: string | null;
   voided: boolean;
 }
 
-/** Who a receipt is emailed to: the donor's current email address. */
-export async function loadReceiptEmailTarget(
+export async function loadReceiptDeliveryTarget(
   receiptId: string
-): Promise<ReceiptEmailTarget | null> {
+): Promise<ReceiptDeliveryTarget | null> {
   const [row] = await db
     .select({
       contributionId: contributionReceipt.contributionId,
       email: partyPrivate.email,
-      number: contributionReceipt.number,
-      partyId: contribution.partyId,
+      emailedAt: contributionReceipt.emailedAt,
+      giftPartyId: contribution.partyId,
+      issuedPartyId: contributionReceiptSnapshot.partyId,
+      phone: partyPrivate.phone,
       voidedAt: contributionReceipt.voidedAt,
+      whatsappSentAt: contributionReceipt.whatsappSentAt,
     })
     .from(contributionReceipt)
+    .innerJoin(
+      contributionReceiptSnapshot,
+      eq(contributionReceiptSnapshot.receiptId, contributionReceipt.id)
+    )
     .innerJoin(
       contribution,
       eq(contribution.id, contributionReceipt.contributionId)
@@ -1032,11 +1074,38 @@ export async function loadReceiptEmailTarget(
   }
   return {
     contributionId: row.contributionId,
+    delivered: row.emailedAt !== null || row.whatsappSentAt !== null,
+    donorChanged: row.giftPartyId !== row.issuedPartyId,
     email: row.email?.trim() || null,
-    number: row.number,
-    partyId: row.partyId,
+    phone: row.phone?.trim() || null,
     voided: row.voidedAt !== null,
   };
+}
+
+/**
+ * "Send now": brings the automatic send forward to `now`, only while it is
+ * still in the future and nothing was sent, so a second click or tab finds
+ * nothing to bring forward. The caller queues the delivery in `tx`.
+ */
+export async function bringAutomaticReceiptSendForward(
+  tx: ReceiptTx,
+  receiptId: string,
+  now: Date
+): Promise<boolean> {
+  const moved = await tx
+    .update(contributionReceipt)
+    .set({ autoSendAt: now })
+    .where(
+      and(
+        eq(contributionReceipt.id, receiptId),
+        gt(contributionReceipt.autoSendAt, now),
+        isNull(contributionReceipt.voidedAt),
+        isNull(contributionReceipt.emailedAt),
+        isNull(contributionReceipt.whatsappSentAt)
+      )
+    )
+    .returning({ id: contributionReceipt.id });
+  return moved.length > 0;
 }
 
 export async function markReceiptEmailed(
@@ -1045,8 +1114,71 @@ export async function markReceiptEmailed(
 ): Promise<void> {
   await db
     .update(contributionReceipt)
-    .set({ emailedAt: at })
+    .set({ deliveryFailure: null, emailedAt: at })
     .where(eq(contributionReceipt.id, receiptId));
+}
+
+export async function markReceiptWhatsAppSent(
+  receiptId: string,
+  at: Date
+): Promise<void> {
+  await db
+    .update(contributionReceipt)
+    .set({ deliveryFailure: null, whatsappSentAt: at })
+    .where(eq(contributionReceipt.id, receiptId));
+}
+
+/** Records why a send didn't go out, for finance to see on the receipt. */
+export async function recordReceiptDeliveryFailure(
+  receiptId: string,
+  failure: ReceiptDeliveryFailure
+): Promise<void> {
+  await db
+    .update(contributionReceipt)
+    .set({ deliveryFailure: failure })
+    .where(eq(contributionReceipt.id, receiptId));
+}
+
+/** How a live receipt can reach its donor; no contact details leave here. */
+export interface ReceiptContacts {
+  email: "usable" | "none" | "suppressed";
+  phone: boolean;
+}
+
+/** Contact availability for every live receipt, by receipt ID. */
+export async function loadLiveReceiptContacts(): Promise<
+  Record<string, ReceiptContacts>
+> {
+  const rows = await db
+    .select({
+      email: partyPrivate.email,
+      id: contributionReceipt.id,
+      phone: partyPrivate.phone,
+      suppressed: emailSuppression.email,
+    })
+    .from(contributionReceipt)
+    .innerJoin(
+      contribution,
+      eq(contribution.id, contributionReceipt.contributionId)
+    )
+    .leftJoin(partyPrivate, eq(partyPrivate.partyId, contribution.partyId))
+    .leftJoin(
+      emailSuppression,
+      eq(emailSuppression.email, sql`lower(trim(${partyPrivate.email}))`)
+    )
+    .where(isNull(contributionReceipt.voidedAt));
+  const contacts: Record<string, ReceiptContacts> = {};
+  for (const row of rows) {
+    contacts[row.id] = {
+      email: row.email?.trim()
+        ? row.suppressed
+          ? "suppressed"
+          : "usable"
+        : "none",
+      phone: Boolean(row.phone?.trim()),
+    };
+  }
+  return contacts;
 }
 
 /** Live receipts of the given gifts: number and issuer, for the CA's file. */

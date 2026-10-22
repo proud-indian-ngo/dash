@@ -1,9 +1,11 @@
+import { receiptDeliveryFailureValues } from "@pi-dash/shared/receipts";
 import { relations, sql } from "drizzle-orm";
 import {
   check,
   date,
   index,
   integer,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -13,6 +15,11 @@ import {
 
 import { user } from "./auth";
 import { contribution } from "./income";
+
+export const contributionReceiptDeliveryFailureEnum = pgEnum(
+  "contribution_receipt_delivery_failure",
+  receiptDeliveryFailureValues
+);
 
 /**
  * A donation receipt pi-dash issued for a direct gift. Synced read-only
@@ -29,10 +36,17 @@ import { contribution } from "./income";
 export const contributionReceipt = pgTable(
   "contribution_receipt",
   {
+    /**
+     * When an automatically issued receipt goes to the donor on its own;
+     * null for one issued by hand, which is only ever sent by hand.
+     */
+    autoSendAt: timestamp("auto_send_at"),
     contributionId: uuid("contribution_id")
       .notNull()
       .references(() => contribution.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at").notNull(),
+    /** Why the latest send didn't go out; cleared when a send does. */
+    deliveryFailure: contributionReceiptDeliveryFailureEnum("delivery_failure"),
     /** When the receipt was last emailed to the donor; null when never. */
     emailedAt: timestamp("emailed_at"),
     /** Financial year label of the issue date, such as "2026-27". */
@@ -51,6 +65,8 @@ export const contributionReceipt = pgTable(
     voidedBy: text("voided_by").references(() => user.id, {
       onDelete: "set null",
     }),
+    /** When the receipt was last sent on WhatsApp; null when never. */
+    whatsappSentAt: timestamp("whatsapp_sent_at"),
   },
   (t) => [
     uniqueIndex("contribution_receipt_number_uidx").on(t.number),

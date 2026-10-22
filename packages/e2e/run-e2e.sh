@@ -265,6 +265,8 @@ export RAZORPAY_KEY_SECRET=""
 export WHATSAPP_API_URL=""
 export WHATSAPP_AUTH_USER=""
 export WHATSAPP_AUTH_PASS=""
+export WHATSAPP_CLOUD_ACCESS_TOKEN=""
+export WHATSAPP_CLOUD_PHONE_NUMBER_ID=""
 # Never send real email; with no key the mailer skips sends.
 export RESEND_API_KEY=""
 export EMAIL_FROM=""

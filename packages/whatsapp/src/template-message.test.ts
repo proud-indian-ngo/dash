@@ -60,6 +60,24 @@ describe("whatsappTemplate", () => {
       params: {},
     });
   });
+
+  it("requires and preserves a document for a document template", () => {
+    const document = {
+      bytes: new Uint8Array([37, 80, 68, 70]),
+      filename: "donation-receipt.pdf",
+    };
+    expect(
+      whatsappTemplate(
+        "donation_receipt",
+        {
+          amount: "₹5,000",
+          number: "PI-2026-0012",
+          received_on: "21 October 2026",
+        },
+        document
+      )
+    ).toMatchObject({ document, name: "donation_receipt" });
+  });
 });
 
 describe("toTemplateSendBody", () => {
@@ -110,6 +128,27 @@ describe("toTemplateSendBody", () => {
       toTemplateSendBody(whatsappTemplate("account_password_reset", {}))
         .components
     ).toEqual([]);
+  });
+
+  it("sends an uploaded document as the template header", () => {
+    const message = whatsappTemplate(
+      "donation_receipt",
+      {
+        amount: "₹5,000",
+        number: "PI-2026-0012",
+        received_on: "21 October 2026",
+      },
+      { bytes: new Uint8Array([1]), filename: "receipt.pdf" }
+    );
+    expect(toTemplateSendBody(message, "media-1").components[0]).toEqual({
+      parameters: [
+        {
+          document: { filename: "receipt.pdf", id: "media-1" },
+          type: "document",
+        },
+      ],
+      type: "header",
+    });
   });
 });
 

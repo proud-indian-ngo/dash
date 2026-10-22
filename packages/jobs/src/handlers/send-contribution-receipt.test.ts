@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Keep the real database, Resend and PDF modules out of the test.
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
-  loadReceiptEmailTarget: async () => null,
+  loadReceiptDeliveryTarget: async () => null,
   markReceiptEmailed: async () => undefined,
+  recordReceiptDeliveryFailure: async () => undefined,
 }));
 mock.module("@pi-dash/db/queries/email-suppression", () => ({
   getEmailSuppression: async () => null,
@@ -35,9 +36,10 @@ type Deps = Parameters<typeof sendContributionReceipt>[1];
 
 const target = {
   contributionId: "c1",
+  delivered: false,
+  donorChanged: false,
   email: "donor@example.com",
-  number: "PI/2026-27/0001",
-  partyId: "p1",
+  phone: null,
   voided: false,
 };
 
@@ -50,6 +52,7 @@ const document = {
 
 let sent: Record<string, unknown>[] = [];
 let marked: string[] = [];
+let failures: string[] = [];
 
 function deps(overrides: Partial<NonNullable<Deps>> = {}): NonNullable<Deps> {
   return {
@@ -57,6 +60,9 @@ function deps(overrides: Partial<NonNullable<Deps>> = {}): NonNullable<Deps> {
     loadTarget: async () => target,
     markEmailed: async (id: string) => {
       marked.push(id);
+    },
+    recordFailure: async (_id, failure) => {
+      failures.push(failure);
     },
     renderEmail: async () => "<p>Thanks</p>",
     renderPdf: async () =>
@@ -79,6 +85,7 @@ describe("sendContributionReceipt", () => {
   beforeEach(() => {
     sent = [];
     marked = [];
+    failures = [];
   });
 
   it("emails the PDF to the donor and stamps the receipt", async () => {
@@ -121,6 +128,29 @@ describe("sendContributionReceipt", () => {
     ).toEqual({ outcome: "suppressed" });
     expect(sent).toHaveLength(0);
     expect(marked).toHaveLength(0);
+    // Finance sees the bounce; a missing address is the WhatsApp job's call.
+    expect(failures).toEqual(["email_suppressed"]);
+  });
+
+  it("always sends finance's email, even once delivered", async () => {
+    expect(
+      await sendContributionReceipt(
+        payload,
+        deps({ loadTarget: async () => ({ ...target, delivered: true }) })
+      )
+    ).toEqual({ outcome: "sent" });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("refuses and records a receipt whose gift changed donor", async () => {
+    expect(
+      await sendContributionReceipt(
+        payload,
+        deps({ loadTarget: async () => ({ ...target, donorChanged: true }) })
+      )
+    ).toEqual({ outcome: "donor_changed" });
+    expect(sent).toHaveLength(0);
+    expect(failures).toEqual(["donor_changed"]);
   });
 
   it("records a 409 idempotency conflict as already sent", async () => {
@@ -153,6 +183,7 @@ describe("sendContributionReceipt", () => {
       )
     ).rejects.toThrow("Down");
     expect(marked).toHaveLength(0);
+    expect(failures).toEqual(["email_failed"]);
   });
 
   it("doesn't stamp the receipt when email isn't configured", async () => {
@@ -163,5 +194,6 @@ describe("sendContributionReceipt", () => {
       )
     ).toEqual({ outcome: "not_configured" });
     expect(marked).toHaveLength(0);
+    expect(failures).toEqual(["email_not_configured"]);
   });
 });

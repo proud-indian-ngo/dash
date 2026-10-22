@@ -4,9 +4,14 @@ import { createRequestLogger } from "evlog";
 
 import { getWhatsAppApiUrl, getWhatsAppHeaders } from "./client";
 import { formatPhoneForWhatsApp } from "./phone";
+import type { WhatsAppDocument } from "./template-message";
 
 function hashIdempotencyKey(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function isWhatsAppGatewayEnabled(): boolean {
+  return getWhatsAppApiUrl() !== undefined;
 }
 
 /**
@@ -306,6 +311,61 @@ export async function sendWhatsAppFile(
 
   const messageId = await readMessageId(response);
   log.set({ event: "file_sent", messageId });
+  log.emit();
+  return messageId;
+}
+
+/** Send an in-memory PDF without exposing its bytes or recipient in logs. */
+export async function sendWhatsAppDocument(
+  phone: string,
+  document: WhatsAppDocument,
+  caption?: string,
+  options?: { idempotencyKey?: string }
+): Promise<string | undefined> {
+  const log = createRequestLogger({
+    method: "POST",
+    path: "sendWhatsAppDocument",
+  });
+  log.set({ fileName: document.filename });
+
+  const apiUrl = getWhatsAppApiUrl();
+  if (!apiUrl) {
+    log.warn("whatsapp_not_configured");
+    log.emit();
+    return undefined;
+  }
+
+  const formData = new FormData();
+  formData.append("phone", formatPhoneForWhatsApp(phone));
+  formData.append(
+    "file",
+    new Blob([new Uint8Array(document.bytes)], { type: "application/pdf" }),
+    document.filename
+  );
+  if (caption) {
+    formData.append("caption", caption);
+  }
+
+  const response = await fetch(`${apiUrl}/send/file`, {
+    body: formData,
+    headers: {
+      ...getWhatsAppHeaders({ omitContentType: true }),
+      ...(options?.idempotencyKey
+        ? { "Idempotency-Key": hashIdempotencyKey(options.idempotencyKey) }
+        : {}),
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = new Error(`WhatsApp document error ${response.status}`);
+    log.error(error);
+    log.emit();
+    throw error;
+  }
+
+  const messageId = await readMessageId(response);
+  log.set({ event: "document_sent", messageId });
   log.emit();
   return messageId;
 }

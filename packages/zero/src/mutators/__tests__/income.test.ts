@@ -142,6 +142,7 @@ async function run(
 }
 
 const donorsCtx = {
+  enqueue: async () => "job",
   permissions: ["donors.view", "donors.manage"],
   role: "finance_admin",
   userId: "fin-1",
@@ -864,6 +865,118 @@ describe("contribution mutators", () => {
     }
   });
 
+  it("keeps what a live receipt printed until it is voided", async () => {
+    const gift = {
+      amountPaise: 500_000,
+      channel: "upi",
+      deductionEligible: "unknown",
+      donationType: "voluntary",
+      fundId: "fund-1",
+      id: "c-1",
+      orgAccountId: "acc-1",
+      partyId: "donor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      // Stored with stray spaces; the form sends it trimmed.
+      reference: " UTR123 ",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+    };
+    const receipt = {
+      contributionId: "c-1",
+      id: "r-1",
+      number: "PI/2026-27/0001",
+      voidedAt: null,
+    };
+    const db = createDb({
+      contribution: [gift],
+      contributionReceipt: [receipt],
+    });
+    // Notes still change, without the stored spacing tripping the lock.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ notes: "Thanked" })
+    );
+    expect(db.tables.contribution?.[0]?.notes).toBe("Thanked");
+    for (const change of [
+      { programmeId: "prog-edu" },
+      { partyId: "sponsor-1" },
+      { amountPaise: 400_000 },
+      { receivedOn: "2026-10-02" },
+      { channel: "neft" },
+      { reportingMode: "other" },
+      { deductionEligible: "no", eligibilityReason: "Not a donation" },
+      { donationType: "corpus" },
+      { reference: "UTR999" },
+    ]) {
+      await expect(
+        run(contributionMutators.update, db, donorsCtx, contribution(change))
+      ).rejects.toThrow("Void the receipt first.");
+    }
+    expect(db.tables.contribution?.[0]?.partyId).toBe("donor-1");
+
+    // A voided receipt no longer holds the gift.
+    const voided = createDb({
+      contribution: [gift],
+      contributionReceipt: [{ ...receipt, voidedAt: 1_800_000_000_000 }],
+    });
+    await run(
+      contributionMutators.update,
+      voided,
+      donorsCtx,
+      contribution({ partyId: "sponsor-1" })
+    );
+    expect(voided.tables.contribution?.[0]?.partyId).toBe("sponsor-1");
+  });
+
+  it("keeps a receipted gift's stored programme on an edit that leaves it alone", async () => {
+    // proj-k3 now belongs to prog-arts; the gift was stored under prog-edu.
+    const db = createDb({
+      contribution: [
+        {
+          amountPaise: 500_000,
+          channel: "upi",
+          deductionEligible: "unknown",
+          donationType: "voluntary",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: "prog-edu",
+          projectId: "proj-k3",
+          receivedOn: Date.UTC(2026, 9, 1),
+          reference: " UTR123 ",
+          reportingMode: "electronic_or_account_payee",
+          status: "received",
+        },
+      ],
+      contributionReceipt: [
+        {
+          contributionId: "c-1",
+          id: "r-1",
+          number: "PI/2026-27/0001",
+          voidedAt: null,
+        },
+      ],
+    });
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        notes: "Thanked",
+        programmeId: "prog-edu",
+        projectId: "proj-k3",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      notes: "Thanked",
+      programmeId: "prog-edu",
+    });
+  });
+
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {
     const recorded = {
       amountPaise: 500_000,
@@ -1178,6 +1291,7 @@ describe("other income mutators", () => {
 
 describe("recording a donation from a bank statement line", () => {
   const bothCtx = {
+    enqueue: async () => "job",
     permissions: ["donors.manage", "finance.manage"],
     role: "finance_admin",
     userId: "fin-1",
@@ -1331,17 +1445,23 @@ describe("queueing the books after a change", () => {
       "contribution.update",
       "contribution.delete",
     ]);
-    // Nothing is queued until the transaction has committed.
-    expect(sent).toEqual([]);
+    // Receipt creation is durable in the donation transaction; books follow commit.
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject([
+      "issue-contribution-receipt",
+      { actorId: "fin-1", contributionId: "c-1" },
+      { singletonKey: "c-1", traceId: "trace-1" },
+    ]);
+    expect(sent[0]?.[2]).toHaveProperty("db");
     for (const task of ctx.asyncTasks) {
       await task.fn();
     }
-    expect(sent[0]).toEqual([
+    expect(sent[1]).toEqual([
       "ledger-post-source",
       { sourceId: "c-1", sourceType: "contribution" },
       { singletonKey: "contribution:c-1", traceId: "trace-1" },
     ]);
-    expect(sent).toHaveLength(3);
+    expect(sent).toHaveLength(4);
   });
 
   it("queues the posting of other income", async () => {
@@ -1365,6 +1485,42 @@ describe("queueing the books after a change", () => {
         { singletonKey: "other_income:oi-1", traceId: "trace-1" },
       ],
     ]);
+  });
+
+  it("doesn't queue automatic receipts for gateway, in-kind or pre-start gifts", async () => {
+    for (const overrides of [
+      RAZORPAY_GIFT,
+      { channel: "give_do", orgAccountId: "acc-gd" },
+      {
+        channel: "in_kind",
+        orgAccountId: null,
+        inKindDescription: "Books",
+        inKindValuationBasis: "Cost",
+      },
+      { receivedOn: "2026-03-31" },
+    ]) {
+      const db = createDb();
+      const { ctx, sent } = withQueue(donorsCtx);
+      await run(contributionMutators.create, db, ctx, contribution(overrides));
+      expect(sent).toEqual([]);
+    }
+  });
+
+  it("fails the transaction if the receipt job cannot be stored", async () => {
+    const db = createDb();
+    await expect(
+      run(
+        contributionMutators.create,
+        db,
+        {
+          ...donorsCtx,
+          enqueue: async () => {
+            throw new Error("queue unavailable");
+          },
+        },
+        contribution()
+      )
+    ).rejects.toThrow("queue unavailable");
   });
 
   it("queues nothing from the client's optimistic run", async () => {

@@ -642,3 +642,122 @@ export const RECEIPT_ID_TYPE_LABELS: Record<
   tax_id_foreign: "Tax ID",
   voter_id: "Voter ID",
 };
+
+// ── Delivery ────────────────────────────────────────────────────────────────
+
+/**
+ * An automatically issued receipt goes to the donor this long after issue,
+ * so finance can check the PDF and void it first. Receipts issued by hand
+ * are never sent on their own.
+ */
+export const RECEIPT_AUTO_SEND_DELAY_MS = 60 * 60 * 1000;
+
+/**
+ * How long after its time an automatic send reads as "Sending". A job that
+ * ends without recording an outcome (expired, say) then reads "Not sent".
+ */
+export const RECEIPT_AUTO_SEND_GRACE_MS = 30 * 60 * 1000;
+
+/** Why the latest send of a receipt didn't go out; cleared when one does. */
+export const receiptDeliveryFailureValues = [
+  "donor_changed",
+  "no_contact",
+  "no_phone",
+  "email_suppressed",
+  "email_not_configured",
+  "email_failed",
+  "whatsapp_no_template",
+  "whatsapp_not_configured",
+  "whatsapp_rejected",
+  "whatsapp_failed",
+] as const;
+export type ReceiptDeliveryFailure =
+  (typeof receiptDeliveryFailureValues)[number];
+
+export const RECEIPT_DELIVERY_FAILURE_LABELS: Record<
+  ReceiptDeliveryFailure,
+  string
+> = {
+  donor_changed:
+    "the gift's donor changed after the receipt was issued; void it and issue a new one",
+  email_failed: "the email failed",
+  email_not_configured: "email isn't set up",
+  email_suppressed: "the email address bounced or reported spam",
+  no_contact: "the donor has no email address or phone number",
+  no_phone: "the donor has no phone number",
+  whatsapp_failed: "WhatsApp failed",
+  whatsapp_no_template: "the WhatsApp receipt template isn't approved yet",
+  whatsapp_not_configured: "WhatsApp isn't set up",
+  whatsapp_rejected: "WhatsApp refused the message",
+};
+
+export interface ReceiptDeliveryFacts {
+  autoSendAt?: number | null;
+  deliveryFailure?: string | null;
+  emailedAt?: number | null;
+  voidedAt?: number | null;
+  whatsappSentAt?: number | null;
+}
+
+/**
+ * Where a receipt's delivery stands at `now`: a send that went out wins;
+ * then "scheduled" before the automatic send's time; then a recorded
+ * failure; then "sending" for `RECEIPT_AUTO_SEND_GRACE_MS` after that time.
+ */
+export type ReceiptDeliveryState =
+  | { kind: "failed"; failure: ReceiptDeliveryFailure }
+  | { kind: "sent"; at: number; channel: "email" | "whatsapp" }
+  | { kind: "scheduled"; at: number }
+  | { kind: "sending" }
+  | { kind: "not_sent" };
+
+export function receiptDeliveryState(
+  receipt: ReceiptDeliveryFacts,
+  now: number
+): ReceiptDeliveryState {
+  const emailedAt = receipt.emailedAt ?? 0;
+  const whatsappSentAt = receipt.whatsappSentAt ?? 0;
+  if (emailedAt || whatsappSentAt) {
+    return emailedAt >= whatsappSentAt
+      ? { at: emailedAt, channel: "email", kind: "sent" }
+      : { at: whatsappSentAt, channel: "whatsapp", kind: "sent" };
+  }
+  const automatic = receipt.autoSendAt && !receipt.voidedAt;
+  if (automatic && receipt.autoSendAt && receipt.autoSendAt > now) {
+    return { at: receipt.autoSendAt, kind: "scheduled" };
+  }
+  if (receipt.deliveryFailure) {
+    return {
+      failure: receipt.deliveryFailure as ReceiptDeliveryFailure,
+      kind: "failed",
+    };
+  }
+  return automatic &&
+    receipt.autoSendAt &&
+    now < receipt.autoSendAt + RECEIPT_AUTO_SEND_GRACE_MS
+    ? { kind: "sending" }
+    : { kind: "not_sent" };
+}
+
+/**
+ * The latest failed send when the state doesn't already show it, such as
+ * a WhatsApp resend that failed after the email went, or a failed send
+ * from finance while the automatic one is still to come.
+ */
+export function receiptDeliveryNote(
+  receipt: ReceiptDeliveryFacts,
+  now: number
+): ReceiptDeliveryFailure | null {
+  return receipt.deliveryFailure &&
+    receiptDeliveryState(receipt, now).kind !== "failed"
+    ? (receipt.deliveryFailure as ReceiptDeliveryFailure)
+    : null;
+}
+
+/** Waiting for its automatic send, so "Send now" applies. */
+export function receiptAwaitsAutoSend(
+  receipt: ReceiptDeliveryFacts,
+  now: number
+): boolean {
+  return receiptDeliveryState(receipt, now).kind === "scheduled";
+}

@@ -44,6 +44,7 @@ import {
 } from "@pi-dash/db/queries/razorpay-import";
 import { applyPendingRefunds } from "@pi-dash/db/queries/razorpay-refunds";
 import { linkSettlementLinesForPayment } from "@pi-dash/db/queries/razorpay-settlements";
+import { enqueue, inTransaction } from "@pi-dash/jobs/enqueue";
 import {
   type ContributionChannel,
   type ImportBatchSource,
@@ -56,6 +57,10 @@ import {
   channelAccountIssue,
 } from "@pi-dash/shared/contribution-channel";
 import { defaultReportingMode, todayInKolkata } from "@pi-dash/shared/income";
+import {
+  DIRECT_RECEIPT_CHANNELS,
+  RECEIPTING_START_DAY,
+} from "@pi-dash/shared/receipts";
 import { uuidv7 } from "uuidv7";
 
 import { saveDonorSchema } from "@/lib/donor-schema";
@@ -1323,6 +1328,17 @@ async function executePlans(
       }
     );
     createdByRow.set(row.rowId, { contributionId, identityId });
+    if (
+      ctx.actorId &&
+      DIRECT_RECEIPT_CHANNELS.includes(normalized.channel) &&
+      (normalized.receivedOn ?? "") >= RECEIPTING_START_DAY
+    ) {
+      await enqueue(
+        "issue-contribution-receipt",
+        { actorId: ctx.actorId, contributionId },
+        { db: inTransaction(ctx.tx), singletonKey: contributionId }
+      );
+    }
     await afterContribution(ctx, identity);
     await setImportRowOutcome(ctx.tx, row.rowId, {
       ...decided,

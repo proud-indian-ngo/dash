@@ -29,6 +29,10 @@ import {
   todayInKolkata,
 } from "@pi-dash/shared/income";
 import { positivePaiseSchema } from "@pi-dash/shared/money";
+import {
+  DIRECT_RECEIPT_CHANNELS,
+  RECEIPTING_START_DAY,
+} from "@pi-dash/shared/receipts";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
@@ -355,6 +359,47 @@ const FILING_LOCKED_FIELDS = [
 ] as const;
 
 /**
+ * What a live receipt printed or decided from the gift (with the tax
+ * certificate choice; the mode of receipt decides whether a cash gift
+ * carries the 80G line): changing any of them would leave the receipt
+ * wrong, or send it to someone else, so it is voided first. The programme
+ * is compared on the server, once a project has resolved it.
+ */
+const RECEIPT_LOCKED_FIELDS = [
+  ...FILING_LOCKED_FIELDS,
+  "donationTypeDescription",
+  "projectId",
+  "reference",
+] as const;
+
+/** Stored text may carry spaces or be empty where the form sends null. */
+function sameValue(stored: unknown, next: unknown): boolean {
+  const normal = (value: unknown) =>
+    typeof value === "string" ? value.trim() || null : (value ?? null);
+  return normal(stored) === normal(next);
+}
+
+async function assertReceiptUnchanged(
+  tx: Tx,
+  id: string,
+  changed: boolean
+): Promise<void> {
+  if (
+    changed &&
+    (await tx.run(
+      zql.contributionReceipt
+        .where("contributionId", id)
+        .where("voidedAt", "IS", null)
+        .one()
+    ))
+  ) {
+    throw new Error(
+      "A receipt was issued for this gift, so its donor, amount, date, channel, mode of receipt, donation type, reference, programme, project and tax certificate choice can't change. Void the receipt first."
+    );
+  }
+}
+
+/**
  * The live donations return filing holding the gift, if any (server only:
  * filings are private). Its frozen row points at the gift, so the gift and
  * what the row reported stay.
@@ -563,6 +608,24 @@ export const contributionMutators = {
         updatedAt: now,
       });
     }
+    if (
+      tx.location === "server" &&
+      DIRECT_RECEIPT_CHANNELS.includes(values.channel) &&
+      args.receivedOn >= RECEIPTING_START_DAY
+    ) {
+      const { inTransaction } = await import("@pi-dash/jobs/enqueue");
+      await requireEnqueue(ctx)(
+        "issue-contribution-receipt",
+        { actorId: ctx.userId, contributionId: args.id },
+        {
+          db: inTransaction(
+            requireServerTransaction(tx as unknown as LockableKalakritiTx)
+          ),
+          singletonKey: args.id,
+          traceId: ctx.traceId,
+        }
+      );
+    }
     queueLedgerPosting(
       ctx,
       tx,
@@ -651,6 +714,15 @@ export const contributionMutators = {
         );
       }
     }
+    await assertReceiptUnchanged(
+      tx,
+      args.id,
+      RECEIPT_LOCKED_FIELDS.some(
+        (field) => !sameValue(existing[field], values[field])
+      ) ||
+        eligibility.deductionEligible !==
+          (existing.deductionEligible ?? "unknown")
+    );
     if (existing.grantId && values.channel === "in_kind") {
       throw new Error(
         "This contribution counts towards a grant, and grants count money, not in-kind gifts. Ask finance to unlink it from the grant first."
@@ -691,7 +763,21 @@ export const contributionMutators = {
           ),
         },
       });
-      values.programmeId = await resolveProgramme(tx, values, existing);
+      // An edit that leaves the project and programme alone keeps the
+      // stored programme, even if the project now derives another.
+      if (
+        sameValue(existing.projectId, values.projectId) &&
+        sameValue(existing.programmeId, values.programmeId)
+      ) {
+        values.programmeId = existing.programmeId ?? null;
+      } else {
+        values.programmeId = await resolveProgramme(tx, values, existing);
+        await assertReceiptUnchanged(
+          tx,
+          args.id,
+          !sameValue(existing.programmeId, values.programmeId)
+        );
+      }
     }
     assertProgrammeFitsType(values);
     assertFundFitsType(values);

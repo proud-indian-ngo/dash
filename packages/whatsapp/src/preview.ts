@@ -22,7 +22,7 @@ export interface WhatsAppPreview {
 
 type PreviewTemplate = Pick<
   WhatsAppTemplate,
-  "body" | "buttonText" | "dashboardPath" | "header"
+  "body" | "buttonText" | "dashboardPath" | "header" | "headerFormat" | "footer"
 >;
 
 const PARAMETER = /\{\{([a-z_]+)\}\}/g;
@@ -88,7 +88,10 @@ export function renderWhatsAppPreview(
         ? null
         : (template.buttonText ?? DASHBOARD_BUTTON_TEXT),
     filled: params !== null,
-    footer: TEMPLATE_FOOTER,
-    header: template.header ? fill(template.header) : null,
+    footer: template.footer ?? TEMPLATE_FOOTER,
+    header:
+      template.headerFormat !== "DOCUMENT" && template.header
+        ? fill(template.header)
+        : null,
   };
 }

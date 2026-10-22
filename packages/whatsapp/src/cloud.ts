@@ -127,14 +127,36 @@ function messageId(response: SendResponse): string {
 }
 
 /** The `template` object of a send request. */
-export function toTemplateSendBody(message: WhatsAppTemplateMessage) {
+export function toTemplateSendBody(
+  message: WhatsAppTemplateMessage,
+  documentId?: string
+) {
   const parameters = Object.entries(message.params).map(([name, text]) => ({
     parameter_name: name,
     text,
     type: "text" as const,
   }));
+  if (message.document && !documentId) {
+    throw new Error("Document template requires an uploaded media ID");
+  }
   return {
     components: [
+      ...(message.document
+        ? [
+            {
+              parameters: [
+                {
+                  document: {
+                    filename: message.document.filename,
+                    id: documentId as string,
+                  },
+                  type: "document" as const,
+                },
+              ],
+              type: "header" as const,
+            },
+          ]
+        : []),
       ...(parameters.length > 0 ? [{ parameters, type: "body" as const }] : []),
       ...(message.path === undefined
         ? []
@@ -160,19 +182,65 @@ export function toTemplateSendBody(message: WhatsAppTemplateMessage) {
   };
 }
 
+interface MediaUploadResponse {
+  id?: string;
+}
+
+async function uploadDocument(
+  config: CloudConfig,
+  document: NonNullable<WhatsAppTemplateMessage["document"]>
+): Promise<string> {
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", "application/pdf");
+  form.append(
+    "file",
+    new Blob([new Uint8Array(document.bytes)], { type: "application/pdf" }),
+    document.filename
+  );
+  const response = await fetch(
+    `${GRAPH_URL}/${config.graphVersion}/${config.phoneNumberId}/media`,
+    {
+      body: form,
+      headers: { Authorization: `Bearer ${config.accessToken}` },
+      method: "POST",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }
+  );
+  const json = (await response.json().catch(() => ({}))) as
+    | MediaUploadResponse
+    | GraphErrorBody;
+  if (!response.ok) {
+    const error = (json as GraphErrorBody).error;
+    const message =
+      [error?.error_user_title, error?.error_user_msg ?? error?.message]
+        .filter(Boolean)
+        .join(": ") || `HTTP ${response.status}`;
+    throw new CloudApiError(message, response.status, error?.code);
+  }
+  const id = (json as MediaUploadResponse).id;
+  if (!id) {
+    throw new Error("WhatsApp Cloud API returned no media ID");
+  }
+  return id;
+}
+
 /** Send an approved template; returns Meta's message ID. */
 export async function sendCloudTemplate(
   phone: string,
   message: WhatsAppTemplateMessage
 ): Promise<string> {
   const config = requireConfig();
+  const documentId = message.document
+    ? await uploadDocument(config, message.document)
+    : undefined;
   const response = await graph<SendResponse>(
     config,
     `${config.phoneNumberId}/messages`,
     {
       messaging_product: "whatsapp",
       recipient_type: "individual",
-      template: toTemplateSendBody(message),
+      template: toTemplateSendBody(message, documentId),
       to: formatPhoneForWhatsApp(phone),
       type: "template",
     }
