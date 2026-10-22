@@ -60,6 +60,8 @@ The database allows one live Edition, so distinct fixture IDs do not isolate spe
 
 CI splits E2E across the shard count set by `E2E_SHARDS` in the `prepare-shards` job (eight) with `shard-by-duration.ts`, which bin-packs project-qualified cases by the timings in `.test-durations.json` (cached per branch, falling back to `master`). `duration-reporter.ts` records the timings and CI saves them back. Locally it adds to the existing file and drops entries for tests that moved, were renamed or no longer exist. Sharding leaves out `[setup]` and `[exclusive_last]` rows, since they run in every shard.
 
+Each shard runs `scripts/build-e2e.sh` in the background while Postgres, Playwright and zero-cache start, and waits for it before the tests. The script fixes every build input, sets `HERMETIC_ENV=1` so `@pi-dash/env` reads no `.env` file, and runs the `build:e2e` Turbo task through the remote cache. The lefthook pre-push hook runs the same script on a clean tree, so CI usually restores the build instead of making it. E2E builds (`VITE_E2E=true`) skip source maps and precompressed assets.
+
 ## Two-stack run
 
 `run-two-stacks.ts` is an opt-in way to run the whole suite on two independent local stacks; the normal runner stays single-stack.

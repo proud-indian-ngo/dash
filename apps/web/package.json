@@ -5,6 +5,7 @@
   "scripts": {
     "analyze": "bunx analyze",
     "build": "bunx --bun vite build",
+    "build:e2e": "bunx --bun vite build",
     "check:types": "tsc --noEmit --checkers 2",
     "dev": "bunx --bun vite dev",
     "serve": "bunx --bun vite preview",

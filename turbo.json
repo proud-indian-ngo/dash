@@ -7,6 +7,19 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
+    "build:e2e": {
+      "dependsOn": ["transit"],
+      "env": [
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "CORS_ORIGIN",
+        "HERMETIC_ENV",
+        "NODE_ENV",
+        "SKIP_VALIDATION",
+        "VITE_*"
+      ],
+      "outputs": [".output/**"]
+    },
     "transit": {
       "dependsOn": ["^transit"]
     },

@@ -81,6 +81,9 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   // One ID per build, served by /api/version so open tabs can notice a
   // deploy (see lib/build-id.ts).
   const buildId = mode === "production" ? Date.now().toString(36) : "dev";
+  // E2E builds skip source maps and precompressed assets: tests read
+  // neither, and both slow the build and the CI artifact.
+  const e2eBuild = process.env.VITE_E2E === "true";
 
   return {
     build: {
@@ -96,7 +99,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     environments: {
       client: {
         build: {
-          sourcemap: "hidden",
+          sourcemap: e2eBuild ? false : "hidden",
           rolldownOptions: {
             output: {
               codeSplitting: {
@@ -147,7 +150,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       }),
       apiMediaDevMiddleware,
       ...nitro({
-        compressPublicAssets: true,
+        compressPublicAssets: !e2eBuild,
         rolldownConfig: { onLog, plugins: [rewritePublicAssets] },
         experimental: {
           vite: {},
