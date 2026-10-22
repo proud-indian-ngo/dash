@@ -13,9 +13,9 @@ jobs:
   # Squash merges use the PR title as the commit message, which the local
   # commit-msg hook never sees.
   pr-title:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"

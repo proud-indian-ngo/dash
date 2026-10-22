@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner || 'blacksmith-4vcpu-ubuntu-2404' }}
     env:
       TURBO_TELEMETRY_DISABLED: "1"
       TURBO_API: "https://cache.thari.in"
@@ -27,7 +27,7 @@ jobs:
       TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
       TURBO_TEAM: "pi-dash"
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
@@ -44,11 +44,11 @@ jobs:
         run: bun run check:unused
 
   unit-tests:
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner || 'blacksmith-4vcpu-ubuntu-2404' }}
     env:
       TURBO_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
@@ -66,7 +66,7 @@ jobs:
         run: bunx turbo run test:unit --concurrency=4 --log-order=stream --log-prefix=task
 
   prepare-shards:
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner || 'blacksmith-2vcpu-ubuntu-2404' }}
     env:
       # Keep in step with the e2e job's matrix.
       E2E_SHARDS: "8"
@@ -74,7 +74,7 @@ jobs:
       SKIP_VALIDATION: "true"
       BASE_URL: "http://localhost:3099"
     steps:
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
@@ -100,7 +100,7 @@ jobs:
   # Starts alongside prepare-shards and waits for its shard lists only before
   # the tests, so planning overlaps setup.
   e2e:
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner || 'blacksmith-4vcpu-ubuntu-2404' }}
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +160,7 @@ jobs:
             -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
             postgres:18 -c wal_level=logical -c max_connections=300 > /tmp/postgres.log 2>&1) &
 
-      - uses: actions/checkout@v7
+      - uses: useblacksmith/checkout@v1
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -412,7 +412,7 @@ jobs:
     # it); the newer run reports the result. A real E2E failure still fails.
     if: ${{ !cancelled() }}
     needs: [e2e]
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner || 'blacksmith-2vcpu-ubuntu-2404' }}
     steps:
       - name: Check E2E results
         run: |
