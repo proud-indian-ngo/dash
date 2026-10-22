@@ -6,6 +6,11 @@ import {
 import { grantLinkIssue, grantPeriodIssue } from "@pi-dash/shared/grants";
 import { epochDayToIso, GIVER_ROLES } from "@pi-dash/shared/income";
 import { paiseSchema, positivePaiseSchema } from "@pi-dash/shared/money";
+import {
+  certificateHolding,
+  certificateLockMessage,
+  LIVE_CERTIFICATE_STATUSES,
+} from "@pi-dash/shared/utilisation-certificates";
 import { defineMutator, type Transaction } from "@rocicorp/zero";
 import z from "zod";
 
@@ -19,7 +24,9 @@ import {
   enqueueDeleteR2Object,
 } from "./submission-helpers";
 
-type Tx = Transaction<Schema>;
+type Tx = Transaction<Schema> & {
+  dbTransaction?: { wrappedTransaction: unknown };
+};
 
 const optionalText = (max: number) => z.string().trim().max(max).nullable();
 
@@ -36,6 +43,7 @@ const saveInput = z
     donationType: z.enum(grantDonationTypeValues),
     endsOn: z.iso.date(),
     id: z.string().min(1),
+    needsCaCertificate: z.boolean(),
     notes: optionalText(1000),
     partyId: z.string().min(1),
     programmeId: z.string().min(1),
@@ -108,6 +116,156 @@ async function assertGrantor(tx: Tx, partyId: string) {
 const agreementKeyPrefix = (grantId: string) =>
   `attachments/grants/${grantId}/`;
 
+/**
+ * Server only. Refuses a change dated `on` under a grant when a live
+ * utilisation certificate of that grant covers the day: its figures would
+ * change. Takes the grants' locks first, as preparing a certificate does,
+ * so neither lands between the other's check and commit.
+ */
+export async function assertNoCertificateCovers(
+  tx: Tx,
+  changes: readonly { grantId: string; on: string }[],
+  change: string
+): Promise<void> {
+  if (tx.location !== "server" || changes.length === 0) {
+    return;
+  }
+  const grantIds = [...new Set(changes.map((c) => c.grantId))];
+  const wrapped = tx.dbTransaction?.wrappedTransaction;
+  if (wrapped) {
+    const { lockGrants } =
+      await import("@pi-dash/db/queries/utilisation-certificates");
+    await lockGrants(wrapped as Parameters<typeof lockGrants>[0], grantIds);
+  }
+  const certificates = (
+    await tx.run(
+      zql.utilisationCertificate
+        .where("grantId", "IN", grantIds)
+        .where("status", "IN", [...LIVE_CERTIFICATE_STATUSES])
+    )
+  ).map((c) => ({
+    grantId: c.grantId,
+    number: c.number,
+    status: c.status,
+    toOn: epochDayToIso(c.toOn),
+  }));
+  for (const c of changes) {
+    const holding = certificateHolding(certificates, c.grantId, c.on);
+    if (holding) {
+      throw new Error(certificateLockMessage(holding, change));
+    }
+  }
+}
+
+/** Server only: each event's project, to compare after an edit. */
+export async function eventProjects(
+  tx: Tx,
+  eventIds: readonly string[]
+): Promise<Map<string, string | null>> {
+  if (tx.location !== "server" || eventIds.length === 0) {
+    return new Map();
+  }
+  const events = await tx.run(
+    zql.teamEvent.where("id", "IN", [...new Set(eventIds)])
+  );
+  return new Map(events.map((e) => [e.id, e.projectId ?? null]));
+}
+
+/**
+ * Server only, after an event edit: refuses when an event whose project
+ * changed has posted cash expense that would move into or out of a grant
+ * whose live certificate covers the expense's date. `before` is
+ * `eventProjects` from before the edit.
+ */
+export async function assertEventProjectMovesAllowed(
+  tx: Tx,
+  before: ReadonlyMap<string, string | null>
+): Promise<void> {
+  if (tx.location !== "server" || before.size === 0) {
+    return;
+  }
+  const after = await eventProjects(tx, [...before.keys()]);
+  const moved = [...before].filter(
+    ([id, project]) => after.has(id) && after.get(id) !== project
+  );
+  const projectIds = [
+    ...new Set(
+      moved
+        .flatMap(([id, project]) => [project, after.get(id) ?? null])
+        .filter((p): p is string => p !== null)
+    ),
+  ];
+  if (projectIds.length === 0) {
+    return;
+  }
+  const grants = await tx.run(
+    zql.grantAgreement.where("projectId", "IN", projectIds)
+  );
+  if (grants.length === 0) {
+    return;
+  }
+  const entries = await tx.run(
+    zql.ledgerEntry
+      .where(
+        "eventId",
+        "IN",
+        moved.map(([id]) => id)
+      )
+      .where("medium", "monetary")
+  );
+  const expenseHeads = new Set(
+    entries.length > 0
+      ? (
+          await tx.run(
+            zql.accountHead
+              .where("id", "IN", [
+                ...new Set(entries.map((e) => e.accountHeadId)),
+              ])
+              .where("type", "expense")
+          )
+        ).map((h) => h.id)
+      : []
+  );
+  const reversed = entries
+    .map((e) => e.reversesEntryId)
+    .filter((id): id is string => !!id);
+  const originals = new Map(
+    (reversed.length > 0
+      ? await tx.run(zql.ledgerEntry.where("id", "IN", reversed))
+      : []
+    ).map((e) => [e.id, e.economicOn])
+  );
+  const changes: { grantId: string; on: string }[] = [];
+  for (const entry of entries) {
+    if (!(entry.eventId && expenseHeads.has(entry.accountHeadId))) {
+      continue;
+    }
+    // A reversal counts under a grant when the entry it reverses does.
+    const periodDay = epochDayToIso(
+      (entry.reversesEntryId && originals.get(entry.reversesEntryId)) ||
+        entry.economicOn
+    );
+    for (const project of [
+      before.get(entry.eventId) ?? null,
+      after.get(entry.eventId) ?? null,
+    ]) {
+      const grant = grants.find(
+        (g) =>
+          g.projectId === project &&
+          epochDayToIso(g.startsOn) <= periodDay &&
+          periodDay <= epochDayToIso(g.endsOn)
+      );
+      if (grant) {
+        changes.push({
+          grantId: grant.id,
+          on: epochDayToIso(entry.economicOn),
+        });
+      }
+    }
+  }
+  await assertNoCertificateCovers(tx, changes, "moving the event's project");
+}
+
 export const grantMutators = {
   /** Creates or edits a grant. Its grantor, programme and project stay while contributions are linked. */
   save: defineMutator(saveInput, async ({ tx, ctx, args }) => {
@@ -168,6 +326,7 @@ export const grantMutators = {
       agreementReference: orNull(args.agreementReference),
       donationType: args.donationType,
       endsOn: isoDateToEpoch(args.endsOn),
+      needsCaCertificate: args.needsCaCertificate,
       notes: orNull(args.notes),
       partyId: args.partyId,
       programmeId: args.programmeId,
@@ -202,6 +361,13 @@ export const grantMutators = {
       if (await tx.run(zql.contribution.where("grantId", args.id).one())) {
         throw new Error(
           "Contributions are linked to this grant. Unlink them before deleting it."
+        );
+      }
+      if (
+        await tx.run(zql.utilisationCertificate.where("grantId", args.id).one())
+      ) {
+        throw new Error(
+          "This grant has utilisation certificates, so it is kept. Close it instead."
         );
       }
       for (const tranche of await tx.run(
@@ -363,6 +529,22 @@ export const grantMutators = {
       );
       if (!gift) {
         throw new Error("Contribution not found");
+      }
+      // Moving the money to or from a grant changes the figures of a
+      // certificate covering the day it arrived.
+      if (gift.grantId !== args.grantId) {
+        await assertNoCertificateCovers(
+          tx,
+          [gift.grantId ?? null, args.grantId]
+            .filter((id): id is string => id !== null)
+            .map((grantId) => ({
+              grantId,
+              on: epochDayToIso(gift.receivedOn),
+            })),
+          args.grantId
+            ? "linking this contribution"
+            : "unlinking this contribution"
+        );
       }
       if (!args.grantId) {
         await tx.mutate.contribution.update({
