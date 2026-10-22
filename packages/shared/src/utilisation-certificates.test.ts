@@ -48,6 +48,18 @@ describe("certificateSignatories", () => {
     expect("finance" in result && result.finance.trusteeId).toBe("jmt");
   });
 
+  it("refuses a register with two holders of one office", () => {
+    expect(
+      certificateSignatories([
+        member("a", "Asha Rao", ["managing_trustee"]),
+        member("b", "Rahul Das", ["managing_trustee"]),
+        member("jmt", "Vikram Menon", ["joint_managing_trustee"]),
+      ])
+    ).toEqual({
+      problem: expect.stringContaining("more than one Managing Trustee"),
+    });
+  });
+
   it("says who is missing", () => {
     expect(
       certificateSignatories([
@@ -110,7 +122,7 @@ describe("certificateHolding", () => {
 describe("defaultCertificatePeriod", () => {
   const grant = { endsOn: "2027-03-31", startsOn: "2026-06-01" };
 
-  it("starts after the last final certificate and ends today or at the grant's end", () => {
+  it("starts after the last live certificate and ends today or at the grant's end", () => {
     expect(defaultCertificatePeriod(grant, [], "2026-12-02")).toEqual({
       from: "2026-06-01",
       to: "2026-12-02",
@@ -124,7 +136,15 @@ describe("defaultCertificatePeriod", () => {
         ],
         "2027-05-01"
       )
-    ).toEqual({ from: "2026-10-01", to: "2027-03-31" });
+    ).toEqual({ from: "2026-12-01", to: "2027-03-31" });
+    // A cancelled one frees its period.
+    expect(
+      defaultCertificatePeriod(
+        grant,
+        [{ status: "cancelled", toOn: "2026-11-30" }],
+        "2027-05-01"
+      )
+    ).toEqual({ from: "2026-06-01", to: "2027-03-31" });
   });
 });
 

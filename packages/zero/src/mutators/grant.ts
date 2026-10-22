@@ -3,6 +3,7 @@ import {
   grantStatusValues,
   PROGRAMME_IDS,
 } from "@pi-dash/shared/constants";
+import { nextDay } from "@pi-dash/shared/governance";
 import { grantLinkIssue, grantPeriodIssue } from "@pi-dash/shared/grants";
 import { epochDayToIso, GIVER_ROLES } from "@pi-dash/shared/income";
 import { paiseSchema, positivePaiseSchema } from "@pi-dash/shared/money";
@@ -319,6 +320,33 @@ export const grantMutators = {
       (!existing || existing.partyId !== args.partyId)
     ) {
       await assertGrantor(tx, args.partyId);
+    }
+    // A new project or period moves spend under a live certificate: from
+    // the first day the change touches.
+    if (existing) {
+      const startsOn = epochDayToIso(existing.startsOn);
+      const endsOn = epochDayToIso(existing.endsOn);
+      const touched = [
+        moved ? startsOn : null,
+        args.startsOn === startsOn
+          ? null
+          : args.startsOn < startsOn
+            ? args.startsOn
+            : startsOn,
+        args.endsOn === endsOn
+          ? null
+          : nextDay(args.endsOn < endsOn ? args.endsOn : endsOn),
+      ]
+        .filter((day): day is string => day !== null)
+        .sort()
+        .at(0);
+      if (touched) {
+        await assertNoCertificateCovers(
+          tx,
+          [{ grantId: args.id, on: touched }],
+          "changing the grant's project or dates"
+        );
+      }
     }
 
     const values = {

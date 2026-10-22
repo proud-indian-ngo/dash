@@ -1,6 +1,7 @@
 import { fiscalYearLabel } from "@pi-dash/shared/compliance";
-import { boardOn } from "@pi-dash/shared/governance";
+import { boardOn, TRUSTEE_OFFICE_LABELS } from "@pi-dash/shared/governance";
 import { grantUtilisation } from "@pi-dash/shared/grants";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   parseReceiptSettingsParts,
   RECEIPT_SETTINGS_CONFIG_KEY,
@@ -20,7 +21,7 @@ import {
   type UtilisationCertificateSnapshot,
   type UtilisationCertificateStatus,
 } from "@pi-dash/shared/utilisation-certificates";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
@@ -285,6 +286,27 @@ export async function prepareCertificate(
     if (input.to > input.today) {
       throw new CertificateError("The period can't end after today.");
     }
+    // Live certificates never overlap, so each one's interest is brought
+    // forward once and no receipt or spend is certified twice.
+    const [overlapping] = await tx
+      .select({ number: utilisationCertificate.number })
+      .from(utilisationCertificate)
+      .where(
+        and(
+          eq(utilisationCertificate.grantId, input.grantId),
+          inArray(utilisationCertificate.status, [
+            ...LIVE_CERTIFICATE_STATUSES,
+          ]),
+          lte(utilisationCertificate.fromOn, input.to),
+          gte(utilisationCertificate.toOn, input.from)
+        )
+      )
+      .limit(1);
+    if (overlapping) {
+      throw new CertificateError(
+        `The period overlaps ${overlapping.number}. Pick a period after it, or discard or cancel it first.`
+      );
+    }
     const signatories = certificateSignatories(
       boardOn(await loadRegister(tx, input.today), input.today)
     );
@@ -421,6 +443,29 @@ export function signerRole(
   );
 }
 
+/**
+ * The signer must still hold, on the day they sign, the office they were
+ * named for when the certificate was prepared. Someone who left it can't
+ * sign; finance cancels or discards the certificate and prepares it again,
+ * which names whoever holds the office then.
+ */
+export async function assertSignerInOffice(
+  reader: Reader,
+  certificate: Pick<CertificateRow, "snapshot">,
+  role: SignatoryRole,
+  today: string
+): Promise<void> {
+  const signatory = certificate.snapshot.signatories[role];
+  const member = boardOn(await loadRegister(reader, today), today).find(
+    (m) => m.trustee.id === signatory.trusteeId
+  );
+  if (!member?.offices.includes(signatory.office)) {
+    throw new CertificateError(
+      `${signatory.name} no longer holds the office of ${TRUSTEE_OFFICE_LABELS[signatory.office]}, so they can't sign this certificate. Finance should discard or cancel it and prepare it again.`
+    );
+  }
+}
+
 async function lockCertificate(tx: CertificateTx, id: string) {
   const [row] = await tx
     .select()
@@ -453,6 +498,7 @@ export async function recordCertificateSignature(
   return await database.transaction(async (tx) => {
     const row = await lockCertificate(tx, input.id);
     const role = signerRole(row, input.trusteeId);
+    await assertSignerInOffice(tx, row, role, todayInKolkata(now));
     if (row.latestSha256 !== input.basedOnSha256) {
       throw new CertificateError(
         "The certificate changed after you started. Start again to sign the latest copy."

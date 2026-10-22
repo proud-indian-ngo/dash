@@ -1,8 +1,10 @@
+import { db } from "@pi-dash/db";
 import {
   createSigningJob,
   currentCertificate,
 } from "@pi-dash/db/queries/signing";
 import {
+  assertSignerInOffice,
   CertificateError,
   getCertificate,
   recordCertificateSignature,
@@ -13,6 +15,7 @@ import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { generateUtilisationCertificatePdf } from "@pi-dash/pdf/utilisation-certificate.tsx";
+import { todayInKolkata } from "@pi-dash/shared/income";
 import {
   signatureFieldBox,
   signatureFieldName,
@@ -154,7 +157,8 @@ export async function startCertificateJob(input: {
   if (!certificate) {
     throw new CertificateError("Certificate not found");
   }
-  signerRole(certificate, input.trusteeId);
+  const role = signerRole(certificate, input.trusteeId);
+  await assertSignerInOffice(db, certificate, role, todayInKolkata());
   const enrolled = await currentCertificate(input.trusteeId);
   if (!enrolled) {
     throw new CircularError(

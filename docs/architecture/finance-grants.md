@@ -11,7 +11,7 @@ Schema `packages/db/src/schema/grant.ts`. The table is `grant_agreement` because
 
 - A grant has a grantor (a party with an active donor, sponsor or grantor role), a title, an agreement reference and date, a programme and project, start and end dates, the sanctioned amount, its donation type (CSR or specific grant), an optional Schedule VII item as the agreement words it, whether the agreement needs a CA certificate, notes, and a status (active or closed).
 - A grant funds one project; a project's grants never overlap in time (founder decision), held by an exclusion constraint on `(project_id, daterange(starts_on, ends_on, '[]'))` in a custom migration, and `grant.save` names the clashing grant. Spend splits between them by date. A composite foreign key keeps the project under the grant's programme, and such a project can't change programme.
-- New grants need an active programme, never Unallocated.
+- New grants need an active programme other than Unallocated.
 - The signed agreement is one file, claimed by `grant.setAgreement` under `attachments/grants/<id>/`; downloads (`kind=grantAgreement`) need `finance.view` or `finance.manage` ([file-uploads](file-uploads.md)).
 - A grant with linked contributions or certificates can't be deleted, and its grantor, programme and project can't change while contributions are linked.
 
@@ -35,11 +35,11 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 - Receipts follow the contribution's current status: a gift later reversed drops out of every range, including ranges already reported.
 - **Received**: linked contributions whose money arrived (received, receipted or refunded; not pending or reversed), gross, by received date.
 - **Refunded**: their refunds, as their own lines by refund date, as GFR 12-A shows refunds separately.
-- **Spent**: cash expense (`medium = 'monetary'`) the books recognise on the grant's project, per head, by economic date, when that date is within the grant's period. A reversal counts when the entry it reverses does, on its own date, so a void after the period still takes the spend off.
+- **Spent**: cash expense (`medium = 'monetary'`) on the grant's project, per head, by economic date within the grant's period. A reversal counts when the entry it reverses does, on its own date, so a void after the period still takes the spend off.
 - **Unspent brought forward**: received less refunded less spent before `from`. **Closing unspent**: brought forward plus received less refunded less spent in the range.
-- An expense charged to an event counts when the event names the grant's project: finance sets an event's project (`finance.manage` only), occurrences inherit it, and its claims and vendor payments post with it. Changing an event's project stays allowed after its expenses post, and reposts them, except in a closed year or under a certificate (see [Lock and drift](#lock-and-drift)). The event form first shows finance the posted spend that will move between grants (`getEventProjectMove`). When someone outside finance moves an event to another programme, its project clears and finance gets an inbox and email notice.
+- An expense charged to an event counts when the event names the grant's project: finance sets an event's project (`finance.manage` only), occurrences inherit it, and its claims and vendor payments post with it. Changing an event's project stays allowed after its expenses post, and reposts them, except in a closed year or under a certificate (see [Lock and drift](#lock-and-drift)). The event form first shows the posted spend that would move (`getEventProjectMove`). When someone outside finance moves an event to another programme, its project clears and finance gets an inbox and email notice.
 - Every figure is dated, so one range's closing is the next range's brought forward, and a later refund or void never changes an earlier range.
-- The grant page defaults to the whole grant, to its end or to today once ended; From and To pick any period. The list covers everything recorded.
+- The grant page defaults to the whole grant; From and To pick any period.
 
 ## Screens and access
 
@@ -51,14 +51,14 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 
 A certificate covers any period within the grant, GFR 12-A style. No law requires the trust to issue one or a CA's certificate: CSR Rule 4(5) puts certifying on the company, which asks for them by contract.
 
-- **Prepare** (`finance.manage`): period, place and interest earned. Interest isn't separated in the books, so finance enters it (default ₹0); it enters the chain, and earlier live certificates' interest is brought forward. Preparing freezes `grantUtilisation`'s figures into a snapshot, numbers it (`UC/2026-27/001`, gap-free per financial year from a locked counter row) and stores the PDF rendered from the snapshot with both signature fields, in one transaction. Name, address and PAN come from the receipt settings; 12AB, 80G and CSR-1 from Governance → Registrations.
-- **PDF** (`packages/pdf/src/utilisation-certificate.tsx`): particulars, the balance chain with each receipt and refund, expenditure by head against the budget, the GFR 12-A certification adapted to a CSR grant, date and place, and a signature page: two boxes at the first two signature slots and, when asked, a CA slot for countersignature and UDIN.
-- **Sign**: the Head of the Organisation (Managing Trustee), then the Chief Finance Officer (Treasurer, or the Joint Managing Trustee while no other trustee is), fixed at preparing. Each signs with the DSC helper or Acrobat under the governance checks ([signing](governance-resolutions.md#signing)), appending to the latest copy. Signers need no finance permission: they open only what they sign, see it on their dashboard and get an inbox and email notice.
-- **CA**: when the agreement needs one (frozen at preparing), finance records the UDIN and the countersigned PDF or separate CA report after both signatures, making it final; otherwise both signatures do.
-- **Withdraw**: discard before the first signature, cancel with a reason after. Both keep the number. Downloads are audited.
+- **Prepare** (`finance.manage`): period, place and interest earned. A grant's live certificates never overlap. Interest isn't separated in the books, so finance enters it (default ₹0); it enters the chain, and earlier certificates' interest is brought forward. Preparing freezes `grantUtilisation`'s figures into a snapshot, numbers it (`UC/2026-27/001`, gap-free per financial year from a locked counter row) and stores the PDF rendered from the snapshot with both signature fields, in one transaction. Name, address and PAN come from the receipt settings; 12AB, 80G and CSR-1 from Governance → Registrations.
+- **PDF** (`packages/pdf/src/utilisation-certificate.tsx`): particulars, the balance chain with each receipt and refund, spend by head against budget, the GFR 12-A certification adapted to CSR, and a signature page with both trustees' boxes and, when asked, a CA slot.
+- **Sign**: the Head of the Organisation (Managing Trustee), then the Chief Finance Officer (Treasurer, or the Joint Managing Trustee while no other trustee is), fixed at preparing; two holders of one office are refused. A signer must still hold that office when signing, else finance withdraws it and prepares again. Each signs with the DSC helper or Acrobat under the governance checks ([signing](governance-resolutions.md#signing)), appending to the latest copy. Signers need no finance permission: they open only what they sign, listed on their dashboard, with an inbox and email notice.
+- **CA**: when the agreement needs one (frozen at preparing), finance then records the UDIN and the countersigned PDF or CA report, making it final; otherwise both signatures do.
+- **Withdraw**: discard before the first signature, cancel with a reason after; both keep the number. Downloads are audited.
 
 ### Lock and drift
 
-A live certificate holds its grant's figures up to its end: linking or unlinking a contribution received by then, or changing an event's project that moves spend dated by then into or out of the grant, is refused, naming the certificate. Other changes (a void inside the period, a reversed gift) show on the grant as "Figures changed since signing", listing what changed.
+A live certificate holds its grant's figures up to its end. Linking, unlinking or deleting a contribution received by then, moving an event's project so spend dated by then enters or leaves the grant, and changing the grant's project or dates where that touches the period are refused, naming the certificate. Other changes (a void in the period, a reversed gift) show as "Figures changed since signing", listing what changed.
 
 Advances and commitments are not separated.

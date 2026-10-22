@@ -2,7 +2,7 @@ import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
 import { grantUtilisation } from "@pi-dash/shared/grants";
 import { RECEIPT_SETTINGS_CONFIG_KEY } from "@pi-dash/shared/receipts";
 import { SQL } from "bun";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { uuidv7 } from "uuidv7";
 import { expect, it } from "vitest";
@@ -20,6 +20,7 @@ import {
   programme,
   project,
 } from "../schema/finance-dimensions";
+import { trusteeOffice } from "../schema/governance";
 import {
   grantAgreement,
   grantBudgetLine,
@@ -361,7 +362,15 @@ it.skipIf(!localDatabase)(
     await inRolledBackTransaction(async (tx) => {
       const ids = await fixture(tx);
       const range = { from: "2026-06-01", to: "2026-11-30" };
+      // Each one is discarded, so the next may cover the same period.
+      const discard = (id: string) =>
+        discardCertificate(
+          { id, userId: ids.user },
+          tx as unknown as typeof db,
+          NOW
+        );
       const first = await prepare(tx, ids, range);
+      await discard(first.id);
       const [, fiscalYearLabel, sequence] =
         /^UC\/(\d{4}-\d{2})\/(\d{3})$/.exec(first.number) ?? [];
       expect(fiscalYearLabel).toBe("2026-27");
@@ -382,6 +391,7 @@ it.skipIf(!localDatabase)(
       );
       expect(failed).toBe("The signing service is down");
       const second = await prepare(tx, ids, range);
+      await discard(second.id);
       expect(second.number).toBe(
         `UC/2026-27/${String(Number(sequence) + 1).padStart(3, "0")}`
       );
@@ -447,8 +457,8 @@ it.skipIf(!localDatabase)(
         .set({ needsCaCertificate: false })
         .where(eq(grantAgreement.id, ids.grant));
       const plain = await prepare(tx, ids, {
-        from: "2026-10-01",
-        to: "2026-11-30",
+        from: "2026-06-01",
+        to: "2026-09-30",
       });
       await sign(tx, plain.id, HEAD);
       expect(await sign(tx, plain.id, FINANCE)).toBe("final");
@@ -540,6 +550,67 @@ it.skipIf(!localDatabase)(
         "Spent on Certificate test food"
       );
       expect(drift?.changes.join("\n")).toContain("Unspent brought forward");
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "refuses a period overlapping a live certificate of the grant",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await fixture(tx);
+      const database = tx as unknown as typeof db;
+      // A for June to September, then B for the whole grant to date.
+      const a = await prepare(tx, ids, {
+        from: "2026-06-01",
+        interestPaise: 5000,
+        to: "2026-09-30",
+      });
+      expect(
+        await refusal(() =>
+          prepare(tx, ids, { from: "2026-06-01", to: "2026-11-30" })
+        )
+      ).toBe(
+        `The period overlaps ${a.number}. Pick a period after it, or discard or cancel it first.`
+      );
+      // The period after it is free, and brings its interest forward once.
+      const c = await prepare(tx, ids, {
+        from: "2026-10-01",
+        to: "2026-11-30",
+      });
+      expect(
+        (await getCertificate(c.id, database))?.snapshot.figures
+          .interestBroughtForwardPaise
+      ).toBe(5000);
+      // Withdrawn, A no longer holds its period.
+      await discardCertificate({ id: a.id, userId: ids.user }, database, NOW);
+      await prepare(tx, ids, { from: "2026-06-01", to: "2026-09-30" });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "refuses a signer who no longer holds the office they were named for",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await fixture(tx);
+      const { id } = await prepare(tx, ids, {
+        from: "2026-10-01",
+        to: "2026-11-30",
+      });
+      // Asha Rao stops being Managing Trustee before she signs.
+      await tx
+        .update(trusteeOffice)
+        .set({ endedOn: "2026-12-01" })
+        .where(
+          and(
+            eq(trusteeOffice.trusteeId, HEAD),
+            eq(trusteeOffice.office, "managing_trustee")
+          )
+        );
+      expect(await refusal(() => sign(tx, id, HEAD))).toBe(
+        "Asha Rao no longer holds the office of Managing Trustee, so they can't sign this certificate. Finance should discard or cancel it and prepare it again."
+      );
     });
   }
 );

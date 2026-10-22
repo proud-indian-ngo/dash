@@ -318,6 +318,31 @@ describe("utilisation certificates hold their range", () => {
     expect(db.tables.contribution?.[0]?.grantId).toBeNull();
   });
 
+  it("refuse moving the grant's project or dates under a live certificate", async () => {
+    const db = createDb();
+    await save(db);
+    db.tables.utilisationCertificate?.push(certificate());
+    await expect(save(db, { projectId: "proj-2" })).rejects.toThrow(
+      /so changing the grant's project or dates would change its figures/
+    );
+    // A later start would drop spend the certificate counts.
+    await expect(save(db, { startsOn: "2026-05-01" })).rejects.toThrow(
+      /UC\/2026-27\/001/
+    );
+    // An end before the certificate's leaves its period outside the grant.
+    await expect(save(db, { endsOn: "2026-10-15" })).rejects.toThrow(
+      /UC\/2026-27\/001/
+    );
+    // An end moved after the certificate touches nothing it counts.
+    await save(db, { endsOn: "2027-06-30" });
+    await save(db, { title: "Renamed" });
+    // Cancelled, it holds nothing.
+    Object.assign(db.tables.utilisationCertificate?.[0] ?? {}, {
+      status: "cancelled",
+    });
+    await save(db, { projectId: "proj-2" });
+  });
+
   it("keep a grant with certificates from being deleted", async () => {
     const db = createDb();
     await save(db);

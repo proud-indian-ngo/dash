@@ -77,10 +77,20 @@ export function certificateSignatories(
 ):
   | { finance: CertificateSignatory; head: CertificateSignatory }
   | { problem: string } {
+  // An office has one holder; a register that shows two on the day is
+  // refused rather than guessed at.
+  const holders = (office: TrusteeOffice) =>
+    board.filter((m) => m.offices.includes(office));
+  const twice = (
+    ["managing_trustee", "treasurer", "joint_managing_trustee"] as const
+  ).find((office) => holders(office).length > 1);
+  if (twice) {
+    return {
+      problem: `The register shows more than one ${TRUSTEE_OFFICE_LABELS[twice]} today. Correct it before preparing a certificate.`,
+    };
+  }
   const holder = (office: TrusteeOffice, except?: string) => {
-    const member = board.find(
-      (m) => m.offices.includes(office) && m.trustee.id !== except
-    );
+    const member = holders(office).find((m) => m.trustee.id !== except);
     return member
       ? { name: member.trustee.legalName, office, trusteeId: member.trustee.id }
       : null;
@@ -360,21 +370,21 @@ export function certificateLockMessage(
 
 /**
  * The period a new certificate starts with: from the day after the last
- * final certificate's end, or the grant's start, to today or the grant's
- * end, whichever comes first.
+ * live certificate's end (live ones never overlap), or the grant's start,
+ * to today or the grant's end, whichever comes first.
  */
 export function defaultCertificatePeriod(
   grant: { endsOn: string; startsOn: string },
   certificates: readonly { status: string; toOn: string }[],
   today: string
 ): { from: string; to: string } {
-  const lastFinal = certificates
-    .filter((c) => c.status === "final")
+  const lastLive = certificates
+    .filter((c) => isLiveCertificate(c.status))
     .map((c) => c.toOn)
     .sort()
     .at(-1);
   const to = today < grant.endsOn ? today : grant.endsOn;
-  const from = lastFinal ? nextDay(lastFinal) : grant.startsOn;
+  const from = lastLive ? nextDay(lastLive) : grant.startsOn;
   return { from: from > to ? to : from, to };
 }
 

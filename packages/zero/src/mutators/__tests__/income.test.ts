@@ -797,6 +797,43 @@ describe("contribution mutators", () => {
     expect(db.tables.contribution).toHaveLength(1);
   });
 
+  it("refuses to delete a grant's gift a live utilisation certificate covers", async () => {
+    const gift = {
+      fundId: "fund-1",
+      grantId: "grant-1",
+      id: "c-1",
+      orgAccountId: "acc-1",
+      partyId: "grantor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      status: "received",
+    };
+    const certificate = {
+      grantId: "grant-1",
+      id: "uc-1",
+      number: "UC/2026-27/001",
+      status: "final",
+      toOn: Date.UTC(2026, 9, 31),
+    };
+    const db = createDb({
+      contribution: [gift],
+      utilisationCertificate: [certificate],
+    });
+    await expect(
+      run(contributionMutators.delete, db, donorsCtx, { id: "c-1" })
+    ).rejects.toThrow(
+      "Utilisation certificate UC/2026-27/001 covers this, so deleting this contribution would change its figures."
+    );
+    expect(db.tables.contribution).toHaveLength(1);
+    expect(db.locks.some((sql) => sql.includes("ORDER BY id FOR UPDATE"))).toBe(
+      true
+    );
+    // Once the certificate is cancelled, the gift can go.
+    certificate.status = "cancelled";
+    await run(contributionMutators.delete, db, donorsCtx, { id: "c-1" });
+    expect(db.tables.contribution).toHaveLength(0);
+  });
+
   it("refuses to delete a gift in a donations return filing", async () => {
     const db = createDb({
       contribution: [
