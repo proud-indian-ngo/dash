@@ -288,7 +288,7 @@ async function completeJob(job: Job, result: CompletedResult): Promise<void> {
     {
       ...auditFor(reference),
       actor: await actorFor(reference.userId),
-      metadata: { method: "dsc_helper" },
+      metadata: { jobId: job.id, method: "dsc_helper" },
     },
     async () => {
       if (result.kind === "enrol") {
@@ -304,21 +304,15 @@ async function completeJob(job: Job, result: CompletedResult): Promise<void> {
  * signr's failure callback: a failure the helper reported, or one the server
  * decided (a refused certificate or signature, a `JobRefused`, an outdated
  * helper), audited as a failure of the job's action in the trustee's name.
- * A `JobRefused` from `completeJob` is audited there too, so it leaves two
- * rows: the attempt and the job failing. The audit log has no idempotency
- * key, so a retry that takes over a lapsed settle lease may record the
- * failure twice; `jobId` in the metadata ties the rows together.
+ * The message is free text, so it stays on the job and out of the audit log.
  */
-async function failJob(
-  job: Job,
-  { message, reportedBy }: JobFailure
-): Promise<void> {
+async function failJob(job: Job, { reportedBy }: JobFailure): Promise<void> {
   const reference = readReference(job.reference);
   await runAuditedAction(
     {
       ...auditFor(reference),
       actor: await actorFor(reference.userId),
-      metadata: { jobId: job.id, message, method: "dsc_helper", reportedBy },
+      metadata: { jobId: job.id, method: "dsc_helper", reportedBy },
     },
     async () => undefined,
     () => "failure"

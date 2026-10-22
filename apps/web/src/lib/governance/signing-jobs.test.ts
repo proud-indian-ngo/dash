@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  setSystemTime,
+} from "bun:test";
 import { createHash } from "node:crypto";
 
 import { createMemoryAdapter } from "@signr/server";
@@ -33,20 +40,20 @@ const enrolled: Record<string, unknown>[] = [];
 const accepted: Record<string, unknown>[] = [];
 const serviceCalls: { body: Record<string, unknown>; path: string }[] = [];
 let trusted = true;
+let rateLimited = false;
 let recordedMeanwhile = false;
 let accept: () => Promise<unknown> = async () => [];
 let certificate: Record<string, unknown> | null = null;
 let meeting: Record<string, unknown> | null = null;
 let declaration: Record<string, unknown> | null = null;
 
-mock.module("@pi-dash/env/server", () => ({
-  env: {
-    APP_URL: `${ORIGIN}/`,
-    R2_KEY_PREFIX: "test",
-    SIGNING_SERVICE_TOKEN: "test-signing-token-0123456789abcdef",
-    SIGNING_SERVICE_URL: "http://signing.test",
-  },
-}));
+const testEnv: Record<string, string> = {
+  APP_URL: `${ORIGIN}/`,
+  R2_KEY_PREFIX: "test",
+  SIGNING_SERVICE_TOKEN: "test-signing-token-0123456789abcdef",
+  SIGNING_SERVICE_URL: "http://signing.test",
+};
+mock.module("@pi-dash/env/server", () => ({ env: testEnv }));
 mock.module("@pi-dash/db", () => ({
   db: {
     select: () => ({
@@ -98,17 +105,27 @@ mock.module("../grants/utilisation-certificates", () => ({
     return "awaiting_finance";
   },
 }));
+/** Records each audited action with its outcome, as the audit log would. */
 mock.module("../audit", () => ({
   runAuditedAction: async (
     options: Record<string, unknown>,
-    run: () => Promise<unknown>
+    run: () => Promise<unknown>,
+    classify?: (result: unknown) => string
   ) => {
-    audited.push(options);
-    return await run();
+    const entry: Record<string, unknown> = { ...options };
+    audited.push(entry);
+    try {
+      const result = await run();
+      entry.outcome = classify?.(result) ?? "success";
+      return result;
+    } catch (error) {
+      entry.outcome = "failure";
+      throw error;
+    }
   },
 }));
 mock.module("../rate-limit", () => ({
-  checkRateLimit: () => ({ allowed: true }),
+  checkRateLimit: () => ({ allowed: !rateLimited }),
 }));
 mock.module("../s3", () => ({
   getS3: () => ({
@@ -230,7 +247,7 @@ async function signCircular(circularId = "circular-1") {
     claimNonce,
     signature: "c2lnbmF0dXJl",
   });
-  return { signed, token };
+  return { claimNonce, signed, token };
 }
 
 beforeEach(() => {
@@ -240,6 +257,7 @@ beforeEach(() => {
   accepted.length = 0;
   serviceCalls.length = 0;
   trusted = true;
+  rateLimited = false;
   recordedMeanwhile = false;
   accept = async () => [];
   certificate = { sha256: ASHA_SHA256 };
@@ -308,13 +326,58 @@ describe("the job endpoint", () => {
         actor: expect.objectContaining({ userId: "u1" }),
         metadata: {
           jobId: expect.stringMatching(/^[0-9a-f]{64}$/),
-          message: "No DSC token is plugged in.",
           method: "dsc_helper",
           reportedBy: "helper",
         },
+        outcome: "failure",
         target: { id: "asha", type: "trustee" },
       }),
     ]);
+  });
+
+  it("answers 429 once the rate limit is reached", async () => {
+    const { token } = await startEnrolJob(ASHA);
+    rateLimited = true;
+    expect((await helper(token)).status).toBe(429);
+  });
+
+  it("expires a stale job and deletes its PDF", async () => {
+    const { token } = await startSignJob({
+      ...ASHA,
+      fieldName: "sig_asha",
+      pdf: PDF,
+      target: { id: "circular-1", type: "circular" },
+      title: "Operation of bank accounts",
+    });
+    expect(objects.size).toBe(1);
+    // Starting a job sweeps the ones past their 15 minutes.
+    setSystemTime(new Date(Date.now() + 60 * 60_000));
+    try {
+      await startEnrolJob(ASHA);
+      expect(objects.size).toBe(0);
+      expect((await jobStatusFor(token, "u1"))?.state).toBe("expired");
+    } finally {
+      setSystemTime();
+    }
+  });
+
+  it("refuses an http://localhost origin in production", async () => {
+    const saved = { ...testEnv };
+    Object.assign(testEnv, {
+      APP_URL: "http://localhost:3001",
+      NODE_ENV: "production",
+    });
+    try {
+      // A fresh copy of the module, which reads NODE_ENV when it loads.
+      const specifier = "./signing-jobs?production";
+      const fresh = (await import(specifier)) as { signrJobs: () => unknown };
+      expect(() => fresh.signrJobs()).toThrow(
+        "origin must be a bare https origin"
+      );
+    } finally {
+      delete testEnv.NODE_ENV;
+      Object.assign(testEnv, saved);
+    }
   });
 });
 
@@ -390,10 +453,12 @@ describe("enrolment", () => {
       expect.objectContaining({
         action: "signing.enrol",
         actor: expect.objectContaining({ userId: "u1" }),
-        metadata: expect.objectContaining({
-          message: String(reply.body.message),
+        metadata: {
+          jobId: expect.stringMatching(/^[0-9a-f]{64}$/),
+          method: "dsc_helper",
           reportedBy: "server",
-        }),
+        },
+        outcome: "failure",
       }),
     ]);
   });
@@ -496,18 +561,53 @@ describe("circular jobs", () => {
       message: "This copy is stale. Download it again.",
       state: "failed",
     });
-    // The completion attempt, then the job failing with the refusal.
+    // The completion attempt, then the job failing with the refusal, tied by jobId.
+    const jobId = expect.stringMatching(/^[0-9a-f]{64}$/);
     expect(audited).toEqual([
-      expect.objectContaining({ action: "circular.sign" }),
       expect.objectContaining({
         action: "circular.sign",
-        metadata: expect.objectContaining({
-          message: "This copy is stale. Download it again.",
-          reportedBy: "server",
-        }),
+        metadata: { jobId, method: "dsc_helper" },
+        outcome: "failure",
+      }),
+      expect.objectContaining({
+        action: "circular.sign",
+        metadata: { jobId, method: "dsc_helper", reportedBy: "server" },
+        outcome: "failure",
         target: { id: "circular-1", type: "circular" },
       }),
     ]);
+    const [attempt, failure] = audited.map(
+      (row) => (row.metadata as { jobId: string }).jobId
+    );
+    expect(attempt).toBe(failure);
+    // The refusal is free text: it stays on the job, out of the audit log.
+    expect(JSON.stringify(audited)).not.toContain("stale");
+  });
+
+  it("leaves the job prepared when filing fails for another reason, for a retry", async () => {
+    let failures = 1;
+    accept = async () => {
+      if (failures > 0) {
+        failures -= 1;
+        throw new Error("R2 write failed");
+      }
+    };
+    const { claimNonce, signed, token } = await signCircular();
+    expect(signed.status).toBe(500);
+    expect(await jobStatusFor(token, "u1")).toEqual({ state: "prepared" });
+    expect(audited).toEqual([
+      expect.objectContaining({ action: "circular.sign", outcome: "failure" }),
+    ]);
+    const retried = await helper(token, "signature", {
+      claimNonce,
+      signature: "c2lnbmF0dXJl",
+    });
+    expect(retried.status).toBe(200);
+    expect(await jobStatusFor(token, "u1")).toEqual({ state: "completed" });
+    expect(audited[1]).toMatchObject({
+      action: "circular.sign",
+      outcome: "success",
+    });
   });
 
   it("settles as signed when a lapsed completion recorded the signature", async () => {
