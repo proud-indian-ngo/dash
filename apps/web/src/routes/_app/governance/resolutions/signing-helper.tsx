@@ -139,9 +139,12 @@ function SigningHelperPage() {
             </p>
           )}
           <p className="text-muted-foreground">
-            You install it once per laptop. It keeps itself up to date. The
-            earlier Proud Indian Signing helper is retired: if you have it,
-            remove it and install this one.
+            You install it once per laptop. It keeps itself up to date. It
+            replaces the earlier Proud Indian Signing helper, which no longer
+            opens. Removing that one is optional: on a Mac, move Proud Indian
+            Signing from Applications to the Bin; on Windows, delete the
+            %LOCALAPPDATA%\pidash-sign folder, then in Registry Editor delete
+            the HKEY_CURRENT_USER\Software\Classes\pidash-sign key.
           </p>
         </Step>
         <Step number={3} title="Set up your DSC">
