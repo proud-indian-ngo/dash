@@ -27,6 +27,7 @@ import {
   fiscalYear,
   fund,
   orgAccount,
+  organisationRegistration,
   programme,
   project,
 } from "@pi-dash/db/schema/finance-dimensions";
@@ -147,7 +148,8 @@ import { uuidv7 } from "uuidv7";
  *   FY 2026-27 while other specs run; nothing freezes the later year.
  * - `certificate-fixture <run>`: utilisation certificates. A programme,
  *   project and grantor of this run, a grant over FY 2026-27 whose
- *   agreement needs a CA certificate, and a NEFT gift of 3,000 received on
+ *   agreement needs a CA certificate, the trust's CSR-1 registration when
+ *   there is none, and a NEFT gift of 3,000 received on
  *   1 Oct 2026 into a bank account of this run and linked to it. Nothing
  *   posts. Reports the grant's id and
  *   title.
@@ -861,6 +863,21 @@ async function certificateFixture(run: string) {
   };
   const title = `E2E Certificate Grant ${run}`;
   await db.transaction(async (tx) => {
+    // A CSR grant's certificate prints the trust's CSR-1 registration.
+    const [csr1] = await tx
+      .select({ id: organisationRegistration.id })
+      .from(organisationRegistration)
+      .where(eq(organisationRegistration.type, "csr1"))
+      .limit(1);
+    if (!csr1) {
+      await tx.insert(organisationRegistration).values({
+        createdAt: now,
+        id: uuidv7(),
+        number: "CSR00012345",
+        type: "csr1",
+        updatedAt: now,
+      });
+    }
     // A bank account of this run, never made main.
     await tx.insert(orgAccount).values({
       createdAt: now,

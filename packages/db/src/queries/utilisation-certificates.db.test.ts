@@ -1,6 +1,7 @@
 import { GENERAL_FUND_ID } from "@pi-dash/shared/constants";
 import { grantUtilisation } from "@pi-dash/shared/grants";
 import { RECEIPT_SETTINGS_CONFIG_KEY } from "@pi-dash/shared/receipts";
+import { driftRefusal } from "@pi-dash/shared/utilisation-certificates";
 import { SQL } from "bun";
 import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -17,6 +18,7 @@ import {
   accountHead,
   fiscalYear,
   orgAccount,
+  organisationRegistration,
   programme,
   project,
 } from "../schema/finance-dimensions";
@@ -34,7 +36,6 @@ import {
   cancelCertificate,
   certificateDrifts,
   discardCertificate,
-  DRIFT_REFUSAL,
   getCertificate,
   prepareCertificate,
   previewCertificate,
@@ -105,6 +106,15 @@ async function fixture(tx: LedgerTx) {
       set: { value: settings },
       target: appConfig.key,
     });
+  // A CSR grant's certificate needs the trust's CSR-1 number; only this one counts.
+  await tx.delete(organisationRegistration);
+  await tx.insert(organisationRegistration).values({
+    createdAt: NOW,
+    id: uuidv7(),
+    number: "CSR00099999",
+    type: "csr1",
+    updatedAt: NOW,
+  });
   const ids = {
     account: uuidv7(),
     food: uuidv7(),
@@ -553,7 +563,9 @@ it.skipIf(!localDatabase)(
       );
       expect(drift?.changes.join("\n")).toContain("Unspent brought forward");
       // Nobody signs figures the books no longer give.
-      expect(await refusal(() => sign(tx, id, FINANCE))).toBe(DRIFT_REFUSAL);
+      expect(await refusal(() => sign(tx, id, FINANCE))).toBe(
+        driftRefusal(true)
+      );
     });
   }
 );
@@ -634,6 +646,39 @@ it.skipIf(!localDatabase)(
       expect(await refusal(() => sign(tx, id, HEAD))).toBe(
         "Asha Rao no longer holds the office of Managing Trustee, so they can't sign this certificate. Finance should discard or cancel it and prepare it again."
       );
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
+  "needs the trust's CSR-1 registration for a CSR grant only",
+  async () => {
+    await inRolledBackTransaction(async (tx) => {
+      const ids = await fixture(tx);
+      const range = { from: "2026-10-01", to: "2026-11-30" };
+      await tx.delete(organisationRegistration);
+      const preview = await previewCertificate(tx, {
+        ...range,
+        grantId: ids.grant,
+        interestPaise: 0,
+        today: TODAY,
+      });
+      expect(preview.problems.join("\n")).toContain(
+        "Add it under Governance → Registrations first."
+      );
+      expect(await refusal(() => prepare(tx, ids, range))).toContain(
+        "CSR-1 registration number"
+      );
+      // A specific grant's certificate is prepared without one.
+      await tx
+        .update(grantAgreement)
+        .set({ donationType: "specific_grant" })
+        .where(eq(grantAgreement.id, ids.grant));
+      const prepared = await prepare(tx, ids, range);
+      expect(
+        (await getCertificate(prepared.id, tx as unknown as typeof db))
+          ?.snapshot.trust.csr1
+      ).toBeNull();
     });
   }
 );

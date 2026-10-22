@@ -12,6 +12,8 @@ import {
   certificateFigures,
   certificateNumber,
   certificateSignatories,
+  csr1Problem,
+  driftRefusal,
   interestBroughtForward,
   isLiveCertificate,
   LIVE_CERTIFICATE_STATUSES,
@@ -292,6 +294,7 @@ export async function prepareCertificate(
         agreementReference: grantAgreement.agreementReference,
         endsOn: grantAgreement.endsOn,
         grantor: party.displayName,
+        donationType: grantAgreement.donationType,
         needsCaCertificate: grantAgreement.needsCaCertificate,
         programme: programme.name,
         project: project.name,
@@ -331,6 +334,10 @@ export async function prepareCertificate(
       throw new CertificateError(signatories.problem);
     }
     const trust = await loadTrustParticulars(tx, input.today);
+    const csr1 = csr1Problem(grant.donationType, trust);
+    if (csr1) {
+      throw new CertificateError(csr1);
+    }
     const figures = await computeCertificateFigures(tx, {
       certificateId: null,
       from: input.from,
@@ -667,15 +674,13 @@ export async function driftOf(
  */
 export async function assertNoDrift(
   reader: Reader,
-  certificate: Parameters<typeof driftOf>[1]
+  certificate: Parameters<typeof driftOf>[1] &
+    Pick<CertificateRow, "headSignedAt">
 ): Promise<void> {
   if ((await driftOf(reader, certificate)).length > 0) {
-    throw new CertificateError(DRIFT_REFUSAL);
+    throw new CertificateError(driftRefusal(certificate.headSignedAt !== null));
   }
 }
-
-export const DRIFT_REFUSAL =
-  "The figures changed since this certificate was prepared, so it can't be signed. Finance should discard or cancel it and prepare it again.";
 
 export async function certificateDrifts(
   reader: Reader,
@@ -746,6 +751,15 @@ export async function previewCertificate(
       throw error;
     }
   );
+  const [grant] = await reader
+    .select({ donationType: grantAgreement.donationType })
+    .from(grantAgreement)
+    .where(eq(grantAgreement.id, input.grantId))
+    .limit(1);
+  const csr1 = csr1Problem(grant?.donationType ?? "", trust);
+  if (csr1) {
+    problems.push(csr1);
+  }
   const figures = await computeCertificateFigures(reader, {
     certificateId: null,
     from: input.from,

@@ -19,6 +19,8 @@ import {
   type CertificateStepState,
   certificateStatusLabel,
   certificateSteps,
+  driftLabel,
+  driftRefusal,
   CANCEL_REASON_MAX,
   signatoryTitle,
   signerDue,
@@ -339,9 +341,7 @@ function CertificatePage() {
               role="alert"
             >
               <p className="font-medium">
-                {row.headSignedAt
-                  ? "Figures changed since signing"
-                  : "Figures changed since prepared"}
+                {driftLabel(row.headSignedAt != null)}
               </p>
               <ul className="mt-1 list-disc pl-5">
                 {changes.map((change) => (
@@ -437,9 +437,7 @@ function CertificatePage() {
                     className="border-warning/30 bg-warning/10 text-warning-foreground rounded-lg border px-3 py-2 text-sm"
                     role="alert"
                   >
-                    The figures changed since this certificate was prepared, so
-                    it can't be signed. Finance should discard or cancel it and
-                    prepare it again.
+                    {driftRefusal(row.headSignedAt != null)}
                   </p>
                 ) : (
                   <CertificateSignPanel

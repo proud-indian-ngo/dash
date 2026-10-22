@@ -235,6 +235,41 @@ export function percentOfBudget(head: CertificateHeadLine): number | null {
   return Math.round((head.toDatePaise * 1000) / head.budgetPaise) / 10;
 }
 
+/** "4 Aug 2026", as the app shows dates. */
+const dayFormat = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+const formatDay = (iso: string) =>
+  dayFormat.format(new Date(`${iso}T00:00:00Z`));
+
+/** The drift badge: "since signing" once anyone signed, else "since prepared". */
+export function driftLabel(signed: boolean): string {
+  return signed
+    ? "Figures changed since signing"
+    : "Figures changed since prepared";
+}
+
+/** Why a drifted certificate can't be signed, in the badge's words. */
+export function driftRefusal(signed: boolean): string {
+  return `${driftLabel(signed)}, so it can't be signed. Finance should discard or cancel it and prepare it again.`;
+}
+
+/**
+ * A CSR grant's certificate prints the trust's CSR-1 registration, so it
+ * can't be prepared without one; a specific grant's can.
+ */
+export function csr1Problem(
+  donationType: string,
+  trust: { csr1: string | null } | null
+): string | null {
+  return donationType === "csr" && trust && !trust.csr1
+    ? "A CSR grant's certificate prints the trust's CSR-1 registration number. Add it under Governance → Registrations first."
+    : null;
+}
+
 /**
  * What changed between a certificate's frozen figures and the same period
  * computed now, in words; empty when nothing did.
@@ -267,12 +302,12 @@ export function certificateDrift(
     const beforeKeys = new Set(before.map(key));
     for (const l of before.filter((b) => !afterKeys.has(key(b)))) {
       changes.push(
-        `${label} of ${formatPaise(l.paise)} on ${l.on} (${l.reference ?? "no reference"}) no longer counts`
+        `${label} of ${formatPaise(l.paise)} on ${formatDay(l.on)} (${l.reference ?? "no reference"}) no longer counts`
       );
     }
     for (const l of after.filter((a) => !beforeKeys.has(key(a)))) {
       changes.push(
-        `${label} of ${formatPaise(l.paise)} on ${l.on} (${l.reference ?? "no reference"}) now counts`
+        `${label} of ${formatPaise(l.paise)} on ${formatDay(l.on)} (${l.reference ?? "no reference"}) now counts`
       );
     }
   };

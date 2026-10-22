@@ -4,6 +4,9 @@ import type { BoardMember } from "./governance";
 import {
   type CertificateFigures,
   certificateDrift,
+  csr1Problem,
+  driftLabel,
+  driftRefusal,
   certificateHolding,
   certificateLockMessage,
   certificateSignatories,
@@ -205,9 +208,29 @@ describe("certificateDrift", () => {
       received: [],
     };
     expect(certificateDrift(figures, now)).toEqual([
-      "Receipt of ₹1.00 on 2026-10-01 (U1) no longer counts",
+      "Receipt of ₹1.00 on 1 Oct 2026 (U1) no longer counts",
       "Spent on Travel: ₹0.50 then, ₹0.20 now",
       "Closing unspent: ₹1.50 then, ₹1.80 now",
     ]);
+  });
+});
+
+describe("drift wording", () => {
+  it("says since signing once anyone signed, and the refusal matches", () => {
+    expect(driftLabel(true)).toBe("Figures changed since signing");
+    expect(driftLabel(false)).toBe("Figures changed since prepared");
+    expect(driftRefusal(true)).toMatch(
+      /^Figures changed since signing, so it can't be signed\./
+    );
+  });
+});
+
+describe("csr1Problem", () => {
+  it("needs a CSR-1 number for a CSR grant only", () => {
+    expect(csr1Problem("csr", { csr1: null })).toContain(
+      "Governance → Registrations"
+    );
+    expect(csr1Problem("csr", { csr1: "CSR00012345" })).toBeNull();
+    expect(csr1Problem("specific_grant", { csr1: null })).toBeNull();
   });
 });

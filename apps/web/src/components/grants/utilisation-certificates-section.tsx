@@ -4,9 +4,9 @@ import { formatPaise } from "@pi-dash/shared/money";
 import {
   certificateStatusLabel,
   defaultCertificatePeriod,
+  driftLabel,
 } from "@pi-dash/shared/utilisation-certificates";
 import { queries } from "@pi-dash/zero/queries";
-import type { UtilisationCertificate } from "@pi-dash/zero/schema";
 import { useQuery } from "@rocicorp/zero/react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -64,10 +64,6 @@ function useDrift(grantId: string, listKey: string) {
   }, [grantId, listKey, load]);
   return drift;
 }
-
-/** Whether a drifted certificate has a signature yet. */
-const signed = (c: UtilisationCertificate) =>
-  c.status !== "awaiting_head" && c.status !== "discarded";
 
 /** The grant page's certificates: each with its period, closing balance and whose turn it is. */
 export function UtilisationCertificatesSection({
@@ -147,9 +143,7 @@ export function UtilisationCertificatesSection({
                 <span className="flex shrink-0 flex-wrap items-center gap-2">
                   {changes ? (
                     <StatusBadge tone="danger">
-                      {signed(c)
-                        ? "Figures changed since signing"
-                        : "Figures changed since prepared"}
+                      {driftLabel(c.headSignedAt != null)}
                     </StatusBadge>
                   ) : null}
                   <StatusBadge tone={certificateTone(c.status)}>
