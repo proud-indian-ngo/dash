@@ -32,6 +32,12 @@ Worktrees: `bun run worktree:setup <ID>` (add `--isolated-db` for separate Postg
 - The owning doc records any new rule, decision or gotcha (see [Documentation](#documentation)).
 - The diff holds no edits to generated files.
 
+## Testing
+
+- Never write unit tests after you write code.
+- Highly prefer E2E tests as the sole testing mechanism. Use them to verify complex features work. At the end of an E2E test, produce a verifiable and repeatable artifact.
+- If you must test a system in isolation, first write down all the ways it could fail, then write the code.
+
 ## Boundaries
 
 **Always**

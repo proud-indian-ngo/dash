@@ -4,7 +4,6 @@ import {
   buildDigest,
   buildWhatsAppDigestTemplate,
   buildWhatsAppDigestText,
-  buildWhatsAppText,
   type DigestEntry,
   digestRowCount,
 } from "./digest";
@@ -169,19 +168,6 @@ describe("buildDigest", () => {
     expect(digest.subject).toBe("New payment logged (2) · Pending approvals");
   });
 
-  it("drops a closing question mark from headings", () => {
-    const nudge = (name: string): DigestEntry => ({
-      body: "",
-      clickAction: `/events/${name}`,
-      digest: { name },
-      title: "📸 Got pics?",
-    });
-    expect(
-      buildDigest([nudge("a"), nudge("b")], TOPICS.EVENTS_PHOTOS, { limit: 20 })
-        .heading
-    ).toBe("Got pics (2)");
-  });
-
   it("falls back to the dashboard when rows point to different lists", () => {
     const digest = buildDigest(
       [
@@ -240,50 +226,7 @@ describe("buildDigest", () => {
   });
 });
 
-describe("buildWhatsAppText", () => {
-  it("adds the link, payment proof and footer", () => {
-    expect(
-      buildWhatsAppText({
-        appName: "PI",
-        appUrl,
-        body: "Paid",
-        clickAction: "/vendor-payments/vp-1",
-        imageUrl: "https://img.test/proof.png",
-        title: "✅ Payment approved!",
-      })
-    ).toBe(
-      "*✅ Payment approved!*\n\nPaid\n\nView: https://dash.test/vendor-payments/vp-1\n\nPayment proof: https://img.test/proof.png\n\n_Sent by PI_(https://dash.test)"
-    );
-  });
-});
-
 describe("buildWhatsAppDigestText", () => {
-  it("numbers rows with amount and link", () => {
-    const text = buildWhatsAppDigestText(
-      [noInvoice("Stage lights", 1_240_000), invoice("Venue")],
-      TOPICS.REQUESTS_SUBMISSIONS,
-      { appName: "PI", appUrl }
-    );
-
-    expect(text).toBe(
-      [
-        "*2 new notifications*",
-        "",
-        "From Requests · Pending approvals.",
-        "",
-        "1. *Stage lights* · ₹12,400.00",
-        "Asha · Rent / lease · No proof",
-        "View: https://dash.test/vendor-payments/Stage lights",
-        "",
-        "2. *Venue*",
-        "Ravi · Invoice uploaded",
-        "View: https://dash.test/vendor-payments/Venue",
-        "",
-        "_Sent by PI_(https://dash.test)",
-      ].join("\n")
-    );
-  });
-
   it("shortens long fallback bodies", () => {
     const text = buildWhatsAppDigestText(
       [

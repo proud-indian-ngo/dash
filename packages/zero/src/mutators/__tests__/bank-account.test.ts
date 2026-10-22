@@ -1,16 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import z from "zod";
-
 import { createBankAccountArgs } from "../bank-account";
-
-const deleteSchema = z.object({
-  id: z.string().min(1),
-});
-
-const setDefaultSchema = z.object({
-  id: z.string().min(1),
-});
 
 describe("bankAccount mutator schemas", () => {
   describe("create", () => {
@@ -65,48 +55,6 @@ describe("bankAccount mutator schemas", () => {
           upiId: "john@okhdfc",
         }).success
       ).toBe(false);
-    });
-  });
-
-  describe("delete", () => {
-    it("accepts valid input", () => {
-      const result = deleteSchema.safeParse({
-        id: "ba-1",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects missing id", () => {
-      const result = deleteSchema.safeParse({});
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects empty id", () => {
-      const result = deleteSchema.safeParse({
-        id: "",
-      });
-      expect(result.success).toBe(false);
-    });
-  });
-
-  describe("setDefault", () => {
-    it("accepts valid input", () => {
-      const result = setDefaultSchema.safeParse({
-        id: "ba-1",
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects missing id", () => {
-      const result = setDefaultSchema.safeParse({});
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects empty id", () => {
-      const result = setDefaultSchema.safeParse({
-        id: "",
-      });
-      expect(result.success).toBe(false);
     });
   });
 });

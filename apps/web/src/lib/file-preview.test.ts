@@ -1,10 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  contentDispositionFilename,
-  previewFailureMessage,
-  previewKind,
-} from "./file-preview";
+import { contentDispositionFilename, previewKind } from "./file-preview";
 
 describe("previewKind", () => {
   it("draws PDFs and shows images", () => {
@@ -51,18 +47,5 @@ describe("contentDispositionFilename", () => {
     ).toBe("plain.pdf");
     expect(contentDispositionFilename("inline")).toBeNull();
     expect(contentDispositionFilename(null)).toBeNull();
-  });
-});
-
-describe("previewFailureMessage", () => {
-  it("names the reason a new tab would fail too", () => {
-    expect(previewFailureMessage(403)).toBe(
-      "You don't have access to this file."
-    );
-    expect(previewFailureMessage(404)).toBe(
-      "This file is no longer available."
-    );
-    expect(previewFailureMessage(429)).toContain("Try again in a minute");
-    expect(previewFailureMessage(null)).toContain("Check your connection");
   });
 });

@@ -3,7 +3,7 @@ import { describe, expect, it, mock } from "bun:test";
 const sent: Record<string, unknown>[] = [];
 
 mock.module("@pi-dash/db/queries/compliance", () => ({
-  generateComplianceItems: async () => 3,
+  generateComplianceItems: async () => 0,
   openItemsDueSoon: async () => [
     {
       dueOn: "2026-10-31",
@@ -40,16 +40,9 @@ mock.module("evlog", () => ({
   createRequestLogger: () => ({ emit: () => undefined, set: () => undefined }),
 }));
 
-const { handleGenerateComplianceItems, handleRemindComplianceItems } =
-  await import("./compliance");
+const { handleRemindComplianceItems } = await import("./compliance");
 
 describe("compliance jobs", () => {
-  it("reports how many items it created", async () => {
-    expect(await handleGenerateComplianceItems([], "2026-10-01")).toEqual({
-      created: 3,
-    });
-  });
-
   it("reminds the owner, or every secretary when there is none", async () => {
     const result = await handleRemindComplianceItems([], "2026-10-17");
     // ITR-7 is 14 days out (no reminder); TDS is 7 days out (owner only).

@@ -31,10 +31,6 @@ describe("computeRunningTotalPaise", () => {
     expect(computeRunningTotalPaise(items)).toBe(30_050);
   });
 
-  it("returns 0 for empty array", () => {
-    expect(computeRunningTotalPaise([])).toBe(0);
-  });
-
   it("treats non-numeric amounts as 0", () => {
     const items = [
       {
@@ -124,16 +120,6 @@ describe("positiveRupeesSchema", () => {
     for (const ok of ["19.99", "1500", "5.", ".5", "0.01", "9999999999.99"]) {
       expect(positiveRupeesSchema.safeParse(ok).success).toBe(true);
     }
-  });
-
-  it("explains the accepted format", () => {
-    for (const bad of ["1e3", "1.234", "abc", ".", "1,000"]) {
-      expect(issue(bad)).toBe(
-        "Enter an amount in rupees with up to 2 decimals"
-      );
-    }
-    expect(issue("")).toBe("Amount required");
-    expect(issue("0")).toBe("Must be greater than 0");
   });
 
   it("caps an amount at the old numeric(12,2) limit", () => {

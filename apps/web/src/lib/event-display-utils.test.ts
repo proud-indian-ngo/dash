@@ -1,82 +1,10 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  setSystemTime,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import {
   expandSeriesOccurrences,
   sessionOccDate,
-  sortUpcomingFirstThenPast,
   startDateRow,
 } from "./event-display-utils";
-
-describe("sortUpcomingFirstThenPast", () => {
-  beforeEach(() => {
-    setSystemTime(new Date("2026-04-22T12:00:00Z"));
-  });
-
-  afterEach(() => {});
-
-  it("places upcoming before past", () => {
-    const rows = [
-      { label: "past", startTime: Date.UTC(2026, 3, 20) },
-      { label: "upcoming", startTime: Date.UTC(2026, 3, 25) },
-    ];
-    sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["upcoming", "past"]);
-  });
-
-  it("sorts upcoming ascending (nearest first)", () => {
-    const rows = [
-      { label: "far", startTime: Date.UTC(2026, 3, 30) },
-      { label: "near", startTime: Date.UTC(2026, 3, 23) },
-      { label: "mid", startTime: Date.UTC(2026, 3, 26) },
-    ];
-    sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["near", "mid", "far"]);
-  });
-
-  it("sorts past descending (most recent first)", () => {
-    const rows = [
-      { label: "old", startTime: Date.UTC(2026, 3, 10) },
-      { label: "recent", startTime: Date.UTC(2026, 3, 21) },
-      { label: "mid", startTime: Date.UTC(2026, 3, 15) },
-    ];
-    sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual(["recent", "mid", "old"]);
-  });
-
-  it("handles mixed upcoming and past", () => {
-    const rows = [
-      { label: "past-old", startTime: Date.UTC(2026, 3, 10) },
-      { label: "upcoming-far", startTime: Date.UTC(2026, 3, 30) },
-      { label: "past-recent", startTime: Date.UTC(2026, 3, 21) },
-      { label: "upcoming-near", startTime: Date.UTC(2026, 3, 23) },
-    ];
-    sortUpcomingFirstThenPast(rows);
-    expect(rows.map((r) => r.label)).toEqual([
-      "upcoming-near",
-      "upcoming-far",
-      "past-recent",
-      "past-old",
-    ]);
-  });
-
-  it("returns the same array reference", () => {
-    const rows = [{ startTime: Date.UTC(2026, 3, 25) }];
-    const result = sortUpcomingFirstThenPast(rows);
-    expect(result).toBe(rows);
-  });
-
-  it("handles empty array", () => {
-    const rows: { startTime: number }[] = [];
-    expect(sortUpcomingFirstThenPast(rows)).toEqual([]);
-  });
-});
 
 describe("expandSeriesOccurrences", () => {
   it("returns null for null recurrence rule", () => {

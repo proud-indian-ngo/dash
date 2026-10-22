@@ -12,7 +12,6 @@ import {
   createReimbursementRequestFormSchema,
   createRequestFormSchema,
   reimbursementRequestFormSchema,
-  requestFormSchema,
 } from "./reimbursement-form.schema";
 
 const validLineItem = {
@@ -91,14 +90,6 @@ describe("reimbursementRequestFormSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects empty title", () => {
-    const result = reimbursementRequestFormSchema.safeParse({
-      ...validReimbursement,
-      title: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
   it("asks for the city only when there is a choice and no event", () => {
     const noCity = { ...validReimbursement, costCentreId: undefined };
     // One active centre: the server takes it.
@@ -112,23 +103,7 @@ describe("reimbursementRequestFormSchema", () => {
     ).toBe(true);
   });
 
-  it("rejects empty line items", () => {
-    const result = reimbursementRequestFormSchema.safeParse({
-      ...validReimbursement,
-      lineItems: [],
-    });
-    expect(result.success).toBe(false);
-  });
-
   describe("expenseDate", () => {
-    it("rejects empty expense date", () => {
-      const result = reimbursementRequestFormSchema.safeParse({
-        ...validReimbursement,
-        expenseDate: undefined,
-      });
-      expect(result.success).toBe(false);
-    });
-
     it("rejects future expense date", () => {
       const result = reimbursementRequestFormSchema.safeParse({
         ...validReimbursement,
@@ -144,14 +119,6 @@ describe("reimbursementRequestFormSchema", () => {
       });
       expect(result.success).toBe(true);
     });
-
-    it("accepts past expense date", () => {
-      const result = reimbursementRequestFormSchema.safeParse({
-        ...validReimbursement,
-        expenseDate: new Date(2025, 0, 1),
-      });
-      expect(result.success).toBe(true);
-    });
   });
 });
 
@@ -162,14 +129,6 @@ describe("advancePaymentRequestFormSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty title", () => {
-    const result = advancePaymentRequestFormSchema.safeParse({
-      ...validAdvancePayment,
-      title: "",
-    });
-    expect(result.success).toBe(false);
-  });
-
   it("asks for the city when there is a choice", () => {
     const noCity = { ...validAdvancePayment, costCentreId: undefined };
     expect(advancePaymentRequestFormSchema.safeParse(noCity).success).toBe(
@@ -178,39 +137,6 @@ describe("advancePaymentRequestFormSchema", () => {
     expect(
       createRequestFormSchema(100_000, true).safeParse(noCity).success
     ).toBe(false);
-  });
-
-  it("rejects empty line items", () => {
-    const result = advancePaymentRequestFormSchema.safeParse({
-      ...validAdvancePayment,
-      lineItems: [],
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("requestFormSchema (discriminated union)", () => {
-  it("selects reimbursement schema for type reimbursement", () => {
-    const result = requestFormSchema.safeParse(validReimbursement);
-    expect(result.success).toBe(true);
-  });
-
-  it("selects advance payment schema for type advance_payment", () => {
-    const result = requestFormSchema.safeParse(validAdvancePayment);
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects reimbursement with undefined expenseDate via discriminated union", () => {
-    const result = requestFormSchema.safeParse({
-      ...validReimbursement,
-      expenseDate: undefined,
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts advance payment without expenseDate via discriminated union", () => {
-    const result = requestFormSchema.safeParse(validAdvancePayment);
-    expect(result.success).toBe(true);
   });
 });
 

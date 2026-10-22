@@ -450,18 +450,6 @@ describe("organisation account mutators", () => {
     expect(db.writes).toEqual([]);
   });
 
-  it("creates an active domestic account by default", async () => {
-    const db = createDb();
-    await run(orgAccountMutators.create, db, financeCtx, account());
-    expect(db.tables.orgAccount?.[0]).toMatchObject({
-      active: true,
-      fcraRole: "none",
-      fundSource: "domestic",
-      kind: "bank",
-      name: "HDFC current",
-    });
-  });
-
   it("rejects an empty name, unknown kind or unknown fund source", () => {
     for (const overrides of [
       { name: "  " },

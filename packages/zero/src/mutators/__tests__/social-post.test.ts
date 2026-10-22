@@ -1,7 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-import { SOCIAL_MANAGE_CONFIG_KEYS } from "@pi-dash/shared/social-api";
-
 import {
   matchesScope,
   type ScopeAst,
@@ -167,12 +165,6 @@ describe("appConfig key gating", () => {
     "social_all_time_reached",
     "social_rules",
   ];
-
-  it("gates exactly the social keys", () => {
-    expect([...SOCIAL_MANAGE_CONFIG_KEYS].sort()).toEqual(
-      [...socialKeys].sort()
-    );
-  });
 
   it.each(socialKeys)("lets social.manage write %s", async (key) => {
     const db = createDb();

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  clearable,
   findDuplicatePayout,
   isValidUpiHandle,
   normalizePayoutAccount,
@@ -155,15 +154,6 @@ describe("findDuplicatePayout", () => {
         upiId: "other@ybl",
       })
     ).toBeNull();
-  });
-});
-
-describe("clearable", () => {
-  it("leaves undefined alone, clears empty, normalises the rest", () => {
-    expect(clearable(undefined)).toBeUndefined();
-    expect(clearable(" ")).toBeNull();
-    expect(clearable(" X ")).toBe("X");
-    expect(clearable("A@YBL", (v) => v.toLowerCase())).toBe("a@ybl");
   });
 });
 

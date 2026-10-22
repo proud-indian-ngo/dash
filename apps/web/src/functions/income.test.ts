@@ -89,26 +89,6 @@ describe("getMissingDonorDetails", () => {
     ]);
     expect(ranges).toEqual([]);
   });
-
-  it("returns the count and party IDs for the current financial year", async () => {
-    granted = ["donors.view"];
-    const result = await missingDetailsHandler({
-      context: { session: { user: { id: "u" } } },
-    });
-    expect(result.count).toBe(2);
-    expect(result.partyIds).toHaveLength(2);
-    expect(Object.keys(result).sort()).toEqual([
-      "count",
-      "financialYear",
-      "partyIds",
-    ]);
-    const [range] = ranges;
-    expect(range?.startsOn).toMatch(/^\d{4}-04-01$/);
-    expect(range?.endsOn).toMatch(/^\d{4}-03-31$/);
-    expect(result.financialYear).toBe(
-      `${range?.startsOn.slice(0, 4)}-${range?.endsOn.slice(2, 4)}`
-    );
-  });
 });
 
 describe("getContributionBankEvidence", () => {

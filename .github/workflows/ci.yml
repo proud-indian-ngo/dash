@@ -24,7 +24,8 @@ jobs:
         with:
           bun-version: "1.4.3"
       - run: bun install --frozen-lockfile
-      - name: Create test env
+      - &create-test-env
+        name: Create test env
         run: |
           cat > .env <<'EOF'
           AVATAR_FALLBACK_SEED=ci
@@ -55,9 +56,28 @@ jobs:
         run: bun run check
       - name: Unused exports
         run: bun run check:unused
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.3"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - *create-test-env
+      # The root script caps turbo at two workspaces to fit the local commit
+      # hook's memory budget; a runner has four cores to spare.
       - name: Unit tests
         timeout-minutes: 10
-        run: bun run test:unit --log-order=stream --log-prefix=task
+        run: bunx turbo run test:unit --concurrency=4 --log-order=stream --log-prefix=task
 
   prepare-shards:
     runs-on: ubuntu-latest

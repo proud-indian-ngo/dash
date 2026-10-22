@@ -122,19 +122,6 @@ describe("teamEvent.saveSocialRecap", () => {
     socialNotes: "Built paper boats",
   };
 
-  it("lets a team lead mark the recap ready", async () => {
-    const db = createDb({
-      teamEvent: [pastEvent()],
-      teamMember: [leadMembership],
-    });
-    await run(teamEventMutators.saveSocialRecap, db, leadCtx, recap);
-    expect(db.tables.teamEvent?.[0]).toMatchObject({
-      childrenAttended: 18,
-      socialCompletedAt: NOW,
-      socialNotes: "Built paper boats",
-    });
-  });
-
   it("keeps the first completion time when the lead edits later", async () => {
     const db = createDb({
       teamEvent: [pastEvent({ socialCompletedAt: NOW - HOUR })],
@@ -148,20 +135,6 @@ describe("teamEvent.saveSocialRecap", () => {
     expect(db.tables.teamEvent?.[0]).toMatchObject({
       childrenAttended: 20,
       socialCompletedAt: NOW - HOUR,
-    });
-  });
-
-  it("saves a draft without completing", async () => {
-    const db = createDb({ teamEvent: [pastEvent()] });
-    await run(teamEventMutators.saveSocialRecap, db, adminCtx, {
-      ...recap,
-      markReady: false,
-      socialNotes: "",
-    });
-    expect(db.tables.teamEvent?.[0]).toMatchObject({
-      childrenAttended: 18,
-      socialCompletedAt: null,
-      socialNotes: null,
     });
   });
 

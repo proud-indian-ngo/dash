@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the web unit suite in directory chunks so each bun test process's
 # memory high-water resets between chunks (bun keeps isolate memory resident
-# within one process; a single run of all 95 files peaks at ~1.3 GB).
+# within one process; a single run of every file uses far more memory).
 set -e
 cd "$(dirname "$0")"
 
@@ -52,13 +52,5 @@ run_chunk() {
 }
 
 for d in src/lib src/components src/routes src/functions src/hooks; do
-  if [ "$d" = src/lib ]; then
-    # These files intermittently stall after earlier lib tests in Bun (the
-    # ID-card one on CI). Run each in a fresh process to keep their coverage.
-    run_chunk --path-ignore-patterns '**/kalakriti-food-route.test.ts' --path-ignore-patterns '**/kalakriti-id-card-data.test.ts' "$d"
-    run_chunk src/lib/kalakriti-food-route.test.ts
-    run_chunk src/lib/server/kalakriti-id-card-data.test.ts
-  else
-    run_chunk "$d"
-  fi
+  run_chunk "$d"
 done

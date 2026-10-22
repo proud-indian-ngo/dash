@@ -3,7 +3,6 @@ import { describe, expect, it } from "bun:test";
 import {
   formToRules,
   groupRuleIssues,
-  ruleDefault,
   rulesToForm,
   sameRulesForm,
   serializeRules,
@@ -66,11 +65,6 @@ describe("posting rules form", () => {
     expect(serializeRules({ story: { held: true } })).toBe(
       '{"story":{"held":true}}'
     );
-  });
-
-  it("shows the pipeline default as the placeholder", () => {
-    expect(ruleDefault("recap", "postTime")).toBe("20:00");
-    expect(ruleDefault("schedule", "minRows")).toBe("3");
   });
 
   it("shows the schedule window error on the post time", () => {

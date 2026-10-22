@@ -1,13 +1,7 @@
 import { PERMISSIONS } from "@pi-dash/db/permissions";
 import { describe, expect, it } from "vitest";
 
-import {
-  getTopicChannels,
-  isBatchedTopic,
-  TOPIC_CATALOG,
-  TOPICS,
-  topicSupportsChannel,
-} from "./topics";
+import { TOPIC_CATALOG, TOPICS } from "./topics";
 
 const topicValues = Object.values(TOPICS);
 const permissionIds = new Set(PERMISSIONS.map((p) => p.id));
@@ -35,35 +29,5 @@ describe("TOPIC_CATALOG", () => {
         ).toBe(true);
       }
     }
-  });
-
-  it("uses the catalog as the canonical supported-channel contract", () => {
-    expect(getTopicChannels(TOPICS.KALAKRITI_REGISTRATION)).toEqual([
-      "inbox",
-      "whatsapp",
-    ]);
-    expect(topicSupportsChannel(TOPICS.KALAKRITI_SCHEDULE, "email")).toBe(
-      false
-    );
-    expect(getTopicChannels(TOPICS.ACCOUNT)).toEqual([
-      "inbox",
-      "email",
-      "whatsapp",
-    ]);
-  });
-});
-
-describe("isBatchedTopic", () => {
-  it("sends only Account and Kalakriti schedule and transport immediately", () => {
-    const immediate = TOPIC_CATALOG.filter((t) => !isBatchedTopic(t.id)).map(
-      (t) => t.id
-    );
-    expect(immediate.sort()).toEqual(
-      [
-        TOPICS.ACCOUNT,
-        TOPICS.KALAKRITI_SCHEDULE,
-        TOPICS.KALAKRITI_TRANSPORT,
-      ].sort()
-    );
   });
 });

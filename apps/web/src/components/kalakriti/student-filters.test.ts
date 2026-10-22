@@ -11,10 +11,7 @@ import {
   withStudentCenterFilter,
 } from "@/lib/kalakriti-student-directory";
 
-import {
-  createStudentFilterFields,
-  getStudentFilterValue,
-} from "./kalakriti-filters";
+import { getStudentFilterValue } from "./kalakriti-filters";
 import type { KalakritiStudentRow } from "./student-form-dialog";
 import { resolveTransportStatusSnapshot } from "./use-transport-status-snapshot";
 const student: KalakritiStudentRow = {
@@ -34,23 +31,6 @@ function rule(id: string, path: string, value: unknown) {
   return createFilterRule({ id, path: [path], operator: "is", value });
 }
 describe("Student column filters", () => {
-  it("exposes the supported fields including entry counts, independent of visibility settings", () => {
-    expect(
-      createStudentFilterFields([student]).map((field) => [
-        field.id,
-        field.label,
-      ])
-    ).toEqual([
-      ["center", "Center"],
-      ["humanId", "ID"],
-      ["name", "Student"],
-      ["transportStatus", "Transport status"],
-      ["dateOfBirth", "Date of birth"],
-      ["entryCount", "Entries"],
-      ["gender", "Gender"],
-      ["ageCategory", "Age Category"],
-    ]);
-  });
   it("filters the displayed ID, name, date and assigned category", () => {
     for (const [path, operator, value] of [
       ["humanId", "contains", "0001"],

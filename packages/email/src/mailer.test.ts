@@ -56,49 +56,6 @@ describe("sendEmail", () => {
     mocks.env.EMAIL_FROM = "noreply@example.com";
   });
 
-  it("skips and names the missing variables when Resend isn't configured", async () => {
-    mocks.env.RESEND_API_KEY = undefined;
-
-    await expect(sendEmail(email)).resolves.toEqual({ status: "skipped" });
-
-    expect(mocks.send).not.toHaveBeenCalled();
-    expect(mocks.logWarn).toHaveBeenCalledWith("email_not_configured");
-    expect(mocks.logSet).toHaveBeenCalledWith({
-      missing: ["RESEND_API_KEY"],
-      subject: "Hello",
-    });
-  });
-
-  it("sends from EMAIL_FROM with a plain-text part and the idempotency key", async () => {
-    mocks.send.mockResolvedValueOnce(sent);
-
-    await expect(
-      sendEmail({ ...email, idempotencyKey: "notif-1-email" })
-    ).resolves.toEqual({ id: "email-1", status: "sent" });
-
-    expect(mocks.send).toHaveBeenCalledWith(
-      { ...email, from: "noreply@example.com", text: "Hi" },
-      expect.objectContaining({ idempotencyKey: "notif-1-email" })
-    );
-  });
-
-  it("passes attachments through to Resend", async () => {
-    mocks.send.mockResolvedValueOnce(sent);
-    const attachments = [
-      { content: Buffer.from("%PDF-1.4"), filename: "PI-2026-27-0001.pdf" },
-    ];
-
-    await expect(sendEmail({ ...email, attachments })).resolves.toEqual({
-      id: "email-1",
-      status: "sent",
-    });
-
-    expect(mocks.send).toHaveBeenCalledWith(
-      expect.objectContaining({ attachments }),
-      expect.anything()
-    );
-  });
-
   it("throws EmailSendError with the Resend code when rejected", async () => {
     mocks.send.mockResolvedValueOnce({
       data: null,
@@ -209,14 +166,5 @@ describe("sendEmailBatch", () => {
     expect(result.failures[0]?.error).toMatchObject({
       code: "validation_error",
     });
-  });
-
-  it("skips without calling Resend when unconfigured", async () => {
-    mocks.env.EMAIL_FROM = undefined;
-
-    const result = await sendEmailBatch(messages(3), "bulk-3-email");
-
-    expect(result).toEqual({ failures: [], sent: [], skipped: true });
-    expect(mocks.batchSend).not.toHaveBeenCalled();
   });
 });

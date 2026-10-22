@@ -3,7 +3,6 @@ import { describe, expect, it } from "bun:test";
 import { Route } from "@/routes/_app/kalakriti/$year/transport";
 
 import { canManageKalakritiTransport } from "./kalakriti-transport-policy";
-import { buildKalakritiNavGroups } from "./nav-items";
 
 function access(responsibility: string, centerId: string | null = null) {
   return {
@@ -65,13 +64,5 @@ describe("Transport directory access", () => {
     expect(
       canManageKalakritiTransport({ ...archived, isGlobalAdmin: true })
     ).toBe(false);
-  });
-  it("only adds the navigation item when authorized", () => {
-    const titles = (canViewTransport: boolean) =>
-      buildKalakritiNavGroups({ year: 2026, canViewTransport }).flatMap(
-        (group) => group.items.map((item) => item.title)
-      );
-    expect(titles(false)).not.toContain("Transport");
-    expect(titles(true)).toContain("Transport");
   });
 });

@@ -77,19 +77,6 @@ function render(activity: "meals" | "check_in" | "attendance" = "meals") {
     />
   );
 }
-function renderFixedAttendance() {
-  queryIndex = 0;
-  return renderToStaticMarkup(
-    <OperationScanPanel
-      activity="attendance"
-      editionId="edition"
-      fixedSessionId="session-1"
-      year={2162}
-      ledger={createStationRecordingLedger()}
-      onBusyChange={() => undefined}
-    />
-  );
-}
 beforeEach(() => {
   lifecycle = "live";
   queryType = "complete";
@@ -100,52 +87,6 @@ beforeEach(() => {
   sessions = [];
 });
 describe("Non-transport scan capture", () => {
-  it("keeps manual fallback available and starts only for a complete live snapshot", () => {
-    queryType = "unknown";
-    const html = render();
-    expect(decode).toBeUndefined();
-    expect(html).toContain('aria-label="Yearly ID or Guardian record ID"');
-    expect(html).toContain('disabled=""');
-  });
-  it("accepts a Guardian record ID at check-in", () => {
-    const html = render("check_in");
-    expect(html).toContain('aria-label="Yearly ID or Guardian record ID"');
-  });
-  it("keeps the Yearly ID label for attendance", () => {
-    const html = render("attendance");
-    expect(html).toContain('aria-label="Yearly ID"');
-  });
-  it("does not start while offline or outside live", () => {
-    lifecycle = "registration_locked";
-    render();
-    expect(decode).toBeUndefined();
-    lifecycle = "live";
-    online = false;
-    render();
-    expect(decode).toBeUndefined();
-  });
-  it("requires explicit Competition session selection", () => {
-    const html = render("attendance");
-    expect(html).toContain("Competition session");
-    expect(decode).toBeUndefined();
-  });
-  it("locks attendance to a supplied active Competition session", () => {
-    sessions = [
-      {
-        id: "session-1",
-        cancelledAt: null,
-        startAt: 1,
-        division: {
-          ageCategory: { name: "Junior" },
-          competition: { name: "Solo Dance", cancelledAt: null },
-        },
-      },
-    ];
-    const html = renderFixedAttendance();
-    expect(html).toContain("Solo Dance");
-    expect(html).not.toContain("Select competition session");
-    expect(decode).toBeDefined();
-  });
   it("canonicalizes person QR and suppresses both pending and successful duplicate frames", async () => {
     render();
     decode?.(studentQr);

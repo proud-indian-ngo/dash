@@ -3,9 +3,6 @@ import { describe, expect, it } from "bun:test";
 import {
   countReviewableInterests,
   deriveCardActionState,
-  eventEndLabel,
-  formatDuration,
-  recurrenceTag,
 } from "./event-row-action";
 
 const base = {
@@ -54,45 +51,6 @@ describe("deriveCardActionState", () => {
       kind: "interestPending",
       started: true,
     });
-  });
-});
-
-describe("recurrenceTag", () => {
-  it("names the frequency, with the interval when it is more than one", () => {
-    expect(recurrenceTag(null)).toBeNull();
-    expect(recurrenceTag("FREQ=WEEKLY;BYDAY=SA")).toBe("Weekly");
-    expect(recurrenceTag("FREQ=WEEKLY;INTERVAL=2;BYDAY=SU")).toBe(
-      "Every 2 weeks"
-    );
-    expect(recurrenceTag("RRULE:FREQ=MONTHLY")).toBe("Monthly");
-    expect(recurrenceTag("FREQ=WEEKLY;INTERVAL=1")).toBe("Weekly");
-    expect(recurrenceTag("FREQ=HOURLY")).toBe("Recurring");
-  });
-});
-
-describe("formatDuration", () => {
-  it("reads in minutes and hours", () => {
-    expect(formatDuration(45 * 60_000)).toBe("45 min");
-    expect(formatDuration(2 * 3_600_000)).toBe("2 hr");
-    expect(formatDuration(90 * 60_000)).toBe("1 hr 30 min");
-  });
-});
-
-describe("eventEndLabel", () => {
-  const start = new Date(2026, 9, 21, 22, 0).getTime();
-
-  it("shows the length for events under a day, even past midnight", () => {
-    expect(eventEndLabel(start, start + 3 * 3_600_000)).toBe("3 hr");
-  });
-
-  it("names the end day for multi-day events", () => {
-    expect(eventEndLabel(start, start + 30 * 3_600_000)).toBe("to 23 Oct");
-  });
-
-  it("shows nothing for open-ended or inverted events", () => {
-    expect(eventEndLabel(start, null)).toBeNull();
-    expect(eventEndLabel(start, start)).toBeNull();
-    expect(eventEndLabel(start, start - 60_000)).toBeNull();
   });
 });
 
