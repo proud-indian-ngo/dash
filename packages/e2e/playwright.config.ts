@@ -6,6 +6,8 @@ import { defineConfig, devices } from "@playwright/test";
 import { exclusiveLastPatterns, testIgnoreForRole } from "./project-selection";
 
 const isCI = !!process.env.CI;
+// CI runs exclusive_last in one shard only; the others set this.
+const skipExclusiveLast = process.env.E2E_SKIP_EXCLUSIVE_LAST === "true";
 const isTestDB = !!process.env.TEST_DB_URL;
 const webServerPort =
   Number(process.env.E2E_WEB_PORT) || (isTestDB ? 3099 : 3001);
@@ -100,7 +102,7 @@ export default defineConfig({
       // setup's teardown: runs once every other project has finished, with
       // one worker, so the state it changes is never seen by another spec.
       name: "exclusive_last",
-      testMatch: exclusiveLastPatterns,
+      testMatch: skipExclusiveLast ? [] : exclusiveLastPatterns,
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(

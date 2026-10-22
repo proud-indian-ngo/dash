@@ -22,11 +22,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Create test env
         run: |
@@ -77,11 +72,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Restore test durations cache
         uses: actions/cache/restore@v6
@@ -152,6 +142,8 @@ jobs:
       RAZORPAY_WEBHOOK_SECRET: e2e-razorpay-webhook-secret
       VITE_ZERO_URL: http://localhost:4848
       VITE_CDN_URL: http://localhost:3099
+      # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
+      E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -174,11 +166,32 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
+
+      - name: Resolve zero-cache image
+        id: zero-cache
+        run: |
+          ZERO_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"@rocicorp\/zero": \["@rocicorp\/zero@([^"]+)"/); if (!match) throw new Error("Could not resolve @rocicorp/zero version from bun.lock"); console.log(match[1]);')
+          echo "version=${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image=rocicorp/zero:${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache zero-cache image
+        uses: actions/cache@v6
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
+          path: /tmp/zero-cache-image.tar
+          key: zero-cache-${{ runner.os }}-${{ steps.zero-cache.outputs.version }}
+      # Load in the background; "Start zero-cache" waits for it.
+      - name: Start zero-cache image load
+        run: |
+          (
+            if [ -f /tmp/zero-cache-image.tar ]; then
+              docker load -i /tmp/zero-cache-image.tar
+            else
+              docker pull "${{ steps.zero-cache.outputs.image }}" &&
+                docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
+            fi > /tmp/zero-image.log 2>&1
+            echo $? > /tmp/zero-image.exit
+          ) > /dev/null 2>&1 &
+
       - run: bun install --frozen-lockfile
 
       # Restore the build from Turbo's remote cache (the pre-push hook fills
@@ -187,13 +200,6 @@ jobs:
       - name: Start web build
         run: |
           (bash scripts/build-e2e.sh > /tmp/web-build.log 2>&1; echo $? > /tmp/web-build.exit) > /dev/null 2>&1 &
-
-      - name: Resolve zero-cache image
-        id: zero-cache
-        run: |
-          ZERO_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"@rocicorp\/zero": \["@rocicorp\/zero@([^"]+)"/); if (!match) throw new Error("Could not resolve @rocicorp/zero version from bun.lock"); console.log(match[1]);')
-          echo "version=${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "image=rocicorp/zero:${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Restore Playwright cache
         id: playwright-cache
@@ -220,22 +226,11 @@ jobs:
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
-      - name: Cache zero-cache image
-        id: zero-cache-image
-        uses: actions/cache@v6
-        with:
-          path: /tmp/zero-cache-image.tar
-          key: zero-cache-${{ runner.os }}-${{ steps.zero-cache.outputs.version }}
-      - name: Load or pull zero-cache image
-        run: |
-          if [ -f /tmp/zero-cache-image.tar ]; then
-            docker load -i /tmp/zero-cache-image.tar
-          else
-            docker pull "${{ steps.zero-cache.outputs.image }}"
-            docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
-          fi
       - name: Start zero-cache
         run: |
+          until [ -f /tmp/zero-image.exit ]; do sleep 1; done
+          cat /tmp/zero-image.log
+          [ "$(cat /tmp/zero-image.exit)" = 0 ]
           docker run -d --name zero-cache --network host \
             -e ZERO_UPSTREAM_DB="$ZERO_UPSTREAM_DB" \
             -e ZERO_APP_PUBLICATIONS=pi_dash_public \
