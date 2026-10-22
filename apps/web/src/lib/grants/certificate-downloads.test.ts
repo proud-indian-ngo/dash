@@ -12,13 +12,24 @@ mock.module("@pi-dash/db/queries/utilisation-certificates", () => ({
 
 const ID = "0190a000-0000-7000-8000-0000000000a1";
 
-const { handleCertificateFileDownload } =
+mock.module("@/lib/governance/vault", () => ({
+  safeFileName: (name: string) =>
+    name
+      .trim()
+      .replaceAll(/[\r\n"\\/]/g, "")
+      .replaceAll(/\s+/g, "-")
+      .replaceAll(/[^A-Za-z0-9._-]/g, "")
+      .slice(-120) || "document",
+}));
+
+const { certificatePdfName, handleCertificateFileDownload } =
   await import("./certificate-downloads");
 type Deps = NonNullable<Parameters<typeof handleCertificateFileDownload>[2]>;
 
 function deps(
   user: { id: string; permissions: string[] },
-  audits: unknown[] = []
+  audits: unknown[] = [],
+  caFilename = "ca.pdf"
 ): Deps {
   return {
     audit: (async (
@@ -31,7 +42,7 @@ function deps(
       return await execute();
     }) as Deps["audit"],
     findCertificate: (async () => ({
-      caFilename: "ca.pdf",
+      caFilename,
       caObjectKey: "test/ca.pdf",
       financeUserId: "cfo",
       headUserId: "head",
@@ -80,5 +91,21 @@ describe("utilisation certificate downloads", () => {
     const stranger = deps({ id: "someone", permissions: [] }, audits);
     expect((await get("latest", stranger)).status).toBe(403);
     expect(audits).toHaveLength(1);
+  });
+});
+
+describe("certificate PDF names", () => {
+  it("keeps names safe for a header, a Hindi one included", async () => {
+    expect(certificatePdfName("CA report 2026.pdf")).toBe("CA-report-2026.pdf");
+    expect(certificatePdfName("प्रमाणपत्र.pdf")).toBe("ca-certificate.pdf");
+    // A row stored before names were cleaned still downloads.
+    const reply = await get(
+      "ca",
+      deps({ id: "f-1", permissions: ["finance.view"] }, [], "सीए रिपोर्ट.pdf")
+    );
+    expect(reply.status).toBe(200);
+    expect(reply.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="ca-certificate.pdf"'
+    );
   });
 });

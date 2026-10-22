@@ -154,10 +154,13 @@ export function UtilisationCertificate({
 }) {
   const { figures, grant, trust } = snapshot;
   const roles: SignatoryRole[] = ["head", "finance"];
-  const slots = signatureSlots(
-    roles.map((role) => snapshot.signatories[role].trusteeId)
-  );
-  const caTop = 150 + 2 * 128 + 22;
+  // The CA's slot is the third signature slot, under the two trustees'.
+  const [headSlot, financeSlot, caSlot] = signatureSlots([
+    ...roles.map((role) => snapshot.signatories[role].trusteeId),
+    "ca",
+  ]);
+  const slots = [headSlot, financeSlot].filter((slot) => slot !== undefined);
+  const caTop = (caSlot?.top ?? 0) + 22;
   const agreement = [
     grant.agreementReference,
     grant.agreementOn ? `dated ${day(grant.agreementOn)}` : null,

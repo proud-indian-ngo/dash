@@ -149,7 +149,7 @@ export function UtilisationCertificatesSection({
                     <StatusBadge tone="danger">
                       {signed(c)
                         ? "Figures changed since signing"
-                        : "Figures changed since preparing"}
+                        : "Figures changed since prepared"}
                     </StatusBadge>
                   ) : null}
                   <StatusBadge tone={certificateTone(c.status)}>

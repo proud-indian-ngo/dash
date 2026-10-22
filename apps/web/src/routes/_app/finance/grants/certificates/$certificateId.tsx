@@ -333,7 +333,7 @@ function CertificatePage() {
               <p className="font-medium">
                 {row.headSignedAt
                   ? "Figures changed since signing"
-                  : "Figures changed since preparing"}
+                  : "Figures changed since prepared"}
               </p>
               <ul className="mt-1 list-disc pl-5">
                 {changes.map((change) => (

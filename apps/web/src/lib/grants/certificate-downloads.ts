@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { requireSession } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { safeFileName } from "@/lib/governance/vault";
 import { getS3 } from "@/lib/s3";
 import { safeErrorName } from "@/lib/safe-errors";
 
@@ -15,6 +16,18 @@ import { safeErrorName } from "@/lib/safe-errors";
  * latest copy of the certificate they sign. Every fetch is audited as a
  * download, `?disposition=inline` (the viewer) included.
  */
+
+/**
+ * A PDF's name as it is kept and served: ASCII letters, digits, dots,
+ * dashes and underscores (`safeFileName`), so it fits a Content-Disposition
+ * header as it is. A name without a letter or digit left (one in Hindi)
+ * becomes "ca-certificate.pdf".
+ */
+export function certificatePdfName(name: string): string {
+  const stem = safeFileName(name.replace(/\.pdf$/i, ""));
+  const named = stem !== "document" && /[A-Za-z0-9]/.test(stem);
+  return `${named ? stem : "ca-certificate"}.pdf`;
+}
 
 export interface CertificateDownloadDependencies {
   audit: typeof runSessionAuditedAction;
@@ -75,7 +88,7 @@ export async function handleCertificateFileDownload(
   const fileName =
     which.data === "latest"
       ? `${(certificate?.number ?? "certificate").replaceAll("/", "-")}.pdf`
-      : (certificate?.caFilename ?? "ca-certificate.pdf");
+      : certificatePdfName(certificate?.caFilename ?? "");
   try {
     const bytes = await deps.audit(
       session,
@@ -99,7 +112,7 @@ export async function handleCertificateFileDownload(
     return new Response(bytes, {
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
-        "Content-Disposition": `${disposition}; filename="${fileName.replaceAll('"', "")}"`,
+        "Content-Disposition": `${disposition}; filename="${fileName}"`,
         "Content-Type": "application/pdf",
         Vary: "Cookie",
         "X-Content-Type-Options": "nosniff",

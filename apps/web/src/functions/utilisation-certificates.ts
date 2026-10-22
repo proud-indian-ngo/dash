@@ -31,6 +31,7 @@ import {
   sha256Of,
 } from "@/lib/governance/circulars";
 import { SigningServiceError } from "@/lib/governance/signing-service";
+import { certificatePdfName } from "@/lib/grants/certificate-downloads";
 import {
   acceptSignedCertificate,
   certificateKey,
@@ -371,7 +372,7 @@ export const recordCertificateCaFn = createServerFn({ method: "POST" })
           const s3 = await getS3();
           await s3.write(objectKey, upload.bytes, { type: "application/pdf" });
           await recordCaCertificate({
-            filename: data.fileName,
+            filename: certificatePdfName(data.fileName),
             id: data.id,
             objectKey,
             udin: data.udin,
