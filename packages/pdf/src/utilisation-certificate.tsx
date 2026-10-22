@@ -44,12 +44,20 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+/**
+ * Room for "₹99,99,99,999.00" in Paper Mono: at 9.5pt in the balance chain,
+ * and at 8.5pt in the by-head table, whose three amount columns share the
+ * line with the head's name. Exported for the layout test.
+ */
+export const AMOUNT_WIDTH = 104;
+export const HEAD_AMOUNT_WIDTH = 96;
+
 const day = (iso: string) => dateFmt.format(new Date(`${iso}T00:00:00Z`));
 
 const styles = {
   ...productStyles,
   ...StyleSheet.create({
-    amountCell: { fontFamily: MONO, textAlign: "right", width: 92 },
+    amountCell: { fontFamily: MONO, textAlign: "right", width: AMOUNT_WIDTH },
     blockName: { fontSize: 11, fontWeight: 600 },
     blockOffice: { color: MUTED, fontSize: 9, marginTop: 2 },
     box: {
@@ -83,10 +91,15 @@ const styles = {
     check: { fontSize: 9, lineHeight: 1.45, marginTop: 4, paddingLeft: 14 },
     headCell: { flex: 1, paddingRight: 6 },
     headHeader: { color: MUTED, fontSize: 8 },
-    numCell: { fontFamily: MONO, textAlign: "right", width: 70 },
+    numCell: {
+      fontFamily: MONO,
+      fontSize: 8.5,
+      textAlign: "right",
+      width: HEAD_AMOUNT_WIDTH,
+    },
     note: { color: MUTED, fontSize: 8, lineHeight: 1.4, marginTop: 6 },
     paragraph: { fontSize: 9.5, lineHeight: 1.5, marginTop: 8 },
-    pctCell: { fontFamily: MONO, textAlign: "right", width: 44 },
+    pctCell: { fontFamily: MONO, fontSize: 8.5, textAlign: "right", width: 48 },
     signaturePage: { ...productStyles.page, padding: 0 },
     signaturesHead: { left: 48, position: "absolute", right: 48, top: 44 },
     signaturesIntro: { fontSize: 9.5, lineHeight: 1.45, marginTop: 8 },
@@ -161,6 +174,22 @@ export function UtilisationCertificate({
   ]);
   const slots = [headSlot, financeSlot].filter((slot) => slot !== undefined);
   const caTop = (caSlot?.top ?? 0) + 22;
+  const headRows = figures.heads.map((head) => {
+    const percent = percentOfBudget(head);
+    return (
+      <View key={head.accountHeadId} style={styles.chainRow}>
+        <Line style={styles.headCell}>{head.name}</Line>
+        <Text style={styles.numCell}>
+          {head.budgetPaise === null ? "—" : formatPaise(head.budgetPaise)}
+        </Text>
+        <Text style={styles.numCell}>{formatPaise(head.periodPaise)}</Text>
+        <Text style={styles.numCell}>{formatPaise(head.toDatePaise)}</Text>
+        <Text style={styles.pctCell}>
+          {percent === null ? "—" : `${percent}%`}
+        </Text>
+      </View>
+    );
+  });
   const agreement = [
     grant.agreementReference,
     grant.agreementOn ? `dated ${day(grant.agreementOn)}` : null,
@@ -306,40 +335,21 @@ export function UtilisationCertificate({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Expenditure by head</Text>
-          <View style={[styles.chainRow, styles.headHeader]}>
-            <Text style={styles.headCell}>Head</Text>
-            <Text style={styles.numCell}>Budget</Text>
-            <Text style={styles.numCell}>In period</Text>
-            <Text style={styles.numCell}>To date</Text>
-            <Text style={styles.pctCell}>% used</Text>
+          {/* The title and column names stay with the first row on a page break. */}
+          <View wrap={false}>
+            <Text style={styles.label}>Expenditure by head</Text>
+            <View style={[styles.chainRow, styles.headHeader]}>
+              <Text style={styles.headCell}>Head</Text>
+              <Text style={styles.numCell}>Budget</Text>
+              <Text style={styles.numCell}>In period</Text>
+              <Text style={styles.numCell}>To date</Text>
+              <Text style={styles.pctCell}>% used</Text>
+            </View>
+            {headRows[0] ?? (
+              <Line style={styles.note}>No expenditure in the period.</Line>
+            )}
           </View>
-          {figures.heads.length === 0 ? (
-            <Line style={styles.note}>No expenditure in the period.</Line>
-          ) : (
-            figures.heads.map((head) => {
-              const percent = percentOfBudget(head);
-              return (
-                <View key={head.accountHeadId} style={styles.chainRow}>
-                  <Line style={styles.headCell}>{head.name}</Line>
-                  <Text style={styles.numCell}>
-                    {head.budgetPaise === null
-                      ? "—"
-                      : formatPaise(head.budgetPaise)}
-                  </Text>
-                  <Text style={styles.numCell}>
-                    {formatPaise(head.periodPaise)}
-                  </Text>
-                  <Text style={styles.numCell}>
-                    {formatPaise(head.toDatePaise)}
-                  </Text>
-                  <Text style={styles.pctCell}>
-                    {percent === null ? "—" : `${percent}%`}
-                  </Text>
-                </View>
-              );
-            })
-          )}
+          {headRows.slice(1)}
           <View style={styles.chainTotal}>
             <Text style={styles.headCell}>Total</Text>
             <Text style={styles.numCell}> </Text>

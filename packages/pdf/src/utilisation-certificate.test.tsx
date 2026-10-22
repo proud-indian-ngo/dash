@@ -2,8 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import type { UtilisationCertificateSnapshot } from "@pi-dash/shared/utilisation-certificates";
 
-import { pdfWords } from "./pdf-text.test-helper";
-import { generateUtilisationCertificatePdf } from "./utilisation-certificate";
+import { pdfTextRuns, pdfWords } from "./pdf-text.test-helper";
+import {
+  generateUtilisationCertificatePdf,
+  HEAD_AMOUNT_WIDTH,
+} from "./utilisation-certificate";
 
 const snapshot: UtilisationCertificateSnapshot = {
   caRequired: true,
@@ -118,5 +121,36 @@ describe("generateUtilisationCertificatePdf", () => {
     ]);
     expect(a.equals(b)).toBe(true);
     expect((await pdfWords(a)).join(" ")).not.toContain("UDIN");
+  });
+
+  it("fits crore amounts in their columns without running into the next", async () => {
+    const crore = 12_34_56_789_00;
+    const pdf = await generateUtilisationCertificatePdf({
+      ...snapshot,
+      figures: {
+        ...snapshot.figures,
+        broughtForwardPaise: crore,
+        closingPaise: crore,
+        heads: snapshot.figures.heads.map((h) => ({
+          ...h,
+          budgetPaise: crore,
+          periodPaise: crore,
+          toDatePaise: crore,
+        })),
+        received: [{ ...snapshot.figures.received[0], paise: crore } as never],
+        receivedPaise: crore,
+        spentPaise: crore,
+        totalAvailablePaise: crore,
+      },
+    });
+    const amounts = (await pdfTextRuns(pdf)).filter((r) =>
+      r.str.startsWith("₹")
+    );
+    expect(amounts.some((r) => r.str === "₹12,34,56,789.00")).toBe(true);
+    for (const run of amounts) {
+      // One amount per run, each narrower than the narrowest amount column.
+      expect(run.str.match(/₹/g)).toHaveLength(1);
+      expect(run.width).toBeLessThanOrEqual(HEAD_AMOUNT_WIDTH);
+    }
   });
 });
