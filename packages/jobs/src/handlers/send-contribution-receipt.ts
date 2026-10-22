@@ -9,12 +9,8 @@ import { EmailSendError, sendEmail } from "@pi-dash/email/mailer";
 import { formatPaise } from "@pi-dash/shared/money";
 import { formatReceiptDate } from "@pi-dash/shared/receipts";
 
-import {
-  type AutomaticClaim,
-  automaticClaim,
-  deliverReceipt,
-  sendOnce,
-} from "../lib/receipt-delivery";
+import { recordThrownSend } from "../lib/receipt-delivery";
+import { safeReceiptJobError } from "../lib/receipt-errors";
 import { receiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptPayload } from "../types";
 import { createNotifyHandler } from "./create-handler";
@@ -22,18 +18,16 @@ import { createNotifyHandler } from "./create-handler";
 export type ReceiptEmailOutcome =
   | "sent"
   | "already_sent"
-  | "not_due"
-  | "donor_changed"
   | "not_configured"
   | "missing"
   | "voided"
+  | "donor_changed"
   | "no_email"
   | "suppressed";
 
-export interface ReceiptEmailDependencies {
-  claims: AutomaticClaim;
+/** What emailing a receipt to an address needs. */
+export interface ReceiptEmailChannel {
   getSuppression: typeof getEmailSuppression;
-  loadTarget: typeof loadReceiptDeliveryTarget;
   markEmailed: typeof markReceiptEmailed;
   recordFailure: typeof recordReceiptDeliveryFailure;
   renderEmail: typeof renderDonationReceiptEmail;
@@ -41,10 +35,8 @@ export interface ReceiptEmailDependencies {
   send: typeof sendEmail;
 }
 
-const defaults: ReceiptEmailDependencies = {
-  claims: automaticClaim,
+export const receiptEmailChannel: ReceiptEmailChannel = {
   getSuppression: getEmailSuppression,
-  loadTarget: loadReceiptDeliveryTarget,
   markEmailed: markReceiptEmailed,
   recordFailure: recordReceiptDeliveryFailure,
   renderEmail: renderDonationReceiptEmail,
@@ -53,52 +45,23 @@ const defaults: ReceiptEmailDependencies = {
 };
 
 /**
- * Emails a receipt's PDF to the donor's current address. The server function
- * checked the same conditions before enqueueing; they are checked again here
- * because the receipt may be voided or the address bounced meanwhile. The
- * automatic send goes only if it can claim the receipt (see `sendOnce`),
- * and nothing goes once the gift's donor changed after issue. A
- * suppressed address or missing email setup is recorded on the receipt as
- * not sent; a Resend failure throws so pg-boss retries, and the per-request
+ * Emails the receipt's stored PDF to `email`. A suppressed address or
+ * missing email setup is recorded on the receipt as not sent; a Resend
+ * failure is recorded and thrown so pg-boss retries, and the per-request
  * idempotency key keeps a retry from sending twice.
  */
-export async function sendContributionReceipt(
-  data: SendContributionReceiptPayload,
-  deps: ReceiptEmailDependencies = defaults
-): Promise<{ outcome: ReceiptEmailOutcome }> {
-  const target = await deps.loadTarget(data.receiptId);
-  if (!target) {
-    return { outcome: "missing" };
-  }
-  if (target.voided) {
-    return { outcome: "voided" };
-  }
-  // Without an address the WhatsApp job decides; finance can't ask for it.
-  const { email } = target;
-  if (!email) {
-    return { outcome: "no_email" };
-  }
-  return await sendOnce(data, deps.claims, () =>
-    emailReceipt(data, email, target.donorChanged, deps)
-  );
-}
-
-async function emailReceipt(
-  data: SendContributionReceiptPayload,
+export async function emailReceipt(
+  receipt: { receiptId: string; requestId: string },
   email: string,
-  donorChanged: boolean,
-  deps: ReceiptEmailDependencies
+  channel: ReceiptEmailChannel
 ): Promise<{ outcome: ReceiptEmailOutcome }> {
-  if (donorChanged) {
-    await deps.recordFailure(data.receiptId, "donor_changed");
-    return { outcome: "donor_changed" };
-  }
+  const { receiptId, requestId } = receipt;
   // Donor email follows the notification rule: any bounce or complaint stops it.
-  if (await deps.getSuppression(email)) {
-    await deps.recordFailure(data.receiptId, "email_suppressed");
+  if (await channel.getSuppression(email)) {
+    await channel.recordFailure(receiptId, "email_suppressed");
     return { outcome: "suppressed" };
   }
-  const rendered = await deps.renderPdf(data.receiptId);
+  const rendered = await channel.renderPdf(receiptId);
   if (!rendered) {
     return { outcome: "missing" };
   }
@@ -106,19 +69,19 @@ async function emailReceipt(
   if (document.voidedAt) {
     return { outcome: "voided" };
   }
-  const html = await deps.renderEmail({
+  const html = await channel.renderEmail({
     amount: formatPaise(document.gift.amountPaise),
     donorName: document.donor.name,
     number: document.number,
     orgName: document.org.name,
     receivedOn: formatReceiptDate(document.gift.receivedOn),
   });
-  let result: Awaited<ReturnType<typeof deps.send>>;
+  let result: Awaited<ReturnType<typeof channel.send>>;
   try {
-    result = await deps.send({
+    result = await channel.send({
       attachments: [{ content: rendered.pdf, filename: rendered.filename }],
       html,
-      idempotencyKey: `receipt-${data.receiptId}-${data.requestId}`,
+      idempotencyKey: `receipt-${receiptId}-${requestId}`,
       subject: `Your donation receipt ${document.number}`,
       to: email,
     });
@@ -127,26 +90,61 @@ async function emailReceipt(
     // retry's email went out on an earlier attempt (the PDF is byte-for-byte
     // the same), so record it as sent rather than failing the job.
     if (error instanceof EmailSendError && error.statusCode === 409) {
-      await deps.markEmailed(data.receiptId, new Date());
+      await channel.markEmailed(receiptId, new Date());
       return { outcome: "already_sent" };
     }
+    await recordThrownSend(channel.recordFailure, receiptId, "email_failed");
     throw error;
   }
   if (result.status !== "sent") {
-    await deps.recordFailure(data.receiptId, "email_not_configured");
+    await channel.recordFailure(receiptId, "email_not_configured");
     return { outcome: "not_configured" };
   }
-  await deps.markEmailed(data.receiptId, new Date());
+  await channel.markEmailed(receiptId, new Date());
   return { outcome: "sent" };
+}
+
+export interface ReceiptEmailDependencies extends ReceiptEmailChannel {
+  loadTarget: typeof loadReceiptDeliveryTarget;
+}
+
+/**
+ * Finance's "Email receipt": the donor's current address, whatever was
+ * sent before. The server function checked the same conditions before
+ * enqueueing; they are checked again because the receipt may be voided or
+ * the address changed meanwhile.
+ */
+export async function sendContributionReceipt(
+  data: SendContributionReceiptPayload,
+  deps: ReceiptEmailDependencies = {
+    ...receiptEmailChannel,
+    loadTarget: loadReceiptDeliveryTarget,
+  }
+): Promise<{ outcome: ReceiptEmailOutcome }> {
+  const target = await deps.loadTarget(data.receiptId);
+  if (!target) {
+    return { outcome: "missing" };
+  }
+  if (target.voided) {
+    return { outcome: "voided" };
+  }
+  if (target.donorChanged) {
+    await deps.recordFailure(data.receiptId, "donor_changed");
+    return { outcome: "donor_changed" };
+  }
+  if (!target.email) {
+    return { outcome: "no_email" };
+  }
+  return await emailReceipt(data, target.email, deps);
 }
 
 export const handleSendContributionReceipt = createNotifyHandler<
   SendContributionReceiptPayload,
   { outcome: ReceiptEmailOutcome }
->(
-  "send-contribution-receipt",
-  async () => async (data) =>
-    await deliverReceipt(data.receiptId, "email_failed", () =>
-      sendContributionReceipt(data)
-    )
-);
+>("send-contribution-receipt", async () => async (data) => {
+  try {
+    return await sendContributionReceipt(data);
+  } catch (error) {
+    throw safeReceiptJobError(error, "receipt_email_failed");
+  }
+});

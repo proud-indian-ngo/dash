@@ -694,19 +694,20 @@ export interface ReceiptDeliveryFacts {
 }
 
 /**
- * Where a receipt's delivery stands: a send that went out wins, then a
- * pending automatic send, then a failure. `autoSendAt` is set only while
- * the automatic send is still to come: finance's sends and the automatic
- * job itself clear it.
+ * Where a receipt's delivery stands at `now`: a send that went out wins;
+ * then, while the automatic send is due, "scheduled" before its time and
+ * "sending" after it unless a failure was recorded; then a failure.
  */
 export type ReceiptDeliveryState =
   | { kind: "failed"; failure: ReceiptDeliveryFailure }
   | { kind: "sent"; at: number; channel: "email" | "whatsapp" }
   | { kind: "scheduled"; at: number }
+  | { kind: "sending" }
   | { kind: "not_sent" };
 
 export function receiptDeliveryState(
-  receipt: ReceiptDeliveryFacts
+  receipt: ReceiptDeliveryFacts,
+  now: number
 ): ReceiptDeliveryState {
   const emailedAt = receipt.emailedAt ?? 0;
   const whatsappSentAt = receipt.whatsappSentAt ?? 0;
@@ -715,7 +716,8 @@ export function receiptDeliveryState(
       ? { at: emailedAt, channel: "email", kind: "sent" }
       : { at: whatsappSentAt, channel: "whatsapp", kind: "sent" };
   }
-  if (receipt.autoSendAt && !receipt.voidedAt) {
+  const automatic = receipt.autoSendAt && !receipt.voidedAt;
+  if (automatic && receipt.autoSendAt && receipt.autoSendAt > now) {
     return { at: receipt.autoSendAt, kind: "scheduled" };
   }
   if (receipt.deliveryFailure) {
@@ -724,19 +726,20 @@ export function receiptDeliveryState(
       kind: "failed",
     };
   }
-  return { kind: "not_sent" };
+  return automatic ? { kind: "sending" } : { kind: "not_sent" };
 }
 
 /**
- * The latest failed send when the state above doesn't already show it,
- * such as a WhatsApp resend that failed after the email went. Any send
- * that goes out clears it.
+ * The latest failed send when the state doesn't already show it, such as
+ * a WhatsApp resend that failed after the email went, or a failed send
+ * from finance while the automatic one is still to come.
  */
 export function receiptDeliveryNote(
-  receipt: ReceiptDeliveryFacts
+  receipt: ReceiptDeliveryFacts,
+  now: number
 ): ReceiptDeliveryFailure | null {
   return receipt.deliveryFailure &&
-    receiptDeliveryState(receipt).kind !== "failed"
+    receiptDeliveryState(receipt, now).kind !== "failed"
     ? (receipt.deliveryFailure as ReceiptDeliveryFailure)
     : null;
 }
@@ -746,8 +749,5 @@ export function receiptAwaitsAutoSend(
   receipt: ReceiptDeliveryFacts,
   now: number
 ): boolean {
-  return (
-    receiptDeliveryState(receipt).kind === "scheduled" &&
-    (receipt.autoSendAt ?? 0) > now
-  );
+  return receiptDeliveryState(receipt, now).kind === "scheduled";
 }

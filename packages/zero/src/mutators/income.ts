@@ -360,8 +360,10 @@ const FILING_LOCKED_FIELDS = [
 
 /**
  * What a live receipt printed or decided from the gift (with the tax
- * certificate choice): changing any of them would leave the receipt wrong,
- * or send it to someone else, so it is voided first.
+ * certificate choice; the mode of receipt decides whether a cash gift
+ * carries the 80G line): changing any of them would leave the receipt
+ * wrong, or send it to someone else, so it is voided first. The programme
+ * is compared on the server, once a project has resolved it.
  */
 const RECEIPT_LOCKED_FIELDS = [
   ...FILING_LOCKED_FIELDS,
@@ -369,6 +371,33 @@ const RECEIPT_LOCKED_FIELDS = [
   "projectId",
   "reference",
 ] as const;
+
+/** Stored text may carry spaces or be empty where the form sends null. */
+function sameValue(stored: unknown, next: unknown): boolean {
+  const normal = (value: unknown) =>
+    typeof value === "string" ? value.trim() || null : (value ?? null);
+  return normal(stored) === normal(next);
+}
+
+async function assertReceiptUnchanged(
+  tx: Tx,
+  id: string,
+  changed: boolean
+): Promise<void> {
+  if (
+    changed &&
+    (await tx.run(
+      zql.contributionReceipt
+        .where("contributionId", id)
+        .where("voidedAt", "IS", null)
+        .one()
+    ))
+  ) {
+    throw new Error(
+      "A receipt was issued for this gift, so its donor, amount, date, channel, mode of receipt, donation type, reference, programme, project and tax certificate choice can't change. Void the receipt first."
+    );
+  }
+}
 
 /**
  * The live donations return filing holding the gift, if any (server only:
@@ -685,23 +714,15 @@ export const contributionMutators = {
         );
       }
     }
-    if (
-      (RECEIPT_LOCKED_FIELDS.some(
-        (field) => (existing[field] ?? null) !== (values[field] ?? null)
+    await assertReceiptUnchanged(
+      tx,
+      args.id,
+      RECEIPT_LOCKED_FIELDS.some(
+        (field) => !sameValue(existing[field], values[field])
       ) ||
         eligibility.deductionEligible !==
-          (existing.deductionEligible ?? "unknown")) &&
-      (await tx.run(
-        zql.contributionReceipt
-          .where("contributionId", args.id)
-          .where("voidedAt", "IS", null)
-          .one()
-      ))
-    ) {
-      throw new Error(
-        "A receipt was issued for this gift, so its donor, amount, date, channel, mode of receipt, donation type, reference, project and tax certificate choice can't change. Void the receipt first."
-      );
-    }
+          (existing.deductionEligible ?? "unknown")
+    );
     if (existing.grantId && values.channel === "in_kind") {
       throw new Error(
         "This contribution counts towards a grant, and grants count money, not in-kind gifts. Ask finance to unlink it from the grant first."
@@ -743,6 +764,11 @@ export const contributionMutators = {
         },
       });
       values.programmeId = await resolveProgramme(tx, values, existing);
+      await assertReceiptUnchanged(
+        tx,
+        args.id,
+        !sameValue(existing.programmeId, values.programmeId)
+      );
     }
     assertProgrammeFitsType(values);
     assertFundFitsType(values);

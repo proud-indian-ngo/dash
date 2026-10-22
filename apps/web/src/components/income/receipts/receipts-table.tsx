@@ -174,7 +174,7 @@ function DeliveryCell({ row }: { row: ReceiptRow }) {
     <span className="flex min-w-0 items-baseline gap-2">
       <span
         className={
-          receiptDeliveryState(row).kind === "sent"
+          receiptDeliveryState(row, Date.now()).kind === "sent"
             ? "truncate"
             : "text-muted-foreground truncate"
         }
@@ -197,7 +197,7 @@ function DeliveryCell({ row }: { row: ReceiptRow }) {
 
 /** Sorts receipts by when they were or will be sent; never-sent ones first. */
 function deliverySortKey(row: ReceiptRow): number {
-  const state = receiptDeliveryState(row);
+  const state = receiptDeliveryState(row, Date.now());
   return state.kind === "sent" || state.kind === "scheduled" ? state.at : 0;
 }
 

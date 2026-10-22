@@ -137,16 +137,13 @@ export interface IssueContributionReceiptPayload {
 // Donation receipt delivery; IDs only.
 export interface SendContributionReceiptPayload {
   receiptId: string;
-  /**
-   * `automatic` for the delayed send queued at issue, which is skipped once
-   * the receipt was delivered; one per click for a send from finance.
-   */
+  /** One per send from finance, so each one goes. */
   requestId: string;
 }
 
-export interface SendContributionReceiptWhatsAppPayload extends SendContributionReceiptPayload {
-  /** The automatic rule: WhatsApp only when the donor has no email address. */
-  onlyWithoutEmail: boolean;
+// The automatic delivery of a receipt (delayed at issue, or "Send now").
+export interface DeliverContributionReceiptPayload {
+  receiptId: string;
 }
 
 // Form 114 certificate email ("Email certificates"); IDs only.
@@ -856,8 +853,9 @@ export interface JobPayloads {
   "scan-whatsapp-groups": ScanWhatsAppGroupsPayload;
   "send-bulk-notification": BulkNotificationPayload;
   "issue-contribution-receipt": IssueContributionReceiptPayload;
+  "deliver-contribution-receipt": DeliverContributionReceiptPayload;
   "send-contribution-receipt": SendContributionReceiptPayload;
-  "send-contribution-receipt-whatsapp": SendContributionReceiptWhatsAppPayload;
+  "send-contribution-receipt-whatsapp": SendContributionReceiptPayload;
   "send-donation-certificate": SendDonationCertificatePayload;
   "store-contribution-receipt-pdf": StoreContributionReceiptPdfPayload;
   "send-event-rsvp-polls": SendEventRsvpPollsPayload;

@@ -103,6 +103,7 @@ if (action === "inspect-automatic") {
                 as "delayMinutes"
             from pgboss.job
             where name in (
+              'deliver-contribution-receipt',
               'send-contribution-receipt',
               'send-contribution-receipt-whatsapp',
               'store-contribution-receipt-pdf'

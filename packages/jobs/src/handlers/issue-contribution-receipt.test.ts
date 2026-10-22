@@ -27,9 +27,7 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   }),
   receiptConfigGaps: () => [],
   ReceiptError,
-  claimAutomaticReceiptSend: async () => null,
   recordReceiptDeliveryFailure: async () => undefined,
-  releaseAutomaticReceiptSend: async () => undefined,
 }));
 mock.module("../enqueue", () => ({
   enqueue: async () => null,
@@ -256,7 +254,7 @@ describe("issueContributionReceipt", () => {
     expect(issued).toBe(false);
   });
 
-  it("stores the PDF now and delays email and WhatsApp by the sending window", async () => {
+  it("stores the PDF now and queues one delivery for the end of the window", async () => {
     const deliveries: Array<{
       name: string;
       options: unknown;
@@ -297,11 +295,6 @@ describe("issueContributionReceipt", () => {
       },
       options: { now: NOW },
     });
-    const delayed = {
-      db: transactionAdapter,
-      singletonKey: "automatic:receipt-1",
-      startAfter: AUTO_SEND_AT,
-    };
     expect(deliveries).toEqual([
       {
         name: "store-contribution-receipt-pdf",
@@ -312,58 +305,52 @@ describe("issueContributionReceipt", () => {
         payload: { receiptId: "receipt-1" },
       },
       {
-        name: "send-contribution-receipt",
-        options: delayed,
-        payload: { receiptId: "receipt-1", requestId: "automatic" },
-      },
-      {
-        name: "send-contribution-receipt-whatsapp",
-        options: delayed,
-        payload: {
-          onlyWithoutEmail: true,
-          receiptId: "receipt-1",
-          requestId: "automatic",
+        name: "deliver-contribution-receipt",
+        options: {
+          db: transactionAdapter,
+          singletonKey: "automatic:receipt-1",
+          startAfter: AUTO_SEND_AT,
         },
+        payload: { receiptId: "receipt-1" },
       },
     ]);
   });
 
-  it.each([
-    "store-contribution-receipt-pdf",
-    "send-contribution-receipt",
-    "send-contribution-receipt-whatsapp",
-  ])("rolls back issuance when %s enqueue fails", async (failedQueue) => {
-    let rolledBack = false;
-    const raw = new Error("donor@example.com enqueue failed", {
-      cause: { code: "23505" },
-    });
+  it.each(["store-contribution-receipt-pdf", "deliver-contribution-receipt"])(
+    "rolls back issuance when %s enqueue fails",
+    async (failedQueue) => {
+      let rolledBack = false;
+      const raw = new Error("donor@example.com enqueue failed", {
+        cause: { code: "23505" },
+      });
 
-    const promise = issueContributionReceipt(
-      payload,
-      dependencies({
-        enqueueJob: async (name) => {
-          if (name === failedQueue) {
-            throw raw;
-          }
-          return "job-1";
-        },
-        runTransaction: async (work) => {
-          try {
-            return await work(tx);
-          } catch (error) {
-            rolledBack = true;
-            throw error;
-          }
-        },
-      })
-    );
+      const promise = issueContributionReceipt(
+        payload,
+        dependencies({
+          enqueueJob: async (name) => {
+            if (name === failedQueue) {
+              throw raw;
+            }
+            return "job-1";
+          },
+          runTransaction: async (work) => {
+            try {
+              return await work(tx);
+            } catch (error) {
+              rolledBack = true;
+              throw error;
+            }
+          },
+        })
+      );
 
-    await expect(promise).rejects.toThrow(
-      "issue_contribution_receipt_failed: Error (23505)"
-    );
-    await expect(promise).rejects.not.toThrow("donor@example.com");
-    expect(rolledBack).toBe(true);
-  });
+      await expect(promise).rejects.toThrow(
+        "issue_contribution_receipt_failed: Error (23505)"
+      );
+      await expect(promise).rejects.not.toThrow("donor@example.com");
+      expect(rolledBack).toBe(true);
+    }
+  );
 
   it("does not issue or deliver again when the job repeats", async () => {
     let hasHistory = false;
@@ -399,7 +386,7 @@ describe("issueContributionReceipt", () => {
       outcome: "existing_receipt",
     });
     expect(issueCount).toBe(1);
-    expect(deliveryCount).toBe(3);
+    expect(deliveryCount).toBe(2);
   });
 
   it("turns donor ID decryption failures into a non-retrying outcome", async () => {

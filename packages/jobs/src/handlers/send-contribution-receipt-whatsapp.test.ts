@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
-  claimAutomaticReceiptSend: async () => null,
   loadReceiptDeliveryTarget: async () => null,
   markReceiptWhatsAppSent: async () => undefined,
   recordReceiptDeliveryFailure: async () => undefined,
-  releaseAutomaticReceiptSend: async () => undefined,
 }));
 mock.module("@pi-dash/whatsapp/cloud", () => ({
   getCloudTemplate: async () => undefined,
@@ -25,36 +23,21 @@ mock.module("../lib/receipt-pdf", () => ({
 const { sendContributionReceiptWhatsApp } =
   await import("./send-contribution-receipt-whatsapp");
 type Deps = NonNullable<Parameters<typeof sendContributionReceiptWhatsApp>[1]>;
-const payload = {
-  onlyWithoutEmail: true,
-  receiptId: "receipt-1",
-  requestId: "automatic",
-};
-const explicit = {
-  onlyWithoutEmail: false,
-  receiptId: "receipt-1",
-  requestId: "q1",
-};
+const payload = { receiptId: "receipt-1", requestId: "q1" };
 const sent: unknown[][] = [];
 const marked: string[] = [];
 const failures: string[] = [];
 const target = {
   contributionId: "c1",
+  delivered: false,
   donorChanged: false,
   email: null,
   phone: "+919999999999",
   voided: false,
 };
 
-let claimable = true;
-
 function dependencies(overrides: Partial<Deps> = {}): Deps {
   return {
-    claims: {
-      claim: async () =>
-        claimable ? new Date("2026-10-22T11:00:00.000Z") : null,
-      release: async () => undefined,
-    },
     loadTarget: async () => target,
     markSent: async (id) => {
       marked.push(id);
@@ -82,12 +65,11 @@ function dependencies(overrides: Partial<Deps> = {}): Deps {
   };
 }
 
-describe("receipt WhatsApp delivery", () => {
+describe("finance's WhatsApp send", () => {
   beforeEach(() => {
     sent.length = 0;
     marked.length = 0;
     failures.length = 0;
-    claimable = true;
   });
 
   it("sends the PDF by WhatsApp when the donor has a phone but no email", async () => {
@@ -107,24 +89,9 @@ describe("receipt WhatsApp delivery", () => {
           },
         },
       },
-      { idempotencyKey: "receipt-whatsapp-receipt-1-automatic" },
+      { idempotencyKey: "receipt-whatsapp-receipt-1-q1" },
     ]);
     expect(marked).toEqual(["receipt-1"]);
-  });
-
-  it("skips WhatsApp when email exists, without fetching or sending the PDF", async () => {
-    const renderPdf = mock(async () => null);
-    expect(
-      await sendContributionReceiptWhatsApp(
-        payload,
-        dependencies({
-          loadTarget: async () => ({ ...target, email: "donor@example.com" }),
-          renderPdf,
-        })
-      )
-    ).toEqual({ outcome: "email_available" });
-    expect(renderPdf).not.toHaveBeenCalled();
-    expect(sent).toEqual([]);
   });
 
   it("skips missing receipts, voided receipts and donors without a phone", async () => {
@@ -141,22 +108,13 @@ describe("receipt WhatsApp delivery", () => {
       ).toEqual({ outcome });
     }
     expect(sent).toEqual([]);
-    // No email and no phone: the automatic send reaches no one.
-    expect(failures).toEqual(["no_contact"]);
-  });
-
-  it("skips the automatic send when it can't claim it (sent, cancelled or taken)", async () => {
-    claimable = false;
-    expect(
-      await sendContributionReceiptWhatsApp(payload, dependencies())
-    ).toEqual({ outcome: "not_due" });
-    expect(sent).toEqual([]);
+    expect(failures).toEqual(["no_phone"]);
   });
 
   it("refuses and records a receipt whose gift changed donor", async () => {
     expect(
       await sendContributionReceiptWhatsApp(
-        explicit,
+        payload,
         dependencies({
           loadTarget: async () => ({ ...target, donorChanged: true }),
         })
@@ -172,8 +130,7 @@ describe("receipt WhatsApp delivery", () => {
         payload,
         dependencies({
           send: async () => "duplicate",
-          sentBefore: async (key) =>
-            key === "receipt-whatsapp-receipt-1-automatic",
+          sentBefore: async (key) => key === "receipt-whatsapp-receipt-1-q1",
         })
       )
     ).toEqual({ outcome: "duplicate" });
@@ -183,7 +140,7 @@ describe("receipt WhatsApp delivery", () => {
   it("sends finance's explicit WhatsApp even when the donor has email", async () => {
     expect(
       await sendContributionReceiptWhatsApp(
-        explicit,
+        payload,
         dependencies({
           loadTarget: async () => ({
             ...target,
@@ -196,16 +153,6 @@ describe("receipt WhatsApp delivery", () => {
     expect(sent[0]?.[2]).toEqual({
       idempotencyKey: "receipt-whatsapp-receipt-1-q1",
     });
-  });
-
-  it("records an explicit send to a donor without a phone as not sent", async () => {
-    expect(
-      await sendContributionReceiptWhatsApp(
-        explicit,
-        dependencies({ loadTarget: async () => ({ ...target, phone: null }) })
-      )
-    ).toEqual({ outcome: "no_phone" });
-    expect(failures).toEqual(["no_phone"]);
   });
 
   it("reports an unapproved template as not sent, without uploading the PDF", async () => {
@@ -278,5 +225,6 @@ describe("receipt WhatsApp delivery", () => {
         })
       )
     ).rejects.toThrow("retry");
+    expect(failures.at(-1)).toBe("whatsapp_failed");
   });
 });

@@ -16,6 +16,7 @@ import {
 } from "./compliance";
 import { withDefaultOutput } from "./create-handler";
 import { handleDeleteR2Object } from "./delete-r2-object";
+import { handleDeliverContributionReceipt } from "./deliver-contribution-receipt";
 import { handleEnsureFiscalYears } from "./ensure-fiscal-years";
 import { handleExpireEventInterests } from "./expire-event-interests";
 import { handleExpireImportRows } from "./expire-import-rows";
@@ -294,6 +295,13 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "send-contribution-receipt-whatsapp",
     NOTIFY_POLL,
     handleSendContributionReceiptWhatsApp
+  );
+  // One job at a time (pg-boss's default local concurrency), so a "Send
+  // now" copy finishes before the delayed one starts and finds it delivered.
+  await boss.work(
+    "deliver-contribution-receipt",
+    NOTIFY_POLL,
+    handleDeliverContributionReceipt
   );
   await boss.work(
     "send-scheduled-message",

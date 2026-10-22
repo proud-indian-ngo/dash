@@ -14,7 +14,6 @@ import {
   inTransaction,
   type IssueContributionReceiptPayload,
 } from "../enqueue";
-import { AUTOMATIC_RECEIPT_REQUEST } from "../lib/receipt-delivery";
 import { safeReceiptJobError } from "../lib/receipt-errors";
 import {
   readReceiptSignature,
@@ -88,10 +87,10 @@ function notReadyReason(
 }
 
 /**
- * Issues one automatic receipt and queues storage and both delivery channels
- * atomically. The PDF is stored now so finance can check it; delivery waits
- * `RECEIPT_AUTO_SEND_DELAY_MS`, and is skipped then if the receipt was
- * voided or already sent by hand.
+ * Issues one automatic receipt and queues PDF storage and its automatic
+ * delivery atomically. The PDF is stored now so finance can check it;
+ * delivery waits `RECEIPT_AUTO_SEND_DELAY_MS`, and is skipped then if the
+ * receipt was voided or already sent.
  * Expected readiness failures are returned as bounded codes; unexpected
  * errors are stripped before pg-boss persists or logs them.
  */
@@ -146,16 +145,10 @@ export async function issueContributionReceipt(
         { receiptId: issued.id },
         options
       );
-      const payload = {
-        receiptId: issued.id,
-        requestId: AUTOMATIC_RECEIPT_REQUEST,
-      };
-      const delayed = { ...options, startAfter: autoSendAt };
-      await deps.enqueueJob("send-contribution-receipt", payload, delayed);
       await deps.enqueueJob(
-        "send-contribution-receipt-whatsapp",
-        { ...payload, onlyWithoutEmail: true },
-        delayed
+        "deliver-contribution-receipt",
+        { receiptId: issued.id },
+        { ...options, startAfter: autoSendAt }
       );
       return { outcome: "issued", receiptId: issued.id };
     });

@@ -1,6 +1,6 @@
 import { db } from "@pi-dash/db";
 import {
-  cancelAutomaticReceiptSend,
+  bringAutomaticReceiptSendForward,
   issueReceiptsIn,
   type IssueReceiptsResult,
   loadReceiptConfig,
@@ -123,9 +123,10 @@ async function sendableTarget(receiptId: string) {
 }
 
 /**
- * Queues finance's email, cancelling the automatic send in the same
- * transaction. Refuses a donor without an email address and an address on
- * the suppression list (bounced or reported as spam).
+ * Queues finance's email. It never touches the automatic send: if this one
+ * goes, that one finds the receipt delivered; if not, it still goes. Refuses
+ * a donor without an email address and an address on the suppression list
+ * (bounced or reported as spam).
  */
 export const queueReceiptEmail = (receiptId: string) =>
   safely("email", async () => {
@@ -140,16 +141,9 @@ export const queueReceiptEmail = (receiptId: string) =>
         "The donor's email address bounced or reported our email as spam, so it can't be emailed."
       );
     }
-    await db.transaction(async (tx) => {
-      await cancelAutomaticReceiptSend(tx, receiptId, {
-        now: new Date(),
-        waiting: false,
-      });
-      await enqueue(
-        "send-contribution-receipt",
-        { receiptId, requestId: uuidv7() },
-        { db: inTransaction(tx) }
-      );
+    await enqueue("send-contribution-receipt", {
+      receiptId,
+      requestId: uuidv7(),
     });
     return { contributionId: target.contributionId };
   });
@@ -159,8 +153,8 @@ export const loadContacts = (): Promise<Record<string, ReceiptContacts>> =>
 
 /**
  * Queues the receipt on WhatsApp, even when the donor has an email
- * address, cancelling the automatic send in the same transaction. Refuses
- * a donor without a phone number.
+ * address; like email, it leaves the automatic send alone. Refuses a donor
+ * without a phone number.
  */
 export const queueReceiptWhatsApp = (receiptId: string) =>
   safely("whatsapp", async () => {
@@ -170,25 +164,18 @@ export const queueReceiptWhatsApp = (receiptId: string) =>
         "The donor has no phone number. Add one on the donor first."
       );
     }
-    await db.transaction(async (tx) => {
-      await cancelAutomaticReceiptSend(tx, receiptId, {
-        now: new Date(),
-        waiting: false,
-      });
-      await enqueue(
-        "send-contribution-receipt-whatsapp",
-        { onlyWithoutEmail: false, receiptId, requestId: uuidv7() },
-        { db: inTransaction(tx) }
-      );
+    await enqueue("send-contribution-receipt-whatsapp", {
+      receiptId,
+      requestId: uuidv7(),
     });
     return { contributionId: target.contributionId };
   });
 
 /**
- * Sends a receipt waiting for its automatic send now, by the same rule:
- * email, or WhatsApp when the donor has no email address. Taking the
- * automatic send in the queuing transaction means the delayed job finds
- * nothing to do, and a second click (another tab) queues nothing.
+ * "Send now": brings the automatic send forward and queues the automatic
+ * delivery at once, in one transaction. A second click or tab finds nothing
+ * to bring forward and is refused. The delayed copy runs after this one on
+ * the same queue: it skips if this one delivered, and tries again if not.
  */
 export const queueReceiptNow = (receiptId: string) =>
   safely("sendNow", async () => {
@@ -198,25 +185,17 @@ export const queueReceiptNow = (receiptId: string) =>
         "The donor has no email address or phone number. Add one on the donor first."
       );
     }
-    const requestId = uuidv7();
     await db.transaction(async (tx) => {
-      const waiting = await cancelAutomaticReceiptSend(tx, receiptId, {
-        now: new Date(),
-        waiting: true,
-      });
-      if (!waiting) {
+      if (
+        !(await bringAutomaticReceiptSendForward(tx, receiptId, new Date()))
+      ) {
         throw new ReceiptError(
           "This receipt isn't waiting to be sent. Email it or send it on WhatsApp instead."
         );
       }
       await enqueue(
-        "send-contribution-receipt",
-        { receiptId, requestId },
-        { db: inTransaction(tx) }
-      );
-      await enqueue(
-        "send-contribution-receipt-whatsapp",
-        { onlyWithoutEmail: true, receiptId, requestId },
+        "deliver-contribution-receipt",
+        { receiptId },
         { db: inTransaction(tx) }
       );
     });

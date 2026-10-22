@@ -2,11 +2,9 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Keep the real database, Resend and PDF modules out of the test.
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
-  claimAutomaticReceiptSend: async () => null,
   loadReceiptDeliveryTarget: async () => null,
   markReceiptEmailed: async () => undefined,
   recordReceiptDeliveryFailure: async () => undefined,
-  releaseAutomaticReceiptSend: async () => undefined,
 }));
 mock.module("@pi-dash/db/queries/email-suppression", () => ({
   getEmailSuppression: async () => null,
@@ -38,12 +36,12 @@ type Deps = Parameters<typeof sendContributionReceipt>[1];
 
 const target = {
   contributionId: "c1",
+  delivered: false,
   donorChanged: false,
   email: "donor@example.com",
   phone: null,
   voided: false,
 };
-const DUE = new Date("2026-10-22T11:00:00.000Z");
 
 const document = {
   donor: { address: "Somewhere", idType: "pan", name: "Test Donor" },
@@ -55,16 +53,9 @@ const document = {
 let sent: Record<string, unknown>[] = [];
 let marked: string[] = [];
 let failures: string[] = [];
-let released: Date[] = [];
 
 function deps(overrides: Partial<NonNullable<Deps>> = {}): NonNullable<Deps> {
   return {
-    claims: {
-      claim: async () => DUE,
-      release: async (_id, at) => {
-        released.push(at);
-      },
-    },
     getSuppression: async () => null,
     loadTarget: async () => target,
     markEmailed: async (id: string) => {
@@ -95,7 +86,6 @@ describe("sendContributionReceipt", () => {
     sent = [];
     marked = [];
     failures = [];
-    released = [];
   });
 
   it("emails the PDF to the donor and stamps the receipt", async () => {
@@ -142,68 +132,25 @@ describe("sendContributionReceipt", () => {
     expect(failures).toEqual(["email_suppressed"]);
   });
 
-  it("sends the automatic email only when it claims the automatic send", async () => {
-    const automatic = { receiptId: "r1", requestId: "automatic" };
-    expect(
-      await sendContributionReceipt(
-        automatic,
-        deps({ claims: { claim: async () => null, release: async () => {} } })
-      )
-    ).toEqual({ outcome: "not_due" });
-    expect(sent).toHaveLength(0);
-    expect(await sendContributionReceipt(automatic, deps())).toEqual({
-      outcome: "sent",
-    });
-    expect(sent).toHaveLength(1);
-  });
-
-  it("hands the claim back when the automatic send throws, so the retry can take it", async () => {
-    await expect(
-      sendContributionReceipt(
-        { receiptId: "r1", requestId: "automatic" },
-        deps({
-          send: async () => {
-            throw new EmailSendError("internal_server_error", "Down", 500);
-          },
-        })
-      )
-    ).rejects.toThrow("Down");
-    expect(released).toEqual([DUE]);
-  });
-
-  it("always sends finance's email without claiming", async () => {
-    let claimed = false;
+  it("always sends finance's email, even once delivered", async () => {
     expect(
       await sendContributionReceipt(
         payload,
-        deps({
-          claims: {
-            claim: async () => {
-              claimed = true;
-              return null;
-            },
-            release: async () => {},
-          },
-        })
+        deps({ loadTarget: async () => ({ ...target, delivered: true }) })
       )
     ).toEqual({ outcome: "sent" });
-    expect(claimed).toBe(false);
     expect(sent).toHaveLength(1);
   });
 
   it("refuses and records a receipt whose gift changed donor", async () => {
-    for (const requestId of ["automatic", "q1"]) {
-      expect(
-        await sendContributionReceipt(
-          { receiptId: "r1", requestId },
-          deps({
-            loadTarget: async () => ({ ...target, donorChanged: true }),
-          })
-        )
-      ).toEqual({ outcome: "donor_changed" });
-    }
+    expect(
+      await sendContributionReceipt(
+        payload,
+        deps({ loadTarget: async () => ({ ...target, donorChanged: true }) })
+      )
+    ).toEqual({ outcome: "donor_changed" });
     expect(sent).toHaveLength(0);
-    expect(failures).toEqual(["donor_changed", "donor_changed"]);
+    expect(failures).toEqual(["donor_changed"]);
   });
 
   it("records a 409 idempotency conflict as already sent", async () => {
@@ -236,6 +183,7 @@ describe("sendContributionReceipt", () => {
       )
     ).rejects.toThrow("Down");
     expect(marked).toHaveLength(0);
+    expect(failures).toEqual(["email_failed"]);
   });
 
   it("doesn't stamp the receipt when email isn't configured", async () => {

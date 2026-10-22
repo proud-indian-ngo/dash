@@ -877,7 +877,8 @@ describe("contribution mutators", () => {
       partyId: "donor-1",
       programmeId: null,
       receivedOn: Date.UTC(2026, 9, 1),
-      reference: "UTR123",
+      // Stored with stray spaces; the form sends it trimmed.
+      reference: " UTR123 ",
       reportingMode: "electronic_or_account_payee",
       status: "received",
     };
@@ -891,7 +892,7 @@ describe("contribution mutators", () => {
       contribution: [gift],
       contributionReceipt: [receipt],
     });
-    // Notes still change.
+    // Notes still change, without the stored spacing tripping the lock.
     await run(
       contributionMutators.update,
       db,
@@ -900,6 +901,7 @@ describe("contribution mutators", () => {
     );
     expect(db.tables.contribution?.[0]?.notes).toBe("Thanked");
     for (const change of [
+      { programmeId: "prog-edu" },
       { partyId: "sponsor-1" },
       { amountPaise: 400_000 },
       { receivedOn: "2026-10-02" },

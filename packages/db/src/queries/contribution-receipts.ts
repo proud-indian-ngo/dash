@@ -1029,6 +1029,8 @@ export async function loadReceiptVerificationFacts(
 /** Where a receipt can be delivered; private, never synced. */
 export interface ReceiptDeliveryTarget {
   contributionId: string;
+  /** Already emailed or sent on WhatsApp. */
+  delivered: boolean;
   /**
    * The gift's donor is no longer the one the receipt was issued to (edited
    * before the lock), so nothing may be sent to the gift's donor.
@@ -1048,10 +1050,12 @@ export async function loadReceiptDeliveryTarget(
     .select({
       contributionId: contributionReceipt.contributionId,
       email: partyPrivate.email,
+      emailedAt: contributionReceipt.emailedAt,
       giftPartyId: contribution.partyId,
       issuedPartyId: contributionReceiptSnapshot.partyId,
       phone: partyPrivate.phone,
       voidedAt: contributionReceipt.voidedAt,
+      whatsappSentAt: contributionReceipt.whatsappSentAt,
     })
     .from(contributionReceipt)
     .innerJoin(
@@ -1070,6 +1074,7 @@ export async function loadReceiptDeliveryTarget(
   }
   return {
     contributionId: row.contributionId,
+    delivered: row.emailedAt !== null || row.whatsappSentAt !== null,
     donorChanged: row.giftPartyId !== row.issuedPartyId,
     email: row.email?.trim() || null,
     phone: row.phone?.trim() || null,
@@ -1077,88 +1082,30 @@ export async function loadReceiptDeliveryTarget(
   };
 }
 
-const undelivered = and(
-  isNull(contributionReceipt.voidedAt),
-  isNull(contributionReceipt.emailedAt),
-  isNull(contributionReceipt.whatsappSentAt)
-);
-
 /**
- * Takes the automatic send for the job about to make it: clears
- * `autoSendAt` only if it is still set and nothing was delivered, so
- * exactly one send (automatic or finance's) goes. Returns the time it was
- * due, to hand back if the send throws, or null when there is nothing to
- * send.
+ * "Send now": brings the automatic send forward to `now`, only while it is
+ * still in the future and nothing was sent, so a second click or tab finds
+ * nothing to bring forward. The caller queues the delivery in `tx`.
  */
-export async function claimAutomaticReceiptSend(
-  receiptId: string
-): Promise<Date | null> {
-  const [row] = await db
-    .select({ autoSendAt: contributionReceipt.autoSendAt })
-    .from(contributionReceipt)
-    .where(eq(contributionReceipt.id, receiptId))
-    .limit(1);
-  if (!row?.autoSendAt) {
-    return null;
-  }
-  const claimed = await db
-    .update(contributionReceipt)
-    .set({ autoSendAt: null })
-    .where(
-      and(
-        eq(contributionReceipt.id, receiptId),
-        eq(contributionReceipt.autoSendAt, row.autoSendAt),
-        undelivered
-      )
-    )
-    .returning({ id: contributionReceipt.id });
-  return claimed.length > 0 ? row.autoSendAt : null;
-}
-
-/**
- * Hands a claimed automatic send back after it threw, so pg-boss's retry
- * can take it again; not if finance sent the receipt meanwhile.
- */
-export async function releaseAutomaticReceiptSend(
-  receiptId: string,
-  dueAt: Date
-): Promise<void> {
-  await db
-    .update(contributionReceipt)
-    .set({ autoSendAt: dueAt })
-    .where(
-      and(
-        eq(contributionReceipt.id, receiptId),
-        isNull(contributionReceipt.autoSendAt),
-        undelivered
-      )
-    );
-}
-
-/**
- * Cancels the automatic send as finance queues one, in that transaction.
- * With `waiting` ("Send now") it applies only while the receipt still
- * waits for it, and says whether it did, so two clicks queue one send.
- */
-export async function cancelAutomaticReceiptSend(
+export async function bringAutomaticReceiptSendForward(
   tx: ReceiptTx,
   receiptId: string,
-  options: { now: Date; waiting: boolean }
+  now: Date
 ): Promise<boolean> {
-  const cancelled = await tx
+  const moved = await tx
     .update(contributionReceipt)
-    .set({ autoSendAt: null })
+    .set({ autoSendAt: now })
     .where(
-      options.waiting
-        ? and(
-            eq(contributionReceipt.id, receiptId),
-            gt(contributionReceipt.autoSendAt, options.now),
-            undelivered
-          )
-        : eq(contributionReceipt.id, receiptId)
+      and(
+        eq(contributionReceipt.id, receiptId),
+        gt(contributionReceipt.autoSendAt, now),
+        isNull(contributionReceipt.voidedAt),
+        isNull(contributionReceipt.emailedAt),
+        isNull(contributionReceipt.whatsappSentAt)
+      )
     )
     .returning({ id: contributionReceipt.id });
-  return cancelled.length > 0;
+  return moved.length > 0;
 }
 
 export async function markReceiptEmailed(

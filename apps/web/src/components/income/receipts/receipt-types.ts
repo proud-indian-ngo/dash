@@ -57,9 +57,9 @@ export function liveReceipt<T extends { voidedAt?: number | null }>(
   return receipts?.find((receipt) => !receipt.voidedAt) ?? null;
 }
 
-/** One line on where a receipt's delivery stands. */
+/** One line on where a receipt's delivery stands now. */
 export function receiptDeliveryLabel(row: ReceiptDeliveryFacts): string {
-  const state = receiptDeliveryState(row);
+  const state = receiptDeliveryState(row, Date.now());
   const at = (time: number) => format(new Date(time), DATE_TIME);
   switch (state.kind) {
     case "failed":
@@ -70,6 +70,8 @@ export function receiptDeliveryLabel(row: ReceiptDeliveryFacts): string {
         : `Sent on WhatsApp on ${at(state.at)}`;
     case "scheduled":
       return `Sends automatically on ${at(state.at)}`;
+    case "sending":
+      return "Sending";
     default:
       return "Not sent";
   }
@@ -79,7 +81,7 @@ export function receiptDeliveryLabel(row: ReceiptDeliveryFacts): string {
 export function receiptDeliveryNoteLabel(
   row: ReceiptDeliveryFacts
 ): string | null {
-  const failure = receiptDeliveryNote(row);
+  const failure = receiptDeliveryNote(row, Date.now());
   return failure
     ? `Last send failed: ${RECEIPT_DELIVERY_FAILURE_LABELS[failure]}`
     : null;

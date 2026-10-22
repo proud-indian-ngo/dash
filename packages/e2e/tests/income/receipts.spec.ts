@@ -527,7 +527,7 @@ test.describe("Income: donation receipts (finance)", () => {
       timeout: 30_000,
     });
     const number = ((await giftCell.textContent()) ?? "").trim();
-    // Issued and stored now; both sends wait the one-hour window.
+    // Issued and stored now; delivery waits the one-hour window.
     await expect
       .poll(async () => await inspectAutomatic(reference), {
         timeout: 30_000,
@@ -536,21 +536,15 @@ test.describe("Income: donation receipts (finance)", () => {
         autoSendMinutes: 60,
         jobs: [
           {
+            name: "deliver-contribution-receipt",
+            delayMinutes: 60,
+            outcome: null,
+            state: "created",
+          },
+          {
             name: "issue-contribution-receipt",
             outcome: "issued",
             state: "completed",
-          },
-          {
-            name: "send-contribution-receipt",
-            delayMinutes: 60,
-            outcome: null,
-            state: "created",
-          },
-          {
-            name: "send-contribution-receipt-whatsapp",
-            delayMinutes: 60,
-            outcome: null,
-            state: "created",
           },
           {
             name: "store-contribution-receipt-pdf",
@@ -594,44 +588,34 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(delivery).toHaveText("Not sent: WhatsApp isn't set up", {
       timeout: 30_000,
     });
-    // The delayed automatic sends are still queued, and will find the
-    // receipt was sent by hand only if a send went out.
+    // Send now ran the automatic delivery at once (email, as the donor has
+    // an address); the delayed copy still waits and will find it delivered
+    // or try again.
     await expect
       .poll(async () => (await inspectAutomatic(reference)).jobs, {
         timeout: 30_000,
       })
       .toEqual([
         {
+          name: "deliver-contribution-receipt",
+          outcome: "not_configured",
+          state: "completed",
+        },
+        {
+          name: "deliver-contribution-receipt",
+          delayMinutes: 60,
+          outcome: null,
+          state: "created",
+        },
+        {
           name: "issue-contribution-receipt",
           outcome: "issued",
           state: "completed",
         },
         {
-          name: "send-contribution-receipt",
-          outcome: "not_configured",
-          state: "completed",
-        },
-        {
-          delayMinutes: 60,
-          name: "send-contribution-receipt",
-          outcome: null,
-          state: "created",
-        },
-        {
-          name: "send-contribution-receipt-whatsapp",
-          outcome: "email_available",
-          state: "completed",
-        },
-        {
           name: "send-contribution-receipt-whatsapp",
           outcome: "not_configured",
           state: "completed",
-        },
-        {
-          name: "send-contribution-receipt-whatsapp",
-          delayMinutes: 60,
-          outcome: null,
-          state: "created",
         },
         {
           name: "store-contribution-receipt-pdf",
