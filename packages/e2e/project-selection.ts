@@ -39,8 +39,6 @@ const roleOnlySpecs = {
     "events/event-updates.spec.ts",
     "events/photo-notifications.spec.ts",
     "events/public-events-filters.spec.ts",
-    "events/recurring-event-exclusions.spec.ts",
-    "events/recurring-event-scope.spec.ts",
     "events/recurring-events.spec.ts",
     "events/rsvp-poll-lead-time.spec.ts",
     "kalakriti/center-registration-controls.spec.ts",

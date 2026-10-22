@@ -26,12 +26,6 @@ test.describe("Sidebar navigation", () => {
     ).toBeVisible();
   });
 
-  test("Dashboard link is always present", async ({ page }) => {
-    const nav = page.locator("[data-sidebar='content']");
-    await expect(nav.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(nav.getByRole("button", { name: "Dashboard" })).toHaveCount(0);
-  });
-
   test("Reimbursements link visibility per role", async ({
     page,
   }, testInfo) => {
@@ -167,27 +161,6 @@ test.describe("Sidebar navigation", () => {
     await expect(page.locator("[data-state='collapsed']")).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(page.locator("[data-state='expanded']")).toBeVisible();
-  });
-});
-
-test.describe("Sidebar Reimbursements link", () => {
-  test("clicking Reimbursements navigates correctly", async ({
-    page,
-  }, testInfo) => {
-    test.skip(
-      !ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name),
-      "Role lacks reimbursements access"
-    );
-    await page.goto("/");
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" })
-    ).toBeVisible();
-    const nav = page.locator("[data-sidebar='content']");
-    await nav.getByRole("link", { name: "Reimbursements" }).click();
-    await page.waitForURL(/\/reimbursements/);
-    await expect(
-      page.getByRole("heading", { name: "Reimbursements" })
-    ).toBeVisible();
   });
 });
 

@@ -128,6 +128,7 @@ test.describe("Team delete", () => {
 
     const table = page.getByRole("table");
     await expect(table).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add team" })).toBeHidden();
 
     // Wait for data to load
     const rows = table.getByRole("row");

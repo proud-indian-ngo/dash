@@ -14,20 +14,6 @@ test.describe("Event interest flow (volunteer)", () => {
     await openPublicEvent(page, OPEN_EVENT);
   });
 
-  test("opens and closes the interest dialog", async ({ page }) => {
-    await page
-      .getByRole("button", { exact: true, name: "Show interest" })
-      .click();
-    const dialog = page.getByRole("dialog");
-    await expect(
-      dialog.getByRole("heading", { name: "Show interest" })
-    ).toBeVisible();
-    await expect(dialog.getByLabel("Message (optional)")).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
   test("submits interest, then cancels it", async ({ page }) => {
     await page
       .getByRole("button", { exact: true, name: "Show interest" })

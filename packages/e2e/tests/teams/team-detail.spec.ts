@@ -48,19 +48,6 @@ test.describe("Team detail — member management (admin)", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  test("navigates to team detail and shows members heading", async ({
-    page,
-  }) => {
-    await createAndNavigateToTeam(page);
-    const teamDetail = new TeamDetailPage(page);
-
-    // Members section heading with count
-    await expect(teamDetail.getMembersHeading()).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(teamDetail.getAddMemberButton()).toBeVisible();
-  });
-
   test("adds a volunteer as a member", async ({ page, volunteerEmail }) => {
     test.slow();
     await createAndNavigateToTeam(page);

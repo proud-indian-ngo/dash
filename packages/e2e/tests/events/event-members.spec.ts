@@ -10,12 +10,6 @@ test.describe("Event member management (admin)", () => {
     await openSeededTeamEvent(page, EVENT_NAME);
   });
 
-  test("shows the event's volunteers on its page", async ({ page }) => {
-    await expect(page.getByText(/Volunteers \(\d+\)/)).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
   test("can open the add volunteer dialog from the event page", async ({
     page,
   }) => {

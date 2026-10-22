@@ -27,8 +27,8 @@ test.describe("Route guards — volunteer redirects", () => {
     await expectRedirectToDashboard(page, "/jobs");
   });
 
-  test("volunteer redirected from /settings/roles to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
+  test("volunteer redirected from /users to /", async ({ page }) => {
+    await expectRedirectToDashboard(page, "/users");
   });
 
   test("volunteer redirected from /scheduled-messages to /", async ({
@@ -47,10 +47,6 @@ test.describe("Route guards — admin redirects", () => {
     await expectRedirectToDashboard(page, "/jobs");
   });
 
-  test("admin redirected from /settings/roles to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
   test("admin redirected from /export to /", async ({ page }) => {
     await expectRedirectToDashboard(page, "/export");
   });
@@ -65,14 +61,18 @@ test.describe("Route guards — finance_admin redirects", () => {
     await expectRedirectToDashboard(page, "/jobs");
   });
 
-  test("finance_admin redirected from /settings/roles to /", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
   test("finance_admin redirected from /export to /", async ({ page }) => {
     await expectRedirectToDashboard(page, "/export");
+  });
+});
+
+test.describe("Route guards — finance_admin access", () => {
+  test("finance_admin can view /vendors", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Finance-admin only");
+    await page.goto("/vendors");
+    await expect(
+      page.getByRole("heading", { exact: true, name: "Vendors" })
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -103,10 +103,12 @@ test.describe("Route guards — unoriented_volunteer redirects", () => {
     await expectRedirectToDashboard(page, "/jobs");
   });
 
-  test("unoriented_volunteer redirected from /settings/roles", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
+  test("unoriented_volunteer redirected from /vendors", async ({ page }) => {
+    await expectRedirectToDashboard(page, "/vendors");
+  });
+
+  test("unoriented_volunteer redirected from /teams", async ({ page }) => {
+    await expectRedirectToDashboard(page, "/teams");
   });
 
   test("unoriented_volunteer redirected from /scheduled-messages", async ({

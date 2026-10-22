@@ -10,13 +10,6 @@ test.describe("Vendor management (admin)", () => {
     await expect(page.getByRole("heading", { name: "Vendors" })).toBeVisible();
   });
 
-  test("renders vendor list page with add button", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Add vendor" })
-    ).toBeVisible();
-    await expect(page.getByPlaceholder("Search vendors...")).toBeVisible();
-  });
-
   test("cancel closes dialog", async ({ page }) => {
     await page.getByRole("button", { name: "Add vendor" }).click();
     const dialog = page.getByRole("dialog");

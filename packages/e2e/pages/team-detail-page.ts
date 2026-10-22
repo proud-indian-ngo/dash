@@ -11,10 +11,6 @@ export class TeamDetailPage {
     this.page = page;
   }
 
-  getMembersHeading(): Locator {
-    return this.page.getByRole("heading", { name: /Members \(\d+\)/ });
-  }
-
   getAddMemberButton(): Locator {
     return this.page.getByRole("button", { name: "Add member" });
   }

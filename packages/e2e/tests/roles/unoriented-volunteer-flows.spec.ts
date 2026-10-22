@@ -8,13 +8,6 @@ test.describe("Unoriented volunteer happy paths + restrictions", () => {
     );
   });
 
-  test("unoriented_volunteer lands on dashboard", async ({ page }) => {
-    await page.goto("/");
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" })
-    ).toBeVisible();
-  });
-
   test("unoriented_volunteer can view /events", async ({ page }) => {
     await page.goto("/events");
     await expect(

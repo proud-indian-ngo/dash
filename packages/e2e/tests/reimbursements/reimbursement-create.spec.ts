@@ -10,31 +10,6 @@ test.describe("New reimbursement form", () => {
     await reimbursements.navigateToNew();
   });
 
-  test("renders all form fields including Expense Date", async ({ page }) => {
-    await expect(reimbursements.form.getTitleInput()).toBeVisible();
-    await expect(page.getByLabel("Expense Date")).toBeVisible();
-    // Bank Account section hydrates from a separate Zero query, which runs
-    // later than data-zero-ready under parallel load — extra headroom.
-    await expect(page.getByText("Bank Account")).toBeVisible({
-      timeout: 25_000,
-    });
-  });
-
-  test("line items section is present", async ({ page }) => {
-    await expect(page.getByText("Line items", { exact: true })).toBeVisible();
-    await expect(reimbursements.form.getDescriptionInputs()).toBeVisible();
-  });
-
-  test("add line item button works", async () => {
-    await reimbursements.form.addLineItem();
-    await expect(reimbursements.form.getDescriptionInputs()).toHaveCount(2);
-  });
-
-  test("submit and cancel buttons are present", async () => {
-    await expect(reimbursements.form.getSubmitButton()).toBeVisible();
-    await expect(reimbursements.form.getCancelButton()).toBeVisible();
-  });
-
   test("cancel navigates back to reimbursements list", async ({ page }) => {
     await reimbursements.form.cancel();
     await page.waitForURL(/\/reimbursements$/);

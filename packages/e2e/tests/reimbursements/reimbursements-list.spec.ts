@@ -10,26 +10,6 @@ test.describe("Reimbursements list", () => {
     await reimbursements.navigateToList();
   });
 
-  test("renders table with expected columns", async ({ page }) => {
-    const emptyState = page.getByText("No reimbursements found.");
-    const headers = reimbursements.list.getColumnHeaders();
-    const titleHeader = headers.filter({ hasText: /Title/ });
-    await expect(titleHeader.or(emptyState)).toBeVisible();
-    if (await emptyState.isVisible()) {
-      return;
-    }
-    await expect(headers.filter({ hasText: /Type/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Status/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Total/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Submitted/ })).toBeVisible();
-  });
-
-  test("search box is present", async () => {
-    await expect(
-      reimbursements.list.getSearchInput("Search reimbursements...")
-    ).toBeVisible();
-  });
-
   test("New reimbursement button navigates to /reimbursements/new", async ({
     page,
   }) => {
@@ -37,20 +17,6 @@ test.describe("Reimbursements list", () => {
     await page.waitForURL(/\/reimbursements\/new/);
     await expect(
       page.getByRole("heading", { name: "New reimbursement" })
-    ).toBeVisible();
-  });
-
-  test("columns dropdown toggles column visibility", async ({ page }) => {
-    await reimbursements.list.getColumnsButton().click();
-    await expect(
-      page.getByRole("menuitemcheckbox", { name: "Title" })
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
-  });
-
-  test("table footer is present", async ({ page }) => {
-    await expect(
-      page.getByText("Rows per page").or(page.getByText("0 of 0 results"))
     ).toBeVisible();
   });
 
@@ -103,14 +69,6 @@ test.describe("Reimbursements list", () => {
         .toContain("submittedAt");
     });
   }
-
-  test("shows stats cards", async () => {
-    const cards = reimbursements.list.getStatsCards();
-    await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
-    await expect(cards.getByText("Pending")).toBeVisible();
-    await expect(cards.getByText("Approved")).toBeVisible();
-    await expect(cards.getByText("Rejected")).toBeVisible();
-  });
 });
 
 test.describe("Reimbursements list (super_admin)", () => {

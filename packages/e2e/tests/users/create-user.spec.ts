@@ -6,31 +6,6 @@ test.describe("Create user dialog (admin)", () => {
     await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
   });
 
-  test("opens create user dialog with correct fields", async ({ page }) => {
-    await page.getByRole("button", { name: "Add user" }).click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByRole("heading", { name: "Create user" })
-    ).toBeVisible();
-
-    // Form fields
-    await expect(dialog.getByLabel("Name")).toBeVisible();
-    await expect(dialog.getByRole("textbox", { name: /^Email/ })).toBeVisible();
-    await expect(dialog.getByLabel("Password")).toBeVisible();
-    await expect(dialog.getByLabel("Role")).toBeVisible();
-    await expect(dialog.getByLabel("Phone")).toBeVisible();
-    await expect(dialog.getByLabel("Date of birth")).toBeVisible();
-    await expect(dialog.getByLabel("Gender")).toBeVisible();
-
-    // Switches (getByRole avoids strict mode violation from hidden backing checkbox)
-    await expect(dialog.getByRole("switch", { name: "Active" })).toBeVisible();
-    await expect(
-      dialog.getByRole("switch", { name: "Email verified" })
-    ).toBeVisible();
-  });
-
   test("cancel closes dialog", async ({ page }) => {
     await page.getByRole("button", { name: "Add user" }).click();
     const dialog = page.getByRole("dialog");

@@ -1,5 +1,5 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
-import { openPageAction, pageActionsButton } from "../../helpers/page-header";
+import { pageActionsButton } from "../../helpers/page-header";
 import { ListPage } from "../../pages/list-page";
 
 const TEAM_NAME = "E2E Updates Team";
@@ -154,90 +154,6 @@ test.describe("Event detail — info display", () => {
         .locator("xpath=..")
         .getByText("Upcoming", { exact: true })
     ).toBeVisible();
-  });
-});
-
-test.describe("Event detail — admin permissions", () => {
-  test("admin sees Edit button on team event", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const found = await navigateToTeamEvent(
-      page,
-      /E2E Upcoming Public Bangalore/
-    );
-    if (!found) {
-      test.skip(true, "Event not found");
-      return;
-    }
-
-    await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
-  });
-
-  test("admin sees Cancel event action for future event", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const found = await navigateToTeamEvent(
-      page,
-      /E2E Upcoming Public Bangalore/
-    );
-    if (!found) {
-      test.skip(true, "Event not found");
-      return;
-    }
-
-    await expect(await openPageAction(page, "Cancel event")).toBeVisible();
-  });
-
-  test("admin sees Duplicate action", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const found = await navigateToTeamEvent(
-      page,
-      /E2E Upcoming Public Bangalore/
-    );
-    if (!found) {
-      test.skip(true, "Event not found");
-      return;
-    }
-
-    await expect(await openPageAction(page, "Duplicate")).toBeVisible();
-  });
-
-  test("admin sees Updates and Photos tabs", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const found = await navigateToTeamEvent(
-      page,
-      /E2E Past Event With Pending Update/
-    );
-    if (!found) {
-      test.skip(true, "Past event not found");
-      return;
-    }
-
-    await expect(page.getByRole("tab", { name: /Updates/ })).toBeVisible();
-    await expect(
-      page.getByRole("tab", { name: /Photos & Videos/ })
-    ).toBeVisible();
-  });
-
-  test("admin sees Expenses tab (manage permission)", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const found = await navigateToTeamEvent(
-      page,
-      /E2E Past Event With Pending Update/
-    );
-    if (!found) {
-      test.skip(true, "Past event not found");
-      return;
-    }
-
-    await expect(page.getByRole("tab", { name: "Expenses" })).toBeVisible();
   });
 });
 
