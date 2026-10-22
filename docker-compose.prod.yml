@@ -62,11 +62,12 @@ services:
         aliases: [pi-dash-postgres]
     restart: unless-stopped
 
-  # The governance signing service. No published port:
-  # only the web app reaches it, over the Dokploy network.
+  # The governance signing service: the generic signr image with the pi-dash
+  # plugin. No published port: only the web app reaches it, over the Dokploy
+  # network.
   signing:
     build:
-      context: services/signing
+      context: services/signing-plugin
       dockerfile: Dockerfile
     environment:
       TZ: Asia/Kolkata

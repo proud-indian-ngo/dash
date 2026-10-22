@@ -111,8 +111,8 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SIGNING_SERVICE_URL` | Yes | Internal URL of `services/signing` (`http://pi-dash-signing:8080` in production). Issuing circulars, making minutes and recording declarations need it; unset, they fail with "needs the signing service" and signed uploads are refused |
-| `SIGNING_SERVICE_TOKEN` | Yes | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
+| `SIGNING_SERVICE_URL` | Yes | Internal URL of the signing service (`http://pi-dash-signing:8080` in production). Issuing circulars, making minutes and recording declarations need it; unset, they fail with "needs the signing service" and signed uploads are refused |
+| `SIGNING_SERVICE_TOKEN` | Yes | Bearer token shared with the signing service, `openssl rand -base64 32`. The service refuses to start with one under 32 characters or with fewer than 10 distinct characters |
 
 ### Observability
 
@@ -188,15 +188,9 @@ Turning backup on needs a fresh replica: a replica built without backup crash-lo
 
 ### Signing service
 
-`services/signing` runs as `signing`, reachable only from the web app. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+The `signing` service is the generic signr image with `services/signing-plugin` installed. Its base image in `services/signing-plugin/Dockerfile` is a placeholder until signr-service is published; set it before a production build. Only the web app reaches it. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
-The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
-
-When a change spans the helper, release in this order, since the dashboard refuses helpers older than `MIN_HELPER_VERSION` and web must not deploy before the release exists:
-
-1. Merge, then push the tag `signing-helper-vX.Y.Z`.
-2. Approve the `signing-helper-release` environment and wait for the release. Confirm it has the `.dmg`, the app `.zip`, the `.exe`, `pidash-sign-manifest.json` and its `.sig`.
-3. Deploy Compose for the signing service, then merge or deploy web.
+The signr helper calls `/api/signing/v1/jobs/<token>` and reads `/.well-known/signr.json` on `APP_URL` (or `BETTER_AUTH_URL`), which must be `https` on a domain name. Helper releases come from the signr repository; raising `MIN_HELPER_VERSION` in `apps/web/src/lib/governance/signing-jobs.ts` makes trustees update before they can sign, so raise it only once that release exists.
 
 ### WhatsApp gateway (optional)
 

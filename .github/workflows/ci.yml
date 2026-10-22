@@ -165,7 +165,7 @@ jobs:
       R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
       # The signing service, built and started by "Start signing service".
       SIGNING_SERVICE_URL: http://localhost:4872
-      SIGNING_SERVICE_TOKEN: e2e-signing-token
+      SIGNING_SERVICE_TOKEN: e2e-signing-token-0123456789abcdefghij
       E2E_SIGNING_PKI_DIR: /tmp/signing-pki
       ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
@@ -269,8 +269,9 @@ jobs:
         run: |
           (
             # Trusts only this run's throwaway CA and timestamps with the
-            # fake timestamp authority beside it; see run-e2e.sh.
-            (docker build -t pi-dash-signing services/signing &&
+            # fake timestamp authority beside it; see run-e2e.sh. The
+            # plugin builds on the signr-service image its Dockerfile names.
+            (docker build -t pi-dash-signing services/signing-plugin &&
               bash packages/e2e/signing/make-test-pki.sh pi-dash-signing "$E2E_SIGNING_PKI_DIR" &&
               docker run -d --name signing -p 4872:8080 \
                 -e SIGNING_SERVICE_TOKEN="$SIGNING_SERVICE_TOKEN" \
@@ -279,7 +280,7 @@ jobs:
                 -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" \
                 -v "$E2E_SIGNING_PKI_DIR/tsa:/test-tsa:ro" \
                 -v "$PWD/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro" \
-                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn pidash_signing.app:app --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
+                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn signr_service.app:create_app --factory --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
             echo $? > /tmp/signing.exit
           ) > /dev/null 2>&1 &
 

@@ -6,7 +6,7 @@ The repository map. Paths are relative to the repository root. Commands, boundar
 
 `docs/listings/` holds what the ChatGPT and Claude directory listings are made from ([assistants](docs/architecture/assistants.md#directory-listings)).
 
-`services/` holds what isn't a Bun workspace and runs on its own: `signing`, the Python (pyHanko) service that checks and signs governance PDFs ([governance](docs/architecture/governance.md#signing-service)), and `signing-helper`, the Rust app trustees install to sign with their DSC token. Each has its own README.
+`services/` holds what isn't a Bun workspace and runs on its own: `signing-plugin`, pi-dash's plugin for the generic signr signing service that checks and signs governance PDFs ([governance](docs/architecture/governance.md#signing-service)), with its own README. Trustees sign with their DSC token through the signr helper, released from the signr repository.
 
 ## Packages
 

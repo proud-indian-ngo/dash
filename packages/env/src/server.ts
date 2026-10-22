@@ -117,8 +117,8 @@ export const env = createEnv({
       ),
     /** Signing secret (`whsec_…`) of the Resend webhook for bounces and complaints; unset disables `/api/email/webhook`. */
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
-    /** Shared bearer token for the internal signing service (services/signing). */
-    SIGNING_SERVICE_TOKEN: z.string().min(16).optional(),
+    /** Shared bearer token for the internal signing service (services/signing-plugin), which refuses one under 32 characters. */
+    SIGNING_SERVICE_TOKEN: z.string().min(32).optional(),
     /** Internal URL of the signing service; unset stores signed PDFs without a signature check. */
     SIGNING_SERVICE_URL: z.url().optional(),
     /** Cloudflare Turnstile secret gating sign-in, sign-up and password reset. Required in production; unset skips the check. */

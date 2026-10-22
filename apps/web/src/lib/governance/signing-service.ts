@@ -18,7 +18,7 @@ export function signingServiceConfigured(): boolean {
 }
 
 /**
- * Asks the internal signing service (services/signing) to check every
+ * Asks the internal signing service (services/signing-plugin) to check every
  * signature in a PDF. Never throws: when the service is missing or fails,
  * the report says "unavailable" and the document is stored unchecked, to be
  * checked again later. With `baseLength`, the report also says how much the
@@ -92,7 +92,7 @@ export async function prepareSignatureFields(
     );
   }
   const response = await fetchImpl(
-    new URL("/prepare", env.SIGNING_SERVICE_URL),
+    new URL("/pidash/prepare", env.SIGNING_SERVICE_URL),
     {
       body: JSON.stringify({
         fields,
