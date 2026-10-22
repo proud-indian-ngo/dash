@@ -124,9 +124,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },
-  workers: isCI
-    ? undefined
-    : Math.min(4, Math.max(1, Math.floor(cpus().length / 2))),
+  // CI runners have 4 vCPUs shared with Postgres, zero-cache and the server.
+  workers: isCI ? 3 : Math.min(4, Math.max(1, Math.floor(cpus().length / 2))),
   // When BASE_URL is set, run-e2e.sh already started and pre-warmed the server
   ...(process.env.BASE_URL
     ? {}
