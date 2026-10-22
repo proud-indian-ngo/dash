@@ -37,7 +37,7 @@ Fixture users are inserted by `helpers/seed-test-user.ts`, bypassing Better Auth
 
 Feature helpers in `helpers/` add the entities a spec needs. They must be idempotent (`onConflictDoNothing()`) and return inserted IDs. `helpers/seed-dev-data.ts` seeds development data for cloud sessions; the harness does not run it.
 
-`run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need. CI doesn't start it: the specs that need it also need R2 and skip there.
+`run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need. That service trusts only a throwaway CA made for the run (`signing/make-test-pki.py`), with a key and certificate for each seeded trustee, so specs can sign by playing the DSC helper (`helpers/dsc-helper.ts`). CI doesn't start it: the specs that need it also need R2 and skip there.
 
 ## `run-e2e.sh`
 
