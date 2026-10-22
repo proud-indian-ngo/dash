@@ -352,4 +352,4 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: packages/e2e/.test-durations.json
-          key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}
+          key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
