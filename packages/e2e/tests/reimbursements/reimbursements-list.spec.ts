@@ -48,52 +48,6 @@ test.describe("Reimbursements list", () => {
     await page.keyboard.press("Escape");
   });
 
-  test("hiding Title preserves the claim row intent target", async ({
-    page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "super_admin",
-      "Requires the seeded reimbursement"
-    );
-    await reimbursements.list
-      .getSearchInput("Search reimbursements...")
-      .fill("E2E Seed Reimbursement");
-    const row = reimbursements.list
-      .getTable()
-      .getByRole("row")
-      .filter({ hasText: "E2E Seed Reimbursement" });
-    const actions = row.getByRole("button", { name: "Row actions" });
-    await expect(actions).toBeVisible();
-    const requestId = await row
-      .locator("[data-reimbursement-intent-id]")
-      .getAttribute("data-reimbursement-intent-id");
-    expect(requestId).toBeTruthy();
-
-    await reimbursements.list.getColumnsButton().click();
-    await page.getByRole("menuitemcheckbox", { name: "Title" }).click();
-    await page.keyboard.press("Escape");
-    await expect(
-      reimbursements.list.getTable().getByText("E2E Seed Reimbursement")
-    ).toHaveCount(0);
-    const hiddenTitleRow = reimbursements.list
-      .getTable()
-      .getByRole("row")
-      .filter({
-        has: page.locator(`[data-reimbursement-intent-id="${requestId}"]`),
-      });
-    await expect(
-      hiddenTitleRow.getByRole("button", { name: "Row actions" })
-    ).toBeVisible();
-    await hiddenTitleRow.hover();
-    await hiddenTitleRow.focus();
-    await expect(hiddenTitleRow).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(`/reimbursements/${requestId}`);
-    await expect(
-      page.getByRole("heading", { name: "E2E Seed Reimbursement", exact: true })
-    ).toBeVisible();
-  });
-
   test("table footer is present", async ({ page }) => {
     await expect(
       page.getByText("Rows per page").or(page.getByText("0 of 0 results"))
@@ -150,10 +104,69 @@ test.describe("Reimbursements list", () => {
     });
   }
 
+  test("shows stats cards", async () => {
+    const cards = reimbursements.list.getStatsCards();
+    await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
+    await expect(cards.getByText("Pending")).toBeVisible();
+    await expect(cards.getByText("Approved")).toBeVisible();
+    await expect(cards.getByText("Rejected")).toBeVisible();
+  });
+});
+
+test.describe("Reimbursements list (super_admin)", () => {
+  let reimbursements: ReimbursementPage;
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only seed rows");
+    reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
+  });
+
+  test("hiding Title preserves the claim row intent target", async ({
+    page,
+  }) => {
+    await reimbursements.list
+      .getSearchInput("Search reimbursements...")
+      .fill("E2E Seed Reimbursement");
+    const row = reimbursements.list
+      .getTable()
+      .getByRole("row")
+      .filter({ hasText: "E2E Seed Reimbursement" });
+    const actions = row.getByRole("button", { name: "Row actions" });
+    await expect(actions).toBeVisible();
+    const requestId = await row
+      .locator("[data-reimbursement-intent-id]")
+      .getAttribute("data-reimbursement-intent-id");
+    expect(requestId).toBeTruthy();
+
+    await reimbursements.list.getColumnsButton().click();
+    await page.getByRole("menuitemcheckbox", { name: "Title" }).click();
+    await page.keyboard.press("Escape");
+    await expect(
+      reimbursements.list.getTable().getByText("E2E Seed Reimbursement")
+    ).toHaveCount(0);
+    const hiddenTitleRow = reimbursements.list
+      .getTable()
+      .getByRole("row")
+      .filter({
+        has: page.locator(`[data-reimbursement-intent-id="${requestId}"]`),
+      });
+    await expect(
+      hiddenTitleRow.getByRole("button", { name: "Row actions" })
+    ).toBeVisible();
+    await hiddenTitleRow.hover();
+    await hiddenTitleRow.focus();
+    await expect(hiddenTitleRow).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(`/reimbursements/${requestId}`);
+    await expect(
+      page.getByRole("heading", { name: "E2E Seed Reimbursement", exact: true })
+    ).toBeVisible();
+  });
+
   test("a saved complex filter loads its controls and can be cleared", async ({
     page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only seed rows");
+  }) => {
     const filters = {
       combinator: "and",
       id: "saved-filter",
@@ -194,24 +207,25 @@ test.describe("Reimbursements list", () => {
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
   });
+});
 
-  test("shows stats cards", async () => {
-    const cards = reimbursements.list.getStatsCards();
-    await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
-    await expect(cards.getByText("Pending")).toBeVisible();
-    await expect(cards.getByText("Approved")).toBeVisible();
-    await expect(cards.getByText("Rejected")).toBeVisible();
-  });
+test.describe("Reimbursements list (view-all roles)", () => {
+  let reimbursements: ReimbursementPage;
 
-  test("status filter hides non-matching rows and clear restores them", async ({
-    page,
-  }, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     test.skip(
       !["super_admin", "admin", "finance_admin"].includes(
         testInfo.project.name
       ),
       "Seed reimbursements are only visible to view-all roles"
     );
+    reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
+  });
+
+  test("status filter hides non-matching rows and clear restores them", async ({
+    page,
+  }) => {
     await reimbursements.list.waitForTableData();
     const table = reimbursements.list.getTable();
     const hasSeedRows =
@@ -240,13 +254,7 @@ test.describe("Reimbursements list", () => {
 
   test("event filter hides non-matching rows and clear restores them", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      !["super_admin", "admin", "finance_admin"].includes(
-        testInfo.project.name
-      ),
-      "Seed reimbursements are only visible to view-all roles"
-    );
+  }) => {
     await reimbursements.list.waitForTableData();
     const table = reimbursements.list.getTable();
     await applyQuickFilter(page, "Event", "E2E Upcoming Public Bangalore");

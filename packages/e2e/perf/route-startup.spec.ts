@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 
 import type { BrowserContext, Page } from "@playwright/test";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test } from "../fixtures/test";
 
 const READY_TIMEOUT_MS = 30_000;
 const FONT_TIMEOUT_MS = 10_000;
@@ -14,7 +14,7 @@ const WARM_RELOAD = process.env.ROUTE_AUDIT_RETURNING === "true";
 const execFileAsync = promisify(execFile);
 const publicScheduleHelperPath = path.resolve(
   import.meta.dirname,
-  "../../helpers/kalakriti-public-schedule.ts"
+  "../helpers/kalakriti-public-schedule.ts"
 );
 
 const THROTTLING = {
@@ -867,8 +867,7 @@ test("audit startup across the route manifest", async ({
   browser,
 }, testInfo) => {
   test.skip(
-    process.env.ROUTE_STARTUP_AUDIT !== "true" ||
-      testInfo.project.name !== "super_admin",
+    process.env.ROUTE_STARTUP_AUDIT !== "true",
     "Opt-in diagnostic on the isolated super_admin test stack only"
   );
   test.setTimeout(2_700_000);

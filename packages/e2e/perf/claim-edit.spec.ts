@@ -3,12 +3,12 @@ import path from "node:path";
 
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 
-import { expect, test } from "../../fixtures/test";
-import { ReimbursementPage } from "../../pages/reimbursement-page";
+import { expect, test } from "../fixtures/test";
+import { ReimbursementPage } from "../pages/reimbursement-page";
 
 const OUTPUT = path.resolve(
   import.meta.dirname,
-  `../../../../tmp/web-vitals/followup/${process.env.PERFORMANCE_LABEL ?? "current"}`
+  `../../../tmp/web-vitals/followup/${process.env.PERFORMANCE_LABEL ?? "current"}`
 );
 const TITLE = "E2E Seed Reimbursement";
 const DEVICES = [
@@ -42,7 +42,7 @@ async function newPage(
     deviceScaleFactor: device.isMobile ? 3 : 1,
     storageState: path.resolve(
       import.meta.dirname,
-      "../../.auth/finance_admin.json"
+      "../.auth/finance_admin.json"
     ),
   });
   context.setDefaultTimeout(30_000);
@@ -118,10 +118,7 @@ test("measure claim detail and main edit readiness", async ({
   browser,
   baseURL,
 }, testInfo) => {
-  test.skip(
-    process.env.CLAIM_EDIT_PERFORMANCE !== "true" ||
-      testInfo.project.name !== "super_admin"
-  );
+  test.skip(process.env.CLAIM_EDIT_PERFORMANCE !== "true");
   test.setTimeout(300_000);
   if (!baseURL) throw new Error("E2E base URL required");
   const samples: unknown[] = [];

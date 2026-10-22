@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS_PER_ROLE_AND_VIEWPORT = 3;
 const READY_TIMEOUT_MS = 30_000;
@@ -57,16 +57,13 @@ const ROLES = [
     name: "super_admin",
     storageState: path.resolve(
       import.meta.dirname,
-      "../../.auth/super_admin.json"
+      "../.auth/super_admin.json"
     ),
   },
   {
     includeUsers: false,
     name: "volunteer",
-    storageState: path.resolve(
-      import.meta.dirname,
-      "../../.auth/volunteer.json"
-    ),
+    storageState: path.resolve(import.meta.dirname, "../.auth/volunteer.json"),
   },
 ] as const;
 
@@ -767,8 +764,7 @@ function summarize(results: RunResult[]) {
 test("measure in-app navigation", async ({ baseURL, browser }, testInfo) => {
   test.skip(
     process.env.NAVIGATION_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(900_000);

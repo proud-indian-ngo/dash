@@ -7,10 +7,16 @@ cd "$REPO_ROOT"
 
 RUN_STARTED=$SECONDS
 DEFAULT_E2E_SERVER=production
+# --perf runs the opt-in benchmarks under perf/ instead of the CI suite.
+PLAYWRIGHT_CONFIG=packages/e2e/playwright.config.ts
+if [ "${1:-}" = "--perf" ]; then
+  PLAYWRIGHT_CONFIG=packages/e2e/perf/playwright.perf.config.ts
+  shift
+fi
 for arg in "$@"; do
   case "$arg" in
     --list|--help|-h)
-      exec bunx playwright test --config packages/e2e/playwright.config.ts "$@"
+      exec bunx playwright test --config "$PLAYWRIGHT_CONFIG" "$@"
       ;;
     --ui|--ui=*|--ui-host=*|--ui-port=*|--debug|--debug=*) DEFAULT_E2E_SERVER=dev ;;
   esac
@@ -369,7 +375,7 @@ for arg in "$@"; do
 done
 set +e
 TEST_STARTED=$SECONDS
-bunx playwright test --config packages/e2e/playwright.config.ts "${PW_ARGS[@]}"
+bunx playwright test --config "$PLAYWRIGHT_CONFIG" "${PW_ARGS[@]}"
 EXIT_CODE=$?
 echo "Playwright finished in $((SECONDS - TEST_STARTED))s."
 exit $EXIT_CODE

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { BrowserContext, CDPSession, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
@@ -12,7 +12,7 @@ const LABEL = (process.env.GOVERNANCE_PERFORMANCE_LABEL ?? "unlabelled")
   .slice(0, 60);
 const STORAGE_STATE = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 const MEETING_ID = "01930000-0000-7000-8000-00000000d401";
 
@@ -313,8 +313,7 @@ test("measure cold governance routes and first form openings", async ({
 }, testInfo) => {
   test.skip(
     process.env.GOVERNANCE_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(900_000);
@@ -452,7 +451,7 @@ test("measure cold governance routes and first form openings", async ({
   await writeFile(reportPath, JSON.stringify(report, null, 2));
   const comparisonDirectory = path.resolve(
     import.meta.dirname,
-    "../../../../tmp/web-vitals/governance"
+    "../../../tmp/web-vitals/governance"
   );
   await mkdir(comparisonDirectory, { recursive: true });
   await writeFile(
