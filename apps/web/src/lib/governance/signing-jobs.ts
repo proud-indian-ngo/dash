@@ -28,9 +28,10 @@ import {
   type CompletedResult,
   createSignr,
   type Job,
+  type JobFailure,
+  JobRefused,
   type JobStatus,
   ServiceClient,
-  ServiceError,
   type Signr,
 } from "@signr/server";
 import { eq } from "drizzle-orm";
@@ -96,12 +97,11 @@ function readReference(reference: string | null): JobReference {
 }
 
 /**
- * Fails the job with `message` for the page and the helper: signr treats a
- * 422 from the signing service, thrown in `onCompleted` too, as a refusal.
+ * Admits http://localhost and 127.0.0.1 job URLs besides https, in
+ * development and E2E (which runs with NODE_ENV=test); the helper refuses
+ * those unless told otherwise.
  */
-function refusal(message: string): ServiceError {
-  return new ServiceError(message, 422);
-}
+const allowInsecureOrigin = env.NODE_ENV !== "production";
 
 function blobKey(key: string): string {
   return `${env.R2_KEY_PREFIX}/governance/signing-jobs/${key}`;
@@ -170,7 +170,7 @@ async function enrol(
   const names = await trusteeNamesForMatching();
   const own = names.filter((n) => n.id === trusteeId);
   if (matchSignerToTrustee(certificate.subjectCommonName, own) !== trusteeId) {
-    throw refusal(
+    throw new JobRefused(
       `This certificate is not in the name of ${job.signer}. Plug in your own DSC token.`
     );
   }
@@ -272,7 +272,7 @@ async function fileSigned(
       error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
-      throw refusal(error.message);
+      throw new JobRefused(error.message);
     }
     throw error;
   }
@@ -300,6 +300,31 @@ async function completeJob(job: Job, result: CompletedResult): Promise<void> {
   );
 }
 
+/**
+ * signr's failure callback: a failure the helper reported, or one the server
+ * decided (a refused certificate or signature, a `JobRefused`, an outdated
+ * helper), audited as a failure of the job's action in the trustee's name.
+ * A `JobRefused` from `completeJob` is audited there too, so it leaves two
+ * rows: the attempt and the job failing. The audit log has no idempotency
+ * key, so a retry that takes over a lapsed settle lease may record the
+ * failure twice; `jobId` in the metadata ties the rows together.
+ */
+async function failJob(
+  job: Job,
+  { message, reportedBy }: JobFailure
+): Promise<void> {
+  const reference = readReference(job.reference);
+  await runAuditedAction(
+    {
+      ...auditFor(reference),
+      actor: await actorFor(reference.userId),
+      metadata: { jobId: job.id, message, method: "dsc_helper", reportedBy },
+    },
+    async () => undefined,
+    () => "failure"
+  );
+}
+
 /** Job rows in PostgreSQL; the PDF and the service's state in R2. */
 const adapter: Adapter = {
   create: insertSigningJob,
@@ -315,6 +340,7 @@ const adapter: Adapter = {
       : null;
   },
   onCompleted: completeJob,
+  onFailed: failJob,
   async putBlob(key, bytes) {
     await getS3().write(blobKey(key), bytes);
   },
@@ -333,9 +359,7 @@ export function signrJobs(): Signr {
   }
   signr ??= createSignr({
     adapter,
-    // Admits http://localhost and 127.0.0.1 besides https, for development
-    // and E2E; the helper refuses those unless told otherwise.
-    allowInsecureOrigin: true,
+    allowInsecureOrigin,
     basePath: SIGNR_BASE_PATH,
     branding: { name: "Proud Indian" },
     minHelperVersion: MIN_HELPER_VERSION,

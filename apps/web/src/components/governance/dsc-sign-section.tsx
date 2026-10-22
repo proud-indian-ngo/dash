@@ -21,6 +21,10 @@ import {
 
 import { formatIso } from "./register-data";
 
+/** Accepts http://localhost job URLs too, in development and E2E builds only. */
+const allowInsecureOrigins =
+  import.meta.env.DEV || import.meta.env.VITE_E2E === "true";
+
 type DscStatus = Awaited<ReturnType<typeof getMyDscStatus>>;
 
 /**
@@ -48,8 +52,7 @@ function useHelperJob(targetKey: string) {
         if (controller.signal.aborted) {
           return null;
         }
-        // Accepts http://localhost job URLs too, for development and E2E.
-        launchHelper(link, { allowInsecureOrigins: true });
+        launchHelper(link, { allowInsecureOrigins });
         const status = await watchJob({
           getStatus: () => poll({ data: { token } }),
           onNotClaimed: () => setNotClaimed(true),

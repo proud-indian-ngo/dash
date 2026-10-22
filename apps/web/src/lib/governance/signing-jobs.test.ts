@@ -302,6 +302,19 @@ describe("the job endpoint", () => {
       message: "No DSC token is plugged in.",
       state: "failed",
     });
+    expect(audited).toEqual([
+      expect.objectContaining({
+        action: "signing.enrol",
+        actor: expect.objectContaining({ userId: "u1" }),
+        metadata: {
+          jobId: expect.stringMatching(/^[0-9a-f]{64}$/),
+          message: "No DSC token is plugged in.",
+          method: "dsc_helper",
+          reportedBy: "helper",
+        },
+        target: { id: "asha", type: "trustee" },
+      }),
+    ]);
   });
 });
 
@@ -373,6 +386,16 @@ describe("enrolment", () => {
     expect(reply.status).toBe(422);
     expect(enrolled).toEqual([]);
     expect((await jobStatusFor(token, "u1"))?.state).toBe("failed");
+    expect(audited).toEqual([
+      expect.objectContaining({
+        action: "signing.enrol",
+        actor: expect.objectContaining({ userId: "u1" }),
+        metadata: expect.objectContaining({
+          message: String(reply.body.message),
+          reportedBy: "server",
+        }),
+      }),
+    ]);
   });
 });
 
@@ -468,10 +491,23 @@ describe("circular jobs", () => {
     };
     const { signed, token } = await signCircular();
     expect(signed.status).toBe(422);
+    expect(signed.body.message).toBe("This copy is stale. Download it again.");
     expect(await jobStatusFor(token, "u1")).toEqual({
       message: "This copy is stale. Download it again.",
       state: "failed",
     });
+    // The completion attempt, then the job failing with the refusal.
+    expect(audited).toEqual([
+      expect.objectContaining({ action: "circular.sign" }),
+      expect.objectContaining({
+        action: "circular.sign",
+        metadata: expect.objectContaining({
+          message: "This copy is stale. Download it again.",
+          reportedBy: "server",
+        }),
+        target: { id: "circular-1", type: "circular" },
+      }),
+    ]);
   });
 
   it("settles as signed when a lapsed completion recorded the signature", async () => {
