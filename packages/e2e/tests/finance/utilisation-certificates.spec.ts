@@ -158,27 +158,28 @@ test.describe("utilisation certificates", () => {
     await expect(page.getByTestId("utilisation-certificates")).toContainText(
       "Final"
     );
+  });
 
-    // Without finance.view, a volunteer who doesn't sign it can't open it.
-    const volunteer = await browser.newContext({
-      storageState: auth("volunteer"),
-    });
-    const other = await volunteer.newPage();
-    try {
-      await other.goto(url);
-      await waitForZeroReady(other);
-      await expect(
-        other.getByText(
-          "This certificate doesn't exist, or it isn't yours to see."
-        )
-      ).toBeVisible({ timeout: 20_000 });
-      const id = url.split("/").at(-1) ?? "";
-      const download = await other.request.get(
-        `/api/utilisation-certificates/${id}?file=latest`
-      );
-      expect(download.status()).toBe(403);
-    } finally {
-      await volunteer.close();
-    }
+  test("a volunteer who doesn't sign a certificate can't open or download it", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer test");
+    // Straight to the database: no PDF or signing service needed.
+    const certificate = await books<{ id: string; number: string }>(
+      "certificate-row",
+      `${Date.now()}`
+    );
+    await page.goto(`/finance/grants/certificates/${certificate.id}`);
+    await waitForZeroReady(page);
+    await expect(
+      page.getByText(
+        "This certificate doesn't exist, or it isn't yours to see."
+      )
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(certificate.number)).toHaveCount(0);
+    const download = await page.request.get(
+      `/api/utilisation-certificates/${certificate.id}?file=latest`
+    );
+    expect(download.status()).toBe(403);
   });
 });
