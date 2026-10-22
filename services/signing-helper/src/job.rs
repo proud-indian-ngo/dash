@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::json;
 
+use crate::cms::{self, DigestAlgorithm};
 use crate::config;
 use crate::token::{Token, TokenError};
 use crate::ui;
@@ -54,6 +55,7 @@ struct Job {
     title: String,
     signer: String,
     to_sign: Option<String>,
+    digest_algorithm: Option<String>,
     certificate_sha256: Option<String>,
 }
 
@@ -142,48 +144,73 @@ fn job_result(job: &Job, link: &Link, settings: &config::Config) -> Result<serde
     if job.kind != link.action {
         return Err("The job doesn't match the link.".into());
     }
-    let prompt = if job.kind == "enrol" {
-        format!("Register the DSC on this token for {} in the dashboard.", job.signer)
+    let module = config::module_path(settings)?;
+    if job.kind == "enrol" {
+        enrol(job, &module)
     } else {
-        format!("Sign \u{201C}{}\u{201D} as {}.", job.title, job.signer)
-    };
+        sign(job, &module)
+    }
+}
+
+fn enrol(job: &Job, module: &std::path::Path) -> Result<serde_json::Value> {
+    let prompt = format!("Register the DSC on this token for {} in the dashboard.", job.signer);
     let Some(pin) = ui::ask_pin(&prompt) else {
         return Err("Signing cancelled.".into());
     };
-    let token = Token::open(&config::module_path(settings), &pin)?;
+    let token = Token::open(module, &pin)?;
     drop(pin);
     let certificates = token.certificates()?;
     if certificates.is_empty() {
         return Err(TokenError("No signing certificate was found on the token.".into()).into());
     }
+    let signing: Vec<String> = certificates.iter().map(|c| STANDARD.encode(&c.der)).collect();
+    let chain: Vec<String> = token
+        .all_certificates()?
+        .iter()
+        .map(|der| STANDARD.encode(der))
+        .filter(|der| !signing.contains(der))
+        .collect();
+    Ok(json!({ "certificates": signing, "chain": chain }))
+}
 
-    let body = if job.kind == "enrol" {
-        let signing: Vec<String> = certificates.iter().map(|c| STANDARD.encode(&c.der)).collect();
-        let chain: Vec<String> = token
-            .all_certificates()?
-            .iter()
-            .map(|der| STANDARD.encode(der))
-            .filter(|der| !signing.contains(der))
-            .collect();
-        json!({ "certificates": signing, "chain": chain })
-    } else {
-        let expected = job.certificate_sha256.as_deref().unwrap_or_default();
-        let certificate = certificates
-            .iter()
-            .find(|c| c.sha256.eq_ignore_ascii_case(expected))
-            .ok_or_else(|| {
-                TokenError(
-                    "This token doesn't hold the certificate enrolled for you in the dashboard. Plug in your own token, or enrol this one first.".into(),
-                )
-            })?;
-        let data = STANDARD.decode(job.to_sign.as_deref().unwrap_or_default())?;
-        let signature = token.sign(certificate, &data)?;
-        json!({
-            "certificate": STANDARD.encode(&certificate.der),
-            "signature": STANDARD.encode(signature),
-        })
+/// Checks what the dashboard asks to sign against the enrolled certificate's
+/// hash before the PIN prompt, which shows the digest being signed. The token
+/// is read only after login, the way its drivers have been tested.
+fn sign(job: &Job, module: &std::path::Path) -> Result<serde_json::Value> {
+    let expected = job.certificate_sha256.as_deref().unwrap_or_default();
+    let certificate_sha256 = hex::decode(expected)
+        .ok()
+        .filter(|hash| hash.len() == 32)
+        .ok_or("The dashboard didn't say which certificate to sign with.")?;
+    let digest = DigestAlgorithm::parse(job.digest_algorithm.as_deref())?;
+    let data = STANDARD.decode(job.to_sign.as_deref().unwrap_or_default())?;
+    let message_digest = cms::check_signed_attributes(&data, digest, &certificate_sha256)
+        .map_err(|e| format!("The dashboard asked to sign something this helper won't sign: {e}."))?;
+    let prompt = format!(
+        "Sign \u{201C}{}\u{201D} as {}.\n\nDocument digest: {}",
+        job.title,
+        job.signer,
+        hex::encode(message_digest)
+    );
+    let Some(pin) = ui::ask_pin(&prompt) else {
+        return Err("Signing cancelled.".into());
     };
-    Ok(body)
+    let token = Token::open(module, &pin)?;
+    drop(pin);
+    let certificate = token
+        .certificates()?
+        .into_iter()
+        .find(|c| c.sha256.eq_ignore_ascii_case(expected))
+        .ok_or_else(|| {
+            TokenError(
+                "This token doesn't hold the certificate enrolled for you in the dashboard. Plug in your own token, or enrol this one first.".into(),
+            )
+        })?;
+    let signature = token.sign(&certificate, &data, digest)?;
+    Ok(json!({
+        "certificate": STANDARD.encode(&certificate.der),
+        "signature": STANDARD.encode(signature),
+    }))
 }
 
 /// Tells the dashboard the job failed here, so the page stops waiting and
@@ -200,7 +227,7 @@ pub fn list_certificates() -> Result<()> {
     let Some(pin) = ui::ask_pin("List the certificates on your token.") else {
         return Err("Cancelled.".into());
     };
-    let token = Token::open(&config::module_path(&settings), &pin)?;
+    let token = Token::open(&config::module_path(&settings)?, &pin)?;
     for certificate in token.certificates()? {
         let name = x509_parser::parse_x509_certificate(&certificate.der)
             .map(|(_, cert)| cert.subject().to_string())

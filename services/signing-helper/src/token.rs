@@ -6,10 +6,14 @@ use std::time::{Duration, Instant};
 
 use cryptoki::context::{CInitializeArgs, CInitializeFlags, Pkcs11};
 use cryptoki::mechanism::Mechanism;
-use cryptoki::object::{Attribute, AttributeType, ObjectClass, ObjectHandle};
+use cryptoki::object::{Attribute, AttributeType, KeyType, ObjectClass, ObjectHandle};
 use cryptoki::session::{Session, UserType};
 use cryptoki::types::AuthPin;
 use sha2::{Digest, Sha256};
+use x509_parser::oid_registry::{OID_EC_P256, OID_NIST_EC_P384};
+use x509_parser::public_key::PublicKey;
+
+use crate::cms::{self, DigestAlgorithm};
 
 /// A certificate on the token that has a matching private key.
 pub struct TokenCertificate {
@@ -144,10 +148,73 @@ impl Token {
         Ok(found)
     }
 
-    /// RSA PKCS#1 v1.5 over SHA-256 of `data`, the PAdES signature value.
-    pub fn sign(&self, certificate: &TokenCertificate, data: &[u8]) -> Result<Vec<u8>, TokenError> {
-        self.session
-            .sign(&Mechanism::Sha256RsaPkcs, certificate.key, data)
-            .map_err(|e| err("The token couldn't sign", e))
+    /// The PAdES signature value over `data`: RSA PKCS#1 v1.5, or a DER
+    /// ECDSA-Sig-Value, by the type of the certificate's key.
+    pub fn sign(
+        &self,
+        certificate: &TokenCertificate,
+        data: &[u8],
+        digest: DigestAlgorithm,
+    ) -> Result<Vec<u8>, TokenError> {
+        let key_type = match self
+            .session
+            .get_attributes(certificate.key, &[AttributeType::KeyType])
+            .map_err(|e| err("Couldn't read the key", e))?
+            .first()
+        {
+            Some(Attribute::KeyType(key_type)) => *key_type,
+            _ => {
+                return Err(TokenError(
+                    "The token didn't say what kind of key it holds.".into(),
+                ));
+            }
+        };
+        let (_, parsed) = x509_parser::parse_x509_certificate(&certificate.der)
+            .map_err(|e| err("Couldn't read the certificate", e))?;
+        let spki = parsed.public_key();
+        let public_key = spki
+            .parsed()
+            .map_err(|e| err("Couldn't read the certificate's key", e))?;
+        match (key_type, public_key) {
+            (KeyType::RSA, PublicKey::RSA(_)) => {
+                let mechanism = match digest {
+                    DigestAlgorithm::Sha256 => Mechanism::Sha256RsaPkcs,
+                    DigestAlgorithm::Sha384 => Mechanism::Sha384RsaPkcs,
+                };
+                self.session
+                    .sign(&mechanism, certificate.key, data)
+                    .map_err(|e| err("The token couldn't sign", e))
+            }
+            (KeyType::EC, PublicKey::EC(_)) => {
+                // The curve is the SubjectPublicKeyInfo's algorithm parameter.
+                let curve = spki
+                    .algorithm
+                    .parameters
+                    .as_ref()
+                    .and_then(|p| p.as_oid().ok());
+                let (suited, signature_len) = match curve {
+                    Some(oid) if oid == OID_EC_P256 => (DigestAlgorithm::Sha256, 64),
+                    Some(oid) if oid == OID_NIST_EC_P384 => (DigestAlgorithm::Sha384, 96),
+                    _ => {
+                        return Err(TokenError(
+                            "The certificate's EC key isn't on P-256 or P-384.".into(),
+                        ));
+                    }
+                };
+                if digest != suited {
+                    return Err(TokenError(format!(
+                        "The dashboard asked for a {digest:?} signature, but this certificate's EC key signs with {suited:?}."
+                    )));
+                }
+                let raw = self
+                    .session
+                    .sign(&Mechanism::Ecdsa, certificate.key, &digest.digest(data))
+                    .map_err(|e| err("The token couldn't sign", e))?;
+                cms::ecdsa_signature(&raw, signature_len).map_err(TokenError)
+            }
+            _ => Err(TokenError(
+                "The key on the token isn't the kind its certificate names (RSA or EC).".into(),
+            )),
+        }
     }
 }

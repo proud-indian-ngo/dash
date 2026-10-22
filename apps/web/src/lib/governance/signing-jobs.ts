@@ -1,4 +1,4 @@
-import { X509Certificate } from "node:crypto";
+import { type KeyObject, X509Certificate } from "node:crypto";
 
 import { db } from "@pi-dash/db";
 import { trusteeNamesForMatching } from "@pi-dash/db/queries/governance";
@@ -120,15 +120,41 @@ function commonName(distinguishedName: string): string | null {
   return line ? line.trim().slice(3) : null;
 }
 
-/** What the dashboard keeps of a certificate, or null when it can't sign for us. */
+/** The EC curves the signing service signs with, P-256 and P-384, and the hash each uses. */
+const SIGNING_CURVES = new Map<string, "sha256" | "sha384">([
+  ["prime256v1", "sha256"],
+  ["secp384r1", "sha384"],
+]);
+
+// The service applies the same rule in remote_sign.py (`algorithms`); keep them in step, the helper refuses a mismatch by messageDigest length.
+/** The hash a signature with this key uses, or null when the service can't sign with it. */
+function signingDigest(key: KeyObject): "sha256" | "sha384" | null {
+  if (key.asymmetricKeyType === "rsa") {
+    return "sha256";
+  }
+  if (key.asymmetricKeyType === "ec") {
+    return (
+      SIGNING_CURVES.get(key.asymmetricKeyDetails?.namedCurve ?? "") ?? null
+    );
+  }
+  return null;
+}
+
+/**
+ * What the dashboard keeps of a certificate, or null when it can't sign for
+ * us: unreadable, not valid now, or a key other than RSA, P-256 or P-384.
+ */
 export function certificateFacts(
   derBase64: string,
   chain: string[],
   now: Date = new Date()
 ): (CertificateFacts & { commonName: string | null }) | null {
   let certificate: X509Certificate;
+  let key: KeyObject;
   try {
     certificate = new X509Certificate(Buffer.from(derBase64, "base64"));
+    // Bun can't decode some keys (secp256k1) and throws here.
+    key = certificate.publicKey;
   } catch {
     return null;
   }
@@ -137,7 +163,7 @@ export function certificateFacts(
   if (!(notBefore <= now && now < notAfter)) {
     return null;
   }
-  if (certificate.publicKey.asymmetricKeyType !== "rsa") {
+  if (!signingDigest(key)) {
     return null;
   }
   return {
@@ -293,7 +319,7 @@ export async function startDeclarationJob(input: {
  * The oldest helper the job API serves. Raise it when the helper must
  * change with the dashboard; older helpers send no version at all.
  */
-const MIN_HELPER_VERSION = [0, 2, 0];
+const MIN_HELPER_VERSION = [0, 3, 0];
 
 export const OUTDATED_HELPER_MESSAGE =
   "Update the signing helper: this one is too old for the dashboard. Download the new one from the Signing helper page, then try again.";
@@ -365,6 +391,13 @@ export async function describeJob(token: string): Promise<JobReply> {
   return {
     body: {
       certificateSha256: certificate?.sha256 ?? null,
+      // Enrolment took only keys the service signs with, so this reads one.
+      digestAlgorithm: certificate
+        ? signingDigest(
+            new X509Certificate(Buffer.from(certificate.der, "base64"))
+              .publicKey
+          )
+        : null,
       kind: "sign",
       signer: job.legalName,
       title,

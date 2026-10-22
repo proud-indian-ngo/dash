@@ -50,26 +50,64 @@ pub fn server(config: &Config) -> Option<&str> {
     config.server.as_deref().or(option_env!("PIDASH_SIGN_SERVER"))
 }
 
-/// The token driver: `PIDASH_PKCS11_MODULE`, the config, or the HyperSecu default.
-pub fn module_path(config: &Config) -> PathBuf {
+/// Drivers of the DSC tokens sold in India, in the order they are tried.
+#[cfg(target_os = "macos")]
+const MODULES: &[&str] = &[
+    "/usr/local/lib/libcastle_v2.1.0.0.dylib",
+    "/usr/local/lib/libcastle.dylib",
+    "/Library/Frameworks/eToken.framework/Versions/A/libeToken.dylib",
+    "/usr/local/lib/libeTPkcs11.dylib",
+    "/usr/local/lib/libmtoken.dylib",
+    "/usr/local/lib/libwdpkcs.dylib",
+    "/usr/local/lib/libInnaITKey.dylib",
+    "/usr/local/lib/libIDPrimePKCS11.dylib",
+];
+#[cfg(target_os = "windows")]
+const MODULES: &[&str] = &[
+    r"C:\Windows\System32\HYP2003csp11IND.dll",
+    r"C:\Windows\System32\eps2003csp11.dll",
+    r"C:\Windows\System32\eps2003csp11v2.dll",
+    r"C:\Windows\System32\eTPKCS11.dll",
+    r"C:\Windows\System32\mToken.dll",
+    r"C:\Windows\System32\wdpkcs.dll",
+    r"C:\Windows\System32\SignatureP11.dll",
+    r"C:\Windows\System32\InnaITKey.dll",
+    r"C:\Windows\System32\IDPrimePKCS11.dll",
+    r"C:\Windows\System32\cryptoide_pkcs11.dll",
+];
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const MODULES: &[&str] = &[
+    "/usr/lib/libcastle.so",
+    "/usr/lib/libcastle_v2.1.0.0.so",
+    "/usr/lib/libeTPkcs11.so",
+    "/usr/lib/libeToken.so",
+    "/usr/lib/libmtoken.so",
+    "/usr/lib/libwdpkcs.so",
+    "/usr/lib/libInnaITKey.so",
+    "/usr/lib/libIDPrimePKCS11.so",
+    "/usr/lib/softhsm/libsofthsm2.so",
+];
+
+/// The token driver: `PIDASH_PKCS11_MODULE`, the config, or the first
+/// known driver installed.
+pub fn module_path(config: &Config) -> Result<PathBuf, String> {
     if let Ok(path) = std::env::var("PIDASH_PKCS11_MODULE") {
-        return PathBuf::from(path);
+        return Ok(PathBuf::from(path));
     }
     if let Some(path) = &config.module {
-        return PathBuf::from(path);
+        return Ok(PathBuf::from(path));
     }
-    #[cfg(target_os = "macos")]
-    {
-        PathBuf::from("/usr/local/lib/libcastle_v2.1.0.0.dylib")
-    }
-    #[cfg(target_os = "windows")]
-    {
-        PathBuf::from(r"C:\Windows\System32\HYP2003csp11IND.dll")
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        PathBuf::from("/usr/lib/libcastle.so")
-    }
+    MODULES
+        .iter()
+        .map(PathBuf::from)
+        .find(|path| path.exists())
+        .ok_or_else(|| {
+            format!(
+                "No DSC token driver was found. Install your token's driver, or set \"module\" in {} to it. Looked for:\n{}",
+                config_path().display(),
+                MODULES.join("\n")
+            )
+        })
 }
 
 /// Origins must match exactly: scheme, host and port.

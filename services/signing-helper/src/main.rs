@@ -10,6 +10,7 @@
 // On Windows the helper only shows its own windows, never a console.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod cms;
 mod config;
 #[cfg(target_os = "windows")]
 mod install;

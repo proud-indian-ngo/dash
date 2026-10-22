@@ -4,6 +4,16 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 const ASHA_CERT =
   "MIIC0zCCAbugAwIBAgIUMkaHVPEYKxtKDDFN2U7Ypz7TzfswDQYJKoZIhvcNAQELBQAwJTELMAkGA1UEBhMCSU4xFjAUBgNVBAMMDVRlc3QgQ0NBIFJvb3QwIBcNMjYwMTAxMDAwMDAwWhgPMjA5OTEyMzEwMDAwMDBaMCAxCzAJBgNVBAYTAklOMREwDwYDVQQDDAhBU0hBIFJBTzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALXfoa66VZ4dgA1wrJK62ormN9ESDXUJSZgjOdZ5386j1crGCXuPzsJXAc7lEwPmV4297XvdoNNhSs5YGBKSOYC5mGxqMhBqvRgkmKmNOPKS8/rLy+e6NPcADEQCwEZOxkW566rOpJo0dQCZFlH9KuU0bODqIj0UkRhu95fbRP3lq3CZ9jPZxs6iklHd/7ob2+3F//y1xJRiHabXDHoJRPIAejJUR8BbLJGxzVC/rrKjXhtAStugKhmuxkMG0C4f7UEEiiky3yXGBhEiRJGHegc/MLwq2QMIpOlxlHABctYGZF/T6TWUiGBS2GVgkA78eT7aw2mppaNqt3ynatQ/xxsCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAJ1Vnv5oO5S52EdijS/oLKriHfQr+/lmwbHOC9J0hMfcCb3jtoEpUfjQlzTpJgpFDujbIM2X/nY99qhOVRX7kW5opUIeIJcMFdt+RUPQHogn8yo7OZW2bnbTewNhpRtbLxZ1Pi8ZV/psBy4JUpQT6cRMmNJO+PE/yBPpjl1WvooH3DukJx5AwlPCuD64Dp+QP8cqxB7PrrHc26ZwSsgako49n5PP+sTJRmCt5FetMj35mJF7tdxjtJ5bQ++QBaQHFqdj8OLqF4hQoGlPNrBl+5paDo3u2gjEsh21Yd04Ij18Nf36SvWKDNd2MOLtMEUm7XbRBBc2DjQUgwp0eJAWRgA==";
 
+/** Self-signed CN=ASHA RAO certificates on other keys, 2026 to 2100. */
+const P256_CERT =
+  "MIIBdjCCARygAwIBAgIUFs05FpN7C6WVanyPZnBm2zEodjMwCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAS+fuVNARDcz0NW+74/1LgLpKsLKoJm8/VtPXdPon5Xmnx8TIPJcLvgg/5vrBWUXp1NiLDXzrV2f5Ve57wn0MLKozIwMDAdBgNVHQ4EFgQUolEPN/1ZpNO20ApmqX1N+OOQ9MYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiAx1gVa5x/uN16Lnscgn/LXD0SHGBwsQ1z6/q+xytAUwAIhAKiAOB8bkaH4Yfze7fvhYU8tCoiXvprUoYINGvOsGtIm";
+const P384_CERT =
+  "MIIBsjCCATmgAwIBAgIUcH48Lgpz9V/pr5sUJ2J2jb5fLF8wCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wdjAQBgcqhkjOPQIBBgUrgQQAIgNiAASQDm9afP6QPAEO2YssT4kYbOXz3aVgSAorkO97PrBG4wCsVrLtYxRie8rNjX38Pas02/YBxIskkLO0UbZPNMPQ3DXBsIbX7GEmhYA6n1UEdZGwhUevp/xX6QyieQSR7MOjMjAwMB0GA1UdDgQWBBTfKyt1jet2Vy6HqqgzCcDTqaoIATAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA2cAMGQCMFfZBTqnY/5P81olmLEKWwsgfLfJiPgYeflQs9v64K7NV2+Yvnkj7Bi85Wkke44zEQIwdJxM65EP/Y040r+XLVk3vgG+3jd6n0EF2qvEWDzDKBzB+fz/B7qby2C2zBxQ8J/E";
+const SECP256K1_CERT =
+  "MIIBczCCARmgAwIBAgIUUBI1ik415wbKJmBN7gCbmUWbXNkwCgYIKoZIzj0EAwIwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wVjAQBgcqhkjOPQIBBgUrgQQACgNCAASaZTVU8t6Ul23Nmz3NXiVe8vMpFVhGhGIovaA39XovVy7gMfAq/trFIpwJfVMiZi26C2Ll8gBlpDRzyqfc2T4hozIwMDAdBgNVHQ4EFgQUPfbr8zeIIHm4h+0y7WkXh/llE3EwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNIADBFAiAU0/iUPSBDNleNKdESLBfSGSL7ggeqbr6BJldAnZtqhgIhALQ8UsJntMonxBHtdlUIqa/fwcsMhxKZjurg39GdKwMQ";
+const ED25519_CERT =
+  "MIIBNTCB6KADAgECAhR7lccdpdsVDheQAFxKbcYqOyitWjAFBgMrZXAwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MTAyMjExNTQ0NFoYDzIxMDAwOTI0MTE1NDQ0WjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wKjAFBgMrZXADIQBLoxaUNNWIV4dIfr7Jgh9IHoe2mztf/dSiI5mSA8vd0aMyMDAwHQYDVR0OBBYEFAGDMWn0Cs8+NIprH4iMvQF0mMGVMA8GA1UdEwEB/wQFMAMBAf8wBQYDK2VwA0EAJ8A2sxk0X7ufT9rxt4XRNPqt3P8aIknvuvn5wkTtqjX20ygNPcGl+lspA4Mzu7QZkcL4U1Lr9aUkyfVIr1ydDg==";
+
 const closed: Record<string, unknown>[] = [];
 const enrolled: Record<string, unknown>[] = [];
 let job: Record<string, unknown> | null = null;
@@ -153,6 +163,20 @@ describe("certificateFacts", () => {
     ).toBeNull();
     expect(certificateFacts("bm90IGEgY2VydA==", [])).toBeNull();
   });
+
+  it("takes an EC key on P-256 or P-384", () => {
+    expect(certificateFacts(P256_CERT, [], IN_VALIDITY)?.commonName).toBe(
+      "ASHA RAO"
+    );
+    expect(certificateFacts(P384_CERT, [], IN_VALIDITY)?.commonName).toBe(
+      "ASHA RAO"
+    );
+  });
+
+  it("refuses a key on another curve or algorithm", () => {
+    expect(certificateFacts(SECP256K1_CERT, [], IN_VALIDITY)).toBeNull();
+    expect(certificateFacts(ED25519_CERT, [], IN_VALIDITY)).toBeNull();
+  });
 });
 
 describe("helper jobs", () => {
@@ -216,7 +240,7 @@ describe("helper jobs", () => {
   });
 
   it("refuses a helper older than the dashboard serves and fails its job", async () => {
-    for (const version of [null, "0.1.1", "nonsense"]) {
+    for (const version of [null, "0.1.1", "0.2.9", "nonsense"]) {
       closed.length = 0;
       const reply = await refuseOutdatedHelper("t".repeat(43), version);
       expect(reply).toEqual({
@@ -227,7 +251,7 @@ describe("helper jobs", () => {
         { claim: CLAIM, error: OUTDATED_HELPER_MESSAGE, id: "job-1" },
       ]);
     }
-    for (const version of ["0.2.0", "0.10.0", "1.0.0"]) {
+    for (const version of ["0.3.0", "0.10.0", "1.0.0"]) {
       expect(await refuseOutdatedHelper("t".repeat(43), version)).toBeNull();
     }
   });
@@ -400,6 +424,7 @@ describe("minutes jobs", () => {
     expect(await describeJob("t".repeat(43))).toEqual({
       body: {
         certificateSha256: sha256,
+        digestAlgorithm: "sha256",
         kind: "sign",
         signer: "Asha Rao",
         title: "Minutes of the board meeting of 10 October 2026",
@@ -407,6 +432,12 @@ describe("minutes jobs", () => {
       },
       status: 200,
     });
+  });
+
+  it("asks for sha384 from a P-384 certificate", async () => {
+    certificate = { chain: [], der: P384_CERT, id: "cert-1", sha256 };
+    const reply = await describeJob("t".repeat(43));
+    expect(reply.body.digestAlgorithm).toBe("sha384");
   });
 
   it("files the signed minutes through the minutes acceptance", async () => {
@@ -520,6 +551,7 @@ describe("declaration jobs", () => {
     expect(await describeJob("t".repeat(43))).toEqual({
       body: {
         certificateSha256: sha256,
+        digestAlgorithm: "sha256",
         kind: "sign",
         signer: "Asha Rao",
         title: "Declaration of interests for 2026-27",

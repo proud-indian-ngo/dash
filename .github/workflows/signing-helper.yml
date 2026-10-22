@@ -30,7 +30,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: rustup update stable --no-self-update && rustup default stable
+      - run: sudo apt-get update && sudo apt-get install -y softhsm2 opensc
       - run: cargo test --locked
+        env:
+          PIDASH_SIGN_SOFTHSM_MODULE: /usr/lib/softhsm/libsofthsm2.so
 
   macos:
     needs: test

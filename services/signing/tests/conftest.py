@@ -10,7 +10,7 @@ import pytest
 from asn1crypto import keys, x509 as asn1_x509
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
@@ -125,6 +125,21 @@ class Pki:
             ca=False,
             crl_url="http://crl.invalid/test-root.crl",
         )
+
+    def ec_signer(
+        self, curve: ec.EllipticCurve
+    ) -> tuple[ec.EllipticCurvePrivateKey, x509.Certificate]:
+        """An elliptic-curve signing key and its certificate under the test root."""
+        key = ec.generate_private_key(curve)
+        cert = _cert(
+            _name("SARJUN H HAJATHULLA"),
+            _name("Test CCA Root"),
+            key.public_key(),
+            self.ca_key,
+            ca=False,
+            crl_url="http://crl.invalid/test-root.crl",
+        )
+        return key, cert
 
     def encryption_cert(self) -> x509.Certificate:
         """The signer's encryption certificate, as a DSC token also carries."""

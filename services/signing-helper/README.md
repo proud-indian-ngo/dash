@@ -8,7 +8,8 @@ It handles `pidash-sign://sign?job=<token>&server=<origin>` and `pidash-sign://e
 |---|---|
 | Server | Baked in at build time from `PIDASH_SIGN_SERVER`: in CI the repository variable of that name, or production. `server` in the config replaces it, for a test dashboard |
 | Config | Optional. `~/.config/pidash-sign/config.json` (Mac), `%APPDATA%\pidash-sign\config.json` (Windows): `{ "server": "https://...", "module": "<PKCS#11 library>", "updates": "<release folder URL>" }` |
-| Token driver | Mac: `/usr/local/lib/libcastle_v2.1.0.0.dylib`; Windows: `C:\Windows\System32\HYP2003csp11IND.dll`; override with `PIDASH_PKCS11_MODULE` |
+| Token driver | The first installed of the known DSC token drivers (`MODULES` in `src/config.rs`; HyperSecu first); `module` in the config overrides it. `PIDASH_PKCS11_MODULE`, a developer override, takes priority over both |
+| Checks | Before the PIN prompt the helper parses what the dashboard asks it to sign as CMS SignedAttributes (`src/cms.rs`) and refuses anything but contentType id-data, a messageDigest of the job's digest size, a signing-certificate-v2 naming the job's `certificateSha256`, signingTime and cmsAlgorithmProtection. The prompt shows the title, signer and digest; the token is read only after the PIN, and signs with the certificate whose SHA-256 is `certificateSha256`. An EC key on P-256 signs only SHA-256, on P-384 only SHA-384. RSA keys sign with SHA-256/384 PKCS#1 v1.5 on the token; EC keys sign the helper's hash with CKM_ECDSA, posted as a DER ECDSA-Sig-Value |
 | Install | Mac: `pidash-sign-macos.dmg` holds `Proud Indian Signing.app`, an AppleScript applet (`macos/handler.applescript`) that receives `pidash-sign://` links and runs the binary beside it; opening it removes a 0.1.x install (`~/Applications` app running `~/.local/bin/pidash-sign`), which would otherwise compete for the links. Windows: opening `pidash-sign-windows-x64.exe` without a link copies it to `%LOCALAPPDATA%\pidash-sign` and registers the links under HKCU. Neither needs administrator rights. The dashboard's Signing helper page links to the latest release |
 | Signing | No paid certificates: the Mac app is ad-hoc signed and the Windows exe unsigned, so trustees pass Gatekeeper (Open Anyway) or SmartScreen (Run anyway) once |
 | Release | Bump the version in `Cargo.toml`, push a tag `signing-helper-vX.Y.Z`; CI builds the Mac `.dmg` and app zip (`macos/build-dmg.sh`) and the Windows exe, writes `pidash-sign-manifest.json` (version and each file's SHA-256), signs it with the `SIGNING_HELPER_RELEASE_KEY` secret, and publishes everything as a GitHub release marked latest. The release job waits for approval in the `signing-helper-release` environment, and fails if the tag isn't the `Cargo.toml` version or the secret's public half isn't `RELEASE_KEY` |
@@ -20,6 +21,8 @@ It handles `pidash-sign://sign?job=<token>&server=<origin>` and `pidash-sign://e
 
 ```bash
 cargo test
+# End to end against SoftHSM (RSA-2048 and P-256); needs softhsm2-util, pkcs11-tool (OpenSC), openssl
+PIDASH_SIGN_SOFTHSM_MODULE=/opt/homebrew/lib/softhsm/libsofthsm2.so cargo test --test softhsm
 # Against a software token: SoftHSM2 with a test certificate
 export SOFTHSM2_CONF=/tmp/softhsm/softhsm2.conf
 PIDASH_SIGN_HEADLESS=1 PIDASH_SIGN_PIN=1234 \

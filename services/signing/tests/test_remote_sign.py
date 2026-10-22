@@ -6,11 +6,18 @@ import os
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import ec, padding
+from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from pyhanko.sign import timestamps
 
 from pidash_signing.prepare import FieldRequest, prepare_fields
-from pidash_signing.remote_sign import RemoteSignError, finalize, finish, start
+from pidash_signing.remote_sign import (
+    RemoteSignError,
+    UnsupportedKeyError,
+    finalize,
+    finish,
+    start,
+)
 from pidash_signing.validate import ValidationSettings, validate_pdf
 
 from .conftest import Pki, blank_pdf
@@ -54,6 +61,47 @@ def test_deferred_signing_produces_a_valid_signature_in_the_field(pki: Pki) -> N
     assert sig["fieldName"] == "Trustee_a"
     assert sig["signerName"] == "SARJUN H HAJATHULLA"
     assert sig["trusted"] is True
+
+
+@pytest.mark.parametrize(
+    ("curve", "digest_algorithm", "digest"),
+    [(ec.SECP256R1(), "sha256", hashes.SHA256()), (ec.SECP384R1(), "sha384", hashes.SHA384())],
+)
+def test_deferred_ecdsa_signing_produces_a_valid_signature(
+    pki: Pki, curve: ec.EllipticCurve, digest_algorithm: str, digest: hashes.HashAlgorithm
+) -> None:
+    key, cert = pki.ec_signer(curve)
+    pdf = prepared()
+    started = asyncio.run(
+        start(pdf, "Trustee_a", b64(cert.public_bytes(serialization.Encoding.DER)), [ca_b64(pki)])
+    )
+    assert started.digest_algorithm == digest_algorithm
+    # What the helper does: hash, CKM_ECDSA on the token, DER-encode r and s.
+    signed = asyncio.run(finish(started.state, key.sign(started.to_sign, ec.ECDSA(digest)), None))
+    report = validate_pdf(signed, ValidationSettings(trust_roots=[pki.ca_asn1]))
+    assert report["status"] == "valid"
+    [sig] = report["signatures"]
+    assert sig["fieldName"] == "Trustee_a"
+    assert sig["trusted"] is True
+
+
+def test_raw_ecdsa_signature_is_refused(pki: Pki) -> None:
+    key, cert = pki.ec_signer(ec.SECP256R1())
+    started = asyncio.run(
+        start(prepared(), "Trustee_a", b64(cert.public_bytes(serialization.Encoding.DER)), [])
+    )
+    r, s = decode_dss_signature(key.sign(started.to_sign, ec.ECDSA(hashes.SHA256())))
+    raw = r.to_bytes(32, "big") + s.to_bytes(32, "big")
+    with pytest.raises(RemoteSignError, match="DER ECDSA-Sig-Value"):
+        asyncio.run(finish(started.state, raw, None))
+
+
+def test_an_unsupported_curve_is_refused(pki: Pki) -> None:
+    _key, cert = pki.ec_signer(ec.SECP521R1())
+    with pytest.raises(UnsupportedKeyError, match="P-256 and P-384"):
+        asyncio.run(
+            start(prepared(), "Trustee_a", b64(cert.public_bytes(serialization.Encoding.DER)), [])
+        )
 
 
 def test_two_trustees_sign_in_turn(pki: Pki) -> None:
@@ -115,6 +163,7 @@ def test_api_signs_in_two_steps(pki: Pki) -> None:
     )
     assert started.status_code == 200
     body = started.json()
+    assert body["digestAlgorithm"] == "sha256"
     signature = token_sign(pki, base64.b64decode(body["toSign"]))
     finished = client.post(
         "/sign/finish",
@@ -131,3 +180,14 @@ def test_api_signs_in_two_steps(pki: Pki) -> None:
     )
     assert bad.status_code == 422
     assert client.post("/finalize", headers=auth, content=b"%PDF").status_code == 503
+    _key, p521 = pki.ec_signer(ec.SECP521R1())
+    p521_b64 = b64(p521.public_bytes(serialization.Encoding.DER))
+    unsupported = client.post(
+        "/sign/start",
+        headers=auth,
+        json={"certificate": p521_b64, "fieldName": "Trustee_a", "pdf": b64(prepared())},
+    )
+    assert unsupported.status_code == 400
+    assert "P-256 and P-384" in unsupported.json()["detail"]
+    refused = client.post("/certificate", headers=auth, json={"certificate": p521_b64})
+    assert refused.status_code == 400

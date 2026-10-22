@@ -156,6 +156,7 @@ def create_app(
         try:
             cert = remote_sign.load_cert(body.certificate)
             chain = [remote_sign.load_cert(c) for c in body.chain]
+            remote_sign.algorithms(cert)
         except remote_sign.RemoteSignError as error:
             raise HTTPException(400, str(error)) from error
         return {"trusted": await certificate_trusted(cert, chain, resolved)}
@@ -169,9 +170,12 @@ def create_app(
             result = await remote_sign.start(
                 pdf, body.fieldName, body.certificate, body.chain
             )
+        except remote_sign.UnsupportedKeyError as error:
+            raise HTTPException(400, str(error)) from error
         except remote_sign.RemoteSignError as error:
             raise HTTPException(422, str(error)) from error
         return {
+            "digestAlgorithm": result.digest_algorithm,
             "state": result.state,
             "toSign": base64.b64encode(result.to_sign).decode(),
         }

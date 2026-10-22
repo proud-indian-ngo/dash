@@ -73,7 +73,7 @@ export async function completeHelperJob(
   signer: TestSigner
 ): Promise<{ message: string; status: number }> {
   const url = `/api/signing/jobs/${token}`;
-  const headers = { "X-Pidash-Sign-Version": "0.2.0" };
+  const headers = { "X-Pidash-Sign-Version": "0.3.0" };
   const job = (await (await page.request.get(url, { headers })).json()) as {
     kind: "enrol" | "sign";
     toSign?: string;

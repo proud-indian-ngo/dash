@@ -3,8 +3,9 @@
 1. `start`: given the circular's latest PDF, the trustee's field and their
    certificate, reserve the signature in the field and return the CMS
    signed attributes the token must sign, plus an opaque state.
-2. The trustee's helper signs those bytes on their HYP2003 token
-   (RSA PKCS#1 v1.5 with SHA-256, CKM_SHA256_RSA_PKCS).
+2. The trustee's helper signs those bytes on their token: RSA PKCS#1 v1.5
+   with SHA-256, or ECDSA with SHA-256 (P-256) or SHA-384 (P-384) returned
+   as a DER ECDSA-Sig-Value.
 3. `finish`: given the state and the signature value, build the CMS with a
    signature timestamp from the TSA (PAdES B-T) and write it into the PDF.
 
@@ -21,7 +22,7 @@ import io
 import json
 from dataclasses import dataclass
 
-from asn1crypto import cms, x509
+from asn1crypto import algos, cms, x509
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields, signers, timestamps
@@ -38,9 +39,42 @@ from .appearance import SignedByStampStyle
 BYTES_RESERVED = 65_536
 MD = "sha256"
 
+#: Digest, signature mechanism and the largest DER ECDSA-Sig-Value per curve.
+_EC = {
+    "secp256r1": ("sha256", "sha256_ecdsa", 72),
+    "secp384r1": ("sha384", "sha384_ecdsa", 104),
+}
+
 
 class RemoteSignError(ValueError):
     pass
+
+
+class UnsupportedKeyError(RemoteSignError):
+    pass
+
+
+@dataclass(frozen=True)
+class Algorithms:
+    digest: str
+    mechanism: str
+    #: Placeholder signature size while the document is prepared.
+    signature_size: int
+
+
+def algorithms(cert: x509.Certificate) -> Algorithms:
+    """The digest and signature mechanism the certificate's key signs with."""
+    key = cert.public_key
+    if key.algorithm == "rsa":
+        return Algorithms(MD, "sha256_rsa", key.byte_size)
+    if key.algorithm == "ec":
+        kind, curve = key.curve
+        if kind == "named" and curve in _EC:
+            return Algorithms(*_EC[curve])
+        raise UnsupportedKeyError(
+            "Only P-256 and P-384 elliptic-curve DSC certificates are supported"
+        )
+    raise UnsupportedKeyError("Only RSA and elliptic-curve DSC certificates are supported")
 
 
 def load_cert(der_b64: str) -> x509.Certificate:
@@ -54,6 +88,8 @@ def load_cert(der_b64: str) -> x509.Certificate:
 class StartResult:
     #: DER of the signed attributes; the token signs exactly these bytes.
     to_sign: bytes
+    #: The digest the token hashes `to_sign` with.
+    digest_algorithm: str
     #: Opaque; hand back unchanged to `finish`.
     state: str
 
@@ -66,6 +102,7 @@ async def start(
 ) -> StartResult:
     """Reserves the signature in `field_name` and returns what the token signs."""
     cert = load_cert(certificate_b64)
+    chosen = algorithms(cert)
     chain = [load_cert(c) for c in chain_b64]
     reader = PdfFileReader(io.BytesIO(pdf))
     names = [f[0] for f in fields.enumerate_sig_fields(reader, filled_status=False)]
@@ -76,12 +113,13 @@ async def start(
         signing_cert=cert,
         cert_registry=SimpleCertificateStore.from_certs(chain),
         # A placeholder of the right size; the real value comes in `finish`.
-        signature_value=bytes(cert.public_key.byte_size),
+        signature_value=bytes(chosen.signature_size),
+        signature_mechanism=algos.SignedDigestAlgorithm({"algorithm": chosen.mechanism}),
     )
     pdf_signer = signers.PdfSigner(
         signers.PdfSignatureMetadata(
             field_name=field_name,
-            md_algorithm=MD,
+            md_algorithm=chosen.digest,
             subfilter=fields.SigSeedSubFilter.PADES,
         ),
         signer=ext,
@@ -90,18 +128,24 @@ async def start(
     prep, _tbs, output = await pdf_signer.async_digest_doc_for_signing(
         writer, existing_fields_only=True, bytes_reserved=BYTES_RESERVED
     )
-    signed_attrs = await ext.signed_attrs(prep.document_digest, MD, use_pades=True)
+    signed_attrs = await ext.signed_attrs(
+        prep.document_digest, chosen.digest, use_pades=True
+    )
     output.seek(0)
     state = {
         "certificate": certificate_b64,
         "chain": chain_b64,
         "digest": base64.b64encode(prep.document_digest).decode(),
+        "digestAlgorithm": chosen.digest,
         "output": base64.b64encode(output.read()).decode(),
         "reservedEnd": prep.reserved_region_end,
         "reservedStart": prep.reserved_region_start,
+        "signatureMechanism": chosen.mechanism,
         "signedAttrs": base64.b64encode(signed_attrs.dump()).decode(),
     }
-    return StartResult(to_sign=signed_attrs.dump(), state=json.dumps(state))
+    return StartResult(
+        to_sign=signed_attrs.dump(), digest_algorithm=chosen.digest, state=json.dumps(state)
+    )
 
 
 async def finish(
@@ -114,6 +158,8 @@ async def finish(
         state = json.loads(state_json)
         cert = load_cert(state["certificate"])
         chain = [load_cert(c) for c in state["chain"]]
+        digest_algorithm = str(state["digestAlgorithm"])
+        mechanism = algos.SignedDigestAlgorithm({"algorithm": state["signatureMechanism"]})
         signed_attrs = cms.CMSAttributes.load(base64.b64decode(state["signedAttrs"]))
         output = io.BytesIO(base64.b64decode(state["output"]))
         prep = PreparedByteRangeDigest(
@@ -123,14 +169,15 @@ async def finish(
         )
     except (KeyError, ValueError, TypeError) as error:
         raise RemoteSignError("The signing state is damaged") from error
-    _verify_signature(cert, signed_attrs.dump(), signature_value)
+    _verify_signature(cert, digest_algorithm, signed_attrs.dump(), signature_value)
     ext = signers.ExternalSigner(
         signing_cert=cert,
         cert_registry=SimpleCertificateStore.from_certs(chain),
         signature_value=signature_value,
+        signature_mechanism=mechanism,
     )
     signature_cms = await ext.async_sign_prescribed_attributes(
-        MD, signed_attrs=signed_attrs, timestamper=timestamper
+        digest_algorithm, signed_attrs=signed_attrs, timestamper=timestamper
     )
     await PdfTBSDocument.async_finish_signing(
         output, prepared_digest=prep, signature_cms=signature_cms
@@ -138,18 +185,31 @@ async def finish(
     return output.getvalue()
 
 
-def _verify_signature(cert: x509.Certificate, data: bytes, signature: bytes) -> None:
+def _verify_signature(
+    cert: x509.Certificate, digest_algorithm: str, data: bytes, signature: bytes
+) -> None:
     """Refuses a signature that isn't the certificate's over the signed attributes."""
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.asymmetric import padding, rsa
+    from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+    from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
     from cryptography.hazmat.primitives.serialization import load_der_public_key
 
     public_key = load_der_public_key(cert.public_key.dump())
-    if not isinstance(public_key, rsa.RSAPublicKey):
-        raise RemoteSignError("Only RSA DSC certificates are supported")
+    digest = hashes.SHA384() if digest_algorithm == "sha384" else hashes.SHA256()
     try:
-        public_key.verify(signature, data, padding.PKCS1v15(), hashes.SHA256())
+        if isinstance(public_key, rsa.RSAPublicKey):
+            public_key.verify(signature, data, padding.PKCS1v15(), digest)
+        elif isinstance(public_key, ec.EllipticCurvePublicKey):
+            try:
+                decode_dss_signature(signature)
+            except ValueError as error:
+                raise RemoteSignError(
+                    "The ECDSA signature must be a DER ECDSA-Sig-Value, not raw r||s"
+                ) from error
+            public_key.verify(signature, data, ec.ECDSA(digest))
+        else:
+            raise UnsupportedKeyError("Only RSA and elliptic-curve DSC certificates are supported")
     except InvalidSignature as error:
         raise RemoteSignError(
             "The signature doesn't match the certificate: was the right token used?"
