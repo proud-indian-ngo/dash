@@ -175,7 +175,7 @@ export async function acceptSignedPdf(input: {
  * added in their field, by them by name and, for the helper, from their
  * enrolled certificate. Returns the upload's validation report.
  */
-async function checkOneSignerAdded(input: {
+export async function checkOneSignerAdded(input: {
   current: Uint8Array;
   expectedCertificateSha256?: string;
   trusteeId: string;

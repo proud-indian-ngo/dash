@@ -20,6 +20,8 @@ const created: Record<string, unknown>[] = [];
 let meeting: Record<string, unknown> | null = null;
 const acceptedDeclarations: Record<string, unknown>[] = [];
 let declaration: Record<string, unknown> | null = null;
+const acceptedCertificates: Record<string, unknown>[] = [];
+let utilisationCertificate: Record<string, unknown> | null = null;
 const CLAIM = new Date("2026-10-19T10:00:00Z");
 
 mock.module("@pi-dash/db", () => ({
@@ -79,6 +81,16 @@ mock.module("@pi-dash/db/queries/policies", () => ({
 }));
 mock.module("@pi-dash/db/queries/resolutions", () => ({
   circularResolutions: async () => [{ title: "Operation of bank accounts" }],
+}));
+mock.module("@pi-dash/db/queries/utilisation-certificates", () => ({
+  CertificateError: class CertificateError extends Error {},
+  getCertificate: async () => utilisationCertificate,
+}));
+mock.module("../grants/utilisation-certificates", () => ({
+  acceptSignedCertificate: async (input: Record<string, unknown>) => {
+    acceptedCertificates.push(input);
+    return "awaiting_finance";
+  },
 }));
 mock.module("../audit", () => ({
   runAuditedAction: async (_options: unknown, run: () => Promise<unknown>) =>
@@ -547,5 +559,66 @@ describe("declaration jobs", () => {
     expect(closed).toEqual([
       { claim: CLAIM, error: "The PIN was cancelled.", id: "job-1" },
     ]);
+  });
+});
+
+describe("utilisation certificate jobs", () => {
+  const sha256 = certificateFacts(ASHA_CERT, [])?.sha256;
+
+  beforeEach(() => {
+    closed.length = 0;
+    acceptedCertificates.length = 0;
+    claimTaken = false;
+    ownsClaim = true;
+    settled = null;
+    certificate = { chain: [], der: ASHA_CERT, id: "cert-1", sha256 };
+    declaration = null;
+    meeting = null;
+    utilisationCertificate = {
+      financeTrusteeId: "vikram",
+      headSignedAt: null,
+      headTrusteeId: "asha",
+      number: "UC/2026-27/001",
+      snapshot: { grant: { title: "Library corners" } },
+    };
+    job = {
+      certificateId: "cert-1",
+      circularId: null,
+      createdAt: new Date("2026-10-19T09:55:00Z"),
+      declarationId: null,
+      id: "job-1",
+      kind: "sign",
+      legalName: "Asha Rao",
+      meetingId: null,
+      stateObjectKey: "state.json",
+      toSign: "dG8tc2lnbg==",
+      trusteeId: "asha",
+      userId: "user-1",
+      utilisationCertificateId: "uc-1",
+    };
+  });
+
+  it("names the certificate and its grant to the helper", async () => {
+    const reply = await describeJob("t".repeat(43));
+    expect(reply.body.title).toBe(
+      "Utilisation certificate UC/2026-27/001: Library corners"
+    );
+  });
+
+  it("takes the signed copy through the certificate's acceptance", async () => {
+    const reply = await completeJob("t".repeat(43), {
+      certificate: ASHA_CERT,
+      signature: "c2ln",
+    });
+    expect(reply.status).toBe(200);
+    expect(String(reply.body.message)).toContain("utilisation certificate");
+    expect(acceptedCertificates).toEqual([
+      expect.objectContaining({
+        certificateId: "uc-1",
+        expectedCertificateSha256: sha256,
+        trusteeId: "asha",
+      }),
+    ]);
+    expect(closed).toEqual([{ claim: CLAIM, id: "job-1", ok: true }]);
   });
 });

@@ -2,13 +2,19 @@ import {
   grantDonationTypeValues,
   grantStatusValues,
 } from "@pi-dash/shared/constants";
+import {
+  type UtilisationCertificateSnapshot,
+  utilisationCertificateStatusValues,
+} from "@pi-dash/shared/utilisation-certificates";
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   date,
   foreignKey,
   index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -17,8 +23,11 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { user } from "./auth";
 import { accountHead, programme, project } from "./finance-dimensions";
+import { trustee } from "./governance";
 import { contribution } from "./income";
+import { jsonb } from "./jsonb";
 import { party } from "./party";
 
 export const grantDonationTypeEnum = pgEnum(
@@ -47,6 +56,10 @@ export const grantAgreement = pgTable(
     donationType: grantDonationTypeEnum("donation_type").notNull(),
     endsOn: date("ends_on").notNull(),
     id: uuid("id").primaryKey(),
+    /** The agreement asks for a CA's certificate on each utilisation certificate. */
+    needsCaCertificate: boolean("needs_ca_certificate")
+      .default(false)
+      .notNull(),
     notes: text("notes"),
     /** The grantor: a party with a donor, sponsor or grantor role. */
     partyId: uuid("party_id")
@@ -130,10 +143,119 @@ export const grantBudgetLine = pgTable(
   ]
 );
 
+export const utilisationCertificateStatusEnum = pgEnum(
+  "utilisation_certificate_status",
+  utilisationCertificateStatusValues
+);
+
+/**
+ * A utilisation certificate for a period of a grant (finance-grants.md).
+ * Its figures are frozen when finance prepares it and the PDF is rendered
+ * once from them; each DSC signature appends to that file. Numbered
+ * `UC/2026-27/001` from `private.utilisation_certificate_counter`, so the
+ * series never skips: a discarded certificate keeps its number.
+ */
+export const utilisationCertificate = pgTable(
+  "utilisation_certificate",
+  {
+    /** CA's UDIN, once finance records the CA's certificate. */
+    caUdin: text("ca_udin"),
+    /** The CA-countersigned PDF or the CA's separate report. */
+    caFilename: text("ca_filename"),
+    caObjectKey: text("ca_object_key"),
+    caRecordedAt: timestamp("ca_recorded_at"),
+    caRecordedBy: text("ca_recorded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** Frozen from the grant at prepare: the certificate is final only after the CA step. */
+    caRequired: boolean("ca_required").notNull(),
+    cancelReason: text("cancel_reason"),
+    cancelledAt: timestamp("cancelled_at"),
+    cancelledBy: text("cancelled_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull(),
+    financeSignedAt: timestamp("finance_signed_at"),
+    /** Signs second, as Chief Finance Officer. */
+    financeTrusteeId: uuid("finance_trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    /** "2026-27", of the day it was prepared. */
+    fiscalYear: text("fiscal_year").notNull(),
+    fromOn: date("from_on").notNull(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => grantAgreement.id, { onDelete: "restrict" }),
+    headSignedAt: timestamp("head_signed_at"),
+    /** Signs first, as Head of the Organisation. */
+    headTrusteeId: uuid("head_trustee_id")
+      .notNull()
+      .references(() => trustee.id, { onDelete: "restrict" }),
+    id: uuid("id").primaryKey(),
+    /** Interest earned in the period, as finance entered it. */
+    interestPaise: bigint("interest_paise", { mode: "number" }).notNull(),
+    /** R2 key of the latest copy: the prepared PDF, then each signed one. */
+    latestObjectKey: text("latest_object_key").notNull(),
+    latestSha256: text("latest_sha256").notNull(),
+    number: text("number").notNull(),
+    preparedBy: text("prepared_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    sequence: integer("sequence").notNull(),
+    snapshot: jsonb("snapshot")
+      .$type<UtilisationCertificateSnapshot>()
+      .notNull(),
+    status: utilisationCertificateStatusEnum("status").notNull(),
+    toOn: date("to_on").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (t) => [
+    index("utilisation_certificate_grantId_idx").on(t.grantId),
+    unique("utilisation_certificate_number_unique").on(t.number),
+    unique("utilisation_certificate_sequence_unique").on(
+      t.fiscalYear,
+      t.sequence
+    ),
+    check(
+      "utilisation_certificate_period_check",
+      sql`${t.toOn} >= ${t.fromOn}`
+    ),
+    check(
+      "utilisation_certificate_interest_check",
+      sql`${t.interestPaise} >= 0`
+    ),
+    check(
+      "utilisation_certificate_signers_check",
+      sql`${t.headTrusteeId} <> ${t.financeTrusteeId}`
+    ),
+  ]
+);
+
+export const utilisationCertificateRelations = relations(
+  utilisationCertificate,
+  ({ one }) => ({
+    financeTrustee: one(trustee, {
+      fields: [utilisationCertificate.financeTrusteeId],
+      references: [trustee.id],
+      relationName: "utilisationCertificateFinance",
+    }),
+    grant: one(grantAgreement, {
+      fields: [utilisationCertificate.grantId],
+      references: [grantAgreement.id],
+    }),
+    headTrustee: one(trustee, {
+      fields: [utilisationCertificate.headTrusteeId],
+      references: [trustee.id],
+      relationName: "utilisationCertificateHead",
+    }),
+  })
+);
+
 export const grantAgreementRelations = relations(
   grantAgreement,
   ({ many, one }) => ({
     budgetLines: many(grantBudgetLine),
+    certificates: many(utilisationCertificate),
     contributions: many(contribution),
     party: one(party, {
       fields: [grantAgreement.partyId],

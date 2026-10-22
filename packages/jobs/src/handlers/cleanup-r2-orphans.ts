@@ -63,7 +63,7 @@ async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
 
 async function collectAllDbKeys(): Promise<{
   keys: Set<string>;
-  /** Folders kept whole: an open circular's signing copies and state. */
+  /** Folders kept whole: an open circular's or certificate's signing copies and state. */
   retainPrefixes: string[];
   retainAllEventUpdates: boolean;
 }> {
@@ -112,6 +112,10 @@ async function collectAllDbKeys(): Promise<{
       SELECT file_object_key FROM private.donation_certificate WHERE file_object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT agreement_object_key FROM grant_agreement WHERE agreement_object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT latest_object_key FROM utilisation_certificate WHERE latest_object_key LIKE ${keyPrefix}
+      UNION ALL
+      SELECT ca_object_key FROM utilisation_certificate WHERE ca_object_key LIKE ${keyPrefix}
       UNION ALL
       SELECT CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}
         THEN value::jsonb ->> 'signatureKey' END FROM app_config
@@ -189,9 +193,17 @@ async function collectAllDbKeys(): Promise<{
     SELECT DISTINCT circular_id AS id FROM resolution
     WHERE status = 'issued' AND circular_id IS NOT NULL
   `);
-  const retainPrefixes = openCirculars.map(
-    (row) => `${prefix}/governance/circulars/${row.id}/`
-  );
+  // A certificate waiting for a signature keeps its helper state too.
+  const signingCertificates = await db.execute<{ id: string }>(sql`
+    SELECT id FROM utilisation_certificate
+    WHERE status IN ('awaiting_head', 'awaiting_finance')
+  `);
+  const retainPrefixes = [
+    ...openCirculars.map((row) => `${prefix}/governance/circulars/${row.id}/`),
+    ...signingCertificates.map(
+      (row) => `${prefix}/utilisation-certificates/${row.id}/`
+    ),
+  ];
 
   return { keys, retainAllEventUpdates, retainPrefixes };
 }

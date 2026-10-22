@@ -58,15 +58,16 @@ export async function validateSignedPdf(
 export class SigningServiceError extends Error {}
 
 /**
- * Adds per signer an empty signature field and the read-only answers field
- * it locks to a circular, minutes or declaration. Throws when the service is
+ * Adds per signer an empty signature field, and on a circular, minutes or
+ * declaration the read-only answers field it locks. Throws when the service is
  * missing or refuses: every signer signs in a field the document was made with.
  */
 export async function prepareSignatureFields(
   pdf: Uint8Array,
   fields: {
-    answersBox: [number, number, number, number];
-    answersName: string;
+    /** The trustee's answers field, which their signature locks; both or neither. */
+    answersBox?: [number, number, number, number];
+    answersName?: string;
     box: [number, number, number, number];
     name: string;
     page: number;
