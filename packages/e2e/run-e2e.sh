@@ -116,6 +116,11 @@ ENCODED_DEV_DB_PASSWORD=$(bun -e 'process.stdout.write(encodeURIComponent(proces
 export TEST_DB_URL="postgres://postgres:${ENCODED_DEV_DB_PASSWORD}@localhost:${TEST_DB_HOST_PORT}/pi-dash-test"
 export VITE_E2E=true
 
+# This run's throwaway CA and signers (signing/make-test-pki.py): the E2E
+# signing service trusts only that CA, and specs play the DSC helper with
+# the signers' keys.
+export E2E_SIGNING_PKI_DIR="/tmp/pi-dash-test${WT_SUFFIX}-signing-pki"
+
 # Generate a temporary docker-compose file for this E2E run
 E2E_COMPOSE_FILE="$REPO_ROOT/packages/db/docker-compose.e2e${WT_SUFFIX}.yml"
 cat > "$E2E_COMPOSE_FILE" <<YAML
@@ -144,6 +149,11 @@ services:
     container_name: pi-dash-signing-test${WT_SUFFIX}
     environment:
       SIGNING_SERVICE_TOKEN: e2e-signing-token
+      SIGNING_TRUST_ROOTS_DIR: /test-roots
+      # No timestamp authority: the run stays offline.
+      SIGNING_TSA_URL: none
+    volumes:
+      - ${E2E_SIGNING_PKI_DIR}/roots:/test-roots:ro
     ports:
       - "${TEST_SIGNING_PORT}:8080"
 volumes:
@@ -176,6 +186,7 @@ cleanup() {
     cleanup_failed=1
   fi
   rm -f "$E2E_COMPOSE_FILE"
+  rm -rf "$E2E_SIGNING_PKI_DIR"
   release_e2e_run_lock
   echo "E2E total: $((SECONDS - RUN_STARTED))s (including teardown)"
 
@@ -194,7 +205,15 @@ echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAI
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
 # Issuing circulars, minutes and declarations needs the signing service.
 echo "Starting the signing service on port $TEST_SIGNING_PORT..."
-docker compose -f "$E2E_COMPOSE_FILE" up -d --build signing-test
+docker compose -f "$E2E_COMPOSE_FILE" build signing-test
+rm -rf "$E2E_SIGNING_PKI_DIR"
+mkdir -p "$E2E_SIGNING_PKI_DIR"
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$E2E_SIGNING_PKI_DIR:/out" \
+  -v "$REPO_ROOT/packages/e2e/signing/make-test-pki.py:/make-test-pki.py:ro" \
+  --entrypoint /app/.venv/bin/python "pi-dash-signing-e2e${WT_SUFFIX}" \
+  /make-test-pki.py /out
+docker compose -f "$E2E_COMPOSE_FILE" up -d signing-test
 
 # Wait for healthy (timeout after 30s)
 echo "Waiting for test database to be ready..."

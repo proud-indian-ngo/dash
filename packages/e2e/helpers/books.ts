@@ -34,6 +34,7 @@ import {
   gatewaySettlement,
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
+import { grantAgreement } from "@pi-dash/db/schema/grant";
 import { contribution } from "@pi-dash/db/schema/income";
 import {
   auditedFigures,
@@ -140,6 +141,12 @@ import { uuidv7 } from "uuidv7";
  *   charged to the programme and 600 to its project, out of whichever bank
  *   account is main (never changing it). FY 2027-28 because the books specs freeze and close
  *   FY 2026-27 while other specs run; nothing freezes the later year.
+ * - `certificate-fixture <run>`: utilisation certificates. A programme,
+ *   project and grantor of this run, a grant over FY 2026-27 whose
+ *   agreement needs a CA certificate, and a NEFT gift of 3,000 received on
+ *   1 Oct 2026 into a bank account of this run and linked to it. Nothing
+ *   posts. Reports the grant's id and
+ *   title.
  * - `grant-fixture <run>`: Finance → Grants. The budget fixture's records,
  *   plus a grantor of this run and its NEFT gift of 2,000 on the project,
  *   received on 1 Oct 2026 into the main bank account. Reports the names
@@ -831,6 +838,94 @@ async function grantFixture(run: string) {
   return { ...names, grantor, reference };
 }
 
+async function certificateFixture(run: string) {
+  const now = new Date();
+  const code = run
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(-10)
+    .toUpperCase();
+  const ids = {
+    account: uuidv7(),
+    grant: uuidv7(),
+    party: uuidv7(),
+    programme: uuidv7(),
+    project: uuidv7(),
+  };
+  const title = `E2E Certificate Grant ${run}`;
+  await db.transaction(async (tx) => {
+    // A bank account of this run, never made main.
+    await tx.insert(orgAccount).values({
+      createdAt: now,
+      id: ids.account,
+      kind: "bank",
+      name: `E2E Certificate Bank ${run}`,
+      updatedAt: now,
+    });
+    await tx.insert(programme).values({
+      code: `UC${code}`,
+      createdAt: now,
+      id: ids.programme,
+      name: `E2E Certificate Programme ${run}`,
+      updatedAt: now,
+    });
+    await tx.insert(project).values({
+      code: `UCP${code}`,
+      createdAt: now,
+      id: ids.project,
+      name: `E2E Certificate Project ${run}`,
+      programmeId: ids.programme,
+      updatedAt: now,
+    });
+    await tx.insert(party).values({
+      createdAt: now,
+      displayName: `E2E Certificate Grantor ${run}`,
+      id: ids.party,
+      kind: "organisation",
+      updatedAt: now,
+    });
+    await tx.insert(partyRole).values({
+      active: true,
+      id: uuidv7(),
+      partyId: ids.party,
+      role: "grantor",
+      since: now,
+    });
+    await tx.insert(grantAgreement).values({
+      createdAt: now,
+      donationType: "csr",
+      endsOn: "2027-03-31",
+      id: ids.grant,
+      needsCaCertificate: true,
+      partyId: ids.party,
+      programmeId: ids.programme,
+      projectId: ids.project,
+      sanctionedPaise: 1_000_000,
+      startsOn: "2026-04-01",
+      title,
+      updatedAt: now,
+    });
+    await tx.insert(contribution).values({
+      amountPaise: 300_000,
+      channel: "neft",
+      createdAt: now,
+      donationType: "csr",
+      fundId: GENERAL_FUND_ID,
+      grantId: ids.grant,
+      id: uuidv7(),
+      orgAccountId: ids.account,
+      partyId: ids.party,
+      programmeId: ids.programme,
+      projectId: ids.project,
+      receivedOn: "2026-10-01",
+      reference: `E2EUC${code}`,
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    });
+  });
+  return { grantId: ids.grant, title };
+}
+
 async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
   await auditedFixture(yearLabel);
@@ -1285,6 +1380,8 @@ if (action === "close-year") {
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
 } else if (action === "budget-fixture") {
   result = await budgetFixture(label);
+} else if (action === "certificate-fixture") {
+  result = await certificateFixture(label);
 } else if (action === "grant-fixture") {
   result = await grantFixture(label);
 } else if (action === "expense-fixture") {
