@@ -34,6 +34,7 @@ import {
   cancelCertificate,
   certificateDrifts,
   discardCertificate,
+  DRIFT_REFUSAL,
   getCertificate,
   prepareCertificate,
   previewCertificate,
@@ -551,6 +552,8 @@ it.skipIf(!localDatabase)(
         "Spent on Certificate test food"
       );
       expect(drift?.changes.join("\n")).toContain("Unspent brought forward");
+      // Nobody signs figures the books no longer give.
+      expect(await refusal(() => sign(tx, id, FINANCE))).toBe(DRIFT_REFUSAL);
     });
   }
 );
@@ -594,6 +597,14 @@ it.skipIf(!localDatabase)(
         (await getCertificate(c.id, database))?.snapshot.figures
           .interestBroughtForwardPaise
       ).toBe(5000);
+      // Every certificate a period overlaps is named.
+      expect(
+        await refusal(() =>
+          prepare(tx, ids, { from: "2026-09-01", to: "2026-12-01" })
+        )
+      ).toBe(
+        `The period overlaps ${a.number} and ${c.number}. Pick a period after them, or discard or cancel them first.`
+      );
       // Withdrawn, A no longer holds its period.
       await discardCertificate({ id: a.id, userId: ids.user }, database, NOW);
       await prepare(tx, ids, { from: "2026-06-01", to: "2026-09-30" });

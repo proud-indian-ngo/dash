@@ -30,11 +30,11 @@ Schema `packages/db/src/schema/grant.ts`. The table is `grant_agreement` because
 
 ## Utilisation
 
-Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant-utilisation.ts`) answers a range `from`..`to`, and `grantUtilisation` (`packages/shared/src/grants.ts`) lays it out GFR 12-A style, so a certificate for any range can be computed from it.
+Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant-utilisation.ts`) answers a range `from`..`to`, and `grantUtilisation` (`packages/shared/src/grants.ts`) lays it out GFR 12-A style.
 
 - Receipts follow the contribution's current status: a gift later reversed drops out of every range, including ranges already reported.
 - **Received**: linked contributions whose money arrived (received, receipted or refunded; not pending or reversed), gross, by received date.
-- **Refunded**: their refunds, as their own lines by refund date, as GFR 12-A shows refunds separately.
+- **Refunded**: their refunds, as their own lines by refund date.
 - **Spent**: cash expense (`medium = 'monetary'`) on the grant's project, per head, by economic date within the grant's period. A reversal counts when the entry it reverses does, on its own date, so a void after the period still takes the spend off.
 - **Unspent brought forward**: received less refunded less spent before `from`. **Closing unspent**: brought forward plus received less refunded less spent in the range.
 - An expense charged to an event counts when the event names the grant's project: finance sets an event's project (`finance.manage` only), occurrences inherit it, and its claims and vendor payments post with it. Changing an event's project stays allowed after its expenses post, and reposts them, except in a closed year or under a certificate (see [Lock and drift](#lock-and-drift)). The event form first shows the posted spend that would move (`getEventProjectMove`). When someone outside finance moves an event to another programme, its project clears and finance gets an inbox and email notice.
@@ -43,8 +43,8 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 
 ## Screens and access
 
-- Finance → Grants lists grantor, project, period, sanctioned, received, spent, unspent and status, filtered by status and programme.
-- The grant page shows Sanctioned, Received (net of refunds), Spent and Unspent; the period's utilisation; tranches with what each has received to date, net of refunds; spend by head against the budget; its certificates; linked contributions; and the agreement in the details column.
+- Finance → Grants lists each grant's period, money and status, filtered by status and programme.
+- The grant page shows the totals, the period's utilisation, tranches with what each received, spend by head against budget, certificates, linked contributions and the agreement.
 - Reading needs `finance.view`; grants sync only to it. Writing needs `finance.manage` through the audited `grant.*` mutators.
 
 ## Utilisation certificates
@@ -59,6 +59,6 @@ A certificate covers any period within the grant, GFR 12-A style. No law require
 
 ### Lock and drift
 
-A live certificate holds its grant's figures up to its end. Linking, unlinking or deleting a contribution received by then, moving an event's project so spend dated by then enters or leaves the grant, and changing the grant's project or dates where that touches the period are refused, naming the certificate. Other changes (a void in the period, a reversed gift) show as "Figures changed since signing", listing what changed.
+A live certificate holds its grant's figures up to its end. Linking, unlinking or deleting a contribution received by then, changing its amount or date, moving an event's project so spend dated by then enters or leaves the grant, and changing the grant's project or dates where that touches the period are refused, naming the certificate. A void reverses on the day it is made, so a void after the period changes a later range instead. What still changes it (a gift reversed by its gateway, spend posted or reposted with a date inside the period) shows as "Figures changed since signing" (or "since prepared"), listing what changed, and stops anyone signing it.
 
 Advances and commitments are not separated.

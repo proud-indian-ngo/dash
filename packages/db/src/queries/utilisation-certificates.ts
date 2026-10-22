@@ -158,7 +158,7 @@ async function overlapProblem(
   reader: Reader,
   input: { from: string; grantId: string; to: string }
 ): Promise<string | null> {
-  const [overlapping] = await reader
+  const overlapping = await reader
     .select({ number: utilisationCertificate.number })
     .from(utilisationCertificate)
     .where(
@@ -169,10 +169,18 @@ async function overlapProblem(
         gte(utilisationCertificate.toOn, input.from)
       )
     )
-    .limit(1);
-  return overlapping
-    ? `The period overlaps ${overlapping.number}. Pick a period after it, or discard or cancel it first.`
-    : null;
+    .orderBy(utilisationCertificate.fromOn, utilisationCertificate.number);
+  const numbers = overlapping.map((c) => c.number);
+  if (numbers.length === 0) {
+    return null;
+  }
+  const named =
+    numbers.length === 1
+      ? numbers[0]
+      : `${numbers.slice(0, -1).join(", ")} and ${numbers.at(-1)}`;
+  return numbers.length === 1
+    ? `The period overlaps ${named}. Pick a period after it, or discard or cancel it first.`
+    : `The period overlaps ${named}. Pick a period after them, or discard or cancel them first.`;
 }
 
 /** The trust's particulars a certificate prints, as of `today`. */
@@ -508,6 +516,7 @@ export async function recordCertificateSignature(
     const row = await lockCertificate(tx, input.id);
     const role = signerRole(row, input.trusteeId);
     await assertSignerInOffice(tx, row, role, todayInKolkata(now));
+    await assertNoDrift(tx, row);
     if (row.latestSha256 !== input.basedOnSha256) {
       throw new CertificateError(
         "The certificate changed after you started. Start again to sign the latest copy."
@@ -634,6 +643,40 @@ export async function discardCertificate(
  * the same period computed now against its snapshot. Only certificates
  * with a change are listed.
  */
+/** What changed in one certificate's figures since it was prepared. */
+export async function driftOf(
+  reader: Reader,
+  certificate: Pick<
+    CertificateRow,
+    "fromOn" | "grantId" | "id" | "interestPaise" | "snapshot" | "toOn"
+  >
+): Promise<string[]> {
+  const now = await computeCertificateFigures(reader, {
+    certificateId: certificate.id,
+    from: certificate.fromOn,
+    grantId: certificate.grantId,
+    interestPaise: certificate.interestPaise,
+    to: certificate.toOn,
+  });
+  return certificateDrift(certificate.snapshot.figures, now);
+}
+
+/**
+ * A certificate whose figures changed since it was prepared can't be
+ * signed: the signature would certify figures the books no longer give.
+ */
+export async function assertNoDrift(
+  reader: Reader,
+  certificate: Parameters<typeof driftOf>[1]
+): Promise<void> {
+  if ((await driftOf(reader, certificate)).length > 0) {
+    throw new CertificateError(DRIFT_REFUSAL);
+  }
+}
+
+export const DRIFT_REFUSAL =
+  "The figures changed since this certificate was prepared, so it can't be signed. Finance should discard or cancel it and prepare it again.";
+
 export async function certificateDrifts(
   reader: Reader,
   grantId: string
@@ -655,14 +698,7 @@ export async function certificateDrifts(
     );
   const drifts: { changes: string[]; id: string }[] = [];
   for (const certificate of live) {
-    const now = await computeCertificateFigures(reader, {
-      certificateId: certificate.id,
-      from: certificate.fromOn,
-      grantId,
-      interestPaise: certificate.interestPaise,
-      to: certificate.toOn,
-    });
-    const changes = certificateDrift(certificate.snapshot.figures, now);
+    const changes = await driftOf(reader, { ...certificate, grantId });
     if (changes.length > 0) {
       drifts.push({ changes, id: certificate.id });
     }

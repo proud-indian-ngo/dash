@@ -744,6 +744,22 @@ export const contributionMutators = {
         "This contribution counts towards a grant, so its donor and project can't change. Ask finance to unlink it from the grant first."
       );
     }
+    // A new amount or day changes what a certificate covering either day
+    // certifies.
+    if (
+      existing.grantId &&
+      (values.amountPaise !== existing.amountPaise ||
+        values.receivedOn !== existing.receivedOn)
+    ) {
+      await assertNoCertificateCovers(
+        tx,
+        [existing.receivedOn, values.receivedOn].map((day) => ({
+          grantId: existing.grantId as string,
+          on: epochDayToIso(day),
+        })),
+        "changing this contribution's amount or date"
+      );
+    }
     if (
       (values.amountPaise !== existing.amountPaise ||
         values.orgAccountId !== (existing.orgAccountId ?? null) ||

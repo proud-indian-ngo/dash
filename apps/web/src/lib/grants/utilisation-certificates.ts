@@ -4,6 +4,7 @@ import {
   currentCertificate,
 } from "@pi-dash/db/queries/signing";
 import {
+  assertNoDrift,
   assertSignerInOffice,
   CertificateError,
   getCertificate,
@@ -159,6 +160,7 @@ export async function startCertificateJob(input: {
   }
   const role = signerRole(certificate, input.trusteeId);
   await assertSignerInOffice(db, certificate, role, todayInKolkata());
+  await assertNoDrift(db, certificate);
   const enrolled = await currentCertificate(input.trusteeId);
   if (!enrolled) {
     throw new CircularError(

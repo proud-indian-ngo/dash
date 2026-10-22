@@ -4,6 +4,7 @@ import {
   cancelCertificate,
   certificateDrifts,
   discardCertificate,
+  driftOf,
   getCertificate,
   prepareCertificate,
   previewCertificate,
@@ -194,6 +195,35 @@ export const getUtilisationCertificateDrift = createServerFn({ method: "GET" })
     return await db.transaction(async (tx) => {
       await tx.execute(sql`SET TRANSACTION READ ONLY`);
       return await certificateDrifts(tx, data.grantId);
+    });
+  });
+
+/**
+ * What changed in one certificate since it was prepared, for finance and
+ * for its two signers, whose sign panel is held back while it has drifted.
+ * A read.
+ */
+export const getCertificateDrift = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(byId)
+  .handler(async ({ context, data }) => {
+    const { session } = context;
+    if (!session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const certificate = await getCertificate(data.id);
+    if (!certificate) {
+      throw new HttpError(404, "Not found");
+    }
+    const signer =
+      certificate.headUserId === session.user.id ||
+      certificate.financeUserId === session.user.id;
+    if (!signer) {
+      await assertServerPermission(session, "finance.view");
+    }
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SET TRANSACTION READ ONLY`);
+      return await driftOf(tx, certificate);
     });
   });
 

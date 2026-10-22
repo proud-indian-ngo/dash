@@ -58,7 +58,7 @@ import { useApp } from "@/context/app-context";
 import {
   cancelCertificateFn,
   discardCertificateFn,
-  getUtilisationCertificateDrift,
+  getCertificateDrift,
 } from "@/functions/utilisation-certificates";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { DATE, formatTimestamp } from "@/lib/date-formats";
@@ -103,38 +103,49 @@ function fileHref(
   return `/api/utilisation-certificates/${certificateId}?file=${file}${inline ? "&disposition=inline" : ""}`;
 }
 
-/** Finance only: what changed since this certificate was prepared. */
+/**
+ * What changed since this certificate was prepared, for finance and its
+ * signers; null while it loads. Loaded again when the status changes.
+ */
 function useCertificateDrift(
-  grantId: string,
   certificateId: string,
-  enabled: boolean
-) {
-  const load = useServerFn(getUtilisationCertificateDrift);
-  const [changes, setChanges] = useState<string[]>([]);
+  status: string | null
+): string[] | null {
+  const load = useServerFn(getCertificateDrift);
+  const [loaded, setLoaded] = useState<{
+    changes: string[];
+    key: string;
+  } | null>(null);
+  const live =
+    status !== null && status !== "cancelled" && status !== "discarded";
+  const key = `${certificateId}:${status}`;
   useEffect(() => {
-    if (!enabled) {
+    if (!live) {
       return;
     }
     let cancelled = false;
-    load({ data: { grantId } })
-      .then((rows) => {
+    load({ data: { id: certificateId } })
+      .then((changes) => {
         if (!cancelled) {
-          setChanges(rows.find((r) => r.id === certificateId)?.changes ?? []);
+          setLoaded({ changes, key });
         }
       })
       .catch((error: unknown) => {
         log.error({
           action: "utilisationCertificate.drift",
           caughtError: error instanceof Error ? error.message : String(error),
+          certificateId,
           component: "CertificatePage",
-          grantId,
         });
       });
     return () => {
       cancelled = true;
     };
-  }, [certificateId, enabled, grantId, load]);
-  return changes;
+  }, [certificateId, key, live, load]);
+  if (!live) {
+    return [];
+  }
+  return loaded?.key === key ? loaded.changes : null;
 }
 
 function CertificatePage() {
@@ -146,11 +157,8 @@ function CertificatePage() {
     queries.utilisationCertificate.byId({ id: certificateId })
   );
   useRecordTitle(row ? `Certificate ${row.number}` : null);
-  const changes = useCertificateDrift(
-    row?.grantId ?? "",
-    certificateId,
-    canView && !!row && row.status !== "cancelled" && row.status !== "discarded"
-  );
+  const drift = useCertificateDrift(certificateId, row?.status ?? null);
+  const changes = drift ?? [];
   const discard = useServerFn(discardCertificateFn);
   const cancel = useServerFn(cancelCertificateFn);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
@@ -420,10 +428,25 @@ function CertificatePage() {
                 <p className="text-muted-foreground text-sm">
                   {`Check the figures in the PDF, then sign as ${signatoryTitle(due === "head" ? "head" : "finance", signatories[due === "head" ? "head" : "finance"])}.`}
                 </p>
-                <CertificateSignPanel
-                  certificateId={certificateId}
-                  latestHref={fileHref(certificateId, "latest")}
-                />
+                {drift === null ? (
+                  <p className="text-muted-foreground text-sm" role="status">
+                    Checking the figures...
+                  </p>
+                ) : drift.length > 0 ? (
+                  <p
+                    className="border-warning/30 bg-warning/10 text-warning-foreground rounded-lg border px-3 py-2 text-sm"
+                    role="alert"
+                  >
+                    The figures changed since this certificate was prepared, so
+                    it can't be signed. Finance should discard or cancel it and
+                    prepare it again.
+                  </p>
+                ) : (
+                  <CertificateSignPanel
+                    certificateId={certificateId}
+                    latestHref={fileHref(certificateId, "latest")}
+                  />
+                )}
               </section>
             ) : null}
           </RecordSection>
