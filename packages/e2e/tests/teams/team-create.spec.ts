@@ -9,7 +9,9 @@ test.describe("Create team dialog (admin)", () => {
     await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible();
   });
 
-  test("opens create team dialog with correct fields", async ({ page }) => {
+  test("create team dialog: fields, validation, cancel and WhatsApp toggle", async ({
+    page,
+  }) => {
     await page.getByRole("button", { name: "Add team" }).click();
 
     const dialog = page.getByRole("dialog");
@@ -23,38 +25,21 @@ test.describe("Create team dialog (admin)", () => {
     await expect(dialog.getByLabel("Description")).toBeVisible();
     await expect(dialog.locator("#team-whatsapp")).toBeVisible();
     await expect(dialog.locator("#create-wa-group")).toBeVisible();
-  });
 
-  test("cancel closes dialog", async ({ page }) => {
-    await page.getByRole("button", { name: "Add team" }).click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
-  test("Create button is disabled when name is empty", async ({ page }) => {
-    await page.getByRole("button", { name: "Add team" }).click();
-    const dialog = page.getByRole("dialog");
-
-    // Name should be empty by default
+    // Name is empty by default, so Create is disabled
     await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue("");
-
     await expect(
       dialog.getByRole("button", { exact: true, name: "Create team" })
     ).toBeDisabled();
-  });
 
-  test("WhatsApp toggle hides when a group is selected", async ({ page }) => {
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+
+    // WhatsApp toggle hides when a group is selected
     await page.getByRole("button", { name: "Add team" }).click();
-    const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-
-    // Toggle should be visible initially (no group selected)
     await expect(dialog.locator("#create-wa-group")).toBeVisible();
 
-    // Open the WhatsApp group select
     await dialog.locator("#team-whatsapp").click();
     const options = page.getByRole("option");
     const optionCount = await options.count();
@@ -66,8 +51,6 @@ test.describe("Create team dialog (admin)", () => {
 
     // Select first real group (skip "None")
     await options.nth(1).click();
-
-    // Toggle should now be hidden
     await expect(dialog.locator("#create-wa-group")).toBeHidden();
   });
 

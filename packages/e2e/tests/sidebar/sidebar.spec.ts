@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import type { Page } from "@playwright/test";
 import dotenv from "dotenv";
 
 import { expect, test } from "../../fixtures/test";
@@ -17,48 +18,41 @@ const ROLES_WITH_REIMBURSEMENTS = new Set([
   "volunteer",
 ]);
 
+async function openDashboard(page: Page) {
+  await page.goto("/");
+  // Wait for the sidebar to load
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+}
+
 test.describe("Sidebar navigation", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    // Wait for the sidebar to load
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" })
-    ).toBeVisible();
+    await openDashboard(page);
   });
 
-  test("Reimbursements link visibility per role", async ({
-    page,
-  }, testInfo) => {
+  test("nav link visibility per role", async ({ page }, testInfo) => {
+    const role = testInfo.project.name;
     const nav = page.locator("[data-sidebar='content']");
-    const link = nav.getByRole("link", { name: "Reimbursements" });
-    if (ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name)) {
-      await expect(link).toBeVisible();
-    } else {
-      await expect(link).toBeHidden();
-    }
-  });
+    const expectVisibleWhen = async (name: string, visible: boolean) => {
+      const link = nav.getByRole("link", { name });
+      await (visible ? expect(link).toBeVisible() : expect(link).toBeHidden());
+    };
 
-  test("Users link visibility per role", async ({ page }, testInfo) => {
-    const nav = page.locator("[data-sidebar='content']");
-    const link = nav.getByRole("link", { name: "Users" });
-    if (ROLES_WITH_USERS.has(testInfo.project.name)) {
-      await expect(link).toBeVisible();
-    } else {
-      await expect(link).toBeHidden();
-    }
-  });
-
-  test("Roles lives in Settings, only for super_admin", async ({
-    page,
-  }, testInfo) => {
-    const sidebar = page.locator("[data-sidebar='content']");
-    await expect(sidebar.getByRole("link", { name: "Roles" })).toBeHidden();
-    const sidebarSettings = sidebar.getByRole("link", {
-      exact: true,
-      name: "Settings",
-    });
-    if (testInfo.project.name === "volunteer") {
-      await expect(sidebarSettings).toBeHidden();
+    await expectVisibleWhen(
+      "Reimbursements",
+      ROLES_WITH_REIMBURSEMENTS.has(role)
+    );
+    await expectVisibleWhen("Users", ROLES_WITH_USERS.has(role));
+    await expectVisibleWhen("Jobs", role === "super_admin");
+    await expectVisibleWhen(
+      "Vendors",
+      role !== "volunteer" && role !== "unoriented_volunteer"
+    );
+    // Roles lives in Settings, only for super_admin.
+    await expect(nav.getByRole("link", { name: "Roles" })).toBeHidden();
+    if (role === "volunteer") {
+      await expect(
+        nav.getByRole("link", { exact: true, name: "Settings" })
+      ).toBeHidden();
     }
 
     await page.goto("/settings/profile");
@@ -71,36 +65,19 @@ test.describe("Sidebar navigation", () => {
       "Phones pick sections from a select"
     );
     const link = settingsNav.getByRole("link", { name: "Roles" });
-    if (testInfo.project.name === "super_admin") {
+    if (role === "super_admin") {
       await expect(link).toBeVisible();
     } else {
       await expect(link).toBeHidden();
     }
   });
+});
 
-  test("Jobs link visible only for super_admin", async ({ page }, testInfo) => {
-    const nav = page.locator("[data-sidebar='content']");
-    const link = nav.getByRole("link", { name: "Jobs" });
-    if (testInfo.project.name === "super_admin") {
-      await expect(link).toBeVisible();
-    } else {
-      await expect(link).toBeHidden();
-    }
-  });
-
-  test("Vendors link hidden for volunteer + unoriented_volunteer", async ({
-    page,
-  }, testInfo) => {
-    const nav = page.locator("[data-sidebar='content']");
-    const link = nav.getByRole("link", { name: "Vendors" });
-    if (
-      testInfo.project.name === "volunteer" ||
-      testInfo.project.name === "unoriented_volunteer"
-    ) {
-      await expect(link).toBeHidden();
-    } else {
-      await expect(link).toBeVisible();
-    }
+// Role-independent sidebar controls run once.
+test.describe("Sidebar controls", () => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Layout check");
+    await openDashboard(page);
   });
 
   test("user menu opens dropdown with Settings and Log out", async ({
@@ -167,7 +144,8 @@ test.describe("Sidebar navigation", () => {
 test.describe("Sidebar log out", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("log out redirects to /login", async ({ page }) => {
+  test("log out redirects to /login", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Layout check");
     // Fresh login in isolated context so shared storageState is unaffected
     await page.goto("/login");
     await page

@@ -21,9 +21,15 @@ test.describe("Reimbursement delete (reimbursement)", () => {
     const row = reimbursements.list.getRowByText(title);
     await expect(row).toBeVisible({ timeout: 10_000 });
 
+    // Cancel first: the dialog closes and the row stays.
     await reimbursements.list.openRowActionAndClick(row, "Delete");
-
     const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(row).toBeVisible();
+
+    await reimbursements.list.openRowActionAndClick(row, "Delete");
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByRole("heading", { name: "Delete reimbursement" })
@@ -36,26 +42,6 @@ test.describe("Reimbursement delete (reimbursement)", () => {
 
     await expect(page.getByText("Reimbursement deleted")).toBeVisible();
     await expect(row).toBeHidden({ timeout: 10_000 });
-  });
-
-  test("admin can cancel delete dialog", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const title = await reimbursements.createReimbursement("Delete Cancel");
-
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
-
-    const row = reimbursements.list.getRowByText(title);
-    await expect(row).toBeVisible({ timeout: 10_000 });
-
-    await reimbursements.list.openRowActionAndClick(row, "Delete");
-
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
   });
 
   test("volunteer sees Delete option for own pending reimbursement", async ({

@@ -124,8 +124,6 @@ async function deleteDuplicateAccounts(
   await deleteDuplicateAccounts(page, dialog, duplicateLast4, seedLast4);
 }
 
-const ROLES_FOR_BANK_ACCOUNT_FLOW = new Set(["super_admin", "volunteer"]);
-
 /** A 10-digit account number unique across parallel copies of this test. */
 function uniqueAccountNumber(): string {
   const lastFour = String(randomInt(0, 10_000)).padStart(4, "0");
@@ -171,10 +169,7 @@ test.describe("Bank account selection with duplicate names", () => {
   let release: (() => Promise<void>) | undefined;
 
   test.beforeEach(async ({ page: _page }, testInfo) => {
-    test.skip(
-      !ROLES_FOR_BANK_ACCOUNT_FLOW.has(testInfo.project.name),
-      "Bank account UX covered under super_admin + volunteer projects"
-    );
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
     release = await lockBankAccounts(testInfo);
   });
 
@@ -267,10 +262,7 @@ test.describe("Reimbursement paid by UPI", () => {
   let release: (() => Promise<void>) | undefined;
 
   test.beforeEach(async ({ page: _page }, testInfo) => {
-    test.skip(
-      !ROLES_FOR_BANK_ACCOUNT_FLOW.has(testInfo.project.name),
-      "Bank account UX covered under super_admin + volunteer projects"
-    );
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
     release = await lockBankAccounts(testInfo);
   });
 

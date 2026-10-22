@@ -196,32 +196,6 @@ test.describe("Income: contributions (finance)", () => {
     });
   });
 
-  test("filters contributions by channel", async ({ page }) => {
-    test.slow();
-    const reference = `E2E-CASH-${Date.now()}`;
-    const dialog = await openRecordDialog(page);
-    await pickOption(dialog, page, "Donor", INCOME_DONOR);
-    await dialog.getByLabel("Channel").click();
-    await page.getByRole("option", { exact: true, name: "Cash" }).click();
-    // Cash defaults the reporting mode to cash.
-    await expect(dialog.getByLabel("Reporting mode")).toContainText("Cash");
-    await dialog.getByRole("textbox", { name: "Amount (₹)" }).fill("300");
-    await pickOption(dialog, page, "Deposited into", ACCOUNT);
-    await dialog
-      .getByRole("textbox", { exact: true, name: "Reference" })
-      .fill(reference);
-    await clickUntilDialogCloses(dialog, "Save contribution");
-
-    const cashRow = await findRow(page, reference, "₹300.00");
-    await expect(cashRow).toHaveCount(1, { timeout: 10_000 });
-    const seedRow = await findRow(page, "E2E-SEED-UTR", "E2E Seed Donor");
-    await expect(seedRow).toHaveCount(1, { timeout: 10_000 });
-
-    await applyQuickFilter(page, "Channel", "Cash");
-    await expect(seedRow).toHaveCount(0, { timeout: 10_000 });
-    await expect(await findRow(page, reference, "₹300.00")).toHaveCount(1);
-  });
-
   test("the channel decides the account and the reporting mode", async ({
     page,
   }) => {
@@ -270,7 +244,9 @@ test.describe("Income: contributions (finance)", () => {
     await expect(dialog).toBeHidden();
   });
 
-  test("keeps the mode of receipt as the channel changes", async ({ page }) => {
+  test("keeps the mode of receipt as the channel changes and filters by channel", async ({
+    page,
+  }) => {
     test.slow();
     const reference = `E2E-MODE-${Date.now()}`;
     const dialog = await openRecordDialog(page);
@@ -330,6 +306,13 @@ test.describe("Income: contributions (finance)", () => {
     const row = await findRow(page, reference, "₹410.00");
     await expect(row).toHaveCount(1, { timeout: 10_000 });
     await expect(row).toContainText("Cash");
+
+    // The Channel filter keeps the Cash gift and drops the seeded UPI one.
+    const seedRow = await findRow(page, "E2E-SEED-UTR", "E2E Seed Donor");
+    await expect(seedRow).toHaveCount(1, { timeout: 10_000 });
+    await applyQuickFilter(page, "Channel", "Cash");
+    await expect(seedRow).toHaveCount(0, { timeout: 10_000 });
+    await expect(await findRow(page, reference, "₹410.00")).toHaveCount(1);
   });
 
   test("grants and CSR gifts name their programme; corpus has none", async ({

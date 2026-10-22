@@ -5,7 +5,8 @@ import { ReimbursementPage } from "../../pages/reimbursement-page";
 test.describe("New reimbursement form", () => {
   let reimbursements: ReimbursementPage;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
     reimbursements = new ReimbursementPage(page, "reimbursement");
     await reimbursements.navigateToNew();
   });

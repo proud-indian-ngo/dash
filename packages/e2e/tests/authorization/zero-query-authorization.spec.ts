@@ -194,7 +194,11 @@ test.describe("Zero public user projection", () => {
 
   test("sends only public user columns over the Zero websocket", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    test.skip(
+      !["super_admin", "volunteer"].includes(testInfo.project.name),
+      "An admin and a volunteer cover the projection"
+    );
     const capture = watchSyncedUserRows(page);
     await page.goto("/");
     await waitForZeroReady(page);

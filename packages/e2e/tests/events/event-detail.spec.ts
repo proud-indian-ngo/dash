@@ -1,12 +1,13 @@
 import { expect, test } from "../../fixtures/test";
-import { openPageAction } from "../../helpers/page-header";
+import { openPageAction, pageActionsButton } from "../../helpers/page-header";
 import { openPublicEvent, openSeededTeamEvent } from "../../helpers/team-event";
 
 /** Seeded public, upcoming event in "E2E Updates Team". */
 const PUBLIC_EVENT = "E2E Upcoming Public Bangalore";
+const PUBLIC_EVENT_TEAM = "E2E Updates Team";
 
 test.describe("Event detail page", () => {
-  test("admin can navigate to event detail from public events", async ({
+  test("admin opens an event from public events and sees its info", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
@@ -16,12 +17,6 @@ test.describe("Event detail page", () => {
       page.getByRole("heading", { level: 1, name: PUBLIC_EVENT })
     ).toBeVisible();
     await expect(page.getByText(/Volunteers \(\d+\)/)).toBeVisible();
-  });
-
-  test("event detail shows event info section", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    await openPublicEvent(page, PUBLIC_EVENT);
     await expect(page.getByText(/\d{1,2} \w{3} \d{4}/).first()).toBeVisible({
       timeout: 10_000,
     });
@@ -30,6 +25,18 @@ test.describe("Event detail page", () => {
         .getByText("Public", { exact: true })
         .filter({ visible: true })
         .first()
+    ).toBeVisible();
+    await expect(page.locator("#main")).toContainText("MG Road, Bangalore", {
+      timeout: 10_000,
+    });
+    await expect(page.getByText(PUBLIC_EVENT_TEAM).first()).toBeVisible();
+    // The header badge sits beside the title; other sessions on the page can
+    // show their own Upcoming badges.
+    await expect(
+      page
+        .getByRole("heading", { level: 1 })
+        .locator("xpath=..")
+        .getByText("Upcoming", { exact: true })
     ).toBeVisible();
   });
 
@@ -43,7 +50,7 @@ test.describe("Event detail page", () => {
     await expect(await openPageAction(page, "Cancel event")).toBeVisible();
   });
 
-  test("volunteer can view event detail for public event", async ({
+  test("volunteer views a public event without manage actions", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
@@ -51,6 +58,8 @@ test.describe("Event detail page", () => {
     await openPublicEvent(page, PUBLIC_EVENT);
     await expect(page.getByText(/Volunteers \(\d+\)/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit" })).not.toBeVisible();
+    await expect(pageActionsButton(page)).toBeHidden();
+    await expect(page.getByRole("tab", { name: "Expenses" })).not.toBeVisible();
   });
 
   for (const viewport of [

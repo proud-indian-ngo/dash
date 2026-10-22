@@ -6,13 +6,13 @@ function openNotificationSettings(page: import("@playwright/test").Page) {
 }
 
 test.describe("Notification preferences settings", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Role-independent");
+  });
+
   test("shows Kalakriti Registration and Schedule with only supported channels", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "unoriented_volunteer",
-      "This role does not have Kalakriti access"
-    );
+  }) => {
     const dialog = await openNotificationSettings(page);
 
     await expect(dialog.getByText("Kalakriti", { exact: true })).toBeVisible();

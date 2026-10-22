@@ -23,10 +23,12 @@ test.describe("Expense Categories settings (admin)", () => {
     await expect(dialog.getByText("Supplies")).toBeVisible();
   });
 
-  test("creates a new expense category", async ({ page }) => {
+  test("creates, edits and deletes an expense category", async ({ page }) => {
+    test.slow();
     const dialog = await openExpenseCategories(page);
 
     const categoryName = `E2E Category ${Date.now()}`;
+    const editedName = `${categoryName} Edited`;
 
     await dialog.getByRole("button", { name: "Add category" }).click();
     await expect(dialog.getByText("New category")).toBeVisible();
@@ -34,23 +36,6 @@ test.describe("Expense Categories settings (admin)", () => {
     await dialog.getByLabel("Name").fill(categoryName);
     await dialog.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByText("Category created")).toBeVisible();
-    await expect(dialog.getByText(categoryName)).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
-  test("edits an expense category", async ({ page }) => {
-    test.slow();
-    const dialog = await openExpenseCategories(page);
-
-    const categoryName = `E2E Edit Cat ${Date.now()}`;
-    const editedName = `${categoryName} Edited`;
-
-    // Create first
-    await dialog.getByRole("button", { name: "Add category" }).click();
-    await dialog.getByLabel("Name").fill(categoryName);
-    await dialog.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Category created")).toBeVisible();
     await expect(dialog.getByText(categoryName)).toBeVisible({
       timeout: 10_000,
@@ -74,29 +59,10 @@ test.describe("Expense Categories settings (admin)", () => {
 
     await expect(page.getByText("Category updated")).toBeVisible();
     await expect(dialog.getByText(editedName)).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("deletes an expense category", async ({ page }) => {
-    test.slow();
-    const dialog = await openExpenseCategories(page);
-
-    const categoryName = `E2E Del Cat ${Date.now()}`;
-
-    // Create first
-    await dialog.getByRole("button", { name: "Add category" }).click();
-    await dialog.getByLabel("Name").fill(categoryName);
-    await dialog.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Category created")).toBeVisible();
-    await expect(dialog.getByText(categoryName)).toBeVisible({
-      timeout: 10_000,
-    });
 
     // Delete
-    const categoryRow = dialog
-      .locator("[data-slot='settings-list-item']")
-      .filter({ hasText: categoryName });
     await categoryRow
-      .getByRole("button", { name: `Actions for ${categoryName}` })
+      .getByRole("button", { name: `Actions for ${editedName}` })
       .click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
 
@@ -107,7 +73,7 @@ test.describe("Expense Categories settings (admin)", () => {
     await expect(confirmDialog).toBeHidden({ timeout: 10_000 });
 
     await expect(page.getByText("Category deleted")).toBeVisible();
-    await expect(dialog.getByText(categoryName)).toBeHidden({
+    await expect(dialog.getByText(editedName)).toBeHidden({
       timeout: 10_000,
     });
   });
