@@ -30,9 +30,9 @@ pre-push:
   commands:
     e2e-build-cache:
       # Fills Turbo's remote cache with the E2E build so CI restores it. Only
-      # a clean tree hashes like the pushed commit; a failure never blocks.
+      # clean build inputs hash like the pushed commit; a failure never blocks.
       run: |
-        if ! git diff --quiet HEAD; then
+        if ! git diff --quiet HEAD -- apps packages turbo.json bun.lock; then
           echo "Uncommitted changes; skipping the E2E build cache"
           exit 0
         fi
