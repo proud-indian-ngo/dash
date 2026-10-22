@@ -22,7 +22,7 @@ A cache hit is only as safe as the task's declared inputs, so a task that reads 
 
 ## signr packages
 
-`apps/web` takes `@signr/server` and `@signr/browser` through `file:` paths to a signr checkout beside this repository (`../signr`), since they are not published yet. Bun copies them at install, so build them there first (`bun install && bun run --filter '@signr/*' build`), then run `bun install` here, and again after pulling signr. The Docker build and CI cannot reach that checkout until then.
+`apps/web` takes `@signr/server` and `@signr/browser` through `file:` paths to a signr checkout beside this repository (`../signr`), since they are not published yet. Bun copies them at install, so build them there first (`bun install && bun run --filter '@signr/*' build`), then run `bun install` here, and again after pulling signr. Both packages also export their TypeScript source under the `@signr/source` condition, but nothing here enables it (Vite `resolve.conditions`, `customConditions`, `bun --conditions`), so the app, type check and tests load `dist` and the build stays required. The Docker build and CI cannot reach that checkout until then.
 
 TODO: switch both to `^0.1` from npm (or a git URL) once signr publishes them.
 
