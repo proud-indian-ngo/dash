@@ -20,4 +20,6 @@ export TURBO_API=https://turbo.ducktors.dev
 export TURBO_TOKEN=turbotokenoss
 export TURBO_TEAM=pi-dash
 
-exec node_modules/.bin/turbo run build:e2e --filter=web "$@"
+# Remote only: the server drops artifacts within hours, and a local hit would
+# leave an expired one missing for CI.
+exec node_modules/.bin/turbo run build:e2e --filter=web --cache=remote:rw "$@"
