@@ -652,6 +652,12 @@ export const RECEIPT_ID_TYPE_LABELS: Record<
  */
 export const RECEIPT_AUTO_SEND_DELAY_MS = 60 * 60 * 1000;
 
+/**
+ * How long after its time an automatic send reads as "Sending". A job that
+ * ends without recording an outcome (expired, say) then reads "Not sent".
+ */
+export const RECEIPT_AUTO_SEND_GRACE_MS = 30 * 60 * 1000;
+
 /** Why the latest send of a receipt didn't go out; cleared when one does. */
 export const receiptDeliveryFailureValues = [
   "donor_changed",
@@ -695,8 +701,8 @@ export interface ReceiptDeliveryFacts {
 
 /**
  * Where a receipt's delivery stands at `now`: a send that went out wins;
- * then, while the automatic send is due, "scheduled" before its time and
- * "sending" after it unless a failure was recorded; then a failure.
+ * then "scheduled" before the automatic send's time; then a recorded
+ * failure; then "sending" for `RECEIPT_AUTO_SEND_GRACE_MS` after that time.
  */
 export type ReceiptDeliveryState =
   | { kind: "failed"; failure: ReceiptDeliveryFailure }
@@ -726,7 +732,11 @@ export function receiptDeliveryState(
       kind: "failed",
     };
   }
-  return automatic ? { kind: "sending" } : { kind: "not_sent" };
+  return automatic &&
+    receipt.autoSendAt &&
+    now < receipt.autoSendAt + RECEIPT_AUTO_SEND_GRACE_MS
+    ? { kind: "sending" }
+    : { kind: "not_sent" };
 }
 
 /**

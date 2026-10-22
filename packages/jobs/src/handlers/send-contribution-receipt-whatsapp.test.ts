@@ -11,7 +11,7 @@ mock.module("@pi-dash/whatsapp/cloud", () => ({
 }));
 mock.module("@pi-dash/whatsapp/notify", () => ({
   sendWhatsAppNotification: async () => "sent",
-  whatsappMessageWentOut: async () => false,
+  whatsappMessageStatus: async () => null,
 }));
 mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
@@ -59,7 +59,7 @@ function dependencies(overrides: Partial<Deps> = {}): Deps {
       sent.push(args);
       return "sent";
     },
-    sentBefore: async () => false,
+    loggedStatus: async () => null,
     templateReady: async () => true,
     ...overrides,
   };
@@ -124,17 +124,27 @@ describe("finance's WhatsApp send", () => {
     expect(failures).toEqual(["donor_changed"]);
   });
 
-  it("records a retry's duplicate as sent when the first send went out", async () => {
-    expect(
-      await sendContributionReceiptWhatsApp(
+  it("settles a reused key by how its first send fared", async () => {
+    const duplicate = (status: "sent" | "failed" | "sending" | null) =>
+      sendContributionReceiptWhatsApp(
         payload,
         dependencies({
+          loggedStatus: async (key) => {
+            expect(key).toBe("receipt-whatsapp-receipt-1-q1");
+            return status;
+          },
           send: async () => "duplicate",
-          sentBefore: async (key) => key === "receipt-whatsapp-receipt-1-q1",
         })
-      )
-    ).toEqual({ outcome: "duplicate" });
+      );
+    expect(await duplicate("sent")).toEqual({ outcome: "already_sent" });
     expect(marked).toEqual(["receipt-1"]);
+    // Meta refused it: stays refused, shown as such, not silently dropped.
+    expect(await duplicate("failed")).toEqual({ outcome: "already_rejected" });
+    expect(failures).toEqual(["whatsapp_rejected"]);
+    // Still sending elsewhere: nothing to record yet.
+    expect(await duplicate("sending")).toEqual({ outcome: "duplicate" });
+    expect(marked).toEqual(["receipt-1"]);
+    expect(failures).toEqual(["whatsapp_rejected"]);
   });
 
   it("sends finance's explicit WhatsApp even when the donor has email", async () => {

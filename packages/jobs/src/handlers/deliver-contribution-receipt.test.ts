@@ -22,7 +22,7 @@ mock.module("@pi-dash/whatsapp/cloud", () => ({
 }));
 mock.module("@pi-dash/whatsapp/notify", () => ({
   sendWhatsAppNotification: async () => "sent",
-  whatsappMessageWentOut: async () => false,
+  whatsappMessageStatus: async () => null,
 }));
 mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
@@ -91,7 +91,7 @@ function deps(loaded: typeof target | null = target): Deps {
         events.push(`whatsapp:${options.idempotencyKey}`);
         return "sent";
       },
-      sentBefore: async () => false,
+      loggedStatus: async () => null,
       templateReady: async () => true,
     },
   };

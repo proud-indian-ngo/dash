@@ -763,12 +763,21 @@ export const contributionMutators = {
           ),
         },
       });
-      values.programmeId = await resolveProgramme(tx, values, existing);
-      await assertReceiptUnchanged(
-        tx,
-        args.id,
-        !sameValue(existing.programmeId, values.programmeId)
-      );
+      // An edit that leaves the project and programme alone keeps the
+      // stored programme, even if the project now derives another.
+      if (
+        sameValue(existing.projectId, values.projectId) &&
+        sameValue(existing.programmeId, values.programmeId)
+      ) {
+        values.programmeId = existing.programmeId ?? null;
+      } else {
+        values.programmeId = await resolveProgramme(tx, values, existing);
+        await assertReceiptUnchanged(
+          tx,
+          args.id,
+          !sameValue(existing.programmeId, values.programmeId)
+        );
+      }
     }
     assertProgrammeFitsType(values);
     assertFundFitsType(values);

@@ -12,7 +12,7 @@ import { getCloudTemplate, isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import {
   sendWhatsAppNotification,
   type WhatsAppSendOutcome,
-  whatsappMessageWentOut,
+  whatsappMessageStatus,
 } from "@pi-dash/whatsapp/notify";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
@@ -30,8 +30,8 @@ export interface ReceiptWhatsAppChannel {
   recordFailure: typeof recordReceiptDeliveryFailure;
   renderPdf: typeof receiptPdf;
   send: typeof sendWhatsAppNotification;
-  /** Whether the send logged under this key went out (a `duplicate`). */
-  sentBefore: typeof whatsappMessageWentOut;
+  /** How the send logged under this key fared (after a `duplicate`). */
+  loggedStatus: typeof whatsappMessageStatus;
   /** False while the Cloud API is on and Meta hasn't approved the template. */
   templateReady: () => Promise<boolean>;
 }
@@ -41,7 +41,7 @@ export const receiptWhatsAppChannel: ReceiptWhatsAppChannel = {
   recordFailure: recordReceiptDeliveryFailure,
   renderPdf: receiptPdf,
   send: sendWhatsAppNotification,
-  sentBefore: whatsappMessageWentOut,
+  loggedStatus: whatsappMessageStatus,
   templateReady: async () =>
     !isCloudApiEnabled() ||
     (await getCloudTemplate(RECEIPT_TEMPLATE))?.status === "APPROVED",
@@ -95,11 +95,10 @@ export async function messageReceipt(
       },
       { idempotencyKey }
     );
-    // A retry finds its key already used; record it if that send went out.
-    if (
-      outcome === "sent" ||
-      (outcome === "duplicate" && (await channel.sentBefore(idempotencyKey)))
-    ) {
+    if (outcome === "duplicate") {
+      return await settleDuplicate(receiptId, idempotencyKey, channel);
+    }
+    if (outcome === "sent") {
       await channel.markSent(receiptId, new Date());
     }
     const failure = TRANSPORT_FAILURES[outcome];
@@ -111,6 +110,30 @@ export async function messageReceipt(
     await recordThrownSend(channel.recordFailure, receiptId, "whatsapp_failed");
     throw error;
   }
+}
+
+/**
+ * The key was used before: a retry, or the delayed automatic copy after a
+ * "Send now" copy. Settled by how that send fared. One Meta refused stays
+ * refused under this key, so the automatic send isn't tried again; finance
+ * uses "Send on WhatsApp", which sends under a new key.
+ */
+async function settleDuplicate(
+  receiptId: string,
+  idempotencyKey: string,
+  channel: ReceiptWhatsAppChannel
+): Promise<{ outcome: string }> {
+  const status = await channel.loggedStatus(idempotencyKey);
+  if (status === "failed") {
+    await channel.recordFailure(receiptId, "whatsapp_rejected");
+    return { outcome: "already_rejected" };
+  }
+  if (status === "sent" || status === "delivered" || status === "read") {
+    await channel.markSent(receiptId, new Date());
+    return { outcome: "already_sent" };
+  }
+  // Another attempt holds the key and is still sending.
+  return { outcome: "duplicate" };
 }
 
 export interface ReceiptWhatsAppDependencies extends ReceiptWhatsAppChannel {

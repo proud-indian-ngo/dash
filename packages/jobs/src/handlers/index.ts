@@ -296,8 +296,8 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     NOTIFY_POLL,
     handleSendContributionReceiptWhatsApp
   );
-  // One job at a time (pg-boss's default local concurrency), so a "Send
-  // now" copy finishes before the delayed one starts and finds it delivered.
+  // A "Send now" copy and the delayed copy share their email and WhatsApp
+  // idempotency keys, so if they overlap the second can't deliver again.
   await boss.work(
     "deliver-contribution-receipt",
     NOTIFY_POLL,

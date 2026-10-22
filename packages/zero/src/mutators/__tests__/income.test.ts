@@ -931,6 +931,52 @@ describe("contribution mutators", () => {
     expect(voided.tables.contribution?.[0]?.partyId).toBe("sponsor-1");
   });
 
+  it("keeps a receipted gift's stored programme on an edit that leaves it alone", async () => {
+    // proj-k3 now belongs to prog-arts; the gift was stored under prog-edu.
+    const db = createDb({
+      contribution: [
+        {
+          amountPaise: 500_000,
+          channel: "upi",
+          deductionEligible: "unknown",
+          donationType: "voluntary",
+          fundId: "fund-1",
+          id: "c-1",
+          orgAccountId: "acc-1",
+          partyId: "donor-1",
+          programmeId: "prog-edu",
+          projectId: "proj-k3",
+          receivedOn: Date.UTC(2026, 9, 1),
+          reference: " UTR123 ",
+          reportingMode: "electronic_or_account_payee",
+          status: "received",
+        },
+      ],
+      contributionReceipt: [
+        {
+          contributionId: "c-1",
+          id: "r-1",
+          number: "PI/2026-27/0001",
+          voidedAt: null,
+        },
+      ],
+    });
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({
+        notes: "Thanked",
+        programmeId: "prog-edu",
+        projectId: "proj-k3",
+      })
+    );
+    expect(db.tables.contribution?.[0]).toMatchObject({
+      notes: "Thanked",
+      programmeId: "prog-edu",
+    });
+  });
+
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {
     const recorded = {
       amountPaise: 500_000,

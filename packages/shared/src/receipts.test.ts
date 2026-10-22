@@ -5,6 +5,7 @@ import { GIVE_INDIA_PARTY_ID } from "./constants";
 import {
   assessReceipt,
   formatReceiptNumber,
+  RECEIPT_AUTO_SEND_GRACE_MS,
   receiptAwaitsAutoSend,
   receiptDeliveryNote,
   receiptDeliveryState,
@@ -397,6 +398,17 @@ describe("receipt delivery", () => {
     });
     expect(receiptAwaitsAutoSend(waiting, NOW + 2000)).toBe(false);
     expect(receiptDeliveryState({}, NOW)).toEqual({ kind: "not_sent" });
+  });
+
+  it("stops showing Sending once the grace after the window passes", () => {
+    const due = NOW + 1000;
+    expect(
+      receiptDeliveryState(waiting, due + RECEIPT_AUTO_SEND_GRACE_MS - 1)
+    ).toEqual({ kind: "sending" });
+    // A job that ended without recording anything: not left "Sending".
+    expect(
+      receiptDeliveryState(waiting, due + RECEIPT_AUTO_SEND_GRACE_MS)
+    ).toEqual({ kind: "not_sent" });
   });
 
   it("stops waiting once sent or voided, but not after a failed attempt", () => {
