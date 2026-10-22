@@ -2,6 +2,8 @@ import {
   Cancel01Icon,
   Download04Icon,
   Mail01Icon,
+  SentIcon,
+  WhatsappIcon,
 } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -9,7 +11,7 @@ import type { FilterField } from "@pi-dash/design-system/components/reui/filters
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatPaise } from "@pi-dash/shared/money";
-import { format } from "date-fns";
+import { receiptDeliveryState } from "@pi-dash/shared/receipts";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -17,16 +19,19 @@ import { dateField, selectField } from "@/components/data-table/filter-fields";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DATE_TIME } from "@/lib/date-formats";
 
 import { formatReceivedOn } from "../income-date";
 import {
   RECEIPT_STATUS_LABELS,
+  type ReceiptContacts,
+  receiptDeliveryLabel,
   type ReceiptRow,
   receiptDonorName,
   receiptPdfUrl,
+  receiptSendOptions,
   receiptStatus,
 } from "./receipt-types";
+import type { ReceiptSend } from "./use-send-receipt";
 
 type ReceiptAction = Parameters<
   typeof ResponsiveActionMenu
@@ -78,19 +83,19 @@ export function ReceiptStatusBadge({
   );
 }
 
-/** Download, Email and Void for one receipt; issuers only. */
+const withReason = (label: string, reason: string | null) =>
+  reason ? `${label} (${reason})` : label;
+
+/** Download, the sends and Void for one receipt; issuers only. */
 export function receiptActions({
-  emailing,
-  onEmail,
+  contacts,
+  onSend,
   onVoid,
   row,
-}: {
-  emailing: boolean;
-  onEmail: (row: ReceiptRow) => void;
-  onVoid: (row: ReceiptRow) => void;
-  row: ReceiptRow;
-}): ReceiptAction[] {
+  sending,
+}: ReceiptActionProps): ReceiptAction[] {
   const live = !row.voidedAt;
+  const options = receiptSendOptions(row, contacts, Date.now());
   return [
     {
       icon: Download04Icon,
@@ -102,12 +107,30 @@ export function receiptActions({
     },
     ...(live
       ? [
+          ...(options.now
+            ? [
+                {
+                  disabled: sending || options.now.blocked !== null,
+                  icon: SentIcon,
+                  id: "send-now",
+                  label: withReason("Send now", options.now.blocked),
+                  onSelect: () => onSend("now", row),
+                },
+              ]
+            : []),
           {
-            disabled: emailing,
+            disabled: sending || options.email !== null,
             icon: Mail01Icon,
             id: "email",
-            label: "Email receipt",
-            onSelect: () => onEmail(row),
+            label: withReason("Email receipt", options.email),
+            onSelect: () => onSend("email", row),
+          },
+          {
+            disabled: sending || options.whatsapp !== null,
+            icon: WhatsappIcon,
+            id: "whatsapp",
+            label: withReason("Send on WhatsApp", options.whatsapp),
+            onSelect: () => onSend("whatsapp", row),
           },
           {
             destructive: true,
@@ -122,12 +145,16 @@ export function receiptActions({
   ];
 }
 
-function RowActions(props: {
-  emailing: boolean;
-  onEmail: (row: ReceiptRow) => void;
+interface ReceiptActionProps {
+  contacts: ReceiptContacts | undefined;
+  onSend: (how: ReceiptSend, row: ReceiptRow) => void;
   onVoid: (row: ReceiptRow) => void;
   row: ReceiptRow;
-}) {
+  /** A send is being queued; one at a time. */
+  sending: boolean;
+}
+
+function RowActions(props: ReceiptActionProps) {
   const stopPropagation = useEventCallback(
     (e: { stopPropagation: () => void }) => e.stopPropagation()
   );
@@ -140,22 +167,31 @@ function RowActions(props: {
   );
 }
 
+/** Sorts receipts by when they were or will be sent; never-sent ones first. */
+function deliverySortKey(row: ReceiptRow): number {
+  const state = receiptDeliveryState(row);
+  return state.kind === "sent" || state.kind === "scheduled" ? state.at : 0;
+}
+
 export function ReceiptsTable({
   canIssue,
+  contacts,
   data,
   isLoading,
-  onEmail,
+  onSend,
   onView,
   onVoid,
   sendingId,
 }: {
-  /** The receipt whose email is being queued, if any. */
+  /** The receipt whose send is being queued, if any. */
   sendingId: string | null;
-  /** donors.receipt: download, email and void. */
+  /** donors.receipt: download, send and void. */
   canIssue: boolean;
+  /** Which donors can be emailed or messaged, by receipt ID. */
+  contacts: Record<string, ReceiptContacts> | null;
   data: ReceiptRow[];
   isLoading: boolean;
-  onEmail: (row: ReceiptRow) => void;
+  onSend: (how: ReceiptSend, row: ReceiptRow) => void;
   onView: (row: ReceiptRow) => void;
   onVoid: (row: ReceiptRow) => void;
 }) {
@@ -251,35 +287,40 @@ export function ReceiptsTable({
       size: 110,
     },
     {
-      accessorFn: (row) => row.emailedAt ?? 0,
-      cell: ({ row }) =>
-        row.original.emailedAt ? (
-          <span className="font-mono text-sm">
-            {format(new Date(row.original.emailedAt), DATE_TIME)}
-          </span>
-        ) : (
-          <span className="text-muted-foreground">Not emailed</span>
-        ),
+      accessorFn: deliverySortKey,
+      cell: ({ row }) => (
+        <span
+          className={
+            receiptDeliveryState(row.original).kind === "sent"
+              ? "truncate"
+              : "text-muted-foreground truncate"
+          }
+          data-testid="receipt-delivery"
+        >
+          {receiptDeliveryLabel(row.original)}
+        </span>
+      ),
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}
-          title="Emailed"
+          title="Delivery"
           visibility={true}
         />
       ),
-      id: "emailedAt",
-      meta: { headerTitle: "Emailed", skeleton: SKELETON_DATE },
-      size: 170,
+      id: "delivery",
+      meta: { headerTitle: "Delivery", skeleton: SKELETON_TEXT },
+      size: 280,
     },
     ...(canIssue
       ? [
           {
             cell: ({ row }) => (
               <RowActions
-                emailing={sendingId !== null}
-                onEmail={onEmail}
+                contacts={contacts?.[row.original.id]}
+                onSend={onSend}
                 onVoid={onVoid}
                 row={row.original}
+                sending={sendingId !== null}
               />
             ),
             enableHiding: false,
@@ -316,7 +357,7 @@ export function ReceiptsTable({
       searchFn={searchReceipts}
       searchPlaceholder="Search number or donor..."
       searchQueryKey="receiptSearch"
-      storageKey="contribution_receipts_table_state_v1"
+      storageKey="contribution_receipts_table_state_v2"
       tableLayout={{
         columnsDraggable: true,
         columnsPinnable: true,

@@ -77,7 +77,13 @@ async function clearDetailsAddress(): Promise<void> {
 }
 
 type AutomaticReceiptInspection = {
-  jobs: { name: string; outcome: string | null; state: string }[];
+  autoSendMinutes: number | null;
+  jobs: {
+    delayMinutes?: number | null;
+    name: string;
+    outcome: string | null;
+    state: string;
+  }[];
   receiptCount: number;
   storedPdfCount: number;
 };
@@ -502,7 +508,7 @@ test.describe("Income: donation receipts (finance)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("automatically emails a new direct gift's receipt and skips WhatsApp when both contacts exist", async ({
+  test("issues a new direct gift's receipt at once and holds delivery until finance sends it", async ({
     page,
   }) => {
     test.skip(
@@ -514,16 +520,20 @@ test.describe("Income: donation receipts (finance)", () => {
     const reference = `E2E-AUTO-RECEIPT-${Date.now()}`;
     await recordContribution(page, RECEIPT_DONOR, reference);
 
-    const row = await giftRow(page, reference);
-    await expect(row.getByTestId("contribution-receipt-cell")).toContainText(
-      `PI/${currentFinancialYear()}/`,
-      { timeout: 30_000 }
+    const giftCell = (await giftRow(page, reference)).getByTestId(
+      "contribution-receipt-cell"
     );
+    await expect(giftCell).toContainText(`PI/${currentFinancialYear()}/`, {
+      timeout: 30_000,
+    });
+    const number = ((await giftCell.textContent()) ?? "").trim();
+    // Issued and stored now; both sends wait the one-hour window.
     await expect
       .poll(async () => await inspectAutomatic(reference), {
         timeout: 30_000,
       })
       .toEqual({
+        autoSendMinutes: 60,
         jobs: [
           {
             name: "issue-contribution-receipt",
@@ -532,13 +542,15 @@ test.describe("Income: donation receipts (finance)", () => {
           },
           {
             name: "send-contribution-receipt",
-            outcome: "not_configured",
-            state: "completed",
+            delayMinutes: 60,
+            outcome: null,
+            state: "created",
           },
           {
             name: "send-contribution-receipt-whatsapp",
-            outcome: "email_available",
-            state: "completed",
+            delayMinutes: 60,
+            outcome: null,
+            state: "created",
           },
           {
             name: "store-contribution-receipt-pdf",
@@ -549,6 +561,84 @@ test.describe("Income: donation receipts (finance)", () => {
         receiptCount: 1,
         storedPdfCount: 1,
       });
+
+    await page.goto("/income?tab=receipts");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search number or donor...").fill(number);
+    const row = page.getByRole("row").filter({ hasText: number });
+    const delivery = row.getByTestId("receipt-delivery");
+    await expect(delivery).toContainText("Sends automatically on");
+
+    // The donor has a phone, so WhatsApp is offered; Send now uses the rule.
+    await row.getByTestId("row-actions").click();
+    await expect(
+      page.getByRole("menuitem", { exact: true, name: "Send on WhatsApp" })
+    ).toBeEnabled();
+    await page.getByRole("menuitem", { name: "Send now" }).click();
+    await expect(
+      page.getByText(`Receipt ${number} is on its way to the donor`)
+    ).toBeVisible();
+    // The donor has email, so it goes by email; the test run has no email
+    // service, which the row reports rather than hiding.
+    await expect(delivery).toHaveText("Not sent: email isn't set up", {
+      timeout: 30_000,
+    });
+    await row.getByTestId("row-actions").click();
+    await expect(page.getByRole("menuitem", { name: "Send now" })).toHaveCount(
+      0
+    );
+    // An explicit WhatsApp send goes even though the donor has email.
+    await page
+      .getByRole("menuitem", { exact: true, name: "Send on WhatsApp" })
+      .click();
+    await expect(delivery).toHaveText("Not sent: WhatsApp isn't set up", {
+      timeout: 30_000,
+    });
+    // The delayed automatic sends are still queued, and will find the
+    // receipt was sent by hand only if a send went out.
+    await expect
+      .poll(async () => (await inspectAutomatic(reference)).jobs, {
+        timeout: 30_000,
+      })
+      .toEqual([
+        {
+          name: "issue-contribution-receipt",
+          outcome: "issued",
+          state: "completed",
+        },
+        {
+          name: "send-contribution-receipt",
+          outcome: "not_configured",
+          state: "completed",
+        },
+        {
+          delayMinutes: 60,
+          name: "send-contribution-receipt",
+          outcome: null,
+          state: "created",
+        },
+        {
+          name: "send-contribution-receipt-whatsapp",
+          outcome: "email_available",
+          state: "completed",
+        },
+        {
+          name: "send-contribution-receipt-whatsapp",
+          outcome: "not_configured",
+          state: "completed",
+        },
+        {
+          name: "send-contribution-receipt-whatsapp",
+          delayMinutes: 60,
+          outcome: null,
+          state: "created",
+        },
+        {
+          name: "store-contribution-receipt-pdf",
+          outcome: null,
+          state: "completed",
+        },
+      ]);
   });
 
   test("does not issue or dispatch an automatic receipt without donor details", async ({
@@ -574,6 +664,7 @@ test.describe("Income: donation receipts (finance)", () => {
         timeout: 30_000,
       })
       .toEqual({
+        autoSendMinutes: null,
         jobs: [
           {
             name: "issue-contribution-receipt",

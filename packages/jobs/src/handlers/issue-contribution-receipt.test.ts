@@ -27,6 +27,7 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   }),
   receiptConfigGaps: () => [],
   ReceiptError,
+  recordReceiptDeliveryFailure: async () => undefined,
 }));
 mock.module("../enqueue", () => ({
   enqueue: async () => null,
@@ -41,6 +42,9 @@ const { issueContributionReceipt } =
 type Dependencies = NonNullable<Parameters<typeof issueContributionReceipt>[1]>;
 
 const payload = { actorId: "user-1", contributionId: "contribution-1" };
+const NOW = new Date("2026-10-22T10:00:00.000Z");
+// RECEIPT_AUTO_SEND_DELAY_MS: an hour after issue.
+const AUTO_SEND_AT = new Date("2026-10-22T11:00:00.000Z");
 const tx = { transaction: true } as never;
 const transactionAdapter = { adapter: true } as never;
 const readyConfig = {
@@ -72,6 +76,7 @@ function dependencies(overrides: Partial<Dependencies> = {}): Dependencies {
       skipped: [],
     }),
     loadConfig: async () => readyConfig,
+    now: () => NOW,
     readSignature: async () => Buffer.from("signature"),
     runTransaction: async (work) => work(tx),
     transactionDb: () => transactionAdapter,
@@ -249,12 +254,13 @@ describe("issueContributionReceipt", () => {
     expect(issued).toBe(false);
   });
 
-  it("queues PDF storage, email and WhatsApp through the issuing transaction", async () => {
+  it("stores the PDF now and delays email and WhatsApp by the sending window", async () => {
     const deliveries: Array<{
       name: string;
       options: unknown;
       payload: unknown;
     }> = [];
+    let issuedWith: unknown;
 
     expect(
       await issueContributionReceipt(
@@ -264,9 +270,36 @@ describe("issueContributionReceipt", () => {
             deliveries.push({ name, options, payload: deliveryPayload });
             return `job-${deliveries.length}`;
           },
+          issue: async (_tx, input, options) => {
+            issuedWith = { input, options };
+            return {
+              issued: [
+                {
+                  contributionId: payload.contributionId,
+                  id: "receipt-1",
+                  number: "PI/2026-27/0001",
+                },
+              ],
+              skipped: [],
+            };
+          },
         })
       )
     ).toEqual({ outcome: "issued", receiptId: "receipt-1" });
+    // The receipt records when it goes, for the Receipts tab.
+    expect(issuedWith).toEqual({
+      input: {
+        actorId: payload.actorId,
+        autoSendAt: AUTO_SEND_AT,
+        contributionIds: [payload.contributionId],
+      },
+      options: { now: NOW },
+    });
+    const delayed = {
+      db: transactionAdapter,
+      singletonKey: "automatic:receipt-1",
+      startAfter: AUTO_SEND_AT,
+    };
     expect(deliveries).toEqual([
       {
         name: "store-contribution-receipt-pdf",
@@ -278,23 +311,19 @@ describe("issueContributionReceipt", () => {
       },
       {
         name: "send-contribution-receipt",
-        options: {
-          db: transactionAdapter,
-          singletonKey: "automatic:receipt-1",
-        },
+        options: delayed,
         payload: { receiptId: "receipt-1", requestId: "automatic" },
       },
       {
         name: "send-contribution-receipt-whatsapp",
-        options: {
-          db: transactionAdapter,
-          singletonKey: "automatic:receipt-1",
+        options: delayed,
+        payload: {
+          onlyWithoutEmail: true,
+          receiptId: "receipt-1",
+          requestId: "automatic",
         },
-        payload: { receiptId: "receipt-1", requestId: "automatic" },
       },
     ]);
-    expect(deliveries[1]?.options).toBe(deliveries[0]?.options);
-    expect(deliveries[2]?.options).toBe(deliveries[0]?.options);
   });
 
   it.each([

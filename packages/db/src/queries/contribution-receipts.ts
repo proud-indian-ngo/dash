@@ -28,6 +28,7 @@ import {
   receiptCarries80G,
   type ReceiptAssessment,
   type ReceiptBlock,
+  type ReceiptDeliveryFailure,
   type ReceiptDonorFacts,
   type ReceiptSettings,
 } from "@pi-dash/shared/receipts";
@@ -51,6 +52,7 @@ import { contributionReceipt } from "../schema/contribution-receipt";
 import { programme, project } from "../schema/finance-dimensions";
 import { contribution, contributionRefund } from "../schema/income";
 import { party } from "../schema/party";
+import { emailSuppression } from "../schema/private/email-suppression";
 import { partyPrivate } from "../schema/private/party-private";
 import {
   contributionReceiptCounter,
@@ -709,7 +711,12 @@ export async function hasReceiptHistoryIn(
  */
 export async function issueReceiptsIn(
   tx: ReceiptTx,
-  input: { actorId: string; contributionIds: string[] },
+  input: {
+    actorId: string;
+    /** Set for automatic issues: when the receipt goes to the donor. */
+    autoSendAt?: Date;
+    contributionIds: string[];
+  },
   options: { now?: Date } = {}
 ): Promise<IssueReceiptsResult> {
   const now = options.now ?? new Date();
@@ -768,6 +775,7 @@ export async function issueReceiptsIn(
     const receiptId = uuidv7();
     const number = formatReceiptNumber(fiscalYear, sequence);
     await tx.insert(contributionReceipt).values({
+      autoSendAt: input.autoSendAt ?? null,
       contributionId: gift.id,
       createdAt: now,
       fiscalYear,
@@ -1017,6 +1025,8 @@ export async function loadReceiptVerificationFacts(
 }
 
 export interface ReceiptEmailTarget {
+  /** Already emailed or sent on WhatsApp. */
+  delivered: boolean;
   contributionId: string;
   /** The donor's current email, or null. */
   email: string | null;
@@ -1025,13 +1035,17 @@ export interface ReceiptEmailTarget {
   voided: boolean;
 }
 
-/** Private contact lookup for the receipt WhatsApp job; never synced. */
+/** Private contact lookup for WhatsApp and "Send now"; never synced. */
 export async function loadReceiptWhatsAppTarget(receiptId: string) {
   const [row] = await db
     .select({
+      autoSendAt: contributionReceipt.autoSendAt,
+      contributionId: contributionReceipt.contributionId,
+      emailedAt: contributionReceipt.emailedAt,
       email: partyPrivate.email,
       phone: partyPrivate.phone,
       voidedAt: contributionReceipt.voidedAt,
+      whatsappSentAt: contributionReceipt.whatsappSentAt,
     })
     .from(contributionReceipt)
     .innerJoin(
@@ -1043,6 +1057,9 @@ export async function loadReceiptWhatsAppTarget(receiptId: string) {
     .limit(1);
   return row
     ? {
+        autoSendAt: row.autoSendAt,
+        contributionId: row.contributionId,
+        delivered: row.emailedAt !== null || row.whatsappSentAt !== null,
         email: row.email?.trim() || null,
         phone: row.phone?.trim() || null,
         voided: row.voidedAt !== null,
@@ -1058,9 +1075,11 @@ export async function loadReceiptEmailTarget(
     .select({
       contributionId: contributionReceipt.contributionId,
       email: partyPrivate.email,
+      emailedAt: contributionReceipt.emailedAt,
       number: contributionReceipt.number,
       partyId: contribution.partyId,
       voidedAt: contributionReceipt.voidedAt,
+      whatsappSentAt: contributionReceipt.whatsappSentAt,
     })
     .from(contributionReceipt)
     .innerJoin(
@@ -1075,6 +1094,7 @@ export async function loadReceiptEmailTarget(
   }
   return {
     contributionId: row.contributionId,
+    delivered: row.emailedAt !== null || row.whatsappSentAt !== null,
     email: row.email?.trim() || null,
     number: row.number,
     partyId: row.partyId,
@@ -1088,8 +1108,71 @@ export async function markReceiptEmailed(
 ): Promise<void> {
   await db
     .update(contributionReceipt)
-    .set({ emailedAt: at })
+    .set({ deliveryFailure: null, emailedAt: at })
     .where(eq(contributionReceipt.id, receiptId));
+}
+
+export async function markReceiptWhatsAppSent(
+  receiptId: string,
+  at: Date
+): Promise<void> {
+  await db
+    .update(contributionReceipt)
+    .set({ deliveryFailure: null, whatsappSentAt: at })
+    .where(eq(contributionReceipt.id, receiptId));
+}
+
+/** Records why a send didn't go out, for finance to see on the receipt. */
+export async function recordReceiptDeliveryFailure(
+  receiptId: string,
+  failure: ReceiptDeliveryFailure
+): Promise<void> {
+  await db
+    .update(contributionReceipt)
+    .set({ deliveryFailure: failure })
+    .where(eq(contributionReceipt.id, receiptId));
+}
+
+/** How a live receipt can reach its donor; no contact details leave here. */
+export interface ReceiptContacts {
+  email: "usable" | "none" | "suppressed";
+  phone: boolean;
+}
+
+/** Contact availability for every live receipt, by receipt ID. */
+export async function loadLiveReceiptContacts(): Promise<
+  Record<string, ReceiptContacts>
+> {
+  const rows = await db
+    .select({
+      email: partyPrivate.email,
+      id: contributionReceipt.id,
+      phone: partyPrivate.phone,
+      suppressed: emailSuppression.email,
+    })
+    .from(contributionReceipt)
+    .innerJoin(
+      contribution,
+      eq(contribution.id, contributionReceipt.contributionId)
+    )
+    .leftJoin(partyPrivate, eq(partyPrivate.partyId, contribution.partyId))
+    .leftJoin(
+      emailSuppression,
+      eq(emailSuppression.email, sql`lower(trim(${partyPrivate.email}))`)
+    )
+    .where(isNull(contributionReceipt.voidedAt));
+  const contacts: Record<string, ReceiptContacts> = {};
+  for (const row of rows) {
+    contacts[row.id] = {
+      email: row.email?.trim()
+        ? row.suppressed
+          ? "suppressed"
+          : "usable"
+        : "none",
+      phone: Boolean(row.phone?.trim()),
+    };
+  }
+  return contacts;
 }
 
 /** Live receipts of the given gifts: number and issuer, for the CA's file. */

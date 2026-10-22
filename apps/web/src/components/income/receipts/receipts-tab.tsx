@@ -13,12 +13,14 @@ import { isAwaitingResult } from "@/lib/zero-result";
 import { ReceiptDetailSheet } from "./receipt-detail-sheet";
 import type { ReceiptRow } from "./receipt-types";
 import { ReceiptsTable } from "./receipts-table";
-import { useEmailReceipt } from "./use-email-receipt";
+import { useReceiptContacts } from "./use-receipt-contacts";
+import { type ReceiptSend, useSendReceipt } from "./use-send-receipt";
 import { VoidReceiptDialog } from "./void-receipt-dialog";
 
 /**
  * Income → Receipts: every receipt pi-dash issued, voided ones included.
- * Readers see the list; issuers (donors.receipt) download, email and void.
+ * Readers see the list and delivery; issuers (donors.receipt) download,
+ * send and void.
  */
 export function ReceiptsTab({
   canIssue,
@@ -32,15 +34,23 @@ export function ReceiptsTab({
   const isLoading = rows.length === 0 && isAwaitingResult(result);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [voiding, setVoiding] = useState<ReceiptRow | null>(null);
-  const { send, sendingId } = useEmailReceipt();
+  const { send, sendingId } = useSendReceipt();
+  // Live receipts only; voiding or issuing changes the set.
+  const contacts = useReceiptContacts(
+    canIssue,
+    rows
+      .filter((row) => !row.voidedAt)
+      .map((row) => row.id)
+      .join(",")
+  );
   const viewing = viewingId
     ? (rows.find((row) => row.id === viewingId) ?? null)
     : null;
   const handleView = useEventCallback((row: ReceiptRow) =>
     setViewingId(row.id)
   );
-  const handleEmail = useEventCallback((row: ReceiptRow) => {
-    send(row);
+  const handleSend = useEventCallback((how: ReceiptSend, row: ReceiptRow) => {
+    send(how, row);
   });
   const handleVoid = useEventCallback((row: ReceiptRow) => setVoiding(row));
 
@@ -70,24 +80,26 @@ export function ReceiptsTab({
     <>
       <ReceiptsTable
         canIssue={canIssue}
+        contacts={contacts}
         data={rows}
         isLoading={isLoading}
-        onEmail={handleEmail}
+        onSend={handleSend}
         onView={handleView}
         onVoid={handleVoid}
         sendingId={sendingId}
       />
       <ReceiptDetailSheet
         canIssue={canIssue}
-        emailing={sendingId !== null}
-        onEmail={handleEmail}
+        contacts={viewing ? contacts?.[viewing.id] : undefined}
         onOpenChange={(open) => {
           if (!open) {
             setViewingId(null);
           }
         }}
+        onSend={handleSend}
         onVoid={handleVoid}
         receipt={viewing}
+        sending={sendingId !== null}
       />
       <VoidReceiptDialog
         onOpenChange={(open) => {

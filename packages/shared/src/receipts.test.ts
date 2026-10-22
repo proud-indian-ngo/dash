@@ -5,6 +5,8 @@ import { GIVE_INDIA_PARTY_ID } from "./constants";
 import {
   assessReceipt,
   formatReceiptNumber,
+  receiptAwaitsAutoSend,
+  receiptDeliveryState,
   parseReceiptSettings,
   type ReceiptDonorFacts,
   type ReceiptGiftFacts,
@@ -375,5 +377,45 @@ describe("maskDonorName", () => {
     expect(maskDonorName("(HUF) Sharma & Sons")).toBe("H••• S••• S•••");
     expect(maskDonorName("M/s 3M India")).toBe("M••• 3••• I•••");
     expect(maskDonorName("   ")).toBe("");
+  });
+});
+
+describe("receipt delivery", () => {
+  const NOW = 1_000_000;
+  const waiting = { autoSendAt: NOW + 1000 };
+
+  it("waits for the automatic send until something happens", () => {
+    expect(receiptDeliveryState(waiting)).toEqual({
+      at: NOW + 1000,
+      kind: "scheduled",
+    });
+    expect(receiptAwaitsAutoSend(waiting, NOW)).toBe(true);
+    // Past the window it is the job's turn, not Send now's.
+    expect(receiptAwaitsAutoSend(waiting, NOW + 2000)).toBe(false);
+    expect(receiptAwaitsAutoSend({}, NOW)).toBe(false);
+    expect(receiptDeliveryState({})).toEqual({ kind: "not_sent" });
+  });
+
+  it("stops waiting once sent, voided or tried", () => {
+    for (const receipt of [
+      { ...waiting, emailedAt: NOW },
+      { ...waiting, whatsappSentAt: NOW },
+      { ...waiting, voidedAt: NOW },
+      { ...waiting, deliveryFailure: "email_suppressed" },
+    ]) {
+      expect(receiptAwaitsAutoSend(receipt, NOW)).toBe(false);
+    }
+  });
+
+  it("shows the latest outcome: a failure, else the latest send", () => {
+    expect(
+      receiptDeliveryState({ emailedAt: NOW, whatsappSentAt: NOW + 1 })
+    ).toEqual({ at: NOW + 1, channel: "whatsapp", kind: "sent" });
+    expect(
+      receiptDeliveryState({
+        deliveryFailure: "whatsapp_no_template",
+        emailedAt: NOW,
+      })
+    ).toEqual({ failure: "whatsapp_no_template", kind: "failed" });
   });
 });

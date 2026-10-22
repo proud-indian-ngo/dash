@@ -7,12 +7,14 @@ import {
   ReceiptError,
   type ReceiptTx,
 } from "@pi-dash/db/queries/contribution-receipts";
+import { RECEIPT_AUTO_SEND_DELAY_MS } from "@pi-dash/shared/receipts";
 
 import {
   enqueue,
   inTransaction,
   type IssueContributionReceiptPayload,
 } from "../enqueue";
+import { AUTOMATIC_RECEIPT_REQUEST } from "../lib/receipt-delivery";
 import { safeReceiptJobError } from "../lib/receipt-errors";
 import {
   readReceiptSignature,
@@ -44,6 +46,7 @@ export interface IssueContributionReceiptDependencies {
   hasHistory: typeof hasReceiptHistoryIn;
   issue: typeof issueReceiptsIn;
   loadConfig: typeof loadReceiptConfig;
+  now: () => Date;
   readSignature: typeof readReceiptSignature;
   runTransaction: TransactionRunner;
   transactionDb: typeof inTransaction;
@@ -55,6 +58,7 @@ const defaults: IssueContributionReceiptDependencies = {
   hasHistory: hasReceiptHistoryIn,
   issue: issueReceiptsIn,
   loadConfig: loadReceiptConfig,
+  now: () => new Date(),
   readSignature: readReceiptSignature,
   runTransaction: (work) => db.transaction(work),
   transactionDb: inTransaction,
@@ -84,7 +88,10 @@ function notReadyReason(
 }
 
 /**
- * Issues one automatic receipt and queues storage and both delivery channels atomically.
+ * Issues one automatic receipt and queues storage and both delivery channels
+ * atomically. The PDF is stored now so finance can check it; delivery waits
+ * `RECEIPT_AUTO_SEND_DELAY_MS`, and is skipped then if the receipt was
+ * voided or already sent by hand.
  * Expected readiness failures are returned as bounded codes; unexpected
  * errors are stripped before pg-boss persists or logs them.
  */
@@ -109,10 +116,17 @@ export async function issueContributionReceipt(
       }
       await deps.readSignature(config.settings.signatureKey);
 
-      const result = await deps.issue(tx, {
-        actorId: data.actorId,
-        contributionIds: [data.contributionId],
-      });
+      const now = deps.now();
+      const autoSendAt = new Date(now.getTime() + RECEIPT_AUTO_SEND_DELAY_MS);
+      const result = await deps.issue(
+        tx,
+        {
+          actorId: data.actorId,
+          autoSendAt,
+          contributionIds: [data.contributionId],
+        },
+        { now }
+      );
       const issued = result.issued[0];
       if (!issued) {
         return {
@@ -132,12 +146,16 @@ export async function issueContributionReceipt(
         { receiptId: issued.id },
         options
       );
-      const payload = { receiptId: issued.id, requestId: "automatic" };
-      await deps.enqueueJob("send-contribution-receipt", payload, options);
+      const payload = {
+        receiptId: issued.id,
+        requestId: AUTOMATIC_RECEIPT_REQUEST,
+      };
+      const delayed = { ...options, startAfter: autoSendAt };
+      await deps.enqueueJob("send-contribution-receipt", payload, delayed);
       await deps.enqueueJob(
         "send-contribution-receipt-whatsapp",
-        payload,
-        options
+        { ...payload, onlyWithoutEmail: true },
+        delayed
       );
       return { outcome: "issued", receiptId: issued.id };
     });

@@ -642,3 +642,97 @@ export const RECEIPT_ID_TYPE_LABELS: Record<
   tax_id_foreign: "Tax ID",
   voter_id: "Voter ID",
 };
+
+// ── Delivery ────────────────────────────────────────────────────────────────
+
+/**
+ * An automatically issued receipt goes to the donor this long after issue,
+ * so finance can check the PDF and void it first. Receipts issued by hand
+ * are never sent on their own.
+ */
+export const RECEIPT_AUTO_SEND_DELAY_MS = 60 * 60 * 1000;
+
+/** Why the latest send of a receipt didn't go out; cleared when one does. */
+export const receiptDeliveryFailureValues = [
+  "no_contact",
+  "no_phone",
+  "email_suppressed",
+  "email_not_configured",
+  "email_failed",
+  "whatsapp_no_template",
+  "whatsapp_not_configured",
+  "whatsapp_rejected",
+  "whatsapp_failed",
+] as const;
+export type ReceiptDeliveryFailure =
+  (typeof receiptDeliveryFailureValues)[number];
+
+export const RECEIPT_DELIVERY_FAILURE_LABELS: Record<
+  ReceiptDeliveryFailure,
+  string
+> = {
+  email_failed: "the email failed",
+  email_not_configured: "email isn't set up",
+  email_suppressed: "the email address bounced or reported spam",
+  no_contact: "the donor has no email address or phone number",
+  no_phone: "the donor has no phone number",
+  whatsapp_failed: "WhatsApp failed",
+  whatsapp_no_template: "the WhatsApp receipt template isn't approved yet",
+  whatsapp_not_configured: "WhatsApp isn't set up",
+  whatsapp_rejected: "WhatsApp refused the message",
+};
+
+export interface ReceiptDeliveryFacts {
+  autoSendAt?: number | null;
+  deliveryFailure?: string | null;
+  emailedAt?: number | null;
+  voidedAt?: number | null;
+  whatsappSentAt?: number | null;
+}
+
+/**
+ * Where a receipt's delivery stands. A failure is cleared by any later
+ * send, so one on record is always the latest outcome.
+ */
+export type ReceiptDeliveryState =
+  | { kind: "failed"; failure: ReceiptDeliveryFailure }
+  | { kind: "sent"; at: number; channel: "email" | "whatsapp" }
+  | { kind: "scheduled"; at: number }
+  | { kind: "not_sent" };
+
+export function receiptDeliveryState(
+  receipt: ReceiptDeliveryFacts
+): ReceiptDeliveryState {
+  if (receipt.deliveryFailure) {
+    return {
+      failure: receipt.deliveryFailure as ReceiptDeliveryFailure,
+      kind: "failed",
+    };
+  }
+  const emailedAt = receipt.emailedAt ?? 0;
+  const whatsappSentAt = receipt.whatsappSentAt ?? 0;
+  if (emailedAt || whatsappSentAt) {
+    return emailedAt >= whatsappSentAt
+      ? { at: emailedAt, channel: "email", kind: "sent" }
+      : { at: whatsappSentAt, channel: "whatsapp", kind: "sent" };
+  }
+  if (receipt.autoSendAt && !receipt.voidedAt) {
+    return { at: receipt.autoSendAt, kind: "scheduled" };
+  }
+  return { kind: "not_sent" };
+}
+
+/**
+ * Waiting for its automatic send with nothing tried yet, so "Send now"
+ * applies. Before the window only finance sends, so a recorded failure
+ * means finance already tried; the delayed send still runs.
+ */
+export function receiptAwaitsAutoSend(
+  receipt: ReceiptDeliveryFacts,
+  now: number
+): boolean {
+  return (
+    receiptDeliveryState(receipt).kind === "scheduled" &&
+    (receipt.autoSendAt ?? 0) > now
+  );
+}

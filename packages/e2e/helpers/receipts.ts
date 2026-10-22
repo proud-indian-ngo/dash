@@ -13,8 +13,9 @@ import { and, eq, isNull, sql } from "drizzle-orm";
  * - `clear-details-address`: removes the address of "E2E Receipt Details
  *   Donor" (seeded in seed-test-user.ts), so its gift reads Needs details
  *   again before each attempt of the test that adds the address.
- * - `inspect-automatic <reference>`: returns only the live receipt count and
- *   stored PDF count, and sanitized job names, states and outcomes.
+ * - `inspect-automatic <reference>`: returns only the live receipt count,
+ *   stored PDF count and minutes to its automatic send, and sanitized job
+ *   names, states, outcomes and (while queued) delays.
  * - `verify-path <receiptId>`: the path and query of the signed verification link.
  */
 
@@ -51,13 +52,20 @@ if (action === "inspect-automatic") {
     .where(eq(contribution.reference, reference));
   if (!gift) {
     process.stdout.write(
-      `${JSON.stringify({ jobs: [], receiptCount: 0, storedPdfCount: 0 })}\n`
+      `${JSON.stringify({
+        autoSendMinutes: null,
+        jobs: [],
+        receiptCount: 0,
+        storedPdfCount: 0,
+      })}\n`
     );
     process.exit(0);
   }
 
   const receipts = await db
     .select({
+      autoSendAt: contributionReceipt.autoSendAt,
+      createdAt: contributionReceipt.createdAt,
       id: contributionReceipt.id,
       pdfKey: contributionReceiptSnapshot.pdfKey,
       pdfSha256: contributionReceiptSnapshot.pdfSha256,
@@ -85,11 +93,14 @@ if (action === "inspect-automatic") {
   );
   const deliveryJobs = receipts[0]
     ? await db.execute<{
+        delayMinutes: number | null;
         name: string;
         outcome: string | null;
         state: string;
       }>(
-        sql`select name, state, output->'result'->>'outcome' as outcome
+        sql`select name, state, output->'result'->>'outcome' as outcome,
+              round(extract(epoch from start_after - created_on) / 60)::int
+                as "delayMinutes"
             from pgboss.job
             where name in (
               'send-contribution-receipt',
@@ -99,11 +110,32 @@ if (action === "inspect-automatic") {
               and data->>'receiptId' = ${receipts[0].id}`
       )
     : [];
+  // Minutes a queued delivery job waits; the automatic ones wait the window.
   const jobs = [...issueJobs, ...deliveryJobs]
-    .map(({ name, outcome, state }) => ({ name, outcome, state }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .map((job) => ({
+      name: job.name,
+      outcome: job.outcome,
+      state: job.state,
+      ...("delayMinutes" in job && job.state === "created"
+        ? { delayMinutes: job.delayMinutes }
+        : {}),
+    }))
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name) ||
+        a.state.localeCompare(b.state) ||
+        (a.outcome ?? "~").localeCompare(b.outcome ?? "~")
+    );
   process.stdout.write(
     `${JSON.stringify({
+      // Minutes from issue to the automatic send.
+      autoSendMinutes: receipts[0]?.autoSendAt
+        ? Math.round(
+            (receipts[0].autoSendAt.getTime() -
+              receipts[0].createdAt.getTime()) /
+              60_000
+          )
+        : null,
       jobs,
       receiptCount: receipts.length,
       storedPdfCount: receipts.filter(

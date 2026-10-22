@@ -1,6 +1,7 @@
 import type {
   IssueReceiptsResult,
   ReceiptCandidates,
+  ReceiptContacts,
   ReceiptReadiness,
 } from "@pi-dash/db/queries/contribution-receipts";
 import { INCOME_PERMISSIONS } from "@pi-dash/shared/income";
@@ -23,8 +24,11 @@ import { containsIdentifier } from "@/lib/income-import/normalize";
 import {
   issueReceipts,
   loadCandidates,
+  loadContacts,
   loadReadiness,
   queueReceiptEmail,
+  queueReceiptNow,
+  queueReceiptWhatsApp,
   voidReceipt,
 } from "@/lib/receipts/server";
 import { authMiddleware } from "@/middleware/auth";
@@ -70,6 +74,18 @@ export const getContributionReceiptReadiness = createServerFn({
     await assertServerAnyPermission(context.session, INCOME_PERMISSIONS);
     await assertServerAnyPermission(context.session, RECEIPT_VIEW_PERMISSIONS);
     return await loadReadiness();
+  });
+
+/**
+ * Whether each live receipt's donor has a usable email address and a phone
+ * number, so the Receipts tab can disable sends that can't work. Flags
+ * only, never the contact details; a read, so not audited.
+ */
+export const getReceiptContacts = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }): Promise<Record<string, ReceiptContacts>> => {
+    await assertServerPermission(context.session, "donors.receipt");
+    return await loadContacts();
   });
 
 export const issueContributionReceipts = createServerFn({ method: "POST" })
@@ -158,5 +174,43 @@ export const emailContributionReceipt = createServerFn({ method: "POST" })
         target: { id: data.receiptId, type: "contribution_receipt" },
       },
       () => queueReceiptEmail(data.receiptId)
+    );
+  });
+
+export const whatsappContributionReceipt = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ receiptId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "donors.receipt");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "contribution_receipt.whatsapp",
+        target: { id: data.receiptId, type: "contribution_receipt" },
+      },
+      () => queueReceiptWhatsApp(data.receiptId)
+    );
+  });
+
+export const sendContributionReceiptNow = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ receiptId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "donors.receipt");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "contribution_receipt.send_now",
+        target: { id: data.receiptId, type: "contribution_receipt" },
+      },
+      () => queueReceiptNow(data.receiptId)
     );
   });

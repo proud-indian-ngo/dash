@@ -1303,6 +1303,13 @@
       "when": 1792604121541,
       "tag": "0185_grant_period_exclusion",
       "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1792641722766,
+      "tag": "0186_receipt_delivery",
+      "breakpoints": true
     }
   ]
 }
