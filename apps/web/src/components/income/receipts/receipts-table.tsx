@@ -25,6 +25,7 @@ import {
   RECEIPT_STATUS_LABELS,
   type ReceiptContacts,
   receiptDeliveryLabel,
+  receiptDeliveryNoteLabel,
   type ReceiptRow,
   receiptDonorName,
   receiptPdfUrl,
@@ -167,6 +168,33 @@ function RowActions(props: ReceiptActionProps) {
   );
 }
 
+function DeliveryCell({ row }: { row: ReceiptRow }) {
+  const note = receiptDeliveryNoteLabel(row);
+  return (
+    <span className="flex min-w-0 items-baseline gap-2">
+      <span
+        className={
+          receiptDeliveryState(row).kind === "sent"
+            ? "truncate"
+            : "text-muted-foreground truncate"
+        }
+        data-testid="receipt-delivery"
+      >
+        {receiptDeliveryLabel(row)}
+      </span>
+      {note ? (
+        <span
+          className="text-muted-foreground truncate text-xs"
+          data-testid="receipt-delivery-note"
+          title={note}
+        >
+          {note}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Sorts receipts by when they were or will be sent; never-sent ones first. */
 function deliverySortKey(row: ReceiptRow): number {
   const state = receiptDeliveryState(row);
@@ -288,18 +316,7 @@ export function ReceiptsTable({
     },
     {
       accessorFn: deliverySortKey,
-      cell: ({ row }) => (
-        <span
-          className={
-            receiptDeliveryState(row.original).kind === "sent"
-              ? "truncate"
-              : "text-muted-foreground truncate"
-          }
-          data-testid="receipt-delivery"
-        >
-          {receiptDeliveryLabel(row.original)}
-        </span>
-      ),
+      cell: ({ row }) => <DeliveryCell row={row.original} />,
       header: ({ column }) => (
         <DataGridColumnHeader
           column={column}

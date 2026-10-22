@@ -576,7 +576,7 @@ test.describe("Income: donation receipts (finance)", () => {
     ).toBeEnabled();
     await page.getByRole("menuitem", { name: "Send now" }).click();
     await expect(
-      page.getByText(`Receipt ${number} is on its way to the donor`)
+      page.getByText(`Receipt ${number} is queued to send`)
     ).toBeVisible();
     // The donor has email, so it goes by email; the test run has no email
     // service, which the row reports rather than hiding.

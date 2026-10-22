@@ -227,6 +227,23 @@ export async function sendWhatsAppReply(
   );
 }
 
+/**
+ * Whether the Cloud API send claimed under this key was accepted by Meta,
+ * for a sender whose retry came back `duplicate`.
+ */
+export async function whatsappMessageWentOut(
+  idempotencyKey: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ status: whatsappMessage.status })
+    .from(whatsappMessage)
+    .where(eq(whatsappMessage.idempotencyKey, idempotencyKey))
+    .limit(1);
+  return (
+    row !== undefined && ["sent", "delivered", "read"].includes(row.status)
+  );
+}
+
 const STATUS_ORDER: Record<WhatsAppMessageStatus, number> = {
   delivered: 2,
   failed: 4,

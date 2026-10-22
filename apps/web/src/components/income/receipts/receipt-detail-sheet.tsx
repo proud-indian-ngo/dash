@@ -28,6 +28,7 @@ import { formatReceivedOn } from "../income-date";
 import {
   type ReceiptContacts,
   receiptDeliveryLabel,
+  receiptDeliveryNoteLabel,
   type ReceiptRow,
   receiptDonorName,
   receiptPdfUrl,
@@ -80,6 +81,7 @@ export function ReceiptDetailSheet({
   const gift = row.contribution;
   const live = !row.voidedAt;
   const options = receiptSendOptions(row, contacts, Date.now());
+  const note = receiptDeliveryNoteLabel(row);
   const facts: [string, ReactNode][] = [
     ["Issued to", receiptDonorName(row)],
     ["Issued on", formatReceivedOn(row.issuedOn)],
@@ -98,6 +100,7 @@ export function ReceiptDetailSheet({
         {receiptDeliveryLabel(row)}
       </span>,
     ],
+    ...(note ? ([["Last send", note]] as [string, ReactNode][]) : []),
     [
       "Emailed",
       sentOn(row.emailedAt, "Not emailed", live ? options.email : null),

@@ -27,7 +27,9 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
   }),
   receiptConfigGaps: () => [],
   ReceiptError,
+  claimAutomaticReceiptSend: async () => null,
   recordReceiptDeliveryFailure: async () => undefined,
+  releaseAutomaticReceiptSend: async () => undefined,
 }));
 mock.module("../enqueue", () => ({
   enqueue: async () => null,

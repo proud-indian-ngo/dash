@@ -654,6 +654,7 @@ export const RECEIPT_AUTO_SEND_DELAY_MS = 60 * 60 * 1000;
 
 /** Why the latest send of a receipt didn't go out; cleared when one does. */
 export const receiptDeliveryFailureValues = [
+  "donor_changed",
   "no_contact",
   "no_phone",
   "email_suppressed",
@@ -671,6 +672,8 @@ export const RECEIPT_DELIVERY_FAILURE_LABELS: Record<
   ReceiptDeliveryFailure,
   string
 > = {
+  donor_changed:
+    "the gift's donor changed after the receipt was issued; void it and issue a new one",
   email_failed: "the email failed",
   email_not_configured: "email isn't set up",
   email_suppressed: "the email address bounced or reported spam",
@@ -691,8 +694,10 @@ export interface ReceiptDeliveryFacts {
 }
 
 /**
- * Where a receipt's delivery stands. A failure is cleared by any later
- * send, so one on record is always the latest outcome.
+ * Where a receipt's delivery stands: a send that went out wins, then a
+ * pending automatic send, then a failure. `autoSendAt` is set only while
+ * the automatic send is still to come: finance's sends and the automatic
+ * job itself clear it.
  */
 export type ReceiptDeliveryState =
   | { kind: "failed"; failure: ReceiptDeliveryFailure }
@@ -703,12 +708,6 @@ export type ReceiptDeliveryState =
 export function receiptDeliveryState(
   receipt: ReceiptDeliveryFacts
 ): ReceiptDeliveryState {
-  if (receipt.deliveryFailure) {
-    return {
-      failure: receipt.deliveryFailure as ReceiptDeliveryFailure,
-      kind: "failed",
-    };
-  }
   const emailedAt = receipt.emailedAt ?? 0;
   const whatsappSentAt = receipt.whatsappSentAt ?? 0;
   if (emailedAt || whatsappSentAt) {
@@ -719,14 +718,30 @@ export function receiptDeliveryState(
   if (receipt.autoSendAt && !receipt.voidedAt) {
     return { at: receipt.autoSendAt, kind: "scheduled" };
   }
+  if (receipt.deliveryFailure) {
+    return {
+      failure: receipt.deliveryFailure as ReceiptDeliveryFailure,
+      kind: "failed",
+    };
+  }
   return { kind: "not_sent" };
 }
 
 /**
- * Waiting for its automatic send with nothing tried yet, so "Send now"
- * applies. Before the window only finance sends, so a recorded failure
- * means finance already tried; the delayed send still runs.
+ * The latest failed send when the state above doesn't already show it,
+ * such as a WhatsApp resend that failed after the email went. Any send
+ * that goes out clears it.
  */
+export function receiptDeliveryNote(
+  receipt: ReceiptDeliveryFacts
+): ReceiptDeliveryFailure | null {
+  return receipt.deliveryFailure &&
+    receiptDeliveryState(receipt).kind !== "failed"
+    ? (receipt.deliveryFailure as ReceiptDeliveryFailure)
+    : null;
+}
+
+/** Waiting for its automatic send, so "Send now" applies. */
 export function receiptAwaitsAutoSend(
   receipt: ReceiptDeliveryFacts,
   now: number

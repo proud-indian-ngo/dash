@@ -1,13 +1,13 @@
 import { db } from "@pi-dash/db";
 import {
+  cancelAutomaticReceiptSend,
   issueReceiptsIn,
   type IssueReceiptsResult,
   loadReceiptConfig,
   loadReceiptCandidates,
   loadLiveReceiptContacts,
-  loadReceiptEmailTarget,
+  loadReceiptDeliveryTarget,
   loadReceiptReadiness,
-  loadReceiptWhatsAppTarget,
   type ReceiptCandidates,
   type ReceiptContacts,
   type ReceiptReadiness,
@@ -105,20 +105,31 @@ export const voidReceipt = (
     db.transaction((tx) => voidReceiptIn(tx, { ...input, actorId }))
   );
 
+/** A live receipt finance may send, or the refusal saying why not. */
+async function sendableTarget(receiptId: string) {
+  const target = await loadReceiptDeliveryTarget(receiptId);
+  if (!target) {
+    throw new ReceiptError("Receipt not found.");
+  }
+  if (target.voided) {
+    throw new ReceiptError("A voided receipt can't be sent.");
+  }
+  if (target.donorChanged) {
+    throw new ReceiptError(
+      "The gift's donor changed after this receipt was issued. Void the receipt and issue a new one."
+    );
+  }
+  return target;
+}
+
 /**
- * Checks the receipt can be emailed and queues the email. Refuses a voided
- * receipt, a donor without an email address, and an address on the
- * suppression list (bounced or reported as spam).
+ * Queues finance's email, cancelling the automatic send in the same
+ * transaction. Refuses a donor without an email address and an address on
+ * the suppression list (bounced or reported as spam).
  */
 export const queueReceiptEmail = (receiptId: string) =>
   safely("email", async () => {
-    const target = await loadReceiptEmailTarget(receiptId);
-    if (!target) {
-      throw new ReceiptError("Receipt not found.");
-    }
-    if (target.voided) {
-      throw new ReceiptError("A voided receipt can't be emailed.");
-    }
+    const target = await sendableTarget(receiptId);
     if (!target.email) {
       throw new ReceiptError(
         "The donor has no email address. Add one on the donor first."
@@ -129,9 +140,16 @@ export const queueReceiptEmail = (receiptId: string) =>
         "The donor's email address bounced or reported our email as spam, so it can't be emailed."
       );
     }
-    await enqueue("send-contribution-receipt", {
-      receiptId,
-      requestId: uuidv7(),
+    await db.transaction(async (tx) => {
+      await cancelAutomaticReceiptSend(tx, receiptId, {
+        now: new Date(),
+        waiting: false,
+      });
+      await enqueue(
+        "send-contribution-receipt",
+        { receiptId, requestId: uuidv7() },
+        { db: inTransaction(tx) }
+      );
     });
     return { contributionId: target.contributionId };
   });
@@ -140,51 +158,41 @@ export const loadContacts = (): Promise<Record<string, ReceiptContacts>> =>
   safely("contacts", () => loadLiveReceiptContacts());
 
 /**
- * Queues the receipt on WhatsApp now, even when the donor has an email
- * address. Refuses a voided receipt and a donor without a phone number.
+ * Queues the receipt on WhatsApp, even when the donor has an email
+ * address, cancelling the automatic send in the same transaction. Refuses
+ * a donor without a phone number.
  */
 export const queueReceiptWhatsApp = (receiptId: string) =>
   safely("whatsapp", async () => {
-    const target = await loadReceiptWhatsAppTarget(receiptId);
-    if (!target) {
-      throw new ReceiptError("Receipt not found.");
-    }
-    if (target.voided) {
-      throw new ReceiptError("A voided receipt can't be sent.");
-    }
+    const target = await sendableTarget(receiptId);
     if (!target.phone) {
       throw new ReceiptError(
         "The donor has no phone number. Add one on the donor first."
       );
     }
-    await enqueue("send-contribution-receipt-whatsapp", {
-      onlyWithoutEmail: false,
-      receiptId,
-      requestId: uuidv7(),
+    await db.transaction(async (tx) => {
+      await cancelAutomaticReceiptSend(tx, receiptId, {
+        now: new Date(),
+        waiting: false,
+      });
+      await enqueue(
+        "send-contribution-receipt-whatsapp",
+        { onlyWithoutEmail: false, receiptId, requestId: uuidv7() },
+        { db: inTransaction(tx) }
+      );
     });
     return { contributionId: target.contributionId };
   });
 
 /**
  * Sends a receipt waiting for its automatic send now, by the same rule:
- * email, or WhatsApp when the donor has no email address. The delayed
- * send then finds it delivered and skips.
+ * email, or WhatsApp when the donor has no email address. Taking the
+ * automatic send in the queuing transaction means the delayed job finds
+ * nothing to do, and a second click (another tab) queues nothing.
  */
 export const queueReceiptNow = (receiptId: string) =>
   safely("sendNow", async () => {
-    const target = await loadReceiptWhatsAppTarget(receiptId);
-    if (!target) {
-      throw new ReceiptError("Receipt not found.");
-    }
-    const waiting =
-      target.autoSendAt !== null &&
-      target.autoSendAt.getTime() > Date.now() &&
-      !(target.delivered || target.voided);
-    if (!waiting) {
-      throw new ReceiptError(
-        "This receipt isn't waiting to be sent. Email it or send it on WhatsApp instead."
-      );
-    }
+    const target = await sendableTarget(receiptId);
     if (!(target.email || target.phone)) {
       throw new ReceiptError(
         "The donor has no email address or phone number. Add one on the donor first."
@@ -192,6 +200,15 @@ export const queueReceiptNow = (receiptId: string) =>
     }
     const requestId = uuidv7();
     await db.transaction(async (tx) => {
+      const waiting = await cancelAutomaticReceiptSend(tx, receiptId, {
+        now: new Date(),
+        waiting: true,
+      });
+      if (!waiting) {
+        throw new ReceiptError(
+          "This receipt isn't waiting to be sent. Email it or send it on WhatsApp instead."
+        );
+      }
       await enqueue(
         "send-contribution-receipt",
         { receiptId, requestId },

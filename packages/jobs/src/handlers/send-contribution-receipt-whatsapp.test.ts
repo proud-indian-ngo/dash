@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
-  loadReceiptWhatsAppTarget: async () => null,
+  claimAutomaticReceiptSend: async () => null,
+  loadReceiptDeliveryTarget: async () => null,
   markReceiptWhatsAppSent: async () => undefined,
   recordReceiptDeliveryFailure: async () => undefined,
+  releaseAutomaticReceiptSend: async () => undefined,
 }));
 mock.module("@pi-dash/whatsapp/cloud", () => ({
   getCloudTemplate: async () => undefined,
@@ -11,6 +13,7 @@ mock.module("@pi-dash/whatsapp/cloud", () => ({
 }));
 mock.module("@pi-dash/whatsapp/notify", () => ({
   sendWhatsAppNotification: async () => "sent",
+  whatsappMessageWentOut: async () => false,
 }));
 mock.module("./create-handler", () => ({
   createNotifyHandler: () => async () => ({}),
@@ -36,16 +39,22 @@ const sent: unknown[][] = [];
 const marked: string[] = [];
 const failures: string[] = [];
 const target = {
-  autoSendAt: null,
   contributionId: "c1",
-  delivered: false,
+  donorChanged: false,
   email: null,
   phone: "+919999999999",
   voided: false,
 };
 
+let claimable = true;
+
 function dependencies(overrides: Partial<Deps> = {}): Deps {
   return {
+    claims: {
+      claim: async () =>
+        claimable ? new Date("2026-10-22T11:00:00.000Z") : null,
+      release: async () => undefined,
+    },
     loadTarget: async () => target,
     markSent: async (id) => {
       marked.push(id);
@@ -67,6 +76,7 @@ function dependencies(overrides: Partial<Deps> = {}): Deps {
       sent.push(args);
       return "sent";
     },
+    sentBefore: async () => false,
     templateReady: async () => true,
     ...overrides,
   };
@@ -77,6 +87,7 @@ describe("receipt WhatsApp delivery", () => {
     sent.length = 0;
     marked.length = 0;
     failures.length = 0;
+    claimable = true;
   });
 
   it("sends the PDF by WhatsApp when the donor has a phone but no email", async () => {
@@ -134,26 +145,48 @@ describe("receipt WhatsApp delivery", () => {
     expect(failures).toEqual(["no_contact"]);
   });
 
-  it("skips the automatic send once the receipt was delivered by hand", async () => {
+  it("skips the automatic send when it can't claim it (sent, cancelled or taken)", async () => {
+    claimable = false;
+    expect(
+      await sendContributionReceiptWhatsApp(payload, dependencies())
+    ).toEqual({ outcome: "not_due" });
+    expect(sent).toEqual([]);
+  });
+
+  it("refuses and records a receipt whose gift changed donor", async () => {
+    expect(
+      await sendContributionReceiptWhatsApp(
+        explicit,
+        dependencies({
+          loadTarget: async () => ({ ...target, donorChanged: true }),
+        })
+      )
+    ).toEqual({ outcome: "donor_changed" });
+    expect(sent).toEqual([]);
+    expect(failures).toEqual(["donor_changed"]);
+  });
+
+  it("records a retry's duplicate as sent when the first send went out", async () => {
     expect(
       await sendContributionReceiptWhatsApp(
         payload,
         dependencies({
-          loadTarget: async () => ({ ...target, delivered: true }),
+          send: async () => "duplicate",
+          sentBefore: async (key) =>
+            key === "receipt-whatsapp-receipt-1-automatic",
         })
       )
-    ).toEqual({ outcome: "already_delivered" });
-    expect(sent).toEqual([]);
+    ).toEqual({ outcome: "duplicate" });
+    expect(marked).toEqual(["receipt-1"]);
   });
 
-  it("sends finance's explicit WhatsApp even when the donor has email or was already sent it", async () => {
+  it("sends finance's explicit WhatsApp even when the donor has email", async () => {
     expect(
       await sendContributionReceiptWhatsApp(
         explicit,
         dependencies({
           loadTarget: async () => ({
             ...target,
-            delivered: true,
             email: "donor@example.com",
           }),
         })

@@ -8,32 +8,40 @@ class ReceiptError extends Error {
 }
 
 const RECEIPT = "0190a000-0000-7000-8000-000000000002";
-const HOUR = 60 * 60 * 1000;
 
 const target = {
-  autoSendAt: null as Date | null,
   contributionId: "c1",
-  delivered: false,
+  donorChanged: false,
   email: "donor@example.com" as string | null,
-  number: "PI/2026-27/0001",
-  partyId: "p1",
   phone: "+919999999999" as string | null,
   voided: false,
 };
 let loaded = { ...target };
 let queued: { data: unknown; name: string }[] = [];
+// Whether the receipt still waits for its automatic send.
+let waiting = false;
+let cancels: { waiting: boolean }[] = [];
 
 mock.module("@pi-dash/db", () => ({
   db: { transaction: async (work: (tx: unknown) => unknown) => work({}) },
 }));
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
+  cancelAutomaticReceiptSend: async (
+    _tx: unknown,
+    _id: string,
+    options: { waiting: boolean }
+  ) => {
+    cancels.push({ waiting: options.waiting });
+    const wasWaiting = waiting;
+    waiting = false;
+    return !options.waiting || wasWaiting;
+  },
   issueReceiptsIn: async () => ({ issued: [], skipped: [] }),
   loadLiveReceiptContacts: async () => ({}),
   loadReceiptCandidates: async () => ({}),
   loadReceiptConfig: async () => ({ settings: null }),
-  loadReceiptEmailTarget: async () => loaded,
+  loadReceiptDeliveryTarget: async () => loaded,
   loadReceiptReadiness: async () => ({}),
-  loadReceiptWhatsAppTarget: async () => loaded,
   ReceiptError,
   voidReceiptIn: async () => ({}),
 }));
@@ -59,18 +67,22 @@ describe("sending a receipt from finance", () => {
   beforeEach(() => {
     loaded = { ...target };
     queued = [];
+    waiting = false;
+    cancels = [];
   });
 
-  it("always queues an explicit email or WhatsApp, even once delivered", async () => {
-    loaded = { ...target, delivered: true };
+  it("always queues an explicit email or WhatsApp, cancelling the automatic send", async () => {
+    waiting = true;
     await queueReceiptEmail(RECEIPT);
     await queueReceiptWhatsApp(RECEIPT);
     expect(queued.map(({ name }) => name)).toEqual([
       "send-contribution-receipt",
       "send-contribution-receipt-whatsapp",
     ]);
-    // WhatsApp goes even though the donor has an email address.
-    // Each click is its own request, never the automatic one.
+    expect(cancels).toEqual([{ waiting: false }, { waiting: false }]);
+    expect(waiting).toBe(false);
+    // WhatsApp goes even though the donor has an email address, under its
+    // own request, never the automatic one.
     expect(queued[1]?.data).toEqual({
       onlyWithoutEmail: false,
       receiptId: RECEIPT,
@@ -78,18 +90,25 @@ describe("sending a receipt from finance", () => {
     });
   });
 
-  it("refuses WhatsApp for a donor without a phone, or a voided receipt", async () => {
+  it("refuses WhatsApp for a donor without a phone, a voided receipt or a changed donor", async () => {
     loaded = { ...target, phone: null };
     await expect(queueReceiptWhatsApp(RECEIPT)).rejects.toThrow(
       "The donor has no phone number"
     );
     loaded = { ...target, voided: true };
     await expect(queueReceiptWhatsApp(RECEIPT)).rejects.toThrow("voided");
+    loaded = { ...target, donorChanged: true };
+    await expect(queueReceiptWhatsApp(RECEIPT)).rejects.toThrow(
+      "Void the receipt and issue a new one"
+    );
+    await expect(queueReceiptEmail(RECEIPT)).rejects.toThrow(
+      "Void the receipt and issue a new one"
+    );
     expect(queued).toEqual([]);
   });
 
-  it("sends a waiting receipt now by the automatic rule", async () => {
-    loaded = { ...target, autoSendAt: new Date(Date.now() + HOUR) };
+  it("sends a waiting receipt now by the automatic rule, once", async () => {
+    waiting = true;
     await queueReceiptNow(RECEIPT);
     expect(queued).toEqual([
       {
@@ -105,26 +124,16 @@ describe("sending a receipt from finance", () => {
         name: "send-contribution-receipt-whatsapp",
       },
     ]);
+    // A second click (another tab) finds nothing waiting.
+    await expect(queueReceiptNow(RECEIPT)).rejects.toThrow(
+      "isn't waiting to be sent"
+    );
+    expect(queued).toHaveLength(2);
   });
 
-  it("refuses Send now for a receipt that isn't waiting or reaches no one", async () => {
-    for (const receipt of [
-      target,
-      { ...target, autoSendAt: new Date(Date.now() - HOUR) },
-      { ...target, autoSendAt: new Date(Date.now() + HOUR), delivered: true },
-      { ...target, autoSendAt: new Date(Date.now() + HOUR), voided: true },
-    ]) {
-      loaded = receipt;
-      await expect(queueReceiptNow(RECEIPT)).rejects.toThrow(
-        "isn't waiting to be sent"
-      );
-    }
-    loaded = {
-      ...target,
-      autoSendAt: new Date(Date.now() + HOUR),
-      email: null,
-      phone: null,
-    };
+  it("refuses Send now for a donor it can't reach", async () => {
+    waiting = true;
+    loaded = { ...target, email: null, phone: null };
     await expect(queueReceiptNow(RECEIPT)).rejects.toThrow(
       "no email address or phone number"
     );

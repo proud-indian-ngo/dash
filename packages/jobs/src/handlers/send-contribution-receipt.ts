@@ -1,5 +1,5 @@
 import {
-  loadReceiptEmailTarget,
+  loadReceiptDeliveryTarget,
   markReceiptEmailed,
   recordReceiptDeliveryFailure,
 } from "@pi-dash/db/queries/contribution-receipts";
@@ -10,8 +10,10 @@ import { formatPaise } from "@pi-dash/shared/money";
 import { formatReceiptDate } from "@pi-dash/shared/receipts";
 
 import {
-  AUTOMATIC_RECEIPT_REQUEST,
+  type AutomaticClaim,
+  automaticClaim,
   deliverReceipt,
+  sendOnce,
 } from "../lib/receipt-delivery";
 import { receiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptPayload } from "../types";
@@ -20,7 +22,8 @@ import { createNotifyHandler } from "./create-handler";
 export type ReceiptEmailOutcome =
   | "sent"
   | "already_sent"
-  | "already_delivered"
+  | "not_due"
+  | "donor_changed"
   | "not_configured"
   | "missing"
   | "voided"
@@ -28,8 +31,9 @@ export type ReceiptEmailOutcome =
   | "suppressed";
 
 export interface ReceiptEmailDependencies {
+  claims: AutomaticClaim;
   getSuppression: typeof getEmailSuppression;
-  loadTarget: typeof loadReceiptEmailTarget;
+  loadTarget: typeof loadReceiptDeliveryTarget;
   markEmailed: typeof markReceiptEmailed;
   recordFailure: typeof recordReceiptDeliveryFailure;
   renderEmail: typeof renderDonationReceiptEmail;
@@ -38,8 +42,9 @@ export interface ReceiptEmailDependencies {
 }
 
 const defaults: ReceiptEmailDependencies = {
+  claims: automaticClaim,
   getSuppression: getEmailSuppression,
-  loadTarget: loadReceiptEmailTarget,
+  loadTarget: loadReceiptDeliveryTarget,
   markEmailed: markReceiptEmailed,
   recordFailure: recordReceiptDeliveryFailure,
   renderEmail: renderDonationReceiptEmail,
@@ -51,7 +56,8 @@ const defaults: ReceiptEmailDependencies = {
  * Emails a receipt's PDF to the donor's current address. The server function
  * checked the same conditions before enqueueing; they are checked again here
  * because the receipt may be voided or the address bounced meanwhile. The
- * automatic send is skipped once the receipt was delivered by hand. A
+ * automatic send goes only if it can claim the receipt (see `sendOnce`),
+ * and nothing goes once the gift's donor changed after issue. A
  * suppressed address or missing email setup is recorded on the receipt as
  * not sent; a Resend failure throws so pg-boss retries, and the per-request
  * idempotency key keeps a retry from sending twice.
@@ -67,15 +73,28 @@ export async function sendContributionReceipt(
   if (target.voided) {
     return { outcome: "voided" };
   }
-  if (data.requestId === AUTOMATIC_RECEIPT_REQUEST && target.delivered) {
-    return { outcome: "already_delivered" };
-  }
   // Without an address the WhatsApp job decides; finance can't ask for it.
-  if (!target.email) {
+  const { email } = target;
+  if (!email) {
     return { outcome: "no_email" };
   }
+  return await sendOnce(data, deps.claims, () =>
+    emailReceipt(data, email, target.donorChanged, deps)
+  );
+}
+
+async function emailReceipt(
+  data: SendContributionReceiptPayload,
+  email: string,
+  donorChanged: boolean,
+  deps: ReceiptEmailDependencies
+): Promise<{ outcome: ReceiptEmailOutcome }> {
+  if (donorChanged) {
+    await deps.recordFailure(data.receiptId, "donor_changed");
+    return { outcome: "donor_changed" };
+  }
   // Donor email follows the notification rule: any bounce or complaint stops it.
-  if (await deps.getSuppression(target.email)) {
+  if (await deps.getSuppression(email)) {
     await deps.recordFailure(data.receiptId, "email_suppressed");
     return { outcome: "suppressed" };
   }
@@ -101,7 +120,7 @@ export async function sendContributionReceipt(
       html,
       idempotencyKey: `receipt-${data.receiptId}-${data.requestId}`,
       subject: `Your donation receipt ${document.number}`,
-      to: target.email,
+      to: email,
     });
   } catch (error) {
     // Resend answers 409 when this idempotency key was already used: the

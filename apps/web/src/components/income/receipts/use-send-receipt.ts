@@ -44,7 +44,7 @@ export function useSendReceipt() {
           : now(request);
     await queued
       .then(() => {
-        toast.success(`Receipt ${receipt.number} is on its way to the donor`);
+        toast.success(`Receipt ${receipt.number} is queued to send`);
       })
       .catch((error: unknown) => {
         toast.error(FAILED[how], { description: errorMessage(error) });

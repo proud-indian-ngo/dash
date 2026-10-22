@@ -2,6 +2,7 @@ import {
   RECEIPT_DELIVERY_FAILURE_LABELS,
   receiptAwaitsAutoSend,
   type ReceiptDeliveryFacts,
+  receiptDeliveryNote,
   receiptDeliveryState,
 } from "@pi-dash/shared/receipts";
 import type {
@@ -72,6 +73,16 @@ export function receiptDeliveryLabel(row: ReceiptDeliveryFacts): string {
     default:
       return "Not sent";
   }
+}
+
+/** The latest failed send when the label shows something else, or null. */
+export function receiptDeliveryNoteLabel(
+  row: ReceiptDeliveryFacts
+): string | null {
+  const failure = receiptDeliveryNote(row);
+  return failure
+    ? `Last send failed: ${RECEIPT_DELIVERY_FAILURE_LABELS[failure]}`
+    : null;
 }
 
 export type ReceiptContacts = Awaited<

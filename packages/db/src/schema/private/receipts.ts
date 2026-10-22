@@ -2,6 +2,7 @@ import { index, integer, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 import { contributionReceipt } from "../contribution-receipt";
 import { jsonb } from "../jsonb";
+import { party } from "../party";
 import { privateSchema } from "./party-private";
 
 /**
@@ -35,6 +36,13 @@ export const contributionReceiptSnapshot = privateSchema.table(
     document: jsonb("document").notNull(),
     /** Encrypted; null when the receipt carries no 80G line. */
     idNumberEncrypted: text("id_number_encrypted"),
+    /**
+     * The donor the receipt was issued to. Delivery refuses when the gift's
+     * donor no longer matches, so a receipt never reaches someone else.
+     */
+    partyId: uuid("party_id")
+      .notNull()
+      .references(() => party.id, { onDelete: "restrict" }),
     /**
      * R2 key of the PDF as issued (`receipts/<id>/<random>.pdf`), rendered
      * once and served from then on. Null until it is first stored.

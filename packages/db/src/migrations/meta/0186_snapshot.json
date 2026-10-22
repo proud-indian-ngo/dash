@@ -1,5 +1,5 @@
 {
-  "id": "f0aab985-20dd-44a5-a4ab-341a24e9eb47",
+  "id": "fb6930a5-5d3a-474b-832e-2a1bbfcb2839",
   "prevId": "0243967e-21a1-4707-ac5c-7ccac7efb54f",
   "version": "7",
   "dialect": "postgresql",
@@ -24171,6 +24171,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "party_id": {
+          "name": "party_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "pdf_key": {
           "name": "pdf_key",
           "type": "text",
@@ -24229,6 +24235,19 @@
         }
       },
       "foreignKeys": {
+        "contribution_receipt_snapshot_party_id_party_id_fk": {
+          "name": "contribution_receipt_snapshot_party_id_party_id_fk",
+          "tableFrom": "contribution_receipt_snapshot",
+          "tableTo": "party",
+          "columnsFrom": [
+            "party_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk": {
           "name": "contribution_receipt_snapshot_receipt_id_contribution_receipt_id_fk",
           "tableFrom": "contribution_receipt_snapshot",
@@ -24657,6 +24676,7 @@
       "name": "contribution_receipt_delivery_failure",
       "schema": "public",
       "values": [
+        "donor_changed",
         "no_contact",
         "no_phone",
         "email_suppressed",

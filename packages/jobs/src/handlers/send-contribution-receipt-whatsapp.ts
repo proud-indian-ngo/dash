@@ -1,5 +1,5 @@
 import {
-  loadReceiptWhatsAppTarget,
+  loadReceiptDeliveryTarget,
   markReceiptWhatsAppSent,
   recordReceiptDeliveryFailure,
 } from "@pi-dash/db/queries/contribution-receipts";
@@ -12,12 +12,15 @@ import { getCloudTemplate, isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import {
   sendWhatsAppNotification,
   type WhatsAppSendOutcome,
+  whatsappMessageWentOut,
 } from "@pi-dash/whatsapp/notify";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import {
-  AUTOMATIC_RECEIPT_REQUEST,
+  type AutomaticClaim,
+  automaticClaim,
   deliverReceipt,
+  sendOnce,
 } from "../lib/receipt-delivery";
 import { receiptPdf } from "../lib/receipt-pdf";
 import type { SendContributionReceiptWhatsAppPayload } from "../types";
@@ -26,21 +29,26 @@ import { createNotifyHandler } from "./create-handler";
 const RECEIPT_TEMPLATE = "donation_receipt";
 
 interface ReceiptWhatsAppDependencies {
-  loadTarget: typeof loadReceiptWhatsAppTarget;
+  claims: AutomaticClaim;
+  loadTarget: typeof loadReceiptDeliveryTarget;
   markSent: typeof markReceiptWhatsAppSent;
   recordFailure: typeof recordReceiptDeliveryFailure;
   renderPdf: typeof receiptPdf;
   send: typeof sendWhatsAppNotification;
+  /** Whether the send logged under this key went out (a `duplicate`). */
+  sentBefore: typeof whatsappMessageWentOut;
   /** False while the Cloud API is on and Meta hasn't approved the template. */
   templateReady: () => Promise<boolean>;
 }
 
 const defaults: ReceiptWhatsAppDependencies = {
-  loadTarget: loadReceiptWhatsAppTarget,
+  claims: automaticClaim,
+  loadTarget: loadReceiptDeliveryTarget,
   markSent: markReceiptWhatsAppSent,
   recordFailure: recordReceiptDeliveryFailure,
   renderPdf: receiptPdf,
   send: sendWhatsAppNotification,
+  sentBefore: whatsappMessageWentOut,
   templateReady: async () =>
     !isCloudApiEnabled() ||
     (await getCloudTemplate(RECEIPT_TEMPLATE))?.status === "APPROVED",
@@ -57,9 +65,10 @@ const TRANSPORT_FAILURES: Partial<
 /**
  * Sends the receipt's stored PDF on WhatsApp. By the automatic rule
  * (`onlyWithoutEmail`) it goes only when the donor has no email address;
- * finance's explicit send goes regardless. The automatic send is skipped
- * once the receipt was delivered by hand. Outcomes that leave the donor
- * without it are recorded on the receipt.
+ * finance's explicit send goes regardless. The automatic send goes only if
+ * it can claim the receipt (see `sendOnce`), and nothing goes once the
+ * gift's donor changed after issue. Outcomes that leave the donor without
+ * it are recorded on the receipt.
  */
 export async function sendContributionReceiptWhatsApp(
   data: SendContributionReceiptWhatsAppPayload,
@@ -72,13 +81,25 @@ export async function sendContributionReceiptWhatsApp(
   if (target.voided) {
     return { outcome: "voided" };
   }
-  if (data.requestId === AUTOMATIC_RECEIPT_REQUEST && target.delivered) {
-    return { outcome: "already_delivered" };
-  }
   if (data.onlyWithoutEmail && target.email) {
     return { outcome: "email_available" };
   }
-  if (!target.phone) {
+  return await sendOnce(data, deps.claims, () =>
+    messageReceipt(data, target.phone, target.donorChanged, deps)
+  );
+}
+
+async function messageReceipt(
+  data: SendContributionReceiptWhatsAppPayload,
+  phone: string | null,
+  donorChanged: boolean,
+  deps: ReceiptWhatsAppDependencies
+) {
+  if (donorChanged) {
+    await deps.recordFailure(data.receiptId, "donor_changed");
+    return { outcome: "donor_changed" };
+  }
+  if (!phone) {
     await deps.recordFailure(
       data.receiptId,
       data.onlyWithoutEmail ? "no_contact" : "no_phone"
@@ -100,8 +121,9 @@ export async function sendContributionReceiptWhatsApp(
   const { document } = rendered;
   const amount = formatPaise(document.gift.amountPaise);
   const receivedOn = formatReceiptDate(document.gift.receivedOn);
+  const idempotencyKey = `receipt-whatsapp-${data.receiptId}-${data.requestId}`;
   const outcome = await deps.send(
-    target.phone,
+    phone,
     {
       template: whatsappTemplate(
         RECEIPT_TEMPLATE,
@@ -110,9 +132,13 @@ export async function sendContributionReceiptWhatsApp(
       ),
       text: `Thank you for your donation to Proud Indian.\n\nAmount: ${amount}\nReceipt number: ${document.number}\nDate received: ${receivedOn}\n\nYour donation receipt is attached as a PDF.`,
     },
-    { idempotencyKey: `receipt-whatsapp-${data.receiptId}-${data.requestId}` }
+    { idempotencyKey }
   );
-  if (outcome === "sent") {
+  // A retry finds its key already used; record it if that send went out.
+  if (
+    outcome === "sent" ||
+    (outcome === "duplicate" && (await deps.sentBefore(idempotencyKey)))
+  ) {
     await deps.markSent(data.receiptId, new Date());
   }
   const failure = TRANSPORT_FAILURES[outcome];

@@ -6,6 +6,7 @@ import {
   assessReceipt,
   formatReceiptNumber,
   receiptAwaitsAutoSend,
+  receiptDeliveryNote,
   receiptDeliveryState,
   parseReceiptSettings,
   type ReceiptDonorFacts,
@@ -384,7 +385,7 @@ describe("receipt delivery", () => {
   const NOW = 1_000_000;
   const waiting = { autoSendAt: NOW + 1000 };
 
-  it("waits for the automatic send until something happens", () => {
+  it("waits for the automatic send until it is taken or cancelled", () => {
     expect(receiptDeliveryState(waiting)).toEqual({
       at: NOW + 1000,
       kind: "scheduled",
@@ -396,26 +397,38 @@ describe("receipt delivery", () => {
     expect(receiptDeliveryState({})).toEqual({ kind: "not_sent" });
   });
 
-  it("stops waiting once sent, voided or tried", () => {
+  it("stops waiting once sent or voided, but not after a failed attempt", () => {
     for (const receipt of [
       { ...waiting, emailedAt: NOW },
       { ...waiting, whatsappSentAt: NOW },
       { ...waiting, voidedAt: NOW },
-      { ...waiting, deliveryFailure: "email_suppressed" },
     ]) {
       expect(receiptAwaitsAutoSend(receipt, NOW)).toBe(false);
     }
+    const failed = { ...waiting, deliveryFailure: "email_suppressed" };
+    expect(receiptAwaitsAutoSend(failed, NOW)).toBe(true);
+    expect(receiptDeliveryNote(failed)).toBe("email_suppressed");
   });
 
-  it("shows the latest outcome: a failure, else the latest send", () => {
+  it("lets a send that went out win over a later failure, kept as a note", () => {
+    const resendFailed = {
+      deliveryFailure: "whatsapp_no_template",
+      emailedAt: NOW,
+    };
+    expect(receiptDeliveryState(resendFailed)).toEqual({
+      at: NOW,
+      channel: "email",
+      kind: "sent",
+    });
+    expect(receiptDeliveryNote(resendFailed)).toBe("whatsapp_no_template");
     expect(
       receiptDeliveryState({ emailedAt: NOW, whatsappSentAt: NOW + 1 })
     ).toEqual({ at: NOW + 1, channel: "whatsapp", kind: "sent" });
-    expect(
-      receiptDeliveryState({
-        deliveryFailure: "whatsapp_no_template",
-        emailedAt: NOW,
-      })
-    ).toEqual({ failure: "whatsapp_no_template", kind: "failed" });
+    const failed = { deliveryFailure: "no_contact" };
+    expect(receiptDeliveryState(failed)).toEqual({
+      failure: "no_contact",
+      kind: "failed",
+    });
+    expect(receiptDeliveryNote(failed)).toBeNull();
   });
 });

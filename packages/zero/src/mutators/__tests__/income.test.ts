@@ -865,6 +865,70 @@ describe("contribution mutators", () => {
     }
   });
 
+  it("keeps what a live receipt printed until it is voided", async () => {
+    const gift = {
+      amountPaise: 500_000,
+      channel: "upi",
+      deductionEligible: "unknown",
+      donationType: "voluntary",
+      fundId: "fund-1",
+      id: "c-1",
+      orgAccountId: "acc-1",
+      partyId: "donor-1",
+      programmeId: null,
+      receivedOn: Date.UTC(2026, 9, 1),
+      reference: "UTR123",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+    };
+    const receipt = {
+      contributionId: "c-1",
+      id: "r-1",
+      number: "PI/2026-27/0001",
+      voidedAt: null,
+    };
+    const db = createDb({
+      contribution: [gift],
+      contributionReceipt: [receipt],
+    });
+    // Notes still change.
+    await run(
+      contributionMutators.update,
+      db,
+      donorsCtx,
+      contribution({ notes: "Thanked" })
+    );
+    expect(db.tables.contribution?.[0]?.notes).toBe("Thanked");
+    for (const change of [
+      { partyId: "sponsor-1" },
+      { amountPaise: 400_000 },
+      { receivedOn: "2026-10-02" },
+      { channel: "neft" },
+      { reportingMode: "other" },
+      { deductionEligible: "no", eligibilityReason: "Not a donation" },
+      { donationType: "corpus" },
+      { reference: "UTR999" },
+    ]) {
+      await expect(
+        run(contributionMutators.update, db, donorsCtx, contribution(change))
+      ).rejects.toThrow("Void the receipt first.");
+    }
+    expect(db.tables.contribution?.[0]?.partyId).toBe("donor-1");
+
+    // A voided receipt no longer holds the gift.
+    const voided = createDb({
+      contribution: [gift],
+      contributionReceipt: [{ ...receipt, voidedAt: 1_800_000_000_000 }],
+    });
+    await run(
+      contributionMutators.update,
+      voided,
+      donorsCtx,
+      contribution({ partyId: "sponsor-1" })
+    );
+    expect(voided.tables.contribution?.[0]?.partyId).toBe("sponsor-1");
+  });
+
   it("locks the contribution, and with a refund keeps what the provider reported", async () => {
     const recorded = {
       amountPaise: 500_000,

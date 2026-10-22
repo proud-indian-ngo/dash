@@ -359,6 +359,18 @@ const FILING_LOCKED_FIELDS = [
 ] as const;
 
 /**
+ * What a live receipt printed or decided from the gift (with the tax
+ * certificate choice): changing any of them would leave the receipt wrong,
+ * or send it to someone else, so it is voided first.
+ */
+const RECEIPT_LOCKED_FIELDS = [
+  ...FILING_LOCKED_FIELDS,
+  "donationTypeDescription",
+  "projectId",
+  "reference",
+] as const;
+
+/**
  * The live donations return filing holding the gift, if any (server only:
  * filings are private). Its frozen row points at the gift, so the gift and
  * what the row reported stay.
@@ -672,6 +684,23 @@ export const contributionMutators = {
           )
         );
       }
+    }
+    if (
+      (RECEIPT_LOCKED_FIELDS.some(
+        (field) => (existing[field] ?? null) !== (values[field] ?? null)
+      ) ||
+        eligibility.deductionEligible !==
+          (existing.deductionEligible ?? "unknown")) &&
+      (await tx.run(
+        zql.contributionReceipt
+          .where("contributionId", args.id)
+          .where("voidedAt", "IS", null)
+          .one()
+      ))
+    ) {
+      throw new Error(
+        "A receipt was issued for this gift, so its donor, amount, date, channel, mode of receipt, donation type, reference, project and tax certificate choice can't change. Void the receipt first."
+      );
     }
     if (existing.grantId && values.channel === "in_kind") {
       throw new Error(
