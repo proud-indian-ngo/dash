@@ -36,6 +36,7 @@ import {
   discardCertificate,
   getCertificate,
   prepareCertificate,
+  previewCertificate,
   recordCaCertificate,
   recordCertificateSignature,
 } from "./utilisation-certificates";
@@ -571,6 +572,17 @@ it.skipIf(!localDatabase)(
           prepare(tx, ids, { from: "2026-06-01", to: "2026-11-30" })
         )
       ).toBe(
+        `The period overlaps ${a.number}. Pick a period after it, or discard or cancel it first.`
+      );
+      // The dialog's preview says so before anyone confirms.
+      const preview = await previewCertificate(tx, {
+        from: "2026-06-01",
+        grantId: ids.grant,
+        interestPaise: 0,
+        to: "2026-11-30",
+        today: TODAY,
+      });
+      expect(preview.problems).toContain(
         `The period overlaps ${a.number}. Pick a period after it, or discard or cancel it first.`
       );
       // The period after it is free, and brings its interest forward once.

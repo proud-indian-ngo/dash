@@ -149,6 +149,32 @@ export async function computeCertificateFigures(
   });
 }
 
+/**
+ * Why a period can't be certified because it overlaps a live certificate
+ * of the grant, or null. Live certificates never overlap, so each one's
+ * interest is brought forward once and nothing is certified twice.
+ */
+async function overlapProblem(
+  reader: Reader,
+  input: { from: string; grantId: string; to: string }
+): Promise<string | null> {
+  const [overlapping] = await reader
+    .select({ number: utilisationCertificate.number })
+    .from(utilisationCertificate)
+    .where(
+      and(
+        eq(utilisationCertificate.grantId, input.grantId),
+        inArray(utilisationCertificate.status, [...LIVE_CERTIFICATE_STATUSES]),
+        lte(utilisationCertificate.fromOn, input.to),
+        gte(utilisationCertificate.toOn, input.from)
+      )
+    )
+    .limit(1);
+  return overlapping
+    ? `The period overlaps ${overlapping.number}. Pick a period after it, or discard or cancel it first.`
+    : null;
+}
+
 /** The trust's particulars a certificate prints, as of `today`. */
 async function loadTrustParticulars(
   reader: Reader,
@@ -286,26 +312,9 @@ export async function prepareCertificate(
     if (input.to > input.today) {
       throw new CertificateError("The period can't end after today.");
     }
-    // Live certificates never overlap, so each one's interest is brought
-    // forward once and no receipt or spend is certified twice.
-    const [overlapping] = await tx
-      .select({ number: utilisationCertificate.number })
-      .from(utilisationCertificate)
-      .where(
-        and(
-          eq(utilisationCertificate.grantId, input.grantId),
-          inArray(utilisationCertificate.status, [
-            ...LIVE_CERTIFICATE_STATUSES,
-          ]),
-          lte(utilisationCertificate.fromOn, input.to),
-          gte(utilisationCertificate.toOn, input.from)
-        )
-      )
-      .limit(1);
-    if (overlapping) {
-      throw new CertificateError(
-        `The period overlaps ${overlapping.number}. Pick a period after it, or discard or cancel it first.`
-      );
+    const overlap = await overlapProblem(tx, input);
+    if (overlap) {
+      throw new CertificateError(overlap);
     }
     const signatories = certificateSignatories(
       boardOn(await loadRegister(tx, input.today), input.today)
@@ -682,6 +691,10 @@ export async function previewCertificate(
   trust: UtilisationCertificateSnapshot["trust"] | null;
 }> {
   const problems: string[] = [];
+  const overlap = await overlapProblem(reader, input);
+  if (overlap) {
+    problems.push(overlap);
+  }
   const signatories = certificateSignatories(
     boardOn(await loadRegister(reader, input.today), input.today)
   );

@@ -152,7 +152,7 @@ import { uuidv7 } from "uuidv7";
  *   posts. Reports the grant's id and
  *   title.
  * - `certificate-row <run>`: the certificate fixture's grant with a
- *   certificate waiting for the seeded Managing Trustee, written straight
+ *   discarded certificate naming the seeded trustees, written straight
  *   to the database (no PDF, no signing service), numbered outside the
  *   real series. Reports its id.
  * - `grant-fixture <run>`: Finance → Grants. The budget fixture's records,
@@ -1005,7 +1005,8 @@ async function certificateRow(run: string) {
       },
       version: 1,
     },
-    status: "awaiting_head",
+    // Discarded: a waiting one would show on the seeded trustees' dashboards.
+    status: "discarded",
     toOn: "2026-09-30",
     updatedAt: now,
   });
