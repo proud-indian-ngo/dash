@@ -21,8 +21,6 @@ const DURATIONS_FILE = path.resolve(
 );
 const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
 const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
-// Playwright's default worker count (half the cores) on the 4-vCPU runners.
-const CI_WORKERS = 2;
 
 const totalShards = Number.parseInt(process.argv[2], 10);
 if (totalShards < 2) {
@@ -132,11 +130,12 @@ const shards: { lines: string[]; totalMs: number }[] = Array.from(
   () => ({ lines: [], totalMs: 0 })
 );
 
-// exclusive_last runs alone after everything else, holding one worker while
-// the rest idle, so it costs shard 1 its duration times the worker count.
-shards[0].totalMs =
-  CI_WORKERS *
-  exclusiveLines.reduce((sum, line) => sum + lookupDuration(line), 0);
+// exclusive_last runs alone in shard 1 after everything else. Counting it
+// once, not per idle worker, matched measured shard times better.
+shards[0].totalMs = exclusiveLines.reduce(
+  (sum, line) => sum + lookupDuration(line),
+  0
+);
 
 entries.sort((a, b) => b.duration - a.duration);
 
