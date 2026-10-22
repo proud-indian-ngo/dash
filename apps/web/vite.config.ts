@@ -81,8 +81,8 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   // One ID per build, served by /api/version so open tabs can notice a
   // deploy (see lib/build-id.ts).
   const buildId = mode === "production" ? Date.now().toString(36) : "dev";
-  // E2E builds skip source maps and precompressed assets: tests read
-  // neither, and both slow the build and the CI artifact.
+  // E2E builds skip source maps: tests never read them, and they slow the
+  // build and double the cached output.
   const e2eBuild = process.env.VITE_E2E === "true";
 
   return {
@@ -150,7 +150,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       }),
       apiMediaDevMiddleware,
       ...nitro({
-        compressPublicAssets: !e2eBuild,
+        compressPublicAssets: true,
         rolldownConfig: { onLog, plugins: [rewritePublicAssets] },
         experimental: {
           vite: {},
