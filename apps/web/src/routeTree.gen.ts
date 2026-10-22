@@ -102,6 +102,7 @@ import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
 import { Route as ApiReceiptsReceiptIdRouteImport } from './routes/api/receipts/$receiptId'
 import { Route as ApiReceiptsSignatureRouteImport } from './routes/api/receipts/signature'
+import { Route as ApiUtilisationCertificatesCertificateIdRouteImport } from './routes/api/utilisation-certificates/$certificateId'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
 import { Route as ApiZeroQueryRouteImport } from './routes/api/zero/query'
@@ -158,6 +159,7 @@ import { Route as ApiSocialV1RunsRouteImport } from './routes/api/social/v1/runs
 import { Route as ApiSocialV1SettingsRouteImport } from './routes/api/social/v1/settings'
 import { Route as ApiSocialV1StatsRouteImport } from './routes/api/social/v1/stats'
 import { Route as ApiWhatsappCloudWebhookRouteImport } from './routes/api/whatsapp/cloud/webhook'
+import { Route as AppFinanceGrantsCertificatesCertificateIdRouteImport } from './routes/_app/finance/grants/certificates/$certificateId'
 import { Route as AppGovernanceResolutionsCircularsCircularIdRouteImport } from './routes/_app/governance/resolutions/circulars/$circularId'
 import { Route as AppKalakritiYearCentersIndexRouteImport } from './routes/_app/kalakriti/$year/centers/index'
 import { Route as AppKalakritiYearCompetitionsIndexRouteImport } from './routes/_app/kalakriti/$year/competitions/index'
@@ -647,6 +649,12 @@ const ApiReceiptsSignatureRoute = ApiReceiptsSignatureRouteImport.update({
   path: '/api/receipts/signature',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUtilisationCertificatesCertificateIdRoute =
+  ApiUtilisationCertificatesCertificateIdRouteImport.update({
+    id: '/api/utilisation-certificates/$certificateId',
+    path: '/api/utilisation-certificates/$certificateId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiWhatsappWebhookRoute = ApiWhatsappWebhookRouteImport.update({
   id: '/api/whatsapp/webhook',
   path: '/api/whatsapp/webhook',
@@ -944,6 +952,12 @@ const ApiWhatsappCloudWebhookRoute = ApiWhatsappCloudWebhookRouteImport.update({
   path: '/api/whatsapp/cloud/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppFinanceGrantsCertificatesCertificateIdRoute =
+  AppFinanceGrantsCertificatesCertificateIdRouteImport.update({
+    id: '/finance/grants/certificates/$certificateId',
+    path: '/finance/grants/certificates/$certificateId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppGovernanceResolutionsCircularsCircularIdRoute =
   AppGovernanceResolutionsCircularsCircularIdRouteImport.update({
     id: '/resolutions/circulars/$circularId',
@@ -1134,6 +1148,7 @@ export interface FileRoutesByFullPath {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1201,6 +1216,7 @@ export interface FileRoutesByFullPath {
   '/income/bank/': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/finance/grants/certificates/$certificateId': typeof AppFinanceGrantsCertificatesCertificateIdRoute
   '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
@@ -1289,6 +1305,7 @@ export interface FileRoutesByTo {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1353,6 +1370,7 @@ export interface FileRoutesByTo {
   '/income/bank': typeof AppIncomeBankIndexRoute
   '/kalakriti/$year': typeof AppKalakritiYearIndexRoute
   '/settings/roles': typeof AppSettingsRolesIndexRoute
+  '/finance/grants/certificates/$certificateId': typeof AppFinanceGrantsCertificatesCertificateIdRoute
   '/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
@@ -1456,6 +1474,7 @@ export interface FileRoutesById {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
   '/api/zero/query': typeof ApiZeroQueryRoute
@@ -1523,6 +1542,7 @@ export interface FileRoutesById {
   '/_app/income/bank/': typeof AppIncomeBankIndexRoute
   '/_app/kalakriti/$year/': typeof AppKalakritiYearIndexRoute
   '/_app/settings/roles/': typeof AppSettingsRolesIndexRoute
+  '/_app/finance/grants/certificates/$certificateId': typeof AppFinanceGrantsCertificatesCertificateIdRoute
   '/_app/governance/resolutions/circulars/$circularId': typeof AppGovernanceResolutionsCircularsCircularIdRoute
   '/_app/kalakriti/$year/competitions/catalog': typeof AppKalakritiYearCompetitionsCatalogRoute
   '/_app/kalakriti/$year/competitions/categories': typeof AppKalakritiYearCompetitionsCategoriesRoute
@@ -1625,6 +1645,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1692,6 +1713,7 @@ export interface FileRouteTypes {
     | '/income/bank/'
     | '/kalakriti/$year/'
     | '/settings/roles/'
+    | '/finance/grants/certificates/$certificateId'
     | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
@@ -1780,6 +1802,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -1844,6 +1867,7 @@ export interface FileRouteTypes {
     | '/income/bank'
     | '/kalakriti/$year'
     | '/settings/roles'
+    | '/finance/grants/certificates/$certificateId'
     | '/governance/resolutions/circulars/$circularId'
     | '/kalakriti/$year/competitions/catalog'
     | '/kalakriti/$year/competitions/categories'
@@ -1946,6 +1970,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
     | '/api/zero/query'
@@ -2013,6 +2038,7 @@ export interface FileRouteTypes {
     | '/_app/income/bank/'
     | '/_app/kalakriti/$year/'
     | '/_app/settings/roles/'
+    | '/_app/finance/grants/certificates/$certificateId'
     | '/_app/governance/resolutions/circulars/$circularId'
     | '/_app/kalakriti/$year/competitions/catalog'
     | '/_app/kalakriti/$year/competitions/categories'
@@ -2059,6 +2085,7 @@ export interface RootRouteChildren {
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiReceiptsReceiptIdRoute: typeof ApiReceiptsReceiptIdRoute
   ApiReceiptsSignatureRoute: typeof ApiReceiptsSignatureRoute
+  ApiUtilisationCertificatesCertificateIdRoute: typeof ApiUtilisationCertificatesCertificateIdRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
   ApiZeroQueryRoute: typeof ApiZeroQueryRoute
@@ -2739,6 +2766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReceiptsSignatureRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/utilisation-certificates/$certificateId': {
+      id: '/api/utilisation-certificates/$certificateId'
+      path: '/api/utilisation-certificates/$certificateId'
+      fullPath: '/api/utilisation-certificates/$certificateId'
+      preLoaderRoute: typeof ApiUtilisationCertificatesCertificateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/whatsapp/webhook': {
       id: '/api/whatsapp/webhook'
       path: '/api/whatsapp/webhook'
@@ -3130,6 +3164,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/whatsapp/cloud/webhook'
       preLoaderRoute: typeof ApiWhatsappCloudWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/finance/grants/certificates/$certificateId': {
+      id: '/_app/finance/grants/certificates/$certificateId'
+      path: '/finance/grants/certificates/$certificateId'
+      fullPath: '/finance/grants/certificates/$certificateId'
+      preLoaderRoute: typeof AppFinanceGrantsCertificatesCertificateIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/governance/resolutions/circulars/$circularId': {
       id: '/_app/governance/resolutions/circulars/$circularId'
@@ -3624,6 +3665,7 @@ interface AppRouteChildren {
   AppWhatsappGroupsGroupIdJoinRoute: typeof AppWhatsappGroupsGroupIdJoinRoute
   AppFinanceBooksIndexRoute: typeof AppFinanceBooksIndexRoute
   AppFinanceGrantsIndexRoute: typeof AppFinanceGrantsIndexRoute
+  AppFinanceGrantsCertificatesCertificateIdRoute: typeof AppFinanceGrantsCertificatesCertificateIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -3654,6 +3696,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppWhatsappGroupsGroupIdJoinRoute: AppWhatsappGroupsGroupIdJoinRoute,
   AppFinanceBooksIndexRoute: AppFinanceBooksIndexRoute,
   AppFinanceGrantsIndexRoute: AppFinanceGrantsIndexRoute,
+  AppFinanceGrantsCertificatesCertificateIdRoute:
+    AppFinanceGrantsCertificatesCertificateIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -3728,6 +3772,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiReceiptsReceiptIdRoute: ApiReceiptsReceiptIdRoute,
   ApiReceiptsSignatureRoute: ApiReceiptsSignatureRoute,
+  ApiUtilisationCertificatesCertificateIdRoute:
+    ApiUtilisationCertificatesCertificateIdRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
   ApiZeroMutateRoute: ApiZeroMutateRoute,
   ApiZeroQueryRoute: ApiZeroQueryRoute,

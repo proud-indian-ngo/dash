@@ -17,6 +17,7 @@ import { useState } from "react";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
 
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { ComboboxField } from "@/components/form/combobox-field";
 import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
@@ -57,6 +58,7 @@ const formSchema = z
     agreementReference: text(120),
     donationType: z.enum(grantDonationTypeValues),
     endsOn: requiredDate("Pick the end date"),
+    needsCaCertificate: z.boolean(),
     notes: text(1000),
     partyId: pick("Pick the grantor"),
     programmeId: pick("Pick a programme"),
@@ -86,6 +88,7 @@ function valuesFor(grant: EditableGrant | null): FormValues {
     agreementReference: grant?.agreementReference ?? "",
     donationType: (grant?.donationType ?? "csr") as GrantDonationType,
     endsOn: epochToLocalDate(grant?.endsOn),
+    needsCaCertificate: grant?.needsCaCertificate ?? false,
     notes: grant?.notes ?? "",
     partyId: grant?.partyId,
     programmeId: grant?.programmeId,
@@ -157,6 +160,7 @@ function GrantForm({
           donationType: value.donationType,
           endsOn: localDateToIso(value.endsOn) ?? "",
           id,
+          needsCaCertificate: value.needsCaCertificate,
           notes: value.notes || null,
           partyId: value.partyId ?? "",
           programmeId: value.programmeId ?? "",
@@ -261,6 +265,11 @@ function GrantForm({
         description="As the agreement words it, for CSR grants."
         label="Schedule VII item"
         name="scheduleViiItem"
+      />
+      <CheckboxField
+        description="Each utilisation certificate is final only once finance records the CA's certificate and UDIN."
+        label="Agreement needs a CA certificate"
+        name="needsCaCertificate"
       />
       <TextareaField label="Notes" name="notes" rows={2} />
       <FormActions

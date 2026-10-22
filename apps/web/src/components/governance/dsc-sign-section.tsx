@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   getMyDscStatus,
   getSigningJobStatus,
+  startDscCertificateSigningFn,
   startDscDeclarationSigningFn,
   startDscEnrolmentFn,
   startDscMinutesSigningFn,
@@ -88,8 +89,9 @@ function useHelperJob(targetKey: string) {
 }
 
 /**
- * Sign a circular, as the chair a meeting's minutes, or your own
- * declaration of interests with the DSC helper, or set it up first.
+ * Sign a circular, as the chair a meeting's minutes, your own declaration
+ * of interests, or a grant's utilisation certificate with the DSC helper, or
+ * set it up first.
  */
 export function DscSignSection({
   onAvailability,
@@ -101,6 +103,7 @@ export function DscSignSection({
   /** Runs an action through the recent-sign-in check. */
   onVote: <T>(action: () => Promise<T>) => Promise<T | null>;
   target:
+    | { certificateId: string }
     | { circularId: string }
     | { declarationId: string }
     | { meetingId: string };
@@ -110,6 +113,7 @@ export function DscSignSection({
   const signCircular = useServerFn(startDscSigningFn);
   const signMinutes = useServerFn(startDscMinutesSigningFn);
   const signDeclaration = useServerFn(startDscDeclarationSigningFn);
+  const signCertificate = useServerFn(startDscCertificateSigningFn);
   const runJob = useHelperJob(JSON.stringify(target));
   const [status, setStatus] = useState<DscStatus | null>(null);
   const [busy, setBusy] = useState<"enrol" | "sign" | null>(null);
@@ -165,6 +169,9 @@ export function DscSignSection({
         }
         if ("declarationId" in target) {
           return signDeclaration({ data: target });
+        }
+        if ("certificateId" in target) {
+          return signCertificate({ data: target });
         }
         return signCircular({ data: target });
       })
