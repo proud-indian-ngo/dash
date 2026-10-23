@@ -53,7 +53,8 @@ async function resolveInterestTarget(
   if (!occurrence) {
     throw new Error("The series has no session on that date");
   }
-  if (occurrence.startTime <= args.now) {
+  const now = tx.location === "server" ? Date.now() : args.now;
+  if (occurrence.startTime <= now) {
     throw new Error(STARTED_MESSAGE);
   }
   const target = await resolveJoinTarget(tx, ctx, event, {
@@ -306,7 +307,8 @@ export const eventInterestMutators = {
       if (event.cancelledAt != null) {
         throw new Error("Event is cancelled");
       }
-      if (event.startTime <= args.now) {
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.startTime <= now) {
         throw new Error(STARTED_MESSAGE);
       }
       const eventId = event.id;
