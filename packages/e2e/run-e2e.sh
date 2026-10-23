@@ -280,6 +280,9 @@ export SKIP_VALIDATION=true
 export ZERO_APP_ID=zero
 # The HTTP health endpoint waits for workers and initial replication.
 export ZERO_LAZY_STARTUP=false
+# One zero-cache, so there's no earlier change-streamer to hand over from;
+# the default waits 15s for a load balancer that isn't there.
+export ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0
 
 export SIGNING_SERVICE_URL="http://localhost:$TEST_SIGNING_PORT"
 export SIGNING_SERVICE_TOKEN=e2e-signing-token
