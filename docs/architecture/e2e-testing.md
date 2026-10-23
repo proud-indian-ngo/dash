@@ -157,3 +157,4 @@ The `*_INDEX_EXPERIMENT` flags in the performance seeds add a disposable index i
 - Inspector `rowCount` includes related rows (reported as `inspectorRows`). Root counts come from a separate untimed verification pass.
 - Zero caches views by AST, so two query names with the same AST (for example admin `availableDivisionsByCenter` and `availableDivisions`) show up as one view.
 - Record results, accepted changes and rejected hypotheses in the [query performance audit](../query-performance-audit.md).
+
