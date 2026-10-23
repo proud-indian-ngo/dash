@@ -1,3 +1,4 @@
+// Probe: selection for a seed module with readers.
 import path from "node:path";
 
 import { db } from "@pi-dash/db";
