@@ -17,6 +17,7 @@ import type {
   NotifyRemovedFromEventPayload,
   NotifyUsersAddedToEventPayload,
 } from "../enqueue";
+import { isCancelInEffect } from "../lib/cancel-in-effect";
 import { createNotifyHandler } from "./create-handler";
 
 export const handleNotifyEventCreated =
@@ -31,11 +32,15 @@ export const handleNotifyEventUpdated =
     async () => notifyEventUpdated
   );
 
-export const handleNotifyEventCancelled =
-  createNotifyHandler<NotifyEventCancelledPayload>(
-    "notify-event-cancelled",
-    async () => notifyEventCancelled
-  );
+export const handleNotifyEventCancelled = createNotifyHandler<
+  NotifyEventCancelledPayload,
+  { skipped: "restored" } | undefined
+>("notify-event-cancelled", async () => async (data) => {
+  if (!(await isCancelInEffect(data))) {
+    return { skipped: "restored" };
+  }
+  await notifyEventCancelled(data);
+});
 
 export const handleNotifyAddedToEvent =
   createNotifyHandler<NotifyAddedToEventPayload>(

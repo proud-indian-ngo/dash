@@ -1,5 +1,6 @@
 import { hasEncryptionKey } from "@pi-dash/db/encryption";
 import {
+  deleteDonor as deleteDonorRows,
   getPartyPrivate,
   type PartyPrivateView,
   revealPartyIdNumber,
@@ -22,8 +23,8 @@ import { authMiddleware } from "@/middleware/auth";
  * Finance-private party data (`party_private`) stays out of the Zero schema,
  * so the directory reads and writes it through these server functions.
  * Identity rows (`party`, `party_role`) sync through Zero for reading only;
- * every write goes through `saveDonor`, whose one transaction covers
- * identity, roles and private details.
+ * every write goes through `saveDonor` or `deleteDonor`, whose single
+ * transactions cover identity, roles and private details.
  */
 
 export interface PartyDetailsResponse {
@@ -112,4 +113,26 @@ export const saveDonor = createServerFn({ method: "POST" })
       partyId: result.partyId,
       view: result.view,
     };
+  });
+
+export const deleteDonor = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ partyId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "donors.manage");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    // A party with a role from another workflow keeps its party row; the
+    // outcome says which happened. Either way it is the same party.delete.
+    const removed = await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      {
+        action: "party.delete",
+        target: { id: data.partyId, type: "party" },
+      },
+      async () => await deleteDonorRows(data.partyId)
+    );
+    return { partyId: data.partyId, removed };
   });

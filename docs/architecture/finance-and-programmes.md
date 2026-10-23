@@ -43,7 +43,7 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 
 - `programme` includes a seeded "Unallocated" holder. Pickers never offer it for a new pick. `lead_user_id` is the programme lead (see "Approval policy").
 - `project` sits under one programme and syncs only to `finance.view`.
-- `fund`: General Fund (Domestic) is the default; the restricted Corpus Fund is reference data.
+- `fund`: General Fund (Domestic) is the default and can't be deactivated; the restricted Corpus Fund is reference data. Funds are added, edited and deactivated in Settings → Funds, never deleted.
 - `org_account` of kind `deposit` (fixed deposit) never takes donations or statement imports. Accounts are deactivated, never deleted.
 - The monthly `ensure-fiscal-years` job keeps the current and next fiscal year present.
 - Teams and events carry `programme_id`; occurrences inherit it when materialised. Events may also carry a `project_id` under their programme ([Charged to](#expense-charged-to)).
@@ -56,7 +56,7 @@ Schema `packages/db/src/schema/finance-dimensions.ts`. Reading needs `finance.vi
 ### Account heads
 
 - Each expense category has an `EXPENSE_<NAME>` head under one `Expenses` parent, ensured by `ensureExpenseCategoryHeads` on server start, in the seeds and during posting. Renaming a category doesn't rename its head. A category pointed at an asset head posts an asset; there is no screen for that.
-- A reference head, or any head with entries, can't change type or be deactivated.
+- Heads are added, edited and deactivated in Settings → Account heads, never deleted. A parent has the same type. A reference head, or any head with entries or sub-heads, can't change type; a reference head or one with entries can't be deactivated.
 
 ## Expense "Charged to"
 

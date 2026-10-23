@@ -62,6 +62,7 @@ Event detail loads action forms and secondary tab content on demand. Keep their 
 | Create | `events.create` | A start in the past needs `events.create_backdated` or lead |
 | Edit | `events.edit` | Also toggles feedback and sets its deadline. Only `finance.manage` sees and sets the event's project ([Charged to](finance-and-programmes.md#expense-charged-to)) |
 | Cancel | `events.cancel` | Only the permission cancels an event or series session that has started (one that didn't happen), and that cancel sends no notice; a lead without it cannot. For a series this applies to "This event" on the session's own start; "This and following" and "All upcoming events" never remove a started session ([recurring events](recurring-events.md#edit-and-cancel-scope)) |
+| Restore a cancelled event | `events.cancel` | Same rule for a started event. Restore sends no notice: reminders and the RSVP poll resume because they skip only cancelled rows. The cancel's notice and poll-closing jobs skip a cancel no longer in effect when they run, so a quick undo sends nothing. A poll the cancel closed stays closed until Post poll replaces it ([polls](notifications.md#rsvp-polls)). The page offers Restore in place of Cancel, and not where the server would refuse ([series](recurring-events.md#edit-and-cancel-scope)) |
 | Add or remove members | `events.manage_members` | |
 | Mark attendance | `events.manage_attendance` | Only after start |
 | Approve or reject photos, delete any photo, delete the Immich album | `events.manage_photos` | |
@@ -122,7 +123,7 @@ Photos open when the event starts.
 - An event member's upload is `pending`. A lead or `events.manage_photos` uploads `approved`.
 - Approval enqueues `immich-sync-photo`.
 - A lead or `events.manage_photos` can also upload straight to Immich. That photo carries `immichAssetId` and no R2 key.
-- The uploader may delete their own pending photo; anything else needs a lead or `events.manage_photos`.
+- The uploader may delete or caption their own pending photo; anything else needs a lead or `events.manage_photos`. A caption is up to 280 characters; an empty one clears it. The Social API passes it on.
 - `doNotUse` on an approved photo (skip it in social posts) needs `events.manage_photos`, a lead, or `events.manage_attendance`, because the toggle sits in the lead's social recap ([Social API](social-api.md)).
 
 Storage, the sync job, deletion and media access are in [file uploads](file-uploads.md#immich-event-photos).

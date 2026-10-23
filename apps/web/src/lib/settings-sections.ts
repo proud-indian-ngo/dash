@@ -1,10 +1,12 @@
 import {
   BankIcon,
+  Book02Icon,
   Briefcase01Icon,
   FolderLibraryIcon,
   Key01Icon,
   Location01Icon,
   NotificationIcon,
+  PiggyBankIcon,
   PlugSocketIcon,
   SecurityLockIcon,
   Settings01Icon,
@@ -112,6 +114,24 @@ export const SETTINGS_SECTIONS = [
     label: "Organisation accounts",
     path: "/settings/org-accounts",
     permission: "finance.view",
+  },
+  {
+    description:
+      "Funds income is recorded into, unrestricted or restricted, domestic or FCRA.",
+    group: "organization",
+    icon: PiggyBankIcon,
+    label: "Funds",
+    path: "/settings/funds",
+    permission: "finance.manage",
+  },
+  {
+    description:
+      "The heads the books post income, expenses, assets, liabilities and funds under.",
+    group: "organization",
+    icon: Book02Icon,
+    label: "Account heads",
+    path: "/settings/account-heads",
+    permission: "finance.manage",
   },
   {
     description:

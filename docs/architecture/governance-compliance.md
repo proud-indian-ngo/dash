@@ -14,6 +14,7 @@
 
 - `governance.view` sees items; `governance.manage` changes them.
 - Marking an item done needs a vault document as evidence; marking it not needed needs a reason. Closed items can be reopened, and one-off items added.
+- A one-off item can be edited (title, due date, note) or deleted while it's open. An item from a template can't: its title and date come from the template, and the daily job would recreate a deleted one by its source key, so it's marked not needed instead. A closed item stays as the record; reopen it first.
 - The budget, the annual accounts, the auditor's appointment and accumulation of income have resolution templates. Their items open a new circular from the template, and close with the passed resolution as evidence.
 
 ## Declarations of interests
@@ -28,6 +29,7 @@
 ## Policy register
 
 - A policy is for everyone with an account or for trustees. Each version is an approved vault document with the day it takes effect, after the version before.
+- Versions never change. `governance.manage` can edit a policy's title and description, and who it's for until version 1 is published. Who a keyed policy is for never changes, since its gate (children's events for child safeguarding) ignores audience while the acknowledgement prompt follows it. A policy without versions can be deleted, except the child-safeguarding one.
 - Any signed-in user may read any version.
 
 ### Accepting policies

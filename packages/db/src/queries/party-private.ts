@@ -1,11 +1,12 @@
 import {
   type DirectoryRole,
   directoryRoleValues,
+  GIVE_INDIA_PARTY_ID,
   type ForeignSourceAssessment,
   type PartyFillField,
   type PartyIdType,
 } from "@pi-dash/shared/constants";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -27,8 +28,19 @@ import {
   resolveSecret,
   type SavePartyInput,
 } from "../party-save-rules";
+import { user } from "../schema/auth";
+import { project } from "../schema/finance-dimensions";
+import { grantAgreement } from "../schema/grant";
+import { contribution } from "../schema/income";
+import { ledgerEntry } from "../schema/ledger";
 import { party, partyRole } from "../schema/party";
-import { partyPrivate } from "../schema/private/party-private";
+import { donationFilingRow } from "../schema/private/donation-filings";
+import { collectionEvent } from "../schema/private/imports";
+import {
+  partyBankAccount,
+  partyPrivate,
+} from "../schema/private/party-private";
+import { contributionReceiptSnapshot } from "../schema/private/receipts";
 import { vendor } from "../schema/vendor";
 
 export {
@@ -369,4 +381,166 @@ export async function fillMissingPartyDetails(
   }
   await savePartyInTransaction(tx, save.input, actorId);
   return save.fill;
+}
+
+/** What a delete removed: the whole party, or only its directory roles. */
+export type DeleteDonorOutcome = "donor" | "party";
+
+/**
+ * Removes a donor. Refused while any gift names it as giver or platform, or a
+ * project or grant names it as sponsor, intermediary or grantor. A party
+ * that also holds a role from another workflow (a vendor, a volunteer) keeps
+ * its party and private rows; only its directory roles go. Otherwise the
+ * party goes with its private details and collection events, unless a login
+ * or the books and donation records still point at it.
+ */
+export async function deleteDonor(
+  partyId: string
+): Promise<DeleteDonorOutcome> {
+  return await db.transaction(
+    async (tx) => await deleteDonorInTransaction(tx, partyId)
+  );
+}
+
+/** `deleteDonor` inside a caller's transaction. Exported for the database tests. */
+export async function deleteDonorInTransaction(
+  tx: Tx,
+  partyId: string
+): Promise<DeleteDonorOutcome> {
+  if (partyId === GIVE_INDIA_PARTY_ID) {
+    throw new Error("GiveIndia is reference data and can't be deleted");
+  }
+  await lockPartyId(tx, partyId);
+  const [existing] = await tx
+    .select({ id: party.id })
+    .from(party)
+    .where(eq(party.id, partyId))
+    .limit(1)
+    .for("update");
+  if (!existing) {
+    throw new Error("Donor not found");
+  }
+  const [gift] = await tx
+    .select({ id: contribution.id })
+    .from(contribution)
+    .where(
+      or(
+        eq(contribution.partyId, partyId),
+        eq(contribution.intermediaryPartyId, partyId)
+      )
+    )
+    .limit(1);
+  if (gift) {
+    throw new Error("Cannot delete a donor with gifts");
+  }
+  await assertNoDonorLinks(tx, partyId);
+  const [otherRole] = await tx
+    .select({ id: partyRole.id })
+    .from(partyRole)
+    .where(
+      and(
+        eq(partyRole.partyId, partyId),
+        notInArray(partyRole.role, [...directoryRoleValues])
+      )
+    )
+    .limit(1);
+  if (otherRole) {
+    await tx
+      .delete(partyRole)
+      .where(
+        and(
+          eq(partyRole.partyId, partyId),
+          inArray(partyRole.role, [...directoryRoleValues])
+        )
+      );
+    return "donor";
+  }
+  await assertDonorUnreferenced(tx, partyId);
+  await tx.delete(collectionEvent).where(eq(collectionEvent.partyId, partyId));
+  await tx
+    .delete(partyBankAccount)
+    .where(eq(partyBankAccount.partyId, partyId));
+  await tx.delete(partyPrivate).where(eq(partyPrivate.partyId, partyId));
+  await tx.delete(partyRole).where(eq(partyRole.partyId, partyId));
+  await tx.delete(party).where(eq(party.id, partyId));
+  return "party";
+}
+
+const first = async (query: Promise<unknown[]>) => (await query).length > 0;
+
+/**
+ * Projects and grants name the party as a donor (sponsor, intermediary,
+ * grantor), so they block even a delete that keeps the party.
+ */
+async function assertNoDonorLinks(tx: Tx, partyId: string) {
+  const linked =
+    (await first(
+      tx
+        .select({ id: project.id })
+        .from(project)
+        .where(
+          or(
+            eq(project.sponsorPartyId, partyId),
+            eq(project.intermediaryPartyId, partyId)
+          )
+        )
+        .limit(1)
+    )) ||
+    (await first(
+      tx
+        .select({ id: grantAgreement.id })
+        .from(grantAgreement)
+        .where(eq(grantAgreement.partyId, partyId))
+        .limit(1)
+    ));
+  if (linked) {
+    throw new Error(
+      "This donor is linked to a project or grant; unlink it first"
+    );
+  }
+}
+
+/**
+ * The other restricting foreign keys on a party, refused with a readable
+ * message instead of a 23503 from Postgres.
+ */
+async function assertDonorUnreferenced(tx: Tx, partyId: string) {
+  if (
+    await first(
+      tx
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.partyId, partyId))
+        .limit(1)
+    )
+  ) {
+    throw new Error("This donor is linked to a user; unlink it first");
+  }
+  const recorded =
+    (await first(
+      tx
+        .select({ id: ledgerEntry.id })
+        .from(ledgerEntry)
+        .where(eq(ledgerEntry.partyId, partyId))
+        .limit(1)
+    )) ||
+    (await first(
+      tx
+        .select({ id: contributionReceiptSnapshot.receiptId })
+        .from(contributionReceiptSnapshot)
+        .where(eq(contributionReceiptSnapshot.partyId, partyId))
+        .limit(1)
+    )) ||
+    (await first(
+      tx
+        .select({ id: donationFilingRow.id })
+        .from(donationFilingRow)
+        .where(eq(donationFilingRow.partyId, partyId))
+        .limit(1)
+    ));
+  if (recorded) {
+    throw new Error(
+      "The books, a receipt or a return hold this donor, so it can't be deleted"
+    );
+  }
 }

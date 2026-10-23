@@ -51,12 +51,25 @@ interface EditionTx extends LockableKalakritiTx {
     kalakritiAgeCategory: { insert: ZeroMutationFn };
     kalakritiAuditEntry: { insert: ZeroMutationFn };
     kalakritiCenter: { update: ZeroMutationFn };
-    kalakritiCompetition: { insert: ZeroMutationFn };
+    kalakritiCompetition: { delete: ZeroMutationFn; insert: ZeroMutationFn };
     kalakritiCompetitionCategory: { insert: ZeroMutationFn };
-    kalakritiCompetitionDivision: { insert: ZeroMutationFn };
-    kalakritiEdition: { insert: ZeroMutationFn; update: ZeroMutationFn };
+    kalakritiCompetitionDivision: {
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+    };
+    kalakritiCompetitionSession: { delete: ZeroMutationFn };
+    kalakritiEdition: {
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
+    kalakritiTransportAssignment: { delete: ZeroMutationFn };
     kalakritiVenue: { insert: ZeroMutationFn };
-    teamEvent: { insert: ZeroMutationFn; update: ZeroMutationFn };
+    teamEvent: {
+      delete: ZeroMutationFn;
+      insert: ZeroMutationFn;
+      update: ZeroMutationFn;
+    };
   };
 }
 
@@ -124,7 +137,17 @@ export const kalakritiEditionTransitionSchema = z.object({
   confirmed: z.literal(true),
   editionId: z.string(),
   now: z.number(),
-  targetLifecycle: z.enum(["registration_open", "registration_locked", "live"]),
+  targetLifecycle: z.enum([
+    "registration_open",
+    "registration_locked",
+    "live",
+    "archived",
+  ]),
+});
+
+export const kalakritiEditionDeleteSchema = z.object({
+  confirmed: z.literal(true),
+  editionId: z.string(),
 });
 
 const cloneMapSchema = z.array(
@@ -783,10 +806,87 @@ export const kalakritiEditionMutators = {
     }
   ),
 
+  // A draft with people, stock or linked finance records cannot be deleted. Its
+  // configuration and Edition-owned audit entries go with it; the global audit
+  // log keeps the creation and deletion.
+  delete: defineMutator(
+    kalakritiEditionDeleteSchema,
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "kalakriti.admin");
+      if (tx.location !== "server") return;
+      const edition = await getEditionForUpdate(
+        tx as EditionTx,
+        args.editionId
+      );
+      if (!edition) {
+        throw new Error("Edition not found");
+      }
+      if (edition.lifecycle !== "draft") {
+        throw new Error("Only a draft Edition can be deleted");
+      }
+      const { editionId } = args;
+      const [
+        membership,
+        attendee,
+        inventoryItem,
+        reimbursement,
+        vendorPayment,
+      ] = await Promise.all([
+        tx.run(
+          zql.kalakritiEditionMembership.where("editionId", editionId).one()
+        ),
+        tx.run(zql.kalakritiAttendee.where("editionId", editionId).one()),
+        tx.run(zql.kalakritiInventoryItem.where("editionId", editionId).one()),
+        tx.run(zql.reimbursement.where("eventId", edition.teamEventId).one()),
+        tx.run(zql.vendorPayment.where("eventId", edition.teamEventId).one()),
+      ]);
+      if (membership || attendee || inventoryItem) {
+        throw new Error(
+          "Remove this Edition's people and inventory before deleting it"
+        );
+      }
+      if (reimbursement || vendorPayment) {
+        throw new Error(
+          "The linked event has reimbursements or vendor payments"
+        );
+      }
+
+      // Rows that restrict their parents go first; the database cascades the rest.
+      const [sessions, divisions, competitions, transportAssignments] =
+        await Promise.all([
+          tx.run(zql.kalakritiCompetitionSession.where("editionId", editionId)),
+          tx.run(
+            zql.kalakritiCompetitionDivision.where("editionId", editionId)
+          ),
+          tx.run(zql.kalakritiCompetition.where("editionId", editionId)),
+          tx.run(
+            zql.kalakritiTransportAssignment.where("editionId", editionId)
+          ),
+        ]);
+      const mutate = (tx as EditionTx).mutate;
+      for (const [table, rows] of [
+        [mutate.kalakritiCompetitionSession, sessions],
+        [mutate.kalakritiCompetitionDivision, divisions],
+        [mutate.kalakritiCompetition, competitions],
+        [mutate.kalakritiTransportAssignment, transportAssignments],
+      ] as const) {
+        for (const row of rows) {
+          // biome-ignore lint/performance/noAwaitInLoops: deletes share the enclosing transaction in order
+          await table.delete({ id: row.id });
+        }
+      }
+      await mutate.kalakritiEdition.delete({ id: editionId });
+      await mutate.teamEvent.delete({ id: edition.teamEventId });
+    }
+  ),
+
   transition: defineMutator(
     kalakritiEditionTransitionSchema,
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      if (args.targetLifecycle === "archived") {
+        assertHasPermission(ctx, "kalakriti.admin");
+      }
       if (args.targetLifecycle === "live") {
         if (tx.location !== "server") return;
         await lockKalakritiGoLive(tx as EditionTx);
@@ -811,9 +911,32 @@ export const kalakritiEditionMutators = {
           args.targetLifecycle === "registration_locked") ||
         (edition.lifecycle === "registration_locked" &&
           (args.targetLifecycle === "registration_open" ||
-            args.targetLifecycle === "live"));
+            args.targetLifecycle === "live")) ||
+        (edition.lifecycle === "live" && args.targetLifecycle === "archived");
       if (!allowed) {
         throw new Error("Invalid Edition lifecycle transition");
+      }
+      const auditEntry = {
+        action: "lifecycle_transitioned",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "edition",
+        editionId: args.editionId,
+        id: args.auditEntryId,
+        metadata: { from: edition.lifecycle, to: args.targetLifecycle },
+        reason: null,
+        targetId: args.editionId,
+        targetType: "edition",
+      };
+      if (args.targetLifecycle === "archived") {
+        // Archiving needs no readiness and leaves the linked event and memberships as they are.
+        await (tx as EditionTx).mutate.kalakritiEdition.update({
+          id: args.editionId,
+          lifecycle: "archived",
+          updatedAt: args.now,
+        });
+        await (tx as EditionTx).mutate.kalakritiAuditEntry.insert(auditEntry);
+        return;
       }
 
       const readinessSnapshot = await getReadinessSnapshot(
@@ -896,18 +1019,7 @@ export const kalakritiEditionMutators = {
         isPublic: true,
         updatedAt: args.now,
       });
-      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert({
-        action: "lifecycle_transitioned",
-        actorUserId: ctx.userId,
-        createdAt: args.now,
-        domain: "edition",
-        editionId: args.editionId,
-        id: args.auditEntryId,
-        metadata: { from: edition.lifecycle, to: args.targetLifecycle },
-        reason: null,
-        targetId: args.editionId,
-        targetType: "edition",
-      });
+      await (tx as EditionTx).mutate.kalakritiAuditEntry.insert(auditEntry);
       pushRegistrationNotificationTasks(
         tx as EditionTx,
         ctx,

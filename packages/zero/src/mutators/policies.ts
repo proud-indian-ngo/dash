@@ -44,6 +44,70 @@ export const policyMutators = {
       });
     }
   ),
+  /**
+   * Title and description any time; who it's for only until version 1 is
+   * published, and never on a keyed policy: its gate (children's events for
+   * child safeguarding) ignores audience, so a narrower one would lock out
+   * people it never asks to acknowledge.
+   */
+  update: defineMutator(
+    z.object({
+      audience: z.enum(policyAudienceValues),
+      description: z.string().trim().max(POLICY_SUMMARY_MAX).nullable(),
+      id: z.string(),
+      title: z.string().trim().min(1).max(POLICY_TITLE_MAX),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const row = await tx.run(zql.policy.where("id", args.id).one());
+      if (!row) {
+        throw new Error("Policy not found");
+      }
+      if (row.audience !== args.audience) {
+        if (row.key) {
+          throw new Error(
+            "Who it's for is fixed: the dashboard relies on this policy."
+          );
+        }
+        const version = await tx.run(
+          zql.policyVersion.where("policyId", args.id).one()
+        );
+        if (version) {
+          throw new Error(
+            "Who it's for can't change once a version is published."
+          );
+        }
+      }
+      await tx.mutate.policy.update({
+        audience: args.audience,
+        description: args.description,
+        id: args.id,
+        title: args.title,
+        updatedAt: Date.now(),
+      });
+    }
+  ),
+  /** A policy added by mistake, before any version is published. The app's own (keyed) policies stay. */
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const row = await tx.run(zql.policy.where("id", args.id).one());
+      if (!row) {
+        throw new Error("Policy not found");
+      }
+      if (row.key) {
+        throw new Error("The dashboard needs this policy, so it stays.");
+      }
+      const version = await tx.run(
+        zql.policyVersion.where("policyId", args.id).one()
+      );
+      if (version) {
+        throw new Error("A policy with a published version can't be deleted.");
+      }
+      await tx.mutate.policy.delete({ id: args.id });
+    }
+  ),
   /** A new version from the approved document in the vault; it applies from its date. */
   publishVersion: defineMutator(
     z.object({

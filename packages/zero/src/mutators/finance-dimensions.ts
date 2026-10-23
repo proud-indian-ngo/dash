@@ -6,6 +6,7 @@ import {
   type FundSource,
   fundRestrictionValues,
   fundSourceValues,
+  GENERAL_FUND_ID,
   MAX_PAISE,
   orgAccountKindValues,
   PROGRAMME_IDS,
@@ -440,6 +441,13 @@ export const fundMutators = {
     if (!existing) {
       throw new Error("Fund not found");
     }
+    const active = args.active ?? existing.active ?? true;
+    // Income and imports fall back to it, so it must stay pickable.
+    if (args.id === GENERAL_FUND_ID && !active) {
+      throw new Error(
+        "The General Fund is the default and cannot be deactivated"
+      );
+    }
     await assertCodeAndNameFree(args, {
       byCode: () =>
         tx.run(
@@ -451,7 +459,7 @@ export const fundMutators = {
         ),
     });
     await tx.mutate.fund.update({
-      active: args.active ?? existing.active ?? true,
+      active,
       code: args.code,
       description:
         args.description === undefined
@@ -675,6 +683,13 @@ export const accountHeadMutators = {
     const parentId =
       args.parentId === undefined ? existing.parentId : args.parentId;
     await assertParentHead(tx, { id: args.id, parentId, type: args.type });
+    // Children share their parent's type, so a parent keeps its type.
+    if (
+      args.type !== existing.type &&
+      (await tx.run(zql.accountHead.where("parentId", args.id).one()))
+    ) {
+      throw new Error("Move this head's children before changing its type");
+    }
     await tx.mutate.accountHead.update({
       active: args.active ?? existing.active ?? true,
       code: args.code,

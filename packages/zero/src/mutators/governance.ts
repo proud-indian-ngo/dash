@@ -622,6 +622,64 @@ export const governanceDocumentMutators = {
       title: args.title,
     });
   }),
+
+  /**
+   * Only a document nothing points at. Every reference restricts the delete
+   * in Postgres too, except a registration's certificate, which would be
+   * cleared silently. The R2 orphan cleanup removes the files.
+   */
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      const existing = await tx.run(
+        zql.governanceDocument.where("id", args.id).one()
+      );
+      if (!existing) {
+        throw new Error("Document not found");
+      }
+      const references = await Promise.all([
+        tx.run(zql.complianceItem.where("evidenceDocumentId", args.id).one()),
+        tx.run(zql.conflictDeclaration.where("documentId", args.id).one()),
+        tx.run(zql.deedVersion.where("documentId", args.id).one()),
+        tx.run(zql.meeting.where("minutesDocumentId", args.id).one()),
+        tx.run(
+          zql.organisationRegistration
+            .where("certificateDocumentId", args.id)
+            .one()
+        ),
+        tx.run(zql.policyVersion.where("documentId", args.id).one()),
+        tx.run(zql.resolution.where("finalDocumentId", args.id).one()),
+        tx.run(
+          zql.trusteeOffice
+            .where(({ cmp, or }) =>
+              or(
+                cmp("startEvidenceDocumentId", args.id),
+                cmp("endEvidenceDocumentId", args.id)
+              )
+            )
+            .one()
+        ),
+        tx.run(
+          zql.trusteeTerm
+            .where(({ cmp, or }) =>
+              or(
+                cmp("acceptanceDocumentId", args.id),
+                cmp("startEvidenceDocumentId", args.id),
+                cmp("endEvidenceDocumentId", args.id)
+              )
+            )
+            .one()
+        ),
+      ]);
+      if (references.some(Boolean)) {
+        throw new Error(
+          "This document is evidence elsewhere, so it can't be deleted"
+        );
+      }
+      await tx.mutate.governanceDocument.delete({ id: args.id });
+    }
+  ),
 };
 
 // ── Deed versions ───────────────────────────────────────────────────────────
@@ -776,6 +834,43 @@ export const organisationRegistrationMutators = {
       validTo: toEpoch(args.validTo),
     });
   }),
+  /**
+   * The registration's open renewal items go with it, or they would remind
+   * about a registration that no longer exists. Closed ones stay as the
+   * record; nothing else points at a registration.
+   */
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertCanManageRegistrations(ctx);
+      const existing = await tx.run(
+        zql.organisationRegistration.where("id", args.id).one()
+      );
+      if (!existing) {
+        throw new Error("Registration not found");
+      }
+      const templates = await tx.run(
+        zql.complianceTemplate.where("kind", "registration")
+      );
+      const prefixes = templates.map((t) => `${t.key}:${args.id}:`);
+      const items =
+        templates.length === 0
+          ? []
+          : await tx.run(
+              zql.complianceItem.where("status", "open").where(
+                "templateId",
+                "IN",
+                templates.map((t) => t.id)
+              )
+            );
+      for (const item of items) {
+        if (prefixes.some((p) => item.sourceKey?.startsWith(p))) {
+          await tx.mutate.complianceItem.delete({ id: item.id });
+        }
+      }
+      await tx.mutate.organisationRegistration.delete({ id: args.id });
+    }
+  ),
 };
 
 // ── Resolution drafts ───────────────────────────────────────────────────────
@@ -964,16 +1059,32 @@ async function requireOpenItem(tx: Tx, id: string) {
   return item;
 }
 
+/**
+ * The daily job recreates a template's items by source key, so only an item
+ * added by hand may change or go, and only while it's open: a closed item is
+ * the record of its filing or waiver.
+ */
+async function requireOpenHandAddedItem(tx: Tx, id: string) {
+  const item = await requireOpenItem(tx, id);
+  if (item.templateId) {
+    throw new Error(
+      "This item comes from a recurring item, so it can't be changed or deleted."
+    );
+  }
+  return item;
+}
+
+const itemInput = z.object({
+  dueOn: isoDate,
+  id: z.string(),
+  note: z.string().trim().max(COMPLIANCE_NOTE_MAX).nullable().optional(),
+  title: z.string().trim().min(1).max(COMPLIANCE_TITLE_MAX),
+});
+
 export const complianceItemMutators = {
   /** An item added by hand, outside the templates. */
   create: defineMutator(
-    z.object({
-      dueOn: isoDate,
-      id: z.string(),
-      note: z.string().trim().max(COMPLIANCE_NOTE_MAX).nullable().optional(),
-      ownerUserId: z.string().nullable().optional(),
-      title: z.string().trim().min(1).max(COMPLIANCE_TITLE_MAX),
-    }),
+    itemInput.extend({ ownerUserId: z.string().nullable().optional() }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "governance.manage");
       const now = Date.now();
@@ -990,6 +1101,26 @@ export const complianceItemMutators = {
         title: args.title,
         updatedAt: now,
       });
+    }
+  ),
+  update: defineMutator(itemInput, async ({ tx, ctx, args }) => {
+    assertHasPermission(ctx, "governance.manage");
+    await requireOpenHandAddedItem(tx, args.id);
+    await tx.mutate.complianceItem.update({
+      dueOn: toEpoch(args.dueOn),
+      fiscalYear: fiscalYearLabel(args.dueOn),
+      id: args.id,
+      note: args.note ?? null,
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  }),
+  delete: defineMutator(
+    z.object({ id: z.string() }),
+    async ({ tx, ctx, args }) => {
+      assertHasPermission(ctx, "governance.manage");
+      await requireOpenHandAddedItem(tx, args.id);
+      await tx.mutate.complianceItem.delete({ id: args.id });
     }
   ),
   /** Done, with the filing or record that proves it: an item never closes on a click. */

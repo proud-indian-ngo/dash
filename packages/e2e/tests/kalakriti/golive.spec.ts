@@ -253,3 +253,83 @@ test("concurrent go-live commands across two ready Editions commit exactly one L
     }
   );
 });
+
+test("a global administrator archives the live Edition, which frees the live slot", async ({
+  browser,
+  baseURL,
+  superAdminEmail,
+  kalakritiActors,
+}, testInfo) => {
+  await withFixture(
+    browser,
+    baseURL,
+    superAdminEmail,
+    testInfo,
+    async ({ first, second }, admin, actor) => {
+      expect(
+        (
+          await mutate(
+            admin.request,
+            "kalakritiEdition.transition",
+            transition(first.editionId)
+          )
+        ).error
+      ).toBeUndefined();
+      const member = await actor(
+        kalakritiActors.unrelatedVolunteer.storageState
+      );
+      expect(
+        (
+          await mutate(member.request, "kalakritiEdition.transition", {
+            ...transition(first.editionId),
+            targetLifecycle: "archived",
+          })
+        ).error
+      ).toBeDefined();
+
+      const page = await admin.newPage();
+      await page.goto(`/kalakriti/${first.year}`);
+      await waitForZeroReady(page);
+      await page
+        .getByRole("button", { name: "Archive Edition", exact: true })
+        .click();
+      const confirm = page.getByRole("alertdialog", {
+        name: "Archive Edition?",
+        exact: true,
+      });
+      await confirm
+        .getByRole("button", { name: "Archive Edition", exact: true })
+        .click();
+      await expect(confirm).toBeHidden();
+      await expect
+        .poll(
+          async () =>
+            (await fixture<State>("state")).editions.find(
+              (row) => row.id === first.editionId
+            )?.lifecycle
+        )
+        .toBe("archived");
+      await expect(
+        page.getByRole("button", { name: "Archive Edition", exact: true })
+      ).toBeHidden();
+
+      expect(
+        (
+          await mutate(admin.request, "kalakritiEdition.transition", {
+            ...transition(first.editionId),
+            targetLifecycle: "registration_open",
+          })
+        ).error
+      ).toBeDefined();
+      expect(
+        (
+          await mutate(
+            admin.request,
+            "kalakritiEdition.transition",
+            transition(second.editionId)
+          )
+        ).error
+      ).toBeUndefined();
+    }
+  );
+});

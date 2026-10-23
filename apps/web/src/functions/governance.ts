@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import { hasEncryptionKey } from "@pi-dash/db/encryption";
 import {
+  deleteTrustee,
   findGovernanceDocumentBySha256,
   getGovernanceDocument,
   getTrusteePrivate,
@@ -44,6 +45,7 @@ import { authorizeProtectedUpload } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
+import { databaseErrorFields } from "@/lib/safe-errors";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -134,6 +136,40 @@ export const saveTrusteeFn = createServerFn({ method: "POST" })
     } catch (error) {
       if (error instanceof TrusteeSaveError) {
         throw new Error(error.message);
+      }
+      throw error;
+    }
+  });
+
+/** Only a trustee nothing refers to yet; see `deleteTrustee`. */
+export const deleteTrusteeFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ trusteeId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    await assertServerPermission(context.session, "governance.manage");
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    try {
+      await runSessionAuditedAction(
+        context.session,
+        context.headers,
+        {
+          action: "trustee.delete",
+          target: { id: data.trusteeId, type: "trustee" },
+        },
+        async () => await deleteTrustee(data.trusteeId)
+      );
+    } catch (error) {
+      if (error instanceof TrusteeSaveError) {
+        throw new Error(error.message);
+      }
+      // RESTRICT raises 23001; NO ACTION would raise 23503.
+      const { sqlState } = databaseErrorFields(error);
+      if (sqlState === "23001" || sqlState === "23503") {
+        throw new Error(
+          "This trustee has terms, offices, meeting attendance, votes, signatures, declarations or a DSC enrolment on record, so they can't be deleted."
+        );
       }
       throw error;
     }

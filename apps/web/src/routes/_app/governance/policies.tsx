@@ -1,6 +1,11 @@
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import {
   POLICY_AUDIENCE_LABELS,
@@ -11,12 +16,15 @@ import {
   boardOn,
   GOVERNANCE_PAGE_PERMISSIONS,
 } from "@pi-dash/shared/governance";
+import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { useQuery } from "@rocicorp/zero/react";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
+  EditPolicyDialog,
+  type EditablePolicy,
   NewPolicyDialog,
   PublishDialog,
 } from "@/components/governance/policy-dialogs";
@@ -28,8 +36,9 @@ import {
   useRegister,
 } from "@/components/governance/register-data";
 import { useAccountOptions } from "@/components/governance/use-account-options";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FilePreviewButton } from "@/components/shared/file-preview";
-import { PageHeader } from "@/components/shared/page-header";
+import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +48,12 @@ import {
 } from "@/components/shared/responsive-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 import { assertAnyPermission } from "@/lib/route-guards";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
@@ -68,6 +82,27 @@ function PoliciesPage() {
   const today = todayIso();
   const [creating, setCreating] = useState(false);
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditablePolicy | null>(null);
+  const zero = useZero();
+  const deleteAction = useConfirmAction<{ id: string; title: string }>({
+    onConfirm: async (policy) => {
+      const result = await zero.mutate(
+        mutators.policy.delete({ id: policy.id })
+      ).server;
+      handleMutationResult(result, {
+        entityId: policy.id,
+        errorMsg: `Couldn't delete the policy: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation: "policy.delete",
+        successMsg: "Policy deleted",
+      });
+      return result;
+    },
+  });
+  const closeDelete = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  });
   const ackedBy = new Map<string, Set<string>>();
   for (const a of acknowledgements) {
     ackedBy.set(
@@ -134,14 +169,48 @@ function PoliciesPage() {
                   </span>
                 </div>
                 {canManage ? (
-                  <Button
-                    onClick={() => setPublishing(p.id)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    Publish a version
-                  </Button>
+                  <span className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setPublishing(p.id)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Publish a version
+                    </Button>
+                    <PageHeaderMenu
+                      actions={[
+                        {
+                          icon: Edit02Icon,
+                          id: "edit",
+                          label: "Edit",
+                          onSelect: () =>
+                            setEditing({
+                              audience: p.audience ?? "everyone",
+                              description: p.description,
+                              hasVersions: versions.length > 0,
+                              id: p.id,
+                              keyed: Boolean(p.key),
+                              title: p.title,
+                            }),
+                        },
+                        // Only one added by mistake: nobody has been asked to read it.
+                        versions.length === 0 &&
+                          !p.key && {
+                            destructive: true,
+                            icon: Delete02Icon,
+                            id: "delete",
+                            label: "Delete",
+                            onSelect: () =>
+                              deleteAction.trigger({
+                                id: p.id,
+                                title: p.title,
+                              }),
+                          },
+                      ]}
+                      title={p.title}
+                    />
+                  </span>
                 ) : null}
               </div>
               {p.description ? (
@@ -230,6 +299,19 @@ function PoliciesPage() {
         </DialogContent>
       </Dialog>
       {creating ? <NewPolicyDialog onClose={() => setCreating(false)} /> : null}
+      {editing ? (
+        <EditPolicyDialog onClose={() => setEditing(null)} policy={editing} />
+      ) : null}
+      <ConfirmDialog
+        confirmLabel="Delete policy"
+        description={`Delete "${deleteAction.payload?.title ?? ""}"? It has no published version, so nobody has been asked to read it.`}
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={closeDelete}
+        open={deleteAction.isOpen}
+        title="Delete this policy?"
+      />
       {publishing ? (
         <PublishDialog
           documents={documents.filter((d) => d.kind === "policy")}

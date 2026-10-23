@@ -30,6 +30,7 @@ import { deferAction, useDeferredIds } from "@/lib/deferred-actions";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { LightboxFooter, type PhotoSlide } from "./event-photos-lightbox";
+import { PhotoCaptionDialog } from "./photo-caption-dialog";
 import { PhotoCard } from "./photo-card";
 import {
   MEDIA_ACCEPT,
@@ -89,6 +90,7 @@ function PendingPhotoCard({
   index,
   onApprove,
   onDelete,
+  onEditCaption,
   onOpen,
   onReject,
   photo,
@@ -96,6 +98,7 @@ function PendingPhotoCard({
   index: number;
   onApprove: (id: string) => void;
   onDelete: (id: string) => void;
+  onEditCaption: (photo: PhotoWithUploader) => void;
   onOpen: (index: number) => void;
   onReject: (id: string) => void;
   photo: PhotoWithUploader;
@@ -103,6 +106,7 @@ function PendingPhotoCard({
   const handleApprove = useEventCallback(() => onApprove(photo.id));
   const handleClick = useEventCallback(() => onOpen(index));
   const handleDelete = useEventCallback(() => onDelete(photo.id));
+  const handleEditCaption = useEventCallback(() => onEditCaption(photo));
   const handleReject = useEventCallback(() => onReject(photo.id));
 
   return (
@@ -111,6 +115,7 @@ function PendingPhotoCard({
       onApprove={handleApprove}
       onClick={handleClick}
       onDelete={handleDelete}
+      onEditCaption={handleEditCaption}
       onReject={handleReject}
       pending
       photo={photo}
@@ -121,22 +126,26 @@ function PendingPhotoCard({
 function PendingOwnPhotoCard({
   index,
   onDelete,
+  onEditCaption,
   onOpen,
   photo,
 }: {
   index: number;
   onDelete: (id: string) => void;
+  onEditCaption: (photo: PhotoWithUploader) => void;
   onOpen: (index: number) => void;
   photo: PhotoWithUploader;
 }) {
   const handleClick = useEventCallback(() => onOpen(index));
   const handleDelete = useEventCallback(() => onDelete(photo.id));
+  const handleEditCaption = useEventCallback(() => onEditCaption(photo));
 
   return (
     <PhotoCard
       canDelete
       onClick={handleClick}
       onDelete={handleDelete}
+      onEditCaption={handleEditCaption}
       pending
       photo={photo}
     />
@@ -147,23 +156,27 @@ function ApprovedPhotoCard({
   canDelete,
   index,
   onDelete,
+  onEditCaption,
   onOpen,
   photo,
 }: {
   canDelete: boolean;
   index: number;
   onDelete: (id: string) => void;
+  onEditCaption: (photo: PhotoWithUploader) => void;
   onOpen: (index: number) => void;
   photo: PhotoWithUploader;
 }) {
   const handleClick = useEventCallback(() => onOpen(index));
   const handleDelete = useEventCallback(() => onDelete(photo.id));
+  const handleEditCaption = useEventCallback(() => onEditCaption(photo));
 
   return (
     <PhotoCard
       canDelete={canDelete}
       onClick={handleClick}
       onDelete={handleDelete}
+      onEditCaption={canDelete ? handleEditCaption : undefined}
       photo={photo}
     />
   );
@@ -199,6 +212,9 @@ export function EventPhotos({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [captionPhoto, setCaptionPhoto] = useState<PhotoWithUploader | null>(
+    null
+  );
 
   const canUpload = canManage || isMember;
   const useImmichDirect = canManage && !!immichBase;
@@ -365,6 +381,14 @@ export function EventPhotos({
   const handleDelete = useEventCallback((id: string) =>
     deleteAction.trigger(id)
   );
+  const handleEditCaption = useEventCallback((photo: PhotoWithUploader) =>
+    setCaptionPhoto(photo)
+  );
+  const handleCaptionOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      setCaptionPhoto(null);
+    }
+  });
   const handleLightboxView = useEventCallback(({ index }: { index: number }) =>
     setLightboxIndex(index)
   );
@@ -481,6 +505,7 @@ export function EventPhotos({
                 key={photo.id}
                 onApprove={handleApprove}
                 onDelete={handleDelete}
+                onEditCaption={handleEditCaption}
                 onOpen={openLightbox}
                 onReject={handleReject}
                 photo={photo}
@@ -500,6 +525,7 @@ export function EventPhotos({
                 index={i}
                 key={photo.id}
                 onDelete={handleDelete}
+                onEditCaption={handleEditCaption}
                 onOpen={openLightbox}
                 photo={photo}
               />
@@ -521,6 +547,7 @@ export function EventPhotos({
                 index={approvedSectionOffset + i}
                 key={photo.id}
                 onDelete={handleDelete}
+                onEditCaption={handleEditCaption}
                 onOpen={openLightbox}
                 photo={photo}
               />
@@ -556,6 +583,11 @@ export function EventPhotos({
         }}
         thumbnails={{ height: 64, width: 64 }}
         zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
+      />
+
+      <PhotoCaptionDialog
+        onOpenChange={handleCaptionOpenChange}
+        photo={captionPhoto}
       />
 
       <ConfirmDialog

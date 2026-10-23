@@ -16,10 +16,10 @@ const KALAKRITI_EDITION_ROLLBACK_IDS = {
   failedLinkedEventEditionId: "019f0000-0019-7000-8000-000000009301",
 } as const;
 
-async function cleanup() {
+async function cleanup(year: number) {
   const edition = await db.query.kalakritiEdition.findFirst({
     columns: { id: true, teamEventId: true },
-    where: eq(kalakritiEdition.year, YEAR),
+    where: eq(kalakritiEdition.year, year),
   });
   if (!edition) {
     return;
@@ -28,7 +28,7 @@ async function cleanup() {
   await db.delete(teamEvent).where(eq(teamEvent.id, edition.teamEventId));
 }
 
-async function state() {
+async function state(year: number) {
   const edition = await db.query.kalakritiEdition.findFirst({
     columns: {
       ageCutoffDate: true,
@@ -41,7 +41,7 @@ async function state() {
       teamEventId: true,
       year: true,
     },
-    where: eq(kalakritiEdition.year, YEAR),
+    where: eq(kalakritiEdition.year, year),
     with: { teamEvent: true },
   });
   return edition
@@ -112,10 +112,12 @@ async function rollbackState() {
   };
 }
 
-const [action] = process.argv.slice(2);
+const [action, value] = process.argv.slice(2);
 let result: unknown;
+// Year-scoped actions take an optional year so parallel specs don't share rows.
+const year = value ? Number(value) : YEAR;
 if (action === "cleanup") {
-  await cleanup();
+  await cleanup(year);
   result = { cleaned: true };
 } else if (action === "rollback-cleanup") {
   await rollbackCleanup();
@@ -125,7 +127,14 @@ if (action === "cleanup") {
 } else if (action === "rollback-state") {
   result = await rollbackState();
 } else if (action === "state") {
-  result = await state();
+  result = await state(year);
+} else if (action === "event-exists") {
+  result = Boolean(
+    await db.query.teamEvent.findFirst({
+      columns: { id: true },
+      where: eq(teamEvent.id, value ?? ""),
+    })
+  );
 } else {
   throw new Error(
     `Unsupported Edition creation fixture action: ${action ?? ""}`

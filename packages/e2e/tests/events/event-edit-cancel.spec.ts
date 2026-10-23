@@ -1,6 +1,7 @@
-import { expect, test } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { waitForToastsToClear } from "../../helpers/event-form";
+import { clickPageAction, openPageAction } from "../../helpers/page-header";
 import {
   SANDBOX_TEAM,
   openSeededTeam,
@@ -115,6 +116,68 @@ test.describe("Event edit and cancel (admin)", () => {
     await expect(page.getByText("Event cancelled")).toBeVisible({
       timeout: 10_000,
     });
+  });
+
+  test("restores a cancelled event from its page", async ({ page }) => {
+    test.slow();
+
+    const eventName = `E2E Restore Target ${Date.now()}`;
+    await page.getByRole("button", { name: "Create event" }).click();
+    const createDialog = page.getByRole("dialog");
+    await createDialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
+    await pickDate(
+      createDialog,
+      "Start time",
+      new Date(Date.now() + 7 * 86_400_000)
+    );
+    await createDialog
+      .getByRole("button", { exact: true, name: "Create event" })
+      .click();
+    await expect(createDialog).toBeHidden({ timeout: 10_000 });
+    await searchTeamEvents(page, eventName);
+
+    const row = page.getByRole("row").filter({ hasText: eventName });
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(row, "View");
+    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    const eventUrl = page.url();
+    await waitForZeroReady(page);
+    await expect(
+      page.getByRole("heading", { level: 1, name: eventName })
+    ).toBeVisible();
+
+    await clickPageAction(page, "Cancel event");
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Cancel event" })
+      .click();
+    await expect(page.getByText("Event cancelled")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await page.goto(eventUrl);
+    await waitForZeroReady(page);
+    const status = page.getByRole("heading", { level: 1 }).locator("xpath=..");
+    await expect(status.getByText("Cancelled", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+    // A cancelled event offers Restore in place of Cancel.
+    const restore = await openPageAction(page, "Restore event");
+    await expect(restore).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Cancel event" })
+    ).toHaveCount(0);
+    await restore.click();
+    const confirmDialog = page.getByRole("alertdialog");
+    await expect(confirmDialog).toContainText("Volunteers aren’t notified");
+    await confirmDialog.getByRole("button", { name: "Restore event" }).click();
+
+    await expect(page.getByText("Event restored")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(status.getByText("Upcoming", { exact: true })).toBeVisible();
   });
 
   test("mobile cancel confirmation is not dismissed by backdrop press", async ({

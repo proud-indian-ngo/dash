@@ -87,6 +87,7 @@ function EventActionsCell({
     <EventActionsMenu
       canCancel={
         canManage &&
+        !getRowDetails(row).cancelledAt &&
         (canCancelPast || getRowDetails(row).startTime > Date.now())
       }
       canCreate={canCreate}

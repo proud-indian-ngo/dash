@@ -128,6 +128,56 @@ test.describe("compliance calendar (super admin)", () => {
   });
 });
 
+test.describe("compliance items added by hand (super admin)", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
+  });
+
+  test("edits an item added by hand, then deletes it", async ({ page }) => {
+    await page.goto("/governance/compliance");
+    const title = `E2E mistaken item ${Date.now()}`;
+    await addItem(page, title);
+    const row = page.locator("[data-testid^='compliance-item-']", {
+      hasText: title,
+    });
+    await row.getByRole("button", { name: /actions/i }).click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
+    const dialog = page.getByRole("dialog", { name: "Edit item" });
+    const renamed = `${title} (renamed)`;
+    await dialog.getByLabel("Title").fill(renamed);
+    await dialog.getByLabel("Note").fill("Ask the CA first");
+    await dialog.getByRole("button", { name: "Save item" }).click();
+    await expect(page.getByText("Item saved")).toBeVisible();
+    const renamedRow = page.locator("[data-testid^='compliance-item-']", {
+      hasText: renamed,
+    });
+    await expect(renamedRow).toContainText("Ask the CA first");
+
+    await renamedRow.getByRole("button", { name: /actions/i }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Delete this item?" })
+      .getByRole("button", { name: "Delete item" })
+      .click();
+    await expect(page.getByText("Item deleted")).toBeVisible();
+    await expect(renamedRow).toHaveCount(0);
+  });
+
+  test("offers no edit or delete on a generated item", async ({ page }) => {
+    await page.goto("/governance/compliance");
+    const later = page.getByRole("region", { name: "Later" });
+    await later.getByRole("button").first().click();
+    await later
+      .locator("[data-testid^='compliance-item-']")
+      .first()
+      .getByRole("button", { name: /actions/i })
+      .click();
+    await expect(page.getByRole("menuitem", { name: "Assign" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Edit" })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toHaveCount(0);
+  });
+});
+
 test.describe("compliance calendar access", () => {
   test("lets finance admins manage items", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Finance test");

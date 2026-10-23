@@ -27,16 +27,19 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
+  deleteTrusteeFn,
   getTrusteeDetails,
   revealTrusteeKycFn,
   type TrusteeDetailsResponse,
 } from "@/functions/governance";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -165,7 +168,11 @@ function PeriodCard({
   );
 }
 
-type Removal = { id: string; kind: "term" | "office"; label: string };
+type Removal = {
+  id: string;
+  kind: "term" | "office" | "trustee";
+  label: string;
+};
 
 export function TrusteeDetailSheet({
   canManage,
@@ -187,6 +194,7 @@ export function TrusteeDetailSheet({
 }) {
   const zero = useZero();
   const loadDetails = useServerFn(getTrusteeDetails);
+  const removeTrustee = useServerFn(deleteTrusteeFn);
   const [details, setDetails] = useState<
     | { kind: "loading" }
     | { kind: "error" }
@@ -196,7 +204,6 @@ export function TrusteeDetailSheet({
   const [officeDialog, setOfficeDialog] = useState<OfficeDialogState | null>(
     null
   );
-  const [removal, setRemoval] = useState<Removal | null>(null);
   const trusteeId = trustee?.id ?? null;
 
   useEffect(() => {
@@ -229,28 +236,43 @@ export function TrusteeDetailSheet({
   const handleEdit = useEventCallback(() => trustee && onEdit(trustee));
   const closeTermDialog = useEventCallback(() => setTermDialog(null));
   const closeOfficeDialog = useEventCallback(() => setOfficeDialog(null));
+  const removal = useConfirmAction<Removal>({
+    onConfirm: async (target) => {
+      if (target.kind === "trustee") {
+        try {
+          await removeTrustee({ data: { trusteeId: target.id } });
+        } catch (error) {
+          toast.error(
+            `Couldn't delete: ${error instanceof Error ? error.message : "something went wrong"}`
+          );
+          return { type: "error" };
+        }
+        toast.success("Trustee deleted");
+        onOpenChange(false);
+        return { type: "success" };
+      }
+      const result =
+        target.kind === "term"
+          ? await zero.mutate(mutators.trusteeTerm.remove({ id: target.id }))
+              .server
+          : await zero.mutate(mutators.trusteeOffice.remove({ id: target.id }))
+              .server;
+      handleMutationResult(result, {
+        entityId: target.id,
+        errorMsg: `Couldn't delete: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation:
+          target.kind === "term"
+            ? "trusteeTerm.remove"
+            : "trusteeOffice.remove",
+        successMsg: "Deleted",
+      });
+      return result;
+    },
+  });
   const closeRemoval = useEventCallback((next: boolean) => {
     if (!next) {
-      setRemoval(null);
+      removal.cancel();
     }
-  });
-  const confirmRemoval = useEventCallback(async () => {
-    if (!removal) {
-      return;
-    }
-    const pending =
-      removal.kind === "term"
-        ? zero.mutate(mutators.trusteeTerm.remove({ id: removal.id })).server
-        : zero.mutate(mutators.trusteeOffice.remove({ id: removal.id })).server;
-    const result = await pending;
-    handleMutationResult(result, {
-      entityId: removal.id,
-      errorMsg: `Couldn't delete: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
-      mutation:
-        removal.kind === "term" ? "trusteeTerm.remove" : "trusteeOffice.remove",
-      successMsg: "Deleted",
-    });
-    setRemoval(null);
   });
 
   if (!trustee) {
@@ -293,7 +315,7 @@ export function TrusteeDetailSheet({
             id: "delete",
             label: "Delete",
             onSelect: () =>
-              setRemoval({
+              removal.trigger({
                 id: term.id,
                 kind: "term",
                 label: `the term from ${formatIso(term.startsOn)}`,
@@ -326,7 +348,7 @@ export function TrusteeDetailSheet({
             id: "delete",
             label: "Delete",
             onSelect: () =>
-              setRemoval({
+              removal.trigger({
                 id: office.id,
                 kind: "office",
                 label: `${TRUSTEE_OFFICE_LABELS[office.office]} from ${formatIso(office.startsOn)}`,
@@ -346,14 +368,33 @@ export function TrusteeDetailSheet({
         <DetailSheetHeader
           actions={
             canManage ? (
-              <Button onClick={handleEdit} type="button" variant="outline">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Edit02Icon}
-                  strokeWidth={2}
+              <span className="flex items-center gap-2">
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+                <PageHeaderMenu
+                  actions={[
+                    {
+                      destructive: true,
+                      icon: Delete02Icon,
+                      id: "delete",
+                      label: "Delete trustee",
+                      onSelect: () =>
+                        removal.trigger({
+                          id: trustee.id,
+                          kind: "trustee",
+                          label: trustee.legalName,
+                        }),
+                    },
+                  ]}
+                  title={trustee.legalName}
                 />
-                Edit
-              </Button>
+              </span>
             ) : null
           }
           badge={
@@ -566,12 +607,22 @@ export function TrusteeDetailSheet({
         />
         <ConfirmDialog
           confirmLabel={
-            removal?.kind === "office" ? "Delete office" : "Delete term"
+            removal.payload?.kind === "trustee"
+              ? "Delete trustee"
+              : removal.payload?.kind === "office"
+                ? "Delete office"
+                : "Delete term"
           }
-          description={`Delete ${removal?.label ?? "this record"}? Use this only for something entered by mistake; to record that it ended, use the end action instead.`}
-          onConfirm={confirmRemoval}
+          description={
+            removal.payload?.kind === "trustee"
+              ? `Delete ${removal.payload.label} and their contact and KYC details? Use this only for a trustee added by mistake. A trustee with terms, offices, meeting attendance, votes, signatures, declarations or a DSC enrolment on record can't be deleted.`
+              : `Delete ${removal.payload?.label ?? "this record"}? Use this only for something entered by mistake; to record that it ended, use the end action instead.`
+          }
+          loading={removal.isLoading}
+          loadingLabel="Deleting..."
+          onConfirm={removal.confirm}
           onOpenChange={closeRemoval}
-          open={removal !== null}
+          open={removal.isOpen}
           title="Delete this record?"
         />
       </SheetContent>
