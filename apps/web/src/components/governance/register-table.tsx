@@ -3,7 +3,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
@@ -19,6 +18,7 @@ import { useState } from "react";
 import { useCompactTable } from "@/components/data-table/data-table-compact";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
 import { selectField } from "@/components/data-table/filter-fields";
+import { Calendar } from "@/components/shared/calendar";
 import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { StatusBadge, Tag } from "@/components/shared/status-badge";
 

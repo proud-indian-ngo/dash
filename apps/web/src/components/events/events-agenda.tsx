@@ -1,10 +1,7 @@
 import { Calendar03Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import {
-  Calendar,
-  CalendarDayButton,
-} from "@pi-dash/design-system/components/ui/calendar";
+import { CalendarDayButton } from "@pi-dash/design-system/components/ui/calendar";
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import {
   Popover,
@@ -52,6 +49,7 @@ import {
   selectUpcomingPublicKalakritiEvent,
   toPublicDisplayRow,
 } from "@/components/events/public-events-table";
+import { Calendar } from "@/components/shared/calendar";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useCostCentres } from "@/hooks/use-cost-centres";
 import { DATE, ISO_DATE } from "@/lib/date-formats";

@@ -152,14 +152,7 @@ test.describe("Vendor payment workflow (admin)", () => {
     await expect(recordDialog).toBeVisible({ timeout: 5000 });
     await recordDialog.getByLabel("Amount").fill("5000");
     await recordDialog.getByLabel("Transaction date").click();
-    // The calendar remounts its days whenever the page re-renders (a Zero
-    // update, say), so a click can land on a replaced button and be lost;
-    // the picker then stays open. Retry until the pick closes it.
-    const tenth = page.getByRole("button", { name: / 10th, / });
-    await expect(async () => {
-      await tenth.click({ timeout: 1000 });
-      await expect(tenth).toBeHidden({ timeout: 1000 });
-    }).toPass({ timeout: 10_000 });
+    await page.getByRole("button", { name: / 10th, / }).click();
     await expect(recordDialog.getByLabel("Transaction date")).toHaveText(
       /^10 /
     );

@@ -19,7 +19,7 @@ import { DATE, DAY_MONTH, ISO_DATE } from "@/lib/date-formats";
 import { DATE_PRESETS, dateRangeSearchParams } from "@/lib/date-range";
 
 const LazyCalendar = lazy(() =>
-  import("@pi-dash/design-system/components/ui/calendar").then((module) => ({
+  import("@/components/shared/calendar").then((module) => ({
     default: module.Calendar,
   }))
 );
