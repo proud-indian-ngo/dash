@@ -1,14 +1,40 @@
-import { expect, test } from "../../fixtures/test";
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
+import { uuidv7 } from "uuidv7";
+
+import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
 import { openAdvancedSettings } from "../../helpers/event-form";
 import {
   SANDBOX_TEAM,
-  openPublicEvent,
   openSeededTeam,
   searchTeamEvents,
 } from "../../helpers/team-event";
+import { pushMutation } from "../../helpers/zero-mutate";
 
-const SEEDED_FEEDBACK_EVENT = "E2E Seeded Feedback Event";
+const execFileAsync = promisify(execFile);
+const helperPath = path.resolve(
+  import.meta.dirname,
+  "../../helpers/event-feedback.ts"
+);
+
+async function fixture<T>(action: "cleanup" | "setup", argument?: string) {
+  const { stdout } = await execFileAsync(
+    "bun",
+    ["run", helperPath, action, ...(argument ? [argument] : [])],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as T;
+}
+
+interface FeedbackFixture {
+  closedEventId: string;
+  notMemberEventId: string;
+  openEventId: string;
+  upcomingEventId: string;
+}
 
 test.describe("Event feedback — admin", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
@@ -77,22 +103,23 @@ test.describe("Event feedback — volunteer", () => {
 
   // One test: CI shards split tests apart, so editing can't rely on an
   // earlier test having submitted the feedback.
-  test("submits and then edits own anonymous feedback", async ({ page }) => {
+  test("submits and edits own anonymous feedback; the server refuses the rest", async ({
+    page,
+    volunteerEmail,
+  }) => {
     test.slow();
+    // Setup starts from a clean slate, so every run submits afresh.
+    const fx = await fixture<FeedbackFixture>("setup", volunteerEmail);
+    try {
+      await page.goto(`/events/${fx.openEventId}`);
+      await waitForZeroReady(page);
 
-    await openPublicEvent(page, SEEDED_FEEDBACK_EVENT);
+      const feedbackTab = page.getByRole("tab", { name: /Feedback/ });
+      await expect(feedbackTab).toBeVisible({ timeout: 10_000 });
+      await feedbackTab.click();
 
-    // Click the Feedback tab
-    const feedbackTab = page.getByRole("tab", { name: /Feedback/ });
-    await expect(feedbackTab).toBeVisible({ timeout: 10_000 });
-    await feedbackTab.click();
-
-    // Submit feedback first, unless a retry on the same data already did
-    const panel = page.getByRole("tabpanel", { name: "Feedback" });
-    const editButton = panel.getByRole("button", { exact: true, name: "Edit" });
-    const editor = panel.locator("[data-slate-editor]");
-    await expect(editButton.or(editor)).toBeVisible({ timeout: 10_000 });
-    if (!(await editButton.isVisible())) {
+      const panel = page.getByRole("tabpanel", { name: "Feedback" });
+      const editor = panel.locator("[data-slate-editor]");
       const feedbackText = `E2E anonymous feedback ${Date.now()}`;
       await editor.click();
       await page.keyboard.type(feedbackText);
@@ -103,26 +130,67 @@ test.describe("Event feedback — volunteer", () => {
       await expect(page.getByText(feedbackText)).toBeVisible({
         timeout: 10_000,
       });
+
+      await panel.getByRole("button", { exact: true, name: "Edit" }).click();
+      const updatedText = `E2E updated feedback ${Date.now()}`;
+      await expect(editor).toBeVisible();
+      await editor.click();
+      await page.keyboard.press("ControlOrMeta+A");
+      await page.keyboard.type(updatedText);
+      await panel.getByRole("button", { name: "Save changes" }).click();
+      await expect(page.getByText("Feedback updated")).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText(updatedText)).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText("(edited)")).toBeVisible({
+        timeout: 10_000,
+      });
+
+      // The page offers no second submission and no form on the other
+      // events, so these go to the server directly. Each event breaks
+      // exactly one submit rule.
+      const submit = (eventId: string) =>
+        pushMutation(page.request, "eventFeedback.submit", {
+          content: JSON.stringify([
+            { children: [{ text: "E2E refused feedback" }], type: "p" },
+          ]),
+          eventId,
+          feedbackId: uuidv7(),
+          now: Date.now(),
+          submissionId: uuidv7(),
+        });
+
+      await test.step("refuses a second submission for the same event", async () => {
+        expect(await submit(fx.openEventId)).toEqual({
+          error: "app",
+          message: "You have already submitted feedback for this event",
+        });
+      });
+
+      await test.step("refuses feedback after the deadline", async () => {
+        expect(await submit(fx.closedEventId)).toEqual({
+          error: "app",
+          message: "Feedback deadline has passed",
+        });
+      });
+
+      await test.step("refuses feedback before the event ends", async () => {
+        expect(await submit(fx.upcomingEventId)).toEqual({
+          error: "app",
+          message: "Event has not ended yet",
+        });
+      });
+
+      await test.step("refuses feedback from someone not at the event", async () => {
+        expect(await submit(fx.notMemberEventId)).toEqual({
+          error: "app",
+          message: "You are not a member of this event",
+        });
+      });
+    } finally {
+      await fixture("cleanup");
     }
-
-    // Click Edit to modify the feedback
-    await editButton.click();
-
-    // Replace the content
-    const updatedText = `E2E updated feedback ${Date.now()}`;
-    await expect(editor).toBeVisible();
-    await editor.click();
-    await page.keyboard.press("ControlOrMeta+A");
-    await page.keyboard.type(updatedText);
-
-    // Save the update
-    await panel.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByText("Feedback updated")).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByText(updatedText)).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByText("(edited)")).toBeVisible({ timeout: 10_000 });
   });
 });

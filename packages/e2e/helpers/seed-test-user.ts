@@ -1459,7 +1459,6 @@ const SEED_PHOTO_EVENT_NAME = "E2E Past Event With Pending Photos";
 const SEED_PENDING_PHOTO_COUNT = 3;
 const SEED_OPEN_INTEREST_TEAM_NAME = "E2E Interest Team";
 const SEED_OPEN_INTEREST_EVENT_NAME = "E2E Open Interest Event";
-const SEED_FEEDBACK_EVENT_NAME = "E2E Seeded Feedback Event";
 const SEED_RSVP_TEAM_NAME = "E2E RSVP Team";
 const SEED_SANDBOX_TEAM_NAME = "E2E Sandbox Team";
 const SEED_SANDBOX_SOURCE_EVENT_NAME = "E2E Sandbox Source Event";
@@ -1671,30 +1670,7 @@ async function ensureApprovalFixtures({
     updatedAt: subDays(now, 1),
   });
 
-  // A past event with anonymous feedback on, for the volunteer feedback flow.
-  const feedbackEventId = uuidv7();
-  await db.insert(teamEvent).values({
-    createdAt: subDays(now, 5),
-    createdBy: adminUserId,
-    description: "Past event with feedback enabled for E2E tests",
-    feedbackEnabled: true,
-    id: feedbackEventId,
-    isPublic: true,
-    name: SEED_FEEDBACK_EVENT_NAME,
-    startTime: subDays(now, 1),
-    teamId,
-    updatedAt: subDays(now, 5),
-  });
-  await db.insert(teamEventMember).values({
-    addedAt: subDays(now, 5),
-    eventId: feedbackEventId,
-    id: uuidv7(),
-    userId: volunteerUserId,
-  });
-
-  log(
-    "Created event fixtures: pending interests, photos, open and feedback events"
-  );
+  log("Created event fixtures: pending interests, photos and open events");
 }
 
 interface FilterTestEvent {

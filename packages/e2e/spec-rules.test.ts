@@ -24,10 +24,7 @@ const testsDir = join(import.meta.dirname, "tests");
  * Violations accepted for now, keyed by `<spec> <rule>`. Each needs a reason;
  * an entry that no longer matches a violation fails the suite.
  */
-const allowlist: Record<string, string> = {
-  "events/event-feedback.spec.ts R3":
-    "Submits feedback unless a retry already did; the edit assertions after it run unconditionally",
-};
+const allowlist: Record<string, string> = {};
 
 const FUNCTIONS = new Set([
   "ArrowFunctionExpression",
