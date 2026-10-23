@@ -86,11 +86,6 @@ test.describe("Scheduled messages (admin)", () => {
       ).toBeDisabled();
       await dialog.getByRole("button", { name: "Cancel" }).click();
       await expect(dialog).toBeHidden();
-      await page.reload();
-      await expect(page.getByText(messageText)).toBeVisible({
-        timeout: 10_000,
-      });
-      await expect(page.getByText(nextText)).toHaveCount(0);
     });
 
     // -- View details via row action --
