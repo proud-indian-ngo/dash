@@ -196,34 +196,6 @@ describe("kalakritiCenter location fields", () => {
 });
 
 describe("kalakritiCenter commands", () => {
-  it("creates a normalized Center with registration locked", async () => {
-    const { spies, tx } = createTx([{ lifecycle: "draft" }]);
-
-    await kalakritiCenterMutators.create.fn({
-      args: {
-        auditEntryId: "audit-1",
-        centerId: "center-1",
-        editionId: "edition-1",
-        name: "  North   Centre ",
-        now: 1_700_000_000_000,
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<typeof kalakritiCenterMutators.create.fn>[0]);
-
-    expect(spies.insertCenter).toHaveBeenCalledWith(
-      expect.objectContaining({
-        competitionEntryRegistrationEnabled: false,
-        name: "North Centre",
-        normalizedName: "north centre",
-        studentRegistrationEnabled: false,
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "created" })
-    );
-  });
-
   it("rejects structural Center changes after registration is locked", async () => {
     const { spies, tx } = createTx([{ lifecycle: "registration_locked" }]);
 

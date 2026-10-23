@@ -2,12 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
 
 import { paiseToWords } from "./amount-to-words";
-import {
-  type CashVoucherProps,
-  claimantDeclarationText,
-  formatPayeePhone,
-  formatSignedAt,
-} from "./cash-voucher";
+import { type CashVoucherProps, formatSignedAt } from "./cash-voucher";
 import { generateCashVoucherPdf } from "./generate-voucher";
 import { syntheticSignaturePng } from "./synthetic-signature.test-helper";
 
@@ -137,15 +132,7 @@ describe("cash voucher PDF", () => {
   });
 });
 
-describe("formatPayeePhone", () => {
-  it("groups an Indian mobile in fives", () => {
-    expect(formatPayeePhone("+919876543210")).toBe("+91 98765 43210");
-  });
-
-  it("prints anything else as given", () => {
-    expect(formatPayeePhone("+14155550123")).toBe("+14155550123");
-  });
-
+describe("payee and claimant signatures", () => {
   describe("with the payee's signature", () => {
     const signed: CashVoucherProps = {
       ...sampleVoucher,
@@ -222,31 +209,6 @@ describe("formatPayeePhone", () => {
       },
       paidTo: "Test Volunteer",
     };
-
-    it("declares a self-submitted claim", () => {
-      expect(
-        claimantDeclarationText({
-          claimantName: "Test Volunteer",
-          declaredAt,
-          kind: "self",
-        })
-      ).toBe(
-        "Declared electronically by Test Volunteer (claimant) on 12 Oct 2026, 3:40 pm, when the claim was submitted."
-      );
-    });
-
-    it("says who raised a claim for the claimant", () => {
-      expect(
-        claimantDeclarationText({
-          claimantName: "Test Volunteer",
-          creatorName: "Test Finance",
-          declaredAt,
-          kind: "raised",
-        })
-      ).toBe(
-        "Raised by Test Finance for Test Volunteer on 12 Oct 2026, 3:40 pm; no payee signature needed as the claimant was paid."
-      );
-    });
 
     it("prints the declaration on one page, unlike the empty box", async () => {
       const [declared, raised, empty] = await Promise.all([

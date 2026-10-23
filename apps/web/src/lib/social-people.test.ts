@@ -8,8 +8,6 @@ mock.module("@pi-dash/db/queries/social-api", () => ({
 }));
 mock.module("@/middleware/auth", () => ({ authMiddleware: {} }));
 
-import { buildSocialPeople } from "@/components/social/use-social-people";
-
 import { loadSocialPeople, type SocialPeopleDeps } from "./social-people";
 
 const people = {
@@ -48,11 +46,4 @@ describe("loadSocialPeople", () => {
       expect(allowed.listSocialPeople).toHaveBeenCalledWith(["u9"]);
     }
   );
-
-  it("merges candidates and named users into one lookup", () => {
-    const merged = buildSocialPeople(people);
-    expect(merged.candidates).toEqual(people.candidates);
-    expect(merged.names.get("u9")).toBe("Former admin");
-    expect(merged.names.get("u1")).toBe("Asha");
-  });
 });

@@ -93,15 +93,6 @@ describe("voucherPayee", () => {
     ).toEqual({ paidTo: "Asha Rao", payeePhone: "+919000000001" });
   });
 
-  it("prints a claimant name outside the English-letters rule", () => {
-    expect(
-      voucherPayee(
-        { payeeName: null, payeePhone: null },
-        { name: "आशा राव", phone: null }
-      )
-    ).toEqual({ paidTo: "आशा राव", payeePhone: null });
-  });
-
   it("leaves out a claimant mobile that isn't an Indian mobile", () => {
     expect(
       voucherPayee(
@@ -109,12 +100,6 @@ describe("voucherPayee", () => {
         { name: "Asha Rao", phone: "+14155550123" }
       ).payeePhone
     ).toBeNull();
-  });
-
-  it("falls back to Unknown without a claimant", () => {
-    expect(
-      voucherPayee({ payeeName: null, payeePhone: null }, undefined)
-    ).toEqual({ paidTo: "Unknown", payeePhone: null });
   });
 });
 

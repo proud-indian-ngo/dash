@@ -691,7 +691,7 @@ const EDGE_SPACE = /^[ \t\n\r\f\v]+|[ \t\n\r\f\v]+$/g;
  * Plain text as rich text: a paragraph per blank-line-separated block, with
  * single line breaks joined by a space, as the circular PDF printed plain
  * text. Empty text is one empty paragraph. Migration 0176 does the same in
- * SQL; `rich-text-migration.db.test.ts` keeps them equal.
+ * SQL.
  */
 export function plainTextToRichText(text: string): RichTextValue {
   const paragraphs = text

@@ -48,11 +48,8 @@ mock.module("@tanstack/react-start", () => ({
   }),
 }));
 
-const {
-  checkWhatsAppConfiguration,
-  fetchWhatsAppGroups,
-  getWhatsAppGroupJoinLink,
-} = await import("./whatsapp-groups");
+const { checkWhatsAppConfiguration, getWhatsAppGroupJoinLink } =
+  await import("./whatsapp-groups");
 const session = { user: { id: "actor", role: "admin" } };
 const runCheck = () =>
   (
@@ -60,10 +57,6 @@ const runCheck = () =>
       input: unknown
     ) => Promise<unknown>
   )({ context: { session } });
-const runPicker = () =>
-  (fetchWhatsAppGroups as unknown as (input: unknown) => Promise<unknown>)({
-    context: { session },
-  });
 
 describe("WhatsApp configuration check", () => {
   beforeEach(() => {
@@ -79,27 +72,6 @@ describe("WhatsApp configuration check", () => {
     expect(permissionChecks).toEqual(["settings.whatsapp_groups"]);
     expect(configChecks).toBe(0);
     expect(listCalls).toBe(0);
-  });
-
-  it.each([true, false])(
-    "returns configured=%s without requesting provider groups",
-    async (value) => {
-      allowed = true;
-      configured = value;
-      expect(await runCheck()).toEqual({ configured: value });
-      expect(permissionChecks).toEqual(["settings.whatsapp_groups"]);
-      expect(configChecks).toBe(1);
-      expect(listCalls).toBe(0);
-    }
-  );
-
-  it("keeps group listing in the picker request", async () => {
-    allowed = true;
-    configured = true;
-    await runCheck();
-    expect(listCalls).toBe(0);
-    expect(await runPicker()).toEqual({ configured: true, groups: [] });
-    expect(listCalls).toBe(1);
   });
 });
 

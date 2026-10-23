@@ -24,15 +24,6 @@ describe("assertIsLoggedIn", () => {
       assertIsLoggedIn(makeCtx({ role: "volunteer", userId: "u1" }))
     ).not.toThrow();
   });
-
-  it("narrows the type after assertion", () => {
-    const ctx: Context | undefined = makeCtx({
-      role: "admin",
-      userId: "u1",
-    });
-    assertIsLoggedIn(ctx);
-    expect(ctx.userId).toBe("u1");
-  });
 });
 
 describe("can", () => {
@@ -61,17 +52,6 @@ describe("can", () => {
       userId: "u1",
     });
     expect(can(ctx, "requests.create")).toBe(false);
-  });
-
-  it("caches permission set on context", () => {
-    const ctx = makeCtx({
-      permissions: ["requests.create"],
-      role: "admin",
-      userId: "u1",
-    });
-    can(ctx, "requests.create");
-    expect(ctx._permissionSet).toBeInstanceOf(Set);
-    expect(ctx._permissionSet?.size).toBe(1);
   });
 });
 

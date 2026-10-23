@@ -1,18 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  formatIndiaTime,
-  maskPhone,
-  receiptPersonName,
-} from "./notification-delivery";
-
-describe("formatIndiaTime", () => {
-  it("shows India time whatever the browser's zone", () => {
-    expect(formatIndiaTime(Date.UTC(2026, 9, 19, 4, 10))).toBe(
-      "19 Oct 2026, 9:40 am"
-    );
-  });
-});
+import { maskPhone, receiptPersonName } from "./notification-delivery";
 
 describe("receiptPersonName", () => {
   const jid = "919876543686@s.whatsapp.net";

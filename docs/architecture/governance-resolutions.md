@@ -31,7 +31,7 @@ A resolution's text is rich text, written in the rich text editor (`@pi-dash/edi
 - A template's text is rich text written with the builders in `@pi-dash/shared/rich-text`: the lead words "RESOLVED THAT" and "RESOLVED FURTHER THAT" are bold, and [placeholders] mark what to fill in; the budget and bank templates carry a table (the budget's Total spans Head and Purpose), the deed amendment a numbered list whose items quote the new clause. `templateBody` stores it. Switching template replaces the text only while it has no text or is still the old template's exactly, formatting included (`bodyUntouched`).
 - Pages show the text read-only through the same preset. Anything that needs plain text uses `richTextToPlain`: blocks apart by a blank line, list items on lines with their marker, quoted lines after "> ", a divider as "---", a link as its text and address, table cells apart by " | ".
 - A numbered list counts 1, then a, then i by the numbered lists it sits in, bulleted ones not counting (`orderedListStyle`). The editor, the pages, the PDF and plain text share that rule.
-- Migration 0176 turned the plain-text bodies into paragraphs in SQL with the same rule as `plainTextToRichText`, ASCII whitespace only; `rich-text-migration.db.test.ts` checks they agree.
+- Migration 0176 turned the plain-text bodies into paragraphs in SQL with the same rule as `plainTextToRichText`, ASCII whitespace only.
 - The circular and the minutes draw it with `packages/pdf/src/rich-text.tsx` (see [PDF](pdf.md#rich-text)).
 
 ## Signatures

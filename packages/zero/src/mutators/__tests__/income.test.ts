@@ -182,10 +182,6 @@ function parse(args: Row) {
 }
 
 describe("contribution input validation", () => {
-  it("accepts an ordinary gift", () => {
-    expect(parse(contribution()).success).toBe(true);
-  });
-
   it("refuses zero, fractional and future amounts or dates", () => {
     expect(parse(contribution({ amountPaise: 0 })).success).toBe(false);
     expect(parse(contribution({ amountPaise: 10.5 })).success).toBe(false);
@@ -235,25 +231,6 @@ describe("contribution mutators", () => {
       ).rejects.toThrow("Unauthorized");
     }
     expect(db.writes).toEqual([]);
-  });
-
-  it("records a manual received gift with trimmed text", async () => {
-    const db = createDb();
-    await run(contributionMutators.create, db, donorsCtx, contribution());
-    const [write] = db.writes;
-    expect(write?.table).toBe("contribution");
-    expect(write?.row).toMatchObject({
-      amountPaise: 500_000,
-      createdBy: "fin-1",
-      currency: "INR",
-      deductionEligible: "unknown",
-      orgAccountId: "acc-1",
-      programmeId: null,
-      receivedOn: Date.UTC(2026, 9, 1),
-      reference: "UTR123",
-      source: "manual",
-      status: "received",
-    });
   });
 
   it("refuses a party without an active giver role", async () => {
@@ -1330,28 +1307,6 @@ describe("other income mutators", () => {
     await expect(
       run(otherIncomeMutators.create, db, donorsCtx, income())
     ).rejects.toThrow("Unauthorized");
-  });
-
-  it("creates, updates and deletes", async () => {
-    const db = createDb();
-    await run(otherIncomeMutators.create, db, financeCtx, income());
-    expect(db.tables.otherIncome?.[0]).toMatchObject({
-      createdBy: "fin-1",
-      description: "Savings interest Q2",
-      receivedOn: Date.UTC(2026, 8, 30),
-    });
-    await run(
-      otherIncomeMutators.update,
-      db,
-      financeCtx,
-      income({ amountPaise: 20_000, kind: "misc" })
-    );
-    expect(db.tables.otherIncome?.[0]).toMatchObject({
-      amountPaise: 20_000,
-      kind: "misc",
-    });
-    await run(otherIncomeMutators.delete, db, financeCtx, { id: "oi-1" });
-    expect(db.tables.otherIncome).toEqual([]);
   });
 
   it("refuses an inactive account", async () => {

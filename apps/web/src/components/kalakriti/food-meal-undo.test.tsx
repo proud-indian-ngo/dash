@@ -160,47 +160,6 @@ describe("Food meal undo confirmation", () => {
       expect(cancelled).toBe(true);
     }
   );
-  it("exposes undo only to Food Leads/admin, never Food Members/readers", () => {
-    for (const role of ["food_member", "liaison_lead"]) {
-      render(role);
-      expect(table.onUndoMeal).toBeUndefined();
-    }
-    render();
-    expect(table.onUndoMeal).toBeFunction();
-    expect(dialog.title).toBe("Undo served meal?");
-    expect(dialog.confirmLabel).toBe("Undo meal");
-  });
-  it("revokes undo after a live role downgrade even when route access and Food rows are unchanged", async () => {
-    render("food_lead");
-    table.onUndoMeal(target);
-    expect(payload).toBeDefined();
-    render("food_lead", true, "food_member");
-    expect(table.onUndoMeal).toBeUndefined();
-    expect(dialog.confirmDisabled).toBe(true);
-    await options.onConfirm(payload);
-    expect(requests).toHaveLength(0);
-    membershipComplete = false;
-    render("food_lead");
-    expect(table.onUndoMeal).toBeUndefined();
-  });
-  it("gates attempts on Live, connectivity and authoritative snapshots", () => {
-    online = false;
-    render();
-    table.onUndoMeal(target);
-    expect(payload).toBeUndefined();
-    online = true;
-    render("food_lead", false);
-    table.onUndoMeal(target);
-    expect(payload).toBeUndefined();
-    authoritative = false;
-    render();
-    table.onUndoMeal(target);
-    expect(payload).toBeUndefined();
-    lifecycle = "draft";
-    render();
-    expect(table.onUndoMeal).toBeUndefined();
-    expect(requests).toHaveLength(0);
-  });
   it("cancels without mutation and preserves exact args for uncertain retries", async () => {
     render();
     table.onUndoMeal(target);

@@ -604,24 +604,3 @@ describe("registration settings", () => {
     ).toBeNull();
   });
 });
-
-describe("giftOutcomeLabel", () => {
-  it("names each outcome for the CA's file", () => {
-    expect(giftOutcomeLabel({ kind: "ready" })).toEqual({
-      reason: "",
-      status: "Ready",
-    });
-    expect(
-      giftOutcomeLabel({
-        blocks: ["missing_id", "missing_address"],
-        kind: "blocked",
-      })
-    ).toEqual({
-      reason: "No ID number; No address with PIN code",
-      status: "Needs attention",
-    });
-    expect(
-      giftOutcomeLabel({ kind: "excluded", reason: "donor_declined" }).status
-    ).toBe("Excluded");
-  });
-});

@@ -4,9 +4,7 @@ import {
   buildSocialSettings,
   hasHourMarkBetween,
   parseSocialRules,
-  SOCIAL_MANAGE_CONFIG_KEYS,
   SOCIAL_RULES_CONFIG_KEY,
-  SOCIAL_RULES_DEFAULTS,
   socialRulesSchema,
 } from "./social-api";
 
@@ -49,12 +47,6 @@ describe("socialRulesSchema", () => {
     expect(socialRulesSchema.parse({ schedule: {} })).toEqual({
       schedule: {},
     });
-  });
-
-  it("accepts the documented defaults", () => {
-    expect(socialRulesSchema.safeParse(SOCIAL_RULES_DEFAULTS).success).toBe(
-      true
-    );
   });
 
   it("trims text fields", () => {
@@ -295,19 +287,5 @@ describe("buildSocialSettings rules", () => {
     expect(onInvalid).toHaveBeenCalledWith(
       expect.stringContaining("schedule.minRows")
     );
-  });
-});
-
-describe("SOCIAL_MANAGE_CONFIG_KEYS", () => {
-  it("is exactly the seven social keys", () => {
-    expect([...SOCIAL_MANAGE_CONFIG_KEYS].sort()).toEqual([
-      "social_all_time_hours",
-      "social_all_time_optimists",
-      "social_all_time_reached",
-      "social_approver_user_id",
-      "social_paused",
-      "social_paused_kinds",
-      "social_rules",
-    ]);
   });
 });

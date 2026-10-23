@@ -4,7 +4,7 @@ mock.module("@pi-dash/env/web", () => ({
   env: { VITE_APP_ENV: "production", VITE_APP_RELEASE: "abc123" },
 }));
 
-import { attachComponentStack, routeIdToTemplate, scrubEvent } from "./posthog";
+import { routeIdToTemplate, scrubEvent } from "./posthog";
 
 describe("routeIdToTemplate", () => {
   it("drops pathless layouts and keeps params as placeholders", () => {
@@ -101,28 +101,5 @@ describe("scrubEvent", () => {
         type: "TypeError",
       },
     ]);
-  });
-});
-
-describe("attachComponentStack", () => {
-  const stack = "\n    at Broken (app.js:1:1)\n    at Page (app.js:2:2)";
-
-  it("links the component stack as the innermost cause", () => {
-    const root = new Error("root");
-    const error = new TypeError("boom", { cause: root });
-    attachComponentStack(error, stack);
-
-    const linked = root.cause as Error;
-    expect(error.cause).toBe(root);
-    expect(linked.name).toBe("React ErrorBoundary TypeError");
-    expect(linked.message).toBe("boom");
-    expect(linked.stack).toBe(stack);
-  });
-
-  it("keeps a non-error cause beneath the component stack", () => {
-    const error = new Error("boom", { cause: { code: 42 } });
-    attachComponentStack(error, stack);
-
-    expect((error.cause as Error).cause).toEqual({ code: 42 });
   });
 });

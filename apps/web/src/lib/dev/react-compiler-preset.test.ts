@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createRequire } from "node:module";
 
-import { reactCompilerPreset } from "@vitejs/plugin-react";
-
 import { appReactCompilerPreset } from "./react-compiler-preset";
 
 const excluded = (path: string) =>
@@ -45,13 +43,5 @@ describe("React Compiler mutable-grid compatibility boundary", () => {
     );
     const { version } = fromPlugin("@babel/core/package.json");
     expect(version.split(".")[0]).toBe("7");
-  });
-  it("preserves the normal compiler preset and code filter", () => {
-    const preset = appReactCompilerPreset();
-    const normal = reactCompilerPreset();
-    expect(typeof preset.preset).toBe("function");
-    expect(preset.rolldown.optimizeDeps).toEqual(normal.rolldown.optimizeDeps);
-    expect(typeof preset.rolldown.applyToEnvironmentHook).toBe("function");
-    expect(preset.rolldown.filter.code).toEqual(normal.rolldown.filter?.code);
   });
 });

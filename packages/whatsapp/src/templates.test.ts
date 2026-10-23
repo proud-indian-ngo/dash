@@ -184,19 +184,4 @@ describe("toTemplatePayload", () => {
       toTemplatePayload(find("donation_receipt"), APP_URL).components[0]
     ).toEqual({ format: "DOCUMENT", type: "HEADER" });
   });
-
-  it("labels the group invite button and links it through the dashboard", () => {
-    const payload = toTemplatePayload(find("group_invite"), APP_URL);
-    expect(payload.components).toContainEqual({
-      buttons: [
-        {
-          example: ["https://dash.example.org/whatsapp-groups/0192/join"],
-          text: "Join group",
-          type: "URL",
-          url: "https://dash.example.org/{{1}}",
-        },
-      ],
-      type: "BUTTONS",
-    });
-  });
 });

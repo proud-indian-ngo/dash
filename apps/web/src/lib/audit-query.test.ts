@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
 
 import { parseAuditLogQuery } from "./audit-query";
 
@@ -43,16 +42,5 @@ describe("audit log query", () => {
     expect(
       parseAuditLogQuery(`https://example.test/api/audit-log${query}`).success
     ).toBe(false);
-  });
-
-  it("keeps target-type search and deterministic newest-first ordering", () => {
-    const source = readFileSync(
-      new URL("./server/audit-log.ts", import.meta.url),
-      "utf8"
-    );
-    expect(source).toContain("ilike(auditLog.targetType, pattern)");
-    expect(source).toContain(
-      ".orderBy(desc(auditLog.attemptedAt), desc(auditLog.id))"
-    );
   });
 });

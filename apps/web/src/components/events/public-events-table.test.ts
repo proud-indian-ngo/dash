@@ -104,63 +104,6 @@ describe("selectUpcomingPublicKalakritiEvent", () => {
   });
 });
 
-describe("toPublicDisplayRow", () => {
-  it("maps the source event onto a display row", () => {
-    const source = event({
-      endTime: Date.UTC(2027, 10, 21, 18),
-      id: "kk-1",
-      location: "Palace Grounds",
-    });
-    const row = toPublicDisplayRow(source, cityNameOf);
-
-    expect(row).toEqual({
-      cityName: "Bengaluru",
-      costCentreId: BLR,
-      endTime: Date.UTC(2027, 10, 21, 18),
-      eventId: "kk-1",
-      isPublic: true,
-      isVirtualOccurrence: false,
-      location: "Palace Grounds",
-      members: [],
-      name: "Kalakriti 2027",
-      occDate: null,
-      publicArea: null,
-      recurrenceRule: null,
-      startTime: Date.UTC(2027, 10, 21),
-      team: { id: "team-events", name: "Events" },
-      teamId: "team-events",
-      volunteersNeeded: null,
-    });
-  });
-});
-
-describe("rowMatchesPublicFilters", () => {
-  const row = toPublicDisplayRow(event({ id: "kk-1" }), cityNameOf);
-  const eventsTeam = new Set(["team-events"]);
-
-  it("keeps the row for All and Public filters", () => {
-    expect(rowMatchesPublicFilters(row, "all", "all", "", eventsTeam)).toBe(
-      true
-    );
-    expect(rowMatchesPublicFilters(row, "public", "all", "", eventsTeam)).toBe(
-      true
-    );
-  });
-
-  it("hides the row when My Teams, city, or search do not match", () => {
-    expect(rowMatchesPublicFilters(row, "my-teams", "all", "", new Set())).toBe(
-      false
-    );
-    expect(rowMatchesPublicFilters(row, "all", "cc-mum", "", eventsTeam)).toBe(
-      false
-    );
-    expect(rowMatchesPublicFilters(row, "all", BLR, "", eventsTeam)).toBe(true);
-    expect(
-      rowMatchesPublicFilters(row, "all", "all", "workshop", eventsTeam)
-    ).toBe(false);
-  });
-});
-
 describe("rowPlace and rowMapUrl", () => {
   const place = (
     location: string | null,

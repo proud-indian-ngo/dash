@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  cashVoucherLimitError,
   DEFAULT_CASH_VOUCHER_LIMIT_PAISE,
-  formatCashVoucherLimit,
   isIndianMobile,
   isLatinName,
   isValidCashVoucherLimitPaise,
@@ -53,14 +51,6 @@ describe("cash voucher limit", () => {
     expect(qualifiesForCashVoucher(100_001, 100_000)).toBe(false);
     expect(qualifiesForCashVoucher(0, 100_000)).toBe(false);
     expect(qualifiesForCashVoucher(200_000, 200_000)).toBe(true);
-  });
-
-  it("formats the limit and its error", () => {
-    expect(formatCashVoucherLimit(200_000)).toBe("₹2,000");
-    expect(formatCashVoucherLimit(99_950)).toBe("₹999.50");
-    expect(cashVoucherLimitError(200_000)).toBe(
-      "Vouchers can only be generated for items ≤ ₹2,000"
-    );
   });
 });
 

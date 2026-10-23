@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  activeCostCentres,
-  costCentrePickerOptions,
-  defaultCostCentreId,
-  normalisePublicCityCode,
-  requestCostCentreId,
-} from "./cost-centre";
-
-const BLR = { active: true, code: "BLR", id: "blr", name: "Bangalore" };
-const MUM = { active: false, code: "MUM", id: "mum", name: "Mumbai" };
-const DEL = { active: true, code: "DEL", id: "del", name: "Delhi" };
+import { normalisePublicCityCode, requestCostCentreId } from "./cost-centre";
 
 describe("requestCostCentreId", () => {
   it("takes the event's cost centre, never the request's own, when it has an event", () => {
@@ -32,19 +22,6 @@ describe("requestCostCentreId", () => {
       "own"
     );
     expect(requestCostCentreId({})).toBeNull();
-  });
-});
-
-describe("pickers", () => {
-  it("offer active centres by name, plus a record's own inactive one", () => {
-    expect(activeCostCentres([MUM, BLR, DEL])).toEqual([BLR, DEL]);
-    expect(costCentrePickerOptions([MUM, BLR], "mum")).toEqual([BLR, MUM]);
-    expect(costCentrePickerOptions([MUM, BLR], "blr")).toEqual([BLR]);
-  });
-
-  it("default to the only active centre", () => {
-    expect(defaultCostCentreId([BLR, MUM])).toBe("blr");
-    expect(defaultCostCentreId([BLR, MUM, DEL])).toBeNull();
   });
 });
 

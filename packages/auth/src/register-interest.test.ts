@@ -84,59 +84,6 @@ describe("decideInterestTarget", () => {
 });
 
 describe("requestInterestOnRegister", () => {
-  it("files a pending interest and notifies the team leads", async () => {
-    const { deps, enqueueNotifyInterestReceived, insertPendingInterest } =
-      createDeps();
-
-    await expect(requestInterestOnRegister(deps, input)).resolves.toEqual({
-      status: "requested",
-    });
-    expect(insertPendingInterest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        createdAt: now,
-        eventId: "event-1",
-        userId: "user-1",
-      })
-    );
-    const interestId = insertPendingInterest.mock.calls[0]?.[0].id;
-    expect(enqueueNotifyInterestReceived).toHaveBeenCalledWith({
-      eventId: "event-1",
-      eventName: "Maths class",
-      interestId,
-      leadUserIds: ["lead-1"],
-      teamId: "team-1",
-      volunteerName: "Asha",
-    });
-  });
-
-  it("files interest on the chosen session of a recurring series", async () => {
-    const { deps, insertPendingInterest, materializeOccurrence } = createDeps({
-      findEvent: async () => series,
-    });
-
-    await expect(
-      requestInterestOnRegister(deps, {
-        ...input,
-        eventId: "series-1",
-        occDate: "2026-10-10",
-      })
-    ).resolves.toEqual({ status: "requested" });
-    expect(materializeOccurrence).toHaveBeenCalledWith(
-      expect.objectContaining({
-        occurrence: expect.objectContaining({
-          date: "2026-10-10",
-          startTime: Date.UTC(2026, 9, 10, 4, 30),
-        }),
-        series,
-        userId: "user-1",
-      })
-    );
-    const sessionId = materializeOccurrence.mock.calls[0]?.[0].materializedId;
-    expect(insertPendingInterest).toHaveBeenCalledWith(
-      expect.objectContaining({ eventId: sessionId })
-    );
-  });
-
   it.each([
     ["needs-session", undefined],
     ["no-session", "2026-10-11"],

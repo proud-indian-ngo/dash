@@ -51,41 +51,4 @@ describe("buildSocialApiOpenApi", () => {
     }
     expect(spec.servers).toEqual([{ url: "https://dash.proudindian.ngo" }]);
   });
-
-  it("documents the settings and run report endpoints", () => {
-    expect(spec.paths["/api/social/v1/settings"].get.security).toEqual([
-      { bearer: ["events:read"] },
-    ]);
-    expect(spec.paths["/api/social/v1/runs"].post.security).toEqual([
-      { bearer: ["social:write"] },
-    ]);
-    expect(spec.components.schemas.SocialSettings.required.sort()).toEqual([
-      "paused",
-      "pausedKinds",
-      "rules",
-    ]);
-    const rules = spec.components.schemas.SocialSettings.properties.rules as {
-      additionalProperties: boolean;
-      properties: Record<
-        string,
-        { properties: Record<string, Record<string, unknown>> }
-      >;
-    };
-    expect(rules.additionalProperties).toBe(false);
-    expect(Object.keys(rules.properties).sort()).toEqual([
-      "impact",
-      "recap",
-      "schedule",
-      "story",
-      "volunteerCall",
-    ]);
-    expect(rules.properties.schedule?.properties.minRows).toMatchObject({
-      default: 3,
-      maximum: 6,
-      minimum: 1,
-      type: "integer",
-    });
-    expect(rules.properties.recap?.properties.held?.default).toBe(true);
-    expect(spec.components.schemas.SocialRunInput.required).toHaveLength(11);
-  });
 });

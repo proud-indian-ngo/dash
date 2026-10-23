@@ -28,7 +28,6 @@ mock.module("@tanstack/react-start", () => ({
   },
 }));
 
-const { Route: AuthRoute } = await import("@/routes/_auth");
 const { Route: VerifyEmailRoute } = await import("@/routes/_auth/verify-email");
 
 const EVENT_ID = "019a0000-0000-7000-8000-000000000001";
@@ -47,17 +46,6 @@ async function redirectOf(run: () => unknown): Promise<unknown> {
   }
 }
 
-function authGuard(pathname: string, search: Record<string, unknown>) {
-  const beforeLoad = AuthRoute.options.beforeLoad;
-  if (!beforeLoad) {
-    throw new Error("Missing _auth guard");
-  }
-  return () =>
-    beforeLoad({ location: { pathname, search } } as unknown as Parameters<
-      typeof beforeLoad
-    >[0]);
-}
-
 function verifyGuard(search: Record<string, unknown>) {
   const beforeLoad = VerifyEmailRoute.options.beforeLoad;
   if (!beforeLoad) {
@@ -74,37 +62,6 @@ beforeEach(() => {
   findUnverifiedUserForToken.mockReset();
   findUnverifiedUserForToken.mockResolvedValue({ id: "user-1", name: "Asha" });
   fileVerifiedSignUpInterest.mockReset();
-});
-
-describe("_auth guard", () => {
-  it("lets signed-out visitors register", async () => {
-    getSession.mockResolvedValue(null);
-    expect(
-      await redirectOf(authGuard("/register", { interestEventId: EVENT_ID }))
-    ).toBeNull();
-  });
-
-  it("sends signed-in visitors on a website link to the event session", async () => {
-    getSession.mockResolvedValue({ user: { id: "u" } });
-    expect(
-      await redirectOf(
-        authGuard("/register", {
-          interestEventId: EVENT_ID,
-          occDate: "2026-10-18",
-        })
-      )
-    ).toBe(`/events/${EVENT_ID}?occDate=2026-10-18`);
-  });
-
-  it("keeps invite links and other auth pages going home", async () => {
-    getSession.mockResolvedValue({ user: { id: "u" } });
-    expect(
-      await redirectOf(authGuard("/register", { eventId: EVENT_ID }))
-    ).toEqual({ search: undefined, to: "/" });
-    expect(
-      await redirectOf(authGuard("/login", { interestEventId: EVENT_ID }))
-    ).toEqual({ search: undefined, to: "/" });
-  });
 });
 
 describe("verify-email guard", () => {

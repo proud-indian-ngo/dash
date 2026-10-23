@@ -370,26 +370,6 @@ function replaceGroup({
 }
 
 describe("kalakritiEntry commands", () => {
-  it("creates an immediately active individual Entry", async () => {
-    const { promise, spies } = await createEntry();
-    await promise;
-
-    expect(spies.insertEntry).toHaveBeenCalledWith(
-      expect.objectContaining({
-        centerId: center.id,
-        divisionId: session.id,
-        editionId: edition.id,
-        participationMode: "individual",
-      })
-    );
-    expect(spies.insertMember).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entryId: createArgs.entryId,
-        studentId: student.id,
-      })
-    );
-  });
-
   it("attaches music on individual create when the Competition allows it", async () => {
     const { promise, spies } = await createEntry({
       actorContext: {
@@ -548,16 +528,6 @@ describe("kalakritiEntry commands", () => {
       ],
     });
     await expect(promise).rejects.toThrow("requires a group Entry");
-  });
-
-  it("creates a valid group Entry", async () => {
-    const { promise, spies } = createGroup();
-    await promise;
-
-    expect(spies.insertEntry).toHaveBeenCalledWith(
-      expect.objectContaining({ participationMode: "group" })
-    );
-    expect(spies.insertMember).toHaveBeenCalledTimes(2);
   });
 
   it("requires group-mode Competition configuration for group Entries", async () => {

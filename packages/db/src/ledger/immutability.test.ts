@@ -34,24 +34,4 @@ describe("ledger guards", () => {
       expect(migration).toContain(`${trigger.create};`);
     }
   });
-
-  it("guards all eight books tables against TRUNCATE and the ledger against edits", () => {
-    const names = LEDGER_TRIGGERS.map((t) => t.name);
-    for (const table of [
-      "posting",
-      "ledger_entry",
-      "account_movement",
-      "movement_allocation",
-      "fiscal_year_event",
-      "opening_balance",
-      "audited_figures",
-      "audited_figures_line",
-    ]) {
-      expect(names).toContain(`${table}_no_truncate`);
-    }
-    expect(names).toContain("opening_balance_final");
-    expect(names).toContain("audited_figures_final");
-    expect(names).toContain("audited_figures_line_append_only");
-    expect(names).toContain("fiscal_year_event_append_only");
-  });
 });

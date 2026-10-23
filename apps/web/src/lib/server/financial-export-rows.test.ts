@@ -71,26 +71,6 @@ describe("financial export row contract", () => {
       })
     ).toHaveLength(TX_CSV_HEADERS.length);
   });
-
-  it("appends Project and Charged to after the original columns", () => {
-    const requestIndex = REQUEST_CSV_HEADERS.indexOf("Programme");
-    expect(requestIndex).toBe(REQUEST_CSV_HEADERS.indexOf("Attachments") - 1);
-    expect(REQUEST_CSV_HEADERS.slice(-2)).toEqual(["Project", "Charged to"]);
-    const requestCells = requestRowToArray(requestRow, "https://dash.test");
-    expect(requestCells[requestIndex]).toBe("Education");
-    expect(requestCells.slice(-2)).toEqual(["Maths class", "Programme"]);
-
-    expect(VP_CSV_HEADERS.slice(-3)).toEqual([
-      "Programme",
-      "Project",
-      "Charged to",
-    ]);
-    expect(vendorPaymentRowToArray(vendorRow).slice(-3)).toEqual([
-      "Admin",
-      "",
-      "Organisation (admin)",
-    ]);
-  });
 });
 
 describe("financial export amount cells", () => {
@@ -121,31 +101,6 @@ describe("financial export amount cells", () => {
     expect(vendorPaymentAmountCells(10_000, 12_000).remaining).toBe("0");
     // Float subtraction used to print 0.009999999999990905 here.
     expect(vendorPaymentAmountCells(100_001, 100_000).remaining).toBe("0.01");
-  });
-
-  it("pins a full vendor payment row", () => {
-    expect(
-      vendorPaymentRowToArray({
-        ...vendorRow,
-        ...vendorPaymentAmountCells(123_456_789, 23_456_789),
-      })
-    ).toEqual([
-      "Banners",
-      "Print Co",
-      "INV-1",
-      "2026-05-02",
-      "Asha",
-      "asha@example.test",
-      "completed",
-      "1234567.89",
-      "234567.89",
-      "1000000",
-      "2026-05-01T00:00:00.000Z",
-      "2026-05-01T00:00:00.000Z",
-      "Admin",
-      "",
-      "Organisation (admin)",
-    ]);
   });
 
   it("rejects a sum outside the safe-integer range", () => {

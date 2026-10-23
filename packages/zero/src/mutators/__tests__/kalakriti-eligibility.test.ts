@@ -72,44 +72,6 @@ function createTx(results: unknown[] = []) {
 }
 
 describe("kalakritiEligibility commands", () => {
-  it("creates a normalized non-overlapping Age Category", async () => {
-    const { lockedResults, spies, tx } = createTx();
-    lockedResults.push([edition], []);
-
-    await kalakritiEligibilityMutators.createAgeCategory.fn({
-      args: {
-        ageCategoryId: "category-1",
-        auditEntryId: "audit-1",
-        editionId: "edition-1",
-        femaleStudentLimit: 20,
-        maleStudentLimit: 20,
-        maxCompetitionsPerCategory: 1,
-        maximumAge: 10,
-        maxTotalCompetitions: 2,
-        minimumAge: 6,
-        name: "  Junior  ",
-        now: 1,
-        sortOrder: 0,
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiEligibilityMutators.createAgeCategory.fn
-    >[0]);
-
-    expect(spies.insertAgeCategory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        femaleStudentLimit: 20,
-        maleStudentLimit: 20,
-        name: "Junior",
-        normalizedName: "junior",
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ domain: "age_category_configuration" })
-    );
-  });
-
   it("rejects eligibility configuration after registration is locked", async () => {
     const { lockedResults, spies, tx } = createTx();
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);

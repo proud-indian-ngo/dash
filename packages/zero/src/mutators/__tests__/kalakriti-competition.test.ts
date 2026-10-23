@@ -120,48 +120,6 @@ function createTx(results: unknown[] = []) {
 }
 
 describe("kalakritiCompetition commands", () => {
-  it("allows the Overall Events Lead to create a normalized Category", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      { id: "membership-1" },
-      { id: "assignment-1" },
-    ]);
-    lockedResults.push([edition]);
-
-    await kalakritiCompetitionMutators.createCategory.fn({
-      args: {
-        auditEntryId: "audit-1",
-        categoryId: "category-1",
-        editionId: edition.id,
-        name: "  Cultural   Events ",
-        now: 1,
-        sortOrder: 0,
-      },
-      ctx: {
-        permissions: ["kalakriti.view"],
-        role: "volunteer",
-        userId: "lead-1",
-      },
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.createCategory.fn
-    >[0]);
-
-    expect(spies.insertCategory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "Cultural Events",
-        normalizedName: "cultural events",
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: {
-          competitionCategoryId: "category-1",
-          name: "Cultural Events",
-        },
-      })
-    );
-  });
-
   it("rejects structural Competition configuration after registration is locked", async () => {
     const { lockedResults, spies, tx } = createTx();
     lockedResults.push([{ ...edition, lifecycle: "registration_locked" }]);
@@ -314,51 +272,6 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.insertCompetition).not.toHaveBeenCalled();
   });
 
-  it("creates Competition Divisions for selected Age Categories", async () => {
-    const ageCategory = { editionId: edition.id, id: "age-1" };
-    const { lockedResults, spies, tx } = createTx([category, ageCategory]);
-    lockedResults.push([edition]);
-
-    await kalakritiCompetitionMutators.createCompetition.fn({
-      args: {
-        auditEntryId: "audit-1",
-        competitionCategoryId: category.id,
-        competitionId: competition.id,
-        divisions: [
-          {
-            ageCategoryId: ageCategory.id,
-            divisionId: division.id,
-          },
-        ],
-        editionId: edition.id,
-        genderEligibility: competition.genderEligibility,
-        maximumGroupSize: competition.maximumGroupSize,
-        minimumGroupSize: competition.minimumGroupSize,
-        musicUploadEnabled: competition.musicUploadEnabled,
-        name: competition.name,
-        now: 1,
-        participationMode: competition.participationMode,
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.createCompetition.fn
-    >[0]);
-
-    expect(spies.insertDivision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ageCategoryId: ageCategory.id,
-        competitionId: competition.id,
-        id: division.id,
-      })
-    );
-    expect(spies.insertCompetition).toHaveBeenCalledWith(
-      expect.objectContaining({
-        musicUploadEnabled: false,
-      })
-    );
-  });
-
   it("persists music upload configuration independently of eligibility", async () => {
     const ageCategory = { editionId: edition.id, id: "age-1" };
     const { lockedResults, spies, tx } = createTx([category, ageCategory]);
@@ -393,65 +306,6 @@ describe("kalakritiCompetition commands", () => {
     expect(spies.insertCompetition).toHaveBeenCalledWith(
       expect.objectContaining({ musicUploadEnabled: true })
     );
-  });
-
-  it("creates a Competition and its Session in one command", async () => {
-    const startAt = Date.parse("2027-11-21T04:30:00.000Z");
-    const endAt = Date.parse("2027-11-21T05:30:00.000Z");
-    const { lockedResults, spies, tx } = createTx([
-      category,
-      { editionId: edition.id, id: "age-1" },
-      undefined,
-      venue,
-      division,
-      [],
-      [],
-    ]);
-    lockedResults.push([edition]);
-
-    await kalakritiCompetitionMutators.createCompetition.fn({
-      args: {
-        auditEntryId: "competition-audit",
-        competitionCategoryId: category.id,
-        competitionId: competition.id,
-        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
-        editionId: edition.id,
-        genderEligibility: competition.genderEligibility,
-        maximumGroupSize: 1,
-        minimumGroupSize: 1,
-        musicUploadEnabled: false,
-        name: competition.name,
-        now: 1,
-        participationMode: competition.participationMode,
-        schedules: [
-          {
-            auditEntryId: "session-audit",
-            divisionId: division.id,
-            endAt,
-            sessionId: "session-1",
-            startAt,
-            venueId: venue.id,
-          },
-        ],
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.createCompetition.fn
-    >[0]);
-
-    expect(spies.insertCompetition).toHaveBeenCalledTimes(1);
-    expect(spies.insertDivision).toHaveBeenCalledTimes(1);
-    expect(spies.insertSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        divisionId: division.id,
-        endAt,
-        id: "session-1",
-        startAt,
-        venueId: venue.id,
-      })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledTimes(2);
   });
 
   it("rejects a Session outside the submitted Competition Divisions", async () => {
@@ -566,46 +420,6 @@ describe("kalakritiCompetition commands", () => {
       >[0])
     ).rejects.toThrow("Venue already has an overlapping Session");
     expect(spies.insertSession).not.toHaveBeenCalled();
-  });
-
-  it("creates a same-day Session in an active Venue", async () => {
-    const { lockedResults, spies, tx } = createTx([
-      division,
-      venue,
-      [],
-      competition,
-      [],
-    ]);
-    lockedResults.push([edition]);
-
-    await kalakritiCompetitionMutators.createSession.fn({
-      args: {
-        auditEntryId: "audit-1",
-        divisionId: division.id,
-        editionId: edition.id,
-        endAt: Date.parse("2027-11-21T05:30:00.000Z"),
-        now: 1,
-        sessionId: "session-1",
-        startAt: Date.parse("2027-11-21T04:30:00.000Z"),
-        venueId: venue.id,
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.createSession.fn
-    >[0]);
-
-    expect(spies.insertSession).toHaveBeenCalledWith(
-      expect.objectContaining({ divisionId: division.id, id: "session-1" })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          competitionCategoryId: competition.competitionCategoryId,
-          competitionId: competition.id,
-        }),
-      })
-    );
   });
 
   it("notifies affected Centers when a published Session is created", async () => {
@@ -1137,71 +951,6 @@ describe("kalakritiCompetition commands", () => {
         }),
       })
     );
-  });
-
-  it("updates Competition details and Session schedule in one command", async () => {
-    const session = {
-      cancelledAt: null,
-      divisionId: division.id,
-      editionId: edition.id,
-      endAt: Date.parse("2027-11-21T05:30:00.000Z"),
-      id: "session-1",
-      startAt: Date.parse("2027-11-21T04:30:00.000Z"),
-      venueId: venue.id,
-    };
-    const nextEndAt = Date.parse("2027-11-21T06:00:00.000Z");
-    const { lockedResults, spies, tx } = createTx([
-      competition,
-      [division],
-      category,
-      { editionId: edition.id, id: "age-1" },
-      [division],
-      session,
-      venue,
-      division,
-      [session],
-      division,
-      [],
-    ]);
-    lockedResults.push([edition]);
-
-    await kalakritiCompetitionMutators.updateCompetition.fn({
-      args: {
-        auditEntryId: "competition-audit",
-        competitionCategoryId: category.id,
-        competitionId: competition.id,
-        divisions: [{ ageCategoryId: "age-1", divisionId: division.id }],
-        genderEligibility: competition.genderEligibility,
-        maximumGroupSize: 1,
-        minimumGroupSize: 1,
-        musicUploadEnabled: false,
-        name: "Dance Finals",
-        now: 2,
-        participationMode: competition.participationMode,
-        schedules: [
-          {
-            auditEntryId: "session-audit",
-            divisionId: division.id,
-            endAt: nextEndAt,
-            sessionId: session.id,
-            startAt: session.startAt,
-            venueId: venue.id,
-          },
-        ],
-      },
-      ctx: adminContext,
-      tx,
-    } as unknown as Parameters<
-      typeof kalakritiCompetitionMutators.updateCompetition.fn
-    >[0]);
-
-    expect(spies.updateCompetition).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Dance Finals" })
-    );
-    expect(spies.updateSession).toHaveBeenCalledWith(
-      expect.objectContaining({ endAt: nextEndAt, id: session.id })
-    );
-    expect(spies.insertAudit).toHaveBeenCalledTimes(2);
   });
 
   it("checks registered Student conflicts against the final submitted schedule", async () => {

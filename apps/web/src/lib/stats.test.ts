@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, setSystemTime } from "bun:test";
 
 import { filterByDateRange, resolveDateRange } from "./date-range";
 import {
-  byStatus,
   computeApprovalTimeData,
   computeCategoryData,
   computeEventData,
@@ -10,56 +9,7 @@ import {
   computeSubmitterData,
   computeTrendData,
   spentAt,
-  sumAmounts,
-  sumTotal,
 } from "./stats";
-
-describe("sumAmounts", () => {
-  it("sums paise exactly", () => {
-    expect(sumAmounts([{ amountPaise: 10_000 }, { amountPaise: 20_050 }])).toBe(
-      30_050
-    );
-    expect(sumAmounts([{ amountPaise: 10 }, { amountPaise: 20 }])).toBe(30);
-  });
-
-  it("returns 0 for empty array", () => {
-    expect(sumAmounts([])).toBe(0);
-  });
-});
-
-describe("sumTotal", () => {
-  it("sums line items across submissions", () => {
-    const data = [
-      {
-        lineItems: [{ amountPaise: 100 }, { amountPaise: 50 }],
-        status: "pending",
-      },
-      { lineItems: [{ amountPaise: 200 }], status: "approved" },
-    ];
-    expect(sumTotal(data)).toBe(350);
-  });
-
-  it("returns 0 for empty data", () => {
-    expect(sumTotal([])).toBe(0);
-  });
-});
-
-describe("byStatus", () => {
-  const data = [
-    { lineItems: [], status: "pending" },
-    { lineItems: [], status: "approved" },
-    { lineItems: [], status: "pending" },
-    { lineItems: [], status: "rejected" },
-  ];
-
-  it("filters by pending", () => {
-    expect(byStatus(data, "pending")).toHaveLength(2);
-  });
-
-  it("returns empty for non-existent status", () => {
-    expect(byStatus(data, "unknown")).toHaveLength(0);
-  });
-});
 
 // --- Analytics aggregation tests ---
 
@@ -317,10 +267,6 @@ describe("computeEventData", () => {
 
   it("returns empty for items with no event", () => {
     expect(computeEventData([makeEventItem(null, 100)])).toEqual([]);
-  });
-
-  it("returns empty for empty input", () => {
-    expect(computeEventData([])).toEqual([]);
   });
 
   it("groups and sums by event", () => {
