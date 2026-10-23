@@ -50,7 +50,6 @@ async function prepare() {
       membershipId: membership.id,
       responsibility,
       createdAt: now,
-      updatedAt: now,
       createdBy: account.id,
     });
   }

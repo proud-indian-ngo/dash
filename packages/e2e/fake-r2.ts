@@ -12,7 +12,7 @@ if (!port) {
 }
 
 interface StoredObject {
-  body: Uint8Array;
+  body: Uint8Array<ArrayBuffer>;
   etag: string;
   lastModified: Date;
   type: string;
@@ -21,7 +21,7 @@ interface StoredObject {
 const objects = new Map<string, StoredObject>();
 const uploads = new Map<
   string,
-  { parts: Map<number, Uint8Array>; type: string }
+  { parts: Map<number, Uint8Array<ArrayBuffer>>; type: string }
 >();
 let uploadCounter = 0;
 
@@ -54,7 +54,11 @@ const escapeXml = (value: string) =>
 const s3Error = (status: number, code: string) =>
   xml(`<Error><Code>${code}</Code><Message>${code}</Message></Error>`, status);
 
-function store(path: string, body: Uint8Array, type: string): StoredObject {
+function store(
+  path: string,
+  body: Uint8Array<ArrayBuffer>,
+  type: string
+): StoredObject {
   const etag = `"${new Bun.CryptoHasher("md5").update(body).digest("hex")}"`;
   const object = { body, etag, lastModified: new Date(), type };
   objects.set(path, object);

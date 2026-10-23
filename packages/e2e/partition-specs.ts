@@ -41,7 +41,7 @@ export function partitionSpecs(
     }
     const [, project, spec] = match;
     if (project === "setup") continue;
-    if (!spec.endsWith(".spec.ts")) {
+    if (!spec?.endsWith(".spec.ts")) {
       throw new Error(`Invalid Playwright test-list row: ${line}`);
     }
     if (seen.has(line)) {

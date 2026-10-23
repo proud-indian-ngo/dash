@@ -1,0 +1,13 @@
+{
+  "extends": "@pi-dash/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node", "bun"],
+    "moduleDetection": "force",
+    "strictNullChecks": true,
+    "paths": {
+      "@/*": ["../../apps/web/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "playwright-report", "test-results"]
+}

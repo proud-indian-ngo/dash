@@ -249,11 +249,13 @@ async function setup(email: string) {
     venueId: IDS.venue,
   });
   await db.insert(kalakritiStudent).values(
-    [
-      [IDS.student, IDS.center, "0001"],
-      [IDS.studentB, IDS.centerB, "0002"],
-      [IDS.studentC, IDS.centerB, "0003"],
-    ].map(([id, centerId, suffix]) => ({
+    (
+      [
+        [IDS.student, IDS.center, "0001"],
+        [IDS.studentB, IDS.centerB, "0002"],
+        [IDS.studentC, IDS.centerB, "0003"],
+      ] as const
+    ).map(([id, centerId, suffix]) => ({
       ageCategoryId: IDS.ageCategory,
       centerId,
       createdAt: now,

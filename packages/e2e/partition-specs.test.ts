@@ -18,7 +18,7 @@ test("keeps every role for a spec together and returns every non-setup row once"
     rows.slice(1).sort()
   );
   expect(
-    result.find((partition) => partition.lines.includes(rows[1]))?.lines
+    result.find((partition) => partition.lines.includes(rows[1]!))?.lines
   ).toContain(rows[2]);
   expect(result.reduce((sum, partition) => sum + partition.totalMs, 0)).toBe(
     40_000

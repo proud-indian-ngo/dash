@@ -3,6 +3,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import type { IncomeFixture } from "../../helpers/books";
 import { BOOKS_YEAR, books, postPending } from "../../helpers/books-steps";
 import { pickDate } from "../../helpers/date-time-picker";
 import { clickPageAction } from "../../helpers/page-header";
@@ -176,13 +177,17 @@ test.describe("Books year close (runs last, alone)", () => {
     test.setTimeout(120_000);
     await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
-    const fixture = await books("income-fixture", run);
+    const fixture = await books<IncomeFixture>("income-fixture", run);
     await page.goto("/finance/books");
     await waitForZeroReady(page);
     await postPending(page);
     try {
       await books("close-year", YEAR);
-      const gift = await books("gift", fixture.bankId, "2026-08-01");
+      const gift = await books<{ id: string }>(
+        "gift",
+        fixture.bankId,
+        "2026-08-01"
+      );
       await page.reload();
       await waitForZeroReady(page);
       await postPending(page);
@@ -214,7 +219,7 @@ test.describe("Books year close (runs last, alone)", () => {
     test.setTimeout(120_000);
     await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
-    const payout = await books("waiting-payout", run);
+    const payout = await books<{ id: string }>("waiting-payout", run);
     try {
       await page.goto("/finance/books");
       await waitForZeroReady(page);

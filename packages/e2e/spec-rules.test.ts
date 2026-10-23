@@ -142,7 +142,7 @@ function gatedRole(conditions: Node[]): string | undefined {
   if (conditions.length !== 1) {
     return undefined;
   }
-  const [condition] = conditions;
+  const condition = conditions[0]!;
   if (
     condition.type !== "BinaryExpression" ||
     (condition.operator !== "!==" && condition.operator !== "!=")
@@ -165,7 +165,7 @@ function gatedRole(conditions: Node[]): string | undefined {
 function analyze(file: string, source: string, roles: RoleLists): string[] {
   const parsed = parseSync(file, source);
   if (parsed.errors.length > 0) {
-    return [`tests/${file}:1 does not parse: ${parsed.errors[0].message}`];
+    return [`tests/${file}:1 does not parse: ${parsed.errors[0]!.message}`];
   }
   const program = parsed.program as unknown as Node;
   const entries = collect(program, []);
@@ -466,17 +466,19 @@ function analyze(file: string, source: string, roles: RoleLists): string[] {
     return found.size === 1 ? [...found][0] : undefined;
   });
   const [role] = gates;
+  const [first] = tests;
   if (
+    first &&
     role &&
     role in roles &&
     gates.every((gate) => gate === role) &&
-    !roles[role].includes(file)
+    !roles[role]?.includes(file)
   ) {
     const listed = Object.keys(roles).find((owner) =>
-      roles[owner].includes(file)
+      roles[owner]?.includes(file)
     );
     report(
-      tests[0].node,
+      first.node,
       "R4",
       `every test is gated to ${role}${listed ? ` but it is listed under ${listed}` : ""}`
     );
@@ -497,6 +499,9 @@ function specs(dir: string): string[] {
 
 const allowKey = (violation: string) => {
   const [location, rule] = violation.split(" ");
+  if (!(location && rule)) {
+    throw new Error(`Malformed violation: ${violation}`);
+  }
   return `${location.replace(/^tests\//, "").replace(/:\d+$/, "")} ${rule.slice(1, -1)}`;
 };
 

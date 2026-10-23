@@ -87,9 +87,9 @@ async function setup(superAdminEmail: string) {
       plannedRegistrationCloseAt: new Date(
         `${YEARS[index]}-10-31T18:15:00.000Z`
       ),
-      teamEventId: EVENT_IDS[index],
+      teamEventId: EVENT_IDS[index]!,
       updatedAt: now,
-      year: YEARS[index],
+      year: YEARS[index]!,
     }))
   );
   await db.insert(kalakritiCenter).values(
@@ -97,7 +97,7 @@ async function setup(superAdminEmail: string) {
       competitionEntryRegistrationEnabled: false,
       createdAt: now,
       createdBy: actor.id,
-      editionId: EDITION_IDS[index],
+      editionId: EDITION_IDS[index]!,
       id,
       name: `Race Center ${index + 1}`,
       normalizedName: `race center ${index + 1}`,
@@ -174,8 +174,8 @@ async function assignCenter(membershipId: string) {
     columns: { createdBy: true, editionId: true },
     where: (table, operators) => operators.eq(table.id, membershipId),
   });
-  if (!membership) {
-    throw new Error("Guardian membership is missing");
+  if (!membership?.createdBy) {
+    throw new Error("Guardian membership or its creator is missing");
   }
 
   const editionIndex = EDITION_IDS.indexOf(
@@ -186,7 +186,7 @@ async function assignCenter(membershipId: string) {
   }
 
   await db.insert(kalakritiGuardianCenter).values({
-    centerId: CENTER_IDS[editionIndex],
+    centerId: CENTER_IDS[editionIndex]!,
     createdAt: new Date(),
     createdBy: membership.createdBy,
     editionId: membership.editionId,

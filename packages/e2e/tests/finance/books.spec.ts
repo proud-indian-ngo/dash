@@ -2,6 +2,11 @@ import type { Locator, Page } from "@playwright/test";
 import readXlsxFile from "read-excel-file/node";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import type {
+  CorpusGift,
+  ExpenseFixture,
+  IncomeFixture,
+} from "../../helpers/books";
 import { BOOKS_YEAR, books, postPending } from "../../helpers/books-steps";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { clickPageAction, openPageAction } from "../../helpers/page-header";
@@ -96,7 +101,7 @@ test.describe("Books (treasurer)", () => {
     // Self-sufficient: CI shards may run this without the tests around it.
     await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
-    const fixture = await books("income-fixture", run);
+    const fixture = await books<IncomeFixture>("income-fixture", run);
 
     await page.goto("/finance/books");
     await waitForZeroReady(page);
@@ -210,7 +215,7 @@ test.describe("Books (treasurer)", () => {
     test.setTimeout(120_000);
     await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
-    const fixture = await books("corpus-gift", run);
+    const fixture = await books<CorpusGift>("corpus-gift", run);
 
     await page.goto("/finance/books");
     await waitForZeroReady(page);
@@ -254,7 +259,7 @@ test.describe("Books (treasurer)", () => {
     // Self-sufficient: CI shards may run this without the tests above.
     await books("ensure-opening", YEAR);
     const run = `${Date.now()}${testInfo.retry}`;
-    const fixture = await books("expense-fixture", run);
+    const fixture = await books<ExpenseFixture>("expense-fixture", run);
 
     await page.goto("/finance/books");
     await waitForZeroReady(page);
@@ -518,7 +523,7 @@ test.describe("Books (treasurer)", () => {
     test.setTimeout(150_000);
     await books("ensure-opening", YEAR);
     const run = `void${Date.now()}${testInfo.retry}`;
-    const fixture = await books("expense-fixture", run);
+    const fixture = await books<ExpenseFixture>("expense-fixture", run);
     const title = `E2E books claim ${run}`;
 
     await postPendingFromBooks(page);
@@ -595,7 +600,7 @@ test.describe("Books (treasurer)", () => {
     test.setTimeout(180_000);
     await books("ensure-opening", YEAR);
     const run = `proof${Date.now()}${testInfo.retry}`;
-    const fixture = await books("expense-fixture", run);
+    const fixture = await books<ExpenseFixture>("expense-fixture", run);
     const noProofTitle = `E2E books claim without proof ${run}`;
 
     // The claim without a screenshot waits, and the waiting list links to

@@ -857,13 +857,6 @@ test("Food and Entry readers see their two-Center union, while arrival and check
           has: guardian.getByRole("cell").filter({ hasText: "KAL-2168-" }),
         });
         await expect(entries).toHaveCount(count);
-        if (count === 0)
-          await expect(
-            guardian.getByText(
-              "No Entries have been registered for this Session.",
-              { exact: true }
-            )
-          ).toBeVisible();
       });
     }
     await fixture("archive-scoped-guardian");

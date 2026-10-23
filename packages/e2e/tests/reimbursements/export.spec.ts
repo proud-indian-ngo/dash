@@ -142,7 +142,7 @@ test.describe("Export ZIP (admin)", () => {
       archive,
       "reimbursements_advance-payments_all-statuses_FY"
     );
-    const [headerLine] = content.split("\n");
+    const [headerLine = ""] = content.split("\n");
     expect(headerLine).toContain("Type");
     expect(headerLine).toContain("Title");
     expect(headerLine).toContain("Status");
