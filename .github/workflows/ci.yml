@@ -1,7 +1,7 @@
 name: CI
 on:
   pull_request:
-    branches: [master]
+    branches: [master, ci/selective-e2e]
     # labeled: adding run-all-e2e reruns the PR with the full E2E suite.
     types: [opened, synchronize, reopened, labeled]
   push:
