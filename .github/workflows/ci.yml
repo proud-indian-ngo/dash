@@ -158,14 +158,27 @@ jobs:
       # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
       E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
-      # Pulls and starts in the background; "Wait for Postgres" checks it. A
+      # Loading the cached image is faster than pulling it from Docker Hub.
+      - name: Cache Postgres image
+        uses: actions/cache@v6
+        with:
+          path: /tmp/postgres-image.tar
+          key: postgres-image-${{ runner.os }}-18
+      # Loads and starts in the background; "Wait for Postgres" checks it. A
       # service container waits on a backed-off health check and needs a
       # restart to enable logical replication.
       - name: Start Postgres
         run: |
-          (docker run -d --name postgres -p 5433:5432 \
-            -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
-            postgres:18 -c wal_level=logical -c max_connections=300 > /tmp/postgres.log 2>&1) &
+          (
+            if [ -f /tmp/postgres-image.tar ]; then
+              docker load -i /tmp/postgres-image.tar
+            else
+              docker pull postgres:18 && docker save postgres:18 -o /tmp/postgres-image.tar
+            fi
+            docker run -d --name postgres -p 5433:5432 \
+              -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
+              postgres:18 -c wal_level=logical -c max_connections=300
+          ) > /tmp/postgres.log 2>&1 &
 
       - uses: actions/checkout@v7
 
@@ -173,12 +186,14 @@ jobs:
         with:
           bun-version: "1.4.3"
 
-      - name: Resolve zero-cache image
+      - name: Resolve zero-cache image and Playwright version
         id: zero-cache
         run: |
           ZERO_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"@rocicorp\/zero": \["@rocicorp\/zero@([^"]+)"/); if (!match) throw new Error("Could not resolve @rocicorp/zero version from bun.lock"); console.log(match[1]);')
+          PLAYWRIGHT_VERSION=$(bun -e 'const text = await Bun.file("bun.lock").text(); const match = text.match(/"playwright-core": \["playwright-core@([^"]+)"/); if (!match) throw new Error("Could not resolve playwright-core version from bun.lock"); console.log(match[1]);')
           echo "version=${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=rocicorp/zero:${ZERO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "playwright=${PLAYWRIGHT_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Cache zero-cache image
         uses: actions/cache@v6
@@ -220,22 +235,6 @@ jobs:
         run: |
           (bash scripts/build-e2e.sh > /tmp/web-build.log 2>&1; echo $? > /tmp/web-build.exit) > /dev/null 2>&1 &
 
-      - name: Restore Playwright cache
-        id: playwright-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-      - name: Save Playwright cache
-        if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-
       - name: Wait for Postgres
         run: |
           for _ in $(seq 1 60); do
@@ -259,6 +258,8 @@ jobs:
       - name: Seed test users
         run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
+      # Boots in the background while the browser cache restores; "Wait for
+      # zero-cache" checks it.
       - name: Start zero-cache
         run: |
           until [ -f /tmp/zero-image.exit ]; do sleep 1; done
@@ -277,10 +278,30 @@ jobs:
             -e ZERO_ADMIN_PASSWORD="$ZERO_ADMIN_PASSWORD" \
             -e ZERO_LOG_LEVEL=info \
             "${{ steps.zero-cache.outputs.image }}"
-          # Wait for zero-cache to be ready (use root path, not /keepalive)
+
+      - name: Restore Playwright cache
+        id: playwright-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.zero-cache.outputs.playwright }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+      - name: Save Playwright cache
+        if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.zero-cache.outputs.playwright }}
+
+      - name: Wait for zero-cache
+        run: |
+          # Root path, not /keepalive
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
+              docker logs -t zero-cache 2>&1 | head -200
               exit 0
             fi
             sleep 1
