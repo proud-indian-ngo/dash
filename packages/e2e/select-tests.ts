@@ -22,6 +22,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+import { parseSync } from "oxc-parser";
+
 import {
   areas,
   fullSuite,
@@ -31,6 +33,7 @@ import {
   layoutAreas,
   projectSelection,
   registries,
+  seedReaders,
   signing,
   signingHelper,
 } from "./test-areas";
@@ -38,10 +41,11 @@ import {
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const TESTS = "packages/e2e/tests/";
 const AREAS_COMMENT = /^\/\/ @e2e-areas (.+)$/;
-const SEED_AREA = /^packages\/e2e\/helpers\/seed\/([\w-]+)\.ts$/;
+const SEED_MODULE = /^packages\/e2e\/helpers\/seed\/([\w-]+)\.ts$/;
 const DOMAIN =
   /^(?:packages\/[^/]+\/src|apps\/web\/src\/(?:functions|lib|hooks))\/(.+)$/;
 const SOURCE = /\.(?:ts|tsx|js|jsx|mjs)$/;
+const TYPESCRIPT = /\.(?:ts|tsx|mts|cts)$/;
 // Runtime code: app and package sources, minus scripts, configs and tests.
 const GRAPH =
   /^(?:apps\/web\/(?:src|server)\/|packages\/(?!e2e\/)[^/]+\/(?!scripts\/)[^/]+\/)/;
@@ -76,6 +80,8 @@ export interface Change {
   deleted?: boolean;
   /** A full-context diff, for the files whose lines decide the selection. */
   diff?: string;
+  /** A TypeScript file's content: at head, or before the change if deleted. */
+  source?: string;
 }
 
 export interface Repo {
@@ -222,6 +228,39 @@ function walkImporters(file: string, repo: Repo): Verdict {
     reason: `imported by ${names.join(", ")}`,
     specs: specsOfAreas(repo, names),
   };
+}
+
+/**
+ * Whether tsc erases every top-level statement: type declarations, `import
+ * type`, `export type` and `declare` statements, but not enums. An import or
+ * re-export with `type` on its specifiers only is kept as a side-effect import
+ * under verbatimModuleSyntax. Undefined when the source doesn't parse.
+ */
+function isTypeOnly(file: string, source: string): boolean | undefined {
+  const { errors, program } = parseSync(file, source);
+  if (errors.length > 0) {
+    return undefined;
+  }
+  return program.body.every((statement) => {
+    switch (statement.type) {
+      case "TSTypeAliasDeclaration":
+      case "TSInterfaceDeclaration":
+        return true;
+      case "ImportDeclaration":
+        return statement.importKind === "type";
+      case "ExportAllDeclaration":
+        return statement.exportKind === "type";
+      case "ExportNamedDeclaration":
+        return (
+          statement.exportKind === "type" &&
+          statement.declaration?.type !== "TSEnumDeclaration"
+        );
+      case "TSEnumDeclaration":
+        return false;
+      default:
+        return "declare" in statement && statement.declare === true;
+    }
+  });
 }
 
 interface DiffLine {
@@ -413,10 +452,20 @@ function classify(
   kind: "current" | "renamed" | "deleted",
   changed: string[],
   repo: Repo,
-  diff?: string
+  diff?: string,
+  source?: string
 ): Verdict {
   if (isIgnored(file)) {
     return { reason: "ignored" };
+  }
+  if (source !== undefined && TYPESCRIPT.test(file)) {
+    const typeOnly = isTypeOnly(file, source);
+    if (typeOnly === undefined) {
+      return { all: true, reason: "doesn't parse" };
+    }
+    if (typeOnly) {
+      return { reason: "type-only" };
+    }
   }
   const rule = generatedRules.find(({ isFile }) => isFile(file));
   if (rule) {
@@ -449,12 +498,15 @@ function classify(
       : { reason: "spec removed" };
   }
   if (file.startsWith("packages/e2e/")) {
-    const seedArea = SEED_AREA.exec(file)?.[1];
-    if (seedArea && seedArea in areas) {
-      return {
-        reason: `seeds ${seedArea}`,
-        specs: specsOfAreas(repo, [seedArea]),
-      };
+    const seedModule = SEED_MODULE.exec(file)?.[1];
+    if (seedModule) {
+      const readers = seedReaders[seedModule];
+      return readers
+        ? {
+            reason: `seeds ${[seedModule, ...readers].join(", ")}`,
+            specs: specsOfAreas(repo, [seedModule, ...readers]),
+          }
+        : { all: true, reason: "seed module with no seedReaders entry" };
     }
     const refs = repo.specRefs.get(file);
     if (refs?.size) {
@@ -501,14 +553,24 @@ export function selectTests(changes: Change[], repo: Repo): Plan {
   const specs = new Set<string>();
   let all = false;
   for (const change of changes) {
-    const entries: [string, "current" | "renamed" | "deleted", string?][] = [
-      [change.path, change.deleted ? "deleted" : "current", change.diff],
+    const entries: [
+      string,
+      "current" | "renamed" | "deleted",
+      string?,
+      string?,
+    ][] = [
+      [
+        change.path,
+        change.deleted ? "deleted" : "current",
+        change.diff,
+        change.source,
+      ],
     ];
     if (change.oldPath) {
       entries.push([change.oldPath, "renamed"]);
     }
-    for (const [file, kind, diff] of entries) {
-      const verdict = classify(file, kind, changed, repo, diff);
+    for (const [file, kind, diff, source] of entries) {
+      const verdict = classify(file, kind, changed, repo, diff, source);
       reasons.push(
         verdict.all
           ? { full: true, path: file, reason: verdict.reason }
@@ -557,21 +619,28 @@ export function parseNameStatus(output: string): Change[] {
 }
 
 export function changedFiles(base: string, head: string): Change[] {
+  const run = (args: string[]) =>
+    execFileSync("git", args, {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+    });
   const git = (args: string[], paths: string[] = []) =>
-    execFileSync(
-      "git",
-      ["diff", ...args, `${base}...${head}`, "--", ...paths],
-      {
-        cwd: ROOT,
-        encoding: "utf8",
-        maxBuffer: 64 * 1024 * 1024,
-      }
-    );
+    run(["diff", ...args, `${base}...${head}`, "--", ...paths]);
+  // A three-dot diff's old side is the merge base.
+  const mergeBase = run(["merge-base", base, head]).trim();
   return parseNameStatus(git(["--name-status", "-z", "--find-renames"])).map(
-    (change) =>
-      needsDiff(change.path) && !(change.deleted || change.oldPath)
-        ? { ...change, diff: git(["--unified=100000"], [change.path]) }
-        : change
+    (change) => {
+      const out: Change = { ...change };
+      if (needsDiff(change.path) && !(change.deleted || change.oldPath)) {
+        out.diff = git(["--unified=100000"], [change.path]);
+      }
+      if (TYPESCRIPT.test(change.path)) {
+        const rev = change.deleted ? mergeBase : head;
+        out.source = run(["show", `${rev}:${change.path}`]);
+      }
+      return out;
+    }
   );
 }
 
