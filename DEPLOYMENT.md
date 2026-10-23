@@ -161,7 +161,7 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 ### Web app
 
-The production container listens internally on port 3000 with a health check at `/api/health`; local development uses 3001. Dokploy routes the domain through Traefik to container port 3000. Do not publish the web port directly: the app trusts the final forwarded IP supplied by that proxy.
+The production container listens internally on port 3000 with a health check at `/api/health`; local development uses 3001. Dokploy routes the domain through Traefik to container port 3000. Do not publish the web port directly: the app trusts the forwarded IPs that proxy supplies.
 
 Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. The error screen's Reload first calls `/api/clear-cache`, whose `Clear-Site-Data: "cache"` drops a chunk the browser cached broken; phones have no hard-refresh shortcut. Proxies must pass that header through. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 
@@ -223,7 +223,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] Website rebuilds, if wanted: `WEBSITE_DISPATCH_TOKEN` set; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
 - [ ] Any upstream cache respects origin `Cache-Control` on `/assets/*`
 - [ ] Dokploy routes the web domain through Traefik to container port 3000; no web host port is published
-- [ ] Traefik retains its default forwarding behavior: `forwardedHeaders.insecure` and `forwardedHeaders.notAppendXForwardedFor` are false. The public feed and log ingestion trust its final `X-Forwarded-For` entry, never `cf-connecting-ip`
+- [ ] Traefik's entry points set `forwardedHeaders.trustedIPs` to Cloudflare's published ranges, the same list as `apps/web/src/lib/client-ip.ts`, and keep `insecure` and `notAppendXForwardedFor` false. Update both when cloudflare.com/ips changes ([rate limiter](docs/architecture/caching.md#rate-limiter))
 
 ## Backups and restore
 

@@ -7,10 +7,27 @@ import {
   getAuditedAuthChangedFields,
 } from "@/lib/audit-auth";
 import { isPublicBetterAuthAdminPath } from "@/lib/auth-route-policy";
+import { trustedClientIp } from "@/lib/client-ip";
 
 const AUTH_PATH_PREFIX = /^\/api\/auth/;
 
-async function handleAuthPost(request: Request): Promise<Response> {
+/**
+ * Better Auth keys its rate limits and stores session IPs from a single-value
+ * `x-forwarded-for`, so hand it only the visitor this app's own limits use.
+ */
+function withVisitorIp(request: Request): Request {
+  const headers = new Headers(request.headers);
+  const ip = trustedClientIp(request);
+  if (ip) {
+    headers.set("x-forwarded-for", ip);
+  } else {
+    headers.delete("x-forwarded-for");
+  }
+  return new Request(request, { headers });
+}
+
+async function handleAuthPost(forwarded: Request): Promise<Response> {
+  const request = withVisitorIp(forwarded);
   if (isPublicBetterAuthAdminPath(request.url)) {
     return new Response("Not found", { status: 404 });
   }
@@ -44,7 +61,7 @@ function handleAuthGet(request: Request): Promise<Response> | Response {
   if (isPublicBetterAuthAdminPath(request.url)) {
     return new Response("Not found", { status: 404 });
   }
-  return auth.handler(request);
+  return auth.handler(withVisitorIp(request));
 }
 
 export const Route = createFileRoute("/api/auth/$")({
