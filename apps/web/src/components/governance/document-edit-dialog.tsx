@@ -30,10 +30,19 @@ import {
 import type { VaultDocument } from "./document-detail-sheet";
 import { dateToIso, isoToDate } from "./register-data";
 
-const kindOptions = governanceDocumentKindValues.map((value) => ({
-  label: GOVERNANCE_DOCUMENT_KIND_LABELS[value],
-  value,
-}));
+// A utilisation certificate's kind is fixed: nothing becomes one by hand.
+const kindOptions = governanceDocumentKindValues
+  .filter((value) => value !== "utilisation_certificate")
+  .map((value) => ({
+    label: GOVERNANCE_DOCUMENT_KIND_LABELS[value],
+    value,
+  }));
+const certificateKind = [
+  {
+    label: GOVERNANCE_DOCUMENT_KIND_LABELS.utilisation_certificate,
+    value: "utilisation_certificate",
+  },
+];
 
 interface Values {
   datedOn: Date | undefined;
@@ -89,12 +98,21 @@ function EditForm({
     <FormLayout form={form}>
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField isRequired label="Title" name="title" />
-        <SelectField
-          isRequired
-          label="Kind"
-          name="kind"
-          options={kindOptions}
-        />
+        {document.kind === "utilisation_certificate" ? (
+          <SelectField
+            disabled
+            label="Kind"
+            name="kind"
+            options={certificateKind}
+          />
+        ) : (
+          <SelectField
+            isRequired
+            label="Kind"
+            name="kind"
+            options={kindOptions}
+          />
+        )}
         <DateField
           description="The date on the document: signed, sent or registered."
           isRequired

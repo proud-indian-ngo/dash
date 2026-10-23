@@ -36,10 +36,13 @@ import {
 
 import { dateToIso } from "./register-data";
 
-const kindOptions = governanceDocumentKindValues.map((value) => ({
-  label: GOVERNANCE_DOCUMENT_KIND_LABELS[value],
-  value,
-}));
+// Utilisation certificates are filed when they become final, never uploaded.
+const kindOptions = governanceDocumentKindValues
+  .filter((value) => value !== "utilisation_certificate")
+  .map((value) => ({
+    label: GOVERNANCE_DOCUMENT_KIND_LABELS[value],
+    value,
+  }));
 const formatOptions = governanceDocumentFormatValues.map((value) => ({
   label: GOVERNANCE_DOCUMENT_FORMAT_LABELS[value],
   value,

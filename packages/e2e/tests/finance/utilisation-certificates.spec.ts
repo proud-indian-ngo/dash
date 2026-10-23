@@ -235,6 +235,34 @@ async function longTermLevel(request: APIRequestContext, pdf: Buffer) {
   };
 }
 
+/**
+ * Finds a final certificate in the governance vault (as finance admin, who
+ * has governance.view) and downloads what the vault hands out for it.
+ */
+async function fromVault(page: Page, number: string, grantTitle: string) {
+  await page.goto("/governance/documents");
+  await waitForZeroReady(page);
+  await page.getByPlaceholder("Search documents...").fill(number);
+  const filed = page
+    .getByRole("row")
+    .filter({ hasText: `Utilisation certificate ${number}` });
+  await expect(filed).toHaveCount(1, { timeout: 20_000 });
+  const kind = await filed.locator('[data-slot="tag"]').first().textContent();
+  await filed.click();
+  const sheet = page.getByRole("dialog", {
+    name: `Utilisation certificate ${number}: ${grantTitle}`,
+  });
+  await expect(sheet.getByText("Long-term copy")).toBeVisible();
+  await sheet.getByRole("button", { name: "View" }).click();
+  const href =
+    (await page
+      .getByRole("link", { name: "Open in new tab" })
+      .getAttribute("href")) ?? "";
+  const documentId = new URL(href, page.url()).searchParams.get("id");
+  expect(documentId).toBeTruthy();
+  return { documentId, kind, pdf: await download(page.request, href) };
+}
+
 async function attachJson(testInfo: TestInfo, name: string, value: unknown) {
   const file = testInfo.outputPath(name);
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -467,157 +495,188 @@ test.describe("utilisation certificates", () => {
     });
   });
 
-  test("finance prepares, both trustees sign, the CA's certificate makes it final", async ({
-    browser,
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "finance_admin", "Finance test");
-    test.slow();
-    const head = testSigner("asha-rao");
-    const finance = testSigner("vikram-menon");
-    const grant = await newGrant();
+  // Both sign as Asha Rao and Vikram Menon, enrolling their DSCs afresh, so
+  // they run one after the other.
+  test.describe("signing", () => {
+    test.describe.configure({ mode: "serial" });
 
-    // A discarded certificate keeps its number: the next one follows it.
-    await openGrant(page, grant.grantId);
-    const discarded = await prepare(page, await openPrepare(page));
-    await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: "Discard certificate" }).click();
-    await page
-      .getByRole("alertdialog")
-      .getByRole("button", { name: "Discard certificate" })
-      .click();
-    await expect(page.getByText("Discarded", { exact: true })).toBeVisible({
-      timeout: 15_000,
-    });
-    await openGrant(page, grant.grantId);
-    const { number, url } = await prepare(page, await openPrepare(page));
-    const sequence = (n: string) => Number(n.split("/").at(-1));
-    expect(number.split("/").slice(0, -1)).toEqual(
-      discarded.number.split("/").slice(0, -1)
-    );
-    expect(sequence(number)).toBe(sequence(discarded.number) + 1);
-    await expect(page.getByText("Waiting for Asha Rao").first()).toBeVisible();
+    test("finance prepares, both trustees sign, the CA's certificate makes it final", async ({
+      browser,
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "finance_admin", "Finance test");
+      test.slow();
+      const head = testSigner("asha-rao");
+      const finance = testSigner("vikram-menon");
+      const grant = await newGrant();
 
-    // The Head of the Organisation signs, then the Chief Finance Officer.
-    await signAs(browser, "super_admin", url, head, "Asha Rao");
-    await expect(
-      page.getByText("Waiting for Vikram Menon").first()
-    ).toBeVisible({ timeout: 20_000 });
-    await signAs(browser, "admin", url, finance, "Vikram Menon");
-    await expect(page.getByText("Waiting for CA").first()).toBeVisible({
-      timeout: 20_000,
-    });
-    const id = url.split("/").at(-1) ?? "";
-    const served = `/api/utilisation-certificates/${id}?file=latest`;
-
-    // Both signatures in, the signed PDF served is its long-term copy.
-    const longTerm = await longTermLevel(
-      page.request,
-      await download(page.request, served)
-    );
-
-    // The CA's UDIN and document, under a name in Hindi.
-    await page.getByLabel("UDIN").fill("26123456ABCDEFGHIJ");
-    await page.getByLabel("CA's certificate").setInputFiles({
-      buffer: Buffer.from("%PDF-1.4\n% E2E CA report\n%%EOF\n"),
-      mimeType: "application/pdf",
-      name: "सीए रिपोर्ट.pdf",
-    });
-    await page.getByRole("button", { name: "Record CA certificate" }).click();
-    await expect(
-      page.getByText("CA certificate recorded. The certificate is final.")
-    ).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText("UDIN 26123456ABCDEFGHIJ")).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(
-      page.getByTestId("certificate-steps").locator("[data-state='done']")
-    ).toHaveCount(5);
-    const ca = await page.request.get(
-      `/api/utilisation-certificates/${id}?file=ca`
-    );
-    expect(ca.status()).toBe(200);
-    expect(ca.headers()["content-disposition"]).toBe(
-      'attachment; filename="ca-certificate.pdf"'
-    );
-
-    // A signer who no longer holds the office they were named for is refused.
-    const wrongOffice = await newCertificate(
-      (await newGrant()).grantId,
-      "awaiting_head",
-      "2026-04-01",
-      "2026-06-30",
-      "wrong-office"
-    );
-    await asRole(browser, "super_admin", async (other) => {
-      await other.goto(`/finance/grants/certificates/${wrongOffice.id}`);
-      await waitForZeroReady(other);
-      await other
-        .getByRole("region", { name: "Your signature" })
-        .getByRole("button", { name: "Sign with your DSC" })
-        .click({ timeout: 20_000 });
+      // A discarded certificate keeps its number: the next one follows it.
+      await openGrant(page, grant.grantId);
+      const discarded = await prepare(page, await openPrepare(page));
+      await page.getByRole("button", { name: "More actions" }).click();
+      await page.getByRole("menuitem", { name: "Discard certificate" }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Discard certificate" })
+        .click();
+      await expect(page.getByText("Discarded", { exact: true })).toBeVisible({
+        timeout: 15_000,
+      });
+      await openGrant(page, grant.grantId);
+      const { number, url } = await prepare(page, await openPrepare(page));
+      const sequence = (n: string) => Number(n.split("/").at(-1));
+      expect(number.split("/").slice(0, -1)).toEqual(
+        discarded.number.split("/").slice(0, -1)
+      );
+      expect(sequence(number)).toBe(sequence(discarded.number) + 1);
       await expect(
-        other.locator("[data-sonner-toast]").filter({
-          hasText:
-            "Asha Rao no longer holds the office of Treasurer, so they can't sign this certificate.",
-        })
+        page.getByText("Waiting for Asha Rao").first()
+      ).toBeVisible();
+
+      // The Head of the Organisation signs, then the Chief Finance Officer.
+      await signAs(browser, "super_admin", url, head, "Asha Rao");
+      await expect(
+        page.getByText("Waiting for Vikram Menon").first()
       ).toBeVisible({ timeout: 20_000 });
+      await signAs(browser, "admin", url, finance, "Vikram Menon");
+      await expect(page.getByText("Waiting for CA").first()).toBeVisible({
+        timeout: 20_000,
+      });
+      const id = url.split("/").at(-1) ?? "";
+      const served = `/api/utilisation-certificates/${id}?file=latest`;
+
+      // Both signatures in, the signed PDF served is its long-term copy.
+      const signedCopy = await download(page.request, served);
+      const longTerm = await longTermLevel(page.request, signedCopy);
+
+      // The CA's UDIN and document, under a name in Hindi.
+      await page.getByLabel("UDIN").fill("26123456ABCDEFGHIJ");
+      await page.getByLabel("CA's certificate").setInputFiles({
+        buffer: Buffer.from("%PDF-1.4\n% E2E CA report\n%%EOF\n"),
+        mimeType: "application/pdf",
+        name: "सीए रिपोर्ट.pdf",
+      });
+      await page.getByRole("button", { name: "Record CA certificate" }).click();
+      await expect(
+        page.getByText("CA certificate recorded. The certificate is final.")
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("UDIN 26123456ABCDEFGHIJ")).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(
+        page.getByTestId("certificate-steps").locator("[data-state='done']")
+      ).toHaveCount(5);
+      const ca = await page.request.get(
+        `/api/utilisation-certificates/${id}?file=ca`
+      );
+      expect(ca.status()).toBe(200);
+      expect(ca.headers()["content-disposition"]).toBe(
+        'attachment; filename="ca-certificate.pdf"'
+      );
+
+      // A signer who no longer holds the office they were named for is refused.
+      const wrongOffice = await newCertificate(
+        (await newGrant()).grantId,
+        "awaiting_head",
+        "2026-04-01",
+        "2026-06-30",
+        "wrong-office"
+      );
+      await asRole(browser, "super_admin", async (other) => {
+        await other.goto(`/finance/grants/certificates/${wrongOffice.id}`);
+        await waitForZeroReady(other);
+        await other
+          .getByRole("region", { name: "Your signature" })
+          .getByRole("button", { name: "Sign with your DSC" })
+          .click({ timeout: 20_000 });
+        await expect(
+          other.locator("[data-sonner-toast]").filter({
+            hasText:
+              "Asha Rao no longer holds the office of Treasurer, so they can't sign this certificate.",
+          })
+        ).toBeVisible({ timeout: 20_000 });
+      });
+
+      // The artifact: the final PDF and what it certifies.
+      await page.reload();
+      await waitForZeroReady(page);
+      await expect(
+        page.getByText("Final", { exact: true }).first()
+      ).toBeVisible();
+      const certificate = {
+        figures: await detailsOf(page),
+        number: number.replace(/\d+$/, "NNN"),
+        signers: await page
+          .getByTestId("certificate-signers")
+          .getByRole("listitem")
+          .locator("span.font-medium")
+          .allTextContents(),
+        status: "Final",
+      };
+      const pdf = await download(page.request, served);
+      const pdfFile = testInfo.outputPath("utilisation-certificate.pdf");
+      await writeFile(pdfFile, pdf);
+      await testInfo.attach("utilisation-certificate.pdf", {
+        contentType: "application/pdf",
+        path: pdfFile,
+      });
+      // Still the long-term copy made when the second trustee signed.
+      expect(sha256(pdf)).toBe(sha256(signedCopy));
+
+      // Final, it is filed in the governance vault, which hands out the same
+      // long-term copy to anyone with governance.view.
+      const vault = await fromVault(page, number, grant.title);
+      expect(vault.kind).toBe("Utilisation certificate");
+      expect(sha256(vault.pdf)).toBe(sha256(pdf));
+
+      await attachJson(testInfo, "utilisation-certificate.json", {
+        ca: { file: "ca-certificate.pdf", udin: "26123456ABCDEFGHIJ" },
+        certificate,
+        pdf: { ...longTerm, sha256: sha256(pdf) },
+        vault: { documentId: vault.documentId, kind: vault.kind },
+      });
     });
 
-    // The artifact: the final PDF and what it certifies.
-    await page.reload();
-    await waitForZeroReady(page);
-    await expect(
-      page.getByText("Final", { exact: true }).first()
-    ).toBeVisible();
-    const certificate = {
-      figures: await detailsOf(page),
-      number: number.replace(/\d+$/, "NNN"),
-      signers: await page
-        .getByTestId("certificate-signers")
-        .getByRole("listitem")
-        .locator("span.font-medium")
-        .allTextContents(),
-      status: "Final",
-    };
-    const pdf = await download(page.request, served);
-    const pdfFile = testInfo.outputPath("utilisation-certificate.pdf");
-    await writeFile(pdfFile, pdf);
-    await testInfo.attach("utilisation-certificate.pdf", {
-      contentType: "application/pdf",
-      path: pdfFile,
-    });
-    // Still the long-term copy made when the second trustee signed.
-    expect(await longTermLevel(page.request, pdf)).toEqual(longTerm);
+    test("without a CA, the second signature makes it final and files its long-term copy", async ({
+      browser,
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "finance_admin", "Finance test");
+      test.slow();
+      const grant = await newGrant("csr", "no-ca");
+      await openGrant(page, grant.grantId);
+      const { number, url } = await prepare(page, await openPrepare(page));
+      await signAs(
+        browser,
+        "super_admin",
+        url,
+        testSigner("asha-rao"),
+        "Asha Rao"
+      );
+      await signAs(
+        browser,
+        "admin",
+        url,
+        testSigner("vikram-menon"),
+        "Vikram Menon"
+      );
+      await page.reload();
+      await waitForZeroReady(page);
+      await expect(
+        page.getByText("Final", { exact: true }).first()
+      ).toBeVisible({
+        timeout: 20_000,
+      });
 
-    // Final, it is filed in the governance vault, which hands out the same
-    // long-term copy to anyone with governance.view.
-    await page.goto("/governance/documents");
-    await waitForZeroReady(page);
-    await page.getByPlaceholder("Search documents...").fill(number);
-    const filed = page
-      .getByRole("row")
-      .filter({ hasText: `Utilisation certificate ${number}` });
-    await expect(filed).toHaveCount(1, { timeout: 20_000 });
-    await filed.click();
-    const sheet = page.getByRole("dialog", {
-      name: `Utilisation certificate ${number}: ${grant.title}`,
-    });
-    await expect(sheet.getByText("Long-term copy")).toBeVisible();
-    await sheet.getByRole("button", { name: "View" }).click();
-    const vaultHref =
-      (await page
-        .getByRole("link", { name: "Open in new tab" })
-        .getAttribute("href")) ?? "";
-    const documentId = new URL(vaultHref, page.url()).searchParams.get("id");
-    expect(documentId).toBeTruthy();
-    expect(sha256(await download(page.request, vaultHref))).toBe(sha256(pdf));
-
-    await attachJson(testInfo, "utilisation-certificate.json", {
-      ca: { file: "ca-certificate.pdf", udin: "26123456ABCDEFGHIJ" },
-      certificate,
-      pdf: { ...longTerm, sha256: sha256(pdf) },
-      vault: { documentId, kind: "Utilisation certificate" },
+      // The copy is made after the certificate is filed, so it lands on the
+      // vault document, which hands out the same long-term copy.
+      const pdf = await download(
+        page.request,
+        `/api/utilisation-certificates/${url.split("/").at(-1) ?? ""}?file=latest`
+      );
+      await longTermLevel(page.request, pdf);
+      const vault = await fromVault(page, number, grant.title);
+      expect(sha256(vault.pdf)).toBe(sha256(pdf));
     });
   });
 

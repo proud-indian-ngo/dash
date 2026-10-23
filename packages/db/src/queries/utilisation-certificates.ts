@@ -27,7 +27,7 @@ import {
   type UtilisationCertificateSnapshot,
   type UtilisationCertificateStatus,
 } from "@pi-dash/shared/utilisation-certificates";
-import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { uuidv7 } from "uuidv7";
 
@@ -598,7 +598,9 @@ export async function recordCaCertificate(
       );
     }
     if (row.latestSha256 !== input.signed.sha256) {
-      throw new Error("The certificate's signed copy changed meanwhile");
+      throw new CertificateError(
+        "The certificate's signed copy changed meanwhile. Try again."
+      );
     }
     const ca = { caUdin: input.udin };
     await tx
@@ -614,6 +616,49 @@ export async function recordCaCertificate(
         updatedAt: now,
       })
       .where(eq(utilisationCertificate.id, input.id));
+  });
+}
+
+/** Final certificates not yet in the vault: those made final before filing existed. */
+export async function unfiledFinalCertificates() {
+  return await db
+    .select({
+      id: utilisationCertificate.id,
+      latestObjectKey: utilisationCertificate.latestObjectKey,
+    })
+    .from(utilisationCertificate)
+    .where(
+      and(
+        eq(utilisationCertificate.status, "final"),
+        isNull(utilisationCertificate.documentId)
+      )
+    );
+}
+
+/**
+ * Files a final certificate that isn't in the vault yet, as becoming final
+ * does now, under its lock. Does nothing when it is filed meanwhile or its
+ * signed copy isn't the one checked.
+ */
+export async function fileFinalCertificate(
+  id: string,
+  signed: SignedCopyFacts & { sha256: string }
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const row = await lockCertificate(tx, id);
+    if (
+      row.status !== "final" ||
+      row.documentId ||
+      row.latestSha256 !== signed.sha256
+    ) {
+      return;
+    }
+    // Dated the day it became final, as it would have been filed then.
+    const finalAt = row.caRecordedAt ?? row.financeSignedAt ?? new Date();
+    await tx
+      .update(utilisationCertificate)
+      .set(await fileInVault(tx, row, signed, finalAt))
+      .where(eq(utilisationCertificate.id, id));
   });
 }
 
@@ -709,6 +754,17 @@ export async function cancelCertificate(
         updatedAt: now,
       })
       .where(eq(utilisationCertificate.id, input.id));
+    // A final certificate stays filed, still a record, with the cancellation
+    // noted on its vault document.
+    if (row.documentId) {
+      const cancelled = `Cancelled on ${todayInKolkata(now)}: ${input.reason}`;
+      await tx
+        .update(governanceDocument)
+        .set({
+          note: sql`CASE WHEN ${governanceDocument.note} IS NULL OR ${governanceDocument.note} = '' THEN ${cancelled} ELSE ${governanceDocument.note} || ' ' || ${cancelled} END`,
+        })
+        .where(eq(governanceDocument.id, row.documentId));
+    }
   });
 }
 

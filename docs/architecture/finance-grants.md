@@ -26,7 +26,7 @@ Schema `packages/db/src/schema/grant.ts`. The table is `grant_agreement` because
 
 ## Budget
 
-`grant_budget_line` holds one amount per expense head, the same budgetable heads as [Budgets](finance-and-programmes.md#budgets) (`budgetableHeadIds`). ₹0 is a budget; a blank head has none.
+`grant_budget_line` holds one amount per expense head, the same budgetable heads as [Budgets](finance-and-programmes.md#budgets) (`budgetableHeadIds`). ₹0 is a budget; a blank head has none. Spend above a head's budget shows in red only.
 
 ## Utilisation
 
@@ -48,12 +48,12 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 
 A certificate covers any period within the grant, GFR 12-A style. No law requires the trust to issue one or a CA's certificate: CSR Rule 4(5) puts certifying on the company, which asks for them by contract.
 
-- **Prepare** (`finance.manage`): period, place and interest earned. A grant's live certificates never overlap. Interest isn't separated in the books, so finance enters it (default ₹0); it enters the chain, and earlier certificates' interest is brought forward. Preparing freezes `grantUtilisation`'s figures into a snapshot, numbers it (`UC/2026-27/001`, gap-free per financial year from a locked counter row) and stores the PDF rendered from the snapshot with both signature fields, in one transaction. Name, address and PAN come from the receipt settings; 12AB, 80G and CSR-1 (required for CSR grants) from Governance → Registrations.
+- **Prepare** (`finance.manage`): period, place and interest earned. A grant's live certificates never overlap. Interest isn't separated in the books, so finance enters it; it enters the chain, and earlier certificates' interest is brought forward. Preparing freezes `grantUtilisation`'s figures into a snapshot, numbers it (`UC/2026-27/001`, gap-free per financial year from a locked counter row) and stores the PDF rendered from the snapshot with both signature fields, in one transaction. Name, address and PAN come from the receipt settings; 12AB, 80G and CSR-1 (required for CSR grants) from Governance → Registrations.
 - **PDF** (`packages/pdf/src/utilisation-certificate.tsx`): the GFR 12-A certification adapted to CSR, with both trustees' boxes and, when asked, a CA slot.
 - **Sign**: the Head of the Organisation (Managing Trustee), then the Chief Finance Officer (Treasurer, or the Joint Managing Trustee while no other trustee is), fixed at preparing; two holders of one office are refused. A signer must still hold that office when signing, else finance withdraws it and prepares again. Each signs with the DSC helper or Acrobat under the governance checks ([signing](governance-resolutions.md#signing)), appending to the latest copy. Signers need no finance permission: they open only what they sign, from their dashboard and notices.
-- **Long-term copy**: once both have signed, the latest copy gets one as a passed circular does ([long-term copies](governance-resolutions.md#long-term-copies)), and downloads serve it. If the signing service or timestamp authority fails, it stays due for the monthly job and the certificate moves on.
+- **Long-term copy**: once both have signed, the latest copy gets one as a passed circular does ([long-term copies](governance-resolutions.md#long-term-copies)), and downloads serve it. If making it fails, the monthly job does and the certificate moves on.
 - **CA**: when the agreement needs one (frozen at preparing), finance then records the UDIN and the countersigned PDF or CA report, making it final; otherwise both signatures do.
-- **Vault**: the transaction that makes it final files the signed copy in the governance vault, as signed minutes are, and the document takes over the long-term copy. The CA's document stays on the certificate. One cancelled before final is never filed; after, it stays.
+- **Vault**: the transaction that makes it final files the signed copy in the governance vault, and the document takes over the long-term copy. The CA's document stays on the certificate. Cancelled before final, it is never filed; after, it stays, its note saying so.
 - **Withdraw**: discard before the first signature, cancel with a reason after; both keep the number. Downloads are audited.
 
 ### Lock and drift

@@ -28,11 +28,15 @@ interface Grant {
   title: string;
 }
 
-export const newGrant = (kind: "csr" | "specific_grant" = "csr") =>
+export const newGrant = (
+  kind: "csr" | "specific_grant" = "csr",
+  ca: "ca" | "no-ca" = "ca"
+) =>
   fixture<Grant>(
     "grant",
     `${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
-    kind
+    kind,
+    ca
   );
 
 export const newCertificate = (

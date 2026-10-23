@@ -1,6 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -359,18 +369,25 @@ export async function setArchiveCopy(
 }
 
 /**
- * Long-term copies whose yearly document timestamp is due: vault
- * documents', and those of certificates waiting for the CA, which aren't
- * filed yet. A cancelled certificate's copy is no longer renewed.
+ * Long-term copies to make or renew: vault documents' whose yearly document
+ * timestamp is due, and certificates both trustees signed whose copy is due
+ * or was never made (a filed one's is its vault document's). A cancelled
+ * certificate that was never filed is no longer kept up. `originalObjectKey`
+ * is the signed PDF itself: a copy still at that key was never made.
  */
-export async function archivesDue(
-  today: string
-): Promise<{ archiveObjectKey: string | null; target: ArchiveTarget }[]> {
+export async function archivesDue(today: string): Promise<
+  {
+    archiveObjectKey: string;
+    originalObjectKey: string;
+    target: ArchiveTarget;
+  }[]
+> {
   const [documents, certificates] = await Promise.all([
     db
       .select({
         archiveObjectKey: governanceDocument.archiveObjectKey,
         id: governanceDocument.id,
+        objectKey: governanceDocument.objectKey,
       })
       .from(governanceDocument)
       .where(lte(governanceDocument.archiveRenewOn, today)),
@@ -378,23 +395,39 @@ export async function archivesDue(
       .select({
         archiveObjectKey: utilisationCertificate.archiveObjectKey,
         id: utilisationCertificate.id,
+        latestObjectKey: utilisationCertificate.latestObjectKey,
       })
       .from(utilisationCertificate)
+      .leftJoin(
+        governanceDocument,
+        eq(governanceDocument.id, utilisationCertificate.documentId)
+      )
       .where(
-        and(
-          lte(utilisationCertificate.archiveRenewOn, today),
-          eq(utilisationCertificate.status, "awaiting_ca"),
-          isNull(utilisationCertificate.documentId)
+        or(
+          and(
+            isNull(utilisationCertificate.documentId),
+            eq(utilisationCertificate.status, "awaiting_ca"),
+            or(
+              isNull(utilisationCertificate.archiveObjectKey),
+              lte(utilisationCertificate.archiveRenewOn, today)
+            )
+          ),
+          and(
+            isNotNull(utilisationCertificate.documentId),
+            isNull(governanceDocument.archiveObjectKey)
+          )
         )
       ),
   ]);
   return [
     ...documents.map((d) => ({
-      archiveObjectKey: d.archiveObjectKey,
+      archiveObjectKey: d.archiveObjectKey ?? d.objectKey,
+      originalObjectKey: d.objectKey,
       target: { documentId: d.id },
     })),
     ...certificates.map((c) => ({
-      archiveObjectKey: c.archiveObjectKey,
+      archiveObjectKey: c.archiveObjectKey ?? c.latestObjectKey,
+      originalObjectKey: c.latestObjectKey,
       target: { certificateId: c.id },
     })),
   ];
