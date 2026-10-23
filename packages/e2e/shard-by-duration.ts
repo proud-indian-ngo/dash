@@ -24,9 +24,12 @@ const DURATIONS_FILE = path.resolve(
 );
 const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
 const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
-// Test time per shard; each shard also spends about 70s on setup.
-const SHARD_TEST_MS = 100_000;
-const MAX_SHARDS = 12;
+// Selected test time per shard, summed over the role projects a spec runs
+// in, since each project's run is real work. Each shard also spends about
+// 70s on setup. The repository is public, so runners are free, and 20
+// shards stay well inside the 60 concurrent jobs GitHub Team allows.
+const SHARD_TEST_MS = 70_000;
+const MAX_SHARDS = 20;
 // Pulls in setup and its teardown, exclusive_last, which then runs the specs
 // E2E_EXCLUSIVE_LAST names. The path is relative to the config's testDir.
 const SETUP_LINE = "[setup] › ../global-setup.ts";

@@ -2,8 +2,6 @@ name: CI
 on:
   pull_request:
     branches: [master]
-    # labeled: adding run-all-e2e reruns the PR with the full E2E suite.
-    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [master]
   # Benchmarks a runner: dispatch the same commit on each and compare job times.
@@ -77,6 +75,9 @@ jobs:
 
   prepare-shards:
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       shards: ${{ steps.shards.outputs.shards }}
       matrix: ${{ steps.shards.outputs.matrix }}
@@ -103,11 +104,23 @@ jobs:
             e2e-durations-${{ github.ref_name }}-
             e2e-durations-master
             e2e-durations-
-      # Pushes, dispatches and PRs labelled run-all-e2e skip this and run
-      # everything. A planner error selects everything too; if the step
-      # itself fails, the missing selection does the same.
+      # Read live, not from the event: a re-run keeps its first event, so
+      # adding run-all-e2e and re-running the jobs picks the label up.
+      - name: Read PR labels
+        id: labels
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          run_all=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq 'any(.labels[]; .name == "run-all-e2e")')
+          echo "run_all=$run_all" >> "$GITHUB_OUTPUT"
+      # Pushes, dispatches, PRs labelled run-all-e2e and a failed label read
+      # skip this and run everything. A planner error selects everything
+      # too; if the step itself fails, the missing selection does the same.
       - name: Select E2E specs
-        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'run-all-e2e')
+        if: github.event_name == 'pull_request' && steps.labels.outcome == 'success' && steps.labels.outputs.run_all == 'false'
         continue-on-error: true
         run: bun run packages/e2e/select-tests.ts HEAD^1 HEAD "$RUNNER_TEMP/e2e-selection.json"
       - name: Generate shard lists
@@ -120,7 +133,7 @@ jobs:
           path: packages/e2e/shard-lists/
           retention-days: 1
 
-  # One shard per ~100s of selected test time; none when nothing is selected.
+  # One shard per ~70s of selected test time; none when nothing is selected.
   e2e:
     name: e2e (${{ matrix.shard }})
     needs: prepare-shards

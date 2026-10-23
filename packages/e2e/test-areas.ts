@@ -260,7 +260,7 @@ export const fullSuite = [
   "packages/env/src/**",
   "packages/db/scripts/migrate.ts",
   "packages/zero/scripts/{prepare-publication,publication}.ts",
-  "packages/e2e/{playwright.config,global-setup,project-selection,shard-by-duration,duration-reporter,failure-reporter}.ts",
+  "packages/e2e/{playwright.config,global-setup,shard-by-duration,duration-reporter,failure-reporter}.ts",
   "packages/e2e/fake-*.ts",
   "packages/e2e/.env.test",
   "packages/e2e/fixtures/**",
@@ -325,7 +325,9 @@ export const layoutAreas = ["sidebar", "authorization"] as const;
 /**
  * Files that import every module of a kind. The import graph does not pass
  * through them, or every mutator, query, table and job would look global.
- * A file the graph reaches only through one needs an area.
+ * A file the graph reaches only through one needs an area. A change to one
+ * selects the modules its changed import, export and object-entry lines
+ * name; any other changed line runs the full suite.
  */
 export const registries = [
   "packages/zero/src/{mutators,queries,schema}.ts",
@@ -352,3 +354,10 @@ export const generated = [
  */
 export const signing = ["services/signing/**", "packages/e2e/signing/**"];
 export const signingHelper = "packages/e2e/helpers/dsc-helper.ts";
+
+/**
+ * The role, exclusive_last and live-Edition spec lists. A change selects the
+ * specs its changed lines name, and runs the full suite when another line
+ * changes or a spec leaves exclusiveLastSpecs or singleLiveEditionSpecs.
+ */
+export const projectSelection = "packages/e2e/project-selection.ts";
