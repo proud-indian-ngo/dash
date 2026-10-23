@@ -60,7 +60,11 @@ export const contributionQueries = {
     if (!canSeeIncome(ctx)) {
       return zql.contribution
         .where("id", "__never_match__")
-        .related("party")
+        .related("party", (p) =>
+          p.related("roles", (r) =>
+            r.where("role", "intermediary").where("active", true)
+          )
+        )
         .related("programme")
         .related("project")
         .related("orgAccount")
@@ -75,7 +79,12 @@ export const contributionQueries = {
     const seesProjects = can(ctx, "finance.view");
     return (
       zql.contribution
-        .related("party")
+        // Gifts from an intermediary are never receipted (Receipt column).
+        .related("party", (p) =>
+          p.related("roles", (r) =>
+            r.where("role", "intermediary").where("active", true)
+          )
+        )
         .related("programme")
         .related("project", (p) =>
           seesProjects ? p : p.where("id", "__never_match__")

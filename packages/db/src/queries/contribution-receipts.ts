@@ -36,6 +36,7 @@ import {
   and,
   asc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
@@ -52,7 +53,7 @@ import { appConfig } from "../schema/app-config";
 import { contributionReceipt } from "../schema/contribution-receipt";
 import { programme, project } from "../schema/finance-dimensions";
 import { contribution, contributionRefund } from "../schema/income";
-import { party } from "../schema/party";
+import { party, partyRole } from "../schema/party";
 import { emailSuppression } from "../schema/private/email-suppression";
 import { partyPrivate } from "../schema/private/party-private";
 import {
@@ -174,6 +175,25 @@ export function receiptConfigGaps(config: ReceiptConfig): string[] {
 
 // ── Facts ───────────────────────────────────────────────────────────────────
 
+/**
+ * Whether the gift's party holds an active intermediary role, whatever
+ * other roles it holds. Such gifts are never receipted here.
+ */
+function partyIsIntermediary(reader: Pick<typeof db, "select">) {
+  return sql<boolean>`${exists(
+    reader
+      .select({ one: sql`1` })
+      .from(partyRole)
+      .where(
+        and(
+          eq(partyRole.partyId, contribution.partyId),
+          eq(partyRole.role, "intermediary"),
+          eq(partyRole.active, true)
+        )
+      )
+  )}`;
+}
+
 interface GiftRow {
   amountPaise: number;
   channel: ContributionChannel;
@@ -181,6 +201,7 @@ interface GiftRow {
   deductionEligible: DeductionEligible;
   donationType: DonationType;
   donationTypeDescription: string | null;
+  fromIntermediary: boolean;
   id: string;
   partyId: string;
   programmeName: string | null;
@@ -220,6 +241,7 @@ async function loadGifts(
       deductionEligible: contribution.deductionEligible,
       donationType: contribution.donationType,
       donationTypeDescription: contribution.donationTypeDescription,
+      fromIntermediary: partyIsIntermediary(tx),
       id: contribution.id,
       partyId: contribution.partyId,
       programmeId: contribution.programmeId,
@@ -282,6 +304,7 @@ async function loadGifts(
     deductionEligible: row.deductionEligible as DeductionEligible,
     donationType: row.donationType as DonationType,
     donationTypeDescription: row.donationTypeDescription,
+    fromIntermediary: row.fromIntermediary,
     id: row.id,
     partyId: row.partyId,
     programmeName: row.programmeId
@@ -400,8 +423,8 @@ function assess(
       channel: gift.channel,
       currency: gift.currency,
       deductionEligible: gift.deductionEligible,
+      fromIntermediary: gift.fromIntermediary,
       hasActiveReceipt: live.has(gift.id),
-      partyId: gift.partyId,
       receivedOn: gift.receivedOn,
       refundedPaise: gift.refundedPaise,
       reportingMode: gift.reportingMode,
@@ -511,6 +534,7 @@ export async function loadReceiptReadiness(
       channel: contribution.channel,
       currency: contribution.currency,
       deductionEligible: contribution.deductionEligible,
+      fromIntermediary: partyIsIntermediary(reader),
       id: contribution.id,
       partyId: contribution.partyId,
       receivedOn: contribution.receivedOn,
@@ -598,6 +622,7 @@ export async function loadReceiptReadiness(
     channel: gift.channel as ContributionChannel,
     currency: gift.currency,
     deductionEligible: gift.deductionEligible as DeductionEligible,
+    fromIntermediary: gift.fromIntermediary,
     hasActiveReceipt: false,
     id: gift.id,
     partyId: gift.partyId,
@@ -1179,6 +1204,21 @@ export async function loadLiveReceiptContacts(): Promise<
     };
   }
   return contacts;
+}
+
+/** The gifts, of those given, whose party holds an active intermediary role. */
+export async function loadIntermediaryGiftIds(
+  giftIds: string[],
+  reader: ReceiptReader = db
+): Promise<Set<string>> {
+  if (giftIds.length === 0) {
+    return new Set();
+  }
+  const rows = await reader
+    .select({ id: contribution.id })
+    .from(contribution)
+    .where(and(inArray(contribution.id, giftIds), partyIsIntermediary(reader)));
+  return new Set(rows.map((row) => row.id));
 }
 
 /** Live receipts of the given gifts: number and issuer, for the CA's file. */

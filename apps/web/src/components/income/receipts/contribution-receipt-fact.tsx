@@ -14,7 +14,7 @@ import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PendingDialog } from "@/components/shared/pending-dialog";
 
 import type { ContributionRow } from "../income-types";
-import { liveReceipt, receiptPdfUrl } from "./receipt-types";
+import { fromIntermediary, liveReceipt, receiptPdfUrl } from "./receipt-types";
 import { useReceiptCandidates } from "./use-receipt-candidates";
 
 const loadIssueReceiptsDialog = () => import("./issue-receipts-dialog");
@@ -31,6 +31,9 @@ const isoDay = (epoch: number) => new Date(epoch).toISOString().slice(0, 10);
 function localSkip(row: ContributionRow): ReceiptSkip | null {
   if (isoDay(row.receivedOn) < RECEIPTING_START_DAY) {
     return "before_start";
+  }
+  if (fromIntermediary(row)) {
+    return "intermediary";
   }
   if (
     row.status === "pending" ||

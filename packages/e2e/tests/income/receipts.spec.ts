@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Browser, Locator, Page } from "@playwright/test";
+import type { Browser, Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
@@ -15,6 +15,11 @@ const GIVE_DO_REFERENCE = "E2E-RECEIPT-GIVEDO";
 const RAZORPAY_REFERENCE = "E2E-RECEIPT-RAZORPAY";
 const DETAILS_DONOR = "E2E Receipt Details Donor";
 const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
+/** A CSR platform with the intermediary role (and a sponsor role) and full details. */
+const PLATFORM = "E2E Receipt Platform";
+const PLATFORM_REFERENCE = "E2E-RECEIPT-PLATFORM";
+const INTERMEDIARY_LABEL =
+  "Not receipted (Received through an intermediary (not receipted))";
 const ACCOUNT = "E2E Bank Account";
 
 /** The financial year running now in India, whose series the receipt starts. */
@@ -103,6 +108,27 @@ async function inspectAutomatic(
     { env: process.env }
   );
   return JSON.parse(stdout.trim()) as AutomaticReceiptInspection;
+}
+
+/** The server's receipt assessment of each gift, by reference. */
+async function assessGifts(references: string[]): Promise<unknown> {
+  const { stdout } = await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "assess",
+      ...references,
+    ],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim());
+}
+
+async function attachJson(testInfo: TestInfo, name: string, value: unknown) {
+  const file = testInfo.outputPath(name);
+  await writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
+  await testInfo.attach(name, { contentType: "application/json", path: file });
 }
 
 async function pickOption(
@@ -196,16 +222,12 @@ async function giftRow(
   return page.getByRole("row").filter({ hasText: donor });
 }
 
-async function openGift(page: Page, reference: string) {
+async function openGift(page: Page, reference: string, donor = RECEIPT_DONOR) {
   await page.goto("/income");
   await waitForZeroReady(page);
   await page.getByPlaceholder("Search donor or reference...").fill(reference);
-  await page
-    .getByRole("row")
-    .filter({ hasText: RECEIPT_DONOR })
-    .first()
-    .click();
-  const sheet = page.getByRole("dialog").filter({ hasText: RECEIPT_DONOR });
+  await page.getByRole("row").filter({ hasText: donor }).first().click();
+  const sheet = page.getByRole("dialog").filter({ hasText: donor });
   await expect(sheet).toBeVisible();
   return sheet;
 }
@@ -224,7 +246,9 @@ test.describe("Income: donation receipts (finance)", () => {
     );
   });
 
-  test("never offers a receipt for a give.do gift", async ({ page }) => {
+  test("never offers a receipt for a give.do gift or an intermediary's gift", async ({
+    page,
+  }, testInfo) => {
     const sheet = await openGift(page, GIVE_DO_REFERENCE);
     await expect(sheet.getByTestId("contribution-receipt")).toHaveText(
       "Receipted by give.do"
@@ -232,6 +256,57 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(sheet.getByTestId("contribution-issue-receipt")).toHaveCount(
       0
     );
+
+    // A NEFT gift from a party with the intermediary role, after the start
+    // and with full details: only the role keeps it from a receipt.
+    const platform = await openGift(page, PLATFORM_REFERENCE, PLATFORM);
+    await expect(platform.getByTestId("contribution-receipt")).toHaveText(
+      INTERMEDIARY_LABEL
+    );
+    await expect(
+      platform.getByTestId("contribution-issue-receipt")
+    ).toHaveCount(0);
+    const row = await giftRow(page, PLATFORM_REFERENCE, undefined, PLATFORM);
+    await expect(row).toHaveCount(1, { timeout: 15_000 });
+    await expect(row.getByTestId("contribution-receipt-cell")).toHaveText(
+      "Not needed"
+    );
+
+    // The artifact: the server's assessments, the control gift beside it.
+    const assessments = await assessGifts([
+      PLATFORM_REFERENCE,
+      UPI_REFERENCE,
+      GIVE_DO_REFERENCE,
+    ]);
+    expect(assessments).toEqual([
+      {
+        assessment: { issuer: "give_do", kind: "external" },
+        label: "Receipted by give.do",
+        reference: GIVE_DO_REFERENCE,
+      },
+      {
+        assessment: { kind: "skipped", reason: "intermediary" },
+        label: INTERMEDIARY_LABEL,
+        reference: PLATFORM_REFERENCE,
+      },
+      // A retry of the serial group may find the control receipted by
+      // the issue test.
+      testInfo.retry === 0
+        ? {
+            assessment: { kind: "eligible", with80G: true },
+            label: "Ready to receipt",
+            reference: UPI_REFERENCE,
+          }
+        : expect.objectContaining({
+            assessment: expect.objectContaining({
+              kind: expect.stringMatching(/^(eligible|receipted)$/),
+            }),
+            reference: UPI_REFERENCE,
+          }),
+    ]);
+    await attachJson(testInfo, "intermediary-receipt-assessments.json", {
+      assessments,
+    });
   });
 
   test("shows who receipts gateway gifts in the Receipt column", async ({
@@ -316,6 +391,7 @@ test.describe("Income: donation receipts (finance)", () => {
       RECEIPT_DONOR,
       { timeout: 15_000 }
     );
+    await expect(review).not.toContainText(PLATFORM);
     await review.getByRole("button", { name: "Cancel" }).click();
 
     // Issue just this gift from its sheet.
@@ -324,6 +400,41 @@ test.describe("Income: donation receipts (finance)", () => {
       .getByTestId("contribution-issue-receipt")
       .click({ timeout: 15_000 });
     const single = page.getByRole("dialog", { name: "Issue receipts" });
+    await expect(single.getByTestId("receipts-to-issue")).toContainText(
+      RECEIPT_DONOR
+    );
+
+    // The server never trusts the browser: an issue request naming the
+    // intermediary's gift skips it with the reason, and nothing is issued.
+    await page.route("**/_serverFn/**", async (route) => {
+      const body = route.request().postData() ?? "";
+      if (!body.includes("giftIds")) {
+        await route.continue();
+        return;
+      }
+      await route.continue({
+        postData: body.replace(
+          "01930000-0000-7000-8000-000000000743",
+          "01930000-0000-7000-8000-000000000752"
+        ),
+      });
+    });
+    await single.getByRole("button", { name: "Issue 1 receipt" }).click();
+    await expect(
+      page.getByText("1 gift was skipped because they changed since the review")
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Received through an intermediary (not receipted)", {
+        exact: true,
+      })
+    ).toBeVisible();
+    await expect(single).toBeHidden();
+    await page.unroute("**/_serverFn/**");
+    expect(await assessGifts([PLATFORM_REFERENCE])).toMatchObject([
+      { assessment: { kind: "skipped", reason: "intermediary" } },
+    ]);
+
+    await sheet.getByTestId("contribution-issue-receipt").click();
     await expect(single.getByTestId("receipts-to-issue")).toContainText(
       RECEIPT_DONOR
     );
@@ -505,6 +616,10 @@ test.describe("Income: donation receipts (finance)", () => {
   }) => {
     test.slow();
     await ensureRegistration(page);
+    // A new gift from the intermediary is queued for automatic issuing too,
+    // before the control gift.
+    const platformReference = `E2E-AUTO-PLATFORM-${Date.now()}`;
+    await recordContribution(page, PLATFORM, platformReference);
     const reference = `E2E-AUTO-RECEIPT-${Date.now()}`;
     await recordContribution(page, RECEIPT_DONOR, reference);
 
@@ -542,6 +657,23 @@ test.describe("Income: donation receipts (finance)", () => {
         ],
         receiptCount: 1,
         storedPdfCount: 1,
+      });
+    // The job had its chance at the intermediary's gift and issued nothing.
+    await expect
+      .poll(async () => await inspectAutomatic(platformReference), {
+        timeout: 30_000,
+      })
+      .toEqual({
+        autoSendMinutes: null,
+        jobs: [
+          {
+            name: "issue-contribution-receipt",
+            outcome: "not_ready",
+            state: "completed",
+          },
+        ],
+        receiptCount: 0,
+        storedPdfCount: 0,
       });
 
     await page.goto("/income?tab=receipts");

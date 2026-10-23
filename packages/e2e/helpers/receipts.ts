@@ -1,10 +1,12 @@
 import { db } from "@pi-dash/db";
+import { loadReceiptCandidates } from "@pi-dash/db/queries/contribution-receipts";
 import { contributionReceipt } from "@pi-dash/db/schema/contribution-receipt";
 import { contribution } from "@pi-dash/db/schema/income";
 import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
 import { contributionReceiptSnapshot } from "@pi-dash/db/schema/private/receipts";
 import { receiptVerifyUrl } from "@pi-dash/jobs/lib/receipt-verification";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { receiptAssessmentLabel } from "@pi-dash/shared/receipts";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 /**
  * Database steps for the receipts spec, run with Bun as a script because
@@ -17,12 +19,40 @@ import { and, eq, isNull, sql } from "drizzle-orm";
  *   stored PDF count and minutes to its automatic send, and sanitized job
  *   names, states, outcomes and (while queued) delays.
  * - `verify-path <receiptId>`: the path and query of the signed verification link.
+ * - `assess <reference>...`: the server's receipt assessment of each gift,
+ *   by reference, with the label the sheet shows. No IDs or donor details.
  */
 
 /** RECEIPT_DETAILS_DONOR_ID in seed-test-user.ts. */
 const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
 
-const [action, reference] = process.argv.slice(2);
+const [action, reference, ...moreReferences] = process.argv.slice(2);
+
+if (action === "assess" && reference) {
+  const references = [reference, ...moreReferences];
+  const gifts = await db
+    .select({ id: contribution.id, reference: contribution.reference })
+    .from(contribution)
+    .where(inArray(contribution.reference, references));
+  const candidates = await loadReceiptCandidates(gifts.map((gift) => gift.id));
+  const assessed = new Map(
+    [...candidates.eligible, ...candidates.blocked, ...candidates.other].map(
+      (candidate) => [candidate.contributionId, candidate.assessment]
+    )
+  );
+  const rows = gifts
+    .map((gift) => {
+      const assessment = assessed.get(gift.id);
+      return {
+        assessment: assessment ?? null,
+        label: assessment ? receiptAssessmentLabel(assessment) : null,
+        reference: gift.reference,
+      };
+    })
+    .sort((a, b) => (a.reference ?? "").localeCompare(b.reference ?? ""));
+  process.stdout.write(`${JSON.stringify(rows)}\n`);
+  process.exit(0);
+}
 
 if (action === "verify-path" && reference) {
   const url = new URL(receiptVerifyUrl(reference));
