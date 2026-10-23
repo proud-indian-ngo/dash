@@ -2,9 +2,12 @@
  * Fails when React Compiler skips a component or hook in apps/web/src. The
  * build skips silently, and code that leans on compiler memoization (effects
  * keyed on functions, values fed to the table hook) then re-runs every render.
- * Run by `bun run check`. Fixes for each bail-out are in
- * docs/architecture/monorepo.md#web-compilation.
+ * Run by `bun run check`, cached by Turbo, and on staged files by the commit
+ * hook: file arguments limit the check to those files. Fixes for each
+ * bail-out are in docs/architecture/monorepo.md#web-compilation.
  */
+import { relative, resolve } from "node:path";
+
 import { transformAsync } from "@babel/core";
 import reactCompiler from "babel-plugin-react-compiler";
 
@@ -18,10 +21,21 @@ interface CompilerEvent {
   reason?: string;
 }
 
+const args = process.argv.slice(2);
+const files =
+  args.length > 0
+    ? args.map((arg) => relative(SOURCE, resolve(arg)))
+    : await Array.fromAsync(
+        new Bun.Glob("**/*.{ts,tsx}").scan({ cwd: SOURCE })
+      );
+
 const failures: string[] = [];
-const files = new Bun.Glob("**/*.{ts,tsx}").scan({ cwd: SOURCE });
-for await (const file of files) {
-  if (file.includes(".test.") || file.endsWith(".gen.ts")) {
+for (const file of files) {
+  if (
+    file.startsWith("..") ||
+    file.includes(".test.") ||
+    file.endsWith(".gen.ts")
+  ) {
     continue;
   }
   await transformAsync(await Bun.file(SOURCE + file).text(), {
