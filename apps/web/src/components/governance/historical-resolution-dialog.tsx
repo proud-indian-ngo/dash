@@ -45,6 +45,8 @@ interface Values {
 
 /** A recorded resolution being corrected. */
 export interface HistoricalResolution {
+  /** A trustee term or office cites it: its number, kind and date stay. */
+  cited: boolean;
   decidedOn: string | null;
   documentId: string | null;
   id: string;
@@ -105,23 +107,37 @@ function HistoricalForm({
     },
   });
   const cancel = useEventCallback(onDone);
+  const frozen = resolution?.cited === true;
   return (
     <FormLayout form={form}>
       <div className="grid gap-4 sm:grid-cols-2">
         <InputField
           description="As on the paper, for example PI/TR/2026-27/001."
+          disabled={frozen}
           isRequired
           label="Number"
           name="number"
         />
-        <DateField isRequired label="Passed on" name="decidedOn" />
+        <DateField
+          disabled={frozen}
+          isRequired
+          label="Passed on"
+          name="decidedOn"
+        />
         <InputField isRequired label="Title" name="title" />
         <SelectField
+          disabled={frozen}
           label="Kind"
           name="templateKey"
           options={templateOptions}
         />
       </div>
+      {frozen ? (
+        <p className="text-muted-foreground text-sm">
+          The trustee register cites this resolution, so its number, kind and
+          date can't change.
+        </p>
+      ) : null}
       <SelectField
         description="The signed copy in the vault."
         label="Document"

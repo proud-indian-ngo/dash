@@ -1174,6 +1174,9 @@ export async function deleteStatementLinesIn(
 ): Promise<{ lineCount: number }> {
   let lines: StatementLineRecord[];
   if (input.kind === "import") {
+    // The retention expiry takes this lock and then updates batch rows, so
+    // take it before the batch row lock.
+    await tx.execute(IMPORT_RUN_LOCK);
     const batch = await lockStatementBatch(tx, input.batchId);
     if (!batch) {
       throw new StatementInputError("Bank statement upload not found");
@@ -1181,8 +1184,6 @@ export async function deleteStatementLinesIn(
     if (batch.status === "importing") {
       throw new StatementInputError("This statement is importing right now");
     }
-    // The retention expiry takes this lock too.
-    await tx.execute(IMPORT_RUN_LOCK);
     lines = await lockBatchLines(tx, batch.id);
   } else {
     const line = await lockStatementLine(tx, input.lineId);

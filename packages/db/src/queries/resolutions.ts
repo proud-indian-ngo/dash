@@ -1247,8 +1247,8 @@ async function isCited(tx: Tx, id: string): Promise<boolean> {
 }
 
 /**
- * Corrects a resolution recorded from paper. Its date stays while anything
- * cites it. Takes the register lock, then the year's numbering lock, as a
+ * Corrects a resolution recorded from paper. Its number, kind and date stay
+ * while anything cites it: the kind sets its tally and pass semantics. Takes the register lock, then the year's numbering lock, as a
  * pass does, so a new number never races a circular's.
  */
 export async function updateHistoricalResolution(
@@ -1261,9 +1261,13 @@ export async function updateHistoricalResolution(
         sql`SELECT pg_advisory_xact_lock(hashtextextended(${`resolution_number:${input.fiscalYear}`}, 0))`
       );
       const row = await lockHistorical(tx, input.id);
-      if (row.decidedOn !== input.decidedOn && (await isCited(tx, input.id))) {
+      const frozenChanged =
+        row.decidedOn !== input.decidedOn ||
+        row.number !== input.number ||
+        row.templateKey !== input.templateKey;
+      if (frozenChanged && (await isCited(tx, input.id))) {
         throw new ResolutionError(
-          "Other records cite this resolution, so its date can't change."
+          "Other records cite this resolution, so its number, kind and date can't change."
         );
       }
       await tx
