@@ -1,8 +1,4 @@
 import { db } from "@pi-dash/db";
-import {
-  advancePayment,
-  advancePaymentHistory,
-} from "@pi-dash/db/schema/advance-payment";
 import { user } from "@pi-dash/db/schema/auth";
 import {
   reimbursement,
@@ -38,7 +34,7 @@ async function reviewerId(): Promise<string> {
   return reviewer.id;
 }
 
-async function approve(type: string, id: string) {
+async function approve(id: string) {
   const reviewer = await reviewerId();
   const now = new Date();
   const request = {
@@ -53,33 +49,17 @@ async function approve(type: string, id: string) {
     createdAt: now,
     id: uuidv7(),
   } as const;
-  if (type === "reimbursement") {
-    const [row] = await db
-      .update(reimbursement)
-      .set(request)
-      .where(eq(reimbursement.id, id))
-      .returning({ id: reimbursement.id });
-    if (!row) {
-      throw new Error(`Reimbursement ${id} not found`);
-    }
-    await db
-      .insert(reimbursementHistory)
-      .values({ ...history, reimbursementId: id });
-  } else if (type === "advance-payment") {
-    const [row] = await db
-      .update(advancePayment)
-      .set(request)
-      .where(eq(advancePayment.id, id))
-      .returning({ id: advancePayment.id });
-    if (!row) {
-      throw new Error(`Advance payment ${id} not found`);
-    }
-    await db
-      .insert(advancePaymentHistory)
-      .values({ ...history, advancePaymentId: id });
-  } else {
-    throw new Error(`Unknown request type ${type}`);
+  const [row] = await db
+    .update(reimbursement)
+    .set(request)
+    .where(eq(reimbursement.id, id))
+    .returning({ id: reimbursement.id });
+  if (!row) {
+    throw new Error(`Reimbursement ${id} not found`);
   }
+  await db
+    .insert(reimbursementHistory)
+    .values({ ...history, reimbursementId: id });
   return { id, reviewedBy: reviewer, status: "approved" };
 }
 
@@ -232,8 +212,8 @@ async function handOver(type: string, id: string) {
 
 const [action, type = "", id = ""] = process.argv.slice(2);
 let result: unknown;
-if (action === "approve") {
-  result = await approve(type, id);
+if (action === "approve" && type === "reimbursement") {
+  result = await approve(id);
 } else if (
   action === "hand-over" &&
   (type === "reimbursement" || type === "vendor-payment")

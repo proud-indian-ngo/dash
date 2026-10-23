@@ -29,12 +29,7 @@ test.describe("Event duplication", () => {
       exact: true,
       name: "Name",
     });
-    await expect(nameInput).toBeVisible();
-    const prefillValue = await nameInput.inputValue();
-    if (!prefillValue) {
-      test.skip(true, "Name field was not pre-filled");
-      return;
-    }
+    await expect(nameInput).toHaveValue(`Copy of ${originalEventName}`);
 
     // Modify name to make it unique
     const dupName = `E2E Dup ${Date.now()}`;
@@ -91,17 +86,12 @@ test.describe("Event duplication", () => {
       timeout: 10_000,
     });
 
-    // Optionally navigate to the new event to verify details
-    await searchTeamEvents(page, dupName);
-    const newEventLink = page.getByText(dupName);
-    if ((await newEventLink.count()) > 0) {
-      await newEventLink.first().click();
-      await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-
-      // Basic verification that we're on the event detail page
-      await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-        timeout: 10_000,
-      });
-    }
+    // The copy carries the source event's details
+    await openSeededTeamEvent(page, dupName, SANDBOX_TEAM);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(dupName);
+    await expect(page.getByText("Sandbox Hall, Bangalore")).toBeVisible();
+    await expect(
+      page.getByText("Event the duplication specs copy")
+    ).toBeVisible();
   });
 });

@@ -66,18 +66,14 @@ test.describe("Export ZIP (admin)", () => {
       name: "Financial Year",
     });
     await financialYear.click();
-    // Wait for the listbox: counting before it renders skips the pick and
-    // leaves it open over the checkboxes below.
+    // The current financial year and the three before it.
     const options = page.getByRole("listbox").getByRole("option");
-    await expect(options.first()).toBeVisible();
-    if ((await options.count()) > 1) {
-      const nextYear = (await options.nth(1).textContent())?.trim() ?? "";
-      await options.nth(1).click();
-      await expect(financialYear).toContainText(nextYear);
-    } else {
-      await page.keyboard.press("Escape");
-    }
+    await expect(options).toHaveCount(4);
+    const previousYear = (await options.nth(1).textContent())?.trim() ?? "";
+    expect(previousYear).toMatch(/^FY \d{4}-\d{2}$/);
+    await options.nth(1).click();
     await expect(page.getByRole("listbox")).toBeHidden();
+    await expect(financialYear).toHaveText(previousYear);
     await expect(
       page.getByRole("button", { name: "Export ZIP" })
     ).toBeEnabled();

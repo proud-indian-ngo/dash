@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
-import { fillTableSearch } from "../../helpers/team-event";
+import { fillTableSearch, openSeededTeam } from "../../helpers/team-event";
 
 const TEAM_NAME = "E2E Updates Team";
 
@@ -37,24 +37,8 @@ async function expectRowOrder(page: Page, names: string[]) {
 test.describe("Team events list filters (admin)", () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
-
-    // Team names render as <button> in the table, not <a> links
-    const teamRow = page.getByRole("row").filter({ hasText: TEAM_NAME });
-    if ((await teamRow.count()) === 0) {
-      test.skip(true, "E2E Updates Team not found");
-      return;
-    }
-    await teamRow.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
+    await openSeededTeam(page, TEAM_NAME);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(TEAM_NAME);
   });
 
   test("status filters and clearing them", async ({ page }) => {
@@ -188,22 +172,8 @@ test.describe("Team events list (volunteer permissions)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
-
-    const teamRow = page.getByRole("row").filter({ hasText: TEAM_NAME });
-    if ((await teamRow.count()) === 0) {
-      test.skip(true, "E2E Updates Team not found for volunteer");
-      return;
-    }
-    await teamRow.first().click();
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
-    });
-    await waitForZeroReady(page);
+    await openSeededTeam(page, TEAM_NAME);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(TEAM_NAME);
 
     await expect(
       page.getByRole("button", { name: "Create event" })

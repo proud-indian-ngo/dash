@@ -38,41 +38,6 @@ test.describe("Reimbursement unhappy paths (admin)", () => {
     await expect(reimbursements.detail.getEditSubmissionButton()).toBeVisible();
   });
 
-  test("delete option unavailable on approved reimbursement", async ({
-    page,
-  }) => {
-    test.slow();
-    const reimbursements = new ReimbursementPage(page, "reimbursement");
-
-    await reimbursements.createReimbursement("Unhappy Delete Test");
-    await reimbursements.approveInDatabase();
-
-    // Navigate back to list and check approved row
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
-
-    // Find the approved row — Delete action should not be present
-    const approvedRow = reimbursements.list
-      .getTable()
-      .getByRole("row")
-      .filter({ hasText: "Unhappy Delete Test" })
-      .first();
-
-    // Open row action menu and check that Delete is not visible
-    const trigger = approvedRow.getByTestId("row-actions");
-    if (await trigger.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await trigger.click();
-      const deleteItem = page.getByRole("menuitem", { name: /Delete/i });
-      // Either Delete is not present or not visible for approved items
-      await expect(deleteItem)
-        .toBeHidden({ timeout: 3000 })
-        .catch(() => {
-          // It may simply not appear in the menu — that's also acceptable
-        });
-      await page.keyboard.press("Escape");
-    }
-  });
-
   test("API: approving without a payment screenshot is rejected", async ({
     page,
     baseURL,

@@ -65,4 +65,24 @@ test.describe("Reimbursement delete (reimbursement)", () => {
     await expect(page.getByText("Reimbursement deleted")).toBeVisible();
     await expect(row).toBeHidden({ timeout: 10_000 });
   });
+
+  test("volunteer cannot delete own approved reimbursement", async ({
+    page: _page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    test.slow();
+
+    const title = await reimbursements.createReimbursement("Delete Approved");
+    await reimbursements.approveInDatabase();
+
+    await reimbursements.navigateToList();
+    await reimbursements.list
+      .getSearchInput("Search reimbursements...")
+      .fill(title);
+    const row = reimbursements.list.getRowByText(title);
+    await expect(row).toHaveCount(1);
+
+    await reimbursements.list.openRowActionMenu(row);
+    await expect(reimbursements.list.menuItem("Delete")).toBeDisabled();
+  });
 });

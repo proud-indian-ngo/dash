@@ -50,6 +50,7 @@
         "helpers/receipts.ts",
         "helpers/donation-filings.ts",
         "helpers/request-approval.ts",
+        "helpers/bank-accounts-reset.ts",
         "helpers/lead-approval.ts",
         "helpers/kalakriti-event-day-transport.ts",
         "helpers/kalakriti-station-subject.ts",

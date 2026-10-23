@@ -2,8 +2,6 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import type { Page } from "@playwright/test";
-
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { BOOKS_YEAR, books, postPending } from "../../helpers/books-steps";
 import { pickDate } from "../../helpers/date-time-picker";
@@ -37,28 +35,17 @@ async function bankAccount(
   return JSON.parse(stdout.trim());
 }
 
-async function reverseIfPosted(page: Page) {
-  await page.goto("/finance/books/opening");
-  await waitForZeroReady(page);
-  const view = page.getByTestId("opening-view");
-  const form = page.getByRole("button", { name: "Post opening balances" });
-  await expect(view.or(form)).toBeVisible({ timeout: 15_000 });
-  if (await view.isVisible()) {
-    await clickPageAction(page, "Reverse opening balances");
-    const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Reason").fill("E2E rerun starts clean");
-    await dialog
-      .getByRole("button", { name: "Reverse opening balances" })
-      .click();
-    await expect(form).toBeVisible({ timeout: 15_000 });
-  }
-}
-
 test.describe("Books year close (runs last, alone)", () => {
   test("posts balanced opening balances, refuses unbalanced ones, keeps a running year open and reopens a closed one", async ({
     page,
   }) => {
-    await reverseIfPosted(page);
+    // Other specs and earlier runs post opening balances: start from none.
+    await books("clear-opening", YEAR);
+    await page.goto("/finance/books/opening");
+    await waitForZeroReady(page);
+    await expect(
+      page.getByRole("button", { name: "Post opening balances" })
+    ).toBeVisible({ timeout: 15_000 });
 
     await page.getByLabel("E2E Bank Account (₹)").fill("1000");
     await page.getByLabel("E2E Fixed deposit (₹)").fill("2000");
@@ -170,6 +157,17 @@ test.describe("Books year close (runs last, alone)", () => {
     await expect(
       page.getByRole("button", { name: "Post opening balances" })
     ).toHaveCount(0);
+
+    // Reversing them, with a reason, brings the form back.
+    await clickPageAction(page, "Reverse opening balances");
+    const reverseDialog = page.getByRole("dialog");
+    await reverseDialog.getByLabel("Reason").fill("E2E: CA revised them");
+    await reverseDialog
+      .getByRole("button", { name: "Reverse opening balances" })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Post opening balances" })
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("lists a gift waiting for a closed year, and posts it once the year reopens", async ({
