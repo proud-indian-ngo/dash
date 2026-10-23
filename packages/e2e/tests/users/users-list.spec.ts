@@ -59,6 +59,37 @@ test.describe("Users list (admin)", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("dragging a column header reorders it, and the order persists", async ({
+    page,
+  }) => {
+    const role = page.getByRole("columnheader", { name: /\bRole\b/ });
+    const active = page.getByRole("columnheader", { name: /\bActive\b/ });
+    const roleIndex = () =>
+      role.evaluate((node) => (node as HTMLTableCellElement).cellIndex);
+    const before = await roleIndex();
+    await role.hover();
+    const from = await role
+      .getByRole("button", { exact: true, name: "Drag to reorder" })
+      .boundingBox();
+    const to = await active.boundingBox();
+    expect(from).not.toBeNull();
+    expect(to).not.toBeNull();
+    await page.mouse.move(
+      from!.x + from!.width / 2,
+      from!.y + from!.height / 2
+    );
+    await page.mouse.down();
+    await page.mouse.move(to!.x + to!.width * 0.75, to!.y + to!.height / 2, {
+      steps: 16,
+    });
+    await page.mouse.up();
+    await expect.poll(roleIndex).toBeGreaterThan(before);
+
+    await page.reload();
+    await new ListPage(page).waitForTableData(30_000);
+    await expect.poll(roleIndex).toBeGreaterThan(before);
+  });
+
   test("shows stats cards", async ({ page }) => {
     const cardTitles = page.locator("[data-slot='stat-label']");
     await expect(cardTitles.getByText("Total Users")).toBeVisible({
