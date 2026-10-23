@@ -152,14 +152,30 @@ jobs:
       # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
       E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
-      # Pulls and starts in the background; "Wait for Postgres" checks it. A
+      # The pull has taken up to 21s and sat on the critical path; the cache
+      # restores the image instead.
+      - name: Cache Postgres image
+        uses: actions/cache@v6
+        with:
+          path: /tmp/postgres-image.tar
+          key: postgres-${{ runner.os }}-18
+      # Loads and starts in the background; "Wait for Postgres" checks it. A
       # service container waits on a backed-off health check and needs a
       # restart to enable logical replication.
       - name: Start Postgres
         run: |
-          (docker run -d --name postgres -p 5433:5432 \
-            -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
-            postgres:18 -c wal_level=logical -c max_connections=300 > /tmp/postgres.log 2>&1) &
+          (
+            start=$SECONDS
+            if [ -f /tmp/postgres-image.tar ]; then
+              docker load -i /tmp/postgres-image.tar
+            else
+              docker pull postgres:18 && docker save postgres:18 -o /tmp/postgres-image.tar
+            fi
+            echo "postgres image ready in $((SECONDS - start))s"
+            docker run -d --name postgres -p 5433:5432 \
+              -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
+              postgres:18 -c wal_level=logical -c max_connections=300
+          ) > /tmp/postgres.log 2>&1 &
 
       - uses: actions/checkout@v7
 
@@ -185,13 +201,16 @@ jobs:
       - name: Start zero-cache image load
         run: |
           (
+            start=$SECONDS
             if [ -f /tmp/zero-cache-image.tar ]; then
               docker load -i /tmp/zero-cache-image.tar
             else
               docker pull "${{ steps.zero-cache.outputs.image }}" &&
                 docker save "${{ steps.zero-cache.outputs.image }}" -o /tmp/zero-cache-image.tar
             fi > /tmp/zero-image.log 2>&1
-            echo $? > /tmp/zero-image.exit
+            status=$?
+            echo "zero-cache image ready in $((SECONDS - start))s" >> /tmp/zero-image.log
+            echo $status > /tmp/zero-image.exit
           ) > /dev/null 2>&1 &
 
       - run: bun install --frozen-lockfile
@@ -255,6 +274,7 @@ jobs:
         run: |
           for _ in $(seq 1 60); do
             if pg_isready -h localhost -p 5433 -U postgres >/dev/null 2>&1; then
+              grep "image ready" /tmp/postgres.log
               echo "postgres ready"
               exit 0
             fi
@@ -273,11 +293,9 @@ jobs:
       - name: Restrict Zero replication
         run: bun packages/zero/scripts/prepare-publication.ts
 
-      - name: Seed test users
-        run: cd packages/e2e && bun run helpers/seed-test-user.ts
-
-      # Boots in the background while the browser cache restores; "Wait for
-      # zero-cache" checks it.
+      # Boots in the background while seeding and the browser cache restore;
+      # it replicates the seed rows once they land. "Wait for zero-cache"
+      # checks it.
       - name: Start zero-cache
         run: |
           until [ -f /tmp/zero-image.exit ]; do sleep 1; done
@@ -297,6 +315,9 @@ jobs:
             -e ZERO_LOG_LEVEL=info \
             -e ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0 \
             "${{ steps.zero-cache.outputs.image }}"
+
+      - name: Seed test users
+        run: cd packages/e2e && bun run helpers/seed-test-user.ts
 
       - name: Restore Playwright cache
         id: playwright-cache
@@ -323,6 +344,9 @@ jobs:
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
+              echo "::group::zero-cache startup log"
+              docker logs -t zero-cache 2>&1
+              echo "::endgroup::"
               exit 0
             fi
             sleep 1
