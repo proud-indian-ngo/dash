@@ -1065,7 +1065,8 @@ export const teamEventMutators = {
    * Undo a cancel. It sends no notice: reminders and the RSVP poll follow
    * `cancelledAt`, so they resume on their own, and the cancel's jobs skip
    * once it no longer stands. A poll closed by the cancel stays closed until
-   * Post poll replaces it. A series row restores with the sessions cancelled
+   * Post poll replaces it. An event that has started stays cancelled: it
+   * didn't happen. A series row restores with the sessions cancelled
    * alongside it; sessions cut by "this and following" or "all upcoming"
    * after the series started stay cancelled, since the rule's old end is gone.
    */
@@ -1092,11 +1093,13 @@ export const teamEventMutators = {
         throw new Error("This event isn't cancelled");
       }
 
+      // The client's clock decides only its optimistic run.
+      const now = tx.location === "server" ? Date.now() : args.now;
       const restore = (id: string) =>
         tx.mutate.teamEvent.update({
           cancelledAt: null,
           id,
-          updatedAt: args.now,
+          updatedAt: now,
         });
 
       if (existing.recurrenceRule && !existing.seriesId) {
@@ -1107,8 +1110,8 @@ export const teamEventMutators = {
         )) as TeamEvent[];
         // Sessions that passed while it was cancelled didn't happen.
         if (
-          existing.startTime <= args.now ||
-          exceptions.some((e) => e.startTime <= args.now)
+          existing.startTime <= now ||
+          exceptions.some((e) => e.startTime <= now)
         ) {
           throw new Error(
             "This series has started since it was cancelled, so it can't be restored"
@@ -1140,13 +1143,11 @@ export const teamEventMutators = {
           );
         }
       }
-      // As with cancel, only the permission touches a session that has started.
-      if (
-        existing.startTime <= args.now &&
-        isTeamLead &&
-        !can(ctx, "events.cancel")
-      ) {
-        throw new Error("Cannot restore an event that has already started");
+      // An event that started while cancelled didn't happen.
+      if (existing.startTime <= now) {
+        throw new Error(
+          "This event has started since it was cancelled, so it can't be restored"
+        );
       }
       await restore(args.id);
     }
@@ -1490,7 +1491,8 @@ export const teamEventMutators = {
         throw new Error("Event not found");
       }
       await assertEventNotManagedByKalakriti(tx, args.eventId);
-      if (event.startTime > args.now) {
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.startTime > now) {
         throw new Error("Cannot mark attendance before event starts");
       }
       const isTeamLead = !!(await tx.run(
@@ -1514,7 +1516,7 @@ export const teamEventMutators = {
         members.map(async (member) => {
           await tx.mutate.teamEventMember.update({
             attendance: "present",
-            attendanceMarkedAt: args.now,
+            attendanceMarkedAt: now,
             attendanceMarkedBy: ctx.userId,
             id: member.id,
           });
@@ -1539,7 +1541,8 @@ export const teamEventMutators = {
         throw new Error("Event not found");
       }
       await assertEventNotManagedByKalakriti(tx, args.eventId);
-      if (event.startTime > args.now) {
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.startTime > now) {
         throw new Error("Cannot mark attendance before event starts");
       }
       const isTeamLead = !!(await tx.run(
@@ -1564,7 +1567,7 @@ export const teamEventMutators = {
 
       await tx.mutate.teamEventMember.update({
         attendance: args.attendance,
-        attendanceMarkedAt: args.now,
+        attendanceMarkedAt: now,
         attendanceMarkedBy: ctx.userId,
         id: args.memberId,
       });
@@ -1907,7 +1910,7 @@ export const teamEventMutators = {
           args.feedbackEnabled === true &&
           !existing.feedbackEnabled &&
           existing.endTime !== null &&
-          existing.endTime < args.now
+          existing.endTime < Date.now()
         ) {
           ctx.asyncTasks?.push({
             fn: async () => {
@@ -2027,11 +2030,15 @@ export const teamEventMutators = {
       });
       // Programme changes are future-effective: once a series has started,
       // "all" would rewrite past sessions, so it is refused. Before that,
-      // every session is still to come.
+      // every session is still to come. The server judges by its own clock.
       if (
         mode === "all" &&
         programmeMoves &&
-        (await seriesHasStarted(tx, existing, args.now))
+        (await seriesHasStarted(
+          tx,
+          existing,
+          tx.location === "server" ? Date.now() : args.now
+        ))
       ) {
         throw new Error(
           'Past sessions keep their programme. Open a later session and edit "This and following" to change it from there.'

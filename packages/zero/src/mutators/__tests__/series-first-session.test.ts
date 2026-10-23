@@ -551,6 +551,21 @@ describe("this and following on the series' start date", () => {
     ).rejects.toThrow("Past sessions keep their programme");
   });
 
+  it("judges that the series has started by the server's clock", async () => {
+    const d = db();
+    const onServer = { ...d, tx: { ...d.tx, location: "server" } };
+    // The client's clock is backdated before the first session.
+    setSystemTime(new Date(FIRST + 3_600_000));
+    try {
+      await expect(
+        editAll(onServer, NOW, { programmeId: "p-2" })
+      ).rejects.toThrow("Past sessions keep their programme");
+    } finally {
+      setSystemTime(new Date(NOW));
+    }
+    expect(d.tables.teamEvent?.[0]?.programmeId).toBe("p-1");
+  });
+
   it("refuses it before the start once money is charged to a session", async () => {
     const d = db();
     d.tables.reimbursement?.push({

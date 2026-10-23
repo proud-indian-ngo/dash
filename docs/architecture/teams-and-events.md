@@ -5,7 +5,7 @@
 
 The volunteer side of the dashboard: teams, the events they run, and what happens around an event. Start at `packages/zero/src/mutators/team-event.ts`.
 
-Joining, leaving and cancelling (a whole series included), feedback, interest and photo uploads take the client's `now` only for their optimistic run and judge on the server by the server's clock, so a client can't backdate its way past those time rules. Event updates, attendance, recaps, series locks and the feedback-open notification still trust the client's `now`.
+Every event time rule takes the client's `now` only for its optimistic run and judges on the server by the server's clock, so a client can't move its clock past one: creating in the past, joining, leaving, cancelling (a whole series included), restoring, feedback and the feedback-open notice, interest, photo uploads, posting updates, attendance, recaps and the series programme lock.
 
 ## Team leads
 
@@ -62,7 +62,7 @@ Event detail loads action forms and secondary tab content on demand. Keep their 
 | Create | `events.create` | A start in the past needs `events.create_backdated` or lead |
 | Edit | `events.edit` | Also toggles feedback and sets its deadline. Only `finance.manage` sees and sets the event's project ([Charged to](finance-and-programmes.md#expense-charged-to)) |
 | Cancel | `events.cancel` | Only the permission cancels an event or series session that has started (one that didn't happen), and that cancel sends no notice; a lead without it cannot. For a series this applies to "This event" on the session's own start; "This and following" and "All upcoming events" never remove a started session ([recurring events](recurring-events.md#edit-and-cancel-scope)) |
-| Restore a cancelled event | `events.cancel` | Same rule for a started event. Restore sends no notice: reminders and the RSVP poll resume because they skip only cancelled rows. The cancel's notice and poll-closing jobs skip a cancel no longer in effect when they run, so a quick undo sends nothing. A poll the cancel closed stays closed until Post poll replaces it ([polls](notifications.md#rsvp-polls)). The page offers Restore in place of Cancel, and not where the server would refuse ([series](recurring-events.md#edit-and-cancel-scope)) |
+| Restore a cancelled event | `events.cancel` | Only before it starts: an event or session that started while cancelled didn't happen, so it stays cancelled, whoever asks. Restore sends no notice: reminders and the RSVP poll resume because they skip only cancelled rows. The cancel's notice and poll-closing jobs skip a cancel no longer in effect when they run, so a quick undo sends nothing. A poll the cancel closed stays closed until Post poll replaces it ([polls](notifications.md#rsvp-polls)). The page offers Restore in place of Cancel until the event starts, and not where the server would refuse ([series](recurring-events.md#edit-and-cancel-scope)) |
 | Add or remove members | `events.manage_members` | |
 | Mark attendance | `events.manage_attendance` | Only after start |
 | Approve or reject photos, delete any photo, delete the Immich album | `events.manage_photos` | |

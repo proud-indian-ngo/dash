@@ -1127,15 +1127,15 @@ export function EventDetail({
   const status: EventStatus = firstRow?.cancelled
     ? "first-session-cancelled"
     : eventState.status;
-  // A cancelled event offers Restore in place of Cancel, to the same people.
-  const canCancelOrRestore = hasStarted ? canCancelPast : canManage;
-  const canCancel = !event.cancelledAt && canCancelOrRestore;
-  // A whole series that has started since it was cancelled can't come back,
-  // nor can a session while its series is cancelled or past its end.
+  const canCancel =
+    !event.cancelledAt && (hasStarted ? canCancelPast : canManage);
+  // A cancelled event offers Restore in place of Cancel until it starts: one
+  // that started while cancelled didn't happen. Nor can a session come back
+  // while its series is cancelled or past its end.
   const canRestore =
     !!event.cancelledAt &&
-    canCancelOrRestore &&
-    !(event.recurrenceRule && !event.seriesId && hasStarted) &&
+    !hasStarted &&
+    canManage &&
     !(
       event.seriesId &&
       parentEvent &&

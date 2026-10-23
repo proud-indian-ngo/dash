@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, setSystemTime } from "bun:test";
 
 import { assertEventNotManagedByKalakriti } from "../kalakriti-event-guard";
 import { computeOccurrenceStart, teamEventMutators } from "../team-event";
@@ -247,5 +247,26 @@ describe("attendance on a recurring series", () => {
     });
     await teamEventMutators.markAttendance.fn({ args, ctx, tx } as never);
     expect(updates).toMatchObject([{ attendance: "present", id: "member-1" }]);
+  });
+
+  it("judges the start by the server's clock, not a client's set ahead", async () => {
+    const { tx, updates } = makeTx({ startTime: NOW + 3_600_000 });
+    const ahead = { ...args, now: NOW + 7_200_000 };
+    setSystemTime(new Date(NOW));
+    try {
+      await expect(
+        teamEventMutators.markAttendance.fn({ args: ahead, ctx, tx } as never)
+      ).rejects.toThrow("Cannot mark attendance before event starts");
+      await expect(
+        teamEventMutators.markAllPresent.fn({
+          args: { eventId: "event-1", now: ahead.now },
+          ctx,
+          tx,
+        } as never)
+      ).rejects.toThrow("Cannot mark attendance before event starts");
+    } finally {
+      setSystemTime();
+    }
+    expect(updates).toHaveLength(0);
   });
 });
