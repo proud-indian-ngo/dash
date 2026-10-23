@@ -41,6 +41,7 @@ import {
   matchReportSigners,
   VaultImportError,
 } from "@/lib/governance/vault";
+import { HttpError } from "@/lib/http-error";
 import { authorizeProtectedUpload } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
@@ -79,11 +80,11 @@ export const getTrusteeAccountOptions = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { permissions } = await buildSessionContext(context.session);
     if (!permissions.includes("governance.manage")) {
-      throw new Error("Forbidden");
+      throw new HttpError(403, "Forbidden");
     }
     const rows = await db
       .select({ email: user.email, id: user.id, name: user.name })
@@ -105,7 +106,7 @@ export const saveTrusteeFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "governance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     if ((data.pan || data.aadhaarReference) && !hasEncryptionKey()) {
@@ -135,7 +136,7 @@ export const saveTrusteeFn = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof TrusteeSaveError) {
-        throw new Error(error.message);
+        throw new HttpError(409, error.message);
       }
       throw error;
     }
@@ -148,7 +149,7 @@ export const deleteTrusteeFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertServerPermission(context.session, "governance.manage");
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       await runSessionAuditedAction(
@@ -162,12 +163,13 @@ export const deleteTrusteeFn = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof TrusteeSaveError) {
-        throw new Error(error.message);
+        throw new HttpError(409, error.message);
       }
       // RESTRICT raises 23001; NO ACTION would raise 23503.
       const { sqlState } = databaseErrorFields(error);
       if (sqlState === "23001" || sqlState === "23503") {
-        throw new Error(
+        throw new HttpError(
+          409,
           "This trustee has terms, offices, meeting attendance, votes, signatures, declarations or a DSC enrolment on record, so they can't be deleted."
         );
       }
@@ -181,7 +183,7 @@ export const revealTrusteeKycFn = createServerFn({ method: "POST" })
   .validator(z.object({ trusteeId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -211,7 +213,7 @@ export const getGovernanceUploadUrl = createServerFn({ method: "POST" })
   .validator(governanceUploadSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     try {
       return await createTemporaryUpload(
@@ -269,7 +271,7 @@ export const createGovernanceDocument = createServerFn({ method: "POST" })
   .validator(createGovernanceDocumentSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     try {
@@ -316,7 +318,7 @@ export const createGovernanceDocument = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof VaultImportError) {
-        throw new Error(error.message);
+        throw new HttpError(409, error.message);
       }
       throw error;
     }
@@ -331,7 +333,7 @@ export const recheckGovernanceDocument = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -345,10 +347,10 @@ export const recheckGovernanceDocument = createServerFn({ method: "POST" })
         await assertServerPermission(session, "governance.manage");
         const document = await getGovernanceDocument(data.id);
         if (!document) {
-          throw new Error("Document not found");
+          throw new HttpError(404, "Document not found");
         }
         if (document.contentType !== "application/pdf") {
-          throw new Error("Only PDFs carry signatures to check.");
+          throw new HttpError(400, "Only PDFs carry signatures to check.");
         }
         const s3 = await getS3();
         const bytes = new Uint8Array(

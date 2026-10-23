@@ -88,6 +88,62 @@ test.describe("Role management (super_admin)", () => {
     await findRoleRow(page, roleName);
   });
 
+  test("refuses a taken role ID with a 409 and a malformed one with a 400", async ({
+    page,
+  }, testInfo) => {
+    const roleId = `e2e_dup_${Date.now()}`;
+
+    await page.getByRole("button", { name: "Add role" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("ID (slug)").fill(roleId);
+    await dialog.getByLabel("Name").fill(`E2E Dup Role ${Date.now()}`);
+    await clickUntilDialogCloses(dialog, "Create role");
+    await expect(page.getByText("Role created!")).toBeVisible();
+
+    // The same ID again: an expected refusal, answered with its status so
+    // Error Tracking skips it, and shown to the person as written.
+    await page.getByRole("button", { name: "Add role" }).click();
+    await dialog.getByLabel("ID (slug)").fill(roleId);
+    await dialog.getByLabel("Name").fill("E2E Dup Role again");
+    const refusal = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/_serverFn/")
+    );
+    await dialog.getByRole("button", { name: "Create role" }).click();
+    const conflict = await refusal;
+    expect(conflict.status()).toBe(409);
+    await expect(
+      page.getByText(`Role ID "${roleId}" already exists`)
+    ).toBeVisible();
+
+    // The same call with an ID the schema refuses: Start's validator error
+    // is answered as a 400 too.
+    const request = conflict.request();
+    const body = request.postData() ?? "";
+    expect(body).toContain(roleId);
+    const invalid = await page.evaluate(
+      async ({ url, headers, payload }) =>
+        (await fetch(url, { body: payload, headers, method: "POST" })).status,
+      {
+        // Start's own headers and the body's type; the browser adds the rest.
+        headers: Object.fromEntries(
+          Object.entries(await request.allHeaders()).filter(
+            ([name]) => name === "content-type" || name.startsWith("x-")
+          )
+        ),
+        payload: body.replace(roleId, "Not A Slug"),
+        url: request.url(),
+      }
+    );
+    expect(invalid).toBe(400);
+
+    await testInfo.attach("refusal-statuses.json", {
+      body: JSON.stringify({ conflict: conflict.status(), invalid }),
+      contentType: "application/json",
+    });
+  });
+
   test("navigates to role detail page", async ({ page }) => {
     const roleId = `e2e_nav_${Date.now()}`;
     const roleName = `E2E Nav Role ${Date.now()}`;

@@ -1,5 +1,7 @@
 import { createRequestLogger } from "evlog";
 
+import { HttpError } from "@/lib/http-error";
+
 /**
  * Server-only. Errors from paths that handle donor data (contribution
  * imports, Razorpay ingestion) reduced to what can be logged or stored. A
@@ -61,7 +63,7 @@ export function sanitizedError(error: unknown, context: string): Error {
 export interface SafeErrorOptions {
   /** Logged with the error; IDs and step names only. */
   fields: Record<string, string>;
-  /** Errors written for the user, passed through unchanged. */
+  /** Errors written for the user, refused with their message as a 409. */
   isUserFacing: (error: unknown) => boolean;
   /** The generic message that replaces any other error. */
   message: string;
@@ -69,10 +71,11 @@ export interface SafeErrorOptions {
 }
 
 /**
- * Runs `work` and lets only errors written for the user through. Anything
- * else is logged by name, code, constraint and table and replaced by a
- * generic error with no cause, so neither the logs, the audit runner nor
- * the browser sees its message.
+ * Runs `work` and lets only errors written for the user through: an
+ * HttpError as it is, any other as a 409 with only its message, so Error
+ * Tracking skips both. Anything else is logged by name, code, constraint and
+ * table and replaced by a generic error with no cause, so neither the logs,
+ * the audit runner nor the browser sees its message.
  */
 export async function withSafeErrors<T>(
   options: SafeErrorOptions,
@@ -81,8 +84,11 @@ export async function withSafeErrors<T>(
   try {
     return await work();
   } catch (error) {
-    if (options.isUserFacing(error)) {
+    if (error instanceof HttpError) {
       throw error;
+    }
+    if (error instanceof Error && options.isUserFacing(error)) {
+      throw new HttpError(409, error.message);
     }
     const safe = new Error(options.message);
     const log = createRequestLogger({ method: "POST", path: options.path });

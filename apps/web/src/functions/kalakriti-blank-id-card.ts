@@ -52,14 +52,17 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
       )
         throw new HttpError(401, "Unauthorized");
       if (access.edition.lifecycle === "archived")
-        throw new Error("Edition is archived");
+        throw new HttpError(409, "Edition is archived");
       const person = parseKalakritiPersonQr(data.personQr);
       if (
         person.type !== "volunteer" &&
         person.type !== "guest" &&
         person.type !== "judge"
       )
-        throw new Error("Scan a blank volunteer, guest, or judge card");
+        throw new HttpError(
+          400,
+          "Scan a blank volunteer, guest, or judge card"
+        );
       const existing = await Promise.all([
         db
           .select({ id: kalakritiAttendee.id })
@@ -78,7 +81,8 @@ export const validateBlankIdCard = createServerFn({ method: "GET" })
           .limit(1),
       ]);
       if (existing.some((rows) => rows.length > 0))
-        throw new Error(
+        throw new HttpError(
+          409,
           "This ID card is already registered. Use the existing person's card."
         );
       return person;

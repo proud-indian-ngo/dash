@@ -180,7 +180,7 @@ async function insertGuardianMembershipRecords(
     .for("update");
   if (!lockedEdition) throw new HttpError(404, "Edition not found");
   if (lockedEdition.lifecycle === "archived")
-    throw new Error("Edition is archived");
+    throw new HttpError(409, "Edition is archived");
   const membershipId = uuidv7();
   const now = new Date();
   await tx.insert(kalakritiEditionMembership).values({
@@ -270,12 +270,14 @@ async function handleExistingGuardianIdentity({
           (membership) => membership.editionId === data.editionId
         )
       ) {
-        throw new Error(
+        throw new HttpError(
+          409,
           "This account already has a membership in this Edition"
         );
       }
       if (memberships.some((membership) => membership.state === "active")) {
-        throw new Error(
+        throw new HttpError(
+          409,
           "This Guardian already has access to an active Kalakriti Edition"
         );
       }
@@ -532,7 +534,7 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
     }
     const authed = await requireGuardianAdmin(context, membership.editionId);
     if (membership.state !== "active") {
-      throw new Error("Guardian membership is already archived");
+      throw new HttpError(409, "Guardian membership is already archived");
     }
     const membershipUserId = membership.userId;
 
@@ -561,7 +563,7 @@ export const archiveKalakritiGuardian = createServerFn({ method: "POST" })
         currentMembership?.state !== "active" ||
         currentMembership.userId !== membershipUserId
       ) {
-        throw new Error("Guardian membership is already archived");
+        throw new HttpError(409, "Guardian membership is already archived");
       }
       const removedCenterAssignments = await tx
         .delete(kalakritiGuardianCenter)
@@ -639,7 +641,7 @@ export const updateKalakritiGuardian = createServerFn({ method: "POST" })
     }
     const authed = await requireGuardianAdmin(context, membership.editionId);
     if (membership.state !== "active") {
-      throw new Error("Archived Guardian details cannot be edited");
+      throw new HttpError(409, "Archived Guardian details cannot be edited");
     }
 
     const normalizedEmail = data.email.trim().toLowerCase();
@@ -670,7 +672,7 @@ export const updateKalakritiGuardian = createServerFn({ method: "POST" })
         .for("update")
         .then((rows) => rows[0]);
       if (current?.kind !== "guardian" || current.state !== "active") {
-        throw new Error("Archived Guardian details cannot be edited");
+        throw new HttpError(409, "Archived Guardian details cannot be edited");
       }
 
       const isExternal = Boolean(marker);

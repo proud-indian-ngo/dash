@@ -61,7 +61,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof CircularError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw new HttpError(409, error.message);
     }
     throw error;
   });

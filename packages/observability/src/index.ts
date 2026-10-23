@@ -43,7 +43,10 @@ export async function withTaskLog(
   }
 }
 
-/** For catch blocks in server functions / API routes. Logs the error with context, emits, and re-throws. */
+/**
+ * For catch blocks in server functions / API routes. Logs the error with
+ * context, emits, and re-throws. A refusal (a 4xx status) is a warning.
+ */
 export function logErrorAndRethrow(
   options: { method: string; path: string },
   context: Record<string, unknown>,
@@ -51,7 +54,11 @@ export function logErrorAndRethrow(
 ): never {
   const log = createRequestLogger(options);
   log.set(context);
-  log.error(coerceError(error));
+  if (error instanceof Error && isHttpClientError(error)) {
+    log.warn(error.message);
+  } else {
+    log.error(coerceError(error));
+  }
   log.emit();
   throw error;
 }

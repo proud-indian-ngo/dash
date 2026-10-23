@@ -9,6 +9,7 @@ import {
 } from "@pi-dash/shared/governance";
 import { uuidv7 } from "uuidv7";
 
+import { HttpError } from "../http-error";
 import { databaseErrorFields } from "../safe-errors";
 import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
 import { readEmailEvidence } from "./eml";
@@ -192,7 +193,7 @@ export async function importVaultDocument(
     userId: input.userId,
   });
   if (!tempKey.startsWith(`${input.keyPrefix}/governance/tmp/`)) {
-    throw new Error("Forbidden");
+    throw new HttpError(403, "Forbidden");
   }
   const bytes = await deps.readObject(tempKey);
   if (!bytes) {

@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import type { WideEvent } from "evlog";
+import { z } from "zod";
 
 import { HttpError } from "@/lib/http-error";
 
@@ -13,6 +14,7 @@ import {
   runWithErrorScope,
   scrubError,
   scrubText,
+  validationRefusal,
 } from "./error-tracking";
 
 function wideEvent(fields: Record<string, unknown>): WideEvent {
@@ -72,6 +74,55 @@ describe("scrubError", () => {
         "card 4111 1111 1111 1111 token eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl iban GB82WEST12345698765432"
       )
     ).toBe("card ****1111 token eyJ***.*** iban GB82****432");
+  });
+
+  it("masks Indian mobile numbers written without a country code", () => {
+    expect(
+      scrubText(
+        "9876543210, 98765 43210, 98765-43210, 09876543210 and 919876543210"
+      )
+    ).toBe("******10, ******10, ******10, ******10 and ******10");
+    expect(scrubText("duplicate phone +91 98765 43210")).toBe(
+      "duplicate phone +******10"
+    );
+  });
+
+  it("leaves timestamps, IDs, decimals and dates that look like numbers", () => {
+    const text =
+      "at 1729760000 for pay_9876543210 row 0190f1e2-3a4b-7c5d-8e6f-987654321098 of 6543210987.50 paise, 123456789 on 2026-10-24";
+    expect(scrubText(text)).toBe(text);
+  });
+});
+
+describe("validationRefusal", () => {
+  // Start's input validator throws the Standard Schema issues as JSON.
+  async function startValidationError(input: unknown): Promise<Error> {
+    const schema = z.object({ id: z.string().regex(/^[a-z]+$/) });
+    const result = await schema["~standard"].validate(input);
+    return new Error(JSON.stringify(result.issues, undefined, 2));
+  }
+
+  it("turns Start's input validation error into a 400 with its message", async () => {
+    const error = await startValidationError({ id: "Not A Slug" });
+
+    const refusal = validationRefusal(error);
+
+    expect(refusal).toBeInstanceOf(HttpError);
+    expect(refusal?.status).toBe(400);
+    expect(refusal?.message).toBe(error.message);
+  });
+
+  it("leaves other errors alone", () => {
+    for (const error of [
+      new Error("connection reset"),
+      new Error("[]"),
+      new Error('["not an issue"]'),
+      new Error('{"message":"an object, not issues"}'),
+      new TypeError('[{"message":"Expected string"}]'),
+    ]) {
+      expect(validationRefusal(error)).toBeUndefined();
+    }
+    expect(validationRefusal('[{"message":"a string"}]')).toBeUndefined();
   });
 });
 
@@ -230,8 +281,10 @@ describe("captureThrownError", () => {
     const resolveUser = mock(userId);
 
     for (const thrown of [
+      new HttpError(400, "Pick a date in this financial year"),
       new HttpError(403, "Forbidden"),
       new HttpError(404, "Role not found"),
+      new HttpError(409, 'Role ID "team_lead" already exists'),
       Object.assign(new Error("aborted"), { name: "AbortError" }),
       new Response(null, { status: 307 }),
     ]) {

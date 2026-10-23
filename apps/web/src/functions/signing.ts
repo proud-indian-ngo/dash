@@ -27,6 +27,7 @@ import {
   startRemoteSignature,
 } from "@/lib/governance/signing-service";
 import { startCertificateJob } from "@/lib/grants/utilisation-certificates";
+import { HttpError } from "@/lib/http-error";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -59,7 +60,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw new HttpError(409, error.message);
     }
     throw error;
   });
@@ -70,7 +71,7 @@ export const getMyDscStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const me = await linkedTrustee(context.session.user.id);
     const certificate = me ? await currentCertificate(me.id) : null;
@@ -91,7 +92,7 @@ export const startDscEnrolmentFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -119,7 +120,7 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
   .validator(z.object({ circularId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -181,7 +182,7 @@ export const startDscMinutesSigningFn = createServerFn({ method: "POST" })
   .validator(z.object({ meetingId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -214,7 +215,7 @@ export const startDscDeclarationSigningFn = createServerFn({ method: "POST" })
   .validator(z.object({ declarationId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -250,7 +251,7 @@ export const startDscCertificateSigningFn = createServerFn({ method: "POST" })
   .validator(z.object({ certificateId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -282,11 +283,11 @@ export const getSigningJobStatus = createServerFn({ method: "POST" })
   .validator(z.object({ jobId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const status = await jobStatusFor(data.jobId, context.session.user.id);
     if (!status) {
-      throw new Error("Not found");
+      throw new HttpError(404, "Not found");
     }
     return status;
   });

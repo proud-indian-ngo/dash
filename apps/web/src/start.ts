@@ -13,6 +13,7 @@ import {
   isServerFnRequest,
   routeTemplate,
   runWithErrorScope,
+  validationRefusal,
 } from "@/lib/server/error-tracking";
 
 async function sessionUserId(request: Request): Promise<string | undefined> {
@@ -45,15 +46,17 @@ const reportRequestErrors = createMiddleware().server(
 
 /**
  * Reports what server functions throw, and answers an RPC call that threw an
- * HttpError with its status. A server function called while rendering a page
- * keeps the page's status. Either way Start serializes the error's name,
- * message and own properties (an HttpError's status) to the client.
+ * HttpError with its status; input the validator refused is a 400. A server
+ * function called while rendering a page keeps the page's status. Either way
+ * Start serializes the error's name, message and own properties (an
+ * HttpError's status) to the client.
  */
 const reportFunctionErrors = createMiddleware({ type: "function" }).server(
   async ({ next, serverFnMeta }) => {
     try {
       return await next();
-    } catch (error) {
+    } catch (thrown) {
+      const error = validationRefusal(thrown) ?? thrown;
       if (error instanceof HttpError && isServerFnRequest()) {
         setResponseStatus(error.status);
       }

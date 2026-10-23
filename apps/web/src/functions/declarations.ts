@@ -36,6 +36,7 @@ import {
   prepareSignatureFields,
   SigningServiceError,
 } from "@/lib/governance/signing-service";
+import { HttpError } from "@/lib/http-error";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
@@ -54,7 +55,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof DeclarationError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw new HttpError(409, error.message);
     }
     throw error;
   });
@@ -85,7 +86,7 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -174,7 +175,7 @@ export const getDeclarationUploadUrl = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await createTemporaryUpload(
@@ -208,7 +209,7 @@ export const submitSignedDeclarationFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid(), tempKey: z.string().min(1).max(500) }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -254,7 +255,7 @@ export const getPaymentGovernanceWarnings = createServerFn({ method: "POST" })
   .validator(z.object({ vendorPaymentId: z.guid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     await assertServerPermission(context.session, "requests.approve");
     const [row] = await db

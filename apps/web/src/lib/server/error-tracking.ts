@@ -3,6 +3,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { type DrainContext, log, type WideEvent } from "evlog";
 import type { PostHog } from "posthog-node";
 
+import { HttpError } from "@/lib/http-error";
+
 type ErrorTrackingClient = Pick<PostHog, "captureException">;
 
 interface ErrorTrackingConfig {
@@ -32,7 +34,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // evlog's builtin maskers, which it does not export: the ones logger.ts
-// enables, plus phone numbers written with a country code or area code.
+// enables, plus phone numbers written with a country code or area code, and
+// Indian mobile numbers without one (a 6-9 lead, 10 digits, optionally after
+// 0 or 91). Longer digit runs, IDs joined by `_` and decimals are left alone.
 const PII_MASKERS: [RegExp, (match: string) => string][] = [
   [
     /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
@@ -55,6 +59,10 @@ const PII_MASKERS: [RegExp, (match: string) => string][] = [
     /(?:\+\d{1,3}[\s.-]?\(?\d{1,4}\)?|\(\d{1,4}\))(?:[\s.-]?\d{2,4}){2,4}\b/g,
     (m) =>
       `${m.startsWith("+") ? "+" : ""}******${m.replace(/\D/g, "").slice(-2)}`,
+  ],
+  [
+    /(?<![\d.,])\b(?:91|0)?[6-9]\d{4}[\s-]?\d{5}\b(?![.,]\d)/g,
+    (m) => `******${m.slice(-2)}`,
   ],
 ];
 
@@ -100,6 +108,32 @@ export function errorStatus(error: unknown): number | undefined {
     candidates.push(cause.status, cause.statusCode);
   }
   return candidates.find((value): value is number => typeof value === "number");
+}
+
+function isValidationIssue(value: unknown): boolean {
+  return isRecord(value) && typeof value.message === "string";
+}
+
+/**
+ * Start's input validator throws a plain Error whose message is the
+ * schema's Standard Schema issues as JSON: the caller sent input the server
+ * refuses. Returns it as a 400; anything else is not a validation error.
+ */
+export function validationRefusal(error: unknown): HttpError | undefined {
+  if (!(error instanceof Error) || error.constructor !== Error) {
+    return undefined;
+  }
+  let issues: unknown;
+  try {
+    issues = JSON.parse(error.message);
+  } catch {
+    return undefined;
+  }
+  return Array.isArray(issues) &&
+    issues.length > 0 &&
+    issues.every(isValidationIssue)
+    ? new HttpError(400, error.message)
+    : undefined;
 }
 
 /** Client errors (4xx) and aborted requests are not defects. */
