@@ -25,7 +25,10 @@ import {
   recordSignature,
   setFinalDocument,
 } from "@pi-dash/db/queries/resolutions";
-import { setArchiveCopy } from "@pi-dash/db/queries/signing";
+import {
+  type ArchiveTarget,
+  setArchiveCopy,
+} from "@pi-dash/db/queries/signing";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -296,9 +299,9 @@ export async function acceptSignedMinutes(input: {
   await fileArchiveCopy({
     archiveKey: meetingKey(row.id, "minutes-ltv.pdf"),
     bytes: uploaded,
-    documentId,
     log: { meetingId: row.id },
     objectKey,
+    target: { documentId },
   });
   return documentId;
 }
@@ -384,9 +387,9 @@ export async function acceptSignedDeclaration(input: {
       `${row.fiscalYear}-${sha256.slice(0, 16)}-ltv.pdf`
     ),
     bytes: uploaded,
-    documentId,
     log: { declarationId: row.id },
     objectKey,
+    target: { documentId },
   });
   return documentId;
 }
@@ -480,31 +483,32 @@ async function fileFinalCopy(
   await fileArchiveCopy({
     archiveKey: circularKey(circularId, `final-ltv-${sha256.slice(0, 16)}.pdf`),
     bytes: signed.bytes,
-    documentId,
     log: { circularId },
     objectKey: signed.objectKey,
+    target: { documentId },
   });
 }
 
 /**
- * Makes a signed vault document's long-term copy (revocation data and a
- * document timestamp), renewed yearly. A failure is logged and left due
- * today, so the yearly job retries it; the signed original is already safe.
+ * Makes a signed PDF's long-term copy (revocation data and a document
+ * timestamp), renewed yearly, for a vault document or a signed utilisation
+ * certificate. A failure is logged and left due today, so the yearly job
+ * retries it; the signed original is already safe.
  */
 export async function fileArchiveCopy(input: {
   archiveKey: string;
   bytes: Uint8Array;
-  documentId: string;
   /** Identifiers for the log line. */
   log: Record<string, string>;
   /** The signed original, which stands in until the copy is made. */
   objectKey: string;
+  target: ArchiveTarget;
 }): Promise<void> {
   try {
     const archived = await finalizeForArchive(input.bytes);
     const s3 = await getS3();
     await s3.write(input.archiveKey, archived, { type: "application/pdf" });
-    await setArchiveCopy(input.documentId, {
+    await setArchiveCopy(input.target, {
       objectKey: input.archiveKey,
       renewOn: addDays(todayInKolkata(), ARCHIVE_RENEW_DAYS),
       sha256: sha256Of(archived),
@@ -517,7 +521,7 @@ export async function fileArchiveCopy(input: {
     log.set({ event: "archive_copy_failed", ...input.log });
     log.error(error instanceof Error ? error : String(error));
     log.emit();
-    await setArchiveCopy(input.documentId, {
+    await setArchiveCopy(input.target, {
       objectKey: input.objectKey,
       renewOn: todayInKolkata(),
       sha256: sha256Of(input.bytes),

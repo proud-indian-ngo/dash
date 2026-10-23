@@ -42,7 +42,11 @@ import { uuidv7 } from "uuidv7";
 /** Must match GENERAL_FUND_ID in @pi-dash/shared/constants. */
 const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
 
-async function grant(run: string, donationType: "csr" | "specific_grant") {
+async function grant(
+  run: string,
+  donationType: "csr" | "specific_grant",
+  needsCaCertificate: boolean
+) {
   const now = new Date();
   const code = run
     .replace(/[^A-Za-z0-9]/g, "")
@@ -114,7 +118,7 @@ async function grant(run: string, donationType: "csr" | "specific_grant") {
       donationType,
       endsOn: "2027-03-31",
       id: ids.grant,
-      needsCaCertificate: true,
+      needsCaCertificate,
       partyId: ids.party,
       programmeId: ids.programme,
       projectId: ids.project,
@@ -271,7 +275,8 @@ let result: unknown;
 if (action === "grant") {
   result = await grant(
     args[0] ?? `${Date.now()}`,
-    args[1] === "specific_grant" ? "specific_grant" : "csr"
+    args[1] === "specific_grant" ? "specific_grant" : "csr",
+    args[2] !== "no-ca"
   );
 } else if (action === "certificate") {
   const [grantId, status, from, to, variant] = args;

@@ -25,7 +25,7 @@ import {
 
 import { user } from "./auth";
 import { accountHead, programme, project } from "./finance-dimensions";
-import { trustee } from "./governance";
+import { governanceDocument, trustee } from "./governance";
 import { contribution } from "./income";
 import { jsonb } from "./jsonb";
 import { party } from "./party";
@@ -175,6 +175,21 @@ export const utilisationCertificate = pgTable(
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at").notNull(),
+    /**
+     * The long-term copy of the trustees' signed PDF (revocation data and a
+     * document timestamp, PAdES B-LTA), made once both have signed. When the
+     * certificate is final it moves to the vault document, which then holds
+     * it and its yearly renewal.
+     */
+    archiveObjectKey: text("archive_object_key"),
+    archiveSha256: text("archive_sha256"),
+    archivedAt: timestamp("archived_at"),
+    /** When the long-term copy needs its next document timestamp. */
+    archiveRenewOn: date("archive_renew_on"),
+    /** The vault document the final certificate is filed as. */
+    documentId: uuid("document_id").references(() => governanceDocument.id, {
+      onDelete: "restrict",
+    }),
     financeSignedAt: timestamp("finance_signed_at"),
     /** Signs second, as Chief Finance Officer. */
     financeTrusteeId: uuid("finance_trustee_id")

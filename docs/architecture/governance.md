@@ -61,8 +61,8 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 - Every upload is checked before it's kept: its real type, a duplicate by SHA-256 (unique, so a simultaneous identical upload is refused too), and its signatures, which are matched to trustees in the register. An email (`.eml`) is read for its headers only, never its body.
 - Downloads need `governance.view`, or `finance.view` or `finance.manage` for registration certificates, matching the Registrations page. The R2 orphan cleanup keeps every key the vault references.
-- A registration (12AB, 80G and others) keeps its certificate as a vault document. `governance.manage` or `finance.manage` can delete one added by mistake; its open renewal items on the compliance calendar go with it, its closed ones and its certificate stay.
-- A file never changes once added; `governance.manage` can correct its title, kind, date and note. A document added by mistake can be deleted only while nothing points at it (a term, office, deed version, resolution, meeting, registration, compliance item, declaration or policy version); the orphan cleanup then removes its files.
+- A registration (12AB, 80G and others) keeps its certificate as a vault document; a final [utilisation certificate](finance-grants.md#utilisation-certificates) is filed as one too. `governance.manage` or `finance.manage` can delete a registration added by mistake; its open renewal items on the compliance calendar go with it, its closed ones and its certificate stay.
+- A file never changes once added; `governance.manage` can correct its title, kind, date and note. A document added by mistake can be deleted only while nothing points at it (a term, office, deed version, resolution, meeting, registration, compliance item, declaration, policy version or utilisation certificate); the orphan cleanup then removes its files.
 
 ## Signing service
 

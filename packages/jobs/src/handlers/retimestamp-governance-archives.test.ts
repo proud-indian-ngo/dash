@@ -4,15 +4,27 @@ const updates: Record<string, unknown>[] = [];
 
 mock.module("@pi-dash/db/queries/signing", () => ({
   archivesDue: async () => [
-    { archiveObjectKey: "p/governance/resolutions/r1/final-ltv.pdf", id: "d1" },
+    {
+      archiveObjectKey: "p/governance/resolutions/r1/final-ltv.pdf",
+      neverMade: false,
+      target: { documentId: "d1" },
+    },
     {
       archiveObjectKey: "p/governance/resolutions/r2/final-ltv-2026-10-10.pdf",
-      id: "d2",
+      neverMade: false,
+      target: { documentId: "d2" },
     },
   ],
-  setArchiveCopy: async (id: string, copy: Record<string, unknown>) => {
-    updates.push({ id, ...copy });
+  setArchiveCopy: async (
+    target: Record<string, string>,
+    copy: Record<string, unknown>
+  ) => {
+    updates.push({ ...target, ...copy });
   },
+}));
+mock.module("@pi-dash/db/queries/utilisation-certificates", () => ({
+  fileFinalCertificate: async () => undefined,
+  unfiledFinalCertificates: async () => [],
 }));
 mock.module("@pi-dash/env/server", () => ({ env: {} }));
 mock.module("evlog", () => ({
@@ -41,6 +53,9 @@ describe("handleRetimestampGovernanceArchives", () => {
   it("renews each due copy and keeps a failed one due", async () => {
     const written: string[] = [];
     const result = await handleRetimestampGovernanceArchives([], "2027-10-10", {
+      finalize: async () => {
+        throw new Error("not a first copy");
+      },
       read: async (key) => new TextEncoder().encode(key),
       retimestamp: async (pdf) => {
         if (new TextDecoder().decode(pdf).includes("r2")) {
@@ -48,16 +63,19 @@ describe("handleRetimestampGovernanceArchives", () => {
         }
         return new Uint8Array([...pdf, 1]);
       },
+      validate: async () => {
+        throw new Error("nothing to file");
+      },
       write: async (key) => {
         written.push(key);
       },
     });
-    expect(result).toEqual({ due: 2, failed: 1, renewed: 1 });
+    expect(result).toEqual({ due: 2, failed: 1, filed: 0, renewed: 1 });
     expect(written).toEqual([
       "p/governance/resolutions/r1/final-ltv-2027-10-10.pdf",
     ]);
     expect(updates).toEqual([
-      expect.objectContaining({ id: "d1", renewOn: "2028-10-09" }),
+      expect.objectContaining({ documentId: "d1", renewOn: "2028-10-09" }),
     ]);
   });
 });

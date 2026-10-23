@@ -614,6 +614,16 @@ export const governanceDocumentMutators = {
     if (!existing) {
       throw new Error("Document not found");
     }
+    // A utilisation certificate is filed by finance's workflow, never by hand.
+    if (
+      args.kind !== existing.kind &&
+      (args.kind === "utilisation_certificate" ||
+        existing.kind === "utilisation_certificate")
+    ) {
+      throw new Error(
+        "A utilisation certificate is filed when it becomes final; its kind can't change."
+      );
+    }
     await tx.mutate.governanceDocument.update({
       datedOn: toEpoch(args.datedOn),
       id: args.id,
@@ -650,6 +660,7 @@ export const governanceDocumentMutators = {
         ),
         tx.run(zql.policyVersion.where("documentId", args.id).one()),
         tx.run(zql.resolution.where("finalDocumentId", args.id).one()),
+        tx.run(zql.utilisationCertificate.where("documentId", args.id).one()),
         tx.run(
           zql.trusteeOffice
             .where(({ cmp, or }) =>

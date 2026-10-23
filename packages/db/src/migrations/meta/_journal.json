@@ -1317,6 +1317,13 @@
       "when": 1792696794381,
       "tag": "0187_utilisation_certificates",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1792748964258,
+      "tag": "0188_utilisation_certificate_long_term",
+      "breakpoints": true
     }
   ]
 }

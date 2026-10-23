@@ -69,7 +69,8 @@ export async function isProtectedR2ObjectReferenced(
       UNION ALL
       SELECT 1 FROM grant_agreement WHERE agreement_object_key = ${r2Key}
       UNION ALL
-      SELECT 1 FROM utilisation_certificate WHERE latest_object_key = ${r2Key} OR ca_object_key = ${r2Key}
+      SELECT 1 FROM utilisation_certificate
+      WHERE latest_object_key = ${r2Key} OR ca_object_key = ${r2Key} OR archive_object_key = ${r2Key}
       UNION ALL
       SELECT 1 FROM app_config
       WHERE CASE WHEN key = ${RECEIPT_SETTINGS_CONFIG_KEY}

@@ -31,7 +31,10 @@ import {
   CircularError,
   sha256Of,
 } from "@/lib/governance/circulars";
-import { SigningServiceError } from "@/lib/governance/signing-service";
+import {
+  SigningServiceError,
+  validateSignedPdf,
+} from "@/lib/governance/signing-service";
 import { certificatePdfName } from "@/lib/grants/certificate-downloads";
 import {
   acceptSignedCertificate,
@@ -355,6 +358,36 @@ export const submitSignedCertificateFn = createServerFn({ method: "POST" })
   });
 
 /**
+ * The trustees' signed copy as the vault files it. Without the signing
+ * service its check says so, as a vault upload's does, and the vault can
+ * check it again later.
+ */
+async function signedCopyFacts(id: string) {
+  const certificate = await getCertificate(id);
+  if (!certificate) {
+    throw new CertificateError("Certificate not found");
+  }
+  // Refused before the check runs; recordCaCertificate refuses again under
+  // the lock.
+  if (certificate.status !== "awaiting_ca") {
+    throw new CertificateError(
+      certificate.caRequired
+        ? "The certificate isn't waiting for the CA's certificate: both trustees sign first."
+        : "This grant's agreement doesn't ask for a CA's certificate."
+    );
+  }
+  const s3 = await getS3();
+  const bytes = new Uint8Array(
+    await s3.file(certificate.latestObjectKey).arrayBuffer()
+  );
+  return {
+    report: await validateSignedPdf(bytes),
+    sha256: sha256Of(bytes),
+    sizeBytes: bytes.byteLength,
+  };
+}
+
+/**
  * The CA's certificate: its UDIN and the CA-countersigned PDF or the CA's
  * separate report. Makes the certificate final.
  */
@@ -395,6 +428,7 @@ export const recordCertificateCaFn = createServerFn({ method: "POST" })
           ) {
             throw new CertificateError("Upload the CA's certificate as a PDF.");
           }
+          const signed = await signedCopyFacts(data.id);
           const objectKey = certificateKey(
             data.id,
             `ca-${sha256Of(upload.bytes).slice(0, 16)}.pdf`
@@ -405,6 +439,7 @@ export const recordCertificateCaFn = createServerFn({ method: "POST" })
             filename: certificatePdfName(data.fileName),
             id: data.id,
             objectKey,
+            signed,
             udin: data.udin,
             userId: session.user.id,
           });

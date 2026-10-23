@@ -63,7 +63,13 @@ export const governanceUploadSchema = z.object({
 export const createGovernanceDocumentSchema = z.object({
   datedOn: z.iso.date(),
   fileName: z.string().trim().min(1).max(200),
-  kind: z.enum(governanceDocumentKindValues),
+  // A utilisation certificate enters the vault only when it becomes final.
+  kind: z
+    .enum(governanceDocumentKindValues)
+    .refine(
+      (kind) => kind !== "utilisation_certificate",
+      "A utilisation certificate is filed when it becomes final; it can't be added by hand."
+    ),
   note: optionalText(VALIDITY_NOTE_MAX),
   sourceFormat: z.enum(governanceDocumentFormatValues),
   tempKey: z.string().min(1).max(500),

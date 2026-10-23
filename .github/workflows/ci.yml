@@ -242,13 +242,18 @@ jobs:
       - name: Start signing service
         run: |
           (
-            # Trusts only this run's throwaway CA; see run-e2e.sh.
+            # Trusts only this run's throwaway CA and timestamps with the
+            # fake timestamp authority beside it; see run-e2e.sh.
             (docker build -t pi-dash-signing services/signing &&
               bash packages/e2e/signing/make-test-pki.sh pi-dash-signing "$E2E_SIGNING_PKI_DIR" &&
               docker run -d --name signing -p 4872:8080 \
                 -e SIGNING_SERVICE_TOKEN="$SIGNING_SERVICE_TOKEN" \
-                -e SIGNING_TRUST_ROOTS_DIR=/test-roots -e SIGNING_TSA_URL=none \
-                -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" pi-dash-signing) > /tmp/signing.log 2>&1
+                -e SIGNING_TRUST_ROOTS_DIR=/test-roots \
+                -e SIGNING_TSA_URL=http://127.0.0.1:8081 \
+                -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" \
+                -v "$E2E_SIGNING_PKI_DIR/tsa:/test-tsa:ro" \
+                -v "$PWD/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro" \
+                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn pidash_signing.app:app --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
             echo $? > /tmp/signing.exit
           ) > /dev/null 2>&1 &
 

@@ -24,7 +24,10 @@ import {
 } from "@pi-dash/shared/resolutions";
 import { uuidv7 } from "uuidv7";
 
-import { checkOneSignerAdded } from "../governance/accept-signature";
+import {
+  checkOneSignerAdded,
+  fileArchiveCopy,
+} from "../governance/accept-signature";
 import { CircularError, sha256Of } from "../governance/circulars";
 import {
   prepareSignatureFields,
@@ -118,7 +121,7 @@ export async function acceptSignedCertificate(input: {
     throw new CertificateError("Certificate not found");
   }
   signerRole(certificate, input.trusteeId);
-  await checkOneSignerAdded({
+  const report = await checkOneSignerAdded({
     current: await readLatest(certificate),
     expectedCertificateSha256: input.expectedCertificateSha256,
     trusteeId: input.trusteeId,
@@ -137,10 +140,24 @@ export async function acceptSignedCertificate(input: {
     id: certificate.id,
     objectKey,
     sha256,
+    signed: { report, sizeBytes: input.uploaded.byteLength },
     trusteeId: input.trusteeId,
   });
   if (status === "awaiting_finance") {
     enqueueCertificateNotice(certificate.id);
+  } else {
+    // Both trustees have signed: the long-term copy, made as a passed
+    // circular's is. A failure leaves it due for the monthly job.
+    await fileArchiveCopy({
+      archiveKey: certificateKey(
+        certificate.id,
+        `ltv-${sha256.slice(0, 16)}.pdf`
+      ),
+      bytes: input.uploaded,
+      log: { certificateId: certificate.id },
+      objectKey,
+      target: { certificateId: certificate.id },
+    });
   }
   return status;
 }

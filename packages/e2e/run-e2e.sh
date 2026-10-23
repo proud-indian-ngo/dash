@@ -162,10 +162,17 @@ services:
     environment:
       SIGNING_SERVICE_TOKEN: e2e-signing-token
       SIGNING_TRUST_ROOTS_DIR: /test-roots
-      # No timestamp authority: the run stays offline.
-      SIGNING_TSA_URL: none
+      # The fake timestamp authority beside it (signing/fake-tsa.py), so
+      # the run stays offline.
+      SIGNING_TSA_URL: http://127.0.0.1:8081
+    command:
+      - sh
+      - -c
+      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn pidash_signing.app:app --host 0.0.0.0 --port 8080
     volumes:
       - ${E2E_SIGNING_PKI_DIR}/roots:/test-roots:ro
+      - ${E2E_SIGNING_PKI_DIR}/tsa:/test-tsa:ro
+      - ${REPO_ROOT}/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro
     ports:
       - "${TEST_SIGNING_PORT}:8080"
 volumes:

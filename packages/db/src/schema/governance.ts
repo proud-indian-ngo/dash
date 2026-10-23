@@ -162,7 +162,7 @@ export const governanceDocument = pgTable(
     kind: governanceDocumentKindEnum("kind").notNull(),
     /** Free-text note, for example what the document proves and its limits. */
     note: text("note"),
-    /** R2 key under `governance/`; read only through a guarded short-lived URL. */
+    /** R2 key (a signed utilisation certificate keeps its own); read only through a guarded short-lived URL. */
     objectKey: text("object_key").notNull(),
     originalFilename: text("original_filename").notNull(),
     sha256: text("sha256").notNull(),
