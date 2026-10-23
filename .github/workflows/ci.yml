@@ -302,6 +302,10 @@ jobs:
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
+              docker logs -t zero-cache 2>&1 | grep -E "starting zero-cache|waiting [0-9]+ms|starting ChangeStreamerService|Started [0-9]+ workers|zero-cache ready|listening" | cut -c1-260
+              docker inspect zero-cache --format "started={{.State.StartedAt}}"
+              date -u +%FT%T.%N
+              cat /tmp/postgres.log
               exit 0
             fi
             sleep 1
