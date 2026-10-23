@@ -18,38 +18,14 @@ test.describe("WhatsApp Groups (admin)", () => {
 
     const settingsDialog = await openWhatsAppGroups(page);
 
-    // Open picker and wait for groups to load
-    const addGroupBtn = settingsDialog.getByRole("button", {
-      name: "Add group",
-    });
-    // Button may be hidden or stay disabled when WhatsApp API is not configured
-    if (
-      !(await addGroupBtn.isEnabled({ timeout: 10_000 }).catch(() => false))
-    ) {
-      test.skip(
-        true,
-        "WhatsApp API not configured — Add group button not available"
-      );
-      return;
-    }
-    await addGroupBtn.click();
+    // fake-gowa.ts lists one new group each time the picker opens.
+    await settingsDialog.getByRole("button", { name: "Add group" }).click();
     const pickerDialog = page.getByRole("dialog").filter({
       hasText: "Add WhatsApp Groups",
     });
-    await expect(pickerDialog).toBeVisible();
-
-    // Wait for groups to load — if the API errors or returns no groups, skip this test
-    const searchInput = pickerDialog.getByPlaceholder("Search groups...");
-    try {
-      await searchInput.waitFor({ state: "visible", timeout: 15_000 });
-    } catch {
-      // API may be rate-limited or return no available groups — skip CRUD test
-      test.skip(
-        true,
-        "WhatsApp API unavailable or no groups to add — skipping CRUD test"
-      );
-      return;
-    }
+    await expect(pickerDialog.getByPlaceholder("Search groups...")).toBeVisible(
+      { timeout: 15_000 }
+    );
 
     // Select the first available group
     const firstGroupBtn = pickerDialog

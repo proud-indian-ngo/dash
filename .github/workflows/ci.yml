@@ -148,6 +148,9 @@ jobs:
       # key secret, so the sync job never calls Razorpay.
       RAZORPAY_KEY_ID: rzp_test_e2e0000000000
       RAZORPAY_WEBHOOK_SECRET: e2e-razorpay-webhook-secret
+      # The fake GoWA gateway, the same as packages/e2e/run-e2e.sh.
+      E2E_GOWA_PORT: "4873"
+      WHATSAPP_API_URL: http://localhost:4873
       VITE_ZERO_URL: http://localhost:4848
       VITE_CDN_URL: http://localhost:3099
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -196,6 +199,19 @@ jobs:
           ) > /dev/null 2>&1 &
 
       - run: bun install --frozen-lockfile
+
+      - name: Start fake GoWA
+        run: |
+          (bun packages/e2e/fake-gowa.ts > /tmp/gowa.log 2>&1 &)
+          for _ in $(seq 1 30); do
+            if curl -sf "$WHATSAPP_API_URL/health" >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "fake GoWA failed to start"
+          cat /tmp/gowa.log
+          exit 1
 
       # Restore the build from Turbo's remote cache (the pre-push hook fills
       # it) or build while Postgres, Playwright and zero-cache get ready.

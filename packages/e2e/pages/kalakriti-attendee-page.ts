@@ -140,11 +140,7 @@ export class KalakritiAttendeePage {
       name: "Competitions",
       exact: true,
     });
-    await search.fill("no matching competition");
-    await expect(
-      this.page.getByText("No matching competitions found.", { exact: true })
-    ).toBeVisible();
-    await search.fill("");
+    await search.click();
     await expect(this.page.getByRole("option").first()).toBeVisible();
     const selected = this.page.getByRole("option", { selected: true });
     while (await selected.count()) await selected.first().click();

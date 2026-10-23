@@ -20,7 +20,7 @@ export const singleLiveEditionSpecs = [
 ] as const;
 
 // Add a file only when every test in it is gated to the same role.
-const roleOnlySpecs = {
+export const roleOnlySpecs = {
   super_admin: [
     "events/event-create.spec.ts",
     "events/event-programme.spec.ts",
@@ -35,9 +35,7 @@ const roleOnlySpecs = {
     "events/event-edit-cancel.spec.ts",
     "events/event-expenses.spec.ts",
     "events/event-interest-approval.spec.ts",
-    "events/event-time-filter.spec.ts",
     "events/event-updates.spec.ts",
-    "events/photo-notifications.spec.ts",
     "events/public-events-filters.spec.ts",
     "events/recurring-events.spec.ts",
     "events/rsvp-poll-lead-time.spec.ts",
