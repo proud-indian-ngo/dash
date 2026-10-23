@@ -16,6 +16,8 @@ import { format } from "date-fns";
 import type { getReceiptContacts } from "@/functions/contribution-receipts";
 import { DATE_TIME } from "@/lib/date-formats";
 
+import type { ContributionRow } from "../income-types";
+
 /** A receipt as the Receipts tab query returns it. */
 export type ReceiptRow = ContributionReceipt & {
   contribution?: (Contribution & { party?: Party | null }) | null;
@@ -35,6 +37,18 @@ export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
   issued: "Issued",
   voided: "Voided",
 };
+
+/**
+ * Whether the gift's party holds an active intermediary role; the Income
+ * list loads only that role.
+ */
+export function fromIntermediary(row: ContributionRow): boolean {
+  return (
+    row.party?.roles?.some(
+      (role) => role.active && role.role === "intermediary"
+    ) ?? false
+  );
+}
 
 export function receiptDonorName(row: ReceiptRow): string {
   return row.contribution?.party?.displayName ?? "Unknown donor";

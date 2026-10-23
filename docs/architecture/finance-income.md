@@ -22,7 +22,7 @@ A donor with `party.tax_certificate_opt_out` is left out of the return and never
 Rules in `packages/shared/src/income.ts` and its neighbours; mutators in `packages/zero/src/mutators/income.ts`.
 
 - The Income page is readable with `donors.view`, `finance.view`, `donors.manage` or `finance.manage` (the "four income permissions"). Contributions are written with `donors.manage`, other income with `finance.manage`.
-- A contribution's party must hold an active donor, sponsor, grantor or intermediary role. Platform intermediaries such as GiveIndia are never the giver unless they also hold a giving role. The Unallocated programme is refused.
+- A contribution's party must hold an active donor, sponsor, grantor or intermediary role. Platform intermediaries such as GiveIndia are never the giver unless they also hold a giving role. Gifts from a party with the intermediary role are never receipted ([receipts](finance-receipts-and-returns.md#donation-receipts-and-numbering)). The Unallocated programme is refused.
 - "Received" means `received` or `receipted`, and net received subtracts refunds. The stats, the donor's giving and "Missing donor details" share these definitions.
 
 ### Channel rules

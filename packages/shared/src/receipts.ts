@@ -9,7 +9,8 @@
  * registration), so pi-dash never receipts those gifts. pi-dash receipts
  * direct gifts only (UPI, NEFT/IMPS, cheque, and cash should it ever
  * happen) received on or after 1 April 2026; earlier gifts were receipted
- * outside pi-dash.
+ * outside pi-dash. Nobody is receipted for money passed on by a platform
+ * (a party with an active intermediary role, such as Goodera's CSR funds).
  */
 import type {
   ContributionChannel,
@@ -21,7 +22,6 @@ import type {
 import {
   CASH_DEDUCTION_LIMIT_PAISE,
   effectiveReportingMode,
-  isPlatformIntermediary,
   type ReturnDonorFacts,
 } from "./donations-return";
 import { INCOME_PERMISSIONS } from "./income";
@@ -58,7 +58,7 @@ export const RECEIPT_ISSUER_POLICY: readonly {
   {
     channels: "UPI, NEFT/IMPS, cheque, cash",
     issuer: "pi_dash",
-    note: `Issued from Income for gifts received on or after ${RECEIPTING_START_LABEL}.`,
+    note: `Issued from Income for gifts received on or after ${RECEIPTING_START_LABEL}, except gifts from an intermediary.`,
   },
 ];
 
@@ -293,6 +293,7 @@ export function isValidOrgPan(value: string): boolean {
 /** Why pi-dash doesn't receipt a gift at all. */
 export const receiptSkipValues = [
   "in_kind",
+  "intermediary",
   "before_start",
   "pending",
   "refunded",
@@ -303,6 +304,7 @@ export type ReceiptSkip = (typeof receiptSkipValues)[number];
 export const RECEIPT_SKIP_LABELS: Record<ReceiptSkip, string> = {
   before_start: `Received before ${RECEIPTING_START_LABEL} (receipted outside the dashboard)`,
   in_kind: "In kind (not receipted)",
+  intermediary: "Received through an intermediary (not receipted)",
   pending: "Not received yet",
   refunded: "Refunded",
   reversed: "Reversed",
@@ -313,7 +315,6 @@ export const receiptBlockValues = [
   "status_mismatch",
   "refund_recorded",
   "foreign_currency",
-  "intermediary_as_donor",
   "missing_name",
   "missing_address",
   "missing_id",
@@ -323,7 +324,6 @@ export type ReceiptBlock = (typeof receiptBlockValues)[number];
 
 export const RECEIPT_BLOCK_LABELS: Record<ReceiptBlock, string> = {
   foreign_currency: "Foreign currency (FCRA is not activated)",
-  intermediary_as_donor: "Donation platform recorded as the donor",
   invalid_id: "Donor's ID number doesn't look valid",
   missing_address: "Donor has no address with PIN code",
   missing_id: "Donor has no ID number (needed for the 80G line)",
@@ -338,9 +338,10 @@ export interface ReceiptGiftFacts {
   channel: ContributionChannel;
   currency: string;
   deductionEligible: DeductionEligible;
+  /** Whether the gift's party holds an active intermediary role. */
+  fromIntermediary: boolean;
   /** Whether a receipt that is not voided exists. */
   hasActiveReceipt: boolean;
-  partyId: string;
   /** yyyy-MM-dd. */
   receivedOn: string;
   refundedPaise: number;
@@ -390,8 +391,9 @@ export function receiptCarries80G(
 
 /**
  * Where a gift stands for a pi-dash receipt. Order matters: who receipts
- * the channel, then an existing receipt, then the start date and status,
- * then what must be fixed on the gift or the donor.
+ * the channel, then an existing receipt (finance voids one it shouldn't
+ * have), then an intermediary party, then the start date and status, then
+ * what must be fixed on the gift or the donor.
  */
 export function assessReceipt(
   gift: ReceiptGiftFacts,
@@ -406,6 +408,9 @@ export function assessReceipt(
   }
   if (gift.hasActiveReceipt) {
     return { kind: "receipted" };
+  }
+  if (gift.fromIntermediary) {
+    return { kind: "skipped", reason: "intermediary" };
   }
   if (gift.receivedOn < RECEIPTING_START_DAY) {
     return { kind: "skipped", reason: "before_start" };
@@ -430,9 +435,6 @@ export function assessReceipt(
   }
   if (gift.currency.trim().toUpperCase() !== "INR") {
     blocks.push("foreign_currency");
-  }
-  if (isPlatformIntermediary(gift.partyId)) {
-    blocks.push("intermediary_as_donor");
   }
   if (!donor?.hasName) {
     blocks.push("missing_name");
@@ -559,6 +561,7 @@ export function receiptColumnValue(
       return assessment.issuer;
     case "skipped":
       return assessment.reason === "in_kind" ||
+        assessment.reason === "intermediary" ||
         assessment.reason === "before_start"
         ? "not_needed"
         : "none";

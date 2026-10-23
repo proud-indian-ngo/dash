@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { integerToIndianWords, paiseToIndianWords } from "./amount-in-words";
-import { GIVE_INDIA_PARTY_ID } from "./constants";
 import {
   assessReceipt,
   formatReceiptNumber,
@@ -31,8 +30,8 @@ const gift = (overrides: Partial<ReceiptGiftFacts> = {}): ReceiptGiftFacts => ({
   channel: "upi",
   currency: "INR",
   deductionEligible: "unknown",
+  fromIntermediary: false,
   hasActiveReceipt: false,
-  partyId: "donor-1",
   receivedOn: "2026-05-10",
   refundedPaise: 0,
   reportingMode: "electronic_or_account_payee",
@@ -211,13 +210,10 @@ describe("assessReceipt", () => {
     ).toEqual({ kind: "eligible", with80G: false });
   });
 
-  it("blocks platform donors and foreign currency", () => {
-    expect(
-      assessReceipt(
-        gift({ currency: "USD", partyId: GIVE_INDIA_PARTY_ID }),
-        donor()
-      )
-    ).toMatchObject({ blocks: ["foreign_currency", "intermediary_as_donor"] });
+  it("blocks foreign currency", () => {
+    expect(assessReceipt(gift({ currency: "USD" }), donor())).toMatchObject({
+      blocks: ["foreign_currency"],
+    });
   });
 });
 
@@ -264,7 +260,6 @@ describe("receipt column", () => {
   it("says Can't issue when the gift itself blocks the receipt", () => {
     expect(column({ refundedPaise: 100 })).toBe("cant_issue");
     expect(column({ currency: "USD" })).toBe("cant_issue");
-    expect(column({ partyId: GIVE_INDIA_PARTY_ID })).toBe("cant_issue");
     // Gift-level and donor-level together: details alone won't help.
     expect(column({ refundedPaise: 100 }, donor({ hasAddress: false }))).toBe(
       "cant_issue"

@@ -3,6 +3,7 @@ import {
   bringAutomaticReceiptSendForward,
   issueReceiptsIn,
   type IssueReceiptsResult,
+  loadIntermediaryGiftIds,
   loadReceiptConfig,
   loadReceiptCandidates,
   loadLiveReceiptContacts,
@@ -21,6 +22,7 @@ import {
   ReceiptSignatureError,
   readReceiptSignature,
 } from "@pi-dash/jobs/lib/receipt-pdf";
+import { RECEIPT_SKIP_LABELS } from "@pi-dash/shared/receipts";
 import { uuidv7 } from "uuidv7";
 
 import { withSafeErrors } from "@/lib/safe-errors";
@@ -67,6 +69,11 @@ export const issueReceipts = (
   actorId: string
 ): Promise<IssueReceiptsResult> =>
   safely("issue", async () => {
+    // Gifts from an intermediary are never receipted, whatever the request
+    // says; issuing also skips them should the role be added meanwhile.
+    if ((await loadIntermediaryGiftIds(contributionIds)).size > 0) {
+      throw new ReceiptError(RECEIPT_SKIP_LABELS.intermediary);
+    }
     // A receipt's number can't be given back, so refuse before issuing one
     // that could never render.
     const { settings } = await loadReceiptConfig();

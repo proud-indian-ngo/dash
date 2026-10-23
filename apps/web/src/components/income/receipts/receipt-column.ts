@@ -8,7 +8,7 @@ import {
 } from "@pi-dash/shared/receipts";
 
 import type { ContributionRow } from "../income-types";
-import { liveReceipt } from "./receipt-types";
+import { fromIntermediary, liveReceipt } from "./receipt-types";
 
 /** The server's split of open direct gifts, as sets for lookups. */
 export interface ReceiptReadinessSets {
@@ -47,8 +47,8 @@ export function contributionReceiptValue(
     channel: row.channel as ContributionChannel,
     currency: row.currency ?? "INR",
     deductionEligible: row.deductionEligible ?? "unknown",
+    fromIntermediary: fromIntermediary(row),
     hasActiveReceipt: liveReceipt(row.receipts) !== null,
-    partyId: row.partyId,
     receivedOn: epochDayToIso(row.receivedOn),
     refundedPaise: refundedPaise(row.refunds),
     reportingMode: row.reportingMode,

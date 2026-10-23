@@ -1,4 +1,7 @@
-import { loadLiveReceiptNumbers } from "@pi-dash/db/queries/contribution-receipts";
+import {
+  loadIntermediaryGiftIds,
+  loadLiveReceiptNumbers,
+} from "@pi-dash/db/queries/contribution-receipts";
 import {
   loadFiledSequences,
   type NewFilingRow,
@@ -27,6 +30,7 @@ import {
 import { paiseToRupees } from "@pi-dash/shared/money";
 import {
   RECEIPT_ISSUER_LABELS,
+  RECEIPT_SKIP_LABELS,
   RECEIPTING_START_DAY,
   receiptIssuerFor,
 } from "@pi-dash/shared/receipts";
@@ -172,10 +176,15 @@ export const ALL_GIFTS_HEADERS = [
 /**
  * Who receipts the gift under the fixed policy, and pi-dash's receipt number
  * when it issued one. Direct gifts from before the start date were receipted
- * outside pi-dash.
+ * outside pi-dash; gifts from an intermediary are not receipted at all
+ * (`assessReceipt`), unless a receipt issued earlier is still live.
  */
 export function receiptIssuerCells(
-  gift: { channel: Parameters<typeof receiptIssuerFor>[0]; receivedOn: string },
+  gift: {
+    channel: Parameters<typeof receiptIssuerFor>[0];
+    fromIntermediary: boolean;
+    receivedOn: string;
+  },
   receiptNumber: string | undefined
 ): [string, string] {
   const issuer = receiptIssuerFor(gift.channel);
@@ -184,6 +193,9 @@ export function receiptIssuerCells(
   }
   if (issuer !== "pi_dash") {
     return [RECEIPT_ISSUER_LABELS[issuer], ""];
+  }
+  if (gift.fromIntermediary && !receiptNumber) {
+    return [RECEIPT_SKIP_LABELS.intermediary, ""];
   }
   if (gift.receivedOn < RECEIPTING_START_DAY) {
     return ["Outside the dashboard", ""];
@@ -239,10 +251,9 @@ export async function loadAllGiftsRows(
     facts.donors,
     await loadFiledSequences(reader)
   );
-  const receiptNumbers = await loadLiveReceiptNumbers(
-    facts.gifts.map((gift) => gift.id),
-    reader
-  );
+  const giftIds = facts.gifts.map((gift) => gift.id);
+  const receiptNumbers = await loadLiveReceiptNumbers(giftIds, reader);
+  const fromIntermediary = await loadIntermediaryGiftIds(giftIds, reader);
   return facts.gifts.map((gift, index): AllGiftsRow => {
     const assessed = gifts[index];
     const donor = facts.donors.get(gift.partyId);
@@ -257,7 +268,7 @@ export async function loadAllGiftsRows(
         ? `${label.reason}: ${gift.eligibilityReason}`
         : label.reason;
     const [receiptIssuer, receiptNumber] = receiptIssuerCells(
-      gift,
+      { ...gift, fromIntermediary: fromIntermediary.has(gift.id) },
       receiptNumbers.get(gift.id)
     );
     return {

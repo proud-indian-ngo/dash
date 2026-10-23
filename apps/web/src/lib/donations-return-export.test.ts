@@ -70,6 +70,7 @@ let facts = () => ({
 });
 
 mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
+  loadIntermediaryGiftIds: async () => new Set(),
   loadLiveReceiptNumbers: async () => new Map([["g1", "PI/2026-27/0001"]]),
 }));
 

@@ -7,6 +7,7 @@ import type {
   OrgAccount,
   OtherIncome,
   Party,
+  PartyRole,
   Programme,
   Project,
 } from "@pi-dash/zero/schema";
@@ -18,7 +19,8 @@ export type ContributionRow = Contribution & {
   /** The platform that passed the gift on, such as GiveIndia for give.do. */
   intermediary?: Party | null;
   orgAccount?: OrgAccount | null;
-  party?: Party | null;
+  /** With its active intermediary role only, if it holds one. */
+  party?: (Party & { roles?: readonly PartyRole[] }) | null;
   programme?: Programme | null;
   project?: Project | null;
   /** Receipts pi-dash issued for it, newest first, voided ones included. */

@@ -539,12 +539,17 @@ const RECEIPT_DONOR_PAN = "ABCPR1234R";
 /** A receipt donor without an address, until the receipts spec adds one. */
 const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
 const RECEIPT_DETAILS_DONOR_PAN = "ABCPD1234D";
+/** A CSR platform (sponsor and intermediary), whose gifts are never receipted. */
+const RECEIPT_PLATFORM_ID = "01930000-0000-7000-8000-000000000749";
+const RECEIPT_PLATFORM_PAN = "ABCCP1234P";
 
 /**
  * Donation receipt fixtures: fake receipt details in Settings, and a donor
  * with a PAN and an address who gave once by UPI (receiptable here) and
  * once through give.do (receipted by give.do, so never here). Both gifts
- * are dated today. The 80G registration is left to the spec, which enters
+ * are dated today. A CSR platform holding the intermediary role (and a
+ * sponsor role) gave once by NEFT with full details, so only the role keeps
+ * it from a receipt. The 80G registration is left to the spec, which enters
  * it through Settings as the donations return spec does. Fake details only.
  */
 async function ensureReceiptFixtures(userId: string): Promise<void> {
@@ -720,6 +725,69 @@ async function ensureReceiptFixtures(userId: string): Promise<void> {
       partyId: RECEIPT_DETAILS_DONOR_ID,
       receivedOn: todayInIndia,
       reference: "E2E-RECEIPT-DETAILS",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Platform",
+      id: RECEIPT_PLATFORM_ID,
+      kind: "organisation",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  for (const [id, role] of [
+    ["01930000-0000-7000-8000-000000000750", "sponsor"],
+    ["01930000-0000-7000-8000-000000000751", "intermediary"],
+  ] as const) {
+    await db
+      .insert(partyRole)
+      .values({
+        active: true,
+        id,
+        partyId: RECEIPT_PLATFORM_ID,
+        role,
+        since: now,
+      })
+      .onConflictDoUpdate({ set: { active: true }, target: partyRole.id });
+  }
+  const platformDetails = {
+    addressLine1: "3, Platform Road",
+    city: "Bengaluru",
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_PLATFORM_PAN,
+      partyIdNumberContext(RECEIPT_PLATFORM_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_PLATFORM_PAN),
+    idType: "pan" as const,
+    pincode: "560003",
+    state: "Karnataka",
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...platformDetails, partyId: RECEIPT_PLATFORM_ID })
+    .onConflictDoUpdate({ set: platformDetails, target: partyPrivate.partyId });
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 250_000,
+      channel: "neft",
+      createdAt: now,
+      createdBy: userId,
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000752",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      partyId: RECEIPT_PLATFORM_ID,
+      receivedOn: todayInIndia,
+      reference: "E2E-RECEIPT-PLATFORM",
       reportingMode: "electronic_or_account_payee",
       status: "received",
       updatedAt: now,
