@@ -11,7 +11,8 @@ import { safeErrorName } from "@/lib/safe-errors";
 
 /**
  * A utilisation certificate's files: `?file=latest` (the latest copy, as
- * prepared or with every signature so far) or `?file=ca` (the CA's
+ * prepared or with every signature so far, and once both trustees have
+ * signed, its long-term copy) or `?file=ca` (the CA's
  * document). Finance readers get both; the two signing trustees get the
  * latest copy of the certificate they sign. Every fetch is audited as a
  * download, `?disposition=inline` (the viewer) included.
@@ -81,9 +82,13 @@ export async function handleCertificateFileDownload(
   if (!(financeReader || signer)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Once both trustees have signed, the signed PDF served is its long-term
+  // copy, which the vault document holds once the certificate is filed.
   const objectKey =
     which.data === "latest"
-      ? certificate?.latestObjectKey
+      ? (certificate?.vaultArchiveObjectKey ??
+        certificate?.archiveObjectKey ??
+        certificate?.latestObjectKey)
       : certificate?.caObjectKey;
   const fileName =
     which.data === "latest"

@@ -75,6 +75,7 @@ export const governanceDocumentKindValues = [
   "acceptance",
   "policy",
   "declaration",
+  "utilisation_certificate",
   "evidence",
   "other",
 ] as const;
@@ -96,6 +97,7 @@ export const GOVERNANCE_DOCUMENT_KIND_LABELS: Record<
   resignation: "Resignation",
   resolution: "Resolution",
   trust_deed: "Trust deed",
+  utilisation_certificate: "Utilisation certificate",
 };
 
 /** How a vault document arrived: a plain PDF, a digitally signed PDF, an email, or a scan of paper. */

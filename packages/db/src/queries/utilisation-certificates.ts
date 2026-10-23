@@ -1,5 +1,9 @@
 import { fiscalYearLabel } from "@pi-dash/shared/compliance";
-import { boardOn, TRUSTEE_OFFICE_LABELS } from "@pi-dash/shared/governance";
+import {
+  boardOn,
+  DOCUMENT_TITLE_MAX,
+  TRUSTEE_OFFICE_LABELS,
+} from "@pi-dash/shared/governance";
 import { grantUtilisation } from "@pi-dash/shared/grants";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
@@ -35,7 +39,11 @@ import {
   programme,
   project,
 } from "../schema/finance-dimensions";
-import { trustee } from "../schema/governance";
+import {
+  type GovernanceValidationReport,
+  governanceDocument,
+  trustee,
+} from "../schema/governance";
 import {
   grantAgreement,
   grantBudgetLine,
@@ -43,6 +51,10 @@ import {
 } from "../schema/grant";
 import { party } from "../schema/party";
 import { utilisationCertificateCounter } from "../schema/private/utilisation-certificates";
+import {
+  findGovernanceDocumentBySha256,
+  insertGovernanceDocument,
+} from "./governance";
 import { loadGrantUtilisation } from "./grant-utilisation";
 import { loadRegister } from "./resolutions";
 
@@ -410,6 +422,7 @@ export async function getCertificate(id: string, reader: Reader = db) {
       certificate: utilisationCertificate,
       financeUserId: financeSigner.userId,
       headUserId: headSigner.userId,
+      vaultArchiveObjectKey: governanceDocument.archiveObjectKey,
     })
     .from(utilisationCertificate)
     .innerJoin(
@@ -420,6 +433,10 @@ export async function getCertificate(id: string, reader: Reader = db) {
       financeSigner,
       eq(financeSigner.id, utilisationCertificate.financeTrusteeId)
     )
+    .leftJoin(
+      governanceDocument,
+      eq(governanceDocument.id, utilisationCertificate.documentId)
+    )
     .where(eq(utilisationCertificate.id, id))
     .limit(1);
   return row
@@ -427,6 +444,8 @@ export async function getCertificate(id: string, reader: Reader = db) {
         ...row.certificate,
         financeUserId: row.financeUserId,
         headUserId: row.headUserId,
+        /** The long-term copy once the certificate is filed in the vault. */
+        vaultArchiveObjectKey: row.vaultArchiveObjectKey,
       }
     : null;
 }
@@ -514,6 +533,8 @@ export async function recordCertificateSignature(
     id: string;
     objectKey: string;
     sha256: string;
+    /** The signed copy's facts, for the vault if this signature makes it final. */
+    signed: SignedCopyFacts;
     trusteeId: string;
   },
   database: Pick<typeof db, "transaction"> = db,
@@ -533,12 +554,18 @@ export async function recordCertificateSignature(
     if (role === "finance") {
       status = row.caRequired ? "awaiting_ca" : "final";
     }
+    const latest = {
+      latestObjectKey: input.objectKey,
+      latestSha256: input.sha256,
+    };
     await tx
       .update(utilisationCertificate)
       .set({
         ...(role === "head" ? { headSignedAt: now } : { financeSignedAt: now }),
-        latestObjectKey: input.objectKey,
-        latestSha256: input.sha256,
+        ...latest,
+        ...(status === "final"
+          ? await fileInVault(tx, { ...row, ...latest }, input.signed, now)
+          : {}),
         status,
         updatedAt: now,
       })
@@ -553,6 +580,8 @@ export async function recordCaCertificate(
     filename: string;
     id: string;
     objectKey: string;
+    /** The trustees' signed copy the CA certified, for the vault. */
+    signed: SignedCopyFacts & { sha256: string };
     udin: string;
     userId: string;
   },
@@ -568,19 +597,87 @@ export async function recordCaCertificate(
           : "This grant's agreement doesn't ask for a CA's certificate."
       );
     }
+    if (row.latestSha256 !== input.signed.sha256) {
+      throw new Error("The certificate's signed copy changed meanwhile");
+    }
+    const ca = { caUdin: input.udin };
     await tx
       .update(utilisationCertificate)
       .set({
+        ...ca,
+        ...(await fileInVault(tx, { ...row, ...ca }, input.signed, now)),
         caFilename: input.filename,
         caObjectKey: input.objectKey,
         caRecordedAt: now,
         caRecordedBy: input.userId,
-        caUdin: input.udin,
         status: "final",
         updatedAt: now,
       })
       .where(eq(utilisationCertificate.id, input.id));
   });
+}
+
+/** What the vault keeps of the trustees' signed copy beyond its key and hash. */
+export interface SignedCopyFacts {
+  /** The signing service's check of it. */
+  report: GovernanceValidationReport;
+  sizeBytes: number;
+}
+
+/**
+ * Files a certificate that is becoming final in the vault, under its row
+ * lock and in the transaction that makes it final, as signed minutes and
+ * declarations are: the trustees' signed copy is the document, and its
+ * long-term copy moves from the certificate to the document, which then
+ * holds it and its renewal. Returns the certificate's columns to set.
+ */
+async function fileInVault(
+  tx: CertificateTx,
+  row: typeof utilisationCertificate.$inferSelect,
+  signed: SignedCopyFacts,
+  now: Date
+) {
+  const { grant, signatories } = row.snapshot;
+  const documentId =
+    (await findGovernanceDocumentBySha256(row.latestSha256, tx))?.id ??
+    (await insertGovernanceDocument(
+      {
+        contentType: "application/pdf",
+        datedOn: todayInKolkata(now),
+        kind: "utilisation_certificate",
+        note: `For ${grant.grantor}, ${row.fromOn} to ${row.toOn}. Signed by ${signatories.head.name} and ${signatories.finance.name} with their DSCs${row.caUdin ? `; the CA's certificate (UDIN ${row.caUdin}) stays with the certificate` : ""}.`,
+        objectKey: row.latestObjectKey,
+        originalFilename: `${row.number.replaceAll("/", "-")}.pdf`,
+        sha256: row.latestSha256,
+        sizeBytes: signed.sizeBytes,
+        sourceFormat: "signed_pdf",
+        title: `Utilisation certificate ${row.number}: ${grant.title}`.slice(
+          0,
+          DOCUMENT_TITLE_MAX
+        ),
+        uploadedBy: row.preparedBy,
+        validationReport: signed.report,
+      },
+      tx
+    ));
+  if (row.archiveObjectKey) {
+    await tx
+      .update(governanceDocument)
+      .set({
+        archiveObjectKey: row.archiveObjectKey,
+        archiveRenewOn: row.archiveRenewOn,
+        archiveSha256: row.archiveSha256,
+        archivedAt: row.archivedAt,
+      })
+      .where(eq(governanceDocument.id, documentId));
+  }
+  return {
+    archiveObjectKey: null,
+    archiveRenewOn: null,
+    archiveSha256: null,
+    archivedAt: null,
+    documentId,
+  };
 }
 
 /**

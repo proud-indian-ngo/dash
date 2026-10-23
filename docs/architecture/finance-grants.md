@@ -26,7 +26,7 @@ Schema `packages/db/src/schema/grant.ts`. The table is `grant_agreement` because
 
 ## Budget
 
-`grant_budget_line` holds one amount per expense head, the same budgetable heads as [Budgets](finance-and-programmes.md#budgets) (`budgetableHeadIds`). ₹0 is a budget; a blank head has none. Spend above a head's budget shows in red only.
+`grant_budget_line` holds one amount per expense head, the same budgetable heads as [Budgets](finance-and-programmes.md#budgets) (`budgetableHeadIds`). ₹0 is a budget; a blank head has none.
 
 ## Utilisation
 
@@ -39,12 +39,9 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 - **Unspent brought forward**: received less refunded less spent before `from`. **Closing unspent**: brought forward plus received less refunded less spent in the range.
 - An expense charged to an event counts when the event names the grant's project: finance sets an event's project (`finance.manage` only), occurrences inherit it, and its claims and vendor payments post with it. Changing an event's project stays allowed after its expenses post, and reposts them, except in a closed year or under a certificate (see [Lock and drift](#lock-and-drift)). The event form first shows the posted spend that would move (`getEventProjectMove`). When someone outside finance moves an event to another programme, its project clears and finance gets an inbox and email notice.
 - Every figure is dated, so one range's closing is the next range's brought forward, and a later refund or void never changes an earlier range.
-- The grant page defaults to the whole grant; From and To pick any period.
 
 ## Screens and access
 
-- Finance → Grants lists each grant's period, money and status, filtered by status and programme.
-- The grant page shows the totals, the period's utilisation, tranches with what each received, spend by head against budget, certificates, linked contributions and the agreement.
 - Reading needs `finance.view`; grants sync only to it. Writing needs `finance.manage` through the audited `grant.*` mutators.
 
 ## Utilisation certificates
@@ -52,9 +49,11 @@ Actuals are never stored. `loadGrantUtilisation` (`packages/db/src/queries/grant
 A certificate covers any period within the grant, GFR 12-A style. No law requires the trust to issue one or a CA's certificate: CSR Rule 4(5) puts certifying on the company, which asks for them by contract.
 
 - **Prepare** (`finance.manage`): period, place and interest earned. A grant's live certificates never overlap. Interest isn't separated in the books, so finance enters it (default ₹0); it enters the chain, and earlier certificates' interest is brought forward. Preparing freezes `grantUtilisation`'s figures into a snapshot, numbers it (`UC/2026-27/001`, gap-free per financial year from a locked counter row) and stores the PDF rendered from the snapshot with both signature fields, in one transaction. Name, address and PAN come from the receipt settings; 12AB, 80G and CSR-1 (required for CSR grants) from Governance → Registrations.
-- **PDF** (`packages/pdf/src/utilisation-certificate.tsx`): particulars, the balance chain with each receipt and refund, spend by head against budget, the GFR 12-A certification adapted to CSR, and a signature page with both trustees' boxes and, when asked, a CA slot.
-- **Sign**: the Head of the Organisation (Managing Trustee), then the Chief Finance Officer (Treasurer, or the Joint Managing Trustee while no other trustee is), fixed at preparing; two holders of one office are refused. A signer must still hold that office when signing, else finance withdraws it and prepares again. Each signs with the DSC helper or Acrobat under the governance checks ([signing](governance-resolutions.md#signing)), appending to the latest copy. Signers need no finance permission: they open only what they sign, listed on their dashboard, with an inbox and email notice.
+- **PDF** (`packages/pdf/src/utilisation-certificate.tsx`): the GFR 12-A certification adapted to CSR, with both trustees' boxes and, when asked, a CA slot.
+- **Sign**: the Head of the Organisation (Managing Trustee), then the Chief Finance Officer (Treasurer, or the Joint Managing Trustee while no other trustee is), fixed at preparing; two holders of one office are refused. A signer must still hold that office when signing, else finance withdraws it and prepares again. Each signs with the DSC helper or Acrobat under the governance checks ([signing](governance-resolutions.md#signing)), appending to the latest copy. Signers need no finance permission: they open only what they sign, from their dashboard and notices.
+- **Long-term copy**: once both have signed, the latest copy gets one as a passed circular does ([long-term copies](governance-resolutions.md#long-term-copies)), and downloads serve it. If the signing service or timestamp authority fails, it stays due for the monthly job and the certificate moves on.
 - **CA**: when the agreement needs one (frozen at preparing), finance then records the UDIN and the countersigned PDF or CA report, making it final; otherwise both signatures do.
+- **Vault**: the transaction that makes it final files the signed copy in the governance vault, as signed minutes are, and the document takes over the long-term copy. The CA's document stays on the certificate. One cancelled before final is never filed; after, it stays.
 - **Withdraw**: discard before the first signature, cancel with a reason after; both keep the number. Downloads are audited.
 
 ### Lock and drift

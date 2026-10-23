@@ -63,6 +63,6 @@ The helper (`services/signing-helper`, Rust) signs only for the dashboard built 
 
 ## Long-term copies
 
-A passed circular's signed PDF gets a long-term copy at once (revocation data and a document timestamp, PAdES B-LTA), and downloads serve that copy. A monthly job adds a new document timestamp a year after the last; a failed one stays due.
+A passed circular's signed PDF gets a long-term copy at once (revocation data and a document timestamp, PAdES B-LTA), and downloads serve that copy; a [utilisation certificate](finance-grants.md#utilisation-certificates) gets one once both trustees have signed. A monthly job adds a new document timestamp a year after the last; a failed one stays due.
 
 Not built: certifying (DocMDP) first signatures; the first signature is an approval signature. Not yet tried with real Acrobat files: that they carry the answers field's lock into the signature, and that they don't rewrite an existing field's appearance in place, which the validator now reads as a change to earlier signatures.

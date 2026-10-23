@@ -10,6 +10,7 @@ import {
   signingCertificate,
   trustee,
 } from "../schema/governance";
+import { utilisationCertificate } from "../schema/grant";
 import { signingJob } from "../schema/private/trustee-private";
 
 /** A signing link lives this long. */
@@ -312,28 +313,89 @@ export async function getCertificate(id: string) {
 
 // ── Long-term copies ────────────────────────────────────────────────────────
 
+/**
+ * Where a long-term copy is recorded: a vault document, or a utilisation
+ * certificate both trustees have signed, until it is filed in the vault.
+ */
+export type ArchiveTarget = { documentId: string } | { certificateId: string };
+
 export async function setArchiveCopy(
-  documentId: string,
+  target: ArchiveTarget,
   copy: { objectKey: string; renewOn: string; sha256: string }
 ): Promise<void> {
-  await db
-    .update(governanceDocument)
-    .set({
-      archiveObjectKey: copy.objectKey,
-      archiveRenewOn: copy.renewOn,
-      archiveSha256: copy.sha256,
-      archivedAt: new Date(),
-    })
-    .where(eq(governanceDocument.id, documentId));
+  const values = {
+    archiveObjectKey: copy.objectKey,
+    archiveRenewOn: copy.renewOn,
+    archiveSha256: copy.sha256,
+    archivedAt: new Date(),
+  };
+  if ("documentId" in target) {
+    await db
+      .update(governanceDocument)
+      .set(values)
+      .where(eq(governanceDocument.id, target.documentId));
+    return;
+  }
+  // Under the certificate's lock, which filing it in the vault takes too: a
+  // copy made after the certificate was filed goes to its vault document.
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ documentId: utilisationCertificate.documentId })
+      .from(utilisationCertificate)
+      .where(eq(utilisationCertificate.id, target.certificateId))
+      .for("update");
+    if (row?.documentId) {
+      await tx
+        .update(governanceDocument)
+        .set(values)
+        .where(eq(governanceDocument.id, row.documentId));
+      return;
+    }
+    await tx
+      .update(utilisationCertificate)
+      .set(values)
+      .where(eq(utilisationCertificate.id, target.certificateId));
+  });
 }
 
-/** Archive copies whose yearly document timestamp is due. */
-export async function archivesDue(today: string) {
-  return await db
-    .select({
-      archiveObjectKey: governanceDocument.archiveObjectKey,
-      id: governanceDocument.id,
-    })
-    .from(governanceDocument)
-    .where(lte(governanceDocument.archiveRenewOn, today));
+/**
+ * Long-term copies whose yearly document timestamp is due: vault
+ * documents', and those of certificates waiting for the CA, which aren't
+ * filed yet. A cancelled certificate's copy is no longer renewed.
+ */
+export async function archivesDue(
+  today: string
+): Promise<{ archiveObjectKey: string | null; target: ArchiveTarget }[]> {
+  const [documents, certificates] = await Promise.all([
+    db
+      .select({
+        archiveObjectKey: governanceDocument.archiveObjectKey,
+        id: governanceDocument.id,
+      })
+      .from(governanceDocument)
+      .where(lte(governanceDocument.archiveRenewOn, today)),
+    db
+      .select({
+        archiveObjectKey: utilisationCertificate.archiveObjectKey,
+        id: utilisationCertificate.id,
+      })
+      .from(utilisationCertificate)
+      .where(
+        and(
+          lte(utilisationCertificate.archiveRenewOn, today),
+          eq(utilisationCertificate.status, "awaiting_ca"),
+          isNull(utilisationCertificate.documentId)
+        )
+      ),
+  ]);
+  return [
+    ...documents.map((d) => ({
+      archiveObjectKey: d.archiveObjectKey,
+      target: { documentId: d.id },
+    })),
+    ...certificates.map((c) => ({
+      archiveObjectKey: c.archiveObjectKey,
+      target: { certificateId: c.id },
+    })),
+  ];
 }

@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
-import type { Browser, Locator, Page, TestInfo } from "@playwright/test";
+import type {
+  APIRequestContext,
+  Browser,
+  Locator,
+  Page,
+  TestInfo,
+} from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import {
@@ -36,9 +42,10 @@ import { ListPage } from "../../pages/list-page";
  *   the fixture grant, as displayed. The same on every run.
  * - `utilisation-certificate.pdf` and `utilisation-certificate.json` (signing
  *   flow): the final PDF, and its number (sequence replaced by NNN), status,
- *   signers, frozen figures as displayed, signature count and CA file name,
- *   which compare across runs; `pdf.sha256` checks the attached file and
- *   differs per run, since each signature is new.
+ *   signers, frozen figures as displayed, signature count, long-term level
+ *   and CA file name, which compare across runs; `pdf.sha256` checks the
+ *   attached file and `vault.documentId` names its vault document, and both
+ *   differ per run, since each signature is new.
  */
 
 /**
@@ -182,6 +189,50 @@ async function detailsOf(page: Page) {
         .textContent()) ?? "";
   }
   return facts;
+}
+
+const sha256 = (bytes: Buffer) =>
+  createHash("sha256").update(bytes).digest("hex");
+
+async function download(request: APIRequestContext, url: string) {
+  const response = await request.get(url);
+  expect(response.status(), url).toBe(200);
+  return Buffer.from(await response.body());
+}
+
+/**
+ * The long-term level the E2E signing service's check finds in a PDF:
+ * every signature valid, with revocation data (a DSS) and a trusted
+ * document timestamp after them, is PAdES B-LTA.
+ */
+async function longTermLevel(request: APIRequestContext, pdf: Buffer) {
+  const response = await request.post(
+    new URL("/validate", process.env.SIGNING_SERVICE_URL).toString(),
+    {
+      data: pdf,
+      headers: {
+        Authorization: `Bearer ${process.env.SIGNING_SERVICE_TOKEN ?? ""}`,
+        "Content-Type": "application/pdf",
+      },
+    }
+  );
+  expect(response.status()).toBe(200);
+  const report = (await response.json()) as {
+    documentTimestamps?: { intact: boolean; trusted: boolean }[];
+    signatures: unknown[];
+    status: string;
+  };
+  expect(report.status).toBe("valid");
+  expect(report.signatures).toHaveLength(2);
+  expect(report.documentTimestamps).toEqual([
+    expect.objectContaining({ intact: true, trusted: true }),
+  ]);
+  expect(pdf.toString("latin1")).toContain("/DSS");
+  return {
+    documentTimestamps: report.documentTimestamps?.length ?? 0,
+    level: "PAdES B-LTA",
+    signatures: report.signatures.length,
+  };
 }
 
 async function attachJson(testInfo: TestInfo, name: string, value: unknown) {
@@ -456,6 +507,14 @@ test.describe("utilisation certificates", () => {
     await expect(page.getByText("Waiting for CA").first()).toBeVisible({
       timeout: 20_000,
     });
+    const id = url.split("/").at(-1) ?? "";
+    const served = `/api/utilisation-certificates/${id}?file=latest`;
+
+    // Both signatures in, the signed PDF served is its long-term copy.
+    const longTerm = await longTermLevel(
+      page.request,
+      await download(page.request, served)
+    );
 
     // The CA's UDIN and document, under a name in Hindi.
     await page.getByLabel("UDIN").fill("26123456ABCDEFGHIJ");
@@ -474,7 +533,6 @@ test.describe("utilisation certificates", () => {
     await expect(
       page.getByTestId("certificate-steps").locator("[data-state='done']")
     ).toHaveCount(5);
-    const id = url.split("/").at(-1) ?? "";
     const ca = await page.request.get(
       `/api/utilisation-certificates/${id}?file=ca`
     );
@@ -512,37 +570,54 @@ test.describe("utilisation certificates", () => {
     await expect(
       page.getByText("Final", { exact: true }).first()
     ).toBeVisible();
-    const pdf = Buffer.from(
-      await (
-        await page.request.get(
-          `/api/utilisation-certificates/${id}?file=latest`
-        )
-      ).body()
-    );
+    const certificate = {
+      figures: await detailsOf(page),
+      number: number.replace(/\d+$/, "NNN"),
+      signers: await page
+        .getByTestId("certificate-signers")
+        .getByRole("listitem")
+        .locator("span.font-medium")
+        .allTextContents(),
+      status: "Final",
+    };
+    const pdf = await download(page.request, served);
     const pdfFile = testInfo.outputPath("utilisation-certificate.pdf");
     await writeFile(pdfFile, pdf);
     await testInfo.attach("utilisation-certificate.pdf", {
       contentType: "application/pdf",
       path: pdfFile,
     });
-    const signatures = pdf.toString("latin1").match(/\/ByteRange/g)?.length;
-    expect(signatures).toBe(2);
+    // Still the long-term copy made when the second trustee signed.
+    expect(await longTermLevel(page.request, pdf)).toEqual(longTerm);
+
+    // Final, it is filed in the governance vault, which hands out the same
+    // long-term copy to anyone with governance.view.
+    await page.goto("/governance/documents");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search documents...").fill(number);
+    const filed = page
+      .getByRole("row")
+      .filter({ hasText: `Utilisation certificate ${number}` });
+    await expect(filed).toHaveCount(1, { timeout: 20_000 });
+    await filed.click();
+    const sheet = page.getByRole("dialog", {
+      name: `Utilisation certificate ${number}: ${grant.title}`,
+    });
+    await expect(sheet.getByText("Long-term copy")).toBeVisible();
+    await sheet.getByRole("button", { name: "View" }).click();
+    const vaultHref =
+      (await page
+        .getByRole("link", { name: "Open in new tab" })
+        .getAttribute("href")) ?? "";
+    const documentId = new URL(vaultHref, page.url()).searchParams.get("id");
+    expect(documentId).toBeTruthy();
+    expect(sha256(await download(page.request, vaultHref))).toBe(sha256(pdf));
+
     await attachJson(testInfo, "utilisation-certificate.json", {
       ca: { file: "ca-certificate.pdf", udin: "26123456ABCDEFGHIJ" },
-      certificate: {
-        figures: await detailsOf(page),
-        number: number.replace(/\d+$/, "NNN"),
-        signers: await page
-          .getByTestId("certificate-signers")
-          .getByRole("listitem")
-          .locator("span.font-medium")
-          .allTextContents(),
-        status: "Final",
-      },
-      pdf: {
-        sha256: createHash("sha256").update(pdf).digest("hex"),
-        signatures,
-      },
+      certificate,
+      pdf: { ...longTerm, sha256: sha256(pdf) },
+      vault: { documentId, kind: "Utilisation certificate" },
     });
   });
 

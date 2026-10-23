@@ -63,7 +63,8 @@ export function renewedKey(previous: string, today: string): string {
 }
 
 /**
- * Monthly: every long-term copy whose yearly renewal is due gets revocation
+ * Monthly: every long-term copy whose yearly renewal is due (vault
+ * documents' and unfiled utilisation certificates') gets revocation
  * data for its last timestamp and a new document timestamp, before the last
  * timestamp's certificate expires. A failed one stays due and is retried at
  * the next run. Logs counts only.
@@ -80,16 +81,16 @@ export async function handleRetimestampGovernanceArchives(
   const due = await archivesDue(today);
   let renewed = 0;
   let failed = 0;
-  for (const document of due) {
-    if (!document.archiveObjectKey) {
+  for (const copy of due) {
+    if (!copy.archiveObjectKey) {
       continue;
     }
     try {
-      const current = await deps.read(document.archiveObjectKey);
+      const current = await deps.read(copy.archiveObjectKey);
       const next = await deps.retimestamp(current);
-      const key = renewedKey(document.archiveObjectKey, today);
+      const key = renewedKey(copy.archiveObjectKey, today);
       await deps.write(key, next);
-      await setArchiveCopy(document.id, {
+      await setArchiveCopy(copy.target, {
         objectKey: key,
         renewOn: addDays(today, RENEW_DAYS),
         sha256: createHash("sha256").update(next).digest("hex"),
@@ -97,7 +98,7 @@ export async function handleRetimestampGovernanceArchives(
       renewed += 1;
     } catch (error) {
       failed += 1;
-      log.set({ failedDocumentId: document.id });
+      log.set({ failedTarget: copy.target });
       log.error(error instanceof Error ? error : String(error));
     }
   }

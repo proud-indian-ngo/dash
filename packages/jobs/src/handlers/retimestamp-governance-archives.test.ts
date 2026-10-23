@@ -4,14 +4,20 @@ const updates: Record<string, unknown>[] = [];
 
 mock.module("@pi-dash/db/queries/signing", () => ({
   archivesDue: async () => [
-    { archiveObjectKey: "p/governance/resolutions/r1/final-ltv.pdf", id: "d1" },
+    {
+      archiveObjectKey: "p/governance/resolutions/r1/final-ltv.pdf",
+      target: { documentId: "d1" },
+    },
     {
       archiveObjectKey: "p/governance/resolutions/r2/final-ltv-2026-10-10.pdf",
-      id: "d2",
+      target: { documentId: "d2" },
     },
   ],
-  setArchiveCopy: async (id: string, copy: Record<string, unknown>) => {
-    updates.push({ id, ...copy });
+  setArchiveCopy: async (
+    target: Record<string, string>,
+    copy: Record<string, unknown>
+  ) => {
+    updates.push({ ...target, ...copy });
   },
 }));
 mock.module("@pi-dash/env/server", () => ({ env: {} }));
@@ -57,7 +63,7 @@ describe("handleRetimestampGovernanceArchives", () => {
       "p/governance/resolutions/r1/final-ltv-2027-10-10.pdf",
     ]);
     expect(updates).toEqual([
-      expect.objectContaining({ id: "d1", renewOn: "2028-10-09" }),
+      expect.objectContaining({ documentId: "d1", renewOn: "2028-10-09" }),
     ]);
   });
 });
