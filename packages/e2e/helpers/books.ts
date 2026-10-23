@@ -162,10 +162,19 @@ async function yearByLabel(label: string) {
   return year;
 }
 
-async function anyUserId() {
-  const [row] = await db.select({ id: user.id }).from(user).limit(1);
+// The seeded volunteer, never the finance user a spec signs in as: finance
+// can't approve or pay a request they raised or are paid by.
+async function volunteerUserId() {
+  const email = process.env.VOLUNTEER_EMAIL;
+  if (!email) {
+    throw new Error("VOLUNTEER_EMAIL is not set");
+  }
+  const [row] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email));
   if (!row) {
-    throw new Error("No users");
+    throw new Error(`Test volunteer ${email} not found`);
   }
   return row.id;
 }
@@ -466,7 +475,7 @@ async function closeAfterPosting(
 
 async function expenseFixture(run: string) {
   const now = new Date();
-  const userId = await anyUserId();
+  const userId = await volunteerUserId();
   const bankId = uuidv7();
   const bankName = `E2E Expense Bank ${run}`;
   const categoryId = uuidv7();
@@ -636,7 +645,7 @@ const AUDITOR_TITLE = "E2E auditor invoice";
 
 /** Voids the auditor invoices of every run, and posts their reversals. */
 async function voidAuditorInvoices() {
-  const userId = await anyUserId();
+  const userId = await volunteerUserId();
   const now = new Date();
   const open = await db
     .select({ id: vendorPayment.id })
@@ -672,7 +681,7 @@ async function voidAuditorInvoices() {
 
 async function budgetFixture(run: string) {
   const now = new Date();
-  const userId = await anyUserId();
+  const userId = await volunteerUserId();
   const programmeId = uuidv7();
   const projectId = uuidv7();
   const categoryId = uuidv7();
@@ -835,7 +844,7 @@ async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
   await auditedFixture(yearLabel);
   const now = new Date();
-  const userId = await anyUserId();
+  const userId = await volunteerUserId();
   const bankId = uuidv7();
   await db.transaction(async (tx) => {
     // Paid out of the main bank account; this run's is it.
@@ -950,7 +959,7 @@ async function ensureOpening(label: string) {
   if (standing) {
     return { id: standing.id, posted: false };
   }
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   const id = uuidv7();
   await db.transaction((tx) =>
     postOpeningBalance(
@@ -991,7 +1000,7 @@ async function reverseAudited(label: string) {
   if (!standing) {
     return { reversed: false };
   }
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   await db.transaction((tx) =>
     reverseAuditedFigures(
       tx,
@@ -1022,7 +1031,7 @@ async function auditedFixture(label: string) {
   if (hasAsset && hasLiability) {
     return { posted: false };
   }
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   const [standing] = await db
     .select({ id: openingBalance.id })
     .from(openingBalance)
@@ -1071,7 +1080,7 @@ async function postAudited(label: string) {
   dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
   const signedOn = new Date(`${year.endsOn}T00:00:00Z`);
   signedOn.setUTCDate(signedOn.getUTCDate() + 1);
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   // As the close step does: post the year's records, then set aside what
   // other specs leave waiting (a match refuses while anything waits).
   await postPendingForYear(year.id, {
@@ -1225,7 +1234,7 @@ if (action === "close-year") {
   const year = await yearByLabel(label);
   const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
   dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   // Other specs keep recording gifts while this runs, so a record can
   // arrive between the posting and the close: try a few times.
   for (let attempt = 1; ; attempt += 1) {
@@ -1245,7 +1254,7 @@ if (action === "close-year") {
         reopenYear(
           tx,
           { fiscalYearId: year.id, reason: "E2E cleanup" },
-          { actorId: await anyUserId() }
+          { actorId: await volunteerUserId() }
         )
       )
     : { label, reopened: false };
@@ -1261,7 +1270,7 @@ if (action === "close-year") {
   const year = await yearByLabel(label);
   const dayAfter = new Date(`${year.endsOn}T00:00:00Z`);
   dayAfter.setUTCDate(dayAfter.getUTCDate() + 2);
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   try {
     await db.transaction((tx) =>
       closeYear(tx, year.id, { actorId, now: dayAfter })
