@@ -47,6 +47,13 @@ jobs:
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     env:
       TURBO_TELEMETRY_DISABLED: "1"
+      TURBO_API: "https://cache.thari.in"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+      TURBO_TEAM: "pi-dash"
+      # Tests read today's date, so a cached pass can go stale. PRs reuse the
+      # cache; master and runner benchmarks run every suite.
+      TURBO_FORCE: ${{ github.event_name != 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -56,12 +63,12 @@ jobs:
       - *create-test-env
       # The root script caps turbo at two workspaces to fit the local commit
       # hook's memory budget; a runner has four cores to spare. web's suite is
-      # the longest task, and turbo starts tasks in no fixed order, so it runs
-      # from the start beside turbo's three slots for the other workspaces.
+      # the longest task, and turbo starts tasks in no fixed order, so a second
+      # turbo starts it beside three slots for the other workspaces.
       - name: Unit tests
         timeout-minutes: 10
         run: |
-          (cd apps/web && bun run test:unit 2>&1 | sed -u 's/^/web:test:unit: /') &
+          bunx turbo run test:unit --filter=web --log-order=stream --log-prefix=task &
           web=$!
           bunx turbo run test:unit --filter='!web' --concurrency=3 --log-order=stream --log-prefix=task
           wait "$web"

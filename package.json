@@ -64,7 +64,7 @@
     "auth:seed-admin": "turbo run --filter=@pi-dash/auth auth:seed-admin",
     "build": "turbo run build",
     "check": "oxfmt --check --threads=2 . && oxlint . --max-warnings=0 && bun run check:docs && bun run check:compiler",
-    "check:compiler": "bun apps/web/scripts/check-react-compiler.ts",
+    "check:compiler": "bun run --env-file .env -- turbo run --filter=web check:compiler",
     "check:docs": "bun scripts/check-doc-budgets.ts",
     "check:types": "bun run --env-file .env -- turbo run check:types --concurrency=1",
     "check:types:affected": "bun run --env-file .env -- turbo run check:types --affected --concurrency=1",

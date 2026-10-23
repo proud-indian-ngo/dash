@@ -13,6 +13,13 @@ Add `COPY packages/<name>/package.json packages/<name>/` to the `Dockerfile` cop
 
 Turbo's remote cache is a self-hosted [turborepo-remote-cache](https://github.com/ducktors/turborepo-remote-cache) at `cache.thari.in`, a Dokploy compose service storing on local disk; a sidecar deletes artifacts older than 7 days. `turbo.json` turns on artifact signing, so the server and every client share `TURBO_REMOTE_CACHE_SIGNATURE_KEY` and an unsigned or wrongly signed artifact is a miss. `TURBO_TOKEN` and the key live in `.env` and in the repository's GitHub secrets. Without them, as in fork PRs, Turbo warns and builds.
 
+A cache hit is only as safe as the task's declared inputs, so a task that reads anything outside its workspace's tracked files must list it in `turbo.json`:
+
+- `check:compiler` hashes web's non-test sources and its script. It compiles each file on its own, so imported workspaces are not inputs, and its result is deterministic.
+- `test:unit` depends on `transit`, so a workspace's tests rerun when a workspace it imports changes. Suites load the root `.env` and `.env.worktree` (web with `--env-file`, the rest through `@pi-dash/env`), so both are inputs; this also keeps local and CI results apart, since CI's `.env` is `.github/ci.env`. Web's give.do import test reads an E2E fixture, listed under `web#test:unit`.
+- About 40 test files read today's date, so a pass can go stale with no input change. CI's unit-tests job sets `TURBO_FORCE` on every run but a pull request's, so master always runs every suite and a date-dependent failure surfaces there.
+- The root `package.json` depends on several workspaces for its scripts, and Turbo folds those workspaces, with their own dependencies, into the global hash. A change to any of them misses every task; only web, `e2e` and `editor` change on their own.
+
 ## Docker build
 
 - `bun install` runs with `--ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.
@@ -33,7 +40,7 @@ TanStack Start inlines production CSS in HTML to avoid a blocking stylesheet req
 
 `apps/web/vite.config.ts` excludes ReUI's `data-grid-table.tsx` and `data-grid-table-dnd.tsx` from React Compiler. They read column widths and pin offsets through stable references to mutable TanStack state, so compiler caching leaves stale geometry after resizing or pinning. Keep the exclusion until upstream is compiler-safe, and verify changes against real browser geometry. The same applies to compiled app components: TanStack keeps a `row` object stable when its expanded or selected state changes, so pass `row.getIsExpanded()` in as a prop rather than reading it inside the component.
 
-The compiler runs on `@babel/core` 7 (`react-compiler-preset.test.ts` asserts it): compiler 1.0 reads Babel 7 ASTs and on Babel 8 skips every component with a destructuring default. The build skips a component silently, so `bun run check` runs `check:compiler`, which fails on any skipped component or hook in `apps/web/src`. Common bail-outs and their fixes:
+The compiler runs on `@babel/core` 7 (`react-compiler-preset.test.ts` asserts it): compiler 1.0 reads Babel 7 ASTs and on Babel 8 skips every component with a destructuring default. The build skips a component silently, so `bun run check` runs `check:compiler`, which fails on any skipped component or hook in `apps/web/src`; the pre-commit hook runs it on staged web sources. Common bail-outs and their fixes:
 
 - `try` with `finally` or without `catch`, a `?:`, `&&` or `?.` inside `try`, or `throw` inside `try`: chain `.then`, `.catch` and `.finally` on the promise, or move the body into a module-level async function.
 - A read of a binding declared further down: move the declaration up.

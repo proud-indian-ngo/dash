@@ -18,6 +18,10 @@ pre-commit:
         - "bun.lock"
       run: bun run check
 
+    compiler:
+      glob: "apps/web/src/*.{ts,tsx}"
+      run: bun apps/web/scripts/check-react-compiler.ts {staged_files}
+
     docs:
       glob: "*.md"
       run: bun run check:docs

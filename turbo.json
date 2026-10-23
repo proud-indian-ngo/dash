@@ -30,6 +30,14 @@
       "dependsOn": ["transit"],
       "outputs": [".cache/tsbuildinfo.json"]
     },
+    "check:compiler": {
+      "inputs": [
+        "src/**",
+        "!src/**/*.test.*",
+        "!src/**/*.gen.ts",
+        "scripts/check-react-compiler.ts"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true
@@ -88,7 +96,21 @@
       "cache": false
     },
     "test:unit": {
-      "cache": false
+      "dependsOn": ["transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.worktree"
+      ]
+    },
+    "web#test:unit": {
+      "dependsOn": ["transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env",
+        "$TURBO_ROOT$/.env.worktree",
+        "$TURBO_ROOT$/packages/e2e/fixtures/income/give-do-sample.csv"
+      ]
     },
     "test:ui": {
       "cache": false
