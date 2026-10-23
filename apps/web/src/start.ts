@@ -1,4 +1,5 @@
 import { auth } from "@pi-dash/auth";
+import { errorStatus } from "@pi-dash/observability";
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import {
   createCsrfMiddleware,
@@ -6,8 +7,8 @@ import {
   createStart,
 } from "@tanstack/react-start";
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
+import { log } from "evlog";
 
-import { HttpError } from "@/lib/http-error";
 import {
   captureThrownError,
   isServerFnRequest,
@@ -45,20 +46,32 @@ const reportRequestErrors = createMiddleware().server(
 );
 
 /**
- * Reports what server functions throw, and answers an RPC call that threw an
- * HttpError with its status; input the validator refused is a 400. A server
+ * Reports what server functions throw, and answers an RPC call that threw a
+ * 4xx error (an HttpError or another error carrying a status) with that
+ * status; input the validator refused is a 400. A server
  * function called while rendering a page keeps the page's status. Either way
- * Start serializes the error's name, message and own properties (an
- * HttpError's status) to the client.
+ * Start serializes the error's name, message and own properties (the
+ * status) to the client.
  */
 const reportFunctionErrors = createMiddleware({ type: "function" }).server(
   async ({ next, serverFnMeta }) => {
     try {
       return await next();
     } catch (thrown) {
-      const error = validationRefusal(thrown) ?? thrown;
-      if (error instanceof HttpError && isServerFnRequest()) {
-        setResponseStatus(error.status);
+      const invalid = validationRefusal(thrown);
+      if (invalid) {
+        // Counted to spot client and server schemas drifting apart, such as
+        // a stale bundle after a deploy; the values are never logged.
+        log.warn({
+          action: "inputValidationRefused",
+          function: serverFnMeta.name,
+          issues: invalid.issues,
+        });
+      }
+      const error = invalid?.refusal ?? thrown;
+      const status = errorStatus(error);
+      if (status !== undefined && status < 500 && isServerFnRequest()) {
+        setResponseStatus(status);
       }
       const request = getRequest();
       captureThrownError(

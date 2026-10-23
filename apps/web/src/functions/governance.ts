@@ -41,7 +41,7 @@ import {
   matchReportSigners,
   VaultImportError,
 } from "@/lib/governance/vault";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, userFacingError } from "@/lib/http-error";
 import { authorizeProtectedUpload } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
@@ -136,7 +136,7 @@ export const saveTrusteeFn = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof TrusteeSaveError) {
-        throw new HttpError(409, error.message);
+        throw userFacingError(error);
       }
       throw error;
     }
@@ -163,7 +163,7 @@ export const deleteTrusteeFn = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof TrusteeSaveError) {
-        throw new HttpError(409, error.message);
+        throw userFacingError(error);
       }
       // RESTRICT raises 23001; NO ACTION would raise 23503.
       const { sqlState } = databaseErrorFields(error);
@@ -318,7 +318,7 @@ export const createGovernanceDocument = createServerFn({ method: "POST" })
       );
     } catch (error) {
       if (error instanceof VaultImportError) {
-        throw new HttpError(409, error.message);
+        throw userFacingError(error);
       }
       throw error;
     }

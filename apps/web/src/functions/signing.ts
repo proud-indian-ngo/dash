@@ -27,7 +27,7 @@ import {
   startRemoteSignature,
 } from "@/lib/governance/signing-service";
 import { startCertificateJob } from "@/lib/grants/utilisation-certificates";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, userFacingError } from "@/lib/http-error";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -60,7 +60,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof MeetingError ||
       error instanceof SigningServiceError
     ) {
-      throw new HttpError(409, error.message);
+      throw userFacingError(error);
     }
     throw error;
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 
+import { errorStatus } from "@pi-dash/observability";
 import type { WideEvent } from "evlog";
 import { z } from "zod";
 
@@ -8,7 +9,6 @@ import { HttpError } from "@/lib/http-error";
 import {
   captureThrownError,
   createErrorTrackingDrain,
-  errorStatus,
   errorToReport,
   routeTemplate,
   runWithErrorScope,
@@ -82,6 +82,9 @@ describe("scrubError", () => {
         "9876543210, 98765 43210, 98765-43210, 09876543210 and 919876543210"
       )
     ).toBe("******10, ******10, ******10, ******10 and ******10");
+    expect(scrubText("9876 543 210, 987 654 3210 and 91 98765 43210")).toBe(
+      "******10, ******10 and ******10"
+    );
     expect(scrubText("duplicate phone +91 98765 43210")).toBe(
       "duplicate phone +******10"
     );
@@ -105,11 +108,19 @@ describe("validationRefusal", () => {
   it("turns Start's input validation error into a 400 with its message", async () => {
     const error = await startValidationError({ id: "Not A Slug" });
 
-    const refusal = validationRefusal(error);
+    const invalid = validationRefusal(error);
 
-    expect(refusal).toBeInstanceOf(HttpError);
-    expect(refusal?.status).toBe(400);
-    expect(refusal?.message).toBe(error.message);
+    expect(invalid?.refusal).toBeInstanceOf(HttpError);
+    expect(invalid?.refusal.status).toBe(400);
+    expect(invalid?.refusal.message).toBe(error.message);
+  });
+
+  it("summarises the issues by path and code only, never the input", async () => {
+    const error = await startValidationError({ id: "Asha 9876543210" });
+
+    expect(validationRefusal(error)?.issues).toEqual([
+      { code: "invalid_format", path: "id" },
+    ]);
   });
 
   it("leaves other errors alone", () => {

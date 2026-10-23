@@ -38,7 +38,14 @@ import { assertOwnedTemporaryUploadKey } from "../temporary-upload";
  * rules are testable.
  */
 
-export class CircularError extends Error {}
+export class CircularError extends Error {
+  /** The signing service couldn't check the signature: reported to Error Tracking with its message. */
+  readonly fault: boolean;
+  constructor(message: string, options: { fault?: boolean } = {}) {
+    super(message);
+    this.fault = options.fault ?? false;
+  }
+}
 
 /** What signing a prepared or new signature field may change (pyHanko's levels). */
 const SIGNING_CHANGE_LEVELS = new Set(["NONE", "LTA_UPDATES", "FORM_FILLING"]);
@@ -296,7 +303,8 @@ export function checkSignedUpload(
   }
   if (report.status === "unavailable") {
     throw new CircularError(
-      report.message ?? "The signature couldn't be checked right now."
+      report.message ?? "The signature couldn't be checked right now.",
+      { fault: true }
     );
   }
   if (report.signatures.length !== check.signedBefore + 1) {

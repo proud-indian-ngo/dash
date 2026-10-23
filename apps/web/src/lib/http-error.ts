@@ -14,3 +14,16 @@ export class HttpError extends Error {
     this.status = status;
   }
 }
+
+/**
+ * What a server function rethrows for a domain error written for the user.
+ * A refusal becomes a 409 with only its message, which Error Tracking skips.
+ * A fault (`fault: true`: missing configuration or reference data, an
+ * unreachable service) is rethrown as it is, so it keeps its message and is
+ * still reported.
+ */
+export function userFacingError(error: Error): Error {
+  return "fault" in error && error.fault === true
+    ? error
+    : new HttpError(409, error.message);
+}

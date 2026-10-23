@@ -75,8 +75,11 @@ export type ReceiptTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** A refusal written for the person issuing; any other error is hidden. */
 export class ReceiptError extends Error {
-  constructor(message: string) {
+  /** Missing configuration or reference data: reported to Error Tracking with its message. */
+  readonly fault: boolean;
+  constructor(message: string, options: { fault?: boolean } = {}) {
     super(message);
+    this.fault = options.fault ?? false;
     this.name = "ReceiptError";
   }
 }
@@ -794,7 +797,8 @@ export async function issueReceiptsIn(
     const { with80G } = assessment;
     if (with80G && !(donor.idNumber && hasEncryptionKey())) {
       throw new ReceiptError(
-        "Donor ID numbers can't be read (encryption key not set), so 80G receipts can't be issued."
+        "Donor ID numbers can't be read (encryption key not set), so 80G receipts can't be issued.",
+        { fault: true }
       );
     }
     const sequence = await allocateReceiptSequence(tx, fiscalYear, now);

@@ -1,4 +1,6 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
+
+import { LedgerError } from "@pi-dash/db/ledger/rules";
 
 import { HttpError } from "./http-error";
 import {
@@ -6,6 +8,11 @@ import {
   sanitizedError,
   withSafeErrors,
 } from "./safe-errors";
+import {
+  captureThrownError,
+  createErrorTrackingDrain,
+  runWithErrorScope,
+} from "./server/error-tracking";
 
 describe("sanitizedError", () => {
   it("keeps the error's name and Postgres code, never its message", () => {
@@ -74,5 +81,60 @@ describe("withSafeErrors", () => {
 
     expect(thrown).not.toBeInstanceOf(HttpError);
     expect((thrown as Error).message).toBe("The import couldn't be saved.");
+  });
+});
+
+describe("withSafeErrors and Error Tracking", () => {
+  const books = {
+    fields: { step: "opening" },
+    isUserFacing: (error: unknown) => error instanceof LedgerError,
+    message: "The opening balances couldn't be saved.",
+    path: "books",
+  };
+
+  /** What the server function throws for `error`, and whether it is reported. */
+  async function outcome(error: Error) {
+    const captureException = mock();
+    createErrorTrackingDrain(
+      { captureException },
+      { environment: "production" }
+    );
+    const thrown = (await withSafeErrors(books, () =>
+      Promise.reject(error)
+    ).catch((caught: unknown) => caught)) as Error;
+    await runWithErrorScope("serverFn", () =>
+      captureThrownError(thrown, { route: "postOpeningBalances" }, () =>
+        Promise.resolve(undefined)
+      )
+    );
+    return {
+      captured: captureException.mock.calls.length === 1,
+      message: thrown.message,
+    };
+  }
+
+  it("skips a refusal", async () => {
+    expect(
+      await outcome(
+        new LedgerError("invalid", "Enter the chartered accountant's name")
+      )
+    ).toEqual({
+      captured: false,
+      message: "Enter the chartered accountant's name",
+    });
+  });
+
+  it("reports a fault written for the user, keeping its message", async () => {
+    const missing = new LedgerError(
+      "invalid",
+      "Books reference data missing: ask an administrator to check the server log.",
+      { fault: true }
+    );
+
+    expect(await outcome(missing)).toEqual({
+      captured: true,
+      message:
+        "Books reference data missing: ask an administrator to check the server log.",
+    });
   });
 });

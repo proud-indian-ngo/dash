@@ -55,7 +55,18 @@ export async function validateSignedPdf(
   }
 }
 
-export class SigningServiceError extends Error {}
+/**
+ * The signing service refused or failed. A refusal it explains is the
+ * person's to fix; a fault (not set up, unreachable, a 5xx or a rejected
+ * token) is reported to Error Tracking with the same message.
+ */
+export class SigningServiceError extends Error {
+  readonly fault: boolean;
+  constructor(message: string, options: { fault: boolean }) {
+    super(message);
+    this.fault = options.fault;
+  }
+}
 
 /**
  * Adds per signer an empty signature field, and on a circular, minutes or
@@ -76,7 +87,8 @@ export async function prepareSignatureFields(
 ): Promise<Uint8Array> {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     throw new SigningServiceError(
-      "Making this document needs the signing service, which isn't set up here."
+      "Making this document needs the signing service, which isn't set up here.",
+      { fault: true }
     );
   }
   const response = await fetchImpl(
@@ -96,7 +108,8 @@ export async function prepareSignatureFields(
   ).catch(() => null);
   if (!response?.ok) {
     throw new SigningServiceError(
-      "The signing service couldn't prepare the signature boxes. Try again."
+      "The signing service couldn't prepare the signature boxes. Try again.",
+      { fault: true }
     );
   }
   return new Uint8Array(await response.arrayBuffer());
@@ -110,7 +123,8 @@ async function post(
 ): Promise<Response> {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     throw new SigningServiceError(
-      "Signing needs the signing service, which isn't set up here."
+      "Signing needs the signing service, which isn't set up here.",
+      { fault: true }
     );
   }
   const response = await fetchImpl(new URL(path, env.SIGNING_SERVICE_URL), {
@@ -123,7 +137,9 @@ async function post(
     signal: AbortSignal.timeout(60_000),
   }).catch(() => null);
   if (!response) {
-    throw new SigningServiceError("The signing service couldn't be reached.");
+    throw new SigningServiceError("The signing service couldn't be reached.", {
+      fault: true,
+    });
   }
   if (!response.ok) {
     const detail = await response
@@ -132,8 +148,16 @@ async function post(
         typeof b.detail === "string" ? b.detail : null
       )
       .catch(() => null);
+    // A 4xx the service explains refuses this document or signature; a 5xx
+    // or a rejected token is the service's or this server's fault.
+    const refused =
+      detail !== null &&
+      response.status < 500 &&
+      response.status !== 401 &&
+      response.status !== 403;
     throw new SigningServiceError(
-      detail ?? `The signing service answered ${response.status}.`
+      detail ?? `The signing service answered ${response.status}.`,
+      { fault: !refused }
     );
   }
   return response;

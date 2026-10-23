@@ -5,14 +5,31 @@ function coerceError(error: unknown): Error | string {
   return error instanceof Error ? error : String(error);
 }
 
-function isHttpClientError(error: Error): boolean {
-  if ("status" in error && typeof error.status === "number") {
-    return error.status >= 400 && error.status < 500;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * The first numeric status on the error or its cause, as Start resolves it.
+ * better-call's APIError has a string `status` ("BAD_REQUEST") and a numeric
+ * `statusCode`.
+ */
+export function errorStatus(error: unknown): number | undefined {
+  if (!isRecord(error)) {
+    return undefined;
   }
-  if ("statusCode" in error && typeof error.statusCode === "number") {
-    return error.statusCode >= 400 && error.statusCode < 500;
+  const { cause } = error;
+  const candidates = [error.status, error.statusCode];
+  if (isRecord(cause)) {
+    candidates.push(cause.status, cause.statusCode);
   }
-  return false;
+  return candidates.find((value): value is number => typeof value === "number");
+}
+
+/** A refusal the caller caused: retrying or reporting it would not help. */
+function isClientError(error: unknown): boolean {
+  const status = errorStatus(error);
+  return status !== undefined && status >= 400 && status < 500;
 }
 
 /** For mutator async tasks (ctx.asyncTasks). Retries with exponential backoff, logs + emits on both success and failure. Does NOT re-throw. */
@@ -34,7 +51,7 @@ export async function withTaskLog(
         });
       },
       retries,
-      shouldRetry: ({ error }) => !isHttpClientError(error),
+      shouldRetry: ({ error }) => !isClientError(error),
     });
   } catch (error) {
     log.error(coerceError(error));
@@ -54,7 +71,8 @@ export function logErrorAndRethrow(
 ): never {
   const log = createRequestLogger(options);
   log.set(context);
-  if (error instanceof Error && isHttpClientError(error)) {
+  if (error instanceof Error && isClientError(error)) {
+    log.set({ errorName: error.name, status: errorStatus(error) });
     log.warn(error.message);
   } else {
     log.error(coerceError(error));
