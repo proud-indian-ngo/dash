@@ -9,7 +9,7 @@ import type {
   TestInfo,
 } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const DEFAULT_RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
@@ -20,7 +20,7 @@ const requestedRuns = Number.parseInt(
 const RUNS = requestedRuns > 0 ? requestedRuns : DEFAULT_RUNS;
 const SUPER_ADMIN_STORAGE_STATE = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 
 const THROTTLING = {
@@ -566,8 +566,7 @@ test("profile contribution dialog mount", async ({
   browser,
 }, testInfo) => {
   test.skip(
-    process.env.LAZY_FEATURES_PROFILE !== "true" ||
-      testInfo.project.name !== "super_admin",
+    process.env.LAZY_FEATURES_PROFILE !== "true",
     "Opt-in diagnostic; profiling is separate from reported latency samples"
   );
   test.setTimeout(240_000);
@@ -673,8 +672,7 @@ test("measure first-use lazy feature interactions", async ({
 }, testInfo) => {
   test.skip(
     process.env.LAZY_FEATURES_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(600_000);

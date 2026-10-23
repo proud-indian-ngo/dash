@@ -8,7 +8,7 @@ import type {
   Page,
 } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
@@ -20,7 +20,7 @@ const LABEL = (process.env.GOVERNANCE_WARM_LABEL ?? "unlabelled")
   .slice(0, 60);
 const STORAGE_STATE = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 const EXTRA_IDLE_WAIT_MS = (() => {
   const raw =
@@ -626,8 +626,7 @@ test("measure first and repeat warm governance navigation", async ({
 }, testInfo) => {
   test.skip(
     process.env.GOVERNANCE_WARM_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(1_800_000);
@@ -766,7 +765,7 @@ test("measure first and repeat warm governance navigation", async ({
   await writeFile(reportPath, JSON.stringify(report, null, 2));
   const comparisonDirectory = path.resolve(
     import.meta.dirname,
-    "../../../../tmp/web-vitals/governance"
+    "../../../tmp/web-vitals/governance"
   );
   await mkdir(comparisonDirectory, { recursive: true });
   await writeFile(

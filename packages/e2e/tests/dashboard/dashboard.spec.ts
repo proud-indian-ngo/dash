@@ -2,12 +2,10 @@ import { expect, test } from "../../fixtures/test";
 
 const ROLES_WITH_VIEW_ALL = new Set(["super_admin", "admin", "finance_admin"]);
 
+// Each test skips before it loads the page, so skipped roles cost nothing.
 test.describe("Dashboard", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-  });
-
   test("shows dashboard heading", async ({ page }) => {
+    await page.goto("/");
     await expect(
       page.getByRole("heading", { name: "Dashboard" })
     ).toBeVisible();
@@ -18,6 +16,7 @@ test.describe("Dashboard", () => {
       testInfo.project.name === "unoriented_volunteer",
       "Unoriented volunteers see orientation prompt instead"
     );
+    await page.goto("/");
     await expect(
       page.getByRole("button", { name: "New reimbursement" })
     ).toBeVisible();
@@ -28,6 +27,7 @@ test.describe("Dashboard", () => {
       testInfo.project.name === "unoriented_volunteer",
       "Unoriented volunteers see orientation prompt instead"
     );
+    await page.goto("/");
 
     const labels = page.locator("[data-slot=stat-label]");
     const canViewAllRequests = ROLES_WITH_VIEW_ALL.has(testInfo.project.name);
@@ -56,6 +56,7 @@ test.describe("Dashboard", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Reviewer-only test");
+    await page.goto("/");
 
     const chip = page
       .locator("[data-slot=stat-chip]")

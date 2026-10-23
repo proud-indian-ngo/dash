@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test } from "../fixtures/test";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,8 +12,7 @@ test("profile populated Audit Log SQL and authenticated reads", async ({
   page,
 }, info) => {
   test.skip(
-    process.env.AUDIT_PERFORMANCE !== "true" ||
-      info.project.name !== "super_admin",
+    process.env.AUDIT_PERFORMANCE !== "true",
     "Opt-in isolated database benchmark"
   );
   test.setTimeout(180_000);
@@ -24,7 +23,7 @@ test("profile populated Audit Log SQL and authenticated reads", async ({
         "run",
         path.resolve(
           import.meta.dirname,
-          "../../helpers/profile-audit-performance.ts"
+          "../helpers/profile-audit-performance.ts"
         ),
       ],
       { env: process.env, timeout: 90_000 }
@@ -68,10 +67,7 @@ test("profile populated Audit Log SQL and authenticated reads", async ({
   }
   const restricted = await playwright.request.newContext({
     baseURL: info.project.use.baseURL,
-    storageState: path.resolve(
-      import.meta.dirname,
-      "../../.auth/volunteer.json"
-    ),
+    storageState: path.resolve(import.meta.dirname, "../.auth/volunteer.json"),
   });
   try {
     expect((await restricted.get("/api/audit-log")).status()).toBe(403);

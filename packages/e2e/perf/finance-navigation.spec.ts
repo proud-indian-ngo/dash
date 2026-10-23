@@ -3,13 +3,13 @@ import path from "node:path";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
 const SUPER_ADMIN_STORAGE_STATE = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 const NAVIGATION_IDLE_WAIT_MS = (() => {
   const raw =
@@ -372,8 +372,7 @@ test("measure first and repeat finance navigation", async ({
 }, testInfo) => {
   test.skip(
     process.env.FINANCE_NAVIGATION_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(900_000);

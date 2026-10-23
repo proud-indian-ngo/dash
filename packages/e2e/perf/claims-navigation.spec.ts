@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { BrowserContext, Locator, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const DEFAULT_RUNS = 3;
 const HOVER_LEAD_IN_MS = 500;
@@ -16,7 +16,7 @@ const requestedRuns = Number.parseInt(
 const RUNS = requestedRuns > 0 ? requestedRuns : DEFAULT_RUNS;
 const FINANCE_ADMIN_STORAGE_STATE = path.resolve(
   import.meta.dirname,
-  "../../.auth/finance_admin.json"
+  "../.auth/finance_admin.json"
 );
 
 const THROTTLING = {
@@ -513,8 +513,7 @@ test("measure Claims detail and charged-to interactions", async ({
 }, testInfo) => {
   test.skip(
     process.env.CLAIMS_NAVIGATION_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark, invoked once from the super_admin project"
   );
   test.setTimeout(600_000);
@@ -628,14 +627,10 @@ test("measure Claims detail and charged-to interactions", async ({
   ).toHaveLength(0);
 });
 
-test("claim row remains keyboard activatable", async ({
-  baseURL,
-  browser,
-}, testInfo) => {
+test("claim row remains keyboard activatable", async ({ baseURL, browser }) => {
   test.skip(
     process.env.CLAIMS_NAVIGATION_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark, invoked once from the super_admin project"
   );
   test.setTimeout(120_000);

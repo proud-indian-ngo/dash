@@ -109,21 +109,6 @@ test.describe("Sidebar navigation", () => {
     }
   });
 
-  test("clicking Reimbursements navigates correctly", async ({
-    page,
-  }, testInfo) => {
-    test.skip(
-      !ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name),
-      "Role lacks reimbursements access"
-    );
-    const nav = page.locator("[data-sidebar='content']");
-    await nav.getByRole("link", { name: "Reimbursements" }).click();
-    await page.waitForURL(/\/reimbursements/);
-    await expect(
-      page.getByRole("heading", { name: "Reimbursements" })
-    ).toBeVisible();
-  });
-
   test("user menu opens dropdown with Settings and Log out", async ({
     page,
   }) => {
@@ -182,6 +167,27 @@ test.describe("Sidebar navigation", () => {
     await expect(page.locator("[data-state='collapsed']")).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(page.locator("[data-state='expanded']")).toBeVisible();
+  });
+});
+
+test.describe("Sidebar Reimbursements link", () => {
+  test("clicking Reimbursements navigates correctly", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !ROLES_WITH_REIMBURSEMENTS.has(testInfo.project.name),
+      "Role lacks reimbursements access"
+    );
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" })
+    ).toBeVisible();
+    const nav = page.locator("[data-sidebar='content']");
+    await nav.getByRole("link", { name: "Reimbursements" }).click();
+    await page.waitForURL(/\/reimbursements/);
+    await expect(
+      page.getByRole("heading", { name: "Reimbursements" })
+    ).toBeVisible();
   });
 });
 

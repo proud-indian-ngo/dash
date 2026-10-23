@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 
 import type { BrowserContext, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS_PER_ROUTE = 3;
 const SETTLE_MS = 2_000;
@@ -556,8 +556,7 @@ test(`measure ${VISIT_TYPE}-load web vitals`, async ({
   browser,
 }, testInfo) => {
   test.skip(
-    process.env.WEB_VITALS_PERFORMANCE !== "true" ||
-      testInfo.project.name !== "super_admin",
+    process.env.WEB_VITALS_PERFORMANCE !== "true",
     "Opt-in benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(600_000);

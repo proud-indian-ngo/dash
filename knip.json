@@ -34,6 +34,7 @@
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
+        "perf/playwright.perf.config.ts",
         "helpers/kalakriti-attendee-subject.ts",
         "helpers/kalakriti-awards.ts",
         "helpers/kalakriti-centers.ts",

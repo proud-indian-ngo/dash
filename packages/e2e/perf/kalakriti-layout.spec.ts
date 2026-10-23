@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 
 import type { BrowserContext, Page } from "@playwright/test";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test } from "../fixtures/test";
 
 const RUNS = 3;
 const READY_TIMEOUT_MS = 30_000;
@@ -15,15 +15,15 @@ const FIXTURE_REGISTERED = 10;
 const execFileAsync = promisify(execFile);
 const awardsHelperPath = path.resolve(
   import.meta.dirname,
-  "../../helpers/kalakriti-awards.ts"
+  "../helpers/kalakriti-awards.ts"
 );
 const layoutHelperPath = path.resolve(
   import.meta.dirname,
-  "../../helpers/kalakriti-layout.ts"
+  "../helpers/kalakriti-layout.ts"
 );
 const superAdminStorageState = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 
 const THROTTLING = {
@@ -223,8 +223,7 @@ test("measure Kalakriti Food layout stability with empty and populated eligible 
   superAdminEmail,
 }, testInfo) => {
   test.skip(
-    process.env.KALAKRITI_LAYOUT_PERFORMANCE !== "true" ||
-      testInfo.project.name !== "super_admin",
+    process.env.KALAKRITI_LAYOUT_PERFORMANCE !== "true",
     "Opt-in Kalakriti layout benchmark on the isolated super_admin stack only"
   );
   test.setTimeout(300_000);
@@ -322,7 +321,7 @@ test("measure Kalakriti Food layout stability with empty and populated eligible 
   const reportPath = testInfo.outputPath("kalakriti-layout.json");
   const reportCopyPath = path.resolve(
     import.meta.dirname,
-    `../../../../tmp/web-vitals/followup/${label}/kalakriti-layout.json`
+    `../../../tmp/web-vitals/followup/${label}/kalakriti-layout.json`
   );
   const json = `${JSON.stringify(report, null, 2)}\n`;
   await writeFile(reportPath, json);

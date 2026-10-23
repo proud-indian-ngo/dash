@@ -76,12 +76,11 @@ Matching FY 2026-27's audited figures freezes that year for every spec on the sa
 
 ## Performance benchmarks
 
-Benchmarks are opt-in specs under `tests/performance/`, skipped unless their flag is set. Use the `super_admin` project on an isolated stack. The login-transition benchmark signs in through the form as the seeded admin:
+Benchmarks are opt-in specs under `packages/e2e/perf/`, outside the suite's test directory, so CI never lists or shards them. Each still skips unless its flag is set. `perf/playwright.perf.config.ts` runs them after setup in one `super_admin` project, with one worker and no retries; `run-e2e.sh --perf` (first argument) selects it. Use an isolated stack. The login-transition benchmark signs in through the form as the seeded admin:
 
 ```bash
 env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never \
-  bash packages/e2e/run-e2e.sh tests/performance/<spec>.spec.ts \
-  --project=super_admin --workers=1 --retries=0
+  bash packages/e2e/run-e2e.sh --perf perf/<spec>.spec.ts
 ```
 
 | Spec | Flag | What it guards |

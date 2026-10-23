@@ -9,18 +9,18 @@ import type {
   TestInfo,
 } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const READY_TIMEOUT_MS = 30_000;
 const RUNS_PER_VIEWPORT = 3;
 const SEEDED_ADMIN_EMAIL = "test-admin@pi-dash.test";
 const OUTPUT_DIR = path.resolve(
   import.meta.dirname,
-  `../../../../tmp/web-vitals/followup/${process.env.PERFORMANCE_LABEL ?? "current"}`
+  `../../../tmp/web-vitals/followup/${process.env.PERFORMANCE_LABEL ?? "current"}`
 );
 const SUPER_ADMIN_STORAGE = path.resolve(
   import.meta.dirname,
-  "../../.auth/super_admin.json"
+  "../.auth/super_admin.json"
 );
 
 const THROTTLING = {
@@ -531,8 +531,7 @@ test("profile current cached Users mount", async ({
 }, testInfo) => {
   test.skip(
     process.env.USERS_MOUNT_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in current-build Users mount diagnostic"
   );
   test.setTimeout(900_000);
