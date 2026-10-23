@@ -1,9 +1,10 @@
-import { Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { GIVE_INDIA_PARTY_ID } from "@pi-dash/shared/constants";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -19,11 +20,13 @@ const SKELETON_ROLES = <Skeleton className="h-5 w-32" />;
 
 function RowActions({
   canManage,
+  onDelete,
   onEdit,
   onView,
   party,
 }: {
   canManage: boolean;
+  onDelete: (party: PartyRow) => void;
   onEdit: (party: PartyRow) => void;
   onView: (party: PartyRow) => void;
   party: PartyRow;
@@ -33,6 +36,7 @@ function RowActions({
   );
   const handleView = useEventCallback(() => onView(party));
   const handleEdit = useEventCallback(() => onEdit(party));
+  const handleDelete = useEventCallback(() => onDelete(party));
   return (
     <ResponsiveActionMenu
       actions={[
@@ -43,6 +47,15 @@ function RowActions({
           label: "Edit",
           onSelect: handleEdit,
         },
+        canManage &&
+          party.id !== GIVE_INDIA_PARTY_ID && {
+            destructive: true,
+            group: "destructive",
+            icon: Delete02Icon,
+            id: "delete",
+            label: "Delete",
+            onSelect: handleDelete,
+          },
       ]}
       title={`${party.displayName} actions`}
       trigger={<RowActionsButton onClick={stop} />}
@@ -65,12 +78,14 @@ export function DonorsTable({
   canManage,
   data,
   isLoading,
+  onDelete,
   onEdit,
   onView,
 }: {
   canManage: boolean;
   data: PartyRow[];
   isLoading?: boolean;
+  onDelete: (party: PartyRow) => void;
   onEdit: (party: PartyRow) => void;
   onView: (party: PartyRow) => void;
 }) {
@@ -141,6 +156,7 @@ export function DonorsTable({
       cell: ({ row }) => (
         <RowActions
           canManage={canManage}
+          onDelete={onDelete}
           onEdit={onEdit}
           onView={onView}
           party={row.original}

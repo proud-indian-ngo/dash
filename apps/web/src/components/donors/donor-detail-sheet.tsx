@@ -1,4 +1,4 @@
-import { Edit02Icon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@pi-dash/design-system/components/ui/badge";
 import { Button } from "@pi-dash/design-system/components/ui/button";
@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
+import { PageHeaderMenu } from "@/components/shared/page-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { useApp } from "@/context/app-context";
 import {
@@ -98,6 +99,7 @@ type LoadState =
 
 export function DonorDetailSheet({
   canManage,
+  onDelete,
   onEdit,
   onOpenChange,
   open,
@@ -106,6 +108,8 @@ export function DonorDetailSheet({
   version,
 }: {
   canManage: boolean;
+  /** Offers Delete in the header menu when given. */
+  onDelete?: (party: PartyRow) => void;
   onEdit: (party: PartyRow) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -178,14 +182,30 @@ export function DonorDetailSheet({
         <DetailSheetHeader
           actions={
             canManage ? (
-              <Button onClick={handleEdit} type="button" variant="outline">
-                <HugeiconsIcon
-                  className="size-4"
-                  icon={Edit02Icon}
-                  strokeWidth={2}
-                />
-                Edit
-              </Button>
+              <>
+                <Button onClick={handleEdit} type="button" variant="outline">
+                  <HugeiconsIcon
+                    className="size-4"
+                    icon={Edit02Icon}
+                    strokeWidth={2}
+                  />
+                  Edit
+                </Button>
+                {onDelete ? (
+                  <PageHeaderMenu
+                    actions={[
+                      {
+                        destructive: true,
+                        icon: Delete02Icon,
+                        id: "delete",
+                        label: "Delete donor",
+                        onSelect: () => onDelete(party),
+                      },
+                    ]}
+                    title={`${party.displayName} actions`}
+                  />
+                ) : null}
+              </>
             ) : null
           }
           badge={

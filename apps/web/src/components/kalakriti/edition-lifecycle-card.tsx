@@ -282,12 +282,62 @@ function GoLiveAction({
   );
 }
 
+function ArchiveAction({ editionId }: { editionId: string }) {
+  const zero = useZero();
+  const router = useRouter();
+  const action = useConfirmAction({
+    mutationMeta: {
+      entityId: editionId,
+      errorMsg: "Couldn't archive the Edition",
+      mutation: "kalakritiEdition.transition",
+      successMsg: "Edition archived",
+    },
+    onConfirm: () =>
+      zero.mutate(
+        mutators.kalakritiEdition.transition({
+          auditEntryId: uuidv7(),
+          confirmed: true,
+          editionId,
+          now: Date.now(),
+          targetLifecycle: "archived",
+        })
+      ).server,
+    onSuccess: () => router.invalidate(),
+  });
+  return (
+    <>
+      <Button
+        disabled={action.isLoading}
+        onClick={() => action.trigger()}
+        type="button"
+        variant="outline"
+      >
+        Archive Edition
+      </Button>
+      <ConfirmDialog
+        confirmLabel="Archive Edition"
+        description="Scanning stops and the Edition becomes read-only for good. Only global administrators can open it afterwards. Archive once event-day work, results and awards are complete."
+        loading={action.isLoading}
+        onConfirm={action.confirm}
+        onOpenChange={(open) => {
+          if (!open && !action.isLoading) action.cancel();
+        }}
+        open={action.isOpen}
+        title="Archive Edition?"
+        variant="destructive"
+      />
+    </>
+  );
+}
+
 export function EditionLifecycleAction({
   canManage,
   editionId,
+  isGlobalAdmin,
 }: {
   canManage: boolean;
   editionId: string;
+  isGlobalAdmin: boolean;
 }) {
   const {
     blockers,
@@ -301,6 +351,9 @@ export function EditionLifecycleAction({
     goLiveBlockers,
   } = useEditionLifecycle({ canManage, editionId });
 
+  if (canManage && isGlobalAdmin && lifecycle === "live") {
+    return <ArchiveAction editionId={editionId} />;
+  }
   if (!(canManage && copy)) {
     return null;
   }

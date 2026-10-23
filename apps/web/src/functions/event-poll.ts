@@ -5,7 +5,7 @@ import { team } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
@@ -101,10 +101,16 @@ export const postEventRsvpPoll = createServerFn({ method: "POST" })
             }
           }
 
+          // A closed poll (closed by a cancel since undone) gets replaced.
           const existing = await db
             .select({ id: eventRsvpPoll.id })
             .from(eventRsvpPoll)
-            .where(eq(eventRsvpPoll.eventId, data.eventId))
+            .where(
+              and(
+                eq(eventRsvpPoll.eventId, data.eventId),
+                isNull(eventRsvpPoll.closedAt)
+              )
+            )
             .limit(1);
           if (existing.length > 0) {
             log.set({ event: "poll_exists" });

@@ -22,6 +22,7 @@ import {
 } from "@pi-dash/db/queries/income-import";
 import {
   DIRECT_DEPOSIT_CHANNELS,
+  deleteStatementLineRows,
   findBankAccount,
   findContributionForMatch,
   findExistingLineHashes,
@@ -32,7 +33,10 @@ import {
   isTargetMatched,
   type LineMatchWrite,
   latestBankMapping,
+  linesInBooks,
   loadMatchInputs,
+  lockBatchLines,
+  lockStatementBatch,
   lockStatementLine,
   matchLine,
   pairTransferLine,
@@ -1138,6 +1142,81 @@ export async function actOnStatementLine(
   );
   queueLedgerPosting(sources);
   return { lineId };
+}
+
+/** One line, or every line an upload brought in together with the upload. */
+export type StatementDeleteInput =
+  | { batchId: string; kind: "import" }
+  | { kind: "line"; lineId: string };
+
+/**
+ * Deletes an unmatched line, or a whole upload whose lines are all
+ * unmatched. Refused for a line that is matched or ignored (unmatch it
+ * first), one ever allocated or posted, or one in a closed year. Lines an
+ * overlapping upload only linked stay with the upload that brought them in.
+ */
+export async function deleteStatementLines(
+  input: StatementDeleteInput
+): Promise<{ lineCount: number }> {
+  return await withStatementSafeErrors(
+    "delete",
+    async () =>
+      await withStatementTransaction(
+        async (tx) => await deleteStatementLinesIn(tx, input)
+      )
+  );
+}
+
+/** `deleteStatementLines` in the caller's statement transaction. Exported for the database tests. */
+export async function deleteStatementLinesIn(
+  tx: StatementTx,
+  input: StatementDeleteInput
+): Promise<{ lineCount: number }> {
+  let lines: StatementLineRecord[];
+  if (input.kind === "import") {
+    const batch = await lockStatementBatch(tx, input.batchId);
+    if (!batch) {
+      throw new StatementInputError("Bank statement upload not found");
+    }
+    if (batch.status === "importing") {
+      throw new StatementInputError("This statement is importing right now");
+    }
+    // The retention expiry takes this lock too.
+    await tx.execute(IMPORT_RUN_LOCK);
+    lines = await lockBatchLines(tx, batch.id);
+  } else {
+    const line = await lockStatementLine(tx, input.lineId);
+    if (!line) {
+      throw new StatementInputError("Bank statement line not found");
+    }
+    lines = [line];
+  }
+  const subject =
+    input.kind === "import" ? "A line of this import" : "This line";
+  if (lines.some((line) => line.matchStatus !== "unmatched")) {
+    throw new StatementInputError(
+      input.kind === "import"
+        ? "Some lines of this import are matched or ignored; unmatch them first"
+        : "This line is matched or ignored; unmatch it first"
+    );
+  }
+  await requireOpenYearsOn(
+    tx,
+    lines.map((line) => line.valueOn),
+    input.kind === "import" ? "This import has lines in" : "This line is in"
+  );
+  const ids = lines.map((line) => line.id);
+  if (await linesInBooks(tx, ids)) {
+    throw new StatementInputError(
+      `${subject} was matched before or is in the books, so it can't be deleted`
+    );
+  }
+  await deleteStatementLineRows(
+    tx,
+    ids,
+    input.kind === "import" ? input.batchId : null
+  );
+  return { lineCount: ids.length };
 }
 
 /** Records a credit line could be linked to by hand. */

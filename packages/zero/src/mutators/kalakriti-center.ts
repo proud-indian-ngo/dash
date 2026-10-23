@@ -408,6 +408,38 @@ export const kalakritiCenterMutators = {
     }
   ),
 
+  // Restoring leaves both registration controls closed; reopen them separately.
+  restore: defineMutator(
+    kalakritiCenterActionSchema,
+    async ({ tx, ctx, args }) => {
+      const center = await requireLockedCenter(tx, args.centerId);
+      await assertCanManageKalakritiConfiguration(tx, ctx, center.editionId);
+      await assertEditionStructurallyConfigurable(tx, center.editionId);
+      assertIsLoggedIn(ctx);
+      if (center.retiredAt === null) {
+        throw new Error("Center is not retired");
+      }
+
+      await tx.mutate.kalakritiCenter.update({
+        id: center.id,
+        retiredAt: null,
+        updatedAt: args.now,
+      });
+      await tx.mutate.kalakritiAuditEntry.insert({
+        action: "restored",
+        actorUserId: ctx.userId,
+        createdAt: args.now,
+        domain: "center_configuration",
+        editionId: center.editionId,
+        id: args.auditEntryId,
+        metadata: null,
+        reason: null,
+        targetId: center.id,
+        targetType: "center",
+      });
+    }
+  ),
+
   retire: defineMutator(
     kalakritiCenterActionSchema,
     async ({ tx, ctx, args }) => {

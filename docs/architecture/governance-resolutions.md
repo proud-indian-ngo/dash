@@ -19,7 +19,7 @@
 - Templates are code, not a table. They live in `packages/shared/src/resolutions.ts` with the tally, who may issue on a date, numbering and the signature-page layout, which the PDF and the signature fields both read so they line up.
 - Passing takes the register lock, then the next number for the financial year under an advisory lock, and makes the register change in the same transaction. A cessation ends the trustee's latest open term begun before its date and the offices they still hold that day; a designation ends the office's holder on its start day. An office that already ended with its holder's term is left alone. A change the register can no longer take fails the resolution with the reason. Terms and offices keep the resolution that made them.
 - A trustee sees the circulars sent to them without `governance.view`.
-- Past paper resolutions are recorded with their numbers so the series continues. Circulars signed on paper after go-live are not a supported method: a trustee signs with the DSC helper or in Acrobat, and a paper one is only ever recorded as history.
+- Past paper resolutions are recorded with their numbers so the series continues. `governance.manage` can correct every recorded field under the register lock and the year's numbering lock; the date stays, and the record can be deleted, only while no term, office, resolution or meeting cites it. Circulars signed on paper after go-live are not a supported method: a trustee signs with the DSC helper or in Acrobat, and a paper one is only ever recorded as history.
 - Resolutions decided at a board meeting share the numbering and register changes; see [meetings](governance-meetings.md).
 
 ## Text

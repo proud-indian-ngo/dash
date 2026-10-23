@@ -10,7 +10,8 @@ Schema `packages/db/src/schema/party.ts` and `packages/db/src/schema/private/`.
 
 - Contact details, ID numbers, bank accounts and collection events live in the `private` Postgres schema, which is outside zero-cache's publication, so it never replicates. Identifiers are AES-GCM encrypted with `DATA_ENCRYPTION_KEY`.
 - `donors.view` reads contact details; `finance.view_sensitive` reveals the full identifier. The reveal is audited although it is a read.
-- Donor writes go through the audited server functions in `apps/web/src/functions/parties.ts`. Deleting a donor with gifts is refused.
+- Donor writes go through the audited server functions in `apps/web/src/functions/parties.ts`.
+- Deleting a donor needs `donors.manage`; GiveIndia can't be deleted. It is refused while a gift names the party as giver or platform, or a project or grant names it as sponsor, intermediary or grantor. A party that also holds another role, such as vendor, keeps its party and private rows and loses only its directory roles. Otherwise its private details and collection events go with it, unless a login, ledger entry, receipt or return points at it.
 - Vendors are parties with the `vendor` role; see `vendor-payments.md`.
 
 ### Tax certificate opt-out

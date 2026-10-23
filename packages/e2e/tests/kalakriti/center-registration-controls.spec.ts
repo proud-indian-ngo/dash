@@ -231,6 +231,15 @@ test("manages independent Center registration and scoped Liaison access", async 
       .getByRole("button", { name: "Retire Center" })
       .click();
     await expect(centers.center("Retired Center")).toContainText("Retired");
+    await centers.openRowAction("Retired Center", "Restore");
+    await page
+      .getByRole("alertdialog", { name: "Restore Center?" })
+      .getByRole("button", { name: "Restore Center" })
+      .click();
+    await expect(centers.center("Retired Center")).toContainText("Active");
+    await expect(
+      await centers.studentRegistration("Retired Center")
+    ).toHaveText("Closed");
     const reopenedRetired = await centers.openDetails("Retired Center");
     await reopenedRetired.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Delete center" }).click();

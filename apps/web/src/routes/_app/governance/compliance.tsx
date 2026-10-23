@@ -47,6 +47,7 @@ import { uuidv7 } from "uuidv7";
 import {
   AddItemDialog,
   AssignDialog,
+  EditItemDialog,
   MarkDoneDialog,
   NotNeededDialog,
 } from "@/components/governance/compliance-dialogs";
@@ -60,6 +61,7 @@ import {
   useGovernanceDocuments,
 } from "@/components/governance/register-data";
 import { useAccountOptions } from "@/components/governance/use-account-options";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { SectionListSkeleton } from "@/components/shared/page-skeleton";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
@@ -74,6 +76,7 @@ import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatsCards } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -103,6 +106,8 @@ type Filter = "open" | "closed" | "all";
 interface Item {
   dueOn: string;
   evidenceDocumentId: string | null;
+  /** Added by hand rather than generated from a recurring item. */
+  handAdded: boolean;
   id: string;
   note: string | null;
   ownerUserId: string | null;
@@ -116,6 +121,7 @@ type Dialogs =
   | { kind: "close"; item: Item }
   | { kind: "waive"; item: Item }
   | { kind: "assign"; item: Item }
+  | { kind: "edit"; item: Item }
   | { kind: "add" }
   | { kind: "templates" }
   | null;
@@ -200,6 +206,7 @@ function CompliancePage() {
   const items: Item[] = rows.map((r) => ({
     dueOn: epochToIso(r.dueOn),
     evidenceDocumentId: r.evidenceDocumentId ?? null,
+    handAdded: !r.templateId,
     id: r.id,
     note: r.note ?? null,
     ownerUserId: r.ownerUserId ?? null,
@@ -248,6 +255,25 @@ function CompliancePage() {
   );
 
   const closeDialog = useEventCallback(() => setDialog(null));
+  const deleteAction = useConfirmAction<Item>({
+    onConfirm: async (item) => {
+      const result = await zero.mutate(
+        mutators.complianceItem.delete({ id: item.id })
+      ).server;
+      handleMutationResult(result, {
+        entityId: item.id,
+        errorMsg: `Couldn't delete: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation: "complianceItem.delete",
+        successMsg: "Item deleted",
+      });
+      return result;
+    },
+  });
+  const closeDelete = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  });
 
   const renderItem = (item: Item) => (
     <div
@@ -297,6 +323,13 @@ function CompliancePage() {
               label: "Assign",
               onSelect: () => setDialog({ item, kind: "assign" }),
             },
+            item.status === "open" &&
+              item.handAdded && {
+                icon: Edit02Icon,
+                id: "edit",
+                label: "Edit",
+                onSelect: () => setDialog({ item, kind: "edit" }),
+              },
             item.status !== "open" && {
               icon: Undo02Icon,
               id: "reopen",
@@ -317,6 +350,14 @@ function CompliancePage() {
               label: "Not needed",
               onSelect: () => setDialog({ item, kind: "waive" }),
             },
+            item.status === "open" &&
+              item.handAdded && {
+                destructive: true,
+                icon: Delete02Icon,
+                id: "delete",
+                label: "Delete",
+                onSelect: () => deleteAction.trigger(item),
+              },
           ]}
           title={`${item.title} actions`}
           trigger={<RowActionsButton />}
@@ -492,10 +533,10 @@ function CompliancePage() {
       />
       <AddItemDialog
         onClose={closeDialog}
-        onSubmit={(title, dueOn) => {
+        onSubmit={(values) => {
           const id = uuidv7();
           return mutate(
-            zero.mutate(mutators.complianceItem.create({ dueOn, id, title }))
+            zero.mutate(mutators.complianceItem.create({ ...values, id }))
               .server,
             id,
             "complianceItem.create",
@@ -503,6 +544,30 @@ function CompliancePage() {
           );
         }}
         open={dialog?.kind === "add"}
+      />
+      <EditItemDialog
+        item={dialog?.kind === "edit" ? dialog.item : null}
+        onClose={closeDialog}
+        onSubmit={(item, values) =>
+          mutate(
+            zero.mutate(
+              mutators.complianceItem.update({ ...values, id: item.id })
+            ).server,
+            item.id,
+            "complianceItem.update",
+            "Item saved"
+          )
+        }
+      />
+      <ConfirmDialog
+        confirmLabel="Delete item"
+        description={`Delete "${deleteAction.payload?.title ?? ""}"? Use this only for an item added by mistake; to record that it isn't needed, mark it not needed instead.`}
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={closeDelete}
+        open={deleteAction.isOpen}
+        title="Delete this item?"
       />
       <Dialog
         onOpenChange={(open) => !open && setDialog(null)}

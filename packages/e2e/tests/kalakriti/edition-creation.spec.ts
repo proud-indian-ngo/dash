@@ -11,18 +11,22 @@ const helperPath = path.resolve(
   "../../helpers/kalakriti-edition-creation.ts"
 );
 const YEAR = 2094;
+const DELETE_YEAR = 2096;
 
 type FixtureAction =
   | "cleanup"
+  | "event-exists"
   | "rollback-cleanup"
   | "rollback-setup"
   | "rollback-state"
   | "state";
 
-async function fixture<T>(action: FixtureAction) {
-  const { stdout } = await execFileAsync("bun", ["run", helperPath, action], {
-    env: process.env,
-  });
+async function fixture<T>(action: FixtureAction, value?: string) {
+  const { stdout } = await execFileAsync(
+    "bun",
+    ["run", helperPath, action, ...(value ? [value] : [])],
+    { env: process.env }
+  );
   return JSON.parse(stdout.trim()) as T;
 }
 
@@ -108,6 +112,52 @@ test("creates and updates an Edition with its protected linked event", async ({
   } finally {
     await page.goto("about:blank");
     await fixture("cleanup");
+  }
+});
+
+test("deletes a draft Edition with its linked event from settings", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "super_admin",
+    "Super-admin Edition deletion flow"
+  );
+  test.slow();
+  await fixture("cleanup", String(DELETE_YEAR));
+  const editionPage = new KalakritiEditionPage(page);
+
+  try {
+    await editionPage.create({
+      name: `Kalakriti ${DELETE_YEAR}`,
+      year: DELETE_YEAR,
+    });
+    await waitForZeroReady(page);
+    const created = await fixture<{ teamEventId: string }>(
+      "state",
+      String(DELETE_YEAR)
+    );
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\/edition$/);
+    await page
+      .getByRole("button", { name: "Delete Edition", exact: true })
+      .click();
+    const confirm = page.getByRole("alertdialog", {
+      name: `Delete Kalakriti ${DELETE_YEAR}?`,
+    });
+    await confirm
+      .getByRole("button", { name: "Delete Edition", exact: true })
+      .click();
+    await expect(
+      page.getByText(`Kalakriti ${DELETE_YEAR} deleted`, { exact: true })
+    ).toBeVisible();
+    await expect(page).not.toHaveURL(new RegExp(`/kalakriti/${DELETE_YEAR}`));
+    await expect(fixture("state", String(DELETE_YEAR))).resolves.toBeNull();
+    await expect(fixture("event-exists", created.teamEventId)).resolves.toBe(
+      false
+    );
+  } finally {
+    await page.goto("about:blank");
+    await fixture("cleanup", String(DELETE_YEAR));
   }
 });
 

@@ -29,6 +29,7 @@ import {
 import {
   actOnStatementLine,
   createStatementBatch,
+  deleteStatementLines as deleteStatementLineRows,
   describeStatementAction,
   findStatementMatches,
   previewStatementMatches,
@@ -333,6 +334,43 @@ export const updateStatementLine = createServerFn({ method: "POST" })
         target: { id: data.lineId, type: "statement_line" },
       },
       async () => await actOnStatementLine(data, session.user.id)
+    );
+  });
+
+/**
+ * Deletes one unmatched line, or an upload with every line it brought in:
+ * finance.manage, audited as `statement_line.delete` or
+ * `import_batch.delete` with the number of lines removed.
+ */
+export const deleteStatementLines = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("line"), lineId: z.uuid() }),
+      z.object({ batchId: z.uuid(), kind: z.literal("import") }),
+    ])
+  )
+  .handler(async ({ context, data }): Promise<{ lineCount: number }> => {
+    await assertServerPermission(context.session, "finance.manage");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      context.session,
+      context.headers,
+      data.kind === "line"
+        ? {
+            action: "statement_line.delete",
+            target: { id: data.lineId, type: "statement_line" },
+          }
+        : {
+            action: "import_batch.delete",
+            target: { id: data.batchId, type: "import_batch" },
+          },
+      async () => await deleteStatementLineRows(data),
+      undefined,
+      undefined,
+      (result) => ({ lineCount: result.lineCount })
     );
   });
 

@@ -1,4 +1,8 @@
-import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { DataGridColumnHeader } from "@pi-dash/design-system/components/reui/data-grid/data-grid-column-header";
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
@@ -46,6 +50,7 @@ import {
   todayIso,
   useGovernanceDocuments,
 } from "@/components/governance/register-data";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu";
 import {
@@ -58,6 +63,7 @@ import {
 import { RowActionsButton } from "@/components/shared/row-actions-button";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import {
   getMutationResultErrorMessage,
   handleMutationResult,
@@ -335,6 +341,27 @@ function RegistrationsPage() {
     setEditing(registration);
     setOpen(true);
   });
+  const zero = useZero();
+  const deleteAction = useConfirmAction<Registration>({
+    onConfirm: async (registration) => {
+      const result = await zero.mutate(
+        mutators.organisationRegistration.delete({ id: registration.id })
+      ).server;
+      handleMutationResult(result, {
+        entityId: registration.id,
+        errorMsg: `Couldn't delete: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation: "organisationRegistration.delete",
+        successMsg: "Registration deleted",
+      });
+      return result;
+    },
+  });
+  const deleting = deleteAction.payload;
+  const closeDelete = useEventCallback((next: boolean) => {
+    if (!next) {
+      deleteAction.cancel();
+    }
+  });
 
   const columns: DataGridColumnDef<RegistrationRow>[] = [
     {
@@ -456,6 +483,13 @@ function RegistrationsPage() {
                     label: "Edit",
                     onSelect: () => openEdit(row.original),
                   },
+                  {
+                    destructive: true,
+                    icon: Delete02Icon,
+                    id: "delete",
+                    label: "Delete",
+                    onSelect: () => deleteAction.trigger(row.original),
+                  },
                 ]}
                 title={`${REGISTRATION_TYPE_LABELS[row.original.type]} actions`}
                 trigger={<RowActionsButton />}
@@ -545,6 +579,16 @@ function RegistrationsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        confirmLabel="Delete registration"
+        description={`Delete the ${deleting ? REGISTRATION_TYPE_LABELS[deleting.type] : ""} registration ${deleting?.number ?? ""}? Use this only for one added by mistake. Its open renewal items on the compliance calendar go with it; its certificate stays in the vault.`}
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={closeDelete}
+        open={deleteAction.isOpen}
+        title="Delete this registration?"
+      />
     </div>
   );
 }

@@ -59,6 +59,26 @@ test.describe("Donor directory (admin)", () => {
     await expect(page.getByText("Mysuru")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText("•••• 234F")).toBeVisible();
   });
+
+  test("deletes a donor without gifts", async ({ page }) => {
+    const name = `E2E Delete Donor ${Date.now()}`;
+    await page.getByRole("button", { name: "Add donor" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
+    await clickUntilDialogCloses(dialog, "Add donor");
+
+    // Reload so the sheet that saving may open is out of the way.
+    await page.goto("/donors");
+    await page.getByPlaceholder("Search donors...").fill(name);
+    const row = page.getByRole("row").filter({ hasText: name });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await new ListPage(page).openRowActionAndClick(row, "Delete");
+    const confirm = page.getByRole("alertdialog");
+    await expect(confirm).toContainText(name);
+    await confirm.getByRole("button", { name: "Delete donor" }).click();
+    await expect(page.getByText("Donor deleted")).toBeVisible();
+    await expect(row).toHaveCount(0, { timeout: 10_000 });
+  });
 });
 
 test.describe("Donor directory (admin without finance)", () => {

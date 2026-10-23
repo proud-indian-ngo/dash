@@ -5,6 +5,8 @@
  */
 
 export const SOCIAL_NOTES_MAX_LENGTH = 280;
+/** An event photo's caption, which the social API passes on. */
+export const EVENT_PHOTO_CAPTION_MAX_LENGTH = 280;
 export const CHILDREN_ATTENDED_MAX = 10_000;
 export const VOLUNTEERS_NEEDED_MAX = 1000;
 export const EVENT_PARTNERS_MAX = 6;

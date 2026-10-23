@@ -66,10 +66,12 @@ import { Route as AppReimbursementsIdRouteImport } from './routes/_app/reimburse
 import { Route as AppReimbursementsNewRouteImport } from './routes/_app/reimbursements/new'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/account'
+import { Route as AppSettingsAccountHeadsRouteImport } from './routes/_app/settings/account-heads'
 import { Route as AppSettingsApiTokensRouteImport } from './routes/_app/settings/api-tokens'
 import { Route as AppSettingsBankAccountsRouteImport } from './routes/_app/settings/bank-accounts'
 import { Route as AppSettingsCostCentresRouteImport } from './routes/_app/settings/cost-centres'
 import { Route as AppSettingsExpenseCategoriesRouteImport } from './routes/_app/settings/expense-categories'
+import { Route as AppSettingsFundsRouteImport } from './routes/_app/settings/funds'
 import { Route as AppSettingsGeneralRouteImport } from './routes/_app/settings/general'
 import { Route as AppSettingsIntegrationsRouteImport } from './routes/_app/settings/integrations'
 import { Route as AppSettingsMaintenanceRouteImport } from './routes/_app/settings/maintenance'
@@ -464,6 +466,11 @@ const AppSettingsAccountRoute = AppSettingsAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const AppSettingsAccountHeadsRoute = AppSettingsAccountHeadsRouteImport.update({
+  id: '/account-heads',
+  path: '/account-heads',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsApiTokensRoute = AppSettingsApiTokensRouteImport.update({
   id: '/api-tokens',
   path: '/api-tokens',
@@ -485,6 +492,11 @@ const AppSettingsExpenseCategoriesRoute =
     path: '/expense-categories',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppSettingsFundsRoute = AppSettingsFundsRouteImport.update({
+  id: '/funds',
+  path: '/funds',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsGeneralRoute = AppSettingsGeneralRouteImport.update({
   id: '/general',
   path: '/general',
@@ -1117,10 +1129,12 @@ export interface FileRoutesByFullPath {
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/account-heads': typeof AppSettingsAccountHeadsRoute
   '/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/settings/funds': typeof AppSettingsFundsRoute
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
@@ -1274,10 +1288,12 @@ export interface FileRoutesByTo {
   '/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/reimbursements/new': typeof AppReimbursementsNewRoute
   '/settings/account': typeof AppSettingsAccountRoute
+  '/settings/account-heads': typeof AppSettingsAccountHeadsRoute
   '/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/settings/funds': typeof AppSettingsFundsRoute
   '/settings/general': typeof AppSettingsGeneralRoute
   '/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/settings/maintenance': typeof AppSettingsMaintenanceRoute
@@ -1443,10 +1459,12 @@ export interface FileRoutesById {
   '/_app/reimbursements/$id': typeof AppReimbursementsIdRoute
   '/_app/reimbursements/new': typeof AppReimbursementsNewRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
+  '/_app/settings/account-heads': typeof AppSettingsAccountHeadsRoute
   '/_app/settings/api-tokens': typeof AppSettingsApiTokensRoute
   '/_app/settings/bank-accounts': typeof AppSettingsBankAccountsRoute
   '/_app/settings/cost-centres': typeof AppSettingsCostCentresRoute
   '/_app/settings/expense-categories': typeof AppSettingsExpenseCategoriesRoute
+  '/_app/settings/funds': typeof AppSettingsFundsRoute
   '/_app/settings/general': typeof AppSettingsGeneralRoute
   '/_app/settings/integrations': typeof AppSettingsIntegrationsRoute
   '/_app/settings/maintenance': typeof AppSettingsMaintenanceRoute
@@ -1614,10 +1632,12 @@ export interface FileRouteTypes {
     | '/reimbursements/$id'
     | '/reimbursements/new'
     | '/settings/account'
+    | '/settings/account-heads'
     | '/settings/api-tokens'
     | '/settings/bank-accounts'
     | '/settings/cost-centres'
     | '/settings/expense-categories'
+    | '/settings/funds'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/maintenance'
@@ -1771,10 +1791,12 @@ export interface FileRouteTypes {
     | '/reimbursements/$id'
     | '/reimbursements/new'
     | '/settings/account'
+    | '/settings/account-heads'
     | '/settings/api-tokens'
     | '/settings/bank-accounts'
     | '/settings/cost-centres'
     | '/settings/expense-categories'
+    | '/settings/funds'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/maintenance'
@@ -1939,10 +1961,12 @@ export interface FileRouteTypes {
     | '/_app/reimbursements/$id'
     | '/_app/reimbursements/new'
     | '/_app/settings/account'
+    | '/_app/settings/account-heads'
     | '/_app/settings/api-tokens'
     | '/_app/settings/bank-accounts'
     | '/_app/settings/cost-centres'
     | '/_app/settings/expense-categories'
+    | '/_app/settings/funds'
     | '/_app/settings/general'
     | '/_app/settings/integrations'
     | '/_app/settings/maintenance'
@@ -2514,6 +2538,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAccountRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_app/settings/account-heads': {
+      id: '/_app/settings/account-heads'
+      path: '/account-heads'
+      fullPath: '/settings/account-heads'
+      preLoaderRoute: typeof AppSettingsAccountHeadsRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/api-tokens': {
       id: '/_app/settings/api-tokens'
       path: '/api-tokens'
@@ -2540,6 +2571,13 @@ declare module '@tanstack/react-router' {
       path: '/expense-categories'
       fullPath: '/settings/expense-categories'
       preLoaderRoute: typeof AppSettingsExpenseCategoriesRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/settings/funds': {
+      id: '/_app/settings/funds'
+      path: '/funds'
+      fullPath: '/settings/funds'
+      preLoaderRoute: typeof AppSettingsFundsRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
     '/_app/settings/general': {
@@ -3555,10 +3593,12 @@ const AppSettingsRolesRouteRouteWithChildren =
 interface AppSettingsRouteRouteChildren {
   AppSettingsRolesRouteRoute: typeof AppSettingsRolesRouteRouteWithChildren
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
+  AppSettingsAccountHeadsRoute: typeof AppSettingsAccountHeadsRoute
   AppSettingsApiTokensRoute: typeof AppSettingsApiTokensRoute
   AppSettingsBankAccountsRoute: typeof AppSettingsBankAccountsRoute
   AppSettingsCostCentresRoute: typeof AppSettingsCostCentresRoute
   AppSettingsExpenseCategoriesRoute: typeof AppSettingsExpenseCategoriesRoute
+  AppSettingsFundsRoute: typeof AppSettingsFundsRoute
   AppSettingsGeneralRoute: typeof AppSettingsGeneralRoute
   AppSettingsIntegrationsRoute: typeof AppSettingsIntegrationsRoute
   AppSettingsMaintenanceRoute: typeof AppSettingsMaintenanceRoute
@@ -3574,10 +3614,12 @@ interface AppSettingsRouteRouteChildren {
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsRolesRouteRoute: AppSettingsRolesRouteRouteWithChildren,
   AppSettingsAccountRoute: AppSettingsAccountRoute,
+  AppSettingsAccountHeadsRoute: AppSettingsAccountHeadsRoute,
   AppSettingsApiTokensRoute: AppSettingsApiTokensRoute,
   AppSettingsBankAccountsRoute: AppSettingsBankAccountsRoute,
   AppSettingsCostCentresRoute: AppSettingsCostCentresRoute,
   AppSettingsExpenseCategoriesRoute: AppSettingsExpenseCategoriesRoute,
+  AppSettingsFundsRoute: AppSettingsFundsRoute,
   AppSettingsGeneralRoute: AppSettingsGeneralRoute,
   AppSettingsIntegrationsRoute: AppSettingsIntegrationsRoute,
   AppSettingsMaintenanceRoute: AppSettingsMaintenanceRoute,

@@ -1,5 +1,6 @@
 import {
   Archive02Icon,
+  ArrowTurnBackwardIcon,
   Delete02Icon,
   Edit02Icon,
   SlidersHorizontalIcon,
@@ -354,13 +355,15 @@ export function CenterDetailSheet({
                 ) : null}
                 <PageHeaderMenu
                   actions={[
-                    canConfigure &&
-                      center.retiredAt === null && {
-                        icon: Archive02Icon,
-                        id: "retire",
-                        label: "Retire",
-                        onSelect: () => onRetire(center),
-                      },
+                    canConfigure && {
+                      icon:
+                        center.retiredAt === null
+                          ? Archive02Icon
+                          : ArrowTurnBackwardIcon,
+                      id: "retire",
+                      label: center.retiredAt === null ? "Retire" : "Restore",
+                      onSelect: () => onRetire(center),
+                    },
                     canConfigure && {
                       destructive: true,
                       icon: Delete02Icon,

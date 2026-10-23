@@ -41,6 +41,7 @@ Routes live in `apps/web/src/routes/api/social/v1/`, handlers in `apps/web/src/l
 ### Photos and signed links
 
 - Only approved image photos with an Immich asset are listed or served. The cap applies after ranking, so `do_not_use` photos come back flagged but never displace usable ones.
+- `caption` is set on the event's Photos tab ([who may](teams-and-events.md#event-photos)).
 - Missing size or capture time is fetched once from Immich and stored. An unknown size is stored as `0` so it is not fetched again.
 - Links are signed with `SOCIAL_MEDIA_SIGNING_SECRET` and expire after 36 hours (`apps/web/src/lib/social-media-url.ts`). The proxy streams from Immich.
 

@@ -1,12 +1,15 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
+import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
-import { useQuery } from "@rocicorp/zero/react";
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { useQuery, useZero } from "@rocicorp/zero/react";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 
 import { EditionMetadataDialog } from "@/components/kalakriti/edition-metadata-dialog";
 import { EditionParticipationRulesDialog } from "@/components/kalakriti/edition-participation-rules-dialog";
 import { SettingsCard, SettingsRow } from "@/components/settings/settings-ui";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { SectionListSkeleton } from "@/components/shared/page-skeleton";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 
 const editionDateFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -37,9 +40,65 @@ export const Route = createFileRoute("/_app/kalakriti/$year/settings/edition")({
   component: EditionSettingsPage,
 });
 
+function DeleteEditionCard({
+  editionId,
+  year,
+}: {
+  editionId: string;
+  year: number;
+}) {
+  const zero = useZero();
+  const navigate = useNavigate();
+  const action = useConfirmAction({
+    mutationMeta: {
+      entityId: editionId,
+      errorMsg: "Couldn't delete the Edition",
+      mutation: "kalakritiEdition.delete",
+      successMsg: `Kalakriti ${year} deleted`,
+    },
+    onConfirm: () =>
+      zero.mutate(
+        mutators.kalakritiEdition.delete({ confirmed: true, editionId })
+      ).server,
+    onSuccess: () => navigate({ to: "/kalakriti" }),
+  });
+
+  return (
+    <>
+      <SettingsCard title="Delete Edition">
+        <SettingsRow
+          description="Deletes this draft with its configuration and Centers. A draft with volunteers, Guardians, Guests, Judges or inventory can't be deleted."
+          title="Delete this draft"
+        >
+          <Button
+            disabled={action.isLoading}
+            onClick={() => action.trigger()}
+            type="button"
+            variant="destructive"
+          >
+            Delete Edition
+          </Button>
+        </SettingsRow>
+      </SettingsCard>
+      <ConfirmDialog
+        confirmLabel="Delete Edition"
+        description={`Kalakriti ${year}, its configuration, Centers and linked event will be deleted. This can't be undone.`}
+        loading={action.isLoading}
+        onConfirm={action.confirm}
+        onOpenChange={(open) => {
+          if (!open && !action.isLoading) action.cancel();
+        }}
+        open={action.isOpen}
+        title={`Delete Kalakriti ${year}?`}
+        variant="destructive"
+      />
+    </>
+  );
+}
+
 function EditionSettingsPage() {
   const {
-    kalakritiEditionAccess: { edition },
+    kalakritiEditionAccess: { edition, isGlobalAdmin },
   } = Route.useRouteContext();
   const [editionDetails, result] = useQuery(
     queries.kalakritiEdition.byYear({ year: edition.year })
@@ -128,6 +187,13 @@ function EditionSettingsPage() {
           {value(String(minTotalCompetitions))}
         </SettingsRow>
       </SettingsCard>
+
+      {isGlobalAdmin && editionDetails.lifecycle === "draft" ? (
+        <DeleteEditionCard
+          editionId={editionDetails.id}
+          year={editionDetails.year}
+        />
+      ) : null}
     </div>
   );
 }

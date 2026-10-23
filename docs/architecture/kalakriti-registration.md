@@ -19,10 +19,12 @@ Invariants:
 ### Lifecycle
 
 ```text
-draft -> registration_open <-> registration_locked -> live
+draft -> registration_open <-> registration_locked -> live -> archived
 ```
 
-`archived` is terminal; no transition command targets it. Opening registration needs registration readiness; going live needs [go-live readiness](#go-live). Transitions are audited.
+Opening registration needs registration readiness; going live needs [go-live readiness](#go-live). Transitions are audited. Only global administrators archive. `archived` is terminal and frees the single `live` slot; memberships, Guardian accounts and the linked event are left as they are.
+
+The year is immutable. A global administrator can delete a `draft` Edition with no memberships, Guests, Judges, inventory, or reimbursements or vendor payments on its linked event. Its configuration, Centers, linked event and Edition-owned audit entries go with it; the global audit log keeps the record.
 
 | Capability | Allowed in |
 | --- | --- |
@@ -98,7 +100,7 @@ With `musicUploadEnabled`, Guardians, Liaisons and administrators can attach up 
 
 ### Center detail sheets and editing
 
-A Center's sheet (`?centerId=`) resolves against the authorised directory, so links cannot bypass scope. Create, retire and delete keep structural locks. Volunteer Coordinators can edit only Liaison assignments.
+A Center's sheet (`?centerId=`) resolves against the authorised directory, so links cannot bypass scope. Create, retire, restore and delete keep structural locks. Restoring leaves both registration controls closed. Volunteer Coordinators can edit only Liaison assignments.
 
 ### Transport directory and pickup times
 

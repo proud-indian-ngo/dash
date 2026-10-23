@@ -234,6 +234,28 @@ function KalakritiCentersPage() {
         })
       ).server,
   });
+  const restoreAction = useConfirmAction<CenterListItem>({
+    mutationMeta: {
+      entityId: (center) => center.id,
+      errorMsg: "Failed to restore Center",
+      mutation: "kalakritiCenter.restore",
+      successMsg: "Center restored",
+    },
+    onConfirm: (center) =>
+      zero.mutate(
+        mutators.kalakritiCenter.restore({
+          auditEntryId: uuidv7(),
+          centerId: center.id,
+          now: Date.now(),
+        })
+      ).server,
+  });
+  // The Retire menu item restores a Center that is already retired.
+  const handleRetireOrRestore = useEventCallback((center: CenterListItem) =>
+    center.retiredAt === null
+      ? retireAction.trigger(center)
+      : restoreAction.trigger(center)
+  );
   const deleteAction = useConfirmAction<CenterListItem>({
     mutationMeta: {
       entityId: (center) => center.id,
@@ -470,7 +492,7 @@ function KalakritiCentersPage() {
         onDelete={deleteAction.trigger}
         onEdit={setEditingCenter}
         onRegistrationControls={setControlsCenter}
-        onRetire={retireAction.trigger}
+        onRetire={handleRetireOrRestore}
         onView={handleViewCenter}
         registrationPhaseOpen={edition.lifecycle === "registration_open"}
       />
@@ -496,7 +518,7 @@ function KalakritiCentersPage() {
         }}
         onRetire={(center) => {
           closeSheet();
-          retireAction.trigger(center);
+          handleRetireOrRestore(center);
         }}
         onDelete={(center) => {
           closeSheet();
@@ -566,6 +588,18 @@ function KalakritiCentersPage() {
         onOpenChange={closeRetire}
         open={retireAction.isOpen}
         title="Retire Center?"
+      />
+      <ConfirmDialog
+        confirmLabel="Restore Center"
+        description={`Restore ${restoreAction.payload?.name ?? "this Center"}? It can receive assignments again. Both registration controls stay closed until you reopen them.`}
+        loading={restoreAction.isLoading}
+        loadingLabel="Restoring..."
+        onConfirm={restoreAction.confirm}
+        onOpenChange={(open) => {
+          if (!open) restoreAction.cancel();
+        }}
+        open={restoreAction.isOpen}
+        title="Restore Center?"
       />
       <ConfirmDialog
         confirmLabel="Delete Center"

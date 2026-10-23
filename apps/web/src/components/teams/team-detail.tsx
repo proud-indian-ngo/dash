@@ -571,7 +571,7 @@ export function TeamDetail({ team, userId }: TeamDetailProps) {
         <ConfirmDialog
           cancelLabel="Keep event"
           confirmLabel="Cancel event"
-          description={`Are you sure you want to cancel "${cancelEvent.payload ? getRowDetails(cancelEvent.payload).name : ""}"? This action cannot be undone and all members will be notified.`}
+          description={`Are you sure you want to cancel "${cancelEvent.payload ? getRowDetails(cancelEvent.payload).name : ""}"? All members will be notified.`}
           loading={cancelEvent.isLoading}
           loadingLabel="Cancelling..."
           onConfirm={cancelEvent.confirm}

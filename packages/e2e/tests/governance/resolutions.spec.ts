@@ -235,6 +235,71 @@ test.describe("circular resolutions (Managing Trustee)", () => {
       page.getByRole("row").filter({ hasText: number }).first()
     ).toContainText("recorded from paper");
   });
+
+  test("corrects and deletes a past resolution", async ({ page }) => {
+    await page.goto("/governance/resolutions");
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page
+      .getByRole("menuitem", { name: "Record a past resolution" })
+      .click();
+    const record = page.getByRole("dialog", {
+      name: "Record a past resolution",
+    });
+    const number = `PI/TR/2018-19/${String(Date.now()).slice(-4)}`;
+    await record.getByRole("textbox", { name: "Number" }).fill(number);
+    await record
+      .getByRole("textbox", { name: "Title" })
+      .fill("Opening of te account");
+    await record
+      .getByRole("button", { exact: true, name: "Passed on" })
+      .click();
+    await page
+      .getByRole("dialog")
+      .last()
+      .locator("button[data-day]")
+      .first()
+      .click();
+    await record.getByRole("button", { name: "Record resolution" }).click();
+    await expect(record).toBeHidden();
+    await page.getByPlaceholder("Search resolutions...").fill(number);
+    await page.getByRole("row").filter({ hasText: number }).first().click();
+    await expect(
+      page.getByRole("heading", { name: "Opening of te account" })
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { exact: true, name: "Edit" }).click();
+    const edit = page.getByRole("dialog", { name: "Edit past resolution" });
+    await expect(edit.getByRole("textbox", { name: "Number" })).toHaveValue(
+      number
+    );
+    await edit
+      .getByRole("textbox", { name: "Title" })
+      .fill("Opening of the bank account");
+    await edit
+      .getByLabel("Validity note", { exact: true })
+      .fill("Signed in ink by 2 of 2 trustees");
+    await edit.getByRole("button", { exact: true, name: "Save" }).click();
+    await expect(edit).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: "Opening of the bank account" })
+    ).toBeVisible();
+    await expect(
+      page.getByText("Signed in ink by 2 of 2 trustees")
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { exact: true, name: "Delete" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Delete this resolution?" })
+      .getByRole("button", { name: "Delete resolution" })
+      .click();
+    await expect(page).toHaveURL(/\/governance\/resolutions$/);
+    await page.getByPlaceholder("Search resolutions...").fill(number);
+    await expect(page.getByRole("row").filter({ hasText: number })).toHaveCount(
+      0
+    );
+  });
 });
 
 test.describe("resolution text", () => {

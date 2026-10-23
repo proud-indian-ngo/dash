@@ -3,17 +3,24 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
+import { GIVE_INDIA_PARTY_ID } from "@pi-dash/shared/constants";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { log } from "evlog";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { DonorDetailSheet } from "@/components/donors/donor-detail-sheet";
 import { DonorFormDialog } from "@/components/donors/donor-form-dialog";
 import { DonorsTable } from "@/components/donors/donors-table";
 import type { PartyRow } from "@/components/donors/party-row";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useApp } from "@/context/app-context";
+import { deleteDonor } from "@/functions/parties";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import { isAwaitingResult } from "@/lib/zero-result";
 
@@ -75,6 +82,41 @@ function DonorsRouteComponent() {
     }
   });
 
+  const removeDonor = useServerFn(deleteDonor);
+  const deleteAction = useConfirmAction<PartyRow>({
+    onConfirm: async (party) => {
+      let removed: Awaited<ReturnType<typeof removeDonor>>["removed"];
+      try {
+        ({ removed } = await removeDonor({ data: { partyId: party.id } }));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Something went wrong";
+        log.error({
+          action: "party.delete",
+          caughtError: message,
+          component: "DonorsRoute",
+          entityId: party.id,
+        });
+        return { error: { message }, type: "error" };
+      }
+      toast.success(
+        removed === "party" ? "Donor deleted" : "Removed from donors"
+      );
+      setViewingId((current) => (current === party.id ? null : current));
+      return { type: "success" };
+    },
+    onError: (message) =>
+      toast.error("Couldn't delete donor", { description: message }),
+  });
+  const handleDelete = useEventCallback((party: PartyRow) =>
+    deleteAction.trigger(party)
+  );
+  const handleDeleteOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteAction.cancel();
+    }
+  });
+
   return (
     <div className="app-container mx-auto max-w-7xl px-2 py-6 sm:px-4">
       <PageHeader
@@ -98,6 +140,7 @@ function DonorsRouteComponent() {
           canManage={canManage}
           data={rows}
           isLoading={isLoading}
+          onDelete={handleDelete}
           onEdit={handleEdit}
           onView={handleView}
         />
@@ -110,11 +153,24 @@ function DonorsRouteComponent() {
       />
       <DonorDetailSheet
         canManage={canManage}
+        onDelete={
+          viewing?.id === GIVE_INDIA_PARTY_ID ? undefined : handleDelete
+        }
         onEdit={handleEdit}
         onOpenChange={handleDetailOpenChange}
         open={viewing !== null}
         party={viewing}
         version={detailsVersion}
+      />
+      <ConfirmDialog
+        confirmLabel="Delete donor"
+        description={`This will delete ${deleteAction.payload?.displayName ?? "this donor"}, or only remove them from donors if they're also a vendor or volunteer. A donor with gifts can't be deleted.`}
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={handleDeleteOpenChange}
+        open={deleteAction.isOpen}
+        title="Delete donor"
       />
     </div>
   );

@@ -252,6 +252,24 @@ export async function saveTrustee(
   });
 }
 
+/**
+ * A trustee entered by mistake, with their private details. Everything else
+ * that names a trustee restricts the delete, so Postgres refuses it (23001)
+ * once they have a term, office, vote, signature or declaration.
+ */
+export async function deleteTrustee(id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(trusteePrivate).where(eq(trusteePrivate.trusteeId, id));
+    const deleted = await tx
+      .delete(trustee)
+      .where(eq(trustee.id, id))
+      .returning({ id: trustee.id });
+    if (deleted.length === 0) {
+      throw new TrusteeSaveError("Trustee not found");
+    }
+  });
+}
+
 /** The trustee linked to an account, if any, and whether they are in office today. */
 export async function trusteeForUser(
   userId: string,

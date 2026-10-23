@@ -15,6 +15,7 @@ Reading needs `finance.view` or `finance.manage`; importing and every action nee
 - A keyed hash of the line's facts and its occurrence is unique per account, so overlapping uploads never duplicate.
 - Lines keep file order, oldest first, so the last line gives the closing balance.
 - To review, Money out, their counts and the summary cards count only lines from the cutover (`LEDGER_CUTOVER_ON`). Earlier lines are outside the books and wait under All, where they can still be matched, ignored or recorded as donations.
+- An unmatched line can be deleted, or a whole upload with the lines it brought in once none is matched or ignored. A line ever allocated, posted or in a closed year stays. The freed hashes let the file be imported again.
 - A closed year takes no new lines and no match, ignore or unmatch of its lines (notes still change): an import with a line in it is refused whole. Statement writes share the year-close lock.
 
 ### Credit matching

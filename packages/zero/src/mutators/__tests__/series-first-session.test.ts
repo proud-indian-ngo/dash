@@ -813,6 +813,17 @@ describe("cancel all upcoming sessions", () => {
     expect(row(db, "next")?.cancelledAt).toBeNull();
     const notices = enqueued.filter((j) => j.name === "notify-event-cancelled");
     expect(notices.map((j) => j.payload.eventMemberIds)).toEqual([["lead-1"]]);
+    // The jobs check the saved cancelled row, so a restore stops them.
+    expect(notices[0]?.payload.cancelledEventIds).toEqual([
+      "series-1",
+      "first-cancel",
+    ]);
+    expect(
+      enqueued.find((j) => j.name === "close-rsvp-poll-on-cancel")?.payload
+    ).toMatchObject({
+      cancelledAt: NOW,
+      cancelledEventIds: ["series-1", "first-cancel"],
+    });
   });
 
   it("refuses a plain cancel of the series row", async () => {

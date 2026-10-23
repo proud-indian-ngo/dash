@@ -229,6 +229,90 @@ test.describe("Income: bank statements", () => {
     });
   });
 
+  test("deletes an open line and a whole import, then imports the file again", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
+    test.slow();
+    const run = `${Date.now()}${randomUUID().slice(0, 6)}`.toUpperCase();
+    const account = await fixture<{ accountId: string; accountName: string }>(
+      "bank-statements",
+      "account",
+      run
+    );
+    const csv = Buffer.from(
+      [
+        "Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balance",
+        `24/09/26,UPI/CR/FIRST STRAY ${run},STRAYA${run},24/09/26,,111.00,`,
+        `25/09/26,UPI/CR/SECOND STRAY ${run},STRAYB${run},25/09/26,,222.00,`,
+      ].join("\n"),
+      "utf8"
+    );
+    const importBoth = async () => {
+      await importStatement(page, account, `stray-${run}.csv`, csv);
+      await expect(page.getByTestId("statement-review-summary")).toContainText(
+        "2 new lines, 0 already imported"
+      );
+      await page.getByRole("button", { name: "Import 2 lines" }).click();
+      await page
+        .getByRole("alertdialog")
+        .getByRole("button", { name: "Import lines" })
+        .click();
+      await expect(page.getByTestId("statement-import-result")).toContainText(
+        "2 lines imported"
+      );
+    };
+    const lineAction = async (text: string, action: string) => {
+      await line(page, text)
+        .getByRole("button", { name: "Line actions" })
+        .click();
+      await page.getByRole("menuitem", { name: action }).click();
+    };
+    await importBoth();
+    await page.getByRole("link", { name: "Review the lines" }).click();
+    await waitForZeroReady(page);
+    await expect(page.getByRole("tab", { name: "To review 2" })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await lineAction(`FIRST STRAY ${run}`, "Delete line");
+    const confirm = page.getByRole("alertdialog");
+    await confirm.getByRole("button", { name: "Delete line" }).click();
+    await expect(page.getByText("Line deleted")).toBeVisible();
+    await expect(line(page, `FIRST STRAY ${run}`)).toHaveCount(0, {
+      timeout: 15_000,
+    });
+
+    // An ignored line holds its import back until it is reopened.
+    await lineAction(`SECOND STRAY ${run}`, "Ignore");
+    const ignore = page.getByRole("dialog", { name: "Ignore this line?" });
+    await ignore.getByRole("button", { name: "Ignore line" }).click();
+    await expect(ignore).toBeHidden();
+    await page.getByRole("tab", { name: /^Ignored/ }).click();
+    await line(page, `SECOND STRAY ${run}`)
+      .getByRole("button", { name: "Line actions" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Delete line" })
+    ).toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Delete its import…" }).click();
+    await confirm.getByRole("button", { name: "Delete import" }).click();
+    await expect(page.getByText("Couldn't delete the import")).toBeVisible();
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    await lineAction(`SECOND STRAY ${run}`, "Stop ignoring");
+    await page.getByRole("tab", { name: /^To review/ }).click();
+    await lineAction(`SECOND STRAY ${run}`, "Delete its import…");
+    await expect(confirm).toContainText("the 1 line it brought in");
+    await confirm.getByRole("button", { name: "Delete import" }).click();
+    await expect(page.getByText("Import deleted with 1 line")).toBeVisible();
+    expect(
+      await fixture<StoredLine[]>("bank-statements", "lines", account.accountId)
+    ).toEqual([]);
+
+    // The freed hashes let the same file bring both lines back.
+    await importBoth();
+  });
+
   test("matches bank debits to claims and vendor payments, splits one, and marks bank charges", async ({
     page,
   }, testInfo) => {

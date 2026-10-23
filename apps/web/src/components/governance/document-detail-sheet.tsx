@@ -1,4 +1,9 @@
-import { RefreshIcon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+  Delete02Icon,
+  Edit02Icon,
+  RefreshIcon,
+  ViewIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { GovernanceValidationReport } from "@pi-dash/db/schema/governance";
 import {
@@ -12,20 +17,30 @@ import {
   type GovernanceDocumentFormat,
   type GovernanceDocumentKind,
 } from "@pi-dash/shared/governance";
+import { mutators } from "@pi-dash/zero/mutators";
+import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSheetHeader } from "@/components/shared/detail-sheet-header";
 import { FilePreviewButton } from "@/components/shared/file-preview";
+import { PageHeaderMenu } from "@/components/shared/page-header";
 import { Sheet, SheetContent } from "@/components/shared/responsive-sheet";
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { recheckGovernanceDocument } from "@/functions/governance";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
+import {
+  getMutationResultErrorMessage,
+  handleMutationResult,
+} from "@/lib/mutation-result";
 
+import { DocumentEditDialog } from "./document-edit-dialog";
 import { formatIso } from "./register-data";
 
 export interface VaultDocument {
@@ -110,7 +125,29 @@ export function DocumentDetailSheet({
   open: boolean;
   trusteeNames: Map<string, string>;
 }) {
+  const zero = useZero();
   const recheck = useServerFn(recheckGovernanceDocument);
+  const [editing, setEditing] = useState(false);
+  const deleteAction = useConfirmAction<string>({
+    onConfirm: async (id) => {
+      const result = await zero.mutate(
+        mutators.governanceDocument.delete({ id })
+      ).server;
+      handleMutationResult(result, {
+        entityId: id,
+        errorMsg: `Couldn't delete: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation: "governanceDocument.delete",
+        successMsg: "Document deleted",
+      });
+      return result;
+    },
+    onSuccess: () => onOpenChange(false),
+  });
+  const closeDelete = useEventCallback((next: boolean) => {
+    if (!next) {
+      deleteAction.cancel();
+    }
+  });
   const [checking, setChecking] = useState(false);
   const handleRecheck = useEventCallback(async () => {
     if (!document) {
@@ -184,6 +221,26 @@ export function DocumentDetailSheet({
                   />
                   {checking ? "Checking..." : "Check signatures"}
                 </Button>
+              ) : null}
+              {canManage ? (
+                <PageHeaderMenu
+                  actions={[
+                    {
+                      icon: Edit02Icon,
+                      id: "edit",
+                      label: "Edit details",
+                      onSelect: () => setEditing(true),
+                    },
+                    {
+                      destructive: true,
+                      icon: Delete02Icon,
+                      id: "delete",
+                      label: "Delete",
+                      onSelect: () => deleteAction.trigger(document.id),
+                    },
+                  ]}
+                  title={document.title}
+                />
               ) : null}
             </span>
           }
@@ -322,6 +379,21 @@ export function DocumentDetailSheet({
             </section>
           ) : null}
         </div>
+        <DocumentEditDialog
+          document={document}
+          onOpenChange={setEditing}
+          open={editing}
+        />
+        <ConfirmDialog
+          confirmLabel="Delete document"
+          description={`Delete "${document.title}" from the vault? Use this only for a file added by mistake. A document that is evidence for the register, a resolution, a meeting, a registration or a compliance item can't be deleted.`}
+          loading={deleteAction.isLoading}
+          loadingLabel="Deleting..."
+          onConfirm={deleteAction.confirm}
+          onOpenChange={closeDelete}
+          open={deleteAction.isOpen}
+          title="Delete this document?"
+        />
       </SheetContent>
     </Sheet>
   );

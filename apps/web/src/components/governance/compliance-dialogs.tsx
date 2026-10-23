@@ -19,7 +19,7 @@ import {
 } from "@/components/shared/responsive-dialog";
 
 import { type DocumentOption, NO_DOCUMENT } from "./evidence";
-import { dateToIso, formatIso } from "./register-data";
+import { dateToIso, formatIso, isoToDate } from "./register-data";
 
 const FUTURE_MONTH = new Date(2100, 11, 1);
 
@@ -59,22 +59,41 @@ function ComplianceDialog({
   );
 }
 
-function AddForm({
+/** What a hand-added item holds. */
+export interface ItemValues {
+  dueOn: string;
+  note: string | null;
+  title: string;
+}
+
+function ItemForm({
+  initial,
   onClose,
   onSubmit,
+  submitLabel,
 }: {
+  initial?: ItemValues;
   onClose: () => void;
-  onSubmit: (title: string, dueOn: string) => Promise<void>;
+  onSubmit: (values: ItemValues) => Promise<void>;
+  submitLabel: string;
 }) {
   const form = useForm({
-    defaultValues: { dueOn: undefined as Date | undefined, title: "" },
+    defaultValues: {
+      dueOn: isoToDate(initial?.dueOn),
+      note: initial?.note ?? "",
+      title: initial?.title ?? "",
+    },
     onSubmit: async ({ value }) => {
       const dueOn = dateToIso(value.dueOn);
       if (!(value.title.trim() && dueOn)) {
         toast.error("Give the item a title and the day it's due.");
         return;
       }
-      await onSubmit(value.title.trim(), dueOn);
+      await onSubmit({
+        dueOn,
+        note: value.note.trim() || null,
+        title: value.title.trim(),
+      });
     },
   });
   const cancel = useEventCallback(onClose);
@@ -87,11 +106,12 @@ function AddForm({
         label="Due on"
         name="dueOn"
       />
+      <TextareaField label="Note" name="note" rows={2} />
       <FormActions
         disableWhenInvalid={false}
         onCancel={cancel}
-        submitLabel="Add item"
-        submittingLabel="Adding..."
+        submitLabel={submitLabel}
+        submittingLabel="Saving..."
       />
     </FormLayout>
   );
@@ -104,7 +124,7 @@ export function AddItemDialog({
   open,
 }: {
   onClose: () => void;
-  onSubmit: (title: string, dueOn: string) => Promise<void>;
+  onSubmit: (values: ItemValues) => Promise<void>;
   open: boolean;
 }) {
   return (
@@ -114,7 +134,36 @@ export function AddItemDialog({
       open={open}
       title="Add an item"
     >
-      <AddForm onClose={onClose} onSubmit={onSubmit} />
+      <ItemForm onClose={onClose} onSubmit={onSubmit} submitLabel="Add item" />
+    </ComplianceDialog>
+  );
+}
+
+/** Corrects an open item that was added by hand. */
+export function EditItemDialog({
+  item,
+  onClose,
+  onSubmit,
+}: {
+  item: (ComplianceItemRef & ItemValues) | null;
+  onClose: () => void;
+  onSubmit: (item: ComplianceItemRef, values: ItemValues) => Promise<void>;
+}) {
+  return (
+    <ComplianceDialog
+      description={item?.title}
+      onClose={onClose}
+      open={item !== null}
+      title="Edit item"
+    >
+      {item ? (
+        <ItemForm
+          initial={item}
+          onClose={onClose}
+          onSubmit={(values) => onSubmit(item, values)}
+          submitLabel="Save item"
+        />
+      ) : null}
     </ComplianceDialog>
   );
 }
