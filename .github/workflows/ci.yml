@@ -236,18 +236,15 @@ jobs:
           cat /tmp/r2.log
           exit 1
 
-      # Issuing circulars, minutes and declarations needs it. Builds in the
-      # background; "Wait for signing service" checks it.
+      # Issuing circulars, minutes, declarations and utilisation
+      # certificates needs it. Builds in the background, off the critical
+      # path; "Wait for signing service" checks it.
       - name: Start signing service
         run: |
           (
             # Trusts only this run's throwaway CA; see run-e2e.sh.
             (docker build -t pi-dash-signing services/signing &&
-              mkdir -p "$E2E_SIGNING_PKI_DIR" &&
-              docker run --rm --user "$(id -u):$(id -g)" \
-                -v "$E2E_SIGNING_PKI_DIR:/out" \
-                -v "$PWD/packages/e2e/signing/make-test-pki.py:/make-test-pki.py:ro" \
-                --entrypoint /app/.venv/bin/python pi-dash-signing /make-test-pki.py /out &&
+              bash packages/e2e/signing/make-test-pki.sh pi-dash-signing "$E2E_SIGNING_PKI_DIR" &&
               docker run -d --name signing -p 4872:8080 \
                 -e SIGNING_SERVICE_TOKEN="$SIGNING_SERVICE_TOKEN" \
                 -e SIGNING_TRUST_ROOTS_DIR=/test-roots -e SIGNING_TSA_URL=none \

@@ -25,15 +25,15 @@ import { ListPage } from "../../pages/list-page";
  * Managing Trustee (Vikram Menon, the admin) as Chief Finance Officer.
  *
  * Certificates these tests don't prepare through the UI are written straight
- * to the database (`helpers/utilisation-certificates.ts`), so everything but
- * the real signatures runs in CI. The signing flow needs R2 and the E2E
- * signing service with this run's test CA, and skips without them; the CSR-1
+ * to the database (`helpers/utilisation-certificates.ts`). The signing flow
+ * needs the E2E signing service with this run's test CA and the fake R2,
+ * which run-e2e.sh and CI both start, and fails without them. The CSR-1
  * check, which hides the trust's registration, is in
  * `utilisation-certificate-csr1.spec.ts` and runs last, alone.
  *
  * Artifacts, attached to the report and kept in the test's output dir:
- * - `certificate-preview.json` (CI): the figures the prepare dialog showed
- *   for the fixture grant, as displayed. The same on every run.
+ * - `certificate-preview.json`: the figures the prepare dialog showed for
+ *   the fixture grant, as displayed. The same on every run.
  * - `utilisation-certificate.pdf` and `utilisation-certificate.json` (signing
  *   flow): the final PDF, and its number (sequence replaced by NNN), status,
  *   signers, frozen figures as displayed, signature count and CA file name,
@@ -422,16 +422,9 @@ test.describe("utilisation certificates", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Finance test");
+    test.slow();
     const head = testSigner("asha-rao");
     const finance = testSigner("vikram-menon");
-    test.skip(
-      Boolean(process.env.CI) || !(head && finance),
-      "Signing needs R2 and the E2E signing service with its test CA, which CI does not have"
-    );
-    test.slow();
-    if (!(head && finance)) {
-      return;
-    }
     const grant = await newGrant();
 
     // A discarded certificate keeps its number: the next one follows it.
