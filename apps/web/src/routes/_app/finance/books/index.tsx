@@ -41,6 +41,7 @@ import { AccountsRail } from "@/components/books/accounts-rail";
 import {
   AuditPackDialog,
   useAuditPackDownload,
+  useAuditPackRefusalToast,
 } from "@/components/books/audit-pack";
 import { auditedDriftCount } from "@/components/books/audited-lines";
 import { BalanceSummaryPanel } from "@/components/books/balance-summary-tab";
@@ -151,6 +152,7 @@ function BooksPage() {
   const [reopening, setReopening] = useState(false);
   const workbook = useCaWorkbookDownload();
   const auditPack = useAuditPackDownload();
+  useAuditPackRefusalToast();
 
   const year =
     books.years.find((y) => y.label === yearParam) ??

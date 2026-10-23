@@ -37,9 +37,15 @@ const TOO_LARGE =
   "This year's files are more than one ZIP can hold (3.5 GiB or 60,000 files). Contact the developer.";
 
 /**
- * Bun closes a connection idle for 10 seconds: a long prepare or a slow
- * object read would cut the request. Lifts it for this request on the
- * production server (srvx exposes Bun's server); a no-op under Vite.
+ * Seconds a pack request may sit without a byte moving. Bun's default of
+ * 10 would cut a long prepare or a slow object read; a stalled read or a
+ * client that stops reading is still cut after this.
+ */
+const IDLE_TIMEOUT_SECONDS = 300;
+
+/**
+ * Raises Bun's idle timeout for this request on the production server
+ * (srvx exposes Bun's server); a no-op under Vite.
  */
 export function liftIdleTimeout(request: Request): void {
   (
@@ -48,7 +54,7 @@ export function liftIdleTimeout(request: Request): void {
         bun?: { server?: { timeout: (r: Request, seconds: number) => void } };
       };
     }
-  ).runtime?.bun?.server?.timeout(request, 0);
+  ).runtime?.bun?.server?.timeout(request, IDLE_TIMEOUT_SECONDS);
 }
 
 export interface PackCounts {
@@ -117,16 +123,18 @@ export async function prepareAuditPack(
   if (totalBytes > MAX_FILE_BYTES) {
     throw new AuditPackRefusal(TOO_LARGE);
   }
-  // A file listed under several sheets is missing once.
+  // One stored object is one file however many rows list it; a record
+  // naming no object is one missing file per document and label.
   const missing = new Set<string>();
   for (const d of documents) {
     for (const f of d.files) {
-      if (
-        f.url === null &&
-        !f.noFile &&
-        !(f.objectKey && sizes.has(f.objectKey))
-      ) {
+      if (f.url !== null || f.noFile) {
+        continue;
+      }
+      if (!f.objectKey) {
         missing.add(`${d.reference}\u0000${f.label}`);
+      } else if (!sizes.has(f.objectKey)) {
+        missing.add(f.objectKey);
       }
     }
   }
@@ -164,27 +172,37 @@ const tokens = new Map<
   { expiresAt: number; pack: PreparedAuditPack; userId: string }
 >();
 
-/** A random, single-use token for the prepared pack, valid for a minute. */
-export function issueAuditPackToken(
-  userId: string,
-  pack: PreparedAuditPack
-): string {
-  const now = Date.now();
+function sweepExpiredTokens(now: number) {
   for (const [token, entry] of tokens) {
     if (entry.expiresAt <= now) {
       tokens.delete(token);
     }
   }
+}
+
+/**
+ * A random, single-use token for the prepared pack. It is dropped at its
+ * expiry even if never used, so an abandoned pack doesn't stay in memory.
+ */
+export function issueAuditPackToken(
+  userId: string,
+  pack: PreparedAuditPack
+): string {
+  const now = Date.now();
+  sweepExpiredTokens(now);
   const token = randomBytes(32).toString("base64url");
   tokens.set(token, { expiresAt: now + TOKEN_TTL_MS, pack, userId });
+  setTimeout(() => tokens.delete(token), TOKEN_TTL_MS).unref?.();
   return token;
 }
 
 /** The pack for a live token of this user; the token is spent either way. */
 export function takeAuditPack(token: string, userId: string) {
+  const now = Date.now();
+  sweepExpiredTokens(now);
   const entry = tokens.get(token);
   tokens.delete(token);
-  if (!entry || entry.userId !== userId || entry.expiresAt <= Date.now()) {
+  if (!entry || entry.userId !== userId) {
     return null;
   }
   return entry.pack;

@@ -2,7 +2,8 @@ import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinne
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
-import { useRef, useState } from "react";
+import { parseAsStringLiteral, useQueryState } from "nuqs";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -16,6 +17,29 @@ import {
   AlertDialogTitle,
 } from "@/components/shared/responsive-alert-dialog";
 import { prepareAuditPack } from "@/functions/books";
+
+/** Why `GET /api/audit-pack` sent the browser back here (`download.ts`). */
+const REFUSALS = {
+  expired: "The download expired before it started. Start it again.",
+  forbidden: "You no longer have access to the audit pack.",
+  "signed-out": "Sign in again, then start the download again.",
+} as const;
+
+/** Shows why a pack download was refused, then clears the reason. */
+export function useAuditPackRefusalToast() {
+  const [reason, setReason] = useQueryState(
+    "auditPack",
+    parseAsStringLiteral(Object.keys(REFUSALS) as (keyof typeof REFUSALS)[])
+  );
+  useEffect(() => {
+    if (reason) {
+      toast.error("Couldn't download the audit pack", {
+        description: REFUSALS[reason],
+      });
+      void setReason(null);
+    }
+  }, [reason, setReason]);
+}
 
 interface PackYear {
   id: string;

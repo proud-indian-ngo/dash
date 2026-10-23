@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { auth } from "@pi-dash/auth";
 import { db } from "@pi-dash/db";
 import { encryptSecret } from "@pi-dash/db/encryption";
 import { filingRowIdContext } from "@pi-dash/db/encryption-contexts";
@@ -16,6 +17,7 @@ import {
 import { contribution } from "@pi-dash/db/schema/income";
 import { posting } from "@pi-dash/db/schema/ledger";
 import { party } from "@pi-dash/db/schema/party";
+import { role, rolePermission } from "@pi-dash/db/schema/permission";
 import {
   donationCertificate,
   donationFiling,
@@ -58,13 +60,15 @@ import { uuidv7 } from "uuidv7";
  *   a utilisation certificate of the grant with its long-term copy, the
  *   CA's certificate and the grant's signed agreement. It also seeds what
  *   the pack must leave out: a cancelled and a partly signed certificate,
- *   a discarded and a prepared filing, and a claim of FY 2025-26, each with
- *   a stored file. Prints the year's ID, the workbook reference of each
+ *   a discarded and a prepared filing, and a claim posted in FY 2027-28,
+ *   each with a stored file. Prints the year's ID, the workbook reference of each
  *   record and each stored file's SHA-256 by its index label.
  * - `audit <since ISO>`: the audit pack's audit rows (prepare and stream)
  *   since then, newest first.
- * - `cleanup <filingId,…>`: removes the seeded filings, so the filings spec
- *   (which starts from none) and the donations return see no trace of them.
+ * - `cleanup <negatives JSON>`: removes the negative seeds and their files
+ *   and reverses the other year's claim, so the filings spec (which starts
+ *   from none), the donations return and later years see no trace of them.
+ * - `sensitive-only-user`: a user with finance.view_sensitive alone.
  * - `posting-count`: how many postings exist, to tell whether the books
  *   moved between two downloads.
  */
@@ -538,6 +542,13 @@ async function seed(run: string, grantId: string) {
   // What the pack must leave out: certificates not signed by both trustees
   // or cancelled, filings not submitted, and a claim of another year.
   const excludedCertificates: string[] = [];
+  /** Every negative seed, for `cleanup`. */
+  const negatives = {
+    certificateIds: [] as string[],
+    claimId: "",
+    filingIds: [filingId],
+    objectKeys: [] as string[],
+  };
   for (const [offset, status] of [
     [1, "cancelled"],
     [2, "awaiting_finance"],
@@ -546,6 +557,8 @@ async function seed(run: string, grantId: string) {
     const number = `${ucNumber}-X${offset}`;
     const key = `utilisation-certificates/${id}/latest.pdf`;
     await store(key, `uc ${status}`);
+    negatives.certificateIds.push(id);
+    negatives.objectKeys.push(key);
     await db.insert(utilisationCertificate).values({
       ...certificateValues,
       archiveObjectKey: null,
@@ -566,7 +579,6 @@ async function seed(run: string, grantId: string) {
     excludedCertificates.push(number);
   }
   const excludedFilings: number[] = [];
-  const filingIds = [filingId];
   for (const [offset, status] of [
     [1, "discarded"],
     [2, "prepared"],
@@ -591,22 +603,36 @@ async function seed(run: string, grantId: string) {
       totalPaise: 0,
     });
     excludedFilings.push(sequence);
-    filingIds.push(id);
+    negatives.filingIds.push(id);
+    negatives.objectKeys.push(key);
   }
+  // A claim paid in FY 2027-28: posted, but in a year the pack leaves out.
   const otherYearClaimId = uuidv7();
+  const otherYearProof = `attachments/approval-screenshots/reimbursements/${otherYearClaimId}/proof.png`;
+  await store(otherYearProof, "other year proof");
   await db.insert(reimbursement).values({
-    approvalScreenshotKey: null,
+    approvalScreenshotKey: otherYearProof,
     chargedProgrammeId: EDUCATION_ID,
     chargedTo: "programme",
     createdAt: now,
-    expenseDate: "2025-11-10",
+    expenseDate: "2027-05-10",
     id: otherYearClaimId,
-    reviewedAt: new Date("2025-11-12T05:00:00Z"),
+    reviewedAt: new Date("2027-05-12T05:00:00Z"),
     reviewedBy: userId,
     status: "approved",
     title: `E2E audit pack other year claim ${run}`,
     updatedAt: now,
     userId,
+  });
+  await db.insert(reimbursementLineItem).values({
+    amountPaise: 10_000,
+    categoryId,
+    createdAt: now,
+    description: "Next year's venue",
+    id: uuidv7(),
+    reimbursementId: otherYearClaimId,
+    sortOrder: 0,
+    updatedAt: now,
   });
   const otherYearBill = `attachments/reimbursements/${otherYearClaimId}/bill.pdf`;
   await store(otherYearBill, "other year bill");
@@ -620,6 +646,12 @@ async function seed(run: string, grantId: string) {
     reimbursementId: otherYearClaimId,
     type: "file",
   });
+  await postIncomeSourceNow({
+    sourceId: otherYearClaimId,
+    sourceType: "reimbursement",
+  });
+  negatives.claimId = otherYearClaimId;
+  negatives.objectKeys.push(otherYearProof, otherYearBill);
 
   return {
     acknowledgement,
@@ -630,8 +662,8 @@ async function seed(run: string, grantId: string) {
       claimId: otherYearClaimId,
       filings: excludedFilings,
     },
-    filingIds,
     filingId,
+    negatives,
     filingSequence,
     giftId,
     hashes,
@@ -667,7 +699,18 @@ async function auditRows(since: string) {
     .orderBy(desc(auditLog.attemptedAt));
 }
 
-async function cleanup(filingIds: string[]) {
+/**
+ * Removes the negative seeds: the filings, the certificates and their
+ * stored files. The other year's claim is posted, so it is voided and
+ * posted again, which reverses it.
+ */
+async function cleanup(negatives: {
+  certificateIds: string[];
+  claimId: string;
+  filingIds: string[];
+  objectKeys: string[];
+}) {
+  const { certificateIds, claimId, filingIds, objectKeys } = negatives;
   await db.transaction(async (tx) => {
     await tx
       .delete(donationCertificate)
@@ -681,8 +724,82 @@ async function cleanup(filingIds: string[]) {
     await tx
       .delete(donationFiling)
       .where(inArray(donationFiling.id, filingIds));
+    await tx
+      .delete(utilisationCertificate)
+      .where(inArray(utilisationCertificate.id, certificateIds));
   });
-  return { removed: filingIds.length };
+  // Voided on its own approval day, so the reversal lands in FY 2027-28
+  // too and that year nets to nothing.
+  const voidedAt = new Date("2027-05-12T06:00:00Z");
+  await db
+    .update(reimbursement)
+    .set({
+      updatedAt: new Date(),
+      voidedAt,
+      voidedBy: await userIdOf(process.env.VOLUNTEER_EMAIL),
+      voidReason: "E2E: audit pack cleanup",
+    })
+    .where(eq(reimbursement.id, claimId));
+  await postIncomeSourceNow({ sourceId: claimId, sourceType: "reimbursement" });
+  for (const key of objectKeys) {
+    await r2.delete(key);
+  }
+  return { removed: filingIds.length + certificateIds.length + 1 };
+}
+
+const SENSITIVE_ONLY_ROLE = "e2e_audit_pack_sensitive_only";
+const SENSITIVE_ONLY = {
+  email: "e2e-sensitive-only@pi-dash.test",
+  password: "E2eSensitiveOnly123!",
+};
+
+/**
+ * A user whose only permission is finance.view_sensitive: it may see full
+ * IDs but not read the books, so preparing a pack must refuse it.
+ */
+async function sensitiveOnlyUser() {
+  await db
+    .insert(role)
+    .values({
+      description: "E2E: full IDs without the books",
+      id: SENSITIVE_ONLY_ROLE,
+      isSystem: false,
+      name: "E2E Sensitive Only",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(rolePermission)
+    .values({
+      permissionId: "finance.view_sensitive",
+      roleId: SENSITIVE_ONLY_ROLE,
+    })
+    .onConflictDoNothing();
+  let existing = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, SENSITIVE_ONLY.email),
+  });
+  if (!existing) {
+    await auth.api.createUser({
+      body: { ...SENSITIVE_ONLY, name: "E2E Sensitive Only" },
+    });
+    existing = await db.query.user.findFirst({
+      columns: { id: true },
+      where: eq(user.email, SENSITIVE_ONLY.email),
+    });
+  }
+  if (!existing) {
+    throw new Error("Unable to create the sensitive-only user");
+  }
+  await db
+    .update(user)
+    .set({
+      banned: false,
+      emailVerified: true,
+      isActive: true,
+      role: SENSITIVE_ONLY_ROLE,
+    })
+    .where(eq(user.id, existing.id));
+  return SENSITIVE_ONLY;
 }
 
 /** Every posting so far: a change means the books moved. */
@@ -698,7 +815,9 @@ if (action === "seed") {
 } else if (action === "audit") {
   result = await auditRows(first);
 } else if (action === "cleanup") {
-  result = await cleanup(first.split(","));
+  result = await cleanup(JSON.parse(first));
+} else if (action === "sensitive-only-user") {
+  result = await sensitiveOnlyUser();
 } else if (action === "posting-count") {
   result = await postingCount();
 } else {

@@ -170,28 +170,59 @@ function hashing(
   );
 }
 
+/** Why a pack GET started nothing, as the Books page's `auditPack` search param. */
+type Refusal = "expired" | "forbidden" | "signed-out";
+
+const REFUSALS: Record<Refusal, { message: string; status: number }> = {
+  expired: {
+    message: "This download has expired. Start it again from the Books page.",
+    status: 404,
+  },
+  forbidden: { message: "Forbidden", status: 403 },
+  "signed-out": { message: "Unauthorized", status: 401 },
+};
+
+/**
+ * A refused GET, logged with its reason. The dialog opens the pack as a
+ * browser navigation, so that goes back to the Books page, which shows the
+ * reason as a toast, instead of leaving the tab on raw JSON.
+ */
+function refuse(request: Request, reason: Refusal, userId?: string): Response {
+  const log = createRequestLogger({ method: "GET", path: PATH });
+  log.set({ event: "audit_pack_refused", reason, userId });
+  log.emit();
+  if (request.headers.get("sec-fetch-mode") === "navigate") {
+    return Response.redirect(
+      new URL(`/finance/books?auditPack=${reason}`, request.url),
+      303
+    );
+  }
+  const { message, status } = REFUSALS[reason];
+  return Response.json({ error: message }, { status });
+}
+
+/** A client that goes away mid-pull surfaces as an abort, not a failure. */
+const isAbort = (request: Request, error: unknown) =>
+  request.signal.aborted ||
+  (error instanceof Error && error.name === "AbortError");
+
 export async function handleAuditPackDownload(
   request: Request
 ): Promise<Response> {
   const auth = await requireSession(request);
   if (auth.error) {
-    return auth.error;
+    return refuse(request, "signed-out");
   }
   const { session } = auth;
   try {
     await assertServerPermission(session, "finance.view_sensitive");
   } catch {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
+    return refuse(request, "forbidden", session.user.id);
   }
   const token = new URL(request.url).searchParams.get("token") ?? "";
   const found = takeAuditPack(token, session.user.id);
   if (!found) {
-    return Response.json(
-      {
-        error: "This download has expired. Start it again from the Books page.",
-      },
-      { status: 404 }
-    );
+    return refuse(request, "expired", session.user.id);
   }
   const pack: PreparedAuditPack = found;
   liftIdleTimeout(request);
@@ -274,7 +305,11 @@ export async function handleAuditPackDownload(
     onCancel: () => finish("failure", { cancelled: true, streamedFileCount }),
     onEnd: () => finish("success", { streamedFileCount }),
     onError: (error) =>
-      finish("failure", { cancelled: false, streamedFileCount }, error),
+      finish(
+        "failure",
+        { cancelled: isAbort(request, error), streamedFileCount },
+        error
+      ),
   });
   return new Response(stream, {
     headers: {

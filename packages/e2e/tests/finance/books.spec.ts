@@ -106,7 +106,8 @@ interface AuditPackSeed {
   code: string;
   /** What the pack must leave out. */
   excluded: { certificates: string[]; claimId: string; filings: number[] };
-  filingIds: string[];
+  /** Every negative seed, handed back to `cleanup`. */
+  negatives: Record<string, unknown>;
   filingSequence: number;
   giftId: string;
   /** Each stored file's SHA-256, by its index label. */
@@ -566,6 +567,8 @@ test.describe("Books (treasurer)", () => {
 
   // In this serial group: its seed posts into 2026-27.
   test("downloads the year's audit pack: the workbook as on the Books page, every stored document with its hash, and a missing one marked", async ({
+    baseURL,
+    browser,
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
@@ -580,6 +583,10 @@ test.describe("Books (treasurer)", () => {
     const seed = await auditPack<AuditPackSeed>("seed", run, grant.grantId);
     const since = new Date(Date.now() - 1000).toISOString();
     try {
+      // The other year's claim posted, so leaving it out is the pack's doing.
+      expect(
+        await books<string[]>("postings", seed.excluded.claimId)
+      ).toContain("recognise");
       await page.goto(`/finance/books?year=${YEAR}`);
       await waitForZeroReady(page);
 
@@ -588,8 +595,17 @@ test.describe("Books (treasurer)", () => {
       let zip: Record<string, Uint8Array> = {};
       let packWorkbook = "";
       let booksWorkbook = "";
+      let prepareCall: {
+        body: string;
+        headers: Record<string, string>;
+        url: string;
+      } | null = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const postingsBefore = await auditPack<number>("posting-count");
+        const prepareRequest = page.waitForRequest(
+          (request) =>
+            request.method() === "POST" && request.url().includes("/_serverFn/")
+        );
         const pack = await downloadVia(
           page,
           "Download audit pack (ZIP)",
@@ -598,6 +614,18 @@ test.describe("Books (treasurer)", () => {
         expect(pack.suggestedFilename()).toBe(
           `proud-indian-audit-pack-${YEAR}.zip`
         );
+        const sent = await prepareRequest;
+        prepareCall = {
+          body: sent.postData() ?? "",
+          headers: Object.fromEntries(
+            Object.entries(await sent.allHeaders()).filter(
+              ([name]) =>
+                !["content-length", "cookie", "host"].includes(name) &&
+                !name.startsWith(":")
+            )
+          ),
+          url: sent.url(),
+        };
         // A valid ZIP to the end, the missing bill notwithstanding.
         zip = unzipSync(new Uint8Array(await readFile(await pack.path())));
         await expect(page.getByRole("alertdialog")).toBeHidden();
@@ -820,6 +848,44 @@ test.describe("Books (treasurer)", () => {
         const response = await page.request.get(`/api/audit-pack?${query}`);
         expect(response.status(), query).toBe(404);
       }
+      // Opened in the tab, a spent token sends the browser back to the
+      // Books page with the reason, never raw JSON.
+      await page.goto("/api/audit-pack?token=spent");
+      await expect(page).toHaveURL(/\/finance\/books/);
+      await expect(
+        page.getByText("The download expired before it started")
+      ).toBeVisible();
+
+      // Preparing needs the books as well as full IDs: the same call as a
+      // user with finance.view_sensitive alone is refused.
+      expect(prepareCall).not.toBeNull();
+      const restricted = await auditPack<{ email: string; password: string }>(
+        "sensitive-only-user"
+      );
+      const context = await browser.newContext({
+        baseURL,
+        storageState: { cookies: [], origins: [] },
+      });
+      try {
+        const other = await context.newPage();
+        await other.goto("/login");
+        await other.getByLabel("Email").fill(restricted.email);
+        await other.getByLabel("Password").fill(restricted.password);
+        await other
+          .getByRole("button", { exact: true, name: "Log in" })
+          .click();
+        await other.waitForURL((url) => url.pathname !== "/login");
+        const refused = await context.request.post(prepareCall?.url ?? "", {
+          data: prepareCall?.body,
+          headers: prepareCall?.headers,
+        });
+        expect(refused.ok()).toBe(false);
+        const refusal = await refused.text();
+        expect(refusal).toContain("Forbidden");
+        expect(refusal).not.toContain("token");
+      } finally {
+        await context.close();
+      }
 
       // The repeatable artifact: this run's index rows with run-specific
       // values replaced, and the README without its time and counts.
@@ -871,7 +937,7 @@ test.describe("Books (treasurer)", () => {
         contentType: "text/plain",
       });
     } finally {
-      await auditPack("cleanup", seed.filingIds.join(","));
+      await auditPack("cleanup", JSON.stringify(seed.negatives));
     }
   });
 

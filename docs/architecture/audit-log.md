@@ -17,6 +17,7 @@ An immutable record of who changed what. Each authenticated, state-changing comm
 1. The runner inserts a `pending` row before the action runs. If that insert fails, the action does not run.
 2. After the action, the row is finalised once, as `success`, `denied` or `failure`, with retries.
 3. If finalising fails after a success, the caller gets `AuditFinalizationError`; the action itself has completed.
+4. A row recording how something already handed out ended, such as the audit pack's stream, is written final in one insert (`recordFinalAudit`), with no pending step.
 
 A finalised row has no update or delete path.
 
