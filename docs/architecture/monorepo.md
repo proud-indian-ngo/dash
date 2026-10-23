@@ -1,6 +1,6 @@
 # Monorepo
 
-> **Load when**: new workspace, Turborepo, Dockerfile, build topology.
+> **Load when**: new workspace, Turborepo, Dockerfile, build topology, production server, slow responses or idle timeouts.
 > **Related**: `data-layer.md`, `jobs.md`, `project-structure.md`
 
 Turborepo with Bun workspaces. `project-structure.md` maps the packages.
@@ -44,6 +44,12 @@ The compiler runs on `@babel/core` 7 (`react-compiler-preset.test.ts` asserts it
 Leave memoization to the compiler and confirm in the compiled output that the value is cached. Keep `useMemo` where it is not, and where the compiler merges an expensive value into a wider cache scope; `data-table-wrapper.tsx` keeps both kinds.
 
 In table sizing (`components/data-table/column-fill.ts`), the last visible unpinned column absorbs spare width. Viewport-derived fill is never persisted.
+
+## Production server
+
+Production runs Nitro's `bun` preset, which serves through srvx on `Bun.serve`. Bun drops a request that moves no bytes for its idle timeout, 10 seconds by default, so a download that builds a file before its first byte, a slow storage read mid-stream, or a server function running a long query would be cut. The preset passes no `idleTimeout` to `Bun.serve`, so `apps/web/server/middleware/idle-timeout.ts` raises it to 255 seconds, Bun's maximum, for every request with `server.timeout()`. A handler that can sit idle for longer must send bytes before then, or move the work to a job. Vite's dev server has no such timeout, so check a slow path against a built server (`bun run build`, then `bun run start`).
+
+Dokploy's Traefik in front is configured outside this repository; a shorter timeout there or at a CDN would still cut a slow response first.
 
 ## Dev tooling
 

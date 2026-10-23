@@ -36,27 +36,6 @@ export class AuditPackRefusal extends Error {
 const TOO_LARGE =
   "This year's files are more than one ZIP can hold (3.5 GiB or 60,000 files). Contact the developer.";
 
-/**
- * Seconds a pack request may sit without a byte moving. Bun's default of
- * 10 would cut a long prepare or a slow object read; a stalled read or a
- * client that stops reading is still cut after this.
- */
-const IDLE_TIMEOUT_SECONDS = 300;
-
-/**
- * Raises Bun's idle timeout for this request on the production server
- * (srvx exposes Bun's server); a no-op under Vite.
- */
-export function liftIdleTimeout(request: Request): void {
-  (
-    request as {
-      runtime?: {
-        bun?: { server?: { timeout: (r: Request, seconds: number) => void } };
-      };
-    }
-  ).runtime?.bun?.server?.timeout(request, IDLE_TIMEOUT_SECONDS);
-}
-
 export interface PackCounts {
   documentCount: number;
   fileCount: number;

@@ -16,7 +16,6 @@ import {
 
 import { PACK_FOLDERS, type PackDocument } from "./documents";
 import {
-  liftIdleTimeout,
   type PackCounts,
   type PreparedAuditPack,
   takeAuditPack,
@@ -225,7 +224,6 @@ export async function handleAuditPackDownload(
     return refuse(request, "expired", session.user.id);
   }
   const pack: PreparedAuditPack = found;
-  liftIdleTimeout(request);
 
   const actor = await buildAuditActor(session);
   /** The stream's own audit row and log line, once it ends either way. */
