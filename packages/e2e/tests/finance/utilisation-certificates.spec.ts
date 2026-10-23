@@ -155,17 +155,11 @@ async function signAs(
       .click({ timeout: 20_000 });
     const signed = await completeHelperJob(page, await signing(), signer);
     expect(signed.status, signed.message).toBe(200);
-    // Signed, the panel goes: it's no longer their turn. Matched by the name
-    // line, since the next signer's row reads "After <name>" until then.
+    // Signed, the panel goes: it's no longer their turn.
     await expect(
       page
         .getByTestId("certificate-signers")
-        .getByRole("listitem")
-        .filter({
-          has: page.locator("span.font-medium").getByText(name, {
-            exact: true,
-          }),
-        })
+        .getByRole("listitem", { exact: true, name })
     ).toContainText("Signed", { timeout: 20_000 });
     await expect(panel).toBeHidden();
   });

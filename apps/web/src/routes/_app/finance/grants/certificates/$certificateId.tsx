@@ -31,7 +31,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { log } from "evlog";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
 import { CertificateCaPanel } from "@/components/grants/certificate-ca-panel";
@@ -167,6 +167,7 @@ function CertificatePage() {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const signerId = useId();
 
   const handleDiscard = useEventCallback(async () => {
     setBusy(true);
@@ -402,11 +403,14 @@ function CertificatePage() {
                 }
                 return (
                   <li
+                    aria-labelledby={`${signerId}-${role}`}
                     className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm"
                     key={role}
                   >
                     <span className="flex min-w-0 flex-col">
-                      <span className="font-medium">{signatory.name}</span>
+                      <span className="font-medium" id={`${signerId}-${role}`}>
+                        {signatory.name}
+                      </span>
                       <span className="text-muted-foreground text-xs">
                         {signatoryTitle(role, signatory)}
                       </span>
