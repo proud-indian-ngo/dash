@@ -127,7 +127,7 @@ Storage, the sync job, deletion and media access are in [file uploads](file-uplo
 
 ### Anonymous feedback
 
-- The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open.
+- The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open. The server judges both by its own clock; the client's `now` only drives the optimistic run.
 - Only event members can submit, once each, with no new images. They can edit their response until the deadline.
 - Anonymity: `eventFeedback` holds the text and no user. `eventFeedbackSubmission` links user to response and is never synced to clients; duplicate and ownership checks run on the server pass only. Members read their own response through a server function.
 - `events.manage_feedback` grants only reading every event's responses; a lead reads their teams'. Nobody sees who wrote what.

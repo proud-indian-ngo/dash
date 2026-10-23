@@ -34,12 +34,14 @@ export const eventFeedbackMutators = {
         throw new Error("Feedback is not enabled for this event");
       }
 
+      // The client's clock decides only its optimistic run.
+      const now = tx.location === "server" ? Date.now() : args.now;
       const eventTime = event.endTime ?? event.startTime;
-      if (eventTime > args.now) {
+      if (eventTime > now) {
         throw new Error("Event has not ended yet");
       }
 
-      if (event.feedbackDeadline && event.feedbackDeadline < args.now) {
+      if (event.feedbackDeadline && event.feedbackDeadline < now) {
         throw new Error("Feedback deadline has passed");
       }
 
@@ -70,17 +72,17 @@ export const eventFeedbackMutators = {
 
       await tx.mutate.eventFeedback.insert({
         content: args.content,
-        createdAt: args.now,
+        createdAt: now,
         eventId: args.eventId,
         id: args.feedbackId,
-        updatedAt: args.now,
+        updatedAt: now,
       });
 
       await tx.mutate.eventFeedbackSubmission.insert({
         eventId: args.eventId,
         feedbackId: args.feedbackId,
         id: args.submissionId,
-        submittedAt: args.now,
+        submittedAt: now,
         userId: ctx.userId,
       });
     }
@@ -130,14 +132,15 @@ export const eventFeedbackMutators = {
         throw new Error("Event not found");
       }
 
-      if (event.feedbackDeadline && event.feedbackDeadline < args.now) {
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.feedbackDeadline && event.feedbackDeadline < now) {
         throw new Error("Feedback deadline has passed");
       }
 
       await tx.mutate.eventFeedback.update({
         content: args.content,
         id: args.feedbackId,
-        updatedAt: args.now,
+        updatedAt: now,
       });
     }
   ),

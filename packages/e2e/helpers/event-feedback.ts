@@ -1,8 +1,9 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
+import { eventFeedbackSubmission } from "@pi-dash/db/schema/event-feedback";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 /**
  * Events with anonymous feedback on, in a team of their own, for the
@@ -92,11 +93,22 @@ async function setup(volunteerEmail: string) {
   };
 }
 
+/** The events, of the closed and upcoming ones, that hold a submission. */
+async function refusedSubmissions() {
+  const rows = await db
+    .select({ eventId: eventFeedbackSubmission.eventId })
+    .from(eventFeedbackSubmission)
+    .where(inArray(eventFeedbackSubmission.eventId, [ID.closed, ID.upcoming]));
+  return rows.map((row) => row.eventId);
+}
+
 const [action, argument] = process.argv.slice(2);
 let result: unknown;
 if (action === "cleanup") {
   await cleanup();
   result = { cleaned: true };
+} else if (action === "refused-submissions") {
+  result = await refusedSubmissions();
 } else if (action === "setup" && argument) {
   result = await setup(argument);
 } else {
