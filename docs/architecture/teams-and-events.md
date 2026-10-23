@@ -5,7 +5,7 @@
 
 The volunteer side of the dashboard: teams, the events they run, and what happens around an event. Start at `packages/zero/src/mutators/team-event.ts`.
 
-Every event time rule takes the client's `now` only for its optimistic run and judges on the server by the server's clock, so a client can't move its clock past one: creating in the past, joining, leaving, cancelling (a whole series included), restoring, feedback and the feedback-open notice, interest, photo uploads, posting updates, attendance, recaps and the series programme lock.
+Event time rules, such as whether an event has started or its feedback deadline has passed, follow the server's clock ([data layer](data-layer.md#mutators)).
 
 ## Team leads
 
