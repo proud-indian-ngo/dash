@@ -1,7 +1,7 @@
 name: PR title
 on:
   pull_request:
-    branches: [master, "feat/kalakriti-p2-*"]
+    branches: [master]
     # `edited` reruns the check when only the title changes.
     types: [opened, edited, synchronize, reopened]
 
