@@ -146,13 +146,20 @@ export function DonorsTable({
           party={row.original}
         />
       ),
+      enableHiding: false,
+      enableResizing: false,
+      enableSorting: false,
+      header: "",
       id: "actions",
       meta: {
+        cellClassName: "text-center",
         enableColumnOrdering: false,
         headerTitle: "",
         skeleton: <Skeleton className="size-7" />,
+        stopRowClick: true,
       },
-      size: 48,
+      minSize: 52,
+      size: 52,
     },
   ];
 
