@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 
 import type { BrowserContext, Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 
 const RUNS_PER_VIEWPORT = 3;
 const KEY_DELAY_MS = 40;
@@ -163,8 +163,7 @@ test("measure login-to-dashboard transition", async ({
 }, testInfo) => {
   test.skip(
     process.env.LOGIN_TRANSITION_PERFORMANCE !== "true" ||
-      process.env.E2E_SERVER === "dev" ||
-      testInfo.project.name !== "super_admin",
+      process.env.E2E_SERVER === "dev",
     "Opt-in production benchmark on the isolated super_admin test stack only"
   );
   test.setTimeout(300_000);

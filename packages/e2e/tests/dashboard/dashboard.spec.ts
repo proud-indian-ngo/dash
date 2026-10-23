@@ -3,31 +3,21 @@ import { expect, test } from "../../fixtures/test";
 const ROLES_WITH_VIEW_ALL = new Set(["super_admin", "admin", "finance_admin"]);
 
 test.describe("Dashboard", () => {
-  test.beforeEach(async ({ page }) => {
+  test("shows the heading, New reimbursement and role stat chips", async ({
+    page,
+  }, testInfo) => {
     await page.goto("/");
-  });
-
-  test("shows dashboard heading", async ({ page }) => {
     await expect(
       page.getByRole("heading", { name: "Dashboard" })
     ).toBeVisible();
-  });
+    // Unoriented volunteers see the orientation prompt instead.
+    if (testInfo.project.name === "unoriented_volunteer") {
+      return;
+    }
 
-  test("shows New reimbursement button", async ({ page }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "unoriented_volunteer",
-      "Unoriented volunteers see orientation prompt instead"
-    );
     await expect(
       page.getByRole("button", { name: "New reimbursement" })
     ).toBeVisible();
-  });
-
-  test("shows stat chips", async ({ page }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "unoriented_volunteer",
-      "Unoriented volunteers see orientation prompt instead"
-    );
 
     const labels = page.locator("[data-slot=stat-label]");
     const canViewAllRequests = ROLES_WITH_VIEW_ALL.has(testInfo.project.name);
@@ -56,6 +46,7 @@ test.describe("Dashboard", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Reviewer-only test");
+    await page.goto("/");
 
     const chip = page
       .locator("[data-slot=stat-chip]")

@@ -39,6 +39,8 @@ Feature helpers in `helpers/` add the entities a spec needs. They must be idempo
 
 `run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need. That service trusts only a throwaway CA made for the run (`signing/make-test-pki.py`), with a key and certificate for each seeded trustee, so specs can sign by playing the DSC helper (`helpers/dsc-helper.ts`). CI doesn't start it: the specs that need it also need R2 and skip there.
 
+`run-e2e.sh` and the CI e2e job also start `packages/e2e/fake-gowa.ts` and point `WHATSAPP_API_URL` at it, so WhatsApp is configured and every GoWA send is accepted without leaving the machine. Its group list holds one new group per request, so parallel picker tests never collide. It reports nobody on WhatsApp and no invite links, as an unconfigured gateway would. A WhatsApp endpoint the client gains needs a route there; unknown paths return 404.
+
 ## `run-e2e.sh`
 
 - Zero runs in production mode with a test-only `ZERO_ADMIN_PASSWORD` (default `e2e-test-admin`). Inspector-based tests authenticate with that env value; they must not rely on the interactive prompt or the development-mode bypass.
@@ -76,12 +78,11 @@ Matching FY 2026-27's audited figures freezes that year for every spec on the sa
 
 ## Performance benchmarks
 
-Benchmarks are opt-in specs under `tests/performance/`, skipped unless their flag is set. Use the `super_admin` project on an isolated stack. The login-transition benchmark signs in through the form as the seeded admin:
+Benchmarks are opt-in specs under `packages/e2e/perf/`, outside the suite's test directory, so CI never lists or shards them. Each still skips unless its flag is set. `perf/playwright.perf.config.ts` runs them after setup in one `super_admin` project, with one worker and no retries; `run-e2e.sh --perf` (first argument) selects it. Use an isolated stack. The login-transition benchmark signs in through the form as the seeded admin:
 
 ```bash
 env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=never \
-  bash packages/e2e/run-e2e.sh tests/performance/<spec>.spec.ts \
-  --project=super_admin --workers=1 --retries=0
+  bash packages/e2e/run-e2e.sh --perf perf/<spec>.spec.ts
 ```
 
 | Spec | Flag | What it guards |
@@ -92,16 +93,7 @@ env -u ELECTRON_RUN_AS_NODE <FLAG>=true E2E_STACK_INDEX=2 PLAYWRIGHT_HTML_OPEN=n
 | `kalakriti-audit.spec.ts` | `KALAKRITI_AUDIT_PERFORMANCE` | Kalakriti Audit on 41,000 rows across two Editions, per role |
 | `login-transition.spec.ts` | `LOGIN_TRANSITION_PERFORMANCE` | Login submit to usable dashboard after fixed-speed credential entry; fresh contexts, cache enabled, no pre-login Zero connection |
 | `navigation.spec.ts` | `NAVIGATION_PERFORMANCE` | Actual in-app link clicks on desktop and mobile as admin and volunteer; first and repeat visits with caches preserved |
-| `lazy-features.spec.ts` | `LAZY_FEATURES_PERFORMANCE` | First and repeat opening of lazy Income and Books features on throttled mobile, measured from the captured click to real usable content |
-| `claims-navigation.spec.ts` | `CLAIMS_NAVIGATION_PERFORMANCE` | Finance admin opening a claim and its charge editor by mobile tap, desktop click and deliberate hover; separate keyboard activation check |
-| `claim-edit.spec.ts` | `CLAIM_EDIT_PERFORMANCE` | Claim detail, first/repeat main editor opening, and cold direct edit links; records readiness and downloaded JavaScript |
-| `users-mount.spec.ts` | `USERS_MOUNT_PERFORMANCE` | First/repeat Users navigation plus a separate profiled repeat; preserves CPU throttling throughout |
-| `kalakriti-layout.spec.ts` | `KALAKRITI_LAYOUT_PERFORMANCE` | Food layout shifts with empty and populated eligible rosters on mobile |
-| `governance-navigation.spec.ts` | `GOVERNANCE_PERFORMANCE` | Cold governance pages, layout shifts and first form openings; route JavaScript is measured before forms open |
-| `governance-warm-navigation.spec.ts` | `GOVERNANCE_WARM_PERFORMANCE` | First and repeat visits to nine governance pages from the dashboard, with caches preserved and populated-content readiness |
-| `finance-navigation.spec.ts` | `FINANCE_NAVIGATION_PERFORMANCE` | First and repeat Income and Books navigation from the dashboard on desktop and mobile, with populated route-specific readiness |
 | `web-vitals.spec.ts` | `WEB_VITALS_PERFORMANCE` | Cold login, dashboard, events and reimbursement-list loads on desktop and mobile; add `WEB_VITALS_RETURNING=true` for cached authenticated reloads or `WEB_VITALS_ASSERT=true` to enforce good thresholds |
-| `route-startup.spec.ts` | `ROUTE_STARTUP_AUDIT` | Cold route screening from a `ROUTE_AUDIT_MANIFEST` JSON file; defaults to one mobile sample per route, with optional `ROUTE_AUDIT_RUNS`, `ROUTE_AUDIT_VIEWPORT` and `ROUTE_AUDIT_TRACE=true` |
 | `rendering-memory.spec.ts` | `RENDERING_PERFORMANCE` | Eight desktop navigation cycles on scale fixtures: renderer CPU, sampled JS heap, post-GC retention, DOM/listeners and process RSS |
 
 ### Compare navigation runs
@@ -112,24 +104,13 @@ Navigation benchmarks use real links after dashboard readiness. First visits can
 
 | Option | Use |
 |---|---|
-| `PERFORMANCE_LABEL` | Label claim-edit, Users-mount and Food-layout reports |
-| `GOVERNANCE_PERFORMANCE_LABEL`, `GOVERNANCE_PERFORMANCE_ROUTES` | Label cold governance reports and optionally select comma-separated route names |
-| `GOVERNANCE_WARM_LABEL`, `GOVERNANCE_WARM_ROUTES` | Label and select warm governance destinations |
 | `NAVIGATION_IDLE_WAIT_MS` | Add a fixed quiet period before navigation; leave unset for immediate interaction |
-| `FINANCE_NAVIGATION_IDLE_WAIT_MS` | Override the idle period for finance navigation |
-| `GOVERNANCE_WARM_IDLE_WAIT_MS` | Add an idle window after the governance benchmark's two-second dashboard settle |
 
 Use equal idle windows when comparing code warming. Reports include JavaScript downloaded before navigation, so a faster click does not hide the cost of warming.
 
-Warm governance gives each destination a fresh context and keeps its first/repeat pair in one document. Meetings checks the populated Past tab count; Registrations checks the empty-state search control because the standard seed has no registration.
-
-Add `GOVERNANCE_WARM_REGISTER_ACTIONS=true` to measure Add trustee, trustee details and the first Add term opening. Add and detail scenarios use independent fresh contexts, so one form's loaded code cannot mask another's first-use cost. Each scenario measures navigation before opening and cancelling dialogs.
-
 ### Cold loads and returning visits
 
-Set `ROUTE_AUDIT_RETURNING=true` to measure a reload after a complete initial visit, preserving HTTP and Zero caches. Export first-use supports `EXPORT_SSR_RETURNING=true`; web vitals supports `WEB_VITALS_RETURNING=true`.
-
-Route screening records redirects, fallbacks, page errors and timeouts separately. Inspect each sample: a passing harness does not mean every route reached its intended state. Generic readiness checks the heading, Zero connection and visible skeletons, not populated-data completeness. Router tracing is best effort and can miss work before the router becomes available.
+Export first-use supports `EXPORT_SSR_RETURNING=true` and web vitals supports `WEB_VITALS_RETURNING=true` to measure a reload after a complete initial visit, preserving HTTP and Zero caches.
 
 Web vitals takes three fresh contexts per route and viewport at 4× CPU slowdown, 1.6 Mbps download and 150 ms latency. Cold mode disables HTTP caching; returning mode measures a cached reload. Reports include skeleton-free readiness, LCP, maximum CLS session window and the worst observed Event Timing duration. This interaction proxy is not field INP.
 
@@ -146,7 +127,6 @@ For the shared filter evaluator alone, run `bun scripts/performance/table-filter
 Keep diagnostic profiling separate from latency comparisons:
 
 - `NAVIGATION_PROFILE=true` records an extra Users navigation after the measured route sequence. Subsequent `filterMeasurements` time first/repeat quick-filter opening with profiling off. Open `.cpuprofile` attachments in Chrome DevTools.
-- `LAZY_FEATURES_PROFILE=true` records contribution-dialog CPU profiles and timelines in separate normal/reduced-motion contexts. In-page marks separate control mounting, rendering frames and animation completion without readiness polling. These runs do not enter the latency report.
 
 Query benchmarks take three analyzer samples after initial hydration, without timing thresholds. JSON attachments contain counts, timings and sanitized plans, never record contents, filter values or credentials.
 

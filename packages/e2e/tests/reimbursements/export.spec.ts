@@ -36,7 +36,9 @@ test.describe("Export ZIP (admin)", () => {
     ).toBeVisible();
   });
 
-  test("renders export page with controls", async ({ page }) => {
+  test("renders the controls, changes financial year and reveals vendor payment options", async ({
+    page,
+  }) => {
     await expect(
       page.getByRole("checkbox", { name: "Reimbursements" })
     ).toBeVisible();
@@ -58,6 +60,50 @@ test.describe("Export ZIP (admin)", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Export ZIP" })
+    ).toBeVisible();
+
+    const financialYear = page.getByRole("combobox", {
+      name: "Financial Year",
+    });
+    await financialYear.click();
+    // Wait for the listbox: counting before it renders skips the pick and
+    // leaves it open over the checkboxes below.
+    const options = page.getByRole("listbox").getByRole("option");
+    await expect(options.first()).toBeVisible();
+    if ((await options.count()) > 1) {
+      const nextYear = (await options.nth(1).textContent())?.trim() ?? "";
+      await options.nth(1).click();
+      await expect(financialYear).toContainText(nextYear);
+    } else {
+      await page.keyboard.press("Escape");
+    }
+    await expect(page.getByRole("listbox")).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "Export ZIP" })
+    ).toBeEnabled();
+
+    // Vendor payment options appear only once Vendor Payments is checked.
+    await expect(
+      page.getByRole("checkbox", { name: "Partially paid" })
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Include payment transactions",
+      })
+    ).not.toBeVisible();
+
+    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
+
+    await expect(
+      page.getByRole("checkbox", { name: "Partially paid" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", { exact: true, name: "Paid" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("checkbox", {
+        name: "Include payment transactions",
+      })
     ).toBeVisible();
   });
 
@@ -130,19 +176,6 @@ test.describe("Export ZIP (admin)", () => {
     await expect(page.getByText(/Exported \d+ \w+/)).toBeVisible();
   });
 
-  test("can change financial year", async ({ page }) => {
-    await page.getByRole("combobox", { name: "Financial Year" }).click();
-    const options = page.getByRole("option");
-    const count = await options.count();
-    if (count > 1) {
-      await options.nth(1).click();
-    }
-
-    await expect(
-      page.getByRole("button", { name: "Export ZIP" })
-    ).toBeEnabled();
-  });
-
   test("filters reimbursements by expense date", async ({ page }) => {
     await page.getByRole("checkbox", { name: "Advance Payments" }).click();
     await page.getByRole("checkbox", { name: "Pending" }).click();
@@ -158,42 +191,6 @@ test.describe("Export ZIP (admin)", () => {
     expect(content).toContain("E2E Upcoming Event Reimbursement");
     expect(content).not.toContain("E2E Seed Reimbursement");
     expect(content).toContain("2026-01-15");
-  });
-
-  test("vendor payments checkbox shows VP status filters", async ({ page }) => {
-    // VP status filters should not be visible initially
-    await expect(
-      page.getByRole("checkbox", { name: "Partially paid" })
-    ).not.toBeVisible();
-
-    // Check vendor payments
-    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
-
-    // VP status filters should now be visible
-    await expect(
-      page.getByRole("checkbox", { name: "Partially paid" })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("checkbox", { exact: true, name: "Paid" })
-    ).toBeVisible();
-  });
-
-  test("vendor payments checkbox shows transaction details option", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("checkbox", {
-        name: "Include payment transactions",
-      })
-    ).not.toBeVisible();
-
-    await page.getByRole("checkbox", { name: "Vendor Payments" }).click();
-
-    await expect(
-      page.getByRole("checkbox", {
-        name: "Include payment transactions",
-      })
-    ).toBeVisible();
   });
 
   test("export button disabled when VP-only and all VP statuses unchecked", async ({

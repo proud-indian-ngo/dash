@@ -34,12 +34,12 @@
     "packages/e2e": {
       "ignoreFiles": ["global-setup.ts"],
       "entry": [
+        "perf/playwright.perf.config.ts",
         "helpers/kalakriti-attendee-subject.ts",
         "helpers/kalakriti-awards.ts",
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-inventory.ts",
-        "helpers/kalakriti-layout.ts",
         "helpers/razorpay.ts",
         "helpers/bank-statements.ts",
         "helpers/books.ts",
@@ -84,6 +84,7 @@
         "helpers/profile-audit-performance.ts",
         "helpers/profile-kalakriti-audit.ts",
         "helpers/seed-app-performance.ts",
+        "fake-gowa.ts",
         "shard-by-duration.ts"
       ]
     },

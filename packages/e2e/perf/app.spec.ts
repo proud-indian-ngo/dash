@@ -4,12 +4,12 @@ import { promisify } from "node:util";
 
 import type { Page } from "@playwright/test";
 
-import { expect, test, waitForZeroReady } from "../../fixtures/test";
+import { expect, test, waitForZeroReady } from "../fixtures/test";
 import {
   profileZeroQueries,
   type InspectorWindow,
-} from "../../helpers/zero-performance";
-import { ListPage } from "../../pages/list-page";
+} from "../helpers/zero-performance";
+import { ListPage } from "../pages/list-page";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,8 +18,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
   browser,
 }, info) => {
   test.skip(
-    process.env.APP_PERFORMANCE !== "true" ||
-      info.project.name !== "super_admin",
+    process.env.APP_PERFORMANCE !== "true",
     "Opt-in benchmark on the isolated test stack only"
   );
   test.setTimeout(300_000);
@@ -28,10 +27,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
       "bun",
       [
         "run",
-        path.resolve(
-          import.meta.dirname,
-          "../../helpers/seed-app-performance.ts"
-        ),
+        path.resolve(import.meta.dirname, "../helpers/seed-app-performance.ts"),
       ],
       { env: process.env, timeout: 60_000 }
     );
@@ -72,7 +68,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     const context = await browser.newContext({
       storageState: path.resolve(
         import.meta.dirname,
-        "../../.auth/super_admin.json"
+        "../.auth/super_admin.json"
       ),
     });
     try {
@@ -515,10 +511,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     ),
   });
   const restrictedContext = await browser.newContext({
-    storageState: path.resolve(
-      import.meta.dirname,
-      "../../.auth/volunteer.json"
-    ),
+    storageState: path.resolve(import.meta.dirname, "../.auth/volunteer.json"),
   });
   const restrictedResults = [];
   const leadQueueNavigation = [];
@@ -822,7 +815,7 @@ test("profile Dashboard, Events and financial queries at scale", async ({
     const context = await browser.newContext({
       storageState: path.resolve(
         import.meta.dirname,
-        "../../.auth/volunteer.json"
+        "../.auth/volunteer.json"
       ),
     });
     try {

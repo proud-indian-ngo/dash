@@ -69,7 +69,9 @@ test.describe("Notification delivery (admin)", () => {
     page,
     volunteerEmail,
   }) => {
-    await page.goto("/notification-delivery");
+    // Searched to the tag: concurrent specs notify too, so the seeded row
+    // can fall off the first page of the unfiltered list.
+    await page.goto(deliveryUrl(tag, {}));
     await expect(
       page.getByRole("heading", { name: "Notification delivery" })
     ).toBeVisible();

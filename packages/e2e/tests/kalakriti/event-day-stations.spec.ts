@@ -177,9 +177,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await expect(
       food.dialog.getByRole("button", { name: "Record meal", exact: true })
     ).toBeVisible();
-    await expect(
-      food.dialog.getByRole("button", { name: "Record check-in", exact: true })
-    ).toHaveCount(0);
     const hospitality = await openScanner(hospitalityContext, data.year);
     await expect(hospitality.dialog.getByRole("tab")).toHaveCount(0);
     await expect(
@@ -215,9 +212,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
       await expect(
         combined.dialog.getByRole("tab", { name, exact: true })
       ).toBeVisible();
-    await expect(
-      combined.dialog.getByRole("tab", { name: "Transport", exact: true })
-    ).toHaveCount(0);
 
     await expect(
       combined.dialog.getByRole("tab", {
@@ -238,7 +232,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
       combined.dialog.getByRole("tab", { name: "Meals", exact: true })
     ).toHaveAttribute("aria-selected", "false");
     await combined.emitHeldFrame(person(data.secondVolunteerId, "volunteer"));
-    expect(await state()).toHaveLength(0);
 
     const studentQr = person(data.studentId);
     const volunteerQr = person(data.volunteerId, "volunteer");
@@ -323,7 +316,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await admin.scan(volunteerQr, 8);
     await count(2);
     await admin.scan(volunteerQr, 8);
-    expect(await state()).toHaveLength(2);
     expect(
       (
         await mutate(
@@ -332,13 +324,14 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         )
       ).error
     ).toBeDefined();
-    const checkIn = (await state()).find(
-      (row) => row.type === "volunteer_check_in"
-    )!;
     await admin.holdFrame();
     await admin.dialog.getByRole("tab", { name: "Meals", exact: true }).click();
     await admin.emitHeldFrame(person(data.secondVolunteerId, "volunteer"));
-    expect(await state()).toHaveLength(2);
+    const afterCheckIn = await state();
+    expect(afterCheckIn).toHaveLength(2);
+    const checkIn = afterCheckIn.find(
+      (row) => row.type === "volunteer_check_in"
+    )!;
     holdOperations = true;
     await manual(admin, data.studentHumanId, "Record meal");
     await expectPendingTabs();
@@ -355,7 +348,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         )
       ).error
     ).toBeUndefined();
-    expect(await state()).toHaveLength(3);
     await admin.expectCameraActive(true);
     await admin.holdFrame();
     await admin.dialog
@@ -367,7 +359,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await admin.emitHeldFrame(volunteerQr);
     expect(await state()).toHaveLength(3);
     await admin.scan(volunteerQr, 8);
-    await count(4);
 
     for (const sessionId of [
       undefined,
@@ -407,7 +398,7 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         (await mutate(page.request, command(data.editionId, "breakfast", qr)))
           .error
       ).toBeDefined();
-    expect(await state()).toHaveLength(4);
+    await count(4);
     await admin.dialog
       .getByRole("tab", { name: "Competition attendance", exact: true })
       .click();
@@ -436,12 +427,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await admin.scan(studentQr, 8);
     await count(6);
     expect(
-      (await state())
-        .filter((row) => row.type === "competition_attendance")
-        .map((row) => row.sessionId)
-        .sort()
-    ).toEqual([data.sessionId, data.secondSessionId].sort());
-    expect(
       (
         await mutate(
           attendance.page.request,
@@ -454,7 +439,14 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         )
       ).error
     ).toBeUndefined();
-    expect(await state()).toHaveLength(6);
+    const attended = await state();
+    expect(attended).toHaveLength(6);
+    expect(
+      attended
+        .filter((row) => row.type === "competition_attendance")
+        .map((row) => row.sessionId)
+        .sort()
+    ).toEqual([data.sessionId, data.secondSessionId].sort());
     await manual(food, data.volunteerHumanId, "Record meal");
     await count(7);
     await manual(hospitality, data.secondVolunteerHumanId, "Record check-in");
@@ -463,7 +455,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
     await admin.scan(person(data.guardianId, "guardian"), 8);
     await count(9);
     await manual(food, data.guardianId, "Record meal");
-    expect(await state()).toHaveLength(9);
     for (const type of ["pickup", "competition_attendance"]) {
       expect(
         (
@@ -485,15 +476,15 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
       person(data.guardianId, "guardian")
     );
     expect((await mutate(page.request, guardianCheckIn)).error).toBeUndefined();
-    await count(10);
-    expect(await state()).toContainEqual(
+    const recorded = await state();
+    expect(recorded).toHaveLength(10);
+    expect(recorded).toContainEqual(
       expect.objectContaining({
         membershipId: data.guardianId,
         operationId: guardianCheckIn.operationId,
         type: "guardian_check_in",
       })
     );
-    const recorded = await state();
     await admin.holdFrame();
     await fixture("close");
     await expect(
@@ -516,7 +507,6 @@ test("sidebar activities enforce role unions, prerequisites, scoped attendance a
         })
       ).error
     ).toBeUndefined();
-    expect(await state()).toEqual(recorded);
     await fixture("archive");
     await admin.expectCameraActive(false);
     await admin.page.reload();

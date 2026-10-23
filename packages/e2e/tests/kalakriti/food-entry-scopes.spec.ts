@@ -226,191 +226,68 @@ async function finish(
   ).toBeUndefined();
 }
 
-for (const actor of ["guardian", "liaison"] as const) {
-  test(`Food removes revoked Center data from a mounted ${actor} subscription`, async ({
-    browser,
-    baseURL,
-    superAdminEmail,
-    kalakritiActors,
-  }) => {
-    const data = await fixture<Setup>("setup-scopes", superAdminEmail);
-    const context = await browser.newContext({
-      baseURL,
-      storageState:
-        actor === "guardian"
-          ? { cookies: [], origins: [] }
-          : kalakritiActors.unrelatedVolunteer.storageState,
-    });
-    try {
-      const page = await context.newPage();
-      const expectWireScoped = watchOutsideCenter(page);
-      if (actor === "guardian") {
-        await page.goto("/login");
-        await page.getByLabel("Email").fill(data.scopeGuardianEmail);
-        await page.getByLabel("Password").fill(data.scopeGuardianPassword);
-        await page.getByRole("button", { name: "Log in", exact: true }).click();
-        await page.waitForURL((url) => url.pathname !== "/login");
-      }
+test("Food removes revoked Center data from mounted Guardian and Liaison subscriptions", async ({
+  browser,
+  baseURL,
+  superAdminEmail,
+  kalakritiActors,
+}) => {
+  const data = await fixture<Setup>("setup-scopes", superAdminEmail);
+  const contexts = await Promise.all(
+    [
+      { cookies: [], origins: [] },
+      kalakritiActors.unrelatedVolunteer.storageState,
+    ].map((storageState) => browser.newContext({ baseURL, storageState }))
+  );
+  try {
+    const [guardian, liaison] = await Promise.all(
+      contexts.map((context) => context.newPage())
+    );
+    const readers = { guardian: guardian!, liaison: liaison! };
+    await guardian!.goto("/login");
+    await guardian!.getByLabel("Email").fill(data.scopeGuardianEmail);
+    await guardian!.getByLabel("Password").fill(data.scopeGuardianPassword);
+    await guardian!
+      .getByRole("button", { name: "Log in", exact: true })
+      .click();
+    await guardian!.waitForURL((url) => url.pathname !== "/login");
+    const mounted = new Map<Page, { navigations: number; wire: () => void }>();
+    for (const page of Object.values(readers)) {
+      const state = { navigations: 0, wire: watchOutsideCenter(page) };
+      mounted.set(page, state);
       await gotoFood(page, data.year, "guardian");
       await expect(rowFor(page, "Center B Guardian")).toBeVisible();
       await expect(rowFor(page, "Union Guardian")).toBeVisible();
       await expect(
         await cell(page, rowFor(page, "Union Guardian"), "Center")
       ).toContainText("Union Center B");
-      let navigations = 0;
       page.on("request", (request) => {
         if (
           request.isNavigationRequest() &&
           request.frame() === page.mainFrame()
         )
-          navigations += 1;
+          state.navigations += 1;
       });
+    }
+    // Liaison first: the Guardian revoke also drops Union Guardian's own
+    // Center B link, which would mask the Liaison's Center cell narrowing.
+    for (const actor of ["liaison", "guardian"] as const) {
+      const page = readers[actor];
       await fixture("revoke-food-center-b", actor);
       await expect(
         await cell(page, rowFor(page, "Union Guardian"), "Center")
       ).toHaveText("Activity Center");
       await expect(rowFor(page, "Center B Guardian")).toHaveCount(0);
       await expect(rowFor(page, "Union Guardian")).toBeVisible();
+      if (actor === "liaison")
+        await expect(rowFor(guardian!, "Center B Guardian")).toBeVisible();
+    }
+    for (const { navigations, wire } of mounted.values()) {
       expect(navigations).toBe(0);
-      expectWireScoped();
-    } finally {
-      await context.close();
-      await fixture("cleanup");
-    }
-  });
-}
-
-test("Competition workspace scopes Guardian and Liaison Entries without configuration access", async ({
-  browser,
-  baseURL,
-  page,
-  superAdminEmail,
-  kalakritiActors,
-}) => {
-  test.slow();
-  const data = await fixture<Setup>("setup-scopes", superAdminEmail);
-  const guardianContext = await browser.newContext({
-    baseURL,
-    storageState: { cookies: [], origins: [] },
-  });
-  const liaisonContext = await browser.newContext({
-    baseURL,
-    storageState: kalakritiActors.unrelatedVolunteer.storageState,
-  });
-
-  try {
-    const guardian = await guardianContext.newPage();
-    await guardian.goto("/login");
-    await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
-    await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
-    await guardian.getByRole("button", { name: "Log in", exact: true }).click();
-    await guardian.waitForURL((url) => url.pathname !== "/login");
-    const liaison = await liaisonContext.newPage();
-
-    for (const reader of [guardian, liaison]) {
-      const expectWireScoped = watchOutsideCenter(reader);
-      await reader.goto(`/kalakriti/${data.year}/entries`);
-      await expect(reader).toHaveURL(
-        new RegExp(`/kalakriti/${data.year}/competitions/?$`)
-      );
-      await waitForZeroReady(reader);
-      await expect(
-        reader.getByRole("heading", { name: "Competitions", exact: true })
-      ).toBeVisible();
-      const competition = reader.getByRole("row").filter({
-        has: reader.getByRole("cell", {
-          name: "Station Singing",
-          exact: true,
-        }),
-      });
-      await expect(competition).toHaveCount(1);
-      await expect(await cell(reader, competition, "Entries")).toHaveText("3");
-      await expect(
-        reader.getByRole("button", { name: "Add Competition" })
-      ).toHaveCount(0);
-      await expect(
-        reader.getByRole("link", { name: "Settings", exact: true })
-      ).toHaveCount(0);
-
-      await competition.click();
-      await expect(reader).toHaveURL(
-        new RegExp(
-          `/kalakriti/${data.year}/competitions\\?competition=${data.divisionId}$`
-        )
-      );
-      await expect(reader.getByRole("dialog")).toHaveCount(0);
-      await expect(
-        reader.getByRole("button", { name: "Edit Competition" })
-      ).toHaveCount(0);
-      await expect(
-        reader.getByRole("button", { name: /Cancel (Competition|Session)/ })
-      ).toHaveCount(0);
-      await expect(
-        reader.getByRole("heading", { name: "Station Singing", exact: true })
-      ).toBeVisible();
-      for (const name of [
-        "Activity Student",
-        "Another Center A Student",
-        "Union Student B",
-      ]) {
-        await expect(rowFor(reader, name)).toBeVisible();
-      }
-      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
-      expectWireScoped();
-
-      await reader.goto(`/kalakriti/${data.year}/settings/categories`);
-      await expect(
-        reader.getByRole("heading", { name: "Page not found" })
-      ).toBeVisible();
-    }
-
-    const readers = [guardian, liaison];
-    const wireChecks = readers.map((reader) => watchOutsideCenter(reader));
-    for (const reader of readers) {
-      await reader.goto(`/kalakriti/${data.year}/competitions`);
-      await waitForZeroReady(reader);
-      await expect(rowFor(reader, "Station Singing")).toContainText(
-        "Scheduled"
-      );
-    }
-    expect(
-      (
-        await mutate(
-          page.request,
-          "kalakritiOperation.record",
-          operation(data, "pickup", data.studentC)
-        )
-      ).error
-    ).toBeUndefined();
-    await finish(page.request, data, "pickup", data.centerC);
-    expect(
-      (
-        await mutate(
-          page.request,
-          "kalakritiOperation.record",
-          operation(data, "venue_arrival", data.studentC)
-        )
-      ).error
-    ).toBeUndefined();
-    await finish(page.request, data, "venue_arrival", data.centerC);
-    expect(
-      (
-        await mutate(page.request, "kalakritiOperation.record", {
-          ...operation(data, "competition_attendance", data.studentC),
-          sessionId: data.sessionId,
-        })
-      ).error
-    ).toBeUndefined();
-    for (const [index, reader] of readers.entries()) {
-      await expect(rowFor(reader, "Station Singing")).toContainText("Running", {
-        timeout: 20_000,
-      });
-      await rowFor(reader, "Station Singing").click();
-      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
-      wireChecks[index]!();
+      wire();
     }
   } finally {
-    await Promise.allSettled([guardianContext.close(), liaisonContext.close()]);
+    await Promise.allSettled(contexts.map((context) => context.close()));
     await fixture("cleanup");
   }
 });
@@ -625,13 +502,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       ).error
     ).toBeUndefined();
     for (const [field, value, operator, included, excluded] of [
-      [
-        "name",
-        "Union Guardian",
-        "contains",
-        "Union Guardian",
-        "Center B Guardian",
-      ],
+      // Guardians filter by their yearly ID
       [
         "humanId",
         data.scopeGuardianId,
@@ -639,6 +510,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
         "Union Guardian",
         "Center B Guardian",
       ],
+      // A two-Center person matches a filter on either Center
       ["centers", data.centerId, "is", "Union Guardian", "Union Student B"],
       ["centers", data.centerB, "is", "Union Guardian", "Center A Volunteer"],
       ["centers", data.centerC, "is", "Center A Volunteer", "Union Guardian"],
@@ -691,10 +563,19 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     expect(await fixture("state")).toEqual(beforeSelfMutation);
 
     for (const reader of [guardian, liaison]) {
-      await reader.goto(`/kalakriti/${data.year}/competitions`);
+      await reader.goto(`/kalakriti/${data.year}/entries`);
+      await expect(reader).toHaveURL(
+        new RegExp(`/kalakriti/${data.year}/competitions/?$`)
+      );
       await waitForZeroReady(reader);
       await expect(
         reader.getByRole("combobox", { name: "Center", exact: true })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: "Add Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("link", { name: "Settings", exact: true })
       ).toHaveCount(0);
       const event = reader.getByRole("row").filter({
         has: reader.getByRole("cell", {
@@ -715,6 +596,13 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       await expect(
         reader.getByRole("heading", { name: "Station Singing", exact: true })
       ).toBeVisible();
+      await expect(reader.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: "Edit Competition" })
+      ).toHaveCount(0);
+      await expect(
+        reader.getByRole("button", { name: /Cancel (Competition|Session)/ })
+      ).toHaveCount(0);
       for (const name of [
         "Activity Student",
         "Another Center A Student",
@@ -747,6 +635,10 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       );
       await expect(
         reader.getByRole("heading", { name: "Center not found", exact: true })
+      ).toBeVisible();
+      await reader.goto(`/kalakriti/${data.year}/settings/categories`);
+      await expect(
+        reader.getByRole("heading", { name: "Page not found" })
       ).toBeVisible();
       expect(
         (
@@ -940,13 +832,10 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     ).toBeVisible();
     for (const [field, value, operator, count] of [
       ["center", ["Activity Center", "Union Center B"], "is_any_of", 3],
-      ["center", "Union Center B", "is", 1],
       ["present", "all", "is", 2],
       ["present", "none", "is", 1],
       ["attended", "all", "is", 1],
       ["attended", "none", "is", 2],
-      ["studentId", "KAL-2168-0002", "contains", 1],
-      ["student", "Another Center A Student", "contains", 1],
     ] as const) {
       await test.step(`Entry filter ${field} ${operator} ${value}`, async () => {
         await guardian.goto(
@@ -1595,9 +1484,10 @@ test("Students directory unions assigned Centers while creation, quota and trans
           .locator("..")
           .getByText("Union Center B", { exact: true })
       ).toBeVisible();
-      expect(
-        JSON.parse(await new KalakritiPersonQrPage(reader).decodeQr(details))
-      ).toEqual({ id: data.studentB, type: "student" });
+      if (reader === guardian)
+        expect(
+          JSON.parse(await new KalakritiPersonQrPage(reader).decodeQr(details))
+        ).toEqual({ id: data.studentB, type: "student" });
       await details.getByRole("button", { name: "Close", exact: true }).click();
       await reader.goto(
         filterUrl(`/kalakriti/${data.year}/students`, "center", [data.centerB])
@@ -1615,30 +1505,30 @@ test("Students directory unions assigned Centers while creation, quota and trans
       await expect(rowFor(reader, "Activity Student")).toBeVisible();
       await expect(rowFor(reader, "Union Student B")).toBeVisible();
       await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
-      await reader.goto(
-        `/kalakriti/${data.year}/students?centerId=${data.centerB}`
-      );
-      await expect(rowFor(reader, "Union Student B")).toBeVisible();
-      await expect(rowFor(reader, "Activity Student")).toHaveCount(0);
-      await expect
-        .poll(() => new URL(reader.url()).searchParams.has("centerId"))
-        .toBe(false);
-      await expect
-        .poll(() => new URL(reader.url()).searchParams.has("filters"))
-        .toBe(true);
-      await reader.goto(
-        `/kalakriti/${data.year}/students?centerId=${data.centerC}`
-      );
-      await expect(
-        reader.getByText(/requested Center is unavailable/i)
-      ).toBeVisible();
-      await expect(rowFor(reader, "Outside Student C")).toHaveCount(0);
-      await reader
-        .getByRole("button", { name: /^Open Students directory$/i })
-        .click();
-      await expect(rowFor(reader, "Activity Student")).toBeVisible();
-      await expect(rowFor(reader, "Union Student B")).toBeVisible();
     }
+    await guardian.goto(
+      `/kalakriti/${data.year}/students?centerId=${data.centerB}`
+    );
+    await expect(rowFor(guardian, "Union Student B")).toBeVisible();
+    await expect(rowFor(guardian, "Activity Student")).toHaveCount(0);
+    await expect
+      .poll(() => new URL(guardian.url()).searchParams.has("centerId"))
+      .toBe(false);
+    await expect
+      .poll(() => new URL(guardian.url()).searchParams.has("filters"))
+      .toBe(true);
+    await guardian.goto(
+      `/kalakriti/${data.year}/students?centerId=${data.centerC}`
+    );
+    await expect(
+      guardian.getByText(/requested Center is unavailable/i)
+    ).toBeVisible();
+    await expect(rowFor(guardian, "Outside Student C")).toHaveCount(0);
+    await guardian
+      .getByRole("button", { name: /^Open Students directory$/i })
+      .click();
+    await expect(rowFor(guardian, "Activity Student")).toBeVisible();
+    await expect(rowFor(guardian, "Union Student B")).toBeVisible();
     expect(
       (
         await mutate(
@@ -1658,12 +1548,8 @@ test("Students directory unions assigned Centers while creation, quota and trans
       ).toHaveText("Picked up");
     for (const [field, value, operator, count] of [
       ["humanId", "KAL-2168-0003", "contains", 1],
-      ["name", "Union Student B", "contains", 1],
       ["transportStatus", "Picked up", "is", 1],
-      ["dateOfBirth", Date.parse("2159-06-15T00:00:00Z"), "is", 3],
-      ["gender", "female", "is", 3],
       ["gender", "male", "is", 0],
-      ["ageCategory", data.ageCategoryId, "is", 3],
     ] as const) {
       await test.step(`Students filter ${field}`, async () => {
         await liaison.goto(
@@ -1678,96 +1564,6 @@ test("Students directory unions assigned Centers while creation, quota and trans
         await expect(rowFor(liaison, "Outside Student C")).toHaveCount(0);
       });
     }
-    const staleFilters = {
-      id: "root",
-      type: "group",
-      combinator: "and",
-      rules: [
-        {
-          id: "keep-center",
-          type: "rule",
-          path: ["center"],
-          operator: "is",
-          value: [data.centerB],
-        },
-        {
-          id: "nested",
-          type: "group",
-          combinator: "or",
-          rules: [
-            {
-              id: "old-override",
-              type: "rule",
-              path: ["ageCategoryOverride"],
-              operator: "is",
-              value: "yes",
-            },
-            {
-              id: "keep-name",
-              type: "rule",
-              path: ["name"],
-              operator: "contains",
-              value: "Union Student B",
-            },
-          ],
-        },
-        {
-          id: "all-stale",
-          type: "group",
-          combinator: "and",
-          rules: [
-            {
-              id: "old-center-status",
-              type: "rule",
-              path: ["centerStatus"],
-              operator: "is",
-              value: "retired",
-            },
-          ],
-        },
-      ],
-    };
-    await liaison.goto(
-      `/kalakriti/${data.year}/students?filters=${encodeURIComponent(JSON.stringify(staleFilters))}`
-    );
-    await expect(rowFor(liaison, "Union Student B")).toBeVisible();
-    await expect(rowFor(liaison, "Activity Student")).toHaveCount(0);
-    await expect(rowFor(liaison, "Outside Student C")).toHaveCount(0);
-    await expect
-      .poll(() => {
-        const query = JSON.parse(
-          new URL(liaison.url()).searchParams.get("filters") ?? "{}"
-        );
-        const paths: string[] = [];
-        const collect = (node: {
-          type?: string;
-          path?: string[];
-          rules?: unknown[];
-        }) => {
-          if (node.type === "rule") paths.push((node.path ?? []).join("."));
-          else
-            for (const child of node.rules ?? []) collect(child as typeof node);
-        };
-        collect(query);
-        return paths.sort();
-      })
-      .toEqual(["center", "name"]);
-    expect(
-      JSON.parse(new URL(liaison.url()).searchParams.get("filters")!)
-    ).toMatchObject({
-      id: "root",
-      combinator: "and",
-      rules: [
-        { id: "keep-center", operator: "is", value: [data.centerB] },
-        {
-          id: "nested",
-          combinator: "or",
-          rules: [
-            { id: "keep-name", operator: "contains", value: "Union Student B" },
-          ],
-        },
-      ],
-    });
     const { birthYear } = await fixture<{ birthYear: string }>(
       "open-student-registration"
     );

@@ -85,14 +85,15 @@ test.describe("Income: CSV import", () => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
   });
 
-  test("imports a file, then recognises re-uploads and changed rows", async ({
+  test("imports a file, lists it on the Imports tab, then recognises re-uploads and changed rows", async ({
     page,
   }) => {
     test.slow();
     const run = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     const donor = `E2E Import Donor ${run}`;
+    const file = `donations-${run}.csv`;
 
-    await uploadAndReview(page, `donations-${run}.csv`, fixtureCsv(run));
+    await uploadAndReview(page, file, fixtureCsv(run));
     // Row 4 repeats row 1 inside the same file: nothing is imported yet.
     await expect(page.getByTestId("import-review-summary")).toHaveText(
       "2 gifts to import · 1 new donor · 1 repeated in file · 1 error"
@@ -145,6 +146,22 @@ test.describe("Income: CSV import", () => {
       { timeout: 15_000 }
     );
 
+    // The Imports tab lists the import and opens its rows.
+    await page.goto("/income?tab=imports");
+    await waitForZeroReady(page);
+    const importRow = page.getByRole("row").filter({ hasText: file });
+    await expect(importRow).toHaveCount(1, { timeout: 15_000 });
+    await expect(importRow).toContainText("Completed");
+    await importRow.click();
+    await expect(page.getByRole("heading", { name: file })).toBeVisible();
+    await expect(page.locator('[data-row-number="1"]')).toContainText(
+      "Imported"
+    );
+    await expect(page.locator('[data-row-number="3"]')).toContainText("Error");
+    const importedRepeat = page.locator('[data-row-number="4"]');
+    await expect(importedRepeat).toContainText("Repeated in file");
+    await expect(importedRepeat).toContainText("Same as row 1; counted once");
+
     // The same file again: nothing new, every good row is already imported.
     await uploadAndReview(page, `donations-${run}-again.csv`, fixtureCsv(run));
     await expect(tab(page, /^Already imported 3$/)).toBeVisible();
@@ -169,35 +186,5 @@ test.describe("Income: CSV import", () => {
     );
     await expect(tab(page, /^Conflicts 1$/)).toBeVisible();
     await expect(tab(page, /^Already imported 2$/)).toBeVisible();
-  });
-
-  test("lists the import on the Imports tab and opens its rows", async ({
-    page,
-  }) => {
-    test.slow();
-    const run = String(Date.now() + 7);
-    const file = `imports-tab-${run}.csv`;
-    await uploadAndReview(page, file, fixtureCsv(run));
-    await page.getByRole("button", { name: "Import 2 contributions" }).click();
-    await page
-      .getByRole("alertdialog")
-      .getByRole("button", { name: "Import" })
-      .click();
-    await expect(page.getByTestId("import-result")).toBeVisible();
-
-    await page.goto("/income?tab=imports");
-    await waitForZeroReady(page);
-    const row = page.getByRole("row").filter({ hasText: file });
-    await expect(row).toHaveCount(1, { timeout: 15_000 });
-    await expect(row).toContainText("Completed");
-    await row.click();
-    await expect(page.getByRole("heading", { name: file })).toBeVisible();
-    await expect(page.locator('[data-row-number="1"]')).toContainText(
-      "Imported"
-    );
-    await expect(page.locator('[data-row-number="3"]')).toContainText("Error");
-    const repeat = page.locator('[data-row-number="4"]');
-    await expect(repeat).toContainText("Repeated in file");
-    await expect(repeat).toContainText("Same as row 1; counted once");
   });
 });

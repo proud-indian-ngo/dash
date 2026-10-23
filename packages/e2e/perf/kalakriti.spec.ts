@@ -4,9 +4,9 @@ import { promisify } from "node:util";
 
 import type { Page } from "@playwright/test";
 
-import { expect, test } from "../../fixtures/test";
-import { profileZeroQueries } from "../../helpers/zero-performance";
-import { KalakritiScanPage } from "../../pages/kalakriti-scan-page";
+import { expect, test } from "../fixtures/test";
+import { profileZeroQueries } from "../helpers/zero-performance";
+import { KalakritiScanPage } from "../pages/kalakriti-scan-page";
 
 const execFileAsync = promisify(execFile);
 
@@ -16,8 +16,7 @@ test("profile a large synthetic Kalakriti edition", async ({
   kalakritiActors,
 }, info) => {
   test.skip(
-    process.env.KALAKRITI_PERFORMANCE !== "true" ||
-      info.project.name !== "super_admin",
+    process.env.KALAKRITI_PERFORMANCE !== "true",
     "Opt-in benchmark on the isolated test stack only"
   );
   test.setTimeout(300_000);
@@ -28,7 +27,7 @@ test("profile a large synthetic Kalakriti edition", async ({
         "run",
         path.resolve(
           import.meta.dirname,
-          "../../helpers/seed-kalakriti-performance.ts"
+          "../helpers/seed-kalakriti-performance.ts"
         ),
       ],
       { env: process.env, timeout: 60_000 }
@@ -274,7 +273,7 @@ test("profile a large synthetic Kalakriti edition", async ({
       "run",
       path.resolve(
         import.meta.dirname,
-        "../../helpers/profile-kalakriti-dashboard.ts"
+        "../helpers/profile-kalakriti-dashboard.ts"
       ),
     ],
     { env: process.env, timeout: 60_000 }

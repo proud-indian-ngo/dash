@@ -369,6 +369,12 @@ test.describe("Income: Razorpay Payment Page", () => {
     await expect(
       page.getByRole("row").filter({ hasText: `E2E Razorpay Second ${run}` })
     ).toHaveCount(0);
+
+    // A manual contribution has no Razorpay link.
+    const manual = (await contributionRows(page, "E2E Seed Donor")).first();
+    await manual.getByText("E2E Seed Donor").click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("open-in-razorpay")).toHaveCount(0);
   });
 
   test("applies signed refunds: partly refunded, then refunded, once each", async ({
@@ -459,13 +465,6 @@ test.describe("Income: Razorpay Payment Page", () => {
       "Refunded",
       { timeout: 15_000 }
     );
-  });
-
-  test("a manual contribution has no Razorpay link", async ({ page }) => {
-    const row = (await contributionRows(page, "E2E Seed Donor")).first();
-    await row.getByText("E2E Seed Donor").click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByTestId("open-in-razorpay")).toHaveCount(0);
   });
 
   test("holds a refund that arrives before its payment and applies it at import", async ({

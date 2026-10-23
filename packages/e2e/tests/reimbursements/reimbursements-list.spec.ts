@@ -2,59 +2,33 @@ import { expect, test } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
-test.describe("Reimbursements list", () => {
-  let reimbursements: ReimbursementPage;
-
-  test.beforeEach(async ({ page }) => {
-    reimbursements = new ReimbursementPage(page, "reimbursement");
-    await reimbursements.navigateToList();
-  });
-
-  test("renders table with expected columns", async ({ page }) => {
-    const emptyState = page.getByText("No reimbursements found.");
-    const headers = reimbursements.list.getColumnHeaders();
-    const titleHeader = headers.filter({ hasText: /Title/ });
-    await expect(titleHeader.or(emptyState)).toBeVisible();
-    if (await emptyState.isVisible()) {
-      return;
-    }
-    await expect(headers.filter({ hasText: /Type/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Status/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Total/ })).toBeVisible();
-    await expect(headers.filter({ hasText: /Submitted/ })).toBeVisible();
-  });
-
-  test("search box is present", async () => {
-    await expect(
-      reimbursements.list.getSearchInput("Search reimbursements...")
-    ).toBeVisible();
-  });
-
+test.describe("Reimbursements list (volunteer)", () => {
   test("New reimbursement button navigates to /reimbursements/new", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
     await reimbursements.list.getNewReimbursementButton().click();
     await page.waitForURL(/\/reimbursements\/new/);
     await expect(
       page.getByRole("heading", { name: "New reimbursement" })
     ).toBeVisible();
   });
+});
 
-  test("columns dropdown toggles column visibility", async ({ page }) => {
-    await reimbursements.list.getColumnsButton().click();
-    await expect(
-      page.getByRole("menuitemcheckbox", { name: "Title" })
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
+test.describe("Reimbursements list (super_admin)", () => {
+  let reimbursements: ReimbursementPage;
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Admin-only seed rows");
+    reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
   });
 
   test("hiding Title preserves the claim row intent target", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "super_admin",
-      "Requires the seeded reimbursement"
-    );
+  }) => {
     await reimbursements.list
       .getSearchInput("Search reimbursements...")
       .fill("E2E Seed Reimbursement");
@@ -94,9 +68,47 @@ test.describe("Reimbursements list", () => {
     ).toBeVisible();
   });
 
-  test("table footer is present", async ({ page }) => {
+  test("a saved complex filter loads its controls and can be cleared", async ({
+    page,
+  }) => {
+    const filters = {
+      combinator: "and",
+      id: "saved-filter",
+      rules: [
+        {
+          id: "pending",
+          operator: "is",
+          path: ["status"],
+          type: "rule",
+          value: "pending",
+        },
+        {
+          id: "not-approved",
+          operator: "is_not",
+          path: ["status"],
+          type: "rule",
+          value: "approved",
+        },
+      ],
+      type: "group",
+    };
+    await page.goto(
+      `/reimbursements?size=1&filters=${encodeURIComponent(JSON.stringify(filters))}`
+    );
+    const table = reimbursements.list.getTable();
+    const search = reimbursements.list.getSearchInput(
+      "Search reimbursements..."
+    );
+    await search.fill("E2E Seed Reimbursement");
+    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
+    await search.fill("E2E Upcoming Event Reimbursement");
+    await expect(page.getByText("No reimbursements found.")).toBeVisible();
     await expect(
-      page.getByText("Rows per page").or(page.getByText("0 of 0 results"))
+      page.getByRole("button", { exact: true, name: "Add filter" })
+    ).toBeVisible();
+    await page.getByRole("button", { exact: true, name: "Clear" }).click();
+    await expect(
+      table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
   });
 
@@ -150,68 +162,9 @@ test.describe("Reimbursements list", () => {
     });
   }
 
-  test("a saved complex filter loads its controls and can be cleared", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only seed rows");
-    const filters = {
-      combinator: "and",
-      id: "saved-filter",
-      rules: [
-        {
-          id: "pending",
-          operator: "is",
-          path: ["status"],
-          type: "rule",
-          value: "pending",
-        },
-        {
-          id: "not-approved",
-          operator: "is_not",
-          path: ["status"],
-          type: "rule",
-          value: "approved",
-        },
-      ],
-      type: "group",
-    };
-    await page.goto(
-      `/reimbursements?size=1&filters=${encodeURIComponent(JSON.stringify(filters))}`
-    );
-    const table = reimbursements.list.getTable();
-    const search = reimbursements.list.getSearchInput(
-      "Search reimbursements..."
-    );
-    await search.fill("E2E Seed Reimbursement");
-    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
-    await search.fill("E2E Upcoming Event Reimbursement");
-    await expect(page.getByText("No reimbursements found.")).toBeVisible();
-    await expect(
-      page.getByRole("button", { exact: true, name: "Add filter" })
-    ).toBeVisible();
-    await page.getByRole("button", { exact: true, name: "Clear" }).click();
-    await expect(
-      table.getByText("E2E Upcoming Event Reimbursement")
-    ).toBeVisible();
-  });
-
-  test("shows stats cards", async () => {
-    const cards = reimbursements.list.getStatsCards();
-    await expect(cards.getByText("Total")).toBeVisible({ timeout: 15_000 });
-    await expect(cards.getByText("Pending")).toBeVisible();
-    await expect(cards.getByText("Approved")).toBeVisible();
-    await expect(cards.getByText("Rejected")).toBeVisible();
-  });
-
   test("status filter hides non-matching rows and clear restores them", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      !["super_admin", "admin", "finance_admin"].includes(
-        testInfo.project.name
-      ),
-      "Seed reimbursements are only visible to view-all roles"
-    );
+  }) => {
     await reimbursements.list.waitForTableData();
     const table = reimbursements.list.getTable();
     const hasSeedRows =
@@ -240,13 +193,7 @@ test.describe("Reimbursements list", () => {
 
   test("event filter hides non-matching rows and clear restores them", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      !["super_admin", "admin", "finance_admin"].includes(
-        testInfo.project.name
-      ),
-      "Seed reimbursements are only visible to view-all roles"
-    );
+  }) => {
     await reimbursements.list.waitForTableData();
     const table = reimbursements.list.getTable();
     await applyQuickFilter(page, "Event", "E2E Upcoming Public Bangalore");

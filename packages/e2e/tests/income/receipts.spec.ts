@@ -581,11 +581,12 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(page.getByRole("menuitem", { name: "Send now" })).toHaveCount(
       0
     );
-    // An explicit WhatsApp send goes even though the donor has email.
+    // An explicit WhatsApp send goes even though the donor has email; the
+    // run's fake GoWA gateway accepts it.
     await page
       .getByRole("menuitem", { exact: true, name: "Send on WhatsApp" })
       .click();
-    await expect(delivery).toHaveText("Not sent: WhatsApp isn't set up", {
+    await expect(delivery).toContainText("Sent on WhatsApp", {
       timeout: 30_000,
     });
     // Send now ran the automatic delivery at once (email, as the donor has
@@ -614,7 +615,7 @@ test.describe("Income: donation receipts (finance)", () => {
         },
         {
           name: "send-contribution-receipt-whatsapp",
-          outcome: "not_configured",
+          outcome: "sent",
           state: "completed",
         },
         {

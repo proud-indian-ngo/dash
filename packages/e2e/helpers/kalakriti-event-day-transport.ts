@@ -1,9 +1,5 @@
 import { writeSync } from "node:fs";
 
-import {
-  createKalakritiExternalUser,
-  deleteKalakritiExternalUser,
-} from "@pi-dash/auth/kalakriti-external-user";
 import { db } from "@pi-dash/db";
 import {
   kalakritiAgeCategory,
@@ -95,7 +91,12 @@ async function cleanup() {
   const guardian = await db.query.user.findFirst({
     where: (table, { eq: equal }) => equal(table.email, guardianEmail),
   });
-  if (guardian) await deleteKalakritiExternalUser(guardian.id);
+  if (guardian) {
+    // Loaded lazily: importing auth adds ~300ms to every helper run, and most runs only read state.
+    const { deleteKalakritiExternalUser } =
+      await import("@pi-dash/auth/kalakriti-external-user");
+    await deleteKalakritiExternalUser(guardian.id);
+  }
 }
 
 async function setup(
@@ -122,6 +123,8 @@ async function setup(
   ]);
   if (!(admin && liaison && lead && food && team))
     throw new Error("Event-day fixture requires seeded actors and team");
+  const { createKalakritiExternalUser } =
+    await import("@pi-dash/auth/kalakriti-external-user");
   const guardian = await createKalakritiExternalUser({
     email: guardianEmail,
     password: guardianPassword,

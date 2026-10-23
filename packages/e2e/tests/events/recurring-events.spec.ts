@@ -1,11 +1,15 @@
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
-import { openAdvancedSettings } from "../../helpers/event-form";
+import {
+  openAdvancedSettings,
+  waitForToastsToClear,
+} from "../../helpers/event-form";
 import {
   SANDBOX_TEAM,
   fillTableSearch,
   openSeededTeam,
 } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 /** Seeded public weekly event in "E2E Updates Team". */
 const SEEDED_RECURRING = "E2E Upcoming Recurring Public";
@@ -66,6 +70,18 @@ test.describe("Recurring events", () => {
       .getByRole("cell")
       .filter({ hasText: /every week/i });
     await expect(recurrenceBadges.first()).toBeVisible();
+
+    // A later occurrence is virtual: its detail URL carries occDate and the
+    // details card shows the series' recurrence.
+    await new ListPage(page).openRowActionAndClick(
+      page.getByRole("row").filter({ hasText: eventName }).nth(1),
+      "View"
+    );
+    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    expect(page.url()).toMatch(/occDate=\d{4}-\d{2}-\d{2}/);
+    await expect(page.getByText("Repeats").first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("changing the start time refreshes the recurrence preview", async ({
@@ -111,20 +127,6 @@ test.describe("Recurring events", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("recurring event detail shows recurrence info", async ({ page }) => {
-    await openSeededTeam(page);
-    await fillTableSearch(page, "Search events...", SEEDED_RECURRING);
-    const recurringRow = page
-      .getByRole("row")
-      .filter({ hasText: SEEDED_RECURRING })
-      .first();
-    await recurringRow.getByRole("button").first().click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-    await expect(page.getByText("Repeats").first()).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
   test("create monthly recurring event with end condition", async ({
     page,
   }) => {
@@ -154,6 +156,11 @@ test.describe("Recurring events", () => {
     await countInput.clear();
     await countInput.fill("6");
 
+    // Skip the default 3rd Saturday
+    const skipOn = dialog.getByText("Skip on", { exact: true }).locator("..");
+    await skipOn.getByRole("button", { exact: true, name: "Add" }).click();
+    await expect(skipOn.getByText("3rd Saturday")).toBeVisible();
+
     await dialog
       .getByRole("button", { exact: true, name: "Create event" })
       .click();
@@ -163,5 +170,30 @@ test.describe("Recurring events", () => {
     await expect(
       page.getByRole("cell").filter({ hasText: eventName }).first()
     ).toBeVisible({ timeout: 10_000 });
+    // The saved rule keeps the six-occurrence end condition.
+    await expect(
+      page.getByRole("row").filter({ hasText: eventName }).first()
+    ).toContainText("Every month for 6 times");
+
+    await test.step("the server keeps the skipped date pattern", async () => {
+      // The series start row edits the series without asking for a scope.
+      await waitForToastsToClear(page);
+      await new ListPage(page).openRowActionAndClick(
+        page.getByRole("row").filter({ hasText: eventName }).first(),
+        "Edit"
+      );
+      await expect(
+        dialog.getByRole("heading", { name: "Edit Event" })
+      ).toBeVisible();
+      await openAdvancedSettings(dialog);
+      await expect(
+        dialog
+          .getByText("Skip on", { exact: true })
+          .locator("..")
+          .getByText("3rd Saturday")
+      ).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+    });
   });
 });

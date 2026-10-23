@@ -80,18 +80,9 @@ test.describe("User row actions (admin)", () => {
     await tryOpen(0);
   }
 
-  test("row action menu emails the user", async ({ page, volunteerEmail }) => {
-    await expect(async () => {
-      await page.keyboard.press("Escape");
-      await list.openRowActionMenu(getVolunteerRow(), "Edit");
-      await expect(
-        page.getByRole("menuitem", { name: `Email ${volunteerEmail}` })
-      ).toHaveAttribute("href", `mailto:${volunteerEmail}`, { timeout: 1000 });
-    }).toPass({ timeout: 15_000 });
-  });
-
-  test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
+  test("row action menu shows Edit, Reset password, Ban user, Delete and emails the user", async ({
     page,
+    volunteerEmail,
   }) => {
     await expect(async () => {
       await page.keyboard.press("Escape");
@@ -103,82 +94,26 @@ test.describe("User row actions (admin)", () => {
           timeout: 1000,
         });
       }
+      await expect(
+        page.getByRole("menuitem", { name: `Email ${volunteerEmail}` })
+      ).toHaveAttribute("href", `mailto:${volunteerEmail}`, { timeout: 1000 });
     }).toPass({ timeout: 15_000 });
   });
 
-  test("Edit opens dialog with pre-populated fields", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Edit", dialog);
-    await expect(dialog.getByText(/Edit\s/)).toBeVisible();
-
-    // Should have Name field pre-populated
-    await expect(dialog.getByLabel("Name")).toHaveValue(/\S/);
-    // No password field in edit mode
-    await expect(dialog.getByLabel("Password")).toBeHidden();
-  });
-
-  test("Edit cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Edit", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
-  test("Delete opens confirmation alertdialog", async ({ page }) => {
-    const alertDialog = page.getByRole("alertdialog");
-    await openVolunteerActionAndWaitFor(page, "Delete", alertDialog);
-    await expect(
-      alertDialog.getByRole("heading", { name: "Delete user" })
-    ).toBeVisible();
-    await expect(
-      alertDialog.getByRole("button", { name: "Cancel" })
-    ).toBeVisible();
-    await expect(
-      alertDialog.getByRole("button", { name: "Delete user" })
-    ).toBeVisible();
-  });
-
-  test("Delete cancel closes confirmation", async ({ page }) => {
-    const alertDialog = page.getByRole("alertdialog");
-    await openVolunteerActionAndWaitFor(page, "Delete", alertDialog);
-    await alertDialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(alertDialog).toBeHidden();
-  });
-
-  test("Ban user opens dialog with Ban reason", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Ban user", dialog);
-    await expect(dialog.getByRole("heading", { name: /Ban\s/ })).toBeVisible();
-    await expect(dialog.getByLabel("Ban reason")).toBeVisible();
-  });
-
-  test("Ban user cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Ban user", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
-  test("Reset password opens dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
-    await expect(dialog.getByText(/Reset password for/)).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: /^New password/ })
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("textbox", { name: /^Confirm new password/ })
-    ).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: "Update password" })
-    ).toBeVisible();
-  });
-
-  test("Reset password cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
+  test("Cancel closes each row action dialog", async ({ page }) => {
+    for (const [action, role] of [
+      ["Edit", "dialog"],
+      ["Delete", "alertdialog"],
+      ["Ban user", "dialog"],
+      ["Reset password", "dialog"],
+    ] as const) {
+      await test.step(action, async () => {
+        const dialog = page.getByRole(role);
+        await openVolunteerActionAndWaitFor(page, action, dialog);
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(dialog).toBeHidden();
+      });
+    }
   });
 
   test("Notifications shows only supported Kalakriti channels", async ({

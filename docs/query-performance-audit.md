@@ -47,8 +47,8 @@ Server reads and CPU work:
 
 | Surface | Profiled by | Status |
 |---|---|---|
-| Global Audit Log (`/api/audit-log`: page, count, facets) | `tests/performance/audit.spec.ts`, 50,000 rows | Profiled; first and deep pages indexed |
-| Kalakriti Audit (`/api/kalakriti/:year/audit`) | `tests/performance/kalakriti-audit.spec.ts`, 41,000 rows | Profiled; first page indexed |
+| Global Audit Log (`/api/audit-log`: page, count, facets) | `perf/audit.spec.ts`, 50,000 rows | Profiled; first and deep pages indexed |
+| Kalakriti Audit (`/api/kalakriti/:year/audit`) | `perf/kalakriti-audit.spec.ts`, 41,000 rows | Profiled; first page indexed |
 | Kalakriti dashboard aggregates | `helpers/profile-kalakriti-dashboard.ts` | Profiled; 19–113 ms per scope, no bottleneck |
 | Entry eligibility (session page, registration picker) | `apps/web/scripts/profile-entry-eligibility.ts` | Profiled; fixed (see below) |
 | Jobs list, count and queue stats | none | Not profiled |

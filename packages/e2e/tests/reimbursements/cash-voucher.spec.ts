@@ -18,38 +18,6 @@ test.describe("Cash voucher", () => {
     reimbursements = new ReimbursementPage(page, "reimbursement");
   });
 
-  test("shows cash voucher checkbox for line item ≤ 1000", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    await reimbursements.navigateToNew();
-
-    await reimbursements.form.fillLineItem({
-      amount: "500",
-      description: "Small expense",
-      selectCategory: false,
-    });
-
-    await expect(page.getByText("Generate cash voucher")).toBeVisible();
-  });
-
-  test("hides cash voucher checkbox for line item over the limit", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    await reimbursements.navigateToNew();
-
-    await reimbursements.form.fillLineItem({
-      amount: "15000",
-      description: "Large expense",
-      selectCategory: false,
-    });
-
-    await expect(page.getByText("Generate cash voucher")).toBeHidden();
-  });
-
   test("toggles cash voucher checkbox when amount crosses threshold", async ({
     page,
   }, testInfo) => {

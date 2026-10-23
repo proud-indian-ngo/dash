@@ -51,7 +51,9 @@ async function openRowActionAndClick(
 }
 
 test.describe("Team delete", () => {
-  test("admin deletes a team via actions menu", async ({ page }, testInfo) => {
+  test("admin cancels, then deletes a team via actions menu", async ({
+    page,
+  }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
 
     const teamName = await createTeam(page);
@@ -67,11 +69,18 @@ test.describe("Team delete", () => {
     const row = table.getByRole("row").filter({ hasText: teamName });
     await expect(row).toBeVisible({ timeout: 45_000 });
 
+    // Cancel first: the row stays
+    await openRowActionAndClick(page, row, "Delete");
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(row).toBeVisible();
+
     // Open actions menu and click Delete
     await openRowActionAndClick(page, row, "Delete");
 
     // Confirmation dialog
-    const dialog = page.getByRole("alertdialog");
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByRole("heading", { name: "Delete team" })
@@ -90,34 +99,6 @@ test.describe("Team delete", () => {
     await expect(row).toBeHidden({ timeout: 10_000 });
   });
 
-  test("admin can cancel delete dialog", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    const teamName = await createTeam(page);
-
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible();
-    await expect(table.getByRole("row")).not.toHaveCount(1, {
-      timeout: 15_000,
-    });
-    await page.getByPlaceholder("Search teams...").fill(teamName);
-
-    const row = table.getByRole("row").filter({ hasText: teamName });
-    await expect(row).toBeVisible({ timeout: 45_000 });
-
-    await openRowActionAndClick(page, row, "Delete");
-
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toBeVisible();
-
-    // Cancel
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-
-    // Row should still be there
-    await expect(row).toBeVisible();
-  });
-
   test("volunteer does not see Delete in actions menu", async ({
     page,
   }, testInfo) => {
@@ -128,6 +109,7 @@ test.describe("Team delete", () => {
 
     const table = page.getByRole("table");
     await expect(table).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add team" })).toBeHidden();
 
     // Wait for data to load
     const rows = table.getByRole("row");

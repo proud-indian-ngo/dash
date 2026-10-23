@@ -8,89 +8,6 @@ function openWhatsAppGroups(page: import("@playwright/test").Page) {
 
 // Only admin can access WhatsApp Groups, so volunteer project ignores this via testIgnore
 test.describe("WhatsApp Groups (admin)", () => {
-  test("shows section with empty state or group list", async ({
-    page,
-  }, testInfo) => {
-    if (testInfo.project.name !== "super_admin") {
-      test.skip();
-    }
-
-    const dialog = await openWhatsAppGroups(page);
-    // Section renders — shows either groups or empty state text
-    await expect(
-      dialog
-        .getByText("No WhatsApp groups yet.")
-        .or(dialog.getByTestId("row-actions").first())
-    ).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("shows add group button", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "super_admin") {
-      test.skip();
-    }
-
-    const dialog = await openWhatsAppGroups(page);
-    const addGroupBtn = dialog.getByRole("button", { name: "Add group" });
-    // Visible-but-disabled while the config check runs, then hidden if WAPI
-    // is not configured. Skip instead of asserting that loading flash.
-    if (
-      !(await addGroupBtn.isEnabled({ timeout: 10_000 }).catch(() => false))
-    ) {
-      test.skip(
-        true,
-        "WhatsApp API not configured — Add group button not shown"
-      );
-      return;
-    }
-    await expect(addGroupBtn).toBeVisible();
-  });
-
-  test("can open and cancel picker dialog", async ({ page }, testInfo) => {
-    if (testInfo.project.name !== "super_admin") {
-      test.skip();
-    }
-
-    const dialog = await openWhatsAppGroups(page);
-    const addGroupBtn = dialog.getByRole("button", { name: "Add group" });
-    // Button may be hidden or stay disabled when WhatsApp API is not configured
-    if (
-      !(await addGroupBtn.isEnabled({ timeout: 10_000 }).catch(() => false))
-    ) {
-      test.skip(
-        true,
-        "WhatsApp API not configured — Add group button not available"
-      );
-      return;
-    }
-    await addGroupBtn.click();
-
-    const pickerDialog = page.getByRole("dialog").filter({
-      hasText: "Add WhatsApp Groups",
-    });
-    await expect(pickerDialog).toBeVisible();
-
-    // Picker shows either groups (with search), an error message, or "all added" text
-    await expect(
-      pickerDialog
-        .getByPlaceholder("Search groups...")
-        .or(pickerDialog.getByText("Failed to fetch"))
-        .or(
-          pickerDialog.getByText("All WhatsApp groups have already been added")
-        )
-        .or(pickerDialog.getByText("No WhatsApp groups found"))
-    ).toBeVisible({ timeout: 15_000 });
-
-    // "Add selected" button should be disabled when nothing is selected
-    const addSelectedBtn = pickerDialog.getByRole("button", {
-      name: /Add selected/,
-    });
-    await expect(addSelectedBtn).toBeDisabled();
-
-    // Cancel closes the dialog
-    await pickerDialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(pickerDialog.getByText("Add WhatsApp Groups")).toBeHidden();
-  });
-
   test("can add group from picker, edit, and delete", async ({
     page,
   }, testInfo) => {
@@ -101,38 +18,14 @@ test.describe("WhatsApp Groups (admin)", () => {
 
     const settingsDialog = await openWhatsAppGroups(page);
 
-    // Open picker and wait for groups to load
-    const addGroupBtn = settingsDialog.getByRole("button", {
-      name: "Add group",
-    });
-    // Button may be hidden or stay disabled when WhatsApp API is not configured
-    if (
-      !(await addGroupBtn.isEnabled({ timeout: 10_000 }).catch(() => false))
-    ) {
-      test.skip(
-        true,
-        "WhatsApp API not configured — Add group button not available"
-      );
-      return;
-    }
-    await addGroupBtn.click();
+    // fake-gowa.ts lists one new group each time the picker opens.
+    await settingsDialog.getByRole("button", { name: "Add group" }).click();
     const pickerDialog = page.getByRole("dialog").filter({
       hasText: "Add WhatsApp Groups",
     });
-    await expect(pickerDialog).toBeVisible();
-
-    // Wait for groups to load — if the API errors or returns no groups, skip this test
-    const searchInput = pickerDialog.getByPlaceholder("Search groups...");
-    try {
-      await searchInput.waitFor({ state: "visible", timeout: 15_000 });
-    } catch {
-      // API may be rate-limited or return no available groups — skip CRUD test
-      test.skip(
-        true,
-        "WhatsApp API unavailable or no groups to add — skipping CRUD test"
-      );
-      return;
-    }
+    await expect(pickerDialog.getByPlaceholder("Search groups...")).toBeVisible(
+      { timeout: 15_000 }
+    );
 
     // Select the first available group
     const firstGroupBtn = pickerDialog

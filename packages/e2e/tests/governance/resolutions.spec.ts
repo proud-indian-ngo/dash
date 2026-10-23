@@ -243,48 +243,6 @@ test.describe("circular resolutions (Managing Trustee)", () => {
 });
 
 test.describe("resolution text", () => {
-  test("drafts a resolution with bold text and a table", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
-    const title = `E2E rich text ${Date.now()}`;
-    await page.goto("/governance/resolutions");
-    await page.getByRole("button", { name: "New circular" }).click();
-    const dialog = page.getByRole("dialog", { name: "New circular" });
-    await dialog.getByRole("textbox", { name: "Title" }).fill(title);
-    // The template's lead words are bold, so typing over them stays bold.
-    await writeText(page, dialog, "RESOLVED THAT");
-    await page.keyboard.press("ControlOrMeta+b");
-    await page.keyboard.type(" the budget be approved under these heads:");
-    await page.keyboard.press("Enter");
-    await insert(page, dialog, "Table");
-    await dialog.getByRole("columnheader").first().click();
-    // A 3 by 3 table with a header row; Tab moves to the next cell.
-    for (const cell of ["Head", "Purpose", "Amount", "Kalakriti", "Prizes"]) {
-      await page.keyboard.type(cell);
-      await page.keyboard.press("Tab");
-    }
-    await page.keyboard.type("4,50,000");
-    await page.getByRole("button", { name: "Insert row after" }).click();
-    await dialog.getByRole("button", { name: "Create draft" }).click();
-
-    await expect(page.getByRole("heading", { name: title })).toBeVisible({
-      timeout: 20_000,
-    });
-    const table = page.getByRole("table");
-    await expect(table.getByRole("row")).toHaveCount(4);
-    await expect(
-      table.getByRole("columnheader", { name: "Head" })
-    ).toBeVisible();
-    await expect(table.getByRole("cell", { name: "4,50,000" })).toBeVisible();
-    await expect(
-      page.locator("strong").filter({ hasText: /^RESOLVED THAT$/ })
-    ).toBeVisible();
-    await expect(
-      page.locator("strong").filter({ hasText: "the budget" })
-    ).toHaveCount(0);
-  });
-
   test("keeps pasted and indented lists within six levels", async ({
     page,
   }, testInfo) => {
@@ -336,7 +294,7 @@ test.describe("resolution text", () => {
     ).toHaveCSS("list-style-type", "decimal");
   });
 
-  test("drafts a resolution with a heading, a quote, a link and merged cells", async ({
+  test("drafts a resolution with bold text, a heading, a quote, a link and a table with merged cells", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
@@ -347,8 +305,11 @@ test.describe("resolution text", () => {
     await dialog.getByRole("textbox", { name: "Title" }).fill(title);
     const editor = dialog.getByRole("textbox", { name: "Text" });
 
+    // The template's lead words are bold, so typing over them stays bold.
+    await writeText(page, dialog, "RESOLVED THAT");
+    await page.keyboard.press("ControlOrMeta+b");
+    await page.keyboard.type(" the Board adopts:");
     // A document offers no fourth heading, code, images or to-do lists.
-    await writeText(page, dialog, "RESOLVED THAT the Board adopts:");
     await dialog.getByLabel("Turn into", { exact: true }).click();
     await expect(
       page.getByRole("menuitemradio", { name: "Heading 3" })
@@ -384,6 +345,7 @@ test.describe("resolution text", () => {
       await page.keyboard.press("Tab");
     }
     await page.keyboard.type("Total");
+    await page.getByRole("button", { name: "Insert row after" }).click();
     // Cells merge across a row, never down a column.
     const cells = editor.locator("td[data-table-cell-id]");
     // A selection dragged across cells, in steps as a hand moves.
@@ -444,6 +406,17 @@ test.describe("resolution text", () => {
       page.getByRole("link", { name: "the policy" })
     ).toHaveAttribute("href", "https://proudindian.ngo/policies");
     await expect(page.locator('td[colspan="2"]')).toHaveText("Total");
+    const table = page.getByRole("table");
+    await expect(table.getByRole("row")).toHaveCount(4);
+    await expect(
+      table.getByRole("columnheader", { name: "Duty" })
+    ).toBeVisible();
+    await expect(
+      page.locator("strong").filter({ hasText: /^RESOLVED THAT$/ })
+    ).toBeVisible();
+    await expect(
+      page.locator("strong").filter({ hasText: "the Board" })
+    ).toHaveCount(0);
   });
 
   test("reaches every table action on a phone", async ({ page }, testInfo) => {

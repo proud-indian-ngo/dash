@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 import type { CDPSession, Locator, Page, TestInfo } from "@playwright/test";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test } from "../fixtures/test";
 
 const execFileAsync = promisify(execFile);
 const READY_TIMEOUT_MS = 30_000;
@@ -23,7 +23,7 @@ const LABEL =
   "current";
 const OUTPUT_DIR = path.resolve(
   import.meta.dirname,
-  `../../../../tmp/rendering-performance/${LABEL}`
+  `../../../tmp/rendering-performance/${LABEL}`
 );
 
 const ROUTES = [
@@ -420,8 +420,7 @@ test("measure rendering CPU and renderer heap across repeated navigation", async
   page,
 }, testInfo) => {
   test.skip(
-    process.env.RENDERING_PERFORMANCE !== "true" ||
-      testInfo.project.name !== "super_admin",
+    process.env.RENDERING_PERFORMANCE !== "true",
     "Opt-in benchmark on the isolated super_admin stack only"
   );
   test.setTimeout(600_000);
@@ -441,10 +440,7 @@ test("measure rendering CPU and renderer heap across repeated navigation", async
     "bun",
     [
       "run",
-      path.resolve(
-        import.meta.dirname,
-        "../../helpers/seed-app-performance.ts"
-      ),
+      path.resolve(import.meta.dirname, "../helpers/seed-app-performance.ts"),
     ],
     { env: process.env, timeout: 90_000 }
   );

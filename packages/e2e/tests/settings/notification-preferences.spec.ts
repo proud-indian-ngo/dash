@@ -6,13 +6,13 @@ function openNotificationSettings(page: import("@playwright/test").Page) {
 }
 
 test.describe("Notification preferences settings", () => {
+  test.beforeEach(({ page: _page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Role-independent");
+  });
+
   test("shows Kalakriti Registration and Schedule with only supported channels", async ({
     page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "unoriented_volunteer",
-      "This role does not have Kalakriti access"
-    );
+  }) => {
     const dialog = await openNotificationSettings(page);
 
     await expect(dialog.getByText("Kalakriti", { exact: true })).toBeVisible();
@@ -34,24 +34,6 @@ test.describe("Notification preferences settings", () => {
     await expect(
       dialog.getByRole("checkbox", { name: "Kalakriti Schedule email" })
     ).toHaveCount(0);
-  });
-
-  test("shows notification topic toggles with in-app, email, and WhatsApp switches", async ({
-    page,
-  }) => {
-    const dialog = await openNotificationSettings(page);
-
-    // Each topic has at least one in-app switch
-    const inAppBox = dialog.getByRole("checkbox", { name: /in-app/i }).first();
-    await expect(inAppBox).toBeVisible({ timeout: 10_000 });
-
-    // And at least one email switch
-    const emailBox = dialog.getByRole("checkbox", { name: /email/i }).first();
-    await expect(emailBox).toBeVisible();
-
-    // And at least one WhatsApp switch
-    const waBox = dialog.getByRole("checkbox", { name: /WhatsApp/i }).first();
-    await expect(waBox).toBeVisible();
   });
 
   test("toggling a switch updates the preference state", async ({ page }) => {

@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { promisify } from "node:util";
 
 import type { Page } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
@@ -10,7 +8,6 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
 
-const execFileAsync = promisify(execFile);
 const PAYOUT_FIXTURE = path.resolve(
   import.meta.dirname,
   "../../fixtures/give-do/payout-sample.xlsx"
@@ -284,48 +281,5 @@ test.describe("Income: give.do payout", () => {
     await expect(
       page.getByRole("row").filter({ hasText: run.utr })
     ).toHaveCount(1, { timeout: 15_000 });
-  });
-
-  test("a donor-only role cannot open the payout importer", async ({
-    baseURL,
-    browser,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-    const { stdout } = await execFileAsync(
-      "bun",
-      [
-        "run",
-        path.resolve(import.meta.dirname, "../../helpers/razorpay.ts"),
-        "donors-viewer",
-      ],
-      { env: process.env }
-    );
-    const viewer = JSON.parse(stdout.trim()) as {
-      email: string;
-      password: string;
-    };
-    const context = await browser.newContext({
-      baseURL,
-      storageState: { cookies: [], origins: [] },
-    });
-    try {
-      const page = await context.newPage();
-      await page.goto("/login");
-      await page.getByLabel("Email").fill(viewer.email);
-      await page.getByLabel("Password").fill(viewer.password);
-      await page.getByRole("button", { exact: true, name: "Log in" }).click();
-      await page.waitForURL((url) => url.pathname !== "/login");
-
-      await page.goto("/income/payout/import");
-      await expect(page).not.toHaveURL(/\/income\/payout\/import/);
-      await page.goto("/income");
-      await waitForZeroReady(page);
-      await page.getByRole("button", { name: "More actions" }).click();
-      await expect(
-        page.getByRole("menuitem", { name: "Import give.do payout" })
-      ).toHaveCount(0);
-    } finally {
-      await context.close();
-    }
   });
 });

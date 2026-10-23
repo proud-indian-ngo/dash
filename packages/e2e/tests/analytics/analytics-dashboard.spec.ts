@@ -17,15 +17,10 @@ test.describe("Analytics dashboard (admin)", () => {
     });
   });
 
-  test("renders analytics page with heading and stat chips", async ({
-    page,
-  }) => {
+  test("renders stat chips, date range filter and charts", async ({ page }) => {
     await expect(page.locator("[data-slot='stat-chip']").first()).toBeVisible({
       timeout: 10_000,
     });
-  });
-
-  test("date range filter is present", async ({ page }) => {
     // DateRangeFilter renders some UI element for range selection
     await expect(
       page
@@ -33,6 +28,15 @@ test.describe("Analytics dashboard (admin)", () => {
         .first()
         .or(page.locator("[data-slot='select-trigger']").first())
     ).toBeVisible({ timeout: 5000 });
+    await expect(
+      page.getByRole("region", { name: "Spending by programme" })
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page
+        .getByRole("region", { name: "Spending by category" })
+        .or(page.getByRole("region", { name: "Spending over time" }))
+        .first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("custom date range loads its calendar on desktop and phone", async ({
@@ -74,12 +78,6 @@ test.describe("Analytics dashboard (admin)", () => {
     }
   });
 
-  test("spending by programme renders", async ({ page }) => {
-    await expect(
-      page.getByRole("region", { name: "Spending by programme" })
-    ).toBeVisible({ timeout: 15_000 });
-  });
-
   test("spending counts under the expense date, not the submission", async ({
     page,
     superAdminEmail,
@@ -107,28 +105,5 @@ test.describe("Analytics dashboard (admin)", () => {
       "0",
       { timeout: 15_000 }
     );
-  });
-
-  test("chart containers render after data loads", async ({ page }) => {
-    await expect(
-      page
-        .getByRole("region", { name: "Spending by category" })
-        .or(page.getByRole("region", { name: "Spending over time" }))
-        .first()
-    ).toBeVisible({ timeout: 15_000 });
-  });
-});
-
-test.describe("Analytics route guard (volunteer)", () => {
-  test("volunteer redirected from /analytics to dashboard", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/analytics");
-    await page.waitForURL("/", { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" })
-    ).toBeVisible();
   });
 });

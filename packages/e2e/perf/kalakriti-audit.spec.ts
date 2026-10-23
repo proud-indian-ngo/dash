@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test } from "../../fixtures/test";
+import { expect, test } from "../fixtures/test";
 
 const execFileAsync = promisify(execFile);
 
@@ -10,8 +10,7 @@ test("profile scoped Kalakriti audit reads at scale", async ({
   playwright,
 }, info) => {
   test.skip(
-    process.env.KALAKRITI_AUDIT_PERFORMANCE !== "true" ||
-      info.project.name !== "super_admin",
+    process.env.KALAKRITI_AUDIT_PERFORMANCE !== "true",
     "Opt-in isolated benchmark"
   );
   test.setTimeout(180_000);
@@ -22,7 +21,7 @@ test("profile scoped Kalakriti audit reads at scale", async ({
         "run",
         path.resolve(
           import.meta.dirname,
-          "../../helpers/profile-kalakriti-audit.ts"
+          "../helpers/profile-kalakriti-audit.ts"
         ),
       ],
       { env: process.env, timeout: 90_000 }
@@ -50,8 +49,8 @@ test("profile scoped Kalakriti audit reads at scale", async ({
       storageState: path.resolve(
         import.meta.dirname,
         actor === "super_admin"
-          ? "../../.auth/super_admin.json"
-          : `../../.auth/kalakriti_${actor}.json`
+          ? "../.auth/super_admin.json"
+          : `../.auth/kalakriti_${actor}.json`
       ),
     });
     try {

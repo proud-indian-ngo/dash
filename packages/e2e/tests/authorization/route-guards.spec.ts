@@ -14,104 +14,59 @@ async function expectRedirectToDashboard(
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
-test.describe("Route guards — volunteer redirects", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-  });
+/** Routes each role is redirected from, and pages it can open by heading. */
+const guards: {
+  role: string;
+  redirected: string[];
+  allowed: { heading: string; url: string }[];
+}[] = [
+  {
+    allowed: [],
+    redirected: ["/analytics", "/jobs", "/users", "/scheduled-messages"],
+    role: "volunteer",
+  },
+  { allowed: [], redirected: ["/jobs", "/export"], role: "admin" },
+  {
+    allowed: [{ heading: "Vendors", url: "/vendors" }],
+    redirected: ["/jobs", "/export"],
+    role: "finance_admin",
+  },
+  {
+    allowed: [{ heading: "Export data", url: "/export" }],
+    redirected: [],
+    role: "super_admin",
+  },
+  {
+    allowed: [],
+    redirected: [
+      "/analytics",
+      "/jobs",
+      "/vendors",
+      "/teams",
+      "/scheduled-messages",
+    ],
+    role: "unoriented_volunteer",
+  },
+];
 
-  test("volunteer redirected from /analytics to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/analytics");
-  });
+test.describe("Route guards", () => {
+  for (const { allowed, redirected, role } of guards) {
+    test(`${role} route access`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== role, `${role} only`);
 
-  test("volunteer redirected from /jobs to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/jobs");
-  });
-
-  test("volunteer redirected from /settings/roles to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
-  test("volunteer redirected from /scheduled-messages to /", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/scheduled-messages");
-  });
-});
-
-test.describe("Route guards — admin redirects", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-  });
-
-  test("admin redirected from /jobs to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/jobs");
-  });
-
-  test("admin redirected from /settings/roles to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
-  test("admin redirected from /export to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/export");
-  });
-});
-
-test.describe("Route guards — finance_admin redirects", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(testInfo.project.name !== "finance_admin", "Finance-admin only");
-  });
-
-  test("finance_admin redirected from /jobs to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/jobs");
-  });
-
-  test("finance_admin redirected from /settings/roles to /", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
-  test("finance_admin redirected from /export to /", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/export");
-  });
-});
-
-test.describe("Route guards — super-admin access", () => {
-  test("super_admin can access /export", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Super-admin only");
-    await page.goto("/export");
-    await expect(page).toHaveURL(/\/export$/);
-    await expect(
-      page.getByRole("heading", { name: "Export data" })
-    ).toBeVisible();
-  });
-});
-
-test.describe("Route guards — unoriented_volunteer redirects", () => {
-  test.beforeEach(({ page: _page }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "unoriented_volunteer",
-      "Unoriented-volunteer only"
-    );
-  });
-
-  test("unoriented_volunteer redirected from /analytics", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/analytics");
-  });
-
-  test("unoriented_volunteer redirected from /jobs", async ({ page }) => {
-    await expectRedirectToDashboard(page, "/jobs");
-  });
-
-  test("unoriented_volunteer redirected from /settings/roles", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/settings/roles");
-  });
-
-  test("unoriented_volunteer redirected from /scheduled-messages", async ({
-    page,
-  }) => {
-    await expectRedirectToDashboard(page, "/scheduled-messages");
-  });
+      for (const url of redirected) {
+        await test.step(`redirected from ${url}`, () =>
+          expectRedirectToDashboard(page, url));
+      }
+      for (const { heading, url } of allowed) {
+        await test.step(`can view ${url}`, async () => {
+          await page.goto(url);
+          await expect(page).toHaveURL(new RegExp(`${url}$`));
+          await expect(
+            page.getByRole("heading", { exact: true, name: heading })
+          ).toBeVisible({ timeout: 10_000 });
+        });
+      }
+    });
+  }
 });

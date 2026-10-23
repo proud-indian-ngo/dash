@@ -11,24 +11,8 @@ test.describe("Scheduled messages (admin)", () => {
     ).toBeVisible();
   });
 
-  test("renders page with schedule button", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Schedule message" })
-    ).toBeVisible();
-    await expect(page.getByPlaceholder("Search messages...")).toBeVisible();
-  });
-
-  test("cancel closes dialog", async ({ page }) => {
-    await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog", { name: "Schedule message" });
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
   test.slow();
-  test("creates, cancels, and deletes a scheduled message", async ({
+  test("creates, views, cancels, and deletes a scheduled message", async ({
     page,
   }) => {
     const messageText = `E2E Message ${Date.now()}`;
@@ -58,45 +42,7 @@ test.describe("Scheduled messages (admin)", () => {
     await expect(page.getByText("Message scheduled")).toBeVisible();
     await expect(page.getByText(messageText)).toBeVisible({ timeout: 10_000 });
 
-    // -- Cancel --
-    const row = page.getByRole("row").filter({ hasText: messageText });
-    await list.openRowActionAndClick(row, "Cancel");
-
-    const cancelDialog = page.getByRole("alertdialog");
-    await expect(cancelDialog).toBeVisible();
-    await cancelDialog.getByRole("button", { name: "Cancel message" }).click();
-    await expect(cancelDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Message cancelled")).toBeVisible();
-
-    // -- Delete (only available after cancel) --
-    const cancelledRow = page.getByRole("row").filter({ hasText: messageText });
-    await list.openRowActionAndClick(cancelledRow, "Delete");
-
-    const deleteDialog = page.getByRole("alertdialog");
-    await expect(deleteDialog).toBeVisible();
-    await deleteDialog.getByRole("button", { name: "Delete" }).click();
-    await expect(deleteDialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText("Message deleted")).toBeVisible();
-  });
-
-  test("views message detail in sheet", async ({ page }) => {
-    const messageText = `E2E Detail ${Date.now()}`;
-
-    // Create a message first
-    await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog", { name: "Schedule message" });
-    await dialog.getByRole("textbox", { name: "Message" }).fill(messageText);
-    await dialog.getByRole("button", { name: "Add recipients..." }).click();
-    await page.getByRole("option", { name: /E2E Test Group/ }).click();
-    await page.keyboard.press("Escape");
-    await dialog
-      .getByRole("button", { exact: true, name: "Schedule message" })
-      .click();
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByText(messageText)).toBeVisible({ timeout: 10_000 });
-
-    // View details via row action
-    const list = new ListPage(page);
+    // -- View details via row action --
     const row = page.getByRole("row").filter({ hasText: messageText });
     await list.openRowActionAndClick(row, "View details");
 
@@ -109,23 +55,26 @@ test.describe("Scheduled messages (admin)", () => {
       sheet.getByRole("heading", { name: /^Recipients/ })
     ).toBeVisible();
 
-    // Clean up — cancel from the sheet header's ⋯ menu
+    // -- Cancel from the sheet header's ⋯ menu --
     await sheet.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Cancel message" }).click();
     const cancelDialog = page.getByRole("alertdialog");
+    await expect(cancelDialog).toBeVisible();
     await cancelDialog.getByRole("button", { name: "Cancel message" }).click();
     await expect(cancelDialog).toBeHidden({ timeout: 10_000 });
-  });
-});
+    await expect(page.getByText("Message cancelled")).toBeVisible();
 
-test.describe("Scheduled messages (volunteer)", () => {
-  test("redirects non-admin away from /scheduled-messages", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
 
-    await page.goto("/scheduled-messages");
-    // Should be redirected to home
-    await page.waitForURL("/", { timeout: 10_000 });
+    // -- Delete (only available after cancel) --
+    const cancelledRow = page.getByRole("row").filter({ hasText: messageText });
+    await list.openRowActionAndClick(cancelledRow, "Delete");
+
+    const deleteDialog = page.getByRole("alertdialog");
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByRole("button", { name: "Delete" }).click();
+    await expect(deleteDialog).toBeHidden({ timeout: 10_000 });
+    await expect(page.getByText("Message deleted")).toBeVisible();
   });
 });

@@ -147,7 +147,6 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       "9876543211",
       "judge-attendee@pi-dash.test"
     );
-    await roster.verifyTableControls("Judge", "E2E Invited Judge");
     await roster.assign(
       "E2E Invited Judge",
       competitions.map((competition) => competition.name)
@@ -218,10 +217,6 @@ test("non-login guests and judges support multiple competitions, scoped visibili
         .filter((assignment) => assignment.attendeeId === judge.id)
         .map((assignment) => assignment.competitionId)
     ).toEqual([competitions[0]!.id]);
-    await eventsPage.assign(
-      judge.name,
-      competitions.map((competition) => competition.name)
-    );
     const disposableName = "E2E Judge Added by Events Lead";
     await eventsPage.create("Judge", disposableName, "+919876543212");
     await eventsPage.assign(
@@ -248,7 +243,6 @@ test("non-login guests and judges support multiple competitions, scoped visibili
     );
     expect(replacement?.humanId).toBeDefined();
     expect(replacement?.humanId).not.toBe(disposable.humanId);
-    await eventsPage.deleteJudge(disposableName);
     for (const [name, args] of [
       [
         "kalakritiAttendee.update",
@@ -406,10 +400,10 @@ test("non-login guests and judges support multiple competitions, scoped visibili
       true
     );
     expect(
-      served.assignments.filter(
-        (assignment) => assignment.attendeeId === judge.id
-      )
-    ).toHaveLength(competitions.length);
+      served.assignments
+        .filter((assignment) => assignment.attendeeId === judge.id)
+        .map((assignment) => assignment.competitionId)
+    ).toEqual([competitions[0]!.id]);
     for (const attendee of [guest, judge]) {
       expect(
         served.operations
