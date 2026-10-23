@@ -37,23 +37,52 @@ for (const range of CLOUDFLARE_RANGES) {
   cloudflare.addSubnet(address, Number(prefix), ipFamily(address));
 }
 
+const IPV4_MAPPED = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/;
+
 function hopIp(hop: string | undefined): string | undefined {
   const ip = hop?.trim();
-  return ip && isIP(ip) ? ip : undefined;
+  return ip && isIP(ip) && !ip.includes("%") ? ip : undefined;
 }
 
 /**
- * The visitor's IP for rate limits and Better Auth. Dokploy's Traefik appends
- * its peer as the right-most `x-forwarded-for` hop. When that peer is a
- * Cloudflare edge, the visitor is the hop Cloudflare added just before it;
- * anything further left came from the client. Otherwise the peer is the
- * visitor. A missing or malformed deciding hop yields no IP.
+ * IPv6 visitors are keyed on their /64 in Better Auth's form, since one
+ * subscriber can rotate through a whole /64. IPv4-mapped addresses become IPv4.
+ */
+function visitorKey(ip: string): string {
+  if (isIP(ip) === 4) {
+    return ip;
+  }
+  const canonical = new URL(`http://[${ip}]`).hostname.slice(1, -1);
+  const mapped = IPV4_MAPPED.exec(canonical);
+  if (mapped) {
+    const high = Number.parseInt(mapped[1] ?? "", 16);
+    const low = Number.parseInt(mapped[2] ?? "", 16);
+    return [high >> 8, high & 255, low >> 8, low & 255].join(".");
+  }
+  const [head = "", tail] = canonical.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = [
+    ...left,
+    ...Array<string>(8 - left.length - right.length).fill("0"),
+    ...right,
+  ];
+  return [...groups.slice(0, 4), "0", "0", "0", "0"]
+    .map((group) => group.padStart(4, "0"))
+    .join(":");
+}
+
+/**
+ * The visitor for rate limits and Better Auth. Dokploy's Traefik appends its
+ * peer as the right-most `x-forwarded-for` hop. When that peer is a Cloudflare
+ * edge, the visitor is the hop Cloudflare added just before it; anything
+ * further left came from the client. Otherwise the peer is the visitor. A
+ * missing or malformed deciding hop yields no visitor.
  */
 export function trustedClientIp(request: Request): string | undefined {
   const hops = request.headers.get("x-forwarded-for")?.split(",") ?? [];
   const peer = hopIp(hops.at(-1));
-  if (!(peer && cloudflare.check(peer, ipFamily(peer)))) {
-    return peer;
-  }
-  return hopIp(hops.at(-2));
+  const visitor =
+    peer && cloudflare.check(peer, ipFamily(peer)) ? hopIp(hops.at(-2)) : peer;
+  return visitor && visitorKey(visitor);
 }

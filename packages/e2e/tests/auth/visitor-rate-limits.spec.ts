@@ -16,9 +16,9 @@ dotenv.config({
 const EDGE = "172.70.1.20";
 const EDGE_V6 = "2a06:98c0:3600::103";
 
-/** An address no other spec or recent run uses, so its counters start empty. */
-function freshVisitor(): string {
-  return `2001:db8:${randomInt(0x1_00_00).toString(16)}:${randomInt(0x1_00_00).toString(16)}::7`;
+/** A /64 no other spec or recent run uses, so its counters start empty. */
+function freshNetwork(): string {
+  return `2001:db8:${randomInt(0x1_00_00).toString(16)}:${randomInt(0x1_00_00).toString(16)}`;
 }
 
 const throughCloudflare = (...hops: string[]) => ({
@@ -47,8 +47,11 @@ test.describe("Visitor identity behind Cloudflare", () => {
   test("give each visitor its own public feed budget and ignore forged hops", async ({
     request,
   }, testInfo) => {
-    const visitor = freshVisitor();
-    const neighbour = freshVisitor();
+    // Every feed request is cheap, but the E2E budget is 6,000 a minute.
+    test.slow();
+    const network = freshNetwork();
+    const visitor = `${network}::7`;
+    const neighbour = `${freshNetwork()}::7`;
     const feed = (headers: Record<string, string>) =>
       request
         .get("/api/public/events?days=3", { headers })
@@ -61,8 +64,10 @@ test.describe("Visitor identity behind Cloudflare", () => {
     );
     const results = {
       sent,
-      // Same edge, different visitor: its own bucket.
+      // Same edge, another /64: its own bucket.
       neighbour: await feed(throughCloudflare(neighbour, EDGE)),
+      // Another address in the visitor's /64: the same bucket.
+      sameNetwork: await feed(throughCloudflare(`${network}:1:2:3:4`, EDGE)),
       // The visitor reaching another edge, over IPv6: still the visitor.
       otherEdge: await feed(throughCloudflare(visitor, EDGE_V6)),
       // A client-supplied entry sits left of the one Cloudflare adds.
@@ -75,6 +80,7 @@ test.describe("Visitor identity behind Cloudflare", () => {
     expect(results).toEqual({
       sent: expect.any(Number),
       neighbour: 200,
+      sameNetwork: 429,
       otherEdge: 429,
       forged: 429,
     });
