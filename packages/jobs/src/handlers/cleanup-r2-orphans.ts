@@ -18,21 +18,13 @@ import {
   collectAvatarReferenceKey,
   collectPlateReferences,
 } from "../lib/r2-media-references";
+import { r2Credentials } from "./r2";
 
 const GRACE_PERIOD_HOURS = 24;
 const DELETE_CONCURRENCY = 10;
 
-function getR2Credentials() {
-  return {
-    accessKeyId: env.R2_ACCESS_KEY,
-    bucket: env.R2_BUCKET_NAME,
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-  };
-}
-
 async function listAllR2Objects(graceCutoff: Date): Promise<Set<string>> {
-  const credentials = getR2Credentials();
+  const credentials = r2Credentials();
   const keys = new Set<string>();
 
   const collectPage = async (startAfter?: string): Promise<void> => {
@@ -211,7 +203,7 @@ async function collectAllDbKeys(): Promise<{
 async function deleteOrphans(
   orphans: string[]
 ): Promise<{ deletedKeys: string[]; failedKeys: string[] }> {
-  const credentials = getR2Credentials();
+  const credentials = r2Credentials();
   const deletedKeys: string[] = [];
   const failedKeys: string[] = [];
 

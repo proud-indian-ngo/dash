@@ -49,6 +49,7 @@ compute_ports() {
   export E2E_ZERO_CS_PORT=$((4871 + offset))
   export E2E_SIGNING_PORT=$((4872 + offset))
   export E2E_GOWA_PORT=$((4873 + offset))
+  export E2E_R2_PORT=$((4874 + offset))
   export E2E_DB_PORT=$((5433 + offset))
 
   # Isolated dev DB port (only used with --isolated-db)
@@ -82,5 +83,6 @@ print_port_summary() {
   printf "║  %-20s :  %-5s       ║\n" "E2E test DB" "$E2E_DB_PORT"
   printf "║  %-20s :  %-5s       ║\n" "E2E signing service" "$E2E_SIGNING_PORT"
   printf "║  %-20s :  %-5s       ║\n" "E2E fake GoWA" "$E2E_GOWA_PORT"
+  printf "║  %-20s :  %-5s       ║\n" "E2E fake R2" "$E2E_R2_PORT"
   echo "╚════════════════════════════════════════╝"
 }

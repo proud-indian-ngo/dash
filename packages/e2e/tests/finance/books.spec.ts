@@ -5,10 +5,7 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { BOOKS_YEAR, books, postPending } from "../../helpers/books-steps";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { clickPageAction, openPageAction } from "../../helpers/page-header";
-import {
-  ApprovalDetailPage,
-  PAYMENT_SCREENSHOT_FIXTURE,
-} from "../../pages/approval-detail-page";
+import { PAYMENT_SCREENSHOT_FIXTURE } from "../../pages/approval-detail-page";
 import { ListPage } from "../../pages/list-page";
 
 /*
@@ -672,24 +669,6 @@ test.describe("Books (treasurer)", () => {
     const dialog = page.getByRole("alertdialog");
     await expect(dialog).toContainText("Add payment proof");
     await expect(page.getByTestId("payment-proof-missing")).toBeVisible();
-
-    if (process.env.CI) {
-      // Saving promotes the upload in R2, which CI does not have: check the
-      // dialog takes the screenshot, then stop.
-      await new ApprovalDetailPage(page).stubScreenshotUpload();
-      await dialog
-        .getByLabel("Payment screenshot")
-        .setInputFiles(PAYMENT_SCREENSHOT_FIXTURE);
-      await expect(
-        dialog.getByRole("img", { name: "Payment screenshot preview" })
-      ).toBeVisible({ timeout: 15_000 });
-      await expect(
-        dialog.getByRole("button", { name: "Add proof" })
-      ).toBeEnabled();
-      await dialog.getByRole("button", { name: "Cancel" }).click();
-      await expect(dialog).toBeHidden();
-      return;
-    }
 
     await dialog
       .getByLabel("Payment screenshot")

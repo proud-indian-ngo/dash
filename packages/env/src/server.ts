@@ -100,6 +100,8 @@ export const env = createEnv({
     R2_ACCESS_KEY: z.string().min(1),
     R2_ACCOUNT_ID: z.string().min(1),
     R2_BUCKET_NAME: z.string().min(1),
+    /** S3 endpoint override for the E2E fake (`packages/e2e/fake-r2.ts`); unset uses the account's R2 endpoint. */
+    R2_ENDPOINT: z.url().optional(),
     R2_KEY_PREFIX: z.string().min(1),
     R2_SECRET_ACCESS_KEY: z.string().min(1),
     /** Required in production; unset skips sending. */

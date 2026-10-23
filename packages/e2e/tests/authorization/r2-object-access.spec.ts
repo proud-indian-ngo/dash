@@ -58,7 +58,9 @@ test.describe("R2 object authorization", () => {
       { maxRedirects: 0 }
     );
     expect(response.status()).toBe(302);
-    expect(response.headers().location).toMatch(/^https:\/\//);
+    expect(response.headers().location).toContain(
+      `${process.env.R2_ENDPOINT}/`
+    );
   });
 
   test("denies unrelated users access to pending event media", async ({
@@ -110,7 +112,9 @@ test.describe("R2 object authorization", () => {
     );
 
     expect(response.status()).toBe(302);
-    expect(response.headers().location).toMatch(/^https:\/\//);
+    expect(response.headers().location).toContain(
+      `${process.env.R2_ENDPOINT}/`
+    );
   });
 
   test("allows exact referenced editor media and rejects another key", async ({

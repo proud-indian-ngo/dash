@@ -106,11 +106,10 @@ import { uuidv7 } from "uuidv7";
  *   of this run marked as the main bank account (expenses are paid out of
  *   it), an expense category of this run, a reimbursement of 300 + 125
  *   charged to Education and approved on 20 Jun 2026 with its payment
- *   screenshot (approving in the app needs R2, which CI lacks), one
- *   approved the same day without a screenshot (it waits), one approved on
- *   20 Mar 2026 without a screenshot (before the cutover), and a vendor
- *   payment of 2,500 to a vendor of this run, paid on 10 Jul 2026, with its
- *   invoice submitted and waiting for approval.
+ *   screenshot, one approved the same day without a screenshot (it waits),
+ *   one approved on 20 Mar 2026 without a screenshot (before the cutover),
+ *   and a vendor payment of 2,500 to a vendor of this run, paid on 10 Jul
+ *   2026, with its invoice submitted and waiting for approval.
  * - `edit-claim <id>`: raises the reimbursement's first line to 350.
  * - `audited-fixture <label>`: the audited figures spec's starting point:
  *   reverses any standing audited figures of the year, and makes sure the

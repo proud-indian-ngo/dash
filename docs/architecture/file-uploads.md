@@ -96,4 +96,4 @@ The Social API serves approved photos through signed links; `do_not_use` marks p
 
 ## R2 client
 
-`getR2Client()` (`packages/jobs/src/handlers/r2.ts`) uses Bun's native `S3Client`, not the AWS SDK.
+`getR2Client()` (`packages/jobs/src/handlers/r2.ts`) uses Bun's native `S3Client`, not the AWS SDK; the web app's `getS3()` and the orphan cleanup use the same settings. `R2_ENDPOINT` overrides the account's endpoint for the E2E fake (see `e2e-testing.md`); production leaves it unset.

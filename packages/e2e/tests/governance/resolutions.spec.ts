@@ -83,11 +83,6 @@ function resolutionCard(page: Page, title: string) {
 test.describe("circular resolutions (Managing Trustee)", () => {
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
-    test.skip(
-      Boolean(process.env.CI) &&
-        testInfo.title !== "records a past resolution so the series continues",
-      "Issuing stores the circular's PDF in R2, which CI does not have"
-    );
   });
 
   test("an objection from one of two trustees fails the resolution", async ({

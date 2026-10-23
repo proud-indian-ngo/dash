@@ -144,11 +144,6 @@ test.describe("Programme lead approval", () => {
     const dialog = detail.getAlertDialog();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel(/Reason to approve without/)).toHaveCount(0);
-    // Approving promotes the payment screenshot in R2, which CI does not have.
-    if (process.env.CI) {
-      await dialog.getByRole("button", { name: "Cancel" }).click();
-      return;
-    }
     await detail.attachPaymentScreenshot(dialog);
     await dialog.getByRole("button", { name: "Approve" }).click();
     await expect(detail.getStatusBadge("Approved")).toBeVisible({

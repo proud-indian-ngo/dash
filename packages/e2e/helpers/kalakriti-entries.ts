@@ -18,8 +18,8 @@ import {
   kalakritiVenue,
 } from "@pi-dash/db/schema/kalakriti";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { getR2Client } from "@pi-dash/jobs/handlers/r2";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
-import { S3Client } from "bun";
 import { eq } from "drizzle-orm";
 
 const FIXTURES = {
@@ -489,12 +489,7 @@ if (action === "setup" && email) {
     )
   )
     throw new Error("Refusing non-fixture music object cleanup");
-  const client = new S3Client({
-    accessKeyId: process.env.R2_ACCESS_KEY!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    bucket: process.env.R2_BUCKET_NAME!,
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  });
+  const client = getR2Client();
   if (action === "music-r2-state") {
     result = await Promise.all(
       (keys as string[]).map(async (key) => ({

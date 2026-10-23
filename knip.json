@@ -86,6 +86,7 @@
         "helpers/profile-kalakriti-audit.ts",
         "helpers/seed-app-performance.ts",
         "fake-gowa.ts",
+        "fake-r2.ts",
         "shard-by-duration.ts"
       ]
     },

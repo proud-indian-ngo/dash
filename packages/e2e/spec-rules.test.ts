@@ -27,10 +27,6 @@ const testsDir = join(import.meta.dirname, "tests");
 const allowlist: Record<string, string> = {
   "events/event-feedback.spec.ts R3":
     "Submits feedback unless a retry already did; the edit assertions after it run unconditionally",
-  "reimbursements/cash-voucher.spec.ts R3":
-    "Skips when no pending reimbursement is listed; needs its own pending fixture",
-  "reimbursements/reimbursement-detail.spec.ts R3":
-    "Skips when the volunteer has no reimbursements; needs its own fixture",
 };
 
 const FUNCTIONS = new Set([

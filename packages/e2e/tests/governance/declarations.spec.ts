@@ -32,10 +32,6 @@ test.describe("declarations (super admin)", () => {
   test("a declaration waits for the trustee's signature before it counts", async ({
     page,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Declaring stores the declaration's PDF in R2, which CI does not have"
-    );
     test.slow();
     // Signing needs a DSC, so the declaration stays
     // waiting here: the prompt stays and the approver isn't warned.

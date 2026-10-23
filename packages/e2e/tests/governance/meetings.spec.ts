@@ -106,23 +106,20 @@ test.describe("board meetings (super admin)", () => {
     await expect(
       minutes.getByRole("button", { name: "Save proceedings" })
     ).toBeDisabled();
-    // Making the minutes stores the PDF in R2, which CI does not have.
-    if (!process.env.CI) {
-      await minutes.getByRole("button", { name: "Make the minutes" }).click();
-      // Folded behind the DSC button when the signing helper is available.
-      const otherWays = minutes.getByRole("button", {
-        name: "Sign in Acrobat instead",
-      });
-      await expect(
-        otherWays.or(minutes.getByRole("link", { name: "Download minutes" }))
-      ).toBeVisible({ timeout: 30_000 });
-      if (await otherWays.isVisible()) {
-        await otherWays.click();
-      }
-      await expect(
-        minutes.getByRole("link", { name: "Download minutes" })
-      ).toHaveAttribute("href", /kind=meetingMinutes/, { timeout: 30_000 });
+    await minutes.getByRole("button", { name: "Make the minutes" }).click();
+    // Folded behind the DSC button when the signing helper is available.
+    const otherWays = minutes.getByRole("button", {
+      name: "Sign in Acrobat instead",
+    });
+    await expect(
+      otherWays.or(minutes.getByRole("link", { name: "Download minutes" }))
+    ).toBeVisible({ timeout: 30_000 });
+    if (await otherWays.isVisible()) {
+      await otherWays.click();
     }
+    await expect(
+      minutes.getByRole("link", { name: "Download minutes" })
+    ).toHaveAttribute("href", /kind=meetingMinutes/, { timeout: 30_000 });
   });
 
   test("won't send a notice short of the deed's seven days, then sends it", async ({

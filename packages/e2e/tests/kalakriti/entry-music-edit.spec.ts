@@ -281,10 +281,6 @@ test.describe("Kalakriti entry music after registration closes", () => {
     browser,
     baseURL,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Requires real R2 promotion as well as the real E2E PostgreSQL transaction boundary"
-    );
     test.setTimeout(240_000);
     const data = await fixture<Fixture>("setup", volunteerEmail);
     const entries = new KalakritiEntriesPage(page);
@@ -559,10 +555,6 @@ test.describe("Kalakriti entry music after registration closes", () => {
     page,
     volunteerEmail,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Real R2 smoke follows the existing local-only music upload convention"
-    );
     test.slow();
     const data = await fixture<Fixture>("setup", volunteerEmail);
     const entries = new KalakritiEntriesPage(page);

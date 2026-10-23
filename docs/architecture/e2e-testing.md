@@ -37,9 +37,11 @@ Fixture users are inserted by `helpers/seed-test-user.ts`, bypassing Better Auth
 
 Feature helpers in `helpers/` add the entities a spec needs. They must be idempotent (`onConflictDoNothing()`) and return inserted IDs. `helpers/seed-dev-data.ts` seeds development data for cloud sessions; the harness does not run it.
 
-`run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need. That service trusts only a throwaway CA made for the run (`signing/make-test-pki.py`), with a key and certificate for each seeded trustee, so specs can sign by playing the DSC helper (`helpers/dsc-helper.ts`). CI doesn't start it: the specs that need it also need R2 and skip there.
+`run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need; the CI e2e job builds and starts it too. That service trusts only a throwaway CA made for the run (`signing/make-test-pki.py`), with a key and certificate for each seeded trustee, so specs can sign by playing the DSC helper (`helpers/dsc-helper.ts`).
 
 `run-e2e.sh` and the CI e2e job also start `packages/e2e/fake-gowa.ts` and point `WHATSAPP_API_URL` at it, so WhatsApp is configured and every GoWA send is accepted without leaving the machine. Its group list holds one new group per request, so parallel picker tests never collide. It reports nobody on WhatsApp and no invite links, as an unconfigured gateway would. A WhatsApp endpoint the client gains needs a route there; unknown paths return 404.
+
+Both also start `packages/e2e/fake-r2.ts` and point `R2_ENDPOINT` at it, so uploads, claims, generated PDFs and signed reads work without R2 credentials; `run-e2e.sh` overrides any R2 values in `.env`. It keeps objects in memory for the run and answers the path-style calls Bun's `S3Client` and presigned browser URLs make, without checking signatures. It starts before seeding, which stores the receipt signature there. A new S3 operation needs a handler; others return 501.
 
 ## `run-e2e.sh`
 
