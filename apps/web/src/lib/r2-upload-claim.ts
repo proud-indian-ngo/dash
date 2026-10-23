@@ -107,7 +107,7 @@ function uploadPolicy(sourceKey: string, mimeType: string) {
       maxSize: GOVERNANCE_DOCUMENT_MAX_BYTES,
     };
   }
-  throw new Error("Invalid temporary upload key");
+  throw new HttpError(400, "Invalid temporary upload key");
 }
 
 async function writeNextChunk(
@@ -123,7 +123,7 @@ async function writeNextChunk(
   }
   const nextSize = streamedSize + value.byteLength;
   if (nextSize > expectedSize || nextSize > maxSize) {
-    throw new Error("Upload changed during claim");
+    throw new HttpError(409, "Upload changed during claim");
   }
   await writer.write(value);
   return writeNextChunk(reader, writer, nextSize, expectedSize, maxSize);
@@ -145,7 +145,7 @@ async function copyValidatedStream(
       maxSize
     );
     if (streamedSize !== expectedSize) {
-      throw new Error("Upload changed during claim");
+      throw new HttpError(409, "Upload changed during claim");
     }
     await writer.end();
   } catch (error) {
@@ -185,7 +185,7 @@ export async function copyR2Object(
         (input.mimeType &&
           normalizeMimeType(target.type) !== normalizeMimeType(input.mimeType))
       ) {
-        throw new Error("Upload metadata mismatch");
+        throw new HttpError(400, "Upload metadata mismatch");
       }
     }
     return;
@@ -196,10 +196,10 @@ export async function copyR2Object(
   const source = await s3.stat(input.sourceKey);
   const storedMimeType = normalizeMimeType(source.type);
   if (!storedMimeType) {
-    throw new Error("Upload content type is missing");
+    throw new HttpError(400, "Upload content type is missing");
   }
   if (input.mimeType && normalizeMimeType(input.mimeType) !== storedMimeType) {
-    throw new Error("Upload content type mismatch");
+    throw new HttpError(400, "Upload content type mismatch");
   }
   const policy = uploadPolicy(input.sourceKey, storedMimeType);
   if (
@@ -207,16 +207,16 @@ export async function copyR2Object(
       ? !policy.allowed.includes(storedMimeType)
       : !MIME_TYPE_PATTERN.test(storedMimeType)
   ) {
-    throw new Error(`Unsupported upload type: ${storedMimeType}`);
+    throw new HttpError(400, `Unsupported upload type: ${storedMimeType}`);
   }
   if (input.byteSize !== undefined && source.size !== input.byteSize) {
-    throw new Error("Upload byte size mismatch");
+    throw new HttpError(400, "Upload byte size mismatch");
   }
   if (source.size <= 0) {
-    throw new Error("Upload is empty");
+    throw new HttpError(400, "Upload is empty");
   }
   if (source.size > policy.maxSize) {
-    throw new Error(`Upload exceeds ${policy.maxSize} byte limit`);
+    throw new HttpError(400, `Upload exceeds ${policy.maxSize} byte limit`);
   }
   const options = { type: storedMimeType };
   const sourceFile = s3.file(input.sourceKey, options);
@@ -265,17 +265,20 @@ async function checkExistingPayeeSignature(
 
 function assertPayeeSignatureMetadata(mimeType: string, size: number): void {
   if (mimeType !== PAYEE_SIGNATURE_MIME_TYPE) {
-    throw new Error(`Unsupported upload type: ${mimeType}`);
+    throw new HttpError(400, `Unsupported upload type: ${mimeType}`);
   }
   if (size > PAYEE_SIGNATURE_MAX_BYTES) {
-    throw new Error(`Upload exceeds ${PAYEE_SIGNATURE_MAX_BYTES} byte limit`);
+    throw new HttpError(
+      400,
+      `Upload exceeds ${PAYEE_SIGNATURE_MAX_BYTES} byte limit`
+    );
   }
 }
 
 function assertPayeeSignatureImage(bytes: Uint8Array): void {
   const problem = payeeSignatureImageProblem(bytes, bytes.byteLength);
   if (problem) {
-    throw new Error(`Invalid payee signature image: ${problem}`);
+    throw new HttpError(400, `Invalid payee signature image: ${problem}`);
   }
 }
 
@@ -292,7 +295,7 @@ async function readNextChunk(
   const nextSize = readSize + value.byteLength;
   if (nextSize > limit) {
     await reader.cancel();
-    throw new Error("Upload changed during claim");
+    throw new HttpError(409, "Upload changed during claim");
   }
   chunks.push(value);
   return readNextChunk(reader, chunks, nextSize, limit);
@@ -316,7 +319,7 @@ async function readCapped(
     reader.releaseLock();
   }
   if (total !== expectedSize) {
-    throw new Error("Upload changed during claim");
+    throw new HttpError(409, "Upload changed during claim");
   }
   const bytes = new Uint8Array(total);
   let offset = 0;
@@ -337,7 +340,7 @@ export async function readGovernanceUpload(
 ): Promise<Uint8Array> {
   const { size } = await file.stat();
   if (size > GOVERNANCE_DOCUMENT_MAX_BYTES) {
-    throw new Error("The file is larger than 25 MB.");
+    throw new HttpError(400, "The file is larger than 25 MB.");
   }
   return await readCapped(file, size);
 }

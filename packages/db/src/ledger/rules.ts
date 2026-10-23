@@ -32,9 +32,16 @@ export type LedgerErrorCode =
 /** A refusal whose message is safe to show the person posting. */
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;
-  constructor(code: LedgerErrorCode, message: string) {
+  /** Missing configuration or reference data: reported to Error Tracking with its message. */
+  readonly fault: boolean;
+  constructor(
+    code: LedgerErrorCode,
+    message: string,
+    options: { fault?: boolean } = {}
+  ) {
     super(message);
     this.code = code;
+    this.fault = options.fault ?? false;
     this.name = "LedgerError";
   }
 }

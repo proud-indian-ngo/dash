@@ -1,4 +1,5 @@
 import { auth } from "@pi-dash/auth";
+import { refusalStatus } from "@pi-dash/observability";
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import {
   createCsrfMiddleware,
@@ -6,13 +7,14 @@ import {
   createStart,
 } from "@tanstack/react-start";
 import { getRequest, setResponseStatus } from "@tanstack/react-start/server";
+import { log } from "evlog";
 
-import { HttpError } from "@/lib/http-error";
 import {
   captureThrownError,
   isServerFnRequest,
   routeTemplate,
   runWithErrorScope,
+  validationRefusal,
 } from "@/lib/server/error-tracking";
 
 async function sessionUserId(request: Request): Promise<string | undefined> {
@@ -44,18 +46,33 @@ const reportRequestErrors = createMiddleware().server(
 );
 
 /**
- * Reports what server functions throw, and answers an RPC call that threw an
- * HttpError with its status. A server function called while rendering a page
- * keeps the page's status. Either way Start serializes the error's name,
- * message and own properties (an HttpError's status) to the client.
+ * Reports what server functions throw, and answers an RPC call that threw a
+ * refusal (`refusalStatus`: an HttpError or another error of ours carrying a
+ * 4xx) with that status; input the validator refused is a 400. An upstream
+ * API's status is not ours to answer with. A server function called while
+ * rendering a page keeps the page's status. Either way
+ * Start serializes the error's name, message and own properties (the
+ * status) to the client.
  */
 const reportFunctionErrors = createMiddleware({ type: "function" }).server(
   async ({ next, serverFnMeta }) => {
     try {
       return await next();
-    } catch (error) {
-      if (error instanceof HttpError && isServerFnRequest()) {
-        setResponseStatus(error.status);
+    } catch (thrown) {
+      const invalid = validationRefusal(thrown);
+      if (invalid) {
+        // Counted to spot client and server schemas drifting apart, such as
+        // a stale bundle after a deploy; the values are never logged.
+        log.warn({
+          action: "inputValidationRefused",
+          function: serverFnMeta.name,
+          issues: invalid.issues,
+        });
+      }
+      const error = invalid?.refusal ?? thrown;
+      const status = refusalStatus(error);
+      if (status !== undefined && status < 500 && isServerFnRequest()) {
+        setResponseStatus(status);
       }
       const request = getRequest();
       captureThrownError(

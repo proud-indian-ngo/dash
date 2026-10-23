@@ -399,7 +399,8 @@ export const prepareAuditPack = createServerFn({ method: "POST" })
       AUDIT_PACK_RATE_WINDOW_MS
     );
     if (!limit.allowed) {
-      throw new Error(
+      throw new HttpError(
+        429,
         "Too many audit packs in a short time. Try again in a few minutes."
       );
     }

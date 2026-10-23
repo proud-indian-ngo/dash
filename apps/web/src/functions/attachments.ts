@@ -48,7 +48,7 @@ import { authMiddleware } from "@/middleware/auth";
 
 export function toAllowedMimeType(value: string): AllowedMimeType {
   if (!ALLOWED_MIME_TYPES.includes(value as AllowedMimeType)) {
-    throw new Error(`Unsupported file type: ${value}`);
+    throw new HttpError(400, `Unsupported file type: ${value}`);
   }
   return value as AllowedMimeType;
 }

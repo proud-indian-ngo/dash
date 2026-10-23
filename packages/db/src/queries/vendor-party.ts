@@ -437,7 +437,7 @@ async function assertPartyUnreferenced(tx: Tx, partyId: string) {
     .where(eq(user.partyId, partyId))
     .limit(1);
   if (projectRef || userRef) {
-    throw new Error(
+    throw new PartyConflictError(
       "This vendor is linked to a project or user; unlink it first"
     );
   }
@@ -449,7 +449,7 @@ async function assertPartyUnreferenced(tx: Tx, partyId: string) {
     .where(eq(ledgerEntry.partyId, partyId))
     .limit(1);
   if (bookRef) {
-    throw new Error(
+    throw new PartyConflictError(
       "The books hold expenses for this vendor, so it can't be deleted"
     );
   }
@@ -481,7 +481,9 @@ export async function deleteVendor(
       .where(eq(vendorPayment.vendorId, vendorId))
       .limit(1);
     if (payment) {
-      throw new Error("Cannot delete vendor with existing payment requests");
+      throw new PartyConflictError(
+        "Cannot delete vendor with existing payment requests"
+      );
     }
     // Any other role, even an inactive one, keeps the party: its history
     // (a lapsed donor, say) still belongs to that identity.

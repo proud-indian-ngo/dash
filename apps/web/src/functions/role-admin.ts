@@ -226,10 +226,10 @@ export const createRole = createServerFn({ method: "POST" })
           // Validate permission IDs
           for (const pid of data.permissionIds) {
             if (!PERMISSION_IDS.has(pid)) {
-              throw new Error(`Unknown permission: ${pid}`);
+              throw new HttpError(400, `Unknown permission: ${pid}`);
             }
             if (!isAssignablePermissionId(pid)) {
-              throw new Error(`Permission cannot be assigned: ${pid}`);
+              throw new HttpError(400, `Permission cannot be assigned: ${pid}`);
             }
           }
 
@@ -241,7 +241,7 @@ export const createRole = createServerFn({ method: "POST" })
             .limit(1);
 
           if (existing) {
-            throw new Error(`Role ID "${data.id}" already exists`);
+            throw new HttpError(409, `Role ID "${data.id}" already exists`);
           }
 
           await db.transaction(async (tx) => {
@@ -316,10 +316,10 @@ export const updateRole = createServerFn({ method: "POST" })
           // Validate permission IDs
           for (const pid of data.permissionIds) {
             if (!PERMISSION_IDS.has(pid)) {
-              throw new Error(`Unknown permission: ${pid}`);
+              throw new HttpError(400, `Unknown permission: ${pid}`);
             }
             if (!isAssignablePermissionId(pid)) {
-              throw new Error(`Permission cannot be assigned: ${pid}`);
+              throw new HttpError(400, `Permission cannot be assigned: ${pid}`);
             }
           }
 
@@ -338,7 +338,7 @@ export const updateRole = createServerFn({ method: "POST" })
             found.isSystem &&
             (ADMIN_TIER_ROLES.has(found.id) || TECHNICAL_ROLE_IDS.has(found.id))
           ) {
-            throw new Error("Cannot modify a system role");
+            throw new HttpError(409, "Cannot modify a system role");
           }
 
           await db.transaction(async (tx) => {
@@ -414,7 +414,7 @@ export const deleteRole = createServerFn({ method: "POST" })
             throw new HttpError(404, "Role not found");
           }
           if (found.isSystem) {
-            throw new Error("Cannot delete a system role");
+            throw new HttpError(409, "Cannot delete a system role");
           }
 
           // Check no users assigned
@@ -424,7 +424,8 @@ export const deleteRole = createServerFn({ method: "POST" })
             .where(eq(user.role, data.roleId));
 
           if (result && result.count > 0) {
-            throw new Error(
+            throw new HttpError(
+              409,
               `Cannot delete role: ${result.count} user(s) are still assigned to it`
             );
           }

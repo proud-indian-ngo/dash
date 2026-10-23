@@ -42,7 +42,7 @@ import {
   enqueueCertificateNotice,
   storeCertificatePdf,
 } from "@/lib/grants/utilisation-certificates";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, userFacingError } from "@/lib/http-error";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
@@ -61,7 +61,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof CircularError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw userFacingError(error);
     }
     throw error;
   });

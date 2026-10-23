@@ -134,7 +134,7 @@ const toBanExpiresInSeconds = (value?: string): number | undefined => {
 
   const deltaMs = expiresAt.valueOf() - Date.now();
   if (deltaMs <= 0) {
-    throw new Error("Ban expiry must be in the future");
+    throw new HttpError(400, "Ban expiry must be in the future");
   }
 
   return Math.ceil(deltaMs / 1000);
@@ -503,13 +503,14 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
         const authed = await ensurePermission(context, "users.delete");
 
         if (authed.session.user.id === data.userId) {
-          throw new Error("You cannot delete your own account");
+          throw new HttpError(409, "You cannot delete your own account");
         }
         await assertGenericUserTarget(data.userId);
         // Their requests and payments would go with the account, and the
         // books would then reverse money that really left the bank.
         if (await userHasExpensesInBooks(db, data.userId)) {
-          throw new Error(
+          throw new HttpError(
+            409,
             "The books hold expenses this person raised or paid, so the account can't be deleted. Ban it instead."
           );
         }
@@ -602,7 +603,7 @@ export const setUserBanAdmin = createServerFn({ method: "POST" })
         const authed = await ensurePermission(context, "users.ban");
 
         if (authed.session.user.id === data.userId && data.banned) {
-          throw new Error("You cannot ban your own account");
+          throw new HttpError(409, "You cannot ban your own account");
         }
         await assertGenericUserTarget(data.userId);
 

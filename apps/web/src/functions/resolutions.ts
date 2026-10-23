@@ -58,6 +58,7 @@ import {
   prepareSignatureFields,
   SigningServiceError,
 } from "@/lib/governance/signing-service";
+import { HttpError, userFacingError } from "@/lib/http-error";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
@@ -79,7 +80,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof CircularError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw userFacingError(error);
     }
     throw error;
   });
@@ -115,7 +116,7 @@ export const issueCircularFn = createServerFn({ method: "POST" })
   .validator(issueSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const circularId = uuidv7();
@@ -231,7 +232,7 @@ export const objectToResolutionFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -275,7 +276,7 @@ export const declareResolutionConflictFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -316,7 +317,7 @@ export const getCircularSigningCopyUrl = createServerFn({ method: "POST" })
   .validator(z.object({ circularId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -360,7 +361,7 @@ export const getCircularSignUploadUrl = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await createTemporaryUpload(
@@ -379,7 +380,7 @@ export const getCircularSignUploadUrl = createServerFn({ method: "POST" })
             ? await signerState(db, data.circularId, me.id)
             : null;
           if (!state) {
-            throw new Error("Forbidden");
+            throw new HttpError(403, "Forbidden");
           }
         },
         presign: async (key, mimeType) => {
@@ -401,7 +402,7 @@ export const submitSignedCircularFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -460,7 +461,7 @@ export const withdrawCircularFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -523,7 +524,7 @@ export const recordHistoricalResolutionFn = createServerFn({ method: "POST" })
   .validator(historicalResolutionSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     const id = uuidv7();
@@ -561,7 +562,7 @@ export const updateHistoricalResolutionFn = createServerFn({ method: "POST" })
   .validator(historicalResolutionSchema.extend({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -597,7 +598,7 @@ export const deleteHistoricalResolutionFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(

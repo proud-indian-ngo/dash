@@ -12,6 +12,7 @@ import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
+import { HttpError } from "@/lib/http-error";
 import {
   addAssetToAlbum,
   ensureImmichAlbum,
@@ -60,7 +61,7 @@ function buildImmichAlbumName(
 
 export function validateImmichUploadInput(input: unknown) {
   if (!(input instanceof FormData)) {
-    throw new Error("Expected FormData");
+    throw new HttpError(400, "Expected FormData");
   }
   const file = input.get("file");
   const eventId = input.get("eventId");
@@ -71,25 +72,25 @@ export function validateImmichUploadInput(input: unknown) {
     typeof eventId !== "string" ||
     typeof photoId !== "string"
   ) {
-    throw new Error("Missing file, eventId, or photoId");
+    throw new HttpError(400, "Missing file, eventId, or photoId");
   }
   if (!z.uuid().safeParse(photoId).success) {
-    throw new Error("Invalid photoId");
+    throw new HttpError(400, "Invalid photoId");
   }
   const mime = file.type;
   const { size } = file;
   if (typeof occDate === "string" && !OCC_DATE_RE.test(occDate)) {
-    throw new Error("Invalid occurrence date");
+    throw new HttpError(400, "Invalid occurrence date");
   }
   if (!MEDIA_MIME_TYPES.has(mime)) {
-    throw new Error("Unsupported file type");
+    throw new HttpError(400, "Unsupported file type");
   }
   const maxSize = VIDEO_MIME_TYPES.has(mime)
     ? MAX_VIDEO_SIZE_BYTES
     : MAX_IMAGE_SIZE_BYTES;
   if (size > maxSize) {
     const limit = VIDEO_MIME_TYPES.has(mime) ? "500 MB" : "20 MB";
-    throw new Error(`File exceeds ${limit} limit`);
+    throw new HttpError(400, `File exceeds ${limit} limit`);
   }
   return {
     eventId,

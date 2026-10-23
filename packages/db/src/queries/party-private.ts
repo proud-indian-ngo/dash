@@ -408,7 +408,9 @@ export async function deleteDonorInTransaction(
   partyId: string
 ): Promise<DeleteDonorOutcome> {
   if (partyId === GIVE_INDIA_PARTY_ID) {
-    throw new Error("GiveIndia is reference data and can't be deleted");
+    throw new PartyConflictError(
+      "GiveIndia is reference data and can't be deleted"
+    );
   }
   await lockPartyId(tx, partyId);
   const [existing] = await tx
@@ -431,7 +433,7 @@ export async function deleteDonorInTransaction(
     )
     .limit(1);
   if (gift) {
-    throw new Error("Cannot delete a donor with gifts");
+    throw new PartyConflictError("Cannot delete a donor with gifts");
   }
   await assertNoDonorLinks(tx, partyId);
   const [otherRole] = await tx
@@ -494,7 +496,7 @@ async function assertNoDonorLinks(tx: Tx, partyId: string) {
         .limit(1)
     ));
   if (linked) {
-    throw new Error(
+    throw new PartyConflictError(
       "This donor is linked to a project or grant; unlink it first"
     );
   }
@@ -514,7 +516,9 @@ async function assertDonorUnreferenced(tx: Tx, partyId: string) {
         .limit(1)
     )
   ) {
-    throw new Error("This donor is linked to a user; unlink it first");
+    throw new PartyConflictError(
+      "This donor is linked to a user; unlink it first"
+    );
   }
   const recorded =
     (await first(
@@ -539,7 +543,7 @@ async function assertDonorUnreferenced(tx: Tx, partyId: string) {
         .limit(1)
     ));
   if (recorded) {
-    throw new Error(
+    throw new PartyConflictError(
       "The books, a receipt or a return hold this donor, so it can't be deleted"
     );
   }
