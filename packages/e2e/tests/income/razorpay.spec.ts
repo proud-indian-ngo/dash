@@ -64,7 +64,7 @@ const SECRET =
   process.env.RAZORPAY_WEBHOOK_SECRET ?? "e2e-razorpay-webhook-secret";
 const WEBHOOK = "/api/razorpay/webhook";
 const CLEARING = "E2E Razorpay Clearing";
-/** The seeded clearing account (helpers/seed-test-user.ts). */
+/** The seeded clearing account (helpers/seed/income.ts). */
 const E2E_CLEARING_ID = "01930000-0000-7000-8000-000000000713";
 
 /** A PAN unique to this run: five letters, four digits, one letter. */

@@ -19,9 +19,9 @@ import { ListPage } from "../../pages/list-page";
  */
 
 const READY_DONOR = "E2E Ready Donor";
-/** The ready donor's gift (see seed-test-user.ts). */
+/** The ready donor's gift (see helpers/seed/income.ts). */
 const READY_REFERENCE = "E2E-RETURN-736";
-/** Seeded encrypted for the ready donor (see seed-test-user.ts). */
+/** Seeded encrypted for the ready donor (see helpers/seed/income.ts). */
 const READY_DONOR_PAN = "AAAPE1234E";
 
 const execFileAsync = promisify(execFile);

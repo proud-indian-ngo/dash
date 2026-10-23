@@ -218,7 +218,7 @@ async function probeGuards(): Promise<Record<string, string>> {
 
 class Rollback extends Error {}
 
-/** "E2E Income Donor", seeded by seed-test-user. */
+/** "E2E Income Donor", seeded by helpers/seed/income.ts. */
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 /** Must match GENERAL_FUND_ID and PROGRAMME_IDS.education in @pi-dash/shared/constants. */
 const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
@@ -947,7 +947,7 @@ async function provisionFixture(run: string, yearLabel: string) {
   };
 }
 
-/** "E2E Bank Account", seeded by seed-test-user. */
+/** "E2E Bank Account", seeded by helpers/seed/income.ts. */
 const E2E_BANK_ID = "01930000-0000-7000-8000-000000000711";
 
 async function ensureOpening(label: string) {

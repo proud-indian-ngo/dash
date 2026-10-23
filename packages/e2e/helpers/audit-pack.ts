@@ -74,7 +74,7 @@ import { uuidv7 } from "uuidv7";
  */
 
 const YEAR = "2026-27";
-/** "E2E Income Donor", seeded by seed-test-user. */
+/** "E2E Income Donor", seeded by helpers/seed/income.ts. */
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 /** Must match GENERAL_FUND_ID and PROGRAMME_IDS.education in @pi-dash/shared/constants. */
 const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";

@@ -29,7 +29,7 @@ import { eq } from "drizzle-orm";
 import {
   KALAKRITI_ACTORS,
   type KalakritiActorName,
-} from "../fixtures/kalakriti-actors";
+} from "../../fixtures/kalakriti-actors";
 
 const prefix = "019f0000-0019-7000-8000-00000000";
 

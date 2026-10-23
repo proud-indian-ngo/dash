@@ -6,7 +6,7 @@ import {
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { eq } from "drizzle-orm";
 
-import { KALAKRITI_RELEASE_FIXTURE_IDS } from "./kalakriti-release-fixture";
+import { KALAKRITI_RELEASE_FIXTURE_IDS } from "./seed/kalakriti";
 
 const YEAR = 2094;
 const KALAKRITI_EDITION_ROLLBACK_IDS = {

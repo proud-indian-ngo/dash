@@ -8,7 +8,7 @@ import { clickPageAction } from "../../helpers/page-header";
 
 const RETURN_DONOR = "E2E Return Donor";
 const READY_DONOR = "E2E Ready Donor";
-/** Seeded encrypted for the ready donor (see seed-test-user.ts). */
+/** Seeded encrypted for the ready donor (see helpers/seed/income.ts). */
 const READY_DONOR_PAN = "AAAPE1234E";
 
 /** The financial year running now in India, which holds the seeded gifts. */
