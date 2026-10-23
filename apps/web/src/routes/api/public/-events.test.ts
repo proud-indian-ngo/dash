@@ -310,7 +310,7 @@ describe("clientIp", () => {
       "unknown"
     );
     expect(clientIp(request("", { "x-forwarded-for": " 2001:db8::7 " }))).toBe(
-      "2001:db8::7"
+      "2001:0db8:0000:0000:0000:0000:0000:0000"
     );
     expect(clientIp(request())).toBe("unknown");
   });
