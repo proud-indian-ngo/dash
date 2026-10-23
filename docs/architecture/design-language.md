@@ -12,7 +12,7 @@ The dashboard uses the **product** language of `@proudindian/design` (pi-design)
 | Status and Tag | `apps/web/src/components/shared/status-badge.tsx` |
 | Tables | `apps/web/src/components/data-table/data-table-wrapper.tsx`, `.agents/skills/create-data-table/SKILL.md` |
 
-Token and rule changes start in pi-design; the dashboard then bumps the tag and maps tokens in `styles.css`. Edits under `packages/design-system/components/**` stay class-level, matching shadcn `base-nova`.
+Token and rule changes start in pi-design; the dashboard then bumps the tag and maps tokens in `styles.css`. Edits under `packages/design-system/components/**` stay class-level, matching shadcn `base-nova`. The exception is the reui data-grid renderers, which carry local behaviour fixes no wrapper can reach; the drag table's body cells follow their header rather than registering their own sortable, because dnd-kit keeps one draggable per column id.
 
 ## Never in the dashboard
 
