@@ -71,6 +71,28 @@ test.describe("Scheduled messages (admin)", () => {
     await expect(page.getByText("Message scheduled")).toBeVisible();
     await expect(page.getByText(messageText)).toBeVisible({ timeout: 10_000 });
 
+    await test.step("the next message starts without the last one's recipients", async () => {
+      const nextText = `E2E Message without recipients ${Date.now()}`;
+      await page.getByRole("button", { name: "Schedule message" }).click();
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole("textbox", { name: "Message" })
+      ).toHaveValue("");
+      await expect(dialog.getByText("0/10 recipients selected")).toBeVisible();
+      await dialog.getByRole("textbox", { name: "Message" }).fill(nextText);
+      // With no recipient the form can't be saved.
+      await expect(
+        dialog.getByRole("button", { exact: true, name: "Schedule message" })
+      ).toBeDisabled();
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
+      await page.reload();
+      await expect(page.getByText(messageText)).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByText(nextText)).toHaveCount(0);
+    });
+
     // -- View details via row action --
     const row = page.getByRole("row").filter({ hasText: messageText });
     await list.openRowActionAndClick(row, "View details");
