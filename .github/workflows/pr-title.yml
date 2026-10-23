@@ -1,7 +1,7 @@
 name: PR title
 on:
   pull_request:
-    branches: [master, "feat/kalakriti-p2-*"]
+    branches: [master]
     # `edited` reruns the check when only the title changes.
     types: [opened, edited, synchronize, reopened]
 
@@ -19,11 +19,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
-      - uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - name: Lint PR title
         env:
