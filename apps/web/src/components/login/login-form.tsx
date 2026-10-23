@@ -5,6 +5,7 @@ import {
   formatEventRedirect,
   parseEventRedirect,
 } from "@pi-dash/shared/event-redirect";
+import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { useForm } from "@tanstack/react-form";
 import {
   Link,
@@ -20,6 +21,7 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { authClient } from "@/lib/auth-client";
 import { registerLinkSearch } from "@/lib/auth-route-policy";
 
@@ -58,6 +60,7 @@ export function LoginForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const turnstile = useTurnstile(TURNSTILE_ACTIONS["/sign-in/email"]);
 
   const warmAuthenticatedCode = useEventCallback(() => {
     // Load code only: protected loaders and Zero still wait for authentication.
@@ -104,13 +107,12 @@ export function LoginForm() {
         {
           // An unverified sign-in re-sends the verification email; keep the
           // website event (and interest request) in it.
-          ...(eventRedirect
-            ? {
-                headers: {
-                  [EVENT_REDIRECT_HEADER]: formatEventRedirect(eventRedirect),
-                },
-              }
-            : {}),
+          headers: {
+            ...turnstile.takeHeaders(),
+            ...(eventRedirect
+              ? { [EVENT_REDIRECT_HEADER]: formatEventRedirect(eventRedirect) }
+              : {}),
+          },
           onError: (error) => {
             const message = error.error.message || error.error.statusText;
             log.error({
@@ -242,6 +244,7 @@ export function LoginForm() {
             </Link>
           </div>
         </div>
+        {turnstile.widget}
         <FormActions
           className="w-full"
           form={form}

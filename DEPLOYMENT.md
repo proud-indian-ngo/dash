@@ -25,6 +25,7 @@ Copy `.env.sample` to `.env` locally. Production uses `docker-compose.prod.yml`.
 | `DATA_ENCRYPTION_KEY` | Prod | `openssl rand -base64 32`. Also keys import hashes and receipt QR links. Never change it once data exists. Scripts that write encrypted values must use the production key |
 | `COOKIE_DOMAIN` | No | Cross-subdomain cookie domain |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | No | Account for `bun run auth:seed-admin` |
+| `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY` | Prod | [Turnstile](docs/architecture/auth.md#bot-checks) keys |
 | `APP_URL` | No | URL in notification footers and receipt QR codes (else `BETTER_AUTH_URL`); keep it serving `/verify/r/*` |
 | `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name |
 | `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window |

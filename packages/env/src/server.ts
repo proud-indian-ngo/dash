@@ -119,6 +119,15 @@ export const env = createEnv({
     SIGNING_SERVICE_TOKEN: z.string().min(16).optional(),
     /** Internal URL of the signing service; unset stores signed PDFs without a signature check. */
     SIGNING_SERVICE_URL: z.url().optional(),
+    /** Cloudflare Turnstile secret gating sign-in, sign-up and password reset. Required in production; unset skips the check. */
+    TURNSTILE_SECRET_KEY: z
+      .string()
+      .min(1)
+      .optional()
+      .refine(
+        (v) => process.env.NODE_ENV !== "production" || !!v,
+        "TURNSTILE_SECRET_KEY is required in production"
+      ),
     /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
     SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),

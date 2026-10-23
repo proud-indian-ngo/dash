@@ -1,5 +1,6 @@
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { log } from "evlog";
@@ -10,6 +11,7 @@ import z from "zod";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { authClient } from "@/lib/auth-client";
 
 const forgotPasswordSchema = z.object({
@@ -39,6 +41,7 @@ export function ForgotPasswordForm() {
   const [cooldown, setCooldown] = useState(0);
   const [resending, setResending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const turnstile = useTurnstile(TURNSTILE_ACTIONS["/request-password-reset"]);
 
   const startCooldown = () => {
     setCooldown(COOLDOWN_SECONDS);
@@ -61,10 +64,10 @@ export function ForgotPasswordForm() {
       email: "",
     },
     onSubmit: async ({ value }) => {
-      const { error } = await authClient.requestPasswordReset({
-        email: value.email,
-        redirectTo: "/reset-password",
-      });
+      const { error } = await authClient.requestPasswordReset(
+        { email: value.email, redirectTo: "/reset-password" },
+        { headers: turnstile.takeHeaders() }
+      );
       if (error) {
         log.error({
           action: "requestPasswordReset",
@@ -91,10 +94,10 @@ export function ForgotPasswordForm() {
       return;
     }
     setResending(true);
-    const { error } = await authClient.requestPasswordReset({
-      email: sentEmail,
-      redirectTo: "/reset-password",
-    });
+    const { error } = await authClient.requestPasswordReset(
+      { email: sentEmail, redirectTo: "/reset-password" },
+      { headers: turnstile.takeHeaders() }
+    );
     if (error) {
       log.error({
         action: "resendPasswordReset",
@@ -126,6 +129,7 @@ export function ForgotPasswordForm() {
             If an account exists for <strong>{sentEmail}</strong>, we've sent a
             password reset link. Check your email.
           </p>
+          {turnstile.widget}
           <Button
             disabled={cooldown > 0 || resending}
             onClick={handleResend}
@@ -146,6 +150,7 @@ export function ForgotPasswordForm() {
             placeholder="you@example.com"
             type="email"
           />
+          {turnstile.widget}
           <FormActions
             className="w-full"
             form={form}

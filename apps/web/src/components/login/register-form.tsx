@@ -1,4 +1,5 @@
 import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
+import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import {
   isVolunteerAgeEligible,
   latestVolunteerDob,
@@ -18,6 +19,7 @@ import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { authClient } from "@/lib/auth-client";
 import { registerLinkEventRedirect } from "@/lib/auth-route-policy";
 
@@ -62,6 +64,7 @@ export function RegisterForm() {
     ? formatEventRedirect(eventRedirect)
     : undefined;
   const maxDob = latestVolunteerDob(new Date());
+  const turnstile = useTurnstile(TURNSTILE_ACTIONS["/sign-up/email"]);
 
   const form = useForm({
     defaultValues: {
@@ -86,7 +89,12 @@ export function RegisterForm() {
           ...(eventId ? { query: { eventId }, registerEventId: eventId } : {}),
           ...(redirect ? { callbackURL: redirect } : {}),
         },
-        eventId ? { headers: { "x-register-event-id": eventId } } : undefined
+        {
+          headers: {
+            ...turnstile.takeHeaders(),
+            ...(eventId ? { "x-register-event-id": eventId } : {}),
+          },
+        }
       );
       if (error) {
         log.error({
@@ -177,6 +185,7 @@ export function RegisterForm() {
           options={genderOptions}
           placeholder="Select gender"
         />
+        {turnstile.widget}
         <FormActions
           className="w-full"
           form={form}
