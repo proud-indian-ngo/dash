@@ -176,7 +176,7 @@ export const ALL_GIFTS_HEADERS = [
 /**
  * Who receipts the gift under the fixed policy, and pi-dash's receipt number
  * when it issued one. Direct gifts from before the start date were receipted
- * outside pi-dash; gifts from an intermediary are not receipted at all
+ * outside pi-dash; later gifts from an intermediary are not receipted
  * (`assessReceipt`), unless a receipt issued earlier is still live.
  */
 export function receiptIssuerCells(
@@ -194,11 +194,11 @@ export function receiptIssuerCells(
   if (issuer !== "pi_dash") {
     return [RECEIPT_ISSUER_LABELS[issuer], ""];
   }
-  if (gift.fromIntermediary && !receiptNumber) {
-    return [RECEIPT_SKIP_LABELS.intermediary, ""];
-  }
   if (gift.receivedOn < RECEIPTING_START_DAY) {
     return ["Outside the dashboard", ""];
+  }
+  if (gift.fromIntermediary && !receiptNumber) {
+    return [RECEIPT_SKIP_LABELS.intermediary, ""];
   }
   return [RECEIPT_ISSUER_LABELS.pi_dash, receiptNumber ?? "Not issued yet"];
 }

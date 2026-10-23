@@ -42,7 +42,7 @@ export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
  * Whether the gift's party holds an active intermediary role; the Income
  * list loads only that role.
  */
-export function fromIntermediary(row: ContributionRow): boolean {
+export function fromIntermediary(row: Pick<ContributionRow, "party">): boolean {
   return (
     row.party?.roles?.some(
       (role) => role.active && role.role === "intermediary"

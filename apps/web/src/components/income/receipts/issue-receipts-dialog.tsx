@@ -9,6 +9,7 @@ import { formatPaise } from "@pi-dash/shared/money";
 import {
   MAX_RECEIPTS_PER_ISSUE,
   RECEIPT_BLOCK_LABELS,
+  RECEIPT_SKIP_LABELS,
   receiptAssessmentLabel,
 } from "@pi-dash/shared/receipts";
 import { useServerFn } from "@tanstack/react-start";
@@ -28,6 +29,22 @@ import { Tag } from "@/components/shared/status-badge";
 import { issueContributionReceipts } from "@/functions/contribution-receipts";
 
 import { formatReceivedOn } from "../income-date";
+
+const ISSUE_SKIP_LABELS: Record<string, string> = {
+  ...RECEIPT_SKIP_LABELS,
+  ...RECEIPT_BLOCK_LABELS,
+  external: "Receipted by the gateway",
+  not_found: "Gift not found",
+  receipted: "Already receipted",
+};
+
+/** Why the server skipped gifts: its reason codes, in words, once each. */
+function issueSkipReasons(skipped: readonly { reason: string }[]): string {
+  const reasons = skipped.flatMap(({ reason }) =>
+    reason.split(",").map((code) => ISSUE_SKIP_LABELS[code] ?? code)
+  );
+  return [...new Set(reasons)].join("; ");
+}
 import { useReceiptCandidates } from "./use-receipt-candidates";
 
 const errorMessage = (error: unknown) =>
@@ -112,7 +129,8 @@ export function IssueReceiptsDialog({
         }
         if (result.skipped.length > 0) {
           toast.warning(
-            `${result.skipped.length} ${result.skipped.length === 1 ? "gift was" : "gifts were"} skipped because they changed since the review`
+            `${result.skipped.length} ${result.skipped.length === 1 ? "gift was" : "gifts were"} skipped because they changed since the review`,
+            { description: issueSkipReasons(result.skipped) }
           );
         }
         onOpenChange(false);

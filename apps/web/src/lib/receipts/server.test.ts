@@ -32,7 +32,6 @@ mock.module("@pi-dash/db/queries/contribution-receipts", () => ({
     return wasWaiting;
   },
   issueReceiptsIn: async () => ({ issued: [], skipped: [] }),
-  loadIntermediaryGiftIds: async () => new Set(),
   loadLiveReceiptContacts: async () => ({}),
   loadReceiptCandidates: async () => ({}),
   loadReceiptConfig: async () => ({ settings: null }),

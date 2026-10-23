@@ -392,8 +392,8 @@ export function receiptCarries80G(
 /**
  * Where a gift stands for a pi-dash receipt. Order matters: who receipts
  * the channel, then an existing receipt (finance voids one it shouldn't
- * have), then an intermediary party, then the start date and status, then
- * what must be fixed on the gift or the donor.
+ * have), then the start date, then an intermediary party, then status,
+ * then what must be fixed on the gift or the donor.
  */
 export function assessReceipt(
   gift: ReceiptGiftFacts,
@@ -409,11 +409,11 @@ export function assessReceipt(
   if (gift.hasActiveReceipt) {
     return { kind: "receipted" };
   }
-  if (gift.fromIntermediary) {
-    return { kind: "skipped", reason: "intermediary" };
-  }
   if (gift.receivedOn < RECEIPTING_START_DAY) {
     return { kind: "skipped", reason: "before_start" };
+  }
+  if (gift.fromIntermediary) {
+    return { kind: "skipped", reason: "intermediary" };
   }
   if (gift.status === "pending") {
     return { kind: "skipped", reason: "pending" };

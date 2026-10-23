@@ -289,11 +289,20 @@ test.describe("Income: donation receipts (finance)", () => {
         label: INTERMEDIARY_LABEL,
         reference: PLATFORM_REFERENCE,
       },
-      {
-        assessment: { kind: "eligible", with80G: true },
-        label: "Ready to receipt",
-        reference: UPI_REFERENCE,
-      },
+      // A retry of the serial group may find the control receipted by
+      // the issue test.
+      testInfo.retry === 0
+        ? {
+            assessment: { kind: "eligible", with80G: true },
+            label: "Ready to receipt",
+            reference: UPI_REFERENCE,
+          }
+        : expect.objectContaining({
+            assessment: expect.objectContaining({
+              kind: expect.stringMatching(/^(eligible|receipted)$/),
+            }),
+            reference: UPI_REFERENCE,
+          }),
     ]);
     await attachJson(testInfo, "intermediary-receipt-assessments.json", {
       assessments,
@@ -396,7 +405,7 @@ test.describe("Income: donation receipts (finance)", () => {
     );
 
     // The server never trusts the browser: an issue request naming the
-    // intermediary's gift is refused with the reason, and nothing is issued.
+    // intermediary's gift skips it with the reason, and nothing is issued.
     await page.route("**/_serverFn/**", async (route) => {
       const body = route.request().postData() ?? "";
       if (!body.includes("giftIds")) {
@@ -411,19 +420,24 @@ test.describe("Income: donation receipts (finance)", () => {
       });
     });
     await single.getByRole("button", { name: "Issue 1 receipt" }).click();
-    await expect(page.getByText("Couldn't issue the receipts")).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByText("1 gift was skipped because they changed since the review")
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
       page.getByText("Received through an intermediary (not receipted)", {
         exact: true,
       })
     ).toBeVisible();
+    await expect(single).toBeHidden();
     await page.unroute("**/_serverFn/**");
     expect(await assessGifts([PLATFORM_REFERENCE])).toMatchObject([
       { assessment: { kind: "skipped", reason: "intermediary" } },
     ]);
 
+    await sheet.getByTestId("contribution-issue-receipt").click();
+    await expect(single.getByTestId("receipts-to-issue")).toContainText(
+      RECEIPT_DONOR
+    );
     await single.getByRole("button", { name: "Issue 1 receipt" }).click();
     await expect(single).toBeHidden({ timeout: 15_000 });
     const receiptLine = sheet.getByTestId("contribution-receipt");

@@ -29,11 +29,11 @@ const isoDay = (epoch: number) => new Date(epoch).toISOString().slice(0, 10);
 
 /** Why a direct gift isn't receiptable, from what the browser already knows. */
 function localSkip(row: ContributionRow): ReceiptSkip | null {
-  if (fromIntermediary(row)) {
-    return "intermediary";
-  }
   if (isoDay(row.receivedOn) < RECEIPTING_START_DAY) {
     return "before_start";
+  }
+  if (fromIntermediary(row)) {
+    return "intermediary";
   }
   if (
     row.status === "pending" ||

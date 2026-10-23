@@ -6,6 +6,9 @@ import {
 } from "@pi-dash/shared/income";
 import { sumPaise } from "@pi-dash/shared/money";
 
+import type { ContributionRow } from "./income-types";
+import { fromIntermediary } from "./receipts/receipt-types";
+
 interface StatInput {
   amountPaise: number;
   partyId: string;
@@ -72,6 +75,8 @@ export function computeDonorGiving(
 
 interface SignatureInput {
   id: string;
+  /** Its intermediary role changes the Receipt column. */
+  party?: ContributionRow["party"];
   partyId: string;
   receivedOn: number;
   refunds?: readonly { amountPaise: number }[] | null;
@@ -97,7 +102,7 @@ export function contributionsSignature(
   };
   for (const row of rows) {
     mix(
-      `${row.id}|${row.partyId}|${row.receivedOn}|${row.status ?? ""}|${row.updatedAt ?? ""}|${row.refunds?.length ?? 0};`
+      `${row.id}|${row.partyId}|${row.receivedOn}|${row.status ?? ""}|${row.updatedAt ?? ""}|${row.refunds?.length ?? 0}|${fromIntermediary(row)};`
     );
   }
   return `${rows.length}:${(hash >>> 0).toString(36)}`;
