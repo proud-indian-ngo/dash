@@ -143,7 +143,9 @@ export const eventUpdateMutators = {
       }
       assertEventRowNotManagedByKalakriti(event);
 
-      if (event.startTime > args.now) {
+      // The client's clock decides only its optimistic run.
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.startTime > now) {
         throw new Error("Cannot post updates before event starts");
       }
 
@@ -178,14 +180,14 @@ export const eventUpdateMutators = {
 
       await tx.mutate.eventUpdate.insert({
         content: args.content,
-        createdAt: args.now,
+        createdAt: now,
         createdBy: ctx.userId,
         eventId: args.eventId,
         id: args.id,
-        reviewedAt: isAdminOrLead ? args.now : null,
+        reviewedAt: isAdminOrLead ? now : null,
         reviewedBy: isAdminOrLead ? ctx.userId : null,
         status,
-        updatedAt: args.now,
+        updatedAt: now,
       });
 
       if (tx.location === "server") {
@@ -217,7 +219,7 @@ export const eventUpdateMutators = {
                     eventWhatsappGroupId: event.whatsappGroupId ?? null,
                     startTime: event.startTime,
                     teamWhatsappGroupId: teamRow?.whatsappGroupId ?? null,
-                    updatedAt: args.now,
+                    updatedAt: now,
                   },
                   { traceId: ctx.traceId }
                 );

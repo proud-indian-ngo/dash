@@ -1,4 +1,11 @@
-import { describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  setSystemTime,
+} from "bun:test";
 
 import {
   matchesScope,
@@ -114,6 +121,9 @@ function run(
 }
 
 describe("teamEvent.saveSocialRecap", () => {
+  // The server judges the event's end by its own clock; these run as the server.
+  beforeAll(() => setSystemTime(new Date(NOW)));
+  afterAll(() => setSystemTime());
   const recap = {
     childrenAttended: 18,
     eventId: "event-1",
@@ -154,6 +164,20 @@ describe("teamEvent.saveSocialRecap", () => {
     await expect(
       run(teamEventMutators.saveSocialRecap, db, leadCtx, recap)
     ).rejects.toThrow("after the event ends");
+  });
+
+  it("judges the end by the server's clock, not a client's set ahead", async () => {
+    const db = createDb({
+      teamEvent: [pastEvent({ endTime: NOW + HOUR })],
+      teamMember: [leadMembership],
+    });
+    await expect(
+      run(teamEventMutators.saveSocialRecap, db, leadCtx, {
+        ...recap,
+        now: NOW + 2 * HOUR,
+      })
+    ).rejects.toThrow("after the event ends");
+    expect(db.writes).toHaveLength(0);
   });
 
   it("records the recap on a series parent, its first session", async () => {
@@ -266,6 +290,40 @@ describe("eventPhoto.setDoNotUse", () => {
         id: "photo-1",
       })
     ).rejects.toThrow("Unauthorized");
+  });
+});
+
+describe("feedback-open notice on update", () => {
+  beforeAll(() => setSystemTime(new Date(NOW)));
+  afterAll(() => setSystemTime());
+  const enableFeedback = async (endTime: number) => {
+    const db = createDb({
+      teamEvent: [pastEvent({ endTime, feedbackEnabled: false })],
+      teamMember: [leadMembership],
+    });
+    const asyncTasks: { meta?: Row }[] = [];
+    // Reads return copies, so the mutator sees the row as it was before its
+    // own write, as it does against the database.
+    const { run: read } = db.tx;
+    db.tx.run = async (query) => structuredClone(await read(query));
+    await run(
+      teamEventMutators.update,
+      db,
+      { ...leadCtx, asyncTasks, traceId: "t" },
+      // A client clock set past the event's end.
+      { feedbackEnabled: true, id: "event-1", now: NOW + 2 * HOUR }
+    );
+    return asyncTasks.some(
+      (task) => task.meta?.mutator === "updateTeamEvent:feedbackEnabled"
+    );
+  };
+
+  it("sends it once the event has ended by the server's clock", async () => {
+    expect(await enableFeedback(NOW - HOUR)).toBe(true);
+  });
+
+  it("ignores a client clock set past an event that hasn't ended", async () => {
+    expect(await enableFeedback(NOW + HOUR)).toBe(false);
   });
 });
 

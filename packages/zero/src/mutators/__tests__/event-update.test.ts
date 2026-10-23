@@ -1,4 +1,12 @@
-import { describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  mock,
+  setSystemTime,
+} from "bun:test";
 
 import type { Context } from "../../context";
 import { eventUpdateMutators } from "../event-update";
@@ -202,5 +210,31 @@ describe("eventUpdate media policy", () => {
       id: "update-1",
       updatedAt: 2,
     });
+  });
+});
+
+describe("eventUpdate.create time rule", () => {
+  const NOW = Date.UTC(2026, 9, 1, 6);
+  const HOUR = 3_600_000;
+  // The server judges the start by its own clock; these run as the server.
+  beforeAll(() => setSystemTime(new Date(NOW)));
+  afterAll(() => setSystemTime());
+
+  it("judges the start by the server's clock, not a client's set ahead", async () => {
+    const { insert, tx } = makeTx({ startTime: NOW + HOUR, teamId: "team-1" });
+
+    await expect(
+      eventUpdateMutators.create.fn({
+        args: {
+          content: plate(),
+          eventId: "event-1",
+          id: "update-1",
+          now: NOW + 2 * HOUR,
+        },
+        ctx: makeContext(["event_updates.create"]),
+        tx,
+      } as never)
+    ).rejects.toThrow("Cannot post updates before event starts");
+    expect(insert).not.toHaveBeenCalled();
   });
 });

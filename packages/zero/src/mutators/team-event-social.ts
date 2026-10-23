@@ -185,16 +185,18 @@ export const teamEventSocialMutators = {
         "events.manage_attendance",
         isTeamLead
       );
-      assertRecapEligible(event, args.now);
+      // The client's clock decides only its optimistic run.
+      const now = tx.location === "server" ? Date.now() : args.now;
+      assertRecapEligible(event, now);
 
       await tx.mutate.teamEvent.update({
         childrenAttended: args.childrenAttended,
         id: args.eventId,
         socialNotes: args.socialNotes || null,
         ...(args.markReady && event.socialCompletedAt === null
-          ? { socialCompletedAt: args.now }
+          ? { socialCompletedAt: now }
           : {}),
-        updatedAt: args.now,
+        updatedAt: now,
       });
     }
   ),

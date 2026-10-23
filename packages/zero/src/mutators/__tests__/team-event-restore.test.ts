@@ -1,4 +1,12 @@
-import { describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  mock,
+  setSystemTime,
+} from "bun:test";
 
 const enqueue = mock();
 mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
@@ -17,6 +25,9 @@ const NOW = Date.UTC(2026, 9, 1, 6);
 const CANCELLED_AT = NOW - 86_400_000;
 const LATER = Date.UTC(2026, 9, 10, 4, 30);
 const EARLIER = Date.UTC(2026, 8, 26, 4, 30);
+// The server judges start times by its own clock; these run as the server.
+beforeAll(() => setSystemTime(new Date(NOW)));
+afterAll(() => setSystemTime());
 
 const event = (id: string, extra: Row = {}): Row => ({
   cancelledAt: CANCELLED_AT,
@@ -81,10 +92,11 @@ const admin = {
 const restore = (
   db: ReturnType<typeof createDb>,
   id: string,
-  ctx: Row = lead
+  ctx: Row = lead,
+  now = NOW
 ) =>
   teamEventMutators.restore.fn({
-    args: { id, now: NOW },
+    args: { id, now },
     ctx,
     tx: db.tx,
   } as never);
@@ -125,13 +137,52 @@ describe("restoring a cancelled event", () => {
     expect(lead.asyncTasks).toHaveLength(0);
   });
 
-  it("restores a started event only with events.cancel", async () => {
+  it("refuses a started event, even with events.cancel", async () => {
     const db = createDb([event("e1", { startTime: EARLIER })]);
-    await expect(restore(db, "e1")).rejects.toThrow(
-      "Cannot restore an event that has already started"
+    for (const ctx of [lead, admin]) {
+      await expect(restore(db, "e1", ctx)).rejects.toThrow(
+        "This event has started since it was cancelled"
+      );
+    }
+    expect(db.cancelledAt("e1")).toBe(CANCELLED_AT);
+  });
+
+  it("refuses a started session, even with events.cancel", async () => {
+    const db = createDb([
+      event("series", {
+        cancelledAt: null,
+        recurrenceRule: { rrule: "FREQ=WEEKLY" },
+        startTime: EARLIER - 7 * 86_400_000,
+      }),
+      event("session", {
+        originalDate: "2026-09-26",
+        seriesId: "series",
+        startTime: EARLIER,
+      }),
+    ]);
+    await expect(restore(db, "session", admin)).rejects.toThrow(
+      "This event has started since it was cancelled"
     );
-    await restore(db, "e1", admin);
-    expect(db.cancelledAt("e1")).toBeNull();
+    expect(db.cancelledAt("session")).toBe(CANCELLED_AT);
+  });
+
+  it("judges by the server's clock, not a backdated one", async () => {
+    const db = createDb([
+      event("e1", { startTime: EARLIER }),
+      event("series", {
+        recurrenceRule: { rrule: "FREQ=WEEKLY" },
+        startTime: EARLIER,
+      }),
+    ]);
+    const backdated = EARLIER - 86_400_000;
+    await expect(restore(db, "e1", admin, backdated)).rejects.toThrow(
+      "This event has started since it was cancelled"
+    );
+    await expect(restore(db, "series", admin, backdated)).rejects.toThrow(
+      "This series has started since it was cancelled"
+    );
+    expect(db.cancelledAt("e1")).toBe(CANCELLED_AT);
+    expect(db.cancelledAt("series")).toBe(CANCELLED_AT);
   });
 
   it("restores a cancelled session of a live series", async () => {
