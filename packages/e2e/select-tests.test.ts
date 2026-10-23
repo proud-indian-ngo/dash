@@ -15,10 +15,31 @@
  *   every spec runs;
  * - an empty or docs-only diff selects nothing, not everything.
  * The label and master overrides skip the planner in ci.yml.
+ *
+ * project-selection.ts selects the specs its changed lines name. It could
+ * select too little when:
+ * - a changed line is code, a comment or a list name, which changes how
+ *   every project is built;
+ * - a spec leaves exclusiveLastSpecs or singleLiveEditionSpecs, and so runs
+ *   alongside the specs those lists keep it apart from;
+ * - its diff is missing, partial or not a diff;
+ * - the file is renamed or deleted.
+ *
+ * A registry selects the modules its changed import and export lines name.
+ * It could select too little when:
+ * - a changed line wires modules up (a queue option, a `boss.work` call, the
+ *   `defineMutators` call) instead of importing or listing one;
+ * - an object entry lists a binding the registry doesn't import;
+ * - a changed import names a package, or a module that neither resolves nor
+ *   is deleted in the same diff;
+ * - a named module has no area, and its own walk reaches a registry;
+ * - only an inner line of a multi-line import changes;
+ * - its diff is missing, partial or not a diff, or the registry is renamed
+ *   or deleted.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -212,11 +233,6 @@ describe("selectTests", () => {
     );
   });
 
-  test("a changed registry runs the full suite", () => {
-    expect(plan("packages/zero/src/mutators.ts").all).toBe(true);
-    expect(plan("packages/jobs/src/handlers/index.ts").all).toBe(true);
-  });
-
   test("a shared component selects the areas that import it", () => {
     const { all, specs } = plan(
       "apps/web/src/components/shared/requester-meta.tsx"
@@ -281,6 +297,275 @@ describe("selectTests", () => {
       .specs) {
       expect(spec).toMatch(/^[\w-]+\/[\w.-]+\.spec\.ts$/);
     }
+  });
+});
+
+const ROOT = path.resolve(import.meta.dirname, "../..");
+
+/** A full-context git diff of `file` after applying `edits` to it. */
+function edited(file: string, edits: [from: string, to: string][]): Change {
+  const before = readFileSync(path.join(ROOT, file), "utf8");
+  let after = before;
+  for (const [from, to] of edits) {
+    expect(after).toContain(from);
+    after = after.replace(from, to);
+  }
+  const [a, b] = [path.join(tmp, "a"), path.join(tmp, "b")];
+  writeFileSync(a, before);
+  writeFileSync(b, after);
+  const diff = spawnSync(
+    "git",
+    ["diff", "--no-index", "--unified=100000", a, b],
+    { encoding: "utf8" }
+  ).stdout;
+  return { diff, path: file };
+}
+
+describe("project-selection.ts", () => {
+  const file = "packages/e2e/project-selection.ts";
+
+  test("moving a spec between role lists selects that spec", () => {
+    expect(
+      plan(
+        edited(file, [
+          ['    "social/social-page.spec.ts",\n', ""],
+          [
+            "  volunteer: [\n",
+            '  volunteer: [\n    "social/social-page.spec.ts",\n',
+          ],
+        ])
+      )
+    ).toMatchObject({ all: false, specs: ["social/social-page.spec.ts"] });
+  });
+
+  test("adding a spec to exclusive_last selects it", () => {
+    expect(
+      plan(
+        edited(file, [
+          [
+            '  "income/donation-filings.spec.ts",\n',
+            '  "income/donation-filings.spec.ts",\n  "donors/donor-directory.spec.ts",\n',
+          ],
+        ])
+      )
+    ).toMatchObject({ all: false, specs: ["donors/donor-directory.spec.ts"] });
+  });
+
+  test.each([
+    ['  "governance/policy-gate.spec.ts",\n', ""],
+    ['  "kalakriti/results.spec.ts",\n', ""],
+  ])(
+    "removing %s from a list that keeps it apart runs the full suite",
+    (line) => {
+      expect(plan(edited(file, [[line, ""]])).all).toBe(true);
+    }
+  );
+
+  test.each([
+    ["code", ["owner === role ? [] :", "owner !== role ? [] :"]],
+    [
+      "a comment",
+      [
+        "// Add a file only when every test",
+        "// Add a spec only when every test",
+      ],
+    ],
+    ["a spread", ["    ...singleLiveEditionSpecs,\n", ""]],
+  ] as const)("changing %s runs the full suite", (_, edit) => {
+    expect(plan(edited(file, [[...edit]])).all).toBe(true);
+  });
+
+  test("a missing or unreadable diff runs the full suite", () => {
+    expect(plan(file).all).toBe(true);
+    expect(plan({ diff: "Binary files differ\n", path: file }).all).toBe(true);
+  });
+
+  test("a renamed or deleted file runs the full suite", () => {
+    expect(plan({ deleted: true, path: file }).all).toBe(true);
+    expect(
+      plan({ oldPath: file, path: "packages/e2e/project-lists.ts" }).all
+    ).toBe(true);
+  });
+});
+
+describe("registries", () => {
+  const moduleSpecs = (module: string) => {
+    const verdict = plan(module);
+    expect(verdict.all).toBe(false);
+    return verdict.specs;
+  };
+
+  test("a removed export * line selects that module's area", () => {
+    expect(
+      plan(
+        edited("packages/db/src/schema/index.ts", [
+          ['export * from "./vendor";\n', ""],
+        ])
+      )
+    ).toMatchObject({
+      all: false,
+      specs: moduleSpecs("packages/db/src/schema/vendor.ts"),
+    });
+    expect(
+      plan(
+        edited("packages/db/src/schema/private/index.ts", [
+          ['export * from "./donation-filings";\n', ""],
+        ])
+      )
+    ).toMatchObject({
+      all: false,
+      specs: moduleSpecs("packages/db/src/schema/private/donation-filings.ts"),
+    });
+  });
+
+  test("an import line and its object entry select the module's area", () => {
+    expect(
+      plan(
+        edited("packages/zero/src/queries.ts", [
+          [
+            'import { grantQueries, utilisationCertificateQueries } from "./queries/grant";',
+            'import { grantQueries } from "./queries/grant";',
+          ],
+          ["  utilisationCertificate: utilisationCertificateQueries,\n", ""],
+        ])
+      )
+    ).toMatchObject({
+      all: false,
+      specs: moduleSpecs("packages/zero/src/queries/grant.ts"),
+    });
+  });
+
+  test("an inner line of a multi-line import selects that import's module", () => {
+    expect(
+      plan(
+        edited("packages/zero/src/mutators.ts", [
+          ["  fundMutators,\n", ""],
+          ["  fund: fundMutators,\n", ""],
+        ])
+      )
+    ).toMatchObject({
+      all: false,
+      specs: moduleSpecs("packages/zero/src/mutators/finance-dimensions.ts"),
+    });
+  });
+
+  test("an import alone selects the module; with its wiring, the full suite", () => {
+    const handlers = "packages/jobs/src/handlers/index.ts";
+    const importLine =
+      'import { handleNotifyUtilisationCertificate } from "./utilisation-certificates";\n';
+    expect(plan(edited(handlers, [[importLine, ""]]))).toMatchObject({
+      all: false,
+      specs: moduleSpecs(
+        "packages/jobs/src/handlers/utilisation-certificates.ts"
+      ),
+    });
+    expect(
+      plan(
+        edited(handlers, [
+          [importLine, ""],
+          [
+            '  await boss.work(\n    "notify-utilisation-certificate",\n    NOTIFY_POLL,\n    handleNotifyUtilisationCertificate\n  );\n',
+            "",
+          ],
+        ])
+      ).all
+    ).toBe(true);
+  });
+
+  test("a changed option outside the imports runs the full suite", () => {
+    expect(
+      plan(
+        edited("packages/jobs/src/handlers/index.ts", [
+          ["  retryLimit: 3,", "  retryLimit: 4,"],
+        ])
+      ).all
+    ).toBe(true);
+  });
+
+  test("an entry for a binding the registry doesn't import runs the full suite", () => {
+    expect(
+      plan(
+        edited("packages/zero/src/mutators.ts", [
+          [
+            "  fund: fundMutators,\n",
+            "  fund: fundMutators,\n  zz: zzMutators,\n",
+          ],
+        ])
+      ).all
+    ).toBe(true);
+  });
+
+  test("an import from a package runs the full suite", () => {
+    expect(
+      plan(
+        edited("packages/zero/src/mutators.ts", [
+          [
+            'import { defineMutators } from "@rocicorp/zero";',
+            'import { defineMutators, defineMutator } from "@rocicorp/zero";',
+          ],
+        ])
+      ).all
+    ).toBe(true);
+  });
+
+  test("a module with no area whose walk reaches a registry runs the full suite", () => {
+    expect(
+      plan(
+        edited("packages/zero/src/mutators.ts", [
+          [
+            'import { notificationMutators } from "./mutators/notification";\n',
+            "",
+          ],
+        ])
+      ).all
+    ).toBe(true);
+  });
+
+  test("a module that no longer resolves is left to its own deletion", () => {
+    const registry = "packages/db/src/schema/index.ts";
+    const added = edited(registry, [
+      [
+        'export * from "./vendor";\n',
+        'export * from "./vendor";\nexport * from "./zz-vendor-gone";\n',
+      ],
+    ]);
+    // Reverse the diff: the old file exported the module, the new one doesn't.
+    const removed = {
+      ...added,
+      diff: (added.diff as string).replace(/^([+-])/gm, (sign) =>
+        sign === "+" ? "-" : "+"
+      ),
+    };
+    expect(plan(removed).all).toBe(true);
+    expect(
+      plan(removed, {
+        deleted: true,
+        path: "packages/db/src/schema/zz-vendor-gone.ts",
+      })
+    ).toMatchObject({ all: false, specs: inArea("vendors") });
+  });
+
+  test("a comment-only change selects nothing", () => {
+    expect(
+      plan(
+        edited("packages/db/src/schema/private/index.ts", [
+          [" * Server-only tables.", " * Server-only tables, never synced."],
+        ])
+      )
+    ).toMatchObject({ all: false, specs: [] });
+  });
+
+  test("a missing diff, a rename or a deletion runs the full suite", () => {
+    expect(plan("packages/zero/src/mutators.ts").all).toBe(true);
+    expect(
+      plan({ deleted: true, path: "packages/jobs/src/handlers/index.ts" }).all
+    ).toBe(true);
+    expect(
+      plan({
+        oldPath: "packages/db/src/schema/index.ts",
+        path: "packages/db/src/schema/all.ts",
+      }).all
+    ).toBe(true);
   });
 });
 

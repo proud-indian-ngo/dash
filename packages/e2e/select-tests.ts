@@ -29,6 +29,7 @@ import {
   ignored,
   layout,
   layoutAreas,
+  projectSelection,
   registries,
   signing,
   signingHelper,
@@ -52,6 +53,18 @@ const LOCAL_SPECIFIER = /^(?:\.|\/|@\/|@pi-dash\/)/;
 // Relative paths in string literals, such as a helper a spec runs by path.
 const PATH_LITERAL =
   /["'`]((?:\.{1,2}\/)*[\w-]+(?:\/[\w.-]+)*\.(?:ts|tsx))["'`]/g;
+// The one hunk of a full-context diff starts at line 1 on both sides.
+const WHOLE_FILE_HUNK = /^@@ -(?:0,0|1(?:,\d+)?) \+(?:0,0|1(?:,\d+)?) @@/;
+const SPEC_LINE = /^\s*"([\w-]+\/[\w.-]+\.spec\.ts)",?$/;
+const LIST_START = /^(?:export )?const (\w+)/;
+// project-selection.ts lists that keep their specs apart from the rest.
+const APART_LISTS = new Set(["exclusiveLastSpecs", "singleLiveEditionSpecs"]);
+const STATEMENT_START =
+  /^(?:import|export)\s+(?:type\s+)?(?:\{|\*|\w+\s*(?:,|from\b))/;
+const FROM = /\bfrom\s+["']([^"']+)["']/;
+// An object entry that lists one binding: `fund: fundMutators,` or `fund,`.
+const ENTRY = /^(?:\w+:\s*)?(\w+),?$/;
+const COMMENT = /^(?:\/\/|\/\*|\*)/;
 
 export type AreaName = keyof typeof areas;
 export const areaNames = Object.keys(areas) as AreaName[];
@@ -61,6 +74,8 @@ export interface Change {
   /** The path before a rename. */
   oldPath?: string;
   deleted?: boolean;
+  /** A full-context diff, for the files whose lines decide the selection. */
+  diff?: string;
 }
 
 export interface Repo {
@@ -142,6 +157,8 @@ const isIgnored = globMatcher(ignored);
 const isFullSuite = globMatcher(fullSuite);
 const isLayout = globMatcher(layout);
 const isRegistry = globMatcher(registries);
+const needsDiff = (file: string) =>
+  isRegistry(file) || file === projectSelection;
 const isSigning = globMatcher(signing);
 const generatedRules = generated.map((rule) => ({
   ...rule,
@@ -207,11 +224,196 @@ function walkImporters(file: string, repo: Repo): Verdict {
   };
 }
 
+interface DiffLine {
+  sign: " " | "+" | "-";
+  text: string;
+}
+
+/** The lines of a one-hunk full-context diff, or undefined for anything else. */
+function parseFullDiff(diff: string | undefined): DiffLine[] | undefined {
+  const lines = diff?.split("\n") ?? [];
+  const hunks = lines.filter((line) => line.startsWith("@@ "));
+  if (hunks.length !== 1 || !WHOLE_FILE_HUNK.test(hunks[0] as string)) {
+    return undefined;
+  }
+  const out: DiffLine[] = [];
+  for (const line of lines.slice(lines.indexOf(hunks[0] as string) + 1)) {
+    const sign = line[0];
+    if (line === "" || sign === "\\") {
+      continue;
+    }
+    if (sign !== " " && sign !== "+" && sign !== "-") {
+      return undefined;
+    }
+    out.push({ sign, text: line.slice(1) });
+  }
+  return out;
+}
+
+/** The specs project-selection.ts's changed lines name. */
+function classifyProjectLists(diff: string | undefined, repo: Repo): Verdict {
+  const lines = parseFullDiff(diff);
+  if (!lines) {
+    return { all: true, reason: "project lists: diff unreadable" };
+  }
+  const specs = new Set<string>();
+  let list = "";
+  for (const { sign, text } of lines) {
+    list = LIST_START.exec(text)?.[1] ?? list;
+    if (sign === " " || text.trim() === "") {
+      continue;
+    }
+    const spec = SPEC_LINE.exec(text)?.[1];
+    if (!spec) {
+      return {
+        all: true,
+        reason: "project lists: a changed line names no spec",
+      };
+    }
+    if (sign === "-" && APART_LISTS.has(list)) {
+      return { all: true, reason: `project lists: ${spec} leaves ${list}` };
+    }
+    if (repo.specAreas.has(spec)) {
+      specs.add(spec);
+    }
+  }
+  return { reason: "project lists", specs };
+}
+
+interface ModuleStatement {
+  specifier: string;
+  bindings: string[];
+}
+
+/** Each line's import or export statement that names a module. */
+function moduleStatements(lines: string[]): Map<number, ModuleStatement> {
+  const byLine = new Map<number, ModuleStatement>();
+  for (let i = 0; i < lines.length; i++) {
+    if (!STATEMENT_START.test(lines[i] as string)) {
+      continue;
+    }
+    const end = lines.findIndex((line, j) => j >= i && FROM.test(line));
+    if (end === -1) {
+      continue;
+    }
+    const text = lines.slice(i, end + 1).join("\n");
+    const named = /\{([^}]*)\}/.exec(text)?.[1] ?? "";
+    const bindings = named
+      .split(",")
+      .map((name) =>
+        name
+          .trim()
+          .replace(/^type\s+/, "")
+          .split(/\s+as\s+/)
+          .at(-1)
+      )
+      .filter((name): name is string => !!name);
+    const defaultName = /^import\s+(?!type\b)(\w+)/.exec(text)?.[1];
+    const statement = {
+      bindings: defaultName ? [...bindings, defaultName] : bindings,
+      specifier: FROM.exec(text)?.[1] as string,
+    };
+    for (let j = i; j <= end; j++) {
+      byLine.set(j, statement);
+    }
+    i = end;
+  }
+  return byLine;
+}
+
+/** The modules a registry's changed import, export and entry lines name. */
+function classifyRegistry(
+  file: string,
+  diff: string | undefined,
+  changed: string[],
+  repo: Repo
+): Verdict {
+  const lines = parseFullDiff(diff);
+  if (!lines) {
+    return { all: true, reason: "registry diff unreadable" };
+  }
+  const sides = {
+    "+": moduleStatements(
+      lines.filter((l) => l.sign !== "-").map((l) => l.text)
+    ),
+    "-": moduleStatements(
+      lines.filter((l) => l.sign !== "+").map((l) => l.text)
+    ),
+  };
+  const specifiers = new Set<string>();
+  const index = { "+": 0, "-": 0 };
+  for (const { sign, text } of lines) {
+    if (sign === " ") {
+      index["+"]++;
+      index["-"]++;
+      continue;
+    }
+    const at = index[sign]++;
+    const line = text.trim();
+    if (line === "" || COMMENT.test(line)) {
+      continue;
+    }
+    const binding = ENTRY.exec(line)?.[1];
+    const statement =
+      sides[sign].get(at) ??
+      [...sides[sign].values()].find(
+        (s) => binding && s.bindings.includes(binding)
+      );
+    if (!statement) {
+      return {
+        all: true,
+        reason: "changes a registry outside its imports and exports",
+      };
+    }
+    specifiers.add(statement.specifier);
+  }
+  const specs: string[] = [];
+  for (const specifier of specifiers) {
+    let target: string | undefined;
+    try {
+      target = path.relative(
+        ROOT,
+        realpathSync(
+          Bun.resolveSync(specifier, path.join(ROOT, path.dirname(file)))
+        )
+      );
+    } catch {
+      // A module deleted in the same diff is decided by its own change.
+      const base = path.join(path.dirname(file), specifier);
+      if (
+        [".ts", ".tsx", "/index.ts"].some((ext) => changed.includes(base + ext))
+      ) {
+        continue;
+      }
+      return {
+        all: true,
+        reason: `registry names ${specifier}, which doesn't resolve`,
+      };
+    }
+    if (target.startsWith("..") || target.includes("node_modules/")) {
+      return { all: true, reason: `registry names package ${specifier}` };
+    }
+    const verdict = classify(target, "current", changed, repo);
+    if (verdict.all) {
+      return {
+        all: true,
+        reason: `registry names ${target}: ${verdict.reason}`,
+      };
+    }
+    specs.push(...(verdict.specs ?? []));
+  }
+  return {
+    reason: `registry names ${[...specifiers].join(", ") || "no module"}`,
+    specs,
+  };
+}
+
 function classify(
   file: string,
   kind: "current" | "renamed" | "deleted",
   changed: string[],
-  repo: Repo
+  repo: Repo,
+  diff?: string
 ): Verdict {
   if (isIgnored(file)) {
     return { reason: "ignored" };
@@ -224,6 +426,14 @@ function classify(
   }
   if (isFullSuite(file)) {
     return { all: true, reason: "full-suite file" };
+  }
+  if (file === projectSelection || isRegistry(file)) {
+    if (kind !== "current") {
+      return { all: true, reason: `${kind} registry or project lists` };
+    }
+    return file === projectSelection
+      ? classifyProjectLists(diff, repo)
+      : classifyRegistry(file, diff, changed, repo);
   }
   if (isSigning(file)) {
     const signers = repo.specRefs.get(signingHelper) ?? [];
@@ -291,14 +501,14 @@ export function selectTests(changes: Change[], repo: Repo): Plan {
   const specs = new Set<string>();
   let all = false;
   for (const change of changes) {
-    const entries: [string, "current" | "renamed" | "deleted"][] = [
-      [change.path, change.deleted ? "deleted" : "current"],
+    const entries: [string, "current" | "renamed" | "deleted", string?][] = [
+      [change.path, change.deleted ? "deleted" : "current", change.diff],
     ];
     if (change.oldPath) {
       entries.push([change.oldPath, "renamed"]);
     }
-    for (const [file, kind] of entries) {
-      const verdict = classify(file, kind, changed, repo);
+    for (const [file, kind, diff] of entries) {
+      const verdict = classify(file, kind, changed, repo, diff);
       reasons.push(
         verdict.all
           ? { full: true, path: file, reason: verdict.reason }
@@ -347,12 +557,21 @@ export function parseNameStatus(output: string): Change[] {
 }
 
 export function changedFiles(base: string, head: string): Change[] {
-  return parseNameStatus(
+  const git = (args: string[], paths: string[] = []) =>
     execFileSync(
       "git",
-      ["diff", "--name-status", "-z", "--find-renames", `${base}...${head}`],
-      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
-    )
+      ["diff", ...args, `${base}...${head}`, "--", ...paths],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      }
+    );
+  return parseNameStatus(git(["--name-status", "-z", "--find-renames"])).map(
+    (change) =>
+      needsDiff(change.path) && !(change.deleted || change.oldPath)
+        ? { ...change, diff: git(["--unified=100000"], [change.path]) }
+        : change
   );
 }
 
