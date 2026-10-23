@@ -1,3 +1,4 @@
+// @e2e-areas events reimbursements
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const BANK_TIP =

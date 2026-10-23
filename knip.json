@@ -92,7 +92,10 @@
         "helpers/seed-app-performance.ts",
         "fake-gowa.ts",
         "fake-r2.ts",
-        "shard-by-duration.ts"
+        "shard-by-duration.ts",
+        "select-tests.ts",
+        "check-e2e-map.ts",
+        "failure-reporter.ts"
       ]
     },
     "packages/jobs": {

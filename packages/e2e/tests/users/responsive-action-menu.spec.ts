@@ -1,3 +1,4 @@
+// @e2e-areas reimbursements
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
