@@ -344,9 +344,10 @@ jobs:
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
-              echo "::group::zero-cache startup log"
-              docker logs -t zero-cache 2>&1
-              echo "::endgroup::"
+              # Startup milestones only: the full log runs to tens of MB.
+              docker logs -t zero-cache 2>&1 |
+                grep -E '"message":"(Started [0-9]+ workers to copy|Creating index 1/|change-streamer-http-server listening|replicator is now ready|zero-cache ready)' |
+                cut -c1-220 || true
               exit 0
             fi
             sleep 1
