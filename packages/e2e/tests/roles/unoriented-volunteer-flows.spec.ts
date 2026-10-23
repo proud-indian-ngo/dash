@@ -1,3 +1,4 @@
+// @e2e-areas events
 import { expect, test } from "../../fixtures/test";
 
 test.describe("Unoriented volunteer happy paths + restrictions", () => {

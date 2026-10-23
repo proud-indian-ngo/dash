@@ -1,3 +1,4 @@
+// @e2e-areas donors
 import { execFile } from "node:child_process";
 import { createHmac } from "node:crypto";
 import path from "node:path";

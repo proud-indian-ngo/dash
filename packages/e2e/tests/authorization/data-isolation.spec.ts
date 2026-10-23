@@ -1,3 +1,4 @@
+// @e2e-areas reimbursements
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
 const SUPER_ADMIN_SEED_REIMBURSEMENT_ID =
