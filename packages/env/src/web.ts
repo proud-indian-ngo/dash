@@ -10,6 +10,8 @@ export const env = createEnv({
     VITE_IMMICH_URL: z.url().optional(),
     VITE_POSTHOG_HOST: z.url().optional(),
     VITE_POSTHOG_KEY: z.string().min(1).optional(),
+    /** Turnstile site key; unset hides the widget, so set it wherever TURNSTILE_SECRET_KEY is set. */
+    VITE_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     VITE_ZERO_URL: z.url(),
   },
   clientPrefix: "VITE_",

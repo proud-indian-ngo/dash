@@ -6,10 +6,11 @@ import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { admin } from "better-auth/plugins";
+import { admin, captcha } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
@@ -311,6 +312,8 @@ async function skipBouncedAuthEmail(
   return true;
 }
 
+const turnstileSecretKey = env.TURNSTILE_SECRET_KEY;
+
 export const auth = betterAuth({
   advanced: {
     ...(env.COOKIE_DOMAIN && {
@@ -422,6 +425,19 @@ export const auth = betterAuth({
         volunteer: userAc,
       },
     }),
+    // One instance per endpoint so each checks its own action. The token must
+    // come from the dashboard's own hostname, so a token minted elsewhere fails.
+    ...(turnstileSecretKey
+      ? Object.entries(TURNSTILE_ACTIONS).map(([endpoint, action]) =>
+          captcha({
+            allowedHostnames: [new URL(env.CORS_ORIGIN).hostname],
+            endpoints: [endpoint],
+            expectedAction: action,
+            provider: "cloudflare-turnstile",
+            secretKey: turnstileSecretKey,
+          })
+        )
+      : []),
   ],
   rateLimit: {
     customRules: {

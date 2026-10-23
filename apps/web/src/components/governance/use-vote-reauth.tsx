@@ -3,6 +3,7 @@ import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { VOTE_REAUTH_MESSAGE } from "@pi-dash/shared/resolutions";
+import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { log } from "evlog";
 import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { authClient } from "@/lib/auth-client";
 
 /**
@@ -32,6 +34,7 @@ export function useVoteReauth(): {
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
+  const turnstile = useTurnstile(TURNSTILE_ACTIONS["/sign-in/email"]);
 
   const askForPassword = () =>
     new Promise<boolean>((resolve) => {
@@ -50,10 +53,10 @@ export function useVoteReauth(): {
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setPending(true);
-      const result = await authClient.signIn.email({
-        email: user.email,
-        password,
-      });
+      const result = await authClient.signIn.email(
+        { email: user.email, password },
+        { headers: turnstile.takeHeaders() }
+      );
       setPending(false);
       if (result.error) {
         log.error({
@@ -113,6 +116,7 @@ export function useVoteReauth(): {
               value={password}
             />
           </div>
+          {turnstile.widget}
           <DialogFooter>
             <Button
               onClick={() => finish(false)}

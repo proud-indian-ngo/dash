@@ -11,6 +11,12 @@ Better Auth is configured in `packages/auth/src/auth.ts`.
 - Custom roles are not registered with the admin plugin (`authorization.md`).
 - Email verification is required. Public volunteer sign-up is at `/register`.
 
+### Bot checks
+
+Better Auth's `captcha` plugin requires a Cloudflare Turnstile token on sign-in, sign-up and password-reset requests, including the vote re-auth dialog. Each endpoint has its own action (`packages/shared/src/turnstile.ts`), and siteverify must report the `CORS_ORIGIN` hostname, so a token minted for another form or site is rejected. Direct `auth.api` calls skip the check because they bypass the HTTP handler.
+
+`useTurnstile` renders the widget and hands each token to one request, then resets it: tokens are single-use. With `TURNSTILE_SECRET_KEY` unset the server skips the check, and with `VITE_TURNSTILE_SITE_KEY` unset no widget renders; local dev, CI and E2E run without either. The production widget is registered for `dash.proudindian.ngo` only, so test the real widget locally with Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) rather than the production site key.
+
 ## Session flow
 
 1. A volunteer signs up (or an admin creates the account), verifies email and signs in.
