@@ -158,27 +158,14 @@ jobs:
       # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
       E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
     steps:
-      # Loading the cached image is faster than pulling it from Docker Hub.
-      - name: Cache Postgres image
-        uses: actions/cache@v6
-        with:
-          path: /tmp/postgres-image.tar
-          key: postgres-image-${{ runner.os }}-18
-      # Loads and starts in the background; "Wait for Postgres" checks it. A
+      # Pulls and starts in the background; "Wait for Postgres" checks it. A
       # service container waits on a backed-off health check and needs a
       # restart to enable logical replication.
       - name: Start Postgres
         run: |
-          (
-            if [ -f /tmp/postgres-image.tar ]; then
-              docker load -i /tmp/postgres-image.tar
-            else
-              docker pull postgres:18 && docker save postgres:18 -o /tmp/postgres-image.tar
-            fi
-            docker run -d --name postgres -p 5433:5432 \
-              -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
-              postgres:18 -c wal_level=logical -c max_connections=300
-          ) > /tmp/postgres.log 2>&1 &
+          (docker run -d --name postgres -p 5433:5432 \
+            -e POSTGRES_DB=pi-dash-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=test \
+            postgres:18 -c wal_level=logical -c max_connections=300 > /tmp/postgres.log 2>&1) &
 
       - uses: actions/checkout@v7
 
@@ -302,10 +289,6 @@ jobs:
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
-              docker logs -t zero-cache 2>&1 | grep -E "starting zero-cache|waiting [0-9]+ms|starting ChangeStreamerService|Started [0-9]+ workers|zero-cache ready|listening" | cut -c1-260
-              docker inspect zero-cache --format "started={{.State.StartedAt}}"
-              date -u +%FT%T.%N
-              cat /tmp/postgres.log
               exit 0
             fi
             sleep 1
