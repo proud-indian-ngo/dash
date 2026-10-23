@@ -141,6 +141,7 @@ import { handleSendWhatsApp } from "./send-whatsapp";
 import { handleStoreContributionReceiptPdf } from "./store-contribution-receipt-pdf";
 import { handleSyncPublicEventsDeploy } from "./sync-public-events-deploy";
 import { handleSyncWhatsAppStatus } from "./sync-user";
+import { handleNotifyUtilisationCertificate } from "./utilisation-certificates";
 import {
   handleWhatsAppAddMember,
   handleWhatsAppAddMembers,
@@ -613,6 +614,11 @@ export async function registerHandlers(boss: PgBoss): Promise<void> {
     "notify-meeting-notice",
     NOTIFY_POLL,
     handleNotifyMeetingNotice
+  );
+  await boss.work(
+    "notify-utilisation-certificate",
+    NOTIFY_POLL,
+    handleNotifyUtilisationCertificate
   );
   await boss.work(
     "notify-resolution-decided",

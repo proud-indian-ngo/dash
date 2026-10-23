@@ -38,3 +38,66 @@ export const grantQueries = {
       .one()
   ),
 };
+
+/**
+ * Utilisation certificates. Finance readers see every one; the two trustees
+ * who sign one see that one, without finance permissions, so they can read
+ * what they sign. The snapshot holds everything they need, so no grant row
+ * reaches them.
+ */
+export const utilisationCertificateQueries = {
+  /** A grant's certificates, newest first. */
+  byGrant: defineQuery(
+    z.object({ grantId: z.string() }),
+    ({ args: { grantId }, ctx }) =>
+      (canSeeGrants(ctx)
+        ? zql.utilisationCertificate.where("grantId", grantId)
+        : zql.utilisationCertificate.where("id", "__never_match__")
+      )
+        .orderBy("createdAt", "desc")
+        .orderBy("id", "asc")
+  ),
+  byId: defineQuery(z.object({ id: z.string() }), ({ args: { id }, ctx }) => {
+    const certificate = zql.utilisationCertificate
+      .where("id", id)
+      .related("headTrustee")
+      .related("financeTrustee");
+    if (canSeeGrants(ctx)) {
+      return certificate.one();
+    }
+    if (!ctx) {
+      return zql.utilisationCertificate
+        .where("id", "__never_match__")
+        .related("headTrustee")
+        .related("financeTrustee")
+        .one();
+    }
+    return certificate
+      .where(({ exists, or }) =>
+        or(
+          exists("headTrustee", (t) => t.where("userId", ctx.userId)),
+          exists("financeTrustee", (t) => t.where("userId", ctx.userId))
+        )
+      )
+      .one();
+  }),
+  /** The certificates waiting for the signed-in trustee's signature: the dashboard card. */
+  toSign: defineQuery(({ ctx }) =>
+    ctx
+      ? zql.utilisationCertificate
+          .where(({ and, cmp, exists, or }) =>
+            or(
+              and(
+                cmp("status", "awaiting_head"),
+                exists("headTrustee", (t) => t.where("userId", ctx.userId))
+              ),
+              and(
+                cmp("status", "awaiting_finance"),
+                exists("financeTrustee", (t) => t.where("userId", ctx.userId))
+              )
+            )
+          )
+          .orderBy("createdAt", "asc")
+      : zql.utilisationCertificate.where("id", "__never_match__")
+  ),
+};

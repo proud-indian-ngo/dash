@@ -80,6 +80,14 @@ mock.module("@pi-dash/db/queries/policies", () => ({
 mock.module("@pi-dash/db/queries/resolutions", () => ({
   circularResolutions: async () => [{ title: "Operation of bank accounts" }],
 }));
+// Certificate jobs go through their own modules, which reach the database.
+mock.module("@pi-dash/db/queries/utilisation-certificates", () => ({
+  CertificateError: class CertificateError extends Error {},
+  getCertificate: async () => null,
+}));
+mock.module("../grants/utilisation-certificates", () => ({
+  acceptSignedCertificate: async () => "awaiting_finance",
+}));
 mock.module("../audit", () => ({
   runAuditedAction: async (_options: unknown, run: () => Promise<unknown>) =>
     await run(),

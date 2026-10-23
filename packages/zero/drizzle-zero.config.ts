@@ -157,6 +157,7 @@ export default drizzleZeroConfig(drizzleSchema, {
     trusteeOffice: true,
     trusteeTerm: true,
     user: { id: true, image: true, name: true, role: true },
+    utilisationCertificate: true,
     vendor: true,
     vendorPayment: true,
     vendorPaymentAttachment: true,

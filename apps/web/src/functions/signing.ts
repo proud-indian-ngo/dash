@@ -6,6 +6,7 @@ import {
   currentCertificate,
   jobStatusFor,
 } from "@pi-dash/db/queries/signing";
+import { CertificateError } from "@pi-dash/db/queries/utilisation-certificates";
 import { trustee } from "@pi-dash/db/schema/governance";
 import { env } from "@pi-dash/env/server";
 import { createServerFn } from "@tanstack/react-start";
@@ -25,6 +26,7 @@ import {
   signingServiceConfigured,
   startRemoteSignature,
 } from "@/lib/governance/signing-service";
+import { startCertificateJob } from "@/lib/grants/utilisation-certificates";
 import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -51,6 +53,7 @@ function helperLink(kind: "enrol" | "sign", token: string): string {
 function userFacing<T>(run: () => Promise<T>): Promise<T> {
   return run().catch((error: unknown) => {
     if (
+      error instanceof CertificateError ||
       error instanceof CircularError ||
       error instanceof DeclarationError ||
       error instanceof MeetingError ||
@@ -230,6 +233,42 @@ export const startDscDeclarationSigningFn = createServerFn({ method: "POST" })
           }
           const job = await startDeclarationJob({
             declarationId: data.declarationId,
+            trusteeId: me.id,
+            userId: session.user.id,
+          });
+          return { jobId: job.id, link: helperLink("sign", job.token) };
+        })
+    );
+  });
+
+/**
+ * The Head of the Organisation or the Chief Finance Officer signs a grant's
+ * utilisation certificate with the helper, when it's their turn.
+ */
+export const startDscCertificateSigningFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ certificateId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "utilisation_certificate.sign.start",
+        target: { id: data.certificateId, type: "utilisation_certificate" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          const job = await startCertificateJob({
+            certificateId: data.certificateId,
             trusteeId: me.id,
             userId: session.user.id,
           });

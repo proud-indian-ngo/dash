@@ -21,6 +21,10 @@ import {
   signatureRecordedSince,
   whileClaimed,
 } from "@pi-dash/db/queries/signing";
+import {
+  CertificateError,
+  getCertificate as getUtilisationCertificate,
+} from "@pi-dash/db/queries/utilisation-certificates";
 import { user } from "@pi-dash/db/schema/auth";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
 import {
@@ -33,6 +37,7 @@ import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { type AuditTarget, runAuditedAction } from "../audit";
+import { acceptSignedCertificate } from "../grants/utilisation-certificates";
 import { getS3 } from "../s3";
 import {
   acceptSignedDeclaration,
@@ -55,7 +60,9 @@ import {
  * one-time job token (only its hash is stored, 15 minutes, single use)
  * stands for the trustee who started the job, and every completion is
  * audited in their name. A sign job signs a circular, for the chair a
- * meeting's minutes, or a trustee's own declaration of interests.
+ * meeting's minutes, a trustee's own declaration of interests, or as Head
+ * of the Organisation or Chief Finance Officer a grant's utilisation
+ * certificate.
  */
 
 export interface JobReply {
@@ -77,6 +84,8 @@ function signedReply(job: SigningJobRow): JobReply {
     signedWhat = "minutes";
   } else if (job.declarationId) {
     signedWhat = "declaration";
+  } else if (job.utilisationCertificateId) {
+    signedWhat = "utilisation certificate";
   }
   return {
     body: {
@@ -333,17 +342,23 @@ export async function describeJob(token: string): Promise<JobReply> {
       status: 200,
     };
   }
-  const [resolutions, meeting, declaration, certificate] = await Promise.all([
-    job.circularId ? circularResolutions(job.circularId) : [],
-    job.meetingId ? getMeeting(job.meetingId) : null,
-    job.declarationId ? getConflictDeclaration(job.declarationId) : null,
-    job.certificateId ? getCertificate(job.certificateId) : null,
-  ]);
+  const [resolutions, meeting, declaration, utilisation, certificate] =
+    await Promise.all([
+      job.circularId ? circularResolutions(job.circularId) : [],
+      job.meetingId ? getMeeting(job.meetingId) : null,
+      job.declarationId ? getConflictDeclaration(job.declarationId) : null,
+      job.utilisationCertificateId
+        ? getUtilisationCertificate(job.utilisationCertificateId)
+        : null,
+      job.certificateId ? getCertificate(job.certificateId) : null,
+    ]);
   let title = `Circular ${job.circularId ? circularReference(job.circularId) : ""} (${resolutions.length} resolutions)`;
   if (meeting) {
     title = `Minutes of the board meeting of ${minutesDate.format(meeting.startsAt)}`;
   } else if (declaration) {
     title = `Declaration of interests for ${declaration.fiscalYear}`;
+  } else if (utilisation) {
+    title = `Utilisation certificate ${utilisation.number}: ${utilisation.snapshot.grant.title}`;
   } else if (resolutions.length === 1) {
     title = resolutions[0]?.title ?? "Circular";
   }
@@ -436,11 +451,17 @@ async function completeSignature(
   const certificate = job.certificateId
     ? await getCertificate(job.certificateId)
     : null;
-  const { circularId, declarationId, meetingId, stateObjectKey } = job;
+  const {
+    circularId,
+    declarationId,
+    meetingId,
+    stateObjectKey,
+    utilisationCertificateId,
+  } = job;
   if (
     !(
       certificate &&
-      (circularId || meetingId || declarationId) &&
+      (circularId || meetingId || declarationId || utilisationCertificateId) &&
       stateObjectKey
     )
   ) {
@@ -473,7 +494,15 @@ async function completeSignature(
       state,
     });
     let message = "Signed. The minutes are filed in the vault.";
-    if (declarationId) {
+    if (utilisationCertificateId) {
+      await acceptSignedCertificate({
+        certificateId: utilisationCertificateId,
+        expectedCertificateSha256: certificate.sha256,
+        trusteeId: job.trusteeId,
+        uploaded: signed,
+      });
+      message = "Signed. Your signature is on the utilisation certificate.";
+    } else if (declarationId) {
       await acceptSignedDeclaration({
         declarationId,
         expectedCertificateSha256: certificate.sha256,
@@ -515,7 +544,15 @@ async function completeSignature(
     // signed only by the chair and a declaration only by its trustee, so
     // either signed is this job done too.
     let recorded = false;
-    if (declarationId) {
+    if (utilisationCertificateId) {
+      // The certificate moved past this job's copy: recorded only if the
+      // copy now holds this trustee's signature.
+      const row = await getUtilisationCertificate(utilisationCertificateId);
+      recorded =
+        !!row &&
+        ((row.headTrusteeId === job.trusteeId && !!row.headSignedAt) ||
+          (row.financeTrusteeId === job.trusteeId && !!row.financeSignedAt));
+    } else if (declarationId) {
       recorded =
         (await getConflictDeclaration(declarationId))?.status === "signed";
     } else if (meetingId) {
@@ -531,6 +568,7 @@ async function completeSignature(
       return await settle(job, claim, { ok: true }, signedReply(job));
     }
     if (
+      error instanceof CertificateError ||
       error instanceof CircularError ||
       error instanceof DeclarationError ||
       error instanceof MeetingError ||
@@ -612,6 +650,12 @@ async function runJob(
   } else if (job.declarationId) {
     action = "governance.sign_declaration";
     target = { id: job.declarationId, type: "conflict_declaration" };
+  } else if (job.utilisationCertificateId) {
+    action = "utilisation_certificate.sign";
+    target = {
+      id: job.utilisationCertificateId,
+      type: "utilisation_certificate",
+    };
   }
   const failed = failedBody.safeParse(rawBody);
   try {

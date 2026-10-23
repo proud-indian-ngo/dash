@@ -32,7 +32,8 @@ import path from "node:path";
  *   (with DATA_ENCRYPTION_KEY),
  *   notification,
  *   scheduledMessage, scheduledMessageRecipient,
- *   project, grantAgreement, grantTranche, grantBudgetLine
+ *   project, grantAgreement, grantTranche, grantBudgetLine,
+ *   utilisationCertificate, utilisationCertificateCounter
  */
 
 import { auth } from "@pi-dash/auth";
@@ -76,6 +77,7 @@ import {
   grantAgreement,
   grantBudgetLine,
   grantTranche,
+  utilisationCertificate,
 } from "@pi-dash/db/schema/grant";
 import { importBatch } from "@pi-dash/db/schema/import-batch";
 import {
@@ -138,6 +140,7 @@ import {
   importRow,
 } from "@pi-dash/db/schema/private/imports";
 import { partyPrivate } from "@pi-dash/db/schema/private/party-private";
+import { utilisationCertificateCounter } from "@pi-dash/db/schema/private/utilisation-certificates";
 import {
   reimbursement,
   reimbursementAttachment,
@@ -176,6 +179,7 @@ import {
   ensureDevPolicyExamples,
   ensureMeetingFixtures,
   ensurePolicyFixtures,
+  GOVERNANCE_SEED_IDS,
 } from "@pi-dash/db/seed-governance";
 import { ensureVendor } from "@pi-dash/db/seed-vendors";
 import { syncPermissions } from "@pi-dash/db/sync-permissions";
@@ -4105,6 +4109,98 @@ async function seedGrants(): Promise<void> {
   log("Grants ready");
 }
 
+/**
+ * A discarded utilisation certificate for the seed grant, with its number
+ * counted, so the grant page lists one and the next prepared locally is
+ * UC/2026-27/002. Discarded: no PDF was stored. Needs the governance seed.
+ */
+async function seedUtilisationCertificate(): Promise<void> {
+  const zero = {
+    broughtForwardPaise: 0,
+    closingPaise: 0,
+    heads: [],
+    interestBroughtForwardPaise: 0,
+    interestPaise: 0,
+    received: [],
+    receivedPaise: 0,
+    refunds: [],
+    refundedPaise: 0,
+    spentPaise: 0,
+    totalAvailablePaise: 0,
+  };
+  await db
+    .insert(utilisationCertificate)
+    .values({
+      caRequired: false,
+      cancelledAt: now,
+      createdAt: now,
+      financeTrusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
+      fiscalYear: "2026-27",
+      fromOn: "2026-04-01",
+      grantId: SEED_GRANT.grantId,
+      headTrusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
+      id: "01930000-0000-7000-8000-000000000958",
+      interestPaise: 0,
+      latestObjectKey: "seed/utilisation-certificates/discarded.pdf",
+      latestSha256: "0".repeat(64),
+      number: "UC/2026-27/001",
+      sequence: 1,
+      snapshot: {
+        caRequired: false,
+        figures: zero,
+        grant: {
+          agreementOn: "2026-04-10",
+          agreementReference: "NWF/CSR/2026/07",
+          grantor: "Northwind Foundation (seed)",
+          programme: "Education",
+          project: "Library corners (seed)",
+          sanctionedPaise: 5_00_000_00,
+          scheduleViiItem: "(ii) Promoting education",
+          title: "Library corners CSR grant (seed)",
+        },
+        number: "UC/2026-27/001",
+        period: { from: "2026-04-01", to: "2026-09-30" },
+        place: "Bengaluru",
+        preparedOn: "2026-10-01",
+        signatories: {
+          finance: {
+            name: "Vikram Menon",
+            office: "joint_managing_trustee",
+            trusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
+          },
+          head: {
+            name: "Asha Rao",
+            office: "managing_trustee",
+            trusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
+          },
+        },
+        trust: {
+          address: "1 Example Road, Bengaluru, Karnataka 560001",
+          csr1: null,
+          name: "Example Trust (development)",
+          pan: "AAATE0000E",
+          registration12ab: null,
+          registration80g: null,
+        },
+        version: 1,
+      },
+      status: "discarded",
+      toOn: "2026-09-30",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(utilisationCertificateCounter)
+    .values({ fiscalYear: "2026-27", lastSequence: 1, updatedAt: now })
+    .onConflictDoUpdate({
+      set: {
+        lastSequence: sql`greatest(${utilisationCertificateCounter.lastSequence}, 1)`,
+      },
+      target: utilisationCertificateCounter.fiscalYear,
+    });
+  log("Utilisation certificate ready");
+}
+
 // ── Governance ───────────────────────────────────────────────────────────────
 
 async function seedGovernance(userMap: Map<string, string>): Promise<void> {
@@ -4159,6 +4255,7 @@ async function main(): Promise<void> {
   await seedNotifications(userMap);
   await seedAppConfig();
   await seedGovernance(userMap);
+  await seedUtilisationCertificate();
 
   process.stdout.write("\n=== Dev data seeded successfully! ===\n");
   process.exit(0);

@@ -29,6 +29,7 @@ import {
 import type { TeamEvent, TeamEventMember } from "../schema";
 import { type Schema, zql } from "../schema";
 import { pickCostCentreId } from "./cost-centre-pick";
+import { assertEventProjectMovesAllowed, eventProjects } from "./grant";
 import { assertEventNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   clearLeadApprovalsOnMovedEvents,
@@ -1697,6 +1698,7 @@ export const teamEventMutators = {
       );
       await pickCostCentreId(tx, args.costCentreId, existing.costCentreId);
       const programmesBefore = await eventProgrammes(tx, [args.id]);
+      const projectsBefore = await eventProjects(tx, [args.id]);
       const projectId = await eventProjectChange(tx, {
         canManageFinance: can(ctx, "finance.manage"),
         current: existing.projectId ?? null,
@@ -1716,6 +1718,7 @@ export const teamEventMutators = {
       await tx.mutate.teamEvent.update(
         buildUpdateFields({ ...args, projectId })
       );
+      await assertEventProjectMovesAllowed(tx, projectsBefore);
       await clearLeadApprovalsOnMovedEvents(
         tx,
         ctx,
@@ -1919,16 +1922,23 @@ export const teamEventMutators = {
         args.programmeId !== undefined &&
         args.programmeId !== existing.programmeId;
       const seriesRoot = existing.seriesId ?? existing.id;
-      const programmesBefore = programmeChanges
-        ? await eventProgrammes(tx, [
-            seriesRoot,
-            args.id,
-            ...(
+      // Every session: for lead approvals on a programme move, and on the
+      // server for the projects certificates hold.
+      const seriesSessionIds =
+        programmeChanges || tx.location === "server"
+          ? (
               (await tx.run(
                 zql.teamEvent.where("seriesId", seriesRoot)
               )) as TeamEvent[]
-            ).map((session) => session.id),
-          ])
+            ).map((session) => session.id)
+          : [];
+      const projectsBefore = await eventProjects(tx, [
+        seriesRoot,
+        args.id,
+        ...seriesSessionIds,
+      ]);
+      const programmesBefore = programmeChanges
+        ? await eventProgrammes(tx, [seriesRoot, args.id, ...seriesSessionIds])
         : new Map<string, null | string>();
 
       let movedOccurrenceIds: string[] = [];
@@ -2021,6 +2031,7 @@ export const teamEventMutators = {
           ctx.userId
         );
       }
+      await assertEventProjectMovesAllowed(tx, projectsBefore);
 
       await clearLeadApprovalsOnMovedEvents(
         tx,

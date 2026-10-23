@@ -575,6 +575,11 @@ export interface NotifyCircularPayload {
   circularId: string;
 }
 
+/** A utilisation certificate moved on: whoever signs next is asked. */
+export interface NotifyUtilisationCertificatePayload {
+  certificateId: string;
+}
+
 /** Resolutions one response, withdrawal or close decided: one notice. */
 export interface NotifyResolutionPayload {
   resolutionIds: string[];
@@ -846,6 +851,7 @@ export interface JobPayloads {
   "notify-circular-issued": NotifyCircularPayload;
   "notify-meeting-notice": NotifyMeetingPayload;
   "notify-resolution-decided": NotifyResolutionPayload;
+  "notify-utilisation-certificate": NotifyUtilisationCertificatePayload;
   "close-due-resolutions": Record<string, never>;
   "retimestamp-governance-archives": Record<string, never>;
   "generate-compliance-items": Record<string, never>;

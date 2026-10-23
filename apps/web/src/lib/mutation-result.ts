@@ -6,6 +6,8 @@ interface MutationResultOptions {
   errorMsg: string;
   mutation: string;
   showErrorToast?: boolean;
+  /** Show a utilisation certificate's refusal under the error (`certificateRefusal`). */
+  showCertificateRefusal?: boolean;
   successMsg?: string;
 }
 
@@ -47,6 +49,22 @@ export function joinErrorMessage(
 }
 
 /**
+ * A utilisation certificate's refusal as the server wrote it (it names the
+ * certificate and what to do), or undefined for anything else, which stays
+ * behind the generic message.
+ */
+export function certificateRefusal(result: {
+  error?: unknown;
+  type: string;
+}): string | undefined {
+  const message =
+    result.type === "error"
+      ? getMutationResultErrorMessage(result.error, "")
+      : "";
+  return /utilisation certificate/i.test(message) ? message : undefined;
+}
+
+/**
  * Handles a Zero mutation server result — logs errors via evlog browser log
  * drain and shows appropriate toast.
  */
@@ -58,6 +76,7 @@ export function handleMutationResult(
     successMsg,
     errorMsg,
     showErrorToast = true,
+    showCertificateRefusal = false,
   }: MutationResultOptions
 ) {
   if (result.type === "error") {
@@ -68,7 +87,10 @@ export function handleMutationResult(
       mutation,
     });
     if (showErrorToast) {
-      toast.error(errorMsg);
+      const reason = showCertificateRefusal
+        ? certificateRefusal(result)
+        : undefined;
+      toast.error(errorMsg, reason ? { description: reason } : undefined);
     }
   } else if (successMsg) {
     toast.success(successMsg);

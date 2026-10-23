@@ -617,6 +617,7 @@ describe("contribution mutators", () => {
           partyId: "grantor-1",
           programmeId: "prog-arts",
           projectId: "proj-k3",
+          receivedOn: Date.UTC(2026, 9, 1),
           status: "received",
         },
       ],

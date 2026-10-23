@@ -47,7 +47,7 @@ export const UNTRUSTED_CERTIFICATE_MESSAGE =
   "This certificate doesn't chain to a licensed Indian certifying authority. Sign with your DSC.";
 
 export const EARLIER_SIGNATURE_UNTRUSTED_MESSAGE =
-  "An earlier trustee's signature on this circular no longer validates: its certificate may have been revoked. Yours can't be added until that's sorted out, so tell the Managing Trustee.";
+  "An earlier trustee's signature on this document no longer validates: its certificate may have been revoked. Yours can't be added until that's sorted out, so tell the Managing Trustee.";
 
 /** Voting needs a sign-in from the last 10 minutes (governance.md, decisions). */
 export function assertRecentSignIn(
@@ -290,7 +290,7 @@ export function checkSignedUpload(
   for (let i = 0; i < current.byteLength; i++) {
     if (uploaded[i] !== current[i]) {
       throw new CircularError(
-        "This isn't the latest copy of the circular with your signature added. Download it again, sign it and upload the saved file without other changes."
+        "This isn't the latest copy of the document with your signature added. Download it again, sign it and upload the saved file without other changes."
       );
     }
   }
@@ -393,7 +393,7 @@ function checkLeavesRoomForOthers(
 ): void {
   if (added.certifies !== false) {
     throw new CircularError(
-      "Your signature certifies the circular, which limits the signatures after it. Sign it as an ordinary (approval) signature."
+      "Your signature certifies the document, which limits the signatures after it. Sign it as an ordinary (approval) signature."
     );
   }
   if (
@@ -405,7 +405,7 @@ function checkLeavesRoomForOthers(
     )
   ) {
     throw new CircularError(
-      "Your signature locks parts of the circular the other trustees still need, so their signatures would fail. Sign without locking the document."
+      "Your signature locks parts of the document the other trustees still need, so their signatures would fail. Sign without locking the document."
     );
   }
 }

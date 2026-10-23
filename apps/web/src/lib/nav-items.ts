@@ -277,7 +277,14 @@ const budgetsNavItem: NavItem = {
 
 const grantsNavItem: NavItem = {
   icon: Agreement02Icon,
-  subItems: [{ isHidden: true, title: "Grant", url: "/finance/grants/$id" }],
+  subItems: [
+    { isHidden: true, title: "Grant", url: "/finance/grants/$id" },
+    {
+      isHidden: true,
+      title: "Utilisation certificate",
+      url: "/finance/grants/certificates/$certificateId",
+    },
+  ],
   title: "Grants",
   url: "/finance/grants",
 };

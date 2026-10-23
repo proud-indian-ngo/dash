@@ -305,3 +305,47 @@ export async function notifyMeetingNotice(notice: {
     )
   );
 }
+
+// ── Utilisation certificates ────────────────────────────────────────────────
+
+/**
+ * A grant's utilisation certificate waits for this trustee's DSC signature,
+ * as Head of the Organisation or Chief Finance Officer. Inbox and email
+ * only. One message per certificate, signer and step.
+ */
+export async function notifyUtilisationCertificateToSign(notice: {
+  certificateId: string;
+  grantTitle: string;
+  number: string;
+  /** "Head of the Organisation" or "Chief Finance Officer". */
+  role: string;
+  userId: string;
+}): Promise<void> {
+  const path = `/finance/grants/certificates/${notice.certificateId}`;
+  const paragraphs = [
+    `Utilisation certificate ${notice.number} for "${notice.grantTitle}" is ready for your signature as ${notice.role}.`,
+    "Check the figures, then sign it with your DSC. The other signature and, where the agreement asks, the CA's certificate follow.",
+  ];
+  const emailHtml = await renderNotificationEmail({
+    ctaLabel: "Open the certificate",
+    ctaUrl: `${env.APP_URL}${path}`,
+    heading: "A utilisation certificate needs your signature",
+    paragraphs,
+  });
+  await sendMessage({
+    body: paragraphs.join(" "),
+    clickAction: path,
+    digest: {
+      actionLabel: "Sign",
+      meta: notice.role,
+      name: `${notice.number}: ${notice.grantTitle}`,
+      status: { label: "Your signature", tone: "warning" },
+    },
+    emailHtml,
+    idempotencyKey: `utilisation-certificate-${notice.certificateId}-${notice.userId}`,
+    title: `Sign utilisation certificate ${notice.number}`,
+    to: notice.userId,
+    topic: TOPICS.GOVERNANCE,
+    whatsappTemplate: null,
+  });
+}

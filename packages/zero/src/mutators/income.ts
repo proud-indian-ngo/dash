@@ -23,6 +23,7 @@ import {
   CONTRIBUTOR_ROLES,
   canGive,
   contributionRuleIssues,
+  epochDayToIso,
   isContributionEditable,
   PLATFORM_INTERMEDIARY_PARTY_IDS,
   refundLockedChanges,
@@ -39,6 +40,7 @@ import z from "zod";
 import { type Context, requireEnqueue } from "../context";
 import { assertHasPermission } from "../permissions";
 import { type Schema, zql } from "../schema";
+import { assertNoCertificateCovers } from "./grant";
 import {
   type LockableKalakritiTx,
   requireServerTransaction,
@@ -636,12 +638,17 @@ export const contributionMutators = {
 
   delete: defineMutator(idInput, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "donors.manage");
-    const { hasRefund, isSettled } = await requireEditableContribution(
-      tx,
-      args.id
-    );
+    const { existing, hasRefund, isSettled } =
+      await requireEditableContribution(tx, args.id);
     if (hasRefund) {
       throw new Error("A contribution with a refund can't be deleted");
+    }
+    if (existing.grantId) {
+      await assertNoCertificateCovers(
+        tx,
+        [{ grantId: existing.grantId, on: epochDayToIso(existing.receivedOn) }],
+        "deleting this contribution"
+      );
     }
     // Receipt numbers are never reused, so a gift any receipt was issued
     // for (voided ones too) stays, keeping its receipt's history whole.
@@ -735,6 +742,22 @@ export const contributionMutators = {
     ) {
       throw new Error(
         "This contribution counts towards a grant, so its donor and project can't change. Ask finance to unlink it from the grant first."
+      );
+    }
+    // A new amount or day changes what a certificate covering either day
+    // certifies.
+    if (
+      existing.grantId &&
+      (values.amountPaise !== existing.amountPaise ||
+        values.receivedOn !== existing.receivedOn)
+    ) {
+      await assertNoCertificateCovers(
+        tx,
+        [existing.receivedOn, values.receivedOn].map((day) => ({
+          grantId: existing.grantId as string,
+          on: epochDayToIso(day),
+        })),
+        "changing this contribution's amount or date"
       );
     }
     if (

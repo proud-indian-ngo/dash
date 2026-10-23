@@ -34,7 +34,7 @@ import {
   resolutionQueries,
   trusteeQueries,
 } from "./queries/governance";
-import { grantQueries } from "./queries/grant";
+import { grantQueries, utilisationCertificateQueries } from "./queries/grant";
 import {
   contributionQueries,
   contributionReceiptQueries,
@@ -129,6 +129,7 @@ export const queries = defineQueries({
   teamEvent: teamEventQueries,
   trustee: trusteeQueries,
   user: userQueries,
+  utilisationCertificate: utilisationCertificateQueries,
   vendor: vendorQueries,
   vendorPayment: vendorPaymentQueries,
   vendorPaymentTransaction: vendorPaymentTransactionQueries,

@@ -36,6 +36,7 @@ export interface NewSigningJob {
   toSign?: string | null;
   trusteeId: string;
   userId: string;
+  utilisationCertificateId?: string | null;
 }
 
 /** Creates a job and returns its id and the token, which is never stored. */
@@ -61,6 +62,7 @@ export async function createSigningJob(
     tokenHash: hashJobToken(token),
     trusteeId: input.trusteeId,
     userId: input.userId,
+    utilisationCertificateId: input.utilisationCertificateId ?? null,
   });
   return { id, token };
 }

@@ -7,6 +7,8 @@ interface MutationMeta<TPayload> {
   entityId: string | ((payload: TPayload) => string);
   errorMsg: string;
   mutation: string;
+  /** Show the server's refusal under the error (`handleMutationResult`). */
+  showCertificateRefusal?: boolean;
   successMsg: string;
 }
 
@@ -68,6 +70,7 @@ export function useConfirmAction<TPayload = void>(
         entityId,
         errorMsg: mutationMeta.errorMsg,
         mutation: mutationMeta.mutation,
+        showCertificateRefusal: mutationMeta.showCertificateRefusal,
         successMsg: mutationMeta.successMsg,
       });
     }

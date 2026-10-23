@@ -81,6 +81,7 @@ export const QUEUE_NAMES: JobName[] = [
   "notify-user-unbanned",
   "notify-user-welcome",
   "notify-users-added-to-event",
+  "notify-utilisation-certificate",
   "notify-vendor-approved",
   "notify-vendor-auto-approved",
   "notify-vendor-payment-approved",

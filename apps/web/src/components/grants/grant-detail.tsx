@@ -70,6 +70,7 @@ import { GRANT_LAST_MONTH } from "./grant-dates";
 import { type EditableGrant, GrantFormDialog } from "./grant-form-dialog";
 import { GrantTranchesDialog } from "./grant-tranches-dialog";
 import { useGrantUtilisation } from "./use-grant-utilisation";
+import { UtilisationCertificatesSection } from "./utilisation-certificates-section";
 
 /** A grant as `grant.byId` returns it. */
 export type GrantRecord = GrantAgreement & {
@@ -169,6 +170,7 @@ export function GrantDetail({
       entityId: grant.id,
       errorMsg: "Couldn't delete the grant",
       mutation: "grant.delete",
+      showCertificateRefusal: true,
       successMsg: "Grant deleted",
     },
     onConfirm: () =>
@@ -187,6 +189,7 @@ export function GrantDetail({
         donationType: grant.donationType as "csr" | "specific_grant",
         endsOn: endIso,
         id: grant.id,
+        needsCaCertificate: grant.needsCaCertificate ?? false,
         notes: grant.notes ?? null,
         partyId: grant.partyId,
         programmeId: grant.programmeId,
@@ -202,6 +205,7 @@ export function GrantDetail({
       entityId: grant.id,
       errorMsg: "Couldn't change the grant's status",
       mutation: "grant.save",
+      showCertificateRefusal: true,
       successMsg: next === "closed" ? "Grant closed" : "Grant reopened",
     });
   };
@@ -217,6 +221,7 @@ export function GrantDetail({
       entityId: contributionId,
       errorMsg: "Couldn't unlink the contribution",
       mutation: "grant.linkContribution",
+      showCertificateRefusal: true,
       successMsg: "Contribution unlinked",
     });
     if (res.type !== "error") {
@@ -597,6 +602,8 @@ export function GrantDetail({
               muted("No budget or spending on this project yet.")
             )}
           </RecordSection>
+
+          <UtilisationCertificatesSection canManage={canManage} grant={grant} />
 
           <RecordSection
             title={`Contributions (${grant.contributions.length})`}

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   text,
   timestamp,
@@ -11,6 +12,7 @@ import {
 import { user } from "../auth";
 import { conflictDeclaration } from "../declarations";
 import { circular, signingCertificate, trustee } from "../governance";
+import { utilisationCertificate } from "../grant";
 import { meeting } from "../meetings";
 import { privateSchema } from "./party-private";
 
@@ -94,6 +96,7 @@ export const signingJob = privateSchema.table(
     status: signingJobStatusEnum("status").default("pending").notNull(),
     /** The signed attributes the token signs, base64. */
     toSign: text("to_sign"),
+    utilisationCertificateId: uuid("utilisation_certificate_id"),
     tokenHash: text("token_hash").notNull(),
     trusteeId: uuid("trustee_id")
       .notNull()
@@ -105,9 +108,15 @@ export const signingJob = privateSchema.table(
   (t) => [
     uniqueIndex("signing_job_token_uidx").on(t.tokenHash),
     index("signing_job_user_idx").on(t.userId, t.createdAt),
+    // Named: the generated name passes Postgres's 63-character limit.
+    foreignKey({
+      columns: [t.utilisationCertificateId],
+      foreignColumns: [utilisationCertificate.id],
+      name: "signing_job_utilisation_certificate_fk",
+    }).onDelete("restrict"),
     check(
       "signing_job_target_check",
-      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}, ${t.declarationId}) = 1`
+      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}, ${t.declarationId}, ${t.utilisationCertificateId}) = 1`
     ),
   ]
 );

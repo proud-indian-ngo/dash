@@ -606,12 +606,12 @@ describe("checkSignedUpload", () => {
       undefined,
     ]) {
       expect(() => upload(sig("Trustee_sec", { locks }))).toThrow(
-        "locks parts of the circular"
+        "locks parts of the document"
       );
     }
     for (const certifies of [true, undefined]) {
       expect(() => upload(sig("Trustee_sec", { certifies }))).toThrow(
-        "certifies the circular"
+        "certifies the document"
       );
     }
   });
