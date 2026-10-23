@@ -27,7 +27,6 @@ import {
   fiscalYear,
   fund,
   orgAccount,
-  organisationRegistration,
   programme,
   project,
 } from "@pi-dash/db/schema/finance-dimensions";
@@ -35,10 +34,6 @@ import {
   gatewaySettlement,
   gatewaySettlementItem,
 } from "@pi-dash/db/schema/gateway-settlement";
-import {
-  grantAgreement,
-  utilisationCertificate,
-} from "@pi-dash/db/schema/grant";
 import { contribution } from "@pi-dash/db/schema/income";
 import {
   auditedFigures,
@@ -59,7 +54,6 @@ import {
   vendorPaymentLineItem,
 } from "@pi-dash/db/schema/vendor";
 import { vendorPaymentTransaction } from "@pi-dash/db/schema/vendor-payment-transaction";
-import { GOVERNANCE_SEED_IDS } from "@pi-dash/db/seed-governance";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
 import {
   and,
@@ -146,17 +140,6 @@ import { uuidv7 } from "uuidv7";
  *   charged to the programme and 600 to its project, out of whichever bank
  *   account is main (never changing it). FY 2027-28 because the books specs freeze and close
  *   FY 2026-27 while other specs run; nothing freezes the later year.
- * - `certificate-fixture <run>`: utilisation certificates. A programme,
- *   project and grantor of this run, a grant over FY 2026-27 whose
- *   agreement needs a CA certificate, the trust's CSR-1 registration when
- *   there is none, and a NEFT gift of 3,000 received on
- *   1 Oct 2026 into a bank account of this run and linked to it. Nothing
- *   posts. Reports the grant's id and
- *   title.
- * - `certificate-row <run>`: the certificate fixture's grant with a
- *   discarded certificate naming the seeded trustees, written straight
- *   to the database (no PDF, no signing service), numbered outside the
- *   real series. Reports its id.
  * - `grant-fixture <run>`: Finance → Grants. The budget fixture's records,
  *   plus a grantor of this run and its NEFT gift of 2,000 on the project,
  *   received on 1 Oct 2026 into the main bank account. Reports the names
@@ -848,188 +831,6 @@ async function grantFixture(run: string) {
   return { ...names, grantor, reference };
 }
 
-async function certificateFixture(run: string) {
-  const now = new Date();
-  const code = run
-    .replace(/[^A-Za-z0-9]/g, "")
-    .slice(-10)
-    .toUpperCase();
-  const ids = {
-    account: uuidv7(),
-    grant: uuidv7(),
-    party: uuidv7(),
-    programme: uuidv7(),
-    project: uuidv7(),
-  };
-  const title = `E2E Certificate Grant ${run}`;
-  await db.transaction(async (tx) => {
-    // A CSR grant's certificate prints the trust's CSR-1 registration.
-    const [csr1] = await tx
-      .select({ id: organisationRegistration.id })
-      .from(organisationRegistration)
-      .where(eq(organisationRegistration.type, "csr1"))
-      .limit(1);
-    if (!csr1) {
-      await tx.insert(organisationRegistration).values({
-        createdAt: now,
-        id: uuidv7(),
-        number: "CSR00012345",
-        type: "csr1",
-        updatedAt: now,
-      });
-    }
-    // A bank account of this run, never made main.
-    await tx.insert(orgAccount).values({
-      createdAt: now,
-      id: ids.account,
-      kind: "bank",
-      name: `E2E Certificate Bank ${run}`,
-      updatedAt: now,
-    });
-    await tx.insert(programme).values({
-      code: `UC${code}`,
-      createdAt: now,
-      id: ids.programme,
-      name: `E2E Certificate Programme ${run}`,
-      updatedAt: now,
-    });
-    await tx.insert(project).values({
-      code: `UCP${code}`,
-      createdAt: now,
-      id: ids.project,
-      name: `E2E Certificate Project ${run}`,
-      programmeId: ids.programme,
-      updatedAt: now,
-    });
-    await tx.insert(party).values({
-      createdAt: now,
-      displayName: `E2E Certificate Grantor ${run}`,
-      id: ids.party,
-      kind: "organisation",
-      updatedAt: now,
-    });
-    await tx.insert(partyRole).values({
-      active: true,
-      id: uuidv7(),
-      partyId: ids.party,
-      role: "grantor",
-      since: now,
-    });
-    await tx.insert(grantAgreement).values({
-      createdAt: now,
-      donationType: "csr",
-      endsOn: "2027-03-31",
-      id: ids.grant,
-      needsCaCertificate: true,
-      partyId: ids.party,
-      programmeId: ids.programme,
-      projectId: ids.project,
-      sanctionedPaise: 1_000_000,
-      startsOn: "2026-04-01",
-      title,
-      updatedAt: now,
-    });
-    await tx.insert(contribution).values({
-      amountPaise: 300_000,
-      channel: "neft",
-      createdAt: now,
-      donationType: "csr",
-      fundId: GENERAL_FUND_ID,
-      grantId: ids.grant,
-      id: uuidv7(),
-      orgAccountId: ids.account,
-      partyId: ids.party,
-      programmeId: ids.programme,
-      projectId: ids.project,
-      receivedOn: "2026-10-01",
-      reference: `E2EUC${code}`,
-      reportingMode: "electronic_or_account_payee",
-      status: "received",
-      updatedAt: now,
-    });
-  });
-  return { grantId: ids.grant, title };
-}
-
-async function certificateRow(run: string) {
-  const { grantId, title } = await certificateFixture(run);
-  const id = uuidv7();
-  const now = new Date();
-  const zero = {
-    broughtForwardPaise: 0,
-    closingPaise: 0,
-    heads: [],
-    interestBroughtForwardPaise: 0,
-    interestPaise: 0,
-    received: [],
-    receivedPaise: 0,
-    refunds: [],
-    refundedPaise: 0,
-    spentPaise: 0,
-    totalAvailablePaise: 0,
-  };
-  const number = `UC/E2E/${run}`;
-  await db.insert(utilisationCertificate).values({
-    caRequired: false,
-    createdAt: now,
-    financeTrusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
-    fiscalYear: `e2e-${run}`,
-    fromOn: "2026-04-01",
-    grantId,
-    headTrusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
-    id,
-    interestPaise: 0,
-    latestObjectKey: `e2e/utilisation-certificates/${id}.pdf`,
-    latestSha256: "0".repeat(64),
-    number,
-    sequence: 1,
-    snapshot: {
-      caRequired: false,
-      figures: zero,
-      grant: {
-        agreementOn: null,
-        agreementReference: null,
-        grantor: `E2E Certificate Grantor ${run}`,
-        programme: `E2E Certificate Programme ${run}`,
-        project: `E2E Certificate Project ${run}`,
-        sanctionedPaise: 1_000_000,
-        scheduleViiItem: null,
-        title,
-      },
-      number,
-      period: { from: "2026-04-01", to: "2026-09-30" },
-      place: "Bengaluru",
-      preparedOn: "2026-10-01",
-      signatories: {
-        finance: {
-          name: "Vikram Menon",
-          office: "joint_managing_trustee",
-          trusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
-        },
-        head: {
-          name: "Asha Rao",
-          office: "managing_trustee",
-          trusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
-        },
-      },
-      trust: {
-        address: "Bengaluru",
-        csr1: null,
-        name: "Proud Indian",
-        pan: "AAATP1234C",
-        registration12ab: null,
-        registration80g: null,
-      },
-      version: 1,
-    },
-    // Discarded: a waiting one would show on the seeded trustees' dashboards.
-    status: "discarded",
-    toOn: "2026-09-30",
-    updatedAt: now,
-  });
-  return { id, number };
-}
-
 async function provisionFixture(run: string, yearLabel: string) {
   await voidAuditorInvoices();
   await auditedFixture(yearLabel);
@@ -1484,10 +1285,6 @@ if (action === "close-year") {
   result = { id: await upiGift(accountId ?? "", day ?? "2026-05-01", 25_000) };
 } else if (action === "budget-fixture") {
   result = await budgetFixture(label);
-} else if (action === "certificate-row") {
-  result = await certificateRow(label);
-} else if (action === "certificate-fixture") {
-  result = await certificateFixture(label);
 } else if (action === "grant-fixture") {
   result = await grantFixture(label);
 } else if (action === "expense-fixture") {

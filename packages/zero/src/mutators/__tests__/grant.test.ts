@@ -6,7 +6,7 @@ import {
   type ScopeRow,
   type ScopeTables,
 } from "../../queries/query-scope-test-utils";
-import { assertEventProjectMovesAllowed, grantMutators } from "../grant";
+import { grantMutators } from "../grant";
 
 type Row = Record<string, unknown>;
 
@@ -34,14 +34,11 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
       { active: true, id: "r-1", partyId: "grantor", role: "grantor" },
       { active: true, id: "r-2", partyId: "vendor", role: "vendor" },
     ],
-    ledgerEntry: [],
     programme: [{ active: true, id: "prog-1" }],
     project: [
       { id: "proj-1", programmeId: "prog-1" },
       { id: "proj-2", programmeId: "prog-1" },
     ],
-    teamEvent: [],
-    utilisationCertificate: [],
     ...seed,
   };
   const tableApi = (table: string) => ({
@@ -86,7 +83,6 @@ const grantArgs = {
   donationType: "csr",
   endsOn: "2027-03-31",
   id: "grant-1",
-  needsCaCertificate: false,
   notes: null,
   partyId: "grantor",
   programmeId: "prog-1",
@@ -276,112 +272,5 @@ describe("grant.saveBudget", () => {
         lines: [{ accountHeadId: "h-other", amountPaise: 10, id: "l-2" }],
       })
     ).rejects.toThrow(/can be budgeted/);
-  });
-});
-
-/** A live certificate of grant-1 for its first half year, to 31 Oct 2026. */
-const certificate = (values: Row = {}) => ({
-  grantId: "grant-1",
-  id: "uc-1",
-  number: "UC/2026-27/001",
-  status: "awaiting_finance",
-  toOn: Date.UTC(2026, 9, 31),
-  ...values,
-});
-
-describe("utilisation certificates hold their range", () => {
-  it("refuse linking or unlinking a gift on or before a live certificate's end", async () => {
-    const db = createDb();
-    await save(db);
-    db.tables.utilisationCertificate?.push(certificate());
-    // The gift arrived on 1 Oct 2026, inside the certificate.
-    await expect(link(db)).rejects.toThrow(
-      "Utilisation certificate UC/2026-27/001 covers this, so linking this contribution would change its figures. Cancel it first, then prepare a new one."
-    );
-    expect(db.tables.contribution?.[0]?.grantId).toBeNull();
-    // A certificate ending before the gift leaves it free.
-    Object.assign(db.tables.utilisationCertificate?.[0] ?? {}, {
-      toOn: Date.UTC(2026, 8, 30),
-    });
-    await link(db);
-    Object.assign(db.tables.utilisationCertificate?.[0] ?? {}, {
-      toOn: Date.UTC(2026, 9, 31),
-    });
-    await expect(link(db, { grantId: null })).rejects.toThrow(
-      /so unlinking this contribution/
-    );
-    // A cancelled certificate holds nothing.
-    Object.assign(db.tables.utilisationCertificate?.[0] ?? {}, {
-      status: "cancelled",
-    });
-    await link(db, { grantId: null });
-    expect(db.tables.contribution?.[0]?.grantId).toBeNull();
-  });
-
-  it("refuse moving the grant's project or dates under a live certificate", async () => {
-    const db = createDb();
-    await save(db);
-    db.tables.utilisationCertificate?.push(certificate());
-    await expect(save(db, { projectId: "proj-2" })).rejects.toThrow(
-      /so changing the grant's project or dates would change its figures/
-    );
-    // A later start would drop spend the certificate counts.
-    await expect(save(db, { startsOn: "2026-05-01" })).rejects.toThrow(
-      /UC\/2026-27\/001/
-    );
-    // An end before the certificate's leaves its period outside the grant.
-    await expect(save(db, { endsOn: "2026-10-15" })).rejects.toThrow(
-      /UC\/2026-27\/001/
-    );
-    // An end moved after the certificate touches nothing it counts.
-    await save(db, { endsOn: "2027-06-30" });
-    await save(db, { title: "Renamed" });
-    // Cancelled, it holds nothing.
-    Object.assign(db.tables.utilisationCertificate?.[0] ?? {}, {
-      status: "cancelled",
-    });
-    await save(db, { projectId: "proj-2" });
-  });
-
-  it("keep a grant with certificates from being deleted", async () => {
-    const db = createDb();
-    await save(db);
-    db.tables.utilisationCertificate?.push(
-      certificate({ status: "discarded" })
-    );
-    await expect(
-      run(grantMutators.delete, db, { id: "grant-1" })
-    ).rejects.toThrow(/has utilisation certificates/);
-  });
-
-  it("refuse moving an event's project when its spend inside a certificate would move", async () => {
-    const spend = (economicOn: number) => ({
-      accountHeadId: "h-travel",
-      economicOn,
-      eventId: "ev-1",
-      id: `le-${economicOn}`,
-      medium: "monetary",
-      reversesEntryId: null,
-    });
-    const db = createDb({
-      ledgerEntry: [spend(Date.UTC(2026, 9, 2))],
-      // After the edit: the event now on another project.
-      teamEvent: [{ id: "ev-1", projectId: "proj-2" }],
-    });
-    await save(db);
-    db.tables.utilisationCertificate?.push(certificate());
-    const before = new Map([["ev-1", "proj-1"]]);
-    await expect(
-      assertEventProjectMovesAllowed(db.tx as never, before)
-    ).rejects.toThrow(/so moving the event's project would change/);
-    // Spend after the certificate's end moves freely.
-    db.tables.ledgerEntry = [spend(Date.UTC(2026, 10, 15))];
-    await assertEventProjectMovesAllowed(db.tx as never, before);
-    // An event whose project didn't change is never checked.
-    db.tables.ledgerEntry = [spend(Date.UTC(2026, 9, 2))];
-    await assertEventProjectMovesAllowed(
-      db.tx as never,
-      new Map([["ev-1", "proj-2"]])
-    );
   });
 });

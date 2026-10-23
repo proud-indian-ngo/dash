@@ -47,10 +47,10 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", {
 /**
  * Room for "₹99,99,99,999.00" in Paper Mono: at 9.5pt in the balance chain,
  * and at 8.5pt in the by-head table, whose three amount columns share the
- * line with the head's name. Exported for the layout test.
+ * line with the head's name.
  */
-export const AMOUNT_WIDTH = 104;
-export const HEAD_AMOUNT_WIDTH = 96;
+const AMOUNT_WIDTH = 104;
+const HEAD_AMOUNT_WIDTH = 96;
 
 const day = (iso: string) => dateFmt.format(new Date(`${iso}T00:00:00Z`));
 

@@ -106,6 +106,7 @@ const specPattern = (file: string) =>
  */
 const exclusiveLastSpecs = [
   "settings/cost-centre-activation.spec.ts",
+  "finance/utilisation-certificate-csr1.spec.ts",
   "finance/books-year-close.spec.ts",
   "governance/policy-gate.spec.ts",
   "governance/safeguarding-gate.spec.ts",
