@@ -251,10 +251,6 @@ test.describe("Income: donation receipts (finance)", () => {
   });
 
   test("replaces the signatory's signature in Settings", async ({ page }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "The signature is stored in R2, which CI does not have"
-    );
     await page.goto("/settings/org-accounts");
     await waitForZeroReady(page);
     const receipts = page.getByRole("region", { name: "Donation receipts" });
@@ -291,10 +287,6 @@ test.describe("Income: donation receipts (finance)", () => {
     browser,
     page,
   }, testInfo) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
-    );
     test.slow();
     const fy = currentFinancialYear();
     await ensureRegistration(page);
@@ -511,10 +503,6 @@ test.describe("Income: donation receipts (finance)", () => {
   test("issues a new direct gift's receipt at once and holds delivery until finance sends it", async ({
     page,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
-    );
     test.slow();
     await ensureRegistration(page);
     const reference = `E2E-AUTO-RECEIPT-${Date.now()}`;
@@ -629,10 +617,6 @@ test.describe("Income: donation receipts (finance)", () => {
   test("does not issue or dispatch an automatic receipt without donor details", async ({
     page,
   }) => {
-    test.skip(
-      Boolean(process.env.CI),
-      "Issuing reads the signature from R2 and stores the PDF there, which CI does not have"
-    );
     test.slow();
     await ensureRegistration(page);
     await clearDetailsAddress();

@@ -33,7 +33,7 @@ import {
   kalakritiStandingsRevision,
 } from "@pi-dash/db/schema/kalakriti-results";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
-import { S3Client } from "bun";
+import { getR2Client } from "@pi-dash/jobs/handlers/r2";
 import { eq } from "drizzle-orm";
 
 const id = (number: number) =>
@@ -464,12 +464,7 @@ async function cleanupR2(keysJson: string, actorEmail: string) {
     )
   )
     throw new Error("Refusing non-fixture scorecard object cleanup");
-  const client = new S3Client({
-    accessKeyId: process.env.R2_ACCESS_KEY!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    bucket: process.env.R2_BUCKET_NAME!,
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  });
+  const client = getR2Client();
   for (const key of keys as string[]) await client.delete(key);
   return { removed: keys.length };
 }

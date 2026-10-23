@@ -133,11 +133,18 @@ jobs:
       # Test-only key for finance-private fields; 32 bytes of 0x41 in base64.
       DATA_ENCRYPTION_KEY: QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
       CORS_ORIGIN: http://localhost:3099
+      # The fake R2, the same as packages/e2e/run-e2e.sh.
+      E2E_R2_PORT: "4874"
+      R2_ENDPOINT: http://localhost:4874
       R2_ACCESS_KEY: ci-test-access-key
       R2_ACCOUNT_ID: ci-test-account
       R2_BUCKET_NAME: ci-test-bucket
       R2_KEY_PREFIX: attachments
       R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
+      # The signing service, built and started by "Start signing service".
+      SIGNING_SERVICE_URL: http://localhost:4872
+      SIGNING_SERVICE_TOKEN: e2e-signing-token
+      E2E_SIGNING_PKI_DIR: /tmp/signing-pki
       ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
@@ -215,6 +222,39 @@ jobs:
           cat /tmp/gowa.log
           exit 1
 
+      # Before seeding, which stores the receipt signature in it.
+      - name: Start fake R2
+        run: |
+          (bun packages/e2e/fake-r2.ts > /tmp/r2.log 2>&1 &)
+          for _ in $(seq 1 30); do
+            if curl -sf "$R2_ENDPOINT/health" >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "fake R2 failed to start"
+          cat /tmp/r2.log
+          exit 1
+
+      # Issuing circulars, minutes and declarations needs it. Builds in the
+      # background; "Wait for signing service" checks it.
+      - name: Start signing service
+        run: |
+          (
+            # Trusts only this run's throwaway CA; see run-e2e.sh.
+            (docker build -t pi-dash-signing services/signing &&
+              mkdir -p "$E2E_SIGNING_PKI_DIR" &&
+              docker run --rm --user "$(id -u):$(id -g)" \
+                -v "$E2E_SIGNING_PKI_DIR:/out" \
+                -v "$PWD/packages/e2e/signing/make-test-pki.py:/make-test-pki.py:ro" \
+                --entrypoint /app/.venv/bin/python pi-dash-signing /make-test-pki.py /out &&
+              docker run -d --name signing -p 4872:8080 \
+                -e SIGNING_SERVICE_TOKEN="$SIGNING_SERVICE_TOKEN" \
+                -e SIGNING_TRUST_ROOTS_DIR=/test-roots -e SIGNING_TSA_URL=none \
+                -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" pi-dash-signing) > /tmp/signing.log 2>&1
+            echo $? > /tmp/signing.exit
+          ) > /dev/null 2>&1 &
+
       # Restore the build from Turbo's remote cache (the pre-push hook fills
       # it) or build while Postgres, Playwright and zero-cache get ready.
       # "Wait for web build" collects the result before the tests start.
@@ -236,8 +276,10 @@ jobs:
           docker logs postgres 2>&1 | tail -50
           exit 1
 
-      - name: Push schema to test database
-        run: cd packages/db && bunx drizzle-kit push
+      # Migrations, as run-e2e.sh and production do: push skips objects only
+      # migration SQL creates, such as voucher_seq.
+      - name: Migrate test database
+        run: cd packages/db && bun run scripts/migrate.ts
 
       - name: Restrict Zero replication
         run: bun packages/zero/scripts/prepare-publication.ts
@@ -322,6 +364,18 @@ jobs:
             exit "$status"
           fi
           tail -n 5 /tmp/web-build.log
+
+      - name: Wait for signing service
+        timeout-minutes: 5
+        run: |
+          until curl -sf "$SIGNING_SERVICE_URL/health" >/dev/null 2>&1; do
+            if [ -f /tmp/signing.exit ] && [ "$(cat /tmp/signing.exit)" != 0 ]; then
+              echo "signing service failed to start"
+              cat /tmp/signing.log
+              exit 1
+            fi
+            sleep 1
+          done
 
       - name: Run Playwright tests
         run: bunx playwright test --config packages/e2e/playwright.config.ts --test-list=packages/e2e/shard-lists/shard-${{ matrix.shard }}.txt

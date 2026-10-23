@@ -155,30 +155,28 @@ test.describe("Kalakriti Competition Entry registration", () => {
       await expect(studentB.getByTestId("entry-music")).toContainText(
         "0 files"
       );
-      if (!process.env.CI) {
-        crumb("zeroReady-wait");
-        await waitForZeroReady(page);
-        crumb("zeroReady-ok");
-        await expect(async () => {
-          await studentA
-            .getByRole("button", { name: "Upload music", exact: true })
-            .click();
-          const musicDialog = page.getByRole("dialog", {
-            name: "Upload music",
-            exact: true,
-          });
-          await entriesPage.attachMusic(musicDialog);
-          await expect(
-            musicDialog.getByText("track.mp3", { exact: true })
-          ).toBeVisible();
-          await entriesPage.saveMusic(musicDialog);
-          await expect(studentA.getByTestId("entry-music")).toContainText(
-            "track.mp3",
-            { timeout: 15_000 }
-          );
-        }).toPass({ timeout: 45_000 });
-        await entriesPage.expectMusicDownloadOk(studentA, "track.mp3");
-      }
+      crumb("zeroReady-wait");
+      await waitForZeroReady(page);
+      crumb("zeroReady-ok");
+      await expect(async () => {
+        await studentA
+          .getByRole("button", { name: "Upload music", exact: true })
+          .click();
+        const musicDialog = page.getByRole("dialog", {
+          name: "Upload music",
+          exact: true,
+        });
+        await entriesPage.attachMusic(musicDialog);
+        await expect(
+          musicDialog.getByText("track.mp3", { exact: true })
+        ).toBeVisible();
+        await entriesPage.saveMusic(musicDialog);
+        await expect(studentA.getByTestId("entry-music")).toContainText(
+          "track.mp3",
+          { timeout: 15_000 }
+        );
+      }).toPass({ timeout: 45_000 });
+      await entriesPage.expectMusicDownloadOk(studentA, "track.mp3");
 
       crumb("removal-loop-start");
       for (const studentName of ["Entry Student A", "Entry Student B"]) {
@@ -363,21 +361,19 @@ test.describe("Kalakriti Competition Entry registration", () => {
       ).toHaveCount(0);
       await dialog.getByLabel("Group members").fill("");
       await entriesPage.selectGroupMembers(dialog, ["Entry Student B"]);
-      if (!process.env.CI) {
-        await entriesPage.attachMusicFiles(dialog, [
-          "track.mp3",
-          "music-second.mp3",
-        ]);
-        await expect(
-          dialog.getByRole("button", { name: "Register Group", exact: true })
-        ).toBeEnabled();
-        await expect(
-          dialog.getByText("track.mp3", { exact: true })
-        ).toBeVisible();
-        await expect(
-          dialog.getByText("music-second.mp3", { exact: true })
-        ).toBeVisible();
-      }
+      await entriesPage.attachMusicFiles(dialog, [
+        "track.mp3",
+        "music-second.mp3",
+      ]);
+      await expect(
+        dialog.getByRole("button", { name: "Register Group", exact: true })
+      ).toBeEnabled();
+      await expect(
+        dialog.getByText("track.mp3", { exact: true })
+      ).toBeVisible();
+      await expect(
+        dialog.getByText("music-second.mp3", { exact: true })
+      ).toBeVisible();
       await dialog.getByRole("button", { name: "Register Group" }).click();
       await expect(
         page.getByText("Competition group registered", { exact: true })
@@ -394,50 +390,44 @@ test.describe("Kalakriti Competition Entry registration", () => {
           { exact: true }
         )
       ).toBeVisible();
-      if (!process.env.CI) {
-        await expect(page.getByTestId("entry-music")).toContainText(
-          "track.mp3"
-        );
-        const beforeReplacement = await fixture<EntryState>("state", "liaison");
-        expect(
-          beforeReplacement.musicFiles.map((file) => file.fileName).sort()
-        ).toEqual(["music-second.mp3", "track.mp3"]);
-        for (const file of beforeReplacement.musicFiles)
-          uploadedKeys.add(file.objectKey);
-        const musicDialog = await entriesPage.openMusicDialog(true);
-        await musicDialog
-          .getByRole("button", { name: "Remove track.mp3", exact: true })
-          .click();
-        await entriesPage.attachMusic(musicDialog, "remix.mp3");
-        await expect(
-          musicDialog.getByText("remix.mp3", { exact: true })
-        ).toBeVisible();
-        await entriesPage.saveMusic(musicDialog);
-        await expect(page.getByTestId("entry-music")).toContainText(
-          "remix.mp3"
-        );
-        await entriesPage.expectMusicDownloadOk(
-          page.getByTestId("entry-music"),
-          "remix.mp3"
-        );
-        const beforeRemoval = await fixture<EntryState>("state", "liaison");
-        for (const file of beforeRemoval.musicFiles)
-          uploadedKeys.add(file.objectKey);
-        const removalDialog = await entriesPage.openMusicDialog(true);
-        await removalDialog
-          .getByRole("button", { name: "Remove remix.mp3" })
-          .click();
-        await removalDialog
-          .getByRole("button", { name: "Remove music-second.mp3", exact: true })
-          .click();
-        await entriesPage.saveMusic(removalDialog);
-        await expect
-          .poll(
-            async () =>
-              (await fixture<EntryState>("state", "liaison")).musicFiles.length
-          )
-          .toBe(0);
-      }
+      await expect(page.getByTestId("entry-music")).toContainText("track.mp3");
+      const beforeReplacement = await fixture<EntryState>("state", "liaison");
+      expect(
+        beforeReplacement.musicFiles.map((file) => file.fileName).sort()
+      ).toEqual(["music-second.mp3", "track.mp3"]);
+      for (const file of beforeReplacement.musicFiles)
+        uploadedKeys.add(file.objectKey);
+      const musicDialog = await entriesPage.openMusicDialog(true);
+      await musicDialog
+        .getByRole("button", { name: "Remove track.mp3", exact: true })
+        .click();
+      await entriesPage.attachMusic(musicDialog, "remix.mp3");
+      await expect(
+        musicDialog.getByText("remix.mp3", { exact: true })
+      ).toBeVisible();
+      await entriesPage.saveMusic(musicDialog);
+      await expect(page.getByTestId("entry-music")).toContainText("remix.mp3");
+      await entriesPage.expectMusicDownloadOk(
+        page.getByTestId("entry-music"),
+        "remix.mp3"
+      );
+      const beforeRemoval = await fixture<EntryState>("state", "liaison");
+      for (const file of beforeRemoval.musicFiles)
+        uploadedKeys.add(file.objectKey);
+      const removalDialog = await entriesPage.openMusicDialog(true);
+      await removalDialog
+        .getByRole("button", { name: "Remove remix.mp3" })
+        .click();
+      await removalDialog
+        .getByRole("button", { name: "Remove music-second.mp3", exact: true })
+        .click();
+      await entriesPage.saveMusic(removalDialog);
+      await expect
+        .poll(
+          async () =>
+            (await fixture<EntryState>("state", "liaison")).musicFiles.length
+        )
+        .toBe(0);
       await expect(page.getByTestId("entry-music")).toContainText("0 files");
 
       await page.goto(`/kalakriti/${year}/centers`);

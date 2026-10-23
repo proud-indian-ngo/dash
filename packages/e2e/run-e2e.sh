@@ -78,6 +78,7 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   export E2E_DB_PORT=$((STACK_PORT + 3))
   export E2E_SIGNING_PORT=$((STACK_PORT + 4))
   export E2E_GOWA_PORT=$((STACK_PORT + 5))
+  export E2E_R2_PORT=$((STACK_PORT + 6))
   # The run lock means anything on these ports is left over from an earlier
   # run in this checkout (one stopped before its teardown), so clear it first.
   STALE_SUFFIX=""
@@ -88,10 +89,10 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
       docker rm -f "$STALE_CONTAINER" >/dev/null
     fi
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_GOWA_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_GOWA_PORT" "$E2E_R2_PORT"; do
     stop_port_processes "$port" || true
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT" "$E2E_GOWA_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT" "$E2E_GOWA_PORT" "$E2E_R2_PORT"; do
     if [ -n "$(port_listener_pids "$port")" ]; then
       echo "ERROR: stack port $port is already in use"
       exit 1
@@ -106,6 +107,7 @@ TEST_ZERO_CS_PORT="$E2E_ZERO_CS_PORT"
 TEST_DB_HOST_PORT="$E2E_DB_PORT"
 TEST_SIGNING_PORT="$E2E_SIGNING_PORT"
 TEST_GOWA_PORT="$E2E_GOWA_PORT"
+TEST_R2_PORT="$E2E_R2_PORT"
 
 # Worktree-unique suffixes for containers, volumes, and temp files
 WT_SUFFIX=""
@@ -119,6 +121,7 @@ ZERO_LOG="/tmp/pi-dash-test${WT_SUFFIX}-zero.log"
 VITE_LOG="/tmp/pi-dash-test${WT_SUFFIX}-vite.log"
 BUILD_LOG="/tmp/pi-dash-test${WT_SUFFIX}-build.log"
 GOWA_LOG="/tmp/pi-dash-test${WT_SUFFIX}-gowa.log"
+R2_LOG="/tmp/pi-dash-test${WT_SUFFIX}-r2.log"
 REPLICA_FILE="/tmp/pi-dash-test${WT_SUFFIX}.db"
 
 ENCODED_DEV_DB_PASSWORD=$(bun -e 'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')
@@ -191,10 +194,15 @@ cleanup() {
     kill "$GOWA_PID" 2>/dev/null || true
     wait "$GOWA_PID" 2>/dev/null || true
   fi
+  if [ -n "${R2_PID:-}" ]; then
+    kill "$R2_PID" 2>/dev/null || true
+    wait "$R2_PID" 2>/dev/null || true
+  fi
   stop_port_processes "$TEST_WEB_PORT" || cleanup_failed=1
   stop_port_processes "$TEST_ZERO_PORT" || cleanup_failed=1
   stop_port_processes "$TEST_ZERO_CS_PORT" || cleanup_failed=1
   stop_port_processes "$TEST_GOWA_PORT" || cleanup_failed=1
+  stop_port_processes "$TEST_R2_PORT" || cleanup_failed=1
   if ! docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans; then
     echo "ERROR: failed to remove E2E containers and volumes"
     cleanup_failed=1
@@ -250,6 +258,28 @@ until curl -sf --max-time 2 "http://localhost:$TEST_SIGNING_PORT/health" >/dev/n
     docker logs "pi-dash-signing-test${WT_SUFFIX}"
     exit 1
   fi
+done
+
+# R2 goes to the fake (fake-r2.ts), started before seeding because the seed
+# stores the receipt signature there. Keep in step with the e2e job env in
+# .github/workflows/ci.yml.
+echo "Starting the fake R2 on port $TEST_R2_PORT..."
+stop_port_processes "$TEST_R2_PORT"
+E2E_R2_PORT="$TEST_R2_PORT" bun packages/e2e/fake-r2.ts > "$R2_LOG" 2>&1 &
+R2_PID=$!
+export R2_ENDPOINT="http://localhost:$TEST_R2_PORT"
+export R2_ACCOUNT_ID=e2e-account
+export R2_ACCESS_KEY=e2e-access-key
+export R2_SECRET_ACCESS_KEY=e2e-secret-access-key
+export R2_BUCKET_NAME=e2e-bucket
+export R2_KEY_PREFIX=attachments
+until curl -sf --max-time 2 "$R2_ENDPOINT/health" >/dev/null 2>&1; do
+  if ! kill -0 "$R2_PID" 2>/dev/null; then
+    echo "ERROR: The fake R2 exited; see $R2_LOG"
+    cat "$R2_LOG"
+    exit 1
+  fi
+  sleep 1
 done
 
 # Migrate schema (run from packages/db so relative config path resolves)

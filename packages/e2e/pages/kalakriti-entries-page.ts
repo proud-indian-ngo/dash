@@ -47,7 +47,7 @@ export class KalakritiEntriesPage {
     this.page.on("request", (request) => {
       if (
         request.method() !== "PUT" ||
-        !request.url().includes("r2.cloudflarestorage.com")
+        !request.url().startsWith(`${process.env.R2_ENDPOINT}/`)
       )
         return;
       let key = decodeURIComponent(new URL(request.url()).pathname).slice(1);

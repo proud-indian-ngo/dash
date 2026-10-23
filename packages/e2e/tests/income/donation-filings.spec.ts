@@ -79,10 +79,6 @@ async function ensureRegistration(page: Page) {
 test.describe("Donations return filings", () => {
   test.beforeEach(() => {
     test.skip(
-      Boolean(process.env.CI),
-      "Recording a filing keeps its file in R2, which CI does not have"
-    );
-    test.skip(
       !process.env.DATA_ENCRYPTION_KEY,
       "The ready donor's PAN needs DATA_ENCRYPTION_KEY"
     );

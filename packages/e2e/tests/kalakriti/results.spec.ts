@@ -298,10 +298,6 @@ test("failed scorecard PUT can retry while a successful staged file stays attach
   superAdminEmail,
   volunteerEmail,
 }) => {
-  test.skip(
-    Boolean(process.env.CI),
-    "Requires real R2 promotion, following the local-only music upload test"
-  );
   test.setTimeout(240_000);
   const data = await fixture<Setup>("setup", superAdminEmail, volunteerEmail);
   const uploadedKeys = new Set<string>();
@@ -310,7 +306,7 @@ test("failed scorecard PUT can retry while a successful staged file stays attach
   page.on("request", (request) => {
     if (
       request.method() !== "PUT" ||
-      !request.url().includes("r2.cloudflarestorage.com")
+      !request.url().startsWith(`${process.env.R2_ENDPOINT}/`)
     )
       return;
     let key = decodeURIComponent(new URL(request.url()).pathname).slice(1);

@@ -27,20 +27,8 @@ test.describe("Reimbursement detail (reimbursement)", () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
 
-    await reimbursements.navigateToList();
-    const empty = _page.getByText("No reimbursements found.");
-    await expect(reimbursements.list.getTable().or(empty)).toBeVisible({
-      timeout: 15_000,
-    });
-    test.skip((await empty.count()) > 0, "No reimbursements available");
-    await reimbursements.list.waitForTableData();
-
-    const firstRow = reimbursements.list.getRows().nth(1);
-    const hasRows = (await firstRow.count()) > 0;
-    test.skip(!hasRows, "No reimbursements available");
-
-    await firstRow.click();
-
+    await reimbursements.createReimbursement("Volunteer No Approve");
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible();
     await expect(reimbursements.detail.getApproveButton()).toBeHidden();
     await expect(reimbursements.detail.getRejectButton()).toBeHidden();
   });
@@ -50,7 +38,6 @@ test.describe("Reimbursement detail (reimbursement)", () => {
 
     await reimbursements.createReimbursement("Approve Needs Screenshot");
     await reimbursements.handOverInDatabase();
-    await reimbursements.detail.stubScreenshotUpload();
     await reimbursements.detail.getApproveButton().click();
     const dialog = reimbursements.detail.getAlertDialog();
     const approve = dialog.getByRole("button", { name: "Approve" });
@@ -80,7 +67,6 @@ test.describe("Reimbursement detail (reimbursement)", () => {
     await reimbursements.createReimbursement("Approve Existing Screenshot");
     await reimbursements.handOverInDatabase();
     await reimbursements.rejectWithStoredScreenshotInDatabase();
-    await reimbursements.detail.stubScreenshotUpload();
     await reimbursements.detail.getApproveButton().click();
     const dialog = reimbursements.detail.getAlertDialog();
     const approve = dialog.getByRole("button", { name: "Approve" });
@@ -104,10 +90,6 @@ test.describe("Reimbursement detail (reimbursement)", () => {
 
   test("admin approves a pending reimbursement", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-    test.skip(
-      Boolean(process.env.CI),
-      "Approving promotes the payment screenshot in R2, which CI does not have"
-    );
 
     await reimbursements.createReimbursement("Approv Flow Test");
     await reimbursements.handOverInDatabase();

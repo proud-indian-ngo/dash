@@ -34,10 +34,6 @@ test.describe("Reimbursements grouped by status", () => {
     await expect(row).toBeHidden();
     await page.getByRole("button", { name: "Expand Pending" }).click();
     await expect(row).toBeVisible();
-
-    // Approving promotes the payment screenshot in R2, which CI does not
-    // have; the detail spec covers the full approval where R2 is available.
-    await reimbursements.detail.stubScreenshotUpload();
     await row.getByRole("button", { name: `Approve ${title}` }).click();
     const dialog = page.getByRole("alertdialog");
     await expect(dialog.getByText("Approve reimbursement?")).toBeVisible();

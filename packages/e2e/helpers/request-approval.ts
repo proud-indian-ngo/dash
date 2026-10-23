@@ -13,9 +13,8 @@ import { uuidv7 } from "uuidv7";
 /**
  * Marks a request approved straight in the database, run with Bun as a
  * script because Playwright's Node runner cannot load `@pi-dash/db`.
- * Approving in the app needs the payment screenshot promoted in R2, which CI
- * does not have, so specs that only need an approved request as their
- * starting point use this. The row has no screenshot, like requests approved
+ * Specs that only need an approved request as their starting point use this,
+ * skipping the screenshot upload. The row has no screenshot, like requests approved
  * before the screenshot was required; the seeded super admin is recorded as
  * the reviewer. Prints one JSON value.
  */

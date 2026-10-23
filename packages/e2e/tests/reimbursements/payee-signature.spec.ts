@@ -69,10 +69,6 @@ test.describe("Payee signature", () => {
     await drawSignature(page);
     await expect(confirm).toBeEnabled();
 
-    test.skip(
-      Boolean(process.env.CI),
-      "Saving the signature claims the PNG in R2, which CI does not have"
-    );
     await confirm.click();
     await expect(page.getByText("Signature saved")).toBeVisible({
       timeout: 15_000,
@@ -112,10 +108,6 @@ test.describe("Payee signature", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Claimant-only test");
-    test.skip(
-      Boolean(process.env.CI),
-      "Saving the signature and rendering the voucher need R2, which CI does not have"
-    );
     test.slow();
 
     const reimbursements = new ReimbursementPage(page, "reimbursement");

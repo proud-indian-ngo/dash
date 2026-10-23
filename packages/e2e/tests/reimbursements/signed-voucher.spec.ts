@@ -6,10 +6,6 @@ test.describe("Signed cash voucher", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "volunteer", "Claimant-only test");
-    test.skip(
-      Boolean(process.env.CI),
-      "Claiming the uploaded file needs R2, which CI does not have"
-    );
     test.slow();
 
     const reimbursements = new ReimbursementPage(page, "reimbursement");

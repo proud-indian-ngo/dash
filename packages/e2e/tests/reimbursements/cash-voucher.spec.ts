@@ -49,30 +49,28 @@ test.describe("Cash voucher", () => {
     await expect(page.getByText("Reimbursement submitted")).toBeVisible();
   });
 
-  test("approval enqueues voucher for opted-in line item", async ({
+  test("approval shows the voucher column and enqueues the voucher", async ({
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-    test.skip(
-      Boolean(process.env.CI),
-      "Approving promotes the payment screenshot in R2, which CI does not have"
-    );
     test.slow();
 
     await reimbursements.createReimbursementWithVoucher("Voucher Approval");
     await reimbursements.handOverInDatabase();
 
-    await expect(reimbursements.detail.getApproveButton()).toBeVisible();
+    // A pending request has no voucher column; approving adds it.
+    const voucherColumn = page.getByRole("columnheader", { name: "Voucher" });
+    await expect(reimbursements.detail.getStatusBadge("Pending")).toBeVisible();
+    await expect(voucherColumn).toBeHidden();
     await reimbursements.detail.approve();
 
     await expect(page.getByText("Reimbursement approved")).toBeVisible({
       timeout: 15_000,
     });
-
-    // After approval, the voucher column should appear with a pending/generated state
+    await expect(voucherColumn).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("columnheader", { name: "Voucher" })
-    ).toBeVisible({ timeout: 10_000 });
+      reimbursements.detail.getVoucherGeneratedIndicator()
+    ).toBeVisible({ timeout: 60_000 });
   });
 
   test("admin can trigger voucher generation for qualifying line item", async ({
@@ -199,10 +197,6 @@ test.describe("Cash voucher", () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-    test.skip(
-      Boolean(process.env.CI),
-      "Generating a voucher and keeping it on edit need R2, which CI does not have"
-    );
     test.slow();
 
     await reimbursements.createReimbursement("Voucher Edit");
@@ -225,25 +219,6 @@ test.describe("Cash voucher", () => {
       reimbursements.detail.getVoucherGeneratedIndicator()
     ).toBeVisible({ timeout: 10_000 });
     await expect(reimbursements.detail.getGenerateVoucherButton()).toBeHidden();
-  });
-
-  test("shows voucher column only for approved reimbursements", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "super_admin", "Admin-only test");
-
-    await reimbursements.navigateToList();
-    await reimbursements.list.waitForTableData();
-
-    const pendingRow = reimbursements.list.getPendingRow();
-    const hasPending = (await pendingRow.count()) > 0;
-    test.skip(!hasPending, "No pending reimbursements available");
-
-    await pendingRow.click();
-
-    await expect(
-      page.getByRole("columnheader", { name: "Voucher" })
-    ).toBeHidden();
   });
 });
 

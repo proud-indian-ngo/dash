@@ -39,8 +39,8 @@ export class ApprovalDetailPage {
   }
 
   /**
-   * Approves with the payment screenshot attached. The screenshot is uploaded
-   * to R2 and promoted on approval, so this needs real R2 and does not run in CI.
+   * Approves with the payment screenshot attached, which is uploaded to R2
+   * and promoted on approval.
    */
   async approve(message?: string): Promise<void> {
     await this.getApproveButton().click();
@@ -62,25 +62,6 @@ export class ApprovalDetailPage {
     await expect(
       dialog.getByRole("img", { name: "Payment screenshot preview" })
     ).toBeVisible({ timeout: 15_000 });
-  }
-
-  /**
-   * Answers the browser's upload to the presigned R2 URL so the dialog accepts
-   * the screenshot without real storage. Approving after this still fails on
-   * the server, which promotes the upload in R2.
-   */
-  async stubScreenshotUpload(): Promise<void> {
-    await this.page.route("**/*", async (route) => {
-      const request = route.request();
-      if (
-        request.method() === "PUT" &&
-        new URL(request.url()).origin !== new URL(this.page.url()).origin
-      ) {
-        await route.fulfill({ status: 200 });
-      } else {
-        await route.fallback();
-      }
-    });
   }
 
   async reject(reason: string): Promise<void> {
