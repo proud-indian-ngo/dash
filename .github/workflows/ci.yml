@@ -351,11 +351,22 @@ jobs:
             --jq '.artifacts[].name' | grep -qx shard-lists; do
             sleep 2
           done
+      # Retried with a short timeout: actions/download-artifact has stalled
+      # for minutes on a file this small.
       - name: Download shard lists
-        uses: actions/download-artifact@v8
-        with:
-          name: shard-lists
-          path: packages/e2e/shard-lists/
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            rm -rf packages/e2e/shard-lists
+            if timeout 15 gh run download "$GITHUB_RUN_ID" -n shard-lists -D packages/e2e/shard-lists/; then
+              exit 0
+            fi
+            echo "shard list download attempt $attempt failed"
+            sleep 2
+          done
+          exit 1
 
       - name: Wait for web build
         timeout-minutes: 10
