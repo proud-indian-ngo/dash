@@ -224,7 +224,7 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] Any upstream cache respects origin `Cache-Control` on `/assets/*`
 - [ ] Dokploy routes the web domain through Traefik to container port 3000; no web host port is published
 - [ ] Traefik's `forwardedHeaders.trustedIPs` lists Cloudflare's IPv4 and IPv6 ranges, matching `apps/web/src/lib/client-ip.ts` ([rate limiter](docs/architecture/caching.md#rate-limiter)); `insecure` and `notAppendXForwardedFor` stay false. Until it lists the IPv6 ranges, the origin has no AAAA record
-- [ ] The origin accepts web traffic only from Cloudflare's ranges, ideally with Authenticated Origin Pulls: any peer in them may set `X-Forwarded-For`
+- [ ] The origin accepts web traffic only from Cloudflare, whose peers may set `X-Forwarded-For`. `cf-origin-firewall` on the host enforces it (Docker bypasses `ufw`), so every site there needs a proxied record; keep its ranges current
 
 ## Backups and restore
 
@@ -300,7 +300,7 @@ Contribution CSV, give.do payout and bank statement imports need the organisatio
 
 ### Private media cutover
 
-Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. Disable the R2 public URL and CDN route once authenticated reads are verified. Keep `VITE_CDN_URL` until a release removes its use, and unset it only after that release deploys.
+Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. The bucket has no public route. Keep `VITE_CDN_URL` until a release removes its use, and unset it only after that release deploys.
 
 ### Kalakriti
 
