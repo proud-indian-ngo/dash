@@ -10,7 +10,7 @@ An immutable record of who changed what. Each authenticated, state-changing comm
   - Audited ones must call `runSessionAuditedAction` inside the export.
 - **API routes:** every `POST` route is classified in the same test. Authenticated ones use `runSessionAuditedAction`. The Social API's `posted` uses `runAuditedAction`.
 - **Not audited:** reads, navigation, presigned-upload URLs, unauthenticated auth flows, signed webhooks, scheduled jobs, and the background effects a command triggers.
-- **Audited even though they read:** revealing an encrypted identifier or a vendor's bank account, the CA workbook and donations return exports, and filing and certificate downloads, because they carry sensitive data.
+- **Audited even though they read:** revealing an encrypted identifier or a vendor's bank account, the CA workbook, audit pack and donations return exports, and filing and certificate downloads, because they carry sensitive data.
 
 ## Row lifecycle
 

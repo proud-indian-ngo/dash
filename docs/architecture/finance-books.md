@@ -146,3 +146,14 @@ Builds one XLSX per year, with the sheets and columns in `finance-ledger-cutover
 
 - Read in one repeatable-read transaction (`packages/db/src/queries/ca-workbook.ts`), with earlier years summed into brought-forward rows. Sheets are built in `apps/web/src/lib/ca-workbook/`.
 - Donor IDs are masked to the last four characters. The donor list is included only for `donors.view`, `donors.manage` or `finance.view_sensitive`.
+
+## Audit pack
+
+One ZIP per year for the CA: the workbook, every stored document its rows name, and the year's Form 113 filings, Form 114 certificates and utilisation certificates. Books → Download audit pack, `GET /api/audit-pack` (`apps/web/src/lib/audit-pack/`). Governance documents stay out.
+
+- It holds full ID numbers and bank details, so it needs `finance.view_sensitive`, every download is audited as `books.audit_pack.download` with its counts, and a user may start five in 15 minutes.
+- The workbook inside is built by the same code as the Books download, with the donor list. It is a fresh copy, so it can differ from one the CA signed; the README says so.
+- `index.xlsx` (separate, so the workbook stays byte-for-byte what the Books page gives) has one row per file of each document per sheet: status Included (with its path and SHA-256), Missing, Link or No file, with a note. Year documents no row names sit on the "Year documents" sheet. Documents come from the workbook's own snapshot of rows, so year boundaries are the workbook's.
+- No file is kept for bank statement or settlement files, opening balances, audited figures, refunds or other income; their rows say No file. A receipt issued before PDFs were stored is Missing until it is opened once.
+- Everything that can fail runs before the response, inside the audited action: the workbook, the documents and a stat of every object (eight at a time). An object storage doesn't hold becomes Missing, never a broken ZIP. Files then stream one at a time (`createZipStream`, shared with the reimbursements export), hashed on the way; the index is written last. A 3 GB synthetic pack peaked at about 60 MB of memory.
+- fflate writes no ZIP64, so a year over 3.5 GB or 60,000 files is refused with a message rather than streamed corrupt.

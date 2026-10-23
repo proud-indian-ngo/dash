@@ -39,6 +39,7 @@ import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthVerifyEmailRouteImport } from './routes/_auth/verify-email'
 import { Route as ApiAuditLogRouteImport } from './routes/api/audit-log'
+import { Route as ApiAuditPackRouteImport } from './routes/api/audit-pack'
 import { Route as ApiAvatarRouteImport } from './routes/api/avatar'
 import { Route as ApiClearCacheRouteImport } from './routes/api/clear-cache'
 import { Route as ApiFinancialExportRouteImport } from './routes/api/financial-export'
@@ -327,6 +328,11 @@ const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
 const ApiAuditLogRoute = ApiAuditLogRouteImport.update({
   id: '/api/audit-log',
   path: '/api/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuditPackRoute = ApiAuditPackRouteImport.update({
+  id: '/api/audit-pack',
+  path: '/api/audit-pack',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAvatarRoute = ApiAvatarRouteImport.update({
@@ -1108,6 +1114,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
+  '/api/audit-pack': typeof ApiAuditPackRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
@@ -1269,6 +1276,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
+  '/api/audit-pack': typeof ApiAuditPackRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
@@ -1437,6 +1445,7 @@ export interface FileRoutesById {
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/api/audit-log': typeof ApiAuditLogRoute
+  '/api/audit-pack': typeof ApiAuditPackRoute
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
@@ -1611,6 +1620,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/api/audit-log'
+    | '/api/audit-pack'
     | '/api/avatar'
     | '/api/clear-cache'
     | '/api/financial-export'
@@ -1772,6 +1782,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/verify-email'
     | '/api/audit-log'
+    | '/api/audit-pack'
     | '/api/avatar'
     | '/api/clear-cache'
     | '/api/financial-export'
@@ -1939,6 +1950,7 @@ export interface FileRouteTypes {
     | '/_auth/reset-password'
     | '/_auth/verify-email'
     | '/api/audit-log'
+    | '/api/audit-pack'
     | '/api/avatar'
     | '/api/clear-cache'
     | '/api/financial-export'
@@ -2089,6 +2101,7 @@ export interface RootRouteChildren {
   AcceptPoliciesRoute: typeof AcceptPoliciesRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
+  ApiAuditPackRoute: typeof ApiAuditPackRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiClearCacheRoute: typeof ApiClearCacheRoute
   ApiFinancialExportRoute: typeof ApiFinancialExportRoute
@@ -2347,6 +2360,13 @@ declare module '@tanstack/react-router' {
       path: '/api/audit-log'
       fullPath: '/api/audit-log'
       preLoaderRoute: typeof ApiAuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/audit-pack': {
+      id: '/api/audit-pack'
+      path: '/api/audit-pack'
+      fullPath: '/api/audit-pack'
+      preLoaderRoute: typeof ApiAuditPackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/avatar': {
@@ -3793,6 +3813,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptPoliciesRoute: AcceptPoliciesRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
+  ApiAuditPackRoute: ApiAuditPackRoute,
   ApiAvatarRoute: ApiAvatarRoute,
   ApiClearCacheRoute: ApiClearCacheRoute,
   ApiFinancialExportRoute: ApiFinancialExportRoute,

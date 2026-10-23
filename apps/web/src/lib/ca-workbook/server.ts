@@ -1,5 +1,6 @@
 import {
   CaWorkbookRefusal,
+  type WorkbookFacts,
   loadWorkbookFacts,
   loadWorkbookYear,
   openingBalancesPosted,
@@ -7,7 +8,10 @@ import {
 } from "@pi-dash/db/queries/ca-workbook";
 import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
 
-import { loadAllGiftsRows } from "@/lib/donations-return-export";
+import {
+  type AllGiftsRow,
+  loadAllGiftsRows,
+} from "@/lib/donations-return-export";
 import { withSafeErrors } from "@/lib/safe-errors";
 
 import {
@@ -44,6 +48,8 @@ export interface BuiltCaWorkbook {
   donorListIncluded: boolean;
   file: CaWorkbookFile;
   financialYear: string;
+  /** What the sheets were built from, for the audit pack's index. */
+  sources: { facts: WorkbookFacts; gifts: AllGiftsRow[] | null };
 }
 
 export const caWorkbookFilename = (label: string) =>
@@ -119,6 +125,7 @@ export const buildCaWorkbook = (input: {
           filename: caWorkbookFilename(facts.year.label),
         },
         financialYear: facts.year.label,
+        sources: { facts, gifts },
       };
     }
   );

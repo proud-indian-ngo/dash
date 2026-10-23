@@ -1,4 +1,5 @@
 import {
+  ArchiveArrowDownIcon,
   Book02Icon,
   BookUploadIcon,
   Audit01Icon,
@@ -37,6 +38,10 @@ import { parseAsString, parseAsStringLiteral, useQueryState } from "nuqs";
 import { lazy, Suspense, useState } from "react";
 
 import { AccountsRail } from "@/components/books/accounts-rail";
+import {
+  AuditPackDialog,
+  useAuditPackDownload,
+} from "@/components/books/audit-pack";
 import { auditedDriftCount } from "@/components/books/audited-lines";
 import { BalanceSummaryPanel } from "@/components/books/balance-summary-tab";
 import { BooksSkeleton } from "@/components/books/books-skeleton";
@@ -145,6 +150,7 @@ function BooksPage() {
   const canPostPending = hasPermission("finance.post_pending");
   const [reopening, setReopening] = useState(false);
   const workbook = useCaWorkbookDownload();
+  const auditPack = useAuditPackDownload();
 
   const year =
     books.years.find((y) => y.label === yearParam) ??
@@ -255,6 +261,19 @@ function BooksPage() {
                     <CaWorkbookLabel blocker={workbookBlocker} />
                   ),
                   onSelect: () => workbook.download(year.id),
+                },
+                hasPermission("finance.view_sensitive") && {
+                  disabled: auditPack.isLoading || workbookBlocker !== null,
+                  icon: ArchiveArrowDownIcon,
+                  id: "audit-pack",
+                  label: (
+                    <CaWorkbookLabel
+                      blocker={workbookBlocker}
+                      text="Download audit pack"
+                    />
+                  ),
+                  onSelect: () =>
+                    auditPack.trigger({ id: year.id, label: year.label }),
                 },
                 {
                   icon: FileValidationIcon,
@@ -439,6 +458,7 @@ function BooksPage() {
           />
         </Suspense>
       ) : null}
+      <AuditPackDialog action={auditPack} />
       {reopening ? (
         <Suspense
           fallback={

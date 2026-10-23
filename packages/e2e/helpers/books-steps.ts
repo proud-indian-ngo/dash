@@ -12,16 +12,30 @@ export const BOOKS_YEAR = "2026-27";
 
 const execFileAsync = promisify(execFile);
 
-/** Runs a step of `helpers/books.ts` against the test database. */
-export async function books<T = Record<string, string>>(
-  ...args: string[]
-): Promise<T> {
+async function runStep<T>(script: string, args: string[]): Promise<T> {
   const { stdout } = await execFileAsync(
     "bun",
-    ["run", path.resolve(import.meta.dirname, "books.ts"), ...args],
-    { env: process.env }
+    ["run", path.resolve(import.meta.dirname, script), ...args],
+    { env: process.env, maxBuffer: 16 * 1024 * 1024 }
   );
   return JSON.parse(stdout.trim()) as T;
+}
+
+/** Runs a step of `helpers/books.ts` against the test database. */
+export function books<T = Record<string, string>>(
+  ...args: string[]
+): Promise<T> {
+  return runStep<T>("books.ts", args);
+}
+
+/** Runs a step of `helpers/audit-pack.ts` against the test database. */
+export function auditPack<T>(...args: string[]): Promise<T> {
+  return runStep<T>("audit-pack.ts", args);
+}
+
+/** Runs a step of `helpers/utilisation-certificates.ts`. */
+export function certificateFixture<T>(...args: string[]): Promise<T> {
+  return runStep<T>("utilisation-certificates.ts", args);
 }
 
 /** Books → Post pending, waiting for its result. */
