@@ -3,6 +3,7 @@ import {
   boardOn,
   DOCUMENT_TITLE_MAX,
   TRUSTEE_OFFICE_LABELS,
+  VALIDITY_NOTE_MAX,
 } from "@pi-dash/shared/governance";
 import { grantUtilisation } from "@pi-dash/shared/grants";
 import { todayInKolkata } from "@pi-dash/shared/income";
@@ -637,21 +638,23 @@ export async function unfiledFinalCertificates() {
 
 /**
  * Files a final certificate that isn't in the vault yet, as becoming final
- * does now, under its lock. Does nothing when it is filed meanwhile or its
- * signed copy isn't the one checked.
+ * does now, under its lock. Says why it didn't when it is filed meanwhile or
+ * its signed copy isn't the one checked.
  */
 export async function fileFinalCertificate(
   id: string,
   signed: SignedCopyFacts & { sha256: string }
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<"filed" | "already_filed" | "not_final" | "copy_changed"> {
+  return await db.transaction(async (tx) => {
     const row = await lockCertificate(tx, id);
-    if (
-      row.status !== "final" ||
-      row.documentId ||
-      row.latestSha256 !== signed.sha256
-    ) {
-      return;
+    if (row.status !== "final") {
+      return "not_final";
+    }
+    if (row.documentId) {
+      return "already_filed";
+    }
+    if (row.latestSha256 !== signed.sha256) {
+      return "copy_changed";
     }
     // Dated the day it became final, as it would have been filed then.
     const finalAt = row.caRecordedAt ?? row.financeSignedAt ?? new Date();
@@ -659,6 +662,7 @@ export async function fileFinalCertificate(
       .update(utilisationCertificate)
       .set(await fileInVault(tx, row, signed, finalAt))
       .where(eq(utilisationCertificate.id, id));
+    return "filed";
   });
 }
 
@@ -757,15 +761,41 @@ export async function cancelCertificate(
     // A final certificate stays filed, still a record, with the cancellation
     // noted on its vault document.
     if (row.documentId) {
-      const cancelled = `Cancelled on ${todayInKolkata(now)}: ${input.reason}`;
+      const [document] = await tx
+        .select({ note: governanceDocument.note })
+        .from(governanceDocument)
+        .where(eq(governanceDocument.id, row.documentId))
+        .for("update");
       await tx
         .update(governanceDocument)
         .set({
-          note: sql`CASE WHEN ${governanceDocument.note} IS NULL OR ${governanceDocument.note} = '' THEN ${cancelled} ELSE ${governanceDocument.note} || ' ' || ${cancelled} END`,
+          note: noteWithCancellation(
+            document?.note ?? null,
+            `Cancelled on ${todayInKolkata(now)}: `,
+            input.reason
+          ),
         })
         .where(eq(governanceDocument.id, row.documentId));
     }
   });
+}
+
+/**
+ * The vault note with the cancellation appended, the reason cut short with
+ * an ellipsis so the note stays editable (within `VALIDITY_NOTE_MAX`).
+ */
+function noteWithCancellation(
+  note: string | null,
+  lead: string,
+  reason: string
+): string {
+  const before = note?.trim() ? `${note.trim()} ` : "";
+  const room = VALIDITY_NOTE_MAX - before.length - lead.length;
+  const fitted =
+    reason.length <= room
+      ? reason
+      : `${reason.slice(0, Math.max(room - 1, 0))}…`;
+  return `${before}${lead}${fitted}`.slice(0, VALIDITY_NOTE_MAX);
 }
 
 /**

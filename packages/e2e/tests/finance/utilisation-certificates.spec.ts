@@ -676,6 +676,7 @@ test.describe("utilisation certificates", () => {
       );
       await longTermLevel(page.request, pdf);
       const vault = await fromVault(page, number, grant.title);
+      expect(vault.kind).toBe("Utilisation certificate");
       expect(sha256(vault.pdf)).toBe(sha256(pdf));
     });
   });

@@ -80,6 +80,22 @@ export function renewedKey(previous: string, today: string): string {
   return `${base}-${today}.pdf`;
 }
 
+/** One line per row that failed or was skipped, so failures don't overwrite each other. */
+function logRow(fields: Record<string, string>, error?: unknown): void {
+  const log = createRequestLogger({
+    method: "JOB",
+    path: "retimestamp-governance-archives",
+  });
+  log.set({
+    event: error ? "governance_archive_failed" : "governance_archive_skipped",
+    ...fields,
+  });
+  if (error) {
+    log.error(error instanceof Error ? error : String(error));
+  }
+  log.emit();
+}
+
 /**
  * Monthly: files any final utilisation certificate not yet in the vault
  * (made final before filing existed), then every long-term copy that is due
@@ -103,16 +119,19 @@ export async function handleRetimestampGovernanceArchives(
   for (const certificate of await unfiledFinalCertificates()) {
     try {
       const bytes = await deps.read(certificate.latestObjectKey);
-      await fileFinalCertificate(certificate.id, {
+      const outcome = await fileFinalCertificate(certificate.id, {
         report: await deps.validate(bytes),
         sha256: createHash("sha256").update(bytes).digest("hex"),
         sizeBytes: bytes.byteLength,
       });
-      filed += 1;
+      if (outcome === "filed") {
+        filed += 1;
+      } else {
+        logRow({ certificateId: certificate.id, skipped: outcome });
+      }
     } catch (error) {
       failed += 1;
-      log.set({ failedCertificateId: certificate.id });
-      log.error(error instanceof Error ? error : String(error));
+      logRow({ certificateId: certificate.id }, error);
     }
   }
   const due = await archivesDue(today);
@@ -120,10 +139,9 @@ export async function handleRetimestampGovernanceArchives(
   for (const copy of due) {
     try {
       const current = await deps.read(copy.archiveObjectKey);
-      const next =
-        copy.archiveObjectKey === copy.originalObjectKey
-          ? await deps.finalize(current)
-          : await deps.retimestamp(current);
+      const next = copy.neverMade
+        ? await deps.finalize(current)
+        : await deps.retimestamp(current);
       const key = renewedKey(copy.archiveObjectKey, today);
       await deps.write(key, next);
       await setArchiveCopy(copy.target, {
@@ -134,8 +152,7 @@ export async function handleRetimestampGovernanceArchives(
       renewed += 1;
     } catch (error) {
       failed += 1;
-      log.set({ failedTarget: copy.target });
-      log.error(error instanceof Error ? error : String(error));
+      logRow({ ...copy.target }, error);
     }
   }
   log.set({

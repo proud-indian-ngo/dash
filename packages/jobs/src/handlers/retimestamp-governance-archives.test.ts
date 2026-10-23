@@ -6,12 +6,12 @@ mock.module("@pi-dash/db/queries/signing", () => ({
   archivesDue: async () => [
     {
       archiveObjectKey: "p/governance/resolutions/r1/final-ltv.pdf",
-      originalObjectKey: "p/governance/resolutions/r1/final.pdf",
+      neverMade: false,
       target: { documentId: "d1" },
     },
     {
       archiveObjectKey: "p/governance/resolutions/r2/final-ltv-2026-10-10.pdf",
-      originalObjectKey: "p/governance/resolutions/r2/final.pdf",
+      neverMade: false,
       target: { documentId: "d2" },
     },
   ],

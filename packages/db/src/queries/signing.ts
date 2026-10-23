@@ -372,13 +372,13 @@ export async function setArchiveCopy(
  * Long-term copies to make or renew: vault documents' whose yearly document
  * timestamp is due, and certificates both trustees signed whose copy is due
  * or was never made (a filed one's is its vault document's). A cancelled
- * certificate that was never filed is no longer kept up. `originalObjectKey`
- * is the signed PDF itself: a copy still at that key was never made.
+ * certificate that was never filed is no longer kept up.
  */
 export async function archivesDue(today: string): Promise<
   {
     archiveObjectKey: string;
-    originalObjectKey: string;
+    /** No long-term copy yet: the signed original stands in. */
+    neverMade: boolean;
     target: ArchiveTarget;
   }[]
 > {
@@ -386,16 +386,20 @@ export async function archivesDue(today: string): Promise<
     db
       .select({
         archiveObjectKey: governanceDocument.archiveObjectKey,
+        archiveSha256: governanceDocument.archiveSha256,
         id: governanceDocument.id,
         objectKey: governanceDocument.objectKey,
+        sha256: governanceDocument.sha256,
       })
       .from(governanceDocument)
       .where(lte(governanceDocument.archiveRenewOn, today)),
     db
       .select({
         archiveObjectKey: utilisationCertificate.archiveObjectKey,
+        archiveSha256: utilisationCertificate.archiveSha256,
         id: utilisationCertificate.id,
         latestObjectKey: utilisationCertificate.latestObjectKey,
+        latestSha256: utilisationCertificate.latestSha256,
       })
       .from(utilisationCertificate)
       .leftJoin(
@@ -419,15 +423,17 @@ export async function archivesDue(today: string): Promise<
         )
       ),
   ]);
+  // A copy whose bytes are the signed original's was never made. Compared by
+  // hash: a document filed once for several sources may name another key.
   return [
     ...documents.map((d) => ({
       archiveObjectKey: d.archiveObjectKey ?? d.objectKey,
-      originalObjectKey: d.objectKey,
+      neverMade: !d.archiveSha256 || d.archiveSha256 === d.sha256,
       target: { documentId: d.id },
     })),
     ...certificates.map((c) => ({
       archiveObjectKey: c.archiveObjectKey ?? c.latestObjectKey,
-      originalObjectKey: c.latestObjectKey,
+      neverMade: !c.archiveSha256 || c.archiveSha256 === c.latestSha256,
       target: { certificateId: c.id },
     })),
   ];
