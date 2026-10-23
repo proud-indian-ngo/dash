@@ -19,7 +19,7 @@ import { uuidv7 } from "uuidv7";
 
 const [action, reference = "", email = ""] = process.argv.slice(2);
 
-/** Seeded by helpers/seed-test-user.ts. */
+/** Seeded by helpers/seed/income.ts. */
 const E2E_ORG_ACCOUNT_ID = "01930000-0000-7000-8000-000000000711";
 const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
 

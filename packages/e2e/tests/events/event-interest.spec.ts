@@ -69,7 +69,7 @@ test.describe("Event interest requests (admin)", () => {
 });
 
 test.describe("Event interest contacts (team lead)", () => {
-  /** Upcoming event in the team the volunteer leads; seeded in seed-test-user. */
+  /** Upcoming event in the team the volunteer leads; seeded in helpers/seed/events.ts. */
   const LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000203";
 
   test("a lead without users.view sees the requester's contact details", async ({

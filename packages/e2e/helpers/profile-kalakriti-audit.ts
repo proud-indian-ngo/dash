@@ -18,8 +18,7 @@ const { db } = await import("@pi-dash/db");
 const { user } = await import("@pi-dash/db/schema/auth");
 const { kalakritiAuditEntry, kalakritiEdition } =
   await import("@pi-dash/db/schema/kalakriti");
-const { KALAKRITI_RELEASE_FIXTURE_IDS: ids } =
-  await import("./kalakriti-release-fixture");
+const { KALAKRITI_RELEASE_FIXTURE_IDS: ids } = await import("./seed/kalakriti");
 const { resolveKalakritiEditionAccess } =
   await import("../../../apps/web/src/lib/server/kalakriti-edition-access");
 const { resolveKalakritiAuditScope } =

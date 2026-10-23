@@ -1,6 +1,6 @@
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 
-/** Seeded pending requests raised by the super admin; see seed-test-user. */
+/** Seeded pending requests raised by the super admin; see helpers/seed/reimbursements.ts and helpers/seed/core.ts. */
 const REIMBURSEMENT_ID = "e2e00000-0000-0000-0000-000000000001";
 const VENDOR_PAYMENT_ID = "e2e00000-0000-0000-0000-000000000004";
 
