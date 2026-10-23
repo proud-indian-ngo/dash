@@ -997,7 +997,7 @@ async function clearOpening(label: string) {
   if (!standing) {
     return { reversed: false };
   }
-  const actorId = await anyUserId();
+  const actorId = await volunteerUserId();
   await db.transaction((tx) =>
     reverseOpeningBalance(
       tx,
