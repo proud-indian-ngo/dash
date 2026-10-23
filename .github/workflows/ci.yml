@@ -55,10 +55,16 @@ jobs:
       - run: bun install --frozen-lockfile
       - *create-test-env
       # The root script caps turbo at two workspaces to fit the local commit
-      # hook's memory budget; a runner has four cores to spare.
+      # hook's memory budget; a runner has four cores to spare. web's suite is
+      # the longest task, and turbo starts tasks in no fixed order, so it runs
+      # from the start beside turbo's three slots for the other workspaces.
       - name: Unit tests
         timeout-minutes: 10
-        run: bunx turbo run test:unit --concurrency=4 --log-order=stream --log-prefix=task
+        run: |
+          (cd apps/web && bun run test:unit 2>&1 | sed -u 's/^/web:test:unit: /') &
+          web=$!
+          bunx turbo run test:unit --filter='!web' --concurrency=3 --log-order=stream --log-prefix=task
+          wait "$web"
 
   prepare-shards:
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
