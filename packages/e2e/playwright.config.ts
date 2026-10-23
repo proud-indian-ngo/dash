@@ -6,8 +6,10 @@ import { defineConfig, devices } from "@playwright/test";
 import { exclusiveLastPatterns, testIgnoreForRole } from "./project-selection";
 
 const isCI = !!process.env.CI;
-// CI runs exclusive_last in one shard only; the others set this.
-const skipExclusiveLast = process.env.E2E_SKIP_EXCLUSIVE_LAST === "true";
+// CI names the exclusive_last specs a shard runs, comma-separated; the
+// shards after the first get none. Unset runs them all.
+const exclusiveLastOnly =
+  process.env.E2E_EXCLUSIVE_LAST?.split(",").filter(Boolean);
 const isTestDB = !!process.env.TEST_DB_URL;
 const webServerPort =
   Number(process.env.E2E_WEB_PORT) || (isTestDB ? 3099 : 3001);
@@ -102,7 +104,11 @@ export default defineConfig({
       // setup's teardown: runs once every other project has finished, with
       // one worker, so the state it changes is never seen by another spec.
       name: "exclusive_last",
-      testMatch: skipExclusiveLast ? [] : exclusiveLastPatterns,
+      testMatch: exclusiveLastOnly
+        ? exclusiveLastPatterns.filter((pattern) =>
+            exclusiveLastOnly.some((spec) => pattern.test(`/${spec}`))
+          )
+        : exclusiveLastPatterns,
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.resolve(
@@ -114,7 +120,12 @@ export default defineConfig({
     },
   ],
   reporter: isCI
-    ? [["github"], ["html"], ["./duration-reporter.ts"]]
+    ? [
+        ["github"],
+        ["html"],
+        ["./duration-reporter.ts"],
+        ["./failure-reporter.ts"],
+      ]
     : [["list"], ["html"], ["./duration-reporter.ts"]],
   retries: isCI ? 2 : 1,
   testDir: "./tests",

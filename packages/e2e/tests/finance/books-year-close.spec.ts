@@ -1,3 +1,4 @@
+// @e2e-areas income
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";

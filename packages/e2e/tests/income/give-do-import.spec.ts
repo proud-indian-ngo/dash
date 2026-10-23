@@ -1,3 +1,4 @@
+// @e2e-areas donors
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";

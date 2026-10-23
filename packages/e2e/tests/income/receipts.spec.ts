@@ -1,3 +1,4 @@
+// @e2e-areas donors
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";

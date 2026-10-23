@@ -8,7 +8,7 @@
     "test": "bash run-e2e.sh",
     "test:two-stacks": "bun run run-two-stacks.ts",
     "test:ui": "bash run-e2e.sh --ui",
-    "test:unit": "bun test --isolate partition-specs.test.ts project-selection.test.ts spec-rules.test.ts stack-workspace.test.ts books-serial-group.test.ts && bash process-cleanup.test.sh"
+    "test:unit": "bun test --isolate partition-specs.test.ts project-selection.test.ts spec-rules.test.ts stack-workspace.test.ts books-serial-group.test.ts select-tests.test.ts && bash process-cleanup.test.sh"
   },
   "dependencies": {
     "@pi-dash/auth": "workspace:*",

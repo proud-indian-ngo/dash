@@ -1,3 +1,4 @@
+// @e2e-areas teams vendors
 import { expect, test } from "../../fixtures/test";
 import { createTeamViaDialog } from "../../helpers/team";
 

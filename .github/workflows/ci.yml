@@ -2,6 +2,8 @@ name: CI
 on:
   pull_request:
     branches: [master]
+    # labeled: adding run-all-e2e reruns the PR with the full E2E suite.
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [master]
   # Benchmarks a runner: dispatch the same commit on each and compare job times.
@@ -75,14 +77,19 @@ jobs:
 
   prepare-shards:
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    outputs:
+      shards: ${{ steps.shards.outputs.shards }}
+      matrix: ${{ steps.shards.outputs.matrix }}
     env:
-      # Keep in step with the e2e job's matrix.
-      E2E_SHARDS: "8"
       TURBO_TELEMETRY_DISABLED: "1"
       SKIP_VALIDATION: "true"
       BASE_URL: "http://localhost:3099"
     steps:
+      # A PR checks out its merge commit; its first parent is the base, so two
+      # commits of history are enough to diff the PR.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.3"
@@ -96,8 +103,16 @@ jobs:
             e2e-durations-${{ github.ref_name }}-
             e2e-durations-master
             e2e-durations-
+      # Pushes, dispatches and PRs labelled run-all-e2e skip this and run
+      # everything. A planner error selects everything too; if the step
+      # itself fails, the missing selection does the same.
+      - name: Select E2E specs
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'run-all-e2e')
+        continue-on-error: true
+        run: bun run packages/e2e/select-tests.ts HEAD^1 HEAD "$RUNNER_TEMP/e2e-selection.json"
       - name: Generate shard lists
-        run: bun run packages/e2e/shard-by-duration.ts "$E2E_SHARDS"
+        id: shards
+        run: bun run packages/e2e/shard-by-duration.ts "$RUNNER_TEMP/e2e-selection.json"
       - name: Upload shard lists
         uses: actions/upload-artifact@v7
         with:
@@ -105,15 +120,14 @@ jobs:
           path: packages/e2e/shard-lists/
           retention-days: 1
 
-  # Starts alongside prepare-shards and waits for its shard lists only before
-  # the tests, so planning overlaps setup.
+  # One shard per ~100s of selected test time; none when nothing is selected.
   e2e:
+    needs: prepare-shards
+    if: needs.prepare-shards.outputs.shards != '0'
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
-      matrix:
-        # One entry per shard; prepare-shards' E2E_SHARDS must match.
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+      matrix: ${{ fromJSON(needs.prepare-shards.outputs.matrix) }}
     env:
       NODE_ENV: test
       VITE_E2E: "true"
@@ -156,8 +170,9 @@ jobs:
       VITE_CDN_URL: http://localhost:3099
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
-      # exclusive_last runs in shard 1 only; shard-by-duration.ts plans for it.
-      E2E_SKIP_EXCLUSIVE_LAST: ${{ matrix.shard != 1 }}
+      # The selected exclusive_last specs, in shard 1 only; shard-by-duration.ts
+      # plans for them.
+      E2E_EXCLUSIVE_LAST: ${{ matrix.exclusiveLast }}
     steps:
       # Pulls and starts in the background; "Wait for Postgres" checks it. A
       # service container waits on a backed-off health check and needs a
@@ -338,15 +353,6 @@ jobs:
           docker logs zero-cache
           exit 1
 
-      - name: Wait for shard lists
-        timeout-minutes: 5
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          until gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
-            --jq '.artifacts[].name' | grep -qx shard-lists; do
-            sleep 2
-          done
       # Retried with a short timeout: actions/download-artifact has stalled
       # for minutes on a file this small.
       - name: Download shard lists
@@ -398,6 +404,14 @@ jobs:
           path: packages/e2e/.test-durations.json
           include-hidden-files: true
           retention-days: 1
+      - name: Upload failed specs
+        uses: actions/upload-artifact@v7
+        if: always() && github.event_name == 'push'
+        with:
+          name: e2e-failures-${{ matrix.shard }}
+          path: packages/e2e/.failed-specs.json
+          include-hidden-files: true
+          retention-days: 1
 
       - name: Zero-cache logs
         if: failure()
@@ -419,11 +433,20 @@ jobs:
     # Skip when the run is cancelled (a newer push or base change supersedes
     # it); the newer run reports the result. A real E2E failure still fails.
     if: ${{ !cancelled() }}
-    needs: [e2e]
+    needs: [prepare-shards, e2e]
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     steps:
+      # e2e is skipped when no spec is selected, and when prepare-shards fails.
       - name: Check E2E results
         run: |
+          if [ "${{ needs.prepare-shards.result }}" != "success" ]; then
+            echo "Planning E2E shards failed (result: ${{ needs.prepare-shards.result }})"
+            exit 1
+          fi
+          if [ "${{ needs.prepare-shards.outputs.shards }}" = "0" ]; then
+            echo "No E2E specs selected"
+            exit 0
+          fi
           if [ "${{ needs.e2e.result }}" != "success" ]; then
             echo "E2E tests failed (result: ${{ needs.e2e.result }})"
             exit 1
@@ -447,19 +470,28 @@ jobs:
       - name: Merge durations
         if: needs.e2e.result == 'success'
         run: |
-          # Keeps the tests this run saw, each averaged with its previous
-          # duration, so one slow or fast run moves the shard plan only halfway.
+          # Averages each test this run saw with its previous duration, so one
+          # slow or fast run moves the shard plan only halfway. Keeps the
+          # previous entries of spec files the run didn't touch, and drops
+          # the rest, so a partial run keeps the unselected specs' durations
+          # and a full run forgets removed tests.
           node <<'EOF'
           const fs = require("fs");
           const file = "packages/e2e/.test-durations.json";
           const previous = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
-          const merged = {};
+          const specOf = (test) => test.split(" › ")[1]?.replace(/:\d+:\d+$/, "");
+          const current = {};
           for (const dir of fs.readdirSync("/tmp/durations")) {
             const shardFile = `/tmp/durations/${dir}/.test-durations.json`;
             if (!fs.existsSync(shardFile)) continue;
-            for (const [test, ms] of Object.entries(JSON.parse(fs.readFileSync(shardFile, "utf8")))) {
-              merged[test] = test in previous ? Math.round((previous[test] + ms) / 2) : ms;
-            }
+            Object.assign(current, JSON.parse(fs.readFileSync(shardFile, "utf8")));
+          }
+          const ran = new Set(Object.keys(current).map(specOf));
+          const merged = Object.fromEntries(
+            Object.entries(previous).filter(([test]) => !ran.has(specOf(test)))
+          );
+          for (const [test, ms] of Object.entries(current)) {
+            merged[test] = test in previous ? Math.round((previous[test] + ms) / 2) : ms;
           }
           fs.mkdirSync("packages/e2e", { recursive: true });
           fs.writeFileSync(file, JSON.stringify(merged, null, 2));
@@ -471,3 +503,26 @@ jobs:
         with:
           path: packages/e2e/.test-durations.json
           key: e2e-durations-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+  # On master, warns when a spec that failed in any attempt of the full run
+  # would not have been selected for a PR with the same changes.
+  e2e-shadow:
+    if: ${{ !cancelled() && github.event_name == 'push' }}
+    needs: [e2e]
+    continue-on-error: true
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.3"
+      - run: bun install --frozen-lockfile
+      - name: Download failed specs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: e2e-failures-*
+          path: /tmp/e2e-failures
+      - name: Check the selection against failures
+        run: bun run packages/e2e/select-tests.ts --shadow HEAD^ HEAD /tmp/e2e-failures

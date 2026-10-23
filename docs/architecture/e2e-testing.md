@@ -1,6 +1,6 @@
 # E2E Testing
 
-> **Load when**: `packages/e2e`, Playwright, `run-e2e.sh`, E2E seeding and DB isolation, sharding, flaky tests, performance benchmarks.
+> **Load when**: `packages/e2e`, Playwright, `run-e2e.sh`, E2E seeding and DB isolation, which specs CI selects, sharding, flaky tests, performance benchmarks.
 > **Related**: `env-and-secrets.md`, [query performance audit](../query-performance-audit.md). Writing conventions (selectors, fixtures, page objects, when to add a spec) are in `.agents/skills/e2e-testing/SKILL.md`.
 
 ## Commands
@@ -62,11 +62,23 @@ The database allows one live Edition, so distinct fixture IDs do not isolate spe
 - Cleanup removes Center scan stages before Centers because their composite foreign key is restrictive.
 - Transport fixtures must finalize pickup and venue arrival before testing departure.
 
+## Selective E2E in CI
+
+A pull request runs only the specs its diff can affect. `select-tests.ts` diffs the PR's merge commit against its first parent and decides each changed file by `test-areas.ts`, in order: ignored, generated, full-suite, signing service, spec, other E2E file, layout, area. A file no rule matches walks the reverse runtime import graph to the areas of the files importing it. The walk runs the full suite when it reaches a full-suite file, a registry, or a file nothing imports that no area covers. A planner error also runs everything, never nothing. Pushes to `master`, dispatches and PRs labelled `run-all-e2e` run everything; adding the label reruns the PR. The step summary lists every changed file with its reason.
+
+Areas are the spec folders. A spec joins more areas with a first-line comment, `// @e2e-areas finance income`. `helpers/seed/<area>.ts` selects that area; other E2E files select the specs whose imports or path literals reach them (helpers that specs run by path are found this way). Maintaining the map:
+
+- A new spec folder needs an area. A new domain file needs an `app`, `named` or glob entry when only a registry imports it (mutators, queries, tables, job handlers), or it runs the full suite.
+- A generated file (Zero schema, migrations, route tree) is skipped when its source changes in the same diff, and runs the full suite alone.
+- `bun run check:e2e-map` fails on an entry that matches no file, an area that isn't a spec folder, or an unknown `@e2e-areas` name.
+
+Selection works per spec file. A spec that fails because of a change outside its areas is a missed selection: give the file an area or the spec an `@e2e-areas` name. On `master`, the `e2e-shadow` job compares the full run's failures, retries included, with what the planner would have chosen for the push, and warns about each failed spec it would have skipped. It never fails the run.
+
 ## CI sharding
 
-CI splits E2E across the shard count set by `E2E_SHARDS` in the `prepare-shards` job (eight, matching the `e2e` matrix) with `shard-by-duration.ts`, which bin-packs project-qualified cases by the timings in `.test-durations.json` (cached per branch, falling back to `master`). `duration-reporter.ts` records the timings, and CI saves each test's time averaged with its previous one, so one noisy run moves the plan only halfway. Locally it adds to the existing file and drops entries for tests that moved, were renamed or no longer exist. Sharding leaves out `[setup]` rows, which run in every shard, and `[exclusive_last]` rows: those run only in shard 1, as the other shards set `E2E_SKIP_EXCLUSIVE_LAST=true`, and the planner books their time against shard 1 before packing the rest.
+`shard-by-duration.ts` packs the selected project-qualified cases into shards by the timings in `.test-durations.json` (cached per branch, falling back to `master`), one shard per about 100s of test time, at most 12; no selected spec means no `e2e` jobs, and `e2e-status` passes. `duration-reporter.ts` records the timings, and CI saves each test's time averaged with its previous one, so one noisy run moves the plan only halfway, and keeps the entries of spec files a partial run didn't touch. Locally it adds to the existing file and drops entries for tests that moved, were renamed or no longer exist. Each shard list starts with the setup line, which pulls in `[setup]` and its teardown, `exclusive_last`. Shard 1 runs the selected `exclusive_last` specs, named in `E2E_EXCLUSIVE_LAST`, and the other shards get an empty value; the planner books their time against shard 1 before packing the rest.
 
-Shards start alongside `prepare-shards` and wait for its shard lists only before the tests. Each shard runs `scripts/build-e2e.sh` in the background while Postgres, Playwright and zero-cache start, and waits for it before the tests. The script fixes every build input, sets `HERMETIC_ENV=1` so `@pi-dash/env` reads no `.env` file, and runs the `build:e2e` Turbo task through the [remote cache](monorepo.md#remote-cache) only, since a local hit would not upload again an artifact the server has expired. The lefthook pre-push hook runs the same script on a clean tree, so CI usually restores the build instead of making it. E2E builds (`VITE_E2E=true`) skip source maps.
+Shards start once `prepare-shards` has planned them. Each shard runs `scripts/build-e2e.sh` in the background while Postgres, Playwright and zero-cache start, and waits for it before the tests. The script fixes every build input, sets `HERMETIC_ENV=1` so `@pi-dash/env` reads no `.env` file, and runs the `build:e2e` Turbo task through the [remote cache](monorepo.md#remote-cache) only, since a local hit would not upload again an artifact the server has expired. The lefthook pre-push hook runs the same script on a clean tree, so CI usually restores the build instead of making it. E2E builds (`VITE_E2E=true`) skip source maps.
 
 ## Two-stack run
 

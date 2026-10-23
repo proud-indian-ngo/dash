@@ -1,3 +1,4 @@
+// @e2e-areas income
 import type { Locator, Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
