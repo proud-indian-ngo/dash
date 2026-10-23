@@ -2,8 +2,9 @@
 /**
  * Fails when test-areas.ts drifts from the repository: a glob, app name or
  * named pattern that matches no file, an area that isn't a spec folder, a
- * spec folder without an area, or an `@e2e-areas` comment naming an unknown
- * area. Seed modules under helpers/seed/ may not exist yet.
+ * spec folder without an area, an `@e2e-areas` comment naming an unknown
+ * area, or a seed module under helpers/seed/ that seedReaders doesn't list
+ * correctly.
  */
 
 import { execFileSync } from "node:child_process";
@@ -18,6 +19,7 @@ import {
   ignored,
   layout,
   registries,
+  seedReaders,
   signing,
   signingHelper,
 } from "./test-areas";
@@ -48,9 +50,7 @@ const lists: Record<string, string[]> = {
 };
 for (const [list, globs] of Object.entries(lists)) {
   for (const glob of globs) {
-    if (
-      !(glob.startsWith("packages/e2e/helpers/seed/") || matchesAny([glob]))
-    ) {
+    if (!matchesAny([glob])) {
       problems.push(`${list}: ${glob} matches no file`);
     }
   }
@@ -95,6 +95,23 @@ for (const file of files) {
         problems.push(`${spec}: @e2e-areas names unknown area ${area}`);
       }
     }
+  }
+}
+
+const SEED_DIR = "packages/e2e/helpers/seed/";
+const seedModules = files
+  .filter((file) => file.startsWith(SEED_DIR) && file.endsWith(".ts"))
+  .map((file) => file.slice(SEED_DIR.length, -".ts".length))
+  .filter((name) => name !== "core");
+for (const name of seedModules.filter((m) => !(m in seedReaders))) {
+  problems.push(`seedReaders: helpers/seed/${name}.ts has no entry`);
+}
+for (const [name, readers] of Object.entries(seedReaders)) {
+  if (!seedModules.includes(name)) {
+    problems.push(`seedReaders: helpers/seed/${name}.ts doesn't exist`);
+  }
+  for (const area of [name, ...readers].filter((a) => !(a in areas))) {
+    problems.push(`seedReaders: ${name} names unknown area ${area}`);
   }
 }
 

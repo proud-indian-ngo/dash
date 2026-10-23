@@ -241,6 +241,23 @@ export const areas = {
   vendors: { app: ["vendors", "vendor-payments"], named: ["*vendor*"] },
 } satisfies Record<string, Area>;
 
+/**
+ * The areas, besides its own, whose specs read the fixtures a module in
+ * helpers/seed/ inserts, by name, by ID or through a helper. A change to
+ * `seed/<area>.ts` selects that area and these. A module without an entry
+ * runs the full suite, as do core.ts and seed-test-user.ts.
+ */
+export const seedReaders: Record<string, string[]> = {
+  audit: [],
+  authorization: ["events"],
+  events: ["reimbursements", "settings", "teams", "vendors"],
+  governance: ["finance"],
+  income: ["donors", "finance"],
+  kalakriti: [],
+  reimbursements: ["events"],
+  "scheduled-messages": [],
+};
+
 /** Files every spec depends on: a change runs the whole suite. */
 export const fullSuite = [
   ".github/workflows/ci.yml",
@@ -339,11 +356,16 @@ export const registries = [
 ];
 
 /**
- * Generated files: skipped when the same diff changes their source, which
- * selects for itself, and the full suite otherwise.
+ * Generated files, and the Zero schema's generator config: skipped when the
+ * same diff changes their source, which selects for itself, and the full
+ * suite otherwise.
  */
 export const generated = [
   { files: "packages/zero/src/schema.ts", from: "packages/db/src/schema/**" },
+  {
+    files: "packages/zero/drizzle-zero.config.ts",
+    from: "packages/db/src/schema/**",
+  },
   { files: "packages/db/src/migrations/**", from: "packages/db/src/schema/**" },
   { files: "apps/web/src/routeTree.gen.ts", from: "apps/web/src/routes/**" },
 ];

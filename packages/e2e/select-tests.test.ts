@@ -36,6 +36,25 @@
  * - only an inner line of a multi-line import changes;
  * - its diff is missing, partial or not a diff, or the registry is renamed
  *   or deleted.
+ *
+ * A seed module under helpers/seed/ selects its area and the areas
+ * seedReaders names. It could select too little when:
+ * - a spec in another folder reads its fixtures, by name, by ID or through a
+ *   helper;
+ * - the module is new and has no seedReaders entry;
+ * - it is core.ts, or the seed-test-user.ts entry point, which every spec
+ *   reads.
+ * check:e2e-map fails on a module without an entry, and on an entry naming
+ * an unknown area or a module that doesn't exist.
+ *
+ * A TypeScript file whose top-level statements are all type-only selects
+ * nothing. It could select too little when:
+ * - a runtime statement sits among the types: a value, an enum or const
+ *   enum (declared or not), a namespace, a side-effect import, `export *`,
+ *   or an import or re-export whose `type` is on its specifiers only, which
+ *   verbatimModuleSyntax keeps as a side-effect import;
+ * - the file doesn't parse;
+ * - the file is deleted, and only its old content shows what it held.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -214,10 +233,39 @@ describe("selectTests", () => {
     ).toMatchObject({ all: false, specs: [] });
   });
 
-  test("a seed module for an area selects that area, existing or not", () => {
-    expect(plan("packages/e2e/helpers/seed/donors.ts").specs).toEqual(
-      inArea("donors")
-    );
+  test("a seed module selects its area and the areas that read its fixtures", () => {
+    expect(plan("packages/e2e/helpers/seed/income.ts")).toMatchObject({
+      all: false,
+      specs: [
+        ...new Set([
+          ...inArea("income"),
+          ...inArea("donors"),
+          ...inArea("finance"),
+        ]),
+      ].sort(),
+    });
+  });
+
+  test.each([
+    ["income", "donors/donor-directory.spec.ts"],
+    ["income", "finance/budgets.spec.ts"],
+    ["events", "reimbursements/reimbursements-list.spec.ts"],
+    ["events", "vendors/vendor-payment-workflow.spec.ts"],
+    ["events", "teams/team-events-programme.spec.ts"],
+    ["events", "settings/cost-centres.spec.ts"],
+    ["reimbursements", "events/event-expenses.spec.ts"],
+    ["reimbursements", "authorization/data-isolation.spec.ts"],
+    ["authorization", "events/private-editor-media.spec.ts"],
+    ["authorization", "authorization/zero-query-authorization.spec.ts"],
+    ["governance", "finance/budgets.spec.ts"],
+  ])("seed/%s.ts selects %s, which reads its fixtures", (module, spec) => {
+    const { all, specs } = plan(`packages/e2e/helpers/seed/${module}.ts`);
+    expect(all).toBe(false);
+    expect(specs).toContain(spec);
+  });
+
+  test("a seed module without a readers entry runs the full suite", () => {
+    expect(plan("packages/e2e/helpers/seed/donors.ts").all).toBe(true);
   });
 
   test("a mutator a registry imports selects its area, not everything", () => {
@@ -279,6 +327,7 @@ describe("selectTests", () => {
       "apps/web/src/routeTree.gen.ts",
       "apps/web/src/routes/_app/donors/index.tsx",
     ],
+    ["packages/zero/drizzle-zero.config.ts", "packages/db/src/schema/team.ts"],
   ])("generated %s follows its source in the same diff", (file, source) => {
     expect(plan(file, source).all).toBe(false);
     expect(plan(file).all).toBe(true);
@@ -564,6 +613,72 @@ describe("registries", () => {
       plan({
         oldPath: "packages/db/src/schema/index.ts",
         path: "packages/db/src/schema/all.ts",
+      }).all
+    ).toBe(true);
+  });
+});
+
+describe("type-only files", () => {
+  const TYPES = [
+    'import type { Team } from "@pi-dash/db/schema/team";',
+    'export type { Donor } from "./donor";',
+    'export type * from "./party";',
+    "export type Id = string;",
+    "export interface Row { id: Id }",
+    "type Local = Row;",
+    "declare global { interface Window { e2e: true } }",
+    'declare module "virtual:x" { export const x: string; }',
+    "declare const build: string;",
+    "export declare function f(): void;",
+    "export declare class C {}",
+  ].join("\n");
+  const DONORS = "apps/web/src/components/donors/types.ts";
+
+  test("type declarations, type imports and type re-exports select nothing", () => {
+    expect(
+      plan(
+        { path: DONORS, source: TYPES },
+        { path: "packages/jobs/src/types.ts", source: TYPES },
+        { path: "packages/auth/src/types.ts", source: TYPES }
+      )
+    ).toMatchObject({ all: false, specs: [] });
+  });
+
+  test.each([
+    "export const LIMIT = 5;",
+    "export enum Status { Open }",
+    "export const enum Status { Open }",
+    "declare enum Status { Open }",
+    "export namespace Rules { export type X = 1; }",
+    'import "./polyfill";',
+    'import { type Team } from "@pi-dash/db/schema/team";',
+    'export { type Donor } from "./donor";',
+    'export * from "./party";',
+    "export default {};",
+  ])("%s goes through the normal rules", (statement) => {
+    const source = `${TYPES}\n${statement}`;
+    expect(plan({ path: DONORS, source })).toMatchObject({
+      all: false,
+      specs: inArea("donors"),
+    });
+    expect(plan({ path: "packages/jobs/src/types.ts", source }).all).toBe(true);
+  });
+
+  test("a file that doesn't parse runs the full suite", () => {
+    expect(plan({ path: DONORS, source: "export type = ;" }).all).toBe(true);
+  });
+
+  test("a deleted file is judged by its old content", () => {
+    const gone = "apps/web/src/components/shared/gone-types.ts";
+    expect(plan({ deleted: true, path: gone, source: TYPES })).toMatchObject({
+      all: false,
+      specs: [],
+    });
+    expect(
+      plan({
+        deleted: true,
+        path: gone,
+        source: `${TYPES}\nexport const x = 1;`,
       }).all
     ).toBe(true);
   });
