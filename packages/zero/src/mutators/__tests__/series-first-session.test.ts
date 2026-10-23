@@ -644,12 +644,18 @@ describe("cancel all upcoming sessions", () => {
     enqueued.length = 0;
     const asyncTasks: { fn: () => Promise<void> }[] = [];
     // A lead without events.cancel: "all" never cancels a started session.
-    await teamEventMutators.cancelSeries.fn({
-      args: { id: "series-1", mode: "all", now },
-      ctx: { ...ctx, asyncTasks, traceId: "t" },
-      tx: db.tx,
-    } as never);
-    await Promise.all(asyncTasks.map((task) => task.fn()));
+    // The server judges by its clock, so it reads `now` too.
+    setSystemTime(new Date(now));
+    try {
+      await teamEventMutators.cancelSeries.fn({
+        args: { id: "series-1", mode: "all", now },
+        ctx: { ...ctx, asyncTasks, traceId: "t" },
+        tx: db.tx,
+      } as never);
+      await Promise.all(asyncTasks.map((task) => task.fn()));
+    } finally {
+      setSystemTime(new Date(NOW));
+    }
   }
   const row = (db: ReturnType<typeof createDb>, id: string) =>
     db.tables.teamEvent?.find((e) => e.id === id);
