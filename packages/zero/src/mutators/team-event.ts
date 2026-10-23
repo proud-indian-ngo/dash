@@ -208,6 +208,7 @@ export async function resolveJoinTarget(
     now: number;
   }
 ): Promise<JoinTarget> {
+  const now = tx.location === "server" ? Date.now() : args.now;
   // Without a date, a series parent means its first session.
   const occDate =
     args.occDate ??
@@ -215,7 +216,7 @@ export async function resolveJoinTarget(
       ? seriesStartDate(event.startTime)
       : undefined);
   if (!occDate) {
-    if (event.startTime <= args.now) {
+    if (event.startTime <= now) {
       throw new Error("Cannot join event that has already started");
     }
     return {
@@ -241,7 +242,7 @@ export async function resolveJoinTarget(
     if (existing.cancelledAt) {
       throw new Error("This session was cancelled");
     }
-    if (existing.startTime <= args.now) {
+    if (existing.startTime <= now) {
       throw new Error("Cannot join event that has already started");
     }
     return {
@@ -254,7 +255,7 @@ export async function resolveJoinTarget(
   }
   // The series' first session is the parent row itself.
   if (occDate === seriesStartDate(event.startTime)) {
-    if (event.startTime <= args.now) {
+    if (event.startTime <= now) {
       throw new Error("Cannot join event that has already started");
     }
     return {
@@ -269,7 +270,7 @@ export async function resolveJoinTarget(
     throw new Error("materializedId required for virtual occurrence");
   }
   const occStart = computeOccurrenceStart(event.startTime, occDate);
-  if (occStart <= args.now) {
+  if (occStart <= now) {
     throw new Error("Cannot join event that has already started");
   }
   const duration =
@@ -845,15 +846,15 @@ export const teamEventMutators = {
         throw new Error("Choose which sessions of the series to cancel");
       }
 
+      const now = tx.location === "server" ? Date.now() : args.now;
       if (
-        existing.startTime <= args.now &&
+        existing.startTime <= now &&
         isTeamLead &&
         !can(ctx, "events.cancel")
       ) {
         throw new Error("Cannot cancel an event that has already started");
       }
 
-      const { now } = args;
       await tx.mutate.teamEvent.update({
         cancelledAt: now,
         id: args.id,
@@ -938,11 +939,12 @@ export const teamEventMutators = {
         mode === "all"
           ? undefined
           : await targetSessionStart(tx, existing, args.originalDate);
+      const now = tx.location === "server" ? Date.now() : args.now;
       if (
         isTeamLead &&
         !can(ctx, "events.cancel") &&
         sessionStart !== undefined &&
-        sessionStart <= args.now
+        sessionStart <= now
       ) {
         throw new Error("Cannot cancel an event that has already started");
       }
@@ -977,8 +979,7 @@ export const teamEventMutators = {
       // One notice to the members of every cancelled session; started
       // sessions kept by "all" send nothing, and neither does a started
       // session cancelled with "this" (one that didn't happen).
-      const startedSession =
-        sessionStart !== undefined && sessionStart <= args.now;
+      const startedSession = sessionStart !== undefined && sessionStart <= now;
       if (
         tx.location === "server" &&
         notifiedIds.length > 0 &&
@@ -1270,7 +1271,8 @@ export const teamEventMutators = {
       }
       await assertEventNotManagedByKalakriti(tx, args.eventId);
       // Attendance tracked post-start; retroactive leaves mangle records.
-      if (event.startTime <= args.now) {
+      const now = tx.location === "server" ? Date.now() : args.now;
+      if (event.startTime <= now) {
         throw new Error("Cannot leave event that has already started");
       }
 

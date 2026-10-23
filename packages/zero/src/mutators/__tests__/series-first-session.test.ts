@@ -1,4 +1,12 @@
-import { describe, expect, it, mock } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  mock,
+  setSystemTime,
+} from "bun:test";
 
 // Sessions saved before a split go through SQL on the server; capture them.
 const sqlSaved: { sessions: Row[]; volunteers: Row[] }[] = [];
@@ -36,6 +44,9 @@ import { updateSeriesFollowing } from "../team-event-series";
 type Row = Record<string, unknown>;
 
 const NOW = Date.UTC(2026, 9, 1, 6);
+// The server judges start times by its own clock; these run as the server.
+beforeAll(() => setSystemTime(new Date(NOW)));
+afterAll(() => setSystemTime());
 // A weekly series whose first session is Saturday 3 October 2026, 10:00 IST.
 const FIRST = Date.UTC(2026, 9, 3, 4, 30);
 const series: Row = {
@@ -889,6 +900,8 @@ describe("cancel all upcoming sessions", () => {
 describe("a lead cancelling one session or the following ones", () => {
   // Between the 17 and 24 October sessions: the series row has started.
   const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  beforeAll(() => setSystemTime(new Date(AFTER_THIRD)));
+  afterAll(() => setSystemTime(new Date(NOW)));
   const cancel = (
     db: ReturnType<typeof createDb>,
     mode: "this" | "following",
@@ -975,6 +988,8 @@ describe("a lead cancelling one session or the following ones", () => {
 
 describe("who hears of a one-session or this-and-following cancel", () => {
   const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  beforeAll(() => setSystemTime(new Date(AFTER_THIRD)));
+  afterAll(() => setSystemTime(new Date(NOW)));
   async function cancel(
     db: ReturnType<typeof createDb>,
     mode: "this" | "following",
@@ -1060,6 +1075,8 @@ describe("who hears of a one-session or this-and-following cancel", () => {
 
 describe("this and following from a started session", () => {
   const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  beforeAll(() => setSystemTime(new Date(AFTER_THIRD)));
+  afterAll(() => setSystemTime(new Date(NOW)));
   const cancelFollowing = (db: ReturnType<typeof createDb>, date: string) =>
     teamEventMutators.cancelSeries.fn({
       args: {
@@ -1140,6 +1157,8 @@ describe("this and following with nothing left to cancel", () => {
 
 describe("this event on a session that has started", () => {
   const AFTER_THIRD = Date.UTC(2026, 9, 20, 6);
+  beforeAll(() => setSystemTime(new Date(AFTER_THIRD)));
+  afterAll(() => setSystemTime(new Date(NOW)));
   const admin = (asyncTasks: { fn: () => Promise<void> }[]) => ({
     asyncTasks,
     permissions: ["events.cancel"],

@@ -5,6 +5,8 @@
 
 The volunteer side of the dashboard: teams, the events they run, and what happens around an event. Start at `packages/zero/src/mutators/team-event.ts`.
 
+Event mutators take the client's `now` for their optimistic run, but on the server they judge whether an event has started or ended, and whether a deadline has passed, by the server's clock, so a client can't backdate its way past a time rule.
+
 ## Team leads
 
 A team lead is a `teamMember` row with `role: "lead"`. It is unrelated to the custom `team_lead` role. Most event mutators call `assertHasPermissionOrTeamLead()` ([authorization](authorization.md)), so a lead can do on their own team's events what the global permission allows everywhere. The permission descriptions say "also granted to team leads" where this applies. The client mirrors it as `hasPermission("id") || isLead`.
@@ -127,7 +129,7 @@ Storage, the sync job, deletion and media access are in [file uploads](file-uplo
 
 ### Anonymous feedback
 
-- The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open. The server judges both by its own clock; the client's `now` only drives the optimistic run.
+- The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open.
 - Only event members can submit, once each, with no new images. They can edit their response until the deadline.
 - Anonymity: `eventFeedback` holds the text and no user. `eventFeedbackSubmission` links user to response and is never synced to clients; duplicate and ownership checks run on the server pass only. Members read their own response through a server function.
 - `events.manage_feedback` grants only reading every event's responses; a lead reads their teams'. Nobody sees who wrote what.
