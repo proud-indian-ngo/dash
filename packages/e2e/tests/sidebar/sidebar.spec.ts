@@ -29,7 +29,7 @@ test.describe("Sidebar navigation", () => {
     await openDashboard(page);
   });
 
-  test("nav link visibility per role", async ({ page }, testInfo) => {
+  test("nav link visibility per role", async ({ isMobile, page }, testInfo) => {
     const role = testInfo.project.name;
     const nav = page.locator("[data-sidebar='content']");
     const expectVisibleWhen = async (name: string, visible: boolean) => {
@@ -60,10 +60,7 @@ test.describe("Sidebar navigation", () => {
       page.getByRole("heading", { level: 1, name: "Profile" })
     ).toBeVisible();
     const settingsNav = page.getByRole("navigation", { name: "Settings" });
-    test.skip(
-      !(await settingsNav.isVisible()),
-      "Phones pick sections from a select"
-    );
+    test.skip(isMobile, "Phones pick sections from a select");
     const link = settingsNav.getByRole("link", { name: "Roles" });
     if (role === "super_admin") {
       await expect(link).toBeVisible();

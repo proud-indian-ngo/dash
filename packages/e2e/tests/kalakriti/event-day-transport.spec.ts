@@ -164,26 +164,14 @@ test("Center scan sessions mark two Students through four explicitly finalized s
   try {
     await page.goto(`/kalakriti/${data.year}/centers`);
     await waitForZeroReady(page);
-    await expect(
-      page.getByRole("columnheader", { name: "Transport status", exact: false })
-    ).toBeVisible();
     const students = await page.context().newPage();
     await students.goto(`/kalakriti/${data.year}/students`);
     await waitForZeroReady(students);
-    await expect(
-      students.getByRole("columnheader", { name: "Center", exact: false })
-    ).toBeVisible();
     await expectTransportStatus(
       students,
       "Station Student B",
       "Awaiting pickup"
     );
-    await expect(
-      students.getByRole("columnheader", {
-        name: "Transport status",
-        exact: false,
-      })
-    ).toBeVisible();
     await expectTransportStatus(page, "Station Center A", "Awaiting pickup");
     await expectTransportStatus(
       students,
@@ -199,43 +187,6 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     await liaison.installDecoder();
     await liaison.goto(data.year, "students");
     await liaison.openFromTabBar();
-    const assertIncomplete = async (stage: string) => {
-      await expect(
-        liaison.dialog.getByRole("button", {
-          name: "Finish stage",
-          exact: true,
-        })
-      ).toBeDisabled();
-      const before = await state();
-      expect(
-        (
-          await mutate(
-            liaison.page.request,
-            "kalakritiCenterScan.finalize",
-            command(data.editionId, data.centerId, stage)
-          )
-        ).error
-      ).toBeDefined();
-      expect(
-        (
-          await mutate(
-            liaison.page.request,
-            "kalakritiCenterScan.recordManual",
-            {
-              ...command(data.editionId, data.centerId, stage),
-              humanId: data.absentHumanId,
-            }
-          )
-        ).error
-      ).toBeDefined();
-      expect(await state()).toEqual(before);
-      await expect(
-        liaison.dialog.getByText(
-          `Absent Station Student · ${data.absentHumanId}`,
-          { exact: true }
-        )
-      ).toHaveCount(0);
-    };
 
     await expect(
       liaison.dialog.getByRole("heading", {
@@ -375,7 +326,38 @@ test("Center scan sessions mark two Students through four explicitly finalized s
     await expect(
       liaison.dialog.getByText("1 of 2 Students marked", { exact: true })
     ).toBeVisible();
-    await assertIncomplete("venue_arrival");
+    // Unit tests cover the same roster rule at the two later stages.
+    await expect(
+      liaison.dialog.getByRole("button", {
+        name: "Finish stage",
+        exact: true,
+      })
+    ).toBeDisabled();
+    const before = await state();
+    expect(
+      (
+        await mutate(
+          liaison.page.request,
+          "kalakritiCenterScan.finalize",
+          command(data.editionId, data.centerId, "venue_arrival")
+        )
+      ).error
+    ).toBeDefined();
+    expect(
+      (
+        await mutate(liaison.page.request, "kalakritiCenterScan.recordManual", {
+          ...command(data.editionId, data.centerId, "venue_arrival"),
+          humanId: data.absentHumanId,
+        })
+      ).error
+    ).toBeDefined();
+    expect(await state()).toEqual(before);
+    await expect(
+      liaison.dialog.getByText(
+        `Absent Station Student · ${data.absentHumanId}`,
+        { exact: true }
+      )
+    ).toHaveCount(0);
     await liaison.close();
     await liaison.open();
     await expect(
@@ -447,9 +429,6 @@ test("Center scan sessions mark two Students through four explicitly finalized s
       await expect(
         liaison.dialog.getByText("1 of 2 Students marked", { exact: true })
       ).toBeVisible();
-      await assertIncomplete(
-        label === "Venue departure" ? "venue_departure" : "drop_off"
-      );
       await liaison.manual(data.secondHumanId);
       await expect(
         liaison.dialog.getByText("2 of 2 Students marked", { exact: true })

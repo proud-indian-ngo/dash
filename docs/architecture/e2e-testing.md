@@ -39,6 +39,8 @@ Feature helpers in `helpers/` add the entities a spec needs. They must be idempo
 
 `run-e2e.sh` starts its own Postgres (`pi-dash-test` on loopback) with ports derived from `WORKTREE_ID`, so runs never touch the dev database. It also builds and starts the signing service on a derived port, which issuing circulars, minutes and declarations need. CI doesn't start it: the specs that need it also need R2 and skip there.
 
+`run-e2e.sh` and the CI e2e job also start `packages/e2e/fake-gowa.ts` and point `WHATSAPP_API_URL` at it, so WhatsApp is configured and every GoWA send is accepted without leaving the machine. Its group list holds one new group per request, so parallel picker tests never collide. It reports nobody on WhatsApp and no invite links, as an unconfigured gateway would. A WhatsApp endpoint the client gains needs a route there; unknown paths return 404.
+
 ## `run-e2e.sh`
 
 - Zero runs in production mode with a test-only `ZERO_ADMIN_PASSWORD` (default `e2e-test-admin`). Inspector-based tests authenticate with that env value; they must not rely on the interactive prompt or the development-mode bypass.

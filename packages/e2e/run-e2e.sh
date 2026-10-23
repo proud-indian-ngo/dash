@@ -77,6 +77,7 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   export E2E_ZERO_CS_PORT=$((STACK_PORT + 2))
   export E2E_DB_PORT=$((STACK_PORT + 3))
   export E2E_SIGNING_PORT=$((STACK_PORT + 4))
+  export E2E_GOWA_PORT=$((STACK_PORT + 5))
   # The run lock means anything on these ports is left over from an earlier
   # run in this checkout (one stopped before its teardown), so clear it first.
   STALE_SUFFIX=""
@@ -87,10 +88,10 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
       docker rm -f "$STALE_CONTAINER" >/dev/null
     fi
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_GOWA_PORT"; do
     stop_port_processes "$port" || true
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT" "$E2E_GOWA_PORT"; do
     if [ -n "$(port_listener_pids "$port")" ]; then
       echo "ERROR: stack port $port is already in use"
       exit 1
@@ -104,6 +105,7 @@ TEST_ZERO_PORT="$E2E_ZERO_PORT"
 TEST_ZERO_CS_PORT="$E2E_ZERO_CS_PORT"
 TEST_DB_HOST_PORT="$E2E_DB_PORT"
 TEST_SIGNING_PORT="$E2E_SIGNING_PORT"
+TEST_GOWA_PORT="$E2E_GOWA_PORT"
 
 # Worktree-unique suffixes for containers, volumes, and temp files
 WT_SUFFIX=""
@@ -116,6 +118,7 @@ COMPOSE_PROJECT="pi-dash-e2e${WT_SUFFIX}"
 ZERO_LOG="/tmp/pi-dash-test${WT_SUFFIX}-zero.log"
 VITE_LOG="/tmp/pi-dash-test${WT_SUFFIX}-vite.log"
 BUILD_LOG="/tmp/pi-dash-test${WT_SUFFIX}-build.log"
+GOWA_LOG="/tmp/pi-dash-test${WT_SUFFIX}-gowa.log"
 REPLICA_FILE="/tmp/pi-dash-test${WT_SUFFIX}.db"
 
 ENCODED_DEV_DB_PASSWORD=$(bun -e 'process.stdout.write(encodeURIComponent(process.env.DEV_DB_PASSWORD ?? ""))')
@@ -174,9 +177,14 @@ cleanup() {
     kill "$ZERO_PID" 2>/dev/null || true
     wait "$ZERO_PID" 2>/dev/null || true
   fi
+  if [ -n "${GOWA_PID:-}" ]; then
+    kill "$GOWA_PID" 2>/dev/null || true
+    wait "$GOWA_PID" 2>/dev/null || true
+  fi
   stop_port_processes "$TEST_WEB_PORT" || cleanup_failed=1
   stop_port_processes "$TEST_ZERO_PORT" || cleanup_failed=1
   stop_port_processes "$TEST_ZERO_CS_PORT" || cleanup_failed=1
+  stop_port_processes "$TEST_GOWA_PORT" || cleanup_failed=1
   if ! docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans; then
     echo "ERROR: failed to remove E2E containers and volumes"
     cleanup_failed=1
@@ -267,8 +275,10 @@ export RAZORPAY_KEY_ID="rzp_test_e2e0000000000"
 export RAZORPAY_WEBHOOK_SECRET="${E2E_RAZORPAY_WEBHOOK_SECRET:-e2e-razorpay-webhook-secret}"
 export RAZORPAY_KEY_SECRET=""
 
-# Keep dotenv in child processes from restoring the development service URL.
-export WHATSAPP_API_URL=""
+# WhatsApp goes to the fake GoWA gateway (fake-gowa.ts), so it is configured
+# but sends nothing. Keep in step with the e2e job env in
+# .github/workflows/ci.yml.
+export WHATSAPP_API_URL="http://localhost:$TEST_GOWA_PORT"
 export WHATSAPP_AUTH_USER=""
 export WHATSAPP_AUTH_PASS=""
 export WHATSAPP_CLOUD_ACCESS_TOKEN=""
@@ -284,6 +294,11 @@ if [ "$E2E_SERVER" = production ]; then
   (cd apps/web && NODE_ENV=production exec bun run build) > "$BUILD_LOG" 2>&1 &
   BUILD_PID=$!
 fi
+
+echo "Starting the fake GoWA gateway on port $TEST_GOWA_PORT..."
+stop_port_processes "$TEST_GOWA_PORT"
+E2E_GOWA_PORT="$TEST_GOWA_PORT" bun packages/e2e/fake-gowa.ts > "$GOWA_LOG" 2>&1 &
+GOWA_PID=$!
 
 # Clean stale replica
 rm -f "${REPLICA_FILE}"*
@@ -315,6 +330,15 @@ until curl -sf --max-time 2 "http://localhost:$TEST_ZERO_PORT" >/dev/null 2>&1; 
   fi
 done
 echo "zero-cache ready."
+
+until curl -sf --max-time 2 "http://localhost:$TEST_GOWA_PORT/health" >/dev/null 2>&1; do
+  if ! kill -0 "$GOWA_PID" 2>/dev/null; then
+    echo "ERROR: The fake GoWA gateway exited; see $GOWA_LOG"
+    cat "$GOWA_LOG"
+    exit 1
+  fi
+  sleep 1
+done
 
 echo "Starting $E2E_SERVER test server on port $TEST_WEB_PORT..."
 stop_port_processes "$TEST_WEB_PORT"

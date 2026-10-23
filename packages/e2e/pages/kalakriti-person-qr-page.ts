@@ -60,9 +60,18 @@ export class KalakritiPersonQrPage {
       context.fillStyle = "white";
       context.fillRect(0, 0, 512, 512);
       context.drawImage(image, 16, 16, 480, 480);
-      return Array.from(context.getImageData(0, 0, 512, 512).data);
+      // Base64 keeps the 1 MB of RGBA out of a slow JSON number array.
+      const data = context.getImageData(0, 0, 512, 512).data;
+      let binary = "";
+      for (let index = 0; index < data.length; index += 0x80_00)
+        binary += String.fromCharCode(...data.subarray(index, index + 0x80_00));
+      return btoa(binary);
     });
-    const decoded = jsQR(new Uint8ClampedArray(pixels), 512, 512);
+    const decoded = jsQR(
+      new Uint8ClampedArray(Buffer.from(pixels, "base64")),
+      512,
+      512
+    );
     expect(decoded, "Rendered QR must decode").not.toBeNull();
     return decoded!.data;
   }
