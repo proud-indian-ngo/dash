@@ -9,26 +9,66 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * The first numeric status on the error or its cause, as Start resolves it.
- * better-call's APIError has a string `status` ("BAD_REQUEST") and a numeric
- * `statusCode`.
- */
-export function errorStatus(error: unknown): number | undefined {
-  if (!isRecord(error)) {
+/** The first numeric `status` or `statusCode` on a record. */
+function numericStatus(value: unknown): number | undefined {
+  if (!isRecord(value)) {
     return undefined;
   }
-  const { cause } = error;
-  const candidates = [error.status, error.statusCode];
-  if (isRecord(cause)) {
-    candidates.push(cause.status, cause.statusCode);
-  }
-  return candidates.find((value): value is number => typeof value === "number");
+  return [value.status, value.statusCode].find(
+    (status): status is number => typeof status === "number"
+  );
 }
 
-/** A refusal the caller caused: retrying or reporting it would not help. */
+/**
+ * Errors whose status means the caller's request was refused: our own, and
+ * better-call's APIError (better-auth refusing the request; its `status` is a
+ * string such as "BAD_REQUEST", its `statusCode` the number). Matched by
+ * name, since the drain sees only the serialized error. Clients that copy an
+ * upstream API's status (CloudApiError, RazorpayApiError, EmailSendError)
+ * are not listed: a 401 from Meta or Razorpay is an expired token, our fault.
+ * A renamed class drops out and is reported, the safe side.
+ */
+const REFUSAL_NAMES = new Set([
+  "APIError",
+  "HttpError",
+  "PartyConflictError",
+  "PrivateMediaAccessError",
+  "R2ObjectAccessError",
+]);
+
+/**
+ * The status of a refusal on the error or its cause, as Start answers it;
+ * undefined for anything else, whatever status it carries.
+ */
+export function refusalStatus(error: unknown): number | undefined {
+  for (const candidate of [error, isRecord(error) ? error.cause : undefined]) {
+    if (
+      isRecord(candidate) &&
+      typeof candidate.name === "string" &&
+      REFUSAL_NAMES.has(candidate.name)
+    ) {
+      const status = numericStatus(candidate);
+      if (status !== undefined) {
+        return status;
+      }
+    }
+  }
+  return undefined;
+}
+
+function isRefusal(error: unknown): boolean {
+  const status = refusalStatus(error);
+  return status !== undefined && status >= 400 && status < 500;
+}
+
+/**
+ * A 4xx from us or an upstream API: retrying the same request would get the
+ * same answer.
+ */
 function isClientError(error: unknown): boolean {
-  const status = errorStatus(error);
+  const status =
+    numericStatus(error) ??
+    numericStatus(isRecord(error) ? error.cause : undefined);
   return status !== undefined && status >= 400 && status < 500;
 }
 
@@ -62,7 +102,7 @@ export async function withTaskLog(
 
 /**
  * For catch blocks in server functions / API routes. Logs the error with
- * context, emits, and re-throws. A refusal (a 4xx status) is a warning.
+ * context, emits, and re-throws. A refusal (see `refusalStatus`) is a warning.
  */
 export function logErrorAndRethrow(
   options: { method: string; path: string },
@@ -71,8 +111,8 @@ export function logErrorAndRethrow(
 ): never {
   const log = createRequestLogger(options);
   log.set(context);
-  if (error instanceof Error && isClientError(error)) {
-    log.set({ errorName: error.name, status: errorStatus(error) });
+  if (error instanceof Error && isRefusal(error)) {
+    log.set({ errorName: error.name, status: refusalStatus(error) });
     log.warn(error.message);
   } else {
     log.error(coerceError(error));

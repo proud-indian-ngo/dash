@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import { errorStatus } from "@pi-dash/observability";
+import { refusalStatus } from "@pi-dash/observability";
 import type { WideEvent } from "evlog";
 import { z } from "zod";
 
@@ -137,19 +137,32 @@ describe("validationRefusal", () => {
   });
 });
 
-describe("errorStatus", () => {
-  it("takes the first numeric status, skipping better-call's string status", () => {
+describe("refusalStatus", () => {
+  it("reads our refusals and better-call's numeric statusCode, on the error or its cause", () => {
     const apiError = Object.assign(new Error("Invalid email"), {
       name: "APIError",
       status: "BAD_REQUEST",
       statusCode: 400,
     });
 
-    expect(errorStatus(apiError)).toBe(400);
-    expect(errorStatus(new Error("x", { cause: { statusCode: 503 } }))).toBe(
-      503
-    );
-    expect(errorStatus(new Error("x"))).toBeUndefined();
+    expect(refusalStatus(apiError)).toBe(400);
+    expect(
+      refusalStatus(new Error("x", { cause: new HttpError(404, "Not found") }))
+    ).toBe(404);
+    expect(refusalStatus(new Error("x"))).toBeUndefined();
+  });
+
+  it("ignores a status copied from an upstream API", () => {
+    const expired = Object.assign(new Error("Razorpay API answered 401"), {
+      name: "RazorpayApiError",
+      status: 401,
+    });
+
+    expect(refusalStatus(expired)).toBeUndefined();
+    expect(refusalStatus(new Error("x", { cause: expired }))).toBeUndefined();
+    expect(
+      refusalStatus(new Error("x", { cause: { statusCode: 403 } }))
+    ).toBeUndefined();
   });
 });
 
@@ -189,28 +202,54 @@ describe("errorToReport", () => {
     expect(errorToReport(wideEvent({ message: "no error" }))).toBeUndefined();
   });
 
-  it("skips aborted requests and 4xx errors", () => {
+  it("skips aborted requests and our own refusals", () => {
     expect(
       errorToReport(
         wideEvent({ error: { message: "aborted", name: "AbortError" } })
       )
     ).toBeUndefined();
     expect(
-      errorToReport(wideEvent({ error: { ...serverError, status: 403 } }))
-    ).toBeUndefined();
-    expect(
-      errorToReport(wideEvent({ error: { ...serverError, statusCode: 404 } }))
+      errorToReport(
+        wideEvent({ error: { ...serverError, name: "HttpError", status: 403 } })
+      )
     ).toBeUndefined();
     expect(
       errorToReport(
         wideEvent({
-          error: { ...serverError, status: "BAD_REQUEST", statusCode: 400 },
+          error: {
+            ...serverError,
+            name: "PrivateMediaAccessError",
+            status: 404,
+          },
+        })
+      )
+    ).toBeUndefined();
+    expect(
+      errorToReport(
+        wideEvent({
+          error: {
+            ...serverError,
+            name: "APIError",
+            status: "BAD_REQUEST",
+            statusCode: 400,
+          },
         })
       )
     ).toBeUndefined();
     expect(
       errorToReport(wideEvent({ error: { ...serverError, status: 502 } }))
     ).toBeInstanceOf(Error);
+  });
+
+  it("reports an upstream API's 4xx: an expired token is our fault", () => {
+    for (const error of [
+      { ...serverError, name: "CloudApiError", status: 401 },
+      { ...serverError, name: "RazorpayApiError", status: 401 },
+      { ...serverError, name: "EmailSendError", statusCode: 403 },
+      { ...serverError, statusCode: 400 },
+    ]) {
+      expect(errorToReport(wideEvent({ error }))).toBeInstanceOf(Error);
+    }
   });
 });
 
@@ -306,6 +345,20 @@ describe("captureThrownError", () => {
 
     expect(captureException).not.toHaveBeenCalled();
     expect(resolveUser).not.toHaveBeenCalled();
+  });
+
+  it("reports an upstream API's 401 thrown by a server function", async () => {
+    const { captureException } = setUp();
+    const expired = Object.assign(
+      new Error("Error validating access token: Session has expired"),
+      { name: "CloudApiError", status: 401 }
+    );
+
+    await runWithErrorScope("serverFn", () =>
+      captureThrownError(expired, { route: "sendTestMessage" }, userId)
+    );
+
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it("does not report again an error the handler already logged", async () => {

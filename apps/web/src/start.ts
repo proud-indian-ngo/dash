@@ -1,5 +1,5 @@
 import { auth } from "@pi-dash/auth";
-import { errorStatus } from "@pi-dash/observability";
+import { refusalStatus } from "@pi-dash/observability";
 import { getCurrentTraceId } from "@pi-dash/observability/trace-store";
 import {
   createCsrfMiddleware,
@@ -47,9 +47,10 @@ const reportRequestErrors = createMiddleware().server(
 
 /**
  * Reports what server functions throw, and answers an RPC call that threw a
- * 4xx error (an HttpError or another error carrying a status) with that
- * status; input the validator refused is a 400. A server
- * function called while rendering a page keeps the page's status. Either way
+ * refusal (`refusalStatus`: an HttpError or another error of ours carrying a
+ * 4xx) with that status; input the validator refused is a 400. An upstream
+ * API's status is not ours to answer with. A server function called while
+ * rendering a page keeps the page's status. Either way
  * Start serializes the error's name, message and own properties (the
  * status) to the client.
  */
@@ -69,7 +70,7 @@ const reportFunctionErrors = createMiddleware({ type: "function" }).server(
         });
       }
       const error = invalid?.refusal ?? thrown;
-      const status = errorStatus(error);
+      const status = refusalStatus(error);
       if (status !== undefined && status < 500 && isServerFnRequest()) {
         setResponseStatus(status);
       }

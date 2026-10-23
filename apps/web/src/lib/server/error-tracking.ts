@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
-import { errorStatus } from "@pi-dash/observability";
+import { refusalStatus } from "@pi-dash/observability";
 import { type DrainContext, log, type WideEvent } from "evlog";
 import type { PostHog } from "posthog-node";
 
@@ -141,9 +141,9 @@ export function validationRefusal(
     : undefined;
 }
 
-/** Client errors (4xx) and aborted requests are not defects. */
+/** Our own refusals (4xx) and aborted requests are not defects. */
 function isExpected(error: unknown): boolean {
-  const status = errorStatus(error);
+  const status = refusalStatus(error);
   return (
     (isRecord(error) && error.name === "AbortError") ||
     (status !== undefined && status < 500)
