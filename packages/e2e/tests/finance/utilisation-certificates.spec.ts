@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
-import path from "node:path";
 
 import type { Browser, Locator, Page, TestInfo } from "@playwright/test";
 
@@ -12,6 +11,7 @@ import {
   testSigner,
 } from "../../helpers/dsc-helper";
 import {
+  fixture,
   newCertificate,
   newGrant,
   openGrant,
@@ -41,31 +41,31 @@ import { ListPage } from "../../pages/list-page";
  *   differs per run, since each signature is new.
  */
 
-const auth = (role: string) =>
-  path.resolve(import.meta.dirname, `../../.auth/${role}.json`);
-
-const PASSWORDS = {
-  admin: process.env.ADMIN_PASSWORD ?? "TestAdmin123!",
-  super_admin: process.env.SUPER_ADMIN_PASSWORD ?? "TestSuperAdmin123!",
-};
+/**
+ * Each signer signs in afresh: signing asks for the password again once a
+ * sign-in is 10 minutes old, and a fresh one never is during the test. The
+ * addresses keep these sign-ins out of the shared localhost rate limit.
+ */
+const SIGNERS = {
+  admin: {
+    address: "192.0.2.41",
+    email: process.env.ADMIN_EMAIL ?? "",
+    password: process.env.ADMIN_PASSWORD ?? "",
+    trustee: "jointManagingTrustee",
+  },
+  super_admin: {
+    address: "192.0.2.42",
+    email: process.env.SUPER_ADMIN_EMAIL ?? "",
+    password: process.env.SUPER_ADMIN_PASSWORD ?? "",
+    trustee: "managingTrustee",
+  },
+} as const;
 
 /** India's day as yyyy-MM-dd. */
 const todayIso = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(
     new Date()
   );
-
-/** Signing asks for the password when the sign-in is older than 10 minutes. */
-async function confirmIfAsked(page: Page, password: string) {
-  const reauth = page.getByRole("dialog", { name: "Confirm it's you" });
-  await reauth
-    .waitFor({ state: "visible", timeout: 5000 })
-    .then(async () => {
-      await reauth.getByLabel("Password").fill(password);
-      await reauth.getByRole("button", { name: "Continue" }).click();
-    })
-    .catch(() => undefined);
-}
 
 /**
  * Picks a day in a date field. Never presses Escape: the picker closes
@@ -115,15 +115,21 @@ async function asRole<T>(
   role: "admin" | "super_admin",
   run: (page: Page) => Promise<T>
 ): Promise<T> {
-  const context = await browser.newContext({ storageState: auth(role) });
+  const signer = SIGNERS[role];
+  const context = await browser.newContext();
   try {
+    const signIn = await context.request.post("/api/auth/sign-in/email", {
+      data: { email: signer.email, password: signer.password },
+      headers: { "x-forwarded-for": signer.address },
+    });
+    expect(signIn.status(), `sign in as ${role}`).toBe(200);
     return await run(await context.newPage());
   } finally {
     await context.close();
   }
 }
 
-/** Opens the certificate as the trustee `name`, sets up their DSC if needed and signs. */
+/** Opens the certificate as the trustee `name`, sets up their DSC afresh and signs. */
 async function signAs(
   browser: Browser,
   role: "admin" | "super_admin",
@@ -131,25 +137,22 @@ async function signAs(
   signer: TestSigner,
   name: string
 ) {
+  // An earlier run may have enrolled them; revoking makes every run enrol.
+  await fixture("revoke-dsc", SIGNERS[role].trustee);
   await asRole(browser, role, async (page) => {
     await page.goto(url);
     await waitForZeroReady(page);
     const panel = page.getByRole("region", { name: "Your signature" });
-    const signButton = panel.getByRole("button", {
-      name: "Sign with your DSC",
-    });
-    const setUp = panel.getByRole("button", { name: "Set up your DSC" });
-    await expect(signButton.or(setUp)).toBeVisible({ timeout: 20_000 });
-    if (await setUp.isVisible()) {
-      const enrolment = await catchHelperLink(page);
-      await setUp.click();
-      const enrolled = await completeHelperJob(page, await enrolment(), signer);
-      expect(enrolled.status, enrolled.message).toBe(200);
-      await expect(signButton).toBeVisible({ timeout: 20_000 });
-    }
+    const enrolment = await catchHelperLink(page);
+    await panel
+      .getByRole("button", { name: "Set up your DSC" })
+      .click({ timeout: 20_000 });
+    const enrolled = await completeHelperJob(page, await enrolment(), signer);
+    expect(enrolled.status, enrolled.message).toBe(200);
     const signing = await catchHelperLink(page);
-    await signButton.click();
-    await confirmIfAsked(page, PASSWORDS[role]);
+    await panel
+      .getByRole("button", { name: "Sign with your DSC" })
+      .click({ timeout: 20_000 });
     const signed = await completeHelperJob(page, await signing(), signer);
     expect(signed.status, signed.message).toBe(200);
     // Signed, the panel goes: it's no longer their turn.
@@ -503,18 +506,12 @@ test.describe("utilisation certificates", () => {
         .getByRole("region", { name: "Your signature" })
         .getByRole("button", { name: "Sign with your DSC" })
         .click({ timeout: 20_000 });
-      // The refusal toast, after the password when the sign-in is old.
-      const refused = other.locator("[data-sonner-toast]").filter({
-        hasText:
-          "Asha Rao no longer holds the office of Treasurer, so they can't sign this certificate.",
-      });
-      const reauth = other.getByRole("dialog", { name: "Confirm it's you" });
-      await expect(refused.or(reauth)).toBeVisible({ timeout: 20_000 });
-      if (await reauth.isVisible()) {
-        await reauth.getByLabel("Password").fill(PASSWORDS.super_admin);
-        await reauth.getByRole("button", { name: "Continue" }).click();
-        await expect(refused).toBeVisible({ timeout: 20_000 });
-      }
+      await expect(
+        other.locator("[data-sonner-toast]").filter({
+          hasText:
+            "Asha Rao no longer holds the office of Treasurer, so they can't sign this certificate.",
+        })
+      ).toBeVisible({ timeout: 20_000 });
     });
 
     // The artifact: the final PDF and what it certifies.

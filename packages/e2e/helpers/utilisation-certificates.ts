@@ -6,15 +6,17 @@ import {
   programme,
   project,
 } from "@pi-dash/db/schema/finance-dimensions";
+import { signingCertificate } from "@pi-dash/db/schema/governance";
 import {
   grantAgreement,
   utilisationCertificate,
 } from "@pi-dash/db/schema/grant";
 import { contribution } from "@pi-dash/db/schema/income";
 import { party, partyRole } from "@pi-dash/db/schema/party";
+import { GOVERNANCE_SEED_IDS } from "@pi-dash/db/seed-governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import type { UtilisationCertificateSnapshot } from "@pi-dash/shared/utilisation-certificates";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -33,6 +35,8 @@ import { uuidv7 } from "uuidv7";
  *   after `awaiting_head` records her signature.
  * - `hide-csr1` / `restore-csr1 <json>`: ends every CSR-1 registration
  *   before today, and puts back the end dates `hide-csr1` reported.
+ * - `revoke-dsc <managingTrustee|jointManagingTrustee>`: revokes the seeded
+ *   trustee's enrolled DSCs, so signing starts with "Set up your DSC".
  */
 
 /** Must match GENERAL_FUND_ID in @pi-dash/shared/constants. */
@@ -277,6 +281,23 @@ if (action === "grant") {
   result = await certificate(grantId, status as Status, from, to, variant);
 } else if (action === "hide-csr1") {
   result = await hideCsr1();
+} else if (action === "revoke-dsc") {
+  const trusteeId =
+    GOVERNANCE_SEED_IDS[args[0] as "managingTrustee" | "jointManagingTrustee"];
+  if (!trusteeId) {
+    throw new Error("revoke-dsc <managingTrustee|jointManagingTrustee>");
+  }
+  const revoked = await db
+    .update(signingCertificate)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(signingCertificate.trusteeId, trusteeId),
+        isNull(signingCertificate.revokedAt)
+      )
+    )
+    .returning({ id: signingCertificate.id });
+  result = { revoked: revoked.length };
 } else if (action === "restore-csr1") {
   result = await restoreCsr1(args[0] ?? "[]");
 } else {
