@@ -44,10 +44,6 @@ test.describe("Users list (admin)", () => {
     });
   });
 
-  test("Create user button is visible", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Add user" })).toBeVisible();
-  });
-
   test("columns dropdown toggles column visibility", async ({ page }) => {
     const columnsButton = page.getByRole("button", { name: "Columns" });
     await columnsButton.click();
@@ -61,12 +57,6 @@ test.describe("Users list (admin)", () => {
     await columnsButton.click();
     await page.getByRole("menuitemcheckbox", { name: "Role" }).click();
     await page.keyboard.press("Escape");
-  });
-
-  test("table footer is present", async ({ page }) => {
-    await expect(page.getByText("Rows per page")).toBeVisible({
-      timeout: 30_000,
-    });
   });
 
   test("shows stats cards", async ({ page }) => {

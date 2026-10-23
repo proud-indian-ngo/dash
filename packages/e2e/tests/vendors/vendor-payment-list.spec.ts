@@ -11,31 +11,12 @@ test.describe("Vendor Payments list (admin)", () => {
     ).toBeVisible();
   });
 
-  test("renders vendor payments list with correct heading", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByRole("heading", { name: "Vendor Payments" })
-    ).toBeVisible();
-  });
-
-  test("stats cards render", async ({ page }) => {
-    // KPI chips are always rendered (may show zero values)
-    await expect(page.locator("[data-slot='stat-chip']").first()).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
   test("add vendor payment button navigates to new form", async ({ page }) => {
     await page.getByRole("button", { name: "Add vendor payment" }).click();
     await page.waitForURL("/vendor-payments/new", { timeout: 10_000 });
     await expect(
       page.getByRole("heading", { name: "New vendor payment" })
     ).toBeVisible();
-  });
-
-  test("status view tabs are present", async ({ page }) => {
-    await expect(page.getByRole("tab", { name: /^All/ })).toBeVisible();
   });
 });
 

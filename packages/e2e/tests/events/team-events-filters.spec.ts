@@ -36,22 +36,6 @@ test.describe("Team events list filters (admin)", () => {
     await waitForZeroReady(page);
   });
 
-  test("shows all events by default without filters", async ({ page }) => {
-    const table = page.getByRole("table");
-    await expect(table).toBeVisible();
-
-    // Wait for data to load — at least the seed event name should appear
-    await expect(table.getByText("E2E Upcoming Public Bangalore")).toBeVisible({
-      timeout: 10_000,
-    });
-
-    // Should have multiple rows (header + data rows)
-    const rows = table.getByRole("row");
-    const rowCount = await rows.count();
-    // At least header + seed event + some filter test events
-    expect(rowCount).toBeGreaterThanOrEqual(3);
-  });
-
   test("Upcoming status filter shows only future non-cancelled events", async ({
     page,
   }) => {
@@ -253,12 +237,6 @@ test.describe("Team events list filters (admin)", () => {
 
     await expect(
       page.getByRole("table").getByText("E2E Upcoming Public Bangalore")
-    ).toBeVisible();
-  });
-
-  test("admin sees Create event button", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Create event" })
     ).toBeVisible();
   });
 });

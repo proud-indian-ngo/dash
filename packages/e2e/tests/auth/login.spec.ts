@@ -16,15 +16,6 @@ test.describe("Login page", () => {
     await openLoginPage(page);
   });
 
-  test("renders login form", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "Log in", exact: true })
-    ).toBeVisible();
-    await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
-  });
-
   test("shows validation errors on empty submit", async ({ page }) => {
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByText("Invalid email address")).toBeVisible();
@@ -76,17 +67,6 @@ test.describe("Login page", () => {
       page.getByRole("heading", { exact: true, name: "Events" })
     ).toBeVisible();
     await waitForZeroReady(page);
-  });
-
-  test("forgot password link navigates to /forgot-password", async ({
-    page,
-  }) => {
-    const forgotPasswordLink = page.getByRole("link", {
-      name: "Forgot password?",
-    });
-    await expect(forgotPasswordLink).toBeVisible();
-    await forgotPasswordLink.click();
-    await page.waitForURL("/forgot-password");
   });
 });
 

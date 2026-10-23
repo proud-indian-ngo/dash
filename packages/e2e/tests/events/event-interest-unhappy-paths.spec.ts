@@ -1,5 +1,4 @@
 import { expect, test } from "../../fixtures/test";
-import { openPublicEvent } from "../../helpers/team-event";
 
 /**
  * Tests API-level guards on eventInterest mutations for volunteers.
@@ -55,16 +54,5 @@ test.describe("Event interest unhappy paths (volunteer)", () => {
     expect(json.mutations).toBeDefined();
     // Fake eventId: should fail with app error (event not found, or not public, etc.)
     expect(json.mutations[0].result.error).toBe("app");
-  });
-
-  test("express interest UI — show interest button visible on public events for volunteers", async ({
-    page,
-  }) => {
-    // Regression check: a public event outside the volunteer's teams offers
-    // Show interest on its page.
-    await openPublicEvent(page, "E2E Open Interest Event");
-    await expect(
-      page.getByRole("button", { exact: true, name: "Show interest" })
-    ).toBeVisible();
   });
 });

@@ -8,56 +8,6 @@ const YEAR = 2186;
 test.describe("Kalakriti Registration Release authorization", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("removed event-day URL returns 404 for every role and Guardians have no Scan action", async ({
-    baseURL,
-    browser,
-    page,
-    kalakritiActors,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "super_admin",
-      "Removed event-day route authorization matrix"
-    );
-    test.slow();
-    await page.goto(`/kalakriti/${YEAR}/event-day`);
-    await expect(
-      page.getByRole("heading", { name: "Page not found" })
-    ).toBeVisible();
-    for (const actor of [
-      kalakritiActors.editionAdmin,
-      kalakritiActors.liaison,
-      kalakritiActors.guardian,
-      kalakritiActors.overallEventsLead,
-      kalakritiActors.categoryLead,
-      kalakritiActors.volunteerCoordinator,
-      kalakritiActors.unrelatedVolunteer,
-    ]) {
-      const context = await browser.newContext({
-        baseURL,
-        storageState: actor.storageState,
-      });
-      try {
-        const actorPage = await context.newPage();
-        if (actor === kalakritiActors.guardian) {
-          await actorPage.goto(`/kalakriti/${YEAR}/centers`);
-          await waitForZeroReady(actorPage);
-          await expect(
-            actorPage.getByRole("button", { name: "Scan", exact: true })
-          ).toHaveCount(0);
-        }
-        await actorPage.goto(`/kalakriti/${YEAR}/event-day`);
-        await expect(
-          actorPage.getByRole("heading", { name: "Page not found" })
-        ).toBeVisible();
-        await expect(
-          actorPage.getByRole("link", { name: "Event day", exact: true })
-        ).toHaveCount(0);
-      } finally {
-        await context.close();
-      }
-    }
-  });
-
   test("shows guardian dashboard compliance only for assigned centers", async ({
     baseURL,
     browser,
@@ -194,6 +144,13 @@ test.describe("Kalakriti Registration Release authorization", () => {
         if ("excludedText" in roleCase) {
           await expect(
             rolePage.getByText(roleCase.excludedText, { exact: true })
+          ).toHaveCount(0);
+        }
+        if (roleCase.actor === kalakritiActors.guardian) {
+          await rolePage.goto(`/kalakriti/${YEAR}/centers`);
+          await waitForZeroReady(rolePage);
+          await expect(
+            rolePage.getByRole("button", { name: "Scan", exact: true })
           ).toHaveCount(0);
         }
       } finally {

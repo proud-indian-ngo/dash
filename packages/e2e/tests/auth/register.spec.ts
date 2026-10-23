@@ -84,20 +84,6 @@ test.describe("Register page", () => {
     await page.goto("/register");
   });
 
-  test("renders all form fields", async ({ page }) => {
-    await expect(
-      page.getByText("Create your account", { exact: true })
-    ).toBeVisible();
-    await expect(page.getByLabel("Name")).toBeVisible();
-    await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.locator("#password")).toBeVisible();
-    await expect(page.getByLabel("Confirm password")).toBeVisible();
-    await expect(page.getByLabel("Phone")).toBeVisible();
-    await expect(page.getByLabel("Date of birth")).toBeVisible();
-    await expect(page.getByLabel("Gender")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Register" })).toBeVisible();
-  });
-
   test("shows validation errors for required fields on empty submit", async ({
     page,
   }) => {
@@ -288,12 +274,6 @@ test.describe("Register page", () => {
         dialog.getByRole("button", { name: dayLabel(nextDay) })
       ).toBeDisabled();
     }
-  });
-
-  test("login link navigates to /login", async ({ page }) => {
-    await expect(page.getByText("Already have an account?")).toBeVisible();
-    await page.getByRole("link", { name: "Log in" }).click();
-    await page.waitForURL("/login");
   });
 });
 

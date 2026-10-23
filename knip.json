@@ -40,7 +40,6 @@
         "helpers/kalakriti-centers.ts",
         "helpers/kalakriti-transport.ts",
         "helpers/kalakriti-inventory.ts",
-        "helpers/kalakriti-layout.ts",
         "helpers/razorpay.ts",
         "helpers/bank-statements.ts",
         "helpers/books.ts",

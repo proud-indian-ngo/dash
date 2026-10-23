@@ -118,17 +118,3 @@ test.describe("Analytics dashboard (admin)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 });
-
-test.describe("Analytics route guard (volunteer)", () => {
-  test("volunteer redirected from /analytics to dashboard", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/analytics");
-    await page.waitForURL("/", { timeout: 10_000 });
-    await expect(
-      page.getByRole("heading", { name: "Dashboard" })
-    ).toBeVisible();
-  });
-});

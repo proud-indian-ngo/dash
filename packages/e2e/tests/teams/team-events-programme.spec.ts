@@ -94,6 +94,11 @@ test.describe("Team events programme (admin)", () => {
     await expect(
       editDialog.getByRole("heading", { name: "Edit Event" })
     ).toBeVisible();
+    // A single occurrence can't change the series' recurrence.
+    await openAdvancedSettings(editDialog);
+    await expect(
+      editDialog.getByText("Recurrence", { exact: true })
+    ).toBeHidden();
     await editDialog.getByLabel("Programme").click();
     await page.getByRole("option", { name: "Education" }).click();
     await editDialog.getByRole("button", { name: "Save changes" }).click();

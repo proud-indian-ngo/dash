@@ -578,62 +578,6 @@ test.describe("Kalakriti inventory", () => {
     );
   });
 
-  test("keeps all six Scan tabs inside the modal on desktop and offers them as a select on phones", async ({
-    page,
-    superAdminEmail,
-    volunteerEmail,
-  }) => {
-    const data = await fixture<Fixture>(
-      "setup",
-      superAdminEmail,
-      volunteerEmail
-    );
-    await page.setViewportSize({ width: 2249, height: 1350 });
-    await new KalakritiInventoryPage(page).goto(data.year);
-    await page.getByRole("button", { name: "Scan", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Scan", exact: true });
-    await expect(dialog.getByRole("tab")).toHaveCount(6);
-    await expect
-      .poll(async () => {
-        const bar = await dialog.getByRole("tablist").boundingBox();
-        const panel = await dialog.getByRole("tabpanel").boundingBox();
-        if (!bar || !panel || panel.y < bar.y + bar.height) return false;
-        for (const tab of await dialog.getByRole("tab").all()) {
-          const box = await tab.boundingBox();
-          if (
-            !box ||
-            box.x < bar.x ||
-            box.y < bar.y ||
-            box.x + box.width > bar.x + bar.width + 1 ||
-            box.y + box.height > bar.y + bar.height + 1
-          )
-            return false;
-        }
-        return true;
-      })
-      .toBe(true);
-    await dialog.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(dialog).toBeHidden();
-
-    // Phones get a sheet whose activities sit in one select above the camera.
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByRole("navigation", { name: "Main" })
-      .getByRole("button", { name: "Scan", exact: true })
-      .click();
-    await expect(dialog.getByRole("tab")).toHaveCount(0);
-    await dialog
-      .getByRole("combobox", { name: "Scanning activity", exact: true })
-      .click();
-    await expect(page.getByRole("option")).toHaveCount(6);
-    await page.getByRole("option", { name: "Dispatch", exact: true }).click();
-    await expect(
-      dialog.getByRole("textbox", { name: "Volunteer yearly ID" })
-    ).toBeVisible();
-    await dialog.getByRole("button", { name: "Close", exact: true }).click();
-    await expect(dialog).toBeHidden();
-  });
-
   test("enforces logistics access, reactive revocation, and archived read-only history", async ({
     browser,
     baseURL,

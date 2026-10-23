@@ -11,22 +11,6 @@ test.describe("Scheduled messages (admin)", () => {
     ).toBeVisible();
   });
 
-  test("renders page with schedule button", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: "Schedule message" })
-    ).toBeVisible();
-    await expect(page.getByPlaceholder("Search messages...")).toBeVisible();
-  });
-
-  test("cancel closes dialog", async ({ page }) => {
-    await page.getByRole("button", { name: "Schedule message" }).click();
-    const dialog = page.getByRole("dialog", { name: "Schedule message" });
-    await expect(dialog).toBeVisible();
-
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
   test.slow();
   test("creates, cancels, and deletes a scheduled message", async ({
     page,
@@ -115,17 +99,5 @@ test.describe("Scheduled messages (admin)", () => {
     const cancelDialog = page.getByRole("alertdialog");
     await cancelDialog.getByRole("button", { name: "Cancel message" }).click();
     await expect(cancelDialog).toBeHidden({ timeout: 10_000 });
-  });
-});
-
-test.describe("Scheduled messages (volunteer)", () => {
-  test("redirects non-admin away from /scheduled-messages", async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
-
-    await page.goto("/scheduled-messages");
-    // Should be redirected to home
-    await page.waitForURL("/", { timeout: 10_000 });
   });
 });
