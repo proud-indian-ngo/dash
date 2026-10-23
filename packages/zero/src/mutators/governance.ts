@@ -650,6 +650,7 @@ export const governanceDocumentMutators = {
         ),
         tx.run(zql.policyVersion.where("documentId", args.id).one()),
         tx.run(zql.resolution.where("finalDocumentId", args.id).one()),
+        tx.run(zql.utilisationCertificate.where("documentId", args.id).one()),
         tx.run(
           zql.trusteeOffice
             .where(({ cmp, or }) =>
