@@ -22,12 +22,32 @@ const guards: {
 }[] = [
   {
     allowed: [],
-    redirected: ["/analytics", "/jobs", "/users", "/scheduled-messages"],
+    redirected: [
+      "/analytics",
+      "/jobs",
+      "/users",
+      "/scheduled-messages",
+      "/settings/funds",
+      "/settings/account-heads",
+    ],
     role: "volunteer",
   },
-  { allowed: [], redirected: ["/jobs", "/export"], role: "admin" },
   {
-    allowed: [{ heading: "Vendors", url: "/vendors" }],
+    allowed: [],
+    redirected: [
+      "/jobs",
+      "/export",
+      "/settings/funds",
+      "/settings/account-heads",
+    ],
+    role: "admin",
+  },
+  {
+    allowed: [
+      { heading: "Vendors", url: "/vendors" },
+      { heading: "Funds", url: "/settings/funds" },
+      { heading: "Account heads", url: "/settings/account-heads" },
+    ],
     redirected: ["/jobs", "/export"],
     role: "finance_admin",
   },

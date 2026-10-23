@@ -696,4 +696,67 @@ describe.skipIf(!enabled)("circular resolutions in the database", () => {
       q.withdrawCircular({ circularId, reason: "Again", today })
     ).rejects.toThrow("already decided");
   });
+
+  it("keeps a cited paper resolution's number, kind and date", async () => {
+    const id = uuidv7();
+    resolutionIds.push(id);
+    const recorded = {
+      decidedOn: "1990-06-01",
+      documentId: null,
+      fiscalYear: "1990-91",
+      id,
+      number: `DB-TEST/1990-91/${id.slice(-6)}`,
+      sequence: 900,
+      templateKey: "appointment" as const,
+      title: "Appoint a trustee",
+      validityNote: null,
+    };
+    await db.insert(schema.resolution).values({
+      body: serializeRichText(plainTextToRichText("")),
+      createdAt: now,
+      decidedAt: now,
+      effect: { type: "none" },
+      finalDocumentId: null,
+      historical: true,
+      status: "passed",
+      updatedAt: now,
+      ...recorded,
+    });
+    await db.insert(schema.trusteeTerm).values({
+      basis: "appointment_7_9",
+      createdAt: now,
+      id: uuidv7(),
+      sourceResolutionId: id,
+      startsOn: "1990-06-01",
+      trusteeId: newcomer,
+      updatedAt: now,
+    });
+    try {
+      for (const change of [
+        { number: `${recorded.number}-B`, sequence: 901 },
+        { templateKey: "ordinary" as const },
+        { decidedOn: "1990-06-02" },
+      ]) {
+        await expect(
+          q.updateHistoricalResolution({ ...recorded, ...change })
+        ).rejects.toThrow("its number, kind and date can't change");
+      }
+      await q.updateHistoricalResolution({
+        ...recorded,
+        title: "Appoint a trustee (corrected)",
+      });
+      const [row] = await db
+        .select()
+        .from(schema.resolution)
+        .where(eq(schema.resolution.id, id));
+      expect(row).toMatchObject({
+        decidedOn: recorded.decidedOn,
+        number: recorded.number,
+        templateKey: recorded.templateKey,
+        title: "Appoint a trustee (corrected)",
+      });
+    } finally {
+      await removeNewcomer();
+    }
+  });
 });

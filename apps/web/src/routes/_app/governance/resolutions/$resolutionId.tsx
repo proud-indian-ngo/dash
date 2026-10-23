@@ -87,6 +87,10 @@ function ResolutionPage() {
   useRecordTitle(row?.title);
   const today = todayIso();
   const { trustees } = useRegister(today);
+  // The raw register rows carry the resolution each term and office cites.
+  const [trusteeRows] = useQuery(queries.trustee.all(), {
+    enabled: canManage,
+  });
   const zero = useZero();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -142,6 +146,13 @@ function ResolutionPage() {
   }
 
   const template = RESOLUTION_TEMPLATES[row.templateKey];
+  const citedByRegister = trusteeRows.some((t) =>
+    [...t.terms, ...t.offices].some(
+      (entry) =>
+        entry.sourceResolutionId === row.id ||
+        entry.endSourceResolutionId === row.id
+    )
+  );
   const names = new Map<string, string>([
     ...trustees.map((t) => [t.id, t.legalName] as const),
     ...(row.responses ?? []).map(
@@ -320,6 +331,7 @@ function ResolutionPage() {
           onOpenChange={setEditing}
           open={editing}
           resolution={{
+            cited: citedByRegister,
             decidedOn: epochToIso(row.decidedOn),
             documentId: row.finalDocumentId,
             id: row.id,
