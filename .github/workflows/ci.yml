@@ -4,14 +4,22 @@ on:
     branches: [master, "feat/kalakriti-p2-*"]
   push:
     branches: [master]
+  # Benchmarks a runner: dispatch the same commit on each and compare job times.
+  workflow_dispatch:
+    inputs:
+      runner:
+        type: choice
+        options: [ubuntu-latest, blacksmith-4vcpu-ubuntu-2404]
+        default: ubuntu-latest
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A dispatch gets its own group, so repeated benchmark runs don't cancel each other.
+  group: ci-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     env:
       TURBO_TELEMETRY_DISABLED: "1"
       TURBO_API: "https://cache.thari.in"
@@ -26,29 +34,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - &create-test-env
         name: Create test env
-        run: |
-          cat > .env <<'EOF'
-          AVATAR_FALLBACK_SEED=ci
-          BETTER_AUTH_SECRET=ci-secret-ci-secret-ci-secret-ci32
-          BETTER_AUTH_URL=http://localhost:3001
-          CORS_ORIGIN=http://localhost:3001
-          DATABASE_URL=postgres://postgres:postgres@localhost:5432/ci
-          GRAVATAR_API_KEY=ci
-          VITE_CDN_URL=http://localhost:3001/cdn
-          VITE_ZERO_URL=ws://localhost:4848
-          R2_ACCESS_KEY=ci
-          R2_ACCOUNT_ID=ci
-          R2_BUCKET_NAME=ci-bucket
-          R2_KEY_PREFIX=attachments
-          R2_SECRET_ACCESS_KEY=ci
-          VOUCHER_FINANCE_ADMIN_NAME=CI Finance Admin
-          VOUCHER_ORG_ADDRESS=CI Address
-          VOUCHER_ORG_EMAIL=ci@org.test
-          VOUCHER_ORG_NAME=CI Org
-          VOUCHER_ORG_PHONE=0000000000
-          VOUCHER_ORG_REGISTRATION=CI-REG
-          WHATSAPP_WEBHOOK_SECRET=ci
-          EOF
+        run: cp .github/ci.env .env
 
       - name: Type check
         run: bun run check:types
@@ -58,7 +44,7 @@ jobs:
         run: bun run check:unused
 
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     env:
       TURBO_TELEMETRY_DISABLED: "1"
     steps:
@@ -80,7 +66,7 @@ jobs:
         run: bunx turbo run test:unit --concurrency=4 --log-order=stream --log-prefix=task
 
   prepare-shards:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     env:
       # Keep in step with the e2e job's matrix.
       E2E_SHARDS: "8"
@@ -114,7 +100,7 @@ jobs:
   # Starts alongside prepare-shards and waits for its shard lists only before
   # the tests, so planning overlaps setup.
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -426,7 +412,7 @@ jobs:
     # it); the newer run reports the result. A real E2E failure still fails.
     if: ${{ !cancelled() }}
     needs: [e2e]
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
     steps:
       - name: Check E2E results
         run: |
