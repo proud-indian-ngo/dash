@@ -86,15 +86,23 @@ export type ZipStreamEntry =
   | { bytes: Uint8Array; compress: boolean; path: string }
   | { path: string; stream: () => ReadableStream<Uint8Array> };
 
+/** How a streamed ZIP ended: written whole, failed, or cancelled by the reader. */
+export interface ZipStreamEvents {
+  onCancel?: (reason: unknown) => void;
+  onEnd?: () => void;
+  onError?: (error: unknown) => void;
+}
+
 /**
  * Streams a ZIP of `entries`, pulled one at a time as the client reads:
  * at most one source stream is open, so memory stays at one chunk plus
  * in-memory entries. The generator may compute later entries from what
  * earlier ones streamed. Cancelling the response cancels the open source.
+ * Exactly one of `events` fires when the stream ends.
  */
 export function createZipStream(
   entries: () => AsyncIterable<ZipStreamEntry> | Iterable<ZipStreamEntry>,
-  onError?: (error: unknown) => void
+  events: ZipStreamEvents = {}
 ): ReadableStream<Uint8Array> {
   let cancelled = false;
   let activeReader: ReadableStreamDefaultReader<Uint8Array> | undefined;
@@ -163,18 +171,20 @@ export function createZipStream(
           }
           if (result.done) {
             controller.close();
+            events.onEnd?.();
           } else {
             controller.enqueue(result.value);
           }
         } catch (error) {
           if (!cancelled) {
             controller.error(error);
-            onError?.(error);
+            events.onError?.(error);
           }
         }
       },
       async cancel(reason) {
         cancelled = true;
+        events.onCancel?.(reason);
         try {
           await activeReader?.cancel(reason);
         } finally {
@@ -191,16 +201,19 @@ export function createFinancialExportArchiveStream(
   attachments: FinancialExportArchiveAttachment[],
   onError?: (error: unknown) => void
 ): ReadableStream<Uint8Array> {
-  return createZipStream(function* () {
-    for (const csvFile of csvFiles) {
-      yield {
-        bytes: strToU8(buildCsv(csvFile.headers, csvFile.rows)),
-        compress: true,
-        path: csvFile.filename,
-      };
-    }
-    yield* attachments;
-  }, onError);
+  return createZipStream(
+    function* () {
+      for (const csvFile of csvFiles) {
+        yield {
+          bytes: strToU8(buildCsv(csvFile.headers, csvFile.rows)),
+          compress: true,
+          path: csvFile.filename,
+        };
+      }
+      yield* attachments;
+    },
+    { onError }
+  );
 }
 
 /** Maps `items` with at most `concurrency` calls in flight, keeping order. */

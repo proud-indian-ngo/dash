@@ -9,8 +9,12 @@ import { user } from "@pi-dash/db/schema/auth";
 import { contributionReceipt } from "@pi-dash/db/schema/contribution-receipt";
 import { expenseCategory } from "@pi-dash/db/schema/expense-category";
 import { fiscalYear, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
-import { utilisationCertificate } from "@pi-dash/db/schema/grant";
+import {
+  grantAgreement,
+  utilisationCertificate,
+} from "@pi-dash/db/schema/grant";
 import { contribution } from "@pi-dash/db/schema/income";
+import { posting } from "@pi-dash/db/schema/ledger";
 import { party } from "@pi-dash/db/schema/party";
 import {
   donationCertificate,
@@ -37,7 +41,7 @@ import {
 import { GOVERNANCE_SEED_IDS } from "@pi-dash/db/seed-governance";
 import { getR2Client } from "@pi-dash/jobs/handlers/r2";
 import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
-import { and, desc, eq, gte, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 /**
@@ -51,12 +55,18 @@ import { uuidv7 } from "uuidv7";
  *   object is never stored), a completed vendor payment with its invoice
  *   and a payment with its proof, a UPI gift with a live and a voided
  *   receipt, a submitted Form 113 filing with one Form 114 certificate, and
- *   a utilisation certificate of the grant with its long-term copy and the
- *   CA's certificate. Prints the year's ID, the workbook reference of each
+ *   a utilisation certificate of the grant with its long-term copy, the
+ *   CA's certificate and the grant's signed agreement. It also seeds what
+ *   the pack must leave out: a cancelled and a partly signed certificate,
+ *   a discarded and a prepared filing, and a claim of FY 2025-26, each with
+ *   a stored file. Prints the year's ID, the workbook reference of each
  *   record and each stored file's SHA-256 by its index label.
- * - `audit <since ISO>`: the audit pack downloads since then, newest first.
- * - `cleanup <filingId>`: removes the seeded filing, so the filings spec
- *   (which starts from none) and the donations return see no trace of it.
+ * - `audit <since ISO>`: the audit pack's audit rows (prepare and stream)
+ *   since then, newest first.
+ * - `cleanup <filingId,…>`: removes the seeded filings, so the filings spec
+ *   (which starts from none) and the donations return see no trace of them.
+ * - `posting-count`: how many postings exist, to tell whether the books
+ *   moved between two downloads.
  */
 
 const YEAR = "2026-27";
@@ -175,15 +185,24 @@ async function seed(run: string, grantId: string) {
       stored: false,
     },
     { label: "Cash voucher", name: null, purpose: "voucher", stored: true },
+    // A signed copy replaced by a later one: kept, marked superseded.
     {
-      label: "Signed cash voucher",
+      label: "Signed cash voucher 1",
+      name: "old-signed.pdf",
+      purpose: "signed_voucher",
+      stored: true,
+    },
+    {
+      label: "Signed cash voucher 2",
       name: "signed.pdf",
       purpose: "signed_voucher",
       stored: true,
     },
   ] as const;
+  const attachmentIds: Record<string, string> = {};
   for (const [index, file] of claimFiles.entries()) {
     const id = uuidv7();
+    attachmentIds[file.label] = id;
     const key = `attachments/reimbursements/${claimId}/${id}.pdf`;
     if (file.stored) {
       hashes[file.label] = await store(key, file.label);
@@ -199,6 +218,14 @@ async function seed(run: string, grantId: string) {
       type: "file",
     });
   }
+  // The line's voucher and its current signed copy.
+  await db
+    .update(reimbursementLineItem)
+    .set({
+      signedVoucherAttachmentId: attachmentIds["Signed cash voucher 2"],
+      voucherAttachmentId: attachmentIds["Cash voucher"],
+    })
+    .where(eq(reimbursementLineItem.reimbursementId, claimId));
   await postIncomeSourceNow({ sourceId: claimId, sourceType: "reimbursement" });
 
   // A vendor payment, its invoice accepted, paid on 10 July 2026.
@@ -229,7 +256,8 @@ async function seed(run: string, grantId: string) {
     reviewedAt: now,
     reviewedBy: userId,
     status: "completed",
-    title: `E2E audit pack vendor payment ${run}`,
+    // Long enough that its folder name is cut to fit 80 characters.
+    title: `E2E audit pack vendor payment ${run} ${"for the annual day stage, sound and lights ".repeat(3)}`,
     updatedAt: now,
     userId,
     vendorId,
@@ -396,7 +424,8 @@ async function seed(run: string, grantId: string) {
       acknowledgementNumber: acknowledgement,
       createdAt: now,
       createdBy: userId,
-      fileName: `Form-114-${acknowledgement}.pdf`,
+      // A Windows-reserved name, which the pack must not write as is.
+      fileName: "CON.pdf",
       fileObjectKey: certificateKey,
       fileSha256: hashes.Certificate ?? "",
       filingId,
@@ -429,7 +458,7 @@ async function seed(run: string, grantId: string) {
     spentPaise: 0,
     totalAvailablePaise: 0,
   };
-  await db.insert(utilisationCertificate).values({
+  const certificateValues: typeof utilisationCertificate.$inferInsert = {
     archiveObjectKey: archiveKey,
     archiveSha256: hashes["Long-term copy"],
     archivedAt: now,
@@ -492,12 +521,116 @@ async function seed(run: string, grantId: string) {
     status: "awaiting_ca",
     toOn: "2026-09-30",
     updatedAt: now,
+  };
+  await db.insert(utilisationCertificate).values(certificateValues);
+  // Its grant's signed agreement.
+  const agreementKey = `attachments/grants/${grantId}/agreement.pdf`;
+  hashes["Grant agreement"] = await store(agreementKey, "grant agreement");
+  await db
+    .update(grantAgreement)
+    .set({
+      agreementFilename: "agreement.pdf",
+      agreementMimeType: "application/pdf",
+      agreementObjectKey: agreementKey,
+    })
+    .where(eq(grantAgreement.id, grantId));
+
+  // What the pack must leave out: certificates not signed by both trustees
+  // or cancelled, filings not submitted, and a claim of another year.
+  const excludedCertificates: string[] = [];
+  for (const [offset, status] of [
+    [1, "cancelled"],
+    [2, "awaiting_finance"],
+  ] as const) {
+    const id = uuidv7();
+    const number = `${ucNumber}-X${offset}`;
+    const key = `utilisation-certificates/${id}/latest.pdf`;
+    await store(key, `uc ${status}`);
+    await db.insert(utilisationCertificate).values({
+      ...certificateValues,
+      archiveObjectKey: null,
+      archiveSha256: null,
+      archivedAt: null,
+      caFilename: null,
+      caObjectKey: null,
+      cancelReason: status === "cancelled" ? "E2E: cancelled" : null,
+      cancelledAt: status === "cancelled" ? now : null,
+      financeSignedAt: status === "cancelled" ? now : null,
+      id,
+      latestObjectKey: key,
+      number,
+      sequence: (certificateValues.sequence ?? 0) + offset,
+      snapshot: { ...certificateValues.snapshot, number },
+      status,
+    });
+    excludedCertificates.push(number);
+  }
+  const excludedFilings: number[] = [];
+  const filingIds = [filingId];
+  for (const [offset, status] of [
+    [1, "discarded"],
+    [2, "prepared"],
+  ] as const) {
+    const id = uuidv7();
+    const sequence = filingSequence + offset;
+    const key = `donation-filings/${id}.csv`;
+    await db.insert(donationFiling).values({
+      createdAt: now,
+      createdBy: userId,
+      discardedAt: status === "discarded" ? now : null,
+      discardedBy: status === "discarded" ? userId : null,
+      fileName: `donations-return-FY${YEAR}-filing-${sequence}.csv`,
+      fileObjectKey: key,
+      fileSha256: await store(key, `filing ${status}`),
+      fiscalYear: YEAR,
+      giftCount: 0,
+      id,
+      rowCount: 0,
+      sequence,
+      status,
+      totalPaise: 0,
+    });
+    excludedFilings.push(sequence);
+    filingIds.push(id);
+  }
+  const otherYearClaimId = uuidv7();
+  await db.insert(reimbursement).values({
+    approvalScreenshotKey: null,
+    chargedProgrammeId: EDUCATION_ID,
+    chargedTo: "programme",
+    createdAt: now,
+    expenseDate: "2025-11-10",
+    id: otherYearClaimId,
+    reviewedAt: new Date("2025-11-12T05:00:00Z"),
+    reviewedBy: userId,
+    status: "approved",
+    title: `E2E audit pack other year claim ${run}`,
+    updatedAt: now,
+    userId,
+  });
+  const otherYearBill = `attachments/reimbursements/${otherYearClaimId}/bill.pdf`;
+  await store(otherYearBill, "other year bill");
+  await db.insert(reimbursementAttachment).values({
+    createdAt: now,
+    filename: "other-year-bill.pdf",
+    id: uuidv7(),
+    mimeType: "application/pdf",
+    objectKey: otherYearBill,
+    purpose: "receipt",
+    reimbursementId: otherYearClaimId,
+    type: "file",
   });
 
   return {
     acknowledgement,
     claimId,
     code,
+    excluded: {
+      certificates: excludedCertificates,
+      claimId: otherYearClaimId,
+      filings: excludedFilings,
+    },
+    filingIds,
     filingId,
     filingSequence,
     giftId,
@@ -514,6 +647,7 @@ async function auditRows(since: string) {
   const actorId = await userIdOf(process.env.FINANCE_ADMIN_EMAIL);
   return await db
     .select({
+      action: auditLog.action,
       metadata: auditLog.metadata,
       outcome: auditLog.outcome,
       targetId: auditLog.targetId,
@@ -522,7 +656,10 @@ async function auditRows(since: string) {
     .from(auditLog)
     .where(
       and(
-        eq(auditLog.action, "books.audit_pack.download"),
+        inArray(auditLog.action, [
+          "books.audit_pack.download",
+          "books.audit_pack.stream",
+        ]),
         eq(auditLog.actorUserId, actorId),
         gte(auditLog.attemptedAt, new Date(since))
       )
@@ -530,22 +667,28 @@ async function auditRows(since: string) {
     .orderBy(desc(auditLog.attemptedAt));
 }
 
-async function cleanup(filingId: string) {
+async function cleanup(filingIds: string[]) {
   await db.transaction(async (tx) => {
     await tx
       .delete(donationCertificate)
-      .where(eq(donationCertificate.filingId, filingId));
+      .where(inArray(donationCertificate.filingId, filingIds));
     await tx
       .delete(donationFilingGift)
-      .where(eq(donationFilingGift.filingId, filingId));
+      .where(inArray(donationFilingGift.filingId, filingIds));
     await tx
       .delete(donationFilingRow)
-      .where(eq(donationFilingRow.filingId, filingId));
+      .where(inArray(donationFilingRow.filingId, filingIds));
     await tx
       .delete(donationFiling)
-      .where(inArray(donationFiling.id, [filingId]));
+      .where(inArray(donationFiling.id, filingIds));
   });
-  return { removed: filingId };
+  return { removed: filingIds.length };
+}
+
+/** Every posting so far: a change means the books moved. */
+async function postingCount() {
+  const [row] = await db.select({ total: count() }).from(posting);
+  return row?.total ?? 0;
 }
 
 const [action, first = "", second = ""] = process.argv.slice(2);
@@ -555,7 +698,9 @@ if (action === "seed") {
 } else if (action === "audit") {
   result = await auditRows(first);
 } else if (action === "cleanup") {
-  result = await cleanup(first);
+  result = await cleanup(first.split(","));
+} else if (action === "posting-count") {
+  result = await postingCount();
 } else {
   throw new Error(`Unknown action ${action}`);
 }

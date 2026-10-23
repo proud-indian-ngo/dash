@@ -263,17 +263,17 @@ function BooksPage() {
                   onSelect: () => workbook.download(year.id),
                 },
                 hasPermission("finance.view_sensitive") && {
-                  disabled: auditPack.isLoading || workbookBlocker !== null,
+                  disabled: auditPack.preparing || workbookBlocker !== null,
                   icon: ArchiveArrowDownIcon,
                   id: "audit-pack",
                   label: (
                     <CaWorkbookLabel
                       blocker={workbookBlocker}
-                      text="Download audit pack"
+                      text="Download audit pack (ZIP)"
                     />
                   ),
                   onSelect: () =>
-                    auditPack.trigger({ id: year.id, label: year.label }),
+                    auditPack.open({ id: year.id, label: year.label }),
                 },
                 {
                   icon: FileValidationIcon,

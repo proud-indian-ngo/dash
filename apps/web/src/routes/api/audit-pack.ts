@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { handleAuditPackRequest } from "@/lib/audit-pack/server";
+import { handleAuditPackDownload } from "@/lib/audit-pack/download";
 
-/** A financial year's audit pack (ZIP); see `lib/audit-pack/server.ts`. */
+/** Streams a prepared audit pack for its token; see `lib/audit-pack/download.ts`. */
 export const Route = createFileRoute("/api/audit-pack")({
   server: {
     handlers: {
-      GET: ({ request }) => handleAuditPackRequest(request),
+      GET: ({ request }) => handleAuditPackDownload(request),
     },
   },
 });

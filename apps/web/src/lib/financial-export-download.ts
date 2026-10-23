@@ -18,7 +18,7 @@ interface FinancialExportDownloadDependencies {
   saveBlob: (blob: Blob, filename: string) => void;
 }
 
-export const saveBlob = (blob: Blob, filename: string): void => {
+const saveBlob = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -40,27 +40,20 @@ const parseCountHeader = (response: Response, name: string): number => {
   return Number.isFinite(value) ? value : 0;
 };
 
-export const getResponseFilename = (
-  response: Response,
-  fallback: string
-): string => {
+const getResponseFilename = (response: Response, fallback: string): string => {
   const disposition = response.headers.get("content-disposition");
   const match = disposition?.match(CONTENT_DISPOSITION_FILENAME);
   return match?.[1] ?? fallback;
 };
 
-/** The server's JSON error, else `<what> failed (<status>)`. */
-export async function getResponseError(
-  response: Response,
-  what = "Financial export"
-): Promise<string> {
+async function getResponseError(response: Response): Promise<string> {
   if (response.headers.get("content-type")?.includes("application/json")) {
     const body = (await response.json()) as { error?: unknown };
     if (typeof body.error === "string") {
       return body.error;
     }
   }
-  return `${what} failed (${response.status})`;
+  return `Financial export failed (${response.status})`;
 }
 
 export async function downloadFinancialExport(

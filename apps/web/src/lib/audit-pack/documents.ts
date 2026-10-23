@@ -6,6 +6,7 @@ import {
   grantAgreement,
   utilisationCertificate,
 } from "@pi-dash/db/schema/grant";
+import { contribution } from "@pi-dash/db/schema/income";
 import {
   donationCertificate,
   donationFiling,
@@ -14,6 +15,7 @@ import { contributionReceiptSnapshot } from "@pi-dash/db/schema/private/receipts
 import {
   reimbursement,
   reimbursementAttachment,
+  reimbursementLineItem,
 } from "@pi-dash/db/schema/reimbursement";
 import {
   vendor,
@@ -29,7 +31,7 @@ import {
   parseReceiptSettingsParts,
   RECEIPT_SETTINGS_CONFIG_KEY,
 } from "@pi-dash/shared/receipts";
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import {
   documentReference,
@@ -38,12 +40,13 @@ import {
 import { sanitizeArchivePathSegment } from "@/lib/server/financial-export-archive";
 
 /**
- * Server only. The audit pack's contents (finance-ledger-cutover.md, "Audit
- * pack"): for each document the year's CA workbook names, the files the
- * dashboard keeps for it, and the year's filings and utilisation
- * certificates, which no workbook row names. Paths are readable and stable:
- * folder by document type, a record's date, name and the last 8 characters
- * of its ID, then what each file is.
+ * Server only. The audit pack's contents (finance-books.md#audit-pack): for
+ * each document the year's CA workbook names, the files the dashboard keeps
+ * for it, the signed agreement of each grant behind its income or
+ * certificates, and the year's final filings and utilisation certificates,
+ * which no workbook row names. Paths are readable and stable: folder by
+ * document type, a record's date, name and the last 8 characters of its
+ * ID, then what each file is.
  */
 
 /** Rows of the index that name no workbook row. */
@@ -52,6 +55,7 @@ export const YEAR_DOCUMENTS_SHEET = "Year documents";
 export const PACK_FOLDERS = {
   form113: "form-113",
   form114: "form-114",
+  grants: "grants",
   receipts: "donation-receipts",
   reimbursements: "reimbursements",
   utilisationCertificates: "utilisation-certificates",
@@ -60,17 +64,19 @@ export const PACK_FOLDERS = {
 
 /** A file the dashboard keeps for a document, or a link it holds instead. */
 export interface PackFile {
+  folder: string;
   /** What the file is: "Bill 1", "Payment proof", "Receipt PI/2026-27/0001 (void)". */
   label: string;
+  /** The file's safe name inside its folder, before de-duplication. */
+  name: string;
+  /** No file is kept (a grant without its agreement): "No file", never "Missing". */
+  noFile?: boolean;
+  /** Why a file is missing or superseded, or a link's address. */
+  note: string;
   /** Null when the record names a file that was never stored. */
   objectKey: string | null;
-  /** Shown in the index: why a file is missing, or a link's address. */
-  note: string;
   /** ZIP path; set by `assignPaths`. */
   path: string;
-  /** The file's name inside its folder, before de-duplication. */
-  proposedName: string;
-  folder: string;
   url: string | null;
 }
 
@@ -101,6 +107,13 @@ const NO_FILE_KEPT: Record<string, string> = {
     "A bank statement line; imported statement files aren't stored, only their lines.",
 };
 
+const NO_RECORD_FILES: Record<string, string> = {
+  [LEDGER_SOURCE_TYPES.contribution]: "No receipt issued by the dashboard.",
+  [LEDGER_SOURCE_TYPES.reimbursement]: "No file attached.",
+  [LEDGER_SOURCE_TYPES.vendorPayment]: "No file attached.",
+  [LEDGER_SOURCE_TYPES.vendorPaymentTransaction]: "No payment proof attached.",
+};
+
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   [LEDGER_SOURCE_TYPES.auditedFigures]: "Audited figures",
   [LEDGER_SOURCE_TYPES.contribution]: "Contribution",
@@ -127,6 +140,69 @@ const VENDOR_FILE_LABELS: Record<string, string> = {
   invoice: "Invoice",
   quotation: "Quotation",
 };
+
+const SUPERSEDED = "Superseded: a later file replaced it; kept as evidence.";
+const VOIDED =
+  "The record was voided: the workbook shows its posting and the reversal.";
+
+// ── Names ───────────────────────────────────────────────────────────────────
+
+/** Names a CA unzips on Windows: under its path limits and never reserved. */
+const MAX_NAME = 80;
+const RESERVED_STEM = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const TRAILING_UNSAFE = /[-. ]+$/;
+const SAFE_EXTENSION = /^\.[A-Za-z0-9]{1,10}$/;
+
+/**
+ * A folder or file name: `free` made safe for any script and cut so that
+ * `tail` (a short ID, an extension) still fits in 80 characters, trailing
+ * dots and spaces stripped again after the cut, and a Windows-reserved
+ * stem ("CON", "lpt1.pdf") prefixed with "_".
+ */
+export function packName(free: string, tail = ""): string {
+  const room = Math.max(MAX_NAME - tail.length, 8);
+  const cut = [...sanitizeArchivePathSegment(free, "file")]
+    .slice(0, room)
+    .join("")
+    .replace(TRAILING_UNSAFE, "");
+  const name = `${cut || "file"}${tail}`;
+  const stem = name.split(".")[0]?.trim() ?? "";
+  return RESERVED_STEM.test(stem) ? `_${name}` : name;
+}
+
+/** ".pdf" from a file name or object key; empty when it has none or an odd one. */
+function extensionOf(name: string | null): string {
+  const base = name?.split("/").at(-1) ?? "";
+  const dot = base.lastIndexOf(".");
+  const extension = dot > 0 ? base.slice(dot).toLowerCase() : "";
+  return SAFE_EXTENSION.test(extension) ? extension : "";
+}
+
+/** A file name without its extension. */
+function stemOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
+/** "Bill 1 - invoice.pdf", or "Payment proof.png" for an unnamed file. */
+function fileName(
+  label: string,
+  original: string | null,
+  objectKey: string | null
+): string {
+  const extension = extensionOf(original) || extensionOf(objectKey);
+  return packName(
+    original ? `${label} - ${stemOf(original)}` : label,
+    extension
+  );
+}
+
+const shortId = (id: string) => id.slice(-8);
+
+const recordFolder = (root: string, text: string, id: string) =>
+  `${root}/${packName(text, ` ${shortId(id)}`)}`;
+
+// ── Loading ─────────────────────────────────────────────────────────────────
 
 /** Postgres takes at most 65,535 parameters; a large year can name more IDs. */
 const ID_CHUNK = 5000;
@@ -155,32 +231,10 @@ function byParent<T extends { parentId: string }>(rows: T[]): Map<string, T[]> {
   return groups;
 }
 
-const segment = (value: string | null | undefined, fallback: string) =>
-  sanitizeArchivePathSegment(value ?? null, fallback);
-
-const shortId = (id: string) => id.slice(-8);
-
-/** ".pdf" from an object key or file name; empty when there is none. */
-function extensionOf(name: string | null): string {
-  const base = name?.split("/").at(-1) ?? "";
-  const dot = base.lastIndexOf(".");
-  return dot > 0 ? base.slice(dot).toLowerCase() : "";
-}
-
-/** "Bill 1 - invoice.pdf", or "Payment proof.png" for an unnamed file. */
-function fileName(
-  label: string,
-  original: string | null,
-  objectKey: string | null
-): string {
-  return original
-    ? `${label} - ${original}`
-    : `${label}${extensionOf(objectKey)}`;
-}
-
 interface AttachmentRow {
   filename: string | null;
   label: string;
+  note: string;
   objectKey: string | null;
   type: "file" | "url";
   url: string | null;
@@ -189,7 +243,8 @@ interface AttachmentRow {
 /** A record's attachments as files, numbered per label ("Bill 1", "Bill 2"). */
 function attachmentFiles(
   folder: string,
-  attachments: AttachmentRow[]
+  attachments: AttachmentRow[],
+  recordNote: string
 ): PackFile[] {
   const counts = new Map<string, number>();
   for (const a of attachments) {
@@ -200,24 +255,29 @@ function attachmentFiles(
     const n = (seen.get(a.label) ?? 0) + 1;
     seen.set(a.label, n);
     const label = (counts.get(a.label) ?? 0) > 1 ? `${a.label} ${n}` : a.label;
+    const note = [a.note, recordNote].filter(Boolean).join(" ");
     if (a.type === "url") {
       return {
         folder,
         label,
-        note: a.url ?? "",
+        name: "",
+        note: [a.url ?? "", note].filter(Boolean).join(" "),
         objectKey: null,
         path: "",
-        proposedName: "",
         url: a.url ?? "",
       };
     }
     return {
       folder,
       label,
-      note: a.objectKey ? "" : "The record names a file that was never stored.",
+      name: fileName(label, a.filename, a.objectKey),
+      note: a.objectKey
+        ? note
+        : ["The record names a file that was never stored.", note]
+            .filter(Boolean)
+            .join(" "),
       objectKey: a.objectKey,
       path: "",
-      proposedName: fileName(label, a.filename, a.objectKey),
       url: null,
     };
   });
@@ -236,6 +296,7 @@ function withScreenshot(
     {
       filename: null,
       label: "Payment proof",
+      note: "",
       objectKey: screenshotKey,
       type: "file",
       url: null,
@@ -244,7 +305,7 @@ function withScreenshot(
 }
 
 async function reimbursementFiles(ids: string[]) {
-  const [records, attachments] = await Promise.all([
+  const [records, attachments, lines] = await Promise.all([
     inChunks(ids, (chunk) =>
       db
         .select({
@@ -252,6 +313,7 @@ async function reimbursementFiles(ids: string[]) {
           expenseDate: reimbursement.expenseDate,
           id: reimbursement.id,
           title: reimbursement.title,
+          voidedAt: reimbursement.voidedAt,
         })
         .from(reimbursement)
         .where(inArray(reimbursement.id, chunk))
@@ -260,6 +322,7 @@ async function reimbursementFiles(ids: string[]) {
       db
         .select({
           filename: reimbursementAttachment.filename,
+          id: reimbursementAttachment.id,
           objectKey: reimbursementAttachment.objectKey,
           parentId: reimbursementAttachment.reimbursementId,
           purpose: reimbursementAttachment.purpose,
@@ -273,21 +336,59 @@ async function reimbursementFiles(ids: string[]) {
           asc(reimbursementAttachment.id)
         )
     ),
+    // The vouchers, signed copies and signatures each line points at now.
+    inChunks(ids, (chunk) =>
+      db
+        .select({
+          payeeSignatureAttachmentId:
+            reimbursementLineItem.payeeSignatureAttachmentId,
+          signedVoucherAttachmentId:
+            reimbursementLineItem.signedVoucherAttachmentId,
+          voucherAttachmentId: reimbursementLineItem.voucherAttachmentId,
+        })
+        .from(reimbursementLineItem)
+        .where(inArray(reimbursementLineItem.reimbursementId, chunk))
+    ),
   ]);
+  const current = new Set(
+    lines.flatMap((l) =>
+      [
+        l.payeeSignatureAttachmentId,
+        l.signedVoucherAttachmentId,
+        l.voucherAttachmentId,
+      ].filter((id): id is string => id !== null)
+    )
+  );
   const byRecord = byParent(attachments);
   const files = new Map<string, PackFile[]>();
   for (const r of records) {
-    const folder = `${PACK_FOLDERS.reimbursements}/${segment(
-      `${r.expenseDate ?? ""} ${r.title} ${shortId(r.id)}`,
-      shortId(r.id)
-    )}`;
-    const rows = (byRecord.get(r.id) ?? []).map((a) => ({
-      ...a,
-      label: REIMBURSEMENT_FILE_LABELS[a.purpose] ?? a.purpose,
-    }));
+    const rows = (byRecord.get(r.id) ?? []).map((a): AttachmentRow => {
+      const replacedProof =
+        a.purpose === "payment_proof" &&
+        r.approvalScreenshotKey !== null &&
+        a.objectKey !== r.approvalScreenshotKey;
+      const replacedLineFile =
+        (a.purpose === "voucher" ||
+          a.purpose === "signed_voucher" ||
+          a.purpose === "payee_signature") &&
+        !current.has(a.id);
+      return {
+        ...a,
+        label: REIMBURSEMENT_FILE_LABELS[a.purpose] ?? a.purpose,
+        note: replacedProof || replacedLineFile ? SUPERSEDED : "",
+      };
+    });
     files.set(
       r.id,
-      attachmentFiles(folder, withScreenshot(rows, r.approvalScreenshotKey))
+      attachmentFiles(
+        recordFolder(
+          PACK_FOLDERS.reimbursements,
+          `${r.expenseDate ?? ""} ${r.title}`,
+          r.id
+        ),
+        withScreenshot(rows, r.approvalScreenshotKey),
+        r.voidedAt ? VOIDED : ""
+      )
     );
   }
   return files;
@@ -299,10 +400,11 @@ const vendorPaymentFolder = (r: {
   title: string;
   vendorName: string | null;
 }) =>
-  `${PACK_FOLDERS.vendorPayments}/${segment(
-    `${r.invoiceDate ?? ""} ${r.vendorName ?? ""} ${r.title} ${shortId(r.id)}`,
-    shortId(r.id)
-  )}`;
+  recordFolder(
+    PACK_FOLDERS.vendorPayments,
+    `${r.invoiceDate ?? ""} ${r.vendorName ?? ""} ${r.title}`,
+    r.id
+  );
 
 async function vendorPaymentFiles(ids: string[]) {
   const [records, attachments] = await Promise.all([
@@ -314,6 +416,7 @@ async function vendorPaymentFiles(ids: string[]) {
           invoiceDate: vendorPayment.invoiceDate,
           title: vendorPayment.title,
           vendorName: vendor.name,
+          voidedAt: vendorPayment.voidedAt,
         })
         .from(vendorPayment)
         .leftJoin(vendor, eq(vendor.id, vendorPayment.vendorId))
@@ -340,15 +443,17 @@ async function vendorPaymentFiles(ids: string[]) {
   const byRecord = byParent(attachments);
   const files = new Map<string, PackFile[]>();
   for (const r of records) {
-    const rows = (byRecord.get(r.id) ?? []).map((a) => ({
+    const rows = (byRecord.get(r.id) ?? []).map((a): AttachmentRow => ({
       ...a,
       label: VENDOR_FILE_LABELS[a.purpose] ?? a.purpose,
+      note: "",
     }));
     files.set(
       r.id,
       attachmentFiles(
         vendorPaymentFolder(r),
-        withScreenshot(rows, r.approvalScreenshotKey)
+        withScreenshot(rows, r.approvalScreenshotKey),
+        r.voidedAt ? VOIDED : ""
       )
     );
   }
@@ -367,6 +472,7 @@ async function vendorPaymentTransactionFiles(ids: string[]) {
           transactionDate: vendorPaymentTransaction.transactionDate,
           vendorName: vendor.name,
           vendorPaymentId: vendorPayment.id,
+          voidedAt: vendorPaymentTransaction.voidedAt,
         })
         .from(vendorPaymentTransaction)
         .innerJoin(
@@ -403,15 +509,17 @@ async function vendorPaymentTransactionFiles(ids: string[]) {
   const files = new Map<string, PackFile[]>();
   for (const r of records) {
     const day = r.transactionDate?.toISOString().slice(0, 10) ?? "";
-    const rows = (byRecord.get(r.id) ?? []).map((a) => ({
+    const rows = (byRecord.get(r.id) ?? []).map((a): AttachmentRow => ({
       ...a,
       label: `Payment proof ${day}`,
+      note: "",
     }));
     files.set(
       r.id,
       attachmentFiles(
         vendorPaymentFolder({ ...r, id: r.vendorPaymentId }),
-        rows
+        rows,
+        r.voidedAt ? VOIDED : ""
       )
     );
   }
@@ -443,12 +551,12 @@ async function receiptFiles(contributionIds: string[]) {
     list.push({
       folder: PACK_FOLDERS.receipts,
       label: `Receipt ${r.number}${voided ? " (void)" : ""}`,
+      name: packName(`${r.number}${voided ? " VOID" : ""}`, ".pdf"),
       note: r.pdfKey
         ? ""
         : "The PDF isn't stored yet: open the receipt once in the dashboard to store it.",
       objectKey: r.pdfKey,
       path: "",
-      proposedName: `${r.number}${voided ? " VOID" : ""}.pdf`,
       url: null,
     });
     files.set(r.contributionId, list);
@@ -456,7 +564,67 @@ async function receiptFiles(contributionIds: string[]) {
   return files;
 }
 
+interface GrantRow {
+  agreementFilename: string | null;
+  agreementObjectKey: string | null;
+  id: string;
+  title: string;
+}
+
+/** A grant's signed agreement, or a "No file" row when none is stored. */
+function agreementFile(grant: GrantRow): PackFile {
+  const stored = grant.agreementObjectKey !== null;
+  return {
+    folder: PACK_FOLDERS.grants,
+    label: "Grant agreement",
+    name: stored
+      ? packName(
+          `${grant.title} agreement`,
+          ` ${shortId(grant.id)}${extensionOf(grant.agreementFilename) || extensionOf(grant.agreementObjectKey)}`
+        )
+      : "",
+    noFile: !stored,
+    note: stored ? "" : "No signed agreement is stored for this grant.",
+    objectKey: grant.agreementObjectKey,
+    path: "",
+    url: null,
+  };
+}
+
+async function loadGrants(ids: string[]): Promise<Map<string, GrantRow>> {
+  const rows = await inChunks(ids, (chunk) =>
+    db
+      .select({
+        agreementFilename: grantAgreement.agreementFilename,
+        agreementObjectKey: grantAgreement.agreementObjectKey,
+        id: grantAgreement.id,
+        title: grantAgreement.title,
+      })
+      .from(grantAgreement)
+      .where(inArray(grantAgreement.id, chunk))
+  );
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** The grant each gift was received under, for gifts under one. */
+async function contributionGrants(ids: string[]) {
+  const rows = await inChunks(ids, (chunk) =>
+    db
+      .select({ grantId: contribution.grantId, id: contribution.id })
+      .from(contribution)
+      .where(inArray(contribution.id, chunk))
+  );
+  return new Map(
+    rows.flatMap((r) => (r.grantId ? [[r.id, r.grantId] as const] : []))
+  );
+}
+
+/** Submitted filings only: a prepared one isn't final. */
 async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
+  const submitted = and(
+    eq(donationFiling.fiscalYear, fiscalYear),
+    eq(donationFiling.status, "submitted")
+  );
   const [filings, certificates] = await Promise.all([
     db
       .select({
@@ -465,15 +633,9 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
         fileObjectKey: donationFiling.fileObjectKey,
         filedOn: donationFiling.filedOn,
         sequence: donationFiling.sequence,
-        status: donationFiling.status,
       })
       .from(donationFiling)
-      .where(
-        and(
-          eq(donationFiling.fiscalYear, fiscalYear),
-          ne(donationFiling.status, "discarded")
-        )
-      )
+      .where(submitted)
       .orderBy(asc(donationFiling.sequence)),
     db
       .select({
@@ -487,12 +649,7 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
         donationFiling,
         eq(donationFiling.id, donationCertificate.filingId)
       )
-      .where(
-        and(
-          eq(donationFiling.fiscalYear, fiscalYear),
-          ne(donationFiling.status, "discarded")
-        )
-      )
+      .where(submitted)
       .orderBy(
         asc(donationFiling.sequence),
         asc(donationCertificate.acknowledgementNumber)
@@ -505,12 +662,13 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
         {
           folder: PACK_FOLDERS.form113,
           label: "Upload file",
-          note: f.acknowledgementNumber
-            ? `Acknowledgement ${f.acknowledgementNumber}, filed on ${f.filedOn ?? ""}. The portal's acknowledgement is recorded as its number, not kept as a file.`
-            : "Not submitted yet.",
+          name: packName(
+            `Filing ${f.sequence} - ${stemOf(f.fileName)}`,
+            extensionOf(f.fileName)
+          ),
+          note: `Acknowledgement ${f.acknowledgementNumber ?? ""}, filed on ${f.filedOn ?? ""}. The portal's acknowledgement is recorded as its number, not kept as a file.`,
           objectKey: f.fileObjectKey,
           path: "",
-          proposedName: `Filing ${f.sequence} - ${f.fileName}`,
           url: null,
         },
       ],
@@ -524,10 +682,10 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
         {
           folder: PACK_FOLDERS.form114,
           label: "Certificate",
+          name: packName(stemOf(c.fileName), extensionOf(c.fileName)),
           note: `Filing ${c.sequence}`,
           objectKey: c.fileObjectKey,
           path: "",
-          proposedName: c.fileName,
           url: null,
         },
       ],
@@ -539,18 +697,18 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
 }
 
 /**
- * Utilisation certificates prepared in the year: the signed copy served
- * today (the long-term copy once made, the vault's once filed) and the
- * CA's document. Discarded ones never had a final PDF.
+ * Utilisation certificates prepared in the year that both trustees have
+ * signed: final, or awaiting only the CA. Each gives the copy downloads
+ * serve (the vault's long-term copy once filed, else the certificate's own,
+ * else the latest signed PDF) and the CA's document.
  */
-async function certificateDocuments(
-  fiscalYear: string
-): Promise<PackDocument[]> {
-  const rows = await db
+async function certificateRows(fiscalYear: string) {
+  return await db
     .select({
       archiveObjectKey: utilisationCertificate.archiveObjectKey,
       caFilename: utilisationCertificate.caFilename,
       caObjectKey: utilisationCertificate.caObjectKey,
+      grantId: utilisationCertificate.grantId,
       grantTitle: grantAgreement.title,
       latestObjectKey: utilisationCertificate.latestObjectKey,
       number: utilisationCertificate.number,
@@ -569,91 +727,93 @@ async function certificateDocuments(
     .where(
       and(
         eq(utilisationCertificate.fiscalYear, fiscalYear),
-        ne(utilisationCertificate.status, "discarded")
+        inArray(utilisationCertificate.status, ["final", "awaiting_ca"])
       )
     )
     .orderBy(asc(utilisationCertificate.sequence));
-  return rows.map((c): PackDocument => {
-    const name = segment(c.number, "certificate");
-    const status = c.status === "cancelled" ? "Cancelled. " : "";
-    const files: PackFile[] = [
-      {
-        folder: PACK_FOLDERS.utilisationCertificates,
-        label: c.archiveObjectKey ? "Long-term copy" : "Latest copy",
-        note: `${status}${c.status === "final" ? "" : "Not final yet."}`.trim(),
-        objectKey:
-          c.vaultArchiveObjectKey ?? c.archiveObjectKey ?? c.latestObjectKey,
-        path: "",
-        proposedName: `${name} - ${c.grantTitle}.pdf`,
-        url: null,
-      },
-    ];
-    if (c.caObjectKey) {
-      files.push({
-        folder: PACK_FOLDERS.utilisationCertificates,
-        label: "CA's certificate",
-        note: "",
-        objectKey: c.caObjectKey,
-        path: "",
-        proposedName: `${name} CA - ${c.caFilename ?? `certificate${extensionOf(c.caObjectKey)}`}`,
-        url: null,
-      });
-    }
-    return {
-      documentType: "Utilisation certificate",
-      files,
-      noFileNote: "",
-      reference: `Utilisation certificate ${c.number}`,
-      sheet: YEAR_DOCUMENTS_SHEET,
-    };
-  });
 }
 
-const NO_RECORD_FILES: Record<string, string> = {
-  [LEDGER_SOURCE_TYPES.contribution]: "No receipt issued by the dashboard.",
-  [LEDGER_SOURCE_TYPES.reimbursement]: "No file attached.",
-  [LEDGER_SOURCE_TYPES.vendorPayment]: "No file attached.",
-  [LEDGER_SOURCE_TYPES.vendorPaymentTransaction]: "No payment proof attached.",
-};
+function certificateDocument(
+  c: Awaited<ReturnType<typeof certificateRows>>[number]
+): PackDocument {
+  const [label, objectKey] = c.vaultArchiveObjectKey
+    ? ["Long-term copy (vault)", c.vaultArchiveObjectKey]
+    : c.archiveObjectKey
+      ? ["Long-term copy", c.archiveObjectKey]
+      : ["Signed copy", c.latestObjectKey];
+  const files: PackFile[] = [
+    {
+      folder: PACK_FOLDERS.utilisationCertificates,
+      label,
+      name: packName(`${c.number} - ${c.grantTitle}`, ".pdf"),
+      note: c.status === "final" ? "" : "Awaiting the CA's certificate.",
+      objectKey,
+      path: "",
+      url: null,
+    },
+  ];
+  if (c.caObjectKey) {
+    const original = c.caFilename ?? "";
+    files.push({
+      folder: PACK_FOLDERS.utilisationCertificates,
+      label: "CA's certificate",
+      name: packName(
+        `${c.number} CA - ${original ? stemOf(original) : "certificate"}`,
+        extensionOf(original) || extensionOf(c.caObjectKey)
+      ),
+      note: "",
+      objectKey: c.caObjectKey,
+      path: "",
+      url: null,
+    });
+  }
+  return {
+    documentType: "Utilisation certificate",
+    files,
+    noFileNote: "",
+    reference: `Utilisation certificate ${c.number}`,
+    sheet: YEAR_DOCUMENTS_SHEET,
+  };
+}
 
 /**
- * Gives every file one ZIP path: names made safe for any script, and a
- * name shared (ignoring case) within a folder gets a number. One stored
- * object keeps one path wherever it is listed.
+ * Gives every file one ZIP path: a name shared (ignoring case) within a
+ * folder gets a number. One stored object keeps one path wherever it is
+ * listed.
  */
 function assignPaths(documents: PackDocument[]): void {
   const byKey = new Map<string, string>();
   const taken = new Set<string>();
   for (const document of documents) {
     for (const file of document.files) {
-      if (!file.proposedName) {
+      if (!(file.name && file.objectKey)) {
         continue;
       }
-      const known = file.objectKey ? byKey.get(file.objectKey) : undefined;
+      const known = byKey.get(file.objectKey);
       if (known) {
         file.path = known;
         continue;
       }
-      const name = segment(file.proposedName, "file");
-      const dot = name.lastIndexOf(".");
-      const [stem, ext] =
-        dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
-      let path = `${file.folder}/${name}`;
+      const dot = file.name.lastIndexOf(".");
+      const [stem, extension] =
+        dot > 0
+          ? [file.name.slice(0, dot), file.name.slice(dot)]
+          : [file.name, ""];
+      let path = `${file.folder}/${file.name}`;
       for (let n = 2; taken.has(path.toLocaleLowerCase("en-US")); n += 1) {
-        path = `${file.folder}/${stem} (${n})${ext}`;
+        path = `${file.folder}/${stem} (${n})${extension}`;
       }
       taken.add(path.toLocaleLowerCase("en-US"));
       file.path = path;
-      if (file.objectKey) {
-        byKey.set(file.objectKey, path);
-      }
+      byKey.set(file.objectKey, path);
     }
   }
 }
 
 /**
  * The pack's documents: each workbook reference, in workbook order, then
- * the year's filings and certificates.
+ * the year's filings and certificates. Gifts under a grant and the
+ * certificates carry the grant's agreement.
  */
 export async function loadPackDocuments(
   references: WorkbookDocumentReference[],
@@ -664,17 +824,33 @@ export async function loadPackDocuments(
       references.filter((r) => r.sourceType === type).map((r) => r.sourceId)
     ),
   ];
-  const [reimbursements, vendorPayments, payments, receipts, filings, ucs] =
-    await Promise.all([
-      reimbursementFiles(idsOf(LEDGER_SOURCE_TYPES.reimbursement)),
-      vendorPaymentFiles(idsOf(LEDGER_SOURCE_TYPES.vendorPayment)),
-      vendorPaymentTransactionFiles(
-        idsOf(LEDGER_SOURCE_TYPES.vendorPaymentTransaction)
-      ),
-      receiptFiles(idsOf(LEDGER_SOURCE_TYPES.contribution)),
-      filingDocuments(fiscalYear),
-      certificateDocuments(fiscalYear),
-    ]);
+  const contributionIds = idsOf(LEDGER_SOURCE_TYPES.contribution);
+  const [
+    reimbursements,
+    vendorPayments,
+    payments,
+    receipts,
+    giftGrants,
+    filings,
+    certificates,
+  ] = await Promise.all([
+    reimbursementFiles(idsOf(LEDGER_SOURCE_TYPES.reimbursement)),
+    vendorPaymentFiles(idsOf(LEDGER_SOURCE_TYPES.vendorPayment)),
+    vendorPaymentTransactionFiles(
+      idsOf(LEDGER_SOURCE_TYPES.vendorPaymentTransaction)
+    ),
+    receiptFiles(contributionIds),
+    contributionGrants(contributionIds),
+    filingDocuments(fiscalYear),
+    certificateRows(fiscalYear),
+  ]);
+  const grants = await loadGrants([
+    ...new Set([...giftGrants.values(), ...certificates.map((c) => c.grantId)]),
+  ]);
+  const agreementOf = (grantId: string | undefined) => {
+    const grant = grantId ? grants.get(grantId) : undefined;
+    return grant ? [agreementFile(grant)] : [];
+  };
   const filesBySource: Record<string, Map<string, PackFile[]>> = {
     [LEDGER_SOURCE_TYPES.contribution]: receipts,
     [LEDGER_SOURCE_TYPES.reimbursement]: reimbursements,
@@ -682,7 +858,12 @@ export async function loadPackDocuments(
     [LEDGER_SOURCE_TYPES.vendorPaymentTransaction]: payments,
   };
   const documents = references.map((r): PackDocument => {
-    const files = filesBySource[r.sourceType]?.get(r.sourceId) ?? [];
+    const files = [
+      ...(filesBySource[r.sourceType]?.get(r.sourceId) ?? []),
+      ...(r.sourceType === LEDGER_SOURCE_TYPES.contribution
+        ? agreementOf(giftGrants.get(r.sourceId))
+        : []),
+    ];
     return {
       documentType: DOCUMENT_TYPE_LABELS[r.sourceType] ?? r.sourceType,
       files,
@@ -694,7 +875,12 @@ export async function loadPackDocuments(
       sheet: r.sheet,
     };
   });
-  const all = [...documents, ...filings, ...ucs];
+  const certificateDocuments = certificates.map((c) => {
+    const document = certificateDocument(c);
+    document.files.push(...agreementOf(c.grantId));
+    return document;
+  });
+  const all = [...documents, ...filings, ...certificateDocuments];
   assignPaths(all);
   return all;
 }
