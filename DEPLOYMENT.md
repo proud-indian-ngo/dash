@@ -301,7 +301,7 @@ Contribution CSV, give.do payout and bank statement imports need the organisatio
 
 ### Private media cutover
 
-Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. The bucket has no public route. Keep `VITE_CDN_URL` until a release removes its use, and unset it only after that release deploys.
+Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. The bucket has no public route. Unset `VITE_CDN_URL` once a release that no longer uses it deploys.
 
 ### Kalakriti
 
