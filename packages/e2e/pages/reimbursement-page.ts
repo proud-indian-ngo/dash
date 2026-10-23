@@ -15,8 +15,6 @@ import { ApprovalDetailPage } from "./approval-detail-page";
 import { ListPage } from "./list-page";
 import { RequestFormPage } from "./request-form-page";
 
-// Type retained for routing logic (navigateToNew); selectType() removed as UI no longer offers type selection.
-type RequestType = "reimbursement" | "advance_payment";
 const reimbursementDetailUrlPattern =
   /\/reimbursements\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -32,11 +30,9 @@ export class ReimbursementPage {
   readonly list: ListPage;
   readonly form: RequestFormPage;
   readonly detail: ApprovalDetailPage;
-  readonly type: RequestType;
 
-  constructor(page: Page, type: RequestType) {
+  constructor(page: Page, _type: "reimbursement") {
     this.page = page;
-    this.type = type;
     this.list = new ListPage(page);
     this.form = new RequestFormPage(page);
     this.detail = new ApprovalDetailPage(page);
@@ -138,7 +134,7 @@ export class ReimbursementPage {
         "run",
         REQUEST_APPROVAL_SCRIPT,
         action,
-        this.type === "reimbursement" ? "reimbursement" : "advance-payment",
+        "reimbursement",
         this.currentRequestId(),
       ],
       { env: process.env }
@@ -165,12 +161,10 @@ export class ReimbursementPage {
       await chargeRequestTo(this.page, "Organisation (admin)");
     }
 
-    if (this.type === "reimbursement") {
-      await this.selectExpenseDate();
-    }
+    await this.selectExpenseDate();
 
     await this.form.fillLineItem({
-      amount: amount ?? (this.type === "reimbursement" ? "100" : "200"),
+      amount: amount ?? "100",
       description: "Test item",
     });
     await this.form.submit();

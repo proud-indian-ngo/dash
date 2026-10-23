@@ -25,28 +25,12 @@ const testsDir = join(import.meta.dirname, "tests");
  * an entry that no longer matches a violation fails the suite.
  */
 const allowlist: Record<string, string> = {
-  "dashboard/dashboard.spec.ts R3":
-    "Review link is asserted only when the waiting count is not 0; needs a fixture with a waiting item",
-  "events/event-duplicate.spec.ts R3":
-    "Detail check runs only when the duplicate is found by search; should assert it is found",
   "events/event-feedback.spec.ts R3":
     "Submits feedback unless a retry already did; the edit assertions after it run unconditionally",
-  "events/team-events-filters.spec.ts R3":
-    "Skips when the seeded E2E Updates Team is missing; should assert the seed row instead",
-  "finance/books-year-close.spec.ts R3":
-    "Reverses opening balances left by an earlier run so the spec starts clean",
   "reimbursements/cash-voucher.spec.ts R3":
     "Skips when no pending reimbursement is listed; needs its own pending fixture",
-  "reimbursements/export.spec.ts R3":
-    "Financial-year pick is asserted only when a second year exists; needs a fixture in another year",
   "reimbursements/reimbursement-detail.spec.ts R3":
     "Skips when the volunteer has no reimbursements; needs its own fixture",
-  "reimbursements/reimbursement-unhappy-paths.spec.ts R3":
-    "Delete-hidden check runs only when the row's action menu shows; should assert the approved row exists",
-  "reimbursements/reimbursements-list.spec.ts R3":
-    "Skips when seed rows fall off the first page; needs a filter or fixture that pins them",
-  "settings/bank-accounts.spec.ts R3":
-    "Cleanup helper removes leftover E2E accounts; its branches depend on what earlier runs left",
 };
 
 const FUNCTIONS = new Set([

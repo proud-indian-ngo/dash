@@ -94,6 +94,8 @@ import { uuidv7 } from "uuidv7";
  * - `ensure-opening <label>`: posts fake, balanced opening balances for the
  *   year when none stand (a year can't close without them), so each
  *   treasurer test runs on its own when CI shards split the group.
+ * - `clear-opening <label>`: reverses the year's standing opening balances,
+ *   if any, so the opening balances form starts empty.
  * - `waiting-payout <run>`: a processed payout with no clearing account,
  *   which waits to post ("no clearing account").
  * - `fix-payout <id>`: gives that payout a clearing account of its own.
@@ -980,6 +982,32 @@ async function ensureOpening(label: string) {
   return { id, posted: true };
 }
 
+async function clearOpening(label: string) {
+  const year = await yearByLabel(label);
+  const [standing] = await db
+    .select({ id: openingBalance.id })
+    .from(openingBalance)
+    .where(
+      and(
+        eq(openingBalance.fiscalYearId, year.id),
+        isNull(openingBalance.reversalPostingId)
+      )
+    )
+    .limit(1);
+  if (!standing) {
+    return { reversed: false };
+  }
+  const actorId = await anyUserId();
+  await db.transaction((tx) =>
+    reverseOpeningBalance(
+      tx,
+      { id: standing.id, reason: "E2E rerun starts clean" },
+      { actorId }
+    )
+  );
+  return { id: standing.id, reversed: true };
+}
+
 const E2E_ASSET = "E2E sewing machine";
 /** Must match LEDGER_ACCOUNT_HEAD_IDS in @pi-dash/shared/constants. */
 const FIXED_ASSETS_HEAD_ID = "01930000-0000-7000-8000-000000000801";
@@ -1283,6 +1311,8 @@ if (action === "close-year") {
   }
 } else if (action === "ensure-opening") {
   result = await ensureOpening(label);
+} else if (action === "clear-opening") {
+  result = await clearOpening(label);
 } else if (action === "waiting-payout") {
   result = await waitingPayout(label);
 } else if (action === "fix-payout") {

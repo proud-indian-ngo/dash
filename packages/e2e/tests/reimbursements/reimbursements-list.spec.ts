@@ -165,30 +165,23 @@ test.describe("Reimbursements list (super_admin)", () => {
   test("status filter hides non-matching rows and clear restores them", async ({
     page,
   }) => {
-    await reimbursements.list.waitForTableData();
     const table = reimbursements.list.getTable();
-    const hasSeedRows =
-      (await table.getByText("E2E Seed Reimbursement").count()) > 0;
-    test.skip(
-      !hasSeedRows,
-      "Seed reimbursements are not on the first page (later tests created newer rows)"
+    const search = reimbursements.list.getSearchInput(
+      "Search reimbursements..."
     );
-    await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
-    await expect(
-      table.getByText("E2E Upcoming Event Reimbursement")
-    ).toBeVisible();
+    // Search pins each seed row to the first page, whatever parallel tests add.
+    await search.fill("E2E Upcoming Event Reimbursement");
+    const approved = table.getByText("E2E Upcoming Event Reimbursement");
+    await expect(approved).toBeVisible();
 
     await page.getByRole("tab", { name: /^Pending/ }).click();
-
+    await expect(approved).toHaveCount(0);
+    await search.fill("E2E Seed Reimbursement");
     await expect(table.getByText("E2E Seed Reimbursement")).toBeVisible();
-    await expect(
-      table.getByText("E2E Upcoming Event Reimbursement")
-    ).toHaveCount(0);
 
     await page.getByRole("tab", { name: /^All/ }).click();
-    await expect(
-      table.getByText("E2E Upcoming Event Reimbursement")
-    ).toBeVisible();
+    await search.fill("E2E Upcoming Event Reimbursement");
+    await expect(approved).toBeVisible();
   });
 
   test("event filter hides non-matching rows and clear restores them", async ({

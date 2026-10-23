@@ -1,9 +1,28 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import { expect, test } from "../../fixtures/test";
 import { lockBankAccounts } from "../../helpers/bank-account-lock";
 import { openSettingsPage } from "../../helpers/settings";
 
+const execFileAsync = promisify(execFile);
+
 function openBankingSettings(page: import("@playwright/test").Page) {
   return openSettingsPage(page, "/settings/bank-accounts", "Bank accounts");
+}
+
+/** Removes every account but the seeded one and makes it the default. */
+async function resetAccounts(email: string) {
+  await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/bank-accounts-reset.ts"),
+      email,
+    ],
+    { env: process.env }
+  );
 }
 
 /** Generate a unique 10-digit account number to avoid collisions across test runs. */
@@ -14,98 +33,38 @@ function uniqueAccountNumber(suffix: string) {
 test.describe("Banking settings — bank account management", () => {
   let release: (() => Promise<void>) | undefined;
 
-  test.beforeEach(async ({ page: _page }, testInfo) => {
+  test.beforeEach(async ({ unorientedVolunteerEmail }, testInfo) => {
     test.skip(
       testInfo.project.name !== "unoriented_volunteer",
       "Banking settings behavior is role-independent; run against isolated user"
     );
     // These tests add accounts and change the default, as does the
-    // reimbursement bank-account spec: take turns on the user's accounts.
+    // reimbursement bank-account spec: take turns on the user's accounts,
+    // and start each test from the seeded account alone.
     release = await lockBankAccounts(testInfo);
+    await resetAccounts(unorientedVolunteerEmail);
   });
 
-  test.afterEach(async ({ page }) => {
+  test.afterEach(async ({ unorientedVolunteerEmail }) => {
     try {
-      await cleanUpAccounts(page);
+      await resetAccounts(unorientedVolunteerEmail);
     } finally {
       await release?.();
       release = undefined;
     }
   });
 
-  async function cleanUpAccounts(page: import("@playwright/test").Page) {
-    const cleanup = async () => {
-      const dialog = await openBankingSettings(page);
-      const cleanupOne = async (attempt: number): Promise<void> => {
-        if (attempt >= 5) {
-          return;
-        }
-        const e2eCard = dialog
-          .locator("[data-slot='settings-list-item']")
-          .filter({ hasText: /^E2E / })
-          .first();
-        if (!(await e2eCard.isVisible({ timeout: 2000 }).catch(() => false))) {
-          return;
-        }
-        const setDefaultBtn = dialog
-          .locator("[data-slot='settings-list-item']")
-          .filter({ hasText: "••••7890" })
-          .getByRole("button", { name: "Set default" });
-        if (
-          await setDefaultBtn.isVisible({ timeout: 500 }).catch(() => false)
-        ) {
-          await setDefaultBtn.click();
-          // Shown once the server has saved it (the badge is optimistic).
-          await expect(page.getByText("Default account set")).toBeVisible({
-            timeout: 15_000,
-          });
-        }
-        await e2eCard
-          .getByRole("button", { name: "Delete account" })
-          .click({ timeout: 5000 });
-        const confirm = page.getByRole("alertdialog");
-        await confirm
-          .getByRole("button", { name: "Delete" })
-          .click({ timeout: 5000 });
-        // The dialog closes once the server has deleted the account, so
-        // releasing the lock afterwards can't race the next test.
-        await expect(confirm).toBeHidden({ timeout: 15_000 });
-        await cleanupOne(attempt + 1);
-      };
-      await cleanupOne(0);
-    };
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        cleanup(),
-        new Promise((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error("cleanup timeout")),
-            30_000
-          );
-        }),
-      ]);
-    } catch (caughtError) {
-      console.warn(
-        "[afterEach cleanup] failed to delete E2E accounts:",
-        caughtError
-      );
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   test("shows existing seeded bank account", async ({ page }) => {
     const dialog = await openBankingSettings(page);
 
-    // Seeded account ends in 7890. Use first() in case previous runs left extra accounts.
-    await expect(dialog.getByText(/••••\d{4}/).first()).toBeVisible({
-      timeout: 10_000,
-    });
-    // exact: true avoids matching "Set default" button (getByText is case-insensitive)
-    await expect(dialog.getByText("Default", { exact: true })).toBeVisible({
-      timeout: 10_000,
-    });
+    const accounts = dialog.locator("[data-slot='settings-list-item']");
+    await expect(accounts).toHaveCount(1, { timeout: 10_000 });
+    await expect(accounts.getByText(/••••7890/)).toBeVisible();
+    await expect(
+      accounts.locator('[data-slot="tag"]').getByText("Default", {
+        exact: true,
+      })
+    ).toBeVisible();
   });
 
   test("adds a new bank account", async ({ page }) => {

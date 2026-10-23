@@ -53,7 +53,9 @@ test.describe("Dashboard", () => {
       .filter({ hasText: "Waiting for you" });
     await expect(chip).toBeVisible({ timeout: 15_000 });
     const chipValue = chip.locator("[data-slot=stat-value]");
-    await expect(chipValue).toHaveText(/^\d+$/);
+    // The seed's protected interest request stays pending, so the queue is
+    // never empty.
+    await expect(chipValue).toHaveText(/^[1-9]\d*$/);
     const waiting = await chipValue.innerText();
 
     const panel = page.getByRole("region", { name: "Waiting for review" });
@@ -61,10 +63,8 @@ test.describe("Dashboard", () => {
     await expect(
       panel.locator('[data-slot="card-title"] [data-slot="tag"]')
     ).toHaveText(waiting);
-    if (waiting !== "0") {
-      await expect(
-        panel.getByRole("link", { name: /^Review / }).first()
-      ).toBeVisible();
-    }
+    await expect(
+      panel.getByRole("link", { name: /^Review interest requests for / })
+    ).toBeVisible();
   });
 });
