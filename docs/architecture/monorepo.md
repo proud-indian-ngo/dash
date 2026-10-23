@@ -17,7 +17,7 @@ A cache hit is only as safe as the task's declared inputs, so a task that reads 
 
 - `check:compiler` hashes web's non-test sources and its script. It compiles each file on its own, so imported workspaces are not inputs, and its result is deterministic.
 - `test:unit` depends on `transit`, so a workspace's tests rerun when a workspace it imports changes. Suites load the root `.env` and `.env.worktree` (web with `--env-file`, the rest through `@pi-dash/env`), so both are inputs; this also keeps local and CI results apart, since CI's `.env` is `.github/ci.env`. Web's give.do import test reads an E2E fixture, listed under `web#test:unit`.
-- Many tests read today's date, so a pass can go stale with no input change. CI's unit-tests job sets `TURBO_FORCE` on every run but a pull request's, so master always runs every suite and a date-dependent failure surfaces there.
+- About 40 test files read today's date, so a pass can go stale with no input change. CI's unit-tests job sets `TURBO_FORCE` on every run but a pull request's, so master always runs every suite and a date-dependent failure surfaces there.
 - The root `package.json` depends on several workspaces for its scripts, and Turbo folds those workspaces, with their own dependencies, into the global hash. A change to any of them misses every task; only web, `e2e` and `editor` change on their own.
 
 ## Docker build
