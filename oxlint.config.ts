@@ -40,7 +40,7 @@ export default defineConfig({
   },
   overrides: [
     {
-      // Phones get bottom drawers through the shared wrappers.
+      // Phones get bottom drawers, and calendars a stable day grid, through the shared wrappers.
       files: ["apps/web/src/**"],
       rules: {
         "no-restricted-imports": [
@@ -57,6 +57,12 @@ export default defineConfig({
                 message:
                   "Use @/components/shared/responsive-alert-dialog so phones get a drawer.",
               },
+              {
+                name: "@pi-dash/design-system/components/ui/calendar",
+                importNames: ["Calendar"],
+                message:
+                  "Use @/components/shared/calendar so a re-render doesn't remount the day grid.",
+              },
             ],
           },
         ],
@@ -66,6 +72,7 @@ export default defineConfig({
       files: [
         "apps/web/src/components/shared/responsive-dialog.tsx",
         "apps/web/src/components/shared/responsive-alert-dialog.tsx",
+        "apps/web/src/components/shared/calendar.tsx",
         // Phones get a full-height sheet: a drawer swipe would fight the pen.
         "apps/web/src/components/reimbursements/collect-payee-signature-dialog.tsx",
         // Phones get a full-screen viewer: a drawer swipe would fight scrolling pages.

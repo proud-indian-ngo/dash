@@ -1,3 +1,5 @@
+import { addHours, addMonths, format, setDate } from "date-fns";
+
 import { expect, test } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
 
@@ -33,7 +35,34 @@ test.describe("Scheduled messages (admin)", () => {
     // Close the popover by clicking outside or pressing Escape
     await page.keyboard.press("Escape");
 
-    // The default scheduledAt is 1 hour from now — no interaction needed
+    await test.step("a day pick survives a re-render mid-click", async () => {
+      const scheduledAt = dialog.getByLabel("Scheduled at");
+      const defaultHour = addHours(new Date(), 1).getHours() % 12 || 12;
+      const hour = defaultHour === 11 ? "10" : "11";
+      const nextMonth = addMonths(new Date(), 1);
+      const dayButton = (day: number) =>
+        page.getByRole("button", {
+          name: new RegExp(format(setDate(nextMonth, day), "MMMM do, yyyy")),
+        });
+      await scheduledAt.click();
+      await page.getByRole("button", { name: "Go to the Next Month" }).click();
+      await dayButton(15).click();
+      await expect(scheduledAt).toHaveText(
+        new RegExp(`^15 ${format(nextMonth, "MMM yyyy")},`)
+      );
+      await dayButton(16).hover();
+      await page.mouse.down();
+      // A form update lands between press and release, as a Zero sync or a
+      // validation would; the day button must survive it.
+      await page
+        .getByRole("button", { exact: true, name: hour })
+        .dispatchEvent("click");
+      await page.mouse.up();
+      await expect(scheduledAt).toHaveText(
+        new RegExp(`^16 ${format(nextMonth, "MMM yyyy")}, ${hour}:`)
+      );
+      await page.keyboard.press("Escape");
+    });
 
     await dialog
       .getByRole("button", { exact: true, name: "Schedule message" })

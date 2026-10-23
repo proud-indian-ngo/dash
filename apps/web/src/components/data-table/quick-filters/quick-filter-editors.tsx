@@ -38,7 +38,7 @@ type RuleChange = (next: { operator: string; value: unknown } | null) => void;
 const SEARCH_THRESHOLD = 7;
 
 const LazyCalendar = lazy(() =>
-  import("@pi-dash/design-system/components/ui/calendar").then((module) => ({
+  import("@/components/shared/calendar").then((module) => ({
     default: module.Calendar,
   }))
 );

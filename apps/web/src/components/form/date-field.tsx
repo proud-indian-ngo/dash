@@ -1,13 +1,13 @@
 import { Calendar01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
-import { Calendar } from "@pi-dash/design-system/components/ui/calendar";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { format } from "date-fns";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import { Calendar } from "@/components/shared/calendar";
 import { ResponsivePicker } from "@/components/shared/responsive-picker";
 import { DATE } from "@/lib/date-formats";
 
