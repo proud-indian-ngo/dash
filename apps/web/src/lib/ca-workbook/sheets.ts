@@ -1154,3 +1154,52 @@ export function withheldDonorSheet(): WorkbookSheet {
     rows: [{ cells: [DONOR_SHEET_WITHHELD] }],
   };
 }
+
+// ── Document references (the audit pack's index) ───────────────────────────
+
+/** A document a workbook sheet names, once per sheet. */
+export interface WorkbookDocumentReference {
+  sheet: string;
+  sourceId: string;
+  sourceType: string;
+}
+
+/**
+ * Every document the workbook's rows name, by sheet, in first-row order:
+ * the cash book's and the entries' sources, under the same year rules as
+ * their sheets, and each gift on the donor list as its contribution.
+ */
+export function workbookDocumentReferences(
+  facts: WorkbookFacts,
+  gifts: readonly AllGiftsRow[] | null
+): WorkbookDocumentReference[] {
+  const seen = new Set<string>();
+  const references: WorkbookDocumentReference[] = [];
+  const add = (sheet: string, sourceType: string, sourceId: string) => {
+    const key = `${sheet}:${sourceType}:${sourceId}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    references.push({ sheet, sourceId, sourceType });
+  };
+  // Brought-forward rows (IDs "bf-…") sum earlier years; no document stands behind them.
+  for (const m of facts.movements) {
+    if (inYear(m.occurredOn, facts) && !m.id.startsWith("bf-")) {
+      add(SHEET_NAMES.receiptsPayments, m.sourceType, m.sourceId);
+    }
+  }
+  for (const e of facts.entries) {
+    if (inYear(e.economicOn, facts) && !e.id.startsWith("bf-")) {
+      add(SHEET_NAMES.incomeExpenditure, e.sourceType, e.sourceId);
+    }
+  }
+  for (const gift of gifts ?? []) {
+    add(
+      SHEET_NAMES.donors,
+      LEDGER_SOURCE_TYPES.contribution,
+      gift.contributionId
+    );
+  }
+  return references;
+}

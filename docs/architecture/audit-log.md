@@ -10,13 +10,14 @@ An immutable record of who changed what. Each authenticated, state-changing comm
   - Audited ones must call `runSessionAuditedAction` inside the export.
 - **API routes:** every `POST` route is classified in the same test. Authenticated ones use `runSessionAuditedAction`. The Social API's `posted` uses `runAuditedAction`.
 - **Not audited:** reads, navigation, presigned-upload URLs, unauthenticated auth flows, signed webhooks, scheduled jobs, and the background effects a command triggers.
-- **Audited even though they read:** revealing an encrypted identifier or a vendor's bank account, the CA workbook and donations return exports, and filing and certificate downloads, because they carry sensitive data.
+- **Audited even though they read:** revealing an encrypted identifier or a vendor's bank account, the CA workbook, audit pack and donations return exports, and filing and certificate downloads, because they carry sensitive data.
 
 ## Row lifecycle
 
 1. The runner inserts a `pending` row before the action runs. If that insert fails, the action does not run.
 2. After the action, the row is finalised once, as `success`, `denied` or `failure`, with retries.
 3. If finalising fails after a success, the caller gets `AuditFinalizationError`; the action itself has completed.
+4. A row recording how something already handed out ended, such as the audit pack's stream, is written final in one insert (`recordFinalAudit`), with no pending step.
 
 A finalised row has no update or delete path.
 

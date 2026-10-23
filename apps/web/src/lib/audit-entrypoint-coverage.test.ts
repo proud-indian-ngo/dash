@@ -59,6 +59,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "whatsappContributionReceipt",
   "findBankStatementMatches",
   "exportCaWorkbook",
+  "prepareAuditPack",
   "exportDonationsReturn",
   "importPastRazorpayPayments",
   "issueContributionReceipts",

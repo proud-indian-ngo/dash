@@ -1,0 +1,827 @@
+import { createHash } from "node:crypto";
+
+import { auth } from "@pi-dash/auth";
+import { db } from "@pi-dash/db";
+import { encryptSecret } from "@pi-dash/db/encryption";
+import { filingRowIdContext } from "@pi-dash/db/encryption-contexts";
+import { postIncomeSourceNow } from "@pi-dash/db/ledger/income-runner";
+import { auditLog } from "@pi-dash/db/schema/audit-log";
+import { user } from "@pi-dash/db/schema/auth";
+import { contributionReceipt } from "@pi-dash/db/schema/contribution-receipt";
+import { expenseCategory } from "@pi-dash/db/schema/expense-category";
+import { fiscalYear, orgAccount } from "@pi-dash/db/schema/finance-dimensions";
+import {
+  grantAgreement,
+  utilisationCertificate,
+} from "@pi-dash/db/schema/grant";
+import { contribution } from "@pi-dash/db/schema/income";
+import { posting } from "@pi-dash/db/schema/ledger";
+import { party } from "@pi-dash/db/schema/party";
+import { role, rolePermission } from "@pi-dash/db/schema/permission";
+import {
+  donationCertificate,
+  donationFiling,
+  donationFilingGift,
+  donationFilingRow,
+} from "@pi-dash/db/schema/private/donation-filings";
+import { contributionReceiptSnapshot } from "@pi-dash/db/schema/private/receipts";
+import {
+  reimbursement,
+  reimbursementAttachment,
+  reimbursementLineItem,
+} from "@pi-dash/db/schema/reimbursement";
+import {
+  vendor,
+  vendorPayment,
+  vendorPaymentAttachment,
+  vendorPaymentLineItem,
+} from "@pi-dash/db/schema/vendor";
+import {
+  vendorPaymentTransaction,
+  vendorPaymentTransactionAttachment,
+} from "@pi-dash/db/schema/vendor-payment-transaction";
+import { GOVERNANCE_SEED_IDS } from "@pi-dash/db/seed-governance";
+import { getR2Client } from "@pi-dash/jobs/handlers/r2";
+import { COST_CENTRE_IDS } from "@pi-dash/shared/constants";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
+
+/**
+ * Database steps for the audit pack spec, run with Bun as a script because
+ * Playwright's Node runner cannot load `@pi-dash/db`. Prints one JSON value.
+ *
+ * - `seed <run> <grantId>`: one posted record of each document type the
+ *   pack covers in FY 2026-27, each file stored in the fake R2 with
+ *   synthetic bytes: a reimbursement (a bill named in Hindi, a cash
+ *   voucher, its signed copy, the payment screenshot and one bill whose
+ *   object is never stored), a completed vendor payment with its invoice
+ *   and a payment with its proof, a UPI gift with a live and a voided
+ *   receipt, a submitted Form 113 filing with one Form 114 certificate, and
+ *   a utilisation certificate of the grant with its long-term copy, the
+ *   CA's certificate and the grant's signed agreement. It also seeds what
+ *   the pack must leave out: a cancelled and a partly signed certificate,
+ *   a discarded and a prepared filing, and a claim posted in FY 2027-28,
+ *   each with a stored file. Prints the year's ID, the workbook reference of each
+ *   record and each stored file's SHA-256 by its index label.
+ * - `audit <since ISO>`: the audit pack's audit rows (prepare and stream)
+ *   since then, newest first.
+ * - `cleanup <negatives JSON>`: removes the negative seeds and their files
+ *   and reverses the other year's claim, so the filings spec (which starts
+ *   from none), the donations return and later years see no trace of them.
+ * - `sensitive-only-user`: a user with finance.view_sensitive alone.
+ * - `posting-count`: how many postings exist, to tell whether the books
+ *   moved between two downloads.
+ */
+
+const YEAR = "2026-27";
+/** "E2E Income Donor", seeded by seed-test-user. */
+const INCOME_DONOR_ID = "01930000-0000-7000-8000-000000000721";
+/** Must match GENERAL_FUND_ID and PROGRAMME_IDS.education in @pi-dash/shared/constants. */
+const GENERAL_FUND_ID = "01930000-0000-7000-8000-000000000201";
+const EDUCATION_ID = "01930000-0000-7000-8000-000000000001";
+
+const r2 = getR2Client();
+const sha256 = (bytes: Uint8Array) =>
+  createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * Stores synthetic bytes under `key` and returns their SHA-256. The bytes
+ * name only what the file is, so hashes repeat from run to run.
+ */
+async function store(key: string, text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`%PDF-1.4\n% ${text}\n%%EOF\n`);
+  await r2.write(key, bytes);
+  return sha256(bytes);
+}
+
+async function userIdOf(email: string | undefined) {
+  if (!email) {
+    throw new Error("The test user's email is not set");
+  }
+  const [row] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, email));
+  if (!row) {
+    throw new Error(`Test user ${email} not found`);
+  }
+  return row.id;
+}
+
+/**
+ * A bank account for this run, made the main one: claims and vendor
+ * payments are paid out of the main account (as the books expense fixture does).
+ */
+async function runBank(run: string, now: Date) {
+  const id = uuidv7();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(orgAccount)
+      .set({ isMain: false, updatedAt: now })
+      .where(eq(orgAccount.isMain, true));
+    await tx.insert(orgAccount).values({
+      createdAt: now,
+      id,
+      isMain: true,
+      kind: "bank",
+      name: `E2E Audit Pack Bank ${run}`,
+      updatedAt: now,
+    });
+  });
+  return id;
+}
+
+async function seed(run: string, grantId: string) {
+  const now = new Date();
+  const code = run.replace(/[^A-Za-z0-9]/g, "").slice(-10);
+  const userId = await userIdOf(process.env.VOLUNTEER_EMAIL);
+  const [year] = await db
+    .select({ id: fiscalYear.id })
+    .from(fiscalYear)
+    .where(eq(fiscalYear.label, YEAR));
+  if (!year) {
+    throw new Error(`FY ${YEAR} is not set up`);
+  }
+  const bankId = await runBank(run, now);
+  const hashes: Record<string, string> = {};
+
+  // A reimbursement paid on 20 June 2026.
+  const categoryId = uuidv7();
+  await db.insert(expenseCategory).values({
+    createdAt: now,
+    id: categoryId,
+    name: `E2E Audit Pack Category ${run}`,
+    updatedAt: now,
+  });
+  const claimId = uuidv7();
+  const screenshotKey = `attachments/approval-screenshots/reimbursements/${claimId}/proof.png`;
+  hashes["Payment proof"] = await store(screenshotKey, `screenshot`);
+  await db.insert(reimbursement).values({
+    approvalScreenshotKey: screenshotKey,
+    chargedProgrammeId: EDUCATION_ID,
+    chargedTo: "programme",
+    createdAt: now,
+    expenseDate: "2026-06-18",
+    id: claimId,
+    reviewedAt: new Date("2026-06-20T05:00:00Z"),
+    reviewedBy: userId,
+    status: "approved",
+    title: `E2E audit pack claim ${run}`,
+    updatedAt: now,
+    userId,
+  });
+  await db.insert(reimbursementLineItem).values({
+    amountPaise: 45_000,
+    categoryId,
+    createdAt: now,
+    description: "Venue hire",
+    id: uuidv7(),
+    reimbursementId: claimId,
+    sortOrder: 0,
+    updatedAt: now,
+  });
+  const claimFiles = [
+    { label: "Bill 1", name: "बिल-१.pdf", purpose: "receipt", stored: true },
+    {
+      label: "Bill 2",
+      name: "missing-bill.pdf",
+      purpose: "receipt",
+      stored: false,
+    },
+    { label: "Cash voucher", name: null, purpose: "voucher", stored: true },
+    // A signed copy replaced by a later one: kept, marked superseded.
+    {
+      label: "Signed cash voucher 1",
+      name: "old-signed.pdf",
+      purpose: "signed_voucher",
+      stored: true,
+    },
+    {
+      label: "Signed cash voucher 2",
+      name: "signed.pdf",
+      purpose: "signed_voucher",
+      stored: true,
+    },
+  ] as const;
+  const attachmentIds: Record<string, string> = {};
+  for (const [index, file] of claimFiles.entries()) {
+    const id = uuidv7();
+    attachmentIds[file.label] = id;
+    const key = `attachments/reimbursements/${claimId}/${id}.pdf`;
+    if (file.stored) {
+      hashes[file.label] = await store(key, file.label);
+    }
+    await db.insert(reimbursementAttachment).values({
+      createdAt: new Date(now.getTime() + index),
+      filename: file.name,
+      id,
+      mimeType: "application/pdf",
+      objectKey: key,
+      purpose: file.purpose,
+      reimbursementId: claimId,
+      type: "file",
+    });
+  }
+  // The line's voucher and its current signed copy.
+  await db
+    .update(reimbursementLineItem)
+    .set({
+      signedVoucherAttachmentId: attachmentIds["Signed cash voucher 2"],
+      voucherAttachmentId: attachmentIds["Cash voucher"],
+    })
+    .where(eq(reimbursementLineItem.reimbursementId, claimId));
+  await postIncomeSourceNow({ sourceId: claimId, sourceType: "reimbursement" });
+
+  // A vendor payment, its invoice accepted, paid on 10 July 2026.
+  const vendorId = uuidv7();
+  await db.insert(party).values({
+    createdAt: now,
+    displayName: `E2E Audit Pack Vendor ${run}`,
+    id: vendorId,
+    kind: "organisation",
+    updatedAt: now,
+  });
+  await db.insert(vendor).values({
+    createdAt: now,
+    id: vendorId,
+    name: `E2E Audit Pack Vendor ${run}`,
+    status: "approved",
+    updatedAt: now,
+  });
+  const vendorPaymentId = uuidv7();
+  await db.insert(vendorPayment).values({
+    chargedTo: "organisation",
+    costCentreId: COST_CENTRE_IDS.bangalore,
+    createdAt: now,
+    id: vendorPaymentId,
+    invoiceDate: "2026-07-12",
+    invoiceNumber: `INV-AP-${code}`,
+    invoiceReviewedAt: new Date("2026-07-12T05:00:00Z"),
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "completed",
+    // Long enough that its folder name is cut to fit 80 characters.
+    title: `E2E audit pack vendor payment ${run} ${"for the annual day stage, sound and lights ".repeat(3)}`,
+    updatedAt: now,
+    userId,
+    vendorId,
+  });
+  await db.insert(vendorPaymentLineItem).values({
+    amountPaise: 250_000,
+    categoryId,
+    createdAt: now,
+    id: uuidv7(),
+    sortOrder: 0,
+    updatedAt: now,
+    vendorPaymentId,
+  });
+  const invoiceKey = `attachments/vendor-payments/${vendorPaymentId}/invoice.pdf`;
+  hashes.Invoice = await store(invoiceKey, `invoice`);
+  await db.insert(vendorPaymentAttachment).values({
+    createdAt: now,
+    filename: "invoice.pdf",
+    id: uuidv7(),
+    mimeType: "application/pdf",
+    objectKey: invoiceKey,
+    purpose: "invoice",
+    type: "file",
+    vendorPaymentId,
+  });
+  const paymentId = uuidv7();
+  await db.insert(vendorPaymentTransaction).values({
+    amountPaise: 250_000,
+    createdAt: now,
+    id: paymentId,
+    paymentMethod: "bank_transfer",
+    paymentReference: `E2EAPUTR${code}`,
+    reviewedAt: now,
+    reviewedBy: userId,
+    status: "approved",
+    transactionDate: new Date("2026-07-10T05:00:00Z"),
+    updatedAt: now,
+    userId,
+    vendorPaymentId,
+  });
+  const proofKey = `attachments/vendor-payment-transactions/${paymentId}/utr.pdf`;
+  hashes["Payment proof (vendor)"] = await store(proofKey, `utr`);
+  await db.insert(vendorPaymentTransactionAttachment).values({
+    createdAt: now,
+    filename: "utr.pdf",
+    id: uuidv7(),
+    mimeType: "application/pdf",
+    objectKey: proofKey,
+    type: "file",
+    vendorPaymentTransactionId: paymentId,
+  });
+  await postIncomeSourceNow({
+    sourceId: vendorPaymentId,
+    sourceType: "vendor_payment",
+  });
+
+  // A UPI gift with a voided receipt and the live one that replaced it.
+  // Out of the real series (its own year label), like the certificate fixtures.
+  const giftId = uuidv7();
+  await db.insert(contribution).values({
+    amountPaise: 50_000,
+    channel: "upi",
+    createdAt: now,
+    fundId: GENERAL_FUND_ID,
+    id: giftId,
+    orgAccountId: bankId,
+    partyId: INCOME_DONOR_ID,
+    programmeId: EDUCATION_ID,
+    receivedOn: "2026-06-05",
+    reference: `E2EAP${code}`,
+    reportingMode: "electronic_or_account_payee",
+    status: "receipted",
+    updatedAt: now,
+  });
+  const receipts = [
+    { label: "void", sequence: 1, voided: true },
+    { label: "live", sequence: 2, voided: false },
+  ];
+  const receiptNumbers: Record<string, string> = {};
+  for (const r of receipts) {
+    const id = uuidv7();
+    const number = `E2E-AP/${code}/${r.sequence}`;
+    receiptNumbers[r.label] = number;
+    const key = `receipts/${id}/${uuidv7()}.pdf`;
+    hashes[`Receipt ${r.label}`] = await store(key, `receipt ${r.label}`);
+    await db.insert(contributionReceipt).values({
+      contributionId: giftId,
+      createdAt: now,
+      fiscalYear: `e2e-${run}`,
+      id,
+      issuedBy: userId,
+      issuedOn: "2026-06-06",
+      number,
+      sequence: r.sequence,
+      voidedAt: r.voided ? now : null,
+      voidedBy: r.voided ? userId : null,
+      voidReason: r.voided ? "E2E: reissued" : null,
+    });
+    await db.insert(contributionReceiptSnapshot).values({
+      createdAt: now,
+      document: {},
+      partyId: INCOME_DONOR_ID,
+      pdfKey: key,
+      pdfSha256: hashes[`Receipt ${r.label}`],
+      receiptId: id,
+    });
+  }
+  await postIncomeSourceNow({ sourceId: giftId, sourceType: "contribution" });
+
+  // A submitted Form 113 filing of the gift, with its Form 114 certificate.
+  // Numbered high so it never meets the filings spec's own.
+  const filingId = uuidv7();
+  const filingSequence = 900 + Math.floor(Math.random() * 99);
+  const filingKey = `donation-filings/${filingId}.csv`;
+  hashes["Upload file"] = await store(filingKey, `filing`);
+  const rowId = uuidv7();
+  const acknowledgement = `E2EAP114${code}`;
+  const certificateKey = `donation-certificates/${uuidv7()}.pdf`;
+  hashes.Certificate = await store(certificateKey, `form 114`);
+  await db.transaction(async (tx) => {
+    await tx.insert(donationFiling).values({
+      acknowledgementNumber: `E2EAP113${code}`,
+      createdAt: now,
+      createdBy: userId,
+      fileName: `donations-return-FY${YEAR}-filing-${filingSequence}.csv`,
+      fileObjectKey: filingKey,
+      fileSha256: hashes["Upload file"] ?? "",
+      filedOn: "2026-07-31",
+      fiscalYear: YEAR,
+      giftCount: 1,
+      id: filingId,
+      rowCount: 1,
+      sequence: filingSequence,
+      status: "submitted",
+      submittedAt: now,
+      submittedBy: userId,
+      totalPaise: 50_000,
+      transactionId: `E2EAPTX${code}`,
+    });
+    await tx.insert(donationFilingRow).values({
+      address: "1 Example Road, Bengaluru",
+      amountPaise: 50_000,
+      createdAt: now,
+      donationTypeCode: "Specific grant",
+      filingId,
+      giftCount: 1,
+      id: rowId,
+      idCode: "PAN",
+      idNumberEncrypted: encryptSecret("AAAPE9999E", filingRowIdContext(rowId)),
+      idNumberLast4: "999E",
+      idType: "pan",
+      modeCode: "Electronic modes",
+      name: "E2E Income Donor",
+      partyId: INCOME_DONOR_ID,
+      srNo: 1,
+    });
+    await tx.insert(donationFilingGift).values({
+      amountPaise: 50_000,
+      contributionId: giftId,
+      filingId,
+      rowId,
+    });
+    await tx.insert(donationCertificate).values({
+      acknowledgementNumber: acknowledgement,
+      createdAt: now,
+      createdBy: userId,
+      // A Windows-reserved name, which the pack must not write as is.
+      fileName: "CON.pdf",
+      fileObjectKey: certificateKey,
+      fileSha256: hashes.Certificate ?? "",
+      filingId,
+      id: uuidv7(),
+      matchedBy: "details",
+      rowId,
+    });
+  });
+
+  // A utilisation certificate prepared in the year, awaiting the CA, with
+  // its long-term copy and the CA's certificate.
+  const certificateId = uuidv7();
+  const ucNumber = `UC/E2E-AP/${code}`;
+  const latestKey = `utilisation-certificates/${certificateId}/latest.pdf`;
+  const archiveKey = `utilisation-certificates/${certificateId}/archive.pdf`;
+  const caKey = `utilisation-certificates/${certificateId}/ca.pdf`;
+  await store(latestKey, `uc latest`);
+  hashes["Long-term copy"] = await store(archiveKey, `uc archive`);
+  hashes["CA's certificate"] = await store(caKey, `uc ca`);
+  const zero = {
+    broughtForwardPaise: 0,
+    closingPaise: 0,
+    heads: [],
+    interestBroughtForwardPaise: 0,
+    interestPaise: 0,
+    received: [],
+    receivedPaise: 0,
+    refundedPaise: 0,
+    refunds: [],
+    spentPaise: 0,
+    totalAvailablePaise: 0,
+  };
+  const certificateValues: typeof utilisationCertificate.$inferInsert = {
+    archiveObjectKey: archiveKey,
+    archiveSha256: hashes["Long-term copy"],
+    archivedAt: now,
+    caFilename: "CA certificate.pdf",
+    caObjectKey: caKey,
+    caRequired: true,
+    createdAt: now,
+    financeSignedAt: now,
+    financeTrusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
+    fiscalYear: YEAR,
+    fromOn: "2026-04-01",
+    grantId,
+    headSignedAt: now,
+    headTrusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
+    id: certificateId,
+    interestPaise: 0,
+    latestObjectKey: latestKey,
+    latestSha256: "0".repeat(64),
+    number: ucNumber,
+    sequence: 9000 + Math.floor(Math.random() * 900_000),
+    snapshot: {
+      caRequired: true,
+      figures: zero,
+      grant: {
+        agreementOn: "2026-04-10",
+        agreementReference: `E2E-AP-${code}`,
+        grantor: "E2E grantor",
+        programme: "Education",
+        project: "E2E project",
+        sanctionedPaise: 0,
+        scheduleViiItem: "(ii) Promoting education",
+        title: "E2E grant",
+      },
+      number: ucNumber,
+      period: { from: "2026-04-01", to: "2026-09-30" },
+      place: "Bengaluru",
+      preparedOn: "2026-10-01",
+      signatories: {
+        finance: {
+          name: "Vikram Menon",
+          office: "joint_managing_trustee",
+          trusteeId: GOVERNANCE_SEED_IDS.jointManagingTrustee,
+        },
+        head: {
+          name: "Asha Rao",
+          office: "managing_trustee",
+          trusteeId: GOVERNANCE_SEED_IDS.managingTrustee,
+        },
+      },
+      trust: {
+        address: "1 Example Road, Bengaluru",
+        csr1: null,
+        name: "Example Trust",
+        pan: "AAATE0000E",
+        registration12ab: null,
+        registration80g: null,
+      },
+      version: 1,
+    },
+    status: "awaiting_ca",
+    toOn: "2026-09-30",
+    updatedAt: now,
+  };
+  await db.insert(utilisationCertificate).values(certificateValues);
+  // Its grant's signed agreement.
+  const agreementKey = `attachments/grants/${grantId}/agreement.pdf`;
+  hashes["Grant agreement"] = await store(agreementKey, "grant agreement");
+  await db
+    .update(grantAgreement)
+    .set({
+      agreementFilename: "agreement.pdf",
+      agreementMimeType: "application/pdf",
+      agreementObjectKey: agreementKey,
+    })
+    .where(eq(grantAgreement.id, grantId));
+
+  // What the pack must leave out: certificates not signed by both trustees
+  // or cancelled, filings not submitted, and a claim of another year.
+  const excludedCertificates: string[] = [];
+  /** Every negative seed, for `cleanup`. */
+  const negatives = {
+    certificateIds: [] as string[],
+    claimId: "",
+    filingIds: [filingId],
+    objectKeys: [] as string[],
+  };
+  for (const [offset, status] of [
+    [1, "cancelled"],
+    [2, "awaiting_finance"],
+  ] as const) {
+    const id = uuidv7();
+    const number = `${ucNumber}-X${offset}`;
+    const key = `utilisation-certificates/${id}/latest.pdf`;
+    await store(key, `uc ${status}`);
+    negatives.certificateIds.push(id);
+    negatives.objectKeys.push(key);
+    await db.insert(utilisationCertificate).values({
+      ...certificateValues,
+      archiveObjectKey: null,
+      archiveSha256: null,
+      archivedAt: null,
+      caFilename: null,
+      caObjectKey: null,
+      cancelReason: status === "cancelled" ? "E2E: cancelled" : null,
+      cancelledAt: status === "cancelled" ? now : null,
+      financeSignedAt: status === "cancelled" ? now : null,
+      id,
+      latestObjectKey: key,
+      number,
+      sequence: (certificateValues.sequence ?? 0) + offset,
+      snapshot: { ...certificateValues.snapshot, number },
+      status,
+    });
+    excludedCertificates.push(number);
+  }
+  const excludedFilings: number[] = [];
+  for (const [offset, status] of [
+    [1, "discarded"],
+    [2, "prepared"],
+  ] as const) {
+    const id = uuidv7();
+    const sequence = filingSequence + offset;
+    const key = `donation-filings/${id}.csv`;
+    await db.insert(donationFiling).values({
+      createdAt: now,
+      createdBy: userId,
+      discardedAt: status === "discarded" ? now : null,
+      discardedBy: status === "discarded" ? userId : null,
+      fileName: `donations-return-FY${YEAR}-filing-${sequence}.csv`,
+      fileObjectKey: key,
+      fileSha256: await store(key, `filing ${status}`),
+      fiscalYear: YEAR,
+      giftCount: 0,
+      id,
+      rowCount: 0,
+      sequence,
+      status,
+      totalPaise: 0,
+    });
+    excludedFilings.push(sequence);
+    negatives.filingIds.push(id);
+    negatives.objectKeys.push(key);
+  }
+  // A claim paid in FY 2027-28: posted, but in a year the pack leaves out.
+  const otherYearClaimId = uuidv7();
+  const otherYearProof = `attachments/approval-screenshots/reimbursements/${otherYearClaimId}/proof.png`;
+  await store(otherYearProof, "other year proof");
+  await db.insert(reimbursement).values({
+    approvalScreenshotKey: otherYearProof,
+    chargedProgrammeId: EDUCATION_ID,
+    chargedTo: "programme",
+    createdAt: now,
+    expenseDate: "2027-05-10",
+    id: otherYearClaimId,
+    reviewedAt: new Date("2027-05-12T05:00:00Z"),
+    reviewedBy: userId,
+    status: "approved",
+    title: `E2E audit pack other year claim ${run}`,
+    updatedAt: now,
+    userId,
+  });
+  await db.insert(reimbursementLineItem).values({
+    amountPaise: 10_000,
+    categoryId,
+    createdAt: now,
+    description: "Next year's venue",
+    id: uuidv7(),
+    reimbursementId: otherYearClaimId,
+    sortOrder: 0,
+    updatedAt: now,
+  });
+  const otherYearBill = `attachments/reimbursements/${otherYearClaimId}/bill.pdf`;
+  await store(otherYearBill, "other year bill");
+  await db.insert(reimbursementAttachment).values({
+    createdAt: now,
+    filename: "other-year-bill.pdf",
+    id: uuidv7(),
+    mimeType: "application/pdf",
+    objectKey: otherYearBill,
+    purpose: "receipt",
+    reimbursementId: otherYearClaimId,
+    type: "file",
+  });
+  await postIncomeSourceNow({
+    sourceId: otherYearClaimId,
+    sourceType: "reimbursement",
+  });
+  negatives.claimId = otherYearClaimId;
+  negatives.objectKeys.push(otherYearProof, otherYearBill);
+
+  return {
+    acknowledgement,
+    claimId,
+    code,
+    excluded: {
+      certificates: excludedCertificates,
+      claimId: otherYearClaimId,
+      filings: excludedFilings,
+    },
+    filingId,
+    negatives,
+    filingSequence,
+    giftId,
+    hashes,
+    paymentId,
+    receiptNumbers,
+    ucNumber,
+    vendorPaymentId,
+    yearId: year.id,
+  };
+}
+
+async function auditRows(since: string) {
+  const actorId = await userIdOf(process.env.FINANCE_ADMIN_EMAIL);
+  return await db
+    .select({
+      action: auditLog.action,
+      metadata: auditLog.metadata,
+      outcome: auditLog.outcome,
+      targetId: auditLog.targetId,
+      targetType: auditLog.targetType,
+    })
+    .from(auditLog)
+    .where(
+      and(
+        inArray(auditLog.action, [
+          "books.audit_pack.download",
+          "books.audit_pack.stream",
+        ]),
+        eq(auditLog.actorUserId, actorId),
+        gte(auditLog.attemptedAt, new Date(since))
+      )
+    )
+    .orderBy(desc(auditLog.attemptedAt));
+}
+
+/**
+ * Removes the negative seeds: the filings, the certificates and their
+ * stored files. The other year's claim is posted, so it is voided and
+ * posted again, which reverses it.
+ */
+async function cleanup(negatives: {
+  certificateIds: string[];
+  claimId: string;
+  filingIds: string[];
+  objectKeys: string[];
+}) {
+  const { certificateIds, claimId, filingIds, objectKeys } = negatives;
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(donationCertificate)
+      .where(inArray(donationCertificate.filingId, filingIds));
+    await tx
+      .delete(donationFilingGift)
+      .where(inArray(donationFilingGift.filingId, filingIds));
+    await tx
+      .delete(donationFilingRow)
+      .where(inArray(donationFilingRow.filingId, filingIds));
+    await tx
+      .delete(donationFiling)
+      .where(inArray(donationFiling.id, filingIds));
+    await tx
+      .delete(utilisationCertificate)
+      .where(inArray(utilisationCertificate.id, certificateIds));
+  });
+  // Voided on its own approval day, so the reversal lands in FY 2027-28
+  // too and that year nets to nothing.
+  const voidedAt = new Date("2027-05-12T06:00:00Z");
+  await db
+    .update(reimbursement)
+    .set({
+      updatedAt: new Date(),
+      voidedAt,
+      voidedBy: await userIdOf(process.env.VOLUNTEER_EMAIL),
+      voidReason: "E2E: audit pack cleanup",
+    })
+    .where(eq(reimbursement.id, claimId));
+  await postIncomeSourceNow({ sourceId: claimId, sourceType: "reimbursement" });
+  for (const key of objectKeys) {
+    await r2.delete(key);
+  }
+  return { removed: filingIds.length + certificateIds.length + 1 };
+}
+
+const SENSITIVE_ONLY_ROLE = "e2e_audit_pack_sensitive_only";
+const SENSITIVE_ONLY = {
+  email: "e2e-sensitive-only@pi-dash.test",
+  password: "E2eSensitiveOnly123!",
+};
+
+/**
+ * A user whose only permission is finance.view_sensitive: it may see full
+ * IDs but not read the books, so preparing a pack must refuse it.
+ */
+async function sensitiveOnlyUser() {
+  await db
+    .insert(role)
+    .values({
+      description: "E2E: full IDs without the books",
+      id: SENSITIVE_ONLY_ROLE,
+      isSystem: false,
+      name: "E2E Sensitive Only",
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(rolePermission)
+    .values({
+      permissionId: "finance.view_sensitive",
+      roleId: SENSITIVE_ONLY_ROLE,
+    })
+    .onConflictDoNothing();
+  let existing = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, SENSITIVE_ONLY.email),
+  });
+  if (!existing) {
+    await auth.api.createUser({
+      body: { ...SENSITIVE_ONLY, name: "E2E Sensitive Only" },
+    });
+    existing = await db.query.user.findFirst({
+      columns: { id: true },
+      where: eq(user.email, SENSITIVE_ONLY.email),
+    });
+  }
+  if (!existing) {
+    throw new Error("Unable to create the sensitive-only user");
+  }
+  await db
+    .update(user)
+    .set({
+      banned: false,
+      emailVerified: true,
+      isActive: true,
+      role: SENSITIVE_ONLY_ROLE,
+    })
+    .where(eq(user.id, existing.id));
+  return SENSITIVE_ONLY;
+}
+
+/** Every posting so far: a change means the books moved. */
+async function postingCount() {
+  const [row] = await db.select({ total: count() }).from(posting);
+  return row?.total ?? 0;
+}
+
+const [action, first = "", second = ""] = process.argv.slice(2);
+let result: unknown;
+if (action === "seed") {
+  result = await seed(first, second);
+} else if (action === "audit") {
+  result = await auditRows(first);
+} else if (action === "cleanup") {
+  result = await cleanup(JSON.parse(first));
+} else if (action === "sensitive-only-user") {
+  result = await sensitiveOnlyUser();
+} else if (action === "posting-count") {
+  result = await postingCount();
+} else {
+  throw new Error(`Unknown action ${action}`);
+}
+process.stdout.write(`${JSON.stringify(result)}\n`);
+process.exit(0);

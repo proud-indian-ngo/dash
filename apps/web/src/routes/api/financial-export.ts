@@ -15,6 +15,7 @@ import {
   buildAttachmentArchivePaths,
   createFinancialExportArchiveStream,
   type FinancialExportArchiveAttachment,
+  mapWithConcurrency,
 } from "@/lib/server/financial-export-archive";
 
 interface ExportS3File {
@@ -37,31 +38,6 @@ const defaultDependencies: FinancialExportHandlerDependencies = {
   getSession: requireSession,
   now: () => new Date(),
 };
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-  const runWorker = async (): Promise<void> => {
-    const index = nextIndex;
-    nextIndex += 1;
-    const item = items[index];
-    if (item === undefined) {
-      return;
-    }
-    results[index] = await mapper(item);
-    await runWorker();
-  };
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    () => runWorker()
-  );
-  await Promise.all(workers);
-  return results;
-}
 
 async function preflightAttachments(
   data: FinancialExportData,

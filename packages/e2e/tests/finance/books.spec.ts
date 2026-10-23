@@ -1,4 +1,8 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+
 import type { Locator, Page } from "@playwright/test";
+import { strFromU8, unzipSync } from "fflate";
 import readXlsxFile from "read-excel-file/node";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
@@ -7,7 +11,13 @@ import type {
   ExpenseFixture,
   IncomeFixture,
 } from "../../helpers/books";
-import { BOOKS_YEAR, books, postPending } from "../../helpers/books-steps";
+import {
+  auditPack,
+  BOOKS_YEAR,
+  books,
+  certificateFixture,
+  postPending,
+} from "../../helpers/books-steps";
 import { clickUntilDialogCloses } from "../../helpers/dialog-submit";
 import { clickPageAction, openPageAction } from "../../helpers/page-header";
 import { PAYMENT_SCREENSHOT_FIXTURE } from "../../pages/approval-detail-page";
@@ -86,6 +96,49 @@ async function pickOption(
   const option = page.getByRole("option").filter({ hasText: text }).first();
   await expect(option).toBeVisible({ timeout: 10_000 });
   await option.click();
+}
+
+/** What `helpers/audit-pack.ts seed` made. */
+interface AuditPackSeed {
+  acknowledgement: string;
+  claimId: string;
+  /** The run's tail in numbers and references. */
+  code: string;
+  /** What the pack must leave out. */
+  excluded: { certificates: string[]; claimId: string; filings: number[] };
+  /** Every negative seed, handed back to `cleanup`. */
+  negatives: Record<string, unknown>;
+  filingSequence: number;
+  giftId: string;
+  /** Each stored file's SHA-256, by its index label. */
+  hashes: Record<string, string>;
+  paymentId: string;
+  receiptNumbers: { live: string; void: string };
+  ucNumber: string;
+  vendorPaymentId: string;
+  yearId: string;
+}
+
+const sha256 = (bytes: Uint8Array) =>
+  createHash("sha256").update(bytes).digest("hex");
+
+/** Each sheet's rows as plain JSON, so two workbooks compare by content. */
+async function workbookContent(file: string | Buffer) {
+  const sheets = await readXlsxFile(file);
+  return JSON.stringify(sheets.map((s) => ({ data: s.data, sheet: s.sheet })));
+}
+
+/** Downloads a page action's file, after confirming when it asks. */
+async function downloadVia(page: Page, item: string, confirm?: string) {
+  const downloadPromise = page.waitForEvent("download", { timeout: 90_000 });
+  await clickPageAction(page, item);
+  if (confirm) {
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText("full ID numbers and bank details");
+    await expect(dialog).toContainText("recorded in the audit log");
+    await dialog.getByRole("button", { name: confirm }).click();
+  }
+  return await downloadPromise;
 }
 
 test.describe("Books (treasurer)", () => {
@@ -512,6 +565,382 @@ test.describe("Books (treasurer)", () => {
     await expect(page.getByText("CA workbook downloaded")).toBeVisible();
   });
 
+  // In this serial group: its seed posts into 2026-27.
+  test("downloads the year's audit pack: the workbook as on the Books page, every stored document with its hash, and a missing one marked", async ({
+    baseURL,
+    browser,
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "finance_admin", "Treasurer test");
+    test.setTimeout(240_000);
+    await books("ensure-opening", YEAR);
+    const run = `${Date.now()}${testInfo.retry}`;
+    const grant = await certificateFixture<{ grantId: string }>(
+      "grant",
+      run,
+      "csr"
+    );
+    const seed = await auditPack<AuditPackSeed>("seed", run, grant.grantId);
+    const since = new Date(Date.now() - 1000).toISOString();
+    try {
+      // The other year's claim posted, so leaving it out is the pack's doing.
+      expect(
+        await books<string[]>("postings", seed.excluded.claimId)
+      ).toContain("recognise");
+      await page.goto(`/finance/books?year=${YEAR}`);
+      await waitForZeroReady(page);
+
+      // Other specs keep posting into the year: a pair of downloads with
+      // a posting between them is taken again.
+      let zip: Record<string, Uint8Array> = {};
+      let packWorkbook = "";
+      let booksWorkbook = "";
+      let prepareCall: {
+        body: string;
+        headers: Record<string, string>;
+        url: string;
+      } | null = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const postingsBefore = await auditPack<number>("posting-count");
+        const prepareRequest = page.waitForRequest(
+          (request) =>
+            request.method() === "POST" && request.url().includes("/_serverFn/")
+        );
+        const pack = await downloadVia(
+          page,
+          "Download audit pack (ZIP)",
+          "Download audit pack"
+        );
+        expect(pack.suggestedFilename()).toBe(
+          `proud-indian-audit-pack-${YEAR}.zip`
+        );
+        const sent = await prepareRequest;
+        prepareCall = {
+          body: sent.postData() ?? "",
+          headers: Object.fromEntries(
+            Object.entries(await sent.allHeaders()).filter(
+              ([name]) =>
+                !["content-length", "cookie", "host"].includes(name) &&
+                !name.startsWith(":")
+            )
+          ),
+          url: sent.url(),
+        };
+        // A valid ZIP to the end, the missing bill notwithstanding.
+        zip = unzipSync(new Uint8Array(await readFile(await pack.path())));
+        await expect(page.getByRole("alertdialog")).toBeHidden();
+        const workbook = await downloadVia(page, "Download CA workbook (XLSX)");
+        booksWorkbook = await workbookContent(await workbook.path());
+        const inPack = zip[`proud-indian-ca-workbook-${YEAR}.xlsx`];
+        expect(inPack).toBeDefined();
+        packWorkbook = await workbookContent(Buffer.from(inPack ?? []));
+        if ((await auditPack<number>("posting-count")) === postingsBefore) {
+          break;
+        }
+      }
+      expect(packWorkbook).toBe(booksWorkbook);
+
+      const indexFile = zip["index.xlsx"];
+      expect(indexFile).toBeDefined();
+      const [indexSheet] = await readXlsxFile(Buffer.from(indexFile ?? []));
+      const [header, ...rows] = (indexSheet?.data ?? []).map((row) =>
+        row.map((cell) => (cell === null ? "" : String(cell)))
+      );
+      expect(header).toEqual([
+        "Sheet",
+        "Document type",
+        "Document type and reference",
+        "File",
+        "Status",
+        "Path in this pack",
+        "SHA-256",
+        "Note",
+      ]);
+      // Every included file is in the ZIP with the hash the index gives.
+      const included = rows.filter((row) => row[4] === "Included");
+      expect(included.length).toBeGreaterThan(0);
+      for (const row of included) {
+        const bytes = zip[row[5] ?? ""];
+        expect(bytes, row[5]).toBeDefined();
+        expect(sha256(bytes ?? new Uint8Array()), row[5]).toBe(row[6]);
+      }
+
+      /** This run's index rows for a reference, as label → [status, path, sha]. */
+      const filesOf = (
+        sheet: string,
+        reference: string
+      ): Record<string, (string | undefined)[]> =>
+        Object.fromEntries(
+          rows
+            .filter((row) => row[0] === sheet && row[2] === reference)
+            .map((row) => [row[3], [row[4], row[5], row[6]]])
+        );
+      const claimFiles = filesOf(
+        "Income and expenditure",
+        `Reimbursement ${seed.claimId}`
+      );
+      const claimFolder = `reimbursements/2026-06-18 E2E audit pack claim ${run} ${seed.claimId.slice(-8)}`;
+      expect(claimFiles).toEqual({
+        "Bill 1": [
+          "Included",
+          `${claimFolder}/Bill 1 - बिल-१.pdf`,
+          seed.hashes["Bill 1"],
+        ],
+        "Bill 2": ["Missing", "", ""],
+        "Cash voucher": [
+          "Included",
+          `${claimFolder}/Cash voucher.pdf`,
+          seed.hashes["Cash voucher"],
+        ],
+        "Payment proof": [
+          "Included",
+          `${claimFolder}/Payment proof.png`,
+          seed.hashes["Payment proof"],
+        ],
+        "Signed cash voucher 1": [
+          "Included",
+          `${claimFolder}/Signed cash voucher 1 - old-signed.pdf`,
+          seed.hashes["Signed cash voucher 1"],
+        ],
+        "Signed cash voucher 2": [
+          "Included",
+          `${claimFolder}/Signed cash voucher 2 - signed.pdf`,
+          seed.hashes["Signed cash voucher 2"],
+        ],
+      });
+      // Only the replaced signed copy is marked superseded.
+      const notes = Object.fromEntries(
+        rows
+          .filter(
+            (row) =>
+              row[0] === "Income and expenditure" &&
+              row[2] === `Reimbursement ${seed.claimId}`
+          )
+          .map((row) => [row[3], row[7]])
+      );
+      expect(notes["Signed cash voucher 1"]).toContain("Superseded");
+      expect(notes["Signed cash voucher 2"]).toBe("");
+      expect(notes["Cash voucher"]).toBe("");
+      // The cash book names the claim too, with the same files.
+      expect(
+        filesOf("Receipts and payments", `Reimbursement ${seed.claimId}`)
+      ).toEqual(claimFiles);
+
+      expect(
+        filesOf(
+          "Income and expenditure",
+          `Vendor payment ${seed.vendorPaymentId}`
+        ).Invoice?.[2]
+      ).toBe(seed.hashes.Invoice);
+      expect(
+        Object.values(
+          filesOf(
+            "Receipts and payments",
+            `Vendor payment made ${seed.paymentId}`
+          )
+        ).map((file) => file[2])
+      ).toEqual([seed.hashes["Payment proof (vendor)"]]);
+
+      const receipts = filesOf(
+        "Income and expenditure",
+        `Contribution ${seed.giftId}`
+      );
+      expect(receipts[`Receipt ${seed.receiptNumbers.live}`]?.[2]).toBe(
+        seed.hashes["Receipt live"]
+      );
+      const voided = receipts[`Receipt ${seed.receiptNumbers.void} (void)`];
+      expect(voided?.[2]).toBe(seed.hashes["Receipt void"]);
+      expect(voided?.[1]).toMatch(/^donation-receipts\/.* VOID\.pdf$/);
+
+      const year = "Year documents";
+      expect(
+        filesOf(year, `Form 113 filing ${seed.filingSequence}`)[
+          "Upload file"
+        ]?.[2]
+      ).toBe(seed.hashes["Upload file"]);
+      expect(
+        filesOf(year, `Form 114 certificate ${seed.acknowledgement}`)
+          .Certificate?.[2]
+      ).toBe(seed.hashes.Certificate);
+      const certificate = filesOf(
+        year,
+        `Utilisation certificate ${seed.ucNumber}`
+      );
+      expect(certificate["Long-term copy"]?.[2]).toBe(
+        seed.hashes["Long-term copy"]
+      );
+      expect(certificate["CA's certificate"]?.[2]).toBe(
+        seed.hashes["CA's certificate"]
+      );
+      expect(certificate["Grant agreement"]?.[2]).toBe(
+        seed.hashes["Grant agreement"]
+      );
+      expect(certificate["Grant agreement"]?.[1]).toMatch(/^grants\//);
+      // A Windows-reserved file name is written with a leading underscore.
+      expect(
+        filesOf(year, `Form 114 certificate ${seed.acknowledgement}`)
+          .Certificate?.[1]
+      ).toBe("form-114/_CON.pdf");
+
+      // Every name fits Windows: at most 80 characters (plus a "(2)"),
+      // never ending in a dot or a space.
+      const paths = Object.keys(zip);
+      for (const segment of paths.flatMap((path) => path.split("/"))) {
+        expect(segment.length, segment).toBeLessThanOrEqual(84);
+        expect(segment, segment).not.toMatch(/[. ]$/);
+      }
+
+      // Left out: a claim of another year, filings not submitted, and
+      // certificates cancelled or not signed by both trustees.
+      const left = [
+        seed.excluded.claimId,
+        seed.excluded.claimId.slice(-8),
+        ...seed.excluded.filings.map((n) => `filing ${n}`),
+        ...seed.excluded.filings.map((n) => `filing-${n}`),
+        ...seed.excluded.certificates,
+        ...seed.excluded.certificates.map((n) => n.replaceAll("/", "-")),
+      ];
+      const indexText = rows.map((row) => row.join("\t")).join("\n");
+      for (const value of left) {
+        expect(indexText, value).not.toContain(value);
+        expect(
+          paths.filter((path) => path.includes(value)),
+          value
+        ).toEqual([]);
+      }
+
+      const readme = strFromU8(zip["README.txt"] ?? new Uint8Array());
+      expect(readme).toContain(`audit pack for FY ${YEAR}`);
+      expect(readme).toMatch(/Files missing: [1-9]/);
+
+      // The prepare is audited with its counts, and the stream records
+      // how it ended in a row of its own.
+      type AuditRow = {
+        action: string;
+        metadata: Record<string, unknown>;
+        outcome: string;
+        targetId: string;
+        targetType: string;
+      };
+      const prepared = (await auditPack<AuditRow[]>("audit", since)).find(
+        (row) => row.action === "books.audit_pack.download"
+      );
+      expect(prepared).toMatchObject({
+        metadata: { financialYear: YEAR },
+        outcome: "success",
+        targetId: seed.yearId,
+        targetType: "fiscal_year",
+      });
+      expect(Number(prepared?.metadata.preparedMissingCount)).toBeGreaterThan(
+        0
+      );
+      await expect
+        .poll(
+          async () =>
+            (await auditPack<AuditRow[]>("audit", since)).find(
+              (row) => row.action === "books.audit_pack.stream"
+            )?.outcome
+        )
+        .toBe("success");
+
+      // A bare GET can't start a pack, and a token can't be guessed.
+      for (const query of [`fiscalYearId=${seed.yearId}`, "token=guess"]) {
+        const response = await page.request.get(`/api/audit-pack?${query}`);
+        expect(response.status(), query).toBe(404);
+      }
+      // Opened in the tab, a spent token sends the browser back to the
+      // Books page with the reason, never raw JSON.
+      await page.goto("/api/audit-pack?token=spent");
+      await expect(page).toHaveURL(/\/finance\/books/);
+      await expect(
+        page.getByText("The download expired before it started")
+      ).toBeVisible();
+
+      // Preparing needs the books as well as full IDs: the same call as a
+      // user with finance.view_sensitive alone is refused.
+      expect(prepareCall).not.toBeNull();
+      const restricted = await auditPack<{ email: string; password: string }>(
+        "sensitive-only-user"
+      );
+      const context = await browser.newContext({
+        baseURL,
+        storageState: { cookies: [], origins: [] },
+      });
+      try {
+        const other = await context.newPage();
+        await other.goto("/login");
+        await other.getByLabel("Email").fill(restricted.email);
+        await other.getByLabel("Password").fill(restricted.password);
+        await other
+          .getByRole("button", { exact: true, name: "Log in" })
+          .click();
+        await other.waitForURL((url) => url.pathname !== "/login");
+        const refused = await context.request.post(prepareCall?.url ?? "", {
+          data: prepareCall?.body,
+          headers: prepareCall?.headers,
+        });
+        expect(refused.ok()).toBe(false);
+        const refusal = await refused.text();
+        expect(refusal).toContain("Forbidden");
+        expect(refusal).not.toContain("token");
+      } finally {
+        await context.close();
+      }
+
+      // The repeatable artifact: this run's index rows with run-specific
+      // values replaced, and the README without its time and counts.
+      const ids = [
+        seed.claimId,
+        seed.vendorPaymentId,
+        seed.paymentId,
+        seed.giftId,
+        grant.grantId,
+      ];
+      const mine = [
+        ...ids,
+        String(seed.filingSequence),
+        seed.acknowledgement,
+        seed.ucNumber,
+      ];
+      // Longest first, so a value inside another is replaced inside it.
+      const replacements = [
+        run,
+        seed.acknowledgement,
+        seed.ucNumber,
+        ...ids,
+        ...ids.map((id) => id.slice(-8)),
+        seed.code,
+        String(seed.filingSequence),
+      ];
+      const normalise = (text: string) =>
+        replacements.reduce(
+          (out, value, index) => out.replaceAll(value, `<${index}>`),
+          text
+        );
+      await testInfo.attach("audit-pack-index.json", {
+        body: JSON.stringify(
+          rows
+            .filter((row) => mine.some((id) => (row[2] ?? "").includes(id)))
+            // The SHA-256 column is stable: the seeded bytes are.
+            .map((row) =>
+              row.map((cell, i) => (i === 6 ? cell : normalise(cell)))
+            ),
+          null,
+          2
+        ),
+        contentType: "application/json",
+      });
+      await testInfo.attach("audit-pack-README.txt", {
+        body: readme
+          .replace(/^Generated on .*$/m, "Generated on <time> by <user>.")
+          .replaceAll(/: \d+$/gm, ": <n>"),
+        contentType: "text/plain",
+      });
+    } finally {
+      await auditPack("cleanup", JSON.stringify(seed.negatives));
+    }
+  });
+
   // Voiding (finance Option B) and payment proof after approval: they post
   // into 2026-27 and poll its postings, so they share this serial group
   // with the test that matches its audited figures (which freezes it).
@@ -892,6 +1321,25 @@ test.describe("Books (readers)", () => {
     await expect(
       page.getByRole("button", { name: "Post opening balances" })
     ).toHaveCount(0);
+  });
+
+  test("finance.view can't download the audit pack: no menu item, and the API refuses", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "admin", "Admin-only test");
+    await page.goto(`/finance/books?year=${YEAR}`);
+    await waitForZeroReady(page);
+    await expect(
+      await openPageAction(page, "Download CA workbook (XLSX)")
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: /audit pack/ })
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    const response = await page.request.get(
+      "/api/audit-pack?fiscalYearId=01930000-0000-7000-8000-000000000000"
+    );
+    expect(response.status()).toBe(403);
   });
 
   test("a volunteer can't open the books", async ({ page }, testInfo) => {

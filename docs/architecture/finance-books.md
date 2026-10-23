@@ -146,3 +146,20 @@ Builds one XLSX per year, with the sheets and columns in `finance-ledger-cutover
 
 - Read in one repeatable-read transaction (`packages/db/src/queries/ca-workbook.ts`), with earlier years summed into brought-forward rows. Sheets are built in `apps/web/src/lib/ca-workbook/`.
 - Donor IDs are masked to the last four characters. The donor list is included only for `donors.view`, `donors.manage` or `finance.view_sensitive`.
+
+## Audit pack
+
+One ZIP per year for the CA: the workbook, every stored document its rows name, the signed agreement of each grant behind the year's income or certificates, and the year's final filings and certificates (submitted Form 113 filings with their Form 114 certificates; utilisation certificates `final` or `awaiting_ca`). Governance documents stay out. Code: `apps/web/src/lib/audit-pack/`.
+
+- It holds full ID numbers and bank details, so it needs `finance.view_sensitive` on top of reading the books, and is rate limited.
+- Two steps, so the browser never buffers the ZIP. `prepareAuditPack` (audited as `books.audit_pack.download`, with counts as prepared) builds the workbook and document list, checks every object and the size caps, and returns a short-lived, single-use token bound to the user. The Books dialog then starts a native download of `GET /api/audit-pack?token=`, which streams and records how it ended as `books.audit_pack.stream` (success, failure, or cancelled). A bare GET starts nothing.
+- Tokens, like the rate limiter, live in the server process: this assumes one app instance.
+- Both steps raise Bun's 10-second idle timeout for their request (`liftIdleTimeout`); without it a slow prepare or object read drops the connection on the production server. A stalled read or a client that stops reading is still cut, later.
+- Cancel in the dialog aborts the prepare request. The prepare checks for the abort between its phases (after the workbook, after the document list, before each object check), so work already started in a phase finishes first. Once the download runs, the browser cancelling it cancels the response body, which stops the open storage read; it is recorded as a cancelled stream.
+- A refused GET (expired or spent token, signed out, no access) sends a browser navigation back to the Books page, which shows the reason; other callers get the status and a JSON error.
+- The workbook inside is built by the same code as the Books download, with the donor list. It is a fresh copy, so it can differ from one the CA signed; the README says so.
+- `index.xlsx` (separate, so the workbook stays what the Books page gives) has one row per file of each document per sheet: Included (with path and SHA-256), Missing, Link or No file, with a note marking superseded proofs, vouchers and signatures and documents of voided records. Year documents no row names sit on the "Year documents" sheet. Documents come from the workbook's own rows, so year boundaries are the workbook's.
+- No file is kept for bank statement or settlement files, opening balances, audited figures, refunds or other income; their rows say No file. A receipt issued before PDFs were stored is Missing until it is opened once.
+- An object storage doesn't hold becomes Missing, never a broken ZIP. Files stream one at a time (`createZipStream`, shared with the reimbursements export), hashed on the way, and a size that differs from the preflight fails the stream; the index is written last.
+- Names are cut to 80 characters with the record's short ID kept, never end in a dot or space, and Windows-reserved names (`CON`, `LPT1`) get a leading `_`.
+- fflate writes no ZIP64, so a year over 3.5 GiB or 60,000 files is refused with a message.

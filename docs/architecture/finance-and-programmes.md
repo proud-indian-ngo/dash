@@ -142,7 +142,7 @@ Built as consumed: income and an equal consumption, medium `in_kind`, no movemen
 - Requests: a team lead moving an event between programmes until an expense links to it; frozen revisions and `supersedes_id`; actor columns `set null` instead of cascading with the login; a Zero sync allowlist (payee account numbers on advance payments still sync).
 - Vendor invoices with GST components; TDS `withholding` and `tax_remittance`.
 - Engagement reports, `issued_invoice` as an acknowledgement with no posting.
-- Exports: an FY audit pack replacing `/export`, donor statements.
+- Exports: donor statements.
 
 ### FCRA and FC-4
 

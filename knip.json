@@ -43,6 +43,7 @@
         "helpers/razorpay.ts",
         "helpers/bank-statements.ts",
         "helpers/books.ts",
+        "helpers/audit-pack.ts",
         "helpers/utilisation-certificates.ts",
         "helpers/charged-to.ts",
         "helpers/legacy-contribution.ts",

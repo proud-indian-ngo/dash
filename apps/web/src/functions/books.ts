@@ -2,6 +2,7 @@ import type { SweepResult } from "@pi-dash/db/ledger/income-posting";
 import type { YearCloseChecklist } from "@pi-dash/db/ledger/year-close";
 import { countWaitingLedgerSources } from "@pi-dash/db/queries/ledger-sources";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import z from "zod";
 
 import {
@@ -10,6 +11,12 @@ import {
   buildSessionContext,
 } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import {
+  issueAuditPackToken,
+  liftIdleTimeout,
+  prepareAuditPack as prepareAuditPackFor,
+  preparedAuditMetadata,
+} from "@/lib/audit-pack/server";
 import {
   closeFiscalYear,
   loadYearCloseChecklist,
@@ -24,6 +31,7 @@ import {
 } from "@/lib/books/server";
 import { buildCaWorkbook, type CaWorkbookFile } from "@/lib/ca-workbook/server";
 import { HttpError } from "@/lib/http-error";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
@@ -360,4 +368,60 @@ export const exportCaWorkbook = createServerFn({ method: "POST" })
       },
       async () => built.file
     );
+  });
+
+/** Each pack reads every file of a year; a few a quarter-hour is plenty. */
+const AUDIT_PACK_RATE_LIMIT = 5;
+const AUDIT_PACK_RATE_WINDOW_MS = 15 * 60_000;
+
+/**
+ * Prepares a year's audit pack (finance-books.md#audit-pack) and returns a
+ * single-use token for `GET /api/audit-pack`. It carries full ID numbers
+ * and bank details, so it needs finance.view_sensitive on top of reading
+ * the books, and is audited as `books.audit_pack.download` with the counts
+ * as prepared; the stream records how it ended as `books.audit_pack.stream`.
+ */
+export const prepareAuditPack = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ fiscalYearId: z.uuid() }))
+  .handler(async ({ context, data }): Promise<{ token: string }> => {
+    await assertServerAnyPermission(context.session, [
+      "finance.view",
+      "finance.manage",
+    ]);
+    await assertServerPermission(context.session, "finance.view_sensitive");
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    const limit = checkRateLimit(
+      `audit-pack:${session.user.id}`,
+      AUDIT_PACK_RATE_LIMIT,
+      AUDIT_PACK_RATE_WINDOW_MS
+    );
+    if (!limit.allowed) {
+      throw new Error(
+        "Too many audit packs in a short time. Try again in a few minutes."
+      );
+    }
+    const request = getRequest();
+    liftIdleTimeout(request);
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "books.audit_pack.download",
+        target: { id: data.fiscalYearId, type: "fiscal_year" },
+      },
+      async () => {
+        const pack = await prepareAuditPackFor(
+          data.fiscalYearId,
+          request.signal
+        );
+        return { pack, token: issueAuditPackToken(session.user.id, pack) };
+      },
+      undefined,
+      undefined,
+      (result) => preparedAuditMetadata(result.pack)
+    ).then((result) => ({ token: result.token }));
   });

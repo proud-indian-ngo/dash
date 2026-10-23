@@ -39,11 +39,20 @@ export function caWorkbookBlocker(input: {
   return null;
 }
 
-/** The menu label, with the reason underneath when it is unavailable. */
-export function CaWorkbookLabel({ blocker }: { blocker: string | null }) {
+/**
+ * The menu label, with the reason underneath when it is unavailable. The
+ * audit pack holds the workbook, so it shares the label and the reason.
+ */
+export function CaWorkbookLabel({
+  blocker,
+  text = "Download CA workbook (XLSX)",
+}: {
+  blocker: string | null;
+  text?: string;
+}) {
   return (
     <span className="flex flex-col">
-      <span>Download CA workbook (XLSX)</span>
+      <span>{text}</span>
       {blocker ? (
         <span className="text-muted-foreground text-xs">{blocker}</span>
       ) : null}
