@@ -2,8 +2,12 @@ import type { Locator, Page } from "@playwright/test";
 
 import { expect, test } from "../../fixtures/test";
 import { pickDate } from "../../helpers/date-time-picker";
-import { openAdvancedSettings } from "../../helpers/event-form";
+import {
+  openAdvancedSettings,
+  waitForToastsToClear,
+} from "../../helpers/event-form";
 import { openSeededTeam, searchTeamEvents } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 /** Seeded team with its own WhatsApp group, which the RSVP poll needs. */
 const RSVP_TEAM = "E2E RSVP Team";
@@ -42,19 +46,25 @@ test.describe("RSVP poll lead time", () => {
     await openSeededTeam(page, RSVP_TEAM);
   });
 
-  test("shows lead time selector when RSVP poll is enabled", async ({
+  test("creates an event with a custom RSVP poll lead time", async ({
     page,
   }) => {
+    const eventName = `E2E RSVP ${Date.now()}`;
     const dialog = await openCreateEvent(page);
+
+    await dialog
+      .getByRole("textbox", { exact: true, name: "Name" })
+      .fill(eventName);
+    await pickDate(dialog, "Start time", new Date(Date.now() + 86_400_000));
+
+    // The lead time selector shows only while the poll is on.
     await openAdvancedSettings(dialog);
     await expect(leadTime(dialog)).toHaveCount(0);
-
-    await enableRsvpPoll(dialog);
+    const toggle = await enableRsvpPoll(dialog);
     await expect(leadTime(dialog)).toBeVisible();
-  });
-
-  test("lead time dropdown has preset options", async ({ page }) => {
-    const dialog = await openCreateEvent(page);
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+    await expect(leadTime(dialog)).toHaveCount(0);
     await enableRsvpPoll(dialog);
 
     await leadTime(dialog).click();
@@ -63,13 +73,6 @@ test.describe("RSVP poll lead time", () => {
         page.getByRole("option", { exact: true, name: preset })
       ).toBeVisible();
     }
-  });
-
-  test("can select different lead time values", async ({ page }) => {
-    const dialog = await openCreateEvent(page);
-    await enableRsvpPoll(dialog);
-
-    await leadTime(dialog).click();
     await page
       .getByRole("option", { exact: true, name: "5 days before" })
       .click();
@@ -80,22 +83,12 @@ test.describe("RSVP poll lead time", () => {
       .getByRole("option", { exact: true, name: "1 day before" })
       .click();
     await expect(leadTime(dialog)).toContainText("1 day");
-  });
 
-  test("creates event with custom RSVP poll lead time", async ({ page }) => {
-    const eventName = `E2E RSVP ${Date.now()}`;
-    const dialog = await openCreateEvent(page);
-
-    await dialog
-      .getByRole("textbox", { exact: true, name: "Name" })
-      .fill(eventName);
-    await pickDate(dialog, "Start time", new Date(Date.now() + 86_400_000));
-
-    await enableRsvpPoll(dialog);
     await leadTime(dialog).click();
     await page
       .getByRole("option", { exact: true, name: "3 days before" })
       .click();
+    await expect(leadTime(dialog)).toContainText("3 days");
 
     await dialog
       .getByRole("button", { exact: true, name: "Create event" })
@@ -108,15 +101,22 @@ test.describe("RSVP poll lead time", () => {
     await expect(
       page.getByRole("cell").filter({ hasText: eventName }).first()
     ).toBeVisible({ timeout: 10_000 });
-  });
 
-  test("RSVP poll toggle can be disabled after enabling", async ({ page }) => {
-    const dialog = await openCreateEvent(page);
-    const toggle = await enableRsvpPoll(dialog);
-    await expect(leadTime(dialog)).toBeVisible();
-
-    await toggle.click();
-    await expect(toggle).not.toBeChecked();
-    await expect(leadTime(dialog)).toHaveCount(0);
+    // The saved event keeps the poll and its lead time.
+    await waitForToastsToClear(page);
+    await new ListPage(page).openRowActionAndClick(
+      page.getByRole("row").filter({ hasText: eventName }).first(),
+      "Edit"
+    );
+    await expect(
+      dialog.getByRole("heading", { name: "Edit Event" })
+    ).toBeVisible();
+    await openAdvancedSettings(dialog);
+    await expect(
+      dialog.getByRole("switch", { name: "Post RSVP poll on WhatsApp" })
+    ).toBeChecked();
+    await expect(leadTime(dialog)).toContainText("3 days");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
   });
 });

@@ -67,7 +67,7 @@ test.describe("Income access", () => {
     ).toHaveCount(0);
   });
 
-  test("a role with donors.view only sees income but not settlements", async ({
+  test("a role with donors.view only sees income but not settlements, bank statements or payouts", async ({
     baseURL,
     browser,
   }, testInfo) => {
@@ -97,6 +97,13 @@ test.describe("Income access", () => {
       await page.getByRole("button", { exact: true, name: "Log in" }).click();
       await page.waitForURL((url) => url.pathname !== "/login");
 
+      await page.goto("/income/bank");
+      await expect(page).not.toHaveURL(/\/income\/bank/);
+      await page.goto("/income/bank/import");
+      await expect(page).not.toHaveURL(/\/income\/bank/);
+      await page.goto("/income/payout/import");
+      await expect(page).not.toHaveURL(/\/income\/payout\/import/);
+
       await page.goto("/income?tab=settlements");
       await waitForZeroReady(page);
       await expect(
@@ -113,6 +120,13 @@ test.describe("Income access", () => {
         page.getByRole("tab", { name: "Contributions" })
       ).toHaveAttribute("aria-selected", "true");
       await expect(page.getByText("Awaiting settlement")).toHaveCount(0);
+      // The page menu offers the donations return, never bank statements or
+      // the give.do payout importer.
+      await page.getByRole("button", { name: "More actions" }).click();
+      await expect(page.getByRole("menuitem")).toHaveText(["Donations return"]);
+      await expect(
+        page.getByRole("menuitem", { name: "Import give.do payout" })
+      ).toHaveCount(0);
     } finally {
       await context.close();
     }

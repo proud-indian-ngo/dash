@@ -2,73 +2,19 @@ import { expect, test } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
 import { ReimbursementPage } from "../../pages/reimbursement-page";
 
-test.describe("Reimbursements list", () => {
-  let reimbursements: ReimbursementPage;
-
-  test.beforeEach(async ({ page }) => {
-    reimbursements = new ReimbursementPage(page, "reimbursement");
-    await reimbursements.navigateToList();
-  });
-
+test.describe("Reimbursements list (volunteer)", () => {
   test("New reimbursement button navigates to /reimbursements/new", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    const reimbursements = new ReimbursementPage(page, "reimbursement");
+    await reimbursements.navigateToList();
     await reimbursements.list.getNewReimbursementButton().click();
     await page.waitForURL(/\/reimbursements\/new/);
     await expect(
       page.getByRole("heading", { name: "New reimbursement" })
     ).toBeVisible();
   });
-
-  test("advanced filters open their editor and return to quick filters", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { exact: true, name: "More" }).click();
-    await page.getByRole("menuitem", { name: "Advanced filters" }).click();
-    await page.getByRole("button", { exact: true, name: "Add filter" }).click();
-    await expect(page.getByPlaceholder("Search attributes...")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await page
-      .getByRole("button", { exact: true, name: "Quick filters" })
-      .click();
-    await expect(
-      page.getByRole("button", { exact: true, name: "More" })
-    ).toBeVisible();
-  });
-
-  for (const viewport of ["desktop", "mobile"] as const) {
-    test(`date filter applies a custom range and a preset on ${viewport}`, async ({
-      page,
-    }) => {
-      if (viewport === "mobile") {
-        await page.setViewportSize({ width: 390, height: 844 });
-        await page
-          .getByRole("button", { exact: true, name: "Filters" })
-          .click();
-        await page.getByRole("button", { name: "Submitted Any" }).click();
-      } else {
-        await page.getByRole("button", { exact: true, name: "More" }).click();
-        await page
-          .getByRole("menuitem", { exact: true, name: "Submitted" })
-          .click();
-      }
-      await page.getByRole("radio", { name: "Custom range" }).click();
-      const days = page.getByRole("grid").getByRole("button");
-      // Both positions are in the current month, beyond its leading spillover days.
-      await days.nth(10).click();
-      await days.nth(13).click();
-      await expect
-        .poll(() => new URL(page.url()).searchParams.get("filters"))
-        .toContain('"operator":"between"');
-      await page.getByRole("button", { exact: true, name: "Presets" }).click();
-      const preset = page.getByRole("radio", { name: "Last 7 days" });
-      await preset.click();
-      await expect(preset).toHaveAttribute("aria-checked", "true");
-      await expect
-        .poll(() => new URL(page.url()).searchParams.get("filters"))
-        .toContain("submittedAt");
-    });
-  }
 });
 
 test.describe("Reimbursements list (super_admin)", () => {
@@ -165,21 +111,56 @@ test.describe("Reimbursements list (super_admin)", () => {
       table.getByText("E2E Upcoming Event Reimbursement")
     ).toBeVisible();
   });
-});
 
-test.describe("Reimbursements list (view-all roles)", () => {
-  let reimbursements: ReimbursementPage;
-
-  test.beforeEach(async ({ page }, testInfo) => {
-    test.skip(
-      !["super_admin", "admin", "finance_admin"].includes(
-        testInfo.project.name
-      ),
-      "Seed reimbursements are only visible to view-all roles"
-    );
-    reimbursements = new ReimbursementPage(page, "reimbursement");
-    await reimbursements.navigateToList();
+  test("advanced filters open their editor and return to quick filters", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { exact: true, name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Advanced filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Add filter" }).click();
+    await expect(page.getByPlaceholder("Search attributes...")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { exact: true, name: "Quick filters" })
+      .click();
+    await expect(
+      page.getByRole("button", { exact: true, name: "More" })
+    ).toBeVisible();
   });
+
+  for (const viewport of ["desktop", "mobile"] as const) {
+    test(`date filter applies a custom range and a preset on ${viewport}`, async ({
+      page,
+    }) => {
+      if (viewport === "mobile") {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page
+          .getByRole("button", { exact: true, name: "Filters" })
+          .click();
+        await page.getByRole("button", { name: "Submitted Any" }).click();
+      } else {
+        await page.getByRole("button", { exact: true, name: "More" }).click();
+        await page
+          .getByRole("menuitem", { exact: true, name: "Submitted" })
+          .click();
+      }
+      await page.getByRole("radio", { name: "Custom range" }).click();
+      const days = page.getByRole("grid").getByRole("button");
+      // Both positions are in the current month, beyond its leading spillover days.
+      await days.nth(10).click();
+      await days.nth(13).click();
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get("filters"))
+        .toContain('"operator":"between"');
+      await page.getByRole("button", { exact: true, name: "Presets" }).click();
+      const preset = page.getByRole("radio", { name: "Last 7 days" });
+      await preset.click();
+      await expect(preset).toHaveAttribute("aria-checked", "true");
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get("filters"))
+        .toContain("submittedAt");
+    });
+  }
 
   test("status filter hides non-matching rows and clear restores them", async ({
     page,

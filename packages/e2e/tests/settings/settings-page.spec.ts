@@ -2,7 +2,8 @@ import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { openSettingsPage } from "../../helpers/settings";
 
 test.describe("Settings page", () => {
-  test("opens from the account menu on Profile", async ({ page }) => {
+  test("opens from the account menu on Profile", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Role-independent");
     await page.goto("/");
     await waitForZeroReady(page);
 
@@ -29,13 +30,14 @@ test.describe("Settings page", () => {
     ).toBeVisible();
   });
 
-  test("/settings goes to Profile", async ({ page }) => {
+  test("/settings goes to Profile", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Role-independent");
     await page.goto("/settings");
     await expect(page).toHaveURL(/\/settings\/profile$/);
   });
 
   test("the nav moves between sections", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name.includes("mobile"), "Desktop nav");
+    test.skip(testInfo.project.name !== "super_admin", "Role-independent");
     await openSettingsPage(page, "/settings/profile", "Profile");
     const nav = page.getByRole("navigation", { name: "Settings" });
 

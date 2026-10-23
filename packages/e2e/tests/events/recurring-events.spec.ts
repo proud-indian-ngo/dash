@@ -6,6 +6,7 @@ import {
   fillTableSearch,
   openSeededTeam,
 } from "../../helpers/team-event";
+import { ListPage } from "../../pages/list-page";
 
 /** Seeded public weekly event in "E2E Updates Team". */
 const SEEDED_RECURRING = "E2E Upcoming Recurring Public";
@@ -66,6 +67,18 @@ test.describe("Recurring events", () => {
       .getByRole("cell")
       .filter({ hasText: /every week/i });
     await expect(recurrenceBadges.first()).toBeVisible();
+
+    // A later occurrence is virtual: its detail URL carries occDate and the
+    // details card shows the series' recurrence.
+    await new ListPage(page).openRowActionAndClick(
+      page.getByRole("row").filter({ hasText: eventName }).nth(1),
+      "View"
+    );
+    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
+    expect(page.url()).toMatch(/occDate=\d{4}-\d{2}-\d{2}/);
+    await expect(page.getByText("Repeats").first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("changing the start time refreshes the recurrence preview", async ({
@@ -111,20 +124,6 @@ test.describe("Recurring events", () => {
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("recurring event detail shows recurrence info", async ({ page }) => {
-    await openSeededTeam(page);
-    await fillTableSearch(page, "Search events...", SEEDED_RECURRING);
-    const recurringRow = page
-      .getByRole("row")
-      .filter({ hasText: SEEDED_RECURRING })
-      .first();
-    await recurringRow.getByRole("button").first().click();
-    await page.waitForURL(/\/events\/[a-zA-Z0-9-]+/, { timeout: 10_000 });
-    await expect(page.getByText("Repeats").first()).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
   test("create monthly recurring event with end condition", async ({
     page,
   }) => {
@@ -163,5 +162,9 @@ test.describe("Recurring events", () => {
     await expect(
       page.getByRole("cell").filter({ hasText: eventName }).first()
     ).toBeVisible({ timeout: 10_000 });
+    // The saved rule keeps the six-occurrence end condition.
+    await expect(
+      page.getByRole("row").filter({ hasText: eventName }).first()
+    ).toContainText("Every month for 6 times");
   });
 });

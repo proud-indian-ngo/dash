@@ -371,42 +371,4 @@ test.describe("Income: bank statements", () => {
       { timeout: 15_000 }
     );
   });
-
-  test("a role with donors.view only cannot open bank statements", async ({
-    baseURL,
-    browser,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== "admin", "Admin-only test");
-    const viewer = await fixture<{ email: string; password: string }>(
-      "razorpay",
-      "donors-viewer"
-    );
-    const context = await browser.newContext({
-      baseURL,
-      storageState: { cookies: [], origins: [] },
-    });
-    try {
-      const page = await context.newPage();
-      await page.goto("/login");
-      await page.getByLabel("Email").fill(viewer.email);
-      await page.getByLabel("Password").fill(viewer.password);
-      await page.getByRole("button", { exact: true, name: "Log in" }).click();
-      await page.waitForURL((url) => url.pathname !== "/login");
-
-      await page.goto("/income/bank");
-      await expect(page).not.toHaveURL(/\/income\/bank/);
-      await page.goto("/income/bank/import");
-      await expect(page).not.toHaveURL(/\/income\/bank/);
-      await page.goto("/income");
-      await waitForZeroReady(page);
-      await expect(
-        page.getByRole("heading", { exact: true, name: "Income" })
-      ).toBeVisible();
-      // The page menu offers the donations return, never bank statements.
-      await page.getByRole("button", { name: "More actions" }).click();
-      await expect(page.getByRole("menuitem")).toHaveText(["Donations return"]);
-    } finally {
-      await context.close();
-    }
-  });
 });

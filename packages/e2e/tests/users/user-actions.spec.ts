@@ -80,18 +80,9 @@ test.describe("User row actions (admin)", () => {
     await tryOpen(0);
   }
 
-  test("row action menu emails the user", async ({ page, volunteerEmail }) => {
-    await expect(async () => {
-      await page.keyboard.press("Escape");
-      await list.openRowActionMenu(getVolunteerRow(), "Edit");
-      await expect(
-        page.getByRole("menuitem", { name: `Email ${volunteerEmail}` })
-      ).toHaveAttribute("href", `mailto:${volunteerEmail}`, { timeout: 1000 });
-    }).toPass({ timeout: 15_000 });
-  });
-
-  test("row action menu shows Edit, Reset password, Ban user, Delete", async ({
+  test("row action menu shows Edit, Reset password, Ban user, Delete and emails the user", async ({
     page,
+    volunteerEmail,
   }) => {
     await expect(async () => {
       await page.keyboard.press("Escape");
@@ -103,35 +94,26 @@ test.describe("User row actions (admin)", () => {
           timeout: 1000,
         });
       }
+      await expect(
+        page.getByRole("menuitem", { name: `Email ${volunteerEmail}` })
+      ).toHaveAttribute("href", `mailto:${volunteerEmail}`, { timeout: 1000 });
     }).toPass({ timeout: 15_000 });
   });
 
-  test("Edit cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Edit", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
-  test("Delete cancel closes confirmation", async ({ page }) => {
-    const alertDialog = page.getByRole("alertdialog");
-    await openVolunteerActionAndWaitFor(page, "Delete", alertDialog);
-    await alertDialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(alertDialog).toBeHidden();
-  });
-
-  test("Ban user cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Ban user", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
-  });
-
-  test("Reset password cancel closes dialog", async ({ page }) => {
-    const dialog = page.getByRole("dialog");
-    await openVolunteerActionAndWaitFor(page, "Reset password", dialog);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
-    await expect(dialog).toBeHidden();
+  test("Cancel closes each row action dialog", async ({ page }) => {
+    for (const [action, role] of [
+      ["Edit", "dialog"],
+      ["Delete", "alertdialog"],
+      ["Ban user", "dialog"],
+      ["Reset password", "dialog"],
+    ] as const) {
+      await test.step(action, async () => {
+        const dialog = page.getByRole(role);
+        await openVolunteerActionAndWaitFor(page, action, dialog);
+        await dialog.getByRole("button", { name: "Cancel" }).click();
+        await expect(dialog).toBeHidden();
+      });
+    }
   });
 
   test("Notifications shows only supported Kalakriti channels", async ({
