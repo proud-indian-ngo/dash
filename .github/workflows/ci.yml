@@ -301,7 +301,6 @@ jobs:
           for _ in $(seq 1 60); do
             if curl -sf http://localhost:4848/ >/dev/null 2>&1; then
               echo "zero-cache ready"
-              docker logs -t zero-cache 2>&1 | head -200
               exit 0
             fi
             sleep 1
