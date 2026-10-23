@@ -22,7 +22,7 @@ import {
 import { formatPaise } from "@pi-dash/shared/money";
 import { canReadReceipts } from "@pi-dash/shared/receipts";
 import { parseAsString, useQueryState } from "nuqs";
-import { useEffect, useMemo } from "react";
+import { createContext, use, useEffect, useMemo } from "react";
 
 import { COLUMN_ICONS } from "@/components/data-table/column-icons";
 import { removeFilterPath } from "@/components/data-table/compile-filter-query";
@@ -55,13 +55,39 @@ import {
   contributionReceiptSortKey,
   hasUnclassifiedRows,
 } from "./receipts/receipt-column";
-import { useReceiptReadiness } from "./receipts/use-receipt-readiness";
+import {
+  type ReceiptReadinessState,
+  useReceiptReadiness,
+} from "./receipts/use-receipt-readiness";
 import { useContributionBankEvidence } from "./use-contribution-bank-evidence";
 
 const SKELETON_DATE = <Skeleton className="h-5 w-24" />;
 const SKELETON_NAME = <Skeleton className="h-5 w-40" />;
 const SKELETON_AMOUNT = <Skeleton className="h-5 w-24" />;
 const SKELETON_TAG = <Skeleton className="h-5 w-20" />;
+
+// The Receipt cell reads readiness from context, so its renderer stays one
+// component. A renderer closing over readiness would be a new component on
+// every reload, remounting each cell and closing a receipt viewer opened
+// from one.
+const ReceiptCellContext = createContext<{
+  canDownload: boolean;
+  readiness: ReceiptReadinessState;
+} | null>(null);
+
+function ReceiptColumnCell({ row }: { row: { original: ContributionRow } }) {
+  const context = use(ReceiptCellContext);
+  if (!context) {
+    throw new Error("ReceiptColumnCell needs ReceiptCellContext");
+  }
+  return (
+    <ContributionReceiptCell
+      canDownload={context.canDownload}
+      readiness={context.readiness}
+      row={row.original}
+    />
+  );
+}
 
 function RowActions({
   canManage,
@@ -351,13 +377,7 @@ export function ContributionsTable({
           {
             accessorFn: (row: ContributionRow) =>
               contributionReceiptSortKey(row, readiness),
-            cell: ({ row }: { row: { original: ContributionRow } }) => (
-              <ContributionReceiptCell
-                canDownload={canDownloadReceipts}
-                readiness={receiptState}
-                row={row.original}
-              />
-            ),
+            cell: ReceiptColumnCell,
             header: ({ column }) => (
               <DataGridColumnHeader
                 column={column}
@@ -414,67 +434,71 @@ export function ContributionsTable({
   ];
 
   return (
-    <DataTableWrapper<ContributionRow>
-      columns={columns}
-      compactOnMobile
-      data={data}
-      emptyMessage="No contributions match."
-      filter={{
-        applyLocally:
-          !(bank.isLoading || bank.error) &&
-          (seesBankEvidence || !bankFilterActive),
-        fields: createContributionFilterFields(
-          data,
-          seesBankEvidence,
-          seesReceipts
-        ),
-        getValue: getContributionFilterValue(
-          missingPartyIds,
-          bank.evidence,
-          undefined,
-          readiness
-        ),
-      }}
-      getRowId={getRowId}
-      isLoading={
-        isLoading || bank.isLoading || bank.error || receiptFilterPending
-      }
-      onRowClick={onView}
-      searchFn={searchContribution}
-      searchPlaceholder="Search donor or reference..."
-      storageKey="contributions_table_state_v1"
-      toolbarFilters={
-        bank.isLoading ? (
-          <span className="text-muted-foreground text-sm" role="status">
-            Loading bank status...
-          </span>
-        ) : bank.error ? (
-          <Button
-            onClick={bank.retry}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Bank status unavailable. Retry
-          </Button>
-        ) : seesReceipts && receiptState.error ? (
-          <Button
-            onClick={receiptState.retry}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Receipt status unavailable. Retry
-          </Button>
-        ) : null
-      }
-      tableLayout={{
-        columnsDraggable: true,
-        columnsPinnable: true,
-        columnsResizable: true,
-        columnsVisibility: true,
-      }}
-      totals={["amount"]}
-    />
+    <ReceiptCellContext
+      value={{ canDownload: canDownloadReceipts, readiness: receiptState }}
+    >
+      <DataTableWrapper<ContributionRow>
+        columns={columns}
+        compactOnMobile
+        data={data}
+        emptyMessage="No contributions match."
+        filter={{
+          applyLocally:
+            !(bank.isLoading || bank.error) &&
+            (seesBankEvidence || !bankFilterActive),
+          fields: createContributionFilterFields(
+            data,
+            seesBankEvidence,
+            seesReceipts
+          ),
+          getValue: getContributionFilterValue(
+            missingPartyIds,
+            bank.evidence,
+            undefined,
+            readiness
+          ),
+        }}
+        getRowId={getRowId}
+        isLoading={
+          isLoading || bank.isLoading || bank.error || receiptFilterPending
+        }
+        onRowClick={onView}
+        searchFn={searchContribution}
+        searchPlaceholder="Search donor or reference..."
+        storageKey="contributions_table_state_v1"
+        toolbarFilters={
+          bank.isLoading ? (
+            <span className="text-muted-foreground text-sm" role="status">
+              Loading bank status...
+            </span>
+          ) : bank.error ? (
+            <Button
+              onClick={bank.retry}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Bank status unavailable. Retry
+            </Button>
+          ) : seesReceipts && receiptState.error ? (
+            <Button
+              onClick={receiptState.retry}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Receipt status unavailable. Retry
+            </Button>
+          ) : null
+        }
+        tableLayout={{
+          columnsDraggable: true,
+          columnsPinnable: true,
+          columnsResizable: true,
+          columnsVisibility: true,
+        }}
+        totals={["amount"]}
+      />
+    </ReceiptCellContext>
   );
 }

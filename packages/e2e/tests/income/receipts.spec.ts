@@ -81,6 +81,22 @@ async function clearDetailsAddress(): Promise<void> {
   }
 }
 
+/**
+ * Voids the UPI gift's receipt if an earlier attempt issued it and stopped
+ * before voiding, so the test starts from Ready to issue.
+ */
+async function voidDirectReceipt(): Promise<void> {
+  await execFileAsync(
+    "bun",
+    [
+      "run",
+      path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
+      "void-direct-receipt",
+    ],
+    { env: process.env }
+  );
+}
+
 type AutomaticReceiptInspection = {
   autoSendMinutes: number | null;
   jobs: {
@@ -364,6 +380,8 @@ test.describe("Income: donation receipts (finance)", () => {
   }, testInfo) => {
     test.slow();
     const fy = currentFinancialYear();
+    // Self-resetting: a retry finds the receipt the last attempt issued.
+    await voidDirectReceipt();
     await ensureRegistration(page);
 
     // The table: Ready to issue, and the Receipt filter lists it alone of
@@ -547,6 +565,22 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(fromTable.getByRole("group", { name: "Page 1" })).toBeVisible({
       timeout: 15_000,
     });
+    // The table reloads receipt readiness when the tab is shown again (and
+    // whenever any gift changes); the open viewer survives the reload.
+    const reloaded = page.waitForResponse(
+      async (response) =>
+        response.url().includes("/_serverFn/") &&
+        (await response.text()).includes("needsDetails")
+    );
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event("visibilitychange"))
+    );
+    await reloaded;
+    // Give the answer time to render: a remounted cell would drop the viewer.
+    await page.waitForTimeout(500);
+    await expect(
+      fromTable.getByRole("group", { name: "Page 1" })
+    ).toBeVisible();
     const keyboardDownload = page.waitForEvent("download");
     await fromTable.getByRole("button", { name: "Download" }).focus();
     await page.keyboard.press("Enter");
