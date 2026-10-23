@@ -22,8 +22,8 @@ const DURATIONS_FILE = path.resolve(
 const OUTPUT_DIR = path.resolve(import.meta.dirname, "shard-lists");
 const DEFAULT_DURATION_MS = 10_000; // 10s default for unknown tests
 
-const totalShards = Number.parseInt(process.argv[2], 10);
-if (totalShards < 2) {
+const totalShards = Number.parseInt(process.argv[2] ?? "", 10);
+if (Number.isNaN(totalShards) || totalShards < 2) {
   console.error("Usage: bun run shard-by-duration.ts <total-shards>");
   process.exit(1);
 }
@@ -55,9 +55,9 @@ try {
     stderr?: string;
     status?: number;
   };
-  console.caughtError("playwright --list failed with exit code:", err.status);
-  console.caughtError("stdout:", err.stdout?.slice(0, 500) ?? "(empty)");
-  console.caughtError("stderr:", err.stderr?.slice(0, 500) ?? "(empty)");
+  console.error("playwright --list failed with exit code:", err.status);
+  console.error("stdout:", err.stdout?.slice(0, 500) ?? "(empty)");
+  console.error("stderr:", err.stderr?.slice(0, 500) ?? "(empty)");
   process.exit(1);
 }
 
@@ -132,7 +132,7 @@ const shards: { lines: string[]; totalMs: number }[] = Array.from(
 
 // exclusive_last runs alone in shard 1 after everything else. Counting it
 // once, not per idle worker, matched measured shard times better.
-shards[0].totalMs = exclusiveLines.reduce(
+shards[0]!.totalMs = exclusiveLines.reduce(
   (sum, line) => sum + lookupDuration(line),
   0
 );
@@ -141,25 +141,25 @@ entries.sort((a, b) => b.duration - a.duration);
 
 for (const entry of entries) {
   // Find shard with minimum total duration
-  let minIdx = 0;
-  for (let i = 1; i < shards.length; i += 1) {
-    if (shards[i].totalMs < shards[minIdx].totalMs) {
-      minIdx = i;
+  let target = shards[0]!;
+  for (const shard of shards) {
+    if (shard.totalMs < target.totalMs) {
+      target = shard;
     }
   }
-  shards[minIdx].lines.push(entry.line);
-  shards[minIdx].totalMs += entry.duration;
+  target.lines.push(entry.line);
+  target.totalMs += entry.duration;
 }
 
 // 5. Write shard list files
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-for (let i = 0; i < shards.length; i += 1) {
+for (const [i, shard] of shards.entries()) {
   const filePath = path.join(OUTPUT_DIR, `shard-${i + 1}.txt`);
-  fs.writeFileSync(filePath, `${shards[i].lines.join("\n")}\n`);
-  const estSeconds = (shards[i].totalMs / 1000).toFixed(1);
+  fs.writeFileSync(filePath, `${shard.lines.join("\n")}\n`);
+  const estSeconds = (shard.totalMs / 1000).toFixed(1);
   console.log(
-    `Shard ${i + 1}: ${shards[i].lines.length} tests, ~${estSeconds}s estimated`
+    `Shard ${i + 1}: ${shard.lines.length} tests, ~${estSeconds}s estimated`
   );
 }
 

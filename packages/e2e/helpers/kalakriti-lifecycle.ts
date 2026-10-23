@@ -127,7 +127,7 @@ async function setup(actorEmail: string) {
       description: "Kalakriti lifecycle E2E fixture",
       id: fixture.eventId,
       isPublic: false,
-      managementDomain: "kalakriti",
+      managementDomain: "kalakriti" as const,
       name: `Kalakriti ${fixture.year}`,
       startTime: new Date(`${fixture.year}-11-21T04:30:00.000Z`),
       teamId: owningTeam.id,
@@ -142,7 +142,7 @@ async function setup(actorEmail: string) {
       createdBy: actor.id,
       eventDate: `${fixture.year}-11-21`,
       id: fixture.editionId,
-      lifecycle: "draft",
+      lifecycle: "draft" as const,
       name: `Kalakriti ${fixture.year}`,
       plannedRegistrationCloseAt: new Date(
         `${fixture.year}-10-31T18:29:00.000Z`
@@ -338,7 +338,7 @@ async function invalidateReadyEdition() {
     .update(kalakritiAgeCategory)
     .set({ femaleStudentLimit: 0, maleStudentLimit: 0 })
     .where(inArray(kalakritiAgeCategory.id, [fixtures.ready.ageCategoryId]));
-  return { invalidated: true };
+  return { invalidated: true as const };
 }
 
 const [action, emailArgument] = process.argv.slice(2);

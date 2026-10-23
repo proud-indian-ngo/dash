@@ -78,6 +78,7 @@
         "helpers/social-recap.ts",
         "helpers/series-first-session.ts",
         "helpers/event-feedback.ts",
+        "helpers/started-event.ts",
         "helpers/event-jobs.ts",
         "helpers/reimbursement-stats.ts",
         "helpers/scheduled-delivery.ts",

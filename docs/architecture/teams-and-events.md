@@ -5,6 +5,8 @@
 
 The volunteer side of the dashboard: teams, the events they run, and what happens around an event. Start at `packages/zero/src/mutators/team-event.ts`.
 
+Joining, leaving and cancelling an event, and submitting or editing feedback, take the client's `now` for their optimistic run but judge on the server by the server's clock, so a client can't backdate its way past those time rules. Other event time checks (interest, updates, attendance, recaps, series locks) still trust the client's `now`.
+
 ## Team leads
 
 A team lead is a `teamMember` row with `role: "lead"`. It is unrelated to the custom `team_lead` role. Most event mutators call `assertHasPermissionOrTeamLead()` ([authorization](authorization.md)), so a lead can do on their own team's events what the global permission allows everywhere. The permission descriptions say "also granted to team leads" where this applies. The client mirrors it as `hasPermission("id") || isLead`.

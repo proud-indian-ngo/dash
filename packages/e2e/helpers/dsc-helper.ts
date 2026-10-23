@@ -5,9 +5,9 @@ import path from "node:path";
 import type { Page } from "@playwright/test";
 
 /**
- * Plays the DSC helper in E2E specs. run-e2e.sh makes a throwaway CA, which
- * the E2E signing service trusts instead of the CCA roots, and a key and
- * certificate for each seeded trustee (`signing/make-test-pki.py`). A spec
+ * Plays the DSC helper in E2E specs. run-e2e.sh and CI make a throwaway CA
+ * (`signing/make-test-pki.sh`), which the E2E signing service trusts instead
+ * of the CCA roots, and a key and certificate for each seeded trustee. A spec
  * catches the `pidash-sign://` link the page opens, then enrols or signs
  * through the job API as the helper would, with the trustee's test key.
  */
@@ -17,21 +17,17 @@ export interface TestSigner {
   privateKey: string;
 }
 
-/** A seeded trustee's test signer, or null when the run has no test CA (CI). */
-export function testSigner(
-  slug: "asha-rao" | "vikram-menon"
-): TestSigner | null {
+/** A seeded trustee's test signer; throws when the run has no test CA. */
+export function testSigner(slug: "asha-rao" | "vikram-menon"): TestSigner {
   const directory = process.env.E2E_SIGNING_PKI_DIR;
   if (!directory) {
-    return null;
+    throw new Error(
+      "E2E_SIGNING_PKI_DIR is not set: start the E2E signing service and its test CA (signing/make-test-pki.sh)"
+    );
   }
-  try {
-    return JSON.parse(
-      readFileSync(path.join(directory, "signers", `${slug}.json`), "utf8")
-    ) as TestSigner;
-  } catch {
-    return null;
-  }
+  return JSON.parse(
+    readFileSync(path.join(directory, "signers", `${slug}.json`), "utf8")
+  ) as TestSigner;
 }
 
 const HELPER_LINK = /pidash-sign:\/\/(?:enrol|sign)\?job=([A-Za-z0-9_-]+)/;

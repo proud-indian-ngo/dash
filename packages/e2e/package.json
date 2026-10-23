@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:types": "tsc --noEmit --checkers 2",
     "seed": "SKIP_VALIDATION=true bun run helpers/seed-test-user.ts",
     "test": "bash run-e2e.sh",
     "test:two-stacks": "bun run run-two-stacks.ts",
@@ -22,9 +23,12 @@
     "uuidv7": "catalog:"
   },
   "devDependencies": {
+    "@pi-dash/config": "workspace:*",
     "@playwright/test": "catalog:",
+    "@types/bun": "catalog:",
     "jsqr": "^1.4.0",
     "oxc-parser": "^0.154.0",
-    "read-excel-file": "^9.3.12"
+    "read-excel-file": "^9.3.12",
+    "typescript": "catalog:"
   }
 }

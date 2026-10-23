@@ -172,6 +172,9 @@ export async function createPendingVP(page: Page): Promise<string> {
 
   const url = page.url();
   const [, id] = url.split("/vendor-payments/");
+  if (!id) {
+    throw new Error(`No vendor payment ID in ${url}`);
+  }
   return id;
 }
 

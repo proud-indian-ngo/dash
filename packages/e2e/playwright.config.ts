@@ -136,9 +136,6 @@ export default defineConfig({
             ? `PORT=${webServerPort} bun run .output/server/index.mjs`
             : `bunx --bun vite dev --port ${webServerPort}`,
           cwd: path.resolve(import.meta.dirname, "../../apps/web"),
-          env: {
-            ...process.env,
-          },
           reuseExistingServer: !isCI,
           stderr: "pipe",
           stdout: "pipe",

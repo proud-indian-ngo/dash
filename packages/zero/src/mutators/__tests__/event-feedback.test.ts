@@ -124,7 +124,7 @@ describe("eventFeedback server media policy", () => {
     expect(updateFeedback).toHaveBeenCalledWith({
       content: plate(mediaUrl),
       id: "feedback-1",
-      updatedAt: 2,
+      updatedAt: expect.any(Number),
     });
   });
 });

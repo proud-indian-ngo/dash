@@ -211,6 +211,7 @@ async function seedCategories(): Promise<Map<string, string>> {
           updatedAt: now,
         });
         existing = {
+          accountHeadId: null,
           createdAt: now,
           description: cat.description,
           id,
@@ -309,10 +310,11 @@ async function seedWhatsappGroups(): Promise<Map<string, string>> {
   const groupMap = new Map<string, string>();
   await Promise.all(
     groups.map(async (g) => {
-      let existing = await db.query.whatsappGroup.findFirst({
+      const existing = await db.query.whatsappGroup.findFirst({
         where: (t, ops) => ops.eq(t.jid, g.jid),
       });
-      if (!existing) {
+      let groupId = existing?.id;
+      if (!groupId) {
         const id = uuidv7();
         await db.insert(whatsappGroup).values({
           createdAt: now,
@@ -321,9 +323,9 @@ async function seedWhatsappGroups(): Promise<Map<string, string>> {
           name: g.name,
           updatedAt: now,
         });
-        existing = { id } as typeof existing;
+        groupId = id;
       }
-      groupMap.set(g.name, existing!.id);
+      groupMap.set(g.name, groupId);
     })
   );
 
@@ -387,10 +389,11 @@ async function seedTeams(
   const teamMap = new Map<string, string>();
   await Promise.all(
     teams.map(async (t) => {
-      let existing = await db.query.team.findFirst({
+      const existing = await db.query.team.findFirst({
         where: (tbl, ops) => ops.eq(tbl.name, t.name),
       });
-      if (!existing) {
+      let teamId = existing?.id;
+      if (!teamId) {
         const id = uuidv7();
         await db.insert(team).values({
           createdAt: now,
@@ -411,9 +414,9 @@ async function seedTeams(
             })
           )
         );
-        existing = { id } as typeof existing;
+        teamId = id;
       }
-      teamMap.set(t.name, existing!.id);
+      teamMap.set(t.name, teamId);
     })
   );
 
@@ -726,7 +729,7 @@ async function seedReimbursements(
         chargedTo: "programme",
         costCentreId: r.costCentreId,
         createdAt: subDays(r.expenseDate, 2),
-        expenseDate: r.expenseDate.toISOString().split("T")[0],
+        expenseDate: r.expenseDate.toISOString().slice(0, 10),
         id,
         rejectionReason: r.rejectionReason,
         reviewedAt: r.reviewedBy ? past(1) : undefined,

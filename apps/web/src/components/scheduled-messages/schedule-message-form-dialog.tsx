@@ -88,8 +88,58 @@ export function ScheduleMessageFormDialog({
   open,
 }: ScheduleMessageFormDialogProps) {
   const isEdit = !!initialValues;
-  const [formKey, setFormKey] = useState(0);
   const [sendNow, setSendNow] = useState(false);
+  // Each opening gets a fresh form: the dialog stays mounted between
+  // openings, and a submit or Cancel closes it through `open`.
+  const [formKey, setFormKey] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setFormKey((k) => k + 1);
+      setSendNow(false);
+    }
+  }
+  const stableOnOpenChange0 = useEventCallback((v: boolean) => {
+    if (!v) {
+      onClose();
+    }
+  });
+
+  return (
+    <FormModal
+      description={
+        isEdit
+          ? "Edit the scheduled message"
+          : `${sendNow ? "Send" : "Schedule"} a WhatsApp message`
+      }
+      onOpenChange={stableOnOpenChange0}
+      open={open}
+      title={isEdit ? "Edit scheduled message" : "Schedule message"}
+    >
+      <ScheduleMessageForm
+        initialValues={initialValues}
+        key={formKey}
+        onClose={onClose}
+        onSendNowChange={setSendNow}
+        onSubmit={onSubmit}
+        sendNow={sendNow}
+      />
+    </FormModal>
+  );
+}
+
+function ScheduleMessageForm({
+  initialValues,
+  onClose,
+  onSendNowChange,
+  onSubmit,
+  sendNow,
+}: Omit<ScheduleMessageFormDialogProps, "open"> & {
+  onSendNowChange: (sendNow: boolean) => void;
+  sendNow: boolean;
+}) {
+  const isEdit = !!initialValues;
   const formSchema = sendNow ? sendNowFormSchema : scheduledFormSchema;
 
   const form = useForm({
@@ -121,99 +171,81 @@ export function ScheduleMessageFormDialog({
     },
   });
   const submitted = useFormSubmitted(form);
-  const stableOnOpenChange0 = useEventCallback((v: boolean) => {
-    if (!v) {
-      setFormKey((k) => k + 1);
-      setSendNow(false);
-      onClose();
-    }
-  });
 
   return (
-    <FormModal
-      description={
-        isEdit
-          ? "Edit the scheduled message"
-          : `${sendNow ? "Send" : "Schedule"} a WhatsApp message`
-      }
-      onOpenChange={stableOnOpenChange0}
-      open={open}
-      title={isEdit ? "Edit scheduled message" : "Schedule message"}
-    >
-      <FormLayout form={form} key={formKey}>
-        <TextareaField
+    <FormLayout form={form}>
+      <TextareaField
+        isRequired
+        label="Message"
+        name="message"
+        placeholder="Enter the message content..."
+        rows={4}
+      />
+
+      {Boolean(!isEdit) && (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={sendNow}
+            id="send-now"
+            onCheckedChange={onSendNowChange}
+          />
+          <Label htmlFor="send-now">Send now</Label>
+        </div>
+      )}
+
+      {Boolean(!sendNow) && (
+        <DateTimeField
           isRequired
-          label="Message"
-          name="message"
-          placeholder="Enter the message content..."
-          rows={4}
+          label="Scheduled at"
+          minDate={new Date()}
+          name="scheduledAt"
+          placeholder="Pick date and time"
         />
+      )}
 
-        {Boolean(!isEdit) && (
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={sendNow}
-              id="send-now"
-              onCheckedChange={setSendNow}
-            />
-            <Label htmlFor="send-now">Send now</Label>
-          </div>
-        )}
+      <form.Field name="recipients">
+        {(field) => {
+          const hasError =
+            (field.state.meta.isBlurred || submitted) &&
+            field.state.meta.errors.length > 0;
+          return (
+            <Field data-invalid={hasError || undefined}>
+              <FieldLabel htmlFor="recipients">
+                Recipients{" "}
+                <span aria-hidden="true" className="text-destructive">
+                  *
+                </span>
+              </FieldLabel>
+              <RecipientPicker
+                onChange={field.handleChange}
+                value={field.state.value}
+              />
+              {Boolean(hasError) && (
+                <FieldError errors={field.state.meta.errors} />
+              )}
+            </Field>
+          );
+        }}
+      </form.Field>
 
-        {Boolean(!sendNow) && (
-          <DateTimeField
-            isRequired
-            label="Scheduled at"
-            minDate={new Date()}
-            name="scheduledAt"
-            placeholder="Pick date and time"
+      <form.Field name="attachments">
+        {(field) => (
+          <MediaUpload
+            onChange={field.handleChange}
+            value={field.state.value}
           />
         )}
+      </form.Field>
 
-        <form.Field name="recipients">
-          {(field) => {
-            const hasError =
-              (field.state.meta.isBlurred || submitted) &&
-              field.state.meta.errors.length > 0;
-            return (
-              <Field data-invalid={hasError || undefined}>
-                <FieldLabel htmlFor="recipients">
-                  Recipients{" "}
-                  <span aria-hidden="true" className="text-destructive">
-                    *
-                  </span>
-                </FieldLabel>
-                <RecipientPicker
-                  onChange={field.handleChange}
-                  value={field.state.value}
-                />
-                {Boolean(hasError) && (
-                  <FieldError errors={field.state.meta.errors} />
-                )}
-              </Field>
-            );
-          }}
-        </form.Field>
-
-        <form.Field name="attachments">
-          {(field) => (
-            <MediaUpload
-              onChange={field.handleChange}
-              value={field.state.value}
-            />
-          )}
-        </form.Field>
-
-        <FormActions
-          onCancel={onClose}
-          submitLabel={
-            isEdit ? "Save changes" : `${sendNow ? "Send" : "Schedule"} message`
-          }
-          submittingLabel={
-            isEdit ? "Saving..." : `${sendNow ? "Sending" : "Scheduling"}...`
-          }
-        />
-      </FormLayout>
-    </FormModal>
+      <FormActions
+        onCancel={onClose}
+        submitLabel={
+          isEdit ? "Save changes" : `${sendNow ? "Send" : "Schedule"} message`
+        }
+        submittingLabel={
+          isEdit ? "Saving..." : `${sendNow ? "Sending" : "Scheduling"}...`
+        }
+      />
+    </FormLayout>
   );
 }

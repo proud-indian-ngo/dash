@@ -1,7 +1,30 @@
+import { execFile } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
+
 import type { Page } from "@playwright/test";
+import { uuidv7 } from "uuidv7";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { openSeededTeamEvent } from "../../helpers/team-event";
+
+const execFileAsync = promisify(execFile);
+const startedEventHelper = path.resolve(
+  import.meta.dirname,
+  "../../helpers/started-event.ts"
+);
+
+async function startedEvent<T>(
+  action: "cleanup" | "setup" | "state",
+  email?: string
+) {
+  const { stdout } = await execFileAsync(
+    "bun",
+    ["run", startedEventHelper, action, ...(email ? [email] : [])],
+    { env: process.env }
+  );
+  return JSON.parse(stdout.trim()) as T;
+}
 
 /** Seeded upcoming event in "E2E Updates Team" with two members. */
 const EVENT_NAME = "E2E Upcoming Public Bangalore";
@@ -133,6 +156,67 @@ test.describe("Event member management (volunteer)", () => {
       error: "app",
       message: expect.stringContaining("Unauthorized"),
     });
+  });
+
+  // The client's clock only drives its optimistic run: each mutation claims
+  // an hour before the start, and the server judges by its own clock.
+  test("a lead can't cancel, leave or join an event that has started, whatever the client's clock", async ({
+    page,
+    volunteerEmail,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "volunteer", "Volunteer-only test");
+    const fx = await startedEvent<{
+      joinedEventId: string;
+      otherEventId: string;
+    }>("setup", volunteerEmail);
+    try {
+      const beforeStart = Date.now() - 2 * 60 * 60 * 1000;
+
+      await test.step("refuses a lead's cancel without events.cancel", async () => {
+        expect(
+          await pushMutation(page, "teamEvent.cancel", {
+            id: fx.joinedEventId,
+            now: beforeStart,
+          })
+        ).toEqual({
+          error: "app",
+          message: "Cannot cancel an event that has already started",
+        });
+      });
+
+      await test.step("refuses leaving", async () => {
+        expect(
+          await pushMutation(page, "teamEvent.leaveEvent", {
+            eventId: fx.joinedEventId,
+            now: beforeStart,
+          })
+        ).toEqual({
+          error: "app",
+          message: "Cannot leave event that has already started",
+        });
+      });
+
+      await test.step("refuses joining", async () => {
+        expect(
+          await pushMutation(page, "teamEvent.joinAsMember", {
+            eventId: fx.otherEventId,
+            id: uuidv7(),
+            now: beforeStart,
+          })
+        ).toEqual({
+          error: "app",
+          message: "Cannot join event that has already started",
+        });
+      });
+
+      expect(await startedEvent("state", volunteerEmail)).toEqual({
+        joinedCancelled: false,
+        memberOfJoined: true,
+        memberOfOther: false,
+      });
+    } finally {
+      await startedEvent("cleanup");
+    }
   });
 });
 

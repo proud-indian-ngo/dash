@@ -1,18 +1,24 @@
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
+import {
+  eventFeedback,
+  eventFeedbackSubmission,
+} from "@pi-dash/db/schema/event-feedback";
 import { team, teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 /**
  * Events with anonymous feedback on, in a team of their own, for the
  * volunteer feedback flow. The volunteer is a team member and an event member
  * of every event except `notMember`. `open` ended yesterday; `closed` also
- * ended but its deadline passed an hour ago; `upcoming` starts tomorrow.
- * Setup starts from a clean slate, so a retry submits afresh.
+ * ended but its deadline passed an hour ago, and holds the volunteer's
+ * response from before then; `upcoming` starts tomorrow. Setup starts from a
+ * clean slate, so a retry submits afresh.
  */
 const ID = {
   closed: "019f0000-0060-7000-8000-000000006002",
+  closedFeedback: "019f0000-0060-7000-8000-000000006030",
   notMember: "019f0000-0060-7000-8000-000000006004",
   open: "019f0000-0060-7000-8000-000000006001",
   team: "019f0000-0060-7000-8000-000000006000",
@@ -20,6 +26,9 @@ const ID = {
 } as const;
 
 const HOUR = 60 * 60 * 1000;
+const CLOSED_FEEDBACK = JSON.stringify([
+  { children: [{ text: "E2E feedback before the deadline" }], type: "p" },
+]);
 const DAY = 24 * HOUR;
 
 async function cleanup() {
@@ -84,11 +93,45 @@ async function setup(volunteerEmail: string) {
       userId: volunteer.id,
     }))
   );
+  await db.insert(eventFeedback).values({
+    content: CLOSED_FEEDBACK,
+    createdAt: new Date(now - 2 * HOUR),
+    eventId: ID.closed,
+    id: ID.closedFeedback,
+    updatedAt: new Date(now - 2 * HOUR),
+  });
+  await db.insert(eventFeedbackSubmission).values({
+    eventId: ID.closed,
+    feedbackId: ID.closedFeedback,
+    id: "019f0000-0060-7000-8000-000000006031",
+    submittedAt: new Date(now - 2 * HOUR),
+    userId: volunteer.id,
+  });
   return {
     closedEventId: ID.closed,
+    closedFeedbackId: ID.closedFeedback,
     notMemberEventId: ID.notMember,
     openEventId: ID.open,
     upcomingEventId: ID.upcoming,
+  };
+}
+
+/**
+ * What refused mutations would have changed: the closed and upcoming events
+ * that hold a submission, and the text of the closed event's response.
+ */
+async function state() {
+  const submissions = await db
+    .select({ eventId: eventFeedbackSubmission.eventId })
+    .from(eventFeedbackSubmission)
+    .where(inArray(eventFeedbackSubmission.eventId, [ID.closed, ID.upcoming]));
+  const closed = await db.query.eventFeedback.findFirst({
+    columns: { content: true },
+    where: eq(eventFeedback.id, ID.closedFeedback),
+  });
+  return {
+    closedFeedbackUnchanged: closed?.content === CLOSED_FEEDBACK,
+    submissionEvents: submissions.map((row) => row.eventId),
   };
 }
 
@@ -97,6 +140,8 @@ let result: unknown;
 if (action === "cleanup") {
   await cleanup();
   result = { cleaned: true };
+} else if (action === "state") {
+  result = await state();
 } else if (action === "setup" && argument) {
   result = await setup(argument);
 } else {

@@ -114,7 +114,7 @@ test("keeps generated build caches separate between snapshots and the source", (
   const files = ["apps/web/package.json"];
   mkdirSync(path.join(root, "apps/web/node_modules"), { recursive: true });
   writeFileSync(
-    path.join(root, files[0]),
+    path.join(root, files[0]!),
     JSON.stringify({ name: "@pi-dash/web" })
   );
   for (const cache of [".nitro", ".vite", ".vite-temp", ".cache"]) {

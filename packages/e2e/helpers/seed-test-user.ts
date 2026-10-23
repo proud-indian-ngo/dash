@@ -81,35 +81,43 @@ interface TestUser {
   role: TestUserRole;
 }
 
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set in .env.test`);
+  }
+  return value;
+}
+
 const TEST_USERS: TestUser[] = [
   {
-    email: process.env.SUPER_ADMIN_EMAIL,
+    email: requiredEnv("SUPER_ADMIN_EMAIL"),
     name: "Test Super Admin",
-    password: process.env.SUPER_ADMIN_PASSWORD,
+    password: requiredEnv("SUPER_ADMIN_PASSWORD"),
     role: "super_admin",
   },
   {
-    email: process.env.ADMIN_EMAIL,
+    email: requiredEnv("ADMIN_EMAIL"),
     name: "Test Admin",
-    password: process.env.ADMIN_PASSWORD,
+    password: requiredEnv("ADMIN_PASSWORD"),
     role: "admin",
   },
   {
-    email: process.env.FINANCE_ADMIN_EMAIL,
+    email: requiredEnv("FINANCE_ADMIN_EMAIL"),
     name: "Test Finance Admin",
-    password: process.env.FINANCE_ADMIN_PASSWORD,
+    password: requiredEnv("FINANCE_ADMIN_PASSWORD"),
     role: "finance_admin",
   },
   {
-    email: process.env.VOLUNTEER_EMAIL,
+    email: requiredEnv("VOLUNTEER_EMAIL"),
     name: "Test Volunteer",
-    password: process.env.VOLUNTEER_PASSWORD,
+    password: requiredEnv("VOLUNTEER_PASSWORD"),
     role: "volunteer",
   },
   {
-    email: process.env.UNORIENTED_VOLUNTEER_EMAIL,
+    email: requiredEnv("UNORIENTED_VOLUNTEER_EMAIL"),
     name: "Test Unoriented Volunteer",
-    password: process.env.UNORIENTED_VOLUNTEER_PASSWORD,
+    password: requiredEnv("UNORIENTED_VOLUNTEER_PASSWORD"),
     role: "unoriented_volunteer",
   },
 ];

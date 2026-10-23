@@ -20,7 +20,10 @@ const helperPath = path.resolve(
   "../../helpers/event-feedback.ts"
 );
 
-async function fixture<T>(action: "cleanup" | "setup", argument?: string) {
+async function fixture<T>(
+  action: "cleanup" | "setup" | "state",
+  argument?: string
+) {
   const { stdout } = await execFileAsync(
     "bun",
     ["run", helperPath, action, ...(argument ? [argument] : [])],
@@ -31,6 +34,7 @@ async function fixture<T>(action: "cleanup" | "setup", argument?: string) {
 
 interface FeedbackFixture {
   closedEventId: string;
+  closedFeedbackId: string;
   notMemberEventId: string;
   openEventId: string;
   upcomingEventId: string;
@@ -151,14 +155,14 @@ test.describe("Event feedback — volunteer", () => {
       // The page offers no second submission and no form on the other
       // events, so these go to the server directly. Each event breaks
       // exactly one submit rule.
-      const submit = (eventId: string) =>
+      const submit = (eventId: string, now = Date.now()) =>
         pushMutation(page.request, "eventFeedback.submit", {
           content: JSON.stringify([
             { children: [{ text: "E2E refused feedback" }], type: "p" },
           ]),
           eventId,
           feedbackId: uuidv7(),
-          now: Date.now(),
+          now,
           submissionId: uuidv7(),
         });
 
@@ -180,6 +184,41 @@ test.describe("Event feedback — volunteer", () => {
         expect(await submit(fx.upcomingEventId)).toEqual({
           error: "app",
           message: "Event has not ended yet",
+        });
+      });
+
+      // The closed event's deadline passed an hour ago and the upcoming one
+      // ends in a day and two hours; a client clock set inside each window
+      // must not move the server's, for a new response or an edit.
+      await test.step("judges the deadline and the event's end by the server's clock", async () => {
+        const hour = 60 * 60 * 1000;
+        expect(await submit(fx.closedEventId, Date.now() - 2 * hour)).toEqual({
+          error: "app",
+          message: "Feedback deadline has passed",
+        });
+        expect(
+          await submit(fx.upcomingEventId, Date.now() + 48 * hour)
+        ).toEqual({
+          error: "app",
+          message: "Event has not ended yet",
+        });
+        expect(
+          await pushMutation(page.request, "eventFeedback.update", {
+            content: JSON.stringify([
+              { children: [{ text: "E2E late edit" }], type: "p" },
+            ]),
+            eventId: fx.closedEventId,
+            feedbackId: fx.closedFeedbackId,
+            now: Date.now() - 2 * hour,
+          })
+        ).toEqual({
+          error: "app",
+          message: "Feedback deadline has passed",
+        });
+        // Only the response seeded before the deadline, unedited.
+        expect(await fixture("state")).toEqual({
+          closedFeedbackUnchanged: true,
+          submissionEvents: [fx.closedEventId],
         });
       });
 

@@ -225,16 +225,12 @@ docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
-# Issuing circulars, minutes and declarations needs the signing service.
+# Issuing circulars, minutes, declarations and utilisation certificates
+# needs the signing service.
 echo "Starting the signing service on port $TEST_SIGNING_PORT..."
 docker compose -f "$E2E_COMPOSE_FILE" build signing-test
-rm -rf "$E2E_SIGNING_PKI_DIR"
-mkdir -p "$E2E_SIGNING_PKI_DIR"
-docker run --rm --user "$(id -u):$(id -g)" \
-  -v "$E2E_SIGNING_PKI_DIR:/out" \
-  -v "$REPO_ROOT/packages/e2e/signing/make-test-pki.py:/make-test-pki.py:ro" \
-  --entrypoint /app/.venv/bin/python "pi-dash-signing-e2e${WT_SUFFIX}" \
-  /make-test-pki.py /out
+bash "$REPO_ROOT/packages/e2e/signing/make-test-pki.sh" \
+  "pi-dash-signing-e2e${WT_SUFFIX}" "$E2E_SIGNING_PKI_DIR"
 docker compose -f "$E2E_COMPOSE_FILE" up -d signing-test
 
 # Wait for healthy (timeout after 30s)

@@ -177,7 +177,7 @@ test("visible Kalakriti links do not trigger an access-request burst", async ({
     await expect
       .poll(() => accessRequests.length)
       .toBeGreaterThan(afterInitialLoad);
-    accessPath = new URL(accessRequests[afterInitialLoad].url()).pathname;
+    accessPath = new URL(accessRequests[afterInitialLoad]!.url()).pathname;
     click = entries.click();
     await page.waitForTimeout(250);
     expect(
@@ -345,7 +345,7 @@ test("volunteer pickers load only when their dialogs open", async ({
   ).toBeVisible();
   await page.waitForTimeout(750);
   expect(editionRequests.length).toBeGreaterThan(0);
-  const rosterRequest = editionRequests[0];
+  const rosterRequest = editionRequests[0]!;
   const rosterBody = await (await rosterRequest.response())?.text();
   expect(rosterBody).toContain('"registrationGroup"');
   expect(rosterBody).toContain('"userId"');
@@ -363,7 +363,7 @@ test("volunteer pickers load only when their dialogs open", async ({
     addDialog.getByPlaceholder("Search central volunteers...")
   ).toBeVisible();
   expect(pickerRequests()).toHaveLength(1);
-  const addPickerPath = new URL(pickerRequests()[0].url()).pathname;
+  const addPickerPath = new URL(pickerRequests()[0]!.url()).pathname;
   expect(addPickerPath).not.toBe(rosterPath);
 
   await addDialog.getByRole("button", { name: "Cancel" }).click();
@@ -382,8 +382,8 @@ test("volunteer pickers load only when their dialogs open", async ({
     roleDialog.getByPlaceholder("Search volunteers...")
   ).toBeVisible();
   expect(pickerRequests()).toHaveLength(2);
-  expect(new URL(pickerRequests()[1].url()).pathname).not.toBe(addPickerPath);
-  expect(new URL(pickerRequests()[1].url()).pathname).not.toBe(rosterPath);
+  expect(new URL(pickerRequests()[1]!.url()).pathname).not.toBe(addPickerPath);
+  expect(new URL(pickerRequests()[1]!.url()).pathname).not.toBe(rosterPath);
 });
 
 test("restricted access still allows assigned pages and denies another user", async ({

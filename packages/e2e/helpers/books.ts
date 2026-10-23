@@ -198,7 +198,8 @@ async function probeGuards(): Promise<Record<string, string>> {
         await tx.execute(sql`SAVEPOINT probe`);
         try {
           const rows = await tx.execute(statement);
-          results[name] = `allowed (${rows.count ?? "?"} rows)`;
+          results[name] =
+            `allowed (${"count" in rows ? String(rows.count) : "?"} rows)`;
         } catch {
           results[name] = "refused";
         }
@@ -247,6 +248,8 @@ async function upiGift(
   });
   return id;
 }
+
+export type IncomeFixture = Awaited<ReturnType<typeof incomeFixture>>;
 
 async function incomeFixture(run: string) {
   const now = new Date();
@@ -473,6 +476,8 @@ async function closeAfterPosting(
     return closed;
   });
 }
+
+export type ExpenseFixture = Awaited<ReturnType<typeof expenseFixture>>;
 
 async function expenseFixture(run: string) {
   const now = new Date();
@@ -1186,6 +1191,8 @@ async function postAudited(label: string) {
 
 /** Must match CORPUS_FUND_ID in @pi-dash/shared/constants. */
 const CORPUS_FUND_ID = "01930000-0000-7000-8000-000000000202";
+
+export type CorpusGift = Awaited<ReturnType<typeof corpusGift>>;
 
 async function corpusGift(run: string) {
   const now = new Date();
