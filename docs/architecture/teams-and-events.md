@@ -5,7 +5,7 @@
 
 The volunteer side of the dashboard: teams, the events they run, and what happens around an event. Start at `packages/zero/src/mutators/team-event.ts`.
 
-Event mutators take the client's `now` for their optimistic run, but on the server they judge whether an event has started or ended, and whether a deadline has passed, by the server's clock, so a client can't backdate its way past a time rule.
+Joining, leaving and cancelling an event, and submitting or editing feedback, take the client's `now` for their optimistic run but judge on the server by the server's clock, so a client can't backdate its way past those time rules. Other event time checks (interest, updates, attendance, recaps, series locks) still trust the client's `now`.
 
 ## Team leads
 
