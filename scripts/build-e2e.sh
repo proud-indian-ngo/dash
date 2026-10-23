@@ -28,5 +28,7 @@ for name in TURBO_TOKEN TURBO_REMOTE_CACHE_SIGNATURE_KEY; do
 done
 
 # Remote only: the server drops artifacts after 7 days, and a local hit would
-# leave an expired one missing for CI.
-exec node_modules/.bin/turbo run build:e2e --filter=web --cache=remote:rw "$@"
+# leave an expired one missing for CI. Every shard fetches the same artifact at
+# once, and a fetch past Turbo's default 30s timeout silently becomes a full
+# rebuild of about 100s, so give a slow fetch twice as long.
+exec node_modules/.bin/turbo run build:e2e --filter=web --cache=remote:rw --remote-cache-timeout=60 "$@"

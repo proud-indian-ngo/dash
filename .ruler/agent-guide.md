@@ -59,6 +59,7 @@ Worktrees: `bun run worktree:setup <ID>` (add `--isolated-db` for separate Postg
 
 **Never**
 - Hand-edit `packages/design-system/lib/utils.ts` or `packages/design-system/hooks/use-mobile.ts`.
+- Push with `--no-verify`. The pre-push hook fills the E2E build cache that CI restores; skipping it makes every E2E shard build the app.
 
 ## Read before changing
 
