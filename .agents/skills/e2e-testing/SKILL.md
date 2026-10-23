@@ -28,7 +28,6 @@ A browser test costs seconds in every role project it runs in, on every CI run. 
 - **Run in the roles the outcome depends on.** A check that behaves the same for every role runs as one role. Gate role-specific tests with a skip as the first statement of the test or `beforeEach`, ahead of any navigation, and list a file whose every test is gated to one role in `roleOnlySpecs` (`packages/e2e/project-selection.ts`).
 - **Fail when a precondition is missing.** Assert the seed row or fixture exists, then act on it. A skip or an `if` guarded on what the page happens to show turns a broken fixture into a silent pass.
 - **Make each assertion discriminate.** A filter step needs a fixture row the filter excludes; content inside a collapsed section needs the section opened first; read back what you saved, not what you typed.
-- **Put pure logic in unit tests.** Comparators, filter compilation, date maths and formatting are unit tests next to the code; the E2E test covers the wiring once.
 - **Fake external services in the harness.** A test that needs WhatsApp, R2 or another service runs against a local fake started by `run-e2e.sh` and CI (see `packages/e2e/fake-gowa.ts`), so it runs everywhere. A disabled feature's tests are deleted with the feature; git history keeps them.
 
 `packages/e2e/spec-rules.test.ts` enforces the mechanical parts (part of `bun run test:unit`).

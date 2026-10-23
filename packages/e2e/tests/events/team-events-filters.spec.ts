@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { applyQuickFilter } from "../../helpers/quick-filters";
+import { fillTableSearch } from "../../helpers/team-event";
 
 const TEAM_NAME = "E2E Updates Team";
 
@@ -11,6 +12,26 @@ async function applySelectFilter(page: Page, field: string, value: string) {
 
 async function clearFilters(page: Page) {
   await page.getByRole("button", { name: "Clear" }).click();
+}
+
+/**
+ * Asserts the named seeded events appear in this order in the table. Searches
+ * for the seeds' shared description first, so other events on the team can't
+ * push them onto a later page, then clears the search.
+ */
+async function expectRowOrder(page: Page, names: string[]) {
+  await fillTableSearch(page, "Search events...", "E2E filter test event");
+  await expect
+    .poll(async () => {
+      const rows = await page
+        .getByRole("table")
+        .getByRole("row")
+        .allTextContents();
+      return rows.flatMap((row) => names.filter((name) => row.includes(name)));
+    })
+    .toEqual(names);
+  await page.getByPlaceholder("Search events...").fill("");
+  await page.waitForURL((url) => !new URL(url).searchParams.has("search"));
 }
 
 test.describe("Team events list filters (admin)", () => {
@@ -51,6 +72,12 @@ test.describe("Team events list filters (admin)", () => {
     ).toBeGreaterThan(0);
     await expect(table.getByText("Past", { exact: true })).toHaveCount(0);
     await expect(table.getByText("Cancelled", { exact: true })).toHaveCount(0);
+    await test.step("upcoming events sort nearest first", () =>
+      // Seeded 3 and 5 days ahead
+      expectRowOrder(page, [
+        "E2E Upcoming Public Bangalore",
+        "E2E Upcoming Private Mumbai",
+      ]));
     await clearFilters(page);
 
     // Past shows only past non-cancelled events
@@ -63,6 +90,12 @@ test.describe("Team events list filters (admin)", () => {
     ).toBeGreaterThan(0);
     await expect(table.getByText("Upcoming", { exact: true })).toHaveCount(0);
     await expect(table.getByText("Cancelled", { exact: true })).toHaveCount(0);
+    await test.step("past events sort most recent first", () =>
+      // Seeded 5 and 10 days ago
+      expectRowOrder(page, [
+        "E2E Past Private Bangalore",
+        "E2E Past Public Mumbai",
+      ]));
 
     // Clearing all filters restores the full list
     await clearFilters(page);
@@ -98,6 +131,12 @@ test.describe("Team events list filters (admin)", () => {
     expect(await privateCells.count()).toBeGreaterThan(0);
     // No "Public" badges in cells (column header "Public" may still exist)
     await expect(publicCells).toHaveCount(0);
+    await test.step("upcoming events sort before past ones", () =>
+      // Seeded 5 days ahead and 5 days ago
+      expectRowOrder(page, [
+        "E2E Upcoming Private Mumbai",
+        "E2E Past Private Bangalore",
+      ]));
     await clearFilters(page);
 
     // Recurring keeps the series and hides one-time events

@@ -502,6 +502,17 @@ test("Food and Entry readers see their two-Center union, while arrival and check
       ).error
     ).toBeUndefined();
     for (const [field, value, operator, included, excluded] of [
+      // Guardians filter by their yearly ID
+      [
+        "humanId",
+        data.scopeGuardianId,
+        "contains",
+        "Union Guardian",
+        "Center B Guardian",
+      ],
+      // A two-Center person matches a filter on either Center
+      ["centers", data.centerId, "is", "Union Guardian", "Union Student B"],
+      ["centers", data.centerB, "is", "Union Guardian", "Center A Volunteer"],
       ["centers", data.centerC, "is", "Center A Volunteer", "Union Guardian"],
       [
         "centers",
