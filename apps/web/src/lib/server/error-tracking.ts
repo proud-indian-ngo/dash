@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { refusalStatus } from "@pi-dash/observability";
 import { type DrainContext, log, type WideEvent } from "evlog";
 import type { PostHog } from "posthog-node";
+
+import { HttpError } from "@/lib/http-error";
 
 type ErrorTrackingClient = Pick<PostHog, "captureException">;
 
@@ -32,7 +35,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // evlog's builtin maskers, which it does not export: the ones logger.ts
-// enables, plus phone numbers written with a country code or area code.
+// enables, plus phone numbers written with a country code or area code, and
+// Indian mobile numbers without one (a 6-9 lead, 10 digits, whole or grouped
+// 5-5, 4-3-3 or 3-3-4, optionally after 0 or 91). Longer digit runs, IDs
+// joined by `_` and decimals are left alone.
 const PII_MASKERS: [RegExp, (match: string) => string][] = [
   [
     /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g,
@@ -55,6 +61,10 @@ const PII_MASKERS: [RegExp, (match: string) => string][] = [
     /(?:\+\d{1,3}[\s.-]?\(?\d{1,4}\)?|\(\d{1,4}\))(?:[\s.-]?\d{2,4}){2,4}\b/g,
     (m) =>
       `${m.startsWith("+") ? "+" : ""}******${m.replace(/\D/g, "").slice(-2)}`,
+  ],
+  [
+    /(?<![\d.,])\b(?:(?:91|0)[\s-]?)?[6-9](?:\d{9}|\d{4}[\s-]\d{5}|\d{3}[\s-]\d{3}[\s-]\d{3}|\d{2}[\s-]\d{3}[\s-]\d{4})\b(?![.,]\d)/g,
+    (m) => `******${m.slice(-2)}`,
   ],
 ];
 
@@ -85,26 +95,55 @@ export function scrubError(error: Error): Error {
   return scrubbed;
 }
 
-/**
- * The first numeric status on the error or its cause, as Start resolves it.
- * better-call's APIError has a string `status` ("BAD_REQUEST") and a numeric
- * `statusCode`.
- */
-export function errorStatus(error: unknown): number | undefined {
-  if (!isRecord(error)) {
-    return undefined;
-  }
-  const { cause } = error;
-  const candidates = [error.status, error.statusCode];
-  if (isRecord(cause)) {
-    candidates.push(cause.status, cause.statusCode);
-  }
-  return candidates.find((value): value is number => typeof value === "number");
+interface ValidationIssue {
+  code?: string;
+  /** Keys and indices only: Standard Schema paths never hold the input. */
+  path: string;
 }
 
-/** Client errors (4xx) and aborted requests are not defects. */
+function issueSummary(value: unknown): ValidationIssue | undefined {
+  if (!(isRecord(value) && typeof value.message === "string")) {
+    return undefined;
+  }
+  const segments = Array.isArray(value.path) ? value.path : [];
+  const path = segments
+    .map((segment: unknown) =>
+      String(isRecord(segment) ? segment.key : segment)
+    )
+    .join(".");
+  return typeof value.code === "string" ? { code: value.code, path } : { path };
+}
+
+/**
+ * Start's input validator throws a plain Error whose message is the
+ * schema's Standard Schema issues as JSON: the caller sent input the server
+ * refuses. Returns it as a 400, with each issue's path and code (never its
+ * input) for logging; anything else is not a validation error.
+ */
+export function validationRefusal(
+  error: unknown
+): { issues: ValidationIssue[]; refusal: HttpError } | undefined {
+  if (!(error instanceof Error) || error.constructor !== Error) {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(error.message);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return undefined;
+  }
+  const issues = parsed.map(issueSummary);
+  return issues.every((issue) => issue !== undefined)
+    ? { issues, refusal: new HttpError(400, error.message) }
+    : undefined;
+}
+
+/** Our own refusals (4xx) and aborted requests are not defects. */
 function isExpected(error: unknown): boolean {
-  const status = errorStatus(error);
+  const status = refusalStatus(error);
   return (
     (isRecord(error) && error.name === "AbortError") ||
     (status !== undefined && status < 500)

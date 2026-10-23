@@ -67,9 +67,7 @@ const yearInput = z.object({ financialYear: z.string().max(10) });
 function requireYear(label: string) {
   const fy = parseReturnYear(label);
   if (!fy) {
-    throw new DonationsReturnError(
-      "Pick a financial year from 2026-27 onward."
-    );
+    throw new HttpError(400, "Pick a financial year from 2026-27 onward.");
   }
   return fy;
 }

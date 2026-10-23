@@ -48,8 +48,11 @@ import { ID_TYPE_LABELS } from "@/lib/donor-schema";
 
 /** A refusal written for the person exporting; any other error is hidden. */
 export class DonationsReturnError extends Error {
-  constructor(message: string) {
+  /** Missing configuration or reference data: reported to Error Tracking with its message. */
+  readonly fault: boolean;
+  constructor(message: string, options: { fault?: boolean } = {}) {
     super(message);
+    this.fault = options.fault ?? false;
     this.name = "DonationsReturnError";
   }
 }
@@ -101,7 +104,8 @@ export async function buildUploadFile(
   const facts = await loadReturnFacts(fy, "reveal", filing.reader);
   if (!facts.identifiersAvailable) {
     throw new DonationsReturnError(
-      "Identifiers unavailable (encryption key not set)."
+      "Identifiers unavailable (encryption key not set).",
+      { fault: true }
     );
   }
   const { gifts } = assessReturn(facts.gifts, facts.donors, filing.filedGifts);

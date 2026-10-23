@@ -16,7 +16,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
  * Playwright's Node runner cannot load `@pi-dash/db`. Prints one JSON value.
  *
  * - `clear-details-address`: removes the address of "E2E Receipt Details
- *   Donor" (seeded in seed-test-user.ts), so its gift reads Needs details
+ *   Donor" (seeded in helpers/seed/income.ts), so its gift reads Needs details
  *   again before each attempt of the test that adds the address.
  * - `void-direct-receipt`: voids the live receipt, if any, of the receipt
  *   donor's UPI gift, so it reads Ready to issue again before each attempt
@@ -29,7 +29,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
  *   by reference, with the label the sheet shows. No IDs or donor details.
  */
 
-/** RECEIPT_DETAILS_DONOR_ID in seed-test-user.ts. */
+/** RECEIPT_DETAILS_DONOR_ID in helpers/seed/income.ts. */
 const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
 /** The receipt donor's seeded UPI gift (E2E-RECEIPT-UPI). */
 const RECEIPT_UPI_GIFT_ID = "01930000-0000-7000-8000-000000000743";

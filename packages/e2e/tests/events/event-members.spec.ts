@@ -234,7 +234,7 @@ test.describe("Event member management (volunteer)", () => {
   });
 });
 
-/** Upcoming event in the team the volunteer leads; seeded in seed-test-user. */
+/** Upcoming event in the team the volunteer leads; seeded in helpers/seed/events.ts. */
 const LEAD_EVENT_ID = "e2e00000-0000-0000-0000-000000000203";
 const MEMBER_PHONE = "+919800000302";
 

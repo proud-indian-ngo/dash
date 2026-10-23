@@ -303,10 +303,10 @@ describe("give.do payout boundary", () => {
         defaultChannel: "give_do",
         mapping: GIVE_DO_MAPPING,
       })
-    ).rejects.toBeInstanceOf(ImportInputError);
+    ).rejects.toMatchObject({ status: 409 });
     await expect(
       runImportBatch({ batchId: BATCH, decisions: {} }, "u-1")
-    ).rejects.toBeInstanceOf(ImportInputError);
+    ).rejects.toMatchObject({ status: 409 });
     await expect(
       getImportBatchDetail(BATCH, { canManage: true })
     ).rejects.toThrow("open it from Settlements");
@@ -379,13 +379,13 @@ describe("createImportBatch errors", () => {
     );
   });
 
-  it("lets errors written for the user through unchanged", async () => {
+  it("lets errors written for the user through as a 409", async () => {
     insertBatch = async () => {
       throw new ImportInputError("Choose an active fund");
     };
     await expect(
       createImportBatch(input, parseCsv(csv), "user-1")
-    ).rejects.toThrow("Choose an active fund");
+    ).rejects.toMatchObject({ message: "Choose an active fund", status: 409 });
     expect(logged).toEqual([]);
   });
 });

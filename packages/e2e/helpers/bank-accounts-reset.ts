@@ -6,7 +6,7 @@ import { and, eq, isNull, ne, or } from "drizzle-orm";
 /**
  * Puts a test user's bank accounts back to the seed: removes every other
  * account and makes the seeded one (number ending 7890, see
- * seed-test-user.ts) the default. Run with Bun as a script because
+ * helpers/seed/core.ts) the default. Run with Bun as a script because
  * Playwright's Node runner cannot load `@pi-dash/db`. Prints one JSON value.
  */
 const SEED_ACCOUNT_NUMBER = "1234567890";

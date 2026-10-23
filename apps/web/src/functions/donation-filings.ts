@@ -33,7 +33,6 @@ import {
   undoSubmission,
   uploadCertificates,
 } from "@/lib/donation-filings/server";
-import { DonationsReturnError } from "@/lib/donations-return-export";
 import { HttpError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
@@ -89,9 +88,7 @@ export const recordDonationFiling = createServerFn({ method: "POST" })
     const { session } = context;
     const fy = parseReturnYear(data.financialYear);
     if (!fy) {
-      throw new DonationsReturnError(
-        "Pick a financial year from 2026-27 onward."
-      );
+      throw new HttpError(400, "Pick a financial year from 2026-27 onward.");
     }
     return await runSessionAuditedAction(
       session,

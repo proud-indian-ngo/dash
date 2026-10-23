@@ -31,9 +31,11 @@ When filtering an exclusive-last spec with `--grep`, include `authenticate as|<t
 
 The shared fixture in `fixtures/test.ts` listens for browser errors only when a test requests `page`. API-only authorization tests use `request`, so they exercise the live HTTP and Zero authorization path without a browser.
 
-Fixture users are inserted by `helpers/seed-test-user.ts`, bypassing Better Auth sign-up, email verification and the 18+ date-of-birth check. Public self-registration is covered by `tests/auth/register.spec.ts`.
+Fixture users are inserted by the base seed (below), bypassing Better Auth sign-up, email verification and the 18+ date-of-birth check. Public self-registration is covered by `tests/auth/register.spec.ts`.
 
 ## Seeding and DB isolation
+
+The base seed, `helpers/seed-test-user.ts`, runs before the specs and calls the modules in `helpers/seed/` in a fixed order, since later fixtures reference rows earlier ones insert. `core.ts` holds what every spec needs (users, roles and permissions, expense categories, the updates team) and fixtures that specs in several folders read. Every other module is named after the `tests/` folder whose specs read its fixtures, so a seed change maps to that folder's specs; put a new fixture in its folder's module, or in `core.ts` when several folders depend on it. `core.ts` loads `.env.test`, so a module that reads the environment at load time must import from it.
 
 Feature helpers in `helpers/` add the entities a spec needs. They must be idempotent (`onConflictDoNothing()`) and return inserted IDs. `helpers/seed-dev-data.ts` seeds development data for cloud sessions; the harness does not run it.
 

@@ -66,6 +66,7 @@ import {
   prepareSignatureFields,
   SigningServiceError,
 } from "@/lib/governance/signing-service";
+import { HttpError, userFacingError } from "@/lib/http-error";
 import { readGovernanceUpload } from "@/lib/r2-upload-claim";
 import { getS3 } from "@/lib/s3";
 import { createTemporaryUpload } from "@/lib/temporary-upload";
@@ -86,7 +87,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof CircularError ||
       error instanceof SigningServiceError
     ) {
-      throw new Error(error.message);
+      throw userFacingError(error);
     }
     throw error;
   });
@@ -131,7 +132,7 @@ export const sendMeetingNoticeFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -226,7 +227,7 @@ export const decideAgendaItemFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid(), itemId: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -346,7 +347,7 @@ export const markMeetingHeldFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -396,7 +397,7 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid() }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(
@@ -623,7 +624,7 @@ export const getMinutesUploadUrl = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await createTemporaryUpload(
@@ -657,7 +658,7 @@ export const submitSignedMinutesFn = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.uuid(), tempKey: z.string().min(1).max(500) }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
-      throw new Error("Unauthorized");
+      throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
     return await runSessionAuditedAction(

@@ -14,7 +14,9 @@ import {
  * identifier to store, and when the foreign-source assessment was decided.
  */
 
+/** A save or delete the party's current records refuse; the status marks it as expected. */
 export class PartyConflictError extends Error {
+  readonly status = 409;
   constructor(message: string) {
     super(message);
     this.name = "PartyConflictError";

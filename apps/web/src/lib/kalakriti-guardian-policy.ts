@@ -3,6 +3,8 @@ import {
   isKalakritiVolunteerManagementResponsibility,
 } from "@pi-dash/shared/kalakriti";
 
+import { HttpError } from "@/lib/http-error";
+
 interface GuardianAccess {
   edition: { lifecycle: string | null };
   isGlobalAdmin: boolean;
@@ -69,31 +71,37 @@ export function decideGuardianIdentity({
 }): GuardianIdentityDecision {
   if (!candidate) {
     if (!hasPassword) {
-      throw new Error(
+      throw new HttpError(
+        400,
         "A password of at least 10 characters is required for a new Guardian"
       );
     }
     return "create_external";
   }
   if (!candidate.emailVerified) {
-    throw new Error(
+    throw new HttpError(
+      409,
       "An account with this email exists but its email is not verified"
     );
   }
   if (candidate.hasEditionMembership) {
-    throw new Error("This account already has a membership in this Edition");
+    throw new HttpError(
+      409,
+      "This account already has a membership in this Edition"
+    );
   }
   if (!candidate.isExternal) {
     if (candidate.role === "external_user") {
-      throw new Error(
+      throw new HttpError(
+        409,
         "This Guardian account is still being provisioned; try again"
       );
     }
     if (candidate.banned) {
-      throw new Error("This central account is suspended");
+      throw new HttpError(409, "This central account is suspended");
     }
     if (!candidate.canAccessKalakriti) {
-      throw new Error("This central account cannot access Kalakriti");
+      throw new HttpError(409, "This central account cannot access Kalakriti");
     }
     return "assign_central";
   }
@@ -101,7 +109,8 @@ export function decideGuardianIdentity({
     throw new Error("External identity has an invalid technical role");
   }
   if (candidate.hasActiveMembership) {
-    throw new Error(
+    throw new HttpError(
+      409,
       "This Guardian already has access to an active Kalakriti Edition"
     );
   }
@@ -148,7 +157,8 @@ export function assertAssignedCentralEmailUnchanged({
   isExternal: boolean;
 }) {
   if (!isExternal && emailChanged) {
-    throw new Error(
+    throw new HttpError(
+      409,
       "Guardian login email cannot be changed for a volunteer account assigned as Guardian"
     );
   }

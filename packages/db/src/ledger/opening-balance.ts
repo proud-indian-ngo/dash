@@ -211,7 +211,8 @@ async function assertReferenceData(tx: LedgerTx) {
   if (required.some((r) => typeById.get(r.id) !== r.type)) {
     throw new LedgerError(
       "invalid",
-      "Books reference data missing: the Fixed assets, Audit fees payable or Fund balance account head couldn't be created. Ask an administrator to check the server log."
+      "Books reference data missing: the Fixed assets, Audit fees payable or Fund balance account head couldn't be created. Ask an administrator to check the server log.",
+      { fault: true }
     );
   }
 }

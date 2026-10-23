@@ -1,18 +1,20 @@
 import { describe, expect, it, mock } from "bun:test";
 
+import { refusalStatus } from "@pi-dash/observability";
 import type { WideEvent } from "evlog";
+import { z } from "zod";
 
 import { HttpError } from "@/lib/http-error";
 
 import {
   captureThrownError,
   createErrorTrackingDrain,
-  errorStatus,
   errorToReport,
   routeTemplate,
   runWithErrorScope,
   scrubError,
   scrubText,
+  validationRefusal,
 } from "./error-tracking";
 
 function wideEvent(fields: Record<string, unknown>): WideEvent {
@@ -73,21 +75,94 @@ describe("scrubError", () => {
       )
     ).toBe("card ****1111 token eyJ***.*** iban GB82****432");
   });
+
+  it("masks Indian mobile numbers written without a country code", () => {
+    expect(
+      scrubText(
+        "9876543210, 98765 43210, 98765-43210, 09876543210 and 919876543210"
+      )
+    ).toBe("******10, ******10, ******10, ******10 and ******10");
+    expect(scrubText("9876 543 210, 987 654 3210 and 91 98765 43210")).toBe(
+      "******10, ******10 and ******10"
+    );
+    expect(scrubText("duplicate phone +91 98765 43210")).toBe(
+      "duplicate phone +******10"
+    );
+  });
+
+  it("leaves timestamps, IDs, decimals and dates that look like numbers", () => {
+    const text =
+      "at 1729760000 for pay_9876543210 row 0190f1e2-3a4b-7c5d-8e6f-987654321098 of 6543210987.50 paise, 123456789 on 2026-10-24";
+    expect(scrubText(text)).toBe(text);
+  });
 });
 
-describe("errorStatus", () => {
-  it("takes the first numeric status, skipping better-call's string status", () => {
+describe("validationRefusal", () => {
+  // Start's input validator throws the Standard Schema issues as JSON.
+  async function startValidationError(input: unknown): Promise<Error> {
+    const schema = z.object({ id: z.string().regex(/^[a-z]+$/) });
+    const result = await schema["~standard"].validate(input);
+    return new Error(JSON.stringify(result.issues, undefined, 2));
+  }
+
+  it("turns Start's input validation error into a 400 with its message", async () => {
+    const error = await startValidationError({ id: "Not A Slug" });
+
+    const invalid = validationRefusal(error);
+
+    expect(invalid?.refusal).toBeInstanceOf(HttpError);
+    expect(invalid?.refusal.status).toBe(400);
+    expect(invalid?.refusal.message).toBe(error.message);
+  });
+
+  it("summarises the issues by path and code only, never the input", async () => {
+    const error = await startValidationError({ id: "Asha 9876543210" });
+
+    expect(validationRefusal(error)?.issues).toEqual([
+      { code: "invalid_format", path: "id" },
+    ]);
+  });
+
+  it("leaves other errors alone", () => {
+    for (const error of [
+      new Error("connection reset"),
+      new Error("[]"),
+      new Error('["not an issue"]'),
+      new Error('{"message":"an object, not issues"}'),
+      new TypeError('[{"message":"Expected string"}]'),
+    ]) {
+      expect(validationRefusal(error)).toBeUndefined();
+    }
+    expect(validationRefusal('[{"message":"a string"}]')).toBeUndefined();
+  });
+});
+
+describe("refusalStatus", () => {
+  it("reads our refusals and better-call's numeric statusCode, on the error or its cause", () => {
     const apiError = Object.assign(new Error("Invalid email"), {
       name: "APIError",
       status: "BAD_REQUEST",
       statusCode: 400,
     });
 
-    expect(errorStatus(apiError)).toBe(400);
-    expect(errorStatus(new Error("x", { cause: { statusCode: 503 } }))).toBe(
-      503
-    );
-    expect(errorStatus(new Error("x"))).toBeUndefined();
+    expect(refusalStatus(apiError)).toBe(400);
+    expect(
+      refusalStatus(new Error("x", { cause: new HttpError(404, "Not found") }))
+    ).toBe(404);
+    expect(refusalStatus(new Error("x"))).toBeUndefined();
+  });
+
+  it("ignores a status copied from an upstream API", () => {
+    const expired = Object.assign(new Error("Razorpay API answered 401"), {
+      name: "RazorpayApiError",
+      status: 401,
+    });
+
+    expect(refusalStatus(expired)).toBeUndefined();
+    expect(refusalStatus(new Error("x", { cause: expired }))).toBeUndefined();
+    expect(
+      refusalStatus(new Error("x", { cause: { statusCode: 403 } }))
+    ).toBeUndefined();
   });
 });
 
@@ -127,28 +202,54 @@ describe("errorToReport", () => {
     expect(errorToReport(wideEvent({ message: "no error" }))).toBeUndefined();
   });
 
-  it("skips aborted requests and 4xx errors", () => {
+  it("skips aborted requests and our own refusals", () => {
     expect(
       errorToReport(
         wideEvent({ error: { message: "aborted", name: "AbortError" } })
       )
     ).toBeUndefined();
     expect(
-      errorToReport(wideEvent({ error: { ...serverError, status: 403 } }))
-    ).toBeUndefined();
-    expect(
-      errorToReport(wideEvent({ error: { ...serverError, statusCode: 404 } }))
+      errorToReport(
+        wideEvent({ error: { ...serverError, name: "HttpError", status: 403 } })
+      )
     ).toBeUndefined();
     expect(
       errorToReport(
         wideEvent({
-          error: { ...serverError, status: "BAD_REQUEST", statusCode: 400 },
+          error: {
+            ...serverError,
+            name: "PrivateMediaAccessError",
+            status: 404,
+          },
+        })
+      )
+    ).toBeUndefined();
+    expect(
+      errorToReport(
+        wideEvent({
+          error: {
+            ...serverError,
+            name: "APIError",
+            status: "BAD_REQUEST",
+            statusCode: 400,
+          },
         })
       )
     ).toBeUndefined();
     expect(
       errorToReport(wideEvent({ error: { ...serverError, status: 502 } }))
     ).toBeInstanceOf(Error);
+  });
+
+  it("reports an upstream API's 4xx: an expired token is our fault", () => {
+    for (const error of [
+      { ...serverError, name: "CloudApiError", status: 401 },
+      { ...serverError, name: "RazorpayApiError", status: 401 },
+      { ...serverError, name: "EmailSendError", statusCode: 403 },
+      { ...serverError, statusCode: 400 },
+    ]) {
+      expect(errorToReport(wideEvent({ error }))).toBeInstanceOf(Error);
+    }
   });
 });
 
@@ -230,8 +331,10 @@ describe("captureThrownError", () => {
     const resolveUser = mock(userId);
 
     for (const thrown of [
+      new HttpError(400, "Pick a date in this financial year"),
       new HttpError(403, "Forbidden"),
       new HttpError(404, "Role not found"),
+      new HttpError(409, 'Role ID "team_lead" already exists'),
       Object.assign(new Error("aborted"), { name: "AbortError" }),
       new Response(null, { status: 307 }),
     ]) {
@@ -242,6 +345,20 @@ describe("captureThrownError", () => {
 
     expect(captureException).not.toHaveBeenCalled();
     expect(resolveUser).not.toHaveBeenCalled();
+  });
+
+  it("reports an upstream API's 401 thrown by a server function", async () => {
+    const { captureException } = setUp();
+    const expired = Object.assign(
+      new Error("Error validating access token: Session has expired"),
+      { name: "CloudApiError", status: 401 }
+    );
+
+    await runWithErrorScope("serverFn", () =>
+      captureThrownError(expired, { route: "sendTestMessage" }, userId)
+    );
+
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 
   it("does not report again an error the handler already logged", async () => {
