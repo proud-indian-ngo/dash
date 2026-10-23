@@ -315,9 +315,12 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.zero-cache.outputs.playwright }}
+      # The runner image already has Chromium's system libraries (a cache hit
+      # runs without installing them); --with-deps adds an apt step that has
+      # taken minutes.
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install chromium
       - name: Save Playwright cache
         if: always() && steps.playwright-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
