@@ -168,6 +168,7 @@ test.describe("Event member management (volunteer)", () => {
     const fx = await startedEvent<{
       joinedEventId: string;
       otherEventId: string;
+      seriesId: string;
     }>("setup", volunteerEmail);
     try {
       const beforeStart = Date.now() - 2 * 60 * 60 * 1000;
@@ -209,8 +210,21 @@ test.describe("Event member management (volunteer)", () => {
         });
       });
 
+      // "All upcoming" never cancels a started session: the series row, its
+      // first session, stays live.
+      await test.step("keeps a series' started first session when cancelling all", async () => {
+        expect(
+          await pushMutation(page, "teamEvent.cancelSeries", {
+            id: fx.seriesId,
+            mode: "all",
+            now: beforeStart,
+          })
+        ).toEqual({});
+      });
+
       expect(await startedEvent("state", volunteerEmail)).toEqual({
         joinedCancelled: false,
+        seriesCancelled: false,
         memberOfJoined: true,
         memberOfOther: false,
       });

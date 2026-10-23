@@ -955,15 +955,17 @@ export const teamEventMutators = {
       };
       // Whether earlier sessions stay live, so only later ones are cancelled.
       let seriesEnded = false;
+      // Every time decision and timestamp below uses the server's clock.
+      const timed = { ...args, now };
       if (mode === "all") {
-        result = await cancelSeriesAll(tx, args, existing);
+        result = await cancelSeriesAll(tx, timed, existing);
         seriesEnded = !result.cancelledIds.includes(args.id);
       } else if (mode === "this") {
-        result = await cancelSeriesThis(tx, args, existing, ctx.userId);
+        result = await cancelSeriesThis(tx, timed, existing, ctx.userId);
       } else if (mode === "following" && args.originalDate) {
         result = await cancelSeriesFollowing(
           tx,
-          { ...args, originalDate: args.originalDate },
+          { ...timed, originalDate: args.originalDate },
           existing
         );
         seriesEnded = true;
@@ -988,7 +990,7 @@ export const teamEventMutators = {
         const eventId = args.id;
         const eventName = existing.name;
         const { teamId } = existing;
-        const cancelledAt = args.now;
+        const cancelledAt = now;
         const { reason } = args;
         const eventMembers = (await tx.run(
           zql.teamEventMember.where("eventId", "IN", notifiedIds)

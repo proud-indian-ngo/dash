@@ -5,13 +5,15 @@ import { teamEvent, teamEventMember } from "@pi-dash/db/schema/team-event";
 import { and, eq } from "drizzle-orm";
 
 /**
- * Two events that started an hour ago, in a team of their own that the
- * volunteer leads without `events.cancel`. The volunteer is an event member
- * of `joined` and not of `other`. Setup starts from a clean slate.
+ * Two events and a weekly series whose first session started an hour ago,
+ * in a team of their own that the volunteer leads without `events.cancel`.
+ * The volunteer is an event member of `joined` and not of `other`. Setup
+ * starts from a clean slate.
  */
 const ID = {
   joined: "019f0000-0061-7000-8000-000000006101",
   other: "019f0000-0061-7000-8000-000000006102",
+  series: "019f0000-0061-7000-8000-000000006103",
   team: "019f0000-0061-7000-8000-000000006100",
 } as const;
 
@@ -55,25 +57,31 @@ async function setup(email: string) {
     createdBy: userId,
     endTime: new Date(now + HOUR),
     id,
-    isPublic: true,
+    isPublic: false,
     name,
     startTime: new Date(now - HOUR),
     teamId: ID.team,
     updatedAt: new Date(now - 24 * HOUR),
   });
-  await db
-    .insert(teamEvent)
-    .values([
-      event(ID.joined, "Started E2E session"),
-      event(ID.other, "Started E2E other session"),
-    ]);
+  await db.insert(teamEvent).values([
+    event(ID.joined, "Started E2E session"),
+    event(ID.other, "Started E2E other session"),
+    {
+      ...event(ID.series, "Started E2E weekly class"),
+      recurrenceRule: { rrule: "FREQ=WEEKLY" },
+    },
+  ]);
   await db.insert(teamEventMember).values({
     addedAt: new Date(now - 24 * HOUR),
     eventId: ID.joined,
     id: "019f0000-0061-7000-8000-000000006120",
     userId,
   });
-  return { joinedEventId: ID.joined, otherEventId: ID.other };
+  return {
+    joinedEventId: ID.joined,
+    otherEventId: ID.other,
+    seriesId: ID.series,
+  };
 }
 
 /** What the refused mutations would have changed. */
@@ -91,12 +99,18 @@ async function state(email: string) {
           )
         )
     ).length > 0;
-  const joined = await db.query.teamEvent.findFirst({
-    columns: { cancelledAt: true },
-    where: eq(teamEvent.id, ID.joined),
-  });
+  const cancelled = async (id: string) =>
+    Boolean(
+      (
+        await db.query.teamEvent.findFirst({
+          columns: { cancelledAt: true },
+          where: eq(teamEvent.id, id),
+        })
+      )?.cancelledAt
+    );
   return {
-    joinedCancelled: Boolean(joined?.cancelledAt),
+    joinedCancelled: await cancelled(ID.joined),
+    seriesCancelled: await cancelled(ID.series),
     memberOfJoined: await memberOf(ID.joined),
     memberOfOther: await memberOf(ID.other),
   };
