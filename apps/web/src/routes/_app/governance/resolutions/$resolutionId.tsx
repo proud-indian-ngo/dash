@@ -22,9 +22,12 @@ import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { RichText } from "@/components/editor/rich-text";
+import { HistoricalResolutionDialog } from "@/components/governance/historical-resolution-dialog";
 import { IssueCircularDialog } from "@/components/governance/issue-circular-dialog";
 import {
   epochToIso,
@@ -50,6 +53,8 @@ import {
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
 import { useApp } from "@/context/app-context";
+import { deleteHistoricalResolutionFn } from "@/functions/resolutions";
+import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { formatTimestamp } from "@/lib/date-formats";
 import {
@@ -85,20 +90,40 @@ function ResolutionPage() {
   const zero = useZero();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [issuing, setIssuing] = useState(false);
-  const handleDelete = useEventCallback(async () => {
-    const out = await zero.mutate(
-      mutators.resolution.deleteDraft({ id: resolutionId })
-    ).server;
-    handleMutationResult(out, {
-      entityId: resolutionId,
-      errorMsg: `Couldn't delete the draft: ${getMutationResultErrorMessage(out.type === "error" ? out.error : undefined, "something went wrong")}`,
-      mutation: "resolution.deleteDraft",
-      successMsg: "Draft deleted",
-    });
-    if (out.type !== "error") {
-      navigate({ to: "/governance/resolutions" });
+  const deleteHistorical = useServerFn(deleteHistoricalResolutionFn);
+  const deleteAction = useConfirmAction({
+    onConfirm: async () => {
+      // Recorded from paper: a server function that throws on refusal.
+      if (row?.historical === true) {
+        try {
+          await deleteHistorical({ data: { id: resolutionId } });
+        } catch (error) {
+          toast.error("Couldn't delete it", {
+            description:
+              error instanceof Error ? error.message : "Something went wrong",
+          });
+          return { type: "error" };
+        }
+        toast.success("Resolution deleted");
+        return { type: "success" };
+      }
+      const out = await zero.mutate(
+        mutators.resolution.deleteDraft({ id: resolutionId })
+      ).server;
+      handleMutationResult(out, {
+        entityId: resolutionId,
+        errorMsg: `Couldn't delete the draft: ${getMutationResultErrorMessage(out.type === "error" ? out.error : undefined, "something went wrong")}`,
+        mutation: "resolution.deleteDraft",
+        successMsg: "Draft deleted",
+      });
+      return out;
+    },
+    onSuccess: () => navigate({ to: "/governance/resolutions" }),
+  });
+  const closeDelete = useEventCallback((open: boolean) => {
+    if (!open) {
+      deleteAction.cancel();
     }
   });
 
@@ -154,21 +179,23 @@ function ResolutionPage() {
 
   // A meeting's resolution is decided on the meeting's page, not issued.
   const isCircularDraft = row.status === "draft" && row.kind !== "meeting";
+  // Recorded from paper, so a typing mistake can be corrected.
+  const historical = row.historical === true;
   const menuActions = [
-    row.status === "draft" &&
+    (row.status === "draft" || historical) &&
       canManage && {
         icon: Edit02Icon,
         id: "edit",
-        label: "Edit draft",
+        label: historical ? "Edit" : "Edit draft",
         onSelect: () => setEditing(true),
       },
-    isCircularDraft &&
+    (isCircularDraft || historical) &&
       canManage && {
         destructive: true,
         icon: Delete02Icon,
         id: "delete",
-        label: "Delete draft",
-        onSelect: () => setDeleting(true),
+        label: historical ? "Delete" : "Delete draft",
+        onSelect: () => deleteAction.trigger(),
       },
   ];
   const hasMenu = menuActions.some(Boolean);
@@ -288,7 +315,23 @@ function ResolutionPage() {
         ) : null}
       </div>
 
-      <Dialog onOpenChange={setEditing} open={editing}>
+      {historical ? (
+        <HistoricalResolutionDialog
+          onOpenChange={setEditing}
+          open={editing}
+          resolution={{
+            decidedOn: epochToIso(row.decidedOn),
+            documentId: row.finalDocumentId,
+            id: row.id,
+            number: row.number ?? "",
+            templateKey: row.templateKey,
+            title: row.title,
+            validityNote: row.validityNote,
+          }}
+        />
+      ) : null}
+
+      <Dialog onOpenChange={setEditing} open={editing && !historical}>
         <DialogContent className="sm:max-w-(--dialog-lg)">
           <DialogHeader>
             <DialogTitle>Edit draft</DialogTitle>
@@ -318,12 +361,18 @@ function ResolutionPage() {
       ) : null}
 
       <ConfirmDialog
-        confirmLabel="Delete draft"
-        description="The draft is deleted. Issued circulars can't be deleted."
-        onConfirm={handleDelete}
-        onOpenChange={setDeleting}
-        open={deleting}
-        title="Delete this draft?"
+        confirmLabel={historical ? "Delete resolution" : "Delete draft"}
+        description={
+          historical
+            ? "Use this only for a resolution recorded by mistake. The signed copy stays in the vault. A resolution the register or a meeting cites can't be deleted."
+            : "The draft is deleted. Issued circulars can't be deleted."
+        }
+        loading={deleteAction.isLoading}
+        loadingLabel="Deleting..."
+        onConfirm={deleteAction.confirm}
+        onOpenChange={closeDelete}
+        open={deleteAction.isOpen}
+        title={historical ? "Delete this resolution?" : "Delete this draft?"}
       />
     </div>
   );

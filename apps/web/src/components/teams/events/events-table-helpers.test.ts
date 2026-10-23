@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { applyOccurrenceDate } from "./events-table-helpers";
-import { parseRuleUntil } from "./rrule-until";
+import { isPastSeriesUntil, parseRuleUntil } from "./rrule-until";
 
 describe("parseRuleUntil", () => {
   it("parses UNTIL with midnight UTC", () => {
@@ -29,6 +29,26 @@ describe("parseRuleUntil", () => {
   it("handles BYDAY between FREQ and UNTIL", () => {
     const ms = parseRuleUntil("FREQ=WEEKLY;BYDAY=SA;UNTIL=20260601T000000Z");
     expect(ms).toBe(Date.UTC(2026, 5, 1, 0, 0, 0));
+  });
+});
+
+describe("isPastSeriesUntil", () => {
+  const cut = { rrule: "FREQ=WEEKLY;UNTIL=20261010T235959Z" };
+
+  it("flags a session keyed after the series' UNTIL", () => {
+    expect(isPastSeriesUntil("2026-10-17", cut)).toBe(true);
+  });
+
+  it("keeps a session on the UNTIL date or before it", () => {
+    expect(isPastSeriesUntil("2026-10-10", cut)).toBe(false);
+    expect(isPastSeriesUntil("2026-10-03", cut)).toBe(false);
+  });
+
+  it("keeps any session of an open-ended series", () => {
+    expect(isPastSeriesUntil("2027-01-02", { rrule: "FREQ=WEEKLY" })).toBe(
+      false
+    );
+    expect(isPastSeriesUntil("2027-01-02", null)).toBe(false);
   });
 });
 

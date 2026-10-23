@@ -53,14 +53,15 @@ async function processSendSingleRsvpPollJob(
   const { eventId } = job.data;
   log.set({ eventId, jobId: job.id });
 
-  // Check idempotency
-  const existingPoll = await db
-    .select({ id: eventRsvpPoll.id })
+  // Check idempotency. A closed poll (one a cancel closed before a restore)
+  // is replaced below, since an event has one poll row.
+  const [existingPoll] = await db
+    .select({ closedAt: eventRsvpPoll.closedAt, id: eventRsvpPoll.id })
     .from(eventRsvpPoll)
     .where(eq(eventRsvpPoll.eventId, eventId))
     .limit(1);
 
-  if (existingPoll.length > 0) {
+  if (existingPoll && !existingPoll.closedAt) {
     log.set({ event: "poll_already_exists" });
     log.emit();
     return;
@@ -91,6 +92,17 @@ async function processSendSingleRsvpPollJob(
     log.set({ event: "event_cancelled" });
     log.emit();
     return;
+  }
+
+  if (existingPoll) {
+    // A poll closed by the event starting keeps its votes.
+    if (event.startTime <= new Date()) {
+      log.set({ event: "poll_closed" });
+      log.emit();
+      return;
+    }
+    await db.delete(eventRsvpPoll).where(eq(eventRsvpPoll.id, existingPoll.id));
+    log.set({ replacedPollId: existingPoll.id });
   }
 
   const eventGroupJid = await getGroupJid(event.eventWhatsappGroupId);

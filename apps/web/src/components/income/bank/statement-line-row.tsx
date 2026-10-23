@@ -1,6 +1,7 @@
 import {
   ArrowDataTransferHorizontalIcon,
   BankIcon,
+  Delete02Icon,
   Flag01Icon,
   Invoice03Icon,
   Link01Icon,
@@ -52,6 +53,8 @@ export interface LineActions extends DebitActions {
   onAccept: (line: StatementLineRow) => void;
   onBankCharges: (line: StatementLineRow) => void;
   onClearNeedsClaim: (line: StatementLineRow) => void;
+  onDelete: (line: StatementLineRow) => void;
+  onDeleteImport: (line: StatementLineRow) => void;
   onNeedsClaim: (line: StatementLineRow) => void;
   onTaxPayment: (line: StatementLineRow) => void;
   onDismiss: (line: StatementLineRow) => void;
@@ -257,6 +260,23 @@ function LineMenu({
           id: "unmatch",
           label: line.matchStatus === "ignored" ? "Stop ignoring" : "Unmatch",
           onSelect: () => actions.onUnmatch(line),
+        },
+        open &&
+          !partMatched && {
+            destructive: true,
+            group: "destructive",
+            icon: Delete02Icon,
+            id: "delete",
+            label: "Delete line",
+            onSelect: () => actions.onDelete(line),
+          },
+        Boolean(line.importBatchId) && {
+          destructive: true,
+          group: "destructive",
+          icon: Delete02Icon,
+          id: "delete-import",
+          label: "Delete its import…",
+          onSelect: () => actions.onDeleteImport(line),
         },
       ]}
       title="Line actions"

@@ -161,6 +161,7 @@ function KalakritiEditionOverview() {
             <EditionLifecycleAction
               canManage={canManageLifecycle}
               editionId={edition.id}
+              isGlobalAdmin={access.isGlobalAdmin}
             />
             {/* The public schedule opens with registration; a Draft has none. */}
             {edition.lifecycle === "draft" ? null : (

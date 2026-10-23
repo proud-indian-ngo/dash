@@ -7,6 +7,7 @@ import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
 import type { CloseRsvpPollOnCancelPayload } from "../enqueue";
+import { isCancelInEffect } from "../lib/cancel-in-effect";
 
 /** UUIDv7 placeholder messageIds start with a hex timestamp; real WhatsApp IDs don't. */
 const UUIDV7_RE = /^[\da-f]{8}-[\da-f]{4}-7/;
@@ -20,6 +21,13 @@ async function processCloseRsvpPollJob(
   });
   const { eventId, eventName, reason } = job.data;
   log.set({ eventId, eventName, jobId: job.id });
+
+  // Restored since, so the poll stays open and the group hears nothing.
+  if (!(await isCancelInEffect(job.data))) {
+    log.set({ event: "restored" });
+    log.emit();
+    return;
+  }
 
   const polls = await db
     .select({

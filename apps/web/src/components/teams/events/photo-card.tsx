@@ -2,6 +2,7 @@ import {
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
+  Edit02Icon,
   PlayIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -27,6 +28,7 @@ export interface PhotoCardProps {
   onApprove?: () => void;
   onClick: () => void;
   onDelete: () => void;
+  onEditCaption?: () => void;
   onReject?: () => void;
   pending?: boolean;
   photo: PhotoWithUploader;
@@ -37,6 +39,7 @@ export function PhotoCard({
   onApprove,
   onClick,
   onDelete,
+  onEditCaption,
   onReject,
   photo,
   pending,
@@ -155,6 +158,20 @@ export function PhotoCard({
             />
           </Button>
         ) : null}
+        {onEditCaption ? (
+          <Button
+            aria-label="Edit caption"
+            onClick={onEditCaption}
+            size="icon-sm"
+            variant="secondary"
+          >
+            <HugeiconsIcon
+              className="size-3.5"
+              icon={Edit02Icon}
+              strokeWidth={2}
+            />
+          </Button>
+        ) : null}
         {canDelete ? (
           <Button
             aria-label="Delete"
@@ -184,6 +201,12 @@ export function PhotoCard({
               id: "reject",
               label: "Reject",
               onSelect: onReject,
+            },
+            onEditCaption && {
+              icon: Edit02Icon,
+              id: "caption",
+              label: "Edit caption",
+              onSelect: onEditCaption,
             },
             canDelete && {
               destructive: true,

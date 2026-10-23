@@ -737,3 +737,56 @@ describe("kalakritiCenter commands", () => {
     expect(duplicate.spies.insertGuardianCenter).not.toHaveBeenCalled();
   });
 });
+
+describe("kalakritiCenter.restore", () => {
+  const restoreArgs = { auditEntryId: "audit", centerId: center.id, now: 2 };
+  const restore = (tx: unknown, ctx: unknown = adminContext) =>
+    kalakritiCenterMutators.restore.fn({
+      args: restoreArgs,
+      ctx,
+      tx,
+    } as unknown as Parameters<typeof kalakritiCenterMutators.restore.fn>[0]);
+
+  it("clears retiredAt, leaves registration closed and audits", async () => {
+    const { spies, tx, lockedResults } = createTx([{ lifecycle: "draft" }]);
+    lockedResults.splice(0, 1, [{ ...center, retiredAt: new Date(1) }]);
+
+    await restore(tx);
+
+    expect(spies.updateCenter).toHaveBeenCalledWith({
+      id: center.id,
+      retiredAt: null,
+      updatedAt: 2,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "restored", targetId: center.id })
+    );
+  });
+
+  it("refuses an active Center", async () => {
+    const { spies, tx } = createTx([{ lifecycle: "draft" }]);
+
+    await expect(restore(tx)).rejects.toThrow("Center is not retired");
+    expect(spies.updateCenter).not.toHaveBeenCalled();
+  });
+
+  it("refuses after registration is locked", async () => {
+    const { spies, tx, lockedResults } = createTx([
+      { lifecycle: "registration_locked" },
+    ]);
+    lockedResults.splice(0, 1, [{ ...center, retiredAt: new Date(1) }]);
+
+    await expect(restore(tx)).rejects.toThrow("Structural configuration");
+    expect(spies.updateCenter).not.toHaveBeenCalled();
+  });
+
+  it("refuses callers without configuration access", async () => {
+    const { spies, tx, lockedResults } = createTx([{ lifecycle: "draft" }]);
+    lockedResults.splice(0, 1, [{ ...center, retiredAt: new Date(1) }]);
+
+    await expect(
+      restore(tx, { permissions: [], role: "volunteer", userId: "u" })
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.updateCenter).not.toHaveBeenCalled();
+  });
+});

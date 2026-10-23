@@ -12,6 +12,7 @@ import {
   MAX_EXCLUDE_RULES,
   MAX_EXDATES,
   MAX_RECURRENCE_RULE_LENGTH,
+  parseRecurrenceRule,
   seriesStartDate,
   validateRecurrenceRule,
 } from "@pi-dash/shared/rrule-expand";
@@ -21,6 +22,7 @@ import z from "zod";
 
 import "../context";
 import type { Context } from "../context";
+import { parseRRule } from "../lib/rrule-utils";
 import {
   assertHasPermissionOrTeamLead,
   assertIsLoggedIn,
@@ -841,6 +843,10 @@ export const teamEventMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      // A second cancel would send the cancellation notice again.
+      if (existing.cancelledAt) {
+        throw new Error("Event is already cancelled");
+      }
       // Cancelling the series row would hide every session, held ones too.
       if (existing.recurrenceRule && !existing.seriesId) {
         throw new Error("Choose which sessions of the series to cancel");
@@ -879,6 +885,7 @@ export const teamEventMutators = {
               "notify-event-cancelled",
               {
                 cancelledAt,
+                cancelledEventIds: [eventId],
                 eventId,
                 eventMemberIds,
                 eventName,
@@ -890,6 +897,8 @@ export const teamEventMutators = {
             await enqueue(
               "close-rsvp-poll-on-cancel",
               {
+                cancelledAt,
+                cancelledEventIds: [eventId],
                 eventId,
                 eventName,
                 reason,
@@ -1001,6 +1010,16 @@ export const teamEventMutators = {
             ? await tx.run(zql.teamEvent.where("id", "IN", cancelledIds))
             : []
         ) as TeamEvent[];
+        // Every row this cancel marked, including a cancelled row saved for an
+        // unsaved date, so the jobs can tell when a restore undid it.
+        const cancelledRows = (await tx.run(
+          zql.teamEvent
+            .where("seriesId", existing.seriesId ?? args.id)
+            .where("cancelledAt", cancelledAt)
+        )) as TeamEvent[];
+        const cancelledEventIds = [
+          ...new Set([...cancelledIds, ...cancelledRows.map((e) => e.id)]),
+        ];
 
         ctx.asyncTasks?.push({
           fn: async () => {
@@ -1009,6 +1028,7 @@ export const teamEventMutators = {
               "notify-event-cancelled",
               {
                 cancelledAt,
+                cancelledEventIds,
                 eventId,
                 eventMemberIds,
                 eventName,
@@ -1023,7 +1043,13 @@ export const teamEventMutators = {
               polls.map((poll) =>
                 enqueue(
                   "close-rsvp-poll-on-cancel",
-                  { eventId: poll.id, eventName: poll.name, reason },
+                  {
+                    cancelledAt,
+                    cancelledEventIds,
+                    eventId: poll.id,
+                    eventName: poll.name,
+                    reason,
+                  },
                   { traceId: ctx.traceId }
                 )
               )
@@ -1034,6 +1060,98 @@ export const teamEventMutators = {
       }
     }
   ),
+
+  /**
+   * Undo a cancel. It sends no notice: reminders and the RSVP poll follow
+   * `cancelledAt`, so they resume on their own, and the cancel's jobs skip
+   * once it no longer stands. A poll closed by the cancel stays closed until
+   * Post poll replaces it. A series row restores with the sessions cancelled
+   * alongside it; sessions cut by "this and following" or "all upcoming"
+   * after the series started stay cancelled, since the rule's old end is gone.
+   */
+  restore: defineMutator(
+    z.object({ id: z.string(), now: z.number() }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const existing = (await tx.run(
+        zql.teamEvent.where("id", args.id).one()
+      )) as TeamEvent | undefined;
+      if (!existing) {
+        throw new Error("Event not found");
+      }
+      await assertEventNotManagedByKalakriti(tx, args.id);
+      const isTeamLead = !!(await tx.run(
+        zql.teamMember
+          .where("teamId", existing.teamId)
+          .where("userId", ctx.userId)
+          .where("role", "lead")
+          .one()
+      ));
+      assertHasPermissionOrTeamLead(ctx, "events.cancel", isTeamLead);
+      if (!existing.cancelledAt) {
+        throw new Error("This event isn't cancelled");
+      }
+
+      const restore = (id: string) =>
+        tx.mutate.teamEvent.update({
+          cancelledAt: null,
+          id,
+          updatedAt: args.now,
+        });
+
+      if (existing.recurrenceRule && !existing.seriesId) {
+        const exceptions = (await tx.run(
+          zql.teamEvent
+            .where("seriesId", args.id)
+            .where("cancelledAt", existing.cancelledAt)
+        )) as TeamEvent[];
+        // Sessions that passed while it was cancelled didn't happen.
+        if (
+          existing.startTime <= args.now ||
+          exceptions.some((e) => e.startTime <= args.now)
+        ) {
+          throw new Error(
+            "This series has started since it was cancelled, so it can't be restored"
+          );
+        }
+        await restore(args.id);
+        await Promise.all(exceptions.map((e) => restore(e.id)));
+        return;
+      }
+
+      if (existing.seriesId) {
+        const series = (await tx.run(
+          zql.teamEvent.where("id", existing.seriesId).one()
+        )) as TeamEvent | undefined;
+        if (series?.cancelledAt) {
+          throw new Error("The series is cancelled. Restore the series first");
+        }
+        // "This and following" and "all upcoming" end the rule before the
+        // session; restoring it would leave a session past the series' end.
+        const rule = parseRecurrenceRule(series?.recurrenceRule);
+        const until = rule ? parseRRule(rule.rrule).options.until : null;
+        if (
+          until &&
+          existing.originalDate &&
+          Date.parse(`${existing.originalDate}T00:00:00Z`) > until.getTime()
+        ) {
+          throw new Error(
+            "The series ends before this session, so it can't be restored"
+          );
+        }
+      }
+      // As with cancel, only the permission touches a session that has started.
+      if (
+        existing.startTime <= args.now &&
+        isTeamLead &&
+        !can(ctx, "events.cancel")
+      ) {
+        throw new Error("Cannot restore an event that has already started");
+      }
+      await restore(args.id);
+    }
+  ),
+
   create: defineMutator(
     z.object({
       costCentreId: z.string().optional(),

@@ -116,6 +116,9 @@ export interface CloseExpiredRsvpPollsPayload {
 }
 
 export interface CloseRsvpPollOnCancelPayload {
+  cancelledAt: number;
+  /** Rows the cancel set `cancelledAt` on; the job skips once none still is. */
+  cancelledEventIds: string[];
   eventId: string;
   eventName: string;
   reason?: string;
@@ -313,6 +316,8 @@ export interface NotifyEventProjectClearedPayload {
 }
 export interface NotifyEventCancelledPayload {
   cancelledAt: number;
+  /** Rows the cancel set `cancelledAt` on; the notice skips once none still is. */
+  cancelledEventIds: string[];
   eventId: string;
   eventMemberIds: string[];
   eventName: string;

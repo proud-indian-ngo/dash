@@ -204,6 +204,7 @@ Events with `postRsvpPoll` get a WhatsApp poll in their group `rsvpPollLeadMinut
 - GoWA posts `message` webhooks to `/api/whatsapp/webhook`, signed with `WHATSAPP_WEBHOOK_SECRET`.
 - `resolved`, `partially_resolved` and `definition_missing` votes count because the app stores its own Yes/No hashes. Missing hashes and `decrypt_failed` are ignored; a decrypted empty array clears the RSVP.
 - Yes adds the user as an event member; no or a cleared vote removes them.
+- An event has one poll row. Cancelling closes it with a notice in the group. Post poll on the event page replaces a closed poll, with its votes, so a restored event can poll again; one closed because the event started is kept.
 - Kalakriti-managed or Edition-linked events reject votes before any write, so webhooks cannot bypass Edition enrolment.
 - Locally, GoWA calls the Vite server at `host.docker.internal` directly.
 

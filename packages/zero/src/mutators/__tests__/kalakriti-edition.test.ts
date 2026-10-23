@@ -1316,3 +1316,225 @@ describe("kalakritiEdition.updateParticipationRules", () => {
     ).toBe(false);
   });
 });
+
+describe("kalakritiEdition.transition to archived", () => {
+  const liveEdition = {
+    eventDate: "2028-11-19",
+    id: "edition-1",
+    lifecycle: "live",
+    teamEventId: "event-1",
+    timezone: "Asia/Kolkata",
+  };
+  const archiveArgs = {
+    auditEntryId: "audit",
+    confirmed: true as const,
+    editionId: "edition-1",
+    now: 1,
+    targetLifecycle: "archived" as const,
+  };
+
+  it("refuses Edition administrators without the global permission", async () => {
+    const { spies, tx } = createEditionCommandTx([liveEdition]);
+
+    await expect(
+      kalakritiEditionMutators.transition.fn({
+        args: archiveArgs,
+        ctx: {
+          permissions: ["kalakriti.view"],
+          role: "volunteer",
+          userId: "u",
+        },
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.transition.fn
+      >[0])
+    ).rejects.toThrow("Unauthorized");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+  });
+
+  it("refuses Editions that are not live", async () => {
+    const { spies, tx } = createEditionCommandTx([
+      { ...liveEdition, lifecycle: "registration_locked" },
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.transition.fn({
+        args: archiveArgs,
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.transition.fn
+      >[0])
+    ).rejects.toThrow("Invalid Edition lifecycle transition");
+    expect(spies.updateEdition).not.toHaveBeenCalled();
+  });
+
+  it("archives a live Edition and audits it without touching the linked event", async () => {
+    const { spies, tx } = createEditionCommandTx([liveEdition]);
+
+    await kalakritiEditionMutators.transition.fn({
+      args: archiveArgs,
+      ctx: adminContext,
+      tx,
+    } as unknown as Parameters<
+      typeof kalakritiEditionMutators.transition.fn
+    >[0]);
+
+    expect(spies.updateEdition).toHaveBeenCalledWith({
+      id: "edition-1",
+      lifecycle: "archived",
+      updatedAt: 1,
+    });
+    expect(spies.insertAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "lifecycle_transitioned",
+        metadata: { from: "live", to: "archived" },
+      })
+    );
+    expect(spies.updateEvent).not.toHaveBeenCalled();
+  });
+
+  it("keeps archived Editions terminal", async () => {
+    const { tx } = createEditionCommandTx([
+      { ...liveEdition, lifecycle: "archived" },
+    ]);
+
+    await expect(
+      kalakritiEditionMutators.transition.fn({
+        args: { ...archiveArgs, targetLifecycle: "registration_open" },
+        ctx: adminContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiEditionMutators.transition.fn
+      >[0])
+    ).rejects.toThrow("Invalid Edition lifecycle transition");
+  });
+});
+
+describe("kalakritiEdition.delete", () => {
+  function createDeleteTx(lifecycle: string, results: unknown[]) {
+    const select = mock(() => {
+      const query = {
+        for: mock(async () => [
+          {
+            ageCutoffDate: "2028-06-01",
+            eventDate: "2028-11-19",
+            id: "edition-1",
+            lifecycle,
+            teamEventId: "event-1",
+          },
+        ]),
+        from: mock(),
+        where: mock(),
+      };
+      query.from.mockReturnValue(query);
+      query.where.mockReturnValue(query);
+      return query;
+    });
+    const deletes: string[] = [];
+    const recordDelete = (table: string) =>
+      mock(async ({ id }: { id: string }) => {
+        deletes.push(`${table}:${id}`);
+      });
+    return {
+      deletes,
+      tx: {
+        dbTransaction: { wrappedTransaction: { select } },
+        location: "server" as const,
+        mutate: {
+          kalakritiCompetition: { delete: recordDelete("competition") },
+          kalakritiCompetitionDivision: { delete: recordDelete("division") },
+          kalakritiCompetitionSession: { delete: recordDelete("session") },
+          kalakritiEdition: { delete: recordDelete("edition") },
+          kalakritiTransportAssignment: { delete: recordDelete("transport") },
+          teamEvent: { delete: recordDelete("event") },
+        },
+        run: mock(async () => results.shift()),
+      },
+    };
+  }
+  const deleteArgs = { confirmed: true as const, editionId: "edition-1" };
+  const call = (tx: unknown, ctx: unknown = adminContext) =>
+    kalakritiEditionMutators.delete.fn({
+      args: deleteArgs,
+      ctx,
+      tx,
+    } as unknown as Parameters<typeof kalakritiEditionMutators.delete.fn>[0]);
+
+  it("is limited to global administrators", async () => {
+    const { deletes, tx } = createDeleteTx("draft", []);
+
+    await expect(
+      call(tx, {
+        permissions: ["kalakriti.view"],
+        role: "volunteer",
+        userId: "u",
+      })
+    ).rejects.toThrow("Unauthorized");
+    expect(deletes).toEqual([]);
+  });
+
+  it("refuses an Edition that has left draft", async () => {
+    const { deletes, tx } = createDeleteTx("registration_open", []);
+
+    await expect(call(tx)).rejects.toThrow(
+      "Only a draft Edition can be deleted"
+    );
+    expect(deletes).toEqual([]);
+  });
+
+  it("refuses a draft that already has people", async () => {
+    const { deletes, tx } = createDeleteTx("draft", [
+      { id: "membership-1" },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+
+    await expect(call(tx)).rejects.toThrow(
+      "Remove this Edition's people and inventory before deleting it"
+    );
+    expect(deletes).toEqual([]);
+  });
+
+  it("refuses a draft whose linked event carries finance records", async () => {
+    const { deletes, tx } = createDeleteTx("draft", [
+      undefined,
+      undefined,
+      undefined,
+      { id: "reimbursement-1" },
+      undefined,
+    ]);
+
+    await expect(call(tx)).rejects.toThrow(
+      "The linked event has reimbursements or vendor payments"
+    );
+    expect(deletes).toEqual([]);
+  });
+
+  it("deletes restricting rows before the Edition and its linked event", async () => {
+    const { deletes, tx } = createDeleteTx("draft", [
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [{ id: "s1" }],
+      [{ id: "d1" }],
+      [{ id: "c1" }],
+      [{ id: "t1" }],
+    ]);
+
+    await call(tx);
+
+    expect(deletes).toEqual([
+      "session:s1",
+      "division:d1",
+      "competition:c1",
+      "transport:t1",
+      "edition:edition-1",
+      "event:event-1",
+    ]);
+  });
+});

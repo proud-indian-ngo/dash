@@ -18,7 +18,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Deed rules | Dated deed versions; each decision is checked against the version in force on its date | Amendments must not rewrite history |
 | Pass rule | Majority of trustees in office at issue; two-thirds for an amendment, unanimity of the others for removal | Clauses 4.18, 9.3, 7.12 |
 | Numbering | Per financial year, assigned on pass: `PI/TR/2026-27/NNN` | Continues the paper series |
-| Immutability | Decided resolutions never change; a new one amends or rescinds. An issued circular is withdrawn and reissued | Signatures cover a fixed revision |
+| Immutability | Decided resolutions never change; a new one amends or rescinds. An issued circular is withdrawn and reissued. Only a paper resolution recorded as history can be corrected ([resolutions](governance-resolutions.md)) | Signatures cover a fixed revision |
 | Signing | DSC through a local helper; Acrobat download and upload. A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac |
 | Vote confirmation | Signing or objecting needs a sign-in within 10 minutes | Shared laptops must not vote |
 | Finance | No trustee tier in approvals. A payment to a trustee or a declared related party warns ([declarations](governance-compliance.md#declarations-of-interests)) | Clause 7.24 |
@@ -49,6 +49,7 @@ The pending amendment sets quorum to half the trustees in office with a floor of
 - Who held which term and office on a date (`boardOn`), the warnings and the quorum live in `packages/shared/src/governance.ts`, so the pages, the mutators and the reminder job agree.
 - A term's `ends_on` is its last day (inclusive); `ended_on` on a term or office is the first day out. An office with no end of its own ends with its holder's term.
 - Co-Founder is a flag on the trustee, not an office.
+- A trustee added by mistake can be deleted, with their private details, only while nothing refers to them: their terms and offices must be deleted first, and one with meeting attendance, votes, signatures, declarations or a DSC enrolment stays. Postgres refuses the delete through the restricting foreign keys, and `deleteTrusteeFn` reports it.
 - Every date carries its evidence: start and end documents on terms and offices, and the acceptance on a term. "Unevidenced" is derived from a missing document, never stored.
 - Mutators refuse a change that gives an office two holders, puts an office outside its holder's term, or overlaps a trustee's terms. Every such write, and every register change on pass, takes one register-wide advisory lock before reading the register, so concurrent changes are checked in turn. Problems the register already holds (board size, an unreachable quorum, a vacant MT or President, unevidenced dates) show as warnings instead, since the history has them.
 
@@ -60,7 +61,8 @@ Version 1 has a fixed ID and is ensured on every server start. A version applies
 
 - Every upload is checked before it's kept: its real type, a duplicate by SHA-256 (unique, so a simultaneous identical upload is refused too), and its signatures, which are matched to trustees in the register. An email (`.eml`) is read for its headers only, never its body.
 - Downloads need `governance.view`, or `finance.view` or `finance.manage` for registration certificates, matching the Registrations page. The R2 orphan cleanup keeps every key the vault references.
-- A registration (12AB, 80G and others) keeps its certificate as a vault document.
+- A registration (12AB, 80G and others) keeps its certificate as a vault document. `governance.manage` or `finance.manage` can delete one added by mistake; its open renewal items on the compliance calendar go with it, its closed ones and its certificate stay.
+- A file never changes once added; `governance.manage` can correct its title, kind, date and note. A document added by mistake can be deleted only while nothing points at it (a term, office, deed version, resolution, meeting, registration, compliance item, declaration or policy version); the orphan cleanup then removes its files.
 
 ## Signing service
 

@@ -21,10 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { recordHistoricalResolutionFn } from "@/functions/resolutions";
+import {
+  recordHistoricalResolutionFn,
+  updateHistoricalResolutionFn,
+} from "@/functions/resolutions";
 
 import { documentOptions, fromDocumentOption, NO_DOCUMENT } from "./evidence";
-import { dateToIso, useGovernanceDocuments } from "./register-data";
+import { dateToIso, isoToDate, useGovernanceDocuments } from "./register-data";
 
 const templateOptions = resolutionTemplateKeyValues.map((key) => ({
   label: RESOLUTION_TEMPLATES[key].title,
@@ -40,17 +43,35 @@ interface Values {
   validityNote: string;
 }
 
-function HistoricalForm({ onDone }: { onDone: () => void }) {
+/** A recorded resolution being corrected. */
+export interface HistoricalResolution {
+  decidedOn: string | null;
+  documentId: string | null;
+  id: string;
+  number: string;
+  templateKey: ResolutionTemplateKey;
+  title: string;
+  validityNote: string | null;
+}
+
+function HistoricalForm({
+  onDone,
+  resolution,
+}: {
+  onDone: () => void;
+  resolution?: HistoricalResolution;
+}) {
   const record = useServerFn(recordHistoricalResolutionFn);
+  const update = useServerFn(updateHistoricalResolutionFn);
   const { documents } = useGovernanceDocuments();
   const form = useForm({
     defaultValues: {
-      decidedOn: undefined,
-      documentId: NO_DOCUMENT,
-      number: "",
-      templateKey: "ordinary",
-      title: "",
-      validityNote: "",
+      decidedOn: isoToDate(resolution?.decidedOn ?? null),
+      documentId: resolution?.documentId ?? NO_DOCUMENT,
+      number: resolution?.number ?? "",
+      templateKey: resolution?.templateKey ?? "ordinary",
+      title: resolution?.title ?? "",
+      validityNote: resolution?.validityNote ?? "",
     } as Values,
     onSubmit: async ({ value }) => {
       const decidedOn = dateToIso(value.decidedOn);
@@ -58,21 +79,25 @@ function HistoricalForm({ onDone }: { onDone: () => void }) {
         toast.error("Give the number, the title and the date it passed.");
         return;
       }
+      const data = {
+        decidedOn,
+        documentId: fromDocumentOption(value.documentId),
+        number: value.number,
+        templateKey: value.templateKey,
+        title: value.title,
+        validityNote: value.validityNote,
+      };
       try {
-        await record({
-          data: {
-            decidedOn,
-            documentId: fromDocumentOption(value.documentId),
-            number: value.number,
-            templateKey: value.templateKey,
-            title: value.title,
-            validityNote: value.validityNote,
-          },
-        });
-        toast.success("Resolution recorded");
+        if (resolution) {
+          await update({ data: { ...data, id: resolution.id } });
+          toast.success("Resolution saved");
+        } else {
+          await record({ data });
+          toast.success("Resolution recorded");
+        }
         onDone();
       } catch (error) {
-        toast.error("Couldn't record it", {
+        toast.error(resolution ? "Couldn't save it" : "Couldn't record it", {
           description:
             error instanceof Error ? error.message : "Something went wrong",
         });
@@ -114,7 +139,7 @@ function HistoricalForm({ onDone }: { onDone: () => void }) {
       <FormActions
         disableWhenInvalid={false}
         onCancel={cancel}
-        submitLabel="Record resolution"
+        submitLabel={resolution ? "Save" : "Record resolution"}
         submittingLabel="Saving..."
       />
     </FormLayout>
@@ -123,27 +148,34 @@ function HistoricalForm({ onDone }: { onDone: () => void }) {
 
 /**
  * A resolution passed on paper before the dashboard, recorded with its number so
- * the series continues from it. It changes nothing in the register.
+ * the series continues from it. It changes nothing in the register. Given a
+ * recorded one, the dialog corrects it.
  */
 export function HistoricalResolutionDialog({
   onOpenChange,
   open,
+  resolution,
 }: {
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  resolution?: HistoricalResolution;
 }) {
   const close = useEventCallback(() => onOpenChange(false));
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-(--dialog-lg)">
         <DialogHeader>
-          <DialogTitle>Record a past resolution</DialogTitle>
+          <DialogTitle>
+            {resolution ? "Edit past resolution" : "Record a past resolution"}
+          </DialogTitle>
           <DialogDescription>
             For resolutions passed on paper. The next circular takes the next
             number in its year. Record register changes on the trustee register.
           </DialogDescription>
         </DialogHeader>
-        {open ? <HistoricalForm onDone={close} /> : null}
+        {open ? (
+          <HistoricalForm onDone={close} resolution={resolution} />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

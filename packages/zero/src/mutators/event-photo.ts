@@ -1,4 +1,5 @@
 import type { db } from "@pi-dash/db";
+import { EVENT_PHOTO_CAPTION_MAX_LENGTH } from "@pi-dash/shared/social-recap";
 import { defineMutator } from "@rocicorp/zero";
 import type { DrizzleTransaction } from "@rocicorp/zero/server/adapters/drizzle";
 import z from "zod";
@@ -44,7 +45,7 @@ async function getSerializedPhotoCleanup(
 
 export const eventPhotoUploadSchema = z
   .object({
-    caption: z.string().optional(),
+    caption: z.string().trim().max(EVENT_PHOTO_CAPTION_MAX_LENGTH).optional(),
     eventId: z.string(),
     id: z.string(),
     immichAssetId: z.string().min(1).max(256).optional(),
@@ -422,6 +423,49 @@ export const eventPhotoMutators = {
       }
     }
   ),
+  /**
+   * Set or clear a caption. Whoever may delete the photo may caption it: the
+   * uploader while it is pending, otherwise a lead or `events.manage_photos`.
+   */
+  setCaption: defineMutator(
+    z.object({
+      caption: z.string().trim().max(EVENT_PHOTO_CAPTION_MAX_LENGTH),
+      id: z.string(),
+    }),
+    async ({ tx, ctx, args }) => {
+      assertIsLoggedIn(ctx);
+      const photo = (await tx.run(
+        zql.eventPhoto.where("id", args.id).one()
+      )) as EventPhoto | undefined;
+      if (!photo) {
+        throw new Error("Photo not found");
+      }
+      const event = (await tx.run(
+        zql.teamEvent.where("id", photo.eventId).one()
+      )) as TeamEvent | undefined;
+      if (!event) {
+        throw new Error("Event not found");
+      }
+      assertEventRowNotManagedByKalakriti(event);
+      const isOwnPending =
+        photo.uploadedBy === ctx.userId && photo.status === "pending";
+      if (!isOwnPending) {
+        const isTeamLead = !!(await tx.run(
+          zql.teamMember
+            .where("teamId", event.teamId)
+            .where("userId", ctx.userId)
+            .where("role", "lead")
+            .one()
+        ));
+        assertHasPermissionOrTeamLead(ctx, "events.manage_photos", isTeamLead);
+      }
+      await tx.mutate.eventPhoto.update({
+        caption: args.caption || null,
+        id: args.id,
+      });
+    }
+  ),
+
   /**
    * Keep an approved photo out of social posts. The social API still lists it
    * with `doNotUse: true`; the generator skips it.

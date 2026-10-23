@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 let granted: string[] = [];
-let audits: { action: string; metadata?: unknown; target?: unknown }[] = [];
+let audits: {
+  action: string;
+  metadata?: unknown;
+  successMetadata?: unknown;
+  target?: unknown;
+}[] = [];
 let serviceCalls: { args: unknown[]; name: string }[] = [];
 
 const deny = (permissions: readonly string[]) => {
@@ -22,10 +27,18 @@ mock.module("@/lib/audit", () => ({
     _session: unknown,
     _headers: unknown,
     options: { action: string; metadata?: unknown; target?: unknown },
-    execute: () => Promise<unknown>
+    execute: () => Promise<unknown>,
+    _classify?: unknown,
+    _resolveTarget?: unknown,
+    resolveSuccessMetadata?: (result: unknown) => unknown
   ) => {
-    audits.push(options);
-    return await execute();
+    const result = await execute();
+    audits.push(
+      resolveSuccessMetadata
+        ? { ...options, successMetadata: resolveSuccessMetadata(result) }
+        : options
+    );
+    return result;
   },
 }));
 const service =
@@ -37,6 +50,7 @@ const service =
 mock.module("@/lib/bank-statement/server", () => ({
   actOnStatementLine: service("act", { lineId: "l" }),
   createStatementBatch: service("create", { batchId: "b" }),
+  deleteStatementLines: service("delete", { lineCount: 3 }),
   describeStatementAction: async (input: { action: string }) =>
     input.action === "accept" || input.action === "dismiss"
       ? { kind: "settlement", targetId: "0190a000-0000-7000-8000-000000000009" }
@@ -126,6 +140,9 @@ describe("bank statement server functions", () => {
     await expect(
       call(fns.getStatementLinkCandidates, { lineId: LINE })
     ).rejects.toThrow("Forbidden");
+    await expect(
+      call(fns.deleteStatementLines, { kind: "line", lineId: LINE })
+    ).rejects.toThrow("Forbidden");
     expect(serviceCalls).toEqual([]);
     expect(audits).toEqual([]);
   });
@@ -205,6 +222,28 @@ describe("bank statement server functions", () => {
     ]);
     expect(JSON.stringify(audits)).not.toContain("Priya");
     expect(serviceCalls.map((c) => c.name)).toEqual(["act", "act", "act"]);
+  });
+
+  it("audits a line or import delete with the number of lines removed", async () => {
+    granted = ["finance.manage"];
+    await call(fns.deleteStatementLines, { kind: "line", lineId: LINE });
+    await call(fns.deleteStatementLines, { batchId: ID, kind: "import" });
+    expect(audits).toEqual([
+      {
+        action: "statement_line.delete",
+        successMetadata: { lineCount: 3 },
+        target: { id: LINE, type: "statement_line" },
+      },
+      {
+        action: "import_batch.delete",
+        successMetadata: { lineCount: 3 },
+        target: { id: ID, type: "import_batch" },
+      },
+    ]);
+    expect(serviceCalls.map((c) => c.args)).toEqual([
+      [{ kind: "line", lineId: LINE }],
+      [{ batchId: ID, kind: "import" }],
+    ]);
   });
 
   it("audits Find matches and a run with planned counts", async () => {

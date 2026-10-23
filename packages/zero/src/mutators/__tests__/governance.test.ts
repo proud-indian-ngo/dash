@@ -8,6 +8,7 @@ import {
 } from "../../queries/query-scope-test-utils";
 import {
   complianceItemMutators,
+  governanceDocumentMutators,
   organisationRegistrationMutators,
   resolutionMutators,
   trusteeOfficeMutators,
@@ -22,9 +23,13 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
   const tables: Record<string, Row[]> = {
     agendaItem: [],
     complianceItem: [],
+    complianceTemplate: [],
+    conflictDeclaration: [],
     deedVersion: [],
     governanceDocument: [{ id: "doc-1" }],
+    meeting: [],
     organisationRegistration: [],
+    policyVersion: [],
     resolution: [],
     trustee: [
       { id: "sarjun", isCoFounder: true, legalName: "Sarjun H Hajathulla" },
@@ -381,6 +386,43 @@ describe("resolution draft mutators", () => {
   });
 });
 
+describe("governance document mutators", () => {
+  it("delete a document nothing points at", async () => {
+    const db = createDb();
+    await run(governanceDocumentMutators.delete, db, secretaryCtx, {
+      id: "doc-1",
+    });
+    expect(db.tables.governanceDocument).toHaveLength(0);
+  });
+
+  it("refuse deleting a document that is evidence elsewhere", async () => {
+    const seeds: Partial<Record<string, Row[]>>[] = [
+      {
+        organisationRegistration: [{ certificateDocumentId: "doc-1", id: "r" }],
+      },
+      { trusteeTerm: [{ endEvidenceDocumentId: "doc-1", id: "t" }] },
+      { trusteeOffice: [{ startEvidenceDocumentId: "doc-1", id: "o" }] },
+      { resolution: [{ finalDocumentId: "doc-1", id: "res" }] },
+    ];
+    for (const seed of seeds) {
+      const db = createDb(seed);
+      await expect(
+        run(governanceDocumentMutators.delete, db, secretaryCtx, {
+          id: "doc-1",
+        })
+      ).rejects.toThrow("can't be deleted");
+      expect(db.tables.governanceDocument).toHaveLength(1);
+    }
+  });
+
+  it("refuse a viewer", async () => {
+    const db = createDb();
+    await expect(
+      run(governanceDocumentMutators.delete, db, viewerCtx, { id: "doc-1" })
+    ).rejects.toThrow("Unauthorized");
+  });
+});
+
 describe("organisation registration mutators", () => {
   it("let governance or finance record a registration", async () => {
     for (const ctx of [secretaryCtx, financeCtx]) {
@@ -393,6 +435,53 @@ describe("organisation registration mutators", () => {
       });
       expect(db.tables.organisationRegistration).toHaveLength(1);
     }
+  });
+
+  it("delete a registration with its open renewal items only", async () => {
+    const db = createDb({
+      complianceItem: [
+        {
+          id: "open",
+          sourceKey: "renew_80g:reg-1:2028-03-31",
+          status: "open",
+          templateId: "tpl-80g",
+        },
+        {
+          id: "done",
+          sourceKey: "renew_80g:reg-1:2025-03-31",
+          status: "done",
+          templateId: "tpl-80g",
+        },
+        {
+          id: "other",
+          sourceKey: "renew_80g:reg-2:2028-03-31",
+          status: "open",
+          templateId: "tpl-80g",
+        },
+      ],
+      complianceTemplate: [
+        { id: "tpl-80g", key: "renew_80g", kind: "registration" },
+      ],
+      organisationRegistration: [{ id: "reg-1" }, { id: "reg-2" }],
+    });
+    await run(organisationRegistrationMutators.delete, db, financeCtx, {
+      id: "reg-1",
+    });
+    expect(db.tables.organisationRegistration).toEqual([{ id: "reg-2" }]);
+    expect(db.tables.complianceItem?.map((i) => i.id)).toEqual([
+      "done",
+      "other",
+    ]);
+  });
+
+  it("refuse deleting for a viewer", async () => {
+    const db = createDb({ organisationRegistration: [{ id: "reg-1" }] });
+    await expect(
+      run(organisationRegistrationMutators.delete, db, viewerCtx, {
+        id: "reg-1",
+      })
+    ).rejects.toThrow("Unauthorized");
+    expect(db.tables.organisationRegistration).toHaveLength(1);
   });
 
   it("refuse a viewer", async () => {
@@ -495,5 +584,59 @@ describe("compliance item mutators", () => {
       sourceKey: null,
       status: "open",
     });
+  });
+
+  it("edit and delete an open item added by hand, under its row lock", async () => {
+    const db = createDb({ complianceItem: [item({ templateId: null })] });
+    await run(complianceItemMutators.update, db, secretaryCtx, {
+      dueOn: "2027-04-10",
+      id: "itr",
+      note: "Ask the CA",
+      title: "ITR-7 (revised)",
+    });
+    expect(db.tables.complianceItem?.[0]).toMatchObject({
+      dueOn: day("2027-04-10"),
+      fiscalYear: "2027-28",
+      note: "Ask the CA",
+      title: "ITR-7 (revised)",
+    });
+    await run(complianceItemMutators.delete, db, secretaryCtx, { id: "itr" });
+    expect(db.tables.complianceItem).toHaveLength(0);
+    expect(db.rowLocks).toEqual([0, 1]);
+  });
+
+  it("refuse editing or deleting a generated or closed item", async () => {
+    for (const [overrides, message] of [
+      [{ templateId: "tpl" }, "comes from a recurring item"],
+      [{ status: "done", templateId: null }, "already closed"],
+      [{ status: "waived", templateId: null }, "already been waived"],
+    ] as const) {
+      const db = createDb({ complianceItem: [item(overrides)] });
+      await expect(
+        run(complianceItemMutators.update, db, secretaryCtx, {
+          dueOn: "2027-04-10",
+          id: "itr",
+          title: "ITR-7",
+        })
+      ).rejects.toThrow(message);
+      await expect(
+        run(complianceItemMutators.delete, db, secretaryCtx, { id: "itr" })
+      ).rejects.toThrow(message);
+      expect(db.tables.complianceItem).toHaveLength(1);
+    }
+  });
+
+  it("need governance.manage to edit or delete", async () => {
+    const db = createDb({ complianceItem: [item({ templateId: null })] });
+    await expect(
+      run(complianceItemMutators.delete, db, viewerCtx, { id: "itr" })
+    ).rejects.toThrow("Unauthorized");
+    await expect(
+      run(complianceItemMutators.update, db, viewerCtx, {
+        dueOn: "2027-04-10",
+        id: "itr",
+        title: "ITR-7",
+      })
+    ).rejects.toThrow("Unauthorized");
   });
 });

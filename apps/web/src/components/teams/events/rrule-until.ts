@@ -15,3 +15,20 @@ export function parseRuleUntil(rruleStr: string): number | null {
   const parsed = Date.parse(iso);
   return Number.isNaN(parsed) ? null : parsed;
 }
+
+/**
+ * Whether a saved session keyed on `originalDate` falls after its series'
+ * UNTIL, as a "this and following" or "all upcoming" cut leaves it. Such a
+ * session can't be restored.
+ */
+export function isPastSeriesUntil(
+  originalDate: string | null,
+  seriesRule: { rrule: string } | null | undefined
+): boolean {
+  const until = seriesRule ? parseRuleUntil(seriesRule.rrule) : null;
+  return (
+    until !== null &&
+    originalDate !== null &&
+    Date.parse(`${originalDate}T00:00:00Z`) > until
+  );
+}

@@ -1,5 +1,6 @@
 import {
   Archive02Icon,
+  ArrowTurnBackwardIcon,
   Delete02Icon,
   Edit02Icon,
   SlidersHorizontalIcon,
@@ -131,14 +132,13 @@ function RowActions({
             onSelect: handleRegistrationControls,
             group: "configuration",
           },
-        !isRetired &&
-          canConfigureCenters && {
-            id: "retire",
-            icon: Archive02Icon,
-            label: "Retire",
-            onSelect: handleRetire,
-            group: "configuration",
-          },
+        canConfigureCenters && {
+          id: "retire",
+          icon: isRetired ? ArrowTurnBackwardIcon : Archive02Icon,
+          label: isRetired ? "Restore" : "Retire",
+          onSelect: handleRetire,
+          group: "configuration",
+        },
         canConfigureCenters && {
           id: "delete",
           icon: Delete02Icon,

@@ -41,33 +41,61 @@ const audienceOptions = policyAudienceValues.map((value) => ({
 
 const NO_DOCUMENT = "";
 
-function NewPolicyForm({ onDone }: { onDone: () => void }) {
+/**
+ * A policy being edited. Who it's for is fixed once it has a version, and
+ * always for the dashboard's own (keyed) policies, whose gates ignore audience.
+ */
+export interface EditablePolicy {
+  audience: PolicyAudience;
+  description: string | null;
+  hasVersions: boolean;
+  id: string;
+  keyed: boolean;
+  title: string;
+}
+
+function PolicyForm({
+  onDone,
+  policy,
+}: {
+  onDone: () => void;
+  policy?: EditablePolicy;
+}) {
   const zero = useZero();
+  let audienceLock: string | undefined;
+  if (policy?.keyed) {
+    audienceLock = "Fixed: the dashboard relies on this policy.";
+  } else if (policy?.hasVersions) {
+    audienceLock = "Fixed once a version is published.";
+  }
   const form = useForm({
     defaultValues: {
-      audience: "everyone" as PolicyAudience,
-      description: "",
-      title: "",
+      audience: policy?.audience ?? ("everyone" as PolicyAudience),
+      description: policy?.description ?? "",
+      title: policy?.title ?? "",
     },
     onSubmit: async ({ value }) => {
       if (!value.title.trim()) {
         toast.error("Give the policy a title.");
         return;
       }
-      const id = uuidv7();
+      const id = policy?.id ?? uuidv7();
+      const args = {
+        audience: value.audience,
+        description: value.description.trim() || null,
+        id,
+        title: value.title.trim(),
+      };
       const result = await zero.mutate(
-        mutators.policy.create({
-          audience: value.audience,
-          description: value.description.trim() || null,
-          id,
-          title: value.title.trim(),
-        })
+        policy ? mutators.policy.update(args) : mutators.policy.create(args)
       ).server;
       handleMutationResult(result, {
         entityId: id,
-        errorMsg: `Couldn't add the policy: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
-        mutation: "policy.create",
-        successMsg: "Policy added. Publish its first version next.",
+        errorMsg: `Couldn't ${policy ? "save" : "add"} the policy: ${getMutationResultErrorMessage(result.type === "error" ? result.error : undefined, "something went wrong")}`,
+        mutation: policy ? "policy.update" : "policy.create",
+        successMsg: policy
+          ? "Policy saved"
+          : "Policy added. Publish its first version next.",
       });
       if (result.type !== "error") {
         onDone();
@@ -83,7 +111,13 @@ function NewPolicyForm({ onDone }: { onDone: () => void }) {
         maxLength={POLICY_TITLE_MAX}
         name="title"
       />
-      <SelectField label="For" name="audience" options={audienceOptions} />
+      <SelectField
+        description={audienceLock}
+        disabled={audienceLock !== undefined}
+        label="For"
+        name="audience"
+        options={audienceOptions}
+      />
       <TextareaField
         label="What it covers"
         maxLength={POLICY_SUMMARY_MAX}
@@ -93,8 +127,8 @@ function NewPolicyForm({ onDone }: { onDone: () => void }) {
       <FormActions
         disableWhenInvalid={false}
         onCancel={cancel}
-        submitLabel="Add policy"
-        submittingLabel="Adding..."
+        submitLabel={policy ? "Save" : "Add policy"}
+        submittingLabel={policy ? "Saving..." : "Adding..."}
       />
     </FormLayout>
   );
@@ -115,7 +149,35 @@ export function NewPolicyDialog({ onClose }: { onClose: () => void }) {
             Name it and say who it's for; publish its approved version next.
           </DialogDescription>
         </DialogHeader>
-        <NewPolicyForm onDone={onClose} />
+        <PolicyForm onDone={onClose} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function EditPolicyDialog({
+  onClose,
+  policy,
+}: {
+  onClose: () => void;
+  policy: EditablePolicy;
+}) {
+  const handleOpenChange = useEventCallback((open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  });
+  return (
+    <Dialog onOpenChange={handleOpenChange} open>
+      <DialogContent className="sm:max-w-(--dialog-md)">
+        <DialogHeader>
+          <DialogTitle>Edit policy</DialogTitle>
+          <DialogDescription>
+            Published versions stay as they are; publish a new one to change the
+            policy itself.
+          </DialogDescription>
+        </DialogHeader>
+        <PolicyForm onDone={onClose} policy={policy} />
       </DialogContent>
     </Dialog>
   );

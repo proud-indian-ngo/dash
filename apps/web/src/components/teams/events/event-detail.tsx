@@ -1,4 +1,5 @@
 import {
+  ArrowTurnBackwardIcon,
   Cancel01Icon,
   ChartBarLineIcon,
   Copy01Icon,
@@ -106,6 +107,7 @@ import {
   deriveSocialRecapMode,
 } from "./event-social-fields";
 import type { EventRow } from "./events-table";
+import { isPastSeriesUntil } from "./rrule-until";
 
 type PostEventRsvpPollErrorCode = Extract<
   PostEventRsvpPollResult,
@@ -477,12 +479,14 @@ function EventHeader({
   canCreate,
   canEdit,
   canPostPoll,
+  canRestore,
   event,
   interestActions,
   onCancel,
   onDuplicate,
   onEdit,
   onPostPoll,
+  onRestore,
   status,
   teamName,
 }: {
@@ -490,6 +494,7 @@ function EventHeader({
   canCreate: boolean;
   canEdit: boolean;
   canPostPoll: boolean;
+  canRestore: boolean;
   event: EventRow;
   /** Join, Show interest or Leave, and the viewer's interest status. */
   interestActions: ReactNode;
@@ -497,6 +502,7 @@ function EventHeader({
   onDuplicate: () => void;
   onEdit: () => void;
   onPostPoll: () => void;
+  onRestore: () => void;
   status: EventStatus;
   teamName: string | null;
 }) {
@@ -530,6 +536,12 @@ function EventHeader({
                 icon: ChartBarLineIcon,
                 label: "Post poll",
                 onSelect: onPostPoll,
+              },
+              canRestore && {
+                id: "restore",
+                icon: ArrowTurnBackwardIcon,
+                label: "Restore event",
+                onSelect: onRestore,
               },
               canCancel && {
                 destructive: true,
@@ -872,7 +884,14 @@ function FirstSessionNotice({
   if (row.cancelled) {
     return (
       <p className="text-muted-foreground text-sm">
-        This series' first session was cancelled.
+        This series' first session was cancelled.{" "}
+        <Link
+          className="hover:text-foreground underline"
+          params={{ id: row.id }}
+          to="/events/$id"
+        >
+          Open the session
+        </Link>
       </p>
     );
   }
@@ -1108,7 +1127,21 @@ export function EventDetail({
   const status: EventStatus = firstRow?.cancelled
     ? "first-session-cancelled"
     : eventState.status;
-  const canCancel = hasStarted ? canCancelPast : canManage;
+  // A cancelled event offers Restore in place of Cancel, to the same people.
+  const canCancelOrRestore = hasStarted ? canCancelPast : canManage;
+  const canCancel = !event.cancelledAt && canCancelOrRestore;
+  // A whole series that has started since it was cancelled can't come back,
+  // nor can a session while its series is cancelled or past its end.
+  const canRestore =
+    !!event.cancelledAt &&
+    canCancelOrRestore &&
+    !(event.recurrenceRule && !event.seriesId && hasStarted) &&
+    !(
+      event.seriesId &&
+      parentEvent &&
+      (parentEvent.cancelledAt ||
+        isPastSeriesUntil(event.originalDate, parentEvent.recurrenceRule))
+    );
   const canEdit = canEditProp ?? canManage;
   const canManageVolunteers = isPastEvent ? canManageVolunteersProp : canManage;
   const canPostPoll =
@@ -1231,6 +1264,26 @@ export function EventDetail({
     env.VITE_IMMICH_URL
   );
 
+  const restoreAction = useConfirmAction({
+    onConfirm: () =>
+      zero.mutate(
+        mutators.teamEvent.restore({
+          id: event.id,
+          now: Date.now(),
+        })
+      ).server,
+    onError: (msg) => {
+      log.error({
+        component: "EventDetail",
+        entityId: event.id,
+        error: msg,
+        mutation: "teamEvent.restore",
+      });
+      toast.error(msg ?? "Couldn't restore event");
+    },
+    onSuccess: () => toast.success("Event restored"),
+  });
+
   const removeMember = useConfirmAction<string>({
     onConfirm: (memberId) =>
       zero.mutate(
@@ -1319,6 +1372,12 @@ export function EventDetail({
   const stableOnChange9 = useEventCallback((e: { target: { value: string } }) =>
     setCancelReason(e.target.value)
   );
+  const stableOnRestore = useEventCallback(() => restoreAction.trigger());
+  const stableOnOpenChangeRestore = useEventCallback((open: boolean) => {
+    if (!open) {
+      restoreAction.cancel();
+    }
+  });
   const stableOnOpenChange10 = useEventCallback((open: boolean) => {
     if (!open) {
       removeMember.cancel();
@@ -1361,6 +1420,7 @@ export function EventDetail({
           canCreate={canCreate}
           canEdit={canEdit}
           canPostPoll={canPostPoll}
+          canRestore={canRestore}
           event={event}
           interestActions={
             firstRow ? null : (
@@ -1382,6 +1442,7 @@ export function EventDetail({
           onDuplicate={stableOnDuplicate3}
           onEdit={handleEditClick}
           onPostPoll={handlePostPollClick}
+          onRestore={stableOnRestore}
           status={status}
           teamName={team?.name ?? null}
         />
@@ -1581,8 +1642,8 @@ export function EventDetail({
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel event</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel &ldquo;{event.name}&rdquo;? This
-              action cannot be undone and all volunteers will be notified.
+              Are you sure you want to cancel &ldquo;{event.name}&rdquo;? All
+              volunteers will be notified.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
@@ -1615,6 +1676,24 @@ export function EventDetail({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ConfirmDialog
+        confirmLabel="Restore event"
+        description={
+          <>
+            <strong>{event.name}</strong> goes back on the calendar and its
+            reminders resume. Volunteers aren&rsquo;t notified, so let them know
+            it&rsquo;s back on.
+          </>
+        }
+        loading={restoreAction.isLoading}
+        loadingLabel="Restoring..."
+        onConfirm={restoreAction.confirm}
+        onOpenChange={stableOnOpenChangeRestore}
+        open={restoreAction.isOpen}
+        title="Restore event"
+        variant="default"
+      />
 
       <ConfirmDialog
         confirmLabel="Remove volunteer"

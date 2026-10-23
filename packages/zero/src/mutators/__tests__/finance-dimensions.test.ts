@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { LEDGER_ACCOUNT_HEAD_IDS } from "@pi-dash/shared/constants";
+import {
+  GENERAL_FUND_ID,
+  LEDGER_ACCOUNT_HEAD_IDS,
+} from "@pi-dash/shared/constants";
 
 import {
   matchesScope,
@@ -11,6 +14,7 @@ import {
 import {
   accountHeadMutators,
   costCentreMutators,
+  fundMutators,
   orgAccountInputSchema,
   orgAccountMutators,
   programmeMutators,
@@ -24,6 +28,7 @@ function createDb(seed: Partial<Record<string, Row[]>> = {}) {
     accountHead: [],
     budget: [],
     costCentre: [],
+    fund: [],
     ledgerEntry: [],
     orgAccount: [],
     programme: [],
@@ -332,6 +337,58 @@ describe("moving a project to another programme", () => {
   });
 });
 
+describe("fund mutators", () => {
+  const general = {
+    active: true,
+    code: "GEN",
+    description: null,
+    id: GENERAL_FUND_ID,
+    name: "General Fund (Domestic)",
+    restriction: "unrestricted",
+    source: "domestic",
+  };
+
+  it("needs finance.manage", async () => {
+    await expect(
+      run(fundMutators.create, createDb(), volunteerCtx, {
+        code: "BUILD",
+        id: "fund-1",
+        name: "Building Fund",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("adds a fund, unrestricted and domestic unless told otherwise", async () => {
+    const db = createDb();
+    await run(fundMutators.create, db, financeCtx, {
+      code: "BUILD",
+      id: "fund-1",
+      name: "Building Fund",
+    });
+    expect(db.tables.fund?.[0]).toMatchObject({
+      active: true,
+      restriction: "unrestricted",
+      source: "domestic",
+    });
+  });
+
+  it("keeps the General Fund active, but deactivates others", async () => {
+    const db = createDb({
+      fund: [general, { ...general, code: "BUILD", id: "fund-1", name: "B" }],
+    });
+    await expect(
+      run(fundMutators.update, db, financeCtx, { ...general, active: false })
+    ).rejects.toThrow("cannot be deactivated");
+    await run(fundMutators.update, db, financeCtx, {
+      active: false,
+      code: "BUILD",
+      id: "fund-1",
+      name: "B",
+    });
+    expect(db.tables.fund?.[1]?.active).toBe(false);
+  });
+});
+
 describe("account head mutators", () => {
   const head = (overrides: Row = {}): Row => ({
     active: true,
@@ -414,6 +471,28 @@ describe("account head mutators", () => {
         active: false,
       })
     ).rejects.toThrow("can't be deactivated");
+  });
+
+  it("keeps a parent head on its type while it has children", async () => {
+    const db = createDb({
+      accountHead: [
+        head(),
+        head({ code: "TRV", id: "h-2", name: "Travel", parentId: "h-1" }),
+      ],
+    });
+    await expect(
+      run(accountHeadMutators.update, db, financeCtx, head({ type: "income" }))
+    ).rejects.toThrow("Move this head's children");
+    await run(
+      accountHeadMutators.update,
+      db,
+      financeCtx,
+      head({ name: "Programme expenses" })
+    );
+    expect(db.tables.accountHead?.[0]).toMatchObject({
+      name: "Programme expenses",
+      type: "expense",
+    });
   });
 
   it("lets an unused head change type or be deactivated", async () => {

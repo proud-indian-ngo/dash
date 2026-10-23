@@ -24,7 +24,7 @@ import {
   plainTextToRichText,
   serializeRichText,
 } from "@pi-dash/shared/rich-text";
-import { and, asc, desc, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, or, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -40,6 +40,7 @@ import {
   trusteeOffice,
   trusteeTerm,
 } from "../schema/governance";
+import { agendaItem } from "../schema/meetings";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Pick<typeof db, "select">;
@@ -1188,4 +1189,119 @@ export async function recordHistoricalResolution(
     }
     throw error;
   }
+}
+
+export type HistoricalResolutionEdit = Omit<
+  HistoricalResolutionInput,
+  "draftedBy"
+>;
+
+/** A resolution recorded from paper, locked for a correction. */
+async function lockHistorical(tx: Tx, id: string) {
+  const row = await lockResolution(tx, id);
+  if (!row.historical) {
+    throw new ResolutionError(
+      "Only a resolution recorded from paper can be changed."
+    );
+  }
+  return row;
+}
+
+/** Whether a register entry, another resolution or a meeting cites it. */
+async function isCited(tx: Tx, id: string): Promise<boolean> {
+  const checks = await Promise.all([
+    ...[trusteeTerm, trusteeOffice].map((table) =>
+      tx
+        .select({ id: table.id })
+        .from(table)
+        .where(
+          or(
+            eq(table.sourceResolutionId, id),
+            eq(table.endSourceResolutionId, id)
+          )
+        )
+        .limit(1)
+    ),
+    tx
+      .select({ id: resolution.id })
+      .from(resolution)
+      .where(
+        or(
+          eq(resolution.amendsResolutionId, id),
+          eq(resolution.rescindsResolutionId, id)
+        )
+      )
+      .limit(1),
+    tx
+      .select({ id: agendaItem.id })
+      .from(agendaItem)
+      .where(
+        or(
+          eq(agendaItem.resolutionId, id),
+          sql`${agendaItem.notedResolutionIds} @> ${JSON.stringify([id])}::jsonb`
+        )
+      )
+      .limit(1),
+  ]);
+  return checks.some((rows) => rows.length > 0);
+}
+
+/**
+ * Corrects a resolution recorded from paper. Its date stays while anything
+ * cites it. Takes the register lock, then the year's numbering lock, as a
+ * pass does, so a new number never races a circular's.
+ */
+export async function updateHistoricalResolution(
+  input: HistoricalResolutionEdit
+): Promise<void> {
+  try {
+    await db.transaction(async (tx) => {
+      await lockRegister(tx);
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`resolution_number:${input.fiscalYear}`}, 0))`
+      );
+      const row = await lockHistorical(tx, input.id);
+      if (row.decidedOn !== input.decidedOn && (await isCited(tx, input.id))) {
+        throw new ResolutionError(
+          "Other records cite this resolution, so its date can't change."
+        );
+      }
+      await tx
+        .update(resolution)
+        .set({
+          decidedOn: input.decidedOn,
+          finalDocumentId: input.documentId,
+          fiscalYear: input.fiscalYear,
+          number: input.number,
+          sequence: input.sequence,
+          templateKey: input.templateKey,
+          title: input.title,
+          updatedAt: new Date(),
+          validityNote: input.validityNote,
+        })
+        .where(eq(resolution.id, input.id));
+    });
+  } catch (error) {
+    if (
+      String(error).includes("resolution_number_uidx") ||
+      String(error).includes("resolution_fy_sequence_uidx")
+    ) {
+      throw new ResolutionError(`${input.number} is already in the register.`);
+    }
+    throw error;
+  }
+}
+
+/** Deletes a resolution recorded from paper by mistake, while nothing cites it. */
+export async function deleteHistoricalResolution(id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await lockRegister(tx);
+    await lockHistorical(tx, id);
+    if (await isCited(tx, id)) {
+      throw new ResolutionError(
+        "Other records cite this resolution, so it can't be deleted."
+      );
+    }
+    await tx.delete(resolution).where(eq(resolution.id, id));
+  });
 }

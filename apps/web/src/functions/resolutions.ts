@@ -1,6 +1,7 @@
 import { db } from "@pi-dash/db";
 import {
   declareConflict,
+  deleteHistoricalResolution,
   effectRegisterProblem,
   getCircular,
   issueCircular,
@@ -10,6 +11,7 @@ import {
   registerAfterEffect,
   ResolutionError,
   signerState,
+  updateHistoricalResolution,
   withdrawCircular,
 } from "@pi-dash/db/queries/resolutions";
 import { resolution, trustee } from "@pi-dash/db/schema/governance";
@@ -492,23 +494,33 @@ export const withdrawCircularFn = createServerFn({ method: "POST" })
 
 // ── History ─────────────────────────────────────────────────────────────────
 
+const historicalResolutionSchema = z.object({
+  decidedOn: z.iso.date(),
+  documentId: z.uuid().nullable(),
+  number: z.string().trim().min(1).max(40),
+  templateKey: z.enum(resolutionTemplateKeyValues),
+  title: z.string().trim().min(1).max(DOCUMENT_TITLE_MAX),
+  validityNote: z
+    .string()
+    .trim()
+    .max(VALIDITY_NOTE_MAX)
+    .transform((v) => v || null)
+    .nullable(),
+});
+
+function parseRegisterNumber(number: string) {
+  const parsed = parseResolutionNumber(number);
+  if (!parsed) {
+    throw new CircularError(
+      "Use the register's number format, for example PI/TR/2026-27/001."
+    );
+  }
+  return parsed;
+}
+
 export const recordHistoricalResolutionFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(
-    z.object({
-      decidedOn: z.iso.date(),
-      documentId: z.uuid().nullable(),
-      number: z.string().trim().min(1).max(40),
-      templateKey: z.enum(resolutionTemplateKeyValues),
-      title: z.string().trim().min(1).max(DOCUMENT_TITLE_MAX),
-      validityNote: z
-        .string()
-        .trim()
-        .max(VALIDITY_NOTE_MAX)
-        .transform((v) => v || null)
-        .nullable(),
-    })
-  )
+  .validator(historicalResolutionSchema)
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new Error("Unauthorized");
@@ -525,12 +537,7 @@ export const recordHistoricalResolutionFn = createServerFn({ method: "POST" })
       () =>
         userFacing(async () => {
           await assertServerPermission(session, "governance.manage");
-          const parsed = parseResolutionNumber(data.number);
-          if (!parsed) {
-            throw new CircularError(
-              "Use the register's number format, for example PI/TR/2026-27/001."
-            );
-          }
+          const parsed = parseRegisterNumber(data.number);
           await recordHistoricalResolution({
             decidedOn: data.decidedOn,
             documentId: data.documentId,
@@ -544,6 +551,67 @@ export const recordHistoricalResolutionFn = createServerFn({ method: "POST" })
             validityNote: data.validityNote,
           });
           return { id };
+        })
+    );
+  });
+
+/** Corrects a resolution recorded from paper; others never change. */
+export const updateHistoricalResolutionFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(historicalResolutionSchema.extend({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "resolution.update_historical",
+        target: { id: data.id, type: "resolution" },
+      },
+      () =>
+        userFacing(async () => {
+          await assertServerPermission(session, "governance.manage");
+          const parsed = parseRegisterNumber(data.number);
+          await updateHistoricalResolution({
+            decidedOn: data.decidedOn,
+            documentId: data.documentId,
+            fiscalYear: parsed.fiscalYear,
+            id: data.id,
+            number: data.number.trim(),
+            sequence: parsed.sequence,
+            templateKey: data.templateKey,
+            title: data.title,
+            validityNote: data.validityNote,
+          });
+          return { id: data.id };
+        })
+    );
+  });
+
+/** Deletes a resolution recorded from paper by mistake, while nothing cites it. */
+export const deleteHistoricalResolutionFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new Error("Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "resolution.delete_historical",
+        target: { id: data.id, type: "resolution" },
+      },
+      () =>
+        userFacing(async () => {
+          await assertServerPermission(session, "governance.manage");
+          await deleteHistoricalResolution(data.id);
+          return { id: data.id };
         })
     );
   });

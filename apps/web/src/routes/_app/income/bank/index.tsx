@@ -58,11 +58,13 @@ import {
   type StatementLinePrefill,
 } from "@/components/income/contribution-form-dialog";
 import { formatReceivedOn } from "@/components/income/income-date";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { NotFoundState } from "@/components/shared/not-found-state";
 import { PageHeader, PageHeaderMenu } from "@/components/shared/page-header";
 import { StatsCards, type StatItem } from "@/components/stats/stats-cards";
 import { useApp } from "@/context/app-context";
 import {
+  deleteStatementLines,
   findBankStatementMatches,
   getBankStatementSummary,
   getDebitSuggestions,
@@ -285,6 +287,11 @@ function useUnseenPayments(enabled: boolean, refreshKey: string) {
   return state;
 }
 
+const deletedMessage = (isLine: boolean, lineCount: number) =>
+  isLine
+    ? "Line deleted"
+    : `Import deleted with ${lineCount.toLocaleString("en-IN")} ${lineCount === 1 ? "line" : "lines"}`;
+
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
 
@@ -333,6 +340,7 @@ function BankStatementsPage() {
   const navigate = useNavigate();
   const act = useServerFn(updateStatementLine);
   const findMatches = useServerFn(findBankStatementMatches);
+  const removeLines = useServerFn(deleteStatementLines);
 
   // Inactive accounts too, so a closed account's lines stay reachable.
   const [banks, accountsResult] = useQuery(
@@ -399,6 +407,34 @@ function BankStatementsPage() {
   const [matchingDebit, setMatchingDebit] = useState<DebitLineView | null>(
     null
   );
+  const [deleting, setDeleting] = useState<
+    | { kind: "line"; lineId: string }
+    | { batchId: string; kind: "import"; lineCount: number }
+    | null
+  >(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const confirmDelete = useEventCallback(async () => {
+    if (!deleting) {
+      return;
+    }
+    const isLine = deleting.kind === "line";
+    const data: Parameters<typeof removeLines>[0]["data"] =
+      deleting.kind === "line"
+        ? { kind: "line", lineId: deleting.lineId }
+        : { batchId: deleting.batchId, kind: "import" };
+    const failure = isLine
+      ? "Couldn't delete the line"
+      : "Couldn't delete the import";
+    setDeletePending(true);
+    try {
+      const { lineCount } = await removeLines({ data });
+      toast.success(deletedMessage(isLine, lineCount));
+      setDeleting(null);
+    } catch (error) {
+      toast.error(failure, { description: errorMessage(error) });
+    }
+    setDeletePending(false);
+  });
   const [marking, setMarking] = useState<{
     kind: "bank_charges" | "needs_claim" | "tax_payment";
     line: StatementLineRow;
@@ -429,6 +465,17 @@ function BankStatementsPage() {
         { action: "clear_needs_claim", lineId: line.id },
         "No longer waiting for a claim"
       );
+    },
+    onDelete: (line) => setDeleting({ kind: "line", lineId: line.id }),
+    onDeleteImport: (line) => {
+      const batchId = line.importBatchId;
+      if (batchId) {
+        setDeleting({
+          batchId,
+          kind: "import",
+          lineCount: lines.filter((l) => l.importBatchId === batchId).length,
+        });
+      }
     },
     onConfirm: (line, suggestion) => {
       run(
@@ -867,6 +914,26 @@ function BankStatementsPage() {
         open={noting !== null}
         submitLabel="Save note"
         title={noting?.note ? "Edit note" : "Add note"}
+      />
+      <ConfirmDialog
+        confirmLabel={
+          deleting?.kind === "import" ? "Delete import" : "Delete line"
+        }
+        description={
+          deleting?.kind === "import"
+            ? `Deletes the upload and the ${deleting.lineCount.toLocaleString("en-IN")} ${deleting.lineCount === 1 ? "line" : "lines"} it brought in, so the file can be imported again. Every line must be unmatched first.`
+            : "Deletes this line. Importing a statement that has it brings it back."
+        }
+        loading={deletePending}
+        loadingLabel="Deleting..."
+        onConfirm={confirmDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleting(null);
+          }
+        }}
+        open={deleting !== null}
+        title={deleting?.kind === "import" ? "Delete import" : "Delete line"}
       />
     </div>
   );

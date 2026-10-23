@@ -3,7 +3,7 @@ import type {
   StatementLineMatchKind,
 } from "@pi-dash/shared/constants";
 import { CONTRIBUTION_RECEIVED_STATUSES } from "@pi-dash/shared/income";
-import { LEDGER_CUTOVER_ON } from "@pi-dash/shared/ledger";
+import { LEDGER_CUTOVER_ON, LEDGER_SOURCE_TYPES } from "@pi-dash/shared/ledger";
 import {
   and,
   asc,
@@ -19,14 +19,20 @@ import {
 } from "drizzle-orm";
 
 import { db } from "..";
+import { MOVEMENT_ALLOCATION_STATEMENT_LINE } from "../ledger/engine";
 import { shareYearCloseLock } from "../ledger/income-posting";
 import { fiscalYear, orgAccount } from "../schema/finance-dimensions";
 import { gatewaySettlement } from "../schema/gateway-settlement";
 import { importBatch } from "../schema/import-batch";
 import { contribution } from "../schema/income";
+import {
+  ledgerSourceState,
+  movementAllocation,
+  posting,
+} from "../schema/ledger";
 import { party } from "../schema/party";
 import { importRow } from "../schema/private/imports";
-import { statementLine } from "../schema/statement-line";
+import { statementAllocation, statementLine } from "../schema/statement-line";
 
 /**
  * Database access for bank statement lines: storing an upload's lines,
@@ -794,4 +800,104 @@ export async function getStatementLine(
     .from(statementLine)
     .where(eq(statementLine.id, id));
   return row ?? null;
+}
+
+/** A bank statement upload, locked for the rest of the transaction. */
+export async function lockStatementBatch(
+  tx: StatementTx,
+  batchId: string
+): Promise<{ id: string; status: string } | null> {
+  const [row] = await tx
+    .select({ id: importBatch.id, status: importBatch.status })
+    .from(importBatch)
+    .where(and(eq(importBatch.id, batchId), eq(importBatch.source, "bank_csv")))
+    .for("update");
+  return row ?? null;
+}
+
+/** An import's lines, locked for the rest of the transaction. */
+export async function lockBatchLines(
+  tx: StatementTx,
+  batchId: string
+): Promise<StatementLineRecord[]> {
+  return await tx
+    .select()
+    .from(statementLine)
+    .where(eq(statementLine.importBatchId, batchId))
+    .orderBy(asc(statementLine.position))
+    .for("update");
+}
+
+/** The posting sources whose ID is a statement line's. */
+const LINE_SOURCE_TYPES = [
+  LEDGER_SOURCE_TYPES.statementCharge,
+  LEDGER_SOURCE_TYPES.statementTransfer,
+];
+
+/**
+ * Whether any of the lines was ever allocated to a claim, payment or
+ * charge, or is named by a posting or a movement allocation: the books
+ * keep those references even after an unmatch, so such a line stays.
+ */
+export async function linesInBooks(
+  tx: StatementTx,
+  ids: readonly string[]
+): Promise<boolean> {
+  if (ids.length === 0) {
+    return false;
+  }
+  const lineIds = [...ids];
+  const [allocated] = await tx
+    .select({ id: statementAllocation.id })
+    .from(statementAllocation)
+    .where(inArray(statementAllocation.statementLineId, lineIds))
+    .limit(1);
+  const [posted] = await tx
+    .select({ id: posting.id })
+    .from(posting)
+    .where(
+      and(
+        inArray(posting.sourceType, LINE_SOURCE_TYPES),
+        inArray(posting.sourceId, lineIds)
+      )
+    )
+    .limit(1);
+  const [reconciled] = await tx
+    .select({ id: movementAllocation.id })
+    .from(movementAllocation)
+    .where(
+      and(
+        eq(movementAllocation.documentType, MOVEMENT_ALLOCATION_STATEMENT_LINE),
+        inArray(movementAllocation.documentId, lineIds)
+      )
+    )
+    .limit(1);
+  return Boolean(allocated || posted || reconciled);
+}
+
+/**
+ * Deletes lines and their posting status rows; with a batch ID, the upload
+ * too (its rows cascade). The freed line hashes let a later upload bring
+ * the same lines in again.
+ */
+export async function deleteStatementLineRows(
+  tx: StatementTx,
+  ids: readonly string[],
+  batchId: string | null
+): Promise<void> {
+  if (ids.length > 0) {
+    const lineIds = [...ids];
+    await tx
+      .delete(ledgerSourceState)
+      .where(
+        and(
+          inArray(ledgerSourceState.sourceType, LINE_SOURCE_TYPES),
+          inArray(ledgerSourceState.sourceId, lineIds)
+        )
+      );
+    await tx.delete(statementLine).where(inArray(statementLine.id, lineIds));
+  }
+  if (batchId) {
+    await tx.delete(importBatch).where(eq(importBatch.id, batchId));
+  }
 }
