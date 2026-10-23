@@ -225,7 +225,8 @@ docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 # Start test DB
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
-# Issuing circulars, minutes and declarations needs the signing service.
+# Issuing circulars, minutes, declarations and utilisation certificates
+# needs the signing service.
 echo "Starting the signing service on port $TEST_SIGNING_PORT..."
 docker compose -f "$E2E_COMPOSE_FILE" build signing-test
 bash "$REPO_ROOT/packages/e2e/signing/make-test-pki.sh" \

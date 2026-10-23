@@ -85,8 +85,7 @@ export class ReimbursementPage {
 
   /**
    * Marks the open request approved in the database, for specs that need an
-   * approved request but not the approval itself. Approving in the app needs
-   * the payment screenshot promoted in R2, which CI does not have.
+   * approved request but not the approval itself.
    */
   async approveInDatabase(): Promise<void> {
     await this.runApprovalFixture("approve");
