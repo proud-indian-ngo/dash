@@ -277,6 +277,7 @@ jobs:
             -e ZERO_QUERY_FORWARD_COOKIES=true \
             -e ZERO_ADMIN_PASSWORD="$ZERO_ADMIN_PASSWORD" \
             -e ZERO_LOG_LEVEL=info \
+            -e ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0 \
             "${{ steps.zero-cache.outputs.image }}"
 
       - name: Restore Playwright cache
