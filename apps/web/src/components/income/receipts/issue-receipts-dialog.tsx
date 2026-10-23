@@ -29,6 +29,7 @@ import { Tag } from "@/components/shared/status-badge";
 import { issueContributionReceipts } from "@/functions/contribution-receipts";
 
 import { formatReceivedOn } from "../income-date";
+import { useReceiptCandidates } from "./use-receipt-candidates";
 
 const ISSUE_SKIP_LABELS: Record<string, string> = {
   ...RECEIPT_SKIP_LABELS,
@@ -45,7 +46,6 @@ function issueSkipReasons(skipped: readonly { reason: string }[]): string {
   );
   return [...new Set(reasons)].join("; ");
 }
-import { useReceiptCandidates } from "./use-receipt-candidates";
 
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong";
