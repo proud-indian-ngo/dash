@@ -38,7 +38,8 @@ test.describe("Scheduled messages (admin)", () => {
     await test.step("a day pick survives a re-render mid-click", async () => {
       const scheduledAt = dialog.getByLabel("Scheduled at");
       const defaultHour = addHours(new Date(), 1).getHours() % 12 || 12;
-      const hour = defaultHour === 11 ? "10" : "11";
+      // Any hour but the default; never "10", which a minute button shares.
+      const hour = defaultHour === 11 ? "12" : "11";
       const nextMonth = addMonths(new Date(), 1);
       const dayButton = (day: number) =>
         page.getByRole("button", {
