@@ -46,6 +46,8 @@ Defined in `packages/zero/src/mutators/`. The same code runs twice:
 
 Because mutators ship to the client, server-only packages (`@pi-dash/jobs`, `@pi-dash/notifications`, `@pi-dash/db`, `@pi-dash/env/server`, `drizzle-orm`, `bun`) are loaded with dynamic `import()` behind the `tx.location === "server"` check. A static import would leak them into the client bundle.
 
+Time rules (whether something has started or ended, a deadline, a window, an expiry) are judged on the server pass by the server's clock: `tx.location === "server" ? Date.now() : args.now`, or a plain `Date.now()`, which reads the server's clock on that pass. A client-supplied `now` only decides the optimistic run and stamps records (`createdAt`, `updatedAt`, `addedAt` and the like), so a client with a wrong clock can't get past a rule. The one rule left on it is which upcoming sessions a series split saves first (`saveUpcomingSessionsBefore`): it chooses rows to save and refuses nothing.
+
 Permission helpers are in `packages/zero/src/permissions.ts`; see `authorization.md`. Checks that need rows the client may not hold (for example, that a referenced donor, account or fund is active) run only on the server pass.
 
 ## Queries
