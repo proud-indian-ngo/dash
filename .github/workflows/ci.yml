@@ -1,7 +1,7 @@
 name: CI
 on:
   pull_request:
-    branches: [master, ci/selective-e2e]
+    branches: [master]
     # labeled: adding run-all-e2e reruns the PR with the full E2E suite.
     types: [opened, synchronize, reopened, labeled]
   push:
@@ -122,6 +122,7 @@ jobs:
 
   # One shard per ~100s of selected test time; none when nothing is selected.
   e2e:
+    name: e2e (${{ matrix.shard }})
     needs: prepare-shards
     if: needs.prepare-shards.outputs.shards != '0'
     runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
