@@ -13,7 +13,6 @@ import {
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
   issueAuditPackToken,
-  liftIdleTimeout,
   prepareAuditPack as prepareAuditPackFor,
   preparedAuditMetadata,
 } from "@/lib/audit-pack/server";
@@ -405,7 +404,6 @@ export const prepareAuditPack = createServerFn({ method: "POST" })
       );
     }
     const request = getRequest();
-    liftIdleTimeout(request);
     return await runSessionAuditedAction(
       session,
       context.headers,
