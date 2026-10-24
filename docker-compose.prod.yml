@@ -111,8 +111,8 @@ services:
       OTEL_METRICS_EXPORTER: ${ZERO_OTEL_METRICS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${ZERO_OTEL_METRICS_ENDPOINT:-}
       OTEL_TRACES_EXPORTER: "none"
-      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.name=zero-cache}
-      OTEL_NODE_RESOURCE_DETECTORS: ${OTEL_NODE_RESOURCE_DETECTORS:-env,host,os}
+      OTEL_RESOURCE_ATTRIBUTES: service.name=zero-cache
+      OTEL_NODE_RESOURCE_DETECTORS: env,host,os
     volumes:
       - zero_cache_data:/data
     networks:
