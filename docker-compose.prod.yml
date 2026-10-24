@@ -1,129 +1,9 @@
 name: pi-dash
 
+# The web app runs outside this stack, as a Dokploy Application (DEPLOYMENT.md#web-app)
 x-db-url: &db-url postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@tailscale-postgres:5432/${POSTGRES_DB:-pi-dash}
 
 services:
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: migrator
-    environment:
-      TZ: Asia/Kolkata
-      DATABASE_URL: *db-url
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_ZERO_URL: ${VITE_ZERO_URL}
-        VITE_CDN_URL: ${VITE_CDN_URL}
-        VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
-        VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
-        VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-}
-        VITE_APP_ENV: ${APP_ENV:-production}
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY}
-        POSTHOG_CLI_PROJECT_ID: ${POSTHOG_CLI_PROJECT_ID:-386098}
-      # Source map upload key; unset uploads nothing (see DEPLOYMENT.md)
-      secrets:
-        - posthog_cli_api_key
-    expose:
-      - 3000
-    environment:
-      DATABASE_URL: *db-url
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-      CORS_ORIGIN: ${CORS_ORIGIN}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      VITE_ZERO_URL: ${VITE_ZERO_URL}
-      GRAVATAR_API_KEY: ${GRAVATAR_API_KEY:-}
-      AVATAR_FALLBACK_SEED: ${AVATAR_FALLBACK_SEED:-}
-      GRAVATAR_API_BASE_URL: ${GRAVATAR_API_BASE_URL:-https://api.gravatar.com/v3}
-      GRAVATAR_TIMEOUT_MS: ${GRAVATAR_TIMEOUT_MS:-5000}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      EMAIL_FROM: ${EMAIL_FROM}
-      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
-      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
-      # Razorpay Payment Page ingestion; off unless KEY_ID and WEBHOOK_SECRET are set
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
-      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
-      R2_ACCESS_KEY: ${R2_ACCESS_KEY:-}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
-      R2_KEY_PREFIX: ${R2_KEY_PREFIX:-}
-      VITE_CDN_URL: ${VITE_CDN_URL:-}
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
-      WHATSAPP_AUTH_USER: ${WHATSAPP_AUTH_USER:-}
-      WHATSAPP_AUTH_PASS: ${WHATSAPP_AUTH_PASS:-}
-      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
-      WHATSAPP_CLOUD_ACCESS_TOKEN: ${WHATSAPP_CLOUD_ACCESS_TOKEN:-}
-      WHATSAPP_CLOUD_APP_SECRET: ${WHATSAPP_CLOUD_APP_SECRET:-}
-      WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID: ${WHATSAPP_CLOUD_BUSINESS_ACCOUNT_ID:-}
-      WHATSAPP_CLOUD_GRAPH_VERSION: ${WHATSAPP_CLOUD_GRAPH_VERSION:-}
-      WHATSAPP_CLOUD_PHONE_NUMBER_ID: ${WHATSAPP_CLOUD_PHONE_NUMBER_ID:-}
-      WHATSAPP_CLOUD_VERIFY_TOKEN: ${WHATSAPP_CLOUD_VERIFY_TOKEN:-}
-      APP_URL: ${APP_URL:-}
-      IMMICH_API_KEY: ${IMMICH_API_KEY:-}
-      IMMICH_INTERNAL_URL: ${IMMICH_INTERNAL_URL:-}
-      # signs the social API's photo links; unset disables /api/social/v1 photos
-      SOCIAL_MEDIA_SIGNING_SECRET: ${SOCIAL_MEDIA_SIGNING_SECRET:-}
-      VOUCHER_ORG_NAME: ${VOUCHER_ORG_NAME}
-      VOUCHER_ORG_ADDRESS: ${VOUCHER_ORG_ADDRESS}
-      VOUCHER_ORG_PHONE: ${VOUCHER_ORG_PHONE}
-      VOUCHER_ORG_EMAIL: ${VOUCHER_ORG_EMAIL}
-      VOUCHER_ORG_REGISTRATION: ${VOUCHER_ORG_REGISTRATION}
-      VOUCHER_FINANCE_ADMIN_NAME: ${VOUCHER_FINANCE_ADMIN_NAME}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      VITE_IMMICH_URL: ${VITE_IMMICH_URL:-}
-      POSTHOG_API_KEY: ${POSTHOG_API_KEY:-}
-      POSTHOG_HOST: ${POSTHOG_HOST:-https://us.i.posthog.com}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-pi-dash}
-      APP_ENV: ${APP_ENV:-production}
-      # internal pyHanko service for governance PDFs (services/signing); issuing circulars, minutes and declarations needs it
-      SIGNING_SERVICE_URL: ${SIGNING_SERVICE_URL:-http://signing:8080}
-      SIGNING_SERVICE_TOKEN: ${SIGNING_SERVICE_TOKEN:-}
-      # rebuilds proudindian.ngo when the public events feed changes (sync-public-events-deploy); unset disables it
-      WEBSITE_DISPATCH_TOKEN: ${WEBSITE_DISPATCH_TOKEN:-}
-      TZ: Asia/Kolkata
-      NODE_ENV: production
-      # Seconds srvx lets open requests finish on SIGTERM (default 5);
-      # Cloudflare already cuts an origin silent for 100
-      SERVER_SHUTDOWN_TIMEOUT: 100
-    # Longer than the drain above, and pg-boss's 30-second graceful stop
-    stop_grace_period: 110s
-    # Liveness only: /api/health fails while Postgres restarts, and an
-    # unhealthy container leaves Traefik's routing
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "bun",
-          "-e",
-          "fetch('http://localhost:3000/api/version').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 45s
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      zero-cache:
-        condition: service_healthy
-    restart: unless-stopped
-
   postgres:
     # Pinned to the patch release so an upgrade is a deliberate, planned restart
     image: postgres:18.6
@@ -183,7 +63,7 @@ services:
     restart: unless-stopped
 
   # The governance signing service. No published port:
-  # only the web app reaches it, over the compose or Dokploy network.
+  # only the web app reaches it, over the Dokploy network.
   signing:
     build:
       context: services/signing
@@ -214,9 +94,9 @@ services:
       ZERO_ADMIN_PASSWORD: ${ZERO_ADMIN_PASSWORD:-}
       ZERO_OPERATOR_PASSWORD: ${ZERO_OPERATOR_PASSWORD:-}
       ZERO_MUTATE_FORWARD_COOKIES: "true"
-      ZERO_MUTATE_URL: ${WEB_INTERNAL_URL:-http://web:${PORT:-3000}}/api/zero/mutate
+      ZERO_MUTATE_URL: ${WEB_INTERNAL_URL:?the web Application's service URL}/api/zero/mutate
       ZERO_QUERY_FORWARD_COOKIES: "true"
-      ZERO_QUERY_URL: ${WEB_INTERNAL_URL:-http://web:${PORT:-3000}}/api/zero/query
+      ZERO_QUERY_URL: ${WEB_INTERNAL_URL:?the web Application's service URL}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
       ZERO_QUERY_HYDRATION_STATS: ${ZERO_QUERY_HYDRATION_STATS:-false}
       # Log and metric export are opt-in: set the exporter to otlp, its endpoint and the headers
@@ -233,9 +113,9 @@ services:
     networks:
       - default
       - dokploy-network
+    # Web applies migrations and the publication; on a fresh database,
+    # zero-cache restarts until it has
     depends_on:
-      migrate:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     healthcheck:
@@ -249,14 +129,8 @@ services:
     stop_grace_period: 10m
     restart: unless-stopped
 
-# A file secret outside the build context needs a Buildx entitlement under
-# Compose's Bake builder, so the key comes from the environment instead.
-secrets:
-  posthog_cli_api_key:
-    environment: POSTHOG_CLI_API_KEY
-
-# Dokploy's shared network, where a web app deployed outside this stack
-# reaches Postgres and signing by their aliases, and zero-cache reaches it
+# Dokploy's shared network, where the web Application reaches Postgres and
+# signing by their aliases, and zero-cache reaches it
 networks:
   dokploy-network:
     external: true
