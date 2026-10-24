@@ -1,9 +1,14 @@
 import { auth } from "@pi-dash/auth";
 import {
+  hasPassword,
+  welcomeVerifiedAssistantSignUp,
+} from "@pi-dash/auth/assistant-sign-up";
+import {
   fileVerifiedSignUpInterest,
   findUnverifiedUserForToken,
 } from "@pi-dash/auth/register-interest-db";
 import { env } from "@pi-dash/env/web";
+import { withFireAndForgetLog } from "@pi-dash/observability";
 import {
   eventPagePath,
   parseEventRedirect,
@@ -34,10 +39,8 @@ const verifyEmailToken = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     try {
-      // Read before verifying: only a first verification files the interest.
-      const unverifiedUser = data.interest
-        ? await findUnverifiedUserForToken(data.token)
-        : null;
+      // Read before verifying: only a first verification acts on the account.
+      const unverifiedUser = await findUnverifiedUserForToken(data.token);
       const result = await auth.api.verifyEmail({
         query: { token: data.token },
       });
@@ -46,11 +49,21 @@ const verifyEmailToken = createServerFn({ method: "GET" })
         return { error: "Verification failed. The link may have expired." };
       }
 
-      if (unverifiedUser && data.interest) {
+      if (!unverifiedUser) {
+        return { error: null, needsPassword: false };
+      }
+      if (data.interest) {
         await fileVerifiedSignUpInterest(unverifiedUser, data.interest);
       }
-
-      return { error: null };
+      // Only an assistant's sign-up has no password (assistants.md).
+      const needsPassword = !(await hasPassword(unverifiedUser.id));
+      if (needsPassword) {
+        withFireAndForgetLog(
+          { action: "welcomeAssistantSignUp", userId: unverifiedUser.id },
+          () => welcomeVerifiedAssistantSignUp(unverifiedUser.id)
+        );
+      }
+      return { error: null, needsPassword };
     } catch (e) {
       const message =
         e instanceof Error ? e.message.toLowerCase() : String(e).toLowerCase();
@@ -84,7 +97,7 @@ export const Route = createFileRoute("/_auth/verify-email")({
       },
     });
 
-    if (!result.error) {
+    if (result.alreadyVerified) {
       throw redirect({
         search: {
           redirect: eventRedirect ? eventPagePath(eventRedirect) : undefined,
@@ -92,6 +105,13 @@ export const Route = createFileRoute("/_auth/verify-email")({
         },
         to: "/login",
       });
+    }
+    if (!result.error) {
+      // Verifying signs the account in (autoSignInAfterVerification).
+      const landing = eventRedirect ? eventPagePath(eventRedirect) : "/";
+      throw result.needsPassword
+        ? redirect({ search: { redirect: landing }, to: "/set-password" })
+        : redirect({ href: landing });
     }
 
     return { verificationError: result.error };

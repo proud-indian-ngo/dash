@@ -38,9 +38,13 @@ test.describe("MCP public tools", () => {
       "about_proud_indian",
       "get_donation_link",
       "list_upcoming_sessions",
+      "start_volunteer_signup",
     ]);
+    // Only the sign-up writes.
     for (const tool of tools) {
-      expect(tool.annotations?.readOnlyHint).toBe(true);
+      expect(tool.annotations?.readOnlyHint).toBe(
+        tool.name !== "start_volunteer_signup"
+      );
     }
 
     // The tool lists exactly what the website's feed lists.

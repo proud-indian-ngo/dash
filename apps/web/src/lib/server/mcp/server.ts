@@ -13,6 +13,7 @@ import {
 import { DONATE_URL, WEBSITE_URL } from "@pi-dash/shared/website";
 import z from "zod";
 
+import { startAssistantSignUp } from "@/lib/server/mcp/sign-up";
 import { createTtlCache } from "@/lib/ttl-cache";
 
 /**
@@ -20,7 +21,7 @@ import { createTtlCache } from "@/lib/ttl-cache";
  * `/api/mcp`. One instance per request (the transport is stateless).
  */
 
-const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. Use these tools to answer questions about Proud Indian, list its upcoming volunteering sessions, and send people who want to donate to the donation page. Never invent sessions, links or facts; anything not covered here is on ${WEBSITE_URL}.`;
+const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. Use these tools to answer questions about Proud Indian, list its upcoming volunteering sessions, sign a person up for one, and send people who want to donate to the donation page. Never invent sessions, links or facts; anything not covered here is on ${WEBSITE_URL}.`;
 
 const ABOUT_URL = `${WEBSITE_URL}/llms.txt`;
 const ABOUT_TIMEOUT_MS = 5000;
@@ -154,6 +155,49 @@ export function createMcpServer(): McpServer {
       title: "Get the donation link",
     },
     () => text(DONATE_URL)
+  );
+
+  server.registerTool(
+    "start_volunteer_signup",
+    {
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+        readOnlyHint: false,
+      },
+      description:
+        "Sign a person up as a Proud Indian volunteer and ask to join one session. Ask the person for every field and confirm the session with them first; never guess or reuse someone else's details. Volunteers must be 18 or older. Proud Indian emails them a link to confirm their address; opening it signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until they open the link, so tell them to check their inbox.",
+      inputSchema: z.object({
+        dateOfBirth: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe("YYYY-MM-DD"),
+        email: z.email(),
+        eventId: z
+          .uuid()
+          .describe("The session's id from list_upcoming_sessions."),
+        gender: z.enum(["female", "male"]),
+        name: z.string().trim().min(2).max(100).describe("Full name"),
+        occDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "The session's occurrenceDate from list_upcoming_sessions; required for a recurring session."
+          ),
+        phone: z
+          .string()
+          .describe(
+            "Mobile number with country code, such as +91 98765 43210. Indian numbers may leave the code out."
+          ),
+      }),
+      title: "Sign up a volunteer for a session",
+    },
+    async (input) => {
+      const result = await startAssistantSignUp(input);
+      return { ...text(result.message), isError: result.isError };
+    }
   );
 
   return server;

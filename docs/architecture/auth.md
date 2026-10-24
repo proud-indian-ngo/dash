@@ -9,7 +9,8 @@ Better Auth is configured in `packages/auth/src/auth.ts`.
 
 - Password accounts use provider `credential`.
 - Custom roles are not registered with the admin plugin (`authorization.md`).
-- Email verification is required. Public volunteer sign-up is at `/register`.
+- Email verification is required. Opening the verification link signs the account in (`autoSignInAfterVerification`) and lands on its event, or `/`.
+- Public volunteer sign-up is at `/register`. Assistants sign people up without a password ([assistants](assistants.md#sign-up-by-an-assistant)); verifying sends those accounts to `/set-password` first.
 
 ### Bot checks
 
@@ -59,7 +60,7 @@ Each is optional and independent. Invalid values are dropped and the page still 
 `?interestEventId=`:
 
 - Nothing is written at sign-up. The redirect travels through the verification email.
-- `/verify-email` files a pending `event_interest` (`packages/auth/src/register-interest.ts`) on the account's first verification only, then notifies team leads. A series occurrence is materialised (`recurring-events.md`).
+- `/verify-email` files a pending `event_interest` (`packages/auth/src/register-interest.ts`) on the account's first verification only, then notifies team leads and opens the event signed in. A series occurrence is materialised (`recurring-events.md`).
 - Private, Kalakriti, cancelled or started sessions are skipped. It never enrols; a team lead approves as usual.
 
 ### Event redirects

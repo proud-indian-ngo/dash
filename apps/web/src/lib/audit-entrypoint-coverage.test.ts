@@ -91,6 +91,7 @@ const AUDITED_SERVER_FUNCTIONS = [
   "syncRazorpayNow",
   "triggerEventInterestExpiry",
   "triggerR2Cleanup",
+  "setInitialPassword",
   "triggerWhatsAppGroupScan",
   "updateRazorpaySettings",
   "updateRole",
@@ -161,7 +162,8 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/jobs/$id/retry.ts",
   "routes/api/jobs/index.ts",
   "routes/api/log/ingest.ts",
-  // MCP for assistants: its public tools only read.
+  // MCP for assistants: its public tools read, and its sign-up is an
+  // unauthenticated auth flow (assistants.md).
   "routes/api/mcp.ts",
   // Machine token API: posted is audited in its handler; notify only enqueues
   // a digest; runs stores the pipeline's own run report (scheduled-job telemetry).

@@ -580,13 +580,18 @@ test.describe("Register URL options", () => {
 test.describe("Public website sign-up links", () => {
   test.describe.configure({ mode: "serial" });
 
-  /** Open the link from a verification email, as the inbox would. */
+  /**
+   * Open the link from a verification email, as the inbox would. It signs
+   * the account in and opens the event.
+   */
   async function verifyEmail(page: Page, email: string, redirect: string) {
     const { token } = await fixture<{ token: string }>("token", email);
     await page.goto(
       `/verify-email?token=${token}&redirect=${encodeURIComponent(redirect)}`
     );
-    await page.waitForURL(/\/login\?/, { timeout: 30_000 });
+    await page.waitForURL((url) => url.pathname !== "/verify-email", {
+      timeout: 30_000,
+    });
   }
 
   test("files a pending interest once verified and lands on the event", async ({
@@ -641,19 +646,15 @@ test.describe("Public website sign-up links", () => {
         publicEventMember: false,
       });
 
+      // Verifying signs the account in and lands on the event.
       await verifyEmail(page, signup.email, linkRedirect);
-      expect(new URL(page.url()).searchParams.get("redirect")).toBe(eventPath);
+      expect(new URL(page.url()).pathname).toBe(eventPath);
       // A pending request for a lead to approve, never a direct enrollment.
       await expect
         .poll(async () => fixture("interest", signup.email), {
           timeout: 15_000,
         })
         .toMatchObject({ interestStatus: "pending", publicEventMember: false });
-
-      await page.getByLabel("Email").fill(signup.email);
-      await page.locator("#password").fill("Password123!");
-      await page.getByRole("button", { name: "Log in" }).click();
-      await page.waitForURL(eventPath, { timeout: 30_000 });
       await expect(page.getByText("Interest Pending")).toBeVisible({
         timeout: 15_000,
       });
