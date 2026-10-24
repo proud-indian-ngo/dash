@@ -44,7 +44,18 @@ describe("getTransactionActions", () => {
     });
   });
 
-  it("lets edit_all and delete_all holders act on anyone's payment", () => {
+  it("lets edit_all and delete_all holders act on anyone's pending payment", () => {
+    expect(
+      getTransactionActions({
+        ...base,
+        canDeleteAll: true,
+        canEditAll: true,
+        isRecorder: false,
+      })
+    ).toEqual({ canDelete: true, canEdit: true });
+  });
+
+  it("does not grant edit_all access to reviewed payments", () => {
     expect(
       getTransactionActions({
         ...base,
@@ -53,14 +64,18 @@ describe("getTransactionActions", () => {
         isPending: false,
         isRecorder: false,
       })
-    ).toEqual({ canDelete: true, canEdit: true });
+    ).toEqual({ canDelete: true, canEdit: false });
   });
 
-  it("never deletes a posted or voided payment, and never edits a voided one", () => {
+  it("never changes an invoice-locked, posted, or voided payment", () => {
     const admin = { ...base, canDeleteAll: true, canEditAll: true };
+    expect(getTransactionActions({ ...admin, isInvoiceLocked: true })).toEqual({
+      canDelete: false,
+      canEdit: false,
+    });
     expect(getTransactionActions({ ...admin, isPosted: true })).toEqual({
       canDelete: false,
-      canEdit: true,
+      canEdit: false,
     });
     expect(getTransactionActions({ ...admin, isVoided: true })).toEqual({
       canDelete: false,

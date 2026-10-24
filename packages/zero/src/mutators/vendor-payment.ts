@@ -16,10 +16,7 @@ import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
-import {
-  INVOICE_LOCKED_STATUSES,
-  INVOICE_UPLOADABLE_STATUSES,
-} from "../vendor-payment-constants";
+import { INVOICE_UPLOADABLE_STATUSES } from "../vendor-payment-constants";
 import { userName } from "./claimant";
 import {
   costCentreAfterRecharge,
@@ -1334,23 +1331,14 @@ export const vendorPaymentMutators = {
     assertNotVoided(entity);
     // As it was, to tell whether it now waits for a lead.
     const entityBefore = { ...entity };
-    if (!(hasEditAll || canEditAnyStatus)) {
-      assertCanModify(
-        entity,
-        userId,
-        false,
-        "vendor payment",
-        false,
-        hasEditOwn
-      );
-    } else if (
-      !canEditAnyStatus &&
-      INVOICE_LOCKED_STATUSES.has(entity.status as string)
-    ) {
-      throw new Error(
-        "Cannot edit vendor payment details while invoice is pending or completed"
-      );
-    }
+    assertCanModify(
+      entity,
+      userId,
+      hasEditAll || canEditAnyStatus,
+      "vendor payment",
+      canEditAnyStatus,
+      hasEditOwn
+    );
 
     const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
     if (!vendor) {
@@ -1507,8 +1495,8 @@ export const vendorPaymentMutators = {
       });
     }
 
-    // Recalculate payment status when admin edits line items on a non-pending VP
-    if (hasEditAll && entity.status !== "pending") {
+    // Recalculate payment status when finance edits line items after approval.
+    if (canEditAnyStatus && entity.status !== "pending") {
       await recalculateParentStatus(tx, args.id, now);
     }
     // An edit after posting reverses and reposts the expense.

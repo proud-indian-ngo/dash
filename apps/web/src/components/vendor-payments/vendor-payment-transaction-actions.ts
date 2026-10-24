@@ -27,10 +27,15 @@ export function getTransactionActions({
 }: TransactionActionInput) {
   const recorderCanModify = isPending && isRecorder && !isInvoiceLocked;
   return {
-    canEdit: !isVoided && (recorderCanModify || canEditAll),
+    canEdit:
+      !isVoided &&
+      !isInvoiceLocked &&
+      !isPosted &&
+      isPending &&
+      (isRecorder || canEditAll),
     // In the books or voided: kept as the record, so voided instead of deleted.
     canDelete:
-      !(isVoided || isPosted) &&
+      !(isInvoiceLocked || isVoided || isPosted) &&
       ((recorderCanModify && canDeleteOwn) || canDeleteAll),
   };
 }

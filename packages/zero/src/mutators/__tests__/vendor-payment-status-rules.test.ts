@@ -25,6 +25,65 @@ const ADMIN = [
   "requests.record_payment",
 ];
 
+describe("vendor payment detail edit authorization", () => {
+  for (const status of [
+    "approved",
+    "partially_paid",
+    "paid",
+    "rejected",
+    "invoice_pending",
+    "completed",
+  ]) {
+    it(`refuses requests.edit_all on a ${status} request`, async () => {
+      const update = mock();
+      const tx = {
+        location: "client",
+        mutate: { vendorPayment: { update } },
+        run: mock().mockResolvedValueOnce({
+          id: "vp-1",
+          status,
+          userId: "owner-1",
+          voidedAt: null,
+        }),
+      };
+
+      await expect(
+        vendorPaymentMutators.update.fn({
+          args: { id: "vp-1" },
+          ctx: clientContext(["requests.edit_all"]),
+          tx,
+        } as never)
+      ).rejects.toThrow("Only pending vendor payments can be updated");
+      expect(tx.run).toHaveBeenCalledTimes(1);
+      expect(update).not.toHaveBeenCalled();
+    });
+  }
+
+  it("refuses an owner with edit_own after approval", async () => {
+    const update = mock();
+    const tx = {
+      location: "client",
+      mutate: { vendorPayment: { update } },
+      run: mock().mockResolvedValueOnce({
+        id: "vp-1",
+        status: "approved",
+        userId: "user-1",
+        voidedAt: null,
+      }),
+    };
+
+    await expect(
+      vendorPaymentMutators.update.fn({
+        args: { id: "vp-1" },
+        ctx: clientContext(["requests.edit_own"]),
+        tx,
+      } as never)
+    ).rejects.toThrow("Only pending vendor payments can be updated");
+    expect(tx.run).toHaveBeenCalledTimes(1);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
 describe("vendor payment review applies only to pending requests", () => {
   for (const status of ["approved", "paid", "invoice_pending", "completed"]) {
     it(`refuses to approve a ${status} request, even for admins`, async () => {
