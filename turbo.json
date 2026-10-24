@@ -115,12 +115,6 @@
     "test:ui": {
       "cache": false
     },
-    "whatsapp:start": {
-      "cache": false
-    },
-    "whatsapp:stop": {
-      "cache": false
-    },
     "analyze": {
       "cache": false
     }

@@ -6,7 +6,7 @@ The database backup does not hold:
 
 - Files in R2 (attachments, payment proof, vouchers, receipts, photos). Nothing in this repo backs up the bucket.
 - The env. Keep `DATA_ENCRYPTION_KEY` outside the database backup; without it, PANs, bank numbers and donor IDs are unreadable and import hashes stop matching ([env-and-secrets.md](architecture/env-and-secrets.md)). Keep `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `RAZORPAY_WEBHOOK_SECRET`, `ZERO_ADMIN_PASSWORD` and the other secrets with it.
-- zero-cache's replica (`/data/zero.db` in the `zero_cache_data` volume) and GoWA's pairing (`whatsapp_data`).
+- zero-cache's replica (`/data/zero.db` in the `zero_cache_data` volume).
 
 To restore:
 

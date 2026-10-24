@@ -93,8 +93,6 @@
     "test:unit": "turbo run test:unit --concurrency=2",
     "test:unit:affected": "turbo run test:unit --affected --concurrency=2",
     "ui:add": "turbo run --filter=@pi-dash/design-system ui:add --",
-    "whatsapp:start": "turbo run --filter=@pi-dash/db whatsapp:start",
-    "whatsapp:stop": "turbo run --filter=@pi-dash/db whatsapp:stop",
     "whatsapp:templates": "bun --env-file=.env --env-file=.env.worktree run scripts/whatsapp-templates.ts",
     "worktree:setup": "bash scripts/worktree-setup.sh",
     "worktree:teardown": "bash scripts/worktree-teardown.sh",

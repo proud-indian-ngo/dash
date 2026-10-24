@@ -57,28 +57,7 @@ services:
       timeout: 5s
       retries: 5
 
-  whatsapp:
-    image: ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0
-    pull_policy: always
-    container_name: pi-dash-whatsapp
-    environment:
-      APP_UI_ENABLED: "true"
-      APP_UI_AUTO_UPDATE: "true"
-      WHATSAPP_WEBHOOK: http://host.docker.internal:${DEV_WEB_PORT:-3001}/api/whatsapp/webhook
-      WHATSAPP_WEBHOOK_EVENTS: message,message.ack
-      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
-    ports:
-      - "3100:3000"
-    volumes:
-      - pi-dash_whatsapp_data:/app/storages
-    command:
-      - rest
-      - --basic-auth=${WHATSAPP_AUTH_USER:-admin}:${WHATSAPP_AUTH_PASS:-admin}
-      - --port=3000
-    restart: unless-stopped
-
 volumes:
   pi-dash_postgres_data:
   pi-dash_postgres_test_data:
   pi-dash_postgres_migration_data:
-  pi-dash_whatsapp_data:
