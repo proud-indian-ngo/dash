@@ -171,10 +171,15 @@ services:
     cap_add:
       - net_admin
       - sys_module
+    # Postgres shares this container's network, so the alias reaches it
+    networks:
+      default:
+      dokploy-network:
+        aliases: [pi-dash-postgres]
     restart: unless-stopped
 
   # The governance signing service. No published port:
-  # only the web service reaches it, over the compose network.
+  # only the web app reaches it, over the compose or Dokploy network.
   signing:
     build:
       context: services/signing
@@ -185,6 +190,10 @@ services:
       SIGNING_ALLOW_FETCHING: ${SIGNING_ALLOW_FETCHING:-false}
     expose:
       - 8080
+    networks:
+      default:
+      dokploy-network:
+        aliases: [pi-dash-signing]
     restart: unless-stopped
 
   zero-cache:
@@ -217,6 +226,9 @@ services:
       OTEL_NODE_RESOURCE_DETECTORS: ${OTEL_NODE_RESOURCE_DETECTORS:-env,host,os}
     volumes:
       - zero_cache_data:/data
+    networks:
+      - default
+      - dokploy-network
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -238,6 +250,12 @@ services:
 secrets:
   posthog_cli_api_key:
     environment: POSTHOG_CLI_API_KEY
+
+# Dokploy's shared network, where a web app deployed outside this stack
+# reaches Postgres and signing by their aliases, and zero-cache reaches it
+networks:
+  dokploy-network:
+    external: true
 
 volumes:
   postgres18_data:

@@ -132,7 +132,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Prod Compose | Postgres credentials; Compose builds `DATABASE_URL` and the Zero URLs from them |
 | `TS_AUTHKEY`, `TAILSCALE_CONFIG_DIR` | Prod Compose | Tailscale sidecar for Postgres |
 | `PORT` | Prod Compose | Web port zero-cache calls; default 3000 |
-| `WEB_INTERNAL_URL` | Prod Compose | Origin zero-cache calls for `ZERO_MUTATE_URL` and `ZERO_QUERY_URL`; default `http://web:$PORT`. Set it when web runs outside this Compose stack |
+| `WEB_INTERNAL_URL` | Prod Compose | Web origin behind zero-cache's mutate and query URLs; default `http://web:$PORT` |
 | `DEV_DB_HOST`, `DEV_DB_PASSWORD` | Development | Local Postgres; required when `NODE_ENV=development` |
 | `DEV_WEB_PORT`, `ZERO_PORT`, `WORKTREE_ID`, `ZERO_APP_ID` | Development | Worktree ports and IDs |
 | `SKIP_VALIDATION`, `VITE_E2E` | Build, E2E | Skip validation; skip `.env.worktree` |
@@ -150,7 +150,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 SELECT count(*) FROM pg_stat_statements;
 ```
 
-Apply migrations with `bun run db:migrate` (`db:push` is for local development only). The web container applies them, then prepares the Zero publication, before it starts listening; a failure exits it before it is healthy, so a rolling deploy keeps the old container. Keep schema changes Zero-compatible: add columns with defaults, deploy, then drop old columns in a later release. A migration that drops a column the old build reads ships with the regenerated Zero schema and web build; stop old app and Zero workers first.
+Apply migrations with `bun run db:migrate` (`db:push` is for local development only). The web container applies them and prepares the Zero publication before listening; if that fails it exits, and a rolling deploy keeps the old container. Keep schema changes Zero-compatible: add columns with defaults, deploy, then drop old columns in a later release. A migration that drops a column the old build reads ships with the regenerated Zero schema and web build; stop old app and Zero workers first.
 
 Seed the admin with `bun run auth:seed-admin` (idempotent), with `ADMIN_EMAIL` and `ADMIN_PASSWORD` set.
 
@@ -162,7 +162,9 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 ### Web app
 
-The production container listens internally on port 3000; local development uses 3001. Its container health check is `/api/version`, which never touches the database: `/api/health` also checks Postgres, and a container failing its check leaves Traefik's routing, so a Postgres restart would take the web app down with it. Keep `/api/health` for monitoring.
+The production container listens internally on port 3000; local development uses 3001. Its container health check is `/api/version`, which skips the database: a container failing its check leaves Traefik's routing, so checking `/api/health` would let a Postgres restart take web down. Keep `/api/health` for monitoring.
+
+On the shared `dokploy-network`, web outside Compose reaches Postgres at `pi-dash-postgres:5432` and signing at `pi-dash-signing:8080` (project-unique aliases); zero-cache reaches web via `WEB_INTERNAL_URL`.
 
 Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. The error screen's Reload first calls `/api/clear-cache`, whose `Clear-Site-Data: "cache"` drops a chunk the browser cached broken; phones have no hard-refresh shortcut. Proxies must pass that header through. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 
