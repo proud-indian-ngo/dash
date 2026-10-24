@@ -602,6 +602,16 @@ export const WHATSAPP_TEMPLATES = [
     name: "event_update_posted",
   },
   {
+    body: "An event you're signed up for has a new update.\n\n*Event:* {{event}}\n*Posted by:* {{author}}\n\nOpen the event page to read it.",
+    buttonText: "View update",
+    category: "UTILITY",
+    dashboardPath: "events/0192",
+    examples: { author: "Priya Sharma", event: "Science Fair (18 Oct)" },
+    header: "Update on your event",
+    label: "Event update posted",
+    name: "event_update_for_member",
+  },
+  {
     body: "A post on an event page is waiting for your approval.\n\n*Event:* {{event}}\n*Posted by:* {{author}}\n\nTeam members won't see it until you approve it.",
     category: "UTILITY",
     dashboardPath: "events/0192",
@@ -788,6 +798,15 @@ export const WHATSAPP_TEMPLATES = [
     header: "WhatsApp group reminder",
     label: "WhatsApp group join reminder",
     name: "group_join_reminder",
+  },
+  {
+    body: "Your Proud Indian Dashboard account will be deactivated if you don't join the group below.\n\n*Group:* {{group}}\n*Deadline:* {{date}}\n\nOpen the dashboard to join.",
+    category: "UTILITY",
+    examples: { date: "Wed, 18 Nov", group: "Proud Indian Volunteers" },
+    dashboardPath: "whatsapp-groups/0192/join",
+    header: "Account action needed",
+    label: "WhatsApp group join reminder",
+    name: "account_group_join_required",
   },
 
   // ── Digests ───────────────────────────────────────────────────────────────
