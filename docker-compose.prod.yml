@@ -224,7 +224,7 @@ services:
 
   zero-cache:
     image: rocicorp/zero:1.11.1
-    ports:
+    expose:
       - 4848
     environment:
       TZ: Asia/Kolkata
