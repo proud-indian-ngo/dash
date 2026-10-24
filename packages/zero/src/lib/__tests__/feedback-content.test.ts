@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
+import {
+  malformedPlateDocuments,
+  validPlateDocuments,
+} from "@pi-dash/shared/plate-content.test-fixtures";
+
 import { assertFeedbackContentMediaPolicy } from "../feedback-content";
 
 const plate = (...urls: string[]) =>
@@ -18,6 +23,23 @@ const plate = (...urls: string[]) =>
   ]);
 
 describe("assertFeedbackContentMediaPolicy", () => {
+  for (const [name, value] of Object.entries(malformedPlateDocuments)) {
+    it(`rejects malformed ${name} nodes`, () => {
+      expect(() =>
+        assertFeedbackContentMediaPolicy(JSON.stringify(value))
+      ).toThrow("Invalid feedback content");
+    });
+  }
+
+  for (const [name, value] of Object.entries(validPlateDocuments)) {
+    it(`preserves valid ${name} content`, () => {
+      const content = JSON.stringify(value);
+      expect(() =>
+        assertFeedbackContentMediaPolicy(content, content)
+      ).not.toThrow();
+    });
+  }
+
   it("allows valid image-free feedback", () => {
     expect(() => assertFeedbackContentMediaPolicy(plate())).not.toThrow();
   });

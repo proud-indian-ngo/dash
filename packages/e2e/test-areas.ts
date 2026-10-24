@@ -51,6 +51,8 @@ export const areas = {
       "authorized-r2-object*",
       "r2-object-access*",
       "private-media-*",
+      "image-upload*",
+      "raster-image*",
       "technical-role-policy*",
     ],
   },
@@ -202,6 +204,8 @@ export const areas = {
     app: ["settings", "whatsapp-groups"],
     named: [
       "app-config*",
+      "image-upload*",
+      "raster-image*",
       "bank-account*",
       "cost-centre*",
       "use-cost-centres*",

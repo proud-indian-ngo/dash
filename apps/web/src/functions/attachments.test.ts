@@ -29,7 +29,7 @@ const data = {
 const session = { user: { id: "user-1", role: "editor" } };
 
 describe("createEventEditorUpload", () => {
-  it("authorizes before issuing an event-scoped PUT URL", async () => {
+  it("authorizes before issuing a private temporary PUT URL", async () => {
     const authorize = mock(async () => undefined);
     const presign = mock(() => "https://r2.example.test/presigned");
 
@@ -40,7 +40,7 @@ describe("createEventEditorUpload", () => {
       keyPrefix: "app",
     });
 
-    const key = "app/updates/event-1/upload-id-agenda-%.png";
+    const key = "app/updates/tmp/user-1/upload-id-agenda-%.png";
     expect(authorize).toHaveBeenCalledWith(session, "event-1");
     expect(presign).toHaveBeenCalledWith(key, {
       expiresIn: 300,
@@ -50,7 +50,6 @@ describe("createEventEditorUpload", () => {
     expect(result).toEqual({
       key,
       presignedUrl: "https://r2.example.test/presigned",
-      url: `/api/media/event-update?eventId=event-1&key=${encodeURIComponent(key)}`,
     });
   });
 

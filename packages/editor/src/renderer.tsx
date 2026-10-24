@@ -1,10 +1,11 @@
 "use client";
 
+import { isPlateValue } from "@pi-dash/shared/plate-content";
 import { log } from "evlog";
 import type { Value } from "platejs";
 import { createZustandStore } from "platejs/react";
 import { createStaticEditor, PlateStatic } from "platejs/static";
-import { useMemo } from "react";
+import { Component, type ReactNode, Suspense, useMemo } from "react";
 
 import { BaseBasicBlocksKit } from "../components/editor/plugins/basic-blocks-base-kit";
 import { BaseBasicMarksKit } from "../components/editor/plugins/basic-marks-base-kit";
@@ -33,10 +34,39 @@ export interface RendererProps {
   content: string;
 }
 
+const contentFallback = (
+  <p className="text-muted-foreground text-sm">
+    Unable to display this content.
+  </p>
+);
+
+class RendererBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    log.error({
+      component: "PlateRenderer",
+      action: "renderContent",
+      error: "Content renderer failed",
+    });
+  }
+
+  render() {
+    return this.state.failed ? contentFallback : this.props.children;
+  }
+}
+
 function parseContent(content: string): Value | undefined {
   try {
     const value = JSON.parse(content);
-    return Array.isArray(value) ? value : undefined;
+    return isPlateValue(value) ? value : undefined;
   } catch (caughtError) {
     log.warn({
       action: "parseContent",
@@ -50,7 +80,7 @@ function parseContent(content: string): Value | undefined {
   }
 }
 
-export function PlateRenderer({ content, className }: RendererProps) {
+function RenderContent({ content, className }: RendererProps) {
   // Toggle open state lives in the editor's plugin options, so keep one editor
   // per content value and give it React-subscribable option stores.
   const editor = useMemo(() => {
@@ -66,11 +96,7 @@ export function PlateRenderer({ content, className }: RendererProps) {
   }, [content]);
 
   if (!editor) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        Unable to display this content.
-      </p>
-    );
+    return contentFallback;
   }
 
   return (
@@ -78,5 +104,16 @@ export function PlateRenderer({ content, className }: RendererProps) {
       className={`prose prose-sm relative break-words whitespace-pre-wrap ${className}`}
       editor={editor}
     />
+  );
+}
+
+export function PlateRenderer(props: RendererProps) {
+  return (
+    <RendererBoundary key={props.content}>
+      {/* Suspense contains server render failures; the boundary handles clients. */}
+      <Suspense fallback={contentFallback}>
+        <RenderContent {...props} />
+      </Suspense>
+    </RendererBoundary>
   );
 }

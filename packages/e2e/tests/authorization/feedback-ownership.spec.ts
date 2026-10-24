@@ -139,6 +139,45 @@ test("event relations enforce privacy and feedback IDs cannot acquire another ow
     ).toBe("app");
     expect(await fixture("state")).toEqual(before);
 
+    const malformedContents = [
+      JSON.stringify([
+        {
+          type: "code_block",
+          lang: { toString: null },
+          children: [
+            { type: "code_line", children: [{ text: "const x = 1;" }] },
+          ],
+        },
+      ]),
+      JSON.stringify([{ type: "p", children: [{ text: { bad: "shape" } }] }]),
+      JSON.stringify([{ type: "p", children: { text: "Feedback" } }]),
+      JSON.stringify([
+        {
+          type: "p",
+          children: [
+            {
+              type: "mention",
+              value: { bad: "shape" },
+              children: [{ text: "" }],
+            },
+          ],
+        },
+      ]),
+    ];
+    await test.step("malformed feedback cannot be persisted", async () => {
+      for (const content of malformedContents) {
+        expect(
+          (
+            await pushMutation(page.request, "eventFeedback.submit", {
+              ...args(ids.event, uuidv7()),
+              content,
+            })
+          ).error
+        ).toBe("app");
+        expect(await fixture("state")).toEqual(before);
+      }
+    });
+
     // A new ID is still accepted after the refused hijack.
     const ownId = uuidv7();
     expect(
@@ -148,6 +187,34 @@ test("event relations enforce privacy and feedback IDs cannot acquire another ow
         args(ids.event, ownId)
       )
     ).toEqual({});
+    await test.step("malformed edits leave the accepted response unchanged", async () => {
+      const accepted = await fixture<State>("state");
+      expect(accepted.feedback.find((row) => row.id === ownId)?.content).toBe(
+        args(ids.event, ownId).content
+      );
+      for (const content of malformedContents) {
+        expect(
+          (
+            await pushMutation(page.request, "eventFeedback.update", {
+              eventId: ids.event,
+              feedbackId: ownId,
+              now: Date.now(),
+              content,
+            })
+          ).error
+        ).toBe("app");
+        expect(await fixture("state")).toEqual(accepted);
+      }
+      await testInfo.attach("feedback-content-validation.json", {
+        body: JSON.stringify({
+          malformedSubmissionsRejected: malformedContents.length,
+          malformedEditsRejected: malformedContents.length,
+          acceptedContent: accepted.feedback.find((row) => row.id === ownId)
+            ?.content,
+        }),
+        contentType: "application/json",
+      });
+    });
     const results = await Promise.all([
       pushMutation(
         page.request,

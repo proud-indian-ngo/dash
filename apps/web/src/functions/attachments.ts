@@ -15,6 +15,7 @@ import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import { HttpError } from "@/lib/http-error";
+import { publishImageUpload } from "@/lib/image-upload";
 import {
   approvalScreenshotUploadSchema,
   avatarUploadSchema,
@@ -35,11 +36,13 @@ import {
   type ProtectedUploadScope,
 } from "@/lib/private-media-access";
 import { defaultPrivateMediaAccessDeps } from "@/lib/private-media-db";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getS3 } from "@/lib/s3";
 import { authorizeKalakritiEntryMusicUpload } from "@/lib/server/kalakriti-entry-music";
 import { authorizeKalakritiInventoryPhotoUpload } from "@/lib/server/kalakriti-inventory-photo";
 import { authorizeKalakritiScorecardUpload } from "@/lib/server/kalakriti-scorecard";
 import {
+  buildTemporaryUploadKey,
   createTemporaryUpload,
   deleteOwnedTemporaryUpload,
   type ProtectedUploadSubfolder,
@@ -58,13 +61,22 @@ const R2_SUBFOLDERS = {
   updates: "updates",
 } as const;
 
-const sanitizeFileName = (fileName: string): string =>
-  fileName
-    .trim()
-    .replaceAll(/[\r\n]/g, "")
-    .replaceAll(/[\\/]/g, "-")
-    .replaceAll(/"/g, "")
-    .replaceAll(/\s+/g, "-");
+function assertImageUploadRateLimit(
+  userId: string,
+  surface: "avatars" | "updates",
+  action: "sign" | "finalize"
+): void {
+  const limit = surface === "avatars" ? 20 : 100;
+  if (
+    !checkRateLimit(
+      `image-upload:${surface}:${action}:${userId}`,
+      limit,
+      60 * 60 * 1000
+    ).allowed
+  ) {
+    throw new HttpError(429, "Too many image uploads. Try again later.");
+  }
+}
 
 const presignProtectedUpload = (input: {
   fileName: string;
@@ -501,7 +513,13 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
     }
     try {
       const s3 = await getS3();
-      const key = `${env.R2_KEY_PREFIX}/${R2_SUBFOLDERS.avatars}/${context.session.user.id}/${uuidv7()}-${sanitizeFileName(data.fileName)}`;
+      assertImageUploadRateLimit(context.session.user.id, "avatars", "sign");
+      const key = buildTemporaryUploadKey({
+        keyPrefix: env.R2_KEY_PREFIX,
+        subfolder: "avatars",
+        userId: context.session.user.id,
+        fileName: data.fileName,
+      });
       const presignedUrl = s3.presign(key, {
         expiresIn: 300,
         method: "PUT",
@@ -510,7 +528,6 @@ export const getProfilePictureUploadUrl = createServerFn({ method: "POST" })
       return {
         key,
         presignedUrl,
-        url: buildAvatarMediaUrl(context.session.user.id, key),
       };
     } catch (error) {
       logErrorAndRethrow(
@@ -550,7 +567,13 @@ export async function createEventEditorUpload(
 ) {
   await deps.authorize(session, data.eventId);
   const s3 = await deps.getS3();
-  const key = `${deps.keyPrefix}/${R2_SUBFOLDERS.updates}/${data.eventId}/${deps.createId()}-${sanitizeFileName(data.fileName)}`;
+  const key = buildTemporaryUploadKey({
+    keyPrefix: deps.keyPrefix,
+    subfolder: "updates",
+    userId: session.user.id,
+    uploadId: deps.createId(),
+    fileName: data.fileName,
+  });
   const presignedUrl = s3.presign(key, {
     expiresIn: 300,
     method: "PUT",
@@ -559,7 +582,6 @@ export async function createEventEditorUpload(
   return {
     key,
     presignedUrl,
-    url: buildEventUpdateMediaUrl(data.eventId, key),
   };
 }
 
@@ -571,6 +593,7 @@ export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
       throw new HttpError(401, "Unauthorized");
     }
     try {
+      assertImageUploadRateLimit(context.session.user.id, "updates", "sign");
       return await createEventEditorUpload(data, context.session, {
         authorize: (session, eventId) =>
           authorizeEventEditorUpload(
@@ -596,6 +619,74 @@ export const getEventEditorUploadUrl = createServerFn({ method: "POST" })
         error
       );
     }
+  });
+
+export const finalizeProfilePictureUpload = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ key: z.string().min(1).max(1024) }))
+  .handler(async ({ data, context }) => {
+    const { session } = context;
+    if (!session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    assertImageUploadRateLimit(session.user.id, "avatars", "finalize");
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "account.profile_photo.validate",
+        target: { id: session.user.id, type: "user" },
+      },
+      async () => {
+        const { key } = await publishImageUpload({
+          key: data.key,
+          keyPrefix: env.R2_KEY_PREFIX,
+          userId: session.user.id,
+          scopeId: session.user.id,
+          surface: "avatars",
+        });
+        return { key, url: buildAvatarMediaUrl(session.user.id, key) };
+      }
+    );
+  });
+
+export const finalizeEventEditorUpload = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      key: z.string().min(1).max(1024),
+      eventId: eventEditorUploadSchema.shape.eventId,
+    })
+  )
+  .handler(async ({ data, context }) => {
+    const { session } = context;
+    if (!session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    assertImageUploadRateLimit(session.user.id, "updates", "finalize");
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "event.editor_image.validate",
+        target: { id: data.eventId, type: "event" },
+      },
+      async () => {
+        await authorizeEventEditorUpload(
+          session,
+          data.eventId,
+          defaultPrivateMediaAccessDeps
+        );
+        const { key } = await publishImageUpload({
+          key: data.key,
+          keyPrefix: env.R2_KEY_PREFIX,
+          userId: session.user.id,
+          scopeId: data.eventId,
+          surface: "updates",
+        });
+        return { key, url: buildEventUpdateMediaUrl(data.eventId, key) };
+      }
+    );
   });
 
 export const deleteProfilePicture = createServerFn({ method: "POST" })

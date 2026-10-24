@@ -42,6 +42,7 @@ from pyhanko.sign.validation import (
 from pyhanko.sign.validation.status import PdfSignatureStatus, SignatureCoverageLevel
 from pyhanko_certvalidator import CertificateValidator, ValidationContext
 from pyhanko_certvalidator.authority import AuthorityWithCert
+from pyhanko_certvalidator.fetchers.aiohttp_fetchers import AIOHttpFetcherBackend
 from pyhanko_certvalidator.path import ValidationPath
 from pyhanko_certvalidator.sig_validate import (
     DEFAULT_VALIDATION_CONTEXT,
@@ -177,10 +178,15 @@ class ValidationSettings:
     #: CA certificates between a signer and a root, for building paths when a
     #: PDF doesn't carry them. Never trust anchors.
     intermediates: list[x509.Certificate] = field(default_factory=list)
+    fetcher_backend: AIOHttpFetcherBackend | None = None
 
     def context(
         self, moment: datetime | None = None, known: ValidationContext | None = None
     ) -> ValidationContext:
+        if self.allow_fetching and self.fetcher_backend is None:
+            raise RuntimeError(
+                "Certificate fetching requires the managed public fetch session"
+            )
         # The system's roots (the TSA's DigiCert chain, Adobe-trusted CAs)
         # plus the configured ones (the CCA India roots behind every DSC).
         # At a past `moment`, revocation data issued since still counts, so a
@@ -192,6 +198,7 @@ class ValidationSettings:
             other_certs=self.intermediates,
             signature_validator=SIGNATURE_VALIDATOR,
             allow_fetching=self.allow_fetching,
+            fetcher_backend=self.fetcher_backend,
             revocation_mode="soft-fail",
             moment=moment,
             retroactive_revinfo=moment is not None,

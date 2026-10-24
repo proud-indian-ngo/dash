@@ -50,6 +50,8 @@ Server functions and API routes throw expected failures as `HttpError` (`apps/we
 
 Client-side mutator runs are optimistic; the server pass is authoritative. Gate a protected route in `beforeLoad` and its UI action with `hasPermission`, and test `Route.options.beforeLoad` directly with denied and allowed contexts.
 
+Cookie-authenticated raw API writes use `requireSession` before side effects. It rejects foreign or sibling origins against `CORS_ORIGIN`, untrusted Fetch Metadata, and foreign referrers when Origin is absent. Headerless server calls still require a valid session, allowing zero-cache callbacks; browser calls to Zero receive the same checks as other paths. Better Auth retains its own CSRF enforcement, and Start retains server-function CSRF middleware. Signed webhooks and bearer APIs use their separate authentication boundaries.
+
 Programme leads act without a permission on the reimbursements and vendor payments charged to their programme: they see them and approve or reject them before finance ("Approval policy" in [finance-and-programmes.md](finance-and-programmes.md#approval-policy)). The check is the programme's `lead_user_id`, enforced in the mutators and the request queries.
 
 A user's email and phone need `users.view`. The exception is a team's or event's own people: those who manage a team's or event's members see those members' contacts ([teams](teams-and-events.md#teams), [event members](teams-and-events.md#members-and-self-join)), and interest reviewers see pending requesters' ([interest](teams-and-events.md#interest)). Team leads qualify for their own teams. External users' contacts are never shown either way.

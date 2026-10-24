@@ -36,6 +36,9 @@ const makeTx = (...rows: unknown[]) => {
   return {
     insertFeedback,
     tx: {
+      dbTransaction: {
+        wrappedTransaction: { execute: mock(async () => undefined) },
+      },
       location: "server",
       mutate: {
         eventFeedback: {
@@ -51,6 +54,72 @@ const makeTx = (...rows: unknown[]) => {
 };
 
 describe("eventFeedback server media policy", () => {
+  it.each([
+    [{ type: "p", children: [{ text: { bad: "shape" } }] }],
+    [{ type: "p", children: { text: "Feedback" } }],
+    [
+      {
+        type: "p",
+        children: [
+          {
+            type: "mention",
+            value: { bad: "shape" },
+            children: [{ text: "" }],
+          },
+        ],
+      },
+    ],
+  ])(
+    "rejects malformed nodes before either submission insert or update",
+    async (node) => {
+      const content = JSON.stringify([node]);
+      const submission = makeTx(
+        {
+          endTime: 0,
+          feedbackDeadline: null,
+          feedbackEnabled: true,
+          startTime: 0,
+        },
+        { eventId: "event-1", userId: "user-1" }
+      );
+      await expect(
+        eventFeedbackMutators.submit.fn({
+          args: {
+            content,
+            eventId: "event-1",
+            feedbackId: "feedback-1",
+            now: 1,
+            submissionId: "submission-1",
+          },
+          ctx: context,
+          tx: submission.tx,
+        } as never)
+      ).rejects.toThrow("Invalid feedback content");
+      expect(submission.insertFeedback).not.toHaveBeenCalled();
+      expect(
+        submission.tx.mutate.eventFeedbackSubmission.insert
+      ).not.toHaveBeenCalled();
+
+      const update = makeTx(
+        { feedbackId: "feedback-1" },
+        { content: plate(), eventId: "event-1", id: "feedback-1" }
+      );
+      await expect(
+        eventFeedbackMutators.update.fn({
+          args: {
+            content,
+            eventId: "event-1",
+            feedbackId: "feedback-1",
+            now: 2,
+          },
+          ctx: context,
+          tx: update.tx,
+        } as never)
+      ).rejects.toThrow("Invalid feedback content");
+      expect(update.updateFeedback).not.toHaveBeenCalled();
+    }
+  );
+
   it("rejects a new image during submission", async () => {
     const { insertFeedback, tx } = makeTx(
       {
