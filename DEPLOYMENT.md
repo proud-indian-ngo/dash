@@ -132,6 +132,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Prod Compose | Postgres credentials; Compose builds `DATABASE_URL` and the Zero URLs from them |
 | `TS_AUTHKEY`, `TAILSCALE_CONFIG_DIR` | Prod Compose | Tailscale sidecar for Postgres |
 | `PORT` | Prod Compose | Web port zero-cache calls; default 3000 |
+| `WEB_INTERNAL_URL` | Prod Compose | Origin zero-cache calls for `ZERO_MUTATE_URL` and `ZERO_QUERY_URL`; default `http://web:$PORT`. Set it when web runs outside this Compose stack |
 | `DEV_DB_HOST`, `DEV_DB_PASSWORD` | Development | Local Postgres; required when `NODE_ENV=development` |
 | `DEV_WEB_PORT`, `ZERO_PORT`, `WORKTREE_ID`, `ZERO_APP_ID` | Development | Worktree ports and IDs |
 | `SKIP_VALIDATION`, `VITE_E2E` | Build, E2E | Skip validation; skip `.env.worktree` |
@@ -149,7 +150,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 SELECT count(*) FROM pg_stat_statements;
 ```
 
-Apply migrations with `bun run db:migrate` (`db:push` is for local development only). Production Compose runs the `migrate` service before the app. Keep schema changes Zero-compatible: add columns with defaults, deploy, then drop old columns in a later release. A migration that drops a column the old build reads ships with the regenerated Zero schema and web build; stop old app and Zero workers first.
+Apply migrations with `bun run db:migrate` (`db:push` is for local development only). The web container applies them, then prepares the Zero publication, before it starts listening; a failure exits it before it is healthy, so a rolling deploy keeps the old container. Keep schema changes Zero-compatible: add columns with defaults, deploy, then drop old columns in a later release. A migration that drops a column the old build reads ships with the regenerated Zero schema and web build; stop old app and Zero workers first.
 
 Seed the admin with `bun run auth:seed-admin` (idempotent), with `ADMIN_EMAIL` and `ADMIN_PASSWORD` set.
 
@@ -169,7 +170,7 @@ Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chu
 
 zero-cache runs separately (the `rocicorp/zero` image in production, `npx zero-cache` elsewhere) with the `ZERO_*` variables set. It replicates from Postgres and serves WebSockets on port 4848; browsers connect through `VITE_ZERO_URL`.
 
-The migrator prepares `pi_dash_public` from the generated Zero schema after database migrations. Custom starts must run `bun packages/zero/scripts/prepare-publication.ts` against the upstream database and set `ZERO_APP_PUBLICATIONS=pi_dash_public`. The client schema alone cannot hide columns. Changing publications rebuilds the replica and can cause replication downtime; allow initialization to finish before serving traffic. Old clients requiring removed private fields must reload. Never retain a broader publication alongside this one.
+The web container prepares `pi_dash_public` from the generated Zero schema after database migrations. Custom starts must run `bun packages/zero/scripts/prepare-publication.ts` against the upstream database and set `ZERO_APP_PUBLICATIONS=pi_dash_public`. The client schema alone cannot hide columns. Changing publications rebuilds the replica and can cause replication downtime; allow initialization to finish before serving traffic. Old clients requiring removed private fields must reload. Never retain a broader publication alongside this one.
 
 zero-cache logs, with literal values redacted, slow hydrations and advancements (over 100 ms), planner warnings for reads no index covers, and `query-stats` events every minute ranking query shapes by time. For row counts on the slow warnings, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`. CPU profiles (`/profz`) and planner statistics (`/plannerz`) take `ZERO_OPERATOR_PASSWORD`.
 

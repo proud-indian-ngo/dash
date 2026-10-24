@@ -98,14 +98,27 @@ COPY --from=source /app/packages/zero packages/zero
 COPY --from=source /app/package.json package.json
 CMD ["sh", "-c", "bun run packages/db/scripts/migrate.ts && bun run packages/zero/scripts/prepare-publication.ts"]
 
+# The migrator bundled for the production image, which has no node_modules.
+# migrate.js finds ../src/migrations from its own directory; Drizzle reads only
+# the SQL files and the journal, not the snapshots.
+FROM source AS migrate-bundle
+RUN bun build packages/db/scripts/migrate.ts --target=bun --outfile=/out/scripts/migrate.js && \
+    bun build packages/zero/scripts/prepare-publication.ts --target=bun --outfile=/out/scripts/prepare-publication.js && \
+    mkdir -p /out/src/migrations/meta && \
+    cp packages/db/src/migrations/*.sql /out/src/migrations/ && \
+    cp packages/db/src/migrations/meta/_journal.json /out/src/migrations/meta/
+
 # Stage 3: Production
 FROM oven/bun:1.4.4-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
 COPY --from=build /app/release release
+COPY --from=migrate-bundle /out migrate
 # SSR chunks use runtime require("react") via CJS interop (use-sync-external-store)
 RUN bun add react@19
 EXPOSE 3000
 ENV NODE_ENV=production
-CMD ["sh", "-c", "APP_RELEASE=\"${APP_RELEASE:-$(cat release)}\" exec bun run .output/server/index.mjs"]
+# Migrations run before the server listens, so a rolling deploy's new
+# container is healthy only once the schema is current (DEPLOYMENT.md)
+CMD ["sh", "-c", "bun migrate/scripts/migrate.js && bun migrate/scripts/prepare-publication.js && APP_RELEASE=\"${APP_RELEASE:-$(cat release)}\" exec bun run .output/server/index.mjs"]
