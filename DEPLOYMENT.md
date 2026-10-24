@@ -26,6 +26,7 @@ Copy `.env.sample` to `.env` locally. In production, web is a Dokploy Applicatio
 | `COOKIE_DOMAIN` | No | Cross-subdomain cookie domain |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | No | Account for `bun run auth:seed-admin` |
 | `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY` | Prod | [Turnstile](docs/architecture/auth.md#bot-checks) keys |
+| `EVENT_SIGNUP_LINK_SECRET` | No | `openssl rand -hex 32`. Signs [event sign-up links](docs/architecture/auth.md#link-parameters); unset turns them off. Rotating it invalidates every link handed out |
 | `APP_URL` | No | URL in notification footers and receipt QR codes (else `BETTER_AUTH_URL`); keep it serving `/verify/r/*` |
 | `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name |
 | `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window |

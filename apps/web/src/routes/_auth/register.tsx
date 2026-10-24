@@ -1,5 +1,4 @@
 import { env } from "@pi-dash/env/web";
-import { isEventRegistrationInviteToken } from "@pi-dash/shared/event-registration-invite";
 import { createFileRoute } from "@tanstack/react-router";
 import * as z from "zod";
 
@@ -13,26 +12,33 @@ import { RegisterForm } from "@/components/login/register-form";
 import { loadPublicSessionSummary } from "@/lib/public-session-loader";
 
 const uuidSchema = z.uuid();
-const inviteSchema = z.string().refine(isEventRegistrationInviteToken);
 const occDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const signatureSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 interface RegisterSearch {
-  eventInvite?: string;
+  /** A signed sign-up link: enroll on the event after sign-up. */
+  eventId?: string;
   group?: string;
   /** Public-website sign-ups: file a pending interest request, not an enrollment. */
   interestEventId?: string;
   occDate?: string;
+  sig?: string;
 }
 
 function validateSearch(search: Record<string, unknown>): RegisterSearch {
   const result: RegisterSearch = {};
-  const eventInvite = inviteSchema.safeParse(search.eventInvite);
-  if (eventInvite.success) {
-    result.eventInvite = eventInvite.data;
+  for (const key of ["eventId", "interestEventId"] as const) {
+    const parsed = uuidSchema.safeParse(search[key]);
+    if (parsed.success) {
+      result[key] = parsed.data;
+    }
   }
-  const interestEventId = uuidSchema.safeParse(search.interestEventId);
-  if (interestEventId.success) {
-    result.interestEventId = interestEventId.data;
+  // An event ID without its signature is a public ID and enrolls no one.
+  const sig = signatureSchema.safeParse(search.sig);
+  if (result.eventId && sig.success) {
+    result.sig = sig.data;
+  } else {
+    delete result.eventId;
   }
   const occDate = occDateSchema.safeParse(search.occDate);
   if (occDate.success) {

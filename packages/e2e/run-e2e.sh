@@ -320,6 +320,9 @@ export ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0
 export SIGNING_SERVICE_URL="http://localhost:$TEST_SIGNING_PORT"
 export SIGNING_SERVICE_TOKEN=e2e-signing-token
 
+# Event sign-up links need a signing secret; a fixed test value is fine.
+export EVENT_SIGNUP_LINK_SECRET="${EVENT_SIGNUP_LINK_SECRET:-e2e-event-signup-link-secret-00000000}"
+
 # Social API photo links need a signing secret; a fixed test value is fine.
 export SOCIAL_MEDIA_SIGNING_SECRET="${SOCIAL_MEDIA_SIGNING_SECRET:-e2e-social-media-signing-secret-0000}"
 

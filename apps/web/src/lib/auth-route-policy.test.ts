@@ -44,11 +44,7 @@ describe("registerLinkEventRedirect", () => {
   });
 
   it("leaves invite links to their own flow", () => {
-    expect(
-      registerLinkEventRedirect({
-        eventInvite: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
-      })
-    ).toBeNull();
+    expect(registerLinkEventRedirect({ eventId })).toBeNull();
   });
 
   it("ignores malformed ids and dates", () => {

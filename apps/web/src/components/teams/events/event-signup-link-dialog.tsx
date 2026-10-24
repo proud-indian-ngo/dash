@@ -15,16 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import {
-  createEventSignupLinkFn,
-  turnOffEventSignupLinkFn,
-} from "@/functions/event-signup-links";
+import { createEventSignupLinkFn } from "@/functions/event-signup-links";
 import { DATE_TIME } from "@/lib/date-formats";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
  * An event's sign-up link: whoever creates an account through it joins the
- * event. Only its hash is stored, so a link is shown once, when created.
+ * event. The link is signed, so a public event ID alone enrolls no one.
  */
 export function EventSignupLinkDialog({
   eventId,
@@ -38,11 +35,10 @@ export function EventSignupLinkDialog({
   open: boolean;
 }) {
   const createLink = useServerFn(createEventSignupLinkFn);
-  const turnOffLink = useServerFn(turnOffEventSignupLinkFn);
   const [link, setLink] = useState<{ expiresAt: number; url: string } | null>(
     null
   );
-  const [pending, setPending] = useState<"create" | "turn-off" | null>(null);
+  const [pending, setPending] = useState(false);
 
   const handleOpenChange = useEventCallback((next: boolean) => {
     if (!next) {
@@ -51,11 +47,12 @@ export function EventSignupLinkDialog({
     onOpenChange(next);
   });
   const handleCreate = useEventCallback(async () => {
-    setPending("create");
+    setPending(true);
     try {
       const result = await createLink({ data: { eventId } });
       const url = new URL("/register", window.location.origin);
-      url.searchParams.set("eventInvite", result.token);
+      url.searchParams.set("eventId", result.eventId);
+      url.searchParams.set("sig", result.sig);
       setLink({ expiresAt: result.expiresAt, url: url.toString() });
     } catch (error) {
       log.error({
@@ -63,25 +60,9 @@ export function EventSignupLinkDialog({
         component: "EventSignupLinkDialog",
         error: getErrorMessage(error),
       });
-      toast.error(getErrorMessage(error) || "Couldn't create the link");
+      toast.error(getErrorMessage(error) || "Couldn't get the link");
     }
-    setPending(null);
-  });
-  const handleTurnOff = useEventCallback(async () => {
-    setPending("turn-off");
-    try {
-      await turnOffLink({ data: { eventId } });
-      toast.success("Sign-up link turned off");
-      handleOpenChange(false);
-    } catch (error) {
-      log.error({
-        action: "turnOffEventSignupLink",
-        component: "EventSignupLinkDialog",
-        error: getErrorMessage(error),
-      });
-      toast.error(getErrorMessage(error) || "Couldn't turn off the link");
-    }
-    setPending(null);
+    setPending(false);
   });
   const handleCopy = useEventCallback(async () => {
     if (!link) {
@@ -109,9 +90,8 @@ export function EventSignupLinkDialog({
         {link ? (
           <>
             <div className="grid gap-3">
-              <p className="text-sm" role="alert">
-                Copy the link now; it cannot be shown again. It stops working
-                when the event starts, on{" "}
+              <p className="text-sm">
+                It works until the event starts, on{" "}
                 {format(new Date(link.expiresAt), DATE_TIME)}.
               </p>
               <div className="flex gap-2">
@@ -134,29 +114,11 @@ export function EventSignupLinkDialog({
             </DialogFooter>
           </>
         ) : (
-          <>
-            <p className="text-muted-foreground text-sm">
-              Creating a link turns off the one made before it. Turn the link
-              off if it reached someone it shouldn't have.
-            </p>
-            <DialogFooter>
-              <Button
-                disabled={pending !== null}
-                onClick={handleTurnOff}
-                type="button"
-                variant="outline"
-              >
-                Turn off link
-              </Button>
-              <Button
-                disabled={pending !== null}
-                onClick={handleCreate}
-                type="button"
-              >
-                Create link
-              </Button>
-            </DialogFooter>
-          </>
+          <DialogFooter>
+            <Button disabled={pending} onClick={handleCreate} type="button">
+              Get link
+            </Button>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

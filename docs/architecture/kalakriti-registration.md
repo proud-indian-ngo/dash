@@ -64,7 +64,7 @@ Global permissions `kalakriti.view` and `kalakriti.admin` are coarse gates. Oper
 
 ### Volunteer roster and orientation
 
-A local volunteer has a name and no login. Central users can be enrolled, including `unoriented_volunteer` users. The linked event's sign-up link, which roster managers create on the Volunteers page, and approved public interest produce the same active, unassigned membership plus a `team_event_member` row. Public event IDs from the schedule never enrol someone. Removal archives the membership and drops the event member; only administrators can remove an administrator or Coordinator.
+A local volunteer has a name and no login. Central users can be enrolled, including `unoriented_volunteer` users. A signed sign-up link for the linked event, from the Volunteers page, and approved public interest produce the same active, unassigned membership plus a `team_event_member` row. Removal archives the membership and drops the event member; only administrators can remove an administrator or Coordinator.
 
 Orientation policy (`packages/db/src/kalakriti-orientation.ts`):
 

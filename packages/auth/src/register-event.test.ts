@@ -8,7 +8,6 @@ import {
 
 const futureStart = 1_900_000_000_000;
 const now = 1_700_000_000_000;
-const inviteToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ";
 
 function createDeps(overrides: Partial<RegisterEventEnrollDeps> = {}) {
   const enqueueNotifyAddedToEvent = vi.fn();
@@ -20,7 +19,7 @@ function createDeps(overrides: Partial<RegisterEventEnrollDeps> = {}) {
     enqueueNotifyAddedToEvent,
     enqueueWhatsappAddMember,
     findEditionByTeamEventId: vi.fn(async () => null),
-    findEventByInvite: vi.fn(async () => null),
+    findEvent: vi.fn(async () => null),
     findUser: vi.fn(async () => ({
       email: "new@example.com",
       id: "user-1",
@@ -117,61 +116,16 @@ describe("decideRegisterEventEnroll", () => {
 });
 
 describe("enrollUserOnRegisterEvent", () => {
-  it("carries the invite proof and issuer into Kalakriti enrollment", async () => {
-    const deps = createDeps({
-      findEditionByTeamEventId: vi.fn(async () => ({
-        id: "edition-1",
-        lifecycle: "registration_open",
-        teamEventId: "event-1",
-      })),
-      findEventByInvite: vi.fn(async () => ({
-        event: {
-          cancelledAt: null,
-          id: "event-1",
-          location: null,
-          managementDomain: "kalakriti",
-          name: "Kalakriti",
-          startTime: futureStart,
-          whatsappGroupId: null,
-        },
-        issuedBy: "admin-1",
-        storedValue: "invite-payload",
-      })),
-    });
-
-    await expect(
-      enrollUserOnRegisterEvent(deps, {
-        inviteToken,
-        now,
-        userId: "user-1",
-      })
-    ).resolves.toEqual({ status: "enrolled" });
-    expect(deps.persistEnrollWrites).toHaveBeenCalledWith(
-      expect.objectContaining({
-        invite: { storedValue: "invite-payload", token: inviteToken },
-        volunteerMembership: expect.objectContaining({
-          createdBy: "admin-1",
-          editionId: "edition-1",
-          userId: "user-1",
-        }),
-      })
-    );
-  });
-
   it("does not fall back to event membership when a Kalakriti volunteer is missing", async () => {
     const deps = createDeps({
-      findEventByInvite: vi.fn(async () => ({
-        event: {
-          cancelledAt: null,
-          id: "event-1",
-          location: null,
-          managementDomain: "kalakriti",
-          name: "Kalakriti",
-          startTime: futureStart,
-          whatsappGroupId: null,
-        },
-        issuedBy: "admin-1",
-        storedValue: "invite-payload",
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: "kalakriti",
+        name: "Kalakriti",
+        startTime: futureStart,
+        whatsappGroupId: null,
       })),
       findEditionByTeamEventId: vi.fn(async () => ({
         id: "edition-1",
@@ -182,7 +136,7 @@ describe("enrollUserOnRegisterEvent", () => {
     });
     expect(
       await enrollUserOnRegisterEvent(deps, {
-        inviteToken,
+        eventId: "event-1",
         now,
         userId: "user-1",
       })
@@ -193,24 +147,20 @@ describe("enrollUserOnRegisterEvent", () => {
 
   it("reports transactional rejection as skipped without event notifications", async () => {
     const deps = createDeps({
-      findEventByInvite: vi.fn(async () => ({
-        event: {
-          cancelledAt: null,
-          id: "event-1",
-          location: null,
-          managementDomain: null,
-          name: "Event",
-          startTime: futureStart,
-          whatsappGroupId: "group-1",
-        },
-        issuedBy: "admin-1",
-        storedValue: "invite-payload",
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: null,
+        name: "Event",
+        startTime: futureStart,
+        whatsappGroupId: "group-1",
       })),
     });
     deps.persistEnrollWrites.mockResolvedValue("skipped");
     expect(
       await enrollUserOnRegisterEvent(deps, {
-        inviteToken,
+        eventId: "event-1",
         now,
         userId: "user-1",
       })
@@ -221,23 +171,19 @@ describe("enrollUserOnRegisterEvent", () => {
 
   it("does not repeat event notifications on replay", async () => {
     const deps = createDeps({
-      findEventByInvite: vi.fn(async () => ({
-        event: {
-          cancelledAt: null,
-          id: "event-1",
-          location: null,
-          managementDomain: null,
-          name: "Event",
-          startTime: futureStart,
-          whatsappGroupId: "group-1",
-        },
-        issuedBy: "admin-1",
-        storedValue: "invite-payload",
+      findEvent: vi.fn(async () => ({
+        cancelledAt: null,
+        id: "event-1",
+        location: null,
+        managementDomain: null,
+        name: "Event",
+        startTime: futureStart,
+        whatsappGroupId: "group-1",
       })),
     });
     deps.persistEnrollWrites.mockResolvedValue("conflict");
     await enrollUserOnRegisterEvent(deps, {
-      inviteToken,
+      eventId: "event-1",
       now,
       userId: "user-1",
     });
@@ -248,11 +194,11 @@ describe("enrollUserOnRegisterEvent", () => {
   it("does not write when group-only signup has no event", async () => {
     const deps = createDeps();
     const result = await enrollUserOnRegisterEvent(deps, {
-      inviteToken,
+      eventId: "event-1",
       now,
       userId: "user-1",
     });
-    expect(result).toEqual({ reason: "invalid-invite", status: "skipped" });
+    expect(result).toEqual({ reason: "missing", status: "skipped" });
     expect(deps.persistEnrollWrites).not.toHaveBeenCalled();
     expect(deps.enqueueNotifyAddedToEvent).not.toHaveBeenCalled();
   });

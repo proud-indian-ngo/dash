@@ -7,8 +7,8 @@ import { uuidv7 } from "uuidv7";
 
 /**
  * Interest requests from public-website sign-ups
- * (`/register?interestEventId=<id>[&occDate=]`). Unlike an opaque event invite
- * (direct enrollment), this only files a pending interest on a
+ * (`/register?interestEventId=<id>[&occDate=]`). Unlike `?eventId=` (direct
+ * enrollment for invite links), this only files a pending interest on a
  * public event for a team lead to approve. It runs when the new account
  * verifies its email, so leads never see unverified sign-ups. Interest is per
  * session: a recurring series' occurrence is materialized first.

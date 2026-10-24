@@ -128,6 +128,8 @@ export const env = createEnv({
         (v) => process.env.NODE_ENV !== "production" || !!v,
         "TURNSTILE_SECRET_KEY is required in production"
       ),
+    /** HMAC key for event sign-up links (`/register?eventId=&sig=`); unset disables them. */
+    EVENT_SIGNUP_LINK_SECRET: z.string().min(32).optional(),
     /** HMAC key for the social API's signed photo links; unset disables photo endpoints. */
     SOCIAL_MEDIA_SIGNING_SECRET: z.string().min(32).optional(),
     VITE_CDN_URL: z.url(),

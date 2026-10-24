@@ -1,7 +1,4 @@
-import {
-  issueRegisterEventInvite,
-  revokeRegisterEventInvites,
-} from "@pi-dash/auth/register-event-invite-db";
+import { signEventSignupLink } from "@pi-dash/auth/event-signup-link";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
@@ -37,8 +34,6 @@ async function getUserId(email: string): Promise<string | null> {
 }
 
 async function cleanup() {
-  await revokeRegisterEventInvites(FIXTURE.normalEventId);
-  await revokeRegisterEventInvites(FIXTURE.kalakritiEventId);
   // Materialized sessions (and their interests) cascade with the series.
   await db.delete(teamEvent).where(eq(teamEvent.id, FIXTURE.seriesEventId));
   await db
@@ -138,25 +133,20 @@ async function setup(creatorEmail: string) {
   };
 }
 
-async function invite(eventId: string, expiresInMs = 60 * 60 * 1000) {
+/** A sign-up link for a fixture event, signed as the event page signs it. */
+function link(eventId: string) {
   if (
     eventId !== FIXTURE.normalEventId &&
     eventId !== FIXTURE.kalakritiEventId
   ) {
-    throw new Error("Register URL fixture invite target is not allowed");
+    throw new Error("Register URL fixture link target is not allowed");
   }
-  const issuerEmail = process.env.ADMIN_EMAIL;
-  const issuedBy = issuerEmail ? await getUserId(issuerEmail) : null;
-  if (!issuedBy) {
-    throw new Error("ADMIN_EMAIL must name the event invite issuer");
+  const secret = process.env.EVENT_SIGNUP_LINK_SECRET;
+  if (!secret) {
+    throw new Error("EVENT_SIGNUP_LINK_SECRET is required for sign-up links");
   }
-  return {
-    token: await issueRegisterEventInvite({
-      eventId,
-      expiresAt: new Date(Date.now() + expiresInMs),
-      issuedBy,
-    }),
-  };
+  const sig = signEventSignupLink(secret, eventId);
+  return { eventId, path: `/register?eventId=${eventId}&sig=${sig}`, sig };
 }
 
 /** Website sign-up state on the public fixture event. */
@@ -276,13 +266,8 @@ if (action === "cleanup") {
   result = await setup(argument);
 } else if (action === "interest" && argument) {
   result = await interest(argument);
-} else if (action === "invite" && argument) {
-  result = await invite(argument);
-} else if (action === "short-invite" && argument) {
-  result = await invite(argument, 500);
-} else if (action === "turn-off-invite" && argument) {
-  await revokeRegisterEventInvites(argument);
-  result = { turnedOff: true };
+} else if (action === "link" && argument) {
+  result = link(argument);
 } else if (action === "token" && argument) {
   result = await token(argument);
 } else if (action === "state" && argument) {

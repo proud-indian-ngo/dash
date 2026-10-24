@@ -1,7 +1,6 @@
 import { uuidv7 } from "uuidv7";
 
 export type RegisterEventEnrollSkipReason =
-  | "invalid-invite"
   | "missing"
   | "cancelled"
   | "started"
@@ -52,14 +51,7 @@ export interface RegisterEventEnrollDeps {
   findEditionByTeamEventId: (
     teamEventId: string
   ) => Promise<RegisterEditionRow | null>;
-  findEventByInvite: (
-    inviteToken: string,
-    now: number
-  ) => Promise<{
-    event: RegisterEventRow;
-    issuedBy: string;
-    storedValue: string;
-  } | null>;
+  findEvent: (eventId: string) => Promise<RegisterEventRow | null>;
   findUser: (userId: string) => Promise<RegisterUserRow | null>;
   persistEnrollWrites: (row: {
     eventMember: {
@@ -67,10 +59,6 @@ export interface RegisterEventEnrollDeps {
       eventId: string;
       id: string;
       userId: string;
-    };
-    invite: {
-      storedValue: string;
-      token: string;
     };
     volunteerMembership?: {
       createdBy: string;
@@ -117,22 +105,18 @@ export function decideRegisterEventEnroll(input: {
 
 export async function enrollUserOnRegisterEvent(
   deps: RegisterEventEnrollDeps,
-  input: { inviteToken: string; now: number; userId: string }
+  input: { eventId: string; now: number; userId: string }
 ): Promise<{ reason?: RegisterEventEnrollSkipReason; status: string }> {
-  const resolved = await deps.findEventByInvite(input.inviteToken, input.now);
-  if (!resolved) {
-    return { reason: "invalid-invite", status: "skipped" };
-  }
-  const event = resolved.event;
-  const edition = await deps.findEditionByTeamEventId(event.id);
+  const event = await deps.findEvent(input.eventId);
+  const edition = event ? await deps.findEditionByTeamEventId(event.id) : null;
   const decision = decideRegisterEventEnroll({
     edition,
     event,
     now: input.now,
   });
-  if (decision.kind === "skip") {
+  if (decision.kind === "skip" || !event) {
     return {
-      reason: decision.reason,
+      reason: decision.kind === "skip" ? decision.reason : "missing",
       status: "skipped",
     };
   }
@@ -157,7 +141,7 @@ export async function enrollUserOnRegisterEvent(
       return { reason: "missing-user", status: "skipped" };
     }
     volunteerMembership = {
-      createdBy: resolved.issuedBy,
+      createdBy: input.userId,
       editionId: edition.id,
       id: uuidv7(),
       now: input.now,
@@ -174,10 +158,6 @@ export async function enrollUserOnRegisterEvent(
       eventId: event.id,
       id: eventMemberId,
       userId: input.userId,
-    },
-    invite: {
-      storedValue: resolved.storedValue,
-      token: input.inviteToken,
     },
     volunteerMembership,
   });

@@ -1,12 +1,10 @@
-import {
-  issueRegisterEventInvite,
-  revokeRegisterEventInvites,
-} from "@pi-dash/auth/register-event-invite-db";
+import { signEventSignupLink } from "@pi-dash/auth/event-signup-link";
 import { db } from "@pi-dash/db";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
 import { kalakritiEdition } from "@pi-dash/db/schema/kalakriti";
 import { teamMember } from "@pi-dash/db/schema/team";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
+import { env } from "@pi-dash/env/server";
 import { and, eq } from "drizzle-orm";
 
 import { HttpError } from "@/lib/http-error";
@@ -37,13 +35,13 @@ export interface EventSignupLinkDeps {
   findEdition: (eventId: string) => Promise<SignupLinkEdition | null>;
   findEvent: (eventId: string) => Promise<SignupLinkEvent | null>;
   isTeamLead: (teamId: string, userId: string) => Promise<boolean>;
-  issue: typeof issueRegisterEventInvite;
   resolvePermissions: (role: string) => Promise<readonly string[]>;
-  revoke: typeof revokeRegisterEventInvites;
+  /** `EVENT_SIGNUP_LINK_SECRET`; unset turns sign-up links off. */
+  secret: string | undefined;
 }
 
 /**
- * Who manages an event's sign-up link: whoever adds its members. That is
+ * Who can hand out an event's sign-up link: whoever adds its members. That is
  * `events.manage_members` or a lead of the event's team, or for a
  * Kalakriti-linked event whoever manages the Edition's volunteer roster.
  */
@@ -85,32 +83,25 @@ async function assertCanManageSignupLink(
   return event;
 }
 
-/** Replace the event's sign-up link; it stops working when the event starts. */
+/** The signature of the event's sign-up link, which works until it starts. */
 export async function createEventSignupLinkWithDeps(
   session: SignupLinkSession,
   eventId: string,
   now: number,
   deps: EventSignupLinkDeps
-): Promise<{ expiresAt: number; token: string }> {
+): Promise<{ eventId: string; expiresAt: number; sig: string }> {
   const event = await assertCanManageSignupLink(session, eventId, deps);
   if (event.cancelledAt || event.startTime.getTime() <= now) {
     throw new HttpError(409, "Sign-up links are only for upcoming events");
   }
-  const token = await deps.issue({
+  if (!deps.secret) {
+    throw new HttpError(409, "Sign-up links are not set up on this server");
+  }
+  return {
     eventId,
-    expiresAt: event.startTime,
-    issuedBy: session.user.id,
-  });
-  return { expiresAt: event.startTime.getTime(), token };
-}
-
-export async function turnOffEventSignupLinkWithDeps(
-  session: SignupLinkSession,
-  eventId: string,
-  deps: EventSignupLinkDeps
-): Promise<void> {
-  await assertCanManageSignupLink(session, eventId, deps);
-  await deps.revoke(eventId);
+    expiresAt: event.startTime.getTime(),
+    sig: signEventSignupLink(deps.secret, eventId),
+  };
 }
 
 export const eventSignupLinkDeps: EventSignupLinkDeps = {
@@ -162,7 +153,6 @@ export const eventSignupLinkDeps: EventSignupLinkDeps = {
       .limit(1);
     return row !== undefined;
   },
-  issue: issueRegisterEventInvite,
   resolvePermissions,
-  revoke: revokeRegisterEventInvites,
+  secret: env.EVENT_SIGNUP_LINK_SECRET,
 };

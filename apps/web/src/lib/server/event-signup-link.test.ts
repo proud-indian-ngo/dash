@@ -1,24 +1,21 @@
 import { describe, expect, it, mock } from "bun:test";
 
-mock.module("@pi-dash/db", () => ({ db: {} }));
-mock.module("@pi-dash/auth/register-event-invite-db", () => ({
-  issueRegisterEventInvite: async () => "token",
-  revokeRegisterEventInvites: async () => undefined,
-}));
+import { verifyEventSignupLink } from "@pi-dash/auth/event-signup-link";
 
-const { createEventSignupLinkWithDeps, turnOffEventSignupLinkWithDeps } =
-  await import("./event-signup-link");
+mock.module("@pi-dash/db", () => ({ db: {} }));
+
+const { createEventSignupLinkWithDeps } = await import("./event-signup-link");
 
 type Deps = Parameters<typeof createEventSignupLinkWithDeps>[3];
 
 const now = 1_700_000_000_000;
 const startTime = new Date(now + 86_400_000);
+const eventId = "019f0000-0019-7000-8000-000000001983";
+const secret = "test-event-signup-link-secret-0000000000";
 const session = { user: { id: "user-1", role: "volunteer" } };
 
-function createDeps(overrides: Partial<Deps> = {}) {
-  const issue = mock(async () => "token-1");
-  const revoke = mock(async () => undefined);
-  const deps: Deps = {
+function createDeps(overrides: Partial<Deps> = {}): Deps {
+  return {
     canManageEditionVolunteers: async () => false,
     findEdition: async () => null,
     findEvent: async () => ({
@@ -28,12 +25,10 @@ function createDeps(overrides: Partial<Deps> = {}) {
       teamId: "team-1",
     }),
     isTeamLead: async () => false,
-    issue,
     resolvePermissions: async () => [],
-    revoke,
+    secret,
     ...overrides,
   };
-  return { deps, issue, revoke };
 }
 
 function rejection(promise: Promise<unknown>) {
@@ -44,35 +39,36 @@ function rejection(promise: Promise<unknown>) {
 }
 
 describe("createEventSignupLinkWithDeps", () => {
-  it("lets a team lead create a link that expires when the event starts", async () => {
-    const { deps, issue } = createDeps({ isTeamLead: async () => true });
-    await expect(
-      createEventSignupLinkWithDeps(session, "event-1", now, deps)
-    ).resolves.toEqual({ expiresAt: startTime.getTime(), token: "token-1" });
-    expect(issue).toHaveBeenCalledWith({
-      eventId: "event-1",
-      expiresAt: startTime,
-      issuedBy: "user-1",
-    });
+  it("lets a team lead sign a link that works until the event starts", async () => {
+    const link = await createEventSignupLinkWithDeps(
+      session,
+      eventId,
+      now,
+      createDeps({ isTeamLead: async () => true })
+    );
+    expect(link).toMatchObject({ eventId, expiresAt: startTime.getTime() });
+    expect(verifyEventSignupLink(secret, eventId, link.sig)).toBe(true);
   });
 
-  it("lets events.manage_members create a link", async () => {
-    const { deps } = createDeps({
-      resolvePermissions: async () => ["events.manage_members"],
-    });
+  it("lets events.manage_members sign a link", async () => {
     await expect(
-      createEventSignupLinkWithDeps(session, "event-1", now, deps)
-    ).resolves.toMatchObject({ token: "token-1" });
+      createEventSignupLinkWithDeps(
+        session,
+        eventId,
+        now,
+        createDeps({
+          resolvePermissions: async () => ["events.manage_members"],
+        })
+      )
+    ).resolves.toMatchObject({ eventId });
   });
 
   it("refuses anyone who cannot add the event's members", async () => {
-    const { deps, issue } = createDeps();
     expect(
       await rejection(
-        createEventSignupLinkWithDeps(session, "event-1", now, deps)
+        createEventSignupLinkWithDeps(session, eventId, now, createDeps())
       )
     ).toBe(403);
-    expect(issue).not.toHaveBeenCalled();
   });
 
   it("refuses a missing, cancelled or started event", async () => {
@@ -80,9 +76,9 @@ describe("createEventSignupLinkWithDeps", () => {
       await rejection(
         createEventSignupLinkWithDeps(
           session,
-          "event-1",
+          eventId,
           now,
-          createDeps({ findEvent: async () => null }).deps
+          createDeps({ findEvent: async () => null })
         )
       )
     ).toBe(404);
@@ -90,7 +86,7 @@ describe("createEventSignupLinkWithDeps", () => {
       { cancelledAt: new Date(now), startTime },
       { cancelledAt: null, startTime: new Date(now) },
     ]) {
-      const { deps, issue } = createDeps({
+      const deps = createDeps({
         findEvent: async () => ({
           ...event,
           managementDomain: null,
@@ -100,11 +96,22 @@ describe("createEventSignupLinkWithDeps", () => {
       });
       expect(
         await rejection(
-          createEventSignupLinkWithDeps(session, "event-1", now, deps)
+          createEventSignupLinkWithDeps(session, eventId, now, deps)
         )
       ).toBe(409);
-      expect(issue).not.toHaveBeenCalled();
     }
+  });
+
+  it("refuses when sign-up links are not set up", async () => {
+    const deps = createDeps({
+      isTeamLead: async () => true,
+      secret: undefined,
+    });
+    expect(
+      await rejection(
+        createEventSignupLinkWithDeps(session, eventId, now, deps)
+      )
+    ).toBe(409);
   });
 
   it("takes Kalakriti authority from the Edition's volunteer roster, not events.manage_members", async () => {
@@ -115,7 +122,7 @@ describe("createEventSignupLinkWithDeps", () => {
     });
     expect(
       await rejection(
-        createEventSignupLinkWithDeps(session, "event-1", now, denied.deps)
+        createEventSignupLinkWithDeps(session, eventId, now, denied)
       )
     ).toBe(403);
 
@@ -124,35 +131,19 @@ describe("createEventSignupLinkWithDeps", () => {
       findEdition: async () => edition,
     });
     await expect(
-      createEventSignupLinkWithDeps(session, "event-1", now, allowed.deps)
-    ).resolves.toMatchObject({ token: "token-1" });
+      createEventSignupLinkWithDeps(session, eventId, now, allowed)
+    ).resolves.toMatchObject({ eventId });
   });
 
   it("refuses an archived Edition", async () => {
-    const { deps } = createDeps({
+    const deps = createDeps({
       canManageEditionVolunteers: async () => true,
       findEdition: async () => ({ lifecycle: "archived", year: 2095 }),
     });
     expect(
       await rejection(
-        createEventSignupLinkWithDeps(session, "event-1", now, deps)
+        createEventSignupLinkWithDeps(session, eventId, now, deps)
       )
     ).toBe(409);
-  });
-});
-
-describe("turnOffEventSignupLinkWithDeps", () => {
-  it("turns the link off only for someone who manages it", async () => {
-    const denied = createDeps();
-    expect(
-      await rejection(
-        turnOffEventSignupLinkWithDeps(session, "event-1", denied.deps)
-      )
-    ).toBe(403);
-    expect(denied.revoke).not.toHaveBeenCalled();
-
-    const allowed = createDeps({ isTeamLead: async () => true });
-    await turnOffEventSignupLinkWithDeps(session, "event-1", allowed.deps);
-    expect(allowed.revoke).toHaveBeenCalledWith("event-1");
   });
 });
