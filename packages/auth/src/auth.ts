@@ -410,7 +410,6 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
-    tanstackStartCookies(),
     // Custom roles (e.g. team_lead) are NOT registered here — Better Auth only
     // needs to know about its access-control tiers (admin vs user). Custom roles
     // are stored in user.role and resolved to permissions via resolvePermissions().
@@ -439,6 +438,8 @@ export const auth = betterAuth({
           })
         )
       : []),
+    // Must stay last so it forwards cookies set by earlier plugins' after-hooks.
+    tanstackStartCookies(),
   ],
   rateLimit: {
     customRules: {
