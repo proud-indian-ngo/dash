@@ -20,6 +20,7 @@
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
     "@marsidev/react-turnstile": "^1.6.3",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@pi-dash/auth": "workspace:*",
     "@pi-dash/db": "workspace:*",
     "@pi-dash/design-system": "workspace:*",
