@@ -107,6 +107,9 @@ services:
       # Log and metric export are opt-in: set the exporter to otlp, its endpoint and the headers
       OTEL_LOGS_EXPORTER: ${ZERO_OTEL_LOGS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${ZERO_OTEL_LOGS_ENDPOINT:-}
+      # PostHog rejects a request body over its limit (413), and the default
+      # batch of 512 records exceeds it in the log burst after a restart
+      OTEL_BLRP_MAX_EXPORT_BATCH_SIZE: 100
       OTEL_EXPORTER_OTLP_HEADERS: ${ZERO_OTEL_HEADERS:-}
       OTEL_METRICS_EXPORTER: ${ZERO_OTEL_METRICS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ${ZERO_OTEL_METRICS_ENDPOINT:-}
