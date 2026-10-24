@@ -134,7 +134,12 @@ export function LoginForm() {
               setFormError(message);
             }
           },
-          onSuccess: () => {
+          onSuccess: (context) => {
+            // An assistant's connect flow continues to consent; Better Auth's
+            // client follows that redirect itself.
+            if (context.data?.redirect) {
+              return;
+            }
             navigate({
               href: postLoginPath(redirect),
             });

@@ -38,12 +38,14 @@ test.describe("MCP public tools", () => {
       "about_proud_indian",
       "get_donation_link",
       "list_upcoming_sessions",
+      "my_interests",
+      "show_interest",
       "start_volunteer_signup",
     ]);
-    // Only the sign-up writes.
+    // Only signing up and showing interest write.
     for (const tool of tools) {
       expect(tool.annotations?.readOnlyHint).toBe(
-        tool.name !== "start_volunteer_signup"
+        !["show_interest", "start_volunteer_signup"].includes(tool.name)
       );
     }
 

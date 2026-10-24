@@ -1,2 +1,2 @@
 // biome-ignore lint/performance/noBarrelFile: package root export
-export { auth } from "./auth";
+export { auth, MCP_RESOURCE } from "./auth";

@@ -1,7 +1,10 @@
+import { mcp } from "@better-auth/mcp";
 import { db } from "@pi-dash/db";
 import { isAuthEmailBlocked } from "@pi-dash/db/queries/email-suppression";
 // biome-ignore lint/performance/noNamespaceImport: intentional
 import * as schema from "@pi-dash/db/schema/auth";
+// biome-ignore lint/performance/noNamespaceImport: intentional
+import * as oauthSchema from "@pi-dash/db/schema/private/oauth";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
@@ -10,7 +13,7 @@ import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { admin, captcha } from "better-auth/plugins";
+import { admin, captcha, jwt } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
@@ -337,6 +340,9 @@ async function skipBouncedAuthEmail(
 
 const turnstileSecretKey = env.TURNSTILE_SECRET_KEY;
 
+/** The MCP endpoint's URL: the audience of every access token it accepts. */
+export const MCP_RESOURCE = `${env.BETTER_AUTH_URL}/api/mcp`;
+
 export const auth = betterAuth({
   advanced: {
     ...(env.COOKIE_DOMAIN && {
@@ -347,9 +353,11 @@ export const auth = betterAuth({
     }),
   },
   baseURL: env.BETTER_AUTH_URL,
+  // The JWT plugin's session-to-JWT endpoint; OAuth clients use /oauth2/token.
+  disabledPaths: ["/token"],
   database: drizzleAdapter(db, {
     provider: "pg",
-    schema,
+    schema: { ...schema, ...oauthSchema },
   }),
   databaseHooks: {
     user: {
@@ -476,6 +484,20 @@ export const auth = betterAuth({
           })
         )
       : []),
+    // Signs the access tokens assistants get when someone connects their
+    // account (assistants.md).
+    jwt(),
+    // OAuth for MCP clients. ChatGPT and Claude register themselves (DCR).
+    mcp({
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      clientRegistrationDefaultApplicationType: "infer",
+      // Clients come only from registration; no one manages them by hand.
+      clientPrivileges: () => false,
+      consentPage: "/oauth/consent",
+      loginPage: "/login",
+      resource: MCP_RESOURCE,
+    }),
     // Must stay last so it forwards cookies set by earlier plugins' after-hooks.
     tanstackStartCookies(),
   ],
