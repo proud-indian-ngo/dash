@@ -25,6 +25,7 @@ A cache hit is only as safe as the task's declared inputs, so a task that reads 
 - `bun install` runs with `--ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.
 - zero-cache runs from the `rocicorp/zero` image. Keep it on the same minor as the `@rocicorp/zero` catalog version.
 - The build stage sets `SKIP_VALIDATION=true` because runtime variables are absent at build time.
+- The production image has no `node_modules` beyond React, so it carries the migrator as `bun build` bundles. A new import in `migrate.ts` or `prepare-publication.ts` is bundled automatically; a new file either reads at runtime must be copied in the `migrate-bundle` stage.
 
 ## Web compilation
 
