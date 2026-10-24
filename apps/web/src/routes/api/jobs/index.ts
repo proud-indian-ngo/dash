@@ -7,6 +7,7 @@ import { createRequestLogger } from "evlog";
 
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 import { classifyAuditResponse, runSessionAuditedAction } from "@/lib/audit";
+import { type JobInspection, serializeJob } from "@/lib/job-api";
 
 export const Route = createFileRoute("/api/jobs/")({
   server: {
@@ -74,21 +75,8 @@ export const Route = createFileRoute("/api/jobs/")({
           const whereClause = sql.join(conditions, sql` AND `);
 
           const [jobs, countResult] = await Promise.all([
-            db.execute<{
-              id: string;
-              name: string;
-              data: object;
-              output: object | null;
-              state: string;
-              priority: number;
-              retryLimit: number;
-              retryCount: number;
-              createdOn: string;
-              startedOn: string | null;
-              completedOn: string | null;
-              startAfter: string;
-            }>(
-              sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE ${whereClause} ORDER BY created_on DESC LIMIT ${limit} OFFSET ${offset}`
+            db.execute<JobInspection>(
+              sql`SELECT id, name, ${session.user.role === "super_admin" ? sql`data, output,` : sql``} state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE ${whereClause} ORDER BY created_on DESC LIMIT ${limit} OFFSET ${offset}`
             ),
             db.execute<{ total: number }>(
               sql`SELECT COUNT(*)::int AS total FROM pgboss.job_common WHERE ${whereClause}`
@@ -96,7 +84,9 @@ export const Route = createFileRoute("/api/jobs/")({
           ]);
 
           return Response.json({
-            jobs,
+            jobs: (jobs as JobInspection[]).map((job) =>
+              serializeJob(job, session.user.role)
+            ),
             limit,
             offset,
             total: countResult[0]?.total ?? 0,
@@ -156,9 +146,7 @@ export const Route = createFileRoute("/api/jobs/")({
             target: { type: "job" },
           },
           async () => {
-            try {
-              await assertServerPermission(session, "jobs.manage");
-            } catch {
+            if (session.user.role !== "super_admin") {
               return Response.json({ error: "Forbidden" }, { status: 403 });
             }
 

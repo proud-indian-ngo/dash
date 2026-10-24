@@ -25,6 +25,7 @@ import {
   costCentreAfterRecharge,
   pickRequestCostCentreId,
 } from "./cost-centre-pick";
+import { assertNewRecord } from "./creation-invariant";
 import {
   assertCanChangeCharge,
   chargeChangeNote,
@@ -66,6 +67,7 @@ import {
   insertRelations,
   replaceRelations,
 } from "./submission-helpers";
+import { lockVendorPayment } from "./vendor-payment-lock";
 import {
   recalculateParentStatus,
   transactionAttachmentKeyPrefixes,
@@ -256,6 +258,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -441,6 +444,7 @@ export const vendorPaymentMutators = {
     z.object({ id: z.string() }),
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -511,6 +515,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       // Nobody approves the invoice of a request they raised.
@@ -577,6 +582,9 @@ export const vendorPaymentMutators = {
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.create");
+    await assertNewRecord(tx, "vendorPayment", args.id, () =>
+      tx.run(zql.vendorPayment.where("id", args.id).one())
+    );
     const { userId } = ctx;
 
     const vendor = await tx.run(zql.vendor.where("id", args.vendorId).one());
@@ -587,7 +595,7 @@ export const vendorPaymentMutators = {
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
-    const charge = await resolveExpenseCharge(tx, args);
+    const charge = await resolveExpenseCharge(tx, args, undefined, ctx);
 
     await tx.mutate.vendorPayment.insert({
       approvalScreenshotKey: null,
@@ -675,6 +683,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertCanDelete(
@@ -773,6 +782,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -916,6 +926,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -981,6 +992,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.edit_all_statuses");
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -1063,6 +1075,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);
@@ -1191,6 +1204,7 @@ export const vendorPaymentMutators = {
    * this (founder decision, finance layer 3-3a).
    */
   setChargedTo: defineMutator(setChargedToSchema, async ({ tx, ctx, args }) => {
+    await lockVendorPayment(tx, args.id);
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     assertNotVoided(entity);
@@ -1200,7 +1214,7 @@ export const vendorPaymentMutators = {
     if (await isPostedInBooks(tx, ledgerSource(args.id))) {
       throw new Error(POSTED_CHARGE_MESSAGE);
     }
-    const charge = await resolveExpenseCharge(tx, args, entity);
+    const charge = await resolveExpenseCharge(tx, args, entity, ctx);
     const note = await chargeChangeNote(tx, entity, charge);
     // The lead approved it for their programme; another programme's lead
     // looks at it afresh.
@@ -1256,6 +1270,7 @@ export const vendorPaymentMutators = {
    */
   void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "requests.void");
+    await lockVendorPayment(tx, args.id);
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     if (entity.voidedAt) {
@@ -1313,6 +1328,7 @@ export const vendorPaymentMutators = {
     const hasEditOwn = can(ctx, "requests.edit_own");
     const hasEditAll = can(ctx, "requests.edit_all");
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
+    await lockVendorPayment(tx, args.id);
     const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
     assertEntityExists(entity, "Vendor payment");
     assertNotVoided(entity);
@@ -1344,7 +1360,7 @@ export const vendorPaymentMutators = {
 
     const now = Date.now();
     const vpFk = { vendorPaymentId: args.id };
-    const charge = await resolveExpenseCharge(tx, args, entity);
+    const charge = await resolveExpenseCharge(tx, args, entity, ctx);
     // Lines finance charged to a provision, as they were.
     const provisionByLine = new Map(
       (
@@ -1509,6 +1525,7 @@ export const vendorPaymentMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
+      await lockVendorPayment(tx, args.id);
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       assertNotVoided(entity);

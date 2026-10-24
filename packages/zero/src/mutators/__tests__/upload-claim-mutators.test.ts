@@ -44,6 +44,7 @@ describe("server mutator upload claims", () => {
     const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         reimbursement: { insert: mock() },
@@ -119,6 +120,7 @@ describe("server mutator upload claims", () => {
     const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         advancePayment: { insert: mock() },
@@ -162,6 +164,7 @@ describe("server mutator upload claims", () => {
     const insertAttachment = mock();
     const ctx = serverContext(["requests.create"]);
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendorPayment: { insert: mock() },
@@ -213,6 +216,7 @@ describe("server mutator upload claims", () => {
     const r2Key =
       "app/attachments/vendor-payment-transactions/transaction-1/upload-id-proof.pdf";
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendorPayment: { delete: deletePayment },
@@ -264,6 +268,7 @@ describe("server mutator upload claims", () => {
     const insertAttachment = mock();
     const ctx = serverContext();
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendorPayment: { update: mock() },
@@ -320,6 +325,7 @@ describe("server mutator upload claims", () => {
     const replacementSource =
       "app/attachments/tmp/user-1/upload-id-replacement.pdf";
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendorPayment: { update: mock() },
@@ -373,6 +379,7 @@ describe("server mutator upload claims", () => {
     const insertAttachment = mock();
     const ctx = serverContext(["requests.record_payment"]);
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendorPayment: { update: mock() },
@@ -381,6 +388,7 @@ describe("server mutator upload claims", () => {
         vendorPaymentTransactionHistory: { insert: mock() },
       },
       run: mock()
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce({
           status: "approved",
           title: "Venue",
@@ -501,6 +509,7 @@ describe("server mutator upload claims", () => {
       "app/approval-screenshots/vendor-payments/vendor-payment-1/approval-screenshots/proof.png";
     const ctx = serverContext(["requests.approve"]);
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: {
         vendor: { update: mock() },

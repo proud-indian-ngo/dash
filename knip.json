@@ -78,6 +78,8 @@
         "helpers/social-recap.ts",
         "helpers/series-first-session.ts",
         "helpers/event-feedback.ts",
+        "helpers/feedback-ownership.ts",
+        "helpers/jobs-authorization.ts",
         "helpers/started-event.ts",
         "helpers/event-jobs.ts",
         "helpers/reimbursement-stats.ts",
@@ -105,7 +107,10 @@
       "entry": ["src/*.ts", "src/send/*.ts"]
     },
     "packages/zero": {
-      "entry": ["scripts/verify-kalakriti-operation-integration.ts"]
+      "entry": [
+        "scripts/verify-kalakriti-operation-integration.ts",
+        "scripts/financial-security.ts"
+      ]
     },
     "packages/whatsapp": {},
     "packages/email": {},

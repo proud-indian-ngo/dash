@@ -105,6 +105,7 @@ describe("approving a request recalculates its payment status", () => {
   ) => {
     const update = mock();
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location,
       mutate: {
         vendor: { update: mock() },
@@ -275,7 +276,7 @@ describe("payments are recorded only on approved requests", () => {
     const tx = {
       location: "client",
       mutate: { vendorPaymentTransaction: { insert } },
-      run: mock().mockResolvedValueOnce({
+      run: mock().mockResolvedValueOnce(undefined).mockResolvedValueOnce({
         status: "pending",
         userId: "user-1",
       }),

@@ -99,6 +99,7 @@ function createDb(
     },
   });
   const tx = {
+    dbTransaction: { wrappedTransaction: { execute: async () => [] } },
     location,
     mutate: new Proxy(
       {},

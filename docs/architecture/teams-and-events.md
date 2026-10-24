@@ -51,7 +51,7 @@ Event detail loads action forms and secondary tab content on demand. Keep their 
 
 - `events.view_all` sees every event.
 - `events.view_own` sees public events (`isPublic`), events they are a member of, and every event of their teams.
-- Without either, queries return nothing.
+- Without either, event queries return nothing. Expense queries separately expose the related event row and programme for `requests.view_all` holders and its programme lead (except Unallocated). Other request viewers receive only public events or events they or their team belong to, without requiring an events permission. These expense summaries include no event members, interests, updates or photos; owning a request alone never grants access to a private event.
 
 `/events` has no route guard; every role except `external_user` holds `events.view_own`. The public website feed is separate ([public feed](recurring-events.md#public-feed)).
 
@@ -95,7 +95,7 @@ Volunteers who are not on the team ask to join a public event.
 3. The volunteer can cancel a pending request, which deletes it.
 4. `expire-event-interests` marks requests still pending at the event's start `expired` ([jobs](jobs.md#schedules)).
 
-Pending requests are visible to `events.manage_interest` everywhere and to leads for their teams' events. Those reviewers also see each requester's phone, WhatsApp link and email inline, since leads rarely hold `users.view` and touch devices cannot open the hover card. Website sign-ups file interest after email verification ([auth](auth.md#link-parameters)).
+Nested event interests show only the viewer's own requests or those they can review; leadership revocation removes reviewer access reactively. Pending requests are visible to `events.manage_interest` everywhere and to leads for their teams' events. Those reviewers also see each requester's phone, WhatsApp link and email inline, since leads rarely hold `users.view` and touch devices cannot open the hover card. Website sign-ups file interest after email verification ([auth](auth.md#link-parameters)).
 
 ### Event updates
 
@@ -132,7 +132,7 @@ Storage, the sync job, deletion and media access are in [file uploads](file-uplo
 
 - The window opens when the event ends (`endTime`, or `startTime` if there is none) and closes at the deadline. With no deadline it stays open.
 - Only event members can submit, once each, with no new images. They can edit their response until the deadline.
-- Anonymity: `eventFeedback` holds the text and no user. `eventFeedbackSubmission` links user to response and is never synced to clients; duplicate and ownership checks run on the server pass only. Members read their own response through a server function.
+- Anonymity: `eventFeedback` holds the text and no user. `eventFeedbackSubmission` links user to response and is never synced to clients; per-user duplicate and ownership checks run on the server pass only. Creation locks the response and submission IDs until commit and rejects existing IDs before either insert, so a response can acquire only one owner, including concurrent submissions. Members read their own response through a server function.
 - `events.manage_feedback` grants only reading every event's responses; a lead reads their teams'. Nobody sees who wrote what.
 - Turning feedback on after an event has ended notifies members at once. Turning it on earlier sends nothing at the end; the hourly feedback nudge covers that.
 

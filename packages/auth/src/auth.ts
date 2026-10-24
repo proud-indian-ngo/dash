@@ -366,6 +366,7 @@ export const auth = betterAuth({
     disableSignUp: false,
     enabled: true,
     requireEmailVerification: true,
+    revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       if (await skipBouncedAuthEmail(user.email, "reset-password")) {
         return;

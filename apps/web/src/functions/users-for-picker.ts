@@ -52,7 +52,7 @@ export interface PickerUser {
 /**
  * Returns a minimal user list for pickers/selectors.
  * Accessible to users with `users.view` permission OR any team lead.
- * Only returns fields needed by UserPicker — no personal data (phone, DOB, gender, ban info).
+ * Email requires `users.view`; team leads can discover candidates by name.
  */
 export const getUsersForPicker = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -93,7 +93,7 @@ export const getUsersForPicker = createServerFn({ method: "GET" })
         .from(user)
         .where(ne(user.role, "external_user"));
 
-      return rows;
+      return hasUsersView ? rows : rows.map((row) => ({ ...row, email: "" }));
     } catch (error) {
       const log = createRequestLogger();
       log.set({ handler: "getUsersForPicker", role, userId });
@@ -121,7 +121,7 @@ export const getClaimantsForPicker = createServerFn({ method: "GET" })
     if (!permissions.includes("requests.create_for_others")) {
       return [];
     }
-    return await db
+    const rows = await db
       .select({
         email: user.email,
         id: user.id,
@@ -133,6 +133,9 @@ export const getClaimantsForPicker = createServerFn({ method: "GET" })
       .from(user)
       .where(and(eq(user.isActive, true), ne(user.role, "external_user")))
       .orderBy(user.name);
+    return permissions.includes("users.view")
+      ? rows
+      : rows.map((row) => ({ ...row, email: "" }));
   });
 
 async function listWhatsappRecipientCandidates(): Promise<
@@ -282,8 +285,12 @@ async function loadKalakritiVolunteerPickerUsers(
     )
     .orderBy(user.name);
 
+  const candidates = permissions.includes("users.view")
+    ? users
+    : users.map((row) => ({ ...row, email: "" }));
+
   if (options.excludeExistingRoster) {
-    return users;
+    return candidates;
   }
 
   const localMembers = await db
@@ -302,7 +309,7 @@ async function loadKalakritiVolunteerPickerUsers(
     )
     .orderBy(kalakritiEditionMembership.snapshotName);
 
-  return [...users, ...localMembers.map(toLocalPickerUser)].sort(
+  return [...candidates, ...localMembers.map(toLocalPickerUser)].sort(
     (left, right) => left.name.localeCompare(right.name, "en")
   );
 }

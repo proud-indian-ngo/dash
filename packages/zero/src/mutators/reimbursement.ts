@@ -43,6 +43,7 @@ import {
   costCentreAfterRecharge,
   pickRequestCostCentreId,
 } from "./cost-centre-pick";
+import { assertNewRecord } from "./creation-invariant";
 import {
   assertCanChangeCharge,
   chargeChangeNote,
@@ -1145,6 +1146,9 @@ export const reimbursementMutators = {
   create: defineMutator(createArgsSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.create");
+    await assertNewRecord(tx, "reimbursement", args.id, () =>
+      tx.run(zql.reimbursement.where("id", args.id).one())
+    );
     const { userId } = ctx;
     const { claimantId, forOthers } = await resolveClaimant(
       tx,
@@ -1164,7 +1168,7 @@ export const reimbursementMutators = {
       ? `Raised by ${creatorName} for ${claimantName}`
       : undefined;
     const now = Date.now();
-    const charge = await resolveExpenseCharge(tx, args);
+    const charge = await resolveExpenseCharge(tx, args, undefined, ctx);
     const costCentreId = await pickRequestCostCentreId(tx, {
       costCentreId: args.costCentreId,
       eventId: charge.eventId,
@@ -1518,7 +1522,7 @@ export const reimbursementMutators = {
     if (await isPostedInBooks(tx, ledgerSource(args.id))) {
       throw new Error(POSTED_CHARGE_MESSAGE);
     }
-    const charge = await resolveExpenseCharge(tx, args, entity);
+    const charge = await resolveExpenseCharge(tx, args, entity, ctx);
     const note = await chargeChangeNote(tx, entity, charge);
     const costCentreId = await costCentreAfterRecharge(
       tx,
@@ -1617,7 +1621,7 @@ export const reimbursementMutators = {
     // otherwise be wiped when the items are replaced.
     await lockReimbursement(tx, args.id);
     const now = Date.now();
-    const charge = await resolveExpenseCharge(tx, args, entity);
+    const charge = await resolveExpenseCharge(tx, args, entity, ctx);
     const costCentreId = await pickRequestCostCentreId(
       tx,
       { costCentreId: args.costCentreId, eventId: charge.eventId },

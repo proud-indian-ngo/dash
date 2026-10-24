@@ -5,6 +5,7 @@ mock.module("../lib/protected-r2-reference", () => ({
   withProtectedR2ObjectReferenceLock: mock(),
 }));
 mock.module("./create-handler", () => ({ createNotifyHandler: mock() }));
+mock.module("@pi-dash/env/server", () => ({ env: { R2_KEY_PREFIX: "app" } }));
 mock.module("./r2", () => ({ getR2Client: mock() }));
 
 const { deleteR2Object } = await import("./delete-r2-object");
@@ -113,4 +114,25 @@ describe("deleteR2Object", () => {
     );
     expect(order).toEqual(["lock", "delete", "unlock"]);
   });
+});
+
+// Failure cases: a forged temporary mode must not bypass references for a
+// durable key, another deployment prefix, or a misplaced tmp segment.
+it.each([
+  "app/attachments/request/file.pdf",
+  "other/attachments/tmp/user/file.pdf",
+  "app/attachments/request/tmp/file.pdf",
+  "app/attachments/tmp/user/",
+])("rejects non-source temporary deletion: %s", async (r2Key) => {
+  const deleteObject = mock();
+  const withDeleteLock = mock(async (_key, operation) => operation());
+  const withReferenceLock = mock();
+  await expect(
+    deleteR2Object(
+      { mode: "temporary-source", r2Key },
+      { deleteObject, withDeleteLock, withReferenceLock }
+    )
+  ).rejects.toThrow("Invalid temporary R2 key");
+  expect(deleteObject).not.toHaveBeenCalled();
+  expect(withDeleteLock).not.toHaveBeenCalled();
 });

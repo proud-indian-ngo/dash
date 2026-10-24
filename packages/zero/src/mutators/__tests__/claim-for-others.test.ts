@@ -82,6 +82,7 @@ function createDb(
     // the request just inserted or changed (one per test).
     dbTransaction: {
       wrappedTransaction: {
+        execute: async () => [],
         update: () => ({
           set: (values: Row) => ({
             where: async () => {

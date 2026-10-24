@@ -15,6 +15,7 @@ import {
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
 import { pickCostCentreId } from "./cost-centre-pick";
+import { assertNewRecord } from "./creation-invariant";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -158,6 +159,9 @@ export const advancePaymentMutators = {
   create: defineMutator(createSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     assertHasPermission(ctx, "requests.create");
+    await assertNewRecord(tx, "advancePayment", args.id, () =>
+      tx.run(zql.advancePayment.where("id", args.id).one())
+    );
     const { userId } = ctx;
     const now = Date.now();
 

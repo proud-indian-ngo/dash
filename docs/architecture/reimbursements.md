@@ -25,6 +25,7 @@ Voiding is a separate flag beside the unchanged status. Mutators live in `packag
 | Change Charged to | `pending` / `approved` | same | `finance.manage`, or `requests.approve` with `requests.view_all` | Never your own request; refused once posted |
 
 - Every mutator refuses a voided request; voiding twice changes nothing.
+- Creating with an existing ID is refused: server creates serialize by table and ID before checking existence. A duplicate fails before payout, children, history or tasks change. This also covers advances, vendor payments and their transactions; the optimistic client checks its local rows.
 - While pending, an edit that changes a line or Charged to, or finance re-charging it to another programme, clears the lead's approval.
 - Each transition writes a history row and queues posting. The books then post, repost or reverse it; see "Expense posting rules" in [finance-books.md](finance-books.md).
 - Role defaults: volunteers can create, view, edit and delete their own requests. `admin` and `finance_admin` can view, edit and delete everyone's. Only `finance_admin` and `super_admin` can approve, void and claim for others. `requests.edit_all_statuses` is left out of both admin roles, so by default only `super_admin` holds it.
@@ -90,7 +91,7 @@ Finance pays outside the dashboard by bank transfer or UPI, whichever suits them
 
 ## Charged to
 
-Every reimbursement records the event, programme (with optional project) or organisation it served. See "Expense Charged to" in [finance-and-programmes.md](finance-and-programmes.md).
+Every reimbursement records the event, programme (with optional project) or organisation it served. New event references on reimbursements and vendor payments require event visibility, the event’s programme lead, `finance.manage`, or both `requests.approve` and `requests.view_all`. Existing references survive membership loss when editing; they do not grant access to private event details. See "Expense Charged to" in [finance-and-programmes.md](finance-and-programmes.md).
 
 ## Advance payments
 

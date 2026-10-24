@@ -188,6 +188,10 @@ With the Cloud API on, adding someone to a group sends the `group_invite` templa
 - Group jobs are idempotent and retry-safe.
 - GoWA does not guarantee atomic idempotency, so text delivery stays at-least-once.
 
+### Scheduled delivery
+
+Scheduled WhatsApp jobs use their message and recipient IDs to reload the stored text, attachments, recipient type and current user phone or group JID. Queued content and addresses never authorize delivery or signed attachment access. The recipient must belong to that message and remain pending or failed; sent and cancelled rows and obsolete message revisions are skipped. Dead letters apply the same checks and cannot overwrite a sent or cancelled recipient. Delivery remains at-least-once if the gateway accepts a send before the worker can record success.
+
 ### GoWA log
 
 `private.gowa_message` holds one row per GoWA send for the [delivery page](#delivery-page): group posts (new event, reminder, update, weekly digest, RSVP poll, cancellation), scheduled messages, and notifications while the Cloud API is off. It keeps the text we composed, the group's JID or the user (never a phone), and the event or scheduled message it came from. A media send is one row; `gowa_message_part` holds a WhatsApp message ID per attachment, and receipts roll up across them.

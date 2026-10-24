@@ -11,6 +11,7 @@ import type {
   TeamEventMember,
 } from "../schema";
 import { zql } from "../schema";
+import { assertNewRecord } from "./creation-invariant";
 
 export const eventFeedbackMutators = {
   submit: defineMutator(
@@ -68,6 +69,21 @@ export const eventFeedbackMutators = {
         if (existing) {
           throw new Error("You have already submitted feedback for this event");
         }
+      }
+
+      await assertNewRecord(tx, "eventFeedback", args.feedbackId, () =>
+        tx.run(zql.eventFeedback.where("id", args.feedbackId).one())
+      );
+      if (tx.location === "server") {
+        await assertNewRecord(
+          tx,
+          "eventFeedbackSubmission",
+          args.submissionId,
+          () =>
+            tx.run(
+              zql.eventFeedbackSubmission.where("id", args.submissionId).one()
+            )
+        );
       }
 
       await tx.mutate.eventFeedback.insert({

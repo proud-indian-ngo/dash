@@ -16,6 +16,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - Payments can be recorded only in `approved`, `partially_paid` and `paid`.
 - `partially_paid` and `paid` compare approved payment totals with the line items. `recalculateParentStatus()` moves `approved` → `partially_paid` → `paid` and leaves every other status alone.
 - `invoice_pending` waits for approval of an invoice or a no-invoice reason; approval gives `completed`.
+- Server mutations lock the parent before reading status, lines or payment totals, through their writes and status recalculation. Payment edits re-read the transaction after locking its parent. This serializes creates, reviews, edits, deletes, voids and invoice changes across clients; bank-match checks precede payment-row writes.
 
 ## Payment phase
 

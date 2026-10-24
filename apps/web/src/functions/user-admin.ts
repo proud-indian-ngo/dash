@@ -468,6 +468,10 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
           },
           headers: context.headers,
         });
+        await auth.api.revokeUserSessions({
+          body: { userId: data.userId },
+          headers: context.headers,
+        });
 
         const resetAt = Date.now();
         withFireAndForgetLog(

@@ -27,6 +27,7 @@ function invoiceTx(
   const insertAttachment = mock();
   const insertHistory = mock();
   const tx = {
+    dbTransaction: { wrappedTransaction: { execute: async () => [] } },
     location: "client",
     mutate: {
       vendorPayment: { update },
