@@ -5,6 +5,8 @@ import { promisify } from "node:util";
 import { expect, type Page, test } from "@playwright/test";
 import dotenv from "dotenv";
 
+import { clickPageAction } from "../../helpers/page-header";
+
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../../.env.test"),
   quiet: true,
@@ -20,7 +22,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "interest" | "setup" | "state" | "token",
+  action: "cleanup" | "interest" | "link" | "setup" | "state" | "token",
   argument?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -29,6 +31,30 @@ async function fixture<T>(
     { env: process.env }
   );
   return JSON.parse(stdout.trim()) as T;
+}
+
+async function signUpViaApi(
+  page: Page,
+  signup: ReturnType<typeof uniqueSignup>,
+  options: { eventId?: string; sig?: string } = {}
+) {
+  const response = await page.request.post("/api/auth/sign-up/email", {
+    data: {
+      dob: "1990-01-01T00:00:00.000Z",
+      email: signup.email,
+      gender: "male",
+      name: "Event Registration Test User",
+      password: "Password123!",
+      phone: signup.phone,
+      ...(options.eventId ? { registerEventId: options.eventId } : {}),
+      ...(options.sig ? { registerEventSig: options.sig } : {}),
+    },
+    headers: {
+      ...(options.eventId ? { "x-register-event-id": options.eventId } : {}),
+      ...(options.sig ? { "x-register-event-sig": options.sig } : {}),
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
 }
 
 async function fillRegisterForm(
@@ -66,6 +92,12 @@ async function fillRegisterForm(
   await expect(
     page.getByRole("heading", { name: "Log in", exact: true })
   ).toBeVisible({ timeout: 15_000 });
+}
+
+interface SignupLink {
+  eventId: string;
+  path: string;
+  sig: string;
 }
 
 let signupSeq = 0;
@@ -186,7 +218,7 @@ test.describe("Register page", () => {
     });
   });
 
-  test("duplicate email with eventId does not enroll the existing user", async ({
+  test("duplicate email with an event link does not enroll the existing user", async ({
     page,
   }) => {
     const creatorEmail = process.env.ADMIN_EMAIL;
@@ -194,8 +226,9 @@ test.describe("Register page", () => {
       throw new Error("ADMIN_EMAIL is required for register URL fixtures");
     }
     const ids = await fixture<{ normalEventId: string }>("setup", creatorEmail);
+    const signupLink = await fixture<SignupLink>("link", ids.normalEventId);
     try {
-      await page.goto(`/register?eventId=${ids.normalEventId}`);
+      await page.goto(signupLink.path);
       await page.getByLabel("Name").fill("Duplicate Event User");
       await page.getByLabel("Email").fill(creatorEmail);
       await page.locator("#password").fill("Password123!");
@@ -318,13 +351,17 @@ test.describe("Register URL options", () => {
         });
 
       const eventOnly = uniqueSignup();
-      await page.goto(`/register?eventId=${ids.normalEventId}`);
+      const eventOnlyLink = await fixture<SignupLink>(
+        "link",
+        ids.normalEventId
+      );
+      await page.goto(eventOnlyLink.path);
       await expect(
         page.getByText("Create your account", { exact: true })
       ).toBeVisible();
       await expect(page.locator("[data-register-event-id]")).toHaveAttribute(
         "data-register-event-id",
-        ids.normalEventId
+        eventOnlyLink.eventId
       );
       await fillRegisterForm(page, {
         email: eventOnly.email,
@@ -345,9 +382,8 @@ test.describe("Register URL options", () => {
         });
 
       const both = uniqueSignup();
-      await page.goto(
-        `/register?eventId=${ids.normalEventId}&group=campus-west`
-      );
+      const bothLink = await fixture<SignupLink>("link", ids.normalEventId);
+      await page.goto(`${bothLink.path}&group=campus-west`);
       await fillRegisterForm(page, {
         email: both.email,
         name: "Both Options User",
@@ -370,7 +406,63 @@ test.describe("Register URL options", () => {
     }
   });
 
-  test("Kalakriti-linked eventId creates an unassigned Edition volunteer", async ({
+  test("an organiser hands out a signed sign-up link from the event page", async ({
+    browser,
+    page,
+  }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for register URL fixtures");
+    }
+    const ids = await fixture<{ normalEventId: string }>("setup", creatorEmail);
+    const organiser = await browser.newContext({
+      storageState: path.resolve(
+        import.meta.dirname,
+        "../../.auth/super_admin.json"
+      ),
+    });
+
+    try {
+      const organiserPage = await organiser.newPage();
+      await organiserPage.goto(`/events/${ids.normalEventId}`);
+      await clickPageAction(organiserPage, "Sign-up link");
+      const dialog = organiserPage.getByRole("dialog");
+      await dialog.getByRole("button", { name: "Get link" }).click();
+      const linkInput = dialog.getByRole("textbox", { name: "Sign-up link" });
+      await expect(linkInput).toHaveValue(/\/register\?eventId=.+&sig=/);
+      const link = new URL(await linkInput.inputValue());
+      await dialog.getByRole("button", { name: "Done" }).click();
+
+      const signup = uniqueSignup();
+      await page.goto(`${link.pathname}${link.search}`);
+      await fillRegisterForm(page, {
+        email: signup.email,
+        name: "Sign-up Link User",
+        phone: signup.phone,
+      });
+      await expect
+        .poll(async () => fixture("state", signup.email), {
+          timeout: 15_000,
+        })
+        .toMatchObject({ eventMember: true });
+
+      // The same event ID without its signature is a public ID.
+      const bareId = uniqueSignup();
+      await signUpViaApi(page, bareId, {
+        eventId: link.searchParams.get("eventId") ?? "",
+      });
+      await expect
+        .poll(async () => fixture("state", bareId.email), {
+          timeout: 15_000,
+        })
+        .toMatchObject({ eventMember: false });
+    } finally {
+      await organiser.close();
+      await fixture("cleanup");
+    }
+  });
+
+  test("a Kalakriti sign-up link creates unassigned Edition volunteers", async ({
     page,
   }) => {
     const creatorEmail = process.env.ADMIN_EMAIL;
@@ -384,13 +476,17 @@ test.describe("Register URL options", () => {
 
     try {
       const signup = uniqueSignup();
-      await page.goto(`/register?eventId=${ids.kalakritiEventId}`);
+      const signupLink = await fixture<SignupLink>(
+        "link",
+        ids.kalakritiEventId
+      );
+      await page.goto(signupLink.path);
       await expect(
         page.getByText("Create your account", { exact: true })
       ).toBeVisible();
       await expect(page.locator("[data-register-event-id]")).toHaveAttribute(
         "data-register-event-id",
-        ids.kalakritiEventId
+        signupLink.eventId
       );
       await fillRegisterForm(page, {
         email: signup.email,
@@ -409,6 +505,72 @@ test.describe("Register URL options", () => {
           registrationGroup: null,
           role: "volunteer",
         });
+
+      // The link is shared, so a second sign-up through it enrolls too.
+      const second = uniqueSignup();
+      await signUpViaApi(page, second, signupLink);
+      await expect
+        .poll(async () => fixture("state", second.email), { timeout: 15_000 })
+        .toEqual({
+          assignmentCount: 0,
+          eventMember: false,
+          kalakritiEventMember: true,
+          membershipState: "active",
+          registrationGroup: null,
+          role: "volunteer",
+        });
+    } finally {
+      await fixture("cleanup");
+    }
+  });
+
+  test("public Kalakriti IDs and forged links cannot enroll or promote", async ({
+    page,
+  }) => {
+    const creatorEmail = process.env.ADMIN_EMAIL;
+    if (!creatorEmail) {
+      throw new Error("ADMIN_EMAIL is required for register URL fixtures");
+    }
+    const ids = await fixture<{
+      kalakritiEventId: string;
+      normalEventId: string;
+    }>("setup", creatorEmail);
+
+    try {
+      const scheduleResponse = await page.request.get(
+        "/api/kalakriti/2095/schedule"
+      );
+      expect(scheduleResponse.ok()).toBe(true);
+      const schedule = (await scheduleResponse.json()) as {
+        edition: { eventId: string };
+      };
+      expect(schedule.edition.eventId).toBe(ids.kalakritiEventId);
+
+      const normalLink = await fixture<SignupLink>("link", ids.normalEventId);
+      const attempts = [
+        // The public ID alone.
+        { eventId: schedule.edition.eventId },
+        // Another event's signature.
+        { eventId: schedule.edition.eventId, sig: normalLink.sig },
+        // A forged signature.
+        { eventId: schedule.edition.eventId, sig: "0".repeat(64) },
+      ];
+      for (const attempt of attempts) {
+        const signup = uniqueSignup();
+        await signUpViaApi(page, signup, attempt);
+        await expect
+          .poll(async () => fixture("state", signup.email), {
+            timeout: 15_000,
+          })
+          .toEqual({
+            assignmentCount: 0,
+            eventMember: false,
+            kalakritiEventMember: false,
+            membershipState: null,
+            registrationGroup: null,
+            role: "unoriented_volunteer",
+          });
+      }
     } finally {
       await fixture("cleanup");
     }

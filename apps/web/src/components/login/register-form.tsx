@@ -56,7 +56,7 @@ const registerSchema = z
 export function RegisterForm() {
   const navigate = useNavigate({ from: "/register" });
   const search = useSearch({ from: "/_auth/register" });
-  const { eventId, group } = search;
+  const { eventId, group, sig } = search;
   // Website sign-up links: the verification link files the interest request
   // and login lands on the event page (see auth-route-policy).
   const eventRedirect = registerLinkEventRedirect(search);
@@ -86,13 +86,21 @@ export function RegisterForm() {
           password: value.password,
           phone: value.phone,
           ...(group ? { registrationGroup: group } : {}),
-          ...(eventId ? { query: { eventId }, registerEventId: eventId } : {}),
+          ...(eventId && sig
+            ? {
+                query: { eventId },
+                registerEventId: eventId,
+                registerEventSig: sig,
+              }
+            : {}),
           ...(redirect ? { callbackURL: redirect } : {}),
         },
         {
           headers: {
             ...turnstile.takeHeaders(),
-            ...(eventId ? { "x-register-event-id": eventId } : {}),
+            ...(eventId && sig
+              ? { "x-register-event-id": eventId, "x-register-event-sig": sig }
+              : {}),
           },
         }
       );

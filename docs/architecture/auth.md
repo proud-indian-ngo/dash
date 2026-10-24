@@ -43,11 +43,14 @@ Each is optional and independent. Invalid values are dropped and the page still 
 | Param | Effect |
 |---|---|
 | `?group=` | Stored on `user.registrationGroup`. Never touches events |
-| `?eventId=<uuid>` | Enrols the new user on the event after sign-up, if it is open and has not started |
+| `?eventId=<uuid>&sig=` | A signed sign-up link. Enrols the new user on the event after sign-up, if it is open and has not started |
 | `?interestEventId=<uuid>[&occDate=]` | Website sign-up links. Files event interest after verification |
 
 `?eventId=` enrolment:
 
+- Needs `sig`, an HMAC-SHA256 of the event ID under `EVENT_SIGNUP_LINK_SECRET` (`packages/auth/src/event-signup-link.ts`). Event IDs are public (the events feed, the Kalakriti schedule), so a bare ID enrols no one. Without the secret, links are off.
+- Whoever adds the event's members gets the link: "Sign-up link" on the event page, or on the Kalakriti Volunteers page for a linked event. Handing one out is audited.
+- A link works for anyone until the event starts and cannot be revoked on its own; rotating the secret ends every link.
 - Writes `team_event_member` directly; no team membership needed.
 - For a Kalakriti-linked event it also adds a volunteer Edition membership and promotes only `unoriented_volunteer` to `volunteer`. Guardian and external identities are excluded.
 - Promotion revokes sessions in the same transaction, then invalidates role caches and enqueues jobs after commit.

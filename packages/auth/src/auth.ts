@@ -17,6 +17,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { assertSuppliedAvatarImage } from "./avatar-image";
+import { verifyEventSignupLink } from "./event-signup-link";
 import {
   getUserIdFromNewSession,
   reactivateUserAfterSignIn,
@@ -96,10 +97,16 @@ function sanitizeSignUpBody(ctx: AuthHookContext): void {
     typeof ctx.body.registerEventId === "string"
       ? ctx.body.registerEventId.trim()
       : "";
-  if (eventId && UUID_RE.test(eventId)) {
+  const sig =
+    typeof ctx.body.registerEventSig === "string"
+      ? ctx.body.registerEventSig.trim()
+      : "";
+  if (eventId && UUID_RE.test(eventId) && sig) {
     ctx.body.registerEventId = eventId;
+    ctx.body.registerEventSig = sig;
   } else {
     delete ctx.body.registerEventId;
+    delete ctx.body.registerEventSig;
   }
 }
 
@@ -201,20 +208,35 @@ function getHeaderValue(headers: unknown, name: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function getRegisterEventId(ctx: AuthHookContext): string | undefined {
+function getRegisterField(
+  ctx: AuthHookContext,
+  bodyKey: "registerEventId" | "registerEventSig",
+  header: string
+): string | undefined {
   const fromBody =
-    typeof ctx.body?.registerEventId === "string"
-      ? ctx.body.registerEventId
-      : undefined;
-  const raw =
+    typeof ctx.body?.[bodyKey] === "string" ? ctx.body[bodyKey] : undefined;
+  return (
     fromBody ??
-    getHeaderValue(ctx.headers, "x-register-event-id") ??
-    getHeaderValue(ctx.request?.headers, "x-register-event-id");
-  if (!raw) {
-    return;
-  }
-  const eventId = raw.trim();
-  if (!UUID_RE.test(eventId)) {
+    getHeaderValue(ctx.headers, header) ??
+    getHeaderValue(ctx.request?.headers, header)
+  )?.trim();
+}
+
+/** The event of a signed sign-up link; a bare public event ID never enrolls. */
+function getRegisterEventId(ctx: AuthHookContext): string | undefined {
+  const eventId = getRegisterField(
+    ctx,
+    "registerEventId",
+    "x-register-event-id"
+  );
+  const sig = getRegisterField(ctx, "registerEventSig", "x-register-event-sig");
+  if (
+    !(
+      eventId &&
+      sig &&
+      verifyEventSignupLink(env.EVENT_SIGNUP_LINK_SECRET, eventId, sig)
+    )
+  ) {
     return;
   }
   return eventId;

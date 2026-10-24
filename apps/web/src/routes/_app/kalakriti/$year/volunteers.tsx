@@ -43,6 +43,7 @@ import {
   StatsSkeleton,
   TableSkeleton,
 } from "@/components/shared/page-skeleton";
+import { EventSignupLinkDialog } from "@/components/teams/events/event-signup-link-dialog";
 import {
   getKalakritiRosterUserMetadata,
   type KalakritiRosterUserMetadata,
@@ -139,6 +140,8 @@ function KalakritiVolunteersPage() {
   const [assignUserId, setAssignUserId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [signupLinkOpen, setSignupLinkOpen] = useState(false);
+  const canShareSignupLink = canManage && edition.lifecycle !== "archived";
   const [selectedVolunteerId, setSelectedVolunteerId] = useState<string | null>(
     null
   );
@@ -409,6 +412,7 @@ function KalakritiVolunteersPage() {
     }
   });
   const handleAddOpen = useEventCallback(() => setAddOpen(true));
+  const handleSignupLinkOpen = useEventCallback(() => setSignupLinkOpen(true));
   const handleAddOpenChange = useEventCallback((open: boolean) => {
     setAddOpen(open);
   });
@@ -512,6 +516,15 @@ function KalakritiVolunteersPage() {
               <Button onClick={handleAddOpen} type="button" variant="outline">
                 Add volunteers
               </Button>
+              {canShareSignupLink ? (
+                <Button
+                  onClick={handleSignupLinkOpen}
+                  type="button"
+                  variant="outline"
+                >
+                  Sign-up link
+                </Button>
+              ) : null}
             </>
           ) : null
         }
@@ -617,6 +630,14 @@ function KalakritiVolunteersPage() {
         open={selectedVolunteer !== null}
         volunteer={selectedVolunteer}
       />
+      {canShareSignupLink ? (
+        <EventSignupLinkDialog
+          eventId={edition.teamEventId}
+          eventName={edition.name}
+          onOpenChange={setSignupLinkOpen}
+          open={signupLinkOpen}
+        />
+      ) : null}
       {canManage ? (
         <>
           <KalakritiCreateVolunteerDialog

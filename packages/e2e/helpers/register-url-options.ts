@@ -1,3 +1,4 @@
+import { signEventSignupLink } from "@pi-dash/auth/event-signup-link";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
@@ -116,7 +117,7 @@ async function setup(creatorEmail: string) {
     createdBy: creatorId,
     eventDate: `${FIXTURE.year}-11-20`,
     id: FIXTURE.editionId,
-    lifecycle: "draft",
+    lifecycle: "registration_open",
     name: `Kalakriti ${FIXTURE.year}`,
     plannedRegistrationCloseAt: new Date(`${FIXTURE.year}-10-31T18:29:00.000Z`),
     teamEventId: FIXTURE.kalakritiEventId,
@@ -130,6 +131,22 @@ async function setup(creatorEmail: string) {
     seriesEventId: FIXTURE.seriesEventId,
     seriesOccDate: FIXTURE.seriesOccDate,
   };
+}
+
+/** A sign-up link for a fixture event, signed as the event page signs it. */
+function link(eventId: string) {
+  if (
+    eventId !== FIXTURE.normalEventId &&
+    eventId !== FIXTURE.kalakritiEventId
+  ) {
+    throw new Error("Register URL fixture link target is not allowed");
+  }
+  const secret = process.env.EVENT_SIGNUP_LINK_SECRET;
+  if (!secret) {
+    throw new Error("EVENT_SIGNUP_LINK_SECRET is required for sign-up links");
+  }
+  const sig = signEventSignupLink(secret, eventId);
+  return { eventId, path: `/register?eventId=${eventId}&sig=${sig}`, sig };
 }
 
 /** Website sign-up state on the public fixture event. */
@@ -249,6 +266,8 @@ if (action === "cleanup") {
   result = await setup(argument);
 } else if (action === "interest" && argument) {
   result = await interest(argument);
+} else if (action === "link" && argument) {
+  result = link(argument);
 } else if (action === "token" && argument) {
   result = await token(argument);
 } else if (action === "state" && argument) {

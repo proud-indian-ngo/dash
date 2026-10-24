@@ -173,6 +173,7 @@ jobs:
       ZERO_QUERY_URL: http://localhost:3099/api/zero/query
       ZERO_ADMIN_PASSWORD: ci-test-admin
       SOCIAL_MEDIA_SIGNING_SECRET: ci-social-media-signing-secret-0000
+      EVENT_SIGNUP_LINK_SECRET: ci-event-signup-link-secret-00000000
       # Fake test-mode Razorpay values, the same as packages/e2e/run-e2e.sh; no
       # key secret, so the sync job never calls Razorpay.
       RAZORPAY_KEY_ID: rzp_test_e2e0000000000

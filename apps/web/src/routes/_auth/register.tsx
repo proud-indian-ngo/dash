@@ -13,13 +13,16 @@ import { loadPublicSessionSummary } from "@/lib/public-session-loader";
 
 const uuidSchema = z.uuid();
 const occDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const signatureSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 interface RegisterSearch {
+  /** A signed sign-up link: enroll on the event after sign-up. */
   eventId?: string;
   group?: string;
   /** Public-website sign-ups: file a pending interest request, not an enrollment. */
   interestEventId?: string;
   occDate?: string;
+  sig?: string;
 }
 
 function validateSearch(search: Record<string, unknown>): RegisterSearch {
@@ -29,6 +32,13 @@ function validateSearch(search: Record<string, unknown>): RegisterSearch {
     if (parsed.success) {
       result[key] = parsed.data;
     }
+  }
+  // An event ID without its signature is a public ID and enrolls no one.
+  const sig = signatureSchema.safeParse(search.sig);
+  if (result.eventId && sig.success) {
+    result.sig = sig.data;
+  } else {
+    delete result.eventId;
   }
   const occDate = occDateSchema.safeParse(search.occDate);
   if (occDate.success) {

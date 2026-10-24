@@ -4,6 +4,7 @@ import {
   ChartBarLineIcon,
   Copy01Icon,
   Edit02Icon,
+  Link01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BrailleSpinner } from "@pi-dash/design-system/components/braille-spinner";
@@ -102,6 +103,7 @@ import {
 } from "./event-interest-section";
 import { shouldRenderInterestRequests } from "./event-interest-visibility";
 import { EventMembersSection } from "./event-members-section";
+import { EventSignupLinkDialog } from "./event-signup-link-dialog";
 import {
   deriveAttendanceMode,
   deriveSocialRecapMode,
@@ -480,6 +482,7 @@ function EventHeader({
   canEdit,
   canPostPoll,
   canRestore,
+  canShareSignupLink,
   event,
   interestActions,
   onCancel,
@@ -487,6 +490,7 @@ function EventHeader({
   onEdit,
   onPostPoll,
   onRestore,
+  onShareSignupLink,
   status,
   teamName,
 }: {
@@ -495,6 +499,7 @@ function EventHeader({
   canEdit: boolean;
   canPostPoll: boolean;
   canRestore: boolean;
+  canShareSignupLink: boolean;
   event: EventRow;
   /** Join, Show interest or Leave, and the viewer's interest status. */
   interestActions: ReactNode;
@@ -503,6 +508,7 @@ function EventHeader({
   onEdit: () => void;
   onPostPoll: () => void;
   onRestore: () => void;
+  onShareSignupLink: () => void;
   status: EventStatus;
   teamName: string | null;
 }) {
@@ -530,6 +536,12 @@ function EventHeader({
                 icon: Copy01Icon,
                 label: "Duplicate",
                 onSelect: onDuplicate,
+              },
+              canShareSignupLink && {
+                id: "signup-link",
+                icon: Link01Icon,
+                label: "Sign-up link",
+                onSelect: onShareSignupLink,
               },
               canPostPoll && {
                 id: "post-poll",
@@ -1151,6 +1163,12 @@ export function EventDetail({
     !isPastEvent &&
     !firstRow;
   const [postPollDialogOpen, setPostPollDialogOpen] = useState(false);
+  // Series parents enrol through their sessions, so only single events and
+  // saved sessions get a link.
+  const canShareSignupLink =
+    canManage && !hasStarted && !event.cancelledAt && !event.recurrenceRule;
+  const [signupLinkOpen, setSignupLinkOpen] = useState(false);
+  const handleShareSignupLink = useEventCallback(() => setSignupLinkOpen(true));
   const [isPostingPoll, setIsPostingPoll] = useState(false);
   const [openingSession, setOpeningSession] = useState(false);
   const openingSessionRef = useRef(false);
@@ -1421,6 +1439,7 @@ export function EventDetail({
           canEdit={canEdit}
           canPostPoll={canPostPoll}
           canRestore={canRestore}
+          canShareSignupLink={canShareSignupLink}
           event={event}
           interestActions={
             firstRow ? null : (
@@ -1443,6 +1462,7 @@ export function EventDetail({
           onEdit={handleEditClick}
           onPostPoll={handlePostPollClick}
           onRestore={stableOnRestore}
+          onShareSignupLink={handleShareSignupLink}
           status={status}
           teamName={team?.name ?? null}
         />
@@ -1733,6 +1753,15 @@ export function EventDetail({
         title="Post RSVP poll"
         variant="default"
       />
+
+      {canShareSignupLink ? (
+        <EventSignupLinkDialog
+          eventId={event.id}
+          eventName={event.name}
+          onOpenChange={setSignupLinkOpen}
+          open={signupLinkOpen}
+        />
+      ) : null}
 
       {dialog.isOpen("interest") ? (
         <Suspense
