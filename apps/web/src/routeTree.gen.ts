@@ -95,6 +95,7 @@ import { Route as ApiDonationCertificatesCertificateIdRouteImport } from './rout
 import { Route as ApiDonationFilingsFilingIdRouteImport } from './routes/api/donation-filings/$filingId'
 import { Route as ApiEmailUnsubscribeRouteImport } from './routes/api/email/unsubscribe'
 import { Route as ApiEmailWebhookRouteImport } from './routes/api/email/webhook'
+import { Route as ApiHealthReplicationRouteImport } from './routes/api/health/replication'
 import { Route as ApiJobsIndexRouteImport } from './routes/api/jobs/index'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
 import { Route as ApiJobsStatsRouteImport } from './routes/api/jobs/stats'
@@ -617,6 +618,11 @@ const ApiEmailWebhookRoute = ApiEmailWebhookRouteImport.update({
   path: '/api/email/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthReplicationRoute = ApiHealthReplicationRouteImport.update({
+  id: '/replication',
+  path: '/replication',
+  getParentRoute: () => ApiHealthRoute,
+} as any)
 const ApiJobsIndexRoute = ApiJobsIndexRouteImport.update({
   id: '/api/jobs/',
   path: '/api/jobs/',
@@ -1118,7 +1124,7 @@ export interface FileRoutesByFullPath {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health': typeof ApiHealthRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
@@ -1160,6 +1166,7 @@ export interface FileRoutesByFullPath {
   '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
+  '/api/health/replication': typeof ApiHealthReplicationRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -1280,7 +1287,7 @@ export interface FileRoutesByTo {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health': typeof ApiHealthRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
@@ -1320,6 +1327,7 @@ export interface FileRoutesByTo {
   '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
+  '/api/health/replication': typeof ApiHealthReplicationRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -1449,7 +1457,7 @@ export interface FileRoutesById {
   '/api/avatar': typeof ApiAvatarRoute
   '/api/clear-cache': typeof ApiClearCacheRoute
   '/api/financial-export': typeof ApiFinancialExportRoute
-  '/api/health': typeof ApiHealthRoute
+  '/api/health': typeof ApiHealthRouteWithChildren
   '/api/version': typeof ApiVersionRoute
   '/_app/': typeof AppIndexRoute
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
@@ -1492,6 +1500,7 @@ export interface FileRoutesById {
   '/api/donation-filings/$filingId': typeof ApiDonationFilingsFilingIdRoute
   '/api/email/unsubscribe': typeof ApiEmailUnsubscribeRoute
   '/api/email/webhook': typeof ApiEmailWebhookRoute
+  '/api/health/replication': typeof ApiHealthReplicationRoute
   '/api/jobs/$id': typeof ApiJobsIdRouteWithChildren
   '/api/jobs/stats': typeof ApiJobsStatsRoute
   '/api/log/ingest': typeof ApiLogIngestRoute
@@ -1666,6 +1675,7 @@ export interface FileRouteTypes {
     | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
+    | '/api/health/replication'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -1826,6 +1836,7 @@ export interface FileRouteTypes {
     | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
+    | '/api/health/replication'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -1997,6 +2008,7 @@ export interface FileRouteTypes {
     | '/api/donation-filings/$filingId'
     | '/api/email/unsubscribe'
     | '/api/email/webhook'
+    | '/api/health/replication'
     | '/api/jobs/$id'
     | '/api/jobs/stats'
     | '/api/log/ingest'
@@ -2105,7 +2117,7 @@ export interface RootRouteChildren {
   ApiAvatarRoute: typeof ApiAvatarRoute
   ApiClearCacheRoute: typeof ApiClearCacheRoute
   ApiFinancialExportRoute: typeof ApiFinancialExportRoute
-  ApiHealthRoute: typeof ApiHealthRoute
+  ApiHealthRoute: typeof ApiHealthRouteWithChildren
   ApiVersionRoute: typeof ApiVersionRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -2753,6 +2765,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/email/webhook'
       preLoaderRoute: typeof ApiEmailWebhookRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/health/replication': {
+      id: '/api/health/replication'
+      path: '/replication'
+      fullPath: '/api/health/replication'
+      preLoaderRoute: typeof ApiHealthReplicationRouteImport
+      parentRoute: typeof ApiHealthRoute
     }
     '/api/jobs/': {
       id: '/api/jobs/'
@@ -3782,6 +3801,18 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface ApiHealthRouteChildren {
+  ApiHealthReplicationRoute: typeof ApiHealthReplicationRoute
+}
+
+const ApiHealthRouteChildren: ApiHealthRouteChildren = {
+  ApiHealthReplicationRoute: ApiHealthReplicationRoute,
+}
+
+const ApiHealthRouteWithChildren = ApiHealthRoute._addFileChildren(
+  ApiHealthRouteChildren,
+)
+
 interface ApiJobsIdRouteChildren {
   ApiJobsIdCancelRoute: typeof ApiJobsIdCancelRoute
   ApiJobsIdRetryRoute: typeof ApiJobsIdRetryRoute
@@ -3817,7 +3848,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAvatarRoute: ApiAvatarRoute,
   ApiClearCacheRoute: ApiClearCacheRoute,
   ApiFinancialExportRoute: ApiFinancialExportRoute,
-  ApiHealthRoute: ApiHealthRoute,
+  ApiHealthRoute: ApiHealthRouteWithChildren,
   ApiVersionRoute: ApiVersionRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
