@@ -70,6 +70,7 @@
         "helpers/kalakriti-volunteer-assignment.ts",
         "helpers/email-delivery.ts",
         "helpers/notification-delivery.ts",
+        "helpers/mcp-sign-up.ts",
         "helpers/public-events-feed.ts",
         "helpers/publication-columns.ts",
         "helpers/register-url-options.ts",
