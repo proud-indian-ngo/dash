@@ -1,8 +1,15 @@
 import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { brotliCompressSync, gzipSync, zstdCompressSync } from "node:zlib";
+import { promisify } from "node:util";
+import { brotliCompress, gzip, zstdCompress } from "node:zlib";
 
 const SOURCE_MAP_ARTIFACT = /\.map(?:\.br|\.gz|\.zst)?$/;
+
+// The async codecs run on libuv's thread pool, so files compress in parallel;
+// the sync ones serialised every chunk on the main thread.
+const brotliCompressAsync = promisify(brotliCompress);
+const gzipAsync = promisify(gzip);
+const zstdCompressAsync = promisify(zstdCompress);
 
 async function finalizeFile(file: string) {
   if (SOURCE_MAP_ARTIFACT.test(file)) {
@@ -11,18 +18,18 @@ async function finalizeFile(file: string) {
   }
 
   const compressed = file.endsWith(".js.br")
-    ? { compress: brotliCompressSync, suffixLength: 3 }
+    ? { compress: brotliCompressAsync, suffixLength: 3 }
     : file.endsWith(".js.gz")
-      ? { compress: gzipSync, suffixLength: 3 }
+      ? { compress: gzipAsync, suffixLength: 3 }
       : file.endsWith(".js.zst")
-        ? { compress: zstdCompressSync, suffixLength: 4 }
+        ? { compress: zstdCompressAsync, suffixLength: 4 }
         : undefined;
   if (!compressed) {
     return;
   }
 
   const javascript = await readFile(file.slice(0, -compressed.suffixLength));
-  await writeFile(file, compressed.compress(javascript));
+  await writeFile(file, await compressed.compress(javascript));
 }
 
 export async function finalizePublicAssets(directory: string): Promise<void> {
