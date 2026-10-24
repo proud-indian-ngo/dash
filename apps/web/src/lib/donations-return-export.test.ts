@@ -156,7 +156,6 @@ describe("buildUploadFile", () => {
       const p1 = base.exportDetails.get("p1");
       if (p1) {
         p1.idNumber = "abcde 1234-f";
-        p1.name = "-Asha";
       }
       return {
         ...base,
@@ -171,10 +170,50 @@ describe("buildUploadFile", () => {
       expect(built.rows).toHaveLength(2);
       const lines = built.file.csv.split("\n");
       expect(lines[1]).toContain(`Permanent Account Number,${PAN},`);
-      // No formula apostrophe in the portal file.
-      expect(lines[1]).toContain(",-Asha,");
+      expect(lines[1]).toContain(",Asha Rao,");
       expect(lines[1]?.endsWith(",Cash,1000.00")).toBe(true);
       expect(lines[2]?.startsWith("2,")).toBe(true);
+    } finally {
+      facts = original;
+    }
+  });
+
+  it.each(["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t=1+1", "\r=1+1"])(
+    "refuses a formula-leading donor value in the raw portal file: %j",
+    async (value) => {
+      const original = facts;
+      facts = () => {
+        const base = original();
+        const p1 = base.exportDetails.get("p1");
+        if (p1) {
+          p1.name = value;
+        }
+        return base;
+      };
+      try {
+        await expect(buildUploadFile(fy, firstFiling)).rejects.toThrow(
+          "A filing value cannot begin"
+        );
+      } finally {
+        facts = original;
+      }
+    }
+  );
+
+  it("refuses a formula-leading address from an existing donor", async () => {
+    const original = facts;
+    facts = () => {
+      const base = original();
+      const p1 = base.exportDetails.get("p1");
+      if (p1) {
+        p1.address = '=HYPERLINK("https://example.test","open")';
+      }
+      return base;
+    };
+    try {
+      await expect(buildUploadFile(fy, firstFiling)).rejects.toThrow(
+        "A filing value cannot begin"
+      );
     } finally {
       facts = original;
     }

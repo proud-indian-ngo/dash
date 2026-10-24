@@ -8,6 +8,10 @@ import {
   partyKindValues,
 } from "@pi-dash/shared/constants";
 import { PAN_PATTERN } from "@pi-dash/shared/donations-return";
+import {
+  hasSpreadsheetFormulaPrefix,
+  SPREADSHEET_FORMULA_PREFIX_MESSAGE,
+} from "@pi-dash/shared/spreadsheet";
 import { isValidPhoneNumber } from "libphonenumber-js";
 import z from "zod";
 
@@ -33,19 +37,24 @@ export const ASSESSMENT_LABELS: Record<ForeignSourceAssessment, string> = {
 };
 
 const text = (max: number) => z.string().trim().max(max);
+const filingText = (max: number) =>
+  text(max).refine(
+    (value) => !hasSpreadsheetFormulaPrefix(value),
+    SPREADSHEET_FORMULA_PREFIX_MESSAGE
+  );
 
 /** Field rules without the cross-field PAN check, so forms can pick and extend them. */
 export const donorFieldsSchema = z.object({
-  addressLine1: text(200),
-  addressLine2: text(200),
+  addressLine1: filingText(200),
+  addressLine2: filingText(200),
   assessmentNote: text(500),
-  city: text(80),
+  city: filingText(80),
   country: z
     .string()
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{2}$/, "Two-letter country code"),
-  displayName: text(160).min(1, "Name is required"),
+  displayName: filingText(160).min(1, "Name is required"),
   email: z.union([z.literal(""), z.email("Invalid email address")]),
   foreignSourceAssessment: z.enum(foreignSourceAssessmentValues),
   /** The party row's updatedAt the editor loaded, so a stale save is refused; null on create. */
@@ -58,7 +67,7 @@ export const donorFieldsSchema = z.object({
   idNumber: z.string().trim().max(40).toUpperCase(),
   idType: z.enum(partyIdTypeValues),
   kind: z.enum(partyKindValues),
-  legalName: text(200),
+  legalName: filingText(200),
   mode: z.enum(["create", "update"]),
   nationality: text(60),
   phone: z
@@ -66,9 +75,9 @@ export const donorFieldsSchema = z.object({
     .trim()
     .max(32)
     .refine((v) => v === "" || isValidPhoneNumber(v), "Invalid phone number"),
-  pincode: text(12),
+  pincode: filingText(12),
   roles: z.array(z.enum(directoryRoleValues)).min(1, "Pick at least one role"),
-  state: text(80),
+  state: filingText(80),
   /** Doesn't want a tax certificate (80G); left out, a save keeps the stored choice. */
   taxCertificateOptOut: z.boolean().optional(),
 });

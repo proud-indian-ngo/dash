@@ -1,5 +1,9 @@
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { MAX_AMOUNT_MESSAGE, MAX_AMOUNT_PAISE } from "@pi-dash/shared/money";
+import {
+  hasSpreadsheetFormulaPrefix,
+  SPREADSHEET_FORMULA_PREFIX_MESSAGE,
+} from "@pi-dash/shared/spreadsheet";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import z from "zod";
 
@@ -333,7 +337,7 @@ export function normalizeRazorpayRow(
 
   let donorName = notes.name;
   if (donorName === "") {
-    donorName = email || phone;
+    donorName = email || (phone ? `Donor ${phone}` : "");
     if (donorName) {
       warnings.push({
         field: "donorName",
@@ -342,6 +346,18 @@ export function normalizeRazorpayRow(
       });
     } else {
       errors.push({ field: "donorName", message: "Donor name is missing" });
+    }
+  }
+
+  for (const [field, value] of [
+    ["donorName", donorName],
+    ["addressLine1", notes.address],
+    ["city", notes.city],
+    ["pincode", notes.pincode],
+    ["state", notes.state],
+  ] as const) {
+    if (hasSpreadsheetFormulaPrefix(value)) {
+      errors.push({ field, message: SPREADSHEET_FORMULA_PREFIX_MESSAGE });
     }
   }
 

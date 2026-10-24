@@ -251,6 +251,33 @@ describe("normalizeRazorpayRow", () => {
     expect(nameless.errors.map((e) => e.field)).toContain("donorName");
   });
 
+  it("rejects formula-leading donor notes but keeps phone-only fallback names safe", () => {
+    const malicious = normalize(
+      payment({
+        notes: {
+          address: "@SUM(A1)",
+          name: "=HYPERLINK(1)",
+        },
+      })
+    );
+    expect(malicious.errors).toEqual(
+      expect.arrayContaining([
+        {
+          field: "donorName",
+          message: "Cannot begin with =, +, -, or @",
+        },
+        {
+          field: "addressLine1",
+          message: "Cannot begin with =, +, -, or @",
+        },
+      ])
+    );
+
+    const phoneOnly = normalize(payment({ email: null, notes: [] }));
+    expect(phoneOnly.errors).toEqual([]);
+    expect(phoneOnly.row.donorName).toBe("Donor +919876543210");
+  });
+
   it("shortens over-long notes instead of refusing the payment", () => {
     const { errors, row, warnings } = normalize(
       payment({ notes: { address: "x".repeat(250), name: "Asha Rao" } })

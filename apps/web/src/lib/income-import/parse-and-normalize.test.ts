@@ -334,6 +334,27 @@ describe("normalizeRow", () => {
     ).toMatchObject({ idNumber: "", idType: "none" });
   });
 
+  it("rejects formula-leading donor fields before a CSV row can import", () => {
+    const result = normalizeRow(
+      {
+        Amount: "10",
+        Channel: "",
+        Date: "01/10/2026",
+        Email: "",
+        Name: "=HYPERLINK(1)",
+        PAN: "",
+        Phone: "",
+        Type: "",
+      },
+      mapping,
+      options
+    );
+    expect(result.errors).toContainEqual({
+      field: "donorName",
+      message: "Not accepted for a donor: Cannot begin with =, +, -, or @",
+    });
+  });
+
   it("reads an optional donor type and saves the donor as that kind", () => {
     const withKind = { ...mapping, Kind: "donorKind" } as const;
     const read = (Kind: string) =>

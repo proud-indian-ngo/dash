@@ -1,6 +1,5 @@
+import { hasSpreadsheetFormulaPrefix } from "@pi-dash/shared/spreadsheet";
 import { strToU8, zipSync } from "fflate";
-
-const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/;
 
 export interface CsvFile {
   filename: string;
@@ -15,15 +14,30 @@ export interface DownloadArtifact {
 
 export interface CsvOptions {
   /**
-   * Prefix cells that a spreadsheet would run as a formula with an
-   * apostrophe (default on). Off only for files a portal reads as data,
-   * where the apostrophe would change the value.
+   * Escape formula-leading cells with an apostrophe (the default), or reject
+   * them for machine-read files where an apostrophe would change the value.
    */
-  formulaGuard?: boolean;
+  formulaPolicy?: "escape" | "reject";
 }
 
-function escapeCsvValue(raw: string, formulaGuard: boolean): string {
-  const value = formulaGuard && CSV_FORMULA_PREFIX.test(raw) ? `'${raw}` : raw;
+export class UnsafeSpreadsheetFormulaError extends Error {
+  constructor() {
+    super("A CSV cell begins with a spreadsheet formula prefix");
+    this.name = "UnsafeSpreadsheetFormulaError";
+  }
+}
+
+function escapeCsvValue(
+  raw: string,
+  formulaPolicy: NonNullable<CsvOptions["formulaPolicy"]>
+): string {
+  let value = raw;
+  if (hasSpreadsheetFormulaPrefix(raw)) {
+    if (formulaPolicy === "reject") {
+      throw new UnsafeSpreadsheetFormulaError();
+    }
+    value = `'${raw}`;
+  }
   if (
     value.includes(",") ||
     value.includes('"') ||
@@ -41,8 +55,8 @@ export function buildCsv(
   rows: string[][],
   options: CsvOptions = {}
 ): string {
-  const guard = options.formulaGuard ?? true;
-  const escape = (value: string) => escapeCsvValue(value, guard);
+  const formulaPolicy = options.formulaPolicy ?? "escape";
+  const escape = (value: string) => escapeCsvValue(value, formulaPolicy);
   const lines = [
     headers.map(escape).join(","),
     ...rows.map((row) => row.map(escape).join(",")),

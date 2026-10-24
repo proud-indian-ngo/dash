@@ -51,6 +51,7 @@ Every received gift of the year is a candidate, any channel (give.do gifts go in
 - The readiness page lists what blocks filing, including CSR gifts for the CA to decide, and which gifts are filed. Without `DATA_ENCRYPTION_KEY` IDs are unchecked and no filing can be recorded.
 - The CA's file of every gift (status and reason, ID masked) needs `finance.view_sensitive` and is audited because it reveals identifiers in bulk. The portal upload file comes only from recording a filing, so every uploaded row is tracked.
 - Upload rows: one per donor, donation type and mode, each cash gift its own row; ready gifts only; net amounts in rupees. Codes are written as full text. Voluntary and CSR map to "Specific grant", matching the FY 2025-26 filing. The official Form 113 template could not be verified, so columns follow the FY 2025-26 Form 10BD; check against the portal before each upload.
+- The portal file keeps exact values (no spreadsheet apostrophes), but its serializer rejects every formula-leading cell before any new filing row or file is stored. This backstop covers old donor data and the editable registration fields; downloads and audit packs also parse and quarantine an unsafe filing artifact recorded before the check existed.
 - The 80G registration (URN, date, section code) is entered in Settings, never seeded. No filing is recorded until it is set.
 
 ### Filings (Form 113)

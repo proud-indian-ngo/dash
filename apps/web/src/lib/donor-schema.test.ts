@@ -89,4 +89,17 @@ describe("saveDonorSchema", () => {
       saveDonorSchema.safeParse({ ...base, roles: ["vendor"] }).success
     ).toBe(false);
   });
+
+  it.each(["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t=1+1", "\r=1+1"])(
+    "rejects formula-leading filing text in %j",
+    (value) => {
+      expect(
+        saveDonorSchema.safeParse({ ...base, displayName: value }).success
+      ).toBe(false);
+      expect(
+        saveDonorSchema.safeParse({ ...base, addressLine1: value }).success
+      ).toBe(false);
+      expect(saveDonorSchema.safeParse(base).success).toBe(true);
+    }
+  );
 });
