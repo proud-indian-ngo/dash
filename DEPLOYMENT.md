@@ -42,6 +42,7 @@ Copy `.env.sample` to `.env` locally. In production, web is a Dokploy Applicatio
 | `ZERO_ADMIN_PASSWORD` | Prod | zero-cache admin password |
 | `ZERO_OPERATOR_PASSWORD` | No | Basic-auth password for `/statz`, `/profz` and `/plannerz`; unlike the admin password, it cannot read application data |
 | `ZERO_LOG_LEVEL`, `ZERO_REPLICA_FILE` | No | Log level; SQLite replica path |
+| `ZERO_LITESTREAM_BACKUP_URL`, `ZERO_LITESTREAM_ENDPOINT`, `ZERO_LITESTREAM_ACCESS_KEY_ID`, `ZERO_LITESTREAM_SECRET_ACCESS_KEY` | No | Replica backup: `s3://<bucket>/v1/` (a folder ending in `/`), `https://<account>.r2.cloudflarestorage.com`, and an R2 token for that bucket only. Unset, there is no backup |
 | `ZERO_QUERY_HYDRATION_STATS` | No | Row counts on slow-hydration warnings; keep `false` |
 
 ### Email (Resend)
@@ -178,6 +179,8 @@ zero-cache runs separately (the `rocicorp/zero` image in production, `npx zero-c
 The web container prepares `pi_dash_public` from the generated Zero schema after database migrations. Custom starts must run `bun packages/zero/scripts/prepare-publication.ts` against the upstream database and set `ZERO_APP_PUBLICATIONS=pi_dash_public`. The client schema alone cannot hide columns. Changing publications rebuilds the replica and can cause replication downtime; allow initialization to finish before serving traffic. Old clients requiring removed private fields must reload. Never retain a broader publication alongside this one.
 
 zero-cache logs, with literal values redacted, slow hydrations and advancements (over 100 ms), planner warnings for reads no index covers, and `query-stats` events every minute ranking query shapes by time. For row counts on the slow warnings, set `ZERO_QUERY_HYDRATION_STATS=true`, redeploy zero-cache, then restore `false`. CPU profiles (`/profz`) and planner statistics (`/plannerz`) take `ZERO_OPERATOR_PASSWORD`.
+
+With `ZERO_LITESTREAM_BACKUP_URL` set, zero-cache backs its replica up to R2 and restores from it when the volume has none. A normal restart keeps using the volume. Zero acknowledges replication to Postgres only once a change is in the backup, so while R2 is unreachable Postgres keeps WAL for the slot; watch `pg_replication_slots` retained WAL during an R2 outage. Changing the URL or bucket starts a fresh backup. A multi-node zero-cache, where view-syncers restore from the backup, needs it.
 
 ### Signing service
 
