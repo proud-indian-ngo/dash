@@ -1,7 +1,8 @@
 name: PR title
 on:
+  # Every base branch: a stacked PR targets the branch below it, yet merges
+  # into master under master's required checks.
   pull_request:
-    branches: [master]
     # `edited` reruns the check when only the title changes.
     types: [opened, edited, synchronize, reopened]
 
