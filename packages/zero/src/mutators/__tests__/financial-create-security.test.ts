@@ -344,6 +344,91 @@ describe("payment transaction creation ownership", () => {
   });
 });
 
+describe("payment transaction edit authorization", () => {
+  const transactionArgs = {
+    amountPaise: 12_000,
+    attachments: [],
+    description: "Corrected reference",
+    id: "transaction",
+    paymentMethod: "UPI",
+    paymentReference: "payment-2",
+    transactionDate: Date.UTC(2026, 8, 2),
+  };
+
+  for (const status of ["approved", "rejected"]) {
+    it(`refuses edit_all on another user's ${status} transaction`, async () => {
+      const db = createDb({
+        vendorPayment: [
+          { id: "parent", status: "partially_paid", userId: "other" },
+        ],
+        vendorPaymentLineItem: [
+          { id: "owed", vendorPaymentId: "parent", amountPaise: 30_000 },
+        ],
+        vendorPaymentTransaction: [
+          {
+            amountPaise: 10_000,
+            id: "transaction",
+            status,
+            userId: "recorder",
+            vendorPaymentId: "parent",
+            voidedAt: null,
+          },
+        ],
+      });
+      const before = structuredClone(db.tables);
+      const ctx = { ...context(), permissions: ["requests.edit_all"] };
+
+      await expect(
+        vendorPaymentTransactionMutators.update.fn({
+          args: transactionArgs,
+          ctx,
+          tx: db.tx,
+        } as never)
+      ).rejects.toThrow("Only pending transactions can be updated");
+
+      expect(db.tables).toEqual(before);
+      expect(ctx.asyncTasks).toHaveLength(0);
+    });
+  }
+
+  it("still lets edit_all update another user's pending transaction", async () => {
+    const db = createDb({
+      vendorPayment: [{ id: "parent", status: "approved", userId: "other" }],
+      vendorPaymentLineItem: [
+        { id: "owed", vendorPaymentId: "parent", amountPaise: 30_000 },
+      ],
+      vendorPaymentTransaction: [
+        {
+          amountPaise: 10_000,
+          id: "transaction",
+          status: "pending",
+          userId: "recorder",
+          vendorPaymentId: "parent",
+          voidedAt: null,
+        },
+      ],
+      vendorPaymentTransactionAttachment: [],
+      vendorPaymentTransactionHistory: [],
+    });
+    const ctx = { ...context(), permissions: ["requests.edit_all"] };
+
+    await vendorPaymentTransactionMutators.update.fn({
+      args: transactionArgs,
+      ctx,
+      tx: db.tx,
+    } as never);
+
+    expect(db.tables.vendorPaymentTransaction?.[0]).toMatchObject({
+      amountPaise: 12_000,
+      description: "Corrected reference",
+      paymentReference: "payment-2",
+      status: "pending",
+    });
+    expect(db.tables.vendorPaymentTransactionHistory).toHaveLength(1);
+    expect(ctx.asyncTasks).toHaveLength(2);
+  });
+});
+
 // A deleted ID may be reused under another parent while the first read waits
 // for its lock. Never operate on that replacement under the old parent's lock.
 describe("payment parent locking", () => {

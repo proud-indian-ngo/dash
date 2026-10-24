@@ -13,7 +13,7 @@ import { VendorPaymentDetail } from "@/components/vendor-payments/vendor-payment
 import { VendorPaymentForm } from "@/components/vendor-payments/vendor-payment-form";
 import { useApp } from "@/context/app-context";
 import { useRecordTitle } from "@/hooks/use-record-title";
-import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
+import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import { preloadRouteQuery } from "@/lib/route-preload";
 import {
   mapLineItemsToFormValues,
@@ -129,7 +129,7 @@ function VendorPaymentDetailRouteComponent() {
   const canEditAnyStatus = hasPermission("requests.edit_all_statuses");
   const canApprove = hasPermission("requests.approve");
   const isOwner = vendorPayment.userId === session.user.id;
-  const canEdit = canEditVendorPaymentSubmission(
+  const canEdit = canEditRequestSubmission(
     vendorPayment,
     session.user.id,
     hasPermission

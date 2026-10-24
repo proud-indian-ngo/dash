@@ -628,6 +628,26 @@ describe("vendor payment: the programme lead approves, then finance", () => {
     );
     expect(rows(db, "vendorPayment")[0]?.leadApprovedAt).toBeNull();
   });
+
+  it("lets edit_all update another user's request while pending", async () => {
+    const db = createDb({ vendorPayment: [vendorPaymentRow()] });
+    await run(
+      vendorPaymentMutators.update,
+      db,
+      ctx("admin", ["requests.edit_all"]),
+      {
+        attachments: [],
+        chargedProgrammeId: "edu",
+        chargedTo: "programme",
+        costCentreId: "blr",
+        id: "vp-1",
+        lineItems: [],
+        title: "Updated lunch",
+        vendorId: "v-1",
+      }
+    );
+    expect(rows(db, "vendorPayment")[0]?.title).toBe("Updated lunch");
+  });
 });
 
 describe("a programme lead sees the requests charged to their programme", () => {
@@ -1023,7 +1043,7 @@ describe("self-approval after approval", () => {
           transactionDate: Date.UTC(2026, 9, 1),
         }
       )
-    ).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+    ).rejects.toThrow("Only pending transactions can be updated");
   });
 
   it("refuses approving the invoice of your own vendor payment", async () => {

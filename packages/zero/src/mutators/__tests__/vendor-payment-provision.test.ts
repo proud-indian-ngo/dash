@@ -121,7 +121,10 @@ function editTx() {
       .mockResolvedValueOnce({ createdBy: "user-2", status: "approved" })
       .mockResolvedValueOnce(existing)
       .mockResolvedValueOnce(existing)
-      .mockResolvedValueOnce([]),
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce({ status: "completed" }),
   };
   return { insertHistory, insertLine, tx };
 }

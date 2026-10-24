@@ -52,7 +52,7 @@ import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
 import { handleMutationResult } from "@/lib/mutation-result";
-import { canEditVendorPaymentSubmission } from "@/lib/request-edit-permissions";
+import { canEditRequestSubmission } from "@/lib/request-edit-permissions";
 import {
   requestChargeSummary,
   requestProgrammeName,
@@ -507,11 +507,7 @@ export function VendorPaymentsTable({
         const canEdit =
           !voided &&
           (currentUserId
-            ? canEditVendorPaymentSubmission(
-                request,
-                currentUserId,
-                hasPermission
-              )
+            ? canEditRequestSubmission(request, currentUserId, hasPermission)
             : false);
 
         const actions = (

@@ -636,29 +636,14 @@ export const vendorPaymentTransactionMutators = {
         );
       }
 
-      if (!hasEditAll) {
-        assertCanModify(entity, userId, false, "transaction");
-      }
-      // An approved payment on your own request keeps its amount: changing
-      // it would pay yourself without anyone else approving.
-      if (
-        parentVp &&
-        entity.status === "approved" &&
-        args.amountPaise !== entity.amountPaise
-      ) {
-        assertNotOwnRequest(ctx, parentVp);
-      }
+      assertCanModify(entity, userId, hasEditAll, "transaction");
 
-      // Rejected transactions don't contribute to the balance, so the cap
-      // doesn't apply — skip to allow admin corrections on rejected records.
-      if (entity.status !== "rejected") {
-        await assertWithinPaymentCap(
-          tx,
-          entity.vendorPaymentId as string,
-          args.amountPaise,
-          args.id
-        );
-      }
+      await assertWithinPaymentCap(
+        tx,
+        entity.vendorPaymentId as string,
+        args.amountPaise,
+        args.id
+      );
 
       const now = Date.now();
 
@@ -727,15 +712,7 @@ export const vendorPaymentTransactionMutators = {
         ...fk(args.id),
       });
 
-      // Recalculate parent VP status when an approved transaction is edited
-      if (entity.status === "approved") {
-        await recalculateParentStatus(
-          tx,
-          entity.vendorPaymentId as string,
-          now
-        );
-      }
-      // An edit after posting reverses and reposts the payment.
+      // Keep the payment and parent ledger sources synchronized.
       queuePosting(
         ctx,
         tx,
