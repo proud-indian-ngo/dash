@@ -27,7 +27,7 @@ export const areas = {
   analytics: { app: ["analytics"], named: ["outcomes*"] },
   audit: { app: ["audit", "audit-log"], named: ["audit-query*"] },
   auth: {
-    app: ["login"],
+    app: ["login", "health"],
     globs: [
       "apps/web/src/routes/_auth/**",
       "apps/web/src/routes/unsubscribe.tsx",
