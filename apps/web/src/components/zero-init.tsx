@@ -16,6 +16,8 @@ import {
   generateTraceId,
 } from "@/lib/tracing";
 
+const DISCONNECT_TIMEOUT_MS = 5 * 60 * 1000;
+
 // Called per WebSocket message (push, changeDesiredQueries, initConnection).
 // Each message is a distinct traceable operation — new traceId per call is correct.
 function getTraceparent(): string {
@@ -121,6 +123,9 @@ export function ZeroInit({
     <ZeroProvider
       cacheURL={env.VITE_ZERO_URL}
       context={context}
+      // Keep queuing writes through a zero-cache restart; the default
+      // rejects them after a minute
+      disconnectTimeoutMs={DISCONNECT_TIMEOUT_MS}
       getTraceparent={getTraceparent}
       init={init}
       mutators={mutators}

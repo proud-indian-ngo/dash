@@ -96,13 +96,20 @@ services:
       WEBSITE_DISPATCH_TOKEN: ${WEBSITE_DISPATCH_TOKEN:-}
       TZ: Asia/Kolkata
       NODE_ENV: production
+      # Seconds srvx lets open requests finish on SIGTERM (default 5);
+      # Cloudflare already cuts an origin silent for 100
+      SERVER_SHUTDOWN_TIMEOUT: 100
+    # Longer than the drain above, and pg-boss's 30-second graceful stop
+    stop_grace_period: 110s
+    # Liveness only: /api/health fails while Postgres restarts, and an
+    # unhealthy container leaves Traefik's routing
     healthcheck:
       test:
         [
           "CMD",
           "bun",
           "-e",
-          "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://localhost:3000/api/version').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s
@@ -221,6 +228,8 @@ services:
       retries: 5
       # zero-cache reports ready only once replication has caught up
       start_period: 120s
+    # Time to drain client WebSockets on shutdown, as Rocicorp recommends
+    stop_grace_period: 10m
     restart: unless-stopped
 
 # A file secret outside the build context needs a Buildx entitlement under

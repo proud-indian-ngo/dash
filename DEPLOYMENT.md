@@ -161,7 +161,7 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 ### Web app
 
-The production container listens internally on port 3000 with a health check at `/api/health`; local development uses 3001.
+The production container listens internally on port 3000; local development uses 3001. Its container health check is `/api/version`, which never touches the database: `/api/health` also checks Postgres, and a container failing its check leaves Traefik's routing, so a Postgres restart would take the web app down with it. Keep `/api/health` for monitoring.
 
 Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. The error screen's Reload first calls `/api/clear-cache`, whose `Clear-Site-Data: "cache"` drops a chunk the browser cached broken; phones have no hard-refresh shortcut. Proxies must pass that header through. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 

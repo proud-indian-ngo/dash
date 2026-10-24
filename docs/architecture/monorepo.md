@@ -58,6 +58,8 @@ Production runs Nitro's `bun` preset, which serves through srvx on `Bun.serve`. 
 
 The domain is proxied by Cloudflare, which returns a 524 when the origin sends nothing for 100 seconds, so in practice a handler must send bytes within 100 seconds; Dokploy's Traefik sits behind it, configured outside this repository.
 
+On SIGTERM, srvx stops accepting connections and lets open requests finish for `SERVER_SHUTDOWN_TIMEOUT` seconds (5 unless set) before closing them. Production sets it to 100, Cloudflare's limit, and the container's stop grace period above that, so a deploy doesn't cut a running download. An idle server exits within seconds.
+
 ## Dev tooling
 
 Lefthook's post-checkout hook, in a linked worktree, copies `.env` from the main worktree when missing and reruns `bun run ruler:apply` when `CLAUDE.md` is missing or older than `.ruler/agent-guide.md`.
