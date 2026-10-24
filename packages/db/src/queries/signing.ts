@@ -1,12 +1,12 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import {
   and,
   desc,
   eq,
   gte,
+  inArray,
   isNotNull,
   isNull,
+  lt,
   lte,
   or,
   sql,
@@ -18,200 +18,108 @@ import {
   circularSignature,
   governanceDocument,
   signingCertificate,
-  trustee,
 } from "../schema/governance";
 import { utilisationCertificate } from "../schema/grant";
 import { signingJob } from "../schema/private/trustee-private";
 
-/** A signing link lives this long. */
-export const SIGNING_JOB_TTL_MS = 15 * 60 * 1000;
+/**
+ * A signr job as `@signr/server`'s adapter sees it: `id` is the SHA-256 of
+ * the job token, which the row keeps as `token_hash` beside its own UUIDv7.
+ */
+export type SigningJob = Omit<
+  typeof signingJob.$inferSelect,
+  "id" | "tokenHash"
+> & { id: string };
 
-export function hashJobToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+type SigningJobPatch = Partial<Omit<SigningJob, "createdAt" | "id" | "kind">>;
+
+function toSigningJob({
+  tokenHash,
+  ...row
+}: typeof signingJob.$inferSelect): SigningJob {
+  return { ...row, id: tokenHash };
 }
 
-/** A one-time job token: 32 random bytes, URL-safe. */
-export function newJobToken(): string {
-  return randomBytes(32).toString("base64url");
+export async function insertSigningJob({
+  id,
+  ...job
+}: SigningJob): Promise<void> {
+  await db.insert(signingJob).values({ ...job, id: uuidv7(), tokenHash: id });
 }
 
-export interface NewSigningJob {
-  basedOnSha256?: string | null;
-  certificateId?: string | null;
-  fieldName?: string | null;
-  circularId?: string | null;
-  declarationId?: string | null;
-  kind: "enrol" | "sign";
-  meetingId?: string | null;
-  stateObjectKey?: string | null;
-  toSign?: string | null;
-  trusteeId: string;
-  userId: string;
-  utilisationCertificateId?: string | null;
-}
-
-/** Creates a job and returns its id and the token, which is never stored. */
-export async function createSigningJob(
-  input: NewSigningJob,
-  now: Date = new Date()
-): Promise<{ id: string; token: string }> {
-  const token = newJobToken();
-  const id = uuidv7();
-  await db.insert(signingJob).values({
-    basedOnSha256: input.basedOnSha256 ?? null,
-    certificateId: input.certificateId ?? null,
-    circularId: input.circularId ?? null,
-    createdAt: now,
-    declarationId: input.declarationId ?? null,
-    expiresAt: new Date(now.getTime() + SIGNING_JOB_TTL_MS),
-    fieldName: input.fieldName ?? null,
-    id,
-    kind: input.kind,
-    meetingId: input.meetingId ?? null,
-    stateObjectKey: input.stateObjectKey ?? null,
-    toSign: input.toSign ?? null,
-    tokenHash: hashJobToken(token),
-    trusteeId: input.trusteeId,
-    userId: input.userId,
-    utilisationCertificateId: input.utilisationCertificateId ?? null,
-  });
-  return { id, token };
-}
-
-export type SigningJobRow = typeof signingJob.$inferSelect;
-
-/** A pending, unexpired job for a token, with the trustee's name. */
-export async function openJobForToken(
-  token: string,
-  now: Date = new Date()
-): Promise<(SigningJobRow & { legalName: string }) | null> {
+export async function getSigningJob(id: string): Promise<SigningJob | null> {
   const [row] = await db
-    .select({ job: signingJob, legalName: trustee.legalName })
+    .select()
     .from(signingJob)
-    .innerJoin(trustee, eq(trustee.id, signingJob.trusteeId))
-    .where(eq(signingJob.tokenHash, hashJobToken(token)))
+    .where(eq(signingJob.tokenHash, id))
     .limit(1);
-  if (!row) {
-    return null;
-  }
-  if (row.job.status !== "pending" || row.job.expiresAt <= now) {
-    return null;
-  }
-  return { ...row.job, legalName: row.legalName };
+  return row ? toSigningJob(row) : null;
 }
 
 /**
- * A completion's claim on a pending job lapses after this, so one that died
- * mid-way doesn't hold it forever. Longer than any completion takes.
+ * Applies `patch` only while the job is still in `expected`, state and
+ * lease start, in one statement, so two requests can't both move it.
  */
-export const SETTLING_CLAIM_MS = 5 * 60 * 1000;
-
-/**
- * Runs `work` while claiming one pending job, so a second completion racing
- * the first (a repeated post) gets `null` straight away instead of running
- * too. The claim is the pending row's `completedAt`, committed before
- * `work` runs, so no connection is held meanwhile. `work` gets the claim
- * and settles the row with it (`closeJob`), so a completion whose claim
- * lapsed and was taken over can't settle it too; `work` that leaves the row
- * pending gives it back.
- */
-export async function whileClaimed<T>(
+export async function transitionSigningJob(
   id: string,
-  work: (claim: Date) => Promise<T>
-): Promise<T | null> {
-  const claim = new Date();
-  const claimed = await db
-    .update(signingJob)
-    .set({ completedAt: claim })
-    .where(
-      and(
-        eq(signingJob.id, id),
-        eq(signingJob.status, "pending"),
-        or(
-          isNull(signingJob.completedAt),
-          lte(
-            signingJob.completedAt,
-            new Date(claim.getTime() - SETTLING_CLAIM_MS)
-          )
-        )
-      )
-    )
-    .returning({ id: signingJob.id });
-  if (claimed.length === 0) {
-    return null;
-  }
-  try {
-    return await work(claim);
-  } finally {
-    await db
-      .update(signingJob)
-      .set({ completedAt: null })
-      .where(
-        and(
-          eq(signingJob.id, id),
-          eq(signingJob.status, "pending"),
-          eq(signingJob.completedAt, claim)
-        )
-      );
-  }
-}
-
-/** How a job ended, read fresh. */
-export async function jobOutcome(id: string) {
-  const [row] = await db
-    .select({ error: signingJob.error, status: signingJob.status })
-    .from(signingJob)
-    .where(eq(signingJob.id, id))
-    .limit(1);
-  return row ?? null;
-}
-
-/**
- * Marks a job finished, exactly once and only by the completion holding
- * `claim`: one whose claim was taken over finds nothing to update.
- */
-export async function closeJob(
-  id: string,
-  claim: Date,
-  outcome: { error: string } | { ok: true }
+  expected: { leaseStartedAt: Date | null; state: SigningJob["state"] },
+  patch: SigningJobPatch
 ): Promise<boolean> {
   const updated = await db
     .update(signingJob)
-    .set({
-      completedAt: new Date(),
-      error: "error" in outcome ? outcome.error : null,
-      status: "error" in outcome ? "failed" : "completed",
-    })
+    .set(patch)
     .where(
       and(
-        eq(signingJob.id, id),
-        eq(signingJob.status, "pending"),
-        eq(signingJob.completedAt, claim)
+        eq(signingJob.tokenHash, id),
+        eq(signingJob.state, expected.state),
+        expected.leaseStartedAt === null
+          ? isNull(signingJob.leaseStartedAt)
+          : eq(signingJob.leaseStartedAt, expected.leaseStartedAt)
       )
     )
     .returning({ id: signingJob.id });
   return updated.length === 1;
 }
 
-/** What the person's page polls for: their own job only. */
-export async function jobStatusFor(id: string, userId: string) {
-  const [row] = await db
-    .select({
-      error: signingJob.error,
-      expiresAt: signingJob.expiresAt,
-      status: signingJob.status,
-    })
-    .from(signingJob)
-    .where(and(eq(signingJob.id, id), eq(signingJob.userId, userId)))
-    .limit(1);
-  if (!row) {
-    return null;
-  }
-  const expired = row.status === "pending" && row.expiresAt <= new Date();
-  return {
-    error: expired ? "The link expired. Start again." : row.error,
-    status: expired ? ("failed" as const) : row.status,
-  };
+/**
+ * Expires every open job created before `cutoff`, except one whose settle
+ * lease started at or after `leaseCutoff`, which may still finish. Returns
+ * the jobs as they were, so their blobs can be deleted.
+ */
+export async function expireSigningJobs(
+  cutoff: Date,
+  leaseCutoff: Date
+): Promise<SigningJob[]> {
+  const open = inArray(signingJob.state, ["pending", "claimed", "prepared"]);
+  return await db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(signingJob)
+      .where(
+        and(
+          open,
+          lt(signingJob.createdAt, cutoff),
+          or(
+            isNull(signingJob.leaseStartedAt),
+            lt(signingJob.leaseStartedAt, leaseCutoff)
+          )
+        )
+      )
+      .for("update", { skipLocked: true });
+    if (rows.length === 0) {
+      return [];
+    }
+    await tx
+      .update(signingJob)
+      .set({ state: "expired" })
+      .where(
+        inArray(
+          signingJob.id,
+          rows.map((row) => row.id)
+        )
+      );
+    return rows.map(toSigningJob);
+  });
 }
 
 /**

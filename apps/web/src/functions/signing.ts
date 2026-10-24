@@ -1,40 +1,37 @@
 import { db } from "@pi-dash/db";
 import { MeetingError } from "@pi-dash/db/queries/meetings";
 import { DeclarationError } from "@pi-dash/db/queries/policies";
-import {
-  createSigningJob,
-  currentCertificate,
-  jobStatusFor,
-} from "@pi-dash/db/queries/signing";
+import { circularResolutions } from "@pi-dash/db/queries/resolutions";
+import { currentCertificate } from "@pi-dash/db/queries/signing";
 import { CertificateError } from "@pi-dash/db/queries/utilisation-certificates";
 import { trustee } from "@pi-dash/db/schema/governance";
-import { env } from "@pi-dash/env/server";
+import { circularReference } from "@pi-dash/shared/resolutions";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
-import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
+import { signingCopy } from "@/lib/governance/signing-copy";
 import {
+  jobStatusFor,
   startDeclarationJob,
+  startEnrolJob,
   startMinutesJob,
+  startSignJob,
 } from "@/lib/governance/signing-jobs";
 import {
   SigningServiceError,
   signingServiceConfigured,
-  startRemoteSignature,
 } from "@/lib/governance/signing-service";
 import { startCertificateJob } from "@/lib/grants/utilisation-certificates";
 import { HttpError, userFacingError } from "@/lib/http-error";
-import { getS3 } from "@/lib/s3";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
- * Starting DSC helper jobs. The page opens the returned `pidash-sign://`
- * link and polls the job; the helper completes it through
- * /api/signing/jobs/$token.
+ * Starting DSC helper jobs. The page opens the returned `signr://` link and
+ * polls the job with its token; the helper completes it through
+ * /api/signing/v1/jobs/<token>.
  */
 
 async function linkedTrustee(userId: string) {
@@ -44,11 +41,6 @@ async function linkedTrustee(userId: string) {
     .where(eq(trustee.userId, userId))
     .limit(1);
   return row ?? null;
-}
-
-function helperLink(kind: "enrol" | "sign", token: string): string {
-  const server = env.APP_URL ?? env.BETTER_AUTH_URL;
-  return `pidash-sign://${kind}?job=${token}&server=${encodeURIComponent(server)}`;
 }
 
 function userFacing<T>(run: () => Promise<T>): Promise<T> {
@@ -105,12 +97,10 @@ export const startDscEnrolmentFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const job = await createSigningJob({
-            kind: "enrol",
-            trusteeId: me.id,
+          return await startEnrolJob({
+            trustee: me,
             userId: session.user.id,
           });
-          return { jobId: job.id, link: helperLink("enrol", job.token) };
         })
     );
   });
@@ -137,41 +127,21 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const certificate = await currentCertificate(me.id);
-          if (!certificate) {
-            throw new CircularError(
-              "Set up your DSC first: no valid certificate is enrolled for you."
-            );
-          }
-          const copy = await signingCopy(data.circularId, me.id, {
-            create: true,
-          });
-          const started = await startRemoteSignature({
-            certificate: certificate.der,
-            chain: certificate.chain,
+          const [copy, resolutions] = await Promise.all([
+            signingCopy(data.circularId, me.id, { create: true }),
+            circularResolutions(data.circularId),
+          ]);
+          return await startSignJob({
             fieldName: copy.fieldName,
             pdf: copy.bytes,
-          });
-          const s3 = await getS3();
-          const stateObjectKey = circularKey(
-            data.circularId,
-            `sign-state-${uuidv7()}.json`
-          );
-          await s3.write(stateObjectKey, started.state, {
-            type: "application/json",
-          });
-          const job = await createSigningJob({
-            basedOnSha256: copy.basedOnSha256,
-            certificateId: certificate.id,
-            circularId: data.circularId,
-            fieldName: copy.fieldName,
-            kind: "sign",
-            stateObjectKey,
-            toSign: started.toSign,
-            trusteeId: me.id,
+            target: { id: data.circularId, type: "circular" },
+            title:
+              resolutions.length === 1
+                ? (resolutions[0]?.title ?? "Circular")
+                : `Circular ${circularReference(data.circularId)} (${resolutions.length} resolutions)`,
+            trustee: me,
             userId: session.user.id,
           });
-          return { jobId: job.id, link: helperLink("sign", job.token) };
         })
     );
   });
@@ -199,12 +169,11 @@ export const startDscMinutesSigningFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const job = await startMinutesJob({
+          return await startMinutesJob({
             meetingId: data.meetingId,
-            trusteeId: me.id,
+            trustee: me,
             userId: session.user.id,
           });
-          return { jobId: job.id, link: helperLink("sign", job.token) };
         })
     );
   });
@@ -232,12 +201,11 @@ export const startDscDeclarationSigningFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const job = await startDeclarationJob({
+          return await startDeclarationJob({
             declarationId: data.declarationId,
-            trusteeId: me.id,
+            trustee: me,
             userId: session.user.id,
           });
-          return { jobId: job.id, link: helperLink("sign", job.token) };
         })
     );
   });
@@ -268,24 +236,23 @@ export const startDscCertificateSigningFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
-          const job = await startCertificateJob({
+          return await startCertificateJob({
             certificateId: data.certificateId,
-            trusteeId: me.id,
+            trustee: me,
             userId: session.user.id,
           });
-          return { jobId: job.id, link: helperLink("sign", job.token) };
         })
     );
   });
 
 export const getSigningJobStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ jobId: z.uuid() }))
+  .validator(z.object({ token: z.string().max(128) }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new HttpError(401, "Unauthorized");
     }
-    const status = await jobStatusFor(data.jobId, context.session.user.id);
+    const status = await jobStatusFor(data.token, context.session.user.id);
     if (!status) {
       throw new HttpError(404, "Not found");
     }

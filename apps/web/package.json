@@ -38,6 +38,8 @@
     "@pi-dash/zero": "workspace:*",
     "@proudindian/design": "github:proud-indian-ngo/design#v0.6.0",
     "@rocicorp/zero": "catalog:",
+    "@signr/browser": "file:../../../signr/packages/browser",
+    "@signr/server": "file:../../../signr/packages/server",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-form-devtools": "^0.2.34",

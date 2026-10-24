@@ -20,6 +20,12 @@ A cache hit is only as safe as the task's declared inputs, so a task that reads 
 - About 40 test files read today's date, so a pass can go stale with no input change. CI's unit-tests job sets `TURBO_FORCE` on every run but a pull request's, so master always runs every suite and a date-dependent failure surfaces there.
 - The root `package.json` depends on several workspaces for its scripts, and Turbo folds those workspaces, with their own dependencies, into the global hash. A change to any of them misses every task; only web, `e2e` and `editor` change on their own.
 
+## signr packages
+
+`apps/web` takes `@signr/server` and `@signr/browser` through `file:` paths to a signr checkout beside this repository (`../signr`), since they are not published yet. Bun copies them at install, so build them there first (`bun install && bun run --filter '@signr/*' build`), then run `bun install` here, and again after pulling signr. The Docker build and CI cannot reach that checkout until then.
+
+TODO: switch both to `^0.1` from npm (or a git URL) once signr publishes them.
+
 ## Docker build
 
 - `bun install` runs with `--ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.

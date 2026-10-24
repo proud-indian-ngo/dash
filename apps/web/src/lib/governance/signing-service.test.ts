@@ -7,7 +7,7 @@ mock.module("@pi-dash/env/server", () => ({
   },
 }));
 
-const { certificateTrusted } = await import("./signing-service");
+const { fillAnswers } = await import("./signing-service");
 const { userFacingError } = await import("@/lib/http-error");
 const { captureThrownError, createErrorTrackingDrain, runWithErrorScope } =
   await import("@/lib/server/error-tracking");
@@ -20,8 +20,8 @@ const { captureThrownError, createErrorTrackingDrain, runWithErrorScope } =
 async function failure(fetchImpl: typeof fetch) {
   const captureException = mock();
   createErrorTrackingDrain({ captureException }, { environment: "production" });
-  const thrown = await certificateTrusted(
-    { certificate: "MIIB", chain: [] },
+  const thrown = await fillAnswers(
+    { name: "answers", pdf: new Uint8Array(), value: "Resolution 1: assents" },
     fetchImpl
   ).then(
     () => {
@@ -30,7 +30,7 @@ async function failure(fetchImpl: typeof fetch) {
     (error: Error) => userFacingError(error)
   );
   await runWithErrorScope("serverFn", () =>
-    captureThrownError(thrown, { route: "startDscEnrolmentFn" }, () =>
+    captureThrownError(thrown, { route: "startDscSigningFn" }, () =>
       Promise.resolve(undefined)
     )
   );

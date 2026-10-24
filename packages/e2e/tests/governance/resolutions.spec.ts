@@ -549,12 +549,13 @@ test.describe("signing helper", () => {
     await page.getByRole("button", { name: "Mac" }).click();
     await expect(
       page.getByRole("link", { name: "Download for Mac" })
-    ).toHaveAttribute("href", /\/releases\/latest\/download\/.+\.dmg$/);
-    await expect(page.getByText(/Open Anyway/)).toBeVisible();
+    ).toHaveAttribute("href", /\/signr\/releases\/latest\/download\/.+\.dmg$/);
+    await expect(page.getByText(/drag Signr into Applications/)).toBeVisible();
+    await expect(page.getByText(/helper is retired/)).toBeVisible();
     await page.getByRole("button", { name: "Windows" }).click();
     await expect(
       page.getByRole("link", { name: "Download for Windows" })
-    ).toHaveAttribute("href", /\/releases\/latest\/download\/.+\.exe$/);
+    ).toHaveAttribute("href", /\/signr\/releases\/latest\/download\/.+\.exe$/);
     await expect(page.getByText(/Run anyway/)).toBeVisible();
   });
 });

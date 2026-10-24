@@ -177,7 +177,7 @@ const CLASSIFIED_API_POST_FILES = [
   "routes/api/razorpay/webhook.ts",
   // DSC helper: authorised by the one-time job token; audited in its handler
   // in the name of the trustee who started the job.
-  "routes/api/signing/jobs/$token.ts",
+  "routes/api/signing/$.ts",
   "routes/api/whatsapp/cloud/webhook.ts",
   "routes/api/whatsapp/webhook.ts",
   "routes/api/zero/mutate.ts",
