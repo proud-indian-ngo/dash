@@ -336,6 +336,9 @@ const RECEIPT_DETAILS_DONOR_PAN = "ABCPD1234D";
 /** A CSR platform (sponsor and intermediary), whose gifts are never receipted. */
 const RECEIPT_PLATFORM_ID = "01930000-0000-7000-8000-000000000749";
 const RECEIPT_PLATFORM_PAN = "ABCCP1234P";
+/** A receipt donor with a phone and no email, so receipts go by WhatsApp. */
+const RECEIPT_PHONE_DONOR_ID = "01930000-0000-7000-8000-000000000753";
+const RECEIPT_PHONE_DONOR_PAN = "ABCPW1234W";
 
 /**
  * Donation receipt fixtures: fake receipt details in Settings, and a donor
@@ -343,7 +346,8 @@ const RECEIPT_PLATFORM_PAN = "ABCCP1234P";
  * once through give.do (receipted by give.do, so never here). Both gifts
  * are dated today. A CSR platform holding the intermediary role (and a
  * sponsor role) gave once by NEFT with full details, so only the role keeps
- * it from a receipt. The 80G registration is left to the spec, which enters
+ * it from a receipt. A donor with a phone and no email gave once by UPI.
+ * The 80G registration is left to the spec, which enters
  * it through Settings as the donations return spec does. Fake details only.
  */
 export async function ensureReceiptFixtures(userId: string): Promise<void> {
@@ -582,6 +586,66 @@ export async function ensureReceiptFixtures(userId: string): Promise<void> {
       partyId: RECEIPT_PLATFORM_ID,
       receivedOn: todayInIndia,
       reference: "E2E-RECEIPT-PLATFORM",
+      reportingMode: "electronic_or_account_payee",
+      status: "received",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(party)
+    .values({
+      createdAt: now,
+      createdBy: userId,
+      displayName: "E2E Receipt Phone Donor",
+      id: RECEIPT_PHONE_DONOR_ID,
+      kind: "person",
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(partyRole)
+    .values({
+      active: true,
+      id: "01930000-0000-7000-8000-000000000754",
+      partyId: RECEIPT_PHONE_DONOR_ID,
+      role: "donor",
+      since: now,
+    })
+    .onConflictDoNothing();
+  const phoneDetails = {
+    addressLine1: "11, Test Lane",
+    city: "Bengaluru",
+    email: null,
+    idNumberEncrypted: encryptSecret(
+      RECEIPT_PHONE_DONOR_PAN,
+      partyIdNumberContext(RECEIPT_PHONE_DONOR_ID)
+    ),
+    idNumberLast4: visibleTail(RECEIPT_PHONE_DONOR_PAN),
+    idType: "pan" as const,
+    phone: "+919999990753",
+    pincode: "560004",
+    state: "Karnataka",
+    updatedAt: now,
+    updatedBy: userId,
+  };
+  await db
+    .insert(partyPrivate)
+    .values({ ...phoneDetails, partyId: RECEIPT_PHONE_DONOR_ID })
+    .onConflictDoUpdate({ set: phoneDetails, target: partyPrivate.partyId });
+  await db
+    .insert(contribution)
+    .values({
+      amountPaise: 140_000,
+      channel: "upi",
+      createdAt: now,
+      createdBy: userId,
+      fundId: GENERAL_FUND_ID,
+      id: "01930000-0000-7000-8000-000000000755",
+      orgAccountId: E2E_ORG_ACCOUNT_ID,
+      partyId: RECEIPT_PHONE_DONOR_ID,
+      receivedOn: todayInIndia,
+      reference: "E2E-RECEIPT-PHONE",
       reportingMode: "electronic_or_account_payee",
       status: "received",
       updatedAt: now,

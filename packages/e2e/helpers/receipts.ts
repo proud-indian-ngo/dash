@@ -21,6 +21,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
  * - `void-direct-receipt`: voids the live receipt, if any, of the receipt
  *   donor's UPI gift, so it reads Ready to issue again before each attempt
  *   of the test that issues and voids it. Prints how many it voided.
+ * - `void-phone-receipt`: the same for the phone-only donor's UPI gift.
  * - `inspect-automatic <reference>`: returns only the live receipt count,
  *   stored PDF count and minutes to its automatic send, and sanitized job
  *   names, states, outcomes and (while queued) delays.
@@ -33,6 +34,8 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 const RECEIPT_DETAILS_DONOR_ID = "01930000-0000-7000-8000-000000000746";
 /** The receipt donor's seeded UPI gift (E2E-RECEIPT-UPI). */
 const RECEIPT_UPI_GIFT_ID = "01930000-0000-7000-8000-000000000743";
+/** The phone-only donor's seeded UPI gift (E2E-RECEIPT-PHONE). */
+const RECEIPT_PHONE_GIFT_ID = "01930000-0000-7000-8000-000000000755";
 
 const [action, reference, ...moreReferences] = process.argv.slice(2);
 
@@ -80,7 +83,11 @@ if (action === "clear-details-address") {
   process.exit(0);
 }
 
-if (action === "void-direct-receipt") {
+if (action === "void-direct-receipt" || action === "void-phone-receipt") {
+  const giftId =
+    action === "void-direct-receipt"
+      ? RECEIPT_UPI_GIFT_ID
+      : RECEIPT_PHONE_GIFT_ID;
   const live = await db
     .select({
       id: contributionReceipt.id,
@@ -89,7 +96,7 @@ if (action === "void-direct-receipt") {
     .from(contributionReceipt)
     .where(
       and(
-        eq(contributionReceipt.contributionId, RECEIPT_UPI_GIFT_ID),
+        eq(contributionReceipt.contributionId, giftId),
         isNull(contributionReceipt.voidedAt)
       )
     );

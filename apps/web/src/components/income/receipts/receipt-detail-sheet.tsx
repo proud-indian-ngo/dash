@@ -167,6 +167,21 @@ export function ReceiptDetailSheet({
                     Email
                   </Button>
                 ) : null}
+                {live ? (
+                  <Button
+                    disabled={sending || options.whatsapp !== null}
+                    onClick={() => onSend("whatsapp", row)}
+                    type="button"
+                    variant="outline"
+                  >
+                    <HugeiconsIcon
+                      className="size-4"
+                      icon={WhatsappIcon}
+                      strokeWidth={2}
+                    />
+                    WhatsApp
+                  </Button>
+                ) : null}
                 <PageHeaderMenu
                   actions={[
                     {
@@ -183,15 +198,6 @@ export function ReceiptDetailSheet({
                     },
                     ...(live
                       ? [
-                          {
-                            disabled: sending || options.whatsapp !== null,
-                            icon: WhatsappIcon,
-                            id: "whatsapp",
-                            label: options.whatsapp
-                              ? `Send on WhatsApp (${options.whatsapp})`
-                              : "Send on WhatsApp",
-                            onSelect: () => onSend("whatsapp", row),
-                          },
                           {
                             destructive: true,
                             icon: Cancel01Icon,

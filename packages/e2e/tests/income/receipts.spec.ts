@@ -19,6 +19,9 @@ const DETAILS_REFERENCE = "E2E-RECEIPT-DETAILS";
 /** A CSR platform with the intermediary role (and a sponsor role) and full details. */
 const PLATFORM = "E2E Receipt Platform";
 const PLATFORM_REFERENCE = "E2E-RECEIPT-PLATFORM";
+/** A donor with a phone and no email. */
+const PHONE_DONOR = "E2E Receipt Phone Donor";
+const PHONE_REFERENCE = "E2E-RECEIPT-PHONE";
 const INTERMEDIARY_LABEL =
   "Not receipted (Received through an intermediary (not receipted))";
 const ACCOUNT = "E2E Bank Account";
@@ -83,16 +86,16 @@ async function clearDetailsAddress(): Promise<void> {
 }
 
 /**
- * Voids the UPI gift's receipt if an earlier attempt issued it and stopped
- * before voiding, so the test starts from Ready to issue.
+ * Voids the receipt donor's (or the phone donor's) UPI gift receipt if an
+ * earlier attempt issued it, so the test starts from Ready to issue.
  */
-async function voidDirectReceipt(): Promise<void> {
+async function voidSeededReceipt(gift: "direct" | "phone"): Promise<void> {
   await execFileAsync(
     "bun",
     [
       "run",
       path.resolve(import.meta.dirname, "../../helpers/receipts.ts"),
-      "void-direct-receipt",
+      `void-${gift}-receipt`,
     ],
     { env: process.env }
   );
@@ -382,7 +385,7 @@ test.describe("Income: donation receipts (finance)", () => {
     test.slow();
     const fy = currentFinancialYear();
     // Self-resetting: a retry finds the receipt the last attempt issued.
-    await voidDirectReceipt();
+    await voidSeededReceipt("direct");
     await ensureRegistration(page);
 
     // The table: Ready to issue, and the Receipt filter lists it alone of
@@ -644,6 +647,84 @@ test.describe("Income: donation receipts (finance)", () => {
     await expect(
       reopened.getByTestId("contribution-issue-receipt")
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("offers WhatsApp on the receipt sheet when the donor has a phone and no email", async ({
+    page,
+  }, testInfo) => {
+    test.slow();
+    // Self-resetting: a retry voids the receipt the last attempt issued.
+    await voidSeededReceipt("phone");
+    await ensureRegistration(page);
+
+    // Hand-issue the receipt, which never waits on an automatic send.
+    const gift = await openGift(page, PHONE_REFERENCE, PHONE_DONOR);
+    await gift
+      .getByTestId("contribution-issue-receipt")
+      .click({ timeout: 15_000 });
+    const issue = page.getByRole("dialog", { name: "Issue receipts" });
+    await expect(issue.getByTestId("receipts-to-issue")).toContainText(
+      PHONE_DONOR
+    );
+    await issue.getByRole("button", { name: "Issue 1 receipt" }).click();
+    await expect(issue).toBeHidden({ timeout: 15_000 });
+    const receiptLine = gift.getByTestId("contribution-receipt");
+    await expect(receiptLine).toContainText(`PI/${currentFinancialYear()}/`, {
+      timeout: 15_000,
+    });
+    const number = (
+      (await receiptLine.locator(".font-mono").textContent()) ?? ""
+    ).trim();
+
+    await page.goto("/income?tab=receipts");
+    await waitForZeroReady(page);
+    await page.getByPlaceholder("Search number or donor...").fill(number);
+    const row = page.getByRole("row").filter({ hasText: number });
+    await expect(row.getByTestId("receipt-status")).toHaveText("Issued");
+    await row.click();
+    const sheet = page.getByRole("dialog").filter({ hasText: number });
+
+    // WhatsApp sits beside Email in the header; the facts say why Email can't.
+    const whatsapp = sheet.getByRole("button", {
+      exact: true,
+      name: "WhatsApp",
+    });
+    await expect(whatsapp).toBeEnabled();
+    await expect(
+      sheet.getByRole("button", { exact: true, name: "Email" })
+    ).toBeDisabled();
+    await expect(sheet).toContainText("Not emailed (no email address)");
+    await expect(
+      sheet.getByRole("button", { exact: true, name: "Send now" })
+    ).toHaveCount(0);
+    await sheet.getByRole("button", { name: "More actions" }).click();
+    await expect(
+      page.getByRole("menuitem", { name: "Download PDF" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Void receipt" })
+    ).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /WhatsApp/ })).toHaveCount(
+      0
+    );
+    await page.keyboard.press("Escape");
+
+    // The run's fake GoWA gateway accepts the send.
+    await whatsapp.click();
+    await expect(sheet.getByTestId("receipt-delivery")).toContainText(
+      "Sent on WhatsApp",
+      { timeout: 30_000 }
+    );
+
+    // The header on a phone, for review.
+    await page.setViewportSize({ height: 844, width: 390 });
+    await expect(whatsapp).toBeVisible();
+    const shot = testInfo.outputPath("receipt-sheet-phone.png");
+    await page.screenshot({ path: shot });
+    await testInfo.attach("receipt-sheet-phone.png", {
+      contentType: "image/png",
+      path: shot,
+    });
   });
 
   test("issues a new direct gift's receipt at once and holds delivery until finance sends it", async ({
