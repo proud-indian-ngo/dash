@@ -1,3 +1,4 @@
+// @e2e-areas governance income
 import { createHash } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
