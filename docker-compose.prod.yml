@@ -99,6 +99,11 @@ services:
       ZERO_QUERY_URL: ${WEB_INTERNAL_URL:?the web Application's service URL}/api/zero/query
       ZERO_LOG_LEVEL: ${ZERO_LOG_LEVEL:-info}
       ZERO_QUERY_HYDRATION_STATS: ${ZERO_QUERY_HYDRATION_STATS:-false}
+      # Replica backup to R2; empty leaves it off (DEPLOYMENT.md#zero-cache)
+      ZERO_LITESTREAM_BACKUP_URL: ${ZERO_LITESTREAM_BACKUP_URL:-}
+      ZERO_LITESTREAM_ENDPOINT: ${ZERO_LITESTREAM_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${ZERO_LITESTREAM_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${ZERO_LITESTREAM_SECRET_ACCESS_KEY:-}
       # Log and metric export are opt-in: set the exporter to otlp, its endpoint and the headers
       OTEL_LOGS_EXPORTER: ${ZERO_OTEL_LOGS_EXPORTER:-none}
       OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${ZERO_OTEL_LOGS_ENDPOINT:-}
