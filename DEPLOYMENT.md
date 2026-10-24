@@ -71,8 +71,7 @@ The treasurer signature (`packages/pdf/assets/signature.png`) is bundled at buil
 |---|---|---|
 | `WHATSAPP_WEBHOOK_SECRET` | Yes | Shared with the gateway; validates its webhook calls |
 | `WHATSAPP_API_URL` | No | Gateway URL; unset disables the gateway |
-| `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS` | No | Gateway basic auth; Compose defaults `admin`/`admin` |
-| `WHATSAPP_WEBHOOK` | No | Gateway container only: URL it posts messages and receipts to (`…/api/whatsapp/webhook`) |
+| `WHATSAPP_AUTH_USER`, `WHATSAPP_AUTH_PASS` | No | Gateway basic auth |
 
 ### WhatsApp Cloud API
 
@@ -131,7 +130,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 | Variable | Used by | Purpose |
 |---|---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Prod Compose | Postgres credentials; Compose builds `DATABASE_URL` and the Zero URLs from them |
-| `TS_AUTHKEY`, `TAILSCALE_CONFIG_DIR` | Prod Compose | Tailscale sidecars for Postgres and GoWA |
+| `TS_AUTHKEY`, `TAILSCALE_CONFIG_DIR` | Prod Compose | Tailscale sidecar for Postgres |
 | `PORT` | Prod Compose | Web port zero-cache calls; default 3000 |
 | `DEV_DB_HOST`, `DEV_DB_PASSWORD` | Development | Local Postgres; required when `NODE_ENV=development` |
 | `DEV_WEB_PORT`, `ZERO_PORT`, `WORKTREE_ID`, `ZERO_APP_ID` | Development | Worktree ports and IDs |
@@ -188,14 +187,11 @@ When a change spans the helper, release in this order, since the dashboard refus
 
 ### WhatsApp gateway (optional)
 
-```bash
-bun run whatsapp:start   # GoWA on http://localhost:3100; pair by QR code
-```
+GoWA runs outside this repo's Compose files, in development and production. Point `WHATSAPP_API_URL` and `WHATSAPP_AUTH_*` at it, and configure the gateway with:
 
-- Both Compose files pin `ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0`. Upgrade by changing the tag; keep the storage volume and `WHATSAPP_WEBHOOK_SECRET`.
-- GoWA downloads and caches its own dashboard under `/app/storages/ui/`, which needs GitHub access on first start. For an offline build, see [upstream](https://github.com/aldinokemal/go-whatsapp-web-multidevice/blob/v9.6.0/readme.md#web-dashboard-gowa-ui). Log in with `WHATSAPP_AUTH_USER` and `WHATSAPP_AUTH_PASS`; production uses the GoWA Tailscale URL.
-- Webhook events must be `message,message.ack`, as both Compose files set. `message` carries poll votes (the app reads `payload.poll`; `message.poll_vote` won't do), and `message.ack` the delivery and read receipts for the Notification delivery page. The setting applies when the container is created, so after changing it redeploy the Compose stack (or `docker compose up -d gowa`); pairing survives in the `whatsapp_data` volume.
-- For local webhooks, run `bun run --cwd apps/web dev --host 0.0.0.0` so Docker reaches `host.docker.internal:${DEV_WEB_PORT:-3001}`.
+- Webhook URL `<app>/api/whatsapp/webhook` and secret `WHATSAPP_WEBHOOK_SECRET`.
+- Webhook events `message,message.ack`. `message` carries poll votes (the app reads `payload.poll`; `message.poll_vote` won't do), and `message.ack` the delivery and read receipts for the Notification delivery page.
+- For a gateway in Docker posting to a local dev server, run `bun run --cwd apps/web dev --host 0.0.0.0` so it reaches `host.docker.internal:${DEV_WEB_PORT:-3001}`.
 
 ### Switching WhatsApp to the Cloud API
 

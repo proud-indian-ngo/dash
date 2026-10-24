@@ -60,7 +60,7 @@ services:
       R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
       R2_KEY_PREFIX: ${R2_KEY_PREFIX:-}
       VITE_CDN_URL: ${VITE_CDN_URL:-}
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://tailscale-gowa:3000}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-}
       WHATSAPP_AUTH_USER: ${WHATSAPP_AUTH_USER:-}
       WHATSAPP_AUTH_PASS: ${WHATSAPP_AUTH_PASS:-}
       WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
@@ -117,49 +117,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  gowa:
-    image: ghcr.io/aldinokemal/go-whatsapp-web-multidevice:v9.6.0
-    pull_policy: always
-    environment:
-      APP_UI_ENABLED: "true"
-      APP_UI_AUTO_UPDATE: "true"
-      WHATSAPP_WEBHOOK: ${WHATSAPP_WEBHOOK:-}
-      WHATSAPP_WEBHOOK_EVENTS: message,message.ack
-      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET}
-    volumes:
-      - whatsapp_data:/app/storages
-    command:
-      - rest
-      - --basic-auth=${WHATSAPP_AUTH_USER:-admin}:${WHATSAPP_AUTH_PASS:-admin}
-      - --port=3000
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    depends_on:
-      - tailscale-gowa
-    network_mode: service:tailscale-gowa
-    restart: unless-stopped
-
-  tailscale-gowa:
-    image: tailscale/tailscale:v1.104.1
-    hostname: gowa
-    environment:
-      TS_AUTHKEY: ${TS_AUTHKEY}
-      TS_EXTRA_ARGS: --advertise-tags=tag:container,tag:internal-app
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_SERVE_CONFIG: /config/tailscale/gowa.json
-      TS_USERSPACE: "true"
-    volumes:
-      - tailscale_gowa_data:/var/lib/tailscale
-      - ${TAILSCALE_CONFIG_DIR:-/root/.config}:/config
-      - /dev/net/tun:/dev/net/tun
-    cap_add:
-      - net_admin
-      - sys_module
-    restart: unless-stopped
-
   postgres:
     image: postgres:18
     environment:
@@ -193,7 +150,7 @@ services:
     restart: unless-stopped
 
   tailscale-postgres:
-    image: tailscale/tailscale:v1.104.1
+    image: tailscale/tailscale:v1.104.2
     hostname: pi-dash-db
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
@@ -223,7 +180,7 @@ services:
     restart: unless-stopped
 
   zero-cache:
-    image: rocicorp/zero:1.11.1
+    image: rocicorp/zero:1.11.3
     expose:
       - 4848
     environment:
@@ -275,6 +232,4 @@ secrets:
 volumes:
   postgres18_data:
   zero_cache_data:
-  whatsapp_data:
-  tailscale_gowa_data:
   tailscale_postgres_data:

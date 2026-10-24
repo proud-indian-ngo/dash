@@ -27,7 +27,7 @@
     "@playwright/test": "catalog:",
     "@types/bun": "catalog:",
     "jsqr": "^1.4.0",
-    "oxc-parser": "^0.154.0",
+    "oxc-parser": "^0.155.0",
     "read-excel-file": "^9.3.12",
     "typescript": "catalog:"
   }

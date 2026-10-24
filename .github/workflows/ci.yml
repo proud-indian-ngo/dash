@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.3"
+          bun-version: "1.4.4"
       - run: bun install --frozen-lockfile
       - &create-test-env
         name: Create test env
@@ -58,7 +58,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.3"
+          bun-version: "1.4.4"
       - run: bun install --frozen-lockfile
       - *create-test-env
       # The root script caps turbo at two workspaces to fit the local commit
@@ -93,7 +93,7 @@ jobs:
           fetch-depth: 2
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.3"
+          bun-version: "1.4.4"
       - run: bun install --frozen-lockfile
       - name: Restore test durations cache
         uses: actions/cache/restore@v6
@@ -201,7 +201,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.3"
+          bun-version: "1.4.4"
 
       - name: Resolve zero-cache image and Playwright version
         id: zero-cache
@@ -531,7 +531,7 @@ jobs:
           fetch-depth: 2
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.3"
+          bun-version: "1.4.4"
       - run: bun install --frozen-lockfile
       - name: Download failed specs
         uses: actions/download-artifact@v8
