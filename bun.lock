@@ -52,7 +52,7 @@
         "@pi-dash/shared": "workspace:*",
         "@pi-dash/whatsapp": "workspace:*",
         "@pi-dash/zero": "workspace:*",
-        "@proudindian/design": "github:proud-indian-ngo/design#v0.4.0",
+        "@proudindian/design": "github:proud-indian-ngo/design#v0.6.0",
         "@rocicorp/zero": "catalog:",
         "@tailwindcss/vite": "catalog:",
         "@tanstack/react-form": "^1.33.5",
@@ -153,7 +153,7 @@
         "@dnd-kit/utilities": "catalog:",
         "@hugeicons/core-free-icons": "catalog:",
         "@hugeicons/react": "catalog:",
-        "@proudindian/design": "github:proud-indian-ngo/design#v0.4.0",
+        "@proudindian/design": "github:proud-indian-ngo/design#v0.6.0",
         "@tanstack/react-table": "^9.3.1",
         "@tanstack/react-virtual": "^3.14.22",
         "class-variance-authority": "^0.7.1",
@@ -1277,7 +1277,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
 
-    "@proudindian/design": ["@proudindian/design@github:proud-indian-ngo/design#9e6cd8e", { "peerDependencies": { "react": "^19", "tailwindcss": "^4" }, "optionalPeers": ["react", "tailwindcss"] }, "proud-indian-ngo-design-9e6cd8e", "sha512-o8hx/9mTV5D+OdjlYZrdBOAEHzxDir7mm7PN+uiGDYQg9xHAChU8RePxRuekajWQa11KOkIhf98AOUpwARVe/w=="],
+    "@proudindian/design": ["@proudindian/design@github:proud-indian-ngo/design#3aca5a8", { "peerDependencies": { "react": "^19", "tailwindcss": "^4" }, "optionalPeers": ["react", "tailwindcss"], "hasInstallScript": true }, "proud-indian-ngo-design-3aca5a8", "sha512-vzGs2A2DeAglXIHui/djv96OsZ5RlGXcd5RZPBKg60oxVsNYIPvjUNacCfdSosKknJux10+jKdLYd354PsS8Cw=="],
 
     "@radix-ui/primitive": ["@radix-ui/primitive@1.2.0", "", {}, "sha512-KABY+VMIRPJL+Vyzv/335FEhXXD/xDv8BMb1kl48/aXJZMH0LtHCTx5ga5RnxaEP3nZHtmTLf1P9vanmFX46bw=="],
 
