@@ -44,6 +44,8 @@ const AUDITED_SERVER_FUNCTIONS = [
   "createGiveDoPayoutImport",
   "createRole",
   "createSocialApiTokenFn",
+  "createEventSignupLinkFn",
+  "turnOffEventSignupLinkFn",
   "createUserAdmin",
   "deleteProfilePicture",
   "finalizeProfilePictureUpload",

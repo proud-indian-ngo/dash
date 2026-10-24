@@ -11,8 +11,8 @@ export function isPublicBetterAuthAdminPath(url: string): boolean {
 /**
  * The event redirect for a public-website sign-up link
  * (`/register?interestEventId=<id>[&occDate=]`), marked to file an interest
- * request once the account is verified. Invite links (`?eventId=`) keep their
- * own enrollment flow and are not redirected.
+ * request once the account is verified. Opaque invite links keep their own
+ * enrollment flow and are not redirected.
  */
 export function registerLinkEventRedirect(
   search: Record<string, unknown>

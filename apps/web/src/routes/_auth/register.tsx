@@ -1,4 +1,5 @@
 import { env } from "@pi-dash/env/web";
+import { isEventRegistrationInviteToken } from "@pi-dash/shared/event-registration-invite";
 import { createFileRoute } from "@tanstack/react-router";
 import * as z from "zod";
 
@@ -12,10 +13,11 @@ import { RegisterForm } from "@/components/login/register-form";
 import { loadPublicSessionSummary } from "@/lib/public-session-loader";
 
 const uuidSchema = z.uuid();
+const inviteSchema = z.string().refine(isEventRegistrationInviteToken);
 const occDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 interface RegisterSearch {
-  eventId?: string;
+  eventInvite?: string;
   group?: string;
   /** Public-website sign-ups: file a pending interest request, not an enrollment. */
   interestEventId?: string;
@@ -24,11 +26,13 @@ interface RegisterSearch {
 
 function validateSearch(search: Record<string, unknown>): RegisterSearch {
   const result: RegisterSearch = {};
-  for (const key of ["eventId", "interestEventId"] as const) {
-    const parsed = uuidSchema.safeParse(search[key]);
-    if (parsed.success) {
-      result[key] = parsed.data;
-    }
+  const eventInvite = inviteSchema.safeParse(search.eventInvite);
+  if (eventInvite.success) {
+    result.eventInvite = eventInvite.data;
+  }
+  const interestEventId = uuidSchema.safeParse(search.interestEventId);
+  if (interestEventId.success) {
+    result.interestEventId = interestEventId.data;
   }
   const occDate = occDateSchema.safeParse(search.occDate);
   if (occDate.success) {

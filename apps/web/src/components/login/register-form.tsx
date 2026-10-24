@@ -1,4 +1,5 @@
 import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
+import { EVENT_REGISTRATION_INVITE_HEADER } from "@pi-dash/shared/event-registration-invite";
 import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import {
   isVolunteerAgeEligible,
@@ -56,7 +57,7 @@ const registerSchema = z
 export function RegisterForm() {
   const navigate = useNavigate({ from: "/register" });
   const search = useSearch({ from: "/_auth/register" });
-  const { eventId, group } = search;
+  const { eventInvite, group } = search;
   // Website sign-up links: the verification link files the interest request
   // and login lands on the event page (see auth-route-policy).
   const eventRedirect = registerLinkEventRedirect(search);
@@ -86,13 +87,15 @@ export function RegisterForm() {
           password: value.password,
           phone: value.phone,
           ...(group ? { registrationGroup: group } : {}),
-          ...(eventId ? { query: { eventId }, registerEventId: eventId } : {}),
+          ...(eventInvite ? { registerEventInvite: eventInvite } : {}),
           ...(redirect ? { callbackURL: redirect } : {}),
         },
         {
           headers: {
             ...turnstile.takeHeaders(),
-            ...(eventId ? { "x-register-event-id": eventId } : {}),
+            ...(eventInvite
+              ? { [EVENT_REGISTRATION_INVITE_HEADER]: eventInvite }
+              : {}),
           },
         }
       );
@@ -120,7 +123,7 @@ export function RegisterForm() {
   return (
     <div
       className="flex flex-col gap-6"
-      data-register-event-id={eventId ?? ""}
+      data-register-event-invite={eventInvite ? "present" : ""}
       data-register-group={group ?? ""}
     >
       <div className="space-y-2">

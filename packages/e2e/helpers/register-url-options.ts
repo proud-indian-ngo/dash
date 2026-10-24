@@ -1,3 +1,7 @@
+import {
+  issueRegisterEventInvite,
+  revokeRegisterEventInvites,
+} from "@pi-dash/auth/register-event-invite-db";
 import { db } from "@pi-dash/db";
 import { user } from "@pi-dash/db/schema/auth";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
@@ -33,6 +37,8 @@ async function getUserId(email: string): Promise<string | null> {
 }
 
 async function cleanup() {
+  await revokeRegisterEventInvites(FIXTURE.normalEventId);
+  await revokeRegisterEventInvites(FIXTURE.kalakritiEventId);
   // Materialized sessions (and their interests) cascade with the series.
   await db.delete(teamEvent).where(eq(teamEvent.id, FIXTURE.seriesEventId));
   await db
@@ -116,7 +122,7 @@ async function setup(creatorEmail: string) {
     createdBy: creatorId,
     eventDate: `${FIXTURE.year}-11-20`,
     id: FIXTURE.editionId,
-    lifecycle: "draft",
+    lifecycle: "registration_open",
     name: `Kalakriti ${FIXTURE.year}`,
     plannedRegistrationCloseAt: new Date(`${FIXTURE.year}-10-31T18:29:00.000Z`),
     teamEventId: FIXTURE.kalakritiEventId,
@@ -129,6 +135,27 @@ async function setup(creatorEmail: string) {
     publicEventId: FIXTURE.publicEventId,
     seriesEventId: FIXTURE.seriesEventId,
     seriesOccDate: FIXTURE.seriesOccDate,
+  };
+}
+
+async function invite(eventId: string, expiresInMs = 60 * 60 * 1000) {
+  if (
+    eventId !== FIXTURE.normalEventId &&
+    eventId !== FIXTURE.kalakritiEventId
+  ) {
+    throw new Error("Register URL fixture invite target is not allowed");
+  }
+  const issuerEmail = process.env.ADMIN_EMAIL;
+  const issuedBy = issuerEmail ? await getUserId(issuerEmail) : null;
+  if (!issuedBy) {
+    throw new Error("ADMIN_EMAIL must name the event invite issuer");
+  }
+  return {
+    token: await issueRegisterEventInvite({
+      eventId,
+      expiresAt: new Date(Date.now() + expiresInMs),
+      issuedBy,
+    }),
   };
 }
 
@@ -249,6 +276,13 @@ if (action === "cleanup") {
   result = await setup(argument);
 } else if (action === "interest" && argument) {
   result = await interest(argument);
+} else if (action === "invite" && argument) {
+  result = await invite(argument);
+} else if (action === "short-invite" && argument) {
+  result = await invite(argument, 500);
+} else if (action === "turn-off-invite" && argument) {
+  await revokeRegisterEventInvites(argument);
+  result = { turnedOff: true };
 } else if (action === "token" && argument) {
   result = await token(argument);
 } else if (action === "state" && argument) {

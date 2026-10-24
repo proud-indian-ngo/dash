@@ -43,11 +43,15 @@ Each is optional and independent. Invalid values are dropped and the page still 
 | Param | Effect |
 |---|---|
 | `?group=` | Stored on `user.registrationGroup`. Never touches events |
-| `?eventId=<uuid>` | Enrols the new user on the event after sign-up, if it is open and has not started |
+| `?eventInvite=<token>` | An event's sign-up link. Enrols the new user on the event after sign-up |
 | `?interestEventId=<uuid>[&occDate=]` | Website sign-up links. Files event interest after verification |
 
-`?eventId=` enrolment:
+`?eventInvite=` enrolment:
 
+- The token is a 32-byte random capability, stored only as a SHA-256 hash in Better Auth's `verification` table, which Zero doesn't sync (`packages/auth/src/register-event-invite-db.ts`).
+- Whoever adds the event's members creates it: "Sign-up link" on the event page, or on the Kalakriti Volunteers page for a linked event. The token is shown once. Creating and turning off links are audited.
+- One live link per event. Anyone holding it can use it until the event starts. Creating a new one or "Turn off link" ends the old one, re-checked inside the enrolment transaction.
+- Public event UUIDs, including IDs from the Kalakriti schedule and public events feed, never authorise enrolment.
 - Writes `team_event_member` directly; no team membership needed.
 - For a Kalakriti-linked event it also adds a volunteer Edition membership and promotes only `unoriented_volunteer` to `volunteer`. Guardian and external identities are excluded.
 - Promotion revokes sessions in the same transaction, then invalidates role caches and enqueues jobs after commit.

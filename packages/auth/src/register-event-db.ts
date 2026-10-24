@@ -15,6 +15,10 @@ import { formatKalakritiVolunteerHumanId } from "@pi-dash/shared/kalakriti";
 import { and, eq } from "drizzle-orm";
 
 import type { RegisterEventEnrollDeps } from "./register-event";
+import {
+  isRegisterEventInviteLive,
+  resolveRegisterEventInvite,
+} from "./register-event-invite-db";
 
 function toEpoch(value: Date | number | null | undefined): number | null {
   if (value === null || value === undefined) {
@@ -166,7 +170,11 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
         .limit(1);
       return row ?? null;
     },
-    findEvent: async (eventId) => {
+    findEventByInvite: async (inviteToken, now) => {
+      const invite = await resolveRegisterEventInvite(inviteToken, now);
+      if (!invite) {
+        return null;
+      }
       const [row] = await db
         .select({
           cancelledAt: teamEvent.cancelledAt,
@@ -178,19 +186,23 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
           whatsappGroupId: teamEvent.whatsappGroupId,
         })
         .from(teamEvent)
-        .where(eq(teamEvent.id, eventId))
+        .where(eq(teamEvent.id, invite.eventId))
         .limit(1);
       if (!row) {
         return null;
       }
       return {
-        cancelledAt: toEpoch(row.cancelledAt),
-        id: row.id,
-        location: row.location,
-        managementDomain: row.managementDomain ?? null,
-        name: row.name,
-        startTime: row.startTime.getTime(),
-        whatsappGroupId: row.whatsappGroupId,
+        event: {
+          cancelledAt: toEpoch(row.cancelledAt),
+          id: row.id,
+          location: row.location,
+          managementDomain: row.managementDomain ?? null,
+          name: row.name,
+          startTime: row.startTime.getTime(),
+          whatsappGroupId: row.whatsappGroupId,
+        },
+        issuedBy: invite.issuedBy,
+        storedValue: invite.storedValue,
       };
     },
     findUser: async (userId) => {
@@ -267,6 +279,9 @@ export function createDbRegisterEventEnrollDeps(): RegisterEventEnrollDeps {
           enrollingUser.role === "external_user" ||
           external
         ) {
+          return skipped;
+        }
+        if (!(await isRegisterEventInviteLive(tx, row.invite))) {
           return skipped;
         }
 

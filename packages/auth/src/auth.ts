@@ -6,6 +6,10 @@ import { sendResetPasswordEmail, sendVerificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
+import {
+  EVENT_REGISTRATION_INVITE_HEADER,
+  isEventRegistrationInviteToken,
+} from "@pi-dash/shared/event-registration-invite";
 import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -70,9 +74,6 @@ async function resolveSignedUpUser(
   });
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function sanitizeRegistrationGroup(body: Record<string, unknown>): void {
   const group = body.registrationGroup;
   if (typeof group !== "string") {
@@ -92,14 +93,17 @@ function sanitizeSignUpBody(ctx: AuthHookContext): void {
     return;
   }
   sanitizeRegistrationGroup(ctx.body);
-  const eventId =
-    typeof ctx.body.registerEventId === "string"
-      ? ctx.body.registerEventId.trim()
+  // A public event UUID is never enrollment authority. Only a separately
+  // issued opaque capability may reach the direct-enrollment hook.
+  delete ctx.body.registerEventId;
+  const inviteToken =
+    typeof ctx.body.registerEventInvite === "string"
+      ? ctx.body.registerEventInvite.trim()
       : "";
-  if (eventId && UUID_RE.test(eventId)) {
-    ctx.body.registerEventId = eventId;
+  if (isEventRegistrationInviteToken(inviteToken)) {
+    ctx.body.registerEventInvite = inviteToken;
   } else {
-    delete ctx.body.registerEventId;
+    delete ctx.body.registerEventInvite;
   }
 }
 
@@ -143,7 +147,7 @@ async function handleAfterSignUp(ctx: AuthHookContext): Promise<void> {
   }
 
   const userId = user.id;
-  const registerEventId = getRegisterEventId(ctx);
+  const registerEventInvite = getRegisterEventInvite(ctx);
 
   withFireAndForgetLog({ hook: "afterSignUp", userId }, async () => {
     if (user.email) {
@@ -158,15 +162,15 @@ async function handleAfterSignUp(ctx: AuthHookContext): Promise<void> {
   withFireAndForgetLog(
     {
       action: "registerEventEnrollAndOrientation",
-      eventId: registerEventId,
+      hasInvite: Boolean(registerEventInvite),
       hook: "afterSignUp",
       userId,
     },
     async () => {
       try {
-        if (registerEventId) {
+        if (registerEventInvite) {
           await enrollUserOnRegisterEvent(createDbRegisterEventEnrollDeps(), {
-            eventId: registerEventId,
+            inviteToken: registerEventInvite,
             now: Date.now(),
             userId,
           });
@@ -201,23 +205,23 @@ function getHeaderValue(headers: unknown, name: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function getRegisterEventId(ctx: AuthHookContext): string | undefined {
+function getRegisterEventInvite(ctx: AuthHookContext): string | undefined {
   const fromBody =
-    typeof ctx.body?.registerEventId === "string"
-      ? ctx.body.registerEventId
+    typeof ctx.body?.registerEventInvite === "string"
+      ? ctx.body.registerEventInvite
       : undefined;
   const raw =
     fromBody ??
-    getHeaderValue(ctx.headers, "x-register-event-id") ??
-    getHeaderValue(ctx.request?.headers, "x-register-event-id");
+    getHeaderValue(ctx.headers, EVENT_REGISTRATION_INVITE_HEADER) ??
+    getHeaderValue(ctx.request?.headers, EVENT_REGISTRATION_INVITE_HEADER);
   if (!raw) {
     return;
   }
-  const eventId = raw.trim();
-  if (!UUID_RE.test(eventId)) {
+  const inviteToken = raw.trim();
+  if (!isEventRegistrationInviteToken(inviteToken)) {
     return;
   }
-  return eventId;
+  return inviteToken;
 }
 
 async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
