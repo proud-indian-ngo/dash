@@ -268,7 +268,10 @@ export const teamMutators = {
       assertHasPermissionOrTeamLead(ctx, "teams.manage_members", isTeamLead);
 
       const member = await tx.run(
-        zql.teamMember.where("id", args.memberId).one()
+        zql.teamMember
+          .where("id", args.memberId)
+          .where("teamId", args.teamId)
+          .one()
       );
       if (!member) {
         throw new Error("Member not found");
@@ -278,13 +281,13 @@ export const teamMutators = {
         throw new Error("Team leads cannot remove other leads");
       }
 
+      const memberId = member.id;
       const memberUserId = member.userId;
-      const teamName = (await tx.run(zql.team.where("id", args.teamId).one()))
-        ?.name;
-      await tx.mutate.teamMember.delete({ id: args.memberId });
+      const teamId = member.teamId;
+      const teamName = (await tx.run(zql.team.where("id", teamId).one()))?.name;
+      await tx.mutate.teamMember.delete({ id: memberId });
 
       if (tx.location === "server") {
-        const { teamId } = args;
         ctx.asyncTasks?.push({
           fn: async () => {
             const { enqueue } = await import("@pi-dash/jobs/enqueue");
