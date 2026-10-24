@@ -1,5 +1,5 @@
 # PostHog CLI for the source map upload, pinned with checksums from its GitHub release
-FROM oven/bun:1.4.3-slim AS posthog-cli
+FROM oven/bun:1.4.4-slim AS posthog-cli
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
       arm64) target=aarch64-unknown-linux-gnu; sha=eb3d4135fdeac40d7fe8f5706830216d1220d3d20a600f0afa6a0621b6b437a8 ;; \
@@ -14,7 +14,7 @@ RUN case "$TARGETARCH" in \
     posthog-cli --version
 
 # Shared dependencies and source for the web build and migrator
-FROM oven/bun:1.4.3-slim AS source
+FROM oven/bun:1.4.4-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -89,7 +89,7 @@ RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
     bun apps/web/scripts/finalize-public-assets.ts apps/web/.output/public
 
 # Stage 2: Migrator (runs pending DB migrations)
-FROM oven/bun:1.4.3-slim AS migrator
+FROM oven/bun:1.4.4-slim AS migrator
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=source /app/node_modules node_modules
@@ -99,7 +99,7 @@ COPY --from=source /app/package.json package.json
 CMD ["sh", "-c", "bun run packages/db/scripts/migrate.ts && bun run packages/zero/scripts/prepare-publication.ts"]
 
 # Stage 3: Production
-FROM oven/bun:1.4.3-slim AS production
+FROM oven/bun:1.4.4-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
