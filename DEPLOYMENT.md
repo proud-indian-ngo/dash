@@ -182,6 +182,8 @@ zero-cache logs, with literal values redacted, slow hydrations and advancements 
 
 With `ZERO_LITESTREAM_BACKUP_URL` set, zero-cache backs its replica up to R2 and restores from it when the volume has none. A normal restart keeps using the volume. Zero acknowledges replication to Postgres only once a change is in the backup, so while R2 is unreachable Postgres keeps WAL for the slot; watch `pg_replication_slots` retained WAL during an R2 outage. Changing the URL or bucket starts a fresh backup. A multi-node zero-cache, where view-syncers restore from the backup, needs it.
 
+Turning backup on needs a fresh replica: a replica built without backup crash-loops zero-cache (`database is locked: journal_mode = delete` from the backup worker), because backup mode serves from a separate copy and can't convert the open file. Stop zero-cache, delete `zero.db*` from its volume, then deploy; it resyncs from Postgres. The resync creates a new replication slot and leaves the old one inactive, holding WAL, so drop it with `pg_drop_replication_slot` once the new slot is active.
+
 ### Signing service
 
 `services/signing` runs as `signing`, reachable only from the web app. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
