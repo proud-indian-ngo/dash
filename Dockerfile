@@ -13,7 +13,7 @@ RUN case "$TARGETARCH" in \
     rm -rf /tmp/cli.tar.gz "/tmp/posthog-cli-$target" && \
     posthog-cli --version
 
-# Shared dependencies and source for the web build and migrator
+# Shared dependencies and source for the web build and migrator bundle
 FROM oven/bun:1.4.4-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -88,16 +88,6 @@ RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
     fi; \
     bun apps/web/scripts/finalize-public-assets.ts apps/web/.output/public
 
-# Stage 2: Migrator (runs pending DB migrations)
-FROM oven/bun:1.4.4-slim AS migrator
-ENV TZ=Asia/Kolkata
-WORKDIR /app
-COPY --from=source /app/node_modules node_modules
-COPY --from=source /app/packages/db packages/db
-COPY --from=source /app/packages/zero packages/zero
-COPY --from=source /app/package.json package.json
-CMD ["sh", "-c", "bun run packages/db/scripts/migrate.ts && bun run packages/zero/scripts/prepare-publication.ts"]
-
 # The migrator bundled for the production image, which has no node_modules.
 # migrate.js finds ../src/migrations from its own directory; Drizzle reads only
 # the SQL files and the journal, not the snapshots.
@@ -108,7 +98,7 @@ RUN bun build packages/db/scripts/migrate.ts --target=bun --outfile=/out/scripts
     cp packages/db/src/migrations/*.sql /out/src/migrations/ && \
     cp packages/db/src/migrations/meta/_journal.json /out/src/migrations/meta/
 
-# Stage 3: Production
+# Production
 FROM oven/bun:1.4.4-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app

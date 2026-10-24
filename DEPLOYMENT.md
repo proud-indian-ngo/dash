@@ -12,7 +12,7 @@ External services, each optional unless its variables are required below: Cloudf
 
 ## Environment variables
 
-Copy `.env.sample` to `.env` locally. Production uses `docker-compose.prod.yml`. Contracts: `packages/env/src/server.ts` and `web.ts` ([loading](docs/architecture/env-and-secrets.md)). "Prod" means required with `NODE_ENV=production`; empty strings are unset. Keep keys, tokens and secrets private.
+Copy `.env.sample` to `.env` locally. In production, web is a Dokploy Application with its own environment and the other services run from `docker-compose.prod.yml` ([Web app](#web-app)). Contracts: `packages/env/src/server.ts` and `web.ts` ([loading](docs/architecture/env-and-secrets.md)). "Prod" means required with `NODE_ENV=production`; empty strings are unset. Keep keys, tokens and secrets private.
 
 ### Core, auth and encryption
 
@@ -54,7 +54,7 @@ Copy `.env.sample` to `.env` locally. Production uses `docker-compose.prod.yml`.
 |---|---|---|
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` | Yes | R2 credentials and bucket |
 | `R2_KEY_PREFIX` | Yes | Upload key prefix, e.g. `attachments` |
-| `VITE_CDN_URL` | Yes | Historical public CDN origin, used to recognise legacy media references. Keep it set (see [Upgrade notes](#private-media-cutover)) |
+| `VITE_CDN_URL` | Yes | Historical public CDN origin, used to recognise legacy media references. Keep it set (see [Upgrade notes](docs/upgrade-notes.md#private-media-cutover)) |
 
 ### Avatars and cash vouchers
 
@@ -108,20 +108,20 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `SIGNING_SERVICE_URL` | Yes | Internal URL of `services/signing` (`http://signing:8080` in `docker-compose.prod.yml`). Issuing circulars, making minutes and recording declarations need it; unset, they fail with "needs the signing service" and signed uploads are refused |
+| `SIGNING_SERVICE_URL` | Yes | Internal URL of `services/signing` (`http://pi-dash-signing:8080` in production). Issuing circulars, making minutes and recording declarations need it; unset, they fail with "needs the signing service" and signed uploads are refused |
 | `SIGNING_SERVICE_TOKEN` | Yes | Bearer token shared with the signing service, 16+ characters (`openssl rand -hex 32`) |
 
 ### Observability
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `APP_ENV` | No | Environment on logs and PostHog events; Prod Compose sets `production` and passes it to the build as `VITE_APP_ENV` |
+| `APP_ENV` | No | Environment on logs and PostHog events; production sets `production`, and `VITE_APP_ENV` to match as a build argument |
 | `APP_RELEASE` | No | Commit SHA on logs and errors. The Docker build reads it from `.git` (also as `VITE_APP_RELEASE`); empty when `.git` is absent |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | OTLP logs endpoint, used only when `POSTHOG_API_KEY` is unset |
 | `POSTHOG_API_KEY`, `POSTHOG_HOST` | No | Server key; exports logs to PostHog over OTLP, taking precedence over `OTEL_EXPORTER_OTLP_ENDPOINT`, and sends server errors to Error Tracking |
 | `OTEL_SERVICE_NAME` | No | Service name on server logs |
 | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | No | Browser pageviews and exception capture; unset disables them. Turn on **Discard client IP data** in the PostHog project |
-| `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID` | No | Build only: [source map](docs/architecture/observability.md#posthog) upload. Key: a personal API key with `error_tracking:write`, passed as a BuildKit secret; `docker-compose.prod.yml` defaults the project. Secrets are outside BuildKit's cache key, so a new key or failed upload takes effect on the next new commit; redeploying a built commit shows the step `CACHED` |
+| `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID` | No | Build only: [source map](docs/architecture/observability.md#posthog) upload. Key: a personal API key with `error_tracking:write`, passed as the BuildKit secret `posthog_cli_api_key`; the project is `386098`. Secrets are outside BuildKit's cache key, so a new key or failed upload takes effect on the next new commit; redeploying a built commit shows the step `CACHED` |
 | `ZERO_OTEL_LOGS_EXPORTER`, `ZERO_OTEL_LOGS_ENDPOINT`, `ZERO_OTEL_HEADERS` | No | zero-cache log export; default `none`. For PostHog: `otlp`, `<host>/i/v1/logs`, `Authorization=Bearer <phc_ project token>` |
 | `ZERO_OTEL_METRICS_EXPORTER`, `ZERO_OTEL_METRICS_ENDPOINT` | No | zero-cache metric export (replication and serving lag, WAL, connections); default `none`. For PostHog (Metrics is in alpha; enable it in the project first): `otlp`, `<host>/i/v1/metrics`. Shares `ZERO_OTEL_HEADERS`, so its key must be the `phc_` project token |
 
@@ -129,10 +129,9 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Prod Compose | Postgres credentials; Compose builds `DATABASE_URL` and the Zero URLs from them |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Prod Compose | Postgres credentials; Compose builds zero-cache's database URLs from them, and web's `DATABASE_URL` uses host `pi-dash-postgres` |
 | `TS_AUTHKEY`, `TAILSCALE_CONFIG_DIR` | Prod Compose | Tailscale sidecar for Postgres |
-| `PORT` | Prod Compose | Web port zero-cache calls; default 3000 |
-| `WEB_INTERNAL_URL` | Prod Compose | Web origin behind zero-cache's mutate and query URLs; default `http://web:$PORT` |
+| `WEB_INTERNAL_URL` | Prod Compose | Required: the web Application's service URL, `http://<app name>:3000`, for zero-cache's mutate and query calls |
 | `DEV_DB_HOST`, `DEV_DB_PASSWORD` | Development | Local Postgres; required when `NODE_ENV=development` |
 | `DEV_WEB_PORT`, `ZERO_PORT`, `WORKTREE_ID`, `ZERO_APP_ID` | Development | Worktree ports and IDs |
 | `SKIP_VALIDATION`, `VITE_E2E` | Build, E2E | Skip validation; skip `.env.worktree` |
@@ -162,9 +161,13 @@ In Docker, `VITE_*` variables are build arguments. Pin `rocicorp/zero` in `docke
 
 ### Web app
 
-The production container listens internally on port 3000; local development uses 3001. Its container health check is `/api/version`, which skips the database: a container failing its check leaves Traefik's routing, so checking `/api/health` would let a Postgres restart take web down. Keep `/api/health` for monitoring.
+Web runs as a Dokploy Application, outside Compose, so Swarm can replace it without downtime. It builds the Dockerfile's `production` stage with the `VITE_*` and `POSTHOG_CLI_PROJECT_ID` build arguments and the `posthog_cli_api_key` build secret, and deploys on every push. Swarm settings: update order `start-first` with `FailureAction: rollback`, so the old container serves until the new one is healthy, and a 110-second stop grace period above `SERVER_SHUTDOWN_TIMEOUT=100` ([production server](docs/architecture/monorepo.md#production-server)). It listens on port 3000 (3001 in development).
 
-On the shared `dokploy-network`, web outside Compose reaches Postgres at `pi-dash-postgres:5432` and signing at `pi-dash-signing:8080` (project-unique aliases); zero-cache reaches web via `WEB_INTERNAL_URL`.
+The health check is `/api/version`, which skips the database: a failing task leaves Traefik's routing and is replaced, so checking `/api/health` would let a Postgres restart take web down. Keep `/api/health` for monitoring.
+
+Web joins the shared `dokploy-network`, where it reaches Postgres at `pi-dash-postgres:5432` and signing at `pi-dash-signing:8080` (aliases unique across Dokploy projects); zero-cache reaches web through `WEB_INTERNAL_URL`. A new runtime variable goes in the Application's environment.
+
+The Compose stack doesn't auto-deploy. Deploy it by hand, before web, for signing changes, a variable another service reads, or a Postgres, Tailscale or zero-cache tag. A Zero upgrade takes two PRs: the `rocicorp/zero` tag first, deployed, then the `@rocicorp/zero` catalog bump.
 
 Hashed chunks under `/assets/*` are cached `immutable` for a year; a missing chunk returns 404 with `no-store` and the client reloads once. The error screen's Reload first calls `/api/clear-cache`, whose `Clear-Site-Data: "cache"` drops a chunk the browser cached broken; phones have no hard-refresh shortcut. Proxies must pass that header through. If an upstream cache retained a bad `/assets/*` response, purge those entries.
 
@@ -178,7 +181,7 @@ zero-cache logs, with literal values redacted, slow hydrations and advancements 
 
 ### Signing service
 
-`services/signing` runs as `signing`, reachable only from the web service. Deploy it before the web app when both change. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+`services/signing` runs as `signing`, reachable only from the web app. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
 The DSC helper calls `/api/signing/jobs/<token>` on `APP_URL` (or `BETTER_AUTH_URL`). Its release and Windows driver check are in [its README](services/signing-helper/README.md).
 
@@ -186,7 +189,7 @@ When a change spans the helper, release in this order, since the dashboard refus
 
 1. Merge, then push the tag `signing-helper-vX.Y.Z`.
 2. Approve the `signing-helper-release` environment and wait for the release. Confirm it has the `.dmg`, the app `.zip`, the `.exe`, `pidash-sign-manifest.json` and its `.sig`.
-3. Deploy the signing service, then web.
+3. Deploy Compose for the signing service, then merge or deploy web.
 
 ### WhatsApp gateway (optional)
 
@@ -217,12 +220,12 @@ Template buttons link to production `APP_URL`, so keep `WHATSAPP_CLOUD_PHONE_NUM
 - [ ] `BETTER_AUTH_URL` and `CORS_ORIGIN` match the production domain
 - [ ] Resend domain verified (SPF and DKIM). Webhook to `https://<app-host>/api/email/webhook` with events `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`, its secret in `RESEND_WEBHOOK_SECRET`
 - [ ] R2 bucket created; lifecycle rule expires `<R2_KEY_PREFIX>/{attachments,approval-screenshots,kalakriti-inventory,kalakriti-music,kalakriti-scorecards,photos,scheduled-messages,governance}/tmp/` after 24 hours. Durable keys must not expire
-- [ ] [Organisation accounts](#organisation-accounts), [books and receipts](#books-and-receipts) and, if used, [Razorpay](#razorpay-setup) set up
+- [ ] [Organisation accounts](docs/upgrade-notes.md#organisation-accounts), [books and receipts](docs/upgrade-notes.md#books-and-receipts) and, if used, [Razorpay](docs/upgrade-notes.md#razorpay-setup) set up
 - [ ] WhatsApp gateway paired and Immich reachable, if used
 - [ ] Social pipeline, if used: `SOCIAL_MEDIA_SIGNING_SECRET` set, token created with `bun run social:token create social-artifacts --scopes events:read,photos:read,signups:read,social:write`, and app_config `social_approver_user_id` names the digest recipient ([social-api.md](docs/architecture/social-api.md))
 - [ ] Website rebuilds, if wanted: `WEBSITE_DISPATCH_TOKEN` set; the website's `PUBLIC_EVENTS_URL` is `https://dash.proudindian.ngo/api/public/events`
 - [ ] Any upstream cache respects origin `Cache-Control` on `/assets/*`
-- [ ] Dokploy routes the web domain through Traefik to container port 3000; no web host port is published
+- [ ] The web domain is on the Dokploy Application, port 3000; no web host port is published
 - [ ] Traefik's `forwardedHeaders.trustedIPs` lists Cloudflare's IPv4 and IPv6 ranges, matching `apps/web/src/lib/client-ip.ts` ([rate limiter](docs/architecture/caching.md#rate-limiter)); `insecure` and `notAppendXForwardedFor` stay false. Until it lists the IPv6 ranges, the origin has no AAAA record
 - [ ] The origin accepts web traffic only from Cloudflare, whose peers may set `X-Forwarded-For`. `cf-origin-firewall` on the host enforces it (Docker bypasses `ufw`), so every site there needs a proxied record; keep its ranges current
 
@@ -259,90 +262,3 @@ The log reason is `encrypted_value_unreadable`: the value was encrypted under an
 ### Books show "Waiting to post"
 
 Each waiting record has a reason, such as `pick_bank_account` or `no_payment_proof`. Fix the record, then choose Post pending ([finance-books.md](docs/architecture/finance-books.md#posting-runs-and-waiting-to-post)).
-
-## Upgrade notes
-
-Steps here are still needed on a fresh environment.
-
-### Organisation accounts
-
-Seeded organisation accounts are dev-only. Before anyone records income, a `finance.manage` user creates the trust's bank, cash, fixed deposit and gateway clearing accounts in Settings → Organisation accounts (`/settings/org-accounts`), with fund source and, for FCRA accounts, the FCRA role. The "Deposited into" picker is empty until then.
-
-### Razorpay setup
-
-Test mode first:
-
-1. Create a Razorpay gateway clearing account in Settings → Organisation accounts.
-2. Set `RAZORPAY_KEY_ID` (`rzp_test_…`), `RAZORPAY_WEBHOOK_SECRET` (`openssl rand -hex 32`) and optionally `RAZORPAY_KEY_SECRET`, then restart.
-3. In Settings → Integrations, confirm "Connected · test mode", copy the webhook URL, choose the clearing account and save. Adjust the notes keys if the Payment Page's field names differ.
-4. On the Razorpay dashboard, in the same mode, add a webhook with that URL, the same secret, and events `payment.captured`, `order.paid`, `refund.processed` and `settlement.processed`.
-5. Make a test payment; it appears on the Income page or the Imports tab.
-6. Switch to the `rzp_live_…` key and a live-mode webhook. A test key on a production server records nothing.
-7. With `RAZORPAY_KEY_SECRET` set, run "Import past payments" (at most 400 days per run) for earlier payments and settlements.
-
-### Books and receipts
-
-After the books, income posting and receipts migrations, a finance admin:
-
-1. Enters opening balances at Finance → Books → Opening balances once the CA has confirmed the audited FY 2025-26 balance sheet. Never seed or script real figures.
-2. Chooses Post pending on Finance → Books once. It backfills postings from 1 April 2026 and is safe to repeat; the `ledger-post-pending` job runs daily at 03:30 IST. Then clears the "Waiting to post" list.
-3. Fills in Settings → Organisation accounts → Donation receipts (name, address, PAN, signatory, signature; issuing needs the signature) and checks the 80G URN and date. Never seed the real values.
-
-- The server creates reference account heads on start; a code clash logs "Books reference data missing".
-- Finance admins and super admins get the book-keeping permissions and `donors.receipt` automatically.
-- Ledger tables refuse UPDATE, DELETE and TRUNCATE. A reviewed repair must run `SET LOCAL pi_dash.ledger_maintenance = 'on'` in its own transaction.
-- Close a year after it ends and the previous year is closed. Enter audited figures after the CA signs.
-- Receipt email needs `RESEND_API_KEY` and `EMAIL_FROM`. An invoice line is charged to the audit fee provision only when finance picks "Audit fees payable (provision)" at approval.
-
-### Imports
-
-Contribution CSV, give.do payout and bank statement imports need the organisation accounts above and `DATA_ENCRYPTION_KEY`; without the key, donors are created without PANs and PAN matching is off. The daily `expire-import-rows` job (02:30 IST) clears raw cells 180 days after a batch's last import, and unimported uploads after 30 days.
-
-### Private media cutover
-
-Uploads go to per-user `tmp/` keys that their mutation claims, hence the R2 lifecycle rule. The bucket has no public route. Unset `VITE_CDN_URL` once a release that no longer uses it deploys.
-
-### Kalakriti
-
-Do not roll back past the two-file music migrations (`0079`, `0080`) to single-file music code, which cannot hold two files.
-
-### pg-boss event triggers
-
-Event triggers are disabled only on the pg-boss connections, which needs PostgreSQL 17+ and superuser or SET privilege for `event_triggers`. Never disable them on `DATABASE_URL`, `ZERO_UPSTREAM_DB`, a role, a database or globally; Zero needs schema changes. See [jobs.md](docs/architecture/jobs.md).
-
-### Cost centres
-
-`0155_cost_centres` to `0157_drop_city` swap `city` for `cost_centre_id`, dropping columns the old build reads ([Database setup](#database-setup)).
-
-Before deploying, list Mumbai-series occurrences saved as Bangalore. The backfill fixes `fixed_by_backfill` rows (see the `0156` header); fix others by hand once deployed:
-
-```sql
-SELECT c.id, p.name AS series, c.original_date,
-  (c.created_at = c.updated_at AND p.updated_at <= c.created_at) AS fixed_by_backfill
-FROM team_event c JOIN team_event p ON p.id = c.series_id
-WHERE c.city = 'bangalore' AND p.city = 'mumbai';
-```
-
-Then count requests whose city isn't their event's:
-
-```sql
-WITH event_city AS (
-  SELECT e.id, CASE WHEN e.city = 'bangalore' AND p.city = 'mumbai'
-      AND e.created_at = e.updated_at AND p.updated_at <= e.created_at
-    THEN 'mumbai' ELSE e.city::text END AS city
-  FROM team_event e LEFT JOIN team_event p ON p.id = e.series_id
-)
-SELECT
-  (SELECT count(*) FROM reimbursement r JOIN event_city e ON e.id = r.event_id
-     WHERE r.city::text <> e.city) AS reimbursements,
-  (SELECT count(*) FROM vendor_payment v JOIN event_city e ON e.id = v.event_id
-     WHERE v.city::text <> e.city) AS vendor_payments;
-```
-
-The migration's own counts: `SELECT value FROM app_config WHERE key = 'cost_centre_backfill';`.
-
-The next posting run reposts every expense posting (rules version 3).
-
-### Lead approval
-
-Lead approval keeps already-pending requests with finance. Unsyncing payee bank columns rebuilds the replica; clients reload ([details](#zero-cache)).
