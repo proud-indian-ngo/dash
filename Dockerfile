@@ -1,12 +1,12 @@
 # PostHog CLI for the source map upload, pinned with checksums from its GitHub release
-FROM oven/bun:1.4.3-slim AS posthog-cli
+FROM oven/bun:1.4.4-slim AS posthog-cli
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
-      arm64) target=aarch64-unknown-linux-gnu; sha=eb3d4135fdeac40d7fe8f5706830216d1220d3d20a600f0afa6a0621b6b437a8 ;; \
-      amd64) target=x86_64-unknown-linux-gnu; sha=29f2d4409f08205bab7d52f9cc919e964ea2c867ec568b3acdd9ee3eb4149c3d ;; \
+      arm64) target=aarch64-unknown-linux-gnu; sha=ff5407411809d6754639e50b17b7aa52de323910e3e69f35b2fd159d6e7f2b17 ;; \
+      amd64) target=x86_64-unknown-linux-gnu; sha=313458fd8caf7adec1d15e59b2a1abcc2e9ff52a00e54cad181ec052daa50b25 ;; \
       *) echo "posthog-cli: unsupported architecture $TARGETARCH"; exit 1 ;; \
     esac; \
-    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.18.10/posthog-cli-$target.tar.gz'))" && \
+    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.18.12/posthog-cli-$target.tar.gz'))" && \
     echo "$sha  /tmp/cli.tar.gz" | sha256sum -c - && \
     tar -xzf /tmp/cli.tar.gz -C /tmp && \
     mv "/tmp/posthog-cli-$target/posthog-cli" /usr/local/bin/posthog-cli && \
@@ -14,7 +14,7 @@ RUN case "$TARGETARCH" in \
     posthog-cli --version
 
 # Shared dependencies and source for the web build and migrator
-FROM oven/bun:1.4.3-slim AS source
+FROM oven/bun:1.4.4-slim AS source
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json apps/web/
@@ -89,7 +89,7 @@ RUN --mount=type=secret,id=posthog_cli_api_key,required=false \
     bun apps/web/scripts/finalize-public-assets.ts apps/web/.output/public
 
 # Stage 2: Migrator (runs pending DB migrations)
-FROM oven/bun:1.4.3-slim AS migrator
+FROM oven/bun:1.4.4-slim AS migrator
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=source /app/node_modules node_modules
@@ -99,7 +99,7 @@ COPY --from=source /app/package.json package.json
 CMD ["sh", "-c", "bun run packages/db/scripts/migrate.ts && bun run packages/zero/scripts/prepare-publication.ts"]
 
 # Stage 3: Production
-FROM oven/bun:1.4.3-slim AS production
+FROM oven/bun:1.4.4-slim AS production
 ENV TZ=Asia/Kolkata
 WORKDIR /app
 COPY --from=build /app/apps/web/.output .output
