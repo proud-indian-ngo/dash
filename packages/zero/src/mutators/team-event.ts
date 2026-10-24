@@ -1701,8 +1701,8 @@ export const teamEventMutators = {
       const member = (await tx.run(
         zql.teamEventMember.where("id", args.memberId).one()
       )) as TeamEventMember | undefined;
-      if (!member) {
-        throw new Error("Member not found");
+      if (!member || member.eventId !== event.id) {
+        throw new Error("Member not found in this event");
       }
 
       const memberUserId = member.userId;
@@ -1731,7 +1731,7 @@ export const teamEventMutators = {
           });
         }
 
-        const { eventId } = args;
+        const eventId = event.id;
         const eventName = event.name;
         const { teamId } = event;
         ctx.asyncTasks?.push({
