@@ -64,7 +64,7 @@ The Export SSR prototype keeps its query-free form mounted outside Zero’s init
 
 ## Connection pools
 
-The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the pg-boss pool (`packages/jobs/src/boss.ts`) are cached on `globalThis` so Vite SSR HMR does not leak a pool per reload and exhaust `max_connections`. A `startWorker` guard prevents duplicate job workers on HMR. Pool sizes leave room for each other and zero-cache.
+The Drizzle pool (`packages/db/src/index.ts`, shared with Better Auth) and the pg-boss pool (`packages/jobs/src/boss.ts`) are cached on `globalThis` so Vite SSR HMR does not leak a pool per reload and exhaust `max_connections`. A `startWorker` guard prevents duplicate job workers on HMR. Pool sizes leave room for each other and zero-cache within `max_connections=300`, set in both Compose files. A rolling deploy runs two web containers for a moment, so the web pools count twice: the default of 100 ran out once a second web started.
 
 ## Connection errors and logout
 
