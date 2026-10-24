@@ -1,8 +1,10 @@
 import { db } from "@pi-dash/db";
+import { user } from "@pi-dash/db/schema/auth";
 import {
   scheduledMessage,
   scheduledMessageRecipient,
 } from "@pi-dash/db/schema/scheduled-message";
+import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import {
   sendWhatsAppGroupMessage,
@@ -10,7 +12,7 @@ import {
   sendWhatsAppMessage,
   type WhatsAppMediaAttachment,
 } from "@pi-dash/whatsapp/messaging";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
@@ -18,21 +20,87 @@ import type { SendScheduledWhatsAppPayload } from "../enqueue";
 import { getR2Client } from "./r2";
 import { buildScheduledWhatsAppMedia } from "./scheduled-whatsapp-media";
 
-/** A scheduled send as the GoWA log keeps it; a DM keeps the user, not the phone. */
-function scheduledLogEntry(
-  data: SendScheduledWhatsAppPayload,
-  recipientId: string
-) {
-  const group = data.recipientType === "group";
+/** Read both the delivery and its content from their owning records. */
+async function loadScheduledDelivery(data: SendScheduledWhatsAppPayload) {
+  if (
+    !(data.recipientRowId && data.scheduledMessageId) ||
+    !Number.isFinite(data.enqueuedAt)
+  ) {
+    return;
+  }
+  const [recipient] = await db
+    .select({
+      recipientId: scheduledMessageRecipient.recipientId,
+      scheduledMessageId: scheduledMessageRecipient.scheduledMessageId,
+      status: scheduledMessageRecipient.status,
+      type: scheduledMessageRecipient.type,
+    })
+    .from(scheduledMessageRecipient)
+    .where(eq(scheduledMessageRecipient.id, data.recipientRowId))
+    .limit(1);
+  if (
+    !recipient ||
+    recipient.scheduledMessageId !== data.scheduledMessageId ||
+    (recipient.status !== "pending" && recipient.status !== "failed")
+  ) {
+    return;
+  }
+  const [parent] = await db
+    .select({
+      attachments: scheduledMessage.attachments,
+      message: scheduledMessage.message,
+      updatedAt: scheduledMessage.updatedAt,
+    })
+    .from(scheduledMessage)
+    .where(eq(scheduledMessage.id, recipient.scheduledMessageId))
+    .limit(1);
+  if (!parent || parent.updatedAt.getTime() > data.enqueuedAt) {
+    return;
+  }
+
+  let targetAddress: string | null | undefined;
+  if (recipient.type === "group") {
+    const [group] = await db
+      .select({ jid: whatsappGroup.jid })
+      .from(whatsappGroup)
+      .where(eq(whatsappGroup.id, recipient.recipientId))
+      .limit(1);
+    targetAddress = group?.jid;
+  } else {
+    const [person] = await db
+      .select({ phone: user.phone })
+      .from(user)
+      .where(eq(user.id, recipient.recipientId))
+      .limit(1);
+    targetAddress = person?.phone;
+  }
+  return { ...parent, ...recipient, targetAddress };
+}
+
+type ScheduledDelivery = NonNullable<
+  Awaited<ReturnType<typeof loadScheduledDelivery>>
+>;
+
+/** A DM keeps the user ID in the delivery log, never the phone. */
+function scheduledLogEntry(delivery: ScheduledDelivery) {
+  const group = delivery.type === "group";
   return {
-    attachmentCount: data.attachments?.length ?? 0,
-    chatJid: group ? data.targetAddress : null,
+    attachmentCount: delivery.attachments?.length ?? 0,
+    chatJid: group ? delivery.targetAddress : null,
     kind: group ? ("group_post" as const) : ("direct" as const),
-    scheduledMessageId: data.scheduledMessageId,
+    scheduledMessageId: delivery.scheduledMessageId,
     source: "scheduled" as const,
-    text: data.message,
-    userId: group ? null : recipientId,
+    text: delivery.message,
+    userId: group ? null : delivery.recipientId,
   };
+}
+
+function actionableRecipient(data: SendScheduledWhatsAppPayload) {
+  return and(
+    eq(scheduledMessageRecipient.id, data.recipientRowId),
+    eq(scheduledMessageRecipient.scheduledMessageId, data.scheduledMessageId),
+    inArray(scheduledMessageRecipient.status, ["pending", "failed"])
+  );
 }
 
 async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
@@ -40,70 +108,20 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     method: "JOB",
     path: "send-scheduled-whatsapp",
   });
-  const {
-    attachments,
-    enqueuedAt,
-    message,
-    recipientRowId,
-    recipientType,
-    scheduledMessageId,
-    targetAddress,
-  } = job.data;
-
   log.set({
     jobId: job.id,
-    recipientRowId,
-    recipientType,
-    scheduledMessageId,
-    targetAddress,
+    recipientRowId: job.data.recipientRowId,
+    scheduledMessageId: job.data.scheduledMessageId,
   });
-
-  // Guard: stale in-flight job from before the schema change
-  if (!recipientRowId) {
-    log.set({ event: "job_skip", reason: "no_recipient_row_id" });
+  const delivery = await loadScheduledDelivery(job.data);
+  if (!delivery) {
+    log.set({ event: "job_skip", reason: "recipient_not_actionable" });
     log.emit();
     return;
   }
-
-  // Fetch recipient row
-  const [recipient] = await db
-    .select({
-      recipientId: scheduledMessageRecipient.recipientId,
-      status: scheduledMessageRecipient.status,
-    })
-    .from(scheduledMessageRecipient)
-    .where(eq(scheduledMessageRecipient.id, recipientRowId))
-    .limit(1);
-
-  if (!recipient) {
-    log.set({ event: "job_skip", reason: "recipient_not_found" });
-    log.emit();
-    return;
-  }
-
-  if (recipient.status === "cancelled") {
-    log.set({ event: "job_skip", reason: "recipient_cancelled" });
-    log.emit();
-    return;
-  }
-
-  // Staleness check against parent
-  const [parent] = await db
-    .select({ updatedAt: scheduledMessage.updatedAt })
-    .from(scheduledMessage)
-    .where(eq(scheduledMessage.id, scheduledMessageId))
-    .limit(1);
-
-  if (!parent) {
-    log.set({ event: "job_skip", reason: "parent_not_found" });
-    log.emit();
-    return;
-  }
-
-  if (parent.updatedAt && parent.updatedAt.getTime() > enqueuedAt) {
-    log.set({ event: "job_skip", reason: "stale_after_edit" });
-    log.emit();
-    return;
+  const { attachments, message, targetAddress } = delivery;
+  if (!targetAddress) {
+    throw new Error("Scheduled message recipient has no delivery address");
   }
 
   log.set({ attachmentCount: attachments?.length });
@@ -128,20 +146,17 @@ async function processJob(job: Job<SendScheduledWhatsAppPayload>) {
     }
   } else {
     const sendText =
-      recipientType === "group"
+      delivery.type === "group"
         ? sendWhatsAppGroupMessage
         : sendWhatsAppMessage;
     messageIds.push(await sendText(targetAddress, message));
   }
-  await logGowaSend(
-    scheduledLogEntry(job.data, recipient.recipientId),
-    messageIds
-  );
+  await logGowaSend(scheduledLogEntry(delivery), messageIds);
 
   await db
     .update(scheduledMessageRecipient)
     .set({ sentAt: new Date(), status: "sent", updatedAt: new Date() })
-    .where(eq(scheduledMessageRecipient.id, recipientRowId));
+    .where(actionableRecipient(job.data));
 
   log.set({ event: "job_complete" });
   log.emit();
@@ -160,8 +175,9 @@ export async function handleDeadLetterScheduledWhatsApp(
       const { recipientRowId, scheduledMessageId } = job.data;
       log.set({ jobId: job.id, recipientRowId, scheduledMessageId });
 
-      if (!recipientRowId) {
-        log.set({ event: "job_skip", reason: "no_recipient_row_id" });
+      const delivery = await loadScheduledDelivery(job.data);
+      if (!delivery) {
+        log.set({ event: "job_skip", reason: "recipient_not_actionable" });
         log.emit();
         return;
       }
@@ -170,13 +186,10 @@ export async function handleDeadLetterScheduledWhatsApp(
       const [recipient] = await db
         .update(scheduledMessageRecipient)
         .set({ error, status: "failed", updatedAt: new Date() })
-        .where(eq(scheduledMessageRecipient.id, recipientRowId))
+        .where(actionableRecipient(job.data))
         .returning({ recipientId: scheduledMessageRecipient.recipientId });
       if (recipient) {
-        await logGowaSend(
-          { ...scheduledLogEntry(job.data, recipient.recipientId), error },
-          []
-        );
+        await logGowaSend({ ...scheduledLogEntry(delivery), error }, []);
       }
 
       log.set({ event: "status_set_failed" });

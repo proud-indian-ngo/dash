@@ -14,6 +14,12 @@ pg-boss runs every asynchronous side effect. Start at `src/handlers/index.ts`, w
 - Never use `Date.now()` in idempotency or singleton keys. Pass the mutator's deterministic timestamp.
 - CLI scripts enqueue with `startJobProducer(databaseUrl)`, which starts no handlers, schedules or migrations. The caller stops it before exit.
 
+## Operations access
+
+`jobs.manage` permits listing operational metadata, queue statistics, retrying failed jobs and cancelling jobs. Retry and cancel take only the stored job ID and queue; request bodies cannot replace payloads. Unrestricted manual enqueue and raw payload/output inspection require `super_admin`. Error output is private too; adding an operational field requires extending the explicit API allowlist.
+
+The R2 deletion worker independently requires `temporary-source` keys to match this deployment's `<prefix>/<surface>/tmp/<user>/<file>` layout before bypassing reference checks. Durable deletion always rechecks references under the key lock.
+
 ## Adding a job
 
 Add the payload to `JobPayloads`, the name to `QUEUE_NAMES`, a `boss.work` registration and, if it recurs, a schedule. A schedule for a queue that was never created throws at startup, and every schedule after it is skipped.

@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
+import { type JobInspection, serializeJob } from "@/lib/job-api";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,32 +32,19 @@ export const Route = createFileRoute("/api/jobs/$id")({
         }
 
         try {
-          const rows = await db.execute<{
-            id: string;
-            name: string;
-            data: object;
-            output: object | null;
-            state: string;
-            priority: number;
-            retryLimit: number;
-            retryCount: number;
-            createdOn: string;
-            startedOn: string | null;
-            completedOn: string | null;
-            startAfter: string;
-          }>(
-            sql`SELECT id, name, data, output, state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
+          const rows = await db.execute<JobInspection>(
+            sql`SELECT id, name, ${session.user.role === "super_admin" ? sql`data, output,` : sql``} state, priority, retry_limit AS "retryLimit", retry_count AS "retryCount", created_on AS "createdOn", started_on AS "startedOn", completed_on AS "completedOn", start_after AS "startAfter" FROM pgboss.job_common WHERE id = ${id} AND name IN (${sql.join(
               QUEUE_NAMES.map((n) => sql`${n}`),
               sql`, `
             )}) LIMIT 1`
           );
 
-          const [job] = rows;
+          const [job] = rows as JobInspection[];
           if (!job) {
             return Response.json({ error: "Job not found" }, { status: 404 });
           }
 
-          return Response.json({ job });
+          return Response.json({ job: serializeJob(job, session.user.role) });
         } catch (err) {
           const log = createRequestLogger({
             method: "GET",

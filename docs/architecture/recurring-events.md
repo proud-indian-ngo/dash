@@ -19,7 +19,7 @@ RFC 5545 RRULEs on the `teamEvent` table:
 
 Recurrence validation runs both when a team-event mutation accepts a rule and immediately before expansion. Rules may be daily, weekly, monthly or yearly, with one time per date; compound recurrence sets and sub-daily frequencies are rejected because occurrence identity is an ISO date. Rule text, excluded dates and exclusion rules are size-bounded. Expansion also fails explicitly when a requested range would produce more than 10,000 dates instead of returning a partial series.
 
-Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation.
+Zero queries sync only rows with `seriesId IS NULL` (parents and standalone events). Exceptions come through the parent's `exceptions` relation, with each child's own visibility checked before its row or members are returned. A public parent never grants access to a private child.
 
 ### First session
 

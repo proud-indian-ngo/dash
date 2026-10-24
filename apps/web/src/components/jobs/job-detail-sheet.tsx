@@ -136,12 +136,14 @@ export function JobDetailSheet({
             </div>
           )}
 
-          <div className="grid gap-4">
-            <h3 className="text-sm font-medium">Payload</h3>
-            <pre className="bg-muted/50 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
-              {JSON.stringify(job.data, null, 2)}
-            </pre>
-          </div>
+          {job.data !== undefined && (
+            <div className="grid gap-4">
+              <h3 className="text-sm font-medium">Payload</h3>
+              <pre className="bg-muted/50 overflow-auto rounded-md border p-3 font-mono text-xs leading-relaxed">
+                {JSON.stringify(job.data, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

@@ -22,6 +22,7 @@ export const singleLiveEditionSpecs = [
 // Add a file only when every test in it is gated to the same role.
 export const roleOnlySpecs = {
   super_admin: [
+    "authorization/financial-create-security.spec.ts",
     "events/event-create.spec.ts",
     "events/event-programme.spec.ts",
     "settings/cost-centres.spec.ts",
@@ -99,6 +100,7 @@ export const roleOnlySpecs = {
     "vendors/vendor-payment-approval.spec.ts",
   ],
   volunteer: [
+    "authorization/feedback-ownership.spec.ts",
     "authorization/api-authorization-expanded.spec.ts",
     "events/event-interest-unhappy-paths.spec.ts",
     "events/social-recap.spec.ts",

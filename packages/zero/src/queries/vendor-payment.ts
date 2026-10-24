@@ -2,8 +2,10 @@ import { PROGRAMME_IDS } from "@pi-dash/shared/constants";
 import { defineQuery } from "@rocicorp/zero";
 import z from "zod";
 
+import type { Context } from "../context";
 import { can } from "../permissions";
 import { zql } from "../schema";
+import { restrictToExpenseEvents } from "./team-event";
 
 /**
  * `ownerId` limits payments (method, UTR) to the requests that person
@@ -32,19 +34,27 @@ function withBase(q: typeof zql.vendorPayment, ownerId?: string) {
     );
 }
 
-function withRelated(q: typeof zql.vendorPayment) {
-  return withBase(q).related("event");
+function withRelated(q: typeof zql.vendorPayment, ctx: Context | null) {
+  return withBase(q).related("event", (e) => restrictToExpenseEvents(e, ctx));
 }
 
 /**
  * Analytics, the tables and the request header show the programme the request
  * is charged to: the event's programme, or the one chosen without an event.
  */
-function withProgramme(q: typeof zql.vendorPayment, ownerId?: string) {
+function withProgramme(
+  q: typeof zql.vendorPayment,
+  ctx: Context | null,
+  ownerId?: string
+) {
   return (
     withBase(q, ownerId)
       // The programme's lead approves before finance ("Approval policy").
-      .related("event", (e) => e.related("programme", (p) => p.related("lead")))
+      .related("event", (e) =>
+        restrictToExpenseEvents(e, ctx).related("programme", (p) =>
+          p.related("lead")
+        )
+      )
       .related("chargedProgramme", (p) => p.related("lead"))
       .related("leadApprover")
   );
@@ -81,14 +91,15 @@ function visibleTo(q: typeof zql.vendorPayment, userId: string | undefined) {
 export const vendorPaymentQueries = {
   all: defineQuery(({ ctx }) =>
     ctx !== null && can(ctx, "requests.view_all")
-      ? withProgramme(zql.vendorPayment).orderBy("createdAt", "desc")
+      ? withProgramme(zql.vendorPayment, ctx).orderBy("createdAt", "desc")
       : withProgramme(
           visibleTo(zql.vendorPayment, ctx?.userId),
+          ctx,
           ctx?.userId ?? "__never_match__"
         ).orderBy("createdAt", "desc")
   ),
   byCurrentUser: defineQuery(({ ctx }) =>
-    withRelated(zql.vendorPayment)
+    withRelated(zql.vendorPayment, ctx)
       .where("userId", ctx?.userId)
       .orderBy("createdAt", "desc")
   ),
@@ -112,9 +123,10 @@ export const vendorPaymentQueries = {
     }),
     ({ args: { id }, ctx }) =>
       ctx !== null && can(ctx, "requests.view_all")
-        ? withProgramme(zql.vendorPayment).where("id", id).one()
+        ? withProgramme(zql.vendorPayment, ctx).where("id", id).one()
         : withProgramme(
             visibleTo(zql.vendorPayment, ctx?.userId),
+            ctx,
             ctx?.userId ?? "__never_match__"
           )
             .where("id", id)

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { type Page, request as playwrightRequest } from "@playwright/test";
 
 import { expect, test, waitForZeroReady } from "../../fixtures/test";
 import { ListPage } from "../../pages/list-page";
@@ -121,23 +121,57 @@ test.describe("User destructive actions (admin)", () => {
     ).toContainText("Banned", { timeout: 15_000 });
   });
 
-  test("reset password updates the password", async ({ page }) => {
+  test("reset password revokes old sessions and accepts the new password", async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    test.slow();
     const email = await createThrowawayUser(page, "resetpw");
-    await searchAndOpenAction(page, email, "Reset password");
+    const target = await playwrightRequest.newContext({ baseURL });
+    try {
+      const signIn = await target.post("/api/auth/sign-in/email", {
+        data: { email, password: "ThrowAway123!" },
+      });
+      expect(signIn.ok()).toBe(true);
+      const oldSession = await target.get("/api/auth/get-session");
+      expect(oldSession.ok()).toBe(true);
+      expect((await oldSession.json()).user.email).toBe(email);
+      const actorBefore = await page.request.get("/api/auth/get-session");
+      expect(actorBefore.ok()).toBe(true);
+      const actorId = (await actorBefore.json()).user.id;
 
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
+      await searchAndOpenAction(page, email, "Reset password");
 
-    const newPassword = "NewPassword456!";
-    await dialog
-      .getByRole("textbox", { name: /^New password/ })
-      .fill(newPassword);
-    await dialog
-      .getByRole("textbox", { name: /^Confirm new password/ })
-      .fill(newPassword);
-    await dialog.getByRole("button", { name: "Update password" }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
 
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
-    await loginToDashboard(page, email, newPassword);
+      const newPassword = "NewPassword456!";
+      await dialog
+        .getByRole("textbox", { name: /^New password/ })
+        .fill(newPassword);
+      await dialog
+        .getByRole("textbox", { name: /^Confirm new password/ })
+        .fill(newPassword);
+      await dialog.getByRole("button", { name: "Update password" }).click();
+
+      await expect(dialog).toBeHidden({ timeout: 10_000 });
+      const revokedSession = await target.get("/api/auth/get-session");
+      expect(revokedSession.ok()).toBe(true);
+      expect(await revokedSession.json()).toBeNull();
+      const actorAfter = await page.request.get("/api/auth/get-session");
+      expect(actorAfter.ok()).toBe(true);
+      expect((await actorAfter.json()).user.id).toBe(actorId);
+      await loginToDashboard(page, email, newPassword);
+      await testInfo.attach("password-reset-session-checks", {
+        body: JSON.stringify({
+          actorSessionPreserved: true,
+          newPasswordAccepted: true,
+          oldSessionRejected: true,
+        }),
+        contentType: "application/json",
+      });
+    } finally {
+      await target.dispose();
+    }
   });
 });

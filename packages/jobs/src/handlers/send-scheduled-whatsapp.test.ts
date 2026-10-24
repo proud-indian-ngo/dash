@@ -38,7 +38,7 @@ mock.module("evlog", () => ({
   createRequestLogger: () => ({ emit: mock(), set: mock() }),
 }));
 
-const { handleSendScheduledWhatsApp } =
+const { handleSendScheduledWhatsApp, handleDeadLetterScheduledWhatsApp } =
   await import("./send-scheduled-whatsapp");
 
 const limitedQuery = (rows: unknown[]) => ({
@@ -68,15 +68,36 @@ const job = (overrides: Record<string, unknown> = {}) =>
     id: "job-1",
   }) as never;
 
+let recipient: Record<string, unknown>;
+let parent: Record<string, unknown>;
+let address: Record<string, unknown>;
+
 beforeEach(() => {
   mock.clearAllMocks();
+  mocks.select.mockReset();
+  recipient = {
+    recipientId: "user-1",
+    scheduledMessageId: "message-1",
+    status: "pending",
+    type: "user",
+  };
+  parent = {
+    attachments,
+    message: "Scheduled message",
+    updatedAt: new Date(0),
+  };
+  address = { phone: "919876543210", jid: "persisted-group@g.us" };
   mocks.select
-    .mockReturnValueOnce(
-      limitedQuery([{ recipientId: "user-1", status: "pending" }])
-    )
-    .mockReturnValueOnce(limitedQuery([{ updatedAt: null }]));
+    .mockReturnValueOnce(limitedQuery([recipient]))
+    .mockReturnValueOnce(limitedQuery([parent]))
+    .mockReturnValueOnce(limitedQuery([address]));
   mocks.update.mockReturnValue({
-    set: mocks.setRecipient.mockReturnValue({ where: async () => undefined }),
+    set: mocks.setRecipient.mockReturnValue({
+      where: () => ({
+        returning: async () => [recipient],
+        then: (resolve: (value: undefined) => unknown) => resolve(undefined),
+      }),
+    }),
   });
   mocks.sendMedia.mockResolvedValue(undefined);
 });
@@ -152,11 +173,14 @@ describe("handleSendScheduledWhatsApp", () => {
   ] as const)(
     "sends an attachment-free %s message as text",
     async (type, send) => {
-      await handleSendScheduledWhatsApp([
-        job({ attachments: undefined, recipientType: type }),
-      ]);
+      parent.attachments = null;
+      recipient.type = type;
+      await handleSendScheduledWhatsApp([job()]);
 
-      expect(send).toHaveBeenCalledWith("919876543210", "Scheduled message");
+      expect(send).toHaveBeenCalledWith(
+        type === "group" ? "persisted-group@g.us" : "919876543210",
+        "Scheduled message"
+      );
       expect(mocks.sendMedia).not.toHaveBeenCalled();
       expect(mocks.setRecipient).toHaveBeenCalledWith({
         sentAt: expect.any(Date),
@@ -165,4 +189,95 @@ describe("handleSendScheduledWhatsApp", () => {
       });
     }
   );
+});
+
+// Failure cases: forged payload content/destination/files, unrelated recipient,
+// sent/cancelled replay, missing parent/address, stale send and stale DLQ entry.
+describe("scheduled WhatsApp trust boundary", () => {
+  it("ignores caller-provided content, destination, type and attachments", async () => {
+    await handleSendScheduledWhatsApp([
+      job({
+        attachments: [
+          {
+            fileName: "private.pdf",
+            mimeType: "application/pdf",
+            r2Key: "app/private/secret.pdf",
+          },
+        ],
+        message: "forged message",
+        recipientType: "group",
+        targetAddress: "attacker@g.us",
+      }),
+    ]);
+    expect(mocks.sendMedia.mock.calls).toEqual(
+      attachments.map((attachment, index) => [
+        "919876543210",
+        {
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          url: `https://r2.example.test/${attachment.r2Key}`,
+        },
+        index === attachments.length - 1 ? "Scheduled message" : undefined,
+      ])
+    );
+    expect(JSON.stringify(mocks.logGowaSend.mock.calls)).not.toContain(
+      "forged"
+    );
+  });
+
+  it.each(["sent", "cancelled"])(
+    "does not replay a %s recipient",
+    async (status) => {
+      recipient.status = status;
+      await handleSendScheduledWhatsApp([job()]);
+      expect(mocks.sendMedia).not.toHaveBeenCalled();
+      expect(mocks.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rejects a recipient belonging to another message", async () => {
+    recipient.scheduledMessageId = "other-message";
+    await handleSendScheduledWhatsApp([job()]);
+    expect(mocks.sendMedia).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("does not send a stale revision", async () => {
+    parent.updatedAt = new Date(Date.now() + 60_000);
+    await handleSendScheduledWhatsApp([job()]);
+    expect(mocks.sendMedia).not.toHaveBeenCalled();
+  });
+
+  it.each(["sent", "cancelled"])(
+    "dead letters cannot overwrite %s",
+    async (status) => {
+      recipient.status = status;
+      await handleDeadLetterScheduledWhatsApp([job()]);
+      expect(mocks.update).not.toHaveBeenCalled();
+      expect(mocks.logGowaSend).not.toHaveBeenCalled();
+    }
+  );
+
+  it("dead letters cannot fail a different message's recipient", async () => {
+    recipient.scheduledMessageId = "other-message";
+    await handleDeadLetterScheduledWhatsApp([job()]);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("dead letters ignore obsolete revisions", async () => {
+    parent.updatedAt = new Date(Date.now() + 60_000);
+    await handleDeadLetterScheduledWhatsApp([job()]);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("dead letters log persisted content", async () => {
+    await handleDeadLetterScheduledWhatsApp([
+      job({ message: "forged message", targetAddress: "attacker" }),
+    ]);
+    expect(mocks.setRecipient).toHaveBeenCalled();
+    expect(mocks.logGowaSend).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Scheduled message", userId: "user-1" }),
+      []
+    );
+  });
 });

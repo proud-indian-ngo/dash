@@ -11,6 +11,7 @@ import {
   INVOICE_LOCKED_STATUSES,
   PAYABLE_STATUSES,
 } from "../vendor-payment-constants";
+import { assertNewRecord } from "./creation-invariant";
 import { assertNotOwnRequest } from "./lead-approval";
 import { queueLedgerPosting } from "./ledger-queue";
 import {
@@ -23,6 +24,10 @@ import {
   createR2ClaimOptions,
   enqueueDeleteR2Object,
 } from "./submission-helpers";
+import {
+  lockVendorPayment,
+  lockedVendorPaymentTransaction,
+} from "./vendor-payment-lock";
 import {
   assertDeletable,
   assertNotMatchedToBank,
@@ -185,9 +190,7 @@ export const vendorPaymentTransactionMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
-      const entity = await tx.run(
-        zql.vendorPaymentTransaction.where("id", args.id).one()
-      );
+      const entity = await lockedVendorPaymentTransaction(tx, args.id);
       assertEntityExists(entity, "Transaction");
       assertNotVoided(entity);
       assertPending(entity, "transaction", "approved");
@@ -285,6 +288,10 @@ export const vendorPaymentTransactionMutators = {
     assertHasPermission(ctx, "requests.record_payment");
     const { userId } = ctx;
 
+    await assertNewRecord(tx, "vendorPaymentTransaction", args.id, () =>
+      tx.run(zql.vendorPaymentTransaction.where("id", args.id).one())
+    );
+    await lockVendorPayment(tx, args.vendorPaymentId);
     const vendorPayment = await tx.run(
       zql.vendorPayment.where("id", args.vendorPaymentId).one()
     );
@@ -441,9 +448,7 @@ export const vendorPaymentTransactionMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
-      const entity = await tx.run(
-        zql.vendorPaymentTransaction.where("id", args.id).one()
-      );
+      const entity = await lockedVendorPaymentTransaction(tx, args.id);
       assertEntityExists(entity, "Transaction");
       const vpId = entity.vendorPaymentId as string;
 
@@ -516,9 +521,7 @@ export const vendorPaymentTransactionMutators = {
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "requests.approve");
       const { userId } = ctx;
-      const entity = await tx.run(
-        zql.vendorPaymentTransaction.where("id", args.id).one()
-      );
+      const entity = await lockedVendorPaymentTransaction(tx, args.id);
       assertEntityExists(entity, "Transaction");
       assertNotVoided(entity);
       assertPending(entity, "transaction", "rejected");
@@ -585,9 +588,7 @@ export const vendorPaymentTransactionMutators = {
    */
   void: defineMutator(voidSchema, async ({ tx, ctx, args }) => {
     assertHasPermission(ctx, "requests.void");
-    const entity = await tx.run(
-      zql.vendorPaymentTransaction.where("id", args.id).one()
-    );
+    const entity = await lockedVendorPaymentTransaction(tx, args.id);
     assertEntityExists(entity, "Transaction");
     if (entity.voidedAt) {
       return;
@@ -618,9 +619,7 @@ export const vendorPaymentTransactionMutators = {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
       const hasEditAll = can(ctx, "requests.edit_all");
-      const entity = await tx.run(
-        zql.vendorPaymentTransaction.where("id", args.id).one()
-      );
+      const entity = await lockedVendorPaymentTransaction(tx, args.id);
       assertEntityExists(entity, "Transaction");
       assertNotVoided(entity);
 

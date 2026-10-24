@@ -1,3 +1,4 @@
+import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
 
 import type { DeleteR2ObjectPayload } from "../enqueue";
@@ -52,6 +53,14 @@ export async function deleteR2Object(
       log.emit();
     });
     return;
+  }
+
+  const prefix = `${env.R2_KEY_PREFIX}/`;
+  if (
+    !data.r2Key.startsWith(prefix) ||
+    !/^[^/]+\/tmp\/[^/]+\/[^/]+$/.test(data.r2Key.slice(prefix.length))
+  ) {
+    throw new Error("Invalid temporary R2 key");
   }
 
   await deps.withDeleteLock(data.r2Key, () => deps.deleteObject(data.r2Key));

@@ -14,6 +14,7 @@ import z from "zod";
 
 import type { Context } from "../context";
 import { assertIsLoggedIn, can } from "../permissions";
+import { restrictToAccessibleEvents } from "../queries/team-event";
 import { type Schema, zql } from "../schema";
 
 type Tx = Transaction<Schema>;
@@ -124,7 +125,8 @@ export async function chargeChangeNote(
 export async function resolveExpenseCharge(
   tx: Tx,
   input: ExpenseChargeFields,
-  previous?: ExpenseChargeFields
+  previous?: ExpenseChargeFields,
+  ctx?: Context
 ): Promise<ExpenseCharge> {
   // A client from before the field, editing a request without an event,
   // keeps whatever programme or admin charge the request already has.
@@ -137,6 +139,35 @@ export async function resolveExpenseCharge(
   const error = expenseChargeError(charge);
   if (error) {
     throw new Error(error);
+  }
+  if (
+    tx.location === "server" &&
+    charge.eventId &&
+    charge.eventId !== previous?.eventId
+  ) {
+    assertIsLoggedIn(ctx);
+    const eventQuery = zql.teamEvent.where("id", charge.eventId);
+    const finance =
+      can(ctx, "finance.manage") ||
+      (can(ctx, "requests.approve") && can(ctx, "requests.view_all"));
+    const event = await tx.run(
+      (finance ? eventQuery : restrictToAccessibleEvents(eventQuery, ctx)).one()
+    );
+    const ledEvent =
+      !event && !finance
+        ? await tx.run(
+            eventQuery
+              .whereExists("programme", (programme) =>
+                programme
+                  .where("leadUserId", ctx.userId)
+                  .where("id", "!=", PROGRAMME_IDS.unallocated)
+              )
+              .one()
+          )
+        : undefined;
+    if (!(event || ledEvent)) {
+      throw new Error("Event not found or inaccessible");
+    }
   }
   if (charge.chargedTo !== "programme" || !charge.chargedProgrammeId) {
     return charge;

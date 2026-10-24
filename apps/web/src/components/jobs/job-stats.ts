@@ -18,10 +18,10 @@ export interface QueueStat {
 export interface JobRow {
   completedOn: string | null;
   createdOn: string;
-  data: object;
+  data?: object;
   id: string;
   name: string;
-  output: object | null;
+  output?: object | null;
   priority: number;
   retryCount: number;
   retryLimit: number;

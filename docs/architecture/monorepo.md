@@ -63,4 +63,6 @@ On SIGTERM, srvx stops accepting connections and lets open requests finish for `
 
 ## Dev tooling
 
+Keep the TanStack Devtools Vite plugin disabled until its event endpoint authenticates callers and its package installer avoids shell interpolation. The browser-only router and form panels can run without that server plugin.
+
 Lefthook's post-checkout hook, in a linked worktree, copies `.env` from the main worktree when missing and reruns `bun run ruler:apply` when `CLAUDE.md` is missing or older than `.ruler/agent-guide.md`.
