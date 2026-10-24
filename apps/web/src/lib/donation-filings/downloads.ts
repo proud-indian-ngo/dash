@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { assertServerPermission, requireSession } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
+import { isSpreadsheetSafeCsv } from "@/lib/csv-formula-safety";
 import { getS3 } from "@/lib/s3";
 import { safeErrorName } from "@/lib/safe-errors";
 
@@ -51,6 +52,7 @@ async function handleDownload(
     action: "donation_filing.download" | "donation_certificate.download";
     find: (id: string) => Promise<StoredFile | null>;
     targetType: "donation_filing" | "donation_certificate";
+    validate?: (bytes: ArrayBuffer) => boolean;
   },
   deps: FilingDownloadDependencies
 ): Promise<Response> {
@@ -79,13 +81,24 @@ async function handleDownload(
       async () => {
         const file = await options.find(id.data);
         const bytes = file ? await deps.readObject(file.objectKey) : null;
-        return file && bytes ? { bytes, file } : null;
+        return file && bytes
+          ? { bytes, file, safe: options.validate?.(bytes) ?? true }
+          : null;
       },
-      // Nothing was revealed for a file that doesn't exist.
-      (value) => (value ? undefined : "failure")
+      // Nothing is revealed for a missing or quarantined file.
+      (value) => (value?.safe ? undefined : "failure")
     );
     if (!found) {
       return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    if (!found.safe) {
+      return Response.json(
+        {
+          error:
+            "This stored Form 113 upload file is unsafe to open. Contact the developer before using it.",
+        },
+        { status: 409 }
+      );
     }
     const disposition =
       new URL(request.url).searchParams.get("disposition") === "inline"
@@ -138,6 +151,7 @@ export function handleFilingFileDownload(
           : null;
       },
       targetType: "donation_filing",
+      validate: isSpreadsheetSafeCsv,
     },
     deps
   );

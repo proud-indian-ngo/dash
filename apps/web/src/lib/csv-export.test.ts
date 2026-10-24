@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import { strFromU8, unzipSync } from "fflate";
 
-import { buildCsv, type CsvFile, createCsvDownload } from "./csv-export";
+import {
+  buildCsv,
+  type CsvFile,
+  createCsvDownload,
+  UnsafeSpreadsheetFormulaError,
+} from "./csv-export";
 
 const firstFile: CsvFile = {
   filename: "requests.csv",
@@ -33,6 +38,21 @@ describe("CSV exports", () => {
       expect(unquotedValue).toBe(`'${value}`);
     }
   );
+
+  test.each(["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t=1+1", "\r=1+1"])(
+    "rejects a leading spreadsheet formula trigger in raw machine files: %j",
+    (value) => {
+      expect(() =>
+        buildCsv(["Value"], [[value]], { formulaPolicy: "reject" })
+      ).toThrow(UnsafeSpreadsheetFormulaError);
+    }
+  );
+
+  test("keeps ordinary values exact in raw machine files", () => {
+    expect(
+      buildCsv(["Value"], [["Asha Rao"]], { formulaPolicy: "reject" })
+    ).toBe("Value\nAsha Rao");
+  });
 
   test("quotes carriage returns, newlines, tabs, commas, and double quotes", () => {
     expect(buildCsv(["Value"], [['line 1\r\nline 2, "quoted"\t']])).toBe(

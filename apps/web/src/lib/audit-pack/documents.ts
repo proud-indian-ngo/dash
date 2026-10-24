@@ -69,6 +69,8 @@ export interface PackFile {
   label: string;
   /** The file's safe name inside its folder, before de-duplication. */
   name: string;
+  /** A raw CSV that must pass the spreadsheet-formula check before release. */
+  formulaSafeCsv?: boolean;
   /** No file is kept (a grant without its agreement): "No file", never "Missing". */
   noFile?: boolean;
   /** Why a file is missing or superseded, or a link's address. */
@@ -661,6 +663,7 @@ async function filingDocuments(fiscalYear: string): Promise<PackDocument[]> {
       files: [
         {
           folder: PACK_FOLDERS.form113,
+          formulaSafeCsv: true,
           label: "Upload file",
           name: packName(
             `Filing ${f.sequence} - ${stemOf(f.fileName)}`,

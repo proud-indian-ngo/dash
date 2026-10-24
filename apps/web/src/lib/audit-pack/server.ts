@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { buildCaWorkbook } from "@/lib/ca-workbook/server";
 import { workbookDocumentReferences } from "@/lib/ca-workbook/sheets";
+import { isSpreadsheetSafeCsv } from "@/lib/csv-formula-safety";
 import { getS3 } from "@/lib/s3";
 import { mapWithConcurrency } from "@/lib/server/financial-export-archive";
 
@@ -76,6 +77,13 @@ export async function prepareAuditPack(
   if (paths.size > MAX_FILES) {
     throw new AuditPackRefusal(TOO_LARGE);
   }
+  const formulaSafeCsvKeys = new Set(
+    documents.flatMap((document) =>
+      document.files.flatMap((file) =>
+        file.formulaSafeCsv && file.objectKey ? [file.objectKey] : []
+      )
+    )
+  );
   const s3 = getS3();
   const sizes = new Map<string, number>();
   await mapWithConcurrency(
@@ -91,6 +99,14 @@ export async function prepareAuditPack(
           (await file.exists()) ? Promise.reject(error) : null
         );
       if (stat) {
+        if (
+          formulaSafeCsvKeys.has(key) &&
+          !isSpreadsheetSafeCsv(await file.arrayBuffer())
+        ) {
+          throw new AuditPackRefusal(
+            "A stored Form 113 upload file is unsafe to open. Contact the developer before downloading this audit pack."
+          );
+        }
         sizes.set(key, stat.size);
       }
     }

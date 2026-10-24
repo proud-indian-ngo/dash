@@ -50,7 +50,8 @@ function deps(granted: string[], audits: unknown[] = []): Deps {
     getSession: (async () => ({
       session: { user: { id: "u-1", role: "finance_admin" } },
     })) as unknown as Deps["getSession"],
-    readObject: async () => new TextEncoder().encode("%PDF").buffer,
+    readObject: async () =>
+      new TextEncoder().encode("Name,Address\nAsha Rao,Safe").buffer,
   };
 }
 
@@ -116,6 +117,36 @@ describe("filing downloads", () => {
       'attachment; filename="donations-return-FY2026-27-filing-1.csv"'
     );
     expect(audits).toHaveLength(1);
+  });
+
+  it("quarantines a historical filing with a formula-leading cell", async () => {
+    const audits: unknown[] = [];
+    const unsafe = new TextEncoder().encode(
+      "Name,Address\n=HYPERLINK(1),Safe"
+    ).buffer;
+    const unsafeDeps = deps(["finance.view_sensitive"], audits);
+    unsafeDeps.readObject = async () => unsafe;
+
+    const response = await handleFilingFileDownload(
+      request(`/api/donation-filings/${FILING}`),
+      FILING,
+      unsafeDeps
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error:
+        "This stored Form 113 upload file is unsafe to open. Contact the developer before using it.",
+    });
+    expect(audits).toEqual([
+      {
+        options: {
+          action: "donation_filing.download",
+          target: { id: FILING, type: "donation_filing" },
+        },
+        outcome: "failure",
+      },
+    ]);
   });
 
   it("rejects an ID that isn't a UUID", async () => {

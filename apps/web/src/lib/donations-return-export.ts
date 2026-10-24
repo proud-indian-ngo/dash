@@ -35,7 +35,7 @@ import {
   receiptIssuerFor,
 } from "@pi-dash/shared/receipts";
 
-import { buildCsv } from "@/lib/csv-export";
+import { buildCsv, UnsafeSpreadsheetFormulaError } from "@/lib/csv-export";
 import { ID_TYPE_LABELS } from "@/lib/donor-schema";
 
 /**
@@ -145,9 +145,20 @@ export async function buildUploadFile(
   const aggregated = aggregateReturnRows(ready);
   const planned = planFilingRows(aggregated);
   const cells = returnFileCells(planned, registration);
+  let csv: string;
+  try {
+    csv = buildCsv(cells.headers, cells.rows, { formulaPolicy: "reject" });
+  } catch (error) {
+    if (error instanceof UnsafeSpreadsheetFormulaError) {
+      throw new DonationsReturnError(
+        "A filing value cannot begin with =, +, -, or @. Fix the donor or organisation account details before recording the filing."
+      );
+    }
+    throw error;
+  }
   return {
     file: {
-      csv: buildCsv(cells.headers, cells.rows, { formulaGuard: false }),
+      csv,
       filename: fileName(fy, `filing-${filing.sequence}`),
     },
     giftCount: ready.length,

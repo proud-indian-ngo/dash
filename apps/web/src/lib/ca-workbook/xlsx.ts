@@ -1,3 +1,4 @@
+import { hasSpreadsheetFormulaPrefix } from "@pi-dash/shared/spreadsheet";
 import writeXlsxFile, {
   type Cell,
   type CellObject,
@@ -27,10 +28,8 @@ export const DATE_FORMAT = "dd-mm-yyyy";
 /** Excel's limit on sheet names. */
 export const MAX_SHEET_NAME = 31;
 
-const FORMULA_PREFIX = /^[=+\-@\t\r]/;
-
 export const guardText = (value: string) =>
-  FORMULA_PREFIX.test(value) ? `'${value}` : value;
+  hasSpreadsheetFormulaPrefix(value) ? `'${value}` : value;
 
 /** "yyyy-MM-dd" as a date at UTC midnight, the calendar day Excel shows. */
 export function excelDate(iso: string): Date {
