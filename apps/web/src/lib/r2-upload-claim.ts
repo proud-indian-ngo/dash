@@ -7,6 +7,7 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_APPROVAL_SCREENSHOT_SIZE_BYTES,
   MAX_ATTACHMENT_FILE_SIZE_BYTES,
+  MAX_AVATAR_IMAGE_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_KALAKRITI_MUSIC_SIZE_BYTES,
   MAX_KALAKRITI_SCORECARD_SIZE_BYTES,
@@ -27,6 +28,7 @@ import {
 
 import { HttpError } from "@/lib/http-error";
 
+import { assertRasterImage } from "./raster-image";
 import { getS3 } from "./s3";
 
 type R2CopyClient = Pick<ReturnType<typeof getS3>, "exists" | "file" | "stat">;
@@ -53,6 +55,18 @@ const normalizeMimeType = (mimeType: string): string =>
   mimeType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 
 function uploadPolicy(sourceKey: string, mimeType: string) {
+  if (
+    sourceKey.includes("/avatars/tmp/") ||
+    sourceKey.includes("/updates/tmp/")
+  ) {
+    return {
+      allowed: ALLOWED_IMAGE_TYPES as readonly string[],
+      maxSize: sourceKey.includes("/avatars/tmp/")
+        ? MAX_AVATAR_IMAGE_SIZE_BYTES
+        : MAX_IMAGE_SIZE_BYTES,
+      image: true,
+    };
+  }
   if (sourceKey.includes("/kalakriti-inventory/tmp/")) {
     return {
       allowed: ALLOWED_IMAGE_TYPES as readonly string[],
@@ -220,6 +234,23 @@ export async function copyR2Object(
   }
   const options = { type: storedMimeType };
   const sourceFile = s3.file(input.sourceKey, options);
+  if (policy.image) {
+    // Read once, validate that snapshot, then write those same bytes. A replayed
+    // PUT can only change the temporary source, never the published snapshot.
+    const bytes = await readCapped(sourceFile, source.size);
+    assertRasterImage(bytes, storedMimeType);
+    const writer = s3.file(input.targetKey, options).writer(options);
+    try {
+      await writer.write(bytes);
+      await writer.end();
+    } catch (error) {
+      await writer.end(
+        error instanceof Error ? error : new Error("Upload copy failed")
+      );
+      throw error;
+    }
+    return;
+  }
   const writer = s3.file(input.targetKey, options).writer(options);
   if (input.contentCheck === "payeeSignature") {
     await copyPayeeSignature(sourceFile, writer, storedMimeType, source.size);

@@ -19,6 +19,7 @@ async function fixture(...args: string[]) {
 }
 
 test("job operators can manage jobs without submitting or reading private content", async ({
+  page,
   request,
   playwright,
   baseURL,
@@ -44,19 +45,89 @@ test("job operators can manage jobs without submitting or reading private conten
       targetAddress: "919800000001",
       recipientRowId: "019f0000-0090-7000-8000-000000000099",
     };
-    const created = await request.post("/api/jobs", {
-      data: {
+    await page.goto("/jobs");
+    const created = await page.evaluate(
+      async (body) => {
+        const response = await fetch("/api/jobs", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, body: await response.json() };
+      },
+      {
         queue: "send-scheduled-whatsapp",
         data,
         options: {
           startAfter: new Date(Date.now() + 86_400_000).toISOString(),
         },
-      },
-    });
-    expect(created.status()).toBe(201);
-    id = (await created.json()).id;
+      }
+    );
+    expect(created.status).toBe(201);
+    id = created.body.id;
     expect(id).toBeTruthy();
     await fixture("fail", tag, id);
+
+    await test.step("cookie writes reject untrusted browser requests and preserve Zero callbacks", async () => {
+      const trustedOrigin = new URL(baseURL!).origin;
+      const siblingOrigin = new URL(trustedOrigin);
+      siblingOrigin.hostname = `sibling.${siblingOrigin.hostname}`;
+      const refused: { path: string; status: number }[] = [];
+      for (const headers of [
+        { origin: siblingOrigin.origin, "sec-fetch-site": "same-site" },
+        {
+          origin: "https://foreign.example.test",
+          "sec-fetch-site": "cross-site",
+        },
+        { origin: trustedOrigin, "sec-fetch-site": "same-site" },
+      ]) {
+        for (const path of [
+          `/api/jobs/${id}/retry`,
+          `/api/jobs/${id}/cancel`,
+          "/api/zero/query",
+          "/api/zero/mutate",
+        ]) {
+          const response = await request.post(path, {
+            headers: { ...headers, "content-type": "text/plain" },
+            data: "{}",
+          });
+          refused.push({ path, status: response.status() });
+          expect(response.status()).toBe(403);
+        }
+      }
+      expect(
+        (await (await request.get(`/api/jobs/${id}`)).json()).job.state
+      ).toBe("failed");
+      const query = await request.post("/api/zero/query", {
+        data: ["transform", []],
+      });
+      expect(query.status()).toBe(200);
+      expect((await query.json()).kind).toBe("QueryResponse");
+      const mutate = await request.post(
+        "/api/zero/mutate?schema=zero_0&appID=zero",
+        {
+          data: {
+            clientGroupID: `e2e-csrf-${tag}`,
+            mutations: [],
+            pushVersion: 1,
+            requestID: `e2e-csrf-${tag}`,
+            timestamp: Date.now(),
+          },
+        }
+      );
+      expect(mutate.status()).toBe(200);
+      expect((await mutate.json()).mutations).toEqual([]);
+      await testInfo.attach("cookie-write-csrf-boundary", {
+        body: JSON.stringify({
+          refused,
+          sameOriginBrowserCreate: created.status,
+          headerlessQuery: query.status(),
+          headerlessMutate: mutate.status(),
+          jobState: "failed",
+        }),
+        contentType: "application/json",
+      });
+    });
 
     const forbidden = await operator.post("/api/jobs", {
       data: {

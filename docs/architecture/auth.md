@@ -17,6 +17,8 @@ Better Auth's `captcha` plugin requires a Cloudflare Turnstile token on sign-in,
 
 `useTurnstile` renders the widget and hands each token to one request, then resets it: tokens are single-use. With `TURNSTILE_SECRET_KEY` unset the server skips the check, and with `VITE_TURNSTILE_SITE_KEY` unset no widget renders; local dev, CI and E2E run without either. The production widget is registered for `dash.proudindian.ngo` only, so test the real widget locally with Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) rather than the production site key.
 
+Turnstile needs `https://challenges.cloudflare.com` in both CSP `script-src` and `frame-src`. Verify CSP changes with production headers: the ordinary E2E server uses `NODE_ENV=test`, so it cannot catch a policy that blocks the widget.
+
 ## Session flow
 
 1. A volunteer signs up (or an admin creates the account), verifies email and signs in.

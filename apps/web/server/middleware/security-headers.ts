@@ -15,12 +15,13 @@ function buildCsp(): string {
   const parentDomain = getParentDomain();
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://*.${parentDomain}`,
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com https://challenges.cloudflare.com https://*.${parentDomain}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' blob: data: https://api.dicebear.com https://*.gravatar.com https://*.r2.cloudflarestorage.com https://cdn.proudindian.ngo`,
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://*.r2.cloudflarestorage.com`,
+    "frame-src 'self' https://challenges.cloudflare.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

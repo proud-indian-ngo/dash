@@ -5,7 +5,11 @@ import type { AllowedImageMimeType } from "@pi-dash/shared/constants";
 import { log } from "evlog";
 import { toast } from "sonner";
 
-import { getEventEditorUploadUrl } from "@/functions/attachments";
+import {
+  deleteTemporaryUpload,
+  finalizeEventEditorUpload,
+  getEventEditorUploadUrl,
+} from "@/functions/attachments";
 
 interface PlateEditorProps extends Omit<EditorProps, "onImageUpload"> {
   allowImageUpload?: boolean;
@@ -16,8 +20,9 @@ async function uploadEditorImage(
   entityId: string,
   file: File
 ): Promise<{ url: string } | undefined> {
+  let temporaryKey: string | undefined;
   try {
-    const { presignedUrl, url } = await getEventEditorUploadUrl({
+    const { presignedUrl, key } = await getEventEditorUploadUrl({
       data: {
         eventId: entityId,
         fileName: file.name,
@@ -26,6 +31,7 @@ async function uploadEditorImage(
       },
     });
 
+    temporaryKey = key;
     const uploadRes = await fetch(presignedUrl, {
       body: file,
       headers: { "Content-Type": file.type },
@@ -38,7 +44,11 @@ async function uploadEditorImage(
       );
     }
 
-    return { url };
+    const result = await finalizeEventEditorUpload({
+      data: { eventId: entityId, key },
+    });
+    temporaryKey = undefined;
+    return { url: result.url };
   } catch (error) {
     log.error({
       action: "imageUpload",
@@ -47,6 +57,19 @@ async function uploadEditorImage(
       error: error instanceof Error ? error.message : String(error),
     });
     toast.error("Couldn't upload image — try again");
+  } finally {
+    if (temporaryKey) {
+      await deleteTemporaryUpload({ data: { key: temporaryKey } }).catch(
+        (error) => {
+          log.error({
+            component: "PlateEditor",
+            action: "cleanupTemporaryImage",
+            entityId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      );
+    }
   }
 }
 

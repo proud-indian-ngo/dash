@@ -37,7 +37,7 @@ describe("temporary upload keys", () => {
     for (const key of [
       "app/photos/event-1/photo.jpg",
       "app/photos/tmp/other-user/photo.jpg",
-      "app/updates/tmp/user-1/editor.jpg",
+      "app/updates/tmp/other-user/editor.jpg",
       "other/photos/tmp/user-1/photo.jpg",
     ]) {
       expect(() =>

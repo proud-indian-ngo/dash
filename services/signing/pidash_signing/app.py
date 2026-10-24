@@ -5,18 +5,22 @@ from __future__ import annotations
 
 import base64
 import binascii
-import hmac
 import os
+from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from pyhanko.sign import timestamps
+from pyhanko_certvalidator.fetchers.aiohttp_fetchers import AIOHttpFetcherBackend
 
 from . import remote_sign
 from .answers import MAX_VALUE, AnswersError, fill_answers
+from .fetching import public_fetch_session
 from .prepare import FieldRequest, PrepareError, prepare_fields
+from .request_guard import SigningRequestGuard
 from .validate import (
     ValidationSettings,
     certificate_trusted,
@@ -25,6 +29,8 @@ from .validate import (
 )
 
 MAX_PDF_BYTES = 25 * 1024 * 1024
+# Includes the 60 MiB signing state, or a base64 PDF plus certificate metadata.
+MAX_JSON_BYTES = 64 * 1024 * 1024
 DEFAULT_ROOTS = Path(__file__).resolve().parent.parent / "roots"
 DEFAULT_INTERMEDIATES = Path(__file__).resolve().parent.parent / "intermediates"
 
@@ -87,27 +93,43 @@ def create_app(
     token: str | None = None,
     tsa_url: str | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="pi-dash signing", docs_url=None, redoc_url=None)
     resolved = settings or _settings()
+    initial_settings = resolved
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        nonlocal resolved
+        if not resolved.allow_fetching:
+            yield
+            return
+        async with public_fetch_session() as session:
+            resolved = replace(
+                resolved, fetcher_backend=AIOHttpFetcherBackend(session=session)
+            )
+            try:
+                yield
+            finally:
+                resolved = initial_settings
+
+    app = FastAPI(title="pi-dash signing", docs_url=None, redoc_url=None, lifespan=lifespan)
     expected = token if token is not None else os.environ.get("SIGNING_SERVICE_TOKEN", "")
+    app.add_middleware(
+        SigningRequestGuard,
+        token=expected,
+        max_json_bytes=MAX_JSON_BYTES,
+        max_pdf_bytes=MAX_PDF_BYTES,
+    )
     tsa = _timestamper(
         tsa_url
         if tsa_url is not None
         else os.environ.get("SIGNING_TSA_URL", "http://timestamp.digicert.com")
     )
 
-    def require_token(authorization: str | None = Header(default=None)) -> None:
-        if not expected:
-            raise HTTPException(503, "SIGNING_SERVICE_TOKEN is not set")
-        supplied = (authorization or "").removeprefix("Bearer ").strip()
-        if not hmac.compare_digest(supplied.encode(), expected.encode()):
-            raise HTTPException(401, "Unauthorized")
-
     @app.get("/health")
     def health() -> dict[str, object]:
         return {"ok": True, "trustRoots": len(resolved.trust_roots)}
 
-    @app.post("/validate", dependencies=[Depends(require_token)])
+    @app.post("/validate")
     async def validate(
         request: Request,
         base: int | None = Query(
@@ -129,7 +151,7 @@ def create_app(
         except (binascii.Error, ValueError) as error:
             raise HTTPException(400, f"{what} is not base64") from error
 
-    @app.post("/certificate", dependencies=[Depends(require_token)])
+    @app.post("/certificate")
     async def certificate(body: CertificateRequest) -> dict[str, bool]:
         try:
             cert = remote_sign.load_cert(body.certificate)
@@ -138,7 +160,7 @@ def create_app(
             raise HTTPException(400, str(error)) from error
         return {"trusted": await certificate_trusted(cert, chain, resolved)}
 
-    @app.post("/sign/start", dependencies=[Depends(require_token)])
+    @app.post("/sign/start")
     async def sign_start(body: SignStartRequest) -> dict[str, str]:
         pdf = _b64(body.pdf, "pdf")
         if len(pdf) > MAX_PDF_BYTES:
@@ -154,7 +176,7 @@ def create_app(
             "toSign": base64.b64encode(result.to_sign).decode(),
         }
 
-    @app.post("/sign/finish", dependencies=[Depends(require_token)])
+    @app.post("/sign/finish")
     async def sign_finish(body: SignFinishRequest) -> Response:
         try:
             pdf = await remote_sign.finish(
@@ -174,7 +196,7 @@ def create_app(
             raise HTTPException(400, "Empty body")
         return bytes(body)
 
-    @app.post("/finalize", dependencies=[Depends(require_token)])
+    @app.post("/finalize")
     async def finalize(request: Request) -> Response:
         if tsa is None:
             raise HTTPException(503, "No timestamp authority is configured")
@@ -185,7 +207,7 @@ def create_app(
             raise HTTPException(422, f"Couldn't finalise: {type(error).__name__}") from error
         return Response(content=out, media_type="application/pdf")
 
-    @app.post("/retimestamp", dependencies=[Depends(require_token)])
+    @app.post("/retimestamp")
     async def retimestamp(request: Request) -> Response:
         if tsa is None:
             raise HTTPException(503, "No timestamp authority is configured")
@@ -196,7 +218,7 @@ def create_app(
             raise HTTPException(422, f"Couldn't timestamp: {type(error).__name__}") from error
         return Response(content=out, media_type="application/pdf")
 
-    @app.post("/prepare", dependencies=[Depends(require_token)])
+    @app.post("/prepare")
     def prepare(body: PrepareRequest) -> Response:
         try:
             pdf = base64.b64decode(body.pdf, validate=True)
@@ -222,7 +244,7 @@ def create_app(
             raise HTTPException(422, str(error)) from error
         return Response(content=prepared, media_type="application/pdf")
 
-    @app.post("/fill", dependencies=[Depends(require_token)])
+    @app.post("/fill")
     def fill(body: FillRequest) -> Response:
         pdf = _b64(body.pdf, "pdf")
         if len(pdf) > MAX_PDF_BYTES:

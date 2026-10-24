@@ -492,3 +492,77 @@ describe("readGovernanceUpload", () => {
     );
   });
 });
+
+describe("avatar and editor image publication", () => {
+  const png = Uint8Array.from(
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=",
+      "base64"
+    )
+  );
+  const imageInput = {
+    sourceKey: "app/avatars/tmp/user-1/image.png",
+    targetKey: "app/avatars/user-1/validated/fresh-id",
+  };
+  function source(bytes: Uint8Array, type = "image/png", size = bytes.length) {
+    s3.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    s3.stat.mockResolvedValue({ size, type });
+    s3.file.mockImplementation(((key: string) =>
+      key === imageInput.sourceKey
+        ? { stream: () => new Blob([new Uint8Array(bytes)]).stream() }
+        : { writer: () => writer }) as never);
+  }
+
+  it("copies only the exact bytes whose image format was checked", async () => {
+    source(png);
+    await copyR2Object(imageInput, deps);
+    expect(writer.write).toHaveBeenCalledWith(png);
+    expect(writer.end).toHaveBeenCalledWith();
+  });
+
+  it.each([
+    ["app/avatars/tmp/user-1/image.png", 5 * 1024 * 1024],
+    ["app/updates/tmp/user-1/image.png", 20 * 1024 * 1024],
+  ])("rejects stored oversize before reading %s", async (sourceKey, limit) => {
+    source(png, "image/png", limit + 1);
+    await expect(
+      copyR2Object({ ...imageInput, sourceKey }, deps)
+    ).rejects.toThrow("exceeds");
+    expect(s3.file).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["image/png", new TextEncoder().encode("<svg onload=alert(1)></svg>")],
+    ["image/jpeg", png],
+    ["text/html", png],
+    ["image/png", png.slice(0, 29)],
+  ])(
+    "refuses spoofed or truncated %s without writing durable bytes",
+    async (type, bytes) => {
+      source(bytes, type);
+      await expect(copyR2Object(imageInput, deps)).rejects.toThrow();
+      expect(writer.write).not.toHaveBeenCalled();
+    }
+  );
+
+  it("rejects excessive dimensions before publication", async () => {
+    const bytes = png.slice();
+    new DataView(bytes.buffer).setUint32(16, 100_000);
+    source(bytes);
+    await expect(copyR2Object(imageInput, deps)).rejects.toThrow("dimensions");
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("stops a source that grows between HEAD and GET", async () => {
+    source(png, "image/png", png.length - 1);
+    await expect(copyR2Object(imageInput, deps)).rejects.toThrow("changed");
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite a published target when the temp PUT is replayed", async () => {
+    s3.exists.mockResolvedValue(true);
+    await copyR2Object(imageInput, deps);
+    expect(s3.file).not.toHaveBeenCalled();
+    expect(writer.write).not.toHaveBeenCalled();
+  });
+});

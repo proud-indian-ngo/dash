@@ -1,8 +1,10 @@
 import { auth } from "@pi-dash/auth";
 import type { PermissionId } from "@pi-dash/db/permissions";
 import { resolvePermissions } from "@pi-dash/db/queries/resolve-permissions";
+import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
 
+import { isSessionRequestAllowed } from "@/lib/api-csrf";
 import { HttpError } from "@/lib/http-error";
 
 export interface SessionContext {
@@ -14,13 +16,16 @@ export interface SessionContext {
 type AuthSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
 /**
- * Extracts a validated session from a request or returns a 401 Response.
+ * Validates cookie-authenticated requests before reading their session.
  */
 export async function requireSession(
   request: Request
 ): Promise<
   { session: AuthSession; error?: never } | { session?: never; error: Response }
 > {
+  if (!isSessionRequestAllowed(request, env.CORS_ORIGIN)) {
+    return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  }
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session) {
     const url = new URL(request.url);

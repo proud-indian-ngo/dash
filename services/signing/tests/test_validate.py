@@ -113,8 +113,23 @@ def test_a_revocation_fetch_that_times_out_is_checked_without_fetching(
         return await real(sig, signer_validation_context=signer_validation_context, **kwargs)
 
     monkeypatch.setattr(validate, "async_validate_pdf_signature", unreachable_responder)
-    settings = ValidationSettings(trust_roots=[pki.ca_asn1], allow_fetching=True)
-    report = validate_pdf(sign(blank_pdf(), pki), settings)
+    from dataclasses import replace
+
+    from pidash_signing.fetching import public_fetch_session
+    from pyhanko_certvalidator.fetchers.aiohttp_fetchers import AIOHttpFetcherBackend
+
+    async def run():
+        async with public_fetch_session() as session:
+            settings = replace(
+                settings_with(pki), allow_fetching=True,
+                fetcher_backend=AIOHttpFetcherBackend(session=session),
+            )
+            return await validate.validate_pdf_async(signed, settings)
+
+    import asyncio
+
+    signed = sign(blank_pdf(), pki)
+    report = asyncio.run(run())
     assert report["status"] == "valid"
     [signature] = report["signatures"]
     assert signature["intact"] is True

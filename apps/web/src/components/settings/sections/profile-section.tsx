@@ -21,6 +21,8 @@ import { SelectField, type SelectOption } from "@/components/form/select-field";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   deleteProfilePicture,
+  deleteTemporaryUpload,
+  finalizeProfilePictureUpload,
   getProfilePictureUploadUrl,
 } from "@/functions/attachments";
 import { authClient } from "@/lib/auth-client";
@@ -34,9 +36,11 @@ const genderOptions: SelectOption[] = [
 ];
 
 async function uploadProfilePicture(file: File) {
+  let temporaryKey: string | undefined;
+  let unpublishedKey: string | undefined;
   try {
     const mimeType = file.type as AllowedImageMimeType;
-    const { presignedUrl, key, url } = await getProfilePictureUploadUrl({
+    const { presignedUrl, key: uploadKey } = await getProfilePictureUploadUrl({
       data: {
         fileName: file.name,
         fileSize: file.size,
@@ -44,31 +48,26 @@ async function uploadProfilePicture(file: File) {
       },
     });
 
+    temporaryKey = uploadKey;
     const uploadRes = await fetch(presignedUrl, {
       body: file,
       headers: { "Content-Type": file.type },
       method: "PUT",
     });
     if (!uploadRes.ok) {
-      toast.error("Couldn't upload");
-      return;
+      throw new Error("Profile picture upload failed");
     }
 
+    const { key, url } = await finalizeProfilePictureUpload({
+      data: { key: uploadKey },
+    });
+    temporaryKey = undefined;
+    unpublishedKey = key;
     const { error } = await authClient.updateUser({ image: url });
     if (error) {
       toast.error(error.message);
-      deleteProfilePicture({ data: { key } }).catch((cleanupError) => {
-        log.error({
-          action: "cleanupOrphanedR2",
-          component: "ProfileSection",
-          error:
-            cleanupError instanceof Error
-              ? cleanupError.message
-              : String(cleanupError),
-          key,
-        });
-      });
     } else {
+      unpublishedKey = undefined;
       toast.success("Looking good!");
     }
   } catch (caughtError) {
@@ -81,6 +80,29 @@ async function uploadProfilePicture(file: File) {
       component: "ProfileSection",
     });
     toast.error("Couldn't upload profile picture");
+  } finally {
+    if (unpublishedKey) {
+      await deleteProfilePicture({ data: { key: unpublishedKey } }).catch(
+        (error) => {
+          log.error({
+            component: "ProfileSection",
+            action: "cleanupUnpublishedAvatar",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      );
+    }
+    if (temporaryKey) {
+      await deleteTemporaryUpload({ data: { key: temporaryKey } }).catch(
+        (error) => {
+          log.error({
+            component: "ProfileSection",
+            action: "cleanupTemporaryAvatar",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      );
+    }
   }
 }
 

@@ -16,6 +16,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
+import { assertSuppliedAvatarImage } from "./avatar-image";
 import {
   getUserIdFromNewSession,
   reactivateUserAfterSignIn,
@@ -332,6 +333,9 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
+          assertSuppliedAvatarImage(user.image, {
+            keyPrefix: env.R2_KEY_PREFIX,
+          });
           const phone = typeof user.phone === "string" ? user.phone.trim() : "";
           if (!phone) {
             return;
@@ -349,6 +353,15 @@ export const auth = betterAuth({
         },
       },
       update: {
+        before: async (user, context) => {
+          assertSuppliedAvatarImage(user.image, {
+            keyPrefix: env.R2_KEY_PREFIX,
+            userId:
+              context?.path === "/admin/update-user"
+                ? context.body?.userId
+                : context?.context.session?.user.id,
+          });
+        },
         // biome-ignore lint/suspicious/useAwait: better-auth requires async return type
         after: async (user) => {
           const phone = typeof user.phone === "string" ? user.phone : null;

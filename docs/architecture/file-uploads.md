@@ -28,7 +28,11 @@ A presigned PUT can store more than the size it declared, so a server function t
 
 Each protected `<R2_KEY_PREFIX>/<subfolder>/tmp/` prefix (the `subfolder` values in `attachments.ts`) needs a 24-hour expiry rule in Cloudflare. The repository does not manage the bucket, so apply the rules there. They only catch abandoned uploads.
 
-Avatars and editor images have dedicated durable signers with no temp stage.
+Avatars and editor images also upload under their own `avatars/tmp/` and `updates/tmp/` prefixes. Their finalizers recheck ownership (and editor event authority), enforce actual stored size (5 MB and 20 MB), and read a capped snapshot. JPEG, PNG, GIF and WebP signatures and header dimensions must match the stored MIME type; neither a dimension over 16,384 nor more than 40 million pixels is accepted. This checks format headers, not full decoding.
+
+Only that checked snapshot is written to a fresh, server-chosen `validated/` durable key. No endpoint signs that namespace for PUT. Replaying a temporary PUT cannot overwrite a published image, and forged temporary references remain unreadable even if persisted in event content. The auth adapter rejects newly supplied avatar images outside the owner's canonical validated URL, including during signup; omission and removal remain allowed. Existing legacy database images remain readable.
+
+Finalization attempts delete temporary bytes and failed durable copies; cleanup errors are logged and abandoned temporary objects rely on the lifecycle rule. Per-user, per-process limits allow 20 avatar and 100 editor signing/finalization calls per hour, with separate counters for each action. These controls bound issued URLs and publication, not bytes R2 receives from a still-valid presigned PUT.
 
 ### Reads
 

@@ -1,11 +1,12 @@
 import { getPlateImageUrls } from "@pi-dash/shared/media-url";
+import { isPlateValue } from "@pi-dash/shared/plate-content";
 
 export function assertFeedbackContentMediaPolicy(
   content: string,
   existingContent?: string
 ): void {
   const next = getPlateImageUrls(content);
-  if (next.malformed) {
+  if (next.malformed || !isPlateValue(JSON.parse(content))) {
     throw new Error("Invalid feedback content");
   }
   const existing = existingContent

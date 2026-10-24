@@ -46,6 +46,8 @@ const AUDITED_SERVER_FUNCTIONS = [
   "createSocialApiTokenFn",
   "createUserAdmin",
   "deleteProfilePicture",
+  "finalizeProfilePictureUpload",
+  "finalizeEventEditorUpload",
   "deleteRole",
   "deleteTemporaryUpload",
   "deleteUserAdmin",
