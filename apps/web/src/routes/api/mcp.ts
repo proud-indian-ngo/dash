@@ -9,7 +9,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { trustedClientIp } from "@/lib/client-ip";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { ACCOUNT_TOOLS, createMcpServer } from "@/lib/server/mcp/server";
+import { createMcpServer } from "@/lib/server/mcp/server";
 
 // Assistants call from their providers' servers, so one IP carries many people.
 const RATE_LIMIT_PER_MINUTE = 300;
@@ -18,8 +18,8 @@ const mcpHandler = createMcpHandler(createMcpServer);
 
 /**
  * Verifies the access token (signature, issuer, this resource as audience,
- * expiry) and passes its subject to the tools; without a valid one, answers
- * 401 with the RFC 9728 challenge that starts the assistant's sign-in.
+ * expiry) and passes its subject to the tools; an invalid or expired one gets
+ * a 401 with the RFC 9728 challenge, so the assistant refreshes or reconnects.
  */
 const withAccount = requireMcpAuth(
   auth,
@@ -34,26 +34,6 @@ const withAccount = requireMcpAuth(
     }),
   { resource: MCP_RESOURCE }
 );
-
-/** Whether the JSON-RPC message calls a tool that acts as a volunteer. */
-async function callsAccountTool(request: Request): Promise<boolean> {
-  const message: unknown = await request
-    .clone()
-    .json()
-    .catch(() => null);
-  if (!message || typeof message !== "object" || !("method" in message)) {
-    return false;
-  }
-  const { method, params } = message as {
-    method: unknown;
-    params?: { name?: unknown };
-  };
-  return (
-    method === "tools/call" &&
-    typeof params?.name === "string" &&
-    ACCOUNT_TOOLS.has(params.name)
-  );
-}
 
 async function handleMcpRequest(request: Request): Promise<Response> {
   // Browsers send an Origin; assistants' servers don't. Only the dashboard's
@@ -71,12 +51,9 @@ async function handleMcpRequest(request: Request): Promise<Response> {
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit);
   }
-  // Public tools need no account; a call to an account tool, or any request
-  // that carries a token, must have a valid one.
-  if (
-    request.headers.has("authorization") ||
-    (await callsAccountTool(request))
-  ) {
+  // Public tools need no account. A request with a token must carry a valid
+  // one; account tools called without one answer with an in-band challenge.
+  if (request.headers.has("authorization")) {
     return await withAccount(request);
   }
   return await mcpHandler.fetch(request);

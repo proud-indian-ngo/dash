@@ -60,14 +60,13 @@ test.describe("Connected assistant", () => {
     const email = process.env.VOLUNTEER_EMAIL ?? "";
     const password = process.env.VOLUNTEER_PASSWORD ?? "";
 
-    // Without an account, account tools answer 401 with the challenge that
-    // starts the assistant's sign-in.
-    const challenged = await mcpPost(request, "tools/call", {
-      arguments: {},
-      name: "my_interests",
-    });
-    expect(challenged.status()).toBe(401);
-    const challenge = challenged.headers()["www-authenticate"] ?? "";
+    // Without an account, account tools answer with the in-band challenge
+    // that makes ChatGPT offer to connect.
+    const challenged = await callTool(request, "my_interests", {});
+    expect(challenged.isError).toBe(true);
+    const challenge = challenged._meta?.["mcp/www_authenticate"]?.[0] ?? "";
+    expect(challenge).toContain('error="invalid_token"');
+    expect(challenge).toContain("error_description=");
     const metadataUrl = /resource_metadata="([^"]+)"/.exec(challenge)?.[1];
     expect(metadataUrl).toContain("/.well-known/oauth-protected-resource");
 

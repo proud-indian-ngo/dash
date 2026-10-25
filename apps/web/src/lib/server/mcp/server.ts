@@ -2,6 +2,7 @@ import {
   McpServer,
   type McpRequestContext,
 } from "@modelcontextprotocol/server";
+import { MCP_RESOURCE } from "@pi-dash/auth";
 import {
   getPublicCostCentres,
   getPublicEvents,
@@ -58,16 +59,27 @@ const text = (value: string) => ({
   content: [{ text: value, type: "text" as const }],
 });
 
-/**
- * Tools that act as the volunteer who connected their account. The route
- * answers a call to one without a valid access token with an HTTP 401, so
- * the assistant asks the person to connect first.
- */
-export const ACCOUNT_TOOLS = new Set(["my_interests", "show_interest"]);
-
 // ChatGPT reads each tool's auth from `securitySchemes`.
 const NO_AUTH = { securitySchemes: [{ type: "noauth" }] };
 const ACCOUNT_AUTH = { securitySchemes: [{ scopes: [], type: "oauth2" }] };
+
+const resourceUrl = new URL(MCP_RESOURCE);
+const RESOURCE_METADATA_URL = `${resourceUrl.origin}/.well-known/oauth-protected-resource${resourceUrl.pathname}`;
+
+/**
+ * An account tool's answer without a connected account. ChatGPT offers to
+ * connect only on this in-band challenge, not on an HTTP 401; it needs both
+ * `error` and `error_description`.
+ */
+const NOT_CONNECTED = {
+  _meta: {
+    "mcp/www_authenticate": [
+      `Bearer resource_metadata="${RESOURCE_METADATA_URL}", error="invalid_token", error_description="Connect your Proud Indian account to continue."`,
+    ],
+  },
+  ...text("Connect the person's Proud Indian account first."),
+  isError: true,
+};
 
 export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
   // Set by the route from a verified access token's subject.
@@ -257,11 +269,6 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     }
   );
 
-  const notConnected = {
-    ...text("Connect the person's Proud Indian account first."),
-    isError: true,
-  };
-
   server.registerTool(
     "show_interest",
     {
@@ -290,7 +297,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     },
     async (input) => {
       if (!userId) {
-        return notConnected;
+        return NOT_CONNECTED;
       }
       const result = await showInterest(userId, input);
       return { ...text(result.message), isError: result.isError };
@@ -312,7 +319,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     },
     async () => {
       if (!userId) {
-        return notConnected;
+        return NOT_CONNECTED;
       }
       const result = await listMyInterests(userId);
       return { ...text(result.message), isError: result.isError };
