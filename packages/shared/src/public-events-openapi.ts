@@ -9,6 +9,7 @@ import {
   type PublicEventsResponse,
   publicProgrammeValues,
 } from "./public-events";
+import { WEBSITE_URL } from "./website";
 
 /**
  * OpenAPI 3.1 description of the public events feed (`GET /api/public/events`), served at
@@ -154,7 +155,7 @@ export function buildPublicEventsOpenApi(
       contact: {
         email: "connect@proudindian.ngo",
         name: "Proud Indian",
-        url: "https://proudindian.ngo",
+        url: WEBSITE_URL,
       },
       description:
         "Upcoming public volunteering sessions run by Proud Indian, a volunteer-run NGO. No authentication; read-only; rate limited to 60 requests a minute per client. Responses may be cached for 5 minutes.",

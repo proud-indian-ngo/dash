@@ -88,6 +88,7 @@ Each chapter is in `docs/architecture/` and holds the rules for its area. Read i
 | Cash vouchers, payee signatures, PDFs | `cash-vouchers.md`, `pdf.md` |
 | Kalakriti | `kalakriti-registration.md`; terms in `CONTEXT.md` |
 | Social API and Social page | `social-api.md` |
+| The MCP server for ChatGPT, Claude and other assistants (`/api/mcp`) | `assistants.md` |
 | Uploads, attachments, Immich | `file-uploads.md` |
 | Logging and error handling | `observability.md` |
 | Caches and rate limits | `caching.md` |
