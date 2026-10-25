@@ -340,6 +340,27 @@ export async function skipBouncedAuthEmail(
 
 const turnstileSecretKey = env.TURNSTILE_SECRET_KEY;
 
+/**
+ * Client registration is open (assistants.md), and the OAuth provider fetches
+ * a client's `backchannel_logout_uri` and `jwks_uri` with only syntactic host
+ * checks, so a hostname resolving to a private address would reach internal
+ * services. Assistants use neither.
+ */
+function rejectClientCallbackUrls(ctx: AuthHookContext): void {
+  if (ctx.path !== "/oauth2/register") {
+    return;
+  }
+  const body = ctx.body as Record<string, unknown> | undefined;
+  for (const field of ["backchannel_logout_uri", "jwks_uri"]) {
+    if (body?.[field] !== undefined) {
+      throw new APIError("BAD_REQUEST", {
+        error: "invalid_client_metadata",
+        error_description: `${field} is not supported`,
+      });
+    }
+  }
+}
+
 /** The page a verification email links to; it verifies on a button press. */
 export function verifyEmailPageUrl(token: string, redirect?: string): string {
   return `${env.BETTER_AUTH_URL}/verify-email?token=${token}${
@@ -363,6 +384,9 @@ export const auth = betterAuth({
   disabledPaths: [
     // The JWT plugin's session-to-JWT endpoint; OAuth clients use /oauth2/token.
     "/token",
+    // Verifying goes through the verify page's POST server function, so a
+    // link can't sign a visitor into someone else's account.
+    "/verify-email",
     // Email OTP is only the code in an assistant's sign-up email, issued and
     // checked server-side by the MCP tools (assistants.md).
     "/email-otp/send-verification-otp",
@@ -470,6 +494,7 @@ export const auth = betterAuth({
       await handleAfterSignIn(ctx);
     }),
     before: createAuthMiddleware(async (ctx) => {
+      rejectClientCallbackUrls(ctx);
       sanitizeSignUpBody(ctx);
       assertSignUpAgeEligible(ctx);
       stripRegistrationGroupFromUpdate(ctx);

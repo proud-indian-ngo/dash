@@ -19,7 +19,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "code" | "setup" | "state" | "token",
+  action: "cleanup" | "code" | "preregister" | "setup" | "state" | "token",
   argument?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -231,6 +231,73 @@ test.describe("Assistant sign-up", () => {
       ),
       contentType: "application/json",
     });
+  });
+
+  test("a password someone set before the inbox was proved doesn't survive an assistant's sign-up", async ({
+    request,
+  }) => {
+    const id = unique();
+    const details = {
+      dateOfBirth: "1994-02-10",
+      email: `e2e-mcp-signup-${id}@example.com`,
+      eventId: series.seriesId,
+      name: "Assistant Prehijack",
+      occDate: series.occDate,
+      phone: `7${id.slice(-9)}`,
+    };
+    await callTool(request, "start_volunteer_signup", details);
+    await fixture("preregister", details.email);
+    expect(await fixture<AccountState>("state", details.email)).toMatchObject({
+      emailVerified: false,
+      hasPassword: true,
+    });
+
+    await callTool(request, "start_volunteer_signup", details);
+    expect(await fixture<AccountState>("state", details.email)).toMatchObject({
+      emailVerified: false,
+      hasPassword: false,
+    });
+  });
+
+  test("a registered phone gets the same answer as a new one, and no account", async ({
+    request,
+  }) => {
+    const id = unique();
+    const phone = `7${id.slice(-9)}`;
+    const base = {
+      dateOfBirth: "1993-06-01",
+      eventId: series.seriesId,
+      name: "Assistant Phone",
+      occDate: series.occDate,
+      phone,
+    };
+    const firstEmail = `e2e-mcp-signup-${id}a@example.com`;
+    const secondEmail = `e2e-mcp-signup-${id}b@example.com`;
+    await callTool(request, "start_volunteer_signup", {
+      ...base,
+      email: firstEmail,
+    });
+    const second = await callTool(request, "start_volunteer_signup", {
+      ...base,
+      email: secondEmail,
+    });
+    expect(second.isError).toBe(false);
+    expect(second.content[0]?.text).toContain(`If ${secondEmail} is new`);
+    expect(await fixture<AccountState>("state", secondEmail)).toEqual({
+      exists: false,
+    });
+  });
+
+  test("Better Auth's own verification link is closed", async ({ request }) => {
+    const { token } = await fixture<{ token: string }>(
+      "token",
+      `e2e-mcp-signup-${unique()}@example.com`
+    );
+    const response = await request.get(
+      `/api/auth/verify-email?token=${token}&callbackURL=/`,
+      { maxRedirects: 0 }
+    );
+    expect(response.status()).toBe(404);
   });
 
   test("refuses under-18s, unknown sessions and a series without a date", async ({

@@ -132,6 +132,27 @@ async function code(email: string) {
   return { code: CODE };
 }
 
+/** A password on an unverified account, as a form sign-up by someone else leaves. */
+async function preregister(email: string) {
+  const record = await db.query.user.findFirst({
+    columns: { id: true },
+    where: eq(user.email, email),
+  });
+  if (!record) {
+    throw new Error(`No account for ${email}`);
+  }
+  await db.insert(account).values({
+    accountId: record.id,
+    createdAt: new Date(),
+    id: crypto.randomUUID(),
+    password: "attacker-password-hash",
+    providerId: "credential",
+    updatedAt: new Date(),
+    userId: record.id,
+  });
+  return { preregistered: true };
+}
+
 const [action, argument] = process.argv.slice(2);
 let result: unknown;
 if (action === "cleanup") {
@@ -141,6 +162,8 @@ if (action === "cleanup") {
   result = await setup(argument);
 } else if (action === "state" && argument) {
   result = await state(argument);
+} else if (action === "preregister" && argument) {
+  result = await preregister(argument);
 } else if (action === "code" && argument) {
   result = await code(argument);
 } else if (action === "token" && argument) {

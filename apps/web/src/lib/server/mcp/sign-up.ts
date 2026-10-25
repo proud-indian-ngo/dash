@@ -14,13 +14,13 @@ import {
 } from "@pi-dash/auth/register-interest-db";
 import { signUpDobError } from "@pi-dash/auth/sign-up-age";
 import { db } from "@pi-dash/db";
-import { user } from "@pi-dash/db/schema/auth";
+import { account, user } from "@pi-dash/db/schema/auth";
 import { env } from "@pi-dash/env/server";
 import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
 import { buildPublicSignUpUrl } from "@pi-dash/shared/public-events";
 import { parseRecurrenceRule } from "@pi-dash/shared/rrule-expand";
 import { APIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -124,8 +124,8 @@ export async function startAssistantSignUp(
     input.eventId,
     input.occDate
   );
-  // The same answer whether or not the email has an account, so the tool
-  // can't be used to find out who volunteers with Proud Indian.
+  // The same answer whether or not the email or phone has an account, so the
+  // tool can't be used to find out who volunteers with Proud Indian.
   const sent: AssistantSignUpResult = {
     isError: false,
     message: `If ${email} is new to Proud Indian, we've emailed it a link and a 6-digit code to confirm the address. They can open the link, which signs them in, asks them to set a password and sends their interest in the session to its team lead, who approves it. Or they can tell you the code and you call confirm_volunteer_signup. If they already have an account, they can sign in and show interest here instead: ${signUpUrl}`,
@@ -137,12 +137,23 @@ export async function startAssistantSignUp(
   });
 
   const [existing] = await db
-    .select({ emailVerified: user.emailVerified })
+    .select({ emailVerified: user.emailVerified, id: user.id })
     .from(user)
     .where(eq(user.email, email))
     .limit(1);
   if (existing) {
     if (!existing.emailVerified) {
+      // A password set before anyone proved the inbox may be someone else's,
+      // registered to take the account over once its owner verifies. The
+      // owner sets their own after verifying, as for any assistant sign-up.
+      await db
+        .delete(account)
+        .where(
+          and(
+            eq(account.userId, existing.id),
+            eq(account.providerId, "credential")
+          )
+        );
       await sendAssistantSignUpVerification(email, redirect);
     }
     return sent;
@@ -160,11 +171,9 @@ export async function startAssistantSignUp(
       },
     });
   } catch (error) {
-    // The phone is unique; the sign-up form says so too.
+    // The phone is unique. Saying so would reveal whose number it is.
     if (error instanceof APIError && error.message.includes("phone number")) {
-      return failure(
-        `That phone number is already registered with Proud Indian. They can sign in and show interest here: ${signUpUrl}`
-      );
+      return sent;
     }
     throw error;
   }
