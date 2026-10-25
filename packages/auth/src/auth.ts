@@ -410,6 +410,9 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
+    // The link proves the inbox, so it signs the account in; an assistant's
+    // sign-up has no password to sign in with otherwise.
+    autoSignInAfterVerification: true,
     sendOnSignIn: true,
     sendVerificationEmail: async (data, request) => {
       // Website sign-ups carry the event page (and interest marker) through

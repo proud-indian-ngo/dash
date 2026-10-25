@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AcceptPoliciesRouteImport } from './routes/accept-policies'
+import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
@@ -195,6 +196,11 @@ const AuthRoute = AuthRouteImport.update({
 const AcceptPoliciesRoute = AcceptPoliciesRouteImport.update({
   id: '/accept-policies',
   path: '/accept-policies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetPasswordRoute = SetPasswordRouteImport.update({
+  id: '/set-password',
+  path: '/set-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
@@ -1100,6 +1106,7 @@ const ApiSocialV1MediaPhotoIdVariantRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/accept-policies': typeof AcceptPoliciesRoute
+  '/set-password': typeof SetPasswordRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/donors': typeof AppDonorsRouteRouteWithChildren
   '/events': typeof AppEventsRouteRouteWithChildren
@@ -1274,6 +1281,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/accept-policies': typeof AcceptPoliciesRoute
+  '/set-password': typeof SetPasswordRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
@@ -1435,6 +1443,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/accept-policies': typeof AcceptPoliciesRoute
+  '/set-password': typeof SetPasswordRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/_app/donors': typeof AppDonorsRouteRouteWithChildren
   '/_app/events': typeof AppEventsRouteRouteWithChildren
@@ -1612,6 +1621,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-policies'
+    | '/set-password'
     | '/unsubscribe'
     | '/donors'
     | '/events'
@@ -1786,6 +1796,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-policies'
+    | '/set-password'
     | '/unsubscribe'
     | '/$'
     | '/analytics'
@@ -1946,6 +1957,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/accept-policies'
+    | '/set-password'
     | '/unsubscribe'
     | '/_app/donors'
     | '/_app/events'
@@ -2123,6 +2135,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   AcceptPoliciesRoute: typeof AcceptPoliciesRoute
+  SetPasswordRoute: typeof SetPasswordRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAuditPackRoute: typeof ApiAuditPackRoute
@@ -2196,6 +2209,13 @@ declare module '@tanstack/react-router' {
       path: '/accept-policies'
       fullPath: '/accept-policies'
       preLoaderRoute: typeof AcceptPoliciesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/set-password': {
+      id: '/set-password'
+      path: '/set-password'
+      fullPath: '/set-password'
+      preLoaderRoute: typeof SetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/unsubscribe': {
@@ -3862,6 +3882,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   AcceptPoliciesRoute: AcceptPoliciesRoute,
+  SetPasswordRoute: SetPasswordRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAuditPackRoute: ApiAuditPackRoute,

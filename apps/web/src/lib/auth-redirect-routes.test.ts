@@ -7,9 +7,15 @@ const findUnverifiedUserForToken = mock(async (): Promise<unknown> => ({
   name: "Asha",
 }));
 const fileVerifiedSignUpInterest = mock(async () => undefined);
+const hasPassword = mock(async () => true);
+const welcomeVerifiedAssistantSignUp = mock(async () => undefined);
 
 mock.module("@/functions/get-session", () => ({ getSession }));
 mock.module("@pi-dash/auth", () => ({ auth: { api: { verifyEmail } } }));
+mock.module("@pi-dash/auth/assistant-sign-up", () => ({
+  hasPassword,
+  welcomeVerifiedAssistantSignUp,
+}));
 mock.module("@pi-dash/auth/register-interest-db", () => ({
   fileVerifiedSignUpInterest,
   findUnverifiedUserForToken,
@@ -62,6 +68,10 @@ beforeEach(() => {
   findUnverifiedUserForToken.mockReset();
   findUnverifiedUserForToken.mockResolvedValue({ id: "user-1", name: "Asha" });
   fileVerifiedSignUpInterest.mockReset();
+  hasPassword.mockReset();
+  hasPassword.mockResolvedValue(true);
+  welcomeVerifiedAssistantSignUp.mockReset();
+  welcomeVerifiedAssistantSignUp.mockResolvedValue(undefined);
 });
 
 describe("verify-email guard", () => {
@@ -73,13 +83,7 @@ describe("verify-email guard", () => {
           token: "t",
         })
       )
-    ).toEqual({
-      search: {
-        redirect: `/events/${EVENT_ID}?occDate=2026-10-18`,
-        status: "email-verified",
-      },
-      to: "/login",
-    });
+    ).toBe(`/events/${EVENT_ID}?occDate=2026-10-18`);
     expect(fileVerifiedSignUpInterest).toHaveBeenCalledWith(
       { id: "user-1", name: "Asha" },
       { eventId: EVENT_ID, occDate: "2026-10-18" }
@@ -99,11 +103,7 @@ describe("verify-email guard", () => {
       await redirectOf(
         verifyGuard({ redirect: `/events/${EVENT_ID}`, token: "t" })
       )
-    ).toEqual({
-      search: { redirect: `/events/${EVENT_ID}`, status: "email-verified" },
-      to: "/login",
-    });
-    expect(findUnverifiedUserForToken).not.toHaveBeenCalled();
+    ).toBe(`/events/${EVENT_ID}`);
     expect(fileVerifiedSignUpInterest).not.toHaveBeenCalled();
   });
 
@@ -112,10 +112,21 @@ describe("verify-email guard", () => {
       await redirectOf(
         verifyGuard({ redirect: "https://evil.example/events/x", token: "t" })
       )
+    ).toBe("/");
+  });
+
+  it("sends an assistant's passwordless sign-up to set a password first, and welcomes it", async () => {
+    hasPassword.mockResolvedValue(false);
+    expect(
+      await redirectOf(
+        verifyGuard({ redirect: `/events/${EVENT_ID}?interest=1`, token: "t" })
+      )
     ).toEqual({
-      search: { redirect: undefined, status: "email-verified" },
-      to: "/login",
+      search: { redirect: `/events/${EVENT_ID}` },
+      to: "/set-password",
     });
+    expect(fileVerifiedSignUpInterest).toHaveBeenCalled();
+    expect(welcomeVerifiedAssistantSignUp).toHaveBeenCalledWith("user-1");
   });
 
   it("files nothing when verification fails", async () => {
