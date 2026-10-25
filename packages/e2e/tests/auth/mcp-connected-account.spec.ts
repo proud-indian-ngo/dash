@@ -6,7 +6,12 @@ import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 import dotenv from "dotenv";
 
-import { callTool, mcpPost } from "../../helpers/mcp";
+import {
+  callTool,
+  type McpToolResult,
+  mcpPost,
+  mcpRequest,
+} from "../../helpers/mcp";
 
 dotenv.config({
   path: path.resolve(import.meta.dirname, "../../.env.test"),
@@ -61,13 +66,32 @@ test.describe("Connected assistant", () => {
     const password = process.env.VOLUNTEER_PASSWORD ?? "";
 
     // Without an account, account tools answer 401 with the challenge that
-    // starts the assistant's sign-in.
+    // makes Claude ask the person to connect.
     const challenged = await mcpPost(request, "tools/call", {
       arguments: {},
       name: "my_interests",
     });
     expect(challenged.status()).toBe(401);
     const challenge = challenged.headers()["www-authenticate"] ?? "";
+
+    // ChatGPT, which marks its calls with openai/ _meta, gets the challenge
+    // in the tool result instead; it ignores the 401.
+    const chatGptChallenged = await mcpRequest<McpToolResult>(
+      request,
+      "tools/call",
+      {
+        _meta: { "openai/session": "e2e", "openai/subject": "e2e" },
+        arguments: {},
+        name: "my_interests",
+      }
+    );
+    expect(chatGptChallenged.isError).toBe(true);
+    const inBandChallenge =
+      chatGptChallenged._meta?.["mcp/www_authenticate"]?.[0] ?? "";
+    expect(inBandChallenge).toContain('error="invalid_token"');
+    expect(inBandChallenge).toContain("error_description=");
+    expect(inBandChallenge).toContain("/.well-known/oauth-protected-resource");
+
     const metadataUrl = /resource_metadata="([^"]+)"/.exec(challenge)?.[1];
     expect(metadataUrl).toContain("/.well-known/oauth-protected-resource");
 
@@ -219,6 +243,7 @@ test.describe("Connected assistant", () => {
       body: JSON.stringify(
         {
           challenge,
+          inBandChallenge,
           interestsAfter: interests,
           refusedSecondRequest: again.content[0]?.text,
           resource: resourceMetadata.resource,

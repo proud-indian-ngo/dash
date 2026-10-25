@@ -8,6 +8,7 @@ import type { APIRequestContext, APIResponse } from "@playwright/test";
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 export interface McpToolResult {
+  _meta?: { "mcp/www_authenticate"?: string[] };
   content: { text: string; type: string }[];
   isError?: boolean;
 }
