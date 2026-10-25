@@ -59,6 +59,9 @@ const text = (value: string) => ({
   content: [{ text: value, type: "text" as const }],
 });
 
+/** Tools that act as the volunteer who connected their account. */
+export const ACCOUNT_TOOLS = new Set(["my_interests", "show_interest"]);
+
 // ChatGPT reads each tool's auth from `securitySchemes`.
 const NO_AUTH = { securitySchemes: [{ type: "noauth" }] };
 const ACCOUNT_AUTH = { securitySchemes: [{ scopes: [], type: "oauth2" }] };
@@ -67,9 +70,10 @@ const resourceUrl = new URL(MCP_RESOURCE);
 const RESOURCE_METADATA_URL = `${resourceUrl.origin}/.well-known/oauth-protected-resource${resourceUrl.pathname}`;
 
 /**
- * An account tool's answer without a connected account. ChatGPT offers to
- * connect only on this in-band challenge, not on an HTTP 401; it needs both
- * `error` and `error_description`.
+ * An account tool's answer without a connected account; only ChatGPT gets
+ * here, as the route answers other clients with an HTTP 401. ChatGPT offers
+ * to connect only on this in-band challenge, which needs both `error` and
+ * `error_description`.
  */
 const NOT_CONNECTED = {
   _meta: {
