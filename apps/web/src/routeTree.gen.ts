@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AcceptPoliciesRouteImport } from './routes/accept-policies'
 import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
@@ -47,6 +48,7 @@ import { Route as ApiFinancialExportRouteImport } from './routes/api/financial-e
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiMcpRouteImport } from './routes/api/mcp'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
+import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as AppDonorsIndexRouteImport } from './routes/_app/donors/index'
 import { Route as AppEventsIndexRouteImport } from './routes/_app/events/index'
 import { Route as AppEventsIdRouteImport } from './routes/_app/events/$id'
@@ -206,6 +208,11 @@ const SetPasswordRoute = SetPasswordRouteImport.update({
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownSplatRoute = DotwellKnownSplatRouteImport.update({
+  id: '/.well-known/$',
+  path: '/.well-known/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -371,6 +378,11 @@ const ApiMcpRoute = ApiMcpRouteImport.update({
 const ApiVersionRoute = ApiVersionRouteImport.update({
   id: '/api/version',
   path: '/api/version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppDonorsIndexRoute = AppDonorsIndexRouteImport.update({
@@ -1118,6 +1130,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof AppTeamsRouteRouteWithChildren
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
@@ -1140,6 +1153,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRouteWithChildren
   '/api/mcp': typeof ApiMcpRoute
   '/api/version': typeof ApiVersionRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
   '/events/$id': typeof AppEventsIdRoute
@@ -1283,6 +1297,7 @@ export interface FileRoutesByTo {
   '/accept-policies': typeof AcceptPoliciesRoute
   '/set-password': typeof SetPasswordRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
@@ -1305,6 +1320,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRouteWithChildren
   '/api/mcp': typeof ApiMcpRoute
   '/api/version': typeof ApiVersionRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/events/$id': typeof AppEventsIdRoute
   '/finance/budgets': typeof AppFinanceBudgetsRoute
   '/governance/compliance': typeof AppGovernanceComplianceRoute
@@ -1455,6 +1471,7 @@ export interface FileRoutesById {
   '/_app/teams': typeof AppTeamsRouteRouteWithChildren
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/_app/$': typeof AppSplatRoute
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/audit-log': typeof AppAuditLogRoute
@@ -1477,6 +1494,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRouteWithChildren
   '/api/mcp': typeof ApiMcpRoute
   '/api/version': typeof ApiVersionRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/_app/': typeof AppIndexRoute
   '/_app/kalakriti/$year': typeof AppKalakritiYearRouteRouteWithChildren
   '/_app/settings/roles': typeof AppSettingsRolesRouteRouteWithChildren
@@ -1633,6 +1651,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/vendor-payments'
     | '/vendors'
+    | '/.well-known/$'
     | '/$'
     | '/analytics'
     | '/audit-log'
@@ -1655,6 +1674,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/mcp'
     | '/api/version'
+    | '/oauth/consent'
     | '/kalakriti/$year'
     | '/settings/roles'
     | '/events/$id'
@@ -1798,6 +1818,7 @@ export interface FileRouteTypes {
     | '/accept-policies'
     | '/set-password'
     | '/unsubscribe'
+    | '/.well-known/$'
     | '/$'
     | '/analytics'
     | '/audit-log'
@@ -1820,6 +1841,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/mcp'
     | '/api/version'
+    | '/oauth/consent'
     | '/events/$id'
     | '/finance/budgets'
     | '/governance/compliance'
@@ -1969,6 +1991,7 @@ export interface FileRouteTypes {
     | '/_app/teams'
     | '/_app/vendor-payments'
     | '/_app/vendors'
+    | '/.well-known/$'
     | '/_app/$'
     | '/_app/analytics'
     | '/_app/audit-log'
@@ -1991,6 +2014,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/mcp'
     | '/api/version'
+    | '/oauth/consent'
     | '/_app/'
     | '/_app/kalakriti/$year'
     | '/_app/settings/roles'
@@ -2137,6 +2161,7 @@ export interface RootRouteChildren {
   AcceptPoliciesRoute: typeof AcceptPoliciesRoute
   SetPasswordRoute: typeof SetPasswordRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAuditPackRoute: typeof ApiAuditPackRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
@@ -2145,6 +2170,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRouteWithChildren
   ApiMcpRoute: typeof ApiMcpRoute
   ApiVersionRoute: typeof ApiVersionRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   ApiAttachmentsDownloadRoute: typeof ApiAttachmentsDownloadRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiDonationCertificatesCertificateIdRoute: typeof ApiDonationCertificatesCertificateIdRoute
@@ -2223,6 +2249,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/$': {
+      id: '/.well-known/$'
+      path: '/.well-known/$'
+      fullPath: '/.well-known/$'
+      preLoaderRoute: typeof DotwellKnownSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -2454,6 +2487,13 @@ declare module '@tanstack/react-router' {
       path: '/api/version'
       fullPath: '/api/version'
       preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/donors/': {
@@ -3884,6 +3924,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptPoliciesRoute: AcceptPoliciesRoute,
   SetPasswordRoute: SetPasswordRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  DotwellKnownSplatRoute: DotwellKnownSplatRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAuditPackRoute: ApiAuditPackRoute,
   ApiAvatarRoute: ApiAvatarRoute,
@@ -3892,6 +3933,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRouteWithChildren,
   ApiMcpRoute: ApiMcpRoute,
   ApiVersionRoute: ApiVersionRoute,
+  OauthConsentRoute: OauthConsentRoute,
   ApiAttachmentsDownloadRoute: ApiAttachmentsDownloadRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiDonationCertificatesCertificateIdRoute:

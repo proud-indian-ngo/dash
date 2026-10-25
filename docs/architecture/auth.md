@@ -11,6 +11,7 @@ Better Auth is configured in `packages/auth/src/auth.ts`.
 - Custom roles are not registered with the admin plugin (`authorization.md`).
 - Email verification is required. Opening the verification link signs the account in (`autoSignInAfterVerification`) and lands on its event, or `/`.
 - Public volunteer sign-up is at `/register`. Assistants sign people up without a password ([assistants](assistants.md#sign-up-by-an-assistant)); verifying sends those accounts to `/set-password` first.
+- Better Auth is also the OAuth 2.1 server assistants connect accounts through (`@better-auth/mcp` with `jwt()`); see [connected accounts](assistants.md#connected-accounts).
 
 ### Bot checks
 

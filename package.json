@@ -34,6 +34,8 @@
       "babel-plugin-react-compiler": "^1.0.0",
       "sonner": "^2.0.8",
       "better-auth": "^1.7.12",
+      "@better-auth/mcp": "^1.7.12",
+      "@better-auth/oauth-provider": "^1.7.12",
       "uuidv7": "^1.2.1",
       "tailwindcss": "^4.3.3",
       "@tailwindcss/vite": "^4.3.3",

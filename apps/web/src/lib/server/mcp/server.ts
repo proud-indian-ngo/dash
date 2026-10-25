@@ -1,4 +1,7 @@
-import { McpServer } from "@modelcontextprotocol/server";
+import {
+  McpServer,
+  type McpRequestContext,
+} from "@modelcontextprotocol/server";
 import {
   getPublicCostCentres,
   getPublicEvents,
@@ -13,6 +16,7 @@ import {
 import { DONATE_URL, WEBSITE_URL } from "@pi-dash/shared/website";
 import z from "zod";
 
+import { listMyInterests, showInterest } from "@/lib/server/mcp/account-tools";
 import { startAssistantSignUp } from "@/lib/server/mcp/sign-up";
 import { createTtlCache } from "@/lib/ttl-cache";
 
@@ -21,7 +25,7 @@ import { createTtlCache } from "@/lib/ttl-cache";
  * `/api/mcp`. One instance per request (the transport is stateless).
  */
 
-const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. Use these tools to answer questions about Proud Indian, list its upcoming volunteering sessions, sign a person up for one, and send people who want to donate to the donation page. Never invent sessions, links or facts; anything not covered here is on ${WEBSITE_URL}.`;
+const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. Use these tools to answer questions about Proud Indian, list its upcoming volunteering sessions, sign a new volunteer up for one, show interest in one for a volunteer who has connected their Proud Indian account, and send people who want to donate to the donation page. Never invent sessions, links or facts; anything not covered here is on ${WEBSITE_URL}.`;
 
 const ABOUT_URL = `${WEBSITE_URL}/llms.txt`;
 const ABOUT_TIMEOUT_MS = 5000;
@@ -51,7 +55,21 @@ const text = (value: string) => ({
   content: [{ text: value, type: "text" as const }],
 });
 
-export function createMcpServer(): McpServer {
+/**
+ * Tools that act as the volunteer who connected their account. The route
+ * answers a call to one without a valid access token with an HTTP 401, so
+ * the assistant asks the person to connect first.
+ */
+export const ACCOUNT_TOOLS = new Set(["my_interests", "show_interest"]);
+
+// ChatGPT reads each tool's auth from `securitySchemes`.
+const NO_AUTH = { securitySchemes: [{ type: "noauth" }] };
+const ACCOUNT_AUTH = { securitySchemes: [{ scopes: [], type: "oauth2" }] };
+
+export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
+  // Set by the route from a verified access token's subject.
+  const userId =
+    typeof authInfo?.extra?.userId === "string" ? authInfo.extra.userId : null;
   const server = new McpServer(
     { name: "proud-indian", title: "Proud Indian", version: "1.0.0" },
     { instructions: INSTRUCTIONS }
@@ -60,6 +78,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "about_proud_indian",
     {
+      _meta: NO_AUTH,
       annotations: {
         destructiveHint: false,
         openWorldHint: false,
@@ -86,6 +105,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "list_upcoming_sessions",
     {
+      _meta: NO_AUTH,
       annotations: {
         destructiveHint: false,
         openWorldHint: false,
@@ -145,6 +165,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "get_donation_link",
     {
+      _meta: NO_AUTH,
       annotations: {
         destructiveHint: false,
         openWorldHint: false,
@@ -160,6 +181,7 @@ export function createMcpServer(): McpServer {
   server.registerTool(
     "start_volunteer_signup",
     {
+      _meta: NO_AUTH,
       annotations: {
         destructiveHint: false,
         idempotentHint: true,
@@ -196,6 +218,68 @@ export function createMcpServer(): McpServer {
     },
     async (input) => {
       const result = await startAssistantSignUp(input);
+      return { ...text(result.message), isError: result.isError };
+    }
+  );
+
+  const notConnected = {
+    ...text("Connect the person's Proud Indian account first."),
+    isError: true,
+  };
+
+  server.registerTool(
+    "show_interest",
+    {
+      _meta: ACCOUNT_AUTH,
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+        readOnlyHint: false,
+      },
+      description:
+        "Ask to join one session as the volunteer whose Proud Indian account is connected. Confirm the session with them first. The session's team lead approves or declines it. For someone without an account, use start_volunteer_signup instead.",
+      inputSchema: z.object({
+        eventId: z
+          .uuid()
+          .describe("The session's id from list_upcoming_sessions."),
+        occDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe(
+            "The session's occurrenceDate from list_upcoming_sessions; required for a recurring session."
+          ),
+      }),
+      title: "Show interest in a session",
+    },
+    async (input) => {
+      if (!userId) {
+        return notConnected;
+      }
+      const result = await showInterest(userId, input);
+      return { ...text(result.message), isError: result.isError };
+    }
+  );
+
+  server.registerTool(
+    "my_interests",
+    {
+      _meta: ACCOUNT_AUTH,
+      annotations: {
+        destructiveHint: false,
+        openWorldHint: false,
+        readOnlyHint: true,
+      },
+      description:
+        "The connected volunteer's requests to join upcoming sessions, with each one's status: pending (waiting for the team lead), approved, rejected or expired.",
+      title: "List my session requests",
+    },
+    async () => {
+      if (!userId) {
+        return notConnected;
+      }
+      const result = await listMyInterests(userId);
       return { ...text(result.message), isError: result.isError };
     }
   );

@@ -15,3 +15,4 @@ export * from "./whatsapp-message";
 export * from "./receipts";
 export * from "./trustee-private";
 export * from "./utilisation-certificates";
+export * from "./oauth";
