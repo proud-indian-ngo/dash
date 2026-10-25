@@ -71,7 +71,13 @@ export function buildMutation(
   bankAccountList: BankAccount[],
   voucherLimitPaise: number,
   /** Set when finance raises a new reimbursement for someone else. */
-  claimantUserId?: string
+  claimantUserId?: string,
+  /**
+   * Finance editing someone else's request: the payee can't be changed, so
+   * no bank fields are sent and the stored ones stay. The form only lists
+   * the editor's own accounts and would otherwise send theirs.
+   */
+  keepPayee = false
 ) {
   // Only reimbursements carry cash vouchers.
   const lineItems = toLineItemsPayload(
@@ -81,10 +87,9 @@ export function buildMutation(
   const { attachments } = value;
   const id = existingId ?? entityId;
 
-  const { bankFields, selectedAccount } = requestBankFields(
-    value,
-    bankAccountList
-  );
+  const { bankFields, selectedAccount } = keepPayee
+    ? { bankFields: {}, selectedAccount: undefined }
+    : requestBankFields(value, bankAccountList);
   const basePayload = {
     attachments,
     // On an event the request takes the event's city, so none is sent.
