@@ -581,14 +581,15 @@ test.describe("Public website sign-up links", () => {
   test.describe.configure({ mode: "serial" });
 
   /**
-   * Open the link from a verification email, as the inbox would. It signs
-   * the account in and opens the event.
+   * Open the link from a verification email and confirm, as the person
+   * would. It signs the account in and opens the event.
    */
   async function verifyEmail(page: Page, email: string, redirect: string) {
     const { token } = await fixture<{ token: string }>("token", email);
     await page.goto(
       `/verify-email?token=${token}&redirect=${encodeURIComponent(redirect)}`
     );
+    await page.getByRole("button", { name: "Confirm email" }).click();
     await page.waitForURL((url) => url.pathname !== "/verify-email", {
       timeout: 30_000,
     });

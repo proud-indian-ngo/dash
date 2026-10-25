@@ -36,9 +36,18 @@ function logSkippedAuthLink(kind: string, to: string, url: string) {
   log.emit();
 }
 
-export async function sendVerificationEmail(to: string, url: string) {
+export async function sendVerificationEmail(
+  to: string,
+  url: string,
+  code?: string
+) {
   const html = await render(
-    <VerificationEmail appName={env.APP_NAME} appUrl={env.APP_URL} url={url} />
+    <VerificationEmail
+      appName={env.APP_NAME}
+      appUrl={env.APP_URL}
+      code={code}
+      url={url}
+    />
   );
   const result = await sendEmail({
     html,

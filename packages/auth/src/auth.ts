@@ -13,7 +13,7 @@ import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { admin, captcha, jwt } from "better-auth/plugins";
+import { admin, captcha, emailOTP, jwt } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
@@ -324,7 +324,7 @@ async function handleAfterSignIn(ctx: AuthHookContext): Promise<void> {
 }
 
 /** Hard-bounced addresses can't receive mail; log and skip instead of sending. */
-async function skipBouncedAuthEmail(
+export async function skipBouncedAuthEmail(
   email: string,
   kind: "reset-password" | "verification"
 ): Promise<boolean> {
@@ -340,6 +340,34 @@ async function skipBouncedAuthEmail(
 
 const turnstileSecretKey = env.TURNSTILE_SECRET_KEY;
 
+/**
+ * Client registration is open (assistants.md), and the OAuth provider fetches
+ * a client's `backchannel_logout_uri` and `jwks_uri` with only syntactic host
+ * checks, so a hostname resolving to a private address would reach internal
+ * services. Assistants use neither.
+ */
+function rejectClientCallbackUrls(ctx: AuthHookContext): void {
+  if (ctx.path !== "/oauth2/register") {
+    return;
+  }
+  const body = ctx.body as Record<string, unknown> | undefined;
+  for (const field of ["backchannel_logout_uri", "jwks_uri"]) {
+    if (body?.[field] !== undefined) {
+      throw new APIError("BAD_REQUEST", {
+        error: "invalid_client_metadata",
+        error_description: `${field} is not supported`,
+      });
+    }
+  }
+}
+
+/** The page a verification email links to; it verifies on a button press. */
+export function verifyEmailPageUrl(token: string, redirect?: string): string {
+  return `${env.BETTER_AUTH_URL}/verify-email?token=${token}${
+    redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
+  }`;
+}
+
 /** The MCP endpoint's URL: the audience of every access token it accepts. */
 export const MCP_RESOURCE = `${env.BETTER_AUTH_URL}/api/mcp`;
 
@@ -353,8 +381,24 @@ export const auth = betterAuth({
     }),
   },
   baseURL: env.BETTER_AUTH_URL,
-  // The JWT plugin's session-to-JWT endpoint; OAuth clients use /oauth2/token.
-  disabledPaths: ["/token"],
+  disabledPaths: [
+    // The JWT plugin's session-to-JWT endpoint; OAuth clients use /oauth2/token.
+    "/token",
+    // Verifying goes through the verify page's POST server function, so a
+    // link can't sign a visitor into someone else's account.
+    "/verify-email",
+    // Email OTP is only the code in an assistant's sign-up email, issued and
+    // checked server-side by the MCP tools (assistants.md).
+    "/email-otp/send-verification-otp",
+    "/email-otp/check-verification-otp",
+    "/email-otp/verify-email",
+    "/sign-in/email-otp",
+    "/email-otp/request-password-reset",
+    "/forget-password/email-otp",
+    "/email-otp/reset-password",
+    "/email-otp/request-email-change",
+    "/email-otp/change-email",
+  ],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: { ...schema, ...oauthSchema },
@@ -426,10 +470,10 @@ export const auth = betterAuth({
       // Website sign-ups carry the event page (and interest marker) through
       // Better Auth's callbackURL, or the login form's header when sign-in
       // re-sends the email; the verify page files the interest.
-      const redirect = getVerificationEventRedirect(data.url, request);
-      const url = `${env.BETTER_AUTH_URL}/verify-email?token=${data.token}${
-        redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
-      }`;
+      const url = verifyEmailPageUrl(
+        data.token,
+        getVerificationEventRedirect(data.url, request)
+      );
       if (await skipBouncedAuthEmail(data.user.email, "verification")) {
         return;
       }
@@ -450,6 +494,7 @@ export const auth = betterAuth({
       await handleAfterSignIn(ctx);
     }),
     before: createAuthMiddleware(async (ctx) => {
+      rejectClientCallbackUrls(ctx);
       sanitizeSignUpBody(ctx);
       assertSignUpAgeEligible(ctx);
       stripRegistrationGroupFromUpdate(ctx);
@@ -497,6 +542,13 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       loginPage: "/login",
       resource: MCP_RESOURCE,
+    }),
+    emailOTP({
+      // As long as the link it goes out with.
+      expiresIn: 60 * 60,
+      // Codes are only created server-side, never sent by the plugin.
+      sendVerificationOTP: async () => undefined,
+      storeOTP: "hashed",
     }),
     // Must stay last so it forwards cookies set by earlier plugins' after-hooks.
     tanstackStartCookies(),

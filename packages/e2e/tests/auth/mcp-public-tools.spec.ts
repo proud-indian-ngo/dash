@@ -36,6 +36,7 @@ test.describe("MCP public tools", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "about_proud_indian",
+      "confirm_volunteer_signup",
       "get_donation_link",
       "list_upcoming_sessions",
       "my_interests",
@@ -45,7 +46,11 @@ test.describe("MCP public tools", () => {
     // Only signing up and showing interest write.
     for (const tool of tools) {
       expect(tool.annotations?.readOnlyHint).toBe(
-        !["show_interest", "start_volunteer_signup"].includes(tool.name)
+        ![
+          "confirm_volunteer_signup",
+          "show_interest",
+          "start_volunteer_signup",
+        ].includes(tool.name)
       );
     }
 
@@ -109,6 +114,18 @@ test.describe("MCP public tools", () => {
       ),
       contentType: "application/json",
     });
+  });
+
+  test("an agent that looks for /auth.md is pointed at the MCP server", async ({
+    request,
+  }) => {
+    const response = await request.get("/auth.md");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("text/markdown");
+    const body = await response.text();
+    expect(body).toContain("/api/mcp");
+    expect(body).toContain("start_volunteer_signup");
+    expect(body).toContain("signUpUrl");
   });
 
   test("a browser page on another site can't call it", async ({ request }) => {

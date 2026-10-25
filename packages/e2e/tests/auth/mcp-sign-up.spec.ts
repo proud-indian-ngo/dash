@@ -19,7 +19,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "setup" | "state" | "token",
+  action: "cleanup" | "code" | "preregister" | "setup" | "state" | "token",
   argument?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -37,6 +37,7 @@ interface AccountState {
   interests?: { originalDate: string | null; status: string }[];
   phone?: string;
   role?: string;
+  sessions?: number;
 }
 
 const unique = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -68,7 +69,6 @@ test.describe("Assistant sign-up", () => {
       dateOfBirth: "1995-04-02",
       email,
       eventId: series.seriesId,
-      gender: "female",
       name: "Assistant Signup",
       occDate: series.occDate,
       // An Indian number without its country code.
@@ -105,6 +105,15 @@ test.describe("Assistant sign-up", () => {
     await page.goto(
       `/verify-email?token=${token}&redirect=${encodeURIComponent(redirect)}`
     );
+    // Opening the link, as a mail scanner does, changes nothing.
+    await expect(
+      page.getByRole("button", { name: "Confirm email" })
+    ).toBeVisible();
+    expect(await fixture<AccountState>("state", email)).toMatchObject({
+      emailVerified: false,
+      sessions: 0,
+    });
+    await page.getByRole("button", { name: "Confirm email" }).click();
     await page.waitForURL(/\/set-password\?/, { timeout: 30_000 });
     await expect(
       page.getByRole("heading", { name: "Set your password" })
@@ -149,6 +158,148 @@ test.describe("Assistant sign-up", () => {
     });
   });
 
+  test("a new volunteer reads the emailed code back to the assistant instead", async ({
+    request,
+  }, testInfo) => {
+    const id = unique();
+    const email = `e2e-mcp-signup-${id}@example.com`;
+    const started = await callTool(request, "start_volunteer_signup", {
+      dateOfBirth: "1996-08-15",
+      email,
+      eventId: series.seriesId,
+      name: "Assistant Code",
+      occDate: series.occDate,
+      phone: `6${id.slice(-9)}`,
+    });
+    expect(started.isError).toBe(false);
+    expect(started.content[0]?.text).toContain("6-digit code");
+
+    const { code } = await fixture<{ code: string }>("code", email);
+    const confirmation = {
+      email,
+      eventId: series.seriesId,
+      occDate: series.occDate,
+    };
+
+    const wrong = await callTool(request, "confirm_volunteer_signup", {
+      ...confirmation,
+      code: "000000",
+    });
+    expect(wrong.isError).toBe(true);
+    expect(wrong.content[0]?.text).toContain("That code didn't work");
+    expect(await fixture<AccountState>("state", email)).toMatchObject({
+      emailVerified: false,
+      interests: [],
+    });
+
+    const confirmed = await callTool(request, "confirm_volunteer_signup", {
+      ...confirmation,
+      code,
+    });
+    expect(confirmed.isError).toBe(false);
+    expect(confirmed.content[0]?.text).toContain("Confirmed.");
+
+    // Verified with the interest filed, and no one signed in: the person sets
+    // a password from the email that follows.
+    await expect
+      .poll(async () => fixture<AccountState>("state", email), {
+        timeout: 15_000,
+      })
+      .toMatchObject({
+        emailVerified: true,
+        hasPassword: false,
+        interests: [{ originalDate: series.occDate, status: "pending" }],
+        sessions: 0,
+      });
+
+    // A used code doesn't work twice.
+    const reused = await callTool(request, "confirm_volunteer_signup", {
+      ...confirmation,
+      code,
+    });
+    expect(reused.isError).toBe(true);
+
+    await testInfo.attach("assistant-sign-up-code.json", {
+      body: JSON.stringify(
+        {
+          afterConfirmation: await fixture<AccountState>("state", email),
+          confirmMessage: confirmed.content[0]?.text,
+          wrongCodeMessage: wrong.content[0]?.text,
+        },
+        null,
+        2
+      ),
+      contentType: "application/json",
+    });
+  });
+
+  test("a password someone set before the inbox was proved doesn't survive an assistant's sign-up", async ({
+    request,
+  }) => {
+    const id = unique();
+    const details = {
+      dateOfBirth: "1994-02-10",
+      email: `e2e-mcp-signup-${id}@example.com`,
+      eventId: series.seriesId,
+      name: "Assistant Prehijack",
+      occDate: series.occDate,
+      phone: `7${id.slice(-9)}`,
+    };
+    await callTool(request, "start_volunteer_signup", details);
+    await fixture("preregister", details.email);
+    expect(await fixture<AccountState>("state", details.email)).toMatchObject({
+      emailVerified: false,
+      hasPassword: true,
+    });
+
+    await callTool(request, "start_volunteer_signup", details);
+    expect(await fixture<AccountState>("state", details.email)).toMatchObject({
+      emailVerified: false,
+      hasPassword: false,
+    });
+  });
+
+  test("a registered phone gets the same answer as a new one, and no account", async ({
+    request,
+  }) => {
+    const id = unique();
+    const phone = `7${id.slice(-9)}`;
+    const base = {
+      dateOfBirth: "1993-06-01",
+      eventId: series.seriesId,
+      name: "Assistant Phone",
+      occDate: series.occDate,
+      phone,
+    };
+    const firstEmail = `e2e-mcp-signup-${id}a@example.com`;
+    const secondEmail = `e2e-mcp-signup-${id}b@example.com`;
+    await callTool(request, "start_volunteer_signup", {
+      ...base,
+      email: firstEmail,
+    });
+    const second = await callTool(request, "start_volunteer_signup", {
+      ...base,
+      email: secondEmail,
+    });
+    expect(second.isError).toBe(false);
+    expect(second.content[0]?.text).toContain(`If ${secondEmail} is new`);
+    expect(await fixture<AccountState>("state", secondEmail)).toEqual({
+      exists: false,
+    });
+  });
+
+  test("Better Auth's own verification link is closed", async ({ request }) => {
+    const { token } = await fixture<{ token: string }>(
+      "token",
+      `e2e-mcp-signup-${unique()}@example.com`
+    );
+    const response = await request.get(
+      `/api/auth/verify-email?token=${token}&callbackURL=/`,
+      { maxRedirects: 0 }
+    );
+    expect(response.status()).toBe(404);
+  });
+
   test("refuses under-18s, unknown sessions and a series without a date", async ({
     request,
   }) => {
@@ -157,7 +308,6 @@ test.describe("Assistant sign-up", () => {
       dateOfBirth: "1995-04-02",
       email: `e2e-mcp-signup-${id}@example.com`,
       eventId: series.seriesId,
-      gender: "male",
       name: "Assistant Refusals",
       occDate: series.occDate,
       phone: `8${id.slice(-9)}`,
@@ -197,7 +347,6 @@ test.describe("Assistant sign-up", () => {
       dateOfBirth: "1990-01-01",
       email,
       eventId: series.seriesId,
-      gender: "male",
       name: "Someone Else",
       occDate: series.occDate,
       phone: `7${unique().slice(-9)}`,

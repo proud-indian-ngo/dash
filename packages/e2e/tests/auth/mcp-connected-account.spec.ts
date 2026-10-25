@@ -105,6 +105,20 @@ test.describe("Connected assistant", () => {
       client_id: string;
     };
 
+    // The server would fetch these URLs itself, so registration refuses them.
+    const withLogoutUri = await request.post(
+      new URL(serverMetadata.registration_endpoint).pathname,
+      {
+        data: {
+          backchannel_logout_uri: "https://internal.example/logout",
+          client_name: "E2E Assistant",
+          redirect_uris: [REDIRECT_URI],
+          token_endpoint_auth_method: "none",
+        },
+      }
+    );
+    expect(withLogoutUri.status()).toBe(400);
+
     const verifier = base64url(randomBytes(32));
     const challengeCode = base64url(
       createHash("sha256").update(verifier).digest()

@@ -1,7 +1,11 @@
 import { db } from "@pi-dash/db";
 import { account, user } from "@pi-dash/db/schema/auth";
+import { sendVerificationEmail } from "@pi-dash/email";
 import { enqueue } from "@pi-dash/jobs/enqueue";
+import { createEmailVerificationToken } from "better-auth/api";
 import { and, eq } from "drizzle-orm";
+
+import { auth, skipBouncedAuthEmail, verifyEmailPageUrl } from "./auth";
 
 /**
  * Accounts an assistant creates (the MCP `start_volunteer_signup` tool) have
@@ -10,6 +14,26 @@ import { and, eq } from "drizzle-orm";
  * WhatsApp orientation a form sign-up starts at once wait for that
  * verification here.
  */
+
+/**
+ * The verification email for an assistant's sign-up: the usual link, plus a
+ * code the person can read back to the assistant when the email is on
+ * another device.
+ */
+export async function sendAssistantSignUpVerification(
+  email: string,
+  redirect: string
+): Promise<void> {
+  if (await skipBouncedAuthEmail(email, "verification")) {
+    return;
+  }
+  const { secret } = await auth.$context;
+  const token = await createEmailVerificationToken(secret, email);
+  const code = await auth.api.createVerificationOTP({
+    body: { email, type: "email-verification" },
+  });
+  await sendVerificationEmail(email, verifyEmailPageUrl(token, redirect), code);
+}
 
 export async function hasPassword(userId: string): Promise<boolean> {
   const [row] = await db
