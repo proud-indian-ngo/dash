@@ -93,7 +93,6 @@ describe("website sign-up materialiser", () => {
               startTime: firstStart,
               teamId: ids.team,
             },
-            userId: ids.user,
           } as never);
         expect(session?.seriesId).toBe(ids.series);
 
@@ -172,7 +171,6 @@ describe("website sign-up materialiser", () => {
               startTime: firstStart,
             },
             series,
-            userId: ids.user,
           } as never);
         expect(session?.id).toBe(ids.series);
         const rows = await db

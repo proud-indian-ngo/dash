@@ -34,7 +34,11 @@ interface AccountState {
   emailVerified?: boolean;
   exists: boolean;
   hasPassword?: boolean;
-  interests?: { originalDate: string | null; status: string }[];
+  interests?: {
+    createdByVolunteer: boolean;
+    originalDate: string | null;
+    status: string;
+  }[];
   phone?: string;
   role?: string;
   sessions?: number;
@@ -133,7 +137,13 @@ test.describe("Assistant sign-up", () => {
       .toMatchObject({
         emailVerified: true,
         hasPassword: true,
-        interests: [{ originalDate: series.occDate, status: "pending" }],
+        interests: [
+          {
+            createdByVolunteer: false,
+            originalDate: series.occDate,
+            status: "pending",
+          },
+        ],
       });
 
     // The password works for the next sign-in.

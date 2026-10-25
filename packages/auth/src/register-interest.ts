@@ -58,7 +58,6 @@ export interface RegisterInterestDeps {
     now: number;
     occurrence: VirtualOccurrence;
     series: RegisterInterestEventRow;
-    userId: string;
   }) => Promise<RegisterInterestEventRow | null>;
 }
 
@@ -144,7 +143,6 @@ export async function requestInterestOnRegister(
       now: input.now,
       occurrence: decision.occurrence,
       series: event,
-      userId: input.userId,
     });
   }
   const decision = decideInterestTarget(event, input.now);

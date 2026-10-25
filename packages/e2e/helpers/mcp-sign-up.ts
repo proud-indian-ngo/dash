@@ -77,6 +77,8 @@ async function state(email: string) {
       .where(eq(session.userId, record.id)),
     db
       .select({
+        // A volunteer who creates a session must stay deletable.
+        createdByVolunteer: sql<boolean>`${teamEvent.createdBy} = ${record.id}`,
         originalDate: teamEvent.originalDate,
         status: eventInterest.status,
       })

@@ -103,13 +103,7 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
         .where(and(eq(teamMember.teamId, teamId), eq(teamMember.role, "lead")));
       return rows.map((row) => row.userId);
     },
-    materializeOccurrence: ({
-      materializedId,
-      now,
-      occurrence,
-      series,
-      userId,
-    }) =>
+    materializeOccurrence: ({ materializedId, now, occurrence, series }) =>
       db.transaction(async (tx) => {
         const findSession = async () => {
           const [row] = await tx
@@ -142,6 +136,8 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
         }
         // Copy the series row inside Postgres (as `buildExceptionInsert`
         // does in Zero), so jsonb columns are not re-encoded by the driver.
+        // The session keeps the series' creator: the volunteer who caused it
+        // is not its organiser.
         const inserted = await tx
           .insert(teamEvent)
           .select(
@@ -152,7 +148,6 @@ export function createDbRegisterInterestDeps(): RegisterInterestDeps {
                 // there: a new session starts without one.
                 childrenAttended: sql`null::integer`.as("children_attended"),
                 createdAt: sql`${new Date(now)}::timestamp`.as("created_at"),
-                createdBy: sql`${userId}`.as("created_by"),
                 endTime: sql`${
                   occurrence.endTime === null
                     ? null

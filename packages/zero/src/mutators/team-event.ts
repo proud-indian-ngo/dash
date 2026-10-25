@@ -201,7 +201,6 @@ async function targetSessionStart(
 /** Resolve (materializing if needed) the event row a volunteer joins. */
 export async function resolveJoinTarget(
   tx: Tx,
-  ctx: MutatorCtx,
   event: TeamEvent,
   args: {
     eventId: string;
@@ -282,7 +281,8 @@ export async function resolveJoinTarget(
     cancelledAt: null,
     costCentreId: event.costCentreId,
     createdAt: args.now,
-    createdBy: ctx.userId,
+    // The series' creator, not the volunteer joining: they don't organise it.
+    createdBy: event.createdBy,
     description: event.description,
     endTime: occEnd,
     feedbackDeadline: event.feedbackDeadline,
@@ -1303,7 +1303,7 @@ export const teamEventMutators = {
         throw new Error("Not a member of the event's team");
       }
 
-      const target = await resolveJoinTarget(tx, ctx, event, args);
+      const target = await resolveJoinTarget(tx, event, args);
 
       const existingMember = await tx.run(
         zql.teamEventMember

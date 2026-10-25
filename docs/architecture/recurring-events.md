@@ -86,6 +86,8 @@ Both the team table and the event page prefill through `buildScopedEditInitialVa
 
 All honour `inheritVolunteers` (materialised occurrences copy the parent's members). The flag carries to exceptions through `buildExceptionInsert` and to new series through `updateSeriesFollowing`.
 
+A session a volunteer's join or interest saves takes the series' `createdBy`, never the volunteer's: `created_by` doesn't cascade, so a volunteer recorded there could not be deleted, and the creator gets the organiser's attendance reminders.
+
 ## Self-join
 
 For a virtual occurrence, `teamEvent.joinAsMember` materialises the exception (bypassing the `materialize` permission) and inserts the member row. The unique index on (`seriesId`, `originalDate`) dedupes concurrent joins.
