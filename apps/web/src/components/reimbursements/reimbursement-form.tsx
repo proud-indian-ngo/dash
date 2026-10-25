@@ -186,7 +186,8 @@ function ReimbursementFormInner({
         existingId,
         bankAccountList,
         voucherLimitPaise,
-        forOthers ? claimantId : undefined
+        forOthers ? claimantId : undefined,
+        disableBankAccountSelection
       );
 
       const mutatorNameMap = {
