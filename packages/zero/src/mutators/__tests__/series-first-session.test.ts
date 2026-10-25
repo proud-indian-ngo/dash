@@ -121,17 +121,12 @@ const ctx = { permissions: [], role: "volunteer", userId: "lead-1" };
 describe("a series' first session is the parent row", () => {
   it("sends a join or interest on the start date to the parent", async () => {
     const db = createDb();
-    const target = await resolveJoinTarget(
-      db.tx as never,
-      ctx as never,
-      series as never,
-      {
-        eventId: "series-1",
-        materializedId: "exc-1",
-        now: NOW,
-        occDate: "2026-10-03",
-      }
-    );
+    const target = await resolveJoinTarget(db.tx as never, series as never, {
+      eventId: "series-1",
+      materializedId: "exc-1",
+      now: NOW,
+      occDate: "2026-10-03",
+    });
     expect(target).toMatchObject({ eventId: "series-1", startTime: FIRST });
     expect(db.tables.teamEvent).toHaveLength(1);
   });
@@ -150,12 +145,11 @@ describe("a series' first session is the parent row", () => {
       },
     ]);
     for (const occDate of ["2026-10-03", undefined]) {
-      const target = await resolveJoinTarget(
-        db.tx as never,
-        ctx as never,
-        series as never,
-        { eventId: "series-1", now: NOW, occDate }
-      );
+      const target = await resolveJoinTarget(db.tx as never, series as never, {
+        eventId: "series-1",
+        now: NOW,
+        occDate,
+      });
       expect(target.eventId).toBe("first-row");
     }
   });
@@ -171,7 +165,7 @@ describe("a series' first session is the parent row", () => {
       },
     ]);
     await expect(
-      resolveJoinTarget(db.tx as never, ctx as never, series as never, {
+      resolveJoinTarget(db.tx as never, series as never, {
         eventId: "series-1",
         now: NOW,
       })
@@ -180,17 +174,12 @@ describe("a series' first session is the parent row", () => {
 
   it("still saves a later date as its own session", async () => {
     const db = createDb();
-    const target = await resolveJoinTarget(
-      db.tx as never,
-      ctx as never,
-      series as never,
-      {
-        eventId: "series-1",
-        materializedId: "exc-1",
-        now: NOW,
-        occDate: "2026-10-10",
-      }
-    );
+    const target = await resolveJoinTarget(db.tx as never, series as never, {
+      eventId: "series-1",
+      materializedId: "exc-1",
+      now: NOW,
+      occDate: "2026-10-10",
+    });
     expect(target.eventId).toBe("exc-1");
     expect(db.tables.teamEvent?.[1]).toMatchObject({
       originalDate: "2026-10-10",

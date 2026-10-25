@@ -33,7 +33,6 @@ const STARTED_MESSAGE =
  */
 async function resolveInterestTarget(
   tx: Tx,
-  ctx: { userId: string },
   event: TeamEvent,
   args: { materializedId?: string; now: number; occDate?: string }
 ): Promise<TeamEvent> {
@@ -57,7 +56,7 @@ async function resolveInterestTarget(
   if (occurrence.startTime <= now) {
     throw new Error(STARTED_MESSAGE);
   }
-  const target = await resolveJoinTarget(tx, ctx, event, {
+  const target = await resolveJoinTarget(tx, event, {
     eventId: event.id,
     materializedId: args.materializedId,
     now: args.now,
@@ -299,7 +298,7 @@ export const eventInterestMutators = {
       }
       await assertSafeToJoinEvent(tx, series.id, [ctx.userId], { self: true });
 
-      const event = await resolveInterestTarget(tx, ctx, series, args);
+      const event = await resolveInterestTarget(tx, series, args);
       // A materialized session can differ from its series.
       if (!event.isPublic) {
         throw new Error("Event is not public");
