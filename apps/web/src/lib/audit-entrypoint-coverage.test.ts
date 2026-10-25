@@ -104,6 +104,8 @@ const AUDITED_SERVER_FUNCTIONS = [
 ];
 
 const EXEMPT_SERVER_FUNCTIONS = [
+  // Unauthenticated sign-up: the verification link's own button.
+  "confirmEmailVerification",
   "getPaymentGovernanceWarnings",
   "getMinutesUploadUrl",
   "getDeclarationUploadUrl",

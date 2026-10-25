@@ -61,7 +61,7 @@ Each is optional and independent. Invalid values are dropped and the page still 
 `?interestEventId=`:
 
 - Nothing is written at sign-up. The redirect travels through the verification email.
-- `/verify-email` files a pending `event_interest` (`packages/auth/src/register-interest.ts`) on the account's first verification only, then notifies team leads and opens the event signed in. A series occurrence is materialised (`recurring-events.md`).
+- `/verify-email` verifies on its **Confirm email** button, never on load: verifying signs the account in, and mail scanners open links. It files a pending `event_interest` (`packages/auth/src/register-interest.ts`) on the account's first verification only, then notifies team leads and opens the event signed in. A series occurrence is materialised (`recurring-events.md`).
 - Private, Kalakriti, cancelled or started sessions are skipped. It never enrols; a team lead approves as usual.
 
 ### Event redirects

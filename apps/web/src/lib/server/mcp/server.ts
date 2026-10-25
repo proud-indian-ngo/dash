@@ -17,7 +17,10 @@ import { DONATE_URL, WEBSITE_URL } from "@pi-dash/shared/website";
 import z from "zod";
 
 import { listMyInterests, showInterest } from "@/lib/server/mcp/account-tools";
-import { startAssistantSignUp } from "@/lib/server/mcp/sign-up";
+import {
+  confirmAssistantSignUp,
+  startAssistantSignUp,
+} from "@/lib/server/mcp/sign-up";
 import { createTtlCache } from "@/lib/ttl-cache";
 
 /**
@@ -189,7 +192,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: false,
       },
       description:
-        "Sign a person up as a Proud Indian volunteer and ask to join one session. Ask the person for every field and confirm the session with them first; never guess or reuse someone else's details. Volunteers must be 18 or older. Proud Indian emails them a link to confirm their address; opening it signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until they open the link, so tell them to check their inbox.",
+        "Sign a person up as a Proud Indian volunteer and ask to join one session. Ask the person for every field and confirm the session with them first; never guess or reuse someone else's details. Volunteers must be 18 or older. Proud Indian emails them a link and a 6-digit code to confirm their address; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until they open the link or give you the code for confirm_volunteer_signup, so tell them to check their inbox.",
       inputSchema: z.object({
         dateOfBirth: z
           .string()
@@ -199,7 +202,6 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         eventId: z
           .uuid()
           .describe("The session's id from list_upcoming_sessions."),
-        gender: z.enum(["female", "male"]),
         name: z.string().trim().min(2).max(100).describe("Full name"),
         occDate: z
           .string()
@@ -218,6 +220,39 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     },
     async (input) => {
       const result = await startAssistantSignUp(input);
+      return { ...text(result.message), isError: result.isError };
+    }
+  );
+
+  server.registerTool(
+    "confirm_volunteer_signup",
+    {
+      _meta: NO_AUTH,
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+        readOnlyHint: false,
+      },
+      description:
+        "Finish a sign-up started with start_volunteer_signup, using the 6-digit code from the email Proud Indian sent. Only use a code the person gives you. It confirms their address, sends their interest to the session's team lead and emails them a link to set a password.",
+      inputSchema: z.object({
+        code: z
+          .string()
+          .regex(/^\s*\d{6}\s*$/)
+          .describe("The 6-digit code from the email"),
+        email: z.email(),
+        eventId: z.uuid().describe("The same session as the sign-up."),
+        occDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .describe("The same occDate as the sign-up, if it had one."),
+      }),
+      title: "Confirm a volunteer's sign-up",
+    },
+    async (input) => {
+      const result = await confirmAssistantSignUp(input);
       return { ...text(result.message), isError: result.isError };
     }
   );

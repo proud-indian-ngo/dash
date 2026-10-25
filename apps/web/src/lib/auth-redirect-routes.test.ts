@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const getSession = mock(async (): Promise<unknown> => null);
 const verifyEmail = mock(async (): Promise<unknown> => ({ status: true }));
 const findUnverifiedUserForToken = mock(async (): Promise<unknown> => ({
   id: "user-1",
@@ -10,7 +9,6 @@ const fileVerifiedSignUpInterest = mock(async () => undefined);
 const hasPassword = mock(async () => true);
 const welcomeVerifiedAssistantSignUp = mock(async () => undefined);
 
-mock.module("@/functions/get-session", () => ({ getSession }));
 mock.module("@pi-dash/auth", () => ({ auth: { api: { verifyEmail } } }));
 mock.module("@pi-dash/auth/assistant-sign-up", () => ({
   hasPassword,
@@ -34,35 +32,15 @@ mock.module("@tanstack/react-start", () => ({
   },
 }));
 
-const { Route: VerifyEmailRoute } = await import("@/routes/_auth/verify-email");
+const { confirmEmailVerification } = await import("@/functions/verify-email");
 
 const EVENT_ID = "019a0000-0000-7000-8000-000000000001";
 
-/** Run a guard and return the redirect target it throws, or null. */
-async function redirectOf(run: () => unknown): Promise<unknown> {
-  try {
-    await run();
-    return null;
-  } catch (thrown) {
-    const options = (thrown as { options?: Record<string, unknown> }).options;
-    if (!options) {
-      throw thrown;
-    }
-    return options.href ?? { search: options.search, to: options.to };
-  }
-}
-
-function verifyGuard(search: Record<string, unknown>) {
-  const beforeLoad = VerifyEmailRoute.options.beforeLoad;
-  if (!beforeLoad) {
-    throw new Error("Missing verify-email guard");
-  }
-  return () =>
-    beforeLoad({ search } as unknown as Parameters<typeof beforeLoad>[0]);
+function confirm(redirect?: string) {
+  return confirmEmailVerification({ data: { redirect, token: "t" } });
 }
 
 beforeEach(() => {
-  getSession.mockReset();
   verifyEmail.mockReset();
   verifyEmail.mockResolvedValue({ status: true });
   findUnverifiedUserForToken.mockReset();
@@ -74,16 +52,11 @@ beforeEach(() => {
   welcomeVerifiedAssistantSignUp.mockResolvedValue(undefined);
 });
 
-describe("verify-email guard", () => {
+describe("confirming a verification link", () => {
   it("files the website interest on first verification and lands on the event", async () => {
     expect(
-      await redirectOf(
-        verifyGuard({
-          redirect: `/events/${EVENT_ID}?occDate=2026-10-18&interest=1`,
-          token: "t",
-        })
-      )
-    ).toBe(`/events/${EVENT_ID}?occDate=2026-10-18`);
+      await confirm(`/events/${EVENT_ID}?occDate=2026-10-18&interest=1`)
+    ).toEqual({ href: `/events/${EVENT_ID}?occDate=2026-10-18` });
     expect(fileVerifiedSignUpInterest).toHaveBeenCalledWith(
       { id: "user-1", name: "Asha" },
       { eventId: EVENT_ID, occDate: "2026-10-18" }
@@ -92,48 +65,44 @@ describe("verify-email guard", () => {
 
   it("does not file interest for an account that was already verified", async () => {
     findUnverifiedUserForToken.mockResolvedValue(null);
-    await redirectOf(
-      verifyGuard({ redirect: `/events/${EVENT_ID}?interest=1`, token: "t" })
-    );
+    await confirm(`/events/${EVENT_ID}?interest=1`);
     expect(fileVerifiedSignUpInterest).not.toHaveBeenCalled();
   });
 
   it("only redirects to the event without the interest marker", async () => {
-    expect(
-      await redirectOf(
-        verifyGuard({ redirect: `/events/${EVENT_ID}`, token: "t" })
-      )
-    ).toBe(`/events/${EVENT_ID}`);
+    expect(await confirm(`/events/${EVENT_ID}`)).toEqual({
+      href: `/events/${EVENT_ID}`,
+    });
     expect(fileVerifiedSignUpInterest).not.toHaveBeenCalled();
   });
 
   it("drops redirects that are not event pages", async () => {
-    expect(
-      await redirectOf(
-        verifyGuard({ redirect: "https://evil.example/events/x", token: "t" })
-      )
-    ).toBe("/");
+    expect(await confirm("https://evil.example/events/x")).toEqual({
+      href: "/",
+    });
   });
 
   it("sends an assistant's passwordless sign-up to set a password first, and welcomes it", async () => {
     hasPassword.mockResolvedValue(false);
-    expect(
-      await redirectOf(
-        verifyGuard({ redirect: `/events/${EVENT_ID}?interest=1`, token: "t" })
-      )
-    ).toEqual({
-      search: { redirect: `/events/${EVENT_ID}` },
-      to: "/set-password",
+    expect(await confirm(`/events/${EVENT_ID}?interest=1`)).toEqual({
+      href: `/set-password?redirect=${encodeURIComponent(`/events/${EVENT_ID}`)}`,
     });
     expect(fileVerifiedSignUpInterest).toHaveBeenCalled();
     expect(welcomeVerifiedAssistantSignUp).toHaveBeenCalledWith("user-1");
   });
 
+  it("sends an already verified address to sign in", async () => {
+    verifyEmail.mockRejectedValue(new Error("Email already verified"));
+    expect(await confirm()).toEqual({
+      href: "/login?status=email-verified",
+    });
+  });
+
   it("files nothing when verification fails", async () => {
     verifyEmail.mockResolvedValue(null);
-    await redirectOf(
-      verifyGuard({ redirect: `/events/${EVENT_ID}?interest=1`, token: "t" })
-    );
+    expect(await confirm(`/events/${EVENT_ID}?interest=1`)).toEqual({
+      error: "Verification failed. The link may have expired.",
+    });
     expect(fileVerifiedSignUpInterest).not.toHaveBeenCalled();
   });
 });

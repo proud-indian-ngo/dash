@@ -1,5 +1,5 @@
 import { db } from "@pi-dash/db";
-import { account, user } from "@pi-dash/db/schema/auth";
+import { account, session, user, verification } from "@pi-dash/db/schema/auth";
 import { eventInterest } from "@pi-dash/db/schema/event-interest";
 import { teamEvent } from "@pi-dash/db/schema/team-event";
 import { createEmailVerificationToken } from "better-auth/api";
@@ -22,6 +22,11 @@ async function cleanup() {
   // their users.
   await db.delete(teamEvent).where(eq(teamEvent.id, SERIES_ID));
   await db.delete(user).where(like(user.email, `${EMAIL_PREFIX}%`));
+  await db
+    .delete(verification)
+    .where(
+      like(verification.identifier, `email-verification-otp-${EMAIL_PREFIX}%`)
+    );
 }
 
 async function setup(creatorEmail: string) {
@@ -59,13 +64,17 @@ async function state(email: string) {
   if (!record) {
     return { exists: false };
   }
-  const [passwords, interests] = await Promise.all([
+  const [passwords, sessions, interests] = await Promise.all([
     db
       .select({ id: account.id })
       .from(account)
       .where(
         and(eq(account.userId, record.id), eq(account.providerId, "credential"))
       ),
+    db
+      .select({ id: session.id })
+      .from(session)
+      .where(eq(session.userId, record.id)),
     db
       .select({
         originalDate: teamEvent.originalDate,
@@ -87,6 +96,7 @@ async function state(email: string) {
     interests,
     phone: record.phone,
     role: record.role,
+    sessions: sessions.length,
   };
 }
 
@@ -101,6 +111,27 @@ async function token(email: string) {
   return { token: await createEmailVerificationToken(secret, email) };
 }
 
+/**
+ * A known code for the account's emailed sign-up code. Better Auth stores
+ * only its hash, so the spec replaces the hash with that of `CODE`.
+ */
+const CODE = "246810";
+async function code(email: string) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(CODE)
+  );
+  const updated = await db
+    .update(verification)
+    .set({ value: `${Buffer.from(digest).toString("base64url")}:0` })
+    .where(eq(verification.identifier, `email-verification-otp-${email}`))
+    .returning({ id: verification.id });
+  if (updated.length === 0) {
+    throw new Error(`No sign-up code was issued for ${email}`);
+  }
+  return { code: CODE };
+}
+
 const [action, argument] = process.argv.slice(2);
 let result: unknown;
 if (action === "cleanup") {
@@ -110,6 +141,8 @@ if (action === "cleanup") {
   result = await setup(argument);
 } else if (action === "state" && argument) {
   result = await state(argument);
+} else if (action === "code" && argument) {
+  result = await code(argument);
 } else if (action === "token" && argument) {
   result = await token(argument);
 } else {
