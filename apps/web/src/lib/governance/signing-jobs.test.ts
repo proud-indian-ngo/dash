@@ -331,6 +331,8 @@ describe("the job endpoint", () => {
 
   it("serves the manifest", async () => {
     expect(await keysealJobs().manifest().json()).toMatchObject({
+      accentColor: "#4fc3f7",
+      icon: `${ORIGIN}/web-app-manifest-192x192.png`,
       name: "Proud Indian",
       protocol: 1,
     });

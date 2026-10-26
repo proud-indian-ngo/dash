@@ -353,13 +353,19 @@ export function keysealJobs(): KeySeal {
       { fault: true }
     );
   }
+  const origin = new URL(env.APP_URL ?? env.BETTER_AUTH_URL).origin;
   keyseal ??= createKeySeal({
     adapter,
     allowInsecureOrigin,
     basePath: KEYSEAL_BASE_PATH,
-    branding: { name: "Proud Indian" },
+    // The helper's job window: the PWA icon and the web manifest's theme colour.
+    branding: {
+      accentColor: "#4fc3f7",
+      icon: `${origin}/web-app-manifest-192x192.png`,
+      name: "Proud Indian",
+    },
     minHelperVersion: MIN_HELPER_VERSION,
-    origin: new URL(env.APP_URL ?? env.BETTER_AUTH_URL).origin,
+    origin,
     rateLimit: (request) =>
       checkRateLimit(`signing-job:${trustedClientIp(request) ?? "unknown"}`, 30)
         .allowed,
