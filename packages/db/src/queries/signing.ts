@@ -23,7 +23,7 @@ import { utilisationCertificate } from "../schema/grant";
 import { signingJob } from "../schema/private/trustee-private";
 
 /**
- * A signr job as `@signr/server`'s adapter sees it: `id` is the SHA-256 of
+ * A KeySeal job as `@keyseal/server`'s adapter sees it: `id` is the SHA-256 of
  * the job token, which the row keeps as `token_hash` beside its own UUIDv7.
  */
 export type SigningJob = Omit<

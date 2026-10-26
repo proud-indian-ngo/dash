@@ -1,13 +1,13 @@
 import { Key01Icon, SignatureIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@pi-dash/design-system/components/ui/button";
-import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import {
   type JobStatus,
   launchHelper,
   type WatchOptions,
   watchJob,
-} from "@signr/browser";
+} from "@keyseal/browser";
+import { Button } from "@pi-dash/design-system/components/ui/button";
+import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
@@ -55,7 +55,7 @@ export function helperJobWatch(
 }
 
 /**
- * Opens a `signr://` link and watches the job until the helper finishes
+ * Opens a `keyseal://` link and watches the job until the helper finishes
  * it. Resolves with the job's final status, or null once the page is left
  * or shows another document (the router keeps this component when only the
  * ID changes): the job may still finish, so nothing is reported, not even
@@ -69,20 +69,20 @@ function useHelperJob(targetKey: string) {
   const watching = useRef<AbortController | null>(null);
   useEffect(() => () => watching.current?.abort(), [targetKey]);
   const run = useEventCallback(
-    async (start: () => Promise<{ link: string; token: string }>) => {
+    async (start: () => Promise<{ id: string; link: string }>) => {
       watching.current?.abort();
       const controller = new AbortController();
       watching.current = controller;
       setNotClaimed(false);
       try {
-        const { link, token } = await start();
+        const { id, link } = await start();
         if (controller.signal.aborted) {
           return null;
         }
         launchHelper(link, { allowInsecureOrigins });
         const status = await watchJob(
           helperJobWatch(
-            () => poll({ data: { token } }),
+            () => poll({ data: { id } }),
             controller.signal,
             setNotClaimed
           )

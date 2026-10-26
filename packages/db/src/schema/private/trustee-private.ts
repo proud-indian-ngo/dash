@@ -56,26 +56,47 @@ export const signingJobStateEnum = privateSchema.enum("signing_job_state", [
   "expired",
 ]);
 
+/** One PDF of a sign job, as `@keyseal/server` keeps it on the job. */
+export interface SigningJobDocument {
+  fieldName: string;
+  signatureDetails: {
+    contactInfo?: string;
+    location?: string;
+    reason?: string;
+  } | null;
+  stampStyle: string | null;
+  title: string;
+  /** Base64 DER SignedAttributes, set by round 1. */
+  toSign: string | null;
+}
+
 /**
- * One signr job (`@signr/server`): the helper opens a `signr://` link, fetches
- * the job with its one-time token and signs on the trustee's token. Only the
- * token's SHA-256 is kept (`token_hash`, the job's id to signr), and the claim
- * nonce's likewise. Expires 15 minutes after creation. `reference` is JSON
- * naming who started the job and what it signs. Server only.
+ * One KeySeal job (`@keyseal/server`): the helper opens a `keyseal://` link,
+ * fetches the job with its one-time token and signs on the trustee's token.
+ * Only the token's SHA-256 is kept (`token_hash`, the job's id to KeySeal),
+ * and the claim nonce's likewise. Expires 15 minutes after creation.
+ * `reference` is JSON naming who started the job and what it signs. Server
+ * only.
  */
 export const signingJob = privateSchema.table(
   "signing_job",
   {
     /** Base64 DER of the certificate accepted in round 1. */
     certificate: text("certificate"),
+    certificatePolicy: jsonb("certificate_policy").$type<{
+      issuerCommonNames?: string[];
+      policyOids?: string[];
+      subjectOrganization?: string;
+    }>(),
     chain: jsonb("chain").$type<string[]>(),
     claimNonceHash: text("claim_nonce_hash"),
     createdAt: timestamp("created_at").notNull(),
     digestAlgorithm: text("digest_algorithm", { enum: ["sha256", "sha384"] }),
+    /** Sign jobs: the PDFs in signing order; empty for enrolment. */
+    documents: jsonb("documents").$type<SigningJobDocument[]>().notNull(),
     /** A message for the person, when it failed. */
     error: text("error"),
     expectedCertificateSha256: text("expected_certificate_sha256"),
-    fieldName: text("field_name"),
     id: uuid("id").primaryKey(),
     kind: signingJobKindEnum("kind").notNull(),
     /** When the request holding the settle lease took it. */
@@ -83,9 +104,11 @@ export const signingJob = privateSchema.table(
     reference: text("reference"),
     rsaPadding: text("rsa_padding", { enum: ["pkcs1", "pss"] }).notNull(),
     signer: text("signer").notNull(),
-    stampStyle: text("stamp_style"),
     state: signingJobStateEnum("state").notNull(),
-    /** R2 key, below the job blob prefix, of the signing service's state. */
+    /**
+     * R2 key prefix, below the job blob prefix, of the signing service's
+     * states: one per document at `<stateKey>/<index>`.
+     */
     stateKey: text("state_key"),
     title: text("title").notNull(),
     tokenHash: text("token_hash").notNull(),

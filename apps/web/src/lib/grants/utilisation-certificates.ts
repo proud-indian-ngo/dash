@@ -163,7 +163,7 @@ export async function startCertificateJob(input: {
   certificateId: string;
   trustee: { id: string; legalName: string };
   userId: string;
-}): Promise<{ link: string; token: string }> {
+}): Promise<{ id: string; link: string }> {
   const certificate = await getCertificate(input.certificateId);
   if (!certificate) {
     throw new CertificateError("Certificate not found");

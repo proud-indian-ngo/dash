@@ -29,8 +29,8 @@ import { HttpError, userFacingError } from "@/lib/http-error";
 import { authMiddleware } from "@/middleware/auth";
 
 /**
- * Starting DSC helper jobs. The page opens the returned `signr://` link and
- * polls the job with its token; the helper completes it through
+ * Starting DSC helper jobs. The page opens the returned `keyseal://` link and
+ * polls the job by its id; the helper completes it through
  * /api/signing/v1/jobs/<token>.
  */
 
@@ -247,12 +247,12 @@ export const startDscCertificateSigningFn = createServerFn({ method: "POST" })
 
 export const getSigningJobStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ token: z.string().max(128) }))
+  .validator(z.object({ id: z.string().regex(/^[0-9a-f]{64}$/) }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new HttpError(401, "Unauthorized");
     }
-    const status = await jobStatusFor(data.token, context.session.user.id);
+    const status = await jobStatusFor(data.id, context.session.user.id);
     if (!status) {
       throw new HttpError(404, "Not found");
     }

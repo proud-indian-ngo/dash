@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from pyhanko.pdf_utils import content, generic, layout
 from pyhanko.pdf_utils.writer import BasePdfFileWriter
-from signr_service.appearance import NAME_SHARE, SignedByStamp, SignedByStampStyle
+from keyseal_service.appearance import NAME_SHARE, SignedByStamp, SignedByStampStyle
 
 IST = timezone(timedelta(hours=5, minutes=30), "IST")
 
@@ -117,6 +117,7 @@ class ProudIndianStampStyle(SignedByStampStyle):
             style=self,
             box=box,
             signer=text_params.get("signer") or "",
+            reason=text_params.get("reason") or "",
             at=datetime.now(IST),
         )
 

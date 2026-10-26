@@ -7,8 +7,8 @@ import binascii
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
-from signr_service.app import MAX_PDF_BYTES
-from signr_service.settings import Settings
+from keyseal_service.app import MAX_PDF_BYTES
+from keyseal_service.settings import Settings
 
 from .answers import MAX_VALUE, AnswersError, fill_answers
 from .prepare import FieldRequest, PrepareError, prepare_fields

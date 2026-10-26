@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import { type JobStatus, watchJob } from "@signr/browser";
+import { type JobStatus, watchJob } from "@keyseal/browser";
 
 mock.module("@/functions/signing", () => ({
   getMyDscStatus: null,

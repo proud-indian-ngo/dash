@@ -18,9 +18,9 @@ from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.writer import PdfFileWriter
 from pyhanko.sign import signers
 from pyhanko_certvalidator.registry import SimpleCertificateStore
-from signr_service.app import create_app
-from signr_service.settings import Settings
-from signr_service.validate import ValidationSettings
+from keyseal_service.app import create_app
+from keyseal_service.settings import Settings
+from keyseal_service.validate import ValidationSettings
 
 TOKEN = "Test-token-0123456789-abcdefghijkl"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}

@@ -161,7 +161,7 @@ services:
     build:
       context: ${REPO_ROOT}/services/signing-plugin
       args:
-        SIGNR_SERVICE_IMAGE: signr-service-e2e
+        KEYSEAL_SERVICE_IMAGE: keyseal-service-e2e
     image: pi-dash-signing-e2e${WT_SUFFIX}
     container_name: pi-dash-signing-test${WT_SUFFIX}
     environment:
@@ -173,7 +173,7 @@ services:
     command:
       - sh
       - -c
-      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn signr_service.app:create_app --factory --host 0.0.0.0 --port 8080
+      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080
     volumes:
       - ${E2E_SIGNING_PKI_DIR}/roots:/test-roots:ro
       - ${E2E_SIGNING_PKI_DIR}/tsa:/test-tsa:ro
@@ -238,11 +238,17 @@ docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
 # Issuing circulars, minutes, declarations and utilisation certificates
-# needs the signing service: the generic signr image, built from a signr
-# checkout beside this repository until it is published, with the pi-dash
-# plugin on top.
+# needs the signing service: the generic KeySeal image with the pi-dash
+# plugin on top. KEYSEAL_DIR builds the generic image from a KeySeal checkout
+# instead of the published one.
 echo "Starting the signing service on port $TEST_SIGNING_PORT..."
-docker build -q -t signr-service-e2e "${SIGNR_DIR:-$REPO_ROOT/../signr}/service" >/dev/null
+if [ -n "${KEYSEAL_DIR:-}" ]; then
+  docker build -q -t keyseal-service-e2e "$KEYSEAL_DIR/service" >/dev/null
+else
+  image="$(sed -n 's/^ARG KEYSEAL_SERVICE_IMAGE=//p' "$REPO_ROOT/services/signing-plugin/Dockerfile")"
+  docker pull -q "$image" >/dev/null
+  docker tag "$image" keyseal-service-e2e
+fi
 docker compose -f "$E2E_COMPOSE_FILE" build signing-test
 bash "$REPO_ROOT/packages/e2e/signing/make-test-pki.sh" \
   "pi-dash-signing-e2e${WT_SUFFIX}" "$E2E_SIGNING_PKI_DIR"

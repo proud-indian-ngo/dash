@@ -1,3 +1,15 @@
+import {
+  type Adapter,
+  type CertificateFacts,
+  type CompletedResult,
+  createKeySeal,
+  type Job,
+  type JobFailure,
+  JobRefused,
+  type JobStatus,
+  type KeySeal,
+  ServiceClient,
+} from "@keyseal/server";
 import { db } from "@pi-dash/db";
 import { trusteeNamesForMatching } from "@pi-dash/db/queries/governance";
 import { getMeeting, MeetingError } from "@pi-dash/db/queries/meetings";
@@ -22,18 +34,6 @@ import { user } from "@pi-dash/db/schema/auth";
 import { env } from "@pi-dash/env/server";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
 import { signatureFieldName } from "@pi-dash/shared/resolutions";
-import {
-  type Adapter,
-  type CertificateFacts,
-  type CompletedResult,
-  createSignr,
-  type Job,
-  type JobFailure,
-  JobRefused,
-  type JobStatus,
-  ServiceClient,
-  type Signr,
-} from "@signr/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 
@@ -51,7 +51,7 @@ import { CircularError } from "./circulars";
 import { SigningServiceError } from "./signing-service";
 
 /**
- * DSC helper jobs on `@signr/server`. The page opens a `signr://` link; the
+ * DSC helper jobs on `@keyseal/server`. The page opens a `keyseal://` link; the
  * helper talks to the job endpoint under /api/signing with no session: the
  * one-time job token stands for the trustee who started the job, and every
  * completion is audited in their name. A sign job signs a circular, for the
@@ -61,10 +61,10 @@ import { SigningServiceError } from "./signing-service";
  */
 
 /** Job URLs are `<origin>/api/signing/v1/jobs/<token>`. */
-const SIGNR_BASE_PATH = "/api/signing";
+const KEYSEAL_BASE_PATH = "/api/signing";
 
 /**
- * The oldest signr helper the job endpoint serves. Raise it when the helper
+ * The oldest KeySeal helper the job endpoint serves. Raise it when the helper
  * must change with the dashboard; older helpers are told to update.
  */
 const MIN_HELPER_VERSION = "0.1.0";
@@ -223,10 +223,12 @@ async function signatureRecorded(
 async function fileSigned(
   job: Job,
   { target, trusteeId, userId }: JobReference,
-  { certificate, pdf }: Extract<CompletedResult, { kind: "sign" }>
+  { certificate, pdfs }: Extract<CompletedResult, { kind: "sign" }>
 ): Promise<void> {
-  if (target.type === "enrol") {
-    throw new Error(`Sign job ${job.id} names no document`);
+  // Every job here signs one document.
+  const [pdf] = pdfs;
+  if (target.type === "enrol" || pdfs.length !== 1 || !pdf) {
+    throw new Error(`Sign job ${job.id} doesn't name one document`);
   }
   const expectedCertificateSha256 = certificate.sha256;
   try {
@@ -279,7 +281,7 @@ async function fileSigned(
 }
 
 /**
- * signr's completion callback, audited as the trustee who started the job.
+ * KeySeal's completion callback, audited as the trustee who started the job.
  * A retry after a lapsed settle lease may call it again for the same job.
  */
 async function completeJob(job: Job, result: CompletedResult): Promise<void> {
@@ -301,7 +303,7 @@ async function completeJob(job: Job, result: CompletedResult): Promise<void> {
 }
 
 /**
- * signr's failure callback: a failure the helper reported, or one the server
+ * KeySeal's failure callback: a failure the helper reported, or one the server
  * decided (a refused certificate or signature, a `JobRefused`, an outdated
  * helper), audited as a failure of the job's action in the trustee's name.
  * The message is free text, so it stays on the job and out of the audit log.
@@ -341,20 +343,20 @@ const adapter: Adapter = {
   transition: transitionSigningJob,
 };
 
-let signr: Signr | null = null;
+let keyseal: KeySeal | null = null;
 
 /** The job API; throws when the signing service isn't configured here. */
-export function signrJobs(): Signr {
+export function keysealJobs(): KeySeal {
   if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
     throw new SigningServiceError(
       "Signing needs the signing service, which isn't set up here.",
       { fault: true }
     );
   }
-  signr ??= createSignr({
+  keyseal ??= createKeySeal({
     adapter,
     allowInsecureOrigin,
-    basePath: SIGNR_BASE_PATH,
+    basePath: KEYSEAL_BASE_PATH,
     branding: { name: "Proud Indian" },
     minHelperVersion: MIN_HELPER_VERSION,
     origin: new URL(env.APP_URL ?? env.BETTER_AUTH_URL).origin,
@@ -366,12 +368,13 @@ export function signrJobs(): Signr {
       url: env.SIGNING_SERVICE_URL,
     }),
   });
-  return signr;
+  return keyseal;
 }
 
+/** What the page needs: the link to open and the id to poll. */
 interface StartedJob {
+  id: string;
   link: string;
-  token: string;
 }
 
 interface Signer {
@@ -389,12 +392,12 @@ export async function startEnrolJob({
     trusteeId: trustee.id,
     userId,
   };
-  const { link, token } = await signrJobs().createEnrolJob({
+  const { id, link } = await keysealJobs().createEnrolJob({
     reference: JSON.stringify(reference),
     signer: trustee.legalName,
     title: "DSC enrolment",
   });
-  return { link, token };
+  return { id, link };
 }
 
 /**
@@ -421,16 +424,14 @@ export async function startSignJob({
     );
   }
   const reference: JobReference = { target, trusteeId: trustee.id, userId };
-  const { link, token } = await signrJobs().createSignJob({
+  const { id, link } = await keysealJobs().createSignJob({
+    documents: [{ fieldName, pdf, stampStyle: STAMP_STYLE }],
     expectedCertificateSha256: certificate.sha256,
-    fieldName,
-    pdf,
     reference: JSON.stringify(reference),
     signer: trustee.legalName,
-    stampStyle: STAMP_STYLE,
     title,
   });
-  return { link, token };
+  return { id, link };
 }
 
 /**
@@ -502,10 +503,10 @@ export async function startDeclarationJob({
 
 /** What the person's page polls for: their own job only, null otherwise. */
 export async function jobStatusFor(
-  token: string,
+  id: string,
   userId: string
 ): Promise<Pick<JobStatus, "message" | "state"> | null> {
-  const status = await signrJobs().status(token);
+  const status = await keysealJobs().status(id);
   if (!status || readReference(status.reference).userId !== userId) {
     return null;
   }

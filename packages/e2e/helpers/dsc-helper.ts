@@ -8,8 +8,8 @@ import type { Page, Response } from "@playwright/test";
  * Plays the DSC helper in E2E specs. run-e2e.sh and CI make a throwaway CA
  * (`signing/make-test-pki.sh`), which the E2E signing service trusts instead
  * of the CCA roots, and a key and certificate for each seeded trustee. A spec
- * catches the `signr://` link the page opens, then enrols or signs through
- * the signr job endpoint as the helper would, with the trustee's test key.
+ * catches the `keyseal://` link the page opens, then enrols or signs through
+ * the KeySeal job endpoint as the helper would, with the trustee's test key.
  */
 
 export interface TestSigner {
@@ -30,7 +30,7 @@ export function testSigner(slug: "asha-rao" | "vikram-menon"): TestSigner {
   ) as TestSigner;
 }
 
-const HELPER_LINK = /signr:\/\/(?:enrol|sign)\?job=([^"\\]+)/;
+const HELPER_LINK = /keyseal:\/\/(?:enrol|sign)\?job=([^"\\]+)/;
 
 /** The helper version the specs speak as: the dashboard's minimum. */
 const HELPER_VERSION = "0.1.0";
@@ -38,7 +38,7 @@ const HELPER_VERSION = "0.1.0";
 /**
  * Catches the next helper link the page receives from the server. Resolves
  * with the job token. The page opens the link in a hidden iframe, which the
- * test browser drops since no app handles `signr://`.
+ * test browser drops since no app handles `keyseal://`.
  */
 export async function catchHelperLink(
   page: Page
@@ -70,7 +70,7 @@ export async function completeHelperJob(
   signer: TestSigner
 ): Promise<{ message: string; status: number }> {
   const url = `/api/signing/v1/jobs/${token}`;
-  const headers = { "X-Signr-Version": HELPER_VERSION };
+  const headers = { "X-KeySeal-Version": HELPER_VERSION };
   const claimed = await page.request.get(url, { headers });
   const job = (await claimed.json()) as {
     claimNonce?: string;
@@ -86,21 +86,21 @@ export async function completeHelperJob(
     headers,
   });
   const reply = (await prepared.json()) as {
+    documents?: { toSign: string }[];
     message?: string;
-    toSign?: string;
   };
   if (job.kind === "enrol" || !prepared.ok()) {
     return { message: reply.message ?? "", status: prepared.status() };
   }
+  const key = createPrivateKey(signer.privateKey);
   const signed = await page.request.post(`${url}/signature`, {
     data: {
       claimNonce,
-      // RSA PKCS#1 v1.5 over the signed attributes, as the token signs.
-      signature: sign(
-        "sha256",
-        Buffer.from(reply.toSign ?? "", "base64"),
-        createPrivateKey(signer.privateKey)
-      ).toString("base64"),
+      // RSA PKCS#1 v1.5 over each document's signed attributes, as the
+      // token signs.
+      signatures: (reply.documents ?? []).map(({ toSign }) =>
+        sign("sha256", Buffer.from(toSign, "base64"), key).toString("base64")
+      ),
     },
     headers,
   });

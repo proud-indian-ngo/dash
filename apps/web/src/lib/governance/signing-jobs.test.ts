@@ -6,13 +6,42 @@ import {
   mock,
   setSystemTime,
 } from "bun:test";
-import { createHash } from "node:crypto";
+import { createHash, createPrivateKey, sign } from "node:crypto";
 
-import { createMemoryAdapter } from "@signr/server";
+import { createMemoryAdapter } from "@keyseal/server";
 
-/** A throwaway test certificate: CN=ASHA RAO, from a test CA, RSA, 2026 to 2099. */
+/** A throwaway self-signed test certificate: CN=ASHA RAO, RSA, 2026 to 2099. */
 const ASHA_CERT =
-  "MIIC0zCCAbugAwIBAgIUMkaHVPEYKxtKDDFN2U7Ypz7TzfswDQYJKoZIhvcNAQELBQAwJTELMAkGA1UEBhMCSU4xFjAUBgNVBAMMDVRlc3QgQ0NBIFJvb3QwIBcNMjYwMTAxMDAwMDAwWhgPMjA5OTEyMzEwMDAwMDBaMCAxCzAJBgNVBAYTAklOMREwDwYDVQQDDAhBU0hBIFJBTzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALXfoa66VZ4dgA1wrJK62ormN9ESDXUJSZgjOdZ5386j1crGCXuPzsJXAc7lEwPmV4297XvdoNNhSs5YGBKSOYC5mGxqMhBqvRgkmKmNOPKS8/rLy+e6NPcADEQCwEZOxkW566rOpJo0dQCZFlH9KuU0bODqIj0UkRhu95fbRP3lq3CZ9jPZxs6iklHd/7ob2+3F//y1xJRiHabXDHoJRPIAejJUR8BbLJGxzVC/rrKjXhtAStugKhmuxkMG0C4f7UEEiiky3yXGBhEiRJGHegc/MLwq2QMIpOlxlHABctYGZF/T6TWUiGBS2GVgkA78eT7aw2mppaNqt3ynatQ/xxsCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAJ1Vnv5oO5S52EdijS/oLKriHfQr+/lmwbHOC9J0hMfcCb3jtoEpUfjQlzTpJgpFDujbIM2X/nY99qhOVRX7kW5opUIeIJcMFdt+RUPQHogn8yo7OZW2bnbTewNhpRtbLxZ1Pi8ZV/psBy4JUpQT6cRMmNJO+PE/yBPpjl1WvooH3DukJx5AwlPCuD64Dp+QP8cqxB7PrrHc26ZwSsgako49n5PP+sTJRmCt5FetMj35mJF7tdxjtJ5bQ++QBaQHFqdj8OLqF4hQoGlPNrBl+5paDo3u2gjEsh21Yd04Ij18Nf36SvWKDNd2MOLtMEUm7XbRBBc2DjQUgwp0eJAWRgA==";
+  "MIIDDzCCAfegAwIBAgIUB4tKQa+wmzKudFAqofwXcyP9hTYwDQYJKoZIhvcNAQELBQAwIDELMAkGA1UEBhMCSU4xETAPBgNVBAMMCEFTSEEgUkFPMCAXDTI2MDEwMTAwMDAwMFoYDzIwOTkxMjMxMDAwMDAwWjAgMQswCQYDVQQGEwJJTjERMA8GA1UEAwwIQVNIQSBSQU8wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDJBLiAKfELpRwlIHK4QiDjM5tc4f5p7xTeSg1geMDVeXP9Vus78jy7q/lJl3pLhf8K8Ni8feKVH/PY4cronQZDq7n+7nndFEm51coV5awXx7ueHADcODS+inbJFg231Bu/4h5kmqueyCcdhvoFTziiPlcBtBI3nEVue5NA7iv+aZlawiUqDf/bKHoWrY2lVCtW/jtK5KBn7qrQYsGH7tw6cQuX97ujaEaRkvGm5jVJTSbQqH26tdQkZZGz/l+A2uALn1HRtlYREC16ZwZbiq31rw9JeHvl6VT5EhUSNLHFn8mx4FKaye6SP6nJ31vU7CVhvSIlUn+TOE7jfeOLJehrAgMBAAGjPzA9MB0GA1UdDgQWBBT2aBaItub6npAf0EPM24XwZn+mAjAOBgNVHQ8BAf8EBAMCBsAwDAYDVR0TAQH/BAIwADANBgkqhkiG9w0BAQsFAAOCAQEATZ+AoWF3vbp6RWKHE2xD67T61bsTRFEXs6TP9i7pLYSyP4r2Z77M2gJn4qyolf6ly5x7q9M1HZmv4T/u72wh2lQBcTfGmr4bTedxmaBl3yAgDmSXbylxiAHCzKQDfPLWX778AFaMrCF4IvYA+Nd08MdKkMUbX1gLbIfVjHteKXX47opnffYChDqB8lOk+2pUaBhofGbMiyZ8OMsa8O14ElQh3SsP1Eudoy9XbepAqA2KlrIyjYTq/yGd6o5k4+aP2L8dXVI4ylc7W0gQj2gwZsm0zr88k8CMfN71RIHQnrl5I5p0IIpCtC7lLateaQNRxnDOP/2fexo4uTdF9WSTwQ==";
+/** ASHA_CERT's throwaway private key, so the helper's signatures verify. */
+const ASHA_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDJBLiAKfELpRwl
+IHK4QiDjM5tc4f5p7xTeSg1geMDVeXP9Vus78jy7q/lJl3pLhf8K8Ni8feKVH/PY
+4cronQZDq7n+7nndFEm51coV5awXx7ueHADcODS+inbJFg231Bu/4h5kmqueyCcd
+hvoFTziiPlcBtBI3nEVue5NA7iv+aZlawiUqDf/bKHoWrY2lVCtW/jtK5KBn7qrQ
+YsGH7tw6cQuX97ujaEaRkvGm5jVJTSbQqH26tdQkZZGz/l+A2uALn1HRtlYREC16
+ZwZbiq31rw9JeHvl6VT5EhUSNLHFn8mx4FKaye6SP6nJ31vU7CVhvSIlUn+TOE7j
+feOLJehrAgMBAAECggEAQ2DYsuTcDeou7+bbbRWFToKKzexWSY3Ase2iZDa1dBh8
+n2sV+AbvAnzXVyp17ICihzlJfIy5eQC3zHeKesO/SMlz05Z9tHPLboXRcduE/oeN
+RKbgRvB0BXYF8Mr6mCZ5kqypQVFyuwsdyVDn1wXB1ugMY97GyGsR/sFfD0GF74U/
+TH2wQuAjehgcms9AYxc5/ee0M+tKmL9nOU4wrKJvum2k8WU9r724aEhCUfGv5rmO
+0QfyUGdNuc7g7lyJPc/x4qDbyhHkA/aosBUSBzUlwssLcQXwFOMqzTs9UwkaBdob
+zIRomtY4KgI5073gHhpKxCWjsIlnBuYHlc0K80GV8QKBgQD0JLGFwXjgpSu5/Ux+
+l4VZqNXGzJfDKt21OKPL0sFeR58BgSHZIZLZqH/hCSvHW0TDiRAdEW6f7yNzgOv+
+LIuVH6zl6nqkd7wH/FGec9TtqMw5+TuFRr6V0JX5mP9wdYjMc8aDfA0ZIPeSFZWp
+WHKt5YZ8JjxiUHagI3NknmqxSQKBgQDSx+DDY5cKau995/3n1bL6IRd/WPSgf40q
+lhAeDi1ELpa0kqTPO16ryGyeIFspOcEMXr4V3N/JRWRNPkcAflTR8rWMcQ4mR2ft
+Ve1iomQO3woIt74/+RvDdCoUwfVAZIpvsAy4al+Fe5o1HnI7HbxQkWI/UvJFrDwf
+uXj6JiTAEwKBgDPsQd0CgqS0PBJ4LnaV3wRshdqb1ILrcO+DtkI49msIrGZzgjFd
+lI+56EiB3M+vN3amhcjI1lApWc7M0mPiMWVrsSfMsHyeAl1oaita0yQgTB7gRKpZ
+m1rdW6gTw++0730b+lIoZdi8TCrDcGrtpqYZNHre3uTB3Bi+sWHq1yIRAoGBAL0T
+FweuOjraGeLzS8u+4kGFlbJidW3TfSoKWoLbbLeQoxdvw+8w7odhzi06EQw2Bnm2
+MwUhkIzXdlXj24URzbxW34wPjgXAX/WB8uNbkC3W3QVc7YgtST5W4bilE/6jMZtm
+bMKwiOcQLRAhM47b6aTMBTmQikr9aSF8Go0p0iWJAoGBAL7pFKVjDFlCL1XQljLY
+j/VKLmgyRWqR0OeE9z1TfxSt7j+MiaSCxKJcrYGXvtxYS48w7BwZZu62FZDTsNfG
+EmE19X+LRFjAML+U7r5VnpLkiZ0kOWcKaBdzUycUVjeULB8f/XnDFtw6mwyCEc3y
+XqB83SF8MJPh5Jx2Y4Mc3GIa
+-----END PRIVATE KEY-----`;
 
 /** Self-signed CN=ASHA RAO certificates on other keys, 2026 to 2100. */
 const P256_CERT =
@@ -31,8 +60,16 @@ const SIGNED = new TextEncoder().encode("%PDF-1.7 signed");
 const ASHA_SHA256 = createHash("sha256")
   .update(Buffer.from(ASHA_CERT, "base64"))
   .digest("hex");
+/** What the fake signing service hands the helper to sign. */
+const TO_SIGN = "dG8tc2lnbg==";
+/** ASHA_KEY's PKCS#1 v1.5 signature over TO_SIGN, as her token would make it. */
+const SIGNATURE = sign(
+  "sha256",
+  Buffer.from(TO_SIGN, "base64"),
+  createPrivateKey(ASHA_KEY)
+).toString("base64");
 
-/** Job rows in memory, through signr's own reference adapter. */
+/** Job rows in memory, through KeySeal's own reference adapter. */
 const store = createMemoryAdapter({ onCompleted: async () => undefined });
 const objects = new Map<string, Uint8Array>();
 const audited: Record<string, unknown>[] = [];
@@ -159,7 +196,7 @@ mock.module("./signing-service", () => ({
   SigningServiceError: class SigningServiceError extends Error {},
 }));
 
-/** The signing service, as `@signr/server` calls it. */
+/** The signing service, as `@keyseal/server` calls it. */
 globalThis.fetch = (async (input: URL, init: RequestInit) => {
   const body = JSON.parse(String(init.body)) as Record<string, unknown>;
   serviceCalls.push({ body, path: input.pathname });
@@ -171,7 +208,7 @@ globalThis.fetch = (async (input: URL, init: RequestInit) => {
       digestAlgorithm: "sha256",
       signatureAlgorithm: "rsa-pkcs1-v1_5",
       state: JSON.stringify({ output: Buffer.from(PDF).toString("base64") }),
-      toSign: "dG8tc2lnbg==",
+      toSign: TO_SIGN,
     });
   }
   return new Response(SIGNED);
@@ -180,7 +217,7 @@ globalThis.fetch = (async (input: URL, init: RequestInit) => {
 const { CircularError } = await import("./circulars");
 const {
   jobStatusFor,
-  signrJobs,
+  keysealJobs,
   startDeclarationJob,
   startEnrolJob,
   startMinutesJob,
@@ -189,6 +226,17 @@ const {
 
 const ASHA = { trustee: { id: "asha", legalName: "Asha Rao" }, userId: "u1" };
 
+/** A started job with its token, the last segment of the link's job URL. */
+function started<T extends { link: string }>(job: T): T & { token: string } {
+  const jobUrl = new URL(new URL(job.link).searchParams.get("job") ?? "");
+  return { ...job, token: jobUrl.pathname.split("/").at(-1) ?? "" };
+}
+
+/** The id the page polls with: the SHA-256 of the job token. */
+function idOf(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 /** What the helper sends: a GET claims the job, a POST names its action. */
 async function helper(
   token: string,
@@ -196,11 +244,11 @@ async function helper(
   body?: Record<string, unknown>,
   version = HELPER_VERSION
 ): Promise<{ body: Record<string, unknown>; status: number }> {
-  const response = await signrJobs().handle(
+  const response = await keysealJobs().handle(
     new Request(
       `${ORIGIN}/api/signing/v1/jobs/${token}${action ? `/${action}` : ""}`,
       {
-        headers: { "X-Signr-Version": version },
+        headers: { "X-KeySeal-Version": version },
         ...(action ? { body: JSON.stringify(body), method: "POST" } : {}),
       }
     )
@@ -218,7 +266,7 @@ async function claim(token: string): Promise<string> {
 }
 
 async function enrolWith(der: string, chain: string[] = []) {
-  const { token } = await startEnrolJob(ASHA);
+  const { token } = started(await startEnrolJob(ASHA));
   const claimNonce = await claim(token);
   const reply = await helper(token, "certificate", {
     certificate: der,
@@ -229,13 +277,15 @@ async function enrolWith(der: string, chain: string[] = []) {
 }
 
 async function signCircular(circularId = "circular-1") {
-  const { token } = await startSignJob({
-    ...ASHA,
-    fieldName: "sig_asha",
-    pdf: PDF,
-    target: { id: circularId, type: "circular" },
-    title: "Operation of bank accounts",
-  });
+  const { token } = started(
+    await startSignJob({
+      ...ASHA,
+      fieldName: "sig_asha",
+      pdf: PDF,
+      target: { id: circularId, type: "circular" },
+      title: "Operation of bank accounts",
+    })
+  );
   const claimNonce = await claim(token);
   const prepared = await helper(token, "certificate", {
     certificate: ASHA_CERT,
@@ -245,7 +295,7 @@ async function signCircular(circularId = "circular-1") {
   expect(prepared.status).toBe(200);
   const signed = await helper(token, "signature", {
     claimNonce,
-    signature: "c2lnbmF0dXJl",
+    signatures: [SIGNATURE],
   });
   return { claimNonce, signed, token };
 }
@@ -266,10 +316,10 @@ beforeEach(() => {
 });
 
 describe("the job endpoint", () => {
-  it("serves signr links on the dashboard's origin under /api/signing", async () => {
-    const { link, token } = await startEnrolJob(ASHA);
+  it("serves KeySeal links on the dashboard's origin under /api/signing", async () => {
+    const { link, token } = started(await startEnrolJob(ASHA));
     expect(link).toBe(
-      `signr://enrol?job=${encodeURIComponent(`${ORIGIN}/api/signing/v1/jobs/${token}`)}`
+      `keyseal://enrol?job=${encodeURIComponent(`${ORIGIN}/api/signing/v1/jobs/${token}`)}`
     );
     const reply = await helper(token);
     expect(reply.body).toMatchObject({
@@ -280,7 +330,7 @@ describe("the job endpoint", () => {
   });
 
   it("serves the manifest", async () => {
-    expect(await signrJobs().manifest().json()).toMatchObject({
+    expect(await keysealJobs().manifest().json()).toMatchObject({
       name: "Proud Indian",
       protocol: 1,
     });
@@ -293,30 +343,30 @@ describe("the job endpoint", () => {
   });
 
   it("refuses a helper older than the dashboard serves and fails its job", async () => {
-    const { token } = await startEnrolJob(ASHA);
+    const { token } = started(await startEnrolJob(ASHA));
     const reply = await helper(token, undefined, undefined, "0.0.9");
     expect(reply.status).toBe(426);
-    expect(await jobStatusFor(token, "u1")).toEqual({
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
       message: "Update the signing helper, then try again.",
       state: "failed",
     });
   });
 
   it("shows a job's status only to the person who started it", async () => {
-    const { token } = await startEnrolJob(ASHA);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "pending" });
-    expect(await jobStatusFor(token, "someone-else")).toBeNull();
+    const { token } = started(await startEnrolJob(ASHA));
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({ state: "pending" });
+    expect(await jobStatusFor(idOf(token), "someone-else")).toBeNull();
   });
 
   it("fails the job with the reason the helper gave up", async () => {
-    const { token } = await startEnrolJob(ASHA);
+    const { token } = started(await startEnrolJob(ASHA));
     const claimNonce = await claim(token);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "claimed" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({ state: "claimed" });
     await helper(token, "failure", {
       claimNonce,
       message: "No DSC token is plugged in.",
     });
-    expect(await jobStatusFor(token, "u1")).toEqual({
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
       message: "No DSC token is plugged in.",
       state: "failed",
     });
@@ -336,26 +386,28 @@ describe("the job endpoint", () => {
   });
 
   it("answers 429 once the rate limit is reached", async () => {
-    const { token } = await startEnrolJob(ASHA);
+    const { token } = started(await startEnrolJob(ASHA));
     rateLimited = true;
     expect((await helper(token)).status).toBe(429);
   });
 
   it("expires a stale job and deletes its PDF", async () => {
-    const { token } = await startSignJob({
-      ...ASHA,
-      fieldName: "sig_asha",
-      pdf: PDF,
-      target: { id: "circular-1", type: "circular" },
-      title: "Operation of bank accounts",
-    });
+    const { token } = started(
+      await startSignJob({
+        ...ASHA,
+        fieldName: "sig_asha",
+        pdf: PDF,
+        target: { id: "circular-1", type: "circular" },
+        title: "Operation of bank accounts",
+      })
+    );
     expect(objects.size).toBe(1);
     // Starting a job sweeps the ones past their 15 minutes.
     setSystemTime(new Date(Date.now() + 60 * 60_000));
     try {
-      await startEnrolJob(ASHA);
+      started(await startEnrolJob(ASHA));
       expect(objects.size).toBe(0);
-      expect((await jobStatusFor(token, "u1"))?.state).toBe("expired");
+      expect((await jobStatusFor(idOf(token), "u1"))?.state).toBe("expired");
     } finally {
       setSystemTime();
     }
@@ -370,8 +422,8 @@ describe("the job endpoint", () => {
     try {
       // A fresh copy of the module, which reads NODE_ENV when it loads.
       const specifier = "./signing-jobs?production";
-      const fresh = (await import(specifier)) as { signrJobs: () => unknown };
-      expect(() => fresh.signrJobs()).toThrow(
+      const fresh = (await import(specifier)) as { keysealJobs: () => unknown };
+      expect(() => fresh.keysealJobs()).toThrow(
         "origin must be a bare https origin"
       );
     } finally {
@@ -389,7 +441,7 @@ describe("enrolment", () => {
       expect.objectContaining({
         chain: [P256_CERT],
         der: ASHA_CERT,
-        issuer: "Test CCA Root",
+        issuer: "ASHA RAO",
         notAfter: new Date("2099-12-31T00:00:00Z"),
         serial: expect.stringMatching(/^[0-9A-F]+$/),
         sha256: ASHA_SHA256,
@@ -404,7 +456,9 @@ describe("enrolment", () => {
         target: { id: "asha", type: "trustee" },
       }),
     ]);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "completed" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
+      state: "completed",
+    });
   });
 
   it("takes an EC key on P-256 or P-384", async () => {
@@ -418,16 +472,18 @@ describe("enrolment", () => {
     for (const der of ["bm90IGEgY2VydA==", SECP256K1_CERT, ED25519_CERT]) {
       const { reply, token } = await enrolWith(der);
       expect(reply.status).toBe(422);
-      expect((await jobStatusFor(token, "u1"))?.state).toBe("failed");
+      expect((await jobStatusFor(idOf(token), "u1"))?.state).toBe("failed");
     }
     expect(enrolled).toEqual([]);
   });
 
   it("refuses a token holding someone else's certificate", async () => {
-    const { token } = await startEnrolJob({
-      trustee: { id: "vikram", legalName: "Vikram Menon" },
-      userId: "u2",
-    });
+    const { token } = started(
+      await startEnrolJob({
+        trustee: { id: "vikram", legalName: "Vikram Menon" },
+        userId: "u2",
+      })
+    );
     const claimNonce = await claim(token);
     const reply = await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -437,7 +493,7 @@ describe("enrolment", () => {
     expect(reply.status).toBe(422);
     expect(String(reply.body.message)).toContain("Vikram Menon");
     expect(enrolled).toEqual([]);
-    expect(await jobStatusFor(token, "u2")).toEqual({
+    expect(await jobStatusFor(idOf(token), "u2")).toEqual({
       message: String(reply.body.message),
       state: "failed",
     });
@@ -448,7 +504,7 @@ describe("enrolment", () => {
     const { reply, token } = await enrolWith(ASHA_CERT);
     expect(reply.status).toBe(422);
     expect(enrolled).toEqual([]);
-    expect((await jobStatusFor(token, "u1"))?.state).toBe("failed");
+    expect((await jobStatusFor(idOf(token), "u1"))?.state).toBe("failed");
     expect(audited).toEqual([
       expect.objectContaining({
         action: "signing.enrol",
@@ -492,19 +548,23 @@ describe("circular jobs", () => {
         target: { id: "circular-1", type: "circular" },
       }),
     ]);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "completed" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
+      state: "completed",
+    });
     // The PDF and the service's state lived in R2 only while the job was open.
     expect(objects.size).toBe(0);
   });
 
   it("keeps the PDF and state under the signing jobs prefix", async () => {
-    const { token } = await startSignJob({
-      ...ASHA,
-      fieldName: "sig_asha",
-      pdf: PDF,
-      target: { id: "circular-1", type: "circular" },
-      title: "Operation of bank accounts",
-    });
+    const { token } = started(
+      await startSignJob({
+        ...ASHA,
+        fieldName: "sig_asha",
+        pdf: PDF,
+        target: { id: "circular-1", type: "circular" },
+        title: "Operation of bank accounts",
+      })
+    );
     const claimNonce = await claim(token);
     await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -520,13 +580,15 @@ describe("circular jobs", () => {
 
   it("refuses another certificate than the enrolled one", async () => {
     certificate = { sha256: "a".repeat(64) };
-    const { token } = await startSignJob({
-      ...ASHA,
-      fieldName: "sig_asha",
-      pdf: PDF,
-      target: { id: "circular-1", type: "circular" },
-      title: "Operation of bank accounts",
-    });
+    const { token } = started(
+      await startSignJob({
+        ...ASHA,
+        fieldName: "sig_asha",
+        pdf: PDF,
+        target: { id: "circular-1", type: "circular" },
+        title: "Operation of bank accounts",
+      })
+    );
     const claimNonce = await claim(token);
     const reply = await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -557,7 +619,7 @@ describe("circular jobs", () => {
     const { signed, token } = await signCircular();
     expect(signed.status).toBe(422);
     expect(signed.body.message).toBe("This copy is stale. Download it again.");
-    expect(await jobStatusFor(token, "u1")).toEqual({
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
       message: "This copy is stale. Download it again.",
       state: "failed",
     });
@@ -594,16 +656,20 @@ describe("circular jobs", () => {
     };
     const { claimNonce, signed, token } = await signCircular();
     expect(signed.status).toBe(500);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "prepared" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
+      state: "prepared",
+    });
     expect(audited).toEqual([
       expect.objectContaining({ action: "circular.sign", outcome: "failure" }),
     ]);
     const retried = await helper(token, "signature", {
       claimNonce,
-      signature: "c2lnbmF0dXJl",
+      signatures: [SIGNATURE],
     });
     expect(retried.status).toBe(200);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "completed" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
+      state: "completed",
+    });
     expect(audited[1]).toMatchObject({
       action: "circular.sign",
       outcome: "success",
@@ -617,7 +683,9 @@ describe("circular jobs", () => {
     recordedMeanwhile = true;
     const { signed, token } = await signCircular();
     expect(signed.status).toBe(200);
-    expect(await jobStatusFor(token, "u1")).toEqual({ state: "completed" });
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
+      state: "completed",
+    });
   });
 });
 
@@ -635,10 +703,12 @@ describe("minutes jobs", () => {
   });
 
   it("starts a job on the current minutes for the chair", async () => {
-    const { token } = await startMinutesJob({
-      ...ASHA,
-      meetingId: "meeting-1",
-    });
+    const { token } = started(
+      await startMinutesJob({
+        ...ASHA,
+        meetingId: "meeting-1",
+      })
+    );
     expect((await helper(token)).body).toMatchObject({
       kind: "sign",
       title: "Minutes of the board meeting of 19 October 2026",
@@ -660,10 +730,12 @@ describe("minutes jobs", () => {
   });
 
   it("files the signed minutes through the minutes acceptance", async () => {
-    const { token } = await startMinutesJob({
-      ...ASHA,
-      meetingId: "meeting-1",
-    });
+    const { token } = started(
+      await startMinutesJob({
+        ...ASHA,
+        meetingId: "meeting-1",
+      })
+    );
     const claimNonce = await claim(token);
     await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -672,7 +744,7 @@ describe("minutes jobs", () => {
     });
     const signed = await helper(token, "signature", {
       claimNonce,
-      signature: "c2lnbmF0dXJl",
+      signatures: [SIGNATURE],
     });
     expect(signed.status).toBe(200);
     expect(accepted).toEqual([
@@ -704,10 +776,12 @@ describe("declaration jobs", () => {
   });
 
   it("starts a job on the declaration waiting for its trustee's signature", async () => {
-    const { token } = await startDeclarationJob({
-      ...ASHA,
-      declarationId: "declaration-1",
-    });
+    const { token } = started(
+      await startDeclarationJob({
+        ...ASHA,
+        declarationId: "declaration-1",
+      })
+    );
     expect((await helper(token)).body).toMatchObject({
       kind: "sign",
       title: "Declaration of interests for 2026-27",
@@ -729,10 +803,12 @@ describe("declaration jobs", () => {
   });
 
   it("files the signed declaration through the declaration acceptance", async () => {
-    const { token } = await startDeclarationJob({
-      ...ASHA,
-      declarationId: "declaration-1",
-    });
+    const { token } = started(
+      await startDeclarationJob({
+        ...ASHA,
+        declarationId: "declaration-1",
+      })
+    );
     const claimNonce = await claim(token);
     await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -741,7 +817,7 @@ describe("declaration jobs", () => {
     });
     const signed = await helper(token, "signature", {
       claimNonce,
-      signature: "c2lnbmF0dXJl",
+      signatures: [SIGNATURE],
     });
     expect(signed.status).toBe(200);
     expect(accepted).toEqual([
@@ -762,13 +838,15 @@ describe("declaration jobs", () => {
 
 describe("utilisation certificate jobs", () => {
   async function signCertificate() {
-    const { token } = await startSignJob({
-      ...ASHA,
-      fieldName: "sig_asha",
-      pdf: PDF,
-      target: { id: "uc-1", type: "utilisation_certificate" },
-      title: "Utilisation certificate UC-1: School kits",
-    });
+    const { token } = started(
+      await startSignJob({
+        ...ASHA,
+        fieldName: "sig_asha",
+        pdf: PDF,
+        target: { id: "uc-1", type: "utilisation_certificate" },
+        title: "Utilisation certificate UC-1: School kits",
+      })
+    );
     const claimNonce = await claim(token);
     await helper(token, "certificate", {
       certificate: ASHA_CERT,
@@ -777,7 +855,7 @@ describe("utilisation certificate jobs", () => {
     });
     const signed = await helper(token, "signature", {
       claimNonce,
-      signature: "c2lnbmF0dXJl",
+      signatures: [SIGNATURE],
     });
     return { signed, token };
   }
@@ -806,7 +884,7 @@ describe("utilisation certificate jobs", () => {
     };
     const { signed, token } = await signCertificate();
     expect(signed.status).toBe(422);
-    expect(await jobStatusFor(token, "u1")).toEqual({
+    expect(await jobStatusFor(idOf(token), "u1")).toEqual({
       message: "It's the Chief Finance Officer's turn.",
       state: "failed",
     });

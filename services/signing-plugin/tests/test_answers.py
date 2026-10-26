@@ -10,8 +10,8 @@ from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields, signers
-from signr_service.remote_sign import finish, start
-from signr_service.validate import ValidationSettings, validate_pdf
+from keyseal_service.remote_sign import finish, start
+from keyseal_service.validate import ValidationSettings, validate_pdf
 
 from pidash_signing_plugin.answers import AnswersError, fill_answers
 from pidash_signing_plugin.appearance import ProudIndianStampStyle

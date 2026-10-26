@@ -4,8 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SigningJob } from "./queries/signing";
 
 /**
- * Database-backed checks of the signr job store behind the DSC helper: the
- * adapter contract `@signr/server` relies on (atomic transitions on state
+ * Database-backed checks of the KeySeal job store behind the DSC helper: the
+ * adapter contract `@keyseal/server` relies on (atomic transitions on state
  * and lease start, expiry that spares a live lease).
  * Opt in with SIGNING_DB_TEST=1 and DATABASE_URL pointing at a local,
  * migrated database. It adds its own jobs and deletes them afterwards.
@@ -17,7 +17,7 @@ const enabled =
     process.env.DATABASE_URL ?? ""
   );
 
-describe.skipIf(!enabled)("signr jobs in the database", () => {
+describe.skipIf(!enabled)("KeySeal jobs in the database", () => {
   const ids: string[] = [];
   let db: typeof import(".").db;
   let schema: typeof import("./schema/private/trustee-private");
@@ -28,20 +28,28 @@ describe.skipIf(!enabled)("signr jobs in the database", () => {
     ids.push(id);
     return {
       certificate: null,
+      certificatePolicy: null,
       chain: null,
       claimNonceHash: null,
       createdAt: new Date("2026-10-22T10:00:00.123Z"),
       digestAlgorithm: null,
+      documents: [
+        {
+          fieldName: "sig_asha",
+          signatureDetails: null,
+          stampStyle: "proud-indian",
+          title: "Operation of bank accounts",
+          toSign: null,
+        },
+      ],
       error: null,
       expectedCertificateSha256: "e".repeat(64),
-      fieldName: "sig_asha",
       id,
       kind: "sign",
       leaseStartedAt: null,
       reference: '{"userId":"u1"}',
       rsaPadding: "pkcs1",
       signer: "Asha Rao",
-      stampStyle: "proud-indian",
       state: "pending",
       stateKey: null,
       title: "Operation of bank accounts",

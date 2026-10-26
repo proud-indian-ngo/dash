@@ -270,7 +270,7 @@ jobs:
           (
             # Trusts only this run's throwaway CA and timestamps with the
             # fake timestamp authority beside it; see run-e2e.sh. The
-            # plugin builds on the signr-service image its Dockerfile names.
+            # plugin builds on the keyseal-service image its Dockerfile names.
             (docker build -t pi-dash-signing services/signing-plugin &&
               bash packages/e2e/signing/make-test-pki.sh pi-dash-signing "$E2E_SIGNING_PKI_DIR" &&
               docker run -d --name signing -p 4872:8080 \
@@ -280,7 +280,7 @@ jobs:
                 -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" \
                 -v "$E2E_SIGNING_PKI_DIR/tsa:/test-tsa:ro" \
                 -v "$PWD/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro" \
-                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn signr_service.app:create_app --factory --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
+                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
             echo $? > /tmp/signing.exit
           ) > /dev/null 2>&1 &
 

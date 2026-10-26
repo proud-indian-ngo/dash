@@ -20,13 +20,14 @@ export const Route = createFileRoute(
 });
 
 /**
- * The signr helper's latest release. PLACEHOLDER: the owner and asset names
- * are set once signr publishes its first release.
+ * The KeySeal helper release offered for download. Its asset names carry the
+ * version, so this moves by hand; installed helpers update themselves.
  */
+const HELPER_RELEASE = "0.1.0";
+const RELEASE_URL = `https://github.com/somus/keyseal/releases/download/helper-v${HELPER_RELEASE}`;
 const DOWNLOADS = {
-  mac: "https://github.com/PLACEHOLDER-OWNER/signr/releases/latest/download/signr-macos-universal.dmg",
-  windows:
-    "https://github.com/PLACEHOLDER-OWNER/signr/releases/latest/download/signr-windows-x64.exe",
+  mac: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-macos-universal.dmg`,
+  windows: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-windows-x64.zip`,
 } as const;
 
 type Platform = "mac" | "windows";
@@ -127,15 +128,16 @@ function SigningHelperPage() {
           <DownloadButton platform={platform} />
           {platform === "mac" ? (
             <p>
-              Open the downloaded file, drag Signr into Applications and open it
-              once from there.
+              Open the downloaded file, drag KeySeal into Applications and open
+              it once from there.
             </p>
           ) : (
             <p>
               If your browser says the file isn't commonly downloaded, choose
-              Keep in its downloads list. Open the downloaded file. Windows says
-              it protected your PC, because the helper isn't from a paid
-              publisher; choose More info, then Run anyway.
+              Keep in its downloads list. Unzip the downloaded file and open
+              install.cmd inside it. Windows says it protected your PC, because
+              the helper isn't from a paid publisher; choose More info, then Run
+              anyway.
             </p>
           )}
           <p className="text-muted-foreground">
@@ -150,11 +152,11 @@ function SigningHelperPage() {
         <Step number={3} title="Set up your DSC">
           <p>
             Plug in your token, open a circular sent to you and choose Set up
-            your DSC. Your browser asks to open Signr; allow it. The first time,
-            Signr asks whether to trust the dashboard's address; check that it
-            is the dashboard's, then choose your certificate. From then on,
-            choose Sign with your DSC on any circular and enter your token PIN
-            in Signr.
+            your DSC. Your browser asks to open KeySeal; allow it. The first
+            time, KeySeal asks whether to trust the dashboard's address; check
+            that it is the dashboard's, then choose your certificate. From then
+            on, choose Sign with your DSC on any circular and enter your token
+            PIN in KeySeal.
           </p>
         </Step>
       </ol>

@@ -549,15 +549,23 @@ test.describe("signing helper", () => {
     await page.getByRole("button", { name: "Mac" }).click();
     await expect(
       page.getByRole("link", { name: "Download for Mac" })
-    ).toHaveAttribute("href", /\/signr\/releases\/latest\/download\/.+\.dmg$/);
-    await expect(page.getByText(/drag Signr into Applications/)).toBeVisible();
+    ).toHaveAttribute(
+      "href",
+      /\/keyseal\/releases\/download\/helper-v.+\/keyseal-helper-.+-macos-universal\.dmg$/
+    );
+    await expect(
+      page.getByText(/drag KeySeal into Applications/)
+    ).toBeVisible();
     await expect(
       page.getByText(/replaces the earlier Proud Indian Signing helper/)
     ).toBeVisible();
     await page.getByRole("button", { name: "Windows" }).click();
     await expect(
       page.getByRole("link", { name: "Download for Windows" })
-    ).toHaveAttribute("href", /\/signr\/releases\/latest\/download\/.+\.exe$/);
+    ).toHaveAttribute(
+      "href",
+      /\/keyseal\/releases\/download\/helper-v.+\/keyseal-helper-.+-windows-x64\.zip$/
+    );
     await expect(page.getByText(/Run anyway/)).toBeVisible();
   });
 });

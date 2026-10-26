@@ -16,6 +16,7 @@ import { Route as AuthDotmdRouteImport } from './routes/auth[.]md'
 import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
+import { Route as DotwellKnownKeysealDotjsonRouteImport } from './routes/[.]well-known/keyseal[.]json'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSplatRouteImport } from './routes/_app/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
@@ -111,6 +112,7 @@ import { Route as ApiPublicOpenapiDotjsonRouteImport } from './routes/api/public
 import { Route as ApiRazorpayWebhookRouteImport } from './routes/api/razorpay/webhook'
 import { Route as ApiReceiptsReceiptIdRouteImport } from './routes/api/receipts/$receiptId'
 import { Route as ApiReceiptsSignatureRouteImport } from './routes/api/receipts/signature'
+import { Route as ApiSigningSplatRouteImport } from './routes/api/signing/$'
 import { Route as ApiUtilisationCertificatesCertificateIdRouteImport } from './routes/api/utilisation-certificates/$certificateId'
 import { Route as ApiWhatsappWebhookRouteImport } from './routes/api/whatsapp/webhook'
 import { Route as ApiZeroMutateRouteImport } from './routes/api/zero/mutate'
@@ -159,7 +161,6 @@ import { Route as ApiKalakritiYearRegistrationExportRouteImport } from './routes
 import { Route as ApiKalakritiYearScheduleRouteImport } from './routes/api/kalakriti/$year/schedule'
 import { Route as ApiMediaAvatarUserIdRouteImport } from './routes/api/media/avatar.$userId'
 import { Route as ApiMediaEventPhotoIdRouteImport } from './routes/api/media/event-photo.$id'
-import { Route as ApiSigningJobsTokenRouteImport } from './routes/api/signing/jobs/$token'
 import { Route as ApiSocialV1EventsRouteImport } from './routes/api/social/v1/events'
 import { Route as ApiSocialV1NotifyRouteImport } from './routes/api/social/v1/notify'
 import { Route as ApiSocialV1OpenapiDotjsonRouteImport } from './routes/api/social/v1/openapi[.]json'
@@ -221,6 +222,12 @@ const DotwellKnownSplatRoute = DotwellKnownSplatRouteImport.update({
   path: '/.well-known/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownKeysealDotjsonRoute =
+  DotwellKnownKeysealDotjsonRouteImport.update({
+    id: '/.well-known/keyseal.json',
+    path: '/.well-known/keyseal.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -703,6 +710,11 @@ const ApiReceiptsSignatureRoute = ApiReceiptsSignatureRouteImport.update({
   path: '/api/receipts/signature',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSigningSplatRoute = ApiSigningSplatRouteImport.update({
+  id: '/api/signing/$',
+  path: '/api/signing/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUtilisationCertificatesCertificateIdRoute =
   ApiUtilisationCertificatesCertificateIdRouteImport.update({
     id: '/api/utilisation-certificates/$certificateId',
@@ -960,11 +972,6 @@ const ApiMediaEventPhotoIdRoute = ApiMediaEventPhotoIdRouteImport.update({
   path: '/api/media/event-photo/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSigningJobsTokenRoute = ApiSigningJobsTokenRouteImport.update({
-  id: '/api/signing/jobs/$token',
-  path: '/api/signing/jobs/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiSocialV1EventsRoute = ApiSocialV1EventsRouteImport.update({
   id: '/api/social/v1/events',
   path: '/api/social/v1/events',
@@ -1138,6 +1145,7 @@ export interface FileRoutesByFullPath {
   '/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/vendors': typeof AppVendorsRouteRouteWithChildren
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/.well-known/keyseal.json': typeof DotwellKnownKeysealDotjsonRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
@@ -1211,6 +1219,7 @@ export interface FileRoutesByFullPath {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/signing/$': typeof ApiSigningSplatRoute
   '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
@@ -1263,7 +1272,6 @@ export interface FileRoutesByFullPath {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
-  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1306,6 +1314,7 @@ export interface FileRoutesByTo {
   '/set-password': typeof SetPasswordRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/.well-known/keyseal.json': typeof DotwellKnownKeysealDotjsonRoute
   '/$': typeof AppSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit-log': typeof AppAuditLogRoute
@@ -1377,6 +1386,7 @@ export interface FileRoutesByTo {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/signing/$': typeof ApiSigningSplatRoute
   '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
@@ -1426,7 +1436,6 @@ export interface FileRoutesByTo {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
-  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1481,6 +1490,7 @@ export interface FileRoutesById {
   '/_app/vendor-payments': typeof AppVendorPaymentsRouteRouteWithChildren
   '/_app/vendors': typeof AppVendorsRouteRouteWithChildren
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/.well-known/keyseal.json': typeof DotwellKnownKeysealDotjsonRoute
   '/_app/$': typeof AppSplatRoute
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/audit-log': typeof AppAuditLogRoute
@@ -1555,6 +1565,7 @@ export interface FileRoutesById {
   '/api/razorpay/webhook': typeof ApiRazorpayWebhookRoute
   '/api/receipts/$receiptId': typeof ApiReceiptsReceiptIdRoute
   '/api/receipts/signature': typeof ApiReceiptsSignatureRoute
+  '/api/signing/$': typeof ApiSigningSplatRoute
   '/api/utilisation-certificates/$certificateId': typeof ApiUtilisationCertificatesCertificateIdRoute
   '/api/whatsapp/webhook': typeof ApiWhatsappWebhookRoute
   '/api/zero/mutate': typeof ApiZeroMutateRoute
@@ -1607,7 +1618,6 @@ export interface FileRoutesById {
   '/api/kalakriti/$year/schedule': typeof ApiKalakritiYearScheduleRoute
   '/api/media/avatar/$userId': typeof ApiMediaAvatarUserIdRoute
   '/api/media/event-photo/$id': typeof ApiMediaEventPhotoIdRoute
-  '/api/signing/jobs/$token': typeof ApiSigningJobsTokenRoute
   '/api/social/v1/events': typeof ApiSocialV1EventsRouteWithChildren
   '/api/social/v1/notify': typeof ApiSocialV1NotifyRoute
   '/api/social/v1/openapi.json': typeof ApiSocialV1OpenapiDotjsonRoute
@@ -1662,6 +1672,7 @@ export interface FileRouteTypes {
     | '/vendor-payments'
     | '/vendors'
     | '/.well-known/$'
+    | '/.well-known/keyseal.json'
     | '/$'
     | '/analytics'
     | '/audit-log'
@@ -1735,6 +1746,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/signing/$'
     | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
@@ -1787,7 +1799,6 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
-    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -1830,6 +1841,7 @@ export interface FileRouteTypes {
     | '/set-password'
     | '/unsubscribe'
     | '/.well-known/$'
+    | '/.well-known/keyseal.json'
     | '/$'
     | '/analytics'
     | '/audit-log'
@@ -1901,6 +1913,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/signing/$'
     | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
@@ -1950,7 +1963,6 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
-    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -2004,6 +2016,7 @@ export interface FileRouteTypes {
     | '/_app/vendor-payments'
     | '/_app/vendors'
     | '/.well-known/$'
+    | '/.well-known/keyseal.json'
     | '/_app/$'
     | '/_app/analytics'
     | '/_app/audit-log'
@@ -2078,6 +2091,7 @@ export interface FileRouteTypes {
     | '/api/razorpay/webhook'
     | '/api/receipts/$receiptId'
     | '/api/receipts/signature'
+    | '/api/signing/$'
     | '/api/utilisation-certificates/$certificateId'
     | '/api/whatsapp/webhook'
     | '/api/zero/mutate'
@@ -2130,7 +2144,6 @@ export interface FileRouteTypes {
     | '/api/kalakriti/$year/schedule'
     | '/api/media/avatar/$userId'
     | '/api/media/event-photo/$id'
-    | '/api/signing/jobs/$token'
     | '/api/social/v1/events'
     | '/api/social/v1/notify'
     | '/api/social/v1/openapi.json'
@@ -2175,6 +2188,7 @@ export interface RootRouteChildren {
   SetPasswordRoute: typeof SetPasswordRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
+  DotwellKnownKeysealDotjsonRoute: typeof DotwellKnownKeysealDotjsonRoute
   ApiAuditLogRoute: typeof ApiAuditLogRoute
   ApiAuditPackRoute: typeof ApiAuditPackRoute
   ApiAvatarRoute: typeof ApiAvatarRoute
@@ -2199,6 +2213,7 @@ export interface RootRouteChildren {
   ApiRazorpayWebhookRoute: typeof ApiRazorpayWebhookRoute
   ApiReceiptsReceiptIdRoute: typeof ApiReceiptsReceiptIdRoute
   ApiReceiptsSignatureRoute: typeof ApiReceiptsSignatureRoute
+  ApiSigningSplatRoute: typeof ApiSigningSplatRoute
   ApiUtilisationCertificatesCertificateIdRoute: typeof ApiUtilisationCertificatesCertificateIdRoute
   ApiWhatsappWebhookRoute: typeof ApiWhatsappWebhookRoute
   ApiZeroMutateRoute: typeof ApiZeroMutateRoute
@@ -2214,7 +2229,6 @@ export interface RootRouteChildren {
   ApiKalakritiYearScheduleRoute: typeof ApiKalakritiYearScheduleRoute
   ApiMediaAvatarUserIdRoute: typeof ApiMediaAvatarUserIdRoute
   ApiMediaEventPhotoIdRoute: typeof ApiMediaEventPhotoIdRoute
-  ApiSigningJobsTokenRoute: typeof ApiSigningJobsTokenRoute
   ApiSocialV1EventsRoute: typeof ApiSocialV1EventsRouteWithChildren
   ApiSocialV1NotifyRoute: typeof ApiSocialV1NotifyRoute
   ApiSocialV1OpenapiDotjsonRoute: typeof ApiSocialV1OpenapiDotjsonRoute
@@ -2276,6 +2290,13 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/$'
       fullPath: '/.well-known/$'
       preLoaderRoute: typeof DotwellKnownSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/keyseal.json': {
+      id: '/.well-known/keyseal.json'
+      path: '/.well-known/keyseal.json'
+      fullPath: '/.well-known/keyseal.json'
+      preLoaderRoute: typeof DotwellKnownKeysealDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -2943,6 +2964,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReceiptsSignatureRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signing/$': {
+      id: '/api/signing/$'
+      path: '/api/signing/$'
+      fullPath: '/api/signing/$'
+      preLoaderRoute: typeof ApiSigningSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/utilisation-certificates/$certificateId': {
       id: '/api/utilisation-certificates/$certificateId'
       path: '/api/utilisation-certificates/$certificateId'
@@ -3277,13 +3305,6 @@ declare module '@tanstack/react-router' {
       path: '/api/media/event-photo/$id'
       fullPath: '/api/media/event-photo/$id'
       preLoaderRoute: typeof ApiMediaEventPhotoIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/signing/jobs/$token': {
-      id: '/api/signing/jobs/$token'
-      path: '/api/signing/jobs/$token'
-      fullPath: '/api/signing/jobs/$token'
-      preLoaderRoute: typeof ApiSigningJobsTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/social/v1/events': {
@@ -3946,6 +3967,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetPasswordRoute: SetPasswordRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   DotwellKnownSplatRoute: DotwellKnownSplatRoute,
+  DotwellKnownKeysealDotjsonRoute: DotwellKnownKeysealDotjsonRoute,
   ApiAuditLogRoute: ApiAuditLogRoute,
   ApiAuditPackRoute: ApiAuditPackRoute,
   ApiAvatarRoute: ApiAvatarRoute,
@@ -3971,6 +3993,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRazorpayWebhookRoute: ApiRazorpayWebhookRoute,
   ApiReceiptsReceiptIdRoute: ApiReceiptsReceiptIdRoute,
   ApiReceiptsSignatureRoute: ApiReceiptsSignatureRoute,
+  ApiSigningSplatRoute: ApiSigningSplatRoute,
   ApiUtilisationCertificatesCertificateIdRoute:
     ApiUtilisationCertificatesCertificateIdRoute,
   ApiWhatsappWebhookRoute: ApiWhatsappWebhookRoute,
@@ -3988,7 +4011,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKalakritiYearScheduleRoute: ApiKalakritiYearScheduleRoute,
   ApiMediaAvatarUserIdRoute: ApiMediaAvatarUserIdRoute,
   ApiMediaEventPhotoIdRoute: ApiMediaEventPhotoIdRoute,
-  ApiSigningJobsTokenRoute: ApiSigningJobsTokenRoute,
   ApiSocialV1EventsRoute: ApiSocialV1EventsRouteWithChildren,
   ApiSocialV1NotifyRoute: ApiSocialV1NotifyRoute,
   ApiSocialV1OpenapiDotjsonRoute: ApiSocialV1OpenapiDotjsonRoute,

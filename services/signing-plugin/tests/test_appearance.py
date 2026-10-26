@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from pyhanko.pdf_utils import layout
-from signr_service.appearance import signed_on
+from keyseal_service.appearance import signed_on
 
 from pidash_signing_plugin.appearance import ProudIndianStampStyle
 

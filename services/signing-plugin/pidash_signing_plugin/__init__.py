@@ -1,1 +1,1 @@
-"""pi-dash plugin for the signr signing service."""
+"""pi-dash plugin for the KeySeal signing service."""
