@@ -23,7 +23,7 @@ Token and rule changes start in pi-design; the dashboard then bumps the tag and 
 - Bricolage Grotesque at 800; display type for anything except page titles, big numbers and dates.
 - Marigold or the Donate colour. It is never a status.
 - Hard-coded hex, brand utilities (`bg-sky`, `text-ink`) and Tailwind palette colours (`text-green-600`, `bg-amber-50`).
-- Redrawn or restyled logos. Use the files in `@proudindian/design/logo/` as appendix A1 describes.
+- Redrawn or restyled logos. Use the files in `@proudindian/design/logo/` as appendix A1 describes. The favicons, home-screen icons, web manifest and email logo in `apps/web/public` come from it through `scripts/sync-brand-assets.sh`; rerun it after upgrading the package.
 
 ## Tokens
 
