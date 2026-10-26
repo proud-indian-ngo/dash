@@ -208,7 +208,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         title: "Sign up a volunteer for a session",
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: false,
+        openWorldHint: true,
         readOnlyHint: false,
       },
       description:
@@ -252,7 +252,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         title: "Confirm a volunteer's sign-up",
         destructiveHint: false,
         idempotentHint: false,
-        openWorldHint: false,
+        openWorldHint: true,
         readOnlyHint: false,
       },
       description:
