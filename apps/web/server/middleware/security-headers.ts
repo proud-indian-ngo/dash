@@ -21,7 +21,9 @@ function buildCsp(): string {
     `media-src 'self' https://cdn.proudindian.ngo https://*.r2.cloudflarestorage.com`,
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://*.${parentDomain} wss://*.${parentDomain} https://*.r2.cloudflarestorage.com`,
-    "frame-src 'self' https://challenges.cloudflare.com",
+    // keyseal: lets @keyseal/browser open the signing helper from a hidden
+    // iframe; without it the browser drops the link silently.
+    "frame-src 'self' https://challenges.cloudflare.com keyseal:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
