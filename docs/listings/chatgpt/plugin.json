@@ -72,13 +72,13 @@
               "description": "List the connected volunteer's own requests",
               "prompt": "Which Proud Indian sessions have I asked to join?",
               "tools_triggered": "my_interests",
-              "expected_behavior": "Asks the reviewer to connect the test account if not connected, then lists that account's session requests with their status (pending or approved)."
+              "expected_behavior": "Asks the reviewer to connect the test account if not connected, then lists that account's session requests with their status, including a pending request for the Social Awareness Education through Art & Craft class."
             },
             {
               "description": "Ask to join a session for the connected volunteer",
-              "prompt": "Ask to join the next Proud Indian session for me.",
+              "prompt": "Ask to join the Spoken English Class on the coming Sunday for me.",
               "tools_triggered": "list_upcoming_sessions, show_interest",
-              "expected_behavior": "Finds the next session, confirms it with the reviewer, and files a join request that waits for the team lead's approval. Asking again for the same session is refused with 'Interest already submitted'."
+              "expected_behavior": "Finds the Spoken English Class session on the coming Sunday, confirms it with the reviewer, and files a join request that waits for the team lead's approval. Asking again for the same session is refused with 'Interest already submitted'."
             }
           ],
           "negative": [
