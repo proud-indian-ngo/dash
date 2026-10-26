@@ -14,7 +14,7 @@ ChatGPT, Claude and other assistants connect to the dashboard's MCP server at `/
 
 ## Tools
 
-Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly; both vendors' directories require them. Only `start_volunteer_signup`, `confirm_volunteer_signup` and `show_interest` write. Each tool's `_meta.securitySchemes` says whether it needs a connected account; ChatGPT reads it.
+Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly, and its title both at the top level (ChatGPT) and in `annotations` (Claude's directory); both directories require them. Descriptions say what a tool does, never how the model should behave: Claude's directory rejects instructions to the model in them. Only `start_volunteer_signup`, `confirm_volunteer_signup` and `show_interest` write. Each tool's `_meta.securitySchemes` says whether it needs a connected account; ChatGPT reads it.
 
 | Tool | Answers from |
 |---|---|

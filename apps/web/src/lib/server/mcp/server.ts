@@ -29,7 +29,7 @@ import { createTtlCache } from "@/lib/ttl-cache";
  * `/api/mcp`. One instance per request (the transport is stateless).
  */
 
-const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. Use these tools to answer questions about Proud Indian, list its upcoming volunteering sessions, sign a new volunteer up for one, show interest in one for a volunteer who has connected their Proud Indian account, and send people who want to donate to the donation page. Never invent sessions, links or facts; anything not covered here is on ${WEBSITE_URL}.`;
+const INSTRUCTIONS = `Proud Indian is a volunteer-run NGO in Bengaluru (Bangalore), India. Its volunteers teach children maths, Spoken English and art at weekends. These tools answer questions about Proud Indian, list its upcoming volunteering sessions, sign a new volunteer up for one, show interest in one for a volunteer who has connected their Proud Indian account, and give the link to the donation page. Everything else about Proud Indian is on ${WEBSITE_URL}.`;
 
 const ABOUT_URL = `${WEBSITE_URL}/llms.txt`;
 const ABOUT_TIMEOUT_MS = 5000;
@@ -99,12 +99,13 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: NO_AUTH,
       annotations: {
+        title: "About Proud Indian",
         destructiveHint: false,
         openWorldHint: false,
         readOnlyHint: true,
       },
       description:
-        "Everything about Proud Indian in Markdown, from its website: what it does, its programmes (teaching, meals, Kalakriti), how to volunteer, the volunteering FAQ, donations and 80G tax receipts, CSR, registrations and annual reports. Use it to answer any question about Proud Indian.",
+        "Everything about Proud Indian in Markdown, from its website: what it does, its programmes (teaching, meals, Kalakriti), how to volunteer, the volunteering FAQ, donations and 80G tax receipts, CSR, registrations and annual reports.",
       title: "About Proud Indian",
     },
     async () => {
@@ -126,12 +127,13 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: NO_AUTH,
       annotations: {
+        title: "List upcoming volunteering sessions",
         destructiveHint: false,
         openWorldHint: false,
         readOnlyHint: true,
       },
       description:
-        "Proud Indian's upcoming public volunteering sessions, soonest first. Each has its date and time, area, team, a short summary and a signUpUrl: the page where a person registers (or signs in) and shows interest in that session. Use each signUpUrl exactly as given; never build one. Times are ISO 8601 in UTC; show them in India Standard Time.",
+        "Proud Indian's upcoming public volunteering sessions, soonest first. Each has its date and time, area, team, a short summary and a signUpUrl: the page where a person registers (or signs in) and shows interest in that session. Times are ISO 8601 in UTC; the sessions take place in India Standard Time (UTC+05:30).",
       inputSchema: z.object({
         city: z
           .string()
@@ -186,12 +188,13 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: NO_AUTH,
       annotations: {
+        title: "Get the donation link",
         destructiveHint: false,
         openWorldHint: false,
         readOnlyHint: true,
       },
       description:
-        "The link to the donate section of Proud Indian's website, which explains what a gift funds and the 80G tax receipt. From there the person chooses an amount and pays on Razorpay themselves. Give the person this link when they want to donate.",
+        "The link to the donate section of Proud Indian's website, which explains what a gift funds and the 80G tax receipt. From there the person chooses an amount and pays on Razorpay themselves; the tool takes no payment.",
       title: "Get the donation link",
     },
     () => text(DONATE_URL)
@@ -202,13 +205,14 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: NO_AUTH,
       annotations: {
+        title: "Sign up a volunteer for a session",
         destructiveHint: false,
         idempotentHint: true,
         openWorldHint: false,
         readOnlyHint: false,
       },
       description:
-        "Sign a person up as a Proud Indian volunteer and ask to join one session. Ask the person for every field and confirm the session with them first; never guess or reuse someone else's details. Volunteers must be 18 or older. Proud Indian emails them a link and a 6-digit code to confirm their address; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until they open the link or give you the code for confirm_volunteer_signup, so tell them to check their inbox.",
+        "Signs a person up as a Proud Indian volunteer, with the details they give, and asks to join one session. Volunteers must be 18 or older. Proud Indian emails the address a link and a 6-digit code to confirm it; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until the link is opened or the code is passed to confirm_volunteer_signup.",
       inputSchema: z.object({
         dateOfBirth: z
           .string()
@@ -245,13 +249,14 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: NO_AUTH,
       annotations: {
+        title: "Confirm a volunteer's sign-up",
         destructiveHint: false,
         idempotentHint: false,
         openWorldHint: false,
         readOnlyHint: false,
       },
       description:
-        "Finish a sign-up started with start_volunteer_signup, using the 6-digit code from the email Proud Indian sent. Only use a code the person gives you. It confirms their address, sends their interest to the session's team lead and emails them a link to set a password.",
+        "Finishes a sign-up started with start_volunteer_signup, with the 6-digit code from the email Proud Indian sent the person. It confirms their address, sends their interest to the session's team lead and emails them a link to set a password.",
       inputSchema: z.object({
         code: z
           .string()
@@ -278,13 +283,14 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: ACCOUNT_AUTH,
       annotations: {
+        title: "Show interest in a session",
         destructiveHint: false,
         idempotentHint: true,
         openWorldHint: false,
         readOnlyHint: false,
       },
       description:
-        "Ask to join one session as the volunteer whose Proud Indian account is connected. Confirm the session with them first. The session's team lead approves or declines it. For someone without an account, use start_volunteer_signup instead.",
+        "Asks to join one session as the volunteer whose Proud Indian account is connected. The session's team lead approves or declines the request. People without an account sign up with start_volunteer_signup.",
       inputSchema: z.object({
         eventId: z
           .uuid()
@@ -313,6 +319,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     {
       _meta: ACCOUNT_AUTH,
       annotations: {
+        title: "List my session requests",
         destructiveHint: false,
         openWorldHint: false,
         readOnlyHint: true,

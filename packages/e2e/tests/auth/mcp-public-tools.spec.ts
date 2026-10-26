@@ -29,8 +29,9 @@ test.describe("MCP public tools", () => {
 
     const { tools } = await mcpRequest<{
       tools: {
-        annotations?: { readOnlyHint?: boolean };
+        annotations?: { readOnlyHint?: boolean; title?: string };
         name: string;
+        title?: string;
       }[];
     }>(request, "tools/list");
     const names = tools.map((t) => t.name).sort();
@@ -43,8 +44,11 @@ test.describe("MCP public tools", () => {
       "show_interest",
       "start_volunteer_signup",
     ]);
-    // Only signing up and showing interest write.
+    // Only signing up and showing interest write. ChatGPT reads the title at
+    // the top level, Claude's directory in the annotations.
     for (const tool of tools) {
+      expect(tool.title).toBeTruthy();
+      expect(tool.annotations?.title).toBe(tool.title);
       expect(tool.annotations?.readOnlyHint).toBe(
         ![
           "confirm_volunteer_signup",
