@@ -188,9 +188,9 @@ Turning backup on needs a fresh replica: a replica built without backup crash-lo
 
 ### Signing service
 
-The `signing` service is the generic signr image with `services/signing-plugin` installed. Its base image in `services/signing-plugin/Dockerfile` is a placeholder until signr-service is published; set it before a production build. Only the web app reaches it. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
+The `signing` service is the generic KeySeal image (`ghcr.io/somus/keyseal-service`, the tag in `services/signing-plugin/Dockerfile`) with `services/signing-plugin` installed. Only the web app reaches it. Deploy Compose before merging a web change that needs new signing behaviour. `SIGNING_TSA_URL` names its timestamp authority (default `http://timestamp.digicert.com`, `none` to disable) and `SIGNING_ALLOW_FETCHING=true` lets it fetch revocation data; it needs outbound access to both.
 
-The signr helper calls `/api/signing/v1/jobs/<token>` and reads `/.well-known/signr.json` on `APP_URL` (or `BETTER_AUTH_URL`), which must be `https` on a domain name. Helper releases come from the signr repository; raising `MIN_HELPER_VERSION` in `apps/web/src/lib/governance/signing-jobs.ts` makes trustees update before they can sign, so raise it only once that release exists.
+The KeySeal helper calls `/api/signing/v1/jobs/<token>` and reads `/.well-known/keyseal.json` on `APP_URL` (or `BETTER_AUTH_URL`), which must be `https` on a domain name. Helper releases come from the KeySeal repository; raising `MIN_HELPER_VERSION` in `apps/web/src/lib/governance/signing-jobs.ts` makes trustees update before they can sign, so raise it only once that release exists.
 
 ### WhatsApp gateway (optional)
 

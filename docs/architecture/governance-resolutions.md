@@ -1,6 +1,6 @@
 # Governance: resolutions
 
-> **Load when**: circular, circular resolution, resolution text, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `signr://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
+> **Load when**: circular, circular resolution, resolution text, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `keyseal://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
 > **Related**: `governance.md` (register, deed rules, vault, signing service)
 
 ## Lifecycle
@@ -48,18 +48,18 @@ A resolution's text is rich text, written in the rich text editor (`@pi-dash/edi
 
 Trustees sign with the DSC helper or in Acrobat, and every copy goes through the checks above. The internal signing API authenticates the bearer token before reading a body. JSON requests are capped while streaming at 64 MiB (including the signing state); PDFs retain the 25 MiB limit. Only `GET /health` is unauthenticated.
 
-- **DSC helper** (signr). Browsers can't reach PKCS#11 tokens, so the signature is made outside the browser and joined back on the server. `@signr/server` serves the job endpoint under `/api/signing` and the manifest at `/.well-known/signr.json`; job rows live in `private.signing_job` (token and claim nonce hashed), the PDF and the service's state in R2 under `governance/signing-jobs/` while the job is open.
+- **DSC helper** (KeySeal). Browsers can't reach PKCS#11 tokens, so the signature is made outside the browser and joined back on the server. `@keyseal/server` serves the job endpoint under `/api/signing` and the manifest at `/.well-known/keyseal.json`; job rows live in `private.signing_job` (token and claim nonce hashed), the PDF and the service's state in R2 under `governance/signing-jobs/` while the job is open.
   1. Enrolment, once per DSC: the trustee picks a certificate in the helper, and the dashboard keeps it if it is in the trustee's name, valid now, has an RSA, P-256 or P-384 key, chains to a CCA root and has the key usage pyHanko requires of a signer (non-repudiation), so the token's encryption certificate is refused. A renewed DSC is enrolled again.
-  2. Signing needs a recent sign-in and an enrolled certificate. The page opens a `signr://` link with a one-time job token (15 minutes) and polls the job; if no helper opens it within five seconds, it points to the Signing helper page while the job stays open.
+  2. Signing needs a recent sign-in and an enrolled certificate. The page opens a `keyseal://` link with a one-time job token (15 minutes) and polls the job; if no helper opens it within five seconds, it points to the Signing helper page while the job stays open.
   3. The helper fetches the job, which allows only the enrolled certificate, posts it, and gets the attributes to sign once the service has reserved the trustee's field. It asks for the PIN in its own window (never stored or sent), signs on the token and posts the signature back. When it gives up (PIN cancelled, no token, wrong token), it posts the reason instead, which fails the job, so the page stops waiting and shows why.
   4. The service embeds the signature with a timestamp (PAdES B-T). The box shows the name large, then "Digitally signed by", the name and the date in India time, over a faint Proud Indian symbol (the plugin's `proud-indian` stamp). The signed copy then goes through the checks above; a refusal fails the job with its reason. The job endpoint has no session, so completions are audited in the trustee's name.
 - **Acrobat**: download the copy with the trustee's answers filled in, sign the box with the token in Acrobat or Reader, upload the saved copy.
 
-A job is completed one request at a time: the request finishing it holds a five-minute lease, and `@signr/server` refuses a second meanwhile. One that takes over a lapsed lease and finds the trustee's signature already recorded since the job began settles it as signed.
+A job is completed one request at a time: the request finishing it holds a five-minute lease, and `@keyseal/server` refuses a second meanwhile. One that takes over a lapsed lease and finds the trustee's signature already recorded since the job began settles it as signed.
 
 Issuing notifies each trustee once per circular. The resolutions one response, withdrawal or close decides go out as one notice to the trustees and secretaries, with each outcome, through the `notify-resolution-decided` job, so a failed delivery is retried. The closing job queues its notice in the transaction that decides the circular, so a failed enqueue leaves the circular open for the next run.
 
-Trustees download the signr helper from the Signing helper page. It asks once per site whether to trust it and shows the site with every signature. The job endpoint refuses a helper older than `MIN_HELPER_VERSION` in `signing-jobs.ts` and fails the job with "Update the signing helper".
+Trustees download the KeySeal helper from the Signing helper page. It asks once per site whether to trust it and shows the site with every signature. The job endpoint refuses a helper older than `MIN_HELPER_VERSION` in `signing-jobs.ts` and fails the job with "Update the signing helper".
 
 ## Long-term copies
 
