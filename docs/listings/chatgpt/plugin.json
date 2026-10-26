@@ -24,7 +24,7 @@
         "shortDescription": "Volunteer with Proud Indian",
         "longDescription": "Proud Indian is a volunteer-run charitable trust in Bengaluru that runs weekend classes, art and craft sessions and outreach for children, and the Kalakriti arts festival.\n\nWith this plugin you can:\n- Learn what Proud Indian does and how to get involved.\n- See upcoming public volunteering sessions, with dates, places and sign-up links.\n- Sign up as a new volunteer for a session. Proud Indian emails you a link and a 6-digit code to confirm your address; nothing is final until you confirm.\n- Connect your existing Proud Indian account to see the sessions you've asked to join and ask to join another. The session's team lead approves each request.\n- Get the link to Proud Indian's donation page, where you choose an amount and pay on Razorpay yourself.\n\nVolunteers must be 18 or older. The plugin can't approve requests, cancel them or take payments; those happen on the dashboard and the website.",
         "developerName": "Proud Indian",
-        "category": "Lifestyle",
+        "category": "Education & Research",
         "capabilities": [
           "Learn about Proud Indian",
           "List upcoming volunteering sessions",
@@ -72,13 +72,13 @@
               "description": "List the connected volunteer's own requests",
               "prompt": "Which Proud Indian sessions have I asked to join?",
               "tools_triggered": "my_interests",
-              "expected_behavior": "Asks the reviewer to connect the test account if not connected, then lists that account's session requests with their status, including a pending request for the Social Awareness Education through Art & Craft class."
+              "expected_behavior": "Asks the reviewer to connect the test account if not connected, then lists that account's session requests with each one's status (pending, approved or rejected)."
             },
             {
               "description": "Ask to join a session for the connected volunteer",
               "prompt": "Ask to join the Spoken English Class on the coming Sunday for me.",
               "tools_triggered": "list_upcoming_sessions, show_interest",
-              "expected_behavior": "Finds the Spoken English Class session on the coming Sunday, confirms it with the reviewer, and files a join request that waits for the team lead's approval. Asking again for the same session is refused with 'Interest already submitted'."
+              "expected_behavior": "Finds the Spoken English Class session on the coming Sunday, confirms it with the reviewer, and files a join request that waits for the team lead's approval. If the account has already asked to join that session, or the request is repeated, it is refused with 'Interest already submitted'."
             }
           ],
           "negative": [
@@ -96,6 +96,7 @@
             }
           ]
         },
+        "demo_recording_url": "https://media.proudindian.ngo/share/BqLSVTv8AtMPyIbXjoX04d4NrREbO0EJ8hLFLqpzb83C_xHJOegXIKWwk-GmcYGYcok",
         "commerce": false,
         "commerce_description": "The plugin doesn't sell anything or process payments. For donations it only links to the donate section of proudindian.ngo, where the person pays Proud Indian, a registered charity, on Razorpay themselves."
       },

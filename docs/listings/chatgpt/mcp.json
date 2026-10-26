@@ -3,7 +3,17 @@
   "mcpServers": {
     "proud-indian": {
       "type": "streamable-http",
-      "url": "https://dash.proudindian.ngo/api/mcp"
+      "url": "https://dash.proudindian.ngo/api/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "mixed",
+            "client": {
+              "mode": "dcr"
+            }
+          }
+        }
+      }
     }
   }
 }
