@@ -551,7 +551,7 @@ test.describe("signing helper", () => {
       page.getByRole("link", { name: "Download for Mac" })
     ).toHaveAttribute(
       "href",
-      /\/keyseal\/releases\/download\/helper-v.+\/keyseal-helper-.+-macos-universal\.dmg$/
+      /\/keyseal\/releases\/latest\/download\/keyseal-macos-universal\.dmg$/
     );
     await expect(
       page.getByText(/drag KeySeal into Applications/)
@@ -564,7 +564,7 @@ test.describe("signing helper", () => {
       page.getByRole("link", { name: "Download for Windows" })
     ).toHaveAttribute(
       "href",
-      /\/keyseal\/releases\/download\/helper-v.+\/keyseal-helper-.+-windows-x64\.zip$/
+      /\/keyseal\/releases\/latest\/download\/keyseal-windows-x64\.zip$/
     );
     await expect(page.getByText(/Run anyway/)).toBeVisible();
   });
