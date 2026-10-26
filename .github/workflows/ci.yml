@@ -178,6 +178,8 @@ jobs:
       # key secret, so the sync job never calls Razorpay.
       RAZORPAY_KEY_ID: rzp_test_e2e0000000000
       RAZORPAY_WEBHOOK_SECRET: e2e-razorpay-webhook-secret
+      # The ChatGPT plugin portal's domain token, the same as packages/e2e/run-e2e.sh.
+      OPENAI_APPS_CHALLENGE: e2e-openai-apps-challenge
       # The fake GoWA gateway, the same as packages/e2e/run-e2e.sh.
       E2E_GOWA_PORT: "4873"
       WHATSAPP_API_URL: http://localhost:4873

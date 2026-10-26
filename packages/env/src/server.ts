@@ -72,6 +72,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    /** Token the ChatGPT plugin portal asks to find at `/.well-known/openai-apps-challenge`; public by design. */
+    OPENAI_APPS_CHALLENGE: z.string().min(1).optional(),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
     OTEL_SERVICE_NAME: z.string().default("pi-dash"),
     PHOTO_NOTIFICATION_DELAY_SECONDS: z.coerce

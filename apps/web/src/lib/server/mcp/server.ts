@@ -191,7 +191,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: true,
       },
       description:
-        "The link to donate to Proud Indian. It opens Proud Indian's Razorpay donation page, where the person chooses an amount and pays themselves; every donation gets an 80G tax receipt by email. Give the person this link whenever they want to donate.",
+        "The link to the donate section of Proud Indian's website, which explains what a gift funds and the 80G tax receipt. From there the person chooses an amount and pays on Razorpay themselves. Give the person this link when they want to donate.",
       title: "Get the donation link",
     },
     () => text(DONATE_URL)

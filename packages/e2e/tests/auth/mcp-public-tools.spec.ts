@@ -93,7 +93,12 @@ test.describe("MCP public tools", () => {
     expect(badCity.content[0]?.text).toContain("city must be one of");
 
     const donate = await callTool(request, "get_donation_link");
-    expect(donate.content[0]?.text).toBe("https://proudindian.ngo/donate");
+    expect(donate.content[0]?.text).toBe("https://proudindian.ngo/#donate");
+
+    // The ChatGPT plugin portal's domain check reads the token as plain text.
+    const challenge = await request.get("/.well-known/openai-apps-challenge");
+    expect(challenge.status()).toBe(200);
+    expect(await challenge.text()).toBe(process.env.OPENAI_APPS_CHALLENGE);
 
     // Fetched from the website; offline, the tool names the website instead.
     const about = await callTool(request, "about_proud_indian");
@@ -106,6 +111,7 @@ test.describe("MCP public tools", () => {
         {
           aboutFromWebsite: !about.isError,
           donate: donate.content[0]?.text,
+          openAiChallenge: challenge.status(),
           sessions: fromTool.length,
           tools: names,
         },
