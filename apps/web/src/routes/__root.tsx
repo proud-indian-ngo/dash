@@ -40,23 +40,26 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: import.meta.env.DEV
       ? []
       : [
-          {
-            href: "/favicon-96x96.png",
-            rel: "icon",
-            sizes: "96x96",
-            type: "image/png",
-          },
+          // The icons are copies of @proudindian/design's logo/favicon.
           {
             href: "/favicon.svg",
             rel: "icon",
             type: "image/svg+xml",
           },
           {
-            href: "/favicon.ico",
-            rel: "shortcut icon",
+            href: "/favicon-32.png",
+            rel: "icon",
+            sizes: "32x32",
+            type: "image/png",
           },
           {
-            href: "/apple-touch-icon.png",
+            href: "/favicon-16.png",
+            rel: "icon",
+            sizes: "16x16",
+            type: "image/png",
+          },
+          {
+            href: "/apple-touch-icon-180.png",
             rel: "apple-touch-icon",
             sizes: "180x180",
           },

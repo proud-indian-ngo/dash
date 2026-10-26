@@ -358,10 +358,10 @@ export function keysealJobs(): KeySeal {
     adapter,
     allowInsecureOrigin,
     basePath: KEYSEAL_BASE_PATH,
-    // The helper's job window: the PWA icon and the web manifest's theme colour.
+    // The helper's job window: the app icon and the brand sky.
     branding: {
-      accentColor: "#4fc3f7",
-      icon: `${origin}/web-app-manifest-192x192.png`,
+      accentColor: "#4CC0EC",
+      icon: `${origin}/icon-512.png`,
       name: "Proud Indian",
     },
     minHelperVersion: MIN_HELPER_VERSION,
