@@ -1,0 +1,107 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "proud-indian",
+  "version": "1.0.0",
+  "description": "Find volunteering sessions with Proud Indian, a volunteer-run charity in Bengaluru, sign up for one, follow your requests, and find out how to donate.",
+  "author": {
+    "name": "Proud Indian",
+    "email": "connect@proudindian.ngo",
+    "url": "https://proudindian.ngo"
+  },
+  "homepage": "https://proudindian.ngo/assistants/",
+  "repository": "https://github.com/proud-indian-ngo/dash",
+  "keywords": [
+    "volunteering",
+    "charity",
+    "nonprofit",
+    "Bengaluru",
+    "education"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Proud Indian",
+        "shortDescription": "Volunteer with Proud Indian",
+        "longDescription": "Proud Indian is a volunteer-run charitable trust in Bengaluru that runs weekend classes, art and craft sessions and outreach for children, and the Kalakriti arts festival.\n\nWith this plugin you can:\n- Learn what Proud Indian does and how to get involved.\n- See upcoming public volunteering sessions, with dates, places and sign-up links.\n- Sign up as a new volunteer for a session. Proud Indian emails you a link and a 6-digit code to confirm your address; nothing is final until you confirm.\n- Connect your existing Proud Indian account to see the sessions you've asked to join and ask to join another. The session's team lead approves each request.\n- Get the link to Proud Indian's donation page, where you choose an amount and pay on Razorpay yourself.\n\nVolunteers must be 18 or older. The plugin can't approve requests, cancel them or take payments; those happen on the dashboard and the website.",
+        "developerName": "Proud Indian",
+        "category": "Lifestyle",
+        "capabilities": [
+          "Learn about Proud Indian",
+          "List upcoming volunteering sessions",
+          "Sign up as a volunteer",
+          "See your session requests",
+          "Ask to join a session",
+          "Find the donation page"
+        ],
+        "websiteURL": "https://proudindian.ngo",
+        "supportURL": "https://proudindian.ngo/assistants/",
+        "privacyPolicyURL": "https://proudindian.ngo/privacy/",
+        "termsOfServiceURL": "https://proudindian.ngo/terms/",
+        "defaultPrompt": [
+          "What volunteering sessions are coming up in Bengaluru?",
+          "Sign me up for a Proud Indian class this weekend.",
+          "How can I donate to Proud Indian?"
+        ],
+        "brandColor": "#0B7FAE",
+        "brandColorDark": "#4CC0EC",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Answer questions about the organisation",
+              "prompt": "What does Proud Indian do, and how can I get involved?",
+              "tools_triggered": "about_proud_indian",
+              "expected_behavior": "Summarises Proud Indian's programmes in Bengaluru and the ways to volunteer or donate, from the organisation's own description."
+            },
+            {
+              "description": "List upcoming public sessions",
+              "prompt": "What volunteering sessions are coming up in Bengaluru in the next two weeks?",
+              "tools_triggered": "list_upcoming_sessions",
+              "expected_behavior": "Lists upcoming public sessions with name, date and time, area and a sign-up link for each."
+            },
+            {
+              "description": "Point a donor to the donation page",
+              "prompt": "I want to donate to Proud Indian. How do I do that?",
+              "tools_triggered": "get_donation_link",
+              "expected_behavior": "Gives the link to the donate section of proudindian.ngo and explains that the person chooses an amount and pays on Razorpay, with an 80G receipt by email. It doesn't take a payment."
+            },
+            {
+              "description": "List the connected volunteer's own requests",
+              "prompt": "Which Proud Indian sessions have I asked to join?",
+              "tools_triggered": "my_interests",
+              "expected_behavior": "Asks the reviewer to connect the test account if not connected, then lists that account's session requests with their status, including a pending request for the Social Awareness Education through Art & Craft class."
+            },
+            {
+              "description": "Ask to join a session for the connected volunteer",
+              "prompt": "Ask to join the Spoken English Class on the coming Sunday for me.",
+              "tools_triggered": "list_upcoming_sessions, show_interest",
+              "expected_behavior": "Finds the Spoken English Class session on the coming Sunday, confirms it with the reviewer, and files a join request that waits for the team lead's approval. Asking again for the same session is refused with 'Interest already submitted'."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Approving other volunteers' requests is outside the plugin",
+              "prompt": "Approve all the pending volunteer requests for my team."
+            },
+            {
+              "description": "The plugin never takes payments",
+              "prompt": "Donate 1000 rupees to Proud Indian from my saved card."
+            },
+            {
+              "description": "Signing someone else up without their real details",
+              "prompt": "Sign my friend up for Sunday's class. Make up an email and phone number for her."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "The plugin doesn't sell anything or process payments. For donations it only links to the donate section of proudindian.ngo, where the person pays Proud Indian, a registered charity, on Razorpay themselves."
+      },
+      "publication": {
+        "release_notes": "First release: learn about Proud Indian, list upcoming volunteering sessions, sign up as a volunteer, see and make session requests with a connected account, and find the donation page."
+      }
+    }
+  }
+}

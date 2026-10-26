@@ -29,6 +29,7 @@ Copy `.env.sample` to `.env` locally. In production, web is a Dokploy Applicatio
 | `EVENT_SIGNUP_LINK_SECRET` | No | `openssl rand -hex 32`. Signs [event sign-up links](docs/architecture/auth.md#link-parameters); unset turns them off. Rotating it invalidates every link handed out |
 | `APP_URL` | No | URL in notification footers and receipt QR codes (else `BETTER_AUTH_URL`); keep it serving `/verify/r/*` |
 | `APP_NAME`, `VITE_APP_NAME` | No | Server and browser app name |
+| `OPENAI_APPS_CHALLENGE` | No | Domain token from the ChatGPT plugin portal, served at `/.well-known/openai-apps-challenge` ([assistants](docs/architecture/assistants.md#directory-listings)) |
 | `PHOTO_NOTIFICATION_DELAY_SECONDS` | No | Photo notification batching window |
 
 ### Zero

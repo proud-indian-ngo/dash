@@ -20,7 +20,7 @@ Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly
 |---|---|
 | `about_proud_indian` | The website's `llms.txt`, cached for an hour. Offline, it returns the website's address as an error result |
 | `list_upcoming_sessions` | The [public feed](recurring-events.md#public-feed) query, with the same validation and limits. Its `signUpUrl`s are the website's |
-| `get_donation_link` | `DONATE_URL` in `@pi-dash/shared/website`, which the website redirects to Razorpay |
+| `get_donation_link` | `DONATE_URL` in `@pi-dash/shared/website`: the website's donate section, not its `/donate` redirect to Razorpay, since both directories refuse links straight to a payment page |
 | `start_volunteer_signup`, `confirm_volunteer_signup` | [Sign-up by an assistant](#sign-up-by-an-assistant) |
 | `show_interest`, `my_interests` | The connected volunteer's account ([connected accounts](#connected-accounts)) |
 
@@ -57,3 +57,12 @@ A volunteer who already has an account connects it to the assistant over OAuth 2
 - `show_interest` runs the app's own `eventInterest.create` mutator through `runServerZeroMutation`, so it has the app's rules (team members, the safeguarding gate, started sessions) and audit row. Both tools reload the account and refuse a banned or deleted one before its token expires.
 - Access tokens last an hour and refresh tokens 30 days; the consent page says so. There is no dashboard page yet to list or revoke connections.
 - The OAuth tables hold runtime auth records like sessions, so they have no seed rows.
+
+## Directory listings
+
+Proud Indian is listed in ChatGPT's plugin directory and Claude's Connectors Directory, so people find it without adding a custom connector.
+
+- The listings link the website's `/assistants/` (documentation and support), `/privacy/` and `/terms/`. A change to what the tools collect or do needs those pages updated first.
+- ChatGPT's listing is the plugin package in `docs/listings/chatgpt/`, zipped and uploaded in the OpenAI Platform; tool changes are picked up by its daily scan, but metadata changes need a new package. The portal checks domain ownership by reading `OPENAI_APPS_CHALLENGE` at `/.well-known/openai-apps-challenge`.
+- Claude's listing is entered in the developer portal at claude.ai/directory/manage from `docs/listings/claude.json`; tool changes sync from the server.
+- Reviewers sign in with a dedicated volunteer account that needs no email code. Keep it working, or a re-review fails.

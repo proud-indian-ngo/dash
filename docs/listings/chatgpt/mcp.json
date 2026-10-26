@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "proud-indian": {
+      "type": "streamable-http",
+      "url": "https://dash.proudindian.ngo/api/mcp"
+    }
+  }
+}

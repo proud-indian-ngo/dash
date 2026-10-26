@@ -333,6 +333,10 @@ export RAZORPAY_KEY_ID="rzp_test_e2e0000000000"
 export RAZORPAY_WEBHOOK_SECRET="${E2E_RAZORPAY_WEBHOOK_SECRET:-e2e-razorpay-webhook-secret}"
 export RAZORPAY_KEY_SECRET=""
 
+# The token the ChatGPT plugin portal checks for; any value serves the route.
+# Keep in step with the e2e job env in .github/workflows/ci.yml.
+export OPENAI_APPS_CHALLENGE="e2e-openai-apps-challenge"
+
 # WhatsApp goes to the fake GoWA gateway (fake-gowa.ts), so it is configured
 # but sends nothing. Keep in step with the e2e job env in
 # .github/workflows/ci.yml.

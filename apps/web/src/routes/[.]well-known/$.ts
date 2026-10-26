@@ -1,4 +1,5 @@
 import { auth } from "@pi-dash/auth";
+import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
@@ -13,8 +14,16 @@ const DISCOVERY_PATHS = [
   "/.well-known/openid-configuration",
 ];
 
+/** Where the ChatGPT plugin portal checks that we own the MCP server's domain. */
+const OPENAI_CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
+
 function handleDiscovery(request: Request): Promise<Response> | Response {
   const { pathname } = new URL(request.url);
+  if (pathname === OPENAI_CHALLENGE_PATH && env.OPENAI_APPS_CHALLENGE) {
+    return new Response(env.OPENAI_APPS_CHALLENGE, {
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
   const known = DISCOVERY_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
