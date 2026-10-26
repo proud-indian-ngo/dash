@@ -23,7 +23,7 @@ export const Route = createFileRoute(
  * The KeySeal helper release offered for download. Its asset names carry the
  * version, so this moves by hand; installed helpers update themselves.
  */
-const HELPER_RELEASE = "0.1.0";
+const HELPER_RELEASE = "0.1.1";
 const RELEASE_URL = `https://github.com/somus/keyseal/releases/download/helper-v${HELPER_RELEASE}`;
 const DOWNLOADS = {
   mac: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-macos-universal.dmg`,
