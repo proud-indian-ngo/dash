@@ -29,7 +29,11 @@ test.describe("MCP public tools", () => {
 
     const { tools } = await mcpRequest<{
       tools: {
-        annotations?: { readOnlyHint?: boolean; title?: string };
+        annotations?: {
+          openWorldHint?: boolean;
+          readOnlyHint?: boolean;
+          title?: string;
+        };
         name: string;
         title?: string;
       }[];
@@ -49,6 +53,12 @@ test.describe("MCP public tools", () => {
     for (const tool of tools) {
       expect(tool.title).toBeTruthy();
       expect(tool.annotations?.title).toBe(tool.title);
+      // Sign-up emails whatever address the person gives: an open world.
+      expect(tool.annotations?.openWorldHint).toBe(
+        ["confirm_volunteer_signup", "start_volunteer_signup"].includes(
+          tool.name
+        )
+      );
       expect(tool.annotations?.readOnlyHint).toBe(
         ![
           "confirm_volunteer_signup",
