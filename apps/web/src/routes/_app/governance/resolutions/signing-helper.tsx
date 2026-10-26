@@ -20,14 +20,13 @@ export const Route = createFileRoute(
 });
 
 /**
- * The KeySeal helper release offered for download. Its asset names carry the
- * version, so this moves by hand; installed helpers update themselves.
+ * The latest KeySeal helper release's downloads, which each release also
+ * publishes under these fixed names; installed helpers update themselves.
  */
-const HELPER_RELEASE = "0.1.0";
-const RELEASE_URL = `https://github.com/somus/keyseal/releases/download/helper-v${HELPER_RELEASE}`;
+const LATEST = "https://github.com/somus/keyseal/releases/latest/download";
 const DOWNLOADS = {
-  mac: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-macos-universal.dmg`,
-  windows: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-windows-x64.zip`,
+  mac: `${LATEST}/keyseal-macos-universal.dmg`,
+  windows: `${LATEST}/keyseal-windows-x64.zip`,
 } as const;
 
 type Platform = "mac" | "windows";
