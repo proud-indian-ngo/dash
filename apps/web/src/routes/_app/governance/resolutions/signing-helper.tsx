@@ -129,7 +129,10 @@ function SigningHelperPage() {
           {platform === "mac" ? (
             <p>
               Open the downloaded file, drag KeySeal into Applications and open
-              it once from there.
+              it once from there. The first time, your Mac says it can't verify
+              KeySeal, because the helper isn't from a paid Apple developer yet;
+              choose Done, then open System Settings, Privacy & Security, and
+              under Security choose Open Anyway, then Open.
             </p>
           ) : (
             <p>
