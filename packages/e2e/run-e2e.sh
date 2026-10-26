@@ -108,6 +108,8 @@ TEST_DB_HOST_PORT="$E2E_DB_PORT"
 TEST_SIGNING_PORT="$E2E_SIGNING_PORT"
 TEST_GOWA_PORT="$E2E_GOWA_PORT"
 TEST_R2_PORT="$E2E_R2_PORT"
+# The signing service refuses tokens under 32 characters or with fewer than 10 distinct ones.
+E2E_SIGNING_TOKEN="e2e-signing-token-0123456789abcdefghij"
 
 # Worktree-unique suffixes for containers, volumes, and temp files
 WT_SUFFIX=""
@@ -156,11 +158,14 @@ services:
       timeout: 5s
       retries: 5
   signing-test:
-    build: ${REPO_ROOT}/services/signing
+    build:
+      context: ${REPO_ROOT}/services/signing-plugin
+      args:
+        KEYSEAL_SERVICE_IMAGE: keyseal-service-e2e
     image: pi-dash-signing-e2e${WT_SUFFIX}
     container_name: pi-dash-signing-test${WT_SUFFIX}
     environment:
-      SIGNING_SERVICE_TOKEN: e2e-signing-token
+      SIGNING_SERVICE_TOKEN: ${E2E_SIGNING_TOKEN}
       SIGNING_TRUST_ROOTS_DIR: /test-roots
       # The fake timestamp authority beside it (signing/fake-tsa.py), so
       # the run stays offline.
@@ -168,7 +173,7 @@ services:
     command:
       - sh
       - -c
-      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn pidash_signing.app:app --host 0.0.0.0 --port 8080
+      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080
     volumes:
       - ${E2E_SIGNING_PKI_DIR}/roots:/test-roots:ro
       - ${E2E_SIGNING_PKI_DIR}/tsa:/test-tsa:ro
@@ -233,8 +238,17 @@ docker compose -f "$E2E_COMPOSE_FILE" down -v --remove-orphans
 echo "Starting test database on port $TEST_DB_HOST_PORT (container: $TEST_CONTAINER)..."
 docker compose -f "$E2E_COMPOSE_FILE" up -d postgres-test
 # Issuing circulars, minutes, declarations and utilisation certificates
-# needs the signing service.
+# needs the signing service: the generic KeySeal image with the pi-dash
+# plugin on top. KEYSEAL_DIR builds the generic image from a KeySeal checkout
+# instead of the published one.
 echo "Starting the signing service on port $TEST_SIGNING_PORT..."
+if [ -n "${KEYSEAL_DIR:-}" ]; then
+  docker build -q -t keyseal-service-e2e "$KEYSEAL_DIR/service" >/dev/null
+else
+  image="$(sed -n 's/^ARG KEYSEAL_SERVICE_IMAGE=//p' "$REPO_ROOT/services/signing-plugin/Dockerfile")"
+  docker pull -q "$image" >/dev/null
+  docker tag "$image" keyseal-service-e2e
+fi
 docker compose -f "$E2E_COMPOSE_FILE" build signing-test
 bash "$REPO_ROOT/packages/e2e/signing/make-test-pki.sh" \
   "pi-dash-signing-e2e${WT_SUFFIX}" "$E2E_SIGNING_PKI_DIR"
@@ -318,7 +332,7 @@ export ZERO_LAZY_STARTUP=false
 export ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0
 
 export SIGNING_SERVICE_URL="http://localhost:$TEST_SIGNING_PORT"
-export SIGNING_SERVICE_TOKEN=e2e-signing-token
+export SIGNING_SERVICE_TOKEN="$E2E_SIGNING_TOKEN"
 
 # Event sign-up links need a signing secret; a fixed test value is fine.
 export EVENT_SIGNUP_LINK_SECRET="${EVENT_SIGNUP_LINK_SECRET:-e2e-event-signup-link-secret-00000000}"

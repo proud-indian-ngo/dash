@@ -332,8 +332,7 @@ export const ignored = [
   "packages/e2e/{select-tests,test-areas,check-e2e-map}.ts",
   "packages/e2e/perf/**",
   "packages/e2e/helpers/seed-dev-data.ts",
-  "services/signing/tests/**",
-  "services/signing-helper/**",
+  "services/signing-plugin/tests/**",
 ];
 
 /** Navigation shared by every page: covered by the sidebar and authorization areas. */
@@ -378,7 +377,10 @@ export const generated = [
  * The signing service and its test PKI: governance and every spec that signs
  * through the DSC helper.
  */
-export const signing = ["services/signing/**", "packages/e2e/signing/**"];
+export const signing = [
+  "services/signing-plugin/**",
+  "packages/e2e/signing/**",
+];
 export const signingHelper = "packages/e2e/helpers/dsc-helper.ts";
 
 /**

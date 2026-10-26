@@ -18,7 +18,7 @@ export function signingServiceConfigured(): boolean {
 }
 
 /**
- * Asks the internal signing service (services/signing) to check every
+ * Asks the internal signing service (services/signing-plugin) to check every
  * signature in a PDF. Never throws: when the service is missing or fails,
  * the report says "unavailable" and the document is stored unchecked, to be
  * checked again later. With `baseLength`, the report also says how much the
@@ -92,7 +92,7 @@ export async function prepareSignatureFields(
     );
   }
   const response = await fetchImpl(
-    new URL("/prepare", env.SIGNING_SERVICE_URL),
+    new URL("/pidash/prepare", env.SIGNING_SERVICE_URL),
     {
       body: JSON.stringify({
         fields,
@@ -163,20 +163,6 @@ async function post(
   return response;
 }
 
-/** Whether a certificate (DER in base64) chains to the configured DSC roots. */
-export async function certificateTrusted(
-  input: { certificate: string; chain: string[] },
-  fetchImpl: typeof fetch = fetch
-): Promise<boolean> {
-  const response = await post(
-    "/certificate",
-    JSON.stringify(input),
-    "application/json",
-    fetchImpl
-  );
-  return ((await response.json()) as { trusted: boolean }).trusted;
-}
-
 /** Fills a trustee's answers field: the copy they then sign. */
 export async function fillAnswers(
   input: { name: string; pdf: Uint8Array; value: string },
@@ -189,44 +175,6 @@ export async function fillAnswers(
       pdf: Buffer.from(input.pdf).toString("base64"),
       value: input.value,
     }),
-    "application/json",
-    fetchImpl
-  );
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-/** Reserves the signature in the trustee's field; returns what the token signs. */
-export async function startRemoteSignature(
-  input: {
-    certificate: string;
-    chain: string[];
-    fieldName: string;
-    pdf: Uint8Array;
-  },
-  fetchImpl: typeof fetch = fetch
-): Promise<{ state: string; toSign: string }> {
-  const response = await post(
-    "/sign/start",
-    JSON.stringify({
-      certificate: input.certificate,
-      chain: input.chain,
-      fieldName: input.fieldName,
-      pdf: Buffer.from(input.pdf).toString("base64"),
-    }),
-    "application/json",
-    fetchImpl
-  );
-  return (await response.json()) as { state: string; toSign: string };
-}
-
-/** Writes the token's signature (with a TSA timestamp) into the PDF. */
-export async function finishRemoteSignature(
-  input: { signature: string; state: string },
-  fetchImpl: typeof fetch = fetch
-): Promise<Uint8Array> {
-  const response = await post(
-    "/sign/finish",
-    JSON.stringify(input),
     "application/json",
     fetchImpl
   );

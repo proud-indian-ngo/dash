@@ -19,11 +19,15 @@ export const Route = createFileRoute(
   }),
 });
 
-/** Every helper release is marked latest (see the signing-helper workflow). */
+/**
+ * The KeySeal helper release offered for download. Its asset names carry the
+ * version, so this moves by hand; installed helpers update themselves.
+ */
+const HELPER_RELEASE = "0.1.0";
+const RELEASE_URL = `https://github.com/somus/keyseal/releases/download/helper-v${HELPER_RELEASE}`;
 const DOWNLOADS = {
-  mac: "https://github.com/proud-indian-ngo/dash/releases/latest/download/pidash-sign-macos.dmg",
-  windows:
-    "https://github.com/proud-indian-ngo/dash/releases/latest/download/pidash-sign-windows-x64.exe",
+  mac: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-macos-universal.dmg`,
+  windows: `${RELEASE_URL}/keyseal-helper-${HELPER_RELEASE}-windows-x64.zip`,
 } as const;
 
 type Platform = "mac" | "windows";
@@ -124,41 +128,45 @@ function SigningHelperPage() {
           <DownloadButton platform={platform} />
           {platform === "mac" ? (
             <p>
-              Open the downloaded file and drag Proud Indian Signing into
-              Applications. If macOS doesn't let you (your account isn't an
-              administrator), put it in the Applications folder inside your home
-              folder instead. Then open it once from there: the first time,
-              macOS says it can't check the app. Choose Done, open System
-              Settings, then Privacy &amp; Security, choose Open Anyway next to
-              Proud Indian Signing, and confirm.
+              Open the downloaded file, drag KeySeal into Applications and open
+              it once from there. The first time, your Mac says it can't verify
+              KeySeal, because the helper isn't from a paid Apple developer yet;
+              choose Done, then open System Settings, Privacy & Security, and
+              under Security choose Open Anyway, then Open.
             </p>
           ) : (
             <p>
               If your browser says the file isn't commonly downloaded, choose
-              Keep in its downloads list. Open the downloaded file. Windows says
-              it protected your PC, because the helper isn't from a paid
-              publisher; choose More info, then Run anyway. The helper installs
-              itself for your Windows account and says when it's ready.
+              Keep in its downloads list. Unzip the downloaded file and open
+              install.cmd inside it. Windows says it protected your PC, because
+              the helper isn't from a paid publisher; choose More info, then Run
+              anyway.
             </p>
           )}
           <p className="text-muted-foreground">
-            You install it once per laptop. It keeps itself up to date: when a
-            new version is out, it updates the next time you sign.
+            You install it once per laptop. It keeps itself up to date. It
+            replaces the earlier Proud Indian Signing helper, which no longer
+            opens. Removing that one is optional: on a Mac, move Proud Indian
+            Signing from Applications to the Bin; on Windows, delete the
+            %LOCALAPPDATA%\pidash-sign folder, then in Registry Editor delete
+            the HKEY_CURRENT_USER\Software\Classes\pidash-sign key.
           </p>
         </Step>
         <Step number={3} title="Set up your DSC">
           <p>
             Plug in your token, open a circular sent to you and choose Set up
-            your DSC. Your browser asks to open the signing helper; allow it and
-            enter your token PIN. From then on, choose Sign with your DSC on any
-            circular.
+            your DSC. Your browser asks to open KeySeal; allow it. The first
+            time, KeySeal asks whether to trust the dashboard's address; check
+            that it is the dashboard's, then choose your certificate. From then
+            on, choose Sign with your DSC on any circular and enter your token
+            PIN in KeySeal.
           </p>
         </Step>
       </ol>
       <p className="text-muted-foreground mt-4 text-sm">
-        The helper only signs for the Proud Indian dashboard. If anything goes
-        wrong you can still download the circular, sign it in Acrobat and upload
-        it.
+        The helper shows which site asks for each signature and what it signs.
+        If anything goes wrong you can still download the circular, sign it in
+        Acrobat and upload it.
       </p>
     </div>
   );

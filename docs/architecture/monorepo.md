@@ -20,6 +20,10 @@ A cache hit is only as safe as the task's declared inputs, so a task that reads 
 - About 40 test files read today's date, so a pass can go stale with no input change. CI's unit-tests job sets `TURBO_FORCE` on every run but a pull request's, so master always runs every suite and a date-dependent failure surfaces there.
 - The root `package.json` depends on several workspaces for its scripts, and Turbo folds those workspaces, with their own dependencies, into the global hash. A change to any of them misses every task; only web, `e2e` and `editor` change on their own.
 
+## KeySeal packages
+
+`apps/web` takes `@keyseal/server` and `@keyseal/browser` from npm. Both are published from the KeySeal repository with provenance, and their versions move together with the job store schema in `packages/db` when the adapter contract changes.
+
 ## Docker build
 
 - `bun install` runs with `--ignore-scripts`. `@rocicorp/zero-sqlite3` would otherwise compile a native addon, and the slim image has no Python or g++. The web build and migrator never load it.

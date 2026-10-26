@@ -1,5 +1,11 @@
 import { Key01Icon, SignatureIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  type JobStatus,
+  launchHelper,
+  type WatchOptions,
+  watchJob,
+} from "@keyseal/browser";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { Link } from "@tanstack/react-router";
@@ -20,72 +26,82 @@ import {
 
 import { formatIso } from "./register-data";
 
+/** Accepts http://localhost job URLs too, in development and E2E builds only. */
+const allowInsecureOrigins =
+  import.meta.env.DEV || import.meta.env.VITE_E2E === "true";
+
 type DscStatus = Awaited<ReturnType<typeof getMyDscStatus>>;
 
-const POLL_MS = 2000;
-const POLL_LIMIT_MS = 15 * 60 * 1000;
+/**
+ * How a job is watched: `setNotClaimed(true)` when no helper claimed it
+ * within a few seconds, and back to false as soon as one does (the
+ * first-contact trust dialog can hold the claim past that).
+ */
+export function helperJobWatch(
+  getStatus: () => Promise<JobStatus>,
+  signal: AbortSignal,
+  setNotClaimed: (notClaimed: boolean) => void
+): WatchOptions {
+  return {
+    getStatus,
+    onChange: (status) => {
+      if (status.state !== "pending") {
+        setNotClaimed(false);
+      }
+    },
+    onNotClaimed: () => setNotClaimed(true),
+    signal,
+  };
+}
 
 /**
- * Opens a `pidash-sign://` link and waits for the helper to finish the
- * job, polling its status. Resolves with the job's outcome, or null once
- * the page is left or shows another document (the router keeps this
- * component when only the ID changes): the job may still finish, so
- * nothing is reported, not even an error, and a link that arrives after
- * it isn't opened.
+ * Opens a `keyseal://` link and watches the job until the helper finishes
+ * it. Resolves with the job's final status, or null once the page is left
+ * or shows another document (the router keeps this component when only the
+ * ID changes): the job may still finish, so nothing is reported, not even
+ * an error, and a link that arrives after it isn't opened. `notClaimed`
+ * says no helper opened the job within a few seconds; the job stays open
+ * meanwhile, so a helper installed now still picks it up.
  */
 function useHelperJob(targetKey: string) {
   const poll = useServerFn(getSigningJobStatus);
-  // Each wait remembers the run it started in; leaving or moving to
-  // another document starts a new one, so the old wait goes quiet.
-  const run = useRef(0);
-  useEffect(
-    () => () => {
-      run.current += 1;
-    },
-    [targetKey]
-  );
-  const follow = useEventCallback(
-    async (
-      start: () => Promise<{ jobId: string; link: string }>,
-      stale: () => boolean
-    ) => {
-      const { jobId, link } = await start();
-      if (stale()) {
-        return null;
-      }
-      window.location.href = link;
-      const started = Date.now();
-      while (Date.now() - started < POLL_LIMIT_MS) {
-        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-        if (stale()) {
+  const [notClaimed, setNotClaimed] = useState(false);
+  const watching = useRef<AbortController | null>(null);
+  useEffect(() => () => watching.current?.abort(), [targetKey]);
+  const run = useEventCallback(
+    async (start: () => Promise<{ id: string; link: string }>) => {
+      watching.current?.abort();
+      const controller = new AbortController();
+      watching.current = controller;
+      setNotClaimed(false);
+      try {
+        const { id, link } = await start();
+        if (controller.signal.aborted) {
           return null;
         }
-        const status = await poll({ data: { jobId } });
-        if (stale()) {
-          return null;
+        launchHelper(link, { allowInsecureOrigins });
+        const status = await watchJob(
+          helperJobWatch(
+            () => poll({ data: { id } }),
+            controller.signal,
+            setNotClaimed
+          )
+        );
+        setNotClaimed(false);
+        return status;
+      } catch (error) {
+        // A newer run owns the prompt; leaving or moving on clears it.
+        if (watching.current === controller) {
+          setNotClaimed(false);
         }
-        if (status.status !== "pending") {
-          return status;
-        }
-      }
-      return {
-        error: "The helper didn't answer in time.",
-        status: "failed" as const,
-      };
-    }
-  );
-  return useEventCallback(
-    (start: () => Promise<{ jobId: string; link: string }>) => {
-      const mine = run.current;
-      const stale = () => run.current !== mine;
-      return follow(start, stale).catch((error: unknown) => {
-        if (stale()) {
+        if (controller.signal.aborted) {
           return null;
         }
         throw error;
-      });
+      }
     }
   );
+  return { notClaimed, run };
 }
 
 /**
@@ -114,7 +130,7 @@ export function DscSignSection({
   const signMinutes = useServerFn(startDscMinutesSigningFn);
   const signDeclaration = useServerFn(startDscDeclarationSigningFn);
   const signCertificate = useServerFn(startDscCertificateSigningFn);
-  const runJob = useHelperJob(JSON.stringify(target));
+  const { notClaimed, run: runJob } = useHelperJob(JSON.stringify(target));
   const [status, setStatus] = useState<DscStatus | null>(null);
   const [busy, setBusy] = useState<"enrol" | "sign" | null>(null);
 
@@ -143,17 +159,17 @@ export function DscSignSection({
         if (!outcome) {
           return;
         }
-        if (outcome.status === "completed") {
+        if (outcome.state === "completed") {
           toast.success("Your DSC is set up");
           refresh();
         } else {
           toast.error("Your DSC wasn't set up", {
-            description: outcome.error ?? undefined,
+            description: outcome.message,
           });
         }
       })
       .catch((error: unknown) => {
-        toast.error("Couldn't start the helper", {
+        toast.error("Your DSC wasn't set up", {
           description: error instanceof Error ? error.message : undefined,
         });
       })
@@ -180,11 +196,11 @@ export function DscSignSection({
         if (!outcome) {
           return;
         }
-        if (outcome.status === "completed") {
+        if (outcome.state === "completed") {
           toast.success("Signed with your DSC");
         } else {
           toast.error("Your signature wasn't added", {
-            description: outcome.error ?? undefined,
+            description: outcome.message,
           });
         }
       })
@@ -251,16 +267,29 @@ export function DscSignSection({
           </Button>
         </>
       )}
-      <p className="text-muted-foreground text-xs">
-        First time?{" "}
-        <Link
-          className="text-primary underline-offset-4 hover:underline"
-          to="/governance/resolutions/signing-helper"
-        >
-          Install the signing helper
-        </Link>
-        .
-      </p>
+      {notClaimed ? (
+        <p className="text-sm" role="status">
+          The signing helper didn't open.{" "}
+          <Link
+            className="text-primary underline-offset-4 hover:underline"
+            to="/governance/resolutions/signing-helper"
+          >
+            Install the signing helper
+          </Link>
+          , then open it: it picks up this request for 15 minutes.
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          First time?{" "}
+          <Link
+            className="text-primary underline-offset-4 hover:underline"
+            to="/governance/resolutions/signing-helper"
+          >
+            Install the signing helper
+          </Link>
+          .
+        </p>
+      )}
     </div>
   );
 }

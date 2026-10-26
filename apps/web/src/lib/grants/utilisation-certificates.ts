@@ -1,9 +1,5 @@
 import { db } from "@pi-dash/db";
 import {
-  createSigningJob,
-  currentCertificate,
-} from "@pi-dash/db/queries/signing";
-import {
   assertNoDrift,
   assertSignerInOffice,
   CertificateError,
@@ -22,17 +18,14 @@ import {
   signatureFieldName,
   signatureSlots,
 } from "@pi-dash/shared/resolutions";
-import { uuidv7 } from "uuidv7";
 
 import {
   checkOneSignerAdded,
   fileArchiveCopy,
 } from "../governance/accept-signature";
-import { CircularError, sha256Of } from "../governance/circulars";
-import {
-  prepareSignatureFields,
-  startRemoteSignature,
-} from "../governance/signing-service";
+import { sha256Of } from "../governance/circulars";
+import { startSignJob } from "../governance/signing-jobs";
+import { prepareSignatureFields } from "../governance/signing-service";
 import { getS3 } from "../s3";
 
 /**
@@ -163,49 +156,27 @@ export async function acceptSignedCertificate(input: {
 }
 
 /**
- * Reserves the trustee's field in the certificate's latest copy for the
- * helper. Only the signer whose turn it is, with an enrolled certificate.
+ * A helper job on the trustee's field in the certificate's latest copy.
+ * Only the signer whose turn it is, with an enrolled certificate.
  */
 export async function startCertificateJob(input: {
   certificateId: string;
-  trusteeId: string;
+  trustee: { id: string; legalName: string };
   userId: string;
-}): Promise<{ id: string; token: string }> {
+}): Promise<{ id: string; link: string }> {
   const certificate = await getCertificate(input.certificateId);
   if (!certificate) {
     throw new CertificateError("Certificate not found");
   }
-  const role = signerRole(certificate, input.trusteeId);
+  const role = signerRole(certificate, input.trustee.id);
   await assertSignerInOffice(db, certificate, role, todayInKolkata());
   await assertNoDrift(db, certificate);
-  const enrolled = await currentCertificate(input.trusteeId);
-  if (!enrolled) {
-    throw new CircularError(
-      "Set up your DSC first: no valid certificate is enrolled for you."
-    );
-  }
-  const fieldName = signatureFieldName(input.trusteeId);
-  const started = await startRemoteSignature({
-    certificate: enrolled.der,
-    chain: enrolled.chain,
-    fieldName,
+  return await startSignJob({
+    fieldName: signatureFieldName(input.trustee.id),
     pdf: await readLatest(certificate),
-  });
-  const s3 = await getS3();
-  const stateObjectKey = certificateKey(
-    certificate.id,
-    `sign-state-${uuidv7()}.json`
-  );
-  await s3.write(stateObjectKey, started.state, { type: "application/json" });
-  return await createSigningJob({
-    basedOnSha256: certificate.latestSha256,
-    certificateId: enrolled.id,
-    fieldName,
-    kind: "sign",
-    stateObjectKey,
-    toSign: started.toSign,
-    trusteeId: input.trusteeId,
+    target: { id: certificate.id, type: "utilisation_certificate" },
+    title: `Utilisation certificate ${certificate.number}: ${certificate.snapshot.grant.title}`,
+    trustee: input.trustee,
     userId: input.userId,
-    utilisationCertificateId: certificate.id,
   });
 }

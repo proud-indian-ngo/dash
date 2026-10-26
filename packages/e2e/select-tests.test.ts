@@ -307,7 +307,9 @@ describe("selectTests", () => {
   });
 
   test("the signing service selects governance and the specs that sign", () => {
-    const { all, specs } = plan("services/signing/pidash_signing/app.py");
+    const { all, specs } = plan(
+      "services/signing-plugin/pidash_signing_plugin/__init__.py"
+    );
     expect(all).toBe(false);
     expect(specs).toEqual(
       expect.arrayContaining([

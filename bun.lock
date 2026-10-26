@@ -40,6 +40,8 @@
         "@dnd-kit/sortable": "catalog:",
         "@hugeicons/core-free-icons": "catalog:",
         "@hugeicons/react": "catalog:",
+        "@keyseal/browser": "^0.1.1",
+        "@keyseal/server": "^0.1.1",
         "@marsidev/react-turnstile": "^1.6.3",
         "@modelcontextprotocol/server": "^2.4.0",
         "@pi-dash/auth": "workspace:*",
@@ -797,6 +799,10 @@
     "@js-sdsl/ordered-map": ["@js-sdsl/ordered-map@4.4.2", "", {}, "sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw=="],
 
     "@juggle/resize-observer": ["@juggle/resize-observer@3.4.0", "", {}, "sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA=="],
+
+    "@keyseal/browser": ["@keyseal/browser@0.1.1", "", {}, "sha512-DQuGYsdfiKYoJEqBHd4ueVcKd2EMgN9DZ1lzyuy+ntsnr5LHtK/WB2DX5byOcNcT3850FwLkNmjF57UY96Vieg=="],
+
+    "@keyseal/server": ["@keyseal/server@0.1.1", "", {}, "sha512-/J/9shCRVx/3j0Bo8sZjJQLAh2/iM6bvJ6uhQDK9PRi2yvqKv2TEkx5D2Q/JQpHERPndt4KpsiPHmTpPulObhw=="],
 
     "@marsidev/react-turnstile": ["@marsidev/react-turnstile@1.6.3", "", { "peerDependencies": { "react": "^17.0.2 || ^18.0.0 || ^19.0", "react-dom": "^17.0.2 || ^18.0.0 || ^19.0" } }, "sha512-JdMMArjEVDMs5jnGMBeXl3y6dkMuIXPG4Tu88Uo2Rkf8ujEw/iJ2Yp/3n4kDF3BjJ+bJB9WC19LPWc5a7/4srA=="],
 

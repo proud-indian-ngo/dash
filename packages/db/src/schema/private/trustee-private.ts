@@ -1,8 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
-  check,
-  foreignKey,
   index,
+  jsonb,
   text,
   timestamp,
   uniqueIndex,
@@ -10,10 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "../auth";
-import { conflictDeclaration } from "../declarations";
-import { circular, signingCertificate, trustee } from "../governance";
-import { utilisationCertificate } from "../grant";
-import { meeting } from "../meetings";
+import { trustee } from "../governance";
 import { privateSchema } from "./party-private";
 
 /**
@@ -51,72 +47,76 @@ export const signingJobKindEnum = privateSchema.enum("signing_job_kind", [
   "enrol",
   "sign",
 ]);
-export const signingJobStatusEnum = privateSchema.enum("signing_job_status", [
+export const signingJobStateEnum = privateSchema.enum("signing_job_state", [
   "pending",
+  "claimed",
+  "prepared",
   "completed",
   "failed",
+  "expired",
 ]);
 
+/** One PDF of a sign job, as `@keyseal/server` keeps it on the job. */
+export interface SigningJobDocument {
+  fieldName: string;
+  signatureDetails: {
+    contactInfo?: string;
+    location?: string;
+    reason?: string;
+  } | null;
+  stampStyle: string | null;
+  title: string;
+  /** Base64 DER SignedAttributes, set by round 1. */
+  toSign: string | null;
+}
+
 /**
- * One `pidash-sign://` link: the helper fetches it with the one-time token
- * (only its hash is kept), signs on the trustee's token and posts back.
- * Expires in 15 minutes. A sign job signs a circular, a meeting's minutes
- * or a declaration of interests.
- * Server only: it holds the signing state's key.
+ * One KeySeal job (`@keyseal/server`): the helper opens a `keyseal://` link,
+ * fetches the job with its one-time token and signs on the trustee's token.
+ * Only the token's SHA-256 is kept (`token_hash`, the job's id to KeySeal),
+ * and the claim nonce's likewise. Expires 15 minutes after creation.
+ * `reference` is JSON naming who started the job and what it signs. Server
+ * only.
  */
 export const signingJob = privateSchema.table(
   "signing_job",
   {
-    /** sha256 of the PDF the signature extends; refuses a stale finish. */
-    basedOnSha256: text("based_on_sha256"),
-    certificateId: uuid("certificate_id").references(
-      () => signingCertificate.id,
-      { onDelete: "restrict" }
-    ),
-    circularId: uuid("circular_id").references(() => circular.id, {
-      onDelete: "restrict",
-    }),
-    completedAt: timestamp("completed_at"),
+    /** Base64 DER of the certificate accepted in round 1. */
+    certificate: text("certificate"),
+    certificatePolicy: jsonb("certificate_policy").$type<{
+      issuerCommonNames?: string[];
+      policyOids?: string[];
+      subjectOrganization?: string;
+    }>(),
+    chain: jsonb("chain").$type<string[]>(),
+    claimNonceHash: text("claim_nonce_hash"),
     createdAt: timestamp("created_at").notNull(),
-    declarationId: uuid("declaration_id").references(
-      () => conflictDeclaration.id,
-      { onDelete: "restrict" }
-    ),
+    digestAlgorithm: text("digest_algorithm", { enum: ["sha256", "sha384"] }),
+    /** Sign jobs: the PDFs in signing order; empty for enrolment. */
+    documents: jsonb("documents").$type<SigningJobDocument[]>().notNull(),
     /** A message for the person, when it failed. */
     error: text("error"),
-    expiresAt: timestamp("expires_at").notNull(),
-    fieldName: text("field_name"),
+    expectedCertificateSha256: text("expected_certificate_sha256"),
     id: uuid("id").primaryKey(),
     kind: signingJobKindEnum("kind").notNull(),
-    meetingId: uuid("meeting_id").references(() => meeting.id, {
-      onDelete: "restrict",
-    }),
-    /** R2 key of the signing service's state between start and finish. */
-    stateObjectKey: text("state_object_key"),
-    status: signingJobStatusEnum("status").default("pending").notNull(),
-    /** The signed attributes the token signs, base64. */
-    toSign: text("to_sign"),
-    utilisationCertificateId: uuid("utilisation_certificate_id"),
+    /** When the request holding the settle lease took it. */
+    leaseStartedAt: timestamp("lease_started_at"),
+    reference: text("reference"),
+    rsaPadding: text("rsa_padding", { enum: ["pkcs1", "pss"] }).notNull(),
+    signer: text("signer").notNull(),
+    state: signingJobStateEnum("state").notNull(),
+    /**
+     * R2 key prefix, below the job blob prefix, of the signing service's
+     * states: one per document at `<stateKey>/<index>`.
+     */
+    stateKey: text("state_key"),
+    title: text("title").notNull(),
     tokenHash: text("token_hash").notNull(),
-    trusteeId: uuid("trustee_id")
-      .notNull()
-      .references(() => trustee.id, { onDelete: "restrict" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
   },
   (t) => [
     uniqueIndex("signing_job_token_uidx").on(t.tokenHash),
-    index("signing_job_user_idx").on(t.userId, t.createdAt),
-    // Named: the generated name passes Postgres's 63-character limit.
-    foreignKey({
-      columns: [t.utilisationCertificateId],
-      foreignColumns: [utilisationCertificate.id],
-      name: "signing_job_utilisation_certificate_fk",
-    }).onDelete("restrict"),
-    check(
-      "signing_job_target_check",
-      sql`${t.kind} = 'enrol' OR num_nonnulls(${t.circularId}, ${t.meetingId}, ${t.declarationId}, ${t.utilisationCertificateId}) = 1`
-    ),
+    index("signing_job_open_idx")
+      .on(t.createdAt)
+      .where(sql`${t.state} in ('pending', 'claimed', 'prepared')`),
   ]
 );

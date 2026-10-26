@@ -9,6 +9,7 @@ An immutable record of who changed what. Each authenticated, state-changing comm
   - Every `POST` server function must be listed in the coverage test, as audited or exempt. An unlisted one fails `bun run test:unit`.
   - Audited ones must call `runSessionAuditedAction` inside the export.
 - **API routes:** every `POST` route is classified in the same test. Authenticated ones use `runSessionAuditedAction`. The Social API's `posted` uses `runAuditedAction`.
+- **DSC helper jobs:** the helper has no session, so `apps/web/src/lib/governance/signing-jobs.ts` audits each job's completion and failure with `runAuditedAction` in the name of the trustee who started it. A refused job writes two rows, the completion attempt and the failure; a retry that takes over a lapsed settle lease may repeat a row. `jobId` in the metadata ties a job's rows together; the failure message stays on the job.
 - **Not audited:** reads, navigation, presigned-upload URLs, unauthenticated auth flows, signed webhooks, scheduled jobs, and the background effects a command triggers.
 - **Audited even though they read:** revealing an encrypted identifier or a vendor's bank account, the CA workbook, audit pack and donations return exports, and filing and certificate downloads, because they carry sensitive data.
 

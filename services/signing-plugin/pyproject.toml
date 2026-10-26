@@ -1,0 +1,27 @@
+[project]
+name = "pidash-signing-plugin"
+version = "0.1.0"
+description = "pi-dash stamp style and answers routes for the KeySeal signing service"
+requires-python = ">=3.12"
+dependencies = ["keyseal-service>=0.1.0"]
+
+[project.entry-points."keyseal.stamp_styles"]
+proud-indian = "pidash_signing_plugin.appearance:ProudIndianStampStyle"
+
+[project.entry-points."keyseal.routers"]
+pidash = "pidash_signing_plugin.routes:router"
+
+[project.optional-dependencies]
+test = ["httpx2>=2.16.0", "pytest>=9.1.1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# keyseal-service is published as an image, not on PyPI, so uv can't lock this
+# project. The venv is set up by hand (see README) and `uv run` uses it as it is.
+managed = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

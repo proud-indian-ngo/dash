@@ -1338,6 +1338,20 @@
       "when": 1792942161484,
       "tag": "0190_session_creator_from_series",
       "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1792999349198,
+      "tag": "0191_signing_job_drop",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1792999351049,
+      "tag": "0192_keyseal_signing_job",
+      "breakpoints": true
     }
   ]
 }

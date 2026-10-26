@@ -1,5 +1,15 @@
-import { X509Certificate } from "node:crypto";
-
+import {
+  type Adapter,
+  type CertificateFacts,
+  type CompletedResult,
+  createKeySeal,
+  type Job,
+  type JobFailure,
+  JobRefused,
+  type JobStatus,
+  type KeySeal,
+  ServiceClient,
+} from "@keyseal/server";
 import { db } from "@pi-dash/db";
 import { trusteeNamesForMatching } from "@pi-dash/db/queries/governance";
 import { getMeeting, MeetingError } from "@pi-dash/db/queries/meetings";
@@ -7,193 +17,443 @@ import {
   DeclarationError,
   getConflictDeclaration,
 } from "@pi-dash/db/queries/policies";
-import { circularResolutions } from "@pi-dash/db/queries/resolutions";
 import {
-  type CertificateFacts,
-  closeJob,
-  createSigningJob,
   currentCertificate,
   enrolCertificate,
-  getCertificate,
-  jobOutcome,
-  openJobForToken,
-  type SigningJobRow,
+  expireSigningJobs,
+  getSigningJob,
+  insertSigningJob,
   signatureRecordedSince,
-  whileClaimed,
+  transitionSigningJob,
 } from "@pi-dash/db/queries/signing";
 import {
   CertificateError,
   getCertificate as getUtilisationCertificate,
 } from "@pi-dash/db/queries/utilisation-certificates";
 import { user } from "@pi-dash/db/schema/auth";
+import { env } from "@pi-dash/env/server";
 import { matchSignerToTrustee } from "@pi-dash/shared/governance";
-import {
-  circularReference,
-  signatureFieldName,
-} from "@pi-dash/shared/resolutions";
+import { signatureFieldName } from "@pi-dash/shared/resolutions";
 import { eq } from "drizzle-orm";
-import { createRequestLogger } from "evlog";
-import { uuidv7 } from "uuidv7";
 import z from "zod";
 
 import { type AuditTarget, runAuditedAction } from "../audit";
+import { trustedClientIp } from "../client-ip";
 import { acceptSignedCertificate } from "../grants/utilisation-certificates";
+import { checkRateLimit } from "../rate-limit";
 import { getS3 } from "../s3";
 import {
   acceptSignedDeclaration,
   acceptSignedMinutes,
   acceptSignedPdf,
-  declarationKey,
-  meetingKey,
-  signedMessage,
 } from "./accept-signature";
-import { CircularError, UNTRUSTED_CERTIFICATE_MESSAGE } from "./circulars";
-import {
-  certificateTrusted,
-  finishRemoteSignature,
-  SigningServiceError,
-  startRemoteSignature,
-} from "./signing-service";
+import { CircularError } from "./circulars";
+import { SigningServiceError } from "./signing-service";
 
 /**
- * The helper's side of a `pidash-sign://` link. It has no session: the
- * one-time job token (only its hash is stored, 15 minutes, single use)
- * stands for the trustee who started the job, and every completion is
- * audited in their name. A sign job signs a circular, for the chair a
- * meeting's minutes, a trustee's own declaration of interests, or as Head
- * of the Organisation or Chief Finance Officer a grant's utilisation
+ * DSC helper jobs on `@keyseal/server`. The page opens a `keyseal://` link; the
+ * helper talks to the job endpoint under /api/signing with no session: the
+ * one-time job token stands for the trustee who started the job, and every
+ * completion is audited in their name. A sign job signs a circular, for the
+ * chair a meeting's minutes, a trustee's own declaration of interests, or as
+ * Head of the Organisation or Chief Finance Officer a grant's utilisation
  * certificate.
  */
 
-export interface JobReply {
-  body: Record<string, unknown>;
-  status: number;
-}
+/** Job URLs are `<origin>/api/signing/v1/jobs/<token>`. */
+const KEYSEAL_BASE_PATH = "/api/signing";
 
-const GONE: JobReply = {
-  body: {
-    message:
-      "This signing link has expired or was already used. Start again in the dashboard.",
-  },
-  status: 404,
-};
+/**
+ * The oldest KeySeal helper the job endpoint serves. Raise it when the helper
+ * must change with the dashboard; older helpers are told to update.
+ */
+const MIN_HELPER_VERSION = "0.1.0";
 
-function signedReply(job: SigningJobRow): JobReply {
-  let signedWhat = "circular";
-  if (job.meetingId) {
-    signedWhat = "minutes";
-  } else if (job.declarationId) {
-    signedWhat = "declaration";
-  } else if (job.utilisationCertificateId) {
-    signedWhat = "utilisation certificate";
-  }
-  return {
-    body: {
-      message: `Signed. Your signature is on the ${signedWhat}. You can return to the dashboard.`,
-    },
-    status: 200,
-  };
-}
+/** The signing plugin's stamp: the name over a faint Proud Indian symbol. */
+const STAMP_STYLE = "proud-indian";
 
 const minutesDate = new Intl.DateTimeFormat("en-IN", {
   dateStyle: "long",
   timeZone: "Asia/Kolkata",
 });
 
-const enrolBody = z.object({
-  certificates: z.array(z.string().max(16_384)).min(1).max(8),
-  chain: z.array(z.string().max(16_384)).max(8).default([]),
+/** Who started a job and what it signs, kept as the job's `reference`. */
+const jobReference = z.object({
+  target: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("enrol") }),
+    z.object({ id: z.string(), type: z.literal("circular") }),
+    z.object({ id: z.string(), type: z.literal("declaration") }),
+    z.object({ id: z.string(), type: z.literal("meeting") }),
+    z.object({ id: z.string(), type: z.literal("utilisation_certificate") }),
+  ]),
+  trusteeId: z.string(),
+  userId: z.string(),
 });
+type JobReference = z.infer<typeof jobReference>;
+type SignTarget = Exclude<JobReference["target"], { type: "enrol" }>;
 
-const signBody = z.object({
-  certificate: z.string().max(16_384),
-  signature: z.string().max(4096),
-});
-
-/** The helper gave up on the trustee's computer: a cancelled PIN, no token, a wrong PIN. */
-const failedBody = z.object({ failed: z.string().trim().min(1).max(500) });
-
-function commonName(distinguishedName: string): string | null {
-  const line = distinguishedName
-    .split(/\n|,\s*/)
-    .find((part) => part.trim().startsWith("CN="));
-  return line ? line.trim().slice(3) : null;
-}
-
-/** What the dashboard keeps of a certificate, or null when it can't sign for us. */
-export function certificateFacts(
-  derBase64: string,
-  chain: string[],
-  now: Date = new Date()
-): (CertificateFacts & { commonName: string | null }) | null {
-  let certificate: X509Certificate;
-  try {
-    certificate = new X509Certificate(Buffer.from(derBase64, "base64"));
-  } catch {
-    return null;
-  }
-  const notBefore = new Date(certificate.validFrom);
-  const notAfter = new Date(certificate.validTo);
-  if (!(notBefore <= now && now < notAfter)) {
-    return null;
-  }
-  if (certificate.publicKey.asymmetricKeyType !== "rsa") {
-    return null;
-  }
-  return {
-    chain,
-    commonName: commonName(certificate.subject),
-    der: derBase64,
-    issuer: commonName(certificate.issuer) ?? certificate.issuer,
-    notAfter,
-    notBefore,
-    serial: certificate.serialNumber,
-    sha256: certificate.fingerprint256.replaceAll(":", "").toLowerCase(),
-    subject: commonName(certificate.subject) ?? certificate.subject,
-  };
+function readReference(reference: string | null): JobReference {
+  return jobReference.parse(JSON.parse(reference ?? "null"));
 }
 
 /**
- * Settles the job under this completion's claim and replies; null when the
- * claim was taken over, so the caller answers with how the job settled.
+ * Admits http://localhost and 127.0.0.1 job URLs besides https, in
+ * development and E2E (which runs with NODE_ENV=test); the helper refuses
+ * those unless told otherwise.
  */
-async function settle(
-  job: SigningJobRow,
-  claim: Date,
-  outcome: { error: string } | { ok: true },
-  reply: JobReply
-): Promise<JobReply | null> {
-  return (await closeJob(job.id, claim, outcome)) ? reply : null;
+const allowInsecureOrigin = env.NODE_ENV !== "production";
+
+function blobKey(key: string): string {
+  return `${env.R2_KEY_PREFIX}/governance/signing-jobs/${key}`;
 }
 
-async function actorFor(job: SigningJobRow) {
+function commonName(distinguishedName: string): string | null {
+  const part = distinguishedName
+    .split(", ")
+    .find((line) => line.startsWith("CN="));
+  return part ? part.slice(3) : null;
+}
+
+async function actorFor(userId: string) {
   const [row] = await db
     .select({ name: user.name, role: user.role })
     .from(user)
-    .where(eq(user.id, job.userId))
+    .where(eq(user.id, userId))
     .limit(1);
   return {
     name: row?.name ?? "Trustee",
     role: row?.role ?? "unknown",
-    userId: job.userId,
+    userId,
   };
 }
 
+function auditFor({ target, trusteeId }: JobReference): {
+  action: string;
+  target: AuditTarget;
+} {
+  if (target.type === "enrol") {
+    return {
+      action: "signing.enrol",
+      target: { id: trusteeId, type: "trustee" },
+    };
+  }
+  if (target.type === "meeting") {
+    return {
+      action: "meeting.sign_minutes",
+      target: { id: target.id, type: "meeting" },
+    };
+  }
+  if (target.type === "declaration") {
+    return {
+      action: "governance.sign_declaration",
+      target: { id: target.id, type: "conflict_declaration" },
+    };
+  }
+  if (target.type === "utilisation_certificate") {
+    return {
+      action: "utilisation_certificate.sign",
+      target: { id: target.id, type: "utilisation_certificate" },
+    };
+  }
+  return {
+    action: "circular.sign",
+    target: { id: target.id, type: "circular" },
+  };
+}
+
+/** Keeps the certificate when it is in the trustee's own name. */
+async function enrol(
+  job: Job,
+  { trusteeId }: JobReference,
+  certificate: CertificateFacts
+): Promise<void> {
+  const names = await trusteeNamesForMatching();
+  const own = names.filter((n) => n.id === trusteeId);
+  if (matchSignerToTrustee(certificate.subjectCommonName, own) !== trusteeId) {
+    throw new JobRefused(
+      `This certificate is not in the name of ${job.signer}. Plug in your own DSC token.`
+    );
+  }
+  // Enrolling the same certificate again changes nothing.
+  await enrolCertificate(trusteeId, {
+    chain: certificate.chain,
+    der: certificate.der,
+    issuer: commonName(certificate.issuer) ?? certificate.issuer,
+    notAfter: certificate.notAfter,
+    notBefore: certificate.notBefore,
+    serial: certificate.serialNumber,
+    sha256: certificate.sha256,
+    subject: certificate.subjectCommonName ?? certificate.subject,
+  });
+}
+
 /**
- * Reserves the chair's field in the meeting's current minutes for the
- * helper. Only the recorded chair signs, once the meeting is held and its
- * minutes are made and unsigned.
+ * Whether the signature is already recorded: a completion whose settle
+ * lease lapsed may have filed it while this one took over. Minutes are
+ * signed only by the chair and a declaration only by its trustee, so
+ * either signed is this job done. A utilisation certificate moved past this
+ * job's copy only if the copy now holds this trustee's signature.
  */
-export async function startMinutesJob(input: {
-  meetingId: string;
-  trusteeId: string;
+async function signatureRecorded(
+  job: Job,
+  target: SignTarget,
+  trusteeId: string
+): Promise<boolean> {
+  if (target.type === "utilisation_certificate") {
+    const row = await getUtilisationCertificate(target.id);
+    return (
+      !!row &&
+      ((row.headTrusteeId === trusteeId && !!row.headSignedAt) ||
+        (row.financeTrusteeId === trusteeId && !!row.financeSignedAt))
+    );
+  }
+  if (target.type === "declaration") {
+    return (await getConflictDeclaration(target.id))?.status === "signed";
+  }
+  if (target.type === "meeting") {
+    return !!(await getMeeting(target.id))?.minutesDocumentId;
+  }
+  return await signatureRecordedSince(target.id, trusteeId, job.createdAt);
+}
+
+/**
+ * Files the signed PDF where the circular, minutes, declaration or
+ * utilisation certificate flow keeps it.
+ */
+async function fileSigned(
+  job: Job,
+  { target, trusteeId, userId }: JobReference,
+  { certificate, pdfs }: Extract<CompletedResult, { kind: "sign" }>
+): Promise<void> {
+  // Every job here signs one document.
+  const [pdf] = pdfs;
+  if (target.type === "enrol" || pdfs.length !== 1 || !pdf) {
+    throw new Error(`Sign job ${job.id} doesn't name one document`);
+  }
+  const expectedCertificateSha256 = certificate.sha256;
+  try {
+    if (target.type === "utilisation_certificate") {
+      await acceptSignedCertificate({
+        certificateId: target.id,
+        expectedCertificateSha256,
+        trusteeId,
+        uploaded: pdf,
+      });
+    } else if (target.type === "declaration") {
+      await acceptSignedDeclaration({
+        declarationId: target.id,
+        expectedCertificateSha256,
+        uploaded: pdf,
+        userId,
+      });
+    } else if (target.type === "meeting") {
+      await acceptSignedMinutes({
+        expectedCertificateSha256,
+        meetingId: target.id,
+        uploaded: pdf,
+        userId,
+      });
+    } else {
+      await acceptSignedPdf({
+        circularId: target.id,
+        expectedCertificateSha256,
+        method: "dsc_helper",
+        trustee: { id: trusteeId, legalName: job.signer },
+        uploaded: pdf,
+        userId,
+      });
+    }
+  } catch (error) {
+    if (await signatureRecorded(job, target, trusteeId)) {
+      return;
+    }
+    if (
+      error instanceof CertificateError ||
+      error instanceof CircularError ||
+      error instanceof DeclarationError ||
+      error instanceof MeetingError ||
+      error instanceof SigningServiceError
+    ) {
+      throw new JobRefused(error.message);
+    }
+    throw error;
+  }
+}
+
+/**
+ * KeySeal's completion callback, audited as the trustee who started the job.
+ * A retry after a lapsed settle lease may call it again for the same job.
+ */
+async function completeJob(job: Job, result: CompletedResult): Promise<void> {
+  const reference = readReference(job.reference);
+  await runAuditedAction(
+    {
+      ...auditFor(reference),
+      actor: await actorFor(reference.userId),
+      metadata: { jobId: job.id, method: "dsc_helper" },
+    },
+    async () => {
+      if (result.kind === "enrol") {
+        await enrol(job, reference, result.certificate);
+      } else {
+        await fileSigned(job, reference, result);
+      }
+    }
+  );
+}
+
+/**
+ * KeySeal's failure callback: a failure the helper reported, or one the server
+ * decided (a refused certificate or signature, a `JobRefused`, an outdated
+ * helper), audited as a failure of the job's action in the trustee's name.
+ * The message is free text, so it stays on the job and out of the audit log.
+ */
+async function failJob(job: Job, { reportedBy }: JobFailure): Promise<void> {
+  const reference = readReference(job.reference);
+  await runAuditedAction(
+    {
+      ...auditFor(reference),
+      actor: await actorFor(reference.userId),
+      metadata: { jobId: job.id, method: "dsc_helper", reportedBy },
+    },
+    async () => undefined,
+    () => "failure"
+  );
+}
+
+/** Job rows in PostgreSQL; the PDF and the service's state in R2. */
+const adapter: Adapter = {
+  create: insertSigningJob,
+  async deleteBlob(key) {
+    await getS3().delete(blobKey(key));
+  },
+  expireOlderThan: expireSigningJobs,
+  get: getSigningJob,
+  async getBlob(key) {
+    const file = getS3().file(blobKey(key));
+    return (await file.exists())
+      ? new Uint8Array(await file.arrayBuffer())
+      : null;
+  },
+  onCompleted: completeJob,
+  onFailed: failJob,
+  async putBlob(key, bytes) {
+    await getS3().write(blobKey(key), bytes);
+  },
+  transition: transitionSigningJob,
+};
+
+let keyseal: KeySeal | null = null;
+
+/** The job API; throws when the signing service isn't configured here. */
+export function keysealJobs(): KeySeal {
+  if (!(env.SIGNING_SERVICE_URL && env.SIGNING_SERVICE_TOKEN)) {
+    throw new SigningServiceError(
+      "Signing needs the signing service, which isn't set up here.",
+      { fault: true }
+    );
+  }
+  const origin = new URL(env.APP_URL ?? env.BETTER_AUTH_URL).origin;
+  keyseal ??= createKeySeal({
+    adapter,
+    allowInsecureOrigin,
+    basePath: KEYSEAL_BASE_PATH,
+    // The helper's job window: the app icon and the brand sky.
+    branding: {
+      accentColor: "#4CC0EC",
+      icon: `${origin}/icon-512.png`,
+      name: "Proud Indian",
+    },
+    minHelperVersion: MIN_HELPER_VERSION,
+    origin,
+    rateLimit: (request) =>
+      checkRateLimit(`signing-job:${trustedClientIp(request) ?? "unknown"}`, 30)
+        .allowed,
+    service: new ServiceClient({
+      token: env.SIGNING_SERVICE_TOKEN,
+      url: env.SIGNING_SERVICE_URL,
+    }),
+  });
+  return keyseal;
+}
+
+/** What the page needs: the link to open and the id to poll. */
+interface StartedJob {
+  id: string;
+  link: string;
+}
+
+interface Signer {
+  trustee: { id: string; legalName: string };
   userId: string;
-}): Promise<{ id: string; token: string }> {
-  const row = await getMeeting(input.meetingId);
+}
+
+/** An enrol job: the helper sends a certificate from the trustee's token. */
+export async function startEnrolJob({
+  trustee,
+  userId,
+}: Signer): Promise<StartedJob> {
+  const reference: JobReference = {
+    target: { type: "enrol" },
+    trusteeId: trustee.id,
+    userId,
+  };
+  const { id, link } = await keysealJobs().createEnrolJob({
+    reference: JSON.stringify(reference),
+    signer: trustee.legalName,
+    title: "DSC enrolment",
+  });
+  return { id, link };
+}
+
+/**
+ * A sign job on `pdf`, which has the trustee's empty signature field
+ * `fieldName`. Only the trustee's enrolled certificate may sign it.
+ */
+export async function startSignJob({
+  fieldName,
+  pdf,
+  target,
+  title,
+  trustee,
+  userId,
+}: Signer & {
+  fieldName: string;
+  pdf: Uint8Array;
+  target: SignTarget;
+  title: string;
+}): Promise<StartedJob> {
+  const certificate = await currentCertificate(trustee.id);
+  if (!certificate) {
+    throw new CircularError(
+      "Set up your DSC first: no valid certificate is enrolled for you."
+    );
+  }
+  const reference: JobReference = { target, trusteeId: trustee.id, userId };
+  const { id, link } = await keysealJobs().createSignJob({
+    documents: [{ fieldName, pdf, stampStyle: STAMP_STYLE }],
+    expectedCertificateSha256: certificate.sha256,
+    reference: JSON.stringify(reference),
+    signer: trustee.legalName,
+    title,
+  });
+  return { id, link };
+}
+
+/**
+ * A job on the meeting's current minutes for the chair. Only the recorded
+ * chair signs, once the meeting is held and its minutes are made and
+ * unsigned.
+ */
+export async function startMinutesJob({
+  meetingId,
+  ...signer
+}: Signer & { meetingId: string }): Promise<StartedJob> {
+  const row = await getMeeting(meetingId);
   if (!row) {
     throw new MeetingError("Meeting not found");
   }
-  if (row.chairTrusteeId !== input.trusteeId) {
+  if (row.chairTrusteeId !== signer.trustee.id) {
     throw new MeetingError("Only the chair of the meeting signs its minutes.");
   }
   if (row.status !== "held") {
@@ -205,50 +465,31 @@ export async function startMinutesJob(input: {
   if (!row.minutesObjectKey) {
     throw new MeetingError("Generate the minutes first.");
   }
-  const certificate = await currentCertificate(input.trusteeId);
-  if (!certificate) {
-    throw new CircularError(
-      "Set up your DSC first: no valid certificate is enrolled for you."
-    );
-  }
-  const s3 = await getS3();
-  const pdf = new Uint8Array(await s3.file(row.minutesObjectKey).arrayBuffer());
-  const fieldName = signatureFieldName(input.trusteeId);
-  const started = await startRemoteSignature({
-    certificate: certificate.der,
-    chain: certificate.chain,
-    fieldName,
+  const pdf = new Uint8Array(
+    await getS3().file(row.minutesObjectKey).arrayBuffer()
+  );
+  return await startSignJob({
+    ...signer,
+    fieldName: signatureFieldName(signer.trustee.id),
     pdf,
-  });
-  const stateObjectKey = meetingKey(row.id, `sign-state-${uuidv7()}.json`);
-  await s3.write(stateObjectKey, started.state, { type: "application/json" });
-  return await createSigningJob({
-    basedOnSha256: row.minutesSha256,
-    certificateId: certificate.id,
-    fieldName,
-    kind: "sign",
-    meetingId: row.id,
-    stateObjectKey,
-    toSign: started.toSign,
-    trusteeId: input.trusteeId,
-    userId: input.userId,
+    target: { id: row.id, type: "meeting" },
+    title: `Minutes of the board meeting of ${minutesDate.format(row.startsAt)}`,
   });
 }
 
 /**
- * Reserves the trustee's field in their declaration waiting for signature,
- * for the helper. Only the trustee it belongs to signs it.
+ * A job on the trustee's declaration waiting for signature. Only the
+ * trustee it belongs to signs it.
  */
-export async function startDeclarationJob(input: {
-  declarationId: string;
-  trusteeId: string;
-  userId: string;
-}): Promise<{ id: string; token: string }> {
-  const row = await getConflictDeclaration(input.declarationId);
+export async function startDeclarationJob({
+  declarationId,
+  ...signer
+}: Signer & { declarationId: string }): Promise<StartedJob> {
+  const row = await getConflictDeclaration(declarationId);
   if (!row) {
     throw new DeclarationError("Declaration not found");
   }
-  if (row.trusteeId !== input.trusteeId) {
+  if (row.trusteeId !== signer.trustee.id) {
     throw new DeclarationError(
       "Only the trustee who declared signs the declaration."
     );
@@ -256,461 +497,27 @@ export async function startDeclarationJob(input: {
   if (!(row.status === "awaiting_signature" && row.objectKey)) {
     throw new DeclarationError("This declaration is already signed.");
   }
-  const certificate = await currentCertificate(input.trusteeId);
-  if (!certificate) {
-    throw new CircularError(
-      "Set up your DSC first: no valid certificate is enrolled for you."
-    );
-  }
-  const s3 = await getS3();
-  const pdf = new Uint8Array(await s3.file(row.objectKey).arrayBuffer());
-  const fieldName = signatureFieldName(input.trusteeId);
-  const started = await startRemoteSignature({
-    certificate: certificate.der,
-    chain: certificate.chain,
-    fieldName,
+  const pdf = new Uint8Array(await getS3().file(row.objectKey).arrayBuffer());
+  return await startSignJob({
+    ...signer,
+    fieldName: signatureFieldName(signer.trustee.id),
     pdf,
-  });
-  const stateObjectKey = declarationKey(
-    input.trusteeId,
-    `sign-state-${uuidv7()}.json`
-  );
-  await s3.write(stateObjectKey, started.state, { type: "application/json" });
-  return await createSigningJob({
-    basedOnSha256: row.sha256,
-    certificateId: certificate.id,
-    declarationId: row.id,
-    fieldName,
-    kind: "sign",
-    stateObjectKey,
-    toSign: started.toSign,
-    trusteeId: input.trusteeId,
-    userId: input.userId,
+    target: { id: row.id, type: "declaration" },
+    title: `Declaration of interests for ${row.fiscalYear}`,
   });
 }
 
-/**
- * The oldest helper the job API serves. Raise it when the helper must
- * change with the dashboard; older helpers send no version at all.
- */
-const MIN_HELPER_VERSION = [0, 2, 0];
-
-export const OUTDATED_HELPER_MESSAGE =
-  "Update the signing helper: this one is too old for the dashboard. Download the new one from the Signing helper page, then try again.";
-
-function helperCurrent(version: string | null): boolean {
-  const parts = version
-    ?.match(/^(\d+)\.(\d+)\.(\d+)$/)
-    ?.slice(1)
-    .map(Number);
-  if (!parts) {
-    return false;
-  }
-  for (const [index, minimum] of MIN_HELPER_VERSION.entries()) {
-    const part = parts[index] ?? 0;
-    if (part !== minimum) {
-      return part > minimum;
-    }
-  }
-  return true;
-}
-
-/**
- * Refuses a helper older than the dashboard serves, and fails its job with
- * the reason, since an old helper doesn't report failures the page can show.
- */
-export async function refuseOutdatedHelper(
-  token: string,
-  version: string | null
-): Promise<JobReply | null> {
-  if (helperCurrent(version)) {
+/** What the person's page polls for: their own job only, null otherwise. */
+export async function jobStatusFor(
+  id: string,
+  userId: string
+): Promise<Pick<JobStatus, "message" | "state"> | null> {
+  const status = await keysealJobs().status(id);
+  if (!status || readReference(status.reference).userId !== userId) {
     return null;
   }
-  await completeJob(token, { failed: OUTDATED_HELPER_MESSAGE });
-  return { body: { message: OUTDATED_HELPER_MESSAGE }, status: 426 };
-}
-
-/** GET: what the helper should do, without revealing more than it needs. */
-export async function describeJob(token: string): Promise<JobReply> {
-  const job = await openJobForToken(token);
-  if (!job) {
-    return GONE;
-  }
-  if (job.kind === "enrol") {
-    return {
-      body: { kind: "enrol", signer: job.legalName, title: "DSC enrolment" },
-      status: 200,
-    };
-  }
-  const [resolutions, meeting, declaration, utilisation, certificate] =
-    await Promise.all([
-      job.circularId ? circularResolutions(job.circularId) : [],
-      job.meetingId ? getMeeting(job.meetingId) : null,
-      job.declarationId ? getConflictDeclaration(job.declarationId) : null,
-      job.utilisationCertificateId
-        ? getUtilisationCertificate(job.utilisationCertificateId)
-        : null,
-      job.certificateId ? getCertificate(job.certificateId) : null,
-    ]);
-  let title = `Circular ${job.circularId ? circularReference(job.circularId) : ""} (${resolutions.length} resolutions)`;
-  if (meeting) {
-    title = `Minutes of the board meeting of ${minutesDate.format(meeting.startsAt)}`;
-  } else if (declaration) {
-    title = `Declaration of interests for ${declaration.fiscalYear}`;
-  } else if (utilisation) {
-    title = `Utilisation certificate ${utilisation.number}: ${utilisation.snapshot.grant.title}`;
-  } else if (resolutions.length === 1) {
-    title = resolutions[0]?.title ?? "Circular";
-  }
   return {
-    body: {
-      certificateSha256: certificate?.sha256 ?? null,
-      kind: "sign",
-      signer: job.legalName,
-      title,
-      toSign: job.toSign,
-    },
-    status: 200,
+    state: status.state,
+    ...(status.message === undefined ? {} : { message: status.message }),
   };
-}
-
-async function completeEnrolment(
-  job: SigningJobRow & { legalName: string },
-  input: z.infer<typeof enrolBody>,
-  claim: Date
-): Promise<JobReply | null> {
-  const names = await trusteeNamesForMatching();
-  const own = names.filter((n) => n.id === job.trusteeId);
-  const facts = input.certificates
-    .map((der) => certificateFacts(der, input.chain))
-    .filter((f) => f !== null)
-    .filter((f) => matchSignerToTrustee(f.commonName, own) === job.trusteeId);
-  if (facts.length === 0) {
-    const message = `None of the valid certificates on this token is in the name of ${job.legalName}. Plug in your own DSC token.`;
-    return await settle(
-      job,
-      claim,
-      { error: message },
-      {
-        body: { message },
-        status: 422,
-      }
-    );
-  }
-  // A certificate in the trustee's name is a DSC only if a licensed CA issued it.
-  let chosen: (typeof facts)[number] | undefined;
-  try {
-    for (const f of facts) {
-      if (await certificateTrusted({ certificate: f.der, chain: f.chain })) {
-        chosen = f;
-        break;
-      }
-    }
-  } catch (error) {
-    if (!(error instanceof SigningServiceError)) {
-      throw error;
-    }
-    return await settle(
-      job,
-      claim,
-      { error: error.message },
-      {
-        body: { message: error.message },
-        status: 422,
-      }
-    );
-  }
-  if (!chosen) {
-    return await settle(
-      job,
-      claim,
-      { error: UNTRUSTED_CERTIFICATE_MESSAGE },
-      { body: { message: UNTRUSTED_CERTIFICATE_MESSAGE }, status: 422 }
-    );
-  }
-  // Enrolling the same certificate again changes nothing.
-  await enrolCertificate(job.trusteeId, chosen);
-  return await settle(
-    job,
-    claim,
-    { ok: true },
-    {
-      body: {
-        message: `Your DSC (${chosen.subject}, valid until ${chosen.notAfter.toISOString().slice(0, 10)}) is registered in the dashboard. You can sign with it now.`,
-      },
-      status: 200,
-    }
-  );
-}
-
-async function completeSignature(
-  job: SigningJobRow & { legalName: string },
-  input: z.infer<typeof signBody>,
-  claim: Date
-): Promise<JobReply | null> {
-  const certificate = job.certificateId
-    ? await getCertificate(job.certificateId)
-    : null;
-  const {
-    circularId,
-    declarationId,
-    meetingId,
-    stateObjectKey,
-    utilisationCertificateId,
-  } = job;
-  if (
-    !(
-      certificate &&
-      (circularId || meetingId || declarationId || utilisationCertificateId) &&
-      stateObjectKey
-    )
-  ) {
-    return await settle(
-      job,
-      claim,
-      { error: "This signing job is incomplete." },
-      GONE
-    );
-  }
-  const facts = certificateFacts(input.certificate, []);
-  if (facts?.sha256 !== certificate.sha256) {
-    const message =
-      "The token signed with a different certificate from the one enrolled for you.";
-    return await settle(
-      job,
-      claim,
-      { error: message },
-      {
-        body: { message },
-        status: 422,
-      }
-    );
-  }
-  try {
-    const s3 = await getS3();
-    const state = await s3.file(stateObjectKey).text();
-    const signed = await finishRemoteSignature({
-      signature: input.signature,
-      state,
-    });
-    let message = "Signed. The minutes are filed in the vault.";
-    if (utilisationCertificateId) {
-      await acceptSignedCertificate({
-        certificateId: utilisationCertificateId,
-        expectedCertificateSha256: certificate.sha256,
-        trusteeId: job.trusteeId,
-        uploaded: signed,
-      });
-      message = "Signed. Your signature is on the utilisation certificate.";
-    } else if (declarationId) {
-      await acceptSignedDeclaration({
-        declarationId,
-        expectedCertificateSha256: certificate.sha256,
-        uploaded: signed,
-        userId: job.userId,
-      });
-      message = "Signed. Your declaration is filed in the vault.";
-    } else if (meetingId) {
-      await acceptSignedMinutes({
-        expectedCertificateSha256: certificate.sha256,
-        meetingId,
-        uploaded: signed,
-        userId: job.userId,
-      });
-    } else if (circularId) {
-      const decisions = await acceptSignedPdf({
-        circularId,
-        expectedCertificateSha256: certificate.sha256,
-        method: "dsc_helper",
-        trustee: { id: job.trusteeId, legalName: job.legalName },
-        uploaded: signed,
-        userId: job.userId,
-      });
-      message = signedMessage(decisions);
-    }
-    await s3.delete(stateObjectKey).catch(() => undefined);
-    return await settle(
-      job,
-      claim,
-      { ok: true },
-      {
-        body: { message: `${message} You can return to the dashboard.` },
-        status: 200,
-      }
-    );
-  } catch (error) {
-    // An earlier completion whose claim lapsed recorded the signature
-    // meanwhile, so this one finds it stale: the job is done. Minutes are
-    // signed only by the chair and a declaration only by its trustee, so
-    // either signed is this job done too.
-    let recorded = false;
-    if (utilisationCertificateId) {
-      // The certificate moved past this job's copy: recorded only if the
-      // copy now holds this trustee's signature.
-      const row = await getUtilisationCertificate(utilisationCertificateId);
-      recorded =
-        !!row &&
-        ((row.headTrusteeId === job.trusteeId && !!row.headSignedAt) ||
-          (row.financeTrusteeId === job.trusteeId && !!row.financeSignedAt));
-    } else if (declarationId) {
-      recorded =
-        (await getConflictDeclaration(declarationId))?.status === "signed";
-    } else if (meetingId) {
-      recorded = !!(await getMeeting(meetingId))?.minutesDocumentId;
-    } else if (circularId) {
-      recorded = await signatureRecordedSince(
-        circularId,
-        job.trusteeId,
-        job.createdAt
-      );
-    }
-    if (recorded) {
-      return await settle(job, claim, { ok: true }, signedReply(job));
-    }
-    if (
-      error instanceof CertificateError ||
-      error instanceof CircularError ||
-      error instanceof DeclarationError ||
-      error instanceof MeetingError ||
-      error instanceof SigningServiceError
-    ) {
-      return await settle(
-        job,
-        claim,
-        { error: error.message },
-        {
-          body: { message: error.message },
-          status: 422,
-        }
-      );
-    }
-    throw error;
-  }
-}
-
-/**
- * POST: the helper's result. Audited as the trustee who started the job.
- * One completion of a job runs at a time; another gets how the job
- * settled, or a 409 while the first is still running.
- */
-export async function completeJob(
-  token: string,
-  rawBody: unknown
-): Promise<JobReply> {
-  const job = await openJobForToken(token);
-  if (!job) {
-    return GONE;
-  }
-  const reply = await whileClaimed(job.id, (claim) =>
-    runJob(job, rawBody, claim)
-  );
-  if (reply) {
-    return reply;
-  }
-  const settled = await jobOutcome(job.id);
-  if (settled?.status === "completed") {
-    return job.kind === "enrol"
-      ? {
-          body: { message: "Your DSC is registered in the dashboard." },
-          status: 200,
-        }
-      : signedReply(job);
-  }
-  if (settled?.status === "failed") {
-    return {
-      body: {
-        message: settled.error ?? "This signing job didn't go through.",
-      },
-      status: 422,
-    };
-  }
-  return {
-    body: { message: "This signing job is already in progress. Try again." },
-    status: 409,
-  };
-}
-
-async function runJob(
-  job: SigningJobRow & { legalName: string },
-  rawBody: unknown,
-  claim: Date
-): Promise<JobReply | null> {
-  const actor = await actorFor(job);
-  let action = "circular.sign";
-  let target: AuditTarget = {
-    id: job.circularId ?? undefined,
-    type: "circular",
-  };
-  if (job.kind === "enrol") {
-    action = "signing.enrol";
-    target = { id: job.trusteeId, type: "trustee" };
-  } else if (job.meetingId) {
-    action = "meeting.sign_minutes";
-    target = { id: job.meetingId, type: "meeting" };
-  } else if (job.declarationId) {
-    action = "governance.sign_declaration";
-    target = { id: job.declarationId, type: "conflict_declaration" };
-  } else if (job.utilisationCertificateId) {
-    action = "utilisation_certificate.sign";
-    target = {
-      id: job.utilisationCertificateId,
-      type: "utilisation_certificate",
-    };
-  }
-  const failed = failedBody.safeParse(rawBody);
-  try {
-    return await runAuditedAction(
-      {
-        action,
-        actor,
-        metadata: { method: "dsc_helper" },
-        target,
-      },
-      async () => {
-        if (failed.success) {
-          // Closing the job stops the page waiting and shows it the reason.
-          return await settle(
-            job,
-            claim,
-            { error: failed.data.failed },
-            { body: { message: "The dashboard knows it failed." }, status: 200 }
-          );
-        }
-        if (job.kind === "enrol") {
-          const parsed = enrolBody.safeParse(rawBody);
-          if (!parsed.success) {
-            return {
-              body: { message: "The helper sent no certificate." },
-              status: 400,
-            };
-          }
-          return await completeEnrolment(job, parsed.data, claim);
-        }
-        const parsed = signBody.safeParse(rawBody);
-        if (!parsed.success) {
-          return {
-            body: { message: "The helper sent no signature." },
-            status: 400,
-          };
-        }
-        return await completeSignature(job, parsed.data, claim);
-      },
-      (reply) =>
-        reply?.status === 200 && !failed.success ? "success" : "failure"
-    );
-  } catch (error) {
-    const log = createRequestLogger({
-      method: "POST",
-      path: "/api/signing/jobs",
-    });
-    log.set({ event: "signing_job_failed", jobId: job.id, kind: job.kind });
-    log.error(error instanceof Error ? error : String(error));
-    log.emit();
-    const message = "Something went wrong while signing. Try again.";
-    const lost = await closeJob(job.id, claim, { error: message }).then(
-      (closed) => !closed,
-      () => false
-    );
-    return lost ? null : { body: { message }, status: 500 };
-  }
 }
