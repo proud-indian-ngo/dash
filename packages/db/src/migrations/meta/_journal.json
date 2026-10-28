@@ -1352,6 +1352,13 @@
       "when": 1792999351049,
       "tag": "0192_keyseal_signing_job",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1793170819435,
+      "tag": "0193_drop_user_dob",
+      "breakpoints": true
     }
   ]
 }
