@@ -36,7 +36,7 @@ Focusing the login form warms the intended destination’s matched route chunks,
 
 ### Age
 
-Self-registration is 18+. A Better Auth `before` hook (`packages/auth/src/sign-up-age.ts`) enforces it on `/sign-up/email`, with one day of slack so it never rejects a date the form accepted. Admin-created accounts and profile `dob` edits are exempt.
+Self-registration is 18+, and the dashboard doesn't collect dates of birth (India's DPDP Act: collect only what's needed). The form's required "I'm 18 or older" switch sends `isAdult: true`, and a Better Auth `before` hook in `packages/auth/src/auth.ts` refuses `/sign-up/email` without it. Better Auth stores only the user fields it knows, so the declaration is never persisted. Admin-created accounts are exempt.
 
 ### Link parameters
 

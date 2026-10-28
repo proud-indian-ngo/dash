@@ -1,8 +1,6 @@
 import { formatEventRedirect } from "@pi-dash/shared/event-redirect";
 import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
 import {
-  isVolunteerAgeEligible,
-  latestVolunteerDob,
   MIN_VOLUNTEER_AGE,
   MIN_VOLUNTEER_AGE_MESSAGE,
 } from "@pi-dash/shared/volunteer-age";
@@ -13,7 +11,7 @@ import { isValidPhoneNumber } from "libphonenumber-js";
 import { toast } from "sonner";
 import z from "zod";
 
-import { DateField } from "@/components/form/date-field";
+import { CheckboxField } from "@/components/form/checkbox-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -30,14 +28,11 @@ const genderOptions: SelectOption[] = [
 
 const registerFields = {
   confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-  dob: z
-    .date({ error: "Date of birth is required" })
-    .refine(
-      (dob) => isVolunteerAgeEligible(dob, new Date()),
-      MIN_VOLUNTEER_AGE_MESSAGE
-    ),
   email: z.email("Invalid email address"),
   gender: z.enum(["male", "female"], { error: "Please select a gender" }),
+  // A declaration, sent so the server can refuse sign-ups without it; never
+  // stored.
+  isAdult: z.literal(true, { error: MIN_VOLUNTEER_AGE_MESSAGE }),
   name: z.string().min(2, "Name must be at least 2 characters"),
   password: z.string().min(8, "Password must be at least 8 characters"),
   phone: z
@@ -63,15 +58,14 @@ export function RegisterForm() {
   const redirect = eventRedirect
     ? formatEventRedirect(eventRedirect)
     : undefined;
-  const maxDob = latestVolunteerDob(new Date());
   const turnstile = useTurnstile(TURNSTILE_ACTIONS["/sign-up/email"]);
 
   const form = useForm({
     defaultValues: {
       confirmPassword: "",
-      dob: undefined as Date | undefined,
       email: "",
       gender: "" as "" | "male" | "female",
+      isAdult: false as boolean,
       name: "",
       password: "",
       phone: "",
@@ -79,12 +73,14 @@ export function RegisterForm() {
     onSubmit: async ({ value }) => {
       const { error } = await authClient.signUp.email(
         {
-          dob: value.dob,
           email: value.email,
           gender: value.gender as "male" | "female",
           name: value.name,
           password: value.password,
           phone: value.phone,
+          // Read by the sign-up hook in @pi-dash/auth; not a user field, so
+          // the client's types don't know it.
+          ...{ isAdult: value.isAdult },
           ...(group ? { registrationGroup: group } : {}),
           ...(eventId && sig
             ? {
@@ -178,20 +174,18 @@ export function RegisterForm() {
           name="phone"
           placeholder="Your phone number"
         />
-        <DateField
-          description={`You must be at least ${MIN_VOLUNTEER_AGE} to register as a volunteer.`}
-          endMonth={maxDob}
-          isRequired
-          label="Date of birth"
-          maxDate={maxDob}
-          name="dob"
-        />
         <SelectField
           isRequired
           label="Gender"
           name="gender"
           options={genderOptions}
           placeholder="Select gender"
+        />
+        <CheckboxField
+          description={`Proud Indian volunteers must be ${MIN_VOLUNTEER_AGE} or older.`}
+          isRequired
+          label={`I'm ${MIN_VOLUNTEER_AGE} or older`}
+          name="isAdult"
         />
         {turnstile.widget}
         <FormActions

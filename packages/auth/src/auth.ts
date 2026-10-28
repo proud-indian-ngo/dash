@@ -10,10 +10,11 @@ import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
 import { TURNSTILE_ACTIONS } from "@pi-dash/shared/turnstile";
+import { MIN_VOLUNTEER_AGE_MESSAGE } from "@pi-dash/shared/volunteer-age";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { admin, captcha, emailOTP, jwt } from "better-auth/plugins";
+import { admin, captcha, jwt } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { and, eq, isNull, or } from "drizzle-orm";
@@ -28,7 +29,6 @@ import {
 } from "./reactivation";
 import { enrollUserOnRegisterEvent } from "./register-event";
 import { createDbRegisterEventEnrollDeps } from "./register-event-db";
-import { signUpDobError } from "./sign-up-age";
 import {
   getUserFromSignUpReturned,
   verifyPersistedSignUpUser,
@@ -117,9 +117,10 @@ function assertSignUpAgeEligible(ctx: AuthHookContext): void {
   if (ctx.path !== "/sign-up/email" || !ctx.body) {
     return;
   }
-  const message = signUpDobError(ctx.body.dob, new Date());
-  if (message) {
-    throw new APIError("BAD_REQUEST", { message });
+  // The form's "I'm 18 or older" declaration. Better Auth stores only the
+  // user fields it knows, so the flag is never persisted.
+  if (ctx.body.isAdult !== true) {
+    throw new APIError("BAD_REQUEST", { message: MIN_VOLUNTEER_AGE_MESSAGE });
   }
 }
 
@@ -387,17 +388,6 @@ export const auth = betterAuth({
     // Verifying goes through the verify page's POST server function, so a
     // link can't sign a visitor into someone else's account.
     "/verify-email",
-    // Email OTP is only the code in an assistant's sign-up email, issued and
-    // checked server-side by the MCP tools (assistants.md).
-    "/email-otp/send-verification-otp",
-    "/email-otp/check-verification-otp",
-    "/email-otp/verify-email",
-    "/sign-in/email-otp",
-    "/email-otp/request-password-reset",
-    "/forget-password/email-otp",
-    "/email-otp/reset-password",
-    "/email-otp/request-email-change",
-    "/email-otp/change-email",
   ],
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -543,13 +533,6 @@ export const auth = betterAuth({
       loginPage: "/login",
       resource: MCP_RESOURCE,
     }),
-    emailOTP({
-      // As long as the link it goes out with.
-      expiresIn: 60 * 60,
-      // Codes are only created server-side, never sent by the plugin.
-      sendVerificationOTP: async () => undefined,
-      storeOTP: "hashed",
-    }),
     // Must stay last so it forwards cookies set by earlier plugins' after-hooks.
     tanstackStartCookies(),
   ],
@@ -571,10 +554,6 @@ export const auth = betterAuth({
   trustedOrigins: [env.CORS_ORIGIN],
   user: {
     additionalFields: {
-      dob: {
-        required: false,
-        type: "date",
-      },
       gender: {
         required: false,
         type: "string",

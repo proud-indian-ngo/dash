@@ -19,7 +19,7 @@ const helperPath = path.resolve(
 );
 
 async function fixture<T>(
-  action: "cleanup" | "code" | "preregister" | "setup" | "state" | "token",
+  action: "cleanup" | "preregister" | "setup" | "state" | "token",
   argument?: string
 ) {
   const { stdout } = await execFileAsync(
@@ -70,7 +70,7 @@ test.describe("Assistant sign-up", () => {
     const id = unique();
     const email = `e2e-mcp-signup-${id}@example.com`;
     const details = {
-      dateOfBirth: "1995-04-02",
+      isAdult: true,
       email,
       eventId: series.seriesId,
       name: "Assistant Signup",
@@ -83,6 +83,8 @@ test.describe("Assistant sign-up", () => {
     expect(first.isError).toBe(false);
     const message = first.content[0]?.text ?? "";
     expect(message).toContain(`If ${email} is new to Proud Indian`);
+    // The email link alone finishes the sign-up; no code goes to the chat.
+    expect(message).not.toMatch(/code/i);
     expect(message).toContain(
       `/register?interestEventId=${series.seriesId}&occDate=${series.occDate}`
     );
@@ -168,87 +170,12 @@ test.describe("Assistant sign-up", () => {
     });
   });
 
-  test("a new volunteer reads the emailed code back to the assistant instead", async ({
-    request,
-  }, testInfo) => {
-    const id = unique();
-    const email = `e2e-mcp-signup-${id}@example.com`;
-    const started = await callTool(request, "start_volunteer_signup", {
-      dateOfBirth: "1996-08-15",
-      email,
-      eventId: series.seriesId,
-      name: "Assistant Code",
-      occDate: series.occDate,
-      phone: `6${id.slice(-9)}`,
-    });
-    expect(started.isError).toBe(false);
-    expect(started.content[0]?.text).toContain("6-digit code");
-
-    const { code } = await fixture<{ code: string }>("code", email);
-    const confirmation = {
-      email,
-      eventId: series.seriesId,
-      occDate: series.occDate,
-    };
-
-    const wrong = await callTool(request, "confirm_volunteer_signup", {
-      ...confirmation,
-      code: "000000",
-    });
-    expect(wrong.isError).toBe(true);
-    expect(wrong.content[0]?.text).toContain("That code didn't work");
-    expect(await fixture<AccountState>("state", email)).toMatchObject({
-      emailVerified: false,
-      interests: [],
-    });
-
-    const confirmed = await callTool(request, "confirm_volunteer_signup", {
-      ...confirmation,
-      code,
-    });
-    expect(confirmed.isError).toBe(false);
-    expect(confirmed.content[0]?.text).toContain("Confirmed.");
-
-    // Verified with the interest filed, and no one signed in: the person sets
-    // a password from the email that follows.
-    await expect
-      .poll(async () => fixture<AccountState>("state", email), {
-        timeout: 15_000,
-      })
-      .toMatchObject({
-        emailVerified: true,
-        hasPassword: false,
-        interests: [{ originalDate: series.occDate, status: "pending" }],
-        sessions: 0,
-      });
-
-    // A used code doesn't work twice.
-    const reused = await callTool(request, "confirm_volunteer_signup", {
-      ...confirmation,
-      code,
-    });
-    expect(reused.isError).toBe(true);
-
-    await testInfo.attach("assistant-sign-up-code.json", {
-      body: JSON.stringify(
-        {
-          afterConfirmation: await fixture<AccountState>("state", email),
-          confirmMessage: confirmed.content[0]?.text,
-          wrongCodeMessage: wrong.content[0]?.text,
-        },
-        null,
-        2
-      ),
-      contentType: "application/json",
-    });
-  });
-
   test("a password someone set before the inbox was proved doesn't survive an assistant's sign-up", async ({
     request,
   }) => {
     const id = unique();
     const details = {
-      dateOfBirth: "1994-02-10",
+      isAdult: true,
       email: `e2e-mcp-signup-${id}@example.com`,
       eventId: series.seriesId,
       name: "Assistant Prehijack",
@@ -275,7 +202,7 @@ test.describe("Assistant sign-up", () => {
     const id = unique();
     const phone = `7${id.slice(-9)}`;
     const base = {
-      dateOfBirth: "1993-06-01",
+      isAdult: true,
       eventId: series.seriesId,
       name: "Assistant Phone",
       occDate: series.occDate,
@@ -310,12 +237,12 @@ test.describe("Assistant sign-up", () => {
     expect(response.status()).toBe(404);
   });
 
-  test("refuses under-18s, unknown sessions and a series without a date", async ({
+  test("refuses anyone not declared 18+, unknown sessions and a series without a date", async ({
     request,
   }) => {
     const id = unique();
     const base = {
-      dateOfBirth: "1995-04-02",
+      isAdult: true,
       email: `e2e-mcp-signup-${id}@example.com`,
       eventId: series.seriesId,
       name: "Assistant Refusals",
@@ -325,10 +252,10 @@ test.describe("Assistant sign-up", () => {
 
     const minor = await callTool(request, "start_volunteer_signup", {
       ...base,
-      dateOfBirth: `${new Date().getUTCFullYear() - 10}-01-01`,
+      isAdult: false,
     });
     expect(minor.isError).toBe(true);
-    expect(minor.content[0]?.text).toMatch(/18/);
+    expect(minor.content[0]?.text).toContain("must be 18 or older");
 
     const unknown = await callTool(request, "start_volunteer_signup", {
       ...base,
@@ -354,7 +281,7 @@ test.describe("Assistant sign-up", () => {
   }) => {
     const email = process.env.ADMIN_EMAIL ?? "";
     const result = await callTool(request, "start_volunteer_signup", {
-      dateOfBirth: "1990-01-01",
+      isAdult: true,
       email,
       eventId: series.seriesId,
       name: "Someone Else",

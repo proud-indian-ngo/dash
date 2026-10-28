@@ -11,7 +11,6 @@ export const SKELETON_NAME = (
 );
 export const SKELETON_ROLE = <Skeleton className="h-6 w-16" />;
 export const SKELETON_GENDER = <Skeleton className="h-5 w-14" />;
-export const SKELETON_DOB = <Skeleton className="h-5 w-20" />;
 export const SKELETON_ACTIVE = <Skeleton className="h-6 w-14" />;
 export const SKELETON_BANNED = (
   <div className="flex items-center gap-1.5">

@@ -12,7 +12,6 @@ import { log } from "evlog";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
@@ -243,14 +242,12 @@ export function ProfileSection() {
 
   const form = useForm({
     defaultValues: {
-      dob: user?.dob ? new Date(user.dob) : undefined,
       gender: user?.gender as "" | "male" | "female" | "unspecified",
       name: user?.name ?? "",
       phone: user?.phone ?? "",
     } satisfies ProfileFormValues,
     onSubmit: async ({ value }) => {
       const { error } = await authClient.updateUser({
-        dob: value.dob,
         gender: value.gender || undefined,
         name: value.name,
         phone: value.phone || undefined,
@@ -276,7 +273,6 @@ export function ProfileSection() {
           <InputField isRequired label="Name" name="name" />
         </div>
         <PhoneField defaultCountry="IN" label="Phone" name="phone" />
-        <DateField label="Date of birth" name="dob" />
         <SelectField
           label="Gender"
           name="gender"

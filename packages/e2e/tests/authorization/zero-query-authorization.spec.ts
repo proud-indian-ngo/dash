@@ -95,7 +95,6 @@ const PRIVATE_USER_COLUMNS = [
   "banned",
   "banReason",
   "createdAt",
-  "dob",
   "email",
   "emailVerified",
   "gender",

@@ -14,7 +14,6 @@ import {
   SKELETON_BAN_REASON,
   SKELETON_BANNED,
   SKELETON_CREATED_AT,
-  SKELETON_DOB,
   SKELETON_EMAIL_VERIFIED,
   SKELETON_GENDER,
   SKELETON_GROUP,
@@ -25,7 +24,7 @@ import {
   SKELETON_WHATSAPP,
 } from "@/components/users/user-table-skeletons";
 import type { AdminUser } from "@/functions/user-admin-reads";
-import { DATE, DATE_TIME } from "@/lib/date-formats";
+import { DATE_TIME } from "@/lib/date-formats";
 
 /**
  * The role tag. On phone cards it also carries the account state when that
@@ -125,25 +124,6 @@ export function createUserColumns(
         skeleton: SKELETON_GENDER,
       },
       size: 110,
-    },
-    {
-      accessorFn: (row) => {
-        if (row.dob === null) {
-          return "—";
-        }
-        return format(row.dob, DATE);
-      },
-      header: ({ column }) => (
-        <DataGridColumnHeader column={column} title="DOB" visibility={true} />
-      ),
-      id: "dob",
-      meta: {
-        headerTitle: "DOB",
-        icon: COLUMN_ICONS.dateOfBirth,
-        kind: "date",
-        skeleton: SKELETON_DOB,
-      },
-      size: 120,
     },
     {
       accessorFn: (row) => (row.isActive ? "yes" : "no"),

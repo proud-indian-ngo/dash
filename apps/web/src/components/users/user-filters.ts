@@ -43,8 +43,6 @@ export function getUserFilterValue(row: AdminUser, path: string[]): unknown {
       return row.banned ? "yes" : "no";
     case "createdAt":
       return row.createdAt;
-    case "dob":
-      return row.dob;
     case "emailVerified":
       return row.emailVerified ? "yes" : "no";
     case "gender":
@@ -70,7 +68,6 @@ export function createUserFilterFields(
     selectField("role", "Role", roleOptions),
     selectField("active", "Active", ACTIVE_OPTIONS),
     selectField("gender", "Gender", GENDER_OPTIONS),
-    dateField("dob", "DOB"),
     selectField("isOnWhatsapp", "WhatsApp", WHATSAPP_OPTIONS),
     selectField("emailVerified", "Email Verified", EMAIL_VERIFIED_OPTIONS),
     selectField("banned", "Banned", BANNED_OPTIONS),

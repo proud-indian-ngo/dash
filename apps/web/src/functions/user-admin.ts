@@ -49,7 +49,6 @@ const roleSchema = z.string().min(1, "Role is required");
 const genderSchema = z.enum(["male", "female"]);
 
 const createUserSchema = z.object({
-  dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().default(false),
   gender: genderSchema.optional(),
@@ -61,7 +60,6 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  dob: z.coerce.date().optional(),
   email: z.email("Invalid email address"),
   emailVerified: z.boolean().optional(),
   gender: genderSchema.optional(),
@@ -198,7 +196,6 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         action: "user.create",
         metadata: {
           changedFields: [
-            "dob",
             "emailVerified",
             "gender",
             "isActive",
@@ -227,7 +224,6 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         await auth.api.adminUpdateUser({
           body: {
             data: {
-              dob: data.dob,
               email: normalizedEmail,
               emailVerified: data.emailVerified,
               gender: normalizeOptionalString(data.gender),
@@ -301,7 +297,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
             ...(data.registrationGroup !== undefined
               ? ["registrationGroup"]
               : []),
-            "dob",
             "email",
             "emailVerified",
             "gender",
@@ -340,7 +335,6 @@ export const updateUserAdmin = createServerFn({ method: "POST" })
         await auth.api.adminUpdateUser({
           body: {
             data: {
-              dob: data.dob,
               email: normalizedEmail,
               emailVerified: data.emailVerified,
               gender: normalizeOptionalString(data.gender),
