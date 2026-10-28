@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "proud-indian",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Find volunteering sessions with Proud Indian, a volunteer-run charity in Bengaluru, sign up for one, follow your requests, and find out how to donate.",
   "author": {
     "name": "Proud Indian",
@@ -96,7 +96,7 @@
             }
           ]
         },
-        "demo_recording_url": "https://media.proudindian.ngo/share/BqLSVTv8AtMPyIbXjoX04d4NrREbO0EJ8hLFLqpzb83C_xHJOegXIKWwk-GmcYGYcok",
+        "demo_recording_url": "https://media.proudindian.ngo/share/rXKYs8BvqkKh4dkM44xBRoNO-9HePtU-yUpPQleWeCX9TtQEmZJvx8oWuuElqMS6Ws4",
         "commerce": false,
         "commerce_description": "The plugin doesn't sell anything or process payments. For donations it only links to the donate section of proudindian.ngo, where the person pays Proud Indian, a registered charity, on Razorpay themselves."
       },
