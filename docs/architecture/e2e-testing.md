@@ -31,7 +31,7 @@ When filtering an exclusive-last spec with `--grep`, include `authenticate as|<t
 
 The shared fixture in `fixtures/test.ts` listens for browser errors only when a test requests `page`. API-only authorization tests use `request`, so they exercise the live HTTP and Zero authorization path without a browser.
 
-Fixture users are inserted by the base seed (below), bypassing Better Auth sign-up, email verification and the 18+ date-of-birth check. Public self-registration is covered by `tests/auth/register.spec.ts`.
+Fixture users are inserted by the base seed (below), bypassing Better Auth sign-up, email verification and the 18+ declaration check. Public self-registration is covered by `tests/auth/register.spec.ts`.
 
 ## Seeding and DB isolation
 

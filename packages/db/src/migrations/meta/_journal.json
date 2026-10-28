@@ -1352,13 +1352,6 @@
       "when": 1792999351049,
       "tag": "0192_keyseal_signing_job",
       "breakpoints": true
-    },
-    {
-      "idx": 193,
-      "version": "7",
-      "when": 1793168736158,
-      "tag": "0193_smiling_professor_monster",
-      "breakpoints": true
     }
   ]
 }

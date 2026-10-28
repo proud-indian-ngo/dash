@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
+  date,
   index,
   pgEnum,
   pgTable,
@@ -27,6 +28,7 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  dob: date("dob", { mode: "date" }),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   gender: userGenderEnum("gender"),

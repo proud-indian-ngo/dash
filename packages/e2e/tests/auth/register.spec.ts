@@ -234,7 +234,8 @@ test.describe("Register page", () => {
 
   test("sign-up API refuses a sign-up without the 18+ declaration", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const refusals: Record<string, unknown>[] = [];
     for (const isAdult of [undefined, false, "true"]) {
       const signup = uniqueSignup();
       const response = await page.request.post("/api/auth/sign-up/email", {
@@ -247,17 +248,27 @@ test.describe("Register page", () => {
           phone: signup.phone,
         },
       });
+      const body = await response.text();
       expect(response.status()).toBe(400);
-      expect(await response.text()).toContain("at least 18 years old");
-      expect(await fixture("state", signup.email)).toMatchObject({
-        role: null,
+      expect(body).toContain("at least 18 years old");
+      const state = await fixture("state", signup.email);
+      expect(state).toMatchObject({ role: null });
+      refusals.push({
+        body,
+        isAdult: isAdult ?? "missing",
+        state,
+        status: response.status(),
       });
     }
+    await testInfo.attach("sign-up-without-declaration.json", {
+      body: JSON.stringify(refusals, null, 2),
+      contentType: "application/json",
+    });
   });
 
   test("refuses to register until the 18+ declaration is switched on", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const signup = uniqueSignup();
     await page.getByLabel("Name").fill("Undeclared Form User");
     await page.getByLabel("Email").fill(signup.email);
@@ -283,8 +294,13 @@ test.describe("Register page", () => {
     await expect(registerBtn).toBeEnabled();
     const signUp = page.waitForRequest("**/api/auth/sign-up/email");
     await registerBtn.click();
-    expect((await signUp).postDataJSON()).toMatchObject({ isAdult: true });
+    const { password: _password, ...sent } = (await signUp).postDataJSON();
+    expect(sent).toMatchObject({ isAdult: true });
     await page.waitForURL(/\/login(\?|$)/, { timeout: 30_000 });
+    await testInfo.attach("sign-up-with-declaration.json", {
+      body: JSON.stringify(sent, null, 2),
+      contentType: "application/json",
+    });
   });
 });
 
