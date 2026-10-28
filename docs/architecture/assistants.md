@@ -14,25 +14,25 @@ ChatGPT, Claude and other assistants connect to the dashboard's MCP server at `/
 
 ## Tools
 
-Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly, and its title both at the top level (ChatGPT) and in `annotations` (Claude's directory); both directories require them. The sign-up tools set `openWorldHint: true`: they email whatever address the person gives, which OpenAI counts as an arbitrary destination. Descriptions say what a tool does, never how the model should behave: Claude's directory rejects instructions to the model in them. Only `start_volunteer_signup`, `confirm_volunteer_signup` and `show_interest` write. Each tool's `_meta.securitySchemes` says whether it needs a connected account; ChatGPT reads it.
+Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly, and its title both at the top level (ChatGPT) and in `annotations` (Claude's directory); both directories require them. `start_volunteer_signup` sets `openWorldHint: true`: it emails whatever address the person gives, which OpenAI counts as an arbitrary destination. Descriptions say what a tool does, never how the model should behave: Claude's directory rejects instructions to the model in them. Only `start_volunteer_signup` and `show_interest` write. Each tool's `_meta.securitySchemes` says whether it needs a connected account; ChatGPT reads it.
 
 | Tool | Answers from |
 |---|---|
 | `about_proud_indian` | The website's `llms.txt`, cached for an hour. Offline, it returns the website's address as an error result |
 | `list_upcoming_sessions` | The [public feed](recurring-events.md#public-feed) query, with the same validation and limits. Its `signUpUrl`s are the website's |
 | `get_donation_link` | `DONATE_URL` in `@pi-dash/shared/website`: the website's donate section, not its `/donate` redirect to Razorpay, since both directories refuse links straight to a payment page |
-| `start_volunteer_signup`, `confirm_volunteer_signup` | [Sign-up by an assistant](#sign-up-by-an-assistant) |
+| `start_volunteer_signup` | [Sign-up by an assistant](#sign-up-by-an-assistant) |
 | `show_interest`, `my_interests` | The connected volunteer's account ([connected accounts](#connected-accounts)) |
 
 The organisation's facts live on the website, not here: `about_proud_indian` passes the website's own summary through, so the answers change when the website does.
 
 ## Sign-up by an assistant
 
-`start_volunteer_signup` (`lib/server/mcp/sign-up.ts`) takes the person's details and one session, and ends where a website sign-up link does: a verification email whose link files the interest ([link parameters](auth.md#link-parameters)). It asks only for what the sign-up form requires; gender is left to Settings, as both vendors' directories want minimal collection.
+`start_volunteer_signup` (`lib/server/mcp/sign-up.ts`) takes the person's details and one session, and ends where a website sign-up link does: a verification email whose link files the interest ([link parameters](auth.md#link-parameters)). It asks only for what the sign-up form requires, with `isAdult` as the person's 18+ declaration in place of a date of birth ([age](auth.md#age)); gender is left to Settings, as both vendors' directories want minimal collection.
 
 - It creates the account with Better Auth's admin `createUser` and **no password**, then sends the verification email. A password typed into a chat would pass through the assistant's provider.
 - Confirming the link signs the account in (`autoSignInAfterVerification`), files the interest, and sends a passwordless account to `/set-password` before the session. Having no password is what marks an assistant's sign-up; nothing else is stored.
-- The email also carries a 6-digit code, for when the inbox is on another device. The person reads it to the assistant, and `confirm_volunteer_signup` verifies the address and files the interest as the link would, then deletes the session verifying made (no browser holds it) and sends the password reset email so the person can sign in. Codes come from Better Auth's email OTP plugin, stored hashed, valid for an hour with three tries; every one of its HTTP routes is in `disabledPaths`, so codes are only issued and checked by these tools. Every wrong case gives one answer.
+- The email carries only the link, never a code for the person to read to the assistant: OpenAI's app guidelines forbid collecting one-time codes.
 - Anyone can type someone else's email or phone into a chat, so the welcome and the WhatsApp orientation that a form sign-up starts at once wait for verification (`@pi-dash/auth/assistant-sign-up`).
 - The answer is the same whether or not the email or phone already has an account, so the tool can't reveal who volunteers. A verified account gets nothing, and the answer gives the session's sign-up link for signing in.
 - An unverified account gets the verification email again, and loses any password first. A password set before anyone proved the inbox may be someone else's, planted to take the account over once its owner verifies; the owner sets their own afterwards.

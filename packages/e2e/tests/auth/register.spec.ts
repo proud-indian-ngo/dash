@@ -40,9 +40,9 @@ async function signUpViaApi(
 ) {
   const response = await page.request.post("/api/auth/sign-up/email", {
     data: {
-      dob: "1990-01-01T00:00:00.000Z",
       email: signup.email,
       gender: "male",
+      isAdult: true,
       name: "Event Registration Test User",
       password: "Password123!",
       phone: signup.phone,
@@ -57,6 +57,11 @@ async function signUpViaApi(
   expect(response.ok(), await response.text()).toBe(true);
 }
 
+/** Switches on the "I'm 18 or older" declaration. */
+async function declareAdult(page: Page) {
+  await page.getByRole("switch", { name: "I'm 18 or older" }).click();
+}
+
 async function fillRegisterForm(
   page: Page,
   { email, name, phone }: { email: string; name: string; phone: string }
@@ -66,16 +71,7 @@ async function fillRegisterForm(
   await page.locator("#password").fill("Password123!");
   await page.getByLabel("Confirm password").fill("Password123!");
   await page.getByLabel("Phone").last().fill(phone);
-  await page.getByRole("button", { name: "Date of birth" }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  // The picker opens on the latest allowed month and disables later days;
-  // outside days keep an enabled Sunday on screen in every month.
-  const dayButton = dialog
-    .getByRole("button", { disabled: false, name: /^Sunday/ })
-    .first();
-  await dayButton.waitFor({ state: "visible" });
-  await dayButton.click();
+  await declareAdult(page);
   await page.getByLabel("Gender").click();
   await page.getByRole("option", { exact: true, name: "Male" }).click();
   await expect(page.getByRole("option")).toHaveCount(0, { timeout: 3000 });
@@ -128,6 +124,11 @@ test.describe("Register page", () => {
       page.getByText("Password must be at least 8 characters").first()
     ).toBeVisible();
     await expect(page.getByText("Please select a gender")).toBeVisible();
+    await expect(
+      page.getByText(
+        "You must be at least 18 years old to register as a volunteer"
+      )
+    ).toBeVisible();
   });
 
   test("shows password confirmation mismatch error", async ({ page }) => {
@@ -139,15 +140,7 @@ test.describe("Register page", () => {
       .getByLabel("Phone")
       .last()
       .fill(`+9199${Date.now().toString().slice(-8)}`);
-    // Open date picker and wait for the dialog to be stable before selecting
-    await page.getByRole("button", { name: "Date of birth" }).click();
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    const dayButton = dialog
-      .getByRole("button", { disabled: false, name: /^Sunday/ })
-      .first();
-    await dayButton.waitFor({ state: "visible" });
-    await dayButton.click();
+    await declareAdult(page);
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { exact: true, name: "Male" }).click();
@@ -168,15 +161,7 @@ test.describe("Register page", () => {
     await page.locator("#password").fill("Password123!");
     await page.getByLabel("Confirm password").fill("Password123!");
     await page.getByLabel("Phone").last().fill(uniquePhone);
-    // Open date picker and wait for stability
-    await page.getByRole("button", { name: "Date of birth" }).click();
-    const regDialog = page.getByRole("dialog");
-    await expect(regDialog).toBeVisible();
-    const regDayBtn = regDialog
-      .getByRole("button", { disabled: false, name: /^Sunday/ })
-      .first();
-    await regDayBtn.waitFor({ state: "visible" });
-    await regDayBtn.click();
+    await declareAdult(page);
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { exact: true, name: "Male" }).click();
@@ -200,15 +185,7 @@ test.describe("Register page", () => {
       .getByLabel("Phone")
       .last()
       .fill(`+9199${Date.now().toString().slice(-8)}`);
-    // Open date picker and wait for stability
-    await page.getByRole("button", { name: "Date of birth" }).click();
-    const dupDialog = page.getByRole("dialog");
-    await expect(dupDialog).toBeVisible();
-    const dupDayBtn = dupDialog
-      .getByRole("button", { disabled: false, name: /^Sunday/ })
-      .first();
-    await dupDayBtn.waitFor({ state: "visible" });
-    await dupDayBtn.click();
+    await declareAdult(page);
     // Select gender
     await page.getByLabel("Gender").click();
     await page.getByRole("option", { name: "Female" }).click();
@@ -237,12 +214,7 @@ test.describe("Register page", () => {
         .getByLabel("Phone")
         .last()
         .fill(`+9199${Date.now().toString().slice(-8)}`);
-      await page.getByRole("button", { name: "Date of birth" }).click();
-      const dialog = page.getByRole("dialog");
-      await dialog
-        .getByRole("button", { disabled: false, name: /^Sunday/ })
-        .first()
-        .click();
+      await declareAdult(page);
       await page.getByLabel("Gender").click();
       await page.getByRole("option", { exact: true, name: "Female" }).click();
       await page.getByRole("button", { name: "Register" }).click();
@@ -260,53 +232,75 @@ test.describe("Register page", () => {
     }
   });
 
-  test("sign-up API rejects volunteers under 18", async ({ page }) => {
-    const signup = uniqueSignup();
-    const dob = new Date();
-    dob.setFullYear(dob.getFullYear() - 17);
-    const response = await page.request.post("/api/auth/sign-up/email", {
-      data: {
-        dob: dob.toISOString(),
-        email: signup.email,
-        gender: "male",
-        name: "Underage User",
-        password: "Password123!",
-        phone: signup.phone,
-      },
+  test("sign-up API refuses a sign-up without the 18+ declaration", async ({
+    page,
+  }, testInfo) => {
+    const refusals: Record<string, unknown>[] = [];
+    for (const isAdult of [undefined, false, "true"]) {
+      const signup = uniqueSignup();
+      const response = await page.request.post("/api/auth/sign-up/email", {
+        data: {
+          email: signup.email,
+          gender: "male",
+          ...(isAdult === undefined ? {} : { isAdult }),
+          name: "Undeclared User",
+          password: "Password123!",
+          phone: signup.phone,
+        },
+      });
+      const body = await response.text();
+      expect(response.status()).toBe(400);
+      expect(body).toContain("at least 18 years old");
+      const state = await fixture("state", signup.email);
+      expect(state).toMatchObject({ role: null });
+      refusals.push({
+        body,
+        isAdult: isAdult ?? "missing",
+        state,
+        status: response.status(),
+      });
+    }
+    await testInfo.attach("sign-up-without-declaration.json", {
+      body: JSON.stringify(refusals, null, 2),
+      contentType: "application/json",
     });
-    expect(response.status()).toBe(400);
-    expect(await response.text()).toContain("at least 18 years old");
-    expect(await fixture("state", signup.email)).toMatchObject({ role: null });
   });
 
-  test("date picker only offers dates at least 18 years ago", async ({
+  test("refuses to register until the 18+ declaration is switched on", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const signup = uniqueSignup();
+    await page.getByLabel("Name").fill("Undeclared Form User");
+    await page.getByLabel("Email").fill(signup.email);
+    await page.locator("#password").fill("Password123!");
+    await page.getByLabel("Confirm password").fill("Password123!");
+    await page.getByLabel("Phone").last().fill(signup.phone);
+    await page.getByLabel("Gender").click();
+    await page.getByRole("option", { exact: true, name: "Male" }).click();
+    await expect(page.getByRole("option")).toHaveCount(0, { timeout: 3000 });
+    const declaration = page.getByRole("switch", { name: "I'm 18 or older" });
+    await expect(declaration).not.toBeChecked();
     await expect(
-      page.getByText("You must be at least 18 to register as a volunteer.")
+      page.getByText("Proud Indian volunteers must be 18 or older.")
     ).toBeVisible();
-    const today = new Date();
-    const latest = new Date(
-      today.getFullYear() - 18,
-      today.getMonth(),
-      today.getDate()
-    );
-    const dayLabel = (date: Date) =>
-      new RegExp(
-        `${date.toLocaleString("en-US", { month: "long" })} ${date.getDate()}(st|nd|rd|th), ${date.getFullYear()}`
-      );
-    await page.getByRole("button", { name: "Date of birth" }).click();
-    const dialog = page.getByRole("dialog");
-    await expect(
-      dialog.getByRole("button", { name: dayLabel(latest) })
-    ).toBeEnabled();
-    const nextDay = new Date(latest);
-    nextDay.setDate(latest.getDate() + 1);
-    if (nextDay.getMonth() === latest.getMonth()) {
-      await expect(
-        dialog.getByRole("button", { name: dayLabel(nextDay) })
-      ).toBeDisabled();
-    }
+
+    // Everything else is valid, so only the declaration holds Register back.
+    const registerBtn = page.getByRole("button", { name: "Register" });
+    await expect(registerBtn).toBeDisabled();
+
+    // Switching it on enables Register, and the declaration goes with the
+    // sign-up.
+    await declaration.click();
+    await expect(registerBtn).toBeEnabled();
+    const signUp = page.waitForRequest("**/api/auth/sign-up/email");
+    await registerBtn.click();
+    const { password: _password, ...sent } = (await signUp).postDataJSON();
+    expect(sent).toMatchObject({ isAdult: true });
+    await page.waitForURL(/\/login(\?|$)/, { timeout: 30_000 });
+    await testInfo.attach("sign-up-with-declaration.json", {
+      body: JSON.stringify(sent, null, 2),
+      contentType: "application/json",
+    });
   });
 });
 

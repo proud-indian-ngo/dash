@@ -16,9 +16,8 @@ import { auth, skipBouncedAuthEmail, verifyEmailPageUrl } from "./auth";
  */
 
 /**
- * The verification email for an assistant's sign-up: the usual link, plus a
- * code the person can read back to the assistant when the email is on
- * another device.
+ * The verification email for an assistant's sign-up, with a link that files
+ * the session interest once the person verifies.
  */
 export async function sendAssistantSignUpVerification(
   email: string,
@@ -29,10 +28,7 @@ export async function sendAssistantSignUpVerification(
   }
   const { secret } = await auth.$context;
   const token = await createEmailVerificationToken(secret, email);
-  const code = await auth.api.createVerificationOTP({
-    body: { email, type: "email-verification" },
-  });
-  await sendVerificationEmail(email, verifyEmailPageUrl(token, redirect), code);
+  await sendVerificationEmail(email, verifyEmailPageUrl(token, redirect));
 }
 
 export async function hasPassword(userId: string): Promise<boolean> {

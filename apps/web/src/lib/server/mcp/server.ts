@@ -18,10 +18,7 @@ import { DONATE_URL, WEBSITE_URL } from "@pi-dash/shared/website";
 import z from "zod";
 
 import { listMyInterests, showInterest } from "@/lib/server/mcp/account-tools";
-import {
-  confirmAssistantSignUp,
-  startAssistantSignUp,
-} from "@/lib/server/mcp/sign-up";
+import { startAssistantSignUp } from "@/lib/server/mcp/sign-up";
 import { createTtlCache } from "@/lib/ttl-cache";
 
 /**
@@ -212,16 +209,15 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: false,
       },
       description:
-        "Signs a person up as a Proud Indian volunteer, with the details they give, and asks to join one session. Volunteers must be 18 or older. Proud Indian emails the address a link and a 6-digit code to confirm it; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until the link is opened or the code is passed to confirm_volunteer_signup.",
+        "Signs a person up as a Proud Indian volunteer, with the details they give, and asks to join one session. Volunteers must be 18 or older. Proud Indian emails the address a link to confirm it; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until the link is opened.",
       inputSchema: z.object({
-        dateOfBirth: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .describe("YYYY-MM-DD"),
         email: z.email(),
         eventId: z
           .uuid()
           .describe("The session's id from list_upcoming_sessions."),
+        isAdult: z
+          .boolean()
+          .describe("The person's confirmation that they are 18 or older."),
         name: z.string().trim().min(2).max(100).describe("Full name"),
         occDate: z
           .string()
@@ -240,40 +236,6 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
     },
     async (input) => {
       const result = await startAssistantSignUp(input);
-      return { ...text(result.message), isError: result.isError };
-    }
-  );
-
-  server.registerTool(
-    "confirm_volunteer_signup",
-    {
-      _meta: NO_AUTH,
-      annotations: {
-        title: "Confirm a volunteer's sign-up",
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: true,
-        readOnlyHint: false,
-      },
-      description:
-        "Finishes a sign-up started with start_volunteer_signup, with the 6-digit code from the email Proud Indian sent the person. It confirms their address, sends their interest to the session's team lead and emails them a link to set a password.",
-      inputSchema: z.object({
-        code: z
-          .string()
-          .regex(/^\s*\d{6}\s*$/)
-          .describe("The 6-digit code from the email"),
-        email: z.email(),
-        eventId: z.uuid().describe("The same session as the sign-up."),
-        occDate: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional()
-          .describe("The same occDate as the sign-up, if it had one."),
-      }),
-      title: "Confirm a volunteer's sign-up",
-    },
-    async (input) => {
-      const result = await confirmAssistantSignUp(input);
       return { ...text(result.message), isError: result.isError };
     }
   );

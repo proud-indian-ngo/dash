@@ -111,7 +111,6 @@ interface UserActionsCellProps {
 const DEFAULT_COLUMN_VISIBILITY: ColumnVisibilityState = {
   banExpires: false,
   banReason: false,
-  dob: false,
   emailVerified: false,
   gender: false,
   isOnWhatsapp: false,

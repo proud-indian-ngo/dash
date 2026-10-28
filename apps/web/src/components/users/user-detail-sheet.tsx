@@ -109,10 +109,6 @@ export function UserDetailSheet({
                     label="Gender"
                     value={user.gender ? capitalize(user.gender) : null}
                   />
-                  <DetailRow
-                    label="Date of Birth"
-                    value={user.dob ? format(new Date(user.dob), DATE) : null}
-                  />
                 </div>
               </div>
 

@@ -18,8 +18,7 @@ You are an agent helping a person volunteer with Proud Indian, a volunteer-run N
 Proud Indian's MCP server is \`${base}/api/mcp\` (Streamable HTTP). These tools need no sign-in:
 
 - \`list_upcoming_sessions\`: public sessions. Confirm one with the person.
-- \`start_volunteer_signup\`: name, email, mobile number, date of birth and the session. Proud Indian emails the person a link and a 6-digit code.
-- \`confirm_volunteer_signup\`: the code, if the person gives it to you. Otherwise they open the link.
+- \`start_volunteer_signup\`: name, email, mobile number, the person's confirmation that they are 18 or older, and the session. Proud Indian emails the person a link; opening it finishes the sign-up.
 
 A team lead approves the person's place in the session.
 

@@ -2,14 +2,12 @@ import { type FormValidateOrFn, useForm } from "@tanstack/react-form";
 import z from "zod";
 
 import { CheckboxField } from "@/components/form/checkbox-field";
-import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
 import { PhoneField } from "@/components/form/phone-field-lazy";
 import { SelectField, type SelectOption } from "@/components/form/select-field";
 import type { AdminUser } from "@/functions/user-admin-reads";
-import { optionalDate } from "@/lib/validators";
 
 const defaultRoleOptions: SelectOption[] = [
   { label: "Volunteer", value: "volunteer" },
@@ -27,7 +25,6 @@ const genderValueSchema = z.enum(["male", "female"], {
 });
 
 export const baseUserFormSchema = z.object({
-  dob: optionalDate,
   email: z.email("Invalid email address"),
   emailVerified: z.boolean(),
   gender: genderValueSchema,
@@ -54,7 +51,6 @@ export type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 type UserFormValues = CreateUserFormValues | EditUserFormValues;
 
 export const toEditUserFormValues = (user: AdminUser): EditUserFormValues => ({
-  dob: user.dob === null ? undefined : new Date(user.dob),
   email: user.email,
   emailVerified: Boolean(user.emailVerified),
   gender: user.gender ?? "male",
@@ -71,7 +67,6 @@ type CreateUserFormDefaults = Omit<CreateUserFormValues, "gender"> & {
 };
 
 export const defaultCreateUserFormValues: CreateUserFormDefaults = {
-  dob: undefined,
   email: "",
   emailVerified: false,
   gender: undefined,
@@ -83,7 +78,6 @@ export const defaultCreateUserFormValues: CreateUserFormDefaults = {
 };
 
 const userFieldValidators = {
-  dob: { onBlur: baseUserFormSchema.shape.dob },
   email: { onBlur: baseUserFormSchema.shape.email },
   gender: { onBlur: baseUserFormSchema.shape.gender },
   name: { onBlur: baseUserFormSchema.shape.name },
@@ -182,12 +176,6 @@ export function UserForm(props: UserFormProps) {
           label="Phone"
           name="phone"
           validators={userFieldValidators.phone}
-        />
-
-        <DateField
-          label="Date of birth"
-          name="dob"
-          validators={userFieldValidators.dob}
         />
 
         <SelectField

@@ -12,7 +12,6 @@ export interface AdminUser {
   banned: boolean | null;
   banReason: string | null;
   createdAt: number;
-  dob: number | null;
   email: string;
   emailVerified: boolean;
   gender: "female" | "male" | null;
@@ -43,7 +42,6 @@ async function listAdminUsers(): Promise<AdminUser[]> {
       banned: user.banned,
       banReason: user.banReason,
       createdAt: user.createdAt,
-      dob: user.dob,
       email: user.email,
       emailVerified: user.emailVerified,
       gender: user.gender,
@@ -65,7 +63,6 @@ async function listAdminUsers(): Promise<AdminUser[]> {
     ...row,
     banExpires: row.banExpires?.getTime() ?? null,
     createdAt: row.createdAt.getTime(),
-    dob: row.dob?.getTime() ?? null,
     updatedAt: row.updatedAt.getTime(),
   }));
 }

@@ -88,7 +88,6 @@ const pendingWhatsAppChecks: PendingWhatsAppCheck[] = [];
 
 interface OldUser {
   created_at: string | null;
-  dob: string | null;
   email: string;
   gender: string | null;
   id: number;
@@ -314,7 +313,6 @@ function parseMysqlDump(sqlContent: string) {
   const usersRaw = extractTableInserts(sqlContent, "users");
   const users: OldUser[] = usersRaw.map((r) => ({
     created_at: r[14] as string | null,
-    dob: r[5] as string | null,
     email: r[3] as string,
     gender: r[4] as string | null,
     id: r[0] as number,
@@ -682,7 +680,6 @@ async function migrateUsers(
         : "volunteer";
 
     const gender = mapGender(u.gender);
-    const dob = u.dob && u.dob !== SENTINEL_DATE ? new Date(u.dob) : null;
     const phone = cleanPhone(u.phone, seenPhones, u.id, u.name);
 
     const createdAt = parseTimestamp(u.created_at);
@@ -690,7 +687,6 @@ async function migrateUsers(
 
     await tx.insert(schema.user).values({
       createdAt,
-      dob,
       email,
       emailVerified: true,
       gender,

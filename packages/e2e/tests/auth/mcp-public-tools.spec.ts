@@ -41,7 +41,6 @@ test.describe("MCP public tools", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "about_proud_indian",
-      "confirm_volunteer_signup",
       "get_donation_link",
       "list_upcoming_sessions",
       "my_interests",
@@ -55,16 +54,10 @@ test.describe("MCP public tools", () => {
       expect(tool.annotations?.title).toBe(tool.title);
       // Sign-up emails whatever address the person gives: an open world.
       expect(tool.annotations?.openWorldHint).toBe(
-        ["confirm_volunteer_signup", "start_volunteer_signup"].includes(
-          tool.name
-        )
+        tool.name === "start_volunteer_signup"
       );
       expect(tool.annotations?.readOnlyHint).toBe(
-        ![
-          "confirm_volunteer_signup",
-          "show_interest",
-          "start_volunteer_signup",
-        ].includes(tool.name)
+        !["show_interest", "start_volunteer_signup"].includes(tool.name)
       );
     }
 
