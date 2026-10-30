@@ -181,16 +181,83 @@ export async function fillAnswers(
   return new Uint8Array(await response.arrayBuffer());
 }
 
-/** Revocation data and a document timestamp: the long-term copy (PAdES B-LTA). */
+/**
+ * Revocation data and a document timestamp: the long-term copy (PAdES
+ * B-LTA). An Aadhaar eSign copy (`esign`) goes through the plugin, which
+ * reads Leegality's files and collects each signature's data as of when it
+ * was made, its certificate having expired since.
+ */
 export async function finalizeForArchive(
   pdf: Uint8Array,
+  options: { esign?: boolean } = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<Uint8Array> {
   const response = await post(
-    "/finalize",
+    options.esign ? "/pidash/finalize-esign" : "/finalize",
     new Blob([new Uint8Array(pdf)], { type: "application/pdf" }),
     "application/pdf",
     fetchImpl
   );
   return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * The copy of a circular sent to Leegality for Aadhaar eSign: the PDF with
+ * an empty form, and its page count for the signers' boxes.
+ */
+export async function prepareForEsign(
+  pdf: Uint8Array,
+  fetchImpl: typeof fetch = fetch
+): Promise<{ pageCount: number; pdf: Uint8Array }> {
+  const response = await post(
+    "/pidash/prepare-esign",
+    JSON.stringify({ pdf: Buffer.from(pdf).toString("base64") }),
+    "application/json",
+    fetchImpl
+  );
+  const body = (await response.json()) as { pageCount: number; pdf: string };
+  return {
+    pageCount: body.pageCount,
+    pdf: new Uint8Array(Buffer.from(body.pdf, "base64")),
+  };
+}
+
+/** Whether Leegality's copy shows exactly the pages of the one sent. */
+export async function samePages(
+  pdf: Uint8Array,
+  other: Uint8Array,
+  fetchImpl: typeof fetch = fetch
+): Promise<boolean> {
+  const response = await post(
+    "/pidash/same-pages",
+    JSON.stringify({
+      other: Buffer.from(other).toString("base64"),
+      pdf: Buffer.from(pdf).toString("base64"),
+    }),
+    "application/json",
+    fetchImpl
+  );
+  return ((await response.json()) as { same: boolean }).same;
+}
+
+/**
+ * Checks an Aadhaar eSign copy: KeySeal's report with the changes Leegality
+ * makes allowed (fields it adds for each signature), and each signature's
+ * page, box and the file's length as it left it.
+ */
+export async function validateEsignPdf(
+  bytes: Uint8Array,
+  baseLength?: number,
+  fetchImpl: typeof fetch = fetch
+): Promise<GovernanceValidationReport> {
+  const response = await post(
+    "/pidash/validate-esign",
+    JSON.stringify({
+      base: baseLength ?? null,
+      pdf: Buffer.from(bytes).toString("base64"),
+    }),
+    "application/json",
+    fetchImpl
+  );
+  return (await response.json()) as GovernanceValidationReport;
 }

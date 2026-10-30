@@ -31,6 +31,7 @@ const props = {
     offices: i === 0 ? "Managing Trustee" : "",
     trusteeId: `0193000${i}`,
   })),
+  signingMode: "dsc" as const,
 };
 
 describe("generateCircularResolutionPdf", () => {
@@ -66,6 +67,17 @@ describe("generateCircularResolutionPdf", () => {
     expect(text).toMatch(/\/BaseFont \/[A-Z]{6}\+Geist-SemiBoldItalic\b/);
     // The signature pages don't move: one text page, two signature pages.
     expect(text.match(/\/Type \/Page\b/g)?.length).toBe(3);
+  });
+
+  it("leaves out the answers boxes on an Aadhaar eSign circular", async () => {
+    const [dsc, esign] = await Promise.all([
+      generateCircularResolutionPdf(props),
+      generateCircularResolutionPdf({ ...props, signingMode: "esign" }),
+    ]);
+    const pages = (pdf: Buffer) =>
+      pdf.toString("latin1").match(/\/Type \/Page\b/g)?.length;
+    expect(pages(esign)).toBe(pages(dsc));
+    expect(esign.equals(dsc)).toBe(false);
   });
 
   it("renders the same bytes twice, so an issue can be retried", async () => {

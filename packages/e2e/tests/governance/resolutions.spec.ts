@@ -6,8 +6,9 @@ import { expect, test } from "../../fixtures/test";
  * Circulars against the seeded board: the super admin is the Managing
  * Trustee (Asha Rao) and the admin the Joint Managing Trustee (Vikram
  * Menon), the two trustees in office. Each test drafts its own
- * resolutions. Signing needs a DSC, so the pass rules with signatures are
- * covered by unit and database tests.
+ * resolutions. Signing with a DSC is covered by unit and database tests;
+ * Aadhaar eSign runs against the fake Leegality beside the signing service
+ * (signing/fake-leegality.py), which signs with this run's test signers.
  */
 
 /**
@@ -199,6 +200,61 @@ test.describe("circular resolutions (Managing Trustee)", () => {
     await expect(card.getByText("Withdrawn", { exact: true })).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test("an Aadhaar eSign circular passes on signatures made on Leegality", async ({
+    page,
+    request,
+  }) => {
+    test.slow();
+    const leegality = process.env.LEEGALITY_API_URL ?? "";
+    const title = `E2E eSign circular ${Date.now()}`;
+    await draft(page, title);
+    await page.getByRole("button", { exact: true, name: "Issue" }).click();
+    const dialog = page.getByRole("dialog", { name: "Issue a circular" });
+    await dialog.getByRole("button", { name: "Aadhaar eSign" }).click();
+    await dialog.getByRole("button", { name: "Issue to the trustees" }).click();
+    const heading = page.getByRole("heading", { name: /^Circular C-/ });
+    await expect(heading).toBeVisible({ timeout: 20_000 });
+    const irn = (await heading.textContent())?.replace("Circular ", "") ?? "";
+    const card = resolutionCard(page, title);
+    await expect(card).toContainText("0 of 2 signatures");
+
+    // Only Leegality: no DSC helper or Acrobat copy.
+    const panel = page.getByRole("region", { name: "Your signature" });
+    await expect(
+      panel.getByRole("button", { name: "Download your copy" })
+    ).toHaveCount(0);
+    const tab = page.waitForEvent("popup");
+    await panel
+      .getByRole("button", { name: "Sign with Aadhaar eSign" })
+      .click();
+    await confirmIfAsked(page);
+    const leegalityTab = await tab;
+    await expect(leegalityTab).toHaveURL(/\/sign\//);
+    await leegalityTab.close();
+
+    // The Managing Trustee signs on Leegality and comes back.
+    const signOnLeegality = async (name: string) => {
+      const response = await request.post(`${leegality}/test/sign`, {
+        data: { irn, name },
+      });
+      expect(response.ok()).toBe(true);
+    };
+    await signOnLeegality("Asha Rao");
+    await panel.getByRole("button", { name: "I've signed" }).click();
+    await expect(card).toContainText("1 of 2 signatures", { timeout: 15_000 });
+    await expect(panel).toBeHidden();
+
+    // The other trustee doesn't come back; the issuer takes their eSign.
+    await signOnLeegality("Vikram Menon");
+    await page.getByRole("button", { name: "Check for eSigns" }).click();
+    await expect(card.getByText("Passed", { exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByRole("button", { name: "Check for eSigns" })
+    ).toBeHidden();
   });
 
   test("records a past resolution so the series continues", async ({

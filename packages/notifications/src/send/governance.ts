@@ -81,6 +81,7 @@ export async function notifyTermEnding(
 export async function notifyCircularIssued(notice: {
   circularId: string;
   responseDueOn: string;
+  signingMode: "dsc" | "esign";
   titles: string[];
   userIds: string[];
 }): Promise<void> {
@@ -95,7 +96,7 @@ export async function notifyCircularIssued(notice: {
     notice.titles.length === 1
       ? `A circular resolution needs your response: "${first ?? ""}".`
       : `A circular with ${notice.titles.length} resolutions needs your response: ${notice.titles.map((t) => `"${t}"`).join(", ")}.`,
-    `Read it, object to any resolution you disagree with, then sign the circular with your DSC by ${due}: your signature assents to the rest. If you have a conflict of interest in one, declare it instead.`,
+    `Read it, object to any resolution you disagree with, then sign the circular ${notice.signingMode === "esign" ? "with Aadhaar eSign" : "with your DSC"} by ${due}: your signature assents to the rest. If you have a conflict of interest in one, declare it instead.`,
   ];
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Open the circular",

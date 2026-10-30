@@ -15,6 +15,7 @@ import {
   resolutionStatusValues,
   resolutionTemplateKeyValues,
   signatureMethodValues,
+  signingModeValues,
 } from "@pi-dash/shared/resolutions";
 import { relations, sql } from "drizzle-orm";
 import {
@@ -93,6 +94,7 @@ export const signatureMethodEnum = pgEnum(
   "signature_method",
   signatureMethodValues
 );
+export const signingModeEnum = pgEnum("signing_mode", signingModeValues);
 
 /** Signature check the signing service ran on a signed PDF; IDs and certificate facts only. */
 export interface GovernanceValidationReport {
@@ -128,6 +130,13 @@ export interface GovernanceValidationReport {
     matchedTrusteeId: string | null;
     /** Set when the check itself failed: the exception's class name. */
     error?: string;
+    /** Aadhaar eSign checks: the 0-based page and /Rect of the signature's widget. */
+    page?: number | null;
+    rect?: [number, number, number, number] | null;
+    /** Aadhaar eSign checks: the file's length as this signature left it. */
+    end?: number | null;
+    /** Aadhaar eSign checks: when its timestamp token says it was made (ISO). */
+    timestampTime?: string | null;
   }[];
   /** Email headers for an .eml; never the body. */
   email?: {
@@ -149,6 +158,8 @@ export interface GovernanceValidationReport {
   baseSignatureFields?: string[];
   /** Every text field's value: a circular's answers fields. */
   textFields?: Record<string, string>;
+  /** Aadhaar eSign checks: the document's pages. */
+  pageCount?: number;
 }
 
 /** A file in the governance vault: deeds, certificates, resolutions, resignations, evidence. */
@@ -361,6 +372,8 @@ export const circular = pgTable("circular", {
     .notNull()
     .references(() => trustee.id, { onDelete: "restrict" }),
   responseDueOn: date("response_due_on").notNull(),
+  /** DSC (helper or Acrobat), or Aadhaar eSign through Leegality only. */
+  signingMode: signingModeEnum("signing_mode").default("dsc").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
 

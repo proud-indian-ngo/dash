@@ -23,7 +23,8 @@ import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { RichText } from "@/components/editor/rich-text";
@@ -50,7 +51,11 @@ import {
 } from "@/components/shared/responsive-dialog";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
-import { withdrawCircularFn } from "@/functions/resolutions";
+import {
+  collectCircularEsignaturesFn,
+  getCircularEsignStatesFn,
+  withdrawCircularFn,
+} from "@/functions/resolutions";
 import { useRecordTitle } from "@/hooks/use-record-title";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import { formatTimestamp } from "@/lib/date-formats";
@@ -93,13 +98,52 @@ function myAnswerLabel(mine: MyResponse, issued: boolean): string {
 
 function CircularPage() {
   const { circularId } = Route.useParams();
-  const { user } = useApp();
+  const { hasPermission, user } = useApp();
   const [row, result] = useQuery(queries.circular.byId({ id: circularId }));
   const ref = circularReference(circularId);
   useRecordTitle(row ? `Circular ${ref}` : null);
   const today = todayIso();
   const { trustees } = useRegister(today);
   const withdraw = useServerFn(withdrawCircularFn);
+  const collectEsign = useServerFn(collectCircularEsignaturesFn);
+  const esignStates = useServerFn(getCircularEsignStatesFn);
+  const [checkingEsign, setCheckingEsign] = useState(false);
+  const [leegality, setLeegality] = useState<
+    Map<string, "signed" | "declined" | "expired" | "pending">
+  >(new Map());
+  const [esignRound, setEsignRound] = useState(0);
+  const esignOpen =
+    row?.signingMode === "esign" &&
+    (row.resolutions ?? []).some((r) => r.status === "issued");
+  const esignViewer =
+    hasPermission("governance.manage") ||
+    (row?.resolutions ?? []).some((r) =>
+      (r.responses ?? []).some((x) => x.userId === user.id)
+    );
+
+  // Who has signed, declined or let their invitation lapse on Leegality.
+  useEffect(() => {
+    if (!(esignOpen && esignViewer)) {
+      return;
+    }
+    let current = true;
+    esignStates({ data: { circularId } })
+      .then(({ states }) => {
+        if (current) {
+          setLeegality(new Map(states.map((x) => [x.trusteeId, x.state])));
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "circular.esign.states",
+          caughtError: error instanceof Error ? error.message : "unknown",
+          component: "CircularPage",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [circularId, esignOpen, esignRound, esignStates, esignViewer]);
   const [withdrawing, setWithdrawing] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,6 +162,28 @@ function CircularPage() {
         });
       })
       .finally(() => setBusy(false));
+  });
+
+  // Signatures made on Leegality, for trustees who didn't come back.
+  const handleCheckEsign = useEventCallback(async () => {
+    setCheckingEsign(true);
+    await collectEsign({ data: { circularId } })
+      .then(({ message }) => toast.success(message))
+      .catch((error: unknown) => {
+        log.error({
+          action: "circular.esign.collect",
+          caughtError: error instanceof Error ? error.message : "unknown",
+          component: "CircularPage",
+        });
+        toast.error("Couldn't take the eSigns", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => {
+        setCheckingEsign(false);
+        setEsignRound((n) => n + 1);
+      });
   });
 
   if (!row) {
@@ -340,6 +406,7 @@ function CircularPage() {
                 assents={assents}
                 circularId={circularId}
                 otherAnswers={otherAnswers}
+                signingMode={row.signingMode ?? "dsc"}
               />
             </div>
           ) : null}
@@ -347,12 +414,25 @@ function CircularPage() {
             aria-labelledby="circular-signatures-heading"
             className="flex flex-col gap-3 rounded-md border p-4"
           >
-            <h2
-              className="text-base font-semibold"
-              id="circular-signatures-heading"
-            >
-              Signatures
-            </h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2
+                className="text-base font-semibold"
+                id="circular-signatures-heading"
+              >
+                Signatures
+              </h2>
+              {esignOpen && (isIssuer || hasPermission("governance.manage")) ? (
+                <Button
+                  disabled={checkingEsign}
+                  onClick={handleCheckEsign}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {checkingEsign ? "Checking..." : "Check for eSigns"}
+                </Button>
+              ) : null}
+            </div>
             <ul className="flex flex-col divide-y">
               {responders.map(([trusteeId, legalName]) => {
                 const signature = signatures.find(
@@ -381,6 +461,18 @@ function CircularPage() {
                       </span>
                       {signature ? (
                         <StatusBadge tone="success">Signed</StatusBadge>
+                      ) : open && leegality.get(trusteeId) === "signed" ? (
+                        <StatusBadge tone="warning">
+                          Signed on Leegality
+                        </StatusBadge>
+                      ) : open && leegality.get(trusteeId) === "declined" ? (
+                        <StatusBadge tone="danger">
+                          Declined on Leegality
+                        </StatusBadge>
+                      ) : open && leegality.get(trusteeId) === "expired" ? (
+                        <StatusBadge tone="neutral">
+                          Invitation expired
+                        </StatusBadge>
                       ) : (
                         <StatusBadge tone={declined ? "danger" : "neutral"}>
                           {declined

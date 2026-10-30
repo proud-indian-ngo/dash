@@ -196,6 +196,10 @@ const QUEUE_OVERRIDES: Partial<
   // looking busy until its 4-hour expiry; the handler stops itself before
   // that expiry, and a failed or expired run is not retried, so it never
   // runs alongside a new one.
+  // Takes Aadhaar eSign signatures from Leegality. The worker is registered
+  // by the web server, which holds the Leegality and signing clients. One
+  // run at a time: two would race to record the same signature.
+  "collect-esign-signatures": { policy: "exclusive", retryLimit: 0 },
   "razorpay-reconcile": {
     expireInSeconds: 4 * 60 * 60,
     heartbeatSeconds: 60,

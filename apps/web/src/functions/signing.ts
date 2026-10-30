@@ -12,6 +12,7 @@ import z from "zod";
 
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
+import { assertDscCircular } from "@/lib/governance/esign";
 import { signingCopy } from "@/lib/governance/signing-copy";
 import {
   jobStatusFor,
@@ -123,6 +124,7 @@ export const startDscSigningFn = createServerFn({ method: "POST" })
       () =>
         userFacing(async () => {
           assertRecentSignIn(session);
+          await assertDscCircular(data.circularId);
           const me = await linkedTrustee(session.user.id);
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");

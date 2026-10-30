@@ -38,6 +38,7 @@ function circular(body: unknown[]) {
     issuedOn: "2026-10-21",
     issuer: { name: "Asha Rao", office: "Managing Trustee" },
     org: { address: "Bengaluru 560016", name: "Proud Indian" },
+    signingMode: "dsc",
     reference: "C-0193ABCD",
     resolutions: [
       {
@@ -431,6 +432,7 @@ describe("resolution templates in the PDF", () => {
       issuedOn: "2026-10-21",
       issuer: { name: "Asha Rao", office: "Managing Trustee" },
       org: { address: "Bengaluru 560016", name: "Proud Indian" },
+      signingMode: "dsc",
       reference: "C-0193ABCD",
       resolutions: resolutionTemplateKeyValues.map((key) => ({
         body: templateBody(key),

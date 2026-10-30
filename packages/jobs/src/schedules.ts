@@ -4,6 +4,9 @@ import type { PgBoss } from "pg-boss";
 const hasWebsiteDispatchToken = (): boolean =>
   !!process.env.WEBSITE_DISPATCH_TOKEN;
 
+const hasLeegality = (): boolean =>
+  !!(process.env.LEEGALITY_API_URL && process.env.LEEGALITY_AUTH_TOKEN);
+
 const IST_TIMEZONE = "Asia/Kolkata";
 
 /**
@@ -247,6 +250,19 @@ export async function registerSchedules(boss: PgBoss): Promise<void> {
     );
   } else {
     await boss.unschedule("razorpay-reconcile");
+  }
+
+  // Every 10 minutes — record the Aadhaar eSign signatures made on Leegality
+  // since the last check, for trustees who didn't come back to press "I've signed"
+  if (hasLeegality()) {
+    await boss.schedule(
+      "collect-esign-signatures",
+      "*/10 * * * *",
+      {},
+      { expireInSeconds: 540, retryLimit: 0, tz: IST_TIMEZONE }
+    );
+  } else {
+    await boss.unschedule("collect-esign-signatures");
   }
 
   // Every 5 minutes — rebuild proudindian.ngo when the public events feed changes

@@ -18,6 +18,7 @@ export const QUEUE_NAMES: JobName[] = [
   "cleanup-r2-orphans",
   "cleanup-stale-scheduled-recipients",
   "close-due-resolutions",
+  "collect-esign-signatures",
   "close-expired-rsvp-polls",
   "close-rsvp-poll-on-cancel",
   "delete-r2-object",

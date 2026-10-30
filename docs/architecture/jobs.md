@@ -38,6 +38,7 @@ pg-boss cannot change an existing queue's policy, so handlers must stay safe aga
 
 - Maintenance schedules that act on current state (fiscal years, circular closing, archive retimestamping, compliance items, the ledger backstop, import-row retention) use `missed: "once"`: an occurrence that came due while the app was down runs once on the next cron pass. Reminders and digests keep the default `skip`, because a send hours late is worse than none.
 - `razorpay-reconcile` is scheduled only with `RAZORPAY_KEY_ID` and `RAZORPAY_WEBHOOK_SECRET`, and never with a test key in production.
+- `collect-esign-signatures` (every ten minutes) is scheduled only with `LEEGALITY_API_URL` and `LEEGALITY_AUTH_TOKEN`. Its worker is registered by the web server, which holds the Leegality client. It takes open eSign circulars' signatures, decides those past their date (`close-due-resolutions` leaves them to it while Leegality is set up) and retries closing Leegality documents ([Aadhaar eSign](governance-resolutions.md#aadhaar-esign)).
 - `expire-event-interests` sets `reviewed_at` and leaves `reviewed_by` null. It notifies no one and writes no audit entry. Approve, reject and cancel all require `pending`, so expiry is final.
 - `sync-public-events-deploy` runs only with `WEBSITE_DISPATCH_TOKEN`. It sends a `repository_dispatch` to `proud-indian-ngo/website` when the default public events feed changes. The fingerprint is in memory, so the first run after a restart always dispatches; a failed dispatch throws and the next run retries.
 

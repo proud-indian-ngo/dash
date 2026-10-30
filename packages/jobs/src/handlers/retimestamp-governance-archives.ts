@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { archivesDue, setArchiveCopy } from "@pi-dash/db/queries/signing";
+import { isEsignVaultDocument } from "@pi-dash/db/queries/esign";
+import {
+  type ArchiveTarget,
+  archivesDue,
+  setArchiveCopy,
+} from "@pi-dash/db/queries/signing";
 import {
   fileFinalCertificate,
   unfiledFinalCertificates,
@@ -23,12 +28,19 @@ export interface RetimestampResult {
   renewed: number;
 }
 
+interface ArchiveStep {
+  /** An Aadhaar eSign circular's copy: through the signing plugin's routes. */
+  esign: boolean;
+}
+
 interface RetimestampDeps {
   /** Revocation data and a first document timestamp: a copy never made. */
-  finalize: (pdf: Uint8Array) => Promise<Uint8Array>;
+  finalize: (pdf: Uint8Array, step: ArchiveStep) => Promise<Uint8Array>;
+  /** Whether the copy is an Aadhaar eSign circular's (`isEsignVaultDocument`). */
+  isEsign: (target: ArchiveTarget) => Promise<boolean>;
   read: (key: string) => Promise<Uint8Array>;
   /** A new document timestamp on an existing long-term copy. */
-  retimestamp: (pdf: Uint8Array) => Promise<Uint8Array>;
+  retimestamp: (pdf: Uint8Array, step: ArchiveStep) => Promise<Uint8Array>;
   validate: (pdf: Uint8Array) => Promise<GovernanceValidationReport>;
   write: (key: string, bytes: Uint8Array) => Promise<void>;
 }
@@ -61,9 +73,25 @@ const pdfFrom = async (response: Promise<Response>) =>
 function defaultDeps(): RetimestampDeps {
   const r2 = getR2Client();
   return {
-    finalize: (pdf) => pdfFrom(postToSigningService("/finalize", pdf)),
+    // KeySeal's strict reader can't open Leegality's files, so an eSign
+    // circular's copy goes through the plugin's routes.
+    finalize: (pdf, { esign }) =>
+      pdfFrom(
+        postToSigningService(
+          esign ? "/pidash/finalize-esign" : "/finalize",
+          pdf
+        )
+      ),
+    isEsign: async (target) =>
+      "documentId" in target && (await isEsignVaultDocument(target.documentId)),
     read: async (key) => new Uint8Array(await r2.file(key).arrayBuffer()),
-    retimestamp: (pdf) => pdfFrom(postToSigningService("/retimestamp", pdf)),
+    retimestamp: (pdf, { esign }) =>
+      pdfFrom(
+        postToSigningService(
+          esign ? "/pidash/retimestamp-esign" : "/retimestamp",
+          pdf
+        )
+      ),
     validate: async (pdf) =>
       (await (
         await postToSigningService("/validate", pdf)
@@ -139,9 +167,10 @@ export async function handleRetimestampGovernanceArchives(
   for (const copy of due) {
     try {
       const current = await deps.read(copy.archiveObjectKey);
+      const step = { esign: await deps.isEsign(copy.target) };
       const next = copy.neverMade
-        ? await deps.finalize(current)
-        : await deps.retimestamp(current);
+        ? await deps.finalize(current, step)
+        : await deps.retimestamp(current, step);
       const key = renewedKey(copy.archiveObjectKey, today);
       await deps.write(key, next);
       await setArchiveCopy(copy.target, {

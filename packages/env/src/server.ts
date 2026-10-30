@@ -69,6 +69,10 @@ export const env = createEnv({
     GRAVATAR_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
     IMMICH_API_KEY: z.string().min(1).optional(),
     IMMICH_INTERNAL_URL: z.url().optional(),
+    /** Leegality's API host for Aadhaar eSign (https://app1.leegality.com); unset offers DSC signing only. */
+    LEEGALITY_API_URL: z.url().optional(),
+    /** Leegality API token (X-Auth-Token), from Settings > API in its dashboard. */
+    LEEGALITY_AUTH_TOKEN: z.string().min(1).optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

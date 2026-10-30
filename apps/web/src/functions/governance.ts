@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import { hasEncryptionKey } from "@pi-dash/db/encryption";
+import { isEsignVaultDocument } from "@pi-dash/db/queries/esign";
 import {
   deleteTrustee,
   findGovernanceDocumentBySha256,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/governance/schemas";
 import {
   signingServiceConfigured,
+  validateEsignPdf,
   validateSignedPdf,
 } from "@/lib/governance/signing-service";
 import {
@@ -356,8 +358,12 @@ export const recheckGovernanceDocument = createServerFn({ method: "POST" })
         const bytes = new Uint8Array(
           await s3.file(document.objectKey).arrayBuffer()
         );
+        // An eSign circular's copy needs the plugin's check; see
+        // governance-resolutions.md, Aadhaar eSign.
         const report = await matchReportSigners(
-          await validateSignedPdf(bytes),
+          (await isEsignVaultDocument(data.id))
+            ? await validateEsignPdf(bytes)
+            : await validateSignedPdf(bytes),
           trusteeNamesForMatching
         );
         const sourceFormat =

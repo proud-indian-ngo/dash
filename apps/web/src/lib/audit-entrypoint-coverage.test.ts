@@ -26,6 +26,8 @@ const AUDITED_SERVER_FUNCTIONS = [
   "withdrawCircularFn",
   "submitSignedCircularFn",
   "getCircularSigningCopyUrl",
+  "getCircularEsignLinkFn",
+  "collectCircularEsignaturesFn",
   "declareResolutionConflictFn",
   "objectToResolutionFn",
   "issueCircularFn",

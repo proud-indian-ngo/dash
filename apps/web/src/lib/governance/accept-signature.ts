@@ -1,4 +1,5 @@
 import { db } from "@pi-dash/db";
+import { getEsignDocument } from "@pi-dash/db/queries/esign";
 import {
   fileGovernanceDocumentOnce,
   findGovernanceDocumentBySha256,
@@ -43,7 +44,11 @@ import { createRequestLogger } from "evlog";
 import { getS3 } from "../s3";
 import { CircularError, checkSignedUpload, sha256Of } from "./circulars";
 import { circularKey, signingCopy } from "./signing-copy";
-import { finalizeForArchive, validateSignedPdf } from "./signing-service";
+import {
+  finalizeForArchive,
+  validateEsignPdf,
+  validateSignedPdf,
+} from "./signing-service";
 
 export const meetingKey = (meetingId: string, name: string) =>
   `${env.R2_KEY_PREFIX}/governance/meetings/${meetingId}/${name}`;
@@ -425,10 +430,14 @@ export async function fileEvidenceAfterResponse(
   const bytes = new Uint8Array(
     await s3.file(revision.latestObjectKey).arrayBuffer()
   );
+  const esign = (await getEsignDocument(row.circularId)) !== null;
   await fileFinalCopy(row.circularId, passed, {
     bytes,
+    esign,
     objectKey: revision.latestObjectKey,
-    report: await validateSignedPdf(bytes),
+    report: esign
+      ? await validateEsignPdf(bytes)
+      : await validateSignedPdf(bytes),
   });
 }
 
@@ -439,11 +448,13 @@ export async function fileEvidenceAfterResponse(
  * copy is logged and retried by the yearly job; the signed original is
  * already safe.
  */
-async function fileFinalCopy(
+export async function fileFinalCopy(
   circularId: string,
   passedIds: readonly string[],
   signed: {
     bytes: Uint8Array;
+    /** Signed with Aadhaar eSign through Leegality. */
+    esign?: boolean;
     objectKey: string;
     report: Awaited<ReturnType<typeof validateSignedPdf>>;
   }
@@ -483,6 +494,7 @@ async function fileFinalCopy(
   await fileArchiveCopy({
     archiveKey: circularKey(circularId, `final-ltv-${sha256.slice(0, 16)}.pdf`),
     bytes: signed.bytes,
+    esign: signed.esign,
     log: { circularId },
     objectKey: signed.objectKey,
     target: { documentId },
@@ -498,6 +510,8 @@ async function fileFinalCopy(
 export async function fileArchiveCopy(input: {
   archiveKey: string;
   bytes: Uint8Array;
+  /** Signed with Aadhaar eSign through Leegality. */
+  esign?: boolean;
   /** Identifiers for the log line. */
   log: Record<string, string>;
   /** The signed original, which stands in until the copy is made. */
@@ -505,7 +519,9 @@ export async function fileArchiveCopy(input: {
   target: ArchiveTarget;
 }): Promise<void> {
   try {
-    const archived = await finalizeForArchive(input.bytes);
+    const archived = await finalizeForArchive(input.bytes, {
+      esign: input.esign,
+    });
     const s3 = await getS3();
     await s3.write(input.archiveKey, archived, { type: "application/pdf" });
     await setArchiveCopy(input.target, {
