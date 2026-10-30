@@ -262,7 +262,7 @@ export const vendorPaymentMutators = {
       // Review applies only to pending requests, even for admins who can edit
       // any status; they reset a request to pending to review it again.
       assertPending(entity, "vendor payment", "approved");
-      assertNotOwnRequest(ctx, entity);
+      await assertNotOwnRequest(tx, ctx, entity);
       const leadStep = await financeLeadStep(
         tx,
         ctx,
@@ -516,7 +516,7 @@ export const vendorPaymentMutators = {
       const entity = await tx.run(zql.vendorPayment.where("id", args.id).one());
       assertEntityExists(entity, "Vendor payment");
       // Nobody approves the invoice of a request they raised.
-      assertNotOwnRequest(ctx, entity);
+      await assertNotOwnRequest(tx, ctx, entity);
       assertNotVoided(entity);
 
       if (entity.status !== "invoice_pending") {

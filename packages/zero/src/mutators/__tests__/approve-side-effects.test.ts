@@ -5,6 +5,7 @@ mock.module("@pi-dash/jobs/enqueue", () => ({ enqueue }));
 
 import type { AsyncTask, Context } from "../../context";
 import { advancePaymentMutators } from "../advance-payment";
+import { OWN_REQUEST_APPROVAL_MESSAGE } from "../lead-approval";
 import { reimbursementMutators } from "../reimbursement";
 
 const SCREENSHOT_KEY =
@@ -179,5 +180,42 @@ describe("approve side effects", () => {
       },
       { traceId: "trace-1" }
     );
+  });
+
+  it("refuses an approver's own advance payment unless one person handles finance", async () => {
+    const ownAdvance = {
+      approvalScreenshotKey: null,
+      status: "pending",
+      title: "Supplies",
+      userId: "approver-1",
+    };
+    const approve = (soleApprover: null | { value: string }) => {
+      const tx = {
+        location: "server",
+        mutate: {
+          advancePayment: { update: mock() },
+          advancePaymentHistory: { insert: mock() },
+        },
+        run: mock()
+          .mockResolvedValueOnce(ownAdvance)
+          .mockResolvedValueOnce(soleApprover),
+      };
+      return {
+        result: advancePaymentMutators.approve.fn({
+          args: { approvalScreenshotKey: SCREENSHOT_KEY, id: "advance-1" },
+          ctx: serverContext(),
+          tx,
+        } as never),
+        tx,
+      };
+    };
+
+    const refused = approve(null);
+    await expect(refused.result).rejects.toThrow(OWN_REQUEST_APPROVAL_MESSAGE);
+    expect(refused.tx.mutate.advancePayment.update).not.toHaveBeenCalled();
+
+    const allowed = approve({ value: "true" });
+    await allowed.result;
+    expect(allowed.tx.mutate.advancePayment.update).toHaveBeenCalledTimes(1);
   });
 });

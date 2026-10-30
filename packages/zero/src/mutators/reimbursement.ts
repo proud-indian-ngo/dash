@@ -504,7 +504,7 @@ export const reimbursementMutators = {
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
       assertPending(entity, "reimbursement", "approved", canEditAnyStatus);
-      assertNotOwnRequest(ctx, entity);
+      await assertNotOwnRequest(tx, ctx, entity);
       const leadStep = await financeLeadStep(
         tx,
         ctx,
@@ -705,7 +705,7 @@ export const reimbursementMutators = {
       const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
       assertEntityExists(entity, "Reimbursement");
       assertNotVoided(entity);
-      assertNotOwnRequest(ctx, entity);
+      await assertNotOwnRequest(tx, ctx, entity);
       if (entity.status !== "approved") {
         throw new Error("Only an approved reimbursement takes payment proof");
       }
@@ -1678,7 +1678,7 @@ export const reimbursementMutators = {
       entity.status === "approved" &&
       linesChange(itemsBefore, args.lineItems)
     ) {
-      assertNotOwnRequest(ctx, entity);
+      await assertNotOwnRequest(tx, ctx, entity);
     }
     // What the lead approved changed: they look at it again.
     const clearsLead =

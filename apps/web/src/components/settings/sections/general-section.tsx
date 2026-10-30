@@ -1,6 +1,10 @@
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
 import { Switch } from "@pi-dash/design-system/components/ui/switch";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import {
+  isSoleFinanceApprover,
+  SOLE_FINANCE_APPROVER_CONFIG_KEY,
+} from "@pi-dash/shared/approval-policy";
 import { mutators } from "@pi-dash/zero/mutators";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery, useZero } from "@rocicorp/zero/react";
@@ -24,6 +28,9 @@ export function GeneralSection() {
 
   const notificationsDisabled =
     configs.find((c) => c.key === KILL_SWITCH_KEY)?.value === "true";
+  const soleFinanceApprover = isSoleFinanceApprover(
+    configs.find((c) => c.key === SOLE_FINANCE_APPROVER_CONFIG_KEY)?.value
+  );
 
   const applyToggle = async (checked: boolean) => {
     const value = checked ? "true" : "false";
@@ -60,6 +67,24 @@ export function GeneralSection() {
     }
     await applyToggle(false);
   });
+  const handleSoleFinanceApproverToggle = useEventCallback(
+    async (checked: boolean) => {
+      const res = await zero.mutate(
+        mutators.appConfig.upsert({
+          key: SOLE_FINANCE_APPROVER_CONFIG_KEY,
+          value: checked ? "true" : "false",
+        })
+      ).server;
+      handleMutationResult(res, {
+        entityId: SOLE_FINANCE_APPROVER_CONFIG_KEY,
+        errorMsg: "Couldn't update the finance approval setting",
+        mutation: "appConfig.upsert",
+        successMsg: checked
+          ? "Finance can approve their own requests"
+          : "Own requests need another finance approver",
+      });
+    }
+  );
   const stableOnConfirm0 = useEventCallback(() => {
     setConfirmOpen(false);
     applyToggle(true);
@@ -97,6 +122,17 @@ export function GeneralSection() {
             aria-label="Disable all notifications"
             checked={notificationsDisabled}
             onCheckedChange={handleToggle}
+          />
+        </SettingsRow>
+        <SettingsRow
+          description="Finance may approve and pay requests they raised, claim or approved as programme lead. Turn this off once someone else in finance can approve."
+          inline
+          title="One person handles finance"
+        >
+          <Switch
+            aria-label="One person handles finance"
+            checked={soleFinanceApprover}
+            onCheckedChange={handleSoleFinanceApproverToggle}
           />
         </SettingsRow>
       </SettingsCard>

@@ -12,7 +12,7 @@ import {
   PAYABLE_STATUSES,
 } from "../vendor-payment-constants";
 import { assertNewRecord } from "./creation-invariant";
-import { assertNotOwnRequest } from "./lead-approval";
+import { assertNotOwnRequest, readSoleFinanceApprover } from "./lead-approval";
 import { queueLedgerPosting } from "./ledger-queue";
 import {
   assertCanDelete,
@@ -207,7 +207,7 @@ export const vendorPaymentTransactionMutators = {
         );
       }
       assertNotVoided(vendorPayment);
-      assertNotOwnRequest(ctx, vendorPayment);
+      await assertNotOwnRequest(tx, ctx, vendorPayment);
 
       await assertWithinPaymentCap(tx, vpId, entity.amountPaise, args.id);
 
@@ -324,9 +324,12 @@ export const vendorPaymentTransactionMutators = {
 
     const now = Date.now();
 
-    // An approver's payment is approved at once, but never on their own
-    // request: someone else in finance approves it (founder decision).
-    const isApprover = can(ctx, "requests.approve") && !isVpOwner;
+    // An approver's payment is approved at once, but not on their own
+    // request: someone else in finance approves it (founder decision),
+    // unless they are the sole finance approver.
+    const isApprover =
+      can(ctx, "requests.approve") &&
+      !(isVpOwner && !(await readSoleFinanceApprover(tx)));
 
     await tx.mutate.vendorPaymentTransaction.insert({
       amountPaise: args.amountPaise,

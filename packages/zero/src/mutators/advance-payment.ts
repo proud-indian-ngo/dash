@@ -16,6 +16,7 @@ import {
 } from "../shared-schemas";
 import { pickCostCentreId } from "./cost-centre-pick";
 import { assertNewRecord } from "./creation-invariant";
+import { assertNotOwnRequest } from "./lead-approval";
 import {
   assertApprovalScreenshot,
   assertCanDelete,
@@ -83,6 +84,7 @@ export const advancePaymentMutators = {
       );
       assertEntityExists(entity, "Advance payment");
       assertPending(entity, "advance payment", "approved", canEditAnyStatus);
+      await assertNotOwnRequest(tx, ctx, entity);
 
       const now = Date.now();
       const requestedApprovalScreenshotKey =

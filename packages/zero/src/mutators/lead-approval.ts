@@ -1,10 +1,12 @@
 import {
   type ApprovalRequest,
   CLEARED_LEAD_APPROVAL,
+  isSoleFinanceApprover,
   LEAD_AND_FINANCE_DIFFER_MESSAGE,
   LEAD_SKIP_REASON_MESSAGE,
   leadApproverOf,
   leadStepOutstanding,
+  SOLE_FINANCE_APPROVER_CONFIG_KEY,
 } from "@pi-dash/shared/approval-policy";
 import type { ExpenseChargeFields } from "@pi-dash/shared/expense-charge";
 import type { Transaction } from "@rocicorp/zero";
@@ -135,9 +137,22 @@ export const leadSkipReasonArg = {
 };
 
 /**
+ * Whether one person handles finance (Settings → General), so the rules
+ * that need someone else in finance don't apply. On the client it reads the
+ * synced `app_config` row; the server decides.
+ */
+export async function readSoleFinanceApprover(tx: Tx): Promise<boolean> {
+  const row = await tx.run(
+    zql.appConfig.where("key", SOLE_FINANCE_APPROVER_CONFIG_KEY).one()
+  );
+  return isSoleFinanceApprover(row?.value);
+}
+
+/**
  * Finance's approval against the lead step: with the lead's approval
  * outstanding a reason is required and stored; whoever approved as lead
- * can't approve as finance too. Returns the columns to write.
+ * can't approve as finance too, unless they are the sole finance approver.
+ * Returns the columns to write.
  */
 export async function financeLeadStep(
   tx: Tx,
@@ -145,7 +160,11 @@ export async function financeLeadStep(
   entity: ApprovalRequest,
   leadSkipReason: string | undefined
 ): Promise<{ leadSkipReason?: string }> {
-  if (entity.leadApprovedBy && entity.leadApprovedBy === ctx.userId) {
+  if (
+    entity.leadApprovedBy &&
+    entity.leadApprovedBy === ctx.userId &&
+    !(await readSoleFinanceApprover(tx))
+  ) {
     throw new Error(LEAD_AND_FINANCE_DIFFER_MESSAGE);
   }
   if (entity.leadApprovedAt || entity.leadSkipReason) {
@@ -201,13 +220,18 @@ export const OWN_REQUEST_APPROVAL_MESSAGE =
 
 /**
  * Finance never approves or pays a request they raised (`createdBy`) or
- * claim (`userId`): someone else in finance does (founder decision).
+ * claim (`userId`): someone else in finance does (founder decision). While
+ * one person handles finance, they may.
  */
-export function assertNotOwnRequest(
+export async function assertNotOwnRequest(
+  tx: Tx,
   ctx: Context,
   entity: { createdBy?: null | string; userId: string }
-): void {
-  if (entity.userId === ctx.userId || entity.createdBy === ctx.userId) {
+): Promise<void> {
+  if (
+    (entity.userId === ctx.userId || entity.createdBy === ctx.userId) &&
+    !(await readSoleFinanceApprover(tx))
+  ) {
     throw new Error(OWN_REQUEST_APPROVAL_MESSAGE);
   }
 }

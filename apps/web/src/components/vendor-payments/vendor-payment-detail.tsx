@@ -45,6 +45,7 @@ import {
 } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useSoleFinanceApprover } from "@/hooks/use-sole-finance-approver";
 import { useUserContact } from "@/hooks/use-user-contact";
 import { waitingLeadOf } from "@/lib/lead-approval";
 import {
@@ -302,9 +303,15 @@ export function VendorPaymentDetail({
   // approve meanwhile, with a reason.
   const isWaitingLead = useIsWaitingLead(request);
   const leadWaiting = waitingLeadOf(request);
-  // Nobody approves or pays a request they raised.
+  // Nobody approves or pays a request they raised, unless they are the sole
+  // finance approver.
+  const soleFinanceApprover = useSoleFinanceApprover();
   const showApproveAction =
-    !voided && canApprove && !isOwner && !isWaitingLead && status === "pending";
+    !voided &&
+    canApprove &&
+    (soleFinanceApprover || !isOwner) &&
+    !isWaitingLead &&
+    status === "pending";
   // A request paid before approval was required can only be approved.
   const showRejectAction =
     showApproveAction &&
