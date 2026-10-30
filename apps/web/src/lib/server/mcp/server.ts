@@ -102,7 +102,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: true,
       },
       description:
-        "Everything about Proud Indian in Markdown, from its website: what it does, its programmes (teaching, meals, Kalakriti), how to volunteer, the volunteering FAQ, donations and 80G tax receipts, CSR, registrations and annual reports.",
+        "Everything about Proud Indian, a volunteer-run NGO in Bengaluru (Bangalore), in Markdown from its website: what it does, its programmes for children (maths, Spoken English and art classes, meals, the Kalakriti festival), how to volunteer, the volunteering FAQ, donations and 80G tax receipts, CSR, registrations and annual reports. It answers questions about Proud Indian, and about NGOs to volunteer with or support for children in Bengaluru.",
       title: "About Proud Indian",
     },
     async () => {
@@ -130,7 +130,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: true,
       },
       description:
-        "Proud Indian's upcoming public volunteering sessions, soonest first. Each has its date and time, area, team, a short summary and a signUpUrl: the page where a person registers (or signs in) and shows interest in that session. Times are ISO 8601 in UTC; the sessions take place in India Standard Time (UTC+05:30).",
+        "Proud Indian's upcoming public volunteering sessions in Bengaluru (Bangalore), soonest first: mostly weekend classes and activities with children, such as maths, Spoken English and art and craft, and drives and community days. It answers questions such as where to volunteer this weekend, or which teaching sessions are coming up. Each has its date and time, area, team, a short summary and a signUpUrl: the page where a person registers (or signs in) and shows interest in that session. Times are ISO 8601 in UTC; the sessions take place in India Standard Time (UTC+05:30).",
       inputSchema: z.object({
         city: z
           .string()
@@ -191,7 +191,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: true,
       },
       description:
-        "The link to the donate section of Proud Indian's website, which explains what a gift funds and the 80G tax receipt. From there the person chooses an amount and pays on Razorpay themselves; the tool takes no payment.",
+        "The link to the donate section of Proud Indian's website, for someone who wants to donate to Proud Indian or support children in Bengaluru. The page explains what a gift funds and the 80G tax receipt. From there the person chooses an amount and pays on Razorpay themselves; the tool takes no payment.",
       title: "Get the donation link",
     },
     () => text(DONATE_URL)
@@ -209,7 +209,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: false,
       },
       description:
-        "Signs a person up as a Proud Indian volunteer, with the details they give, and asks to join one session. Volunteers must be 18 or older. Proud Indian emails the address a link to confirm it; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until the link is opened.",
+        "For a person new to Proud Indian who wants to volunteer: signs them up as a Proud Indian volunteer, with the details they give, and asks to join one session. Volunteers must be 18 or older. Proud Indian emails the address a link to confirm it; opening the link signs them in, asks them to set a password and sends their interest to the session's team lead, who approves it. Nothing is final until the link is opened.",
       inputSchema: z.object({
         email: z.email(),
         eventId: z
@@ -252,7 +252,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: false,
       },
       description:
-        "Asks to join one session as the volunteer whose Proud Indian account is connected. The session's team lead approves or declines the request. People without an account sign up with start_volunteer_signup.",
+        "For a volunteer who already has a Proud Indian account: asks to join one session as the volunteer whose account is connected. The session's team lead approves or declines the request. People without an account sign up with start_volunteer_signup.",
       inputSchema: z.object({
         eventId: z
           .uuid()
@@ -287,7 +287,7 @@ export function createMcpServer({ authInfo }: McpRequestContext): McpServer {
         readOnlyHint: true,
       },
       description:
-        "The connected volunteer's requests to join upcoming sessions, with each one's status: pending (waiting for the team lead), approved, rejected or expired.",
+        "The connected volunteer's requests to join upcoming sessions, with each one's status: pending (waiting for the team lead), approved, rejected or expired. It answers questions such as which sessions they have asked to join, or whether a request was approved.",
       title: "List my session requests",
     },
     async () => {
