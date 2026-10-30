@@ -7,6 +7,7 @@ import {
   LEAD_AND_FINANCE_DIFFER_MESSAGE,
   LEAD_SKIP_REASON_MESSAGE,
   LEGACY_LEAD_SKIP_REASON,
+  SOLE_FINANCE_APPROVER_CONFIG_KEY,
 } from "@pi-dash/shared/approval-policy";
 
 import type { AsyncTask } from "../../context";
@@ -856,6 +857,91 @@ describe("nobody approves or pays their own request", () => {
     expect(
       rows(paid, "vendorPaymentTransaction").find((t) => t.id === "t-2")
     ).toMatchObject({ reviewedBy: null, status: "pending" });
+  });
+});
+
+describe("while one person handles finance", () => {
+  const soleApprover = [
+    { key: SOLE_FINANCE_APPROVER_CONFIG_KEY, value: "true" },
+  ];
+
+  it("lets them approve a claim they make", async () => {
+    const db = createDb({
+      appConfig: soleApprover,
+      reimbursement: [
+        reimbursementRow({
+          chargedProgrammeId: "nolead",
+          createdBy: "finance",
+          userId: "finance",
+        }),
+      ],
+    });
+    await run(reimbursementMutators.approve, db, financeCtx(), { id: "r-1" });
+    expect(rows(db, "reimbursement")[0]).toMatchObject({ status: "approved" });
+  });
+
+  it("lets them approve their own vendor payment and its payments", async () => {
+    const db = createDb({
+      appConfig: soleApprover,
+      vendorPayment: [
+        {
+          approvalScreenshotKey: null,
+          chargedProgrammeId: "nolead",
+          chargedProjectId: null,
+          chargedTo: "programme",
+          costCentreId: "blr",
+          eventId: null,
+          id: "vp-1",
+          leadApprovedAt: null,
+          leadSkipReason: null,
+          status: "pending",
+          title: "Lunch",
+          userId: "finance",
+          vendorId: "v-1",
+          voidedAt: null,
+        },
+      ],
+      vendorPaymentLineItem: [
+        {
+          amountPaise: 10_000,
+          categoryId: "food",
+          id: "l",
+          vendorPaymentId: "vp-1",
+        },
+      ],
+    });
+    await run(vendorPaymentMutators.approve, db, financeCtx(), { id: "vp-1" });
+    expect(rows(db, "vendorPayment")[0]).toMatchObject({ status: "approved" });
+
+    await run(
+      vendorPaymentTransactionMutators.create,
+      db,
+      ctx("finance", [...FINANCE, "requests.record_payment"]),
+      {
+        amountPaise: 1000,
+        attachments: [],
+        id: "t-1",
+        transactionDate: Date.UTC(2026, 9, 1),
+        vendorPaymentId: "vp-1",
+      }
+    );
+    expect(rows(db, "vendorPaymentTransaction")[0]).toMatchObject({
+      reviewedBy: "finance",
+      status: "approved",
+    });
+  });
+
+  it("lets the lead who approved approve as finance too", async () => {
+    const db = createDb({
+      appConfig: soleApprover,
+      reimbursement: [reimbursementRow()],
+    });
+    const leadInFinance = ctx("lead-edu", FINANCE);
+    await run(reimbursementMutators.approveAsLead, db, leadInFinance, {
+      id: "r-1",
+    });
+    await run(reimbursementMutators.approve, db, leadInFinance, { id: "r-1" });
+    expect(rows(db, "reimbursement")[0]).toMatchObject({ status: "approved" });
   });
 });
 

@@ -49,6 +49,7 @@ import { UserHoverCard } from "@/components/shared/user-hover-card";
 import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useSoleFinanceApprover } from "@/hooks/use-sole-finance-approver";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
@@ -209,6 +210,7 @@ export function ReimbursementsTable({
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
+  const soleFinanceApprover = useSoleFinanceApprover();
   const { hasPermission } = useApp();
   const canDeleteAll = hasPermission("requests.delete_all");
   const canDeleteOwn = hasPermission("requests.delete_own");
@@ -570,9 +572,11 @@ export function ReimbursementsTable({
             request={r}
           />
         );
-        // Nobody approves a request they raised or claim.
+        // Nobody approves a request they raised or claim, unless they are
+        // the sole finance approver.
         const isOwn =
-          isOwner || ("createdBy" in r && r.createdBy === currentUserId);
+          !soleFinanceApprover &&
+          (isOwner || ("createdBy" in r && r.createdBy === currentUserId));
         if (!(showReview && r.status === "pending" && !voided && !isOwn)) {
           return actions;
         }

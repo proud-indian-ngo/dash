@@ -48,6 +48,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { useConfirmAction } from "@/hooks/use-confirm-action";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useSoleFinanceApprover } from "@/hooks/use-sole-finance-approver";
 import { authClient } from "@/lib/auth-client";
 import { DATE } from "@/lib/date-formats";
 import { pendingApprovalLabel, waitingLeadOf } from "@/lib/lead-approval";
@@ -214,6 +215,7 @@ export function VendorPaymentsTable({
   );
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
+  const soleFinanceApprover = useSoleFinanceApprover();
   const { hasPermission } = useApp();
   const canVoid = hasPermission("requests.void");
   const zero = useZero();
@@ -521,13 +523,14 @@ export function VendorPaymentsTable({
             payment={request}
           />
         );
-        // Nobody approves a request they raised.
+        // Nobody approves a request they raised, unless they are the sole
+        // finance approver.
         if (
           !(
             showReview &&
             request.status === "pending" &&
             !voided &&
-            request.userId !== currentUserId
+            (soleFinanceApprover || request.userId !== currentUserId)
           )
         ) {
           return actions;

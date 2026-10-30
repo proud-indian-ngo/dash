@@ -65,6 +65,7 @@ import {
 import { useApp } from "@/context/app-context";
 import { useCashVoucherLimit } from "@/hooks/use-cash-voucher-limit";
 import { useCostCentres } from "@/hooks/use-cost-centres";
+import { useSoleFinanceApprover } from "@/hooks/use-sole-finance-approver";
 import { useUserContact } from "@/hooks/use-user-contact";
 import {
   getAttachmentDownloadHref,
@@ -161,11 +162,14 @@ export function ReimbursementDetail({
   // An approved claim takes its payment screenshot after approval too: the
   // books post it only with one (finance layer 3-3a).
   const hasPaymentProof = Boolean(request.approvalScreenshotKey);
-  // Nobody approves or pays a request they raised or claim.
+  // Nobody approves or pays a request they raised or claim, unless they
+  // are the sole finance approver.
   const { data: session } = authClient.useSession();
+  const soleFinanceApprover = useSoleFinanceApprover();
   const isOwnRequest =
-    request.userId === session?.user?.id ||
-    ("createdBy" in request && request.createdBy === session?.user?.id);
+    !soleFinanceApprover &&
+    (request.userId === session?.user?.id ||
+      ("createdBy" in request && request.createdBy === session?.user?.id));
   // A programme lead sees the receipts, not how or whom finance paid.
   const seesEvidence = seesRequestEvidence(
     request,

@@ -137,5 +137,20 @@ export const CLEARED_LEAD_APPROVAL = {
 export const LEAD_SKIP_REASON_MESSAGE =
   "The programme lead hasn't approved yet. Give a reason to approve without them";
 
+/**
+ * `app_config` key: "true" while one person handles finance. They may then
+ * approve and pay requests they raised, claim or approved as programme
+ * lead, which otherwise need someone else in finance. Settings → General;
+ * turn it off once finance has a second approver.
+ */
+export const SOLE_FINANCE_APPROVER_CONFIG_KEY = "sole_finance_approver";
+
+/** Whether a stored `app_config` value turns the sole approver on. */
+export function isSoleFinanceApprover(
+  value: string | null | undefined
+): boolean {
+  return value === "true";
+}
+
 export const LEAD_AND_FINANCE_DIFFER_MESSAGE =
   "You approved this as the programme lead, so someone else in finance must approve it";

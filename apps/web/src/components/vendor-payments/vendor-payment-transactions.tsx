@@ -29,6 +29,7 @@ import { ResponsiveActionMenu } from "@/components/shared/responsive-action-menu
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { isVoided, VoidBadge } from "@/components/shared/void";
 import { useApp } from "@/context/app-context";
+import { useSoleFinanceApprover } from "@/hooks/use-sole-finance-approver";
 import { DATE } from "@/lib/date-formats";
 import {
   getMutationResultErrorMessage,
@@ -69,8 +70,11 @@ export function VendorPaymentTransactions({
   const [editingTransaction, setEditingTransaction] =
     useState<VendorPaymentTransactionWithRelations | null>(null);
 
-  // Nobody approves or pays their own request (founder decision).
-  const canApprove = hasPermission("requests.approve") && !isOwner;
+  // Nobody approves or pays their own request (founder decision), unless
+  // they are the sole finance approver.
+  const soleFinanceApprover = useSoleFinanceApprover();
+  const canApprove =
+    hasPermission("requests.approve") && (soleFinanceApprover || !isOwner);
   const canRecord = hasPermission("requests.record_payment");
   const isInvoiceLocked = INVOICE_LOCKED_STATUSES.has(request.status as string);
   const canEditAll = hasPermission("requests.edit_all") && !isInvoiceLocked;

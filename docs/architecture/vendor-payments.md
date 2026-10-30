@@ -27,7 +27,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 - Reject is refused once any payment is approved; otherwise it rejects the pending payments too.
 - `requests.edit_all_statuses` holders can `resetToPending`, refused while the request has invoice data or any non-rejected payment. It clears the lead's approval.
 - Request details are editable while pending by the owner with `requests.edit_own`, or by a `requests.edit_all` holder. Only `requests.edit_all_statuses` can edit request details after pending.
-- An admin's payment is auto-approved, except on their own request; others need approval, which the server refuses until the request is approved. Nobody approves the request or a payment on it when they raised it.
+- An admin's payment is auto-approved, except on their own request; others need approval, which the server refuses until the request is approved. Nobody approves the request or a payment on it when they raised it. Both relax while one person handles finance (`finance-and-programmes.md`).
 - Only whoever recorded a payment edits or deletes it (delete also needs `requests.delete_own`), while it is pending and the invoice is not locked. The request's owner cannot change a payment someone else recorded. `requests.edit_all` can edit any recorder's pending payment; `requests.delete_all` can delete one until it is posted. Reviewed payments are immutable here; void and rerecord one that has reached the books.
 
 ## Invoice phase
