@@ -79,6 +79,7 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   export E2E_SIGNING_PORT=$((STACK_PORT + 4))
   export E2E_GOWA_PORT=$((STACK_PORT + 5))
   export E2E_R2_PORT=$((STACK_PORT + 6))
+  export E2E_LEEGALITY_PORT=$((STACK_PORT + 7))
   # The run lock means anything on these ports is left over from an earlier
   # run in this checkout (one stopped before its teardown), so clear it first.
   STALE_SUFFIX=""
@@ -92,7 +93,7 @@ if [ -n "${E2E_STACK_INDEX:-}" ]; then
   for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_GOWA_PORT" "$E2E_R2_PORT"; do
     stop_port_processes "$port" || true
   done
-  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT" "$E2E_GOWA_PORT" "$E2E_R2_PORT"; do
+  for port in "$E2E_WEB_PORT" "$E2E_ZERO_PORT" "$E2E_ZERO_CS_PORT" "$E2E_DB_PORT" "$E2E_SIGNING_PORT" "$E2E_GOWA_PORT" "$E2E_R2_PORT" "$E2E_LEEGALITY_PORT"; do
     if [ -n "$(port_listener_pids "$port")" ]; then
       echo "ERROR: stack port $port is already in use"
       exit 1
@@ -108,6 +109,7 @@ TEST_DB_HOST_PORT="$E2E_DB_PORT"
 TEST_SIGNING_PORT="$E2E_SIGNING_PORT"
 TEST_GOWA_PORT="$E2E_GOWA_PORT"
 TEST_R2_PORT="$E2E_R2_PORT"
+TEST_LEEGALITY_PORT="$E2E_LEEGALITY_PORT"
 # The signing service refuses tokens under 32 characters or with fewer than 10 distinct ones.
 E2E_SIGNING_TOKEN="e2e-signing-token-0123456789abcdefghij"
 
@@ -170,16 +172,21 @@ services:
       # The fake timestamp authority beside it (signing/fake-tsa.py), so
       # the run stays offline.
       SIGNING_TSA_URL: http://127.0.0.1:8081
+    # Also the fake Leegality (signing/fake-leegality.py) for Aadhaar eSign,
+    # signing with this run's signers.
     command:
       - sh
       - -c
-      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080
+      - /app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & /app/.venv/bin/python /fake-leegality.py /test-pki 8082 http://localhost:${TEST_LEEGALITY_PORT} & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080
     volumes:
       - ${E2E_SIGNING_PKI_DIR}/roots:/test-roots:ro
       - ${E2E_SIGNING_PKI_DIR}/tsa:/test-tsa:ro
+      - ${E2E_SIGNING_PKI_DIR}:/test-pki:ro
       - ${REPO_ROOT}/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro
+      - ${REPO_ROOT}/packages/e2e/signing/fake-leegality.py:/fake-leegality.py:ro
     ports:
       - "${TEST_SIGNING_PORT}:8080"
+      - "${TEST_LEEGALITY_PORT}:8082"
 volumes:
   ${TEST_VOLUME}:
 YAML
@@ -333,6 +340,10 @@ export ZERO_CHANGE_STREAMER_STARTUP_DELAY_MS=0
 
 export SIGNING_SERVICE_URL="http://localhost:$TEST_SIGNING_PORT"
 export SIGNING_SERVICE_TOKEN="$E2E_SIGNING_TOKEN"
+# Aadhaar eSign against the fake Leegality beside the signing service. Keep in
+# step with the e2e job env in .github/workflows/ci.yml.
+export LEEGALITY_API_URL="http://localhost:$TEST_LEEGALITY_PORT"
+export LEEGALITY_AUTH_TOKEN="e2e-leegality-token"
 
 # Event sign-up links need a signing secret; a fixed test value is fine.
 export EVENT_SIGNUP_LINK_SECRET="${EVENT_SIGNUP_LINK_SECRET:-e2e-event-signup-link-secret-00000000}"

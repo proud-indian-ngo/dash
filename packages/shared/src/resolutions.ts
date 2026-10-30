@@ -64,7 +64,6 @@ export type ResolutionResponse = (typeof resolutionResponseValues)[number];
 export const signatureMethodValues = [
   "dsc_helper",
   "acrobat_upload",
-  // Kept because the database enum has it; nothing records it.
   "esign",
   "ink_historical",
 ] as const;
@@ -76,6 +75,21 @@ export const SIGNATURE_METHOD_LABELS: Record<SignatureMethod, string> = {
   esign: "Aadhaar eSign",
   ink_historical: "Ink (historical)",
 };
+
+/**
+ * How a circular is signed, chosen when it is issued: with DSCs (the helper,
+ * or Acrobat as a fallback), or with Aadhaar eSign through Leegality only.
+ */
+export const signingModeValues = ["dsc", "esign"] as const;
+export type SigningMode = (typeof signingModeValues)[number];
+
+export const SIGNING_MODE_LABELS: Record<SigningMode, string> = {
+  dsc: "DSC",
+  esign: "Aadhaar eSign",
+};
+
+/** Leegality keeps an eSign invitation for at most this many days. */
+export const ESIGN_MAX_RESPONSE_DAYS = 30;
 
 // ── Templates ───────────────────────────────────────────────────────────────
 

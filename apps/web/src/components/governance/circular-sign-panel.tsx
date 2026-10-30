@@ -1,4 +1,8 @@
-import { ArrowDown01Icon, Upload04Icon } from "@hugeicons/core-free-icons";
+import {
+  ArrowDown01Icon,
+  LinkSquare02Icon,
+  Upload04Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@pi-dash/design-system/components/ui/button";
 import {
@@ -9,12 +13,15 @@ import {
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import type { SigningMode } from "@pi-dash/shared/resolutions";
 import { useServerFn } from "@tanstack/react-start";
 import { log } from "evlog";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import {
+  collectCircularEsignaturesFn,
+  getCircularEsignLinkFn,
   getCircularSigningCopyUrl,
   getCircularSignUploadUrl,
   submitSignedCircularFn,
@@ -28,20 +35,117 @@ function errorText(error: unknown, fallback: string): string {
 }
 
 /**
+ * Aadhaar eSign: the trustee signs on Leegality in a new tab, then comes
+ * back to have the signature recorded (the scheduled check takes it too).
+ */
+function EsignSection({ circularId }: { circularId: string }) {
+  const { dialog: reauthDialog, runVote } = useVoteReauth();
+  const link = useServerFn(getCircularEsignLinkFn);
+  const collect = useServerFn(collectCircularEsignaturesFn);
+  const [opening, setOpening] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  const handleSign = useEventCallback(async () => {
+    setOpening(true);
+    // Opened now, while the click still counts, so it isn't blocked; it
+    // says what's happening if the dashboard asks for the password first.
+    const tab = window.open("", "_blank");
+    if (tab) {
+      tab.document.title = "Opening Leegality";
+      tab.document.body.textContent =
+        "Opening Leegality… If the dashboard asks for your password, confirm it there.";
+    }
+    await runVote(() => link({ data: { circularId } }))
+      .then((result) => {
+        if (!result) {
+          tab?.close();
+          return;
+        }
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = result.url;
+        } else {
+          window.location.href = result.url;
+        }
+      })
+      .catch((error: unknown) => {
+        tab?.close();
+        log.error({
+          action: "circular.sign.start",
+          caughtError: errorText(error, "unknown"),
+          component: "CircularSignPanel",
+        });
+        toast.error("Couldn't open Leegality", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setOpening(false));
+  });
+
+  const handleCheck = useEventCallback(async () => {
+    setChecking(true);
+    await collect({ data: { circularId } })
+      .then(({ message }) => toast.success(message))
+      .catch((error: unknown) => {
+        log.error({
+          action: "circular.sign",
+          caughtError: errorText(error, "unknown"),
+          component: "CircularSignPanel",
+        });
+        toast.error("Your signature wasn't recorded", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setChecking(false));
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ol className="text-muted-foreground flex list-decimal flex-col gap-2 pl-5 text-sm">
+        <li>Open Leegality and sign in your box with Aadhaar eSign.</li>
+        <li>Come back here and record your signature.</li>
+      </ol>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={opening} onClick={handleSign} type="button">
+          <HugeiconsIcon
+            className="size-4"
+            icon={LinkSquare02Icon}
+            strokeWidth={2}
+          />
+          {opening ? "Opening Leegality..." : "Sign with Aadhaar eSign"}
+        </Button>
+        <Button
+          disabled={checking}
+          onClick={handleCheck}
+          type="button"
+          variant="outline"
+        >
+          {checking ? "Checking..." : "I've signed"}
+        </Button>
+      </div>
+      {reauthDialog}
+    </div>
+  );
+}
+
+/**
  * A trustee signs a circular once: the signature assents to every
- * resolution they haven't objected to or declared a conflict on, and their
- * answers are filled into the PDF beside their box before they sign.
+ * resolution they haven't objected to or declared a conflict on. On a DSC
+ * circular their answers are filled into the PDF beside their box before
+ * they sign; on an Aadhaar eSign one they sign on Leegality only.
  */
 export function CircularSignPanel({
   assents,
   circularId,
   otherAnswers,
+  signingMode,
 }: {
   /** Positions of the open resolutions signing assents to. */
   assents: number[];
   circularId: string;
   /** Their objections and conflicts, as the signature will record them. */
   otherAnswers: string[];
+  signingMode: SigningMode;
 }) {
   const { dialog: reauthDialog, runVote } = useVoteReauth();
   const presign = useServerFn(getCircularSignUploadUrl);
@@ -165,32 +269,44 @@ export function CircularSignPanel({
             ? `resolution ${assents[0]}`
             : `resolutions ${assents.join(", ")}`}
           {otherAnswers.length > 0
-            ? ` and records that you ${otherAnswers.join("; ")}`
+            ? signingMode === "dsc"
+              ? ` and records that you ${otherAnswers.join("; ")}`
+              : `; that you ${otherAnswers.join("; ")} stays recorded here`
             : ""}
-          . Object to or declare a conflict on any of them first.
+          . Object to or declare a conflict on any of them first
+          {signingMode === "esign"
+            ? ": once you've signed on Leegality, you can't"
+            : ""}
+          .
         </p>
       </div>
-      <DscSignSection
-        onAvailability={setDscAvailable}
-        onVote={runVote}
-        target={{ circularId }}
-      />
-      {dscAvailable === false ? (
-        acrobat
+      {signingMode === "esign" ? (
+        <EsignSection circularId={circularId} />
       ) : (
-        <Collapsible>
-          <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 pointer-coarse:min-h-10">
-            Sign in Acrobat instead
-            <HugeiconsIcon
-              className="size-4 transition-transform group-data-[panel-open]:rotate-180"
-              icon={ArrowDown01Icon}
-              strokeWidth={2}
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="flex flex-col gap-4 pt-3">
-            {acrobat}
-          </CollapsibleContent>
-        </Collapsible>
+        <>
+          <DscSignSection
+            onAvailability={setDscAvailable}
+            onVote={runVote}
+            target={{ circularId }}
+          />
+          {dscAvailable === false ? (
+            acrobat
+          ) : (
+            <Collapsible>
+              <CollapsibleTrigger className="text-primary group flex items-center gap-1 text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-3 pointer-coarse:min-h-10">
+                Sign in Acrobat instead
+                <HugeiconsIcon
+                  className="size-4 transition-transform group-data-[panel-open]:rotate-180"
+                  icon={ArrowDown01Icon}
+                  strokeWidth={2}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="flex flex-col gap-4 pt-3">
+                {acrobat}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </>
       )}
       {reauthDialog}
     </section>

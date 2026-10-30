@@ -23,6 +23,7 @@
     "apps/web": {
       "entry": [
         "server/middleware/html-compression.ts",
+        "server/plugins/jobs.ts",
         "scripts/profile-entry-eligibility.ts"
       ],
       "ignoreFiles": ["server/**", "src/stubs/**"]

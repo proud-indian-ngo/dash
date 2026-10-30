@@ -1,6 +1,7 @@
 import {
   circularRecipients,
   circularResolutions,
+  type Decision,
   decideCircular,
   getCircular,
   getResolution,
@@ -50,6 +51,7 @@ async function sendIssued({ circularId }: NotifyCircularPayload) {
   await notifyCircularIssued({
     circularId,
     responseDueOn: row.responseDueOn,
+    signingMode: row.signingMode,
     titles: resolutions.map((r) => r.title),
     userIds,
   });
@@ -105,6 +107,32 @@ export const handleNotifyResolutionDecided = createNotifyHandler<
  * fail (or pass, if the last signature arrived on the day), in order, and
  * everyone hears once per circular through the notice job. Logs counts only.
  */
+/** Decides a circular past its response date and queues the notice. */
+export async function closeDueCircular(
+  circularId: string,
+  today: string
+): Promise<Decision[]> {
+  return await decideCircular(circularId, today, async (tx, all) => {
+    const decided = all.filter((d) => d.status !== "issued");
+    if (decided.length === 0) {
+      return;
+    }
+    // Queued in the decision's transaction, not sent here: a retry of
+    // this job no longer finds the circular, but pg-boss retries the
+    // notice job.
+    await enqueue(
+      "notify-resolution-decided",
+      { resolutionIds: decided.map((d) => d.resolutionId) },
+      {
+        db: inTransaction(tx),
+        singletonKey: decided
+          .map((d) => `${d.resolutionId}-${d.status}`)
+          .join("_"),
+      }
+    );
+  });
+}
+
 export async function handleCloseDueResolutions(
   _jobs: Job[],
   today: string = todayInKolkata()
@@ -113,28 +141,17 @@ export async function handleCloseDueResolutions(
     method: "JOB",
     path: "close-due-resolutions",
   });
-  const ids = await overdueCircularIds(today);
+  // With Leegality set up, the eSign job closes eSign circulars after
+  // taking the eSigns made by their response date.
+  const ids = await overdueCircularIds(
+    today,
+    process.env.LEEGALITY_API_URL && process.env.LEEGALITY_AUTH_TOKEN
+      ? { signingMode: "dsc" }
+      : {}
+  );
   let closed = 0;
   for (const id of ids) {
-    const decisions = await decideCircular(id, today, async (tx, all) => {
-      const decided = all.filter((d) => d.status !== "issued");
-      if (decided.length === 0) {
-        return;
-      }
-      // Queued in the decision's transaction, not sent here: a retry of
-      // this job no longer finds the circular, but pg-boss retries the
-      // notice job.
-      await enqueue(
-        "notify-resolution-decided",
-        { resolutionIds: decided.map((d) => d.resolutionId) },
-        {
-          db: inTransaction(tx),
-          singletonKey: decided
-            .map((d) => `${d.resolutionId}-${d.status}`)
-            .join("_"),
-        }
-      );
-    });
+    const decisions = await closeDueCircular(id, today);
     closed += decisions.filter((d) => d.status !== "issued").length;
   }
   log.set({ closed, due: ids.length, event: "resolutions_closed" });

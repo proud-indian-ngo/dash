@@ -167,6 +167,10 @@ jobs:
       SIGNING_SERVICE_URL: http://localhost:4872
       SIGNING_SERVICE_TOKEN: e2e-signing-token-0123456789abcdefghij
       E2E_SIGNING_PKI_DIR: /tmp/signing-pki
+      # Aadhaar eSign against the fake Leegality in the signing container.
+      # Keep in step with packages/e2e/run-e2e.sh.
+      LEEGALITY_API_URL: http://localhost:4875
+      LEEGALITY_AUTH_TOKEN: e2e-leegality-token
       ZERO_UPSTREAM_DB: postgres://postgres:test@localhost:5433/pi-dash-test
       ZERO_REPLICA_FILE: /tmp/pi-dash-test.db
       ZERO_MUTATE_URL: http://localhost:3099/api/zero/mutate
@@ -273,14 +277,16 @@ jobs:
             # plugin builds on the keyseal-service image its Dockerfile names.
             (docker build -t pi-dash-signing services/signing-plugin &&
               bash packages/e2e/signing/make-test-pki.sh pi-dash-signing "$E2E_SIGNING_PKI_DIR" &&
-              docker run -d --name signing -p 4872:8080 \
+              docker run -d --name signing -p 4872:8080 -p 4875:8082 \
                 -e SIGNING_SERVICE_TOKEN="$SIGNING_SERVICE_TOKEN" \
                 -e SIGNING_TRUST_ROOTS_DIR=/test-roots \
                 -e SIGNING_TSA_URL=http://127.0.0.1:8081 \
                 -v "$E2E_SIGNING_PKI_DIR/roots:/test-roots:ro" \
                 -v "$E2E_SIGNING_PKI_DIR/tsa:/test-tsa:ro" \
+                -v "$E2E_SIGNING_PKI_DIR:/test-pki:ro" \
                 -v "$PWD/packages/e2e/signing/fake-tsa.py:/fake-tsa.py:ro" \
-                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
+                -v "$PWD/packages/e2e/signing/fake-leegality.py:/fake-leegality.py:ro" \
+                pi-dash-signing sh -c '/app/.venv/bin/python /fake-tsa.py /test-tsa 8081 & /app/.venv/bin/python /fake-leegality.py /test-pki 8082 http://localhost:4875 & exec /app/.venv/bin/uvicorn keyseal_service.app:create_app --factory --host 0.0.0.0 --port 8080') > /tmp/signing.log 2>&1
             echo $? > /tmp/signing.exit
           ) > /dev/null 2>&1 &
 

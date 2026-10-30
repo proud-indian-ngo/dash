@@ -5,6 +5,7 @@ pi-dash's additions to the generic KeySeal signing service, installed into its i
 - the `proud-indian` stamp style (`"stampStyle": "proud-indian"` on `/sign/start`): the built-in stamp dated in India time, with the Proud Indian symbol behind it;
 - `POST /pidash/prepare`: one empty signature field per trustee, each optionally with an answers field its signature locks. The web app calls it instead of the generic `/prepare`.
 - `POST /fill`: sets a trustee's empty answers field, `{"pdf", "name", "value"}`, and returns the PDF. Two fills of the same input are identical byte for byte.
+- Aadhaar eSign through Leegality (`pidash_signing_plugin/esign.py`, the `/pidash/*-esign` and `/pidash/same-pages` routes): preparing, comparing, checking and archiving Leegality's copies, with the Protean eGov CA 2022 intermediate in `trust/`. The rules are in `docs/architecture/governance-resolutions.md` (Aadhaar eSign).
 
 ## Develop
 

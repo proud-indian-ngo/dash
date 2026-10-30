@@ -132,4 +132,22 @@ describe("registerSchedules", () => {
       expect(off.unscheduled).toContain("razorpay-reconcile");
     }
   });
+
+  it("checks for Aadhaar eSign signatures only with Leegality set up", async () => {
+    const on = await withEnv({
+      LEEGALITY_API_URL: "https://app1.leegality.com",
+      LEEGALITY_AUTH_TOKEN: "t",
+    });
+    expect(on.scheduled.map((s) => s.name)).toContain(
+      "collect-esign-signatures"
+    );
+    const off = await withEnv({
+      LEEGALITY_API_URL: undefined,
+      LEEGALITY_AUTH_TOKEN: "t",
+    });
+    expect(off.scheduled.map((s) => s.name)).not.toContain(
+      "collect-esign-signatures"
+    );
+    expect(off.unscheduled).toContain("collect-esign-signatures");
+  });
 });

@@ -10,6 +10,7 @@ import {
 
 import {
   assertRecentSignIn,
+  checkEsignedCopy,
   checkSignedUpload,
   EARLIER_SIGNATURE_UNTRUSTED_MESSAGE,
   type DraftRow,
@@ -670,5 +671,141 @@ describe("checkSignedUpload", () => {
         },
       })
     ).toThrow("isn't configured");
+  });
+});
+
+describe("checkEsignedCopy", () => {
+  const current = new Uint8Array([1, 2, 3, 4]);
+  const signed = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+  const trustees = [
+    { id: "mt", names: ["Asha Rao"] },
+    { id: "sec", names: ["Vikram Menon"] },
+    { id: "new", names: ["Meera Iyer"] },
+  ];
+  const unsigned = [
+    { box: [300, 600, 547, 672] as const, page: 2, trusteeId: "mt" },
+    { box: [300, 472, 547, 544] as const, page: 2, trusteeId: "sec" },
+  ];
+  const esig = (
+    fieldName: string,
+    overrides: Partial<GovernanceValidationReport["signatures"][number]>
+  ) =>
+    sig(fieldName, {
+      locks: [],
+      page: 2,
+      timestamped: true,
+      timestampTime: "2026-11-01T10:00:00+00:00",
+      ...overrides,
+    });
+  const report = (
+    signatures: GovernanceValidationReport["signatures"],
+    overrides: Partial<GovernanceValidationReport> = {}
+  ): GovernanceValidationReport => ({
+    baseSignatureFields: [],
+    changesSinceBase: "FORM_FILLING",
+    checkedAt: "",
+    signatures,
+    status: "valid",
+    ...overrides,
+  });
+  const vikram = esig("leegality_2", { end: 8, rect: [310, 480, 409, 539] });
+  const check = (
+    signatures: GovernanceValidationReport["signatures"],
+    overrides: Partial<Parameters<typeof checkEsignedCopy>[0]> = {}
+  ) =>
+    checkEsignedCopy({
+      current,
+      report: report(signatures),
+      signed,
+      signedBefore: 0,
+      trustees,
+      unsigned,
+      ...overrides,
+    });
+
+  it("takes each new signature for the trustee whose box it is in", () => {
+    const added = check([
+      esig("leegality_1", {
+        end: 6,
+        rect: [310, 610, 409, 669],
+        signerName: "ASHA RAO",
+      }),
+      vikram,
+    ]);
+    expect(added.map((a) => [a.trusteeId, a.end, a.signedAt])).toEqual([
+      ["mt", 6, "2026-11-01T10:00:00+00:00"],
+      ["sec", 8, "2026-11-01T10:00:00+00:00"],
+    ]);
+  });
+
+  it("has nothing to take from Leegality's copy as it was", () => {
+    expect(check([], { signed: current })).toEqual([]);
+  });
+
+  it("refuses a copy that doesn't extend the one on record", () => {
+    expect(() =>
+      check([vikram], { signed: new Uint8Array([9, 2, 3, 4, 5, 6, 7, 8]) })
+    ).toThrow("no longer extends");
+  });
+
+  it("refuses a signature outside every unsigned trustee's box", () => {
+    expect(() =>
+      check([esig("leegality_2", { end: 8, rect: [10, 10, 99, 69] })])
+    ).toThrow("isn't in a box");
+  });
+
+  it("refuses an eSign in another trustee's name, or a name more than one could have", () => {
+    expect(() => check([{ ...vikram, signerName: "MEERA IYER" }])).toThrow(
+      "MEERA IYER"
+    );
+    expect(() =>
+      check([vikram], {
+        trustees: [...trustees, { id: "twin", names: ["Vikram Menon"] }],
+      })
+    ).toThrow("doesn't match");
+  });
+
+  it("refuses an untrusted certificate, a lock, a certification or no timestamp", () => {
+    for (const changed of [
+      { trusted: false },
+      { locks: [{ action: "all" as const, fields: [] }] },
+      { certifies: true },
+      { timestamped: false },
+      { timestampTime: null },
+    ]) {
+      expect(() => check([{ ...vikram, ...changed }])).toThrow();
+    }
+  });
+
+  it("refuses changes beyond adding signatures, or after the last one", () => {
+    expect(() =>
+      checkEsignedCopy({
+        current,
+        report: report([vikram], { changesSinceBase: "OTHER" }),
+        signed,
+        signedBefore: 0,
+        trustees,
+        unsigned,
+      })
+    ).toThrow("changed more than adding signatures");
+    expect(() => check([{ ...vikram, end: 7 }])).toThrow(
+      "changes after its last signature"
+    );
+  });
+
+  it("stops at an earlier signature that no longer validates", () => {
+    expect(() =>
+      check(
+        [
+          esig("leegality_1", {
+            end: 4,
+            signerName: "ASHA RAO",
+            trusted: false,
+          }),
+          vikram,
+        ],
+        { signedBefore: 1, unsigned: unsigned.slice(1) }
+      )
+    ).toThrow(EARLIER_SIGNATURE_UNTRUSTED_MESSAGE);
   });
 });

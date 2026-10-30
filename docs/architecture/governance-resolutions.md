@@ -1,6 +1,6 @@
 # Governance: resolutions
 
-> **Load when**: circular, circular resolution, resolution text, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `keyseal://`, certificate enrolment, PAdES, long-term copies, re-timestamping.
+> **Load when**: circular, circular resolution, resolution text, resolution template, issue, response, objection, conflict of interest on a circular, signature check, resolution number, register change on pass, withdraw, past resolution, DSC signing helper, `keyseal://`, certificate enrolment, Aadhaar eSign, Leegality, PAdES, long-term copies, re-timestamping.
 > **Related**: `governance.md` (register, deed rules, vault, signing service)
 
 ## Lifecycle
@@ -8,7 +8,7 @@
 | Step | Who | What happens |
 |---|---|---|
 | Draft | `governance.manage` | One resolution: the text (see [Text](#text)) and the template's register change |
-| Issue | The office-holder the deed allows (version 1: the MT) | Picks up to ten drafts and their order into one circular. Refused when the board is too small, a register change doesn't fit the register as the drafts before it would leave it, or a threshold is out of reach. Freezes revision 1 and renders one PDF with every resolution and, per trustee in office, a signature field and an answers field. The register is read again as the circular is saved; if the issuer's authority, the trustees in office or a threshold changed meanwhile, it is refused for a fresh issue |
+| Issue | The office-holder the deed allows (version 1: the MT) | Picks up to ten drafts and their order into one circular, and whether it is signed with DSCs or Aadhaar eSign (see [Signing](#signing)). Refused when the board is too small, a register change doesn't fit the register as the drafts before it would leave it, or a threshold is out of reach. Freezes revision 1 and renders one PDF with every resolution and, per trustee in office, a signature field and an answers field (an eSign circular has neither; see [Aadhaar eSign](#aadhaar-esign)). The register is read again as the circular is saved; if the issuer's authority, the trustees in office or a threshold changed meanwhile, it is refused for a fresh issue |
 | Respond | Each trustee the circular went to | Object to a resolution with a reason, or declare a conflict on it, which leaves its count. Then sign the circular once: the signature assents to every open resolution they haven't objected to or declared a conflict on. Ones decided before they sign are marked so, not assented to |
 | Pass | | A resolution's signed assents reach its threshold |
 | Fail | | Objections put a resolution's threshold out of reach, or the response date passes. Responses are taken through that day and refused after it |
@@ -19,7 +19,7 @@
 - Templates are code, not a table. They live in `packages/shared/src/resolutions.ts` with the tally, who may issue on a date, numbering and the signature-page layout, which the PDF and the signature fields both read so they line up.
 - Passing takes the register lock, then the next number for the financial year under an advisory lock, and makes the register change in the same transaction. A cessation ends the trustee's latest open term begun before its date and the offices they still hold that day; a designation ends the office's holder on its start day. An office that already ended with its holder's term is left alone. A change the register can no longer take fails the resolution with the reason. Terms and offices keep the resolution that made them.
 - A trustee sees the circulars sent to them without `governance.view`.
-- Past paper resolutions are recorded with their numbers so the series continues. `governance.manage` can correct every recorded field under the register lock and the year's numbering lock; while a term, office, resolution or meeting cites it, the number, kind (which sets its tally and pass semantics) and date stay and it can't be deleted. Circulars signed on paper after go-live are not a supported method: a trustee signs with the DSC helper or in Acrobat, and a paper one is only ever recorded as history.
+- Past paper resolutions are recorded with their numbers so the series continues. `governance.manage` can correct every recorded field under the register lock and the year's numbering lock; while a term, office, resolution or meeting cites it, the number, kind (which sets its tally and pass semantics) and date stay and it can't be deleted. Circulars signed on paper after go-live are not a supported method: a trustee signs with the DSC helper, in Acrobat or with Aadhaar eSign, and a paper one is only ever recorded as history.
 - Resolutions decided at a board meeting share the numbering and register changes; see [meetings](governance-meetings.md).
 
 ## Text
@@ -46,7 +46,7 @@ A resolution's text is rich text, written in the rich text editor (`@pi-dash/edi
 
 ## Signing
 
-Trustees sign with the DSC helper or in Acrobat, and every copy goes through the checks above. The internal signing API authenticates the bearer token before reading a body. JSON requests are capped while streaming at 64 MiB (including the signing state); PDFs retain the 25 MiB limit. Only `GET /health` is unauthenticated.
+A circular is signed one way, chosen at issue: with DSCs (the helper, or Acrobat as a fallback), or with Aadhaar eSign only. Every DSC copy goes through the checks above; eSign copies through their own, below. The internal signing API authenticates the bearer token before reading a body. JSON requests are capped while streaming at 64 MiB (including the signing state); PDFs retain the 25 MiB limit. Only `GET /health` is unauthenticated.
 
 - **DSC helper** (KeySeal). Browsers can't reach PKCS#11 tokens, so the signature is made outside the browser and joined back on the server. `@keyseal/server` serves the job endpoint under `/api/signing` and the manifest at `/.well-known/keyseal.json`; job rows live in `private.signing_job` (token and claim nonce hashed), the PDF and the service's state in R2 under `governance/signing-jobs/` while the job is open.
   1. Enrolment, once per DSC: the trustee picks a certificate in the helper, and the dashboard keeps it if it is in the trustee's name, valid now, has an RSA, P-256 or P-384 key, chains to a CCA root and has the key usage pyHanko requires of a signer (non-repudiation), so the token's encryption certificate is refused. A renewed DSC is enrolled again.
@@ -60,6 +60,17 @@ A job is completed one request at a time: the request finishing it holds a five-
 Issuing notifies each trustee once per circular. The resolutions one response, withdrawal or close decides go out as one notice to the trustees and secretaries, with each outcome, through the `notify-resolution-decided` job, so a failed delivery is retried. The closing job queues its notice in the transaction that decides the circular, so a failed enqueue leaves the circular open for the next run.
 
 Trustees download the KeySeal helper from the Signing helper page. It asks once per site whether to trust it and shows the site with every signature. The job endpoint refuses a helper older than `MIN_HELPER_VERSION` in `signing-jobs.ts` and fails the job with "Update the signing helper".
+
+### Aadhaar eSign
+
+Offered when `LEEGALITY_API_URL` and `LEEGALITY_AUTH_TOKEN` are set; minutes, declarations and utilisation certificates are DSC only for now. A signature assents to every resolution the trustee hasn't objected to or declared a conflict on in the dashboard; the PDF carries no answers. The DSC copy, upload and helper refuse an eSign circular.
+
+- **Issue.** The PDF is rendered with the boxes drawn and no fields, plus an empty form (pyHanko can't review a signature that adds a document's first form), and sent to Leegality once with every trustee in office invited at once to sign in their own box. Leegality sends no invitations itself. Each trustee needs an email (their record's, else their account's), and no two may share one; a response that leaves out an invitee is refused. Leegality's copy must show the same pages and catalog as ours, and becomes the latest PDF on record. Invitations end with the response date, so it can be at most 30 days away. Any failure deletes the Leegality document.
+- **Sign.** The trustee's link is fetched from Leegality when they open it (never stored), after a recent sign-in.
+- **Record.** Their eSign is taken when they press "I've signed", when the issuer or `governance.manage` checks, or by the scheduled job ([jobs](jobs.md#schedules)). Leegality's copy must extend the latest on record and only add signed fields. Each new signature must be intact, cover its revision, chain to a CCA root, lock and certify nothing, carry a timestamp (the certificate lives about 30 minutes, so the timestamp keeps it trusted), sit in an unsigned trustee's box, and be in that one trustee's name (the Aadhaar name counts). Each is recorded in signing order on the copy as it left it, as of its timestamp's date, so one made by the response date counts even when taken after it; one made later isn't taken. Each is audited as `circular.sign` in the signer's name.
+- **Answers.** Once a trustee has signed on Leegality, their eSign is taken and objections or conflicts from them are refused. A trustee left with nothing to assent to has their invitation revoked.
+- **Close.** Once the circular is decided or withdrawn, Leegality's audit trail (when every trustee signed) goes into the vault and the document is deleted, revoking the other invitations; a failure is retried by the job. The close job leaves due eSign circulars to the eSign job, which takes their eSigns first.
+- **Checks in the plugin.** Leegality gives each new field the object number of the previous revision's cross-reference stream, which KeySeal's check reads as a change; the plugin's check frees only that number, and only when nothing refers to it. Protean eGov CA 2022, which the timestamps' chain needs, ships with the plugin. pyHanko's strict reader refuses these files, so their vault checks and long-term copies go through the plugin, chosen by whether the document is an eSign circular's; no revocation data is fetched for eSign certificates.
 
 ## Long-term copies
 

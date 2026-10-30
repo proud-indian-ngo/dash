@@ -41,6 +41,7 @@ import {
   trusteeTerm,
 } from "../schema/governance";
 import { agendaItem } from "../schema/meetings";
+import { type EsignInvitee, esignDocument } from "../schema/private/esign";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Pick<typeof db, "select">;
@@ -364,6 +365,15 @@ export interface IssueInput {
   /** The prepared PDF, already stored. */
   pdf: { objectKey: string; sha256: string };
   /**
+   * Aadhaar eSign: the Leegality document every trustee signs, and
+   * Leegality's copy of the PDF, already stored, which signatures extend.
+   */
+  esign?: {
+    documentId: string;
+    invitees: EsignInvitee[];
+    latest: { objectKey: string; sha256: string };
+  };
+  /**
    * The drafts it carries, in order, each with the threshold it passes by
    * and the `updatedAt` the PDF was rendered from.
    */
@@ -423,18 +433,29 @@ export async function issueCircular(input: IssueInput): Promise<void> {
       issuedAt: now,
       issuedByTrusteeId: input.issuerTrusteeId,
       responseDueOn: input.responseDueOn,
+      signingMode: input.esign ? "esign" : "dsc",
       updatedAt: now,
     });
+    const latest = input.esign?.latest ?? input.pdf;
     await tx.insert(circularRevision).values({
       circularId: input.circularId,
       createdAt: now,
       id: uuidv7(),
-      latestObjectKey: input.pdf.objectKey,
-      latestSha256: input.pdf.sha256,
+      latestObjectKey: latest.objectKey,
+      latestSha256: latest.sha256,
       objectKey: input.pdf.objectKey,
       revision: 1,
       sha256: input.pdf.sha256,
     });
+    if (input.esign) {
+      await tx.insert(esignDocument).values({
+        circularId: input.circularId,
+        createdAt: now,
+        documentId: input.esign.documentId,
+        id: uuidv7(),
+        invitees: input.esign.invitees,
+      });
+    }
     for (const [index, item] of input.resolutions.entries()) {
       await tx.insert(resolutionResponse).values(
         input.responders.map((r) => ({
@@ -706,7 +727,7 @@ export interface SignatureInput {
   basedOnSha256: string;
   circularId: string;
   createdBy: string | null;
-  method: "acrobat_upload" | "dsc_helper";
+  method: "acrobat_upload" | "dsc_helper" | "esign";
   objectKey: string;
   sha256: string;
   signature: GovernanceValidationReport["signatures"][number];
@@ -716,9 +737,10 @@ export interface SignatureInput {
 
 /**
  * Records a trustee's signature on a circular: it assents to every
- * resolution they hadn't objected to or declared a conflict on, as the
- * answers in the signed PDF say. Moves the latest PDF forward and settles
- * whatever is now decided, in order.
+ * resolution they hadn't objected to or declared a conflict on, as their
+ * recorded answers say (filled into the PDF on a DSC circular). Moves the
+ * latest PDF forward and settles whatever is now decided, in order, as of
+ * `today` (an eSign's timestamp date).
  */
 export async function recordSignature(
   input: SignatureInput
@@ -1013,7 +1035,10 @@ export async function decideCircular(
 }
 
 /** Circulars with an open resolution whose response date has passed. */
-export async function overdueCircularIds(today: string): Promise<string[]> {
+export async function overdueCircularIds(
+  today: string,
+  options: { signingMode?: "dsc" | "esign" } = {}
+): Promise<string[]> {
   const rows = await db
     .selectDistinct({ id: circular.id, issuedAt: circular.issuedAt })
     .from(circular)
@@ -1021,7 +1046,10 @@ export async function overdueCircularIds(today: string): Promise<string[]> {
     .where(
       and(
         eq(resolution.status, "issued"),
-        sql`${circular.responseDueOn} < ${today}`
+        sql`${circular.responseDueOn} < ${today}`,
+        options.signingMode
+          ? eq(circular.signingMode, options.signingMode)
+          : undefined
       )
     )
     .orderBy(asc(circular.issuedAt));

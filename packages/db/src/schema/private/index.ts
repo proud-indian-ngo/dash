@@ -7,6 +7,7 @@ export * from "./donation-filings";
 export * from "./email-batch-recipients";
 export * from "./email-message";
 export * from "./email-suppression";
+export * from "./esign";
 export * from "./gowa-message";
 export * from "./party-private";
 export * from "./imports";

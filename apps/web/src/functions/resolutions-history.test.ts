@@ -17,6 +17,8 @@ mock.module("@/lib/api-auth", () => ({
   },
 }));
 mock.module("@/lib/audit", () => ({
+  runAuditedAction: async (_options: unknown, run: () => Promise<unknown>) =>
+    await run(),
   runSessionAuditedAction: async (
     _session: unknown,
     _headers: unknown,

@@ -9,13 +9,18 @@ import { addDays } from "@pi-dash/shared/governance";
 import {
   CIRCULAR_RESOLUTIONS_MAX,
   DEFAULT_RESPONSE_DAYS,
+  ESIGN_MAX_RESPONSE_DAYS,
   RESOLUTION_TEMPLATES,
+  SIGNING_MODE_LABELS,
+  type SigningMode,
+  signingModeValues,
 } from "@pi-dash/shared/resolutions";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -26,14 +31,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
-import { issueCircularFn } from "@/functions/resolutions";
+import { getEsignAvailableFn, issueCircularFn } from "@/functions/resolutions";
 
 import { todayIso } from "./register-data";
+import { SegmentedChoice } from "./segmented-choice";
+
+const SIGNING_MODE_HINTS: Record<SigningMode, string> = {
+  dsc: "Trustees sign with their DSC token, through the signing helper or in Acrobat.",
+  esign: `Trustees sign with Aadhaar eSign on Leegality, by OTP to the phone linked to their Aadhaar. Each signature is a billed eSign, and responses can be due at most ${ESIGN_MAX_RESPONSE_DAYS} days after issue.`,
+};
 
 /**
  * Issuing a circular: the Managing Trustee picks the drafts it carries and
- * their order (a designation after the appointment it depends on), and the
- * response date.
+ * their order (a designation after the appointment it depends on), the
+ * response date and, where Leegality is set up, whether trustees sign with
+ * DSCs or Aadhaar eSign.
  */
 export function IssueCircularDialog({
   onOpenChange,
@@ -47,6 +59,9 @@ export function IssueCircularDialog({
 }) {
   const [drafts] = useQuery(queries.resolution.drafts());
   const issue = useServerFn(issueCircularFn);
+  const esignAvailable = useServerFn(getEsignAvailableFn);
+  const [canEsign, setCanEsign] = useState(false);
+  const [signingMode, setSigningMode] = useState<SigningMode>("dsc");
   const navigate = useNavigate();
   const today = todayIso();
   const [picked, setPicked] = useState<string[]>([startId]);
@@ -54,6 +69,30 @@ export function IssueCircularDialog({
     addDays(today, DEFAULT_RESPONSE_DAYS)
   );
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setSigningMode("dsc");
+    let current = true;
+    esignAvailable()
+      .then(({ available }) => {
+        if (current) {
+          setCanEsign(available);
+        }
+      })
+      .catch((error: unknown) => {
+        log.error({
+          action: "circular.esign.available",
+          caughtError: error instanceof Error ? error.message : "unknown",
+          component: "IssueCircularDialog",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [esignAvailable, open]);
 
   const byId = new Map(drafts.map((d) => [d.id, d]));
   const chosen = picked.filter((id) => byId.has(id));
@@ -78,7 +117,13 @@ export function IssueCircularDialog({
 
   const handleIssue = useEventCallback(async () => {
     setBusy(true);
-    await issue({ data: { resolutionIds: chosen, responseDueOn: dueOn } })
+    await issue({
+      data: {
+        resolutionIds: chosen,
+        responseDueOn: dueOn,
+        signingMode: canEsign ? signingMode : "dsc",
+      },
+    })
       .then((out) => {
         toast.success(`Issued to ${out.responders} trustees`);
         onOpenChange(false);
@@ -189,12 +234,36 @@ export function IssueCircularDialog({
           <Label htmlFor="response-due">Respond by</Label>
           <Input
             id="response-due"
+            max={
+              canEsign && signingMode === "esign"
+                ? addDays(today, ESIGN_MAX_RESPONSE_DAYS)
+                : undefined
+            }
             min={addDays(today, 1)}
             onChange={(e) => setDueOn(e.target.value)}
             type="date"
             value={dueOn}
           />
         </div>
+        {canEsign ? (
+          <div className="flex flex-col gap-1.5">
+            <span aria-hidden className="text-sm font-medium">
+              Signed with
+            </span>
+            <SegmentedChoice
+              label="Signed with"
+              onChange={(value) => setSigningMode(value ?? signingMode)}
+              options={signingModeValues.map((value) => ({
+                label: SIGNING_MODE_LABELS[value],
+                value,
+              }))}
+              value={signingMode}
+            />
+            <p className="text-muted-foreground text-sm">
+              {SIGNING_MODE_HINTS[signingMode]}
+            </p>
+          </div>
+        ) : null}
         <DialogFooter>
           <Button
             onClick={() => onOpenChange(false)}

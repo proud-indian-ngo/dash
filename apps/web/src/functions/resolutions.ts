@@ -4,6 +4,7 @@ import {
   deleteHistoricalResolution,
   effectRegisterProblem,
   getCircular,
+  getResolution,
   issueCircular,
   loadRegister,
   recordHistoricalResolution,
@@ -30,6 +31,7 @@ import {
   OBJECTION_REASON_MAX,
   parseResolutionNumber,
   resolutionTemplateKeyValues,
+  signingModeValues,
 } from "@pi-dash/shared/resolutions";
 import { createServerFn } from "@tanstack/react-start";
 import { eq, inArray } from "drizzle-orm";
@@ -53,6 +55,21 @@ import {
   planStillHolds,
   sha256Of,
 } from "@/lib/governance/circulars";
+import {
+  afterEsignResponse,
+  assertDscCircular,
+  assertNotEsigned,
+  closeEsignDocument,
+  collectEsignatures,
+  discardEsignDocument,
+  esignInvitationStates,
+  esignSigningLink,
+  sendCircularForEsign,
+} from "@/lib/governance/esign";
+import {
+  LeegalityError,
+  leegalityConfigured,
+} from "@/lib/governance/leegality";
 import { circularKey, signingCopy } from "@/lib/governance/signing-copy";
 import {
   prepareSignatureFields,
@@ -78,7 +95,8 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
     if (
       error instanceof ResolutionError ||
       error instanceof CircularError ||
-      error instanceof SigningServiceError
+      error instanceof SigningServiceError ||
+      error instanceof LeegalityError
     ) {
       throw userFacingError(error);
     }
@@ -95,6 +113,15 @@ async function linkedTrustee(userId: string) {
   return row ?? null;
 }
 
+/** The circular a resolution was issued in, when it is an eSign one. */
+async function esignCircularOf(resolutionId: string): Promise<string | null> {
+  const row = await getResolution(resolutionId);
+  const circularRow = row?.circularId
+    ? await getCircular(row.circularId)
+    : null;
+  return circularRow?.signingMode === "esign" ? circularRow.id : null;
+}
+
 /** The answered resolution's status after a response settled its circular. */
 function statusOf(
   decisions: readonly { resolutionId: string; status: string }[],
@@ -109,6 +136,7 @@ const issueSchema = z.object({
   /** The drafts it carries, in order. */
   resolutionIds: z.array(z.uuid()).min(1).max(CIRCULAR_RESOLUTIONS_MAX),
   responseDueOn: z.iso.date(),
+  signingMode: z.enum(signingModeValues),
 });
 
 export const issueCircularFn = createServerFn({ method: "POST" })
@@ -125,7 +153,10 @@ export const issueCircularFn = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "circular.issue",
-        metadata: { resolutionIds: data.resolutionIds },
+        metadata: {
+          resolutionIds: data.resolutionIds,
+          signingMode: data.signingMode,
+        },
         target: { id: circularId, type: "circular" },
       },
       () =>
@@ -135,6 +166,9 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             throw new CircularError(
               "Give the trustees at least one day to respond."
             );
+          }
+          if (data.signingMode === "esign" && !leegalityConfigured()) {
+            throw new CircularError("Aadhaar eSign isn't set up here.");
           }
           const rows = await db
             .select()
@@ -174,19 +208,12 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             })),
             responseDueOn: data.responseDueOn,
             signers: plan.signers,
+            signingMode: data.signingMode,
           });
-          const pdf = await prepareSignatureFields(
-            new Uint8Array(rendered),
-            fieldRequests(plan.signers.map((s) => s.trusteeId))
-          );
-          const objectKey = circularKey(circularId, "issued.pdf");
-          const s3 = await getS3();
-          await s3.write(objectKey, pdf, { type: "application/pdf" });
-          await issueCircular({
+          const issue = {
             circularId,
             deedVersionId: register.deedVersionId,
             issuerTrusteeId: plan.issuerTrusteeId,
-            pdf: { objectKey, sha256: sha256Of(pdf) },
             resolutions: plan.resolutions.map((r) => ({
               id: r.id,
               renderedFrom:
@@ -195,13 +222,42 @@ export const issueCircularFn = createServerFn({ method: "POST" })
             })),
             responders: plan.responders,
             responseDueOn: data.responseDueOn,
-            stillPlanned: (current) =>
+            stillPlanned: (current: Awaited<ReturnType<typeof loadRegister>>) =>
               current.deedVersionId === register.deedVersionId &&
               planStillHolds(plan, () =>
                 planIssue({ ...planInput, register: current })
               ),
             today,
-          });
+          };
+          if (data.signingMode === "esign") {
+            const sent = await sendCircularForEsign({
+              circularId,
+              rendered: new Uint8Array(rendered),
+              responseDueOn: data.responseDueOn,
+              signers: plan.signers,
+              today,
+            });
+            await issueCircular({
+              ...issue,
+              esign: sent.esign,
+              pdf: sent.pdf,
+            }).catch(async (error: unknown) => {
+              await discardEsignDocument(sent.esign.documentId);
+              throw error;
+            });
+          } else {
+            const pdf = await prepareSignatureFields(
+              new Uint8Array(rendered),
+              fieldRequests(plan.signers.map((s) => s.trusteeId))
+            );
+            const objectKey = circularKey(circularId, "issued.pdf");
+            const s3 = await getS3();
+            await s3.write(objectKey, pdf, { type: "application/pdf" });
+            await issueCircular({
+              ...issue,
+              pdf: { objectKey, sha256: sha256Of(pdf) },
+            });
+          }
           withFireAndForgetLog(
             { circularId, handler: "circular:issued" },
             async () => {
@@ -249,6 +305,10 @@ export const objectToResolutionFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
+          const esignCircularId = await esignCircularOf(data.id);
+          if (esignCircularId) {
+            await assertNotEsigned(esignCircularId, me.id);
+          }
           const decisions = await recordObjection({
             reason: data.reason,
             resolutionId: data.id,
@@ -257,6 +317,9 @@ export const objectToResolutionFn = createServerFn({ method: "POST" })
           });
           enqueueDecided(decisions);
           await fileEvidenceAfterResponse(data.id, decisions);
+          if (esignCircularId) {
+            await afterEsignResponse(esignCircularId, me.id);
+          }
           return { status: statusOf(decisions, data.id) };
         })
     );
@@ -293,6 +356,10 @@ export const declareResolutionConflictFn = createServerFn({ method: "POST" })
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
           }
+          const esignCircularId = await esignCircularOf(data.id);
+          if (esignCircularId) {
+            await assertNotEsigned(esignCircularId, me.id);
+          }
           const decisions = await declareConflict({
             note: data.note,
             resolutionId: data.id,
@@ -301,6 +368,9 @@ export const declareResolutionConflictFn = createServerFn({ method: "POST" })
           });
           enqueueDecided(decisions);
           await fileEvidenceAfterResponse(data.id, decisions);
+          if (esignCircularId) {
+            await afterEsignResponse(esignCircularId, me.id);
+          }
           return { status: statusOf(decisions, data.id) };
         })
     );
@@ -330,6 +400,7 @@ export const getCircularSigningCopyUrl = createServerFn({ method: "POST" })
       },
       () =>
         userFacing(async () => {
+          await assertDscCircular(data.circularId);
           const me = await linkedTrustee(session.user.id);
           if (!me) {
             throw new CircularError("Your account isn't linked to a trustee.");
@@ -375,6 +446,7 @@ export const getCircularSignUploadUrl = createServerFn({ method: "POST" })
       },
       {
         authorize: async (user) => {
+          await assertDscCircular(data.circularId);
           const me = await linkedTrustee(user.id);
           const state = me
             ? await signerState(db, data.circularId, me.id)
@@ -416,6 +488,7 @@ export const submitSignedCircularFn = createServerFn({ method: "POST" })
       () =>
         userFacing(async () => {
           assertRecentSignIn(session);
+          await assertDscCircular(data.circularId);
           const tempKey = assertOwnSignedUpload(data.tempKey, {
             keyPrefix: env.R2_KEY_PREFIX,
             userId: session.user.id,
@@ -441,6 +514,140 @@ export const submitSignedCircularFn = createServerFn({ method: "POST" })
           });
           await s3.delete(tempKey).catch(() => undefined);
           return { message: signedMessage(decisions) };
+        })
+    );
+  });
+
+// ── Aadhaar eSign ───────────────────────────────────────────────────────────
+
+/** Whether circulars can be issued for Aadhaar eSign here. */
+export const getEsignAvailableFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(({ context }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return { available: leegalityConfigured() };
+  });
+
+/** The trustee's Leegality signing link for an Aadhaar eSign circular. */
+export const getCircularEsignLinkFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ circularId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "circular.sign.start",
+        metadata: { method: "esign" },
+        target: { id: data.circularId, type: "circular" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const me = await linkedTrustee(session.user.id);
+          if (!me) {
+            throw new CircularError("Your account isn't linked to a trustee.");
+          }
+          return { url: await esignSigningLink(data.circularId, me.id) };
+        })
+    );
+  });
+
+/** Who may see and take a circular's eSigns: a trustee it went to, or `governance.manage`. */
+async function assertEsignViewer(
+  session: { user: { id: string; role?: string | null } },
+  circularId: string
+): Promise<{ id: string } | null> {
+  const me = await linkedTrustee(session.user.id);
+  const state = me ? await signerState(db, circularId, me.id) : null;
+  if (!state) {
+    await assertServerPermission(session, "governance.manage");
+  }
+  return state ? me : null;
+}
+
+/** Each invited trustee's state on Leegality, for the circular's page. */
+export const getCircularEsignStatesFn = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator(z.object({ circularId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await userFacing(async () => {
+      await assertEsignViewer(session, data.circularId);
+      return { states: await esignInvitationStates(data.circularId) };
+    });
+  });
+
+/**
+ * Takes the signatures made on Leegality since the last check, for a
+ * trustee the circular went to or `governance.manage`; each is audited in
+ * its signer's name. The scheduled check does the same.
+ */
+export const collectCircularEsignaturesFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ circularId: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "circular.esign.collect",
+        target: { id: data.circularId, type: "circular" },
+      },
+      () =>
+        userFacing(async () => {
+          const me = await assertEsignViewer(session, data.circularId);
+          const recorded = await collectEsignatures(data.circularId);
+          if (recorded.length === 0) {
+            return {
+              message:
+                "No new eSign on Leegality yet. If you've just signed, try again in a minute.",
+            };
+          }
+          const names = await db
+            .select({ id: trustee.id, legalName: trustee.legalName })
+            .from(trustee)
+            .where(
+              inArray(
+                trustee.id,
+                recorded.map((r) => r.trusteeId)
+              )
+            );
+          const who = recorded
+            .map((r) =>
+              r.trusteeId === me?.id
+                ? "yours"
+                : (names.find((n) => n.id === r.trusteeId)?.legalName ??
+                  "a trustee's")
+            )
+            .join(", ");
+          const decided = signedMessage(
+            recorded.flatMap((r) => r.decisions)
+          ).replace(/^Signed\. (Your signature is on the circular\.)?\s*/, "");
+          // Still waiting for the caller's own eSign.
+          const mine = me
+            ? await signerState(db, data.circularId, me.id)
+            : null;
+          const notYours =
+            mine && mine.openAssents > 0
+              ? " Yours isn't on Leegality yet."
+              : "";
+          return {
+            message: `Recorded eSigns: ${who}.${decided ? ` ${decided}` : ""}${notYours}`,
+          };
         })
     );
   });
@@ -485,6 +692,8 @@ export const withdrawCircularFn = createServerFn({ method: "POST" })
             reason: data.reason,
             today: todayInKolkata(),
           });
+          // Revokes the unsigned invitations; the signed copy stays on record.
+          await closeEsignDocument(data.circularId);
           enqueueDecided(
             ids.map((resolutionId) => ({ resolutionId, status: "withdrawn" }))
           );

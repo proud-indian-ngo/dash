@@ -858,6 +858,7 @@ export interface JobPayloads {
   "notify-resolution-decided": NotifyResolutionPayload;
   "notify-utilisation-certificate": NotifyUtilisationCertificatePayload;
   "close-due-resolutions": Record<string, never>;
+  "collect-esign-signatures": Record<string, never>;
   "retimestamp-governance-archives": Record<string, never>;
   "generate-compliance-items": Record<string, never>;
   "remind-compliance-items": Record<string, never>;

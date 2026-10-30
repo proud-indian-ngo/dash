@@ -1,6 +1,7 @@
 import {
   ANSWERS_BOX,
   SIGNATURE_BOX,
+  type SigningMode,
   signaturePageCount,
   signatureSlots,
 } from "@pi-dash/shared/resolutions";
@@ -30,7 +31,8 @@ import { RichTextPdf } from "./rich-text";
  * service puts that trustee's empty signature field (`signatureFieldBox`),
  * and the space under their name is their answers field
  * (`answersFieldBox`), so the layout here and the field positions come from
- * the same numbers.
+ * the same numbers. An Aadhaar eSign circular has no answers: Leegality signs
+ * in each box, and a signature assents to the resolutions.
  */
 
 export interface CircularResolutionProps {
@@ -45,7 +47,19 @@ export interface CircularResolutionProps {
   resolutions: { body: string; threshold: string; title: string }[];
   responseDueOn: string;
   signers: { name: string; offices: string; trusteeId: string }[];
+  signingMode: SigningMode;
 }
+
+const SIGNING_INTRO: Record<SigningMode, string> = {
+  dsc: "Each trustee signs once, in their own box, with their digital signature certificate. Their answer to each resolution is filled in under their name before they sign, and their signature covers it: they assent to every resolution they haven't objected to or declared a conflict on. A trustee who objects to every resolution records the objections with their reasons and does not sign.",
+  esign:
+    "Each trustee signs once, in their own box, with Aadhaar eSign. Their signature assents to every resolution they haven't objected to or declared a conflict on, which they record in the dashboard with their reasons. A trustee who objects to every resolution does not sign.",
+};
+
+const BOX_HINT: Record<SigningMode, string> = {
+  dsc: "Digital signature",
+  esign: "Aadhaar eSign",
+};
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -191,12 +205,7 @@ export function CircularResolution(props: CircularResolutionProps) {
           <View style={styles.signaturesHead}>
             <Text style={styles.title}>Signatures</Text>
             <Line style={styles.signaturesIntro}>
-              Each trustee signs once, in their own box, with their digital
-              signature certificate. Their answer to each resolution is filled
-              in under their name before they sign, and their signature covers
-              it: they assent to every resolution they haven't objected to or
-              declared a conflict on. A trustee who objects to every resolution
-              records the objections with their reasons and does not sign.
+              {SIGNING_INTRO[props.signingMode]}
             </Line>
           </View>
           {slots
@@ -216,10 +225,12 @@ export function CircularResolution(props: CircularResolutionProps) {
                     {signer?.offices || "Trustee"}
                   </Line>
                 </View>,
-                <View
-                  key={`${slot.fieldName}-answers`}
-                  style={[styles.answers, { top: top + ANSWERS_BOX.offset }]}
-                />,
+                props.signingMode === "dsc" && (
+                  <View
+                    key={`${slot.fieldName}-answers`}
+                    style={[styles.answers, { top: top + ANSWERS_BOX.offset }]}
+                  />
+                ),
                 <View
                   key={`${slot.fieldName}-box`}
                   style={[styles.box, { top }]}
@@ -231,7 +242,7 @@ export function CircularResolution(props: CircularResolutionProps) {
                     { top: top + SIGNATURE_BOX.height + 3 },
                   ]}
                 >
-                  Digital signature
+                  {BOX_HINT[props.signingMode]}
                 </Text>,
               ];
             })}

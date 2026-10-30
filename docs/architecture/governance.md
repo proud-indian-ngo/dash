@@ -19,7 +19,7 @@ The aim is one place that holds the trustee register and the trust's deeds and r
 | Pass rule | Majority of trustees in office at issue; two-thirds for an amendment, unanimity of the others for removal | Clauses 4.18, 9.3, 7.12 |
 | Numbering | Per financial year, assigned on pass: `PI/TR/2026-27/NNN` | Continues the paper series |
 | Immutability | Decided resolutions never change; a new one amends or rescinds. An issued circular is withdrawn and reissued. Only a paper resolution recorded as history can be corrected ([resolutions](governance-resolutions.md)) | Signatures cover a fixed revision |
-| Signing | DSC through the KeySeal helper; Acrobat download and upload. A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac |
+| Signing | DSC through the KeySeal helper; Acrobat download and upload. Or, chosen per circular, Aadhaar eSign through Leegality ([resolutions](governance-resolutions.md#aadhaar-esign)). A pyHanko sidecar checks every signature | Every trustee has a HyperSecu HYP2003 on Windows or Mac; eSign needs only an Aadhaar-linked phone |
 | Vote confirmation | Signing or objecting needs a sign-in within 10 minutes | Shared laptops must not vote |
 | Finance | No trustee tier in approvals. A payment to a trustee or a declared related party warns ([declarations](governance-compliance.md#declarations-of-interests)) | Clause 7.24 |
 

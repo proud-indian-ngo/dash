@@ -429,3 +429,158 @@ export function assertOwnSignedUpload(
   }
   return owned;
 }
+
+// ── Aadhaar eSign ───────────────────────────────────────────────────────────
+
+/** How far Leegality may draw a signature from the box it was given, in points. */
+const ESIGN_BOX_TOLERANCE = 2;
+
+export interface EsignSigner {
+  /** The trustee's box, in PDF points from the bottom left. */
+  box: readonly [number, number, number, number];
+  /** 0-based page of the box. */
+  page: number;
+  trusteeId: string;
+}
+
+export interface EsignedSignature {
+  /** The file's length as this signature left it. */
+  end: number;
+  signature: GovernanceValidationReport["signatures"][number];
+  /** When its timestamp token says it was made (ISO). */
+  signedAt: string;
+  trusteeId: string;
+}
+
+function inside(
+  rect: readonly number[],
+  box: readonly [number, number, number, number]
+): boolean {
+  const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = rect;
+  return (
+    x1 >= box[0] - ESIGN_BOX_TOLERANCE &&
+    y1 >= box[1] - ESIGN_BOX_TOLERANCE &&
+    x2 <= box[2] + ESIGN_BOX_TOLERANCE &&
+    y2 <= box[3] + ESIGN_BOX_TOLERANCE
+  );
+}
+
+/**
+ * Checks Leegality's copy of an Aadhaar eSign circular against the latest
+ * one on record (`current`): it must extend it, change nothing but add
+ * signatures in fields Leegality adds, and each new signature must be
+ * intact, cover its revision, chain to a licensed Indian CA, certify and
+ * lock nothing, carry a timestamp (its certificate lives about half an
+ * hour, so the timestamp is what keeps it trusted), and sit in the box of a
+ * trustee who hasn't signed yet, the one trustee in whose name it is.
+ * Every earlier signature must still be intact and trusted. `report` is
+ * the copy's check with `current`'s length as the base; `trustees` are
+ * every trustee's names. Returns the new signatures in signing order.
+ */
+export function checkEsignedCopy(input: {
+  current: Uint8Array;
+  report: GovernanceValidationReport;
+  signed: Uint8Array;
+  signedBefore: number;
+  trustees: readonly { id: string; names: string[] }[];
+  unsigned: readonly EsignSigner[];
+}): EsignedSignature[] {
+  const { current, report, signed } = input;
+  const fault = (message: string) =>
+    new CircularError(message, { fault: true });
+  if (signed.byteLength <= current.byteLength) {
+    return [];
+  }
+  for (let i = 0; i < current.byteLength; i++) {
+    if (signed[i] !== current[i]) {
+      throw fault(
+        "Leegality's copy no longer extends the circular on record, so its signatures can't be taken."
+      );
+    }
+  }
+  if (report.status === "unavailable") {
+    throw fault(
+      report.message ?? "The signatures couldn't be checked right now."
+    );
+  }
+  if (!SIGNING_CHANGE_LEVELS.has(report.changesSinceBase ?? "")) {
+    throw fault(
+      "Leegality's copy changed more than adding signatures, so its signatures can't be taken."
+    );
+  }
+  if (report.signatures.some((s) => s.modificationLevel === "OTHER")) {
+    throw fault(
+      "Leegality's copy was changed in a way its signatures don't allow, so its signatures can't be taken."
+    );
+  }
+  const earlier = report.signatures.slice(0, input.signedBefore);
+  if (earlier.length !== input.signedBefore) {
+    throw fault("A signature on record is missing from Leegality's copy.");
+  }
+  if (earlier.some((s) => !(s.intact && s.trusted))) {
+    throw new CircularError(EARLIER_SIGNATURE_UNTRUSTED_MESSAGE);
+  }
+  const taken = new Set<string>();
+  let previousEnd = current.byteLength;
+  const added = report.signatures.slice(input.signedBefore).map((signature) => {
+    if (signature.error) {
+      throw fault(
+        `A new signature couldn't be checked (${signature.error}). Try again in a few minutes.`
+      );
+    }
+    if (!(signature.intact && signature.coversWholeRevision)) {
+      throw fault(
+        "A new signature doesn't check out: the file changed after it."
+      );
+    }
+    if (!signature.trusted) {
+      throw fault(
+        "A new signature's certificate doesn't chain to a licensed Indian certifying authority."
+      );
+    }
+    if (signature.certifies !== false || (signature.locks?.length ?? 1) > 0) {
+      throw fault("A new signature limits the signatures after it.");
+    }
+    if (!(signature.timestamped && signature.timestampTime)) {
+      throw fault(
+        "A new signature has no timestamp, so it can't be trusted once its certificate expires."
+      );
+    }
+    const signer = input.unsigned.find(
+      (s) =>
+        !taken.has(s.trusteeId) &&
+        signature.page === s.page &&
+        signature.rect &&
+        inside(signature.rect, s.box)
+    );
+    if (!signer) {
+      throw fault(
+        "A new signature isn't in a box of a trustee who hasn't signed."
+      );
+    }
+    if (
+      matchSignerToTrustee(signature.signerName, input.trustees) !==
+      signer.trusteeId
+    ) {
+      throw new CircularError(
+        `The eSign in a trustee's box is in the name of ${signature.signerName ?? "someone else"}, which doesn't match the trustee's name in the register. Ask the Managing Trustee to check the trustee's Aadhaar name.`
+      );
+    }
+    const end = signature.end ?? 0;
+    if (end <= previousEnd || end > signed.byteLength) {
+      throw fault("The new signatures aren't in order in Leegality's copy.");
+    }
+    previousEnd = end;
+    taken.add(signer.trusteeId);
+    return {
+      end,
+      signature,
+      signedAt: signature.timestampTime,
+      trusteeId: signer.trusteeId,
+    };
+  });
+  if (previousEnd !== signed.byteLength) {
+    throw fault("Leegality's copy has changes after its last signature.");
+  }
+  return added;
+}

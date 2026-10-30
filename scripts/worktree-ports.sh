@@ -50,6 +50,7 @@ compute_ports() {
   export E2E_SIGNING_PORT=$((4872 + offset))
   export E2E_GOWA_PORT=$((4873 + offset))
   export E2E_R2_PORT=$((4874 + offset))
+  export E2E_LEEGALITY_PORT=$((4875 + offset))
   export E2E_DB_PORT=$((5433 + offset))
 
   # Isolated dev DB port (only used with --isolated-db)

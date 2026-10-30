@@ -113,6 +113,7 @@ All optional; ingestion is on only when both `RAZORPAY_KEY_ID` and `RAZORPAY_WEB
 |---|---|---|
 | `SIGNING_SERVICE_URL` | Yes | Internal URL of the signing service (`http://pi-dash-signing:8080` in production). Issuing circulars, making minutes and recording declarations need it; unset, they fail and signed uploads are refused |
 | `SIGNING_SERVICE_TOKEN` | Yes | Shared bearer token, `openssl rand -base64 32`. The dashboard and the service refuse to boot with one under 32 characters (the service also needs 10 distinct); rotate a shorter one first |
+| `LEEGALITY_API_URL`, `LEEGALITY_AUTH_TOKEN` | No | Aadhaar eSign for circulars: `https://app1.leegality.com` and the token from Settings > API in Leegality's dashboard. Unset, circulars are DSC only. Every signature is a billed eSign |
 
 ### Observability
 
