@@ -1,5 +1,6 @@
 import { db } from "@pi-dash/db";
 import {
+  awaitingDeclarationId,
   DeclarationError,
   getConflictDeclaration,
   paymentGovernanceWarnings,
@@ -16,6 +17,10 @@ import {
 } from "@pi-dash/shared/declarations";
 import { boardOn, TRUSTEE_OFFICE_LABELS } from "@pi-dash/shared/governance";
 import { todayInKolkata } from "@pi-dash/shared/income";
+import {
+  type SigningMode,
+  signingModeValues,
+} from "@pi-dash/shared/resolutions";
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import z from "zod";
@@ -28,10 +33,21 @@ import {
 } from "@/lib/governance/accept-signature";
 import {
   assertOwnSignedUpload,
+  assertRecentSignIn,
   CircularError,
   fieldRequests,
   sha256Of,
 } from "@/lib/governance/circulars";
+import {
+  collectDeclarationEsign,
+  declarationSigningLink,
+  dropEsign,
+  sendDeclarationForEsign,
+} from "@/lib/governance/esign-documents";
+import {
+  LeegalityError,
+  leegalityConfigured,
+} from "@/lib/governance/leegality";
 import {
   prepareSignatureFields,
   SigningServiceError,
@@ -53,6 +69,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
     if (
       error instanceof CircularError ||
       error instanceof DeclarationError ||
+      error instanceof LeegalityError ||
       error instanceof SigningServiceError
     ) {
       throw userFacingError(error);
@@ -82,6 +99,7 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
           })
         )
         .max(DECLARATION_INTERESTS_MAX),
+      signingMode: z.enum(signingModeValues),
     })
   )
   .handler(async ({ context, data }) => {
@@ -94,7 +112,10 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "governance.declare_interests",
-        metadata: { interests: data.interests.length },
+        metadata: {
+          interests: data.interests.length,
+          signingMode: data.signingMode,
+        },
         target: { id: session.user.id, type: "user" },
       },
       () =>
@@ -110,55 +131,164 @@ export const submitConflictDeclarationFn = createServerFn({ method: "POST" })
               "Only a trustee in office declares interests."
             );
           }
-          const rendered = await generateConflictDeclarationPdf({
-            declaredOn: today,
-            fiscalYear,
-            interests: data.interests,
-            org: {
-              address: env.VOUCHER_ORG_ADDRESS,
-              name: env.VOUCHER_ORG_NAME,
-            },
-            trustee: {
-              id: member.trustee.id,
-              name: member.trustee.legalName,
-              offices: member.offices
-                .map((o) => TRUSTEE_OFFICE_LABELS[o])
-                .join(", "),
-            },
-          });
-          const pdf = await prepareSignatureFields(
-            new Uint8Array(rendered),
-            fieldRequests([member.trustee.id])
+          if (data.signingMode === "esign" && !leegalityConfigured()) {
+            throw new DeclarationError("Aadhaar eSign isn't set up here.");
+          }
+          const rendered = new Uint8Array(
+            await generateConflictDeclarationPdf({
+              declaredOn: today,
+              fiscalYear,
+              interests: data.interests,
+              org: {
+                address: env.VOUCHER_ORG_ADDRESS,
+                name: env.VOUCHER_ORG_NAME,
+              },
+              signingMode: data.signingMode,
+              trustee: {
+                id: member.trustee.id,
+                name: member.trustee.legalName,
+                offices: member.offices
+                  .map((o) => TRUSTEE_OFFICE_LABELS[o])
+                  .join(", "),
+              },
+            })
           );
-          const sha256 = sha256Of(pdf);
-          const objectKey = declarationKey(
-            member.trustee.id,
-            `${fiscalYear}-${sha256.slice(0, 12)}.pdf`
-          );
-          const s3 = await getS3();
-          await s3.write(objectKey, pdf, { type: "application/pdf" });
-          await saveDeclarationAwaitingSignature({
-            declaredBy: session.user.id,
-            fiscalYear,
-            interests: data.interests,
-            objectKey,
-            sha256,
-            trusteeId: member.trustee.id,
-          });
+          const save = (copy: {
+            esign?: Parameters<
+              typeof saveDeclarationAwaitingSignature
+            >[0]["esign"];
+            objectKey: string;
+            sha256: string;
+          }) =>
+            saveDeclarationAwaitingSignature({
+              declaredBy: session.user.id,
+              fiscalYear,
+              interests: data.interests,
+              signingMode: data.signingMode,
+              trusteeId: member.trustee.id,
+              ...copy,
+            });
+          if (data.signingMode === "esign") {
+            const sent = await sendDeclarationForEsign({
+              fiscalYear,
+              rendered,
+              replaces: await awaitingDeclarationId(
+                member.trustee.id,
+                fiscalYear
+              ),
+              trusteeId: member.trustee.id,
+            });
+            await save(sent).catch(async (error: unknown) => {
+              await sent.discard();
+              throw error;
+            });
+          } else {
+            const pdf = await prepareSignatureFields(
+              rendered,
+              fieldRequests([member.trustee.id])
+            );
+            const sha256 = sha256Of(pdf);
+            const objectKey = declarationKey(
+              member.trustee.id,
+              `${fiscalYear}-${sha256.slice(0, 12)}.pdf`
+            );
+            const s3 = await getS3();
+            await s3.write(objectKey, pdf, { type: "application/pdf" });
+            const id = await save({ objectKey, sha256 });
+            // Declared again for DSC: an earlier eSign copy's invitation goes.
+            await dropEsign({ declarationId: id });
+          }
           return { fiscalYear };
         })
     );
   });
 
 /** Only the trustee a declaration belongs to files their signed copy. */
-async function assertOwnDeclaration(declarationId: string, userId: string) {
+async function assertOwnDeclaration(
+  declarationId: string,
+  userId: string,
+  signingMode: SigningMode = "dsc"
+) {
   const row = await getConflictDeclaration(declarationId);
   if (row?.userId !== userId) {
     throw new DeclarationError(
       "Only the trustee who declared signs the declaration."
     );
   }
+  if (row.signingMode !== signingMode) {
+    throw new DeclarationError(
+      row.signingMode === "esign"
+        ? "This declaration is signed with Aadhaar eSign, on Leegality only."
+        : "This declaration is signed with a DSC."
+    );
+  }
+  return row;
 }
+
+/** The trustee's Leegality link on their Aadhaar eSign declaration. */
+export const getDeclarationEsignLinkFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "governance.sign_declaration.start",
+        metadata: { method: "esign" },
+        target: { id: data.id, type: "conflict_declaration" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const row = await assertOwnDeclaration(
+            data.id,
+            session.user.id,
+            "esign"
+          );
+          return { url: await declarationSigningLink(data.id, row.trusteeId) };
+        })
+    );
+  });
+
+/**
+ * Takes the trustee's eSign on their declaration from Leegality; audited
+ * in their name. The scheduled check does the same.
+ */
+export const collectDeclarationEsignFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "governance.declaration.esign.collect",
+        target: { id: data.id, type: "conflict_declaration" },
+      },
+      () =>
+        userFacing(async () => {
+          await assertOwnDeclaration(data.id, session.user.id, "esign");
+          const found = await collectDeclarationEsign(data.id);
+          return {
+            message: {
+              recorded: "Signed. Your declaration is in force.",
+              signed: "Your eSign is already recorded.",
+              waiting:
+                "No eSign on Leegality yet. If you've just signed, try again in a minute.",
+            }[found],
+          };
+        })
+    );
+  });
 
 export const getDeclarationUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

@@ -27,6 +27,7 @@ mock.module("@pi-dash/db/queries/utilisation-certificates", () => ({
   unfiledFinalCertificates: async () => [],
 }));
 mock.module("@pi-dash/db/queries/esign", () => ({
+  isEsignCertificate: async () => false,
   isEsignVaultDocument: async () => false,
 }));
 mock.module("@pi-dash/env/server", () => ({ env: {} }));

@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { isEsignVaultDocument } from "@pi-dash/db/queries/esign";
+import {
+  isEsignCertificate,
+  isEsignVaultDocument,
+} from "@pi-dash/db/queries/esign";
 import {
   type ArchiveTarget,
   archivesDue,
@@ -36,7 +39,7 @@ interface ArchiveStep {
 interface RetimestampDeps {
   /** Revocation data and a first document timestamp: a copy never made. */
   finalize: (pdf: Uint8Array, step: ArchiveStep) => Promise<Uint8Array>;
-  /** Whether the copy is an Aadhaar eSign circular's (`isEsignVaultDocument`). */
+  /** Whether the copy was signed with Aadhaar eSign (a vault document's or a certificate's). */
   isEsign: (target: ArchiveTarget) => Promise<boolean>;
   read: (key: string) => Promise<Uint8Array>;
   /** A new document timestamp on an existing long-term copy. */
@@ -83,7 +86,9 @@ function defaultDeps(): RetimestampDeps {
         )
       ),
     isEsign: async (target) =>
-      "documentId" in target && (await isEsignVaultDocument(target.documentId)),
+      "documentId" in target
+        ? await isEsignVaultDocument(target.documentId)
+        : await isEsignCertificate(target.certificateId),
     read: async (key) => new Uint8Array(await r2.file(key).arrayBuffer()),
     retimestamp: (pdf, { esign }) =>
       pdfFrom(

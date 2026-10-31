@@ -14,6 +14,7 @@ import { withFireAndForgetLog } from "@pi-dash/observability";
 import { generateUtilisationCertificatePdf } from "@pi-dash/pdf/utilisation-certificate.tsx";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import {
+  ESIGN_MAX_RESPONSE_DAYS,
   signatureFieldBox,
   signatureFieldName,
   signatureSlots,
@@ -24,6 +25,11 @@ import {
   fileArchiveCopy,
 } from "../governance/accept-signature";
 import { sha256Of } from "../governance/circulars";
+import {
+  assertSignersHaveAccounts,
+  discardEsignDocument,
+  sendForEsign,
+} from "../governance/esign";
 import { startSignJob } from "../governance/signing-jobs";
 import { prepareSignatureFields } from "../governance/signing-service";
 import { getS3 } from "../s3";
@@ -39,18 +45,55 @@ export const certificateKey = (certificateId: string, name: string) =>
   `${env.R2_KEY_PREFIX}/utilisation-certificates/${certificateId}/${name}`;
 
 /**
- * Renders the frozen snapshot, adds the two trustees' empty signature
- * fields on the last page (where the PDF draws their boxes) and stores it.
+ * Renders the frozen snapshot and stores it: with the two trustees' empty
+ * signature fields on the last page (where the PDF draws their boxes), or
+ * for Aadhaar eSign as Leegality's copy, sent for the Head of the
+ * Organisation and then the Chief Finance Officer to sign in those boxes.
+ * Runs inside the preparing transaction: a failure after sending deletes
+ * the Leegality document, and so does the caller if the transaction fails.
  */
 export const storeCertificatePdf: StoreCertificatePdf = async (
   snapshot,
-  certificateId
+  certificateId,
+  signingMode
 ) => {
-  const rendered = await generateUtilisationCertificatePdf(snapshot);
-  const slots = signatureSlots([
+  const rendered = await generateUtilisationCertificatePdf(
+    snapshot,
+    signingMode
+  );
+  const signerIds = [
     snapshot.signatories.head.trusteeId,
     snapshot.signatories.finance.trusteeId,
-  ]);
+  ];
+  if (signingMode === "esign") {
+    await assertSignersHaveAccounts(signerIds);
+    const sent = await sendForEsign({
+      expiryDays: ESIGN_MAX_RESPONSE_DAYS,
+      irn: snapshot.number,
+      name: `Utilisation certificate ${snapshot.number}`,
+      rendered: new Uint8Array(rendered),
+      sequential: true,
+      signerIds,
+    });
+    try {
+      const sha256 = sha256Of(sent.base);
+      const objectKey = certificateKey(
+        certificateId,
+        `prepared-${sha256.slice(0, 16)}.pdf`
+      );
+      const s3 = await getS3();
+      await s3.write(objectKey, sent.base, { type: "application/pdf" });
+      return {
+        esign: { documentId: sent.documentId, invitees: sent.invitees },
+        objectKey,
+        sha256,
+      };
+    } catch (error) {
+      await discardEsignDocument(sent.documentId);
+      throw error;
+    }
+  }
+  const slots = signatureSlots(signerIds);
   const pdf = await prepareSignatureFields(
     new Uint8Array(rendered),
     slots.map((slot) => ({
@@ -70,7 +113,7 @@ export const storeCertificatePdf: StoreCertificatePdf = async (
 };
 
 /** The certificate's latest copy, checked against its record. */
-async function readLatest(certificate: {
+export async function readLatest(certificate: {
   latestObjectKey: string;
   latestSha256: string;
 }): Promise<Uint8Array> {

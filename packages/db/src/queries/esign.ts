@@ -1,7 +1,18 @@
-import { and, asc, eq, inArray, isNull, notExists } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  notExists,
+  or,
+} from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
 import { user } from "../schema/auth";
+import { conflictDeclaration } from "../schema/declarations";
 import {
   circular,
   circularRevision,
@@ -9,7 +20,9 @@ import {
   resolution,
   trustee,
 } from "../schema/governance";
-import { esignDocument } from "../schema/private/esign";
+import { utilisationCertificate } from "../schema/grant";
+import { meeting } from "../schema/meetings";
+import { type EsignInvitee, esignDocument } from "../schema/private/esign";
 import { trusteePrivate } from "../schema/private/trustee-private";
 
 /**
@@ -81,31 +94,163 @@ export async function openEsignCircularIds(): Promise<string[]> {
 }
 
 /**
- * Whether a vault document is an Aadhaar eSign circular's signed copy: the
- * evidence of one of its resolutions. Its checks and long-term copies go
- * through the signing plugin's eSign routes.
+ * Whether a vault document was signed with Aadhaar eSign: an eSign
+ * circular's evidence, or eSign minutes, a declaration or a utilisation
+ * certificate. Its checks and long-term copies go through the signing
+ * plugin's eSign routes.
  */
 export async function isEsignVaultDocument(
   documentId: string
 ): Promise<boolean> {
-  const [row] = await db
-    .select({ id: resolution.id })
-    .from(resolution)
-    .innerJoin(
-      esignDocument,
-      eq(esignDocument.circularId, resolution.circularId)
-    )
-    .where(eq(resolution.finalDocumentId, documentId))
-    .limit(1);
-  return row !== undefined;
+  const [circularRow, minutes, declaration, certificate] = await Promise.all([
+    db
+      .select({ id: resolution.id })
+      .from(resolution)
+      .innerJoin(
+        esignDocument,
+        eq(esignDocument.circularId, resolution.circularId)
+      )
+      .where(eq(resolution.finalDocumentId, documentId))
+      .limit(1),
+    db
+      .select({ id: meeting.id })
+      .from(meeting)
+      .where(
+        and(
+          eq(meeting.minutesDocumentId, documentId),
+          eq(meeting.minutesSigningMode, "esign")
+        )
+      )
+      .limit(1),
+    db
+      .select({ id: conflictDeclaration.id })
+      .from(conflictDeclaration)
+      .where(
+        and(
+          eq(conflictDeclaration.documentId, documentId),
+          eq(conflictDeclaration.signingMode, "esign")
+        )
+      )
+      .limit(1),
+    db
+      .select({ id: utilisationCertificate.id })
+      .from(utilisationCertificate)
+      .where(
+        and(
+          eq(utilisationCertificate.documentId, documentId),
+          eq(utilisationCertificate.signingMode, "esign")
+        )
+      )
+      .limit(1),
+  ]);
+  return [circularRow, minutes, declaration, certificate].some(
+    (rows) => rows.length > 0
+  );
 }
 
-/** Marks the circular's Leegality document deleted. */
-export async function setEsignClosed(circularId: string): Promise<void> {
+/** Whether a utilisation certificate is signed with Aadhaar eSign. */
+export async function isEsignCertificate(
+  certificateId: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ mode: utilisationCertificate.signingMode })
+    .from(utilisationCertificate)
+    .where(eq(utilisationCertificate.id, certificateId))
+    .limit(1);
+  return row?.mode === "esign";
+}
+
+/** What a Leegality document is for: exactly one. */
+export type EsignTarget =
+  | { circularId: string }
+  | { meetingId: string }
+  | { declarationId: string }
+  | { certificateId: string };
+
+function targetColumn(target: EsignTarget) {
+  if ("circularId" in target) {
+    return eq(esignDocument.circularId, target.circularId);
+  }
+  if ("meetingId" in target) {
+    return eq(esignDocument.meetingId, target.meetingId);
+  }
+  if ("declarationId" in target) {
+    return eq(esignDocument.declarationId, target.declarationId);
+  }
+  return eq(esignDocument.certificateId, target.certificateId);
+}
+
+/** The Leegality document a minutes, declaration or certificate is signed on. */
+export async function getEsignDocumentFor(target: EsignTarget) {
+  const [row] = await db
+    .select()
+    .from(esignDocument)
+    .where(targetColumn(target))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Records the Leegality document a target is signed on, replacing the one
+ * before (minutes made again, a declaration made again); the caller
+ * withdraws that one first.
+ */
+export async function saveEsignDocument(
+  target: EsignTarget,
+  input: { documentId: string; invitees: EsignInvitee[] },
+  executor: Pick<typeof db, "insert" | "select" | "update"> = db
+): Promise<void> {
+  const [previous] = await executor
+    .select({ id: esignDocument.id })
+    .from(esignDocument)
+    .where(targetColumn(target))
+    .limit(1);
+  const now = new Date();
+  if (previous) {
+    await executor
+      .update(esignDocument)
+      .set({
+        closedAt: null,
+        createdAt: now,
+        documentId: input.documentId,
+        invitees: input.invitees,
+      })
+      .where(eq(esignDocument.id, previous.id));
+    return;
+  }
+  await executor.insert(esignDocument).values({
+    ...target,
+    createdAt: now,
+    documentId: input.documentId,
+    id: uuidv7(),
+    invitees: input.invitees,
+  });
+}
+
+/** Marks a Leegality document deleted. */
+export async function setEsignDocumentClosed(id: string): Promise<void> {
   await db
     .update(esignDocument)
     .set({ closedAt: new Date() })
-    .where(eq(esignDocument.circularId, circularId));
+    .where(eq(esignDocument.id, id));
+}
+
+/** Open Leegality documents for minutes, declarations and certificates: the ones to check. */
+export async function openEsignDocuments() {
+  return await db
+    .select()
+    .from(esignDocument)
+    .where(
+      and(
+        isNull(esignDocument.closedAt),
+        isNull(esignDocument.circularId),
+        or(
+          isNotNull(esignDocument.meetingId),
+          isNotNull(esignDocument.declarationId),
+          isNotNull(esignDocument.certificateId)
+        )
+      )
+    );
 }
 
 /**
@@ -132,5 +277,5 @@ export async function unclosedDecidedEsignCircularIds(): Promise<string[]> {
         )
       )
     );
-  return rows.map((r) => r.id);
+  return rows.flatMap((r) => (r.id ? [r.id] : []));
 }

@@ -1,5 +1,6 @@
 import type { TrusteeOffice } from "@pi-dash/shared/governance";
 import type { DecisionBasis } from "@pi-dash/shared/meetings";
+import type { SigningMode } from "@pi-dash/shared/resolutions";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -11,6 +12,8 @@ import {
   meeting,
   meetingAttendance,
 } from "../schema/meetings";
+import type { EsignInvitee } from "../schema/private/esign";
+import { saveEsignDocument } from "./esign";
 import { failInTx, passInTx, ResolutionError, type Tx } from "./resolutions";
 
 export class MeetingError extends Error {}
@@ -326,28 +329,41 @@ export async function markMeetingHeld(
  */
 export async function setGeneratedMinutes(
   meetingId: string,
-  minutes: { objectKey: string; renderedFrom: Date; sha256: string }
-): Promise<void> {
-  const updated = await db
-    .update(meeting)
-    .set({
-      minutesObjectKey: minutes.objectKey,
-      minutesSha256: minutes.sha256,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(meeting.id, meetingId),
-        eq(meeting.updatedAt, minutes.renderedFrom),
-        isNull(meeting.minutesDocumentId)
-      )
-    )
-    .returning({ id: meeting.id });
-  if (updated.length === 0) {
-    throw new MeetingError(
-      "The meeting changed while the minutes were rendering. Generate them again."
-    );
+  minutes: {
+    /** The Leegality document an eSign copy is signed on, recorded with it. */
+    esign?: { documentId: string; invitees: EsignInvitee[] };
+    objectKey: string;
+    renderedFrom: Date;
+    sha256: string;
+    signingMode: SigningMode;
   }
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(meeting)
+      .set({
+        minutesObjectKey: minutes.objectKey,
+        minutesSha256: minutes.sha256,
+        minutesSigningMode: minutes.signingMode,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(meeting.id, meetingId),
+          eq(meeting.updatedAt, minutes.renderedFrom),
+          isNull(meeting.minutesDocumentId)
+        )
+      )
+      .returning({ id: meeting.id });
+    if (updated.length === 0) {
+      throw new MeetingError(
+        "The meeting changed while the minutes were rendering. Generate them again."
+      );
+    }
+    if (minutes.esign) {
+      await saveEsignDocument({ meetingId }, minutes.esign, tx);
+    }
+  });
 }
 
 export async function setSignedMinutes(

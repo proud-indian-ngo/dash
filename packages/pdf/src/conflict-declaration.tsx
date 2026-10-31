@@ -1,4 +1,8 @@
-import { SIGNATURE_BOX, signatureSlots } from "@pi-dash/shared/resolutions";
+import {
+  SIGNATURE_BOX,
+  type SigningMode,
+  signatureSlots,
+} from "@pi-dash/shared/resolutions";
 import {
   Document,
   Page,
@@ -27,6 +31,8 @@ import { ProudIndianLockup } from "./proud-indian-lockup";
  */
 
 export interface ConflictDeclarationProps {
+  /** How the trustee signs; the box says so. Default DSC. */
+  signingMode?: SigningMode;
   declaredOn: string;
   fiscalYear: string;
   interests: { nature: string; party: string; relationship: string }[];
@@ -165,8 +171,11 @@ export function ConflictDeclaration(props: ConflictDeclarationProps) {
         <View style={styles.signaturesHead}>
           <Text style={styles.title}>Signed</Text>
           <Line style={styles.signaturesIntro}>
-            The trustee makes this declaration by signing it with their digital
-            signature certificate.
+            The trustee makes this declaration by signing it with{" "}
+            {props.signingMode === "esign"
+              ? "Aadhaar eSign"
+              : "their digital signature certificate"}
+            .
           </Line>
         </View>
         <View style={[styles.slot, { top }]}>
@@ -177,7 +186,9 @@ export function ConflictDeclaration(props: ConflictDeclarationProps) {
         </View>
         <View style={[styles.box, { top }]} />
         <Text style={[styles.boxHint, { top: top + SIGNATURE_BOX.height + 3 }]}>
-          Digital signature
+          {props.signingMode === "esign"
+            ? "Aadhaar eSign"
+            : "Digital signature"}
         </Text>
         <Footer props={props} />
       </Page>

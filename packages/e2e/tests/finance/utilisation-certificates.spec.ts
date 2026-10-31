@@ -638,6 +638,59 @@ test.describe("utilisation certificates", () => {
       });
     });
 
+    test("with Aadhaar eSign, both trustees sign on Leegality in turn and the CA's certificate makes it final", async ({
+      page,
+    }, testInfo) => {
+      test.skip(testInfo.project.name !== "finance_admin", "Finance test");
+      test.slow();
+      const grant = await newGrant();
+      await openGrant(page, grant.grantId);
+      const dialog = await openPrepare(page);
+      await dialog
+        .getByRole("group", { name: "Signed with" })
+        .getByRole("button", { name: "Aadhaar eSign" })
+        .click();
+      const { number } = await prepare(page, dialog);
+      const signOnLeegality = async (name: string) => {
+        const signed = await page.request.post(
+          `${process.env.LEEGALITY_API_URL ?? ""}/test/sign`,
+          { data: { irn: number, name } }
+        );
+        expect(signed.ok()).toBe(true);
+      };
+      const check = async (message: string) => {
+        await page.getByRole("button", { name: "Check for eSigns" }).click();
+        await expect(page.getByText(message)).toBeVisible({ timeout: 30_000 });
+      };
+
+      await signOnLeegality("Asha Rao");
+      await check("eSign recorded.");
+      await expect(page.getByText(/^Signed /).first()).toBeVisible({
+        timeout: 20_000,
+      });
+      await signOnLeegality("Vikram Menon");
+      await check("eSign recorded.");
+      await expect(page.getByText("Waiting for CA").first()).toBeVisible({
+        timeout: 20_000,
+      });
+      // Nothing left to sign: the check goes.
+      await expect(
+        page.getByRole("button", { name: "Check for eSigns" })
+      ).toHaveCount(0);
+
+      // The CA's step checks Leegality's copy with the eSign check.
+      await page.getByLabel("UDIN").fill("26654321ABCDEFGHIJ");
+      await page.getByLabel("CA's certificate").setInputFiles({
+        buffer: Buffer.from("%PDF-1.4\n% E2E CA report\n%%EOF\n"),
+        mimeType: "application/pdf",
+        name: "ca-report.pdf",
+      });
+      await page.getByRole("button", { name: "Record CA certificate" }).click();
+      await expect(
+        page.getByText("CA certificate recorded. The certificate is final.")
+      ).toBeVisible({ timeout: 20_000 });
+    });
+
     test("without a CA, the second signature makes it final and files its long-term copy", async ({
       browser,
       page,

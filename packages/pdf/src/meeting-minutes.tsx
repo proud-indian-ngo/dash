@@ -1,4 +1,8 @@
-import { SIGNATURE_BOX, signatureSlots } from "@pi-dash/shared/resolutions";
+import {
+  SIGNATURE_BOX,
+  type SigningMode,
+  signatureSlots,
+} from "@pi-dash/shared/resolutions";
 import {
   Document,
   Page,
@@ -44,6 +48,8 @@ export interface MinutesItem {
 }
 
 export interface MeetingMinutesProps {
+  /** How the chair signs; the box says so. Default DSC. */
+  signingMode?: SigningMode;
   attendance: { name: string; offices: string; presence: string }[];
   /** "Trust deed as amended, version 2 (effective 1 Jan 2026)". */
   authority: string;
@@ -257,7 +263,11 @@ export function MeetingMinutes(props: MeetingMinutesProps) {
           <Text style={styles.title}>Confirmed</Text>
           <Line style={styles.signaturesIntro}>
             The chair of the meeting confirms these minutes as a true record by
-            signing them with their digital signature certificate.
+            signing them with{" "}
+            {props.signingMode === "esign"
+              ? "Aadhaar eSign"
+              : "their digital signature certificate"}
+            .
           </Line>
         </View>
         <View style={[styles.slot, { top }]}>
@@ -268,7 +278,9 @@ export function MeetingMinutes(props: MeetingMinutesProps) {
         </View>
         <View style={[styles.box, { top }]} />
         <Text style={[styles.boxHint, { top: top + SIGNATURE_BOX.height + 3 }]}>
-          Digital signature
+          {props.signingMode === "esign"
+            ? "Aadhaar eSign"
+            : "Digital signature"}
         </Text>
         <Footer props={props} />
       </Page>

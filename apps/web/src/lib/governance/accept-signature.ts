@@ -30,6 +30,7 @@ import {
   type ArchiveTarget,
   setArchiveCopy,
 } from "@pi-dash/db/queries/signing";
+import type { GovernanceValidationReport } from "@pi-dash/db/schema/governance";
 import { env } from "@pi-dash/env/server";
 import { enqueue } from "@pi-dash/jobs/enqueue";
 import { withFireAndForgetLog } from "@pi-dash/observability";
@@ -226,11 +227,20 @@ export async function checkOneSignerAdded(input: {
  * for the resolutions passed at the meeting, and starts the long-term copy.
  */
 export async function acceptSignedMinutes(input: {
+  /**
+   * An Aadhaar eSign copy, already checked against the generated copy whose
+   * hash is `basedOnSha256` (`esign-documents.ts`), signed at `signedAt`.
+   */
+  esign?: {
+    basedOnSha256: string;
+    report: GovernanceValidationReport;
+    signedAt: Date;
+  };
   /** For the helper: the enrolled certificate the signature must come from. */
   expectedCertificateSha256?: string;
   meetingId: string;
   uploaded: Uint8Array;
-  userId: string;
+  userId: string | null;
 }): Promise<string> {
   const { uploaded } = input;
   const record = await loadMeetingRecord(input.meetingId);
@@ -245,12 +255,16 @@ export async function acceptSignedMinutes(input: {
     throw new MeetingError("Generate the minutes first.");
   }
   const s3 = await getS3();
-  const report = await checkOneSignerAdded({
-    current: new Uint8Array(await s3.file(row.minutesObjectKey).arrayBuffer()),
-    expectedCertificateSha256: input.expectedCertificateSha256,
-    trusteeId: row.chairTrusteeId,
-    uploaded,
-  });
+  const report =
+    input.esign?.report ??
+    (await checkOneSignerAdded({
+      current: new Uint8Array(
+        await s3.file(row.minutesObjectKey).arrayBuffer()
+      ),
+      expectedCertificateSha256: input.expectedCertificateSha256,
+      trusteeId: row.chairTrusteeId,
+      uploaded,
+    }));
   const sha256 = sha256Of(uploaded);
   // Stored by content, so a submission that loses the race below never
   // replaces the accepted copy.
@@ -267,7 +281,10 @@ export async function acceptSignedMinutes(input: {
     if (locked?.minutesDocumentId) {
       throw new MeetingError("The minutes are already signed.");
     }
-    if (locked?.minutesObjectKey !== row.minutesObjectKey) {
+    if (
+      locked?.minutesObjectKey !== row.minutesObjectKey ||
+      (input.esign && locked.minutesSha256 !== input.esign.basedOnSha256)
+    ) {
       throw new MeetingError(
         locked?.minutesObjectKey
           ? "The minutes were generated again. Sign the new copy."
@@ -304,6 +321,7 @@ export async function acceptSignedMinutes(input: {
   await fileArchiveCopy({
     archiveKey: meetingKey(row.id, "minutes-ltv.pdf"),
     bytes: uploaded,
+    esign: input.esign !== undefined,
     log: { meetingId: row.id },
     objectKey,
     target: { documentId },
@@ -320,10 +338,19 @@ export async function acceptSignedMinutes(input: {
  */
 export async function acceptSignedDeclaration(input: {
   declarationId: string;
+  /**
+   * An Aadhaar eSign copy, already checked against the generated copy whose
+   * hash is `basedOnSha256` (`esign-documents.ts`), signed at `signedAt`.
+   */
+  esign?: {
+    basedOnSha256: string;
+    report: GovernanceValidationReport;
+    signedAt: Date;
+  };
   /** For the helper: the enrolled certificate the signature must come from. */
   expectedCertificateSha256?: string;
   uploaded: Uint8Array;
-  userId: string;
+  userId: string | null;
 }): Promise<string> {
   const { uploaded } = input;
   const row = await getConflictDeclaration(input.declarationId);
@@ -334,12 +361,14 @@ export async function acceptSignedDeclaration(input: {
     throw new DeclarationError("This declaration is already signed.");
   }
   const s3 = await getS3();
-  const report = await checkOneSignerAdded({
-    current: new Uint8Array(await s3.file(row.objectKey).arrayBuffer()),
-    expectedCertificateSha256: input.expectedCertificateSha256,
-    trusteeId: row.trusteeId,
-    uploaded,
-  });
+  const report =
+    input.esign?.report ??
+    (await checkOneSignerAdded({
+      current: new Uint8Array(await s3.file(row.objectKey).arrayBuffer()),
+      expectedCertificateSha256: input.expectedCertificateSha256,
+      trusteeId: row.trusteeId,
+      uploaded,
+    }));
   const sha256 = sha256Of(uploaded);
   // Stored by content, so a submission that loses the race below never
   // replaces the accepted copy.
@@ -348,14 +377,17 @@ export async function acceptSignedDeclaration(input: {
     `${row.fiscalYear}-signed-${sha256.slice(0, 16)}.pdf`
   );
   await s3.write(objectKey, uploaded, { type: "application/pdf" });
-  const today = todayInKolkata();
+  const today = todayInKolkata(input.esign?.signedAt);
   // One submission is accepted, against the copy it was checked against.
   const documentId = await db.transaction(async (tx) => {
     const locked = await lockConflictDeclaration(tx, row.id);
     if (locked?.status !== "awaiting_signature") {
       throw new DeclarationError("This declaration is already signed.");
     }
-    if (locked.sha256 !== row.sha256) {
+    if (
+      locked.sha256 !== row.sha256 ||
+      (input.esign && locked.sha256 !== input.esign.basedOnSha256)
+    ) {
       throw new DeclarationError(
         "You declared again meanwhile. Sign the new copy."
       );
@@ -367,7 +399,7 @@ export async function acceptSignedDeclaration(input: {
           contentType: "application/pdf",
           datedOn: today,
           kind: "declaration",
-          note: `Signed by ${row.legalName} with their DSC.`,
+          note: `Signed by ${row.legalName} with ${input.esign ? "Aadhaar eSign" : "their DSC"}.`,
           objectKey,
           originalFilename: `declaration-${row.fiscalYear}.pdf`,
           sha256,
@@ -392,6 +424,7 @@ export async function acceptSignedDeclaration(input: {
       `${row.fiscalYear}-${sha256.slice(0, 16)}-ltv.pdf`
     ),
     bytes: uploaded,
+    esign: input.esign !== undefined,
     log: { declarationId: row.id },
     objectKey,
     target: { documentId },

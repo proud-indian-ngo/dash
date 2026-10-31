@@ -15,6 +15,7 @@ import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { env } from "@pi-dash/env/web";
 import { formatPaise } from "@pi-dash/shared/money";
+import { esignLapsed } from "@pi-dash/shared/resolutions";
 import {
   type CertificateStepState,
   certificateStatusLabel,
@@ -59,6 +60,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import {
   cancelCertificateFn,
+  collectCertificateEsignFn,
   discardCertificateFn,
   getCertificateDrift,
 } from "@/functions/utilisation-certificates";
@@ -422,6 +424,12 @@ function CertificatePage() {
                 );
               })}
             </ul>
+            {canManage && due && row.signingMode === "esign" ? (
+              <EsignCheckButton
+                certificateId={certificateId}
+                lapsed={esignLapsed(new Date(row.createdAt))}
+              />
+            ) : null}
             {myTurn ? (
               <section
                 aria-label="Your signature"
@@ -447,6 +455,8 @@ function CertificatePage() {
                   <CertificateSignPanel
                     certificateId={certificateId}
                     latestHref={fileHref(certificateId, "latest")}
+                    preparedAt={row.createdAt}
+                    signingMode={row.signingMode ?? "dsc"}
                   />
                 )}
               </section>
@@ -542,6 +552,60 @@ function CertificatePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Finance takes eSigns made on Leegality, for signers who didn't come back. */
+function EsignCheckButton({
+  certificateId,
+  lapsed,
+}: {
+  certificateId: string;
+  lapsed: boolean;
+}) {
+  const collect = useServerFn(collectCertificateEsignFn);
+  const [checking, setChecking] = useState(false);
+  const handleCheck = useEventCallback(async () => {
+    setChecking(true);
+    await collect({ data: { id: certificateId } })
+      .then(({ message }) => toast.success(message))
+      .catch((error: unknown) => {
+        log.error({
+          action: "utilisation_certificate.esign.collect",
+          caughtError: error instanceof Error ? error.message : "unknown",
+          component: "CertificatePage",
+        });
+        toast.error("Couldn't take the eSigns", {
+          description:
+            error instanceof Error ? error.message : "Something went wrong",
+        });
+      })
+      .finally(() => setChecking(false));
+  });
+  if (lapsed) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        The Leegality invitations have lapsed. Cancel or discard the certificate
+        and prepare it again to send new ones.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span className="text-muted-foreground">
+        Signed with Aadhaar eSign on Leegality; eSigns are taken within ten
+        minutes.
+      </span>
+      <Button
+        disabled={checking}
+        onClick={handleCheck}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {checking ? "Checking..." : "Check for eSigns"}
+      </Button>
     </div>
   );
 }

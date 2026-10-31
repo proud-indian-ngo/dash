@@ -16,14 +16,18 @@ import {
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { esignLapsed, type SigningMode } from "@pi-dash/shared/resolutions";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { DscSignSection } from "@/components/governance/dsc-sign-section";
+import { EsignSignSection } from "@/components/governance/esign-sign-section";
 import { errorText } from "@/components/governance/meeting-data";
 import { useVoteReauth } from "@/components/governance/use-vote-reauth";
 import {
+  collectCertificateEsignFn,
+  getCertificateEsignLinkFn,
   getCertificateUploadUrl,
   submitSignedCertificateFn,
 } from "@/functions/utilisation-certificates";
@@ -60,16 +64,23 @@ export async function uploadCertificateFile(
 }
 
 /**
- * The trustee whose turn it is signs the certificate's latest copy with
- * their DSC, through the helper or a copy signed in Acrobat.
+ * The trustee whose turn it is signs the certificate's latest copy: with
+ * their DSC, through the helper or a copy signed in Acrobat, or with
+ * Aadhaar eSign on Leegality, as chosen when it was prepared.
  */
 export function CertificateSignPanel({
   certificateId,
   latestHref,
+  preparedAt,
+  signingMode,
 }: {
   certificateId: string;
   latestHref: string;
+  preparedAt: number;
+  signingMode: SigningMode;
 }) {
+  const esignLink = useServerFn(getCertificateEsignLinkFn);
+  const collectEsign = useServerFn(collectCertificateEsignFn);
   const presign = useServerFn(getCertificateUploadUrl);
   const submit = useServerFn(submitSignedCertificateFn);
   const [file, setFile] = useState<File | null>(null);
@@ -156,6 +167,21 @@ export function CertificateSignPanel({
       </li>
     </ol>
   );
+
+  if (signingMode === "esign") {
+    return (
+      <EsignSignSection
+        action="utilisation_certificate.sign"
+        collect={() => collectEsign({ data: { id: certificateId } })}
+        lapsed={
+          esignLapsed(new Date(preparedAt))
+            ? "Your Leegality invitation has lapsed. Finance withdraws the certificate and prepares it again to send a new one."
+            : undefined
+        }
+        link={() => esignLink({ data: { id: certificateId } })}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

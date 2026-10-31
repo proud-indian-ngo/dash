@@ -25,6 +25,7 @@ import {
   deedVersion,
   governanceDocument,
   resolution,
+  signingModeEnum,
   trustee,
 } from "./governance";
 import { jsonb } from "./jsonb";
@@ -74,6 +75,8 @@ export const meeting = pgTable(
     /** Minutes as generated for signing (with the chair's empty field). */
     minutesObjectKey: text("minutes_object_key"),
     minutesSha256: text("minutes_sha256"),
+    /** How the generated minutes are signed: the chair's DSC, or Aadhaar eSign on Leegality. */
+    minutesSigningMode: signingModeEnum("minutes_signing_mode"),
     mode: meetingModeEnum("mode").default("hybrid").notNull(),
     /** Opening and closing remarks for the minutes. */
     notes: text("notes"),

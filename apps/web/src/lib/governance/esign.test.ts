@@ -127,7 +127,7 @@ mock.module("@pi-dash/db/queries/esign", () => ({
     invitees: [asha, vikram],
   }),
   latestCircularPdf: async () => state.latest,
-  setEsignClosed: async () => {
+  setEsignDocumentClosed: async () => {
     calls.closed += 1;
   },
 }));

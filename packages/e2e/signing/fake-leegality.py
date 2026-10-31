@@ -4,7 +4,8 @@ Runs inside the E2E signing service's container, beside the fake TSA. It
 keeps documents in memory and answers what the dashboard calls: create
 (`POST /api/v2.1/sign/request`), details (`GET /api/v3.3/document/details`,
 whose file link it serves) and delete. `POST /test/sign` with
-`{"irn", "name"}` (the circular's reference) plays a trustee signing: the run's signer
+`{"irn"?, "name"}` (the document's reference, else the newest document
+the named signer hasn't signed) plays a trustee signing: the run's signer
 certificate in that name signs in a field it adds in their box, the field
 taking the last cross-reference stream's object number, as Leegality's do.
 
@@ -111,7 +112,18 @@ def main(pki: Path, port: int, public_url: str) -> None:
                 )
             elif path == "/test/sign":
                 request = self.body()
-                [document] = [d for d in DOCUMENTS.values() if d["irn"] == request["irn"]]
+                # By reference, or by its prefix (the trustee-keyed declaration
+                # reference) for the newest the named signer hasn't signed.
+                if "irn" in request:
+                    matches = [d for d in DOCUMENTS.values() if d["irn"] == request["irn"]]
+                else:
+                    matches = [
+                        d
+                        for d in DOCUMENTS.values()
+                        if (d["irn"] or "").startswith(request["irnPrefix"])
+                        and any(i["name"] == request["name"] and not i["signed"] for i in d["invitees"])
+                    ]
+                document = matches[-1]
                 [invitee] = [i for i in document["invitees"] if i["name"] == request["name"]]
                 sign(pki, document, invitee)
                 self.json({"status": 1})

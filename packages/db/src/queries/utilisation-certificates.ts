@@ -11,6 +11,7 @@ import {
   parseReceiptSettingsParts,
   RECEIPT_SETTINGS_CONFIG_KEY,
 } from "@pi-dash/shared/receipts";
+import type { SigningMode } from "@pi-dash/shared/resolutions";
 import {
   type CertificateFigures,
   certificateDrift,
@@ -51,7 +52,9 @@ import {
   utilisationCertificate,
 } from "../schema/grant";
 import { party } from "../schema/party";
+import type { EsignInvitee } from "../schema/private/esign";
 import { utilisationCertificateCounter } from "../schema/private/utilisation-certificates";
+import { saveEsignDocument } from "./esign";
 import {
   findGovernanceDocumentBySha256,
   insertGovernanceDocument,
@@ -271,16 +274,27 @@ export interface PrepareCertificateInput {
   interestPaise: number;
   place: string;
   to: string;
+  /** The signers' DSCs, or Aadhaar eSign on Leegality. */
+  signingMode: SigningMode;
   /** India's day; the financial year and the signatories are of this day. */
   today: string;
   userId: string;
 }
 
-/** Renders and stores the PDF for a numbered snapshot; inside the transaction. */
+/**
+ * Renders and stores the PDF for a numbered snapshot; inside the
+ * transaction. For Aadhaar eSign it also sends it to Leegality, and the
+ * stored copy is Leegality's.
+ */
 export type StoreCertificatePdf = (
   snapshot: UtilisationCertificateSnapshot,
-  certificateId: string
-) => Promise<{ objectKey: string; sha256: string }>;
+  certificateId: string,
+  signingMode: SigningMode
+) => Promise<{
+  esign?: { documentId: string; invitees: EsignInvitee[] };
+  objectKey: string;
+  sha256: string;
+}>;
 
 /**
  * Prepares a certificate: freezes the period's figures, picks the
@@ -383,7 +397,7 @@ export async function prepareCertificate(
       version: 1,
     };
     const id = uuidv7();
-    const stored = await store(snapshot, id);
+    const stored = await store(snapshot, id, input.signingMode);
     await tx.insert(utilisationCertificate).values({
       caRequired: grant.needsCaCertificate,
       createdAt: now,
@@ -399,11 +413,15 @@ export async function prepareCertificate(
       number,
       preparedBy: input.userId,
       sequence,
+      signingMode: input.signingMode,
       snapshot,
       status: "awaiting_head",
       toOn: input.to,
       updatedAt: now,
     });
+    if (stored.esign) {
+      await saveEsignDocument({ certificateId: id }, stored.esign, tx);
+    }
     return {
       financeTrusteeId: signatories.finance.trusteeId,
       headTrusteeId: signatories.head.trusteeId,

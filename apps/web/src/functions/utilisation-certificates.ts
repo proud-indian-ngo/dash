@@ -1,5 +1,7 @@
 import { db } from "@pi-dash/db";
 import {
+  assertNoDrift,
+  assertSignerInOffice,
   CertificateError,
   cancelCertificate,
   certificateDrifts,
@@ -15,6 +17,7 @@ import { trustee } from "@pi-dash/db/schema/governance";
 import { env } from "@pi-dash/env/server";
 import { todayInKolkata } from "@pi-dash/shared/income";
 import { paiseSchema } from "@pi-dash/shared/money";
+import { signingModeValues } from "@pi-dash/shared/resolutions";
 import {
   CANCEL_REASON_MAX,
   CERTIFICATE_PLACE_MAX,
@@ -28,11 +31,23 @@ import { assertServerPermission } from "@/lib/api-auth";
 import { runSessionAuditedAction } from "@/lib/audit";
 import {
   assertOwnSignedUpload,
+  assertRecentSignIn,
   CircularError,
   sha256Of,
 } from "@/lib/governance/circulars";
+import { discardEsignDocument } from "@/lib/governance/esign";
+import {
+  certificateSigningLink,
+  collectCertificateEsign,
+  dropEsign,
+} from "@/lib/governance/esign-documents";
+import {
+  LeegalityError,
+  leegalityConfigured,
+} from "@/lib/governance/leegality";
 import {
   SigningServiceError,
+  validateEsignPdf,
   validateSignedPdf,
 } from "@/lib/governance/signing-service";
 import { certificatePdfName } from "@/lib/grants/certificate-downloads";
@@ -59,6 +74,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
     if (
       error instanceof CertificateError ||
       error instanceof CircularError ||
+      error instanceof LeegalityError ||
       error instanceof SigningServiceError
     ) {
       throw userFacingError(error);
@@ -95,7 +111,10 @@ export const prepareCertificateFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     period.and(
-      z.object({ place: z.string().trim().min(1).max(CERTIFICATE_PLACE_MAX) })
+      z.object({
+        place: z.string().trim().min(1).max(CERTIFICATE_PLACE_MAX),
+        signingMode: z.enum(signingModeValues),
+      })
     )
   )
   .handler(async ({ context, data }) => {
@@ -109,22 +128,38 @@ export const prepareCertificateFn = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "utilisation_certificate.prepare",
+        metadata: { signingMode: data.signingMode },
         target: { id: data.grantId, type: "grant" },
       },
       () =>
         userFacing(async () => {
+          if (data.signingMode === "esign" && !leegalityConfigured()) {
+            throw new CertificateError("Aadhaar eSign isn't set up here.");
+          }
+          // The Leegality document sent, deleted if preparing then fails.
+          let sent: string | null = null;
           const prepared = await prepareCertificate(
             {
               from: data.from,
               grantId: data.grantId,
               interestPaise: data.interestPaise,
               place: data.place,
+              signingMode: data.signingMode,
               to: data.to,
               today: todayInKolkata(),
               userId: session.user.id,
             },
-            storeCertificatePdf
-          );
+            async (...args) => {
+              const stored = await storeCertificatePdf(...args);
+              sent = stored.esign?.documentId ?? null;
+              return stored;
+            }
+          ).catch(async (error: unknown) => {
+            if (sent) {
+              await discardEsignDocument(sent);
+            }
+            throw error;
+          });
           enqueueCertificateNotice(prepared.id);
           return { id: prepared.id, number: prepared.number };
         }),
@@ -152,9 +187,11 @@ export const discardCertificateFn = createServerFn({ method: "POST" })
         target: { id: data.id, type: "utilisation_certificate" },
       },
       () =>
-        userFacing(() =>
-          discardCertificate({ id: data.id, userId: session.user.id })
-        )
+        userFacing(async () => {
+          await discardCertificate({ id: data.id, userId: session.user.id });
+          // Revokes an eSign certificate's Leegality invitations.
+          await dropEsign({ certificateId: data.id });
+        })
     );
   });
 
@@ -179,13 +216,15 @@ export const cancelCertificateFn = createServerFn({ method: "POST" })
         target: { id: data.id, type: "utilisation_certificate" },
       },
       () =>
-        userFacing(() =>
-          cancelCertificate({
+        userFacing(async () => {
+          await cancelCertificate({
             id: data.id,
             reason: data.reason,
             userId: session.user.id,
-          })
-        )
+          });
+          // Revokes an eSign certificate's Leegality invitations.
+          await dropEsign({ certificateId: data.id });
+        })
     );
   });
 
@@ -257,6 +296,11 @@ async function assertMayUpload(
   if (!certificate) {
     throw new CertificateError("Certificate not found");
   }
+  if (certificate.signingMode === "esign") {
+    throw new CertificateError(
+      "This certificate is signed with Aadhaar eSign, on Leegality only."
+    );
+  }
   const trusteeId = await linkedTrusteeId(session.user.id);
   if (!trusteeId) {
     throw new CertificateError("Your account isn't linked to a trustee.");
@@ -325,6 +369,95 @@ async function takeUpload(tempKey: string, userId: string) {
   return { bytes, remove: () => s3.delete(key).catch(() => undefined) };
 }
 
+/** The signer's Leegality link on an Aadhaar eSign certificate, when it's their turn. */
+export const getCertificateEsignLinkFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(byId)
+  .handler(async ({ context, data }) => {
+    const { session } = context;
+    if (!session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "utilisation_certificate.sign.start",
+        metadata: { method: "esign" },
+        target: { id: data.id, type: "utilisation_certificate" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const certificate = await getCertificate(data.id);
+          if (!certificate) {
+            throw new CertificateError("Certificate not found");
+          }
+          const trusteeId = await linkedTrusteeId(session.user.id);
+          if (!trusteeId) {
+            throw new CertificateError(
+              "Your account isn't linked to a trustee."
+            );
+          }
+          if (certificate.signingMode !== "esign") {
+            throw new CertificateError(
+              "This certificate is signed with a DSC."
+            );
+          }
+          // The checks recording it makes, before an eSign is spent.
+          const role = signerRole(certificate, trusteeId);
+          await assertSignerInOffice(db, certificate, role, todayInKolkata());
+          await assertNoDrift(db, certificate);
+          return { url: await certificateSigningLink(data.id, trusteeId) };
+        })
+    );
+  });
+
+/**
+ * Takes the eSigns made on a certificate on Leegality, for its signers or
+ * `finance.manage`; each is audited in its signer's name. The scheduled
+ * check does the same.
+ */
+export const collectCertificateEsignFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(byId)
+  .handler(async ({ context, data }) => {
+    const { session } = context;
+    if (!session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "utilisation_certificate.esign.collect",
+        target: { id: data.id, type: "utilisation_certificate" },
+      },
+      () =>
+        userFacing(async () => {
+          const certificate = await getCertificate(data.id);
+          if (!certificate) {
+            throw new CertificateError("Certificate not found");
+          }
+          if (
+            certificate.headUserId !== session.user.id &&
+            certificate.financeUserId !== session.user.id
+          ) {
+            await assertServerPermission(session, "finance.manage");
+          }
+          const taken = await collectCertificateEsign(data.id);
+          return {
+            message:
+              taken === 0
+                ? "No new eSign on Leegality yet. If you've just signed, try again in a minute."
+                : taken === 1
+                  ? "eSign recorded."
+                  : `${taken} eSigns recorded.`,
+          };
+        })
+    );
+  });
+
 /** The signer's copy signed in Acrobat. */
 export const submitSignedCertificateFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -381,7 +514,10 @@ async function signedCopyFacts(id: string) {
     await s3.file(certificate.latestObjectKey).arrayBuffer()
   );
   return {
-    report: await validateSignedPdf(bytes),
+    report:
+      certificate.signingMode === "esign"
+        ? await validateEsignPdf(bytes)
+        : await validateSignedPdf(bytes),
     sha256: sha256Of(bytes),
     sizeBytes: bytes.byteLength,
   };

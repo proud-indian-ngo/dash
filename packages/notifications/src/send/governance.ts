@@ -310,8 +310,9 @@ export async function notifyMeetingNotice(notice: {
 // ── Utilisation certificates ────────────────────────────────────────────────
 
 /**
- * A grant's utilisation certificate waits for this trustee's DSC signature,
- * as Head of the Organisation or Chief Finance Officer. Inbox and email
+ * A grant's utilisation certificate waits for this trustee's signature
+ * (DSC or Aadhaar eSign), as Head of the Organisation or Chief Finance
+ * Officer. Inbox and email
  * only. One message per certificate, signer and step.
  */
 export async function notifyUtilisationCertificateToSign(notice: {
@@ -320,12 +321,13 @@ export async function notifyUtilisationCertificateToSign(notice: {
   number: string;
   /** "Head of the Organisation" or "Chief Finance Officer". */
   role: string;
+  signingMode: "dsc" | "esign";
   userId: string;
 }): Promise<void> {
   const path = `/finance/grants/certificates/${notice.certificateId}`;
   const paragraphs = [
     `Utilisation certificate ${notice.number} for "${notice.grantTitle}" is ready for your signature as ${notice.role}.`,
-    "Check the figures, then sign it with your DSC. The other signature and, where the agreement asks, the CA's certificate follow.",
+    `Check the figures, then sign it ${notice.signingMode === "esign" ? "with Aadhaar eSign" : "with your DSC"}. The other signature and, where the agreement asks, the CA's certificate follow.`,
   ];
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Open the certificate",
