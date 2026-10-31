@@ -18,18 +18,28 @@ import { Label } from "@pi-dash/design-system/components/ui/label";
 import { Textarea } from "@pi-dash/design-system/components/ui/textarea";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { MEETING_NOTES_MAX } from "@pi-dash/shared/meetings";
+import {
+  esignLapsed,
+  SIGNING_MODE_LABELS,
+  type SigningMode,
+  signingModeValues,
+} from "@pi-dash/shared/resolutions";
 import { mutators } from "@pi-dash/zero/mutators";
 import { useZero } from "@rocicorp/zero/react";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
+  collectMinutesEsignFn,
   generateMinutesFn,
+  getMinutesEsignLinkFn,
   getMinutesUploadUrl,
   submitSignedMinutesFn,
 } from "@/functions/meetings";
+import { getEsignAvailableFn } from "@/functions/resolutions";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 import {
   getMutationResultErrorMessage,
@@ -37,14 +47,17 @@ import {
 } from "@/lib/mutation-result";
 
 import { DscSignSection } from "./dsc-sign-section";
+import { EsignSignSection } from "./esign-sign-section";
 import { governanceDocumentHref } from "./evidence";
 import { errorText, type MeetingDetail } from "./meeting-data";
+import { SegmentedChoice } from "./segmented-choice";
 import { useVoteReauth } from "./use-vote-reauth";
 
 /**
  * After the meeting: the proceedings for the minutes, the generated PDF,
- * and the chair's DSC signature, through the helper or a copy signed in
- * Acrobat.
+ * and the chair's signature: with their DSC, through the helper or a copy
+ * signed in Acrobat, or with Aadhaar eSign on Leegality, as chosen when
+ * the minutes are made.
  */
 export function MeetingMinutesPanel({
   canManage,
@@ -60,6 +73,15 @@ export function MeetingMinutesPanel({
   const generate = useServerFn(generateMinutesFn);
   const presign = useServerFn(getMinutesUploadUrl);
   const submit = useServerFn(submitSignedMinutesFn);
+  const esignLink = useServerFn(getMinutesEsignLinkFn);
+  const collectEsign = useServerFn(collectMinutesEsignFn);
+  const esignAvailable = useServerFn(getEsignAvailableFn);
+  // Null until known; making the minutes waits for it.
+  const [canEsign, setCanEsign] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<SigningMode>(
+    meeting.minutesSigningMode ?? "dsc"
+  );
+  const [checking, setChecking] = useState(false);
   const [notes, setNotes] = useState(meeting.notes ?? "");
   const [generating, setGenerating] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -68,10 +90,41 @@ export function MeetingMinutesPanel({
   // Without the helper, Acrobat is the only way, so it shows open.
   const [dscAvailable, setDscAvailable] = useState<boolean | null>(null);
   const signed = !!meeting.minutesDocumentId;
+
+  useEffect(() => {
+    if (!canManage || signed) {
+      return;
+    }
+    let current = true;
+    esignAvailable()
+      .then(({ available }) => {
+        if (current) {
+          setCanEsign(available);
+        }
+      })
+      .catch((error: unknown) => {
+        if (current) {
+          setCanEsign(false);
+        }
+        log.error({
+          action: "meeting.esign.available",
+          caughtError: errorText(error, "unknown"),
+          component: "MeetingMinutesPanel",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [canManage, esignAvailable, signed]);
   const href = getProtectedAttachmentHref({
     id: meeting.id,
     kind: "meetingMinutes",
   });
+  const esignMode = meeting.minutesSigningMode === "esign";
+  const lapsed =
+    esignMode && esignLapsed(new Date(meeting.updatedAt))
+      ? "The chair's Leegality invitation has lapsed. A governance manager makes the minutes again to send a new one."
+      : undefined;
 
   const saveNotes = useEventCallback(async () => {
     const result = await zero.mutate(
@@ -86,7 +139,9 @@ export function MeetingMinutesPanel({
   });
   const handleGenerate = useEventCallback(async () => {
     setGenerating(true);
-    await generate({ data: { id: meeting.id } })
+    await generate({
+      data: { id: meeting.id, signingMode: canEsign ? mode : "dsc" },
+    })
       .then(() => {
         toast.success("Minutes ready for the chair to sign");
       })
@@ -181,8 +236,66 @@ export function MeetingMinutesPanel({
       </li>
     </ol>
   );
+  const handleCheck = useEventCallback(async () => {
+    setChecking(true);
+    await collectEsign({ data: { id: meeting.id } })
+      .then(({ message }) => toast.success(message))
+      .catch((error: unknown) => {
+        log.error({
+          action: "meeting.esign.collect",
+          caughtError: errorText(error, "unknown"),
+          component: "MeetingMinutesPanel",
+        });
+        toast.error("Couldn't take the eSign", {
+          description: errorText(error, "Something went wrong"),
+        });
+      })
+      .finally(() => setChecking(false));
+  });
+
+  const preview = (
+    <FilePreviewButton
+      className="text-primary self-start text-sm underline-offset-4 hover:underline"
+      fileName="Minutes"
+      src={href}
+    >
+      Preview the minutes sent to Leegality
+    </FilePreviewButton>
+  );
   let signing = acrobat;
-  if (isChair) {
+  if (esignMode) {
+    signing = (
+      <div className="flex flex-col gap-3">
+        {preview}
+        {isChair ? (
+          <EsignSignSection
+            action="meeting.sign_minutes"
+            collect={() => collectEsign({ data: { id: meeting.id } })}
+            lapsed={lapsed}
+            link={() => esignLink({ data: { id: meeting.id } })}
+          />
+        ) : lapsed ? (
+          <p className="text-muted-foreground text-sm">{lapsed}</p>
+        ) : (
+          <div className="flex flex-col items-start gap-2 text-sm">
+            <p className="text-muted-foreground">
+              The chair signs on Leegality with Aadhaar eSign. Their signature
+              is taken within ten minutes, or check now.
+            </p>
+            <Button
+              disabled={checking}
+              onClick={handleCheck}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {checking ? "Checking..." : "Check for the eSign"}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  } else if (isChair) {
     signing = (
       <div className="flex flex-col gap-4">
         <DscSignSection
@@ -251,8 +364,26 @@ export function MeetingMinutesPanel({
             >
               Save proceedings
             </Button>
+          </div>
+          {canEsign ? (
+            <div className="flex flex-col gap-1.5">
+              <span aria-hidden className="text-sm font-medium">
+                Signed with
+              </span>
+              <SegmentedChoice
+                label="Signed with"
+                onChange={(value) => setMode(value ?? mode)}
+                options={signingModeValues.map((value) => ({
+                  label: SIGNING_MODE_LABELS[value],
+                  value,
+                }))}
+                value={mode}
+              />
+            </div>
+          ) : null}
+          <div>
             <Button
-              disabled={generating}
+              disabled={generating || canEsign === null}
               onClick={handleGenerate}
               type="button"
             >
@@ -264,6 +395,9 @@ export function MeetingMinutesPanel({
           <p className="text-muted-foreground text-xs">
             The minutes are made from the agenda, attendance and votes. Make
             them again after changing the notes.
+            {canEsign
+              ? " The chair signs them with their DSC, or with Aadhaar eSign on Leegality (a billed eSign)."
+              : ""}
           </p>
         </div>
       ) : null}

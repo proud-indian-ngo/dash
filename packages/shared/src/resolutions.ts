@@ -91,6 +91,18 @@ export const SIGNING_MODE_LABELS: Record<SigningMode, string> = {
 /** Leegality keeps an eSign invitation for at most this many days. */
 export const ESIGN_MAX_RESPONSE_DAYS = 30;
 
+/**
+ * Whether a document sent for eSign at `sentAt` with the longest expiry
+ * has lapsed on Leegality (invitations run to the end of the last day, so
+ * a day's grace).
+ */
+export function esignLapsed(sentAt: Date, now: Date = new Date()): boolean {
+  return (
+    now.getTime() - sentAt.getTime() >
+    (ESIGN_MAX_RESPONSE_DAYS + 1) * 86_400_000
+  );
+}
+
 // ── Templates ───────────────────────────────────────────────────────────────
 
 export const resolutionTemplateKeyValues = [

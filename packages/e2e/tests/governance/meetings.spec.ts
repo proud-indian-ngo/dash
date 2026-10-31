@@ -8,7 +8,9 @@ import { expect, test } from "../../fixtures/test";
  * Vikram Menon and Meera Iyer were in office that day, and version 2 of the
  * deed (a quorum of half the board, at least two, video counting) was in
  * force. The first test takes the seeded meeting through to its minutes;
- * the others create their own meetings. Signing the minutes needs a DSC.
+ * the others create their own meetings. Its minutes are made for the DSC,
+ * then again for Aadhaar eSign, which the chair signs on the fake Leegality
+ * beside the signing service (signing/fake-leegality.py).
  */
 
 const SEEDED_MEETING = "Board meeting, October 2026";
@@ -120,6 +122,43 @@ test.describe("board meetings (super admin)", () => {
     await expect(
       minutes.getByRole("link", { name: "Download minutes" })
     ).toHaveAttribute("href", /kind=meetingMinutes/, { timeout: 30_000 });
+
+    // Made again for Aadhaar eSign: the chair signs on Leegality (the fake
+    // beside the signing service) and records it here.
+    await minutes
+      .getByRole("group", { name: "Signed with" })
+      .getByRole("button", { name: "Aadhaar eSign" })
+      .click();
+    await minutes
+      .getByRole("button", { name: "Make the minutes again" })
+      .click();
+    await expect(
+      minutes.getByRole("button", { name: "Sign with Aadhaar eSign" })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      minutes.getByRole("link", { name: "Download minutes" })
+    ).toHaveCount(0);
+    await expect(
+      minutes.getByRole("button", {
+        name: "Preview the minutes sent to Leegality",
+      })
+    ).toBeVisible();
+    // The minutes' reference on Leegality, from the meeting's ID.
+    const meetingId = page.url().split("/").at(-1)?.split("?")[0] ?? "";
+    const signed = await page.request.post(
+      `${process.env.LEEGALITY_API_URL ?? ""}/test/sign`,
+      {
+        data: {
+          irn: `M-${meetingId.replaceAll("-", "").slice(-8).toUpperCase()}`,
+          name: "Asha Rao",
+        },
+      }
+    );
+    expect(signed.ok()).toBe(true);
+    await minutes.getByRole("button", { name: "I've signed" }).click();
+    await expect(
+      minutes.getByText("Signed by the chair and filed in the vault.")
+    ).toBeVisible({ timeout: 30_000 });
   });
 
   test("won't send a notice short of the deed's seven days, then sends it", async ({

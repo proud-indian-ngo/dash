@@ -7,6 +7,7 @@ import {
   SAFEGUARDING_POLICY_KEY,
 } from "@pi-dash/shared/declarations";
 import { boardOn, isHeldOn } from "@pi-dash/shared/governance";
+import type { SigningMode } from "@pi-dash/shared/resolutions";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -18,8 +19,10 @@ import {
   policyVersion,
 } from "../schema/declarations";
 import { trustee, trusteeTerm } from "../schema/governance";
+import type { EsignInvitee } from "../schema/private/esign";
 import { team } from "../schema/team";
 import { teamEvent } from "../schema/team-event";
+import { saveEsignDocument } from "./esign";
 import { loadRegister, type Tx } from "./resolutions";
 
 export class PolicyError extends Error {}
@@ -178,12 +181,15 @@ export async function safeguardingBlocks(
  */
 export async function saveDeclarationAwaitingSignature(input: {
   declaredBy: string;
+  /** The Leegality document an eSign copy is signed on, recorded with it. */
+  esign?: { documentId: string; invitees: EsignInvitee[] };
   fiscalYear: string;
   interests: DeclaredInterest[];
   objectKey: string;
   sha256: string;
+  signingMode: SigningMode;
   trusteeId: string;
-}): Promise<void> {
+}): Promise<string> {
   const now = new Date();
   const content = {
     declaredAt: now,
@@ -192,23 +198,53 @@ export async function saveDeclarationAwaitingSignature(input: {
     nothingToDeclare: input.interests.length === 0,
     objectKey: input.objectKey,
     sha256: input.sha256,
+    signingMode: input.signingMode,
     updatedAt: now,
   };
-  await db
-    .insert(conflictDeclaration)
-    .values({
-      ...content,
-      createdAt: now,
-      fiscalYear: input.fiscalYear,
-      id: uuidv7(),
-      status: "awaiting_signature",
-      trusteeId: input.trusteeId,
-    })
-    .onConflictDoUpdate({
-      set: content,
-      target: [conflictDeclaration.trusteeId, conflictDeclaration.fiscalYear],
-      targetWhere: sql`${conflictDeclaration.status} = 'awaiting_signature'`,
-    });
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(conflictDeclaration)
+      .values({
+        ...content,
+        createdAt: now,
+        fiscalYear: input.fiscalYear,
+        id: uuidv7(),
+        status: "awaiting_signature",
+        trusteeId: input.trusteeId,
+      })
+      .onConflictDoUpdate({
+        set: content,
+        target: [conflictDeclaration.trusteeId, conflictDeclaration.fiscalYear],
+        targetWhere: sql`${conflictDeclaration.status} = 'awaiting_signature'`,
+      })
+      .returning({ id: conflictDeclaration.id });
+    if (!row) {
+      throw new DeclarationError("The declaration couldn't be saved.");
+    }
+    if (input.esign) {
+      await saveEsignDocument({ declarationId: row.id }, input.esign, tx);
+    }
+    return row.id;
+  });
+}
+
+/** The trustee's declaration for the year still awaiting their signature. */
+export async function awaitingDeclarationId(
+  trusteeId: string,
+  fiscalYear: string
+): Promise<string | null> {
+  const [row] = await db
+    .select({ id: conflictDeclaration.id })
+    .from(conflictDeclaration)
+    .where(
+      and(
+        eq(conflictDeclaration.trusteeId, trusteeId),
+        eq(conflictDeclaration.fiscalYear, fiscalYear),
+        eq(conflictDeclaration.status, "awaiting_signature")
+      )
+    )
+    .limit(1);
+  return row?.id ?? null;
 }
 
 /** A declaration with its trustee's name and linked account. */

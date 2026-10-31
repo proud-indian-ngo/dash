@@ -13,6 +13,9 @@ import { expect, test } from "../../fixtures/test";
 const VENDOR_PAYMENT = "/vendor-payments/e2e00000-0000-0000-0000-000000000004";
 
 test.describe("declarations (super admin)", () => {
+  // The DSC and Aadhaar eSign tests each replace Asha Rao's waiting
+  // declaration, so they take turns.
+  test.describe.configure({ mode: "serial" });
   test.beforeEach(({ page: _page }, testInfo) => {
     test.skip(testInfo.project.name !== "super_admin", "Super-admin test");
   });
@@ -75,6 +78,63 @@ test.describe("declarations (super admin)", () => {
       timeout: 20_000,
     });
     await expect(prompt.getByRole("link", { name: "Sign" })).toBeVisible();
+  });
+
+  test("a declaration signed with Aadhaar eSign is in force", async ({
+    page,
+  }) => {
+    test.slow();
+    const party = `E2E eSigned Party ${Date.now()}`;
+    await page.goto("/governance/declarations");
+    await page
+      .getByRole("button", {
+        name: /Declare my interests|Update my declaration/,
+      })
+      .click();
+    const dialog = page.getByRole("dialog", { name: /Declare your interests/ });
+    await dialog.getByRole("button", { name: "Add an interest" }).click();
+    await dialog
+      .getByLabel("Person or organisation", { exact: true })
+      .last()
+      .fill(party);
+    await dialog
+      .getByLabel("Relationship", { exact: true })
+      .last()
+      .fill("Director");
+    await dialog
+      .getByRole("group", { name: "Signed with" })
+      .getByRole("button", { name: "Aadhaar eSign" })
+      .click();
+    await dialog.getByRole("button", { exact: true, name: "Declare" }).click();
+    await expect(dialog).toBeHidden({ timeout: 30_000 });
+
+    // Leegality only: no DSC helper or Acrobat copy, but a preview.
+    await expect(
+      page.getByRole("button", { name: "Sign with Aadhaar eSign" })
+    ).toBeVisible();
+    await expect(
+      page.locator("a[href*='kind=declarationPdf']", {
+        hasText: "Download declaration",
+      })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", {
+        name: "Preview the declaration sent to Leegality",
+      })
+    ).toBeVisible();
+    const signed = await page.request.post(
+      `${process.env.LEEGALITY_API_URL ?? ""}/test/sign`,
+      { data: { irnPrefix: "DOI-", name: "Asha Rao" } }
+    );
+    expect(signed.ok()).toBe(true);
+    await page.getByRole("button", { name: "I've signed" }).click();
+    await expect(
+      page.getByText("Signed. Your declaration is in force.")
+    ).toBeVisible({
+      timeout: 30_000,
+    });
+    const asha = page.getByRole("row").filter({ hasText: "Asha Rao" }).first();
+    await expect(asha).toContainText(party, { timeout: 20_000 });
   });
 
   test("a budget item on the calendar opens its resolution template", async ({

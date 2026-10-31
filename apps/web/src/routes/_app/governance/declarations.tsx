@@ -22,11 +22,17 @@ import {
   boardOn,
   GOVERNANCE_PAGE_PERMISSIONS,
 } from "@pi-dash/shared/governance";
+import {
+  SIGNING_MODE_LABELS,
+  type SigningMode,
+  signingModeValues,
+} from "@pi-dash/shared/resolutions";
 import { queries } from "@pi-dash/zero/queries";
 import { useQuery } from "@rocicorp/zero/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { log } from "evlog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DataTableWrapper } from "@/components/data-table/data-table-wrapper";
@@ -35,6 +41,7 @@ import { DeclarationSignPanel } from "@/components/governance/declaration-sign-p
 import { governanceDocumentHref } from "@/components/governance/evidence";
 import { errorText } from "@/components/governance/meeting-data";
 import { todayIso, useRegister } from "@/components/governance/register-data";
+import { SegmentedChoice } from "@/components/governance/segmented-choice";
 import { FilePreviewButton } from "@/components/shared/file-preview";
 import { PageHeader } from "@/components/shared/page-header";
 import {
@@ -52,6 +59,7 @@ import {
 import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import { useApp } from "@/context/app-context";
 import { submitConflictDeclarationFn } from "@/functions/declarations";
+import { getEsignAvailableFn } from "@/functions/resolutions";
 import { formatTimestamp } from "@/lib/date-formats";
 import { preloadRouteQuery } from "@/lib/route-preload";
 
@@ -317,7 +325,7 @@ function DeclarationsPage() {
             </Button>
           ) : null
         }
-        description={`Each trustee declares, every financial year, the people and organisations they're connected to (clause 5.3), and signs the declaration with their DSC. Finance is warned when a payment goes to one of them. This year: ${fiscalYear}.`}
+        description={`Each trustee declares, every financial year, the people and organisations they're connected to (clause 5.3), and signs the declaration. Finance is warned when a payment goes to one of them. This year: ${fiscalYear}.`}
         title="Declarations of interests"
       />
       {isTrustee ? (
@@ -338,10 +346,17 @@ function DeclarationsPage() {
                 {formatTimestamp(
                   new Date(my.awaiting.declaredAt).toISOString()
                 )}
-                , is waiting for your signature. It counts once you sign it with
-                your DSC.
+                , is waiting for your signature. It counts once you sign it with{" "}
+                {my.awaiting.signingMode === "esign"
+                  ? "Aadhaar eSign"
+                  : "your DSC"}
+                .
               </p>
-              <DeclarationSignPanel declarationId={my.awaiting.id} />
+              <DeclarationSignPanel
+                declarationId={my.awaiting.id}
+                declaredAt={my.awaiting.declaredAt}
+                signingMode={my.awaiting.signingMode ?? "dsc"}
+              />
             </>
           ) : null}
           {my ? null : (
@@ -411,6 +426,32 @@ function DeclareDialog({
   onClose: () => void;
 }) {
   const submit = useServerFn(submitConflictDeclarationFn);
+  const esignAvailable = useServerFn(getEsignAvailableFn);
+  // Null until known; declaring waits for it.
+  const [canEsign, setCanEsign] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<SigningMode>("dsc");
+  useEffect(() => {
+    let current = true;
+    esignAvailable()
+      .then(({ available }) => {
+        if (current) {
+          setCanEsign(available);
+        }
+      })
+      .catch((error: unknown) => {
+        if (current) {
+          setCanEsign(false);
+        }
+        log.error({
+          action: "governance.declaration.esign.available",
+          caughtError: errorText(error, "unknown"),
+          component: "DeclareDialog",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [esignAvailable]);
   const [rows, setRows] = useState<DeclaredInterest[]>(() => [...initial]);
   const [busy, setBusy] = useState(false);
   const update = (index: number, patch: Partial<DeclaredInterest>) =>
@@ -421,14 +462,15 @@ function DeclareDialog({
 
   const handleSubmit = useEventCallback(async () => {
     setBusy(true);
-    await submit({ data: { interests: rows } })
+    const signingMode = canEsign ? mode : "dsc";
+    await submit({ data: { interests: rows, signingMode } })
       .then(() => {
         toast.success(
           rows.length === 0
             ? `Declared: no interests for ${fiscalYear}`
             : `Declared ${rows.length} interest${rows.length === 1 ? "" : "s"} for ${fiscalYear}`,
           {
-            description: "Sign it with your DSC to make it count.",
+            description: `Sign it with ${signingMode === "esign" ? "Aadhaar eSign" : "your DSC"} to make it count.`,
           }
         );
         onClose();
@@ -458,7 +500,7 @@ function DeclareDialog({
             to and that deal or may deal with the Trust: a business you own or
             direct, a firm a relative runs, a supplier you're related to. Leave
             the list empty if there are none. You then sign the declaration with
-            your DSC.
+            your DSC{canEsign ? " or Aadhaar eSign" : ""}.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -537,12 +579,28 @@ function DeclareDialog({
             </Button>
           </div>
         </div>
+        {canEsign ? (
+          <div className="flex flex-col gap-1.5">
+            <span aria-hidden className="text-sm font-medium">
+              Signed with
+            </span>
+            <SegmentedChoice
+              label="Signed with"
+              onChange={(value) => setMode(value ?? mode)}
+              options={signingModeValues.map((value) => ({
+                label: SIGNING_MODE_LABELS[value],
+                value,
+              }))}
+              value={mode}
+            />
+          </div>
+        ) : null}
         <DialogFooter>
           <Button onClick={onClose} type="button" variant="outline">
             Cancel
           </Button>
           <Button
-            disabled={busy || !complete}
+            disabled={busy || !complete || canEsign === null}
             onClick={handleSubmit}
             type="button"
           >

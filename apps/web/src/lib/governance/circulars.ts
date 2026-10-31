@@ -494,7 +494,7 @@ export function checkEsignedCopy(input: {
   for (let i = 0; i < current.byteLength; i++) {
     if (signed[i] !== current[i]) {
       throw fault(
-        "Leegality's copy no longer extends the circular on record, so its signatures can't be taken."
+        "Leegality's copy no longer extends the copy on record, so its signatures can't be taken."
       );
     }
   }

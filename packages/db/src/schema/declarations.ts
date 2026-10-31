@@ -18,7 +18,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { governanceDocument, trustee } from "./governance";
+import { governanceDocument, signingModeEnum, trustee } from "./governance";
 import { jsonb } from "./jsonb";
 
 /**
@@ -57,6 +57,8 @@ export const conflictDeclaration = pgTable(
     objectKey: text("object_key"),
     /** Of the generated PDF, so a signature is accepted only on that copy. */
     sha256: text("sha256"),
+    /** The trustee's DSC, or Aadhaar eSign on Leegality; chosen when declaring. */
+    signingMode: signingModeEnum("signing_mode").default("dsc").notNull(),
     status: conflictDeclarationStatusEnum("status").notNull(),
     trusteeId: uuid("trustee_id")
       .notNull()

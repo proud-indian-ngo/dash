@@ -27,6 +27,7 @@ async function sendToSign({
     grantTitle: certificate.snapshot.grant.title,
     number: certificate.number,
     role: SIGNATORY_ROLE_LABELS[role],
+    signingMode: certificate.signingMode,
     userId,
   });
   return { recipients: 1 };

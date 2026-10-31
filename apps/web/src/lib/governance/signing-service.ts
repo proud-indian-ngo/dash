@@ -202,7 +202,7 @@ export async function finalizeForArchive(
 }
 
 /**
- * The copy of a circular sent to Leegality for Aadhaar eSign: the PDF with
+ * The copy of a document sent to Leegality for Aadhaar eSign: the PDF with
  * an empty form, and its page count for the signers' boxes.
  */
 export async function prepareForEsign(

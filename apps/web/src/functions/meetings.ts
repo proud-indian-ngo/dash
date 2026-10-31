@@ -44,6 +44,8 @@ import {
 import {
   effectProblem,
   RESOLUTION_TEMPLATES,
+  type SigningMode,
+  signingModeValues,
 } from "@pi-dash/shared/resolutions";
 import { parseRichText, richTextHasText } from "@pi-dash/shared/rich-text";
 import { createServerFn } from "@tanstack/react-start";
@@ -58,10 +60,21 @@ import {
 } from "@/lib/governance/accept-signature";
 import {
   assertOwnSignedUpload,
+  assertRecentSignIn,
   CircularError,
   fieldRequests,
   sha256Of,
 } from "@/lib/governance/circulars";
+import {
+  collectMinutesEsign,
+  dropEsign,
+  minutesSigningLink,
+  sendMinutesForEsign,
+} from "@/lib/governance/esign-documents";
+import {
+  LeegalityError,
+  leegalityConfigured,
+} from "@/lib/governance/leegality";
 import {
   prepareSignatureFields,
   SigningServiceError,
@@ -85,6 +98,7 @@ function userFacing<T>(run: () => Promise<T>): Promise<T> {
       error instanceof MeetingError ||
       error instanceof ResolutionError ||
       error instanceof CircularError ||
+      error instanceof LeegalityError ||
       error instanceof SigningServiceError
     ) {
       throw userFacingError(error);
@@ -394,7 +408,7 @@ export const markMeetingHeldFn = createServerFn({ method: "POST" })
 /** Renders the minutes from the record, with the chair's empty signature field. */
 export const generateMinutesFn = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ id: z.uuid() }))
+  .validator(z.object({ id: z.uuid(), signingMode: z.enum(signingModeValues) }))
   .handler(async ({ context, data }) => {
     if (!context.session) {
       throw new HttpError(401, "Unauthorized");
@@ -405,11 +419,15 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
       context.headers,
       {
         action: "meeting.generate_minutes",
+        metadata: { signingMode: data.signingMode },
         target: { id: data.id, type: "meeting" },
       },
       () =>
         userFacing(async () => {
           await assertServerPermission(session, "governance.manage");
+          if (data.signingMode === "esign" && !leegalityConfigured()) {
+            throw new MeetingError("Aadhaar eSign isn't set up here.");
+          }
           const record = await loadMeetingRecord(data.id);
           if (!record) {
             throw new MeetingError("Meeting not found");
@@ -564,9 +582,29 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
             },
             place: row.place,
             reference: minutesReference(row.id),
+            signingMode: data.signingMode,
             startsAt: startsFmt.format(row.startsAt),
             title: row.title,
           });
+          if (data.signingMode === "esign") {
+            const sent = await sendMinutesForEsign({
+              chairTrusteeId: chairId,
+              meetingId: row.id,
+              reference: minutesReference(row.id),
+              rendered: new Uint8Array(rendered),
+            });
+            await setGeneratedMinutes(row.id, {
+              esign: sent.esign,
+              objectKey: sent.objectKey,
+              renderedFrom: row.updatedAt,
+              sha256: sent.sha256,
+              signingMode: "esign",
+            }).catch(async (error: unknown) => {
+              await sent.discard();
+              throw error;
+            });
+            return;
+          }
           const pdf = await prepareSignatureFields(
             new Uint8Array(rendered),
             fieldRequests([chairId])
@@ -582,7 +620,10 @@ export const generateMinutesFn = createServerFn({ method: "POST" })
             objectKey,
             renderedFrom: row.updatedAt,
             sha256,
+            signingMode: "dsc",
           });
+          // Generated again for DSC: an earlier eSign copy's invitation goes.
+          await dropEsign({ meetingId: row.id });
         })
     );
   });
@@ -601,13 +642,96 @@ async function chairUserId(meetingId: string): Promise<string | null> {
 /** Governance managers file the chair's signed copy; the chair may file it themselves. */
 async function assertCanFileMinutes(
   session: { user: { id: string; role?: string | null } },
-  meetingId: string
+  meetingId: string,
+  signingMode: SigningMode = "dsc"
 ) {
-  if ((await chairUserId(meetingId)) === session.user.id) {
-    return;
+  if ((await chairUserId(meetingId)) !== session.user.id) {
+    await assertServerPermission(session, "governance.manage");
   }
-  await assertServerPermission(session, "governance.manage");
+  const row = await getMeeting(meetingId);
+  if ((row?.minutesSigningMode ?? "dsc") !== signingMode) {
+    throw new MeetingError(
+      signingMode === "dsc"
+        ? "These minutes are signed with Aadhaar eSign, on Leegality only."
+        : "These minutes are signed with the chair's DSC."
+    );
+  }
 }
+
+/** The chair's Leegality link on Aadhaar eSign minutes. */
+export const getMinutesEsignLinkFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "meeting.sign_minutes.start",
+        metadata: { method: "esign" },
+        target: { id: data.id, type: "meeting" },
+      },
+      () =>
+        userFacing(async () => {
+          assertRecentSignIn(session);
+          const row = await getMeeting(data.id);
+          if (
+            !row?.chairTrusteeId ||
+            (await chairUserId(data.id)) !== session.user.id
+          ) {
+            throw new MeetingError("Only the chair signs the minutes.");
+          }
+          if (row.minutesSigningMode !== "esign") {
+            throw new MeetingError(
+              "These minutes are signed with the chair's DSC."
+            );
+          }
+          return {
+            url: await minutesSigningLink(data.id, row.chairTrusteeId),
+          };
+        })
+    );
+  });
+
+/**
+ * Takes the chair's eSign on the minutes from Leegality, for the chair or
+ * `governance.manage`; audited in the chair's name. The scheduled check
+ * does the same.
+ */
+export const collectMinutesEsignFn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ id: z.uuid() }))
+  .handler(async ({ context, data }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+    const { session } = context;
+    return await runSessionAuditedAction(
+      session,
+      context.headers,
+      {
+        action: "meeting.esign.collect",
+        target: { id: data.id, type: "meeting" },
+      },
+      () =>
+        userFacing(async () => {
+          await assertCanFileMinutes(session, data.id, "esign");
+          const found = await collectMinutesEsign(data.id);
+          return {
+            message: {
+              recorded: "The minutes are signed.",
+              signed: "The chair's eSign is already recorded.",
+              waiting:
+                "No eSign on Leegality yet. If the chair has just signed, try again in a minute.",
+            }[found],
+          };
+        })
+    );
+  });
 
 export const getMinutesUploadUrl = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

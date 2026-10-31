@@ -149,6 +149,8 @@ export async function createEsignDocument(
     irn: string;
     name: string;
     pdf: Uint8Array;
+    /** Invite them one after another, in this order. */
+    sequential?: boolean;
     signers: EsignInvitation[];
   },
   fetcher: typeof fetch = fetch
@@ -177,7 +179,7 @@ export async function createEsignDocument(
           signatures: [{ config: { authTypes: ["OTP"] }, type: "AADHAAR" }],
         })),
         irn: input.irn,
-        requestSignOrder: false,
+        requestSignOrder: input.sequential ?? false,
       }),
       method: "POST",
     },

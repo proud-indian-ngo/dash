@@ -1,6 +1,11 @@
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
 import { formatPaise, rupeesToPaise } from "@pi-dash/shared/money";
 import {
+  SIGNING_MODE_LABELS,
+  type SigningMode,
+  signingModeValues,
+} from "@pi-dash/shared/resolutions";
+import {
   CERTIFICATE_PLACE_MAX,
   signatoryTitle,
 } from "@pi-dash/shared/utilisation-certificates";
@@ -17,6 +22,7 @@ import { DateField } from "@/components/form/date-field";
 import { FormActions } from "@/components/form/form-actions";
 import { FormLayout } from "@/components/form/form-layout";
 import { InputField } from "@/components/form/input-field";
+import { SegmentedChoice } from "@/components/governance/segmented-choice";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/responsive-dialog";
+import { getEsignAvailableFn } from "@/functions/resolutions";
 import {
   prepareCertificateFn,
   previewUtilisationCertificate,
@@ -130,6 +137,32 @@ function PrepareForm({
   const navigate = useNavigate();
   const loadPreview = useServerFn(previewUtilisationCertificate);
   const prepare = useServerFn(prepareCertificateFn);
+  const esignAvailable = useServerFn(getEsignAvailableFn);
+  // Null until known; preparing waits for it.
+  const [canEsign, setCanEsign] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<SigningMode>("dsc");
+  useEffect(() => {
+    let current = true;
+    esignAvailable()
+      .then(({ available }) => {
+        if (current) {
+          setCanEsign(available);
+        }
+      })
+      .catch((error: unknown) => {
+        if (current) {
+          setCanEsign(false);
+        }
+        log.error({
+          action: "utilisation_certificate.esign.available",
+          caughtError: error instanceof Error ? error.message : "unknown",
+          component: "PrepareCertificateDialog",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [esignAvailable]);
   const [preview, setPreview] = useState<{
     key: string;
     value: Preview;
@@ -148,6 +181,7 @@ function PrepareForm({
           grantId,
           interestPaise: rupeesToPaise(value.interest.trim()),
           place: value.place.trim(),
+          signingMode: canEsign ? mode : "dsc",
           to: localDateToIso(value.to) ?? "",
         },
       })
@@ -241,6 +275,27 @@ function PrepareForm({
         />
         <InputField isRequired label="Place" name="place" />
       </div>
+      {canEsign ? (
+        <div className="flex flex-col gap-1.5">
+          <span aria-hidden className="text-sm font-medium">
+            Signed with
+          </span>
+          <SegmentedChoice
+            label="Signed with"
+            onChange={(value) => setMode(value ?? mode)}
+            options={signingModeValues.map((value) => ({
+              label: SIGNING_MODE_LABELS[value],
+              value,
+            }))}
+            value={mode}
+          />
+          <p className="text-muted-foreground text-sm">
+            {mode === "esign"
+              ? "Both trustees sign on Leegality with Aadhaar eSign, the Head of the Organisation first; each is a billed eSign, and the invitations last 30 days. Check the funder accepts an eSign."
+              : "Both trustees sign with their DSC tokens, the Head of the Organisation first."}
+          </p>
+        </div>
+      ) : null}
       {shown ? (
         <PreviewPanel preview={shown} />
       ) : (
@@ -249,7 +304,7 @@ function PrepareForm({
         </p>
       )}
       <FormActions
-        disabled={!shown || shown.problems.length > 0}
+        disabled={!shown || shown.problems.length > 0 || canEsign === null}
         onCancel={cancel}
         submitLabel="Prepare certificate"
         submittingLabel="Preparing..."

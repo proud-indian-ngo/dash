@@ -57,7 +57,7 @@ export function DeclareInterests() {
       <CardContent className="hover:bg-muted/40 relative flex items-center justify-between gap-3 px-4 py-2.5 transition-colors">
         <p className="text-sm">
           {awaiting
-            ? `Your declaration for ${fiscalYear} is waiting for your signature. Sign it with your DSC to make it count.`
+            ? `Your declaration for ${fiscalYear} is waiting for your signature. Sign it with ${mine?.awaiting?.signingMode === "esign" ? "Aadhaar eSign" : "your DSC"} to make it count.`
             : `As a trustee, declare the people and organisations you're connected to for ${fiscalYear}, or that there are none (clause 5.3).`}
         </p>
         <Link

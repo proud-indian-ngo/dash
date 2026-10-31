@@ -13,6 +13,7 @@ import z from "zod";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { assertRecentSignIn, CircularError } from "@/lib/governance/circulars";
 import { assertDscCircular } from "@/lib/governance/esign";
+import { assertDscSigned } from "@/lib/governance/esign-documents";
 import { signingCopy } from "@/lib/governance/signing-copy";
 import {
   jobStatusFor,
@@ -166,6 +167,7 @@ export const startDscMinutesSigningFn = createServerFn({ method: "POST" })
       },
       () =>
         userFacing(async () => {
+          await assertDscSigned({ meetingId: data.meetingId });
           assertRecentSignIn(session);
           const me = await linkedTrustee(session.user.id);
           if (!me) {
@@ -198,6 +200,7 @@ export const startDscDeclarationSigningFn = createServerFn({ method: "POST" })
       },
       () =>
         userFacing(async () => {
+          await assertDscSigned({ declarationId: data.declarationId });
           assertRecentSignIn(session);
           const me = await linkedTrustee(session.user.id);
           if (!me) {
@@ -233,6 +236,7 @@ export const startDscCertificateSigningFn = createServerFn({ method: "POST" })
       },
       () =>
         userFacing(async () => {
+          await assertDscSigned({ certificateId: data.certificateId });
           assertRecentSignIn(session);
           const me = await linkedTrustee(session.user.id);
           if (!me) {

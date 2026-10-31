@@ -25,7 +25,7 @@ import {
 
 import { user } from "./auth";
 import { accountHead, programme, project } from "./finance-dimensions";
-import { governanceDocument, trustee } from "./governance";
+import { governanceDocument, signingModeEnum, trustee } from "./governance";
 import { contribution } from "./income";
 import { jsonb } from "./jsonb";
 import { party } from "./party";
@@ -217,6 +217,8 @@ export const utilisationCertificate = pgTable(
       onDelete: "set null",
     }),
     sequence: integer("sequence").notNull(),
+    /** The signers' DSCs, or Aadhaar eSign on Leegality; chosen when preparing. */
+    signingMode: signingModeEnum("signing_mode").default("dsc").notNull(),
     snapshot: jsonb("snapshot")
       .$type<UtilisationCertificateSnapshot>()
       .notNull(),

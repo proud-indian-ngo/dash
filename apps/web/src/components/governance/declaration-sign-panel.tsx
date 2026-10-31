@@ -16,29 +16,41 @@ import {
 import { Input } from "@pi-dash/design-system/components/ui/input";
 import { Label } from "@pi-dash/design-system/components/ui/label";
 import { useEventCallback } from "@pi-dash/design-system/hooks/use-event-callback";
+import { esignLapsed, type SigningMode } from "@pi-dash/shared/resolutions";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FilePreviewButton } from "@/components/shared/file-preview";
 import {
+  collectDeclarationEsignFn,
+  getDeclarationEsignLinkFn,
   getDeclarationUploadUrl,
   submitSignedDeclarationFn,
 } from "@/functions/declarations";
 import { getProtectedAttachmentHref } from "@/lib/attachment-links";
 
 import { DscSignSection } from "./dsc-sign-section";
+import { EsignSignSection } from "./esign-sign-section";
 import { errorText } from "./meeting-data";
 import { useVoteReauth } from "./use-vote-reauth";
 
 /**
- * The trustee signs their declaration waiting for signature with their DSC,
- * through the helper or a copy signed in Acrobat.
+ * The trustee signs their declaration waiting for signature: with their
+ * DSC, through the helper or a copy signed in Acrobat, or with Aadhaar
+ * eSign on Leegality, as chosen when declaring.
  */
 export function DeclarationSignPanel({
   declarationId,
+  declaredAt,
+  signingMode,
 }: {
   declarationId: string;
+  declaredAt: number;
+  signingMode: SigningMode;
 }) {
+  const esignLink = useServerFn(getDeclarationEsignLinkFn);
+  const collectEsign = useServerFn(collectDeclarationEsignFn);
   const presign = useServerFn(getDeclarationUploadUrl);
   const submit = useServerFn(submitSignedDeclarationFn);
   const [file, setFile] = useState<File | null>(null);
@@ -135,6 +147,30 @@ export function DeclarationSignPanel({
       </li>
     </ol>
   );
+
+  if (signingMode === "esign") {
+    return (
+      <div className="flex flex-col gap-3">
+        <FilePreviewButton
+          className="text-primary self-start text-sm underline-offset-4 hover:underline"
+          fileName="Declaration"
+          src={href}
+        >
+          Preview the declaration sent to Leegality
+        </FilePreviewButton>
+        <EsignSignSection
+          action="governance.sign_declaration"
+          collect={() => collectEsign({ data: { id: declarationId } })}
+          lapsed={
+            esignLapsed(new Date(declaredAt))
+              ? "Your Leegality invitation has lapsed. Declare again to get a new one."
+              : undefined
+          }
+          link={() => esignLink({ data: { id: declarationId } })}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

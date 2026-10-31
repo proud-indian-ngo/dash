@@ -1,6 +1,10 @@
 import { TRUSTEE_OFFICE_LABELS } from "@pi-dash/shared/governance";
 import { formatPaise } from "@pi-dash/shared/money";
-import { SIGNATURE_BOX, signatureSlots } from "@pi-dash/shared/resolutions";
+import {
+  SIGNATURE_BOX,
+  type SigningMode,
+  signatureSlots,
+} from "@pi-dash/shared/resolutions";
 import {
   percentOfBudget,
   SIGNATORY_ROLE_LABELS,
@@ -161,8 +165,11 @@ const CHECKS = [
 ];
 
 export function UtilisationCertificate({
+  signingMode = "dsc",
   snapshot,
 }: {
+  /** How the trustees sign; the boxes say so. */
+  signingMode?: SigningMode;
   snapshot: UtilisationCertificateSnapshot;
 }) {
   const { figures, grant, trust } = snapshot;
@@ -390,7 +397,7 @@ export function UtilisationCertificate({
         <View style={styles.signaturesHead}>
           <Text style={styles.title}>Signatures</Text>
           <Line style={styles.signaturesIntro}>
-            {`For ${trust.name}. The Head of the Organisation signs first, then the Chief Finance Officer, each in their own box with their digital signature certificate.`}
+            {`For ${trust.name}. The Head of the Organisation signs first, then the Chief Finance Officer, each in their own box with ${signingMode === "esign" ? "Aadhaar eSign" : "their digital signature certificate"}.`}
           </Line>
         </View>
         {slots.flatMap((slot, index) => {
@@ -412,7 +419,7 @@ export function UtilisationCertificate({
               key={`${slot.fieldName}-hint`}
               style={[styles.boxHint, { top: top + SIGNATURE_BOX.height + 3 }]}
             >
-              Digital signature
+              {signingMode === "esign" ? "Aadhaar eSign" : "Digital signature"}
             </Text>,
           ];
         })}
@@ -445,7 +452,10 @@ export function UtilisationCertificate({
 
 /** Renders the certificate from its snapshot. Server only. */
 export function generateUtilisationCertificatePdf(
-  snapshot: UtilisationCertificateSnapshot
+  snapshot: UtilisationCertificateSnapshot,
+  signingMode: SigningMode = "dsc"
 ): Promise<Buffer> {
-  return renderToBuffer(<UtilisationCertificate snapshot={snapshot} />);
+  return renderToBuffer(
+    <UtilisationCertificate signingMode={signingMode} snapshot={snapshot} />
+  );
 }
