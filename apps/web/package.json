@@ -22,7 +22,7 @@
     "@hugeicons/core-free-icons": "catalog:",
     "@hugeicons/react": "catalog:",
     "@keyseal/browser": "^0.1.1",
-    "@keyseal/server": "^0.1.1",
+    "@keyseal/server": "^0.2.0",
     "@marsidev/react-turnstile": "^1.6.3",
     "@modelcontextprotocol/server": "^2.4.0",
     "@pi-dash/auth": "workspace:*",
@@ -74,7 +74,7 @@
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@pi-dash/config": "workspace:*",
-    "@rolldown/plugin-babel": "^0.2.4",
+    "@rolldown/plugin-babel": "^0.3.0",
     "@tanstack/react-devtools": "^0.10.13",
     "@tanstack/react-router-devtools": "^1.167.2",
     "@types/babel__core": "^7.20.5",

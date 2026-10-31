@@ -1,6 +1,6 @@
 # pi-dash signing service: the generic KeySeal image with the pi-dash plugin.
 # Pass --build-arg KEYSEAL_SERVICE_IMAGE=<image> to build on a local one.
-ARG KEYSEAL_SERVICE_IMAGE=ghcr.io/somus/keyseal-service:0.1
+ARG KEYSEAL_SERVICE_IMAGE=ghcr.io/somus/keyseal-service:0.2
 FROM ${KEYSEAL_SERVICE_IMAGE}
 USER root
 COPY pyproject.toml /tmp/plugin/
