@@ -541,9 +541,12 @@ export function checkEsignedCopy(input: {
     if (signature.certifies !== false || (signature.locks?.length ?? 1) > 0) {
       throw fault("A new signature limits the signatures after it.");
     }
-    if (!(signature.timestamped && signature.timestampTime)) {
+    // Trusted as of this time: a timestamp's, or the signer's own (CDSL
+    // Ventures' eSigns carry no timestamp; their certificate lives about 30
+    // minutes, which bounds it).
+    if (!signature.signedAt) {
       throw fault(
-        "A new signature has no timestamp, so it can't be trusted once its certificate expires."
+        "A new signature says neither when it was made nor carries a timestamp, so it can't be trusted once its certificate expires."
       );
     }
     const signer = input.unsigned.find(
@@ -575,7 +578,7 @@ export function checkEsignedCopy(input: {
     return {
       end,
       signature,
-      signedAt: signature.timestampTime,
+      signedAt: signature.signedAt,
       trusteeId: signer.trusteeId,
     };
   });

@@ -79,6 +79,8 @@ function sig(
     signerName: "ASHA RAO",
     signingTime: null,
     subject: "CN=ASHA RAO",
+    signedAt: "2026-11-01T10:00:00+00:00",
+    signedAtSource: "timestamp",
     timestamped: true,
     timestampTime: "2026-11-01T10:00:00+00:00",
     trusted: true,

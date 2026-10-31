@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import hashlib
 import io
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from asn1crypto import algos, cms, core, x509
 from keyseal_service.validate import (
     DIFF_POLICY as GENERIC_DIFF_POLICY,
     ValidationSettings,
@@ -29,12 +33,19 @@ from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import HistoricalResolver, PdfFileReader
 from pyhanko.sign import signers, timestamps
 from pyhanko.sign.diff_analysis import StandardDiffPolicy, SuspiciousModification
-from pyhanko.sign.general import NonexistentAttributeError, find_unique_cms_attribute
+from pyhanko.sign.general import (
+    CMSStructuralError,
+    NonexistentAttributeError,
+    find_unique_cms_attribute,
+)
 from pyhanko.sign.validation import (
     DocumentSecurityStore,
     EmbeddedPdfSignature,
     async_add_validation_info,
+    async_validate_pdf_signature,
     async_validate_pdf_timestamp,
+    errors,
+    generic_cms,
 )
 
 #: Protean eGov CA 2022, under CCA India 2022. eSign certificates live about
@@ -44,6 +55,87 @@ INTERMEDIATES = load_trust_roots(Path(__file__).parent / "trust")
 
 #: What signing a new field may change, as pyHanko grades it.
 SIGNING_LEVELS = {"NONE", "LTA_UPDATES", "FORM_FILLING"}
+
+
+class _ExplicitAlgorithmProtection(core.Sequence):
+    """RFC 6211's CMSAlgorithmProtection with its algorithms EXPLICIT-tagged,
+    as CDSL Ventures' eSigns encode it; the RFC tags them implicitly."""
+
+    _fields = [
+        ("digest_algorithm", algos.DigestAlgorithm),
+        ("signature_algorithm", algos.SignedDigestAlgorithm, {"explicit": 1, "optional": True}),
+        ("mac_algorithm", algos.HmacAlgorithm, {"explicit": 2, "optional": True}),
+    ]
+
+
+#: Set during an eSign check, which reads CDSL Ventures' eSigns (`_esign_check`).
+_cdsl_quirks: ContextVar[bool] = ContextVar("cdsl_quirks", default=False)
+_validate_algorithm_protection = generic_cms.validate_algorithm_protection
+
+
+def _algorithm_protection(
+    attrs: cms.CMSAttributes,
+    claimed_digest_algorithm_obj: cms.DigestAlgorithm,
+    claimed_signature_algorithm_obj: algos.SignedDigestAlgorithm | None,
+    claimed_mac_algorithm_obj: algos.HmacAlgorithm | None,
+) -> None:
+    """pyHanko's check, which can't parse the explicit tagging; in an eSign
+    check, an attribute it can't parse is read that way and must still name
+    the signature's own algorithms."""
+    try:
+        _validate_algorithm_protection(
+            attrs,
+            claimed_digest_algorithm_obj,
+            claimed_signature_algorithm_obj,
+            claimed_mac_algorithm_obj,
+        )
+        return
+    except (errors.CMSAlgorithmProtectionError, CMSStructuralError):
+        raise
+    except ValueError:
+        if not _cdsl_quirks.get():
+            raise
+    attr = find_unique_cms_attribute(attrs, "cms_algorithm_protection")
+    protection = _ExplicitAlgorithmProtection.load(attr.dump())
+    signature = protection["signature_algorithm"]
+    if (
+        claimed_mac_algorithm_obj is not None
+        or claimed_signature_algorithm_obj is None
+        or protection["digest_algorithm"].native != claimed_digest_algorithm_obj.native
+        or signature.native is None
+        or signature.native != claimed_signature_algorithm_obj.native
+    ):
+        raise errors.CMSAlgorithmProtectionError(
+            "The algorithms don't match the CMS algorithm protection attribute."
+        )
+
+
+generic_cms.validate_algorithm_protection = _algorithm_protection
+
+_prepped_value = x509.NameTypeAndValue.prepped_value
+
+
+def _name_value(self: x509.NameTypeAndValue) -> str:
+    """asn1crypto compares names by their string values, and fails on CDSL
+    Ventures' x500UniqueIdentifier, a BIT STRING; in an eSign check, a value
+    that isn't a string compares by its encoding (RFC 5280, 7.1)."""
+    if _cdsl_quirks.get() and not isinstance(self["value"].native, str):
+        return self["value"].dump().hex()
+    return _prepped_value.fget(self)
+
+
+x509.NameTypeAndValue.prepped_value = property(_name_value)
+
+
+@contextmanager
+def _esign_check() -> Iterator[None]:
+    """Reads CDSL Ventures' eSigns: their algorithm protection attribute and
+    signer names. KeySeal's DSC checks stay strict."""
+    token = _cdsl_quirks.set(True)
+    try:
+        yield
+    finally:
+        _cdsl_quirks.reset(token)
 
 
 def _children(obj: generic.PdfObject) -> list[generic.PdfObject]:
@@ -340,6 +432,22 @@ def timestamp_time(sig: EmbeddedPdfSignature) -> datetime:
     return info["gen_time"].native
 
 
+def signed_time(sig: EmbeddedPdfSignature) -> tuple[datetime, str]:
+    """When the signature was made, and on whose word: its timestamp
+    token's (`timestamp`), else the signing time the signer reports
+    (`signer`). CDSL Ventures' eSigns carry no timestamp; their 30-minute
+    certificate bounds how far that time can be off."""
+    try:
+        return timestamp_time(sig), "timestamp"
+    except ValueError:
+        pass
+    try:
+        reported = find_unique_cms_attribute(sig.signer_info["signed_attrs"], "signing_time")
+    except (NonexistentAttributeError, KeyError) as error:
+        raise ValueError("An eSign signature has neither a timestamp nor a signing time") from error
+    return reported.native, "signer"
+
+
 async def finalize_esign(
     pdf: bytes, timestamper: timestamps.TimeStamper, settings: ValidationSettings
 ) -> bytes:
@@ -347,8 +455,15 @@ async def finalize_esign(
     signature and a document timestamp (B-LTA), read leniently, since the
     strict reader refuses Leegality's reuse of a cross-reference stream's
     number. An eSign certificate expires within the hour, so each
-    signature's certificates are gathered as of its timestamp; no revocation
-    data is fetched."""
+    signature's certificates are gathered as of when it was made
+    (`signed_time`); no revocation data is fetched."""
+    with _esign_check():
+        return await _finalize_esign(pdf, timestamper, settings)
+
+
+async def _finalize_esign(
+    pdf: bytes, timestamper: timestamps.TimeStamper, settings: ValidationSettings
+) -> bytes:
     esign = _esign_settings(settings)
     context = esign.context()
     buf = io.BytesIO(pdf)
@@ -357,7 +472,7 @@ async def finalize_esign(
         sig = PdfFileReader(buf, strict=False).embedded_signatures[index]
         out = io.BytesIO()
         await async_add_validation_info(
-            sig, esign.context(moment=timestamp_time(sig)), output=out
+            sig, esign.context(moment=signed_time(sig)[0]), output=out
         )
         buf = io.BytesIO(out.getvalue())
     writer = IncrementalPdfFileWriter(buf, strict=False)
@@ -401,10 +516,21 @@ async def validate_esign_pdf(
     """KeySeal's report, with each signature's `modificationLevel` judged by
     this module's policy, its `page` and `rect`, and the document's
     `pageCount`, `end`, the length of the file as each signature left it,
-    and `timestampTime`, when its timestamp token says it was made. With `base_length` (Leegality's copy before anyone signed,
+    `timestampTime`, when its timestamp token says it was made, and
+    `signedAt` and `signedAtSource` (`signed_time`). A signature without a
+    timestamp is `trusted` if its certificate was valid when the signer says
+    it signed. With `base_length` (Leegality's copy before anyone signed,
     or the copy the last check accepted), `changesSinceBase` is what the
     revisions since change and `baseSignatureFields` the fields it had."""
-    report = await validate_pdf_async(data, _esign_settings(settings))
+    with _esign_check():
+        return await _validate_esign_pdf(data, settings, base_length)
+
+
+async def _validate_esign_pdf(
+    data: bytes, settings: ValidationSettings, base_length: int | None
+) -> dict[str, Any]:
+    esign = _esign_settings(settings)
+    report = await validate_pdf_async(data, esign)
     if not report["signatures"]:
         return report
     reader = PdfFileReader(io.BytesIO(data), strict=False)
@@ -422,6 +548,26 @@ async def validate_esign_pdf(
             entry["timestampTime"] = timestamp_time(sig).isoformat() if sig is not None else None
         except ValueError:
             entry["timestampTime"] = None
+        try:
+            moment, source = signed_time(sig) if sig is not None else (None, None)
+        except ValueError:
+            moment, source = None, None
+        entry["signedAt"] = moment.isoformat() if moment is not None else None
+        entry["signedAtSource"] = source
+        if (
+            source == "signer"
+            and moment is not None
+            and moment <= datetime.now(UTC)
+            and entry["intact"]
+            and not entry["trusted"]
+            and not entry.get("error")
+        ):
+            then = await async_validate_pdf_signature(
+                sig, signer_validation_context=esign.context(moment=moment), skip_diff=True
+            )
+            entry["trusted"] = bool(then.trusted) and esign.is_configured_root(
+                then.validation_path
+            )
         if sig is not None and not entry.get("error"):
             entry["modificationLevel"] = _level(
                 reader,
