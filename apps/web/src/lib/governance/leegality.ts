@@ -107,8 +107,10 @@ async function call(
   }
   const response = await fetcher(`${apiUrl.replace(/\/$/, "")}/api${path}`, {
     ...init,
+    // Only with a body: Leegality reads a JSON request's parameters from
+    // the body, so a GET or DELETE that says JSON loses its query.
     headers: {
-      "Content-Type": "application/json",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
       "X-Auth-Token": token,
     },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

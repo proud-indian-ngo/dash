@@ -119,7 +119,7 @@ describe("createEsignDocument", () => {
 
 describe("esignDocumentState", () => {
   it("reads each invitation and downloads the current file", async () => {
-    const fetcher = mock(async (url: string) =>
+    const fetcher = mock(async (url: string, _init?: RequestInit) =>
       url.startsWith("https://cdn.test/")
         ? new Response(new Uint8Array([7, 8]))
         : json({
@@ -144,6 +144,10 @@ describe("esignDocumentState", () => {
     );
     expect(fetcher.mock.calls[0]?.[0]).toBe(
       "https://leegality.test/api/v3.3/document/details?documentId=DOC1&file=true"
+    );
+    // A JSON content type makes Leegality ignore the query.
+    expect(fetcher.mock.calls[0]?.[1]?.headers).not.toHaveProperty(
+      "Content-Type"
     );
     expect([...(state.file ?? [])]).toEqual([7, 8]);
     expect(state.invitations).toEqual([
