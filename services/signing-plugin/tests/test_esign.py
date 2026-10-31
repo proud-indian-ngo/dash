@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import io
+import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from asn1crypto import algos, cms, keys, x509 as asn1_x509
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+from pyhanko.sign.validation import errors, generic_cms
+from pyhanko_certvalidator.registry import SimpleCertificateStore
 
 from pyhanko.pdf_utils import generic
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
@@ -14,6 +23,7 @@ from keyseal_service.settings import TRUST
 from keyseal_service.validate import ValidationSettings, load_trust_roots
 from pidash_signing_plugin.esign import (
     INTERMEDIATES,
+    _esign_check,
     PrepareEsignError,
     prepare_esign,
     same_pages,
@@ -262,3 +272,114 @@ def test_a_crop_box_or_inherited_rotation_shows_different_pages() -> None:
 
     for edit in (crop, rotate, open_action):
         assert not same_pages(prepared, _with(prepared, edit))
+
+
+def _short_lived_signer(pki: Pki, not_after: datetime) -> signers.SimpleSigner:
+    """A signer whose certificate, under the test root, ends at `not_after`,
+    like an eSign certificate."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "SARJUN H HAJATHULLA")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(pki.ca.subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(UTC) - timedelta(days=1))
+        .not_valid_after(not_after)
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=True,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        )
+        .sign(pki.ca_key, hashes.SHA256())
+    )
+    return signers.SimpleSigner(
+        signing_cert=asn1_x509.Certificate.load(cert.public_bytes(serialization.Encoding.DER)),
+        signing_key=keys.PrivateKeyInfo.load(
+            key.private_bytes(
+                serialization.Encoding.DER,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+        ),
+        cert_registry=SimpleCertificateStore.from_certs([pki.ca_asn1]),
+    )
+
+
+def _signed_by(signer: signers.SimpleSigner) -> bytes:
+    out = signers.sign_pdf(
+        IncrementalPdfFileWriter(io.BytesIO(blank_form_pdf()), strict=False),
+        signers.PdfSignatureMetadata(field_name="Signer1"),
+        signer=signer,
+        new_field_spec=fields.SigFieldSpec("Signer1", box=(50, 50, 200, 120)),
+    )
+    return out.getvalue()
+
+
+def test_an_untimestamped_signature_counts_as_of_the_signers_time(pki: Pki) -> None:
+    # CDSL Ventures' eSigns carry no timestamp; the certificate has expired
+    # by the time the signature is checked, but was valid when it signed.
+    pdf = _signed_by(_short_lived_signer(pki, datetime.now(UTC) + timedelta(seconds=2)))
+    time.sleep(3)
+    [signature] = check(pdf, pki)["signatures"]
+    assert signature["trusted"] is True
+    assert signature["signedAtSource"] == "signer"
+    assert signature["signedAt"] == signature["signingTime"]
+    assert signature["timestampTime"] is None
+
+
+def test_an_untimestamped_signature_after_its_certificate_expired_isnt_trusted(pki: Pki) -> None:
+    pdf = _signed_by(_short_lived_signer(pki, datetime.now(UTC) - timedelta(hours=1)))
+    [signature] = check(pdf, pki)["signatures"]
+    assert signature["trusted"] is False
+
+
+def _protection(inner_hex: str) -> cms.CMSAttributes:
+    """Signed attributes holding just a CMSAlgorithmProtection, as encoded."""
+    oid = bytes.fromhex("06092a864886f70d010934")  # 1.2.840.113549.1.9.52
+    inner = bytes.fromhex(inner_hex)
+    values = bytes([0x31, len(inner)]) + inner
+    attribute = bytes([0x30, len(oid) + len(values)]) + oid + values
+    return cms.CMSAttributes.load(bytes([0x31, len(attribute)]) + attribute)
+
+
+#: CDSL Ventures' encoding: SHA-256 and ECDSA with SHA-256, the signature
+#: algorithm wrapped in an EXPLICIT [1].
+CDSL_PROTECTION = "301b300b0609608648016503040201a10c300a06082a8648ce3d040302"
+
+
+def test_cdsl_ventures_algorithm_protection_is_read_but_still_checked() -> None:
+    attrs = _protection(CDSL_PROTECTION)
+    digest = cms.DigestAlgorithm({"algorithm": "sha256"})
+    ecdsa = algos.SignedDigestAlgorithm({"algorithm": "sha256_ecdsa"})
+    rsa_sha256 = algos.SignedDigestAlgorithm({"algorithm": "sha256_rsa"})
+    with pytest.raises(ValueError):
+        generic_cms.validate_algorithm_protection(attrs, digest, ecdsa, None)
+    with _esign_check():
+        generic_cms.validate_algorithm_protection(attrs, digest, ecdsa, None)
+        with pytest.raises(errors.CMSAlgorithmProtectionError):
+            generic_cms.validate_algorithm_protection(attrs, digest, rsa_sha256, None)
+
+
+def test_a_bit_string_name_value_compares_in_an_esign_check() -> None:
+    # CDSL Ventures puts an x500UniqueIdentifier, a BIT STRING, in the
+    # signer's name.
+    oid = bytes.fromhex("060355042d")  # 2.5.4.45
+    value = bytes.fromhex("030500e1e2e3e4")
+    pair = bytes([0x30, len(oid) + len(value)]) + oid + value
+    rdn = bytes([0x31, len(pair)]) + pair
+    name = asn1_x509.Name.load(bytes([0x30, len(rdn)]) + rdn)
+    with pytest.raises(TypeError):
+        name.hashable  # noqa: B018
+    with _esign_check():
+        assert name.hashable == asn1_x509.Name.load(name.dump()).hashable

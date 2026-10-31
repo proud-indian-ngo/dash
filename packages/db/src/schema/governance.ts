@@ -137,6 +137,13 @@ export interface GovernanceValidationReport {
     end?: number | null;
     /** Aadhaar eSign checks: when its timestamp token says it was made (ISO). */
     timestampTime?: string | null;
+    /**
+     * Aadhaar eSign checks: when it was made (ISO), by its timestamp token,
+     * else (CDSL Ventures, which doesn't timestamp) by the signer's own
+     * signing time; `signedAtSource` says which.
+     */
+    signedAt?: string | null;
+    signedAtSource?: "timestamp" | "signer" | null;
   }[];
   /** Email headers for an .eml; never the body. */
   email?: {

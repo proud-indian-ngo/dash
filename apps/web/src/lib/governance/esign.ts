@@ -416,8 +416,8 @@ export async function takeNewEsigns(
 /**
  * Takes every signature added on Leegality since the latest PDF on record:
  * checks Leegality's copy (`checkEsignedCopy`), then records each in
- * signing order on the copy as that signature left it, as of the day its
- * timestamp says it was made, and audited in the signer's name. A
+ * signing order on the copy as that signature left it, as of the day it
+ * was made (its `signedAt`), and audited in the signer's name. A
  * signature made after the response date ends the run. Resolutions it
  * passes get their evidence filed as for a DSC signature; once the circular
  * is decided its Leegality document is closed. Signatures another check

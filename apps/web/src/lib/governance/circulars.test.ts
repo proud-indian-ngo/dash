@@ -693,6 +693,8 @@ describe("checkEsignedCopy", () => {
     sig(fieldName, {
       locks: [],
       page: 2,
+      signedAt: "2026-11-01T10:00:00+00:00",
+      signedAtSource: "timestamp",
       timestamped: true,
       timestampTime: "2026-11-01T10:00:00+00:00",
       ...overrides,
@@ -765,16 +767,28 @@ describe("checkEsignedCopy", () => {
     ).toThrow("doesn't match");
   });
 
-  it("refuses an untrusted certificate, a lock, a certification or no timestamp", () => {
+  it("refuses an untrusted certificate, a lock, a certification or no signing time", () => {
     for (const changed of [
       { trusted: false },
       { locks: [{ action: "all" as const, fields: [] }] },
       { certifies: true },
-      { timestamped: false },
-      { timestampTime: null },
+      { signedAt: null },
     ]) {
       expect(() => check([{ ...vikram, ...changed }])).toThrow();
     }
+  });
+
+  it("dates an untimestamped eSign by the signer's own time", () => {
+    const [added] = check([
+      {
+        ...vikram,
+        signedAt: "2026-11-01T09:58:00+00:00",
+        signedAtSource: "signer",
+        timestamped: false,
+        timestampTime: null,
+      },
+    ]);
+    expect(added?.signedAt).toBe("2026-11-01T09:58:00+00:00");
   });
 
   it("refuses changes beyond adding signatures, or after the last one", () => {
