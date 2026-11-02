@@ -37,6 +37,7 @@ export const areas = {
       "apps/web/src/routes/auth\\[.\\]md.ts",
       "apps/web/src/routes/api/email/unsubscribe.ts",
       "apps/web/src/routes/api/public/**",
+      "packages/email/src/**",
     ],
     named: [
       "mcp",
@@ -140,7 +141,7 @@ export const areas = {
       "razorpay",
       "receipts",
     ],
-    globs: ["apps/web/src/routes/verify/**"],
+    globs: ["apps/web/src/routes/verify/**", "packages/email/src/**"],
     named: [
       "income*",
       "*contribution*",
@@ -163,7 +164,12 @@ export const areas = {
   },
   jobs: {
     app: ["jobs", "notification-delivery", "whatsapp"],
-    globs: ["apps/web/src/routes/api/email/webhook.ts"],
+    globs: [
+      "apps/web/src/routes/api/email/webhook.ts",
+      // E2E sends no email: the specs that see one are those that check its
+      // delivery status, and auth's, which render it inside the request.
+      "packages/email/src/**",
+    ],
     named: [
       "notification-delivery*",
       "email-message*",
@@ -273,8 +279,6 @@ export const seedReaders: Record<string, string[]> = {
 export const fullSuite = [
   ".github/workflows/ci.yml",
   ".github/ci.env",
-  "bun.lock",
-  "**/package.json",
   "**/turbo.json",
   "scripts/build-e2e.sh",
   "apps/web/server/**",
@@ -296,6 +300,25 @@ export const fullSuite = [
   "packages/e2e/helpers/seed-test-user.ts",
   "packages/e2e/helpers/seed/core.ts",
 ];
+
+/**
+ * Full-suite files and registries the import walk stops at, selecting these
+ * areas. A change to the file itself is decided as before, but a module it
+ * imports serves only these areas' flows: auth.ts sends sign-in, sign-up and
+ * account emails, and a job handler no area names runs in the background,
+ * where only the jobs specs observe it. A module that fails to load breaks
+ * every spec, so any selected spec catches that too.
+ */
+export const entryAreas: Record<string, (keyof typeof areas)[]> = {
+  "packages/auth/src/auth.ts": ["auth", "users"],
+  "packages/jobs/src/handlers/index.ts": ["jobs"],
+};
+
+/**
+ * Decided by the dependencies they change: the specs of the files that name
+ * each one. A change to anything else in them runs the full suite.
+ */
+export const dependencyFiles = ["bun.lock", "**/package.json"];
 
 /** Files no spec can observe. */
 export const ignored = [

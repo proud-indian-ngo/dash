@@ -20,6 +20,8 @@ import {
 } from "./select-tests";
 import {
   areas,
+  dependencyFiles,
+  entryAreas,
   fullSuite,
   generated,
   ignored,
@@ -47,6 +49,8 @@ const matchesAny = (globs: string[]) => {
 };
 
 const lists: Record<string, string[]> = {
+  dependencyFiles,
+  entryAreas: Object.keys(entryAreas),
   fullSuite,
   generated: generated.flatMap(({ files: f, from }) => [f, from]),
   ignored,
