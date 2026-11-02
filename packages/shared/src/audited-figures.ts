@@ -75,10 +75,7 @@ export const normaliseMemo = (memo: string | null | undefined) =>
   memo?.trim() || null;
 
 /** The asset line an entry belongs to, by its memo, or null for its head's other line. */
-export const assetLineMemo = (e: {
-  memo: string | null;
-  sourceType: string;
-}) =>
+export const assetLineMemo = (e: { memo: string | null; sourceType: string }) =>
   ASSET_LINE_SOURCE_TYPES.includes(e.sourceType) ? normaliseMemo(e.memo) : null;
 
 export interface AuditedLineRef {

@@ -1,10 +1,7 @@
 import type { DataGridColumnDef } from "@pi-dash/design-system/components/reui/data-grid/data-grid-features";
 import type { SetStateAction } from "react";
 
-export const resolveUpdater = <T>(
-  updater: SetStateAction<T>,
-  previous: T
-): T =>
+export const resolveUpdater = <T>(updater: SetStateAction<T>, previous: T): T =>
   typeof updater === "function"
     ? (updater as (prev: T) => T)(previous)
     : updater;
