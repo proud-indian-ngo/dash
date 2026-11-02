@@ -63,8 +63,39 @@ test.describe("Dashboard", () => {
     await expect(
       panel.locator('[data-slot="card-title"] [data-slot="tag"]')
     ).toHaveText(waiting);
+  });
+
+  test("interest requests across events expand to one link per event", async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "super_admin", "Reviewer-only test");
+    await page.goto("/");
+
+    // The protected fixture and the unoriented volunteer's request stay
+    // pending on two different events.
+    const panel = page.getByRole("region", { name: "Waiting for review" });
+    const trigger = panel.getByRole("button", {
+      name: "Choose an event to review interest requests",
+    });
+    await expect(trigger).toBeVisible({ timeout: 15_000 });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const links = panel.getByRole("link", {
+      name: /^Review interest requests for /,
+    });
+    await expect.poll(() => links.count()).toBeGreaterThanOrEqual(2);
+
+    const pendingLink = panel.getByRole("link", {
+      name: "Review interest requests for E2E Upcoming Event With Pending Interests",
+    });
+    await pendingLink.click();
+    await expect(page).toHaveURL(/\/events\/[^/?]+/);
     await expect(
-      panel.getByRole("link", { name: /^Review interest requests for / })
+      page.getByRole("heading", {
+        name: "E2E Upcoming Event With Pending Interests",
+      })
     ).toBeVisible();
   });
 });
