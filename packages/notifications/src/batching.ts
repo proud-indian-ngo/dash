@@ -33,7 +33,11 @@ import {
   type DigestEntry,
   digestRowCount,
 } from "./digest";
-import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
+import {
+  renderDefaultNotificationEmail,
+  sendBulkNotificationEmails,
+  sendNotificationEmail,
+} from "./email";
 import { isNotificationsDisabled } from "./kill-switch";
 import { getBulkChannelPreferences, getBulkUserEmails } from "./preferences";
 
@@ -532,8 +536,13 @@ async function flushEmail(
     });
     if (item && recipients.length > 0) {
       const sent = await sendBulkNotificationEmails({
-        body: item.body,
-        emailHtml: item.emailHtml ?? undefined,
+        emailHtml:
+          item.emailHtml ??
+          (await renderDefaultNotificationEmail({
+            body: item.body,
+            clickAction: item.clickAction,
+            title: item.title,
+          })),
         idempotencyKey: `${key}-email-${batchesKey(group.map((b) => b.batchId))}`,
         logKey: key,
         recipients,
@@ -556,7 +565,6 @@ async function flushEmail(
       });
       const emailHtml = await renderNotificationDigestEmail(digest);
       const sent = await sendNotificationEmail({
-        body: digest.preview,
         emailHtml,
         idempotencyKey: `digest-${batch.batchId}-email`,
         logKey: `digest-${batch.batchId}`,

@@ -15,7 +15,11 @@ import { createRequestLogger } from "evlog";
 import { type HeldRecipient, holdNotification } from "./batching";
 import { forEachLimited } from "./concurrency";
 import { buildWhatsAppText } from "./digest";
-import { sendBulkNotificationEmails, sendNotificationEmail } from "./email";
+import {
+  renderDefaultNotificationEmail,
+  sendBulkNotificationEmails,
+  sendNotificationEmail,
+} from "./email";
 import { insertBulkNotifications, insertNotification } from "./inbox";
 import { isNotificationsDisabled } from "./kill-switch";
 import {
@@ -162,12 +166,15 @@ export async function sendMessage({
     imageUrl,
     title,
   });
+  const html = wantsEmail
+    ? (emailHtml ??
+      (await renderDefaultNotificationEmail({ body, clickAction, title })))
+    : undefined;
 
   const emailPromise =
-    !held && wantsEmail && email
+    !held && html && email
       ? sendNotificationEmail({
-          body,
-          emailHtml,
+          emailHtml: html,
           idempotencyKey: `${idempotencyKey}-email`,
           logKey: idempotencyKey,
           title,
@@ -231,7 +238,7 @@ export async function sendMessage({
         body,
         clickAction,
         digest,
-        emailHtml,
+        emailHtml: html,
         idempotencyKey,
         recipients: heldRecipients,
         title,
@@ -416,14 +423,19 @@ export async function sendBulkMessage({
     title,
   });
 
+  const html =
+    emailRecipients.length > 0
+      ? (emailHtml ??
+        (await renderDefaultNotificationEmail({ body, clickAction, title })))
+      : undefined;
+
   const emailPromise = (async (): Promise<boolean> => {
     const recipients = emailRecipients;
-    if (held || recipients.length === 0) {
+    if (held || !html || recipients.length === 0) {
       return false;
     }
     return await sendBulkNotificationEmails({
-      body,
-      emailHtml,
+      emailHtml: html,
       idempotencyKey: `${idempotencyKey}-email`,
       logKey: idempotencyKey,
       recipients,
@@ -498,7 +510,7 @@ export async function sendBulkMessage({
         body,
         clickAction,
         digest,
-        emailHtml,
+        emailHtml: html,
         idempotencyKey,
         recipients: [
           ...emailRecipients.map((r) => ({

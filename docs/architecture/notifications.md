@@ -99,14 +99,14 @@ Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repe
 
 `packages/email/src/templates/` uses inline hex tokens (`theme.ts`); keep them in step with `packages/design-system/styles.css`. Preview with `bun run dev:email` in `packages/email`.
 
-Notification HTML is rendered once per message. `buildNotificationEmail()` then adds each recipient's signed unsubscribe link and RFC 8058 `List-Unsubscribe` headers. Required topics get neither.
+Notification HTML is rendered once per message; without `emailHtml`, sends use the standard template. Report `lists` show 50 rows each. `buildNotificationEmail()` adds each recipient's signed unsubscribe link and RFC 8058 headers, except on required topics.
 
 ### Unsubscribe
 
 Links are HMAC-signed under a key derived from `BETTER_AUTH_SECRET` and do not expire.
 
 - `POST /api/email/unsubscribe` is the one-click target.
-- `/unsubscribe` is the footer page. Opening it changes nothing, so link scanners cannot unsubscribe anyone; its buttons POST to the API route.
+- `/unsubscribe` is the footer page. Opening it changes nothing, so link scanners cannot unsubscribe anyone.
 
 Both are unauthenticated and authorised by the signature, so they sit outside the audit ledger.
 

@@ -22,7 +22,7 @@ export type { DonationReceiptEmailProps } from "./templates/donation-receipt-ema
 export type { EmailStatus } from "./templates/email-layout";
 export type { NotificationDigestEmailProps } from "./templates/notification-digest";
 export type { NotificationEmailProps } from "./templates/notification-email";
-export type { LineItemDetail } from "./templates/types";
+export type { EmailList, LineItemDetail } from "./templates/types";
 
 // Without Resend configured (dev), log the link so local sign-up and password
 // reset can still be completed. Production always has Resend configured.
