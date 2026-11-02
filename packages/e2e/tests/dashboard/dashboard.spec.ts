@@ -63,6 +63,11 @@ test.describe("Dashboard", () => {
     await expect(
       panel.locator('[data-slot="card-title"] [data-slot="tag"]')
     ).toHaveText(waiting);
+    // Approved vendor payments stay in finance's queue until paid and invoiced.
+    await expect(panel.getByText("Vendor payments to pay")).toBeVisible();
+    await expect(
+      panel.getByText("Vendor invoices", { exact: true })
+    ).toBeVisible();
   });
 
   test("interest requests across events expand to one link per event", async ({
