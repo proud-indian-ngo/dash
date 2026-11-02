@@ -29,7 +29,7 @@ const deps = (
     }),
   findUser: async () => avatarUser,
   requireSession: async () => ({ session: { user: { id: "viewer-1" } } }),
-  resolveAvatarUrl: async () => gravatarUrl,
+  resolveGravatarUrl: async () => gravatarUrl,
   ...overrides,
 });
 
@@ -65,7 +65,7 @@ describe("handleAvatarRequest", () => {
 
   it("serves image bytes without exposing Gravatar hashes or upstream headers", async () => {
     const findUser = mock(async () => avatarUser);
-    const resolveAvatarUrl = mock(async () => gravatarUrl);
+    const resolveGravatarUrl = mock(async () => gravatarUrl);
     const bytes = new Uint8Array([137, 80, 78, 71]);
     const fetchImage = mock(
       async () =>
@@ -80,11 +80,11 @@ describe("handleAvatarRequest", () => {
     );
     const response = await handleAvatarRequest(
       new Request("https://example.test/api/avatar?userId=user-1"),
-      deps({ findUser, resolveAvatarUrl, fetchImage })
+      deps({ findUser, resolveGravatarUrl, fetchImage })
     );
 
     expect(findUser).toHaveBeenCalledWith("user-1");
-    expect(resolveAvatarUrl).toHaveBeenCalledWith(avatarUser);
+    expect(resolveGravatarUrl).toHaveBeenCalledWith(avatarUser.email);
     expect(response.status).toBe(200);
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
     expect(response.headers.get("location")).toBeNull();
@@ -101,16 +101,29 @@ describe("handleAvatarRequest", () => {
     expect(response.headers.get("vary")).toBe("Cookie");
   });
 
-  it("proxies the DiceBear fallback without exposing its gender parameters", async () => {
-    const response = await handleAvatarRequest(
-      new Request("https://example.test/api/avatar?userId=user-1"),
-      deps({
-        resolveAvatarUrl: async () =>
-          "https://api.dicebear.com/9.x/notionists/png?seed=private&beardProbability=0",
-      })
+  it("renders the fallback avatar locally when there is no Gravatar", async () => {
+    const fetchImage = mock();
+    const request = new Request(
+      "https://example.test/api/avatar?userId=user-1"
     );
+    const response = await handleAvatarRequest(
+      request,
+      deps({ fetchImage, resolveGravatarUrl: async () => undefined })
+    );
+    const svg = await response.text();
+
     expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
+    expect(fetchImage).not.toHaveBeenCalled();
+    expect(response.headers.get("content-type")).toBe("image/svg+xml");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(svg).toStartWith("<svg");
+    expect(svg).not.toContain("<script");
+
+    const again = await handleAvatarRequest(
+      request,
+      deps({ resolveGravatarUrl: async () => undefined })
+    );
+    expect(await again.text()).toBe(svg);
   });
 
   it.each([
@@ -123,7 +136,7 @@ describe("handleAvatarRequest", () => {
     const fetchImage = mock();
     const response = await handleAvatarRequest(
       new Request("https://example.test/api/avatar?userId=user-1"),
-      deps({ fetchImage, resolveAvatarUrl: async () => url })
+      deps({ fetchImage, resolveGravatarUrl: async () => url })
     );
     expect(response.status).toBe(502);
     expect(fetchImage).not.toHaveBeenCalled();
@@ -154,13 +167,13 @@ describe("handleAvatarRequest", () => {
   });
 
   it("returns 404 for an unknown user", async () => {
-    const resolveAvatarUrl = mock();
+    const resolveGravatarUrl = mock();
     const response = await handleAvatarRequest(
       new Request("https://example.test/api/avatar?userId=missing"),
-      deps({ findUser: async () => undefined, resolveAvatarUrl })
+      deps({ findUser: async () => undefined, resolveGravatarUrl })
     );
 
     expect(response.status).toBe(404);
-    expect(resolveAvatarUrl).not.toHaveBeenCalled();
+    expect(resolveGravatarUrl).not.toHaveBeenCalled();
   });
 });

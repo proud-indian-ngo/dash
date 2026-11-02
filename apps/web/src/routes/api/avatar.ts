@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { createAvatar } from "@dicebear/core";
+import * as notionists from "@dicebear/notionists";
 import { db } from "@pi-dash/db";
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
@@ -7,32 +9,53 @@ import { createRequestLogger } from "evlog";
 
 import { requireSession } from "@/lib/api-auth";
 
+type NotionistsOptions = notionists.Options;
+
 const TRAILING_SLASHES_REGEX = /\/+$/;
 const AVATAR_CACHE_CONTROL = "private, max-age=300";
-const toVariant = (value: number): string =>
-  `variant${value.toString().padStart(2, "0")}`;
-const createVariantRange = (start: number, end: number): string[] =>
-  Array.from({ length: end - start + 1 }, (_, index) =>
-    toVariant(start + index)
+// The ranges are within each component's variants, so the narrowing cast holds.
+const createVariantRange = <T extends string>(
+  start: number,
+  end: number
+): T[] =>
+  Array.from(
+    { length: end - start + 1 },
+    (_, index) => `variant${(start + index).toString().padStart(2, "0")}` as T
   );
 
-const MALE_HAIR_OPTIONS = createVariantRange(1, 20);
-const MALE_BEARD_OPTIONS = createVariantRange(1, 12);
-const MALE_BODY_OPTIONS = createVariantRange(1, 10);
-const UNISEX_GLASSES_OPTIONS = createVariantRange(1, 11);
-const MALE_GESTURE_OPTIONS = ["hand", "ok", "point", "pointLongArm"] as const;
-const FEMALE_HAIR_OPTIONS = createVariantRange(30, 63);
-const FEMALE_BODY_OPTIONS = createVariantRange(11, 25);
-const FEMALE_LIPS_OPTIONS = createVariantRange(10, 20);
-const FEMALE_GESTURE_OPTIONS = [
-  "hand",
-  "handPhone",
-  "ok",
-  "waveLongArm",
-  "waveLongArms",
-  "waveOkLongArms",
-  "wavePointLongArms",
-] as const;
+const UNISEX_GLASSES_OPTIONS = createVariantRange<
+  NonNullable<NotionistsOptions["glasses"]>[number]
+>(1, 11);
+const GENDER_AVATAR_OPTIONS: Record<"female" | "male", NotionistsOptions> = {
+  male: {
+    hair: createVariantRange(1, 20),
+    beardProbability: 70,
+    beard: createVariantRange(1, 12),
+    body: createVariantRange(1, 10),
+    glassesProbability: 20,
+    glasses: UNISEX_GLASSES_OPTIONS,
+    gestureProbability: 20,
+    gesture: ["hand", "ok", "point", "pointLongArm"],
+  },
+  female: {
+    hair: createVariantRange(30, 63),
+    beardProbability: 0,
+    body: createVariantRange(11, 25),
+    lips: createVariantRange(10, 20),
+    glassesProbability: 20,
+    glasses: UNISEX_GLASSES_OPTIONS,
+    gestureProbability: 20,
+    gesture: [
+      "hand",
+      "handPhone",
+      "ok",
+      "waveLongArm",
+      "waveLongArms",
+      "waveOkLongArms",
+      "wavePointLongArms",
+    ],
+  },
+};
 
 const toObject = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== "object") {
@@ -111,39 +134,16 @@ const extractAvatarUrl = (payload: unknown): string | undefined => {
   }
 };
 
-const buildFallbackAvatarUrl = (
+// Rendered in-process: proxying api.dicebear.com from one server IP hits its
+// PNG rate limit (429) whenever a page lists many members.
+const renderFallbackAvatar = (
   normalizedEmail: string,
   gender?: "female" | "male"
-): string => {
-  const seed = env.AVATAR_FALLBACK_SEED;
-  const fallbackSeed = hashSha256(`${seed}:${normalizedEmail}`);
-  const url = new URL("https://api.dicebear.com/9.x/notionists/png");
-  url.searchParams.set("seed", fallbackSeed);
-
-  if (gender === "male") {
-    url.searchParams.set("hair", MALE_HAIR_OPTIONS.join(","));
-    url.searchParams.set("beardProbability", "70");
-    url.searchParams.set("beard", MALE_BEARD_OPTIONS.join(","));
-    url.searchParams.set("body", MALE_BODY_OPTIONS.join(","));
-    url.searchParams.set("glassesProbability", "20");
-    url.searchParams.set("glasses", UNISEX_GLASSES_OPTIONS.join(","));
-    url.searchParams.set("gestureProbability", "20");
-    url.searchParams.set("gesture", MALE_GESTURE_OPTIONS.join(","));
-  }
-
-  if (gender === "female") {
-    url.searchParams.set("hair", FEMALE_HAIR_OPTIONS.join(","));
-    url.searchParams.set("beardProbability", "0");
-    url.searchParams.set("body", FEMALE_BODY_OPTIONS.join(","));
-    url.searchParams.set("lips", FEMALE_LIPS_OPTIONS.join(","));
-    url.searchParams.set("glassesProbability", "20");
-    url.searchParams.set("glasses", UNISEX_GLASSES_OPTIONS.join(","));
-    url.searchParams.set("gestureProbability", "20");
-    url.searchParams.set("gesture", FEMALE_GESTURE_OPTIONS.join(","));
-  }
-
-  return url.toString();
-};
+): string =>
+  createAvatar(notionists, {
+    seed: hashSha256(`${env.AVATAR_FALLBACK_SEED}:${normalizedEmail}`),
+    ...(gender ? GENDER_AVATAR_OPTIONS[gender] : {}),
+  }).toString();
 
 const buildProfileEndpointUrl = (profileIdentifier: string): string => {
   const baseUrl = env.GRAVATAR_API_BASE_URL.replace(TRAILING_SLASHES_REGEX, "");
@@ -203,7 +203,7 @@ export interface AvatarHandlerDeps {
   requireSession: (
     request: Request
   ) => Promise<{ session: AvatarSession } | { error: Response }>;
-  resolveAvatarUrl: (avatarUser: AvatarUser) => Promise<string>;
+  resolveGravatarUrl: (normalizedEmail: string) => Promise<string | undefined>;
 }
 
 const defaultHandlerDeps: AvatarHandlerDeps = {
@@ -214,20 +214,8 @@ const defaultHandlerDeps: AvatarHandlerDeps = {
       where: (table, { eq }) => eq(table.id, userId),
     }),
   requireSession,
-  resolveAvatarUrl: async (avatarUser) => {
-    const normalizedEmail = normalizeEmail(avatarUser.email);
-    if (!normalizedEmail) {
-      throw new Error("Avatar user has no email");
-    }
-    const profileIdentifier = hashSha256(normalizedEmail);
-    return (
-      (await fetchProfileAvatarUrl(profileIdentifier)) ??
-      buildFallbackAvatarUrl(
-        normalizedEmail,
-        normalizeGender(avatarUser.gender)
-      )
-    );
-  },
+  resolveGravatarUrl: (normalizedEmail) =>
+    fetchProfileAvatarUrl(hashSha256(normalizedEmail)),
 };
 
 export async function handleAvatarRequest(
@@ -249,20 +237,38 @@ export async function handleAvatarRequest(
     return Response.json({ error: "Avatar not found" }, { status: 404 });
   }
   try {
-    const avatarUrl = new URL(await deps.resolveAvatarUrl(avatarUser));
-    const isGravatar =
-      (avatarUrl.hostname === "gravatar.com" ||
-        avatarUrl.hostname.endsWith(".gravatar.com")) &&
-      avatarUrl.pathname.startsWith("/avatar/");
-    const isDicebear =
-      avatarUrl.hostname === "api.dicebear.com" &&
-      avatarUrl.pathname === "/9.x/notionists/png";
+    const normalizedEmail = normalizeEmail(avatarUser.email);
+    if (!normalizedEmail) {
+      throw new Error("Avatar user has no email");
+    }
+    const gravatarUrl = await deps.resolveGravatarUrl(normalizedEmail);
+    if (!gravatarUrl) {
+      const svg = renderFallbackAvatar(
+        normalizedEmail,
+        normalizeGender(avatarUser.gender)
+      );
+      return new Response(svg, {
+        headers: {
+          "Cache-Control": AVATAR_CACHE_CONTROL,
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+          "Content-Type": "image/svg+xml",
+          Vary: "Cookie",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+
+    const avatarUrl = new URL(gravatarUrl);
     if (
       avatarUrl.protocol !== "https:" ||
       avatarUrl.username ||
       avatarUrl.password ||
       avatarUrl.port ||
-      !(isGravatar || isDicebear)
+      !(
+        avatarUrl.hostname === "gravatar.com" ||
+        avatarUrl.hostname.endsWith(".gravatar.com")
+      ) ||
+      !avatarUrl.pathname.startsWith("/avatar/")
     ) {
       throw new Error("Unsupported avatar image URL");
     }
@@ -289,7 +295,9 @@ export async function handleAvatarRequest(
       ].includes(contentType)
     ) {
       await upstream.body?.cancel();
-      throw new Error("Invalid avatar image response");
+      throw new Error(
+        `Invalid avatar image response: ${upstream.status} ${contentType}`
+      );
     }
 
     return new Response(upstream.body, {
