@@ -75,6 +75,9 @@ const rewritePublicAssets: Rolldown.Plugin = {
 
 export default defineConfig(async ({ mode }): Promise<UserConfig> => {
   const reactCompiler = await babel({
+    // Runs the React Compiler in worker threads. Every Babel option must be
+    // structured-cloneable (see appReactCompilerPreset).
+    parallel: true,
     presets: [appReactCompilerPreset()],
   });
   // One ID per build, served by /api/version so open tabs can notice a
