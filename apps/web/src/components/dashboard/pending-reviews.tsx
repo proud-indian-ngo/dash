@@ -1,4 +1,5 @@
 import {
+  ArrowDown01Icon,
   ArrowRight01Icon,
   Camera01Icon,
   CheckListIcon,
@@ -16,6 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@pi-dash/design-system/components/ui/collapsible";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { approvalFilterQuery } from "@pi-dash/shared/approval-policy";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
@@ -53,11 +59,9 @@ interface EventPhotoPendingItem {
   createdAt: number;
   event?: { id: string; name: string } | undefined;
   id: string;
-  uploader?: { name: string | null } | undefined;
 }
 
 interface EventUpdatePendingItem {
-  author?: { name: string | null } | undefined;
   createdAt: number;
   event?: { id: string; name: string } | undefined;
   id: string;
@@ -67,7 +71,6 @@ interface EventInterestPendingItem {
   createdAt: number;
   event?: { id: string; name: string } | undefined;
   id: string;
-  user?: { name: string | null } | undefined;
 }
 
 export interface PendingReviewsProps {
@@ -98,19 +101,16 @@ interface EventGroup {
   eventId: string;
   eventName: string;
   latestAt: number;
-  latestPerson: string;
+  oldestAt: number;
 }
 
-function groupByEvent<
-  T extends {
+function groupByEvent(
+  items: readonly {
     createdAt: number;
     event?: { id: string; name: string } | undefined;
-  },
->(items: readonly T[], personAccessor: (item: T) => string): EventGroup[] {
-  const map = new Map<
-    string,
-    { count: number; eventName: string; latestAt: number; latestPerson: string }
-  >();
+  }[]
+): EventGroup[] {
+  const map = new Map<string, Omit<EventGroup, "eventId">>();
 
   for (const item of items) {
     if (!item.event) {
@@ -119,16 +119,14 @@ function groupByEvent<
     const existing = map.get(item.event.id);
     if (existing) {
       existing.count += 1;
-      if (item.createdAt > existing.latestAt) {
-        existing.latestAt = item.createdAt;
-        existing.latestPerson = personAccessor(item);
-      }
+      existing.latestAt = Math.max(existing.latestAt, item.createdAt);
+      existing.oldestAt = Math.min(existing.oldestAt, item.createdAt);
     } else {
       map.set(item.event.id, {
         count: 1,
         eventName: item.event.name,
         latestAt: item.createdAt,
-        latestPerson: personAccessor(item),
+        oldestAt: item.createdAt,
       });
     }
   }
@@ -182,15 +180,16 @@ function eventNames(groups: readonly EventGroup[]): string {
 
 interface QueueRowProps {
   count: number;
-  icon: IconSvgElement;
+  /** Left out on an event's row under its kind of work. */
+  icon?: IconSvgElement;
   isLoading?: boolean;
   label: string;
   link?: ReactNode;
   oldestAt?: number;
-  summary: ReactNode;
+  summary?: ReactNode;
 }
 
-/** One kind of work: what it is, how much, how long the oldest has waited. */
+/** One kind of work (or one event of it): what, how much, the oldest wait. */
 function QueueRow({
   count,
   icon,
@@ -204,19 +203,25 @@ function QueueRow({
     oldestAt !== undefined && Date.now() - oldestAt > STALE_AFTER_MS;
   return (
     <div
-      className="hover:bg-muted/40 relative grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 transition-colors sm:grid-cols-[1rem_minmax(0,1fr)_auto_auto_auto]"
+      className="hover:bg-muted/40 relative col-span-full grid grid-cols-subgrid items-center gap-y-0.5 px-4 py-2.5 transition-colors"
       data-slot="review-queue-row"
     >
-      <HugeiconsIcon
-        className="text-muted-foreground size-4"
-        icon={icon}
-        strokeWidth={2}
-      />
+      {icon ? (
+        <HugeiconsIcon
+          className="text-muted-foreground size-4"
+          icon={icon}
+          strokeWidth={2}
+        />
+      ) : (
+        <span />
+      )}
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{label}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          {isLoading ? <InlineSkeleton className="h-3 w-28" /> : summary}
-        </p>
+        <p className={cn("truncate text-sm", icon && "font-medium")}>{label}</p>
+        {summary === undefined ? null : (
+          <p className="text-muted-foreground truncate text-xs">
+            {isLoading ? <InlineSkeleton className="h-3 w-28" /> : summary}
+          </p>
+        )}
       </div>
       <span className="font-mono text-sm font-semibold tabular-nums">
         {isLoading ? <InlineSkeleton className="h-4 w-5" /> : count}
@@ -311,6 +316,32 @@ function FinancialRow({
   );
 }
 
+function EventReviewLink({
+  group,
+  label,
+  tab,
+}: {
+  group: EventGroup;
+  label: string;
+  tab?: "updates" | "photos";
+}) {
+  return (
+    <Link
+      className="inline-flex items-center gap-1"
+      aria-label={`Review ${label.toLowerCase()} for ${group.eventName}`}
+      params={{ id: group.eventId }}
+      search={tab ? { tab } : undefined}
+      to="/events/$id"
+    >
+      <ReviewLinkLabel />
+    </Link>
+  );
+}
+
+/**
+ * Work on one event links straight to it. Work across several expands to one
+ * row per event, so the reviewer picks where to go.
+ */
 function EventRow({
   groups,
   icon,
@@ -326,29 +357,60 @@ function EventRow({
   label: string;
   tab?: "updates" | "photos";
 }) {
-  const latest = groups[0];
+  const [first] = groups;
+  const row = {
+    count: items.length,
+    icon,
+    isLoading,
+    label,
+    oldestAt: first ? oldest(items) : undefined,
+    summary: first ? eventNames(groups) : "Nothing waiting",
+  };
+
+  if (groups.length < 2) {
+    return (
+      <QueueRow
+        {...row}
+        link={
+          first ? (
+            <EventReviewLink group={first} label={label} tab={tab} />
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
-    <QueueRow
-      count={items.length}
-      icon={icon}
-      isLoading={isLoading}
-      label={label}
-      link={
-        latest ? (
-          <Link
-            className="inline-flex items-center gap-1"
-            aria-label={`Review ${label.toLowerCase()} for ${latest.eventName}`}
-            params={{ id: latest.eventId }}
-            search={tab ? { tab } : undefined}
-            to="/events/$id"
+    <Collapsible className="col-span-full grid grid-cols-subgrid">
+      <QueueRow
+        {...row}
+        link={
+          <CollapsibleTrigger
+            aria-label={`Choose an event to review ${label.toLowerCase()}`}
+            className="group inline-flex items-center gap-1 outline-none"
           >
-            <ReviewLinkLabel />
-          </Link>
-        ) : undefined
-      }
-      oldestAt={latest ? oldest(items) : undefined}
-      summary={latest ? eventNames(groups) : "Nothing waiting"}
-    />
+            <span className="absolute inset-0" />
+            {groups.length} events
+            <HugeiconsIcon
+              className="size-3 transition-transform group-data-[panel-open]:rotate-180"
+              icon={ArrowDown01Icon}
+              strokeWidth={2}
+            />
+          </CollapsibleTrigger>
+        }
+      />
+      <CollapsibleContent className="bg-muted/20 col-span-full grid grid-cols-subgrid divide-y border-t">
+        {groups.map((group) => (
+          <QueueRow
+            count={group.count}
+            key={group.eventId}
+            label={group.eventName}
+            link={<EventReviewLink group={group} label={label} tab={tab} />}
+            oldestAt={group.oldestAt}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -398,15 +460,9 @@ export function PendingReviews({
   });
 
   // Event items grouped by event, most recent first (already scoped by Zero)
-  const photoGroups = canManagePhotos
-    ? groupByEvent(eventPhotos, (p) => p.uploader?.name ?? "Unknown")
-    : [];
-  const updateGroups = canApproveUpdates
-    ? groupByEvent(eventUpdates, (u) => u.author?.name ?? "Unknown")
-    : [];
-  const interestGroups = canManageInterest
-    ? groupByEvent(eventInterests, (i) => i.user?.name ?? "Unknown")
-    : [];
+  const photoGroups = canManagePhotos ? groupByEvent(eventPhotos) : [];
+  const updateGroups = canApproveUpdates ? groupByEvent(eventUpdates) : [];
+  const interestGroups = canManageInterest ? groupByEvent(eventInterests) : [];
 
   return (
     <Card aria-label="Waiting for review" className="gap-0 py-0" role="region">
@@ -424,7 +480,8 @@ export function PendingReviews({
         </CardTitle>
       </CardHeader>
       <CardContent className="px-0">
-        <div className="divide-y">
+        {/* Rows are subgrids of this grid, so their columns line up. */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 divide-y sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]">
           {canApproveAsLead ? (
             <>
               <FinancialRow
