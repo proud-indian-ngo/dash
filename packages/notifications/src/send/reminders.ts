@@ -43,7 +43,11 @@ interface StaleRequestsOptions {
   counts: {
     advancePayments: number;
     reimbursements: number;
+    /** Vendor invoices (or no-invoice reasons) awaiting approval. */
+    vendorInvoices: number;
     vendorPayments: number;
+    /** Approved vendor payments not yet fully paid. */
+    vendorPaymentsToPay: number;
   };
   userId: string;
 }
@@ -66,7 +70,11 @@ export async function notifyStaleRequests({
   path = "/",
 }: StaleRequestsOptions): Promise<void> {
   const total =
-    counts.reimbursements + counts.advancePayments + counts.vendorPayments;
+    counts.reimbursements +
+    counts.advancePayments +
+    counts.vendorPayments +
+    counts.vendorPaymentsToPay +
+    counts.vendorInvoices;
   if (total === 0) {
     return;
   }
@@ -81,10 +89,18 @@ export async function notifyStaleRequests({
   if (counts.vendorPayments > 0) {
     parts.push(countOf(counts.vendorPayments, "vendor payment"));
   }
+  if (counts.vendorPaymentsToPay > 0) {
+    parts.push(
+      `${countOf(counts.vendorPaymentsToPay, "approved vendor payment")} to pay`
+    );
+  }
+  if (counts.vendorInvoices > 0) {
+    parts.push(countOf(counts.vendorInvoices, "vendor invoice"));
+  }
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `You've got ${parts.join(", ")} waiting for your review — some have been sitting for 3+ days.`;
+  const body = `You've got ${parts.join(", ")} waiting on you — some have been sitting for 3+ days.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Review now",
     ctaUrl: `${env.APP_URL}${path}`,

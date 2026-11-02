@@ -306,6 +306,15 @@ function OrientedDashboard() {
     (item) => item.status === "pending"
   );
   const pendingVendorPayments = vendorPayments.filter(readyForFinance);
+  // Approved but not fully paid: finance still has to record the payment.
+  const vendorPaymentsToPay = vendorPayments.filter(
+    (item) =>
+      (item.status === "approved" || item.status === "partially_paid") &&
+      item.voidedAt === null
+  );
+  const vendorInvoices = vendorPayments.filter(
+    (item) => item.status === "invoice_pending" && item.voidedAt === null
+  );
   const leadReimbursements = reimbursements.filter(waitingForMe);
   const leadVendorPayments = vendorPayments.filter(waitingForMe);
   // Without requests.view_all, the "My" figures are the person's own:
@@ -334,7 +343,9 @@ function OrientedDashboard() {
     leadVendorPayments,
     permissions: reviewPermissions,
     reimbursements: pendingReimbursements,
+    vendorInvoices,
     vendorPayments: pendingVendorPayments,
+    vendorPaymentsToPay,
   });
 
   const filteredReimbursements = filterByDateRange(
@@ -423,7 +434,9 @@ function OrientedDashboard() {
           leadVendorPayments={leadVendorPayments}
           permissions={reviewPermissions}
           reimbursements={pendingReimbursements}
+          vendorInvoices={vendorInvoices}
           vendorPayments={pendingVendorPayments}
+          vendorPaymentsToPay={vendorPaymentsToPay}
         />
       </div>
 

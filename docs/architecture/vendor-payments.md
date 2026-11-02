@@ -14,6 +14,7 @@ pending → approved → partially_paid → paid → invoice_pending → complet
 ```
 
 - Payments can be recorded only in `approved`, `partially_paid` and `paid`.
+- After approval, `approved` and `partially_paid` requests wait on finance to pay them and `invoice_pending` waits on finance to review the invoice. The home dashboard lists both under "Waiting for review" ("Vendor payments to pay", "Vendor invoices"). The stale-requests reminder counts them for `requests.approve` holders after 3 days: unpaid from approval, invoices from the request's last update, since submission time isn't stored.
 - `partially_paid` and `paid` compare approved payment totals with the line items. `recalculateParentStatus()` moves `approved` → `partially_paid` → `paid` and leaves every other status alone.
 - `invoice_pending` waits for approval of an invoice or a no-invoice reason; approval gives `completed`.
 - Server mutations lock the parent before reading status, lines or payment totals, through their writes and status recalculation. Payment edits re-read the transaction after locking its parent. This serializes creates, reviews, edits, deletes, voids and invoice changes across clients; bank-match checks precede payment-row writes.

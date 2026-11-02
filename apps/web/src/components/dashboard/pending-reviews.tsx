@@ -55,6 +55,16 @@ interface VendorPaymentPendingItem {
   vendor?: { name: string } | undefined;
 }
 
+interface VendorPaymentToPayItem extends VendorPaymentPendingItem {
+  transactions?:
+    | readonly {
+        amountPaise: number;
+        status: string | null;
+        voidedAt: number | null;
+      }[]
+    | undefined;
+}
+
 interface EventPhotoPendingItem {
   createdAt: number;
   event?: { id: string; name: string } | undefined;
@@ -92,6 +102,10 @@ export interface PendingReviewsProps {
   };
   reimbursements: readonly FinancialPendingItem[];
   vendorPayments: readonly VendorPaymentPendingItem[];
+  /** Vendor payments whose invoice (or no-invoice reason) awaits approval. */
+  vendorInvoices?: readonly VendorPaymentPendingItem[];
+  /** Approved vendor payments not yet fully paid. */
+  vendorPaymentsToPay?: readonly VendorPaymentToPayItem[];
 }
 
 // --- Event grouping helpers ---
@@ -151,14 +165,20 @@ export function countPendingReviews({
   leadVendorPayments = [],
   permissions,
   reimbursements,
+  vendorInvoices = [],
   vendorPayments,
+  vendorPaymentsToPay = [],
 }: Omit<PendingReviewsProps, "isLoading">): number {
   return (
     (permissions.canApproveAsLead
       ? leadReimbursements.length + leadVendorPayments.length
       : 0) +
     (permissions.canApproveRequests
-      ? reimbursements.length + advancePayments.length + vendorPayments.length
+      ? reimbursements.length +
+        advancePayments.length +
+        vendorPayments.length +
+        vendorPaymentsToPay.length +
+        vendorInvoices.length
       : 0) +
     (permissions.canManagePhotos ? eventPhotos.length : 0) +
     (permissions.canApproveUpdates ? eventUpdates.length : 0) +
@@ -316,6 +336,67 @@ function FinancialRow({
   );
 }
 
+const TO_PAY_FILTER = {
+  combinator: "and",
+  id: "root",
+  rules: [
+    {
+      id: "status-to-pay",
+      operator: "is_any_of",
+      path: ["status"],
+      type: "rule",
+      value: ["approved", "partially_paid"],
+    },
+  ],
+  type: "group",
+} as const;
+
+/** What an approved vendor payment still owes: its total less approved payments. */
+function outstandingPaise(item: VendorPaymentToPayItem): number {
+  const paid = sumPaise(
+    (item.transactions ?? [])
+      .filter((t) => t.status === "approved" && t.voidedAt === null)
+      .map((t) => t.amountPaise)
+  );
+  return Math.max(sumAmounts(item.lineItems) - paid, 0);
+}
+
+function VendorPaymentsToPayRow({
+  isLoading,
+  items,
+}: {
+  isLoading?: boolean;
+  items: readonly VendorPaymentToPayItem[];
+}) {
+  const hasItems = items.length > 0;
+  return (
+    <QueueRow
+      count={items.length}
+      icon={Store01Icon}
+      isLoading={isLoading}
+      label="Vendor payments to pay"
+      link={
+        hasItems ? (
+          <Link
+            aria-label="Review vendor payments to pay"
+            className="inline-flex items-center gap-1"
+            search={{ filters: TO_PAY_FILTER } as never}
+            to="/vendor-payments"
+          >
+            <ReviewLinkLabel />
+          </Link>
+        ) : undefined
+      }
+      oldestAt={hasItems ? oldest(items) : undefined}
+      summary={
+        hasItems
+          ? `${formatPaise(sumPaise(items.map(outstandingPaise)))} to pay`
+          : "Nothing waiting"
+      }
+    />
+  );
+}
+
 function EventReviewLink({
   group,
   label,
@@ -426,7 +507,9 @@ export function PendingReviews({
   leadVendorPayments = [],
   permissions,
   reimbursements,
+  vendorInvoices = [],
   vendorPayments,
+  vendorPaymentsToPay = [],
 }: PendingReviewsProps) {
   const {
     canApproveAsLead = false,
@@ -456,7 +539,9 @@ export function PendingReviews({
     leadVendorPayments,
     permissions,
     reimbursements,
+    vendorInvoices,
     vendorPayments,
+    vendorPaymentsToPay,
   });
 
   // Event items grouped by event, most recent first (already scoped by Zero)
@@ -523,6 +608,18 @@ export function PendingReviews({
                 isLoading={isLoading}
                 items={vendorPayments}
                 label="Vendor payments"
+                to="/vendor-payments"
+              />
+              <VendorPaymentsToPayRow
+                isLoading={isLoading}
+                items={vendorPaymentsToPay}
+              />
+              <FinancialRow
+                icon={Store01Icon}
+                isLoading={isLoading}
+                items={vendorInvoices}
+                label="Vendor invoices"
+                search={{ status: "invoice_pending" }}
                 to="/vendor-payments"
               />
             </>

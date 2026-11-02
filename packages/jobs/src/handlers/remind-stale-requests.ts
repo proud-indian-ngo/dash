@@ -12,7 +12,7 @@ import {
   waitingForYouPath,
 } from "@pi-dash/shared/approval-policy";
 import type { ExpenseChargedTo } from "@pi-dash/shared/constants";
-import { and, count, eq, lt } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, lt } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import type { Job } from "pg-boss";
 
@@ -26,6 +26,8 @@ const emptyCounts = (): Counts => ({
   advancePayments: 0,
   reimbursements: 0,
   vendorPayments: 0,
+  vendorInvoices: 0,
+  vendorPaymentsToPay: 0,
 });
 
 interface StaleRow {
@@ -50,57 +52,88 @@ export async function handleRemindStaleRequests(
     Date.now() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
   );
 
-  const [reimbursements, vendorPayments, advancePaymentCount, programmes] =
-    await Promise.all([
-      db
-        .select({
-          chargedProgrammeId: reimbursement.chargedProgrammeId,
-          chargedTo: reimbursement.chargedTo,
-          createdBy: reimbursement.createdBy,
-          eventProgrammeId: teamEvent.programmeId,
-          leadApprovedAt: reimbursement.leadApprovedAt,
-          leadSkipReason: reimbursement.leadSkipReason,
-          userId: reimbursement.userId,
-        })
-        .from(reimbursement)
-        .leftJoin(teamEvent, eq(teamEvent.id, reimbursement.eventId))
-        .where(
-          and(
-            eq(reimbursement.status, "pending"),
-            lt(reimbursement.submittedAt, threshold)
-          )
-        ),
-      db
-        .select({
-          chargedProgrammeId: vendorPayment.chargedProgrammeId,
-          chargedTo: vendorPayment.chargedTo,
-          eventProgrammeId: teamEvent.programmeId,
-          leadApprovedAt: vendorPayment.leadApprovedAt,
-          leadSkipReason: vendorPayment.leadSkipReason,
-          userId: vendorPayment.userId,
-        })
-        .from(vendorPayment)
-        .leftJoin(teamEvent, eq(teamEvent.id, vendorPayment.eventId))
-        .where(
-          and(
-            eq(vendorPayment.status, "pending"),
-            lt(vendorPayment.submittedAt, threshold)
-          )
-        ),
-      db
-        .select({ value: count() })
-        .from(advancePayment)
-        .where(
-          and(
-            eq(advancePayment.status, "pending"),
-            lt(advancePayment.submittedAt, threshold)
-          )
+  const [
+    reimbursements,
+    vendorPayments,
+    advancePaymentCount,
+    programmes,
+    vendorPaymentsToPayCount,
+    vendorInvoiceCount,
+  ] = await Promise.all([
+    db
+      .select({
+        chargedProgrammeId: reimbursement.chargedProgrammeId,
+        chargedTo: reimbursement.chargedTo,
+        createdBy: reimbursement.createdBy,
+        eventProgrammeId: teamEvent.programmeId,
+        leadApprovedAt: reimbursement.leadApprovedAt,
+        leadSkipReason: reimbursement.leadSkipReason,
+        userId: reimbursement.userId,
+      })
+      .from(reimbursement)
+      .leftJoin(teamEvent, eq(teamEvent.id, reimbursement.eventId))
+      .where(
+        and(
+          eq(reimbursement.status, "pending"),
+          lt(reimbursement.submittedAt, threshold)
         )
-        .then((r) => r[0]?.value ?? 0),
-      db
-        .select({ id: programme.id, leadUserId: programme.leadUserId })
-        .from(programme),
-    ]);
+      ),
+    db
+      .select({
+        chargedProgrammeId: vendorPayment.chargedProgrammeId,
+        chargedTo: vendorPayment.chargedTo,
+        eventProgrammeId: teamEvent.programmeId,
+        leadApprovedAt: vendorPayment.leadApprovedAt,
+        leadSkipReason: vendorPayment.leadSkipReason,
+        userId: vendorPayment.userId,
+      })
+      .from(vendorPayment)
+      .leftJoin(teamEvent, eq(teamEvent.id, vendorPayment.eventId))
+      .where(
+        and(
+          eq(vendorPayment.status, "pending"),
+          lt(vendorPayment.submittedAt, threshold)
+        )
+      ),
+    db
+      .select({ value: count() })
+      .from(advancePayment)
+      .where(
+        and(
+          eq(advancePayment.status, "pending"),
+          lt(advancePayment.submittedAt, threshold)
+        )
+      )
+      .then((r) => r[0]?.value ?? 0),
+    db
+      .select({ id: programme.id, leadUserId: programme.leadUserId })
+      .from(programme),
+    // Approved but not fully paid: finance records the payment.
+    db
+      .select({ value: count() })
+      .from(vendorPayment)
+      .where(
+        and(
+          inArray(vendorPayment.status, ["approved", "partially_paid"]),
+          isNull(vendorPayment.voidedAt),
+          lt(vendorPayment.reviewedAt, threshold)
+        )
+      )
+      .then((r) => r[0]?.value ?? 0),
+    // Invoice awaiting approval. No submission timestamp is stored, so the
+    // last update (submission or edit) stands in for it.
+    db
+      .select({ value: count() })
+      .from(vendorPayment)
+      .where(
+        and(
+          eq(vendorPayment.status, "invoice_pending"),
+          isNull(vendorPayment.voidedAt),
+          lt(vendorPayment.updatedAt, threshold)
+        )
+      )
+      .then((r) => r[0]?.value ?? 0),
+  ]);
 
   // A request waits for its programme lead while the lead step is
   // outstanding ("Approval policy"), else for finance.
@@ -124,6 +157,8 @@ export async function handleRemindStaleRequests(
   };
   const finance = emptyCounts();
   finance.advancePayments = advancePaymentCount;
+  finance.vendorPaymentsToPay = vendorPaymentsToPayCount;
+  finance.vendorInvoices = vendorInvoiceCount;
   const byLead = new Map<string, Counts>();
   const tally = (rows: readonly StaleRow[], kind: keyof Counts) => {
     for (const row of rows) {
@@ -140,12 +175,18 @@ export async function handleRemindStaleRequests(
   tally(vendorPayments, "vendorPayments");
 
   const financeTotal =
-    finance.reimbursements + finance.advancePayments + finance.vendorPayments;
+    finance.reimbursements +
+    finance.advancePayments +
+    finance.vendorPayments +
+    finance.vendorPaymentsToPay +
+    finance.vendorInvoices;
   log.set({
     advancePaymentCount,
     leadCount: byLead.size,
     reimbursementCount: reimbursements.length,
     vendorPaymentCount: vendorPayments.length,
+    vendorInvoiceCount,
+    vendorPaymentsToPayCount,
   });
 
   if (financeTotal === 0 && byLead.size === 0) {
@@ -177,6 +218,10 @@ export async function handleRemindStaleRequests(
                 current.counts.reimbursements + counts.reimbursements,
               vendorPayments:
                 current.counts.vendorPayments + counts.vendorPayments,
+              vendorInvoices:
+                current.counts.vendorInvoices + counts.vendorInvoices,
+              vendorPaymentsToPay:
+                current.counts.vendorPaymentsToPay + counts.vendorPaymentsToPay,
             },
           }
         : {
