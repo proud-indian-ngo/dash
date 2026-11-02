@@ -14,10 +14,7 @@ mock.module("@pi-dash/env/server", () => ({
 
 import { type AvatarHandlerDeps, handleAvatarRequest } from "./avatar";
 
-const avatarUser = {
-  email: "member@example.com",
-  gender: "female",
-};
+const avatarUser = { email: "member@example.com" };
 const gravatarUrl = `https://0.gravatar.com/avatar/${"a".repeat(64)}`;
 
 const deps = (
