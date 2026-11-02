@@ -25,6 +25,7 @@ vi.mock("./batching", () => ({
 }));
 
 vi.mock("./email", () => ({
+  renderDefaultNotificationEmail: vi.fn(async () => "<html></html>"),
   sendBulkNotificationEmails: vi.fn(async () => true),
   sendNotificationEmail: vi.fn(async () => true),
 }));

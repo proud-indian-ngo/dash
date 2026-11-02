@@ -11,7 +11,7 @@ import {
   EmailText,
 } from "./email-layout";
 import { colors, fonts } from "./theme";
-import type { LineItemDetail } from "./types";
+import type { EmailList, LineItemDetail } from "./types";
 
 export interface NotificationEmailProps {
   appName?: string;
@@ -21,6 +21,8 @@ export interface NotificationEmailProps {
   heading: string;
   imageUrl?: string;
   lineItems?: LineItemDetail[];
+  /** Titled lists after the paragraphs, for reports such as job results. */
+  lists?: EmailList[];
   note?: string;
   paragraphs: string[];
   /** Badge above the heading for emails about a state change. */
@@ -103,6 +105,73 @@ function LineItems({ items }: { items: LineItemDetail[] }) {
   );
 }
 
+/** Rows shown per list; the rest are counted, so a long report stays readable. */
+const LIST_ITEM_LIMIT = 50;
+
+function List({ items, title }: EmailList) {
+  const shown = items.slice(0, LIST_ITEM_LIMIT);
+  const hidden = items.length - shown.length;
+  return (
+    <Section style={{ margin: "0 0 16px" }}>
+      <Text
+        style={{
+          color: colors.ink,
+          fontSize: "13px",
+          fontWeight: 600,
+          lineHeight: "20px",
+          margin: "0 0 6px",
+        }}
+      >
+        {title}
+      </Text>
+      <table
+        cellPadding="0"
+        cellSpacing="0"
+        role="presentation"
+        style={{
+          border: `1px solid ${colors.line}`,
+          borderCollapse: "separate",
+          borderRadius: "7px",
+          borderSpacing: 0,
+          width: "100%",
+        }}
+      >
+        <tbody>
+          {shown.map((item, i) => (
+            <tr key={`${item}-${i}`}>
+              <td
+                style={{
+                  ...cell,
+                  borderTop: i === 0 ? "none" : cell.borderTop,
+                  fontFamily: fonts.mono,
+                  fontSize: "12.5px",
+                  wordBreak: "break-all",
+                }}
+              >
+                {item}
+              </td>
+            </tr>
+          ))}
+          {hidden > 0 ? (
+            <tr>
+              <td
+                style={{
+                  ...cell,
+                  backgroundColor: colors.page,
+                  borderRadius: "0 0 7px 7px",
+                  color: colors.muted,
+                }}
+              >
+                and {hidden} more
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </Section>
+  );
+}
+
 export default function NotificationEmail({
   appName,
   appUrl,
@@ -111,6 +180,7 @@ export default function NotificationEmail({
   heading,
   imageUrl,
   lineItems,
+  lists,
   note,
   paragraphs,
   status,
@@ -126,6 +196,10 @@ export default function NotificationEmail({
       <EmailHeading>{heading}</EmailHeading>
       {paragraphs.map((text) => (
         <EmailText key={text}>{text}</EmailText>
+      ))}
+
+      {lists?.map((list) => (
+        <List key={list.title} {...list} />
       ))}
 
       {lineItems && lineItems.length > 0 ? (

@@ -3,3 +3,8 @@ export interface LineItemDetail {
   categoryName: string;
   description: string | null;
 }
+
+export interface EmailList {
+  items: string[];
+  title: string;
+}

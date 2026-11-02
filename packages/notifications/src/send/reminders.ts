@@ -1,4 +1,4 @@
-import { renderNotificationEmail } from "@pi-dash/email";
+import { type EmailList, renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
@@ -14,6 +14,17 @@ import { TOPICS } from "../topics";
 /** "1 photo", "3 photos". */
 function countOf(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
+/** A report's plain text, for the inbox and WhatsApp. */
+function reportText(summary: string, lists: EmailList[]): string {
+  return [
+    summary,
+    ...lists.map(
+      (list) =>
+        `${list.title}:\n${list.items.map((item) => `  - ${item}`).join("\n")}`
+    ),
+  ].join("\n\n");
 }
 
 const eventTimeFmt = new Intl.DateTimeFormat("en-IN", {
@@ -188,27 +199,31 @@ export async function notifyWhatsAppScanResults({
   }
 
   const groupList = scannedGroups.join(", ");
-  const parts: string[] = [`Scanned groups: ${groupList}`];
+  const summary = `Scanned groups: ${groupList}`;
+  const lists: EmailList[] = [];
 
   if (deactivatedUsers.length > 0) {
-    parts.push(
-      `Auto-deactivated ${countOf(deactivatedUsers.length, "user")} not found in any scanned group:\n${deactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
-    );
+    lists.push({
+      items: deactivatedUsers.map((u) => `${u.name} (${u.phone})`),
+      title: `Auto-deactivated ${countOf(deactivatedUsers.length, "user")} not found in any scanned group`,
+    });
   }
 
   if (reactivatedUsers.length > 0) {
-    parts.push(
-      `Auto-reactivated ${countOf(reactivatedUsers.length, "user")} found in scanned groups:\n${reactivatedUsers.map((u) => `  - ${u.name} (${u.phone})`).join("\n")}`
-    );
+    lists.push({
+      items: reactivatedUsers.map((u) => `${u.name} (${u.phone})`),
+      title: `Auto-reactivated ${countOf(reactivatedUsers.length, "user")} found in scanned groups`,
+    });
   }
 
   for (const group of unregisteredByGroup) {
-    parts.push(
-      `${countOf(group.phones.length, "unregistered phone")} in "${group.groupName}":\n${group.phones.map((p) => `  - ${p}`).join("\n")}`
-    );
+    lists.push({
+      items: group.phones,
+      title: `${countOf(group.phones.length, "unregistered phone")} in "${group.groupName}"`,
+    });
   }
 
-  const body = parts.join("\n\n");
+  const body = reportText(summary, lists);
   const dateKey = new Date().toISOString().slice(0, 10);
 
   // Short summary for in-app inbox
@@ -228,7 +243,8 @@ export async function notifyWhatsAppScanResults({
     ctaLabel: "Manage users",
     ctaUrl: `${env.APP_URL}/users`,
     heading: "WhatsApp scan results",
-    paragraphs: parts,
+    lists,
+    paragraphs: [summary],
   });
 
   await sendBulkMessage({
@@ -271,29 +287,32 @@ export async function notifyR2CleanupResults({
 
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const parts: string[] = [
-    `Scanned ${r2ObjectCount} R2 objects. Found ${orphanCount} orphaned files. Deleted ${deletedKeys.length}.`,
-  ];
+  const summary = `Scanned ${r2ObjectCount} R2 objects. Found ${orphanCount} orphaned files. Deleted ${deletedKeys.length}.`;
+  const lists: EmailList[] = [];
+
+  // Failures need action, so they come first.
+  if (failedKeys.length > 0) {
+    lists.push({
+      items: failedKeys,
+      title: `Failed to delete ${countOf(failedKeys.length, "file")}`,
+    });
+  }
 
   if (deletedKeys.length > 0) {
-    parts.push(
-      `Deleted files:\n${deletedKeys.map((k) => `  - ${k}`).join("\n")}`
-    );
+    lists.push({
+      items: deletedKeys,
+      title: `Deleted ${countOf(deletedKeys.length, "file")}`,
+    });
   }
 
-  if (failedKeys.length > 0) {
-    parts.push(
-      `Failed to delete ${countOf(failedKeys.length, "file")}:\n${failedKeys.map((k) => `  - ${k}`).join("\n")}`
-    );
-  }
-
-  const body = parts.join("\n\n");
+  const body = reportText(summary, lists);
 
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View jobs",
     ctaUrl: `${env.APP_URL}/jobs?queue=cleanup-r2-orphans`,
     heading: "R2 cleanup results",
-    paragraphs: parts,
+    lists,
+    paragraphs: [summary],
   });
 
   await sendBulkMessage({

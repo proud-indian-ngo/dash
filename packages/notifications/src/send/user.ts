@@ -250,7 +250,6 @@ export async function sendUserDeletedEmail({
     return;
   }
   await sendNotificationEmail({
-    body: "Your account has been removed by an admin.",
     emailHtml,
     title: "⚠️ Account deleted",
     toEmail,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   freezeEmailBatchRecipients: vi.fn(),
   recordEmailMessages: vi.fn(),
+  renderNotificationEmail: vi.fn(async () => "<html></html>"),
   sendEmail: vi.fn(),
   sendEmailBatch: vi.fn(),
 }));
@@ -22,6 +23,7 @@ vi.mock("@pi-dash/env/server", () => ({
 }));
 vi.mock("@pi-dash/email", () => ({
   FOOTER_NOTE_PLACEHOLDER: "%%NOTE%%",
+  renderNotificationEmail: mocks.renderNotificationEmail,
 }));
 vi.mock("evlog", () => ({
   createRequestLogger: () => ({ emit: vi.fn(), error: vi.fn(), set: vi.fn() }),
@@ -34,6 +36,7 @@ vi.mock("@pi-dash/email/mailer", () => ({
 
 import {
   buildNotificationEmail,
+  renderDefaultNotificationEmail,
   sendBulkNotificationEmails,
   sendNotificationEmail,
 } from "./email";
@@ -44,7 +47,6 @@ const html = "<p>Hello</p><p>%%NOTE%%<a>Notification settings</a></p>";
 describe("buildNotificationEmail", () => {
   it("adds the topic, unsubscribe link and one-click headers for optional topics", () => {
     const message = buildNotificationEmail({
-      body: "b",
       emailHtml: html,
       title: "👥 Added to team",
       toEmail: "a@test.com",
@@ -66,7 +68,6 @@ describe("buildNotificationEmail", () => {
 
   it("leaves required topics without an unsubscribe link or headers", () => {
     const message = buildNotificationEmail({
-      body: "b",
       emailHtml: html,
       title: "Role changed",
       toEmail: "a@test.com",
@@ -79,15 +80,30 @@ describe("buildNotificationEmail", () => {
       "<p>Hello</p><p><a>Notification settings</a></p>"
     );
   });
+});
 
-  it("escapes the plain-body fallback", () => {
-    const message = buildNotificationEmail({
-      body: "<script>x</script>",
-      title: "t",
-      toEmail: "a@test.com",
+describe("renderDefaultNotificationEmail", () => {
+  it("renders the standard template with a button to the message's page", async () => {
+    await renderDefaultNotificationEmail({
+      body: "First.\n\nSecond.",
+      clickAction: "/events/e1",
+      title: "📅 RSVP from non-team member",
     });
 
-    expect(message.html).toBe("<p>&lt;script&gt;x&lt;/script&gt;</p>");
+    expect(mocks.renderNotificationEmail).toHaveBeenCalledWith({
+      ctaLabel: "View in the dashboard",
+      ctaUrl: "https://dash.test/events/e1",
+      heading: "RSVP from non-team member",
+      paragraphs: ["First.", "Second."],
+    });
+  });
+
+  it("leaves the button out without a page", async () => {
+    await renderDefaultNotificationEmail({ body: "b", title: "t" });
+
+    expect(mocks.renderNotificationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ ctaLabel: undefined, ctaUrl: undefined })
+    );
   });
 });
 
@@ -111,7 +127,6 @@ describe("sendBulkNotificationEmails", () => {
     });
 
     const sent = await sendBulkNotificationEmails({
-      body: "b",
       emailHtml: html,
       idempotencyKey: "bulk-email",
       logKey: "bulk",
@@ -149,7 +164,7 @@ describe("sendBulkNotificationEmails", () => {
 
     await expect(
       sendBulkNotificationEmails({
-        body: "b",
+        emailHtml: html,
         idempotencyKey: "k",
         logKey: "k",
         recipients: [{ email: "a@test.com", userId: "user-a" }],
@@ -175,7 +190,7 @@ describe("sendBulkNotificationEmails", () => {
 
     // user-b unsubscribed between attempts; user-c joined.
     await sendBulkNotificationEmails({
-      body: "b",
+      emailHtml: html,
       idempotencyKey: "bulk-email",
       logKey: "bulk",
       recipients: [
@@ -210,7 +225,7 @@ describe("sendBulkNotificationEmails", () => {
 
     await expect(
       sendBulkNotificationEmails({
-        body: "b",
+        emailHtml: html,
         idempotencyKey: "k",
         logKey: "k",
         recipients: [{ email: "a@test.com", userId: "user-a" }],
@@ -230,7 +245,7 @@ describe("sendNotificationEmail", () => {
 
   const send = () =>
     sendNotificationEmail({
-      body: "b",
+      emailHtml: html,
       idempotencyKey: "digest-batch-1-email",
       logKey: "digest-batch-1",
       title: "t",

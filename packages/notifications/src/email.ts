@@ -1,6 +1,9 @@
 import { freezeEmailBatchRecipients } from "@pi-dash/db/queries/email-batch-recipients";
 import { recordEmailMessages } from "@pi-dash/db/queries/email-message";
-import { FOOTER_NOTE_PLACEHOLDER } from "@pi-dash/email";
+import {
+  FOOTER_NOTE_PLACEHOLDER,
+  renderNotificationEmail,
+} from "@pi-dash/email";
 import {
   EmailSendError,
   type EmailMessage,
@@ -8,6 +11,7 @@ import {
   sendEmailBatch,
 } from "@pi-dash/email/mailer";
 import { NOTIFICATION_EMAIL_TAG } from "@pi-dash/email/webhook";
+import { env } from "@pi-dash/env/server";
 import { createRequestLogger } from "evlog";
 
 import { stripLeadingEmoji } from "./text";
@@ -22,13 +26,37 @@ function escapeHtml(text: string): string {
 }
 
 export interface NotificationEmailInput {
-  body: string;
-  emailHtml?: string;
+  emailHtml: string;
   title: string;
   toEmail: string;
   /** Recipient topic for the unsubscribe link; required topics get none. */
   topic?: string;
   userId?: string;
+}
+
+/**
+ * The standard notification email for a message whose sender rendered none:
+ * the title as heading, each blank-line-separated block of the body as a
+ * paragraph, and a button to the message's page.
+ */
+export function renderDefaultNotificationEmail({
+  body,
+  clickAction,
+  title,
+}: {
+  body: string;
+  clickAction?: string | null;
+  title: string;
+}): Promise<string> {
+  const ctaUrl = clickAction?.startsWith("/")
+    ? `${env.APP_URL}${clickAction}`
+    : (clickAction ?? undefined);
+  return renderNotificationEmail({
+    ctaLabel: ctaUrl ? "View in the dashboard" : undefined,
+    ctaUrl,
+    heading: stripLeadingEmoji(title),
+    paragraphs: body.split(/\n{2,}/),
+  });
 }
 
 /**
@@ -51,10 +79,7 @@ export function buildNotificationEmail(
           links.pageUrl
         )}" style="color:#5B6670;text-decoration:underline">Unsubscribe from this topic</a> · `
       : "";
-  const html = (input.emailHtml ?? `<p>${escapeHtml(input.body)}</p>`).replace(
-    FOOTER_NOTE_PLACEHOLDER,
-    footerNote
-  );
+  const html = input.emailHtml.replace(FOOTER_NOTE_PLACEHOLDER, footerNote);
   return {
     headers: links
       ? {
@@ -167,8 +192,7 @@ async function stableRecipients(
  * email was accepted.
  */
 export async function sendBulkNotificationEmails(options: {
-  body: string;
-  emailHtml?: string;
+  emailHtml: string;
   idempotencyKey: string;
   /** The notification's key, which the delivery log joins on. */
   logKey: string;
@@ -182,7 +206,6 @@ export async function sendBulkNotificationEmails(options: {
   );
   const messages = recipients.map((recipient) => ({
     ...buildNotificationEmail({
-      body: options.body,
       emailHtml: options.emailHtml,
       title: options.title,
       toEmail: recipient.email,
