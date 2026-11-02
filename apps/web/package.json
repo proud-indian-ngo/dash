@@ -17,6 +17,8 @@
     "@base-ui/react": "^1.9.0",
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
+    "@dicebear/core": "^9.4.2",
+    "@dicebear/notionists": "^9.4.2",
     "@dnd-kit/core": "catalog:",
     "@dnd-kit/sortable": "catalog:",
     "@hugeicons/core-free-icons": "catalog:",
