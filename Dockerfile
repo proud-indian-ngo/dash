@@ -2,11 +2,11 @@
 FROM oven/bun:1.4.4-slim AS posthog-cli
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
-      arm64) target=aarch64-unknown-linux-gnu; sha=ff5407411809d6754639e50b17b7aa52de323910e3e69f35b2fd159d6e7f2b17 ;; \
-      amd64) target=x86_64-unknown-linux-gnu; sha=313458fd8caf7adec1d15e59b2a1abcc2e9ff52a00e54cad181ec052daa50b25 ;; \
+      arm64) target=aarch64-unknown-linux-gnu; sha=13a986a164b3ec8f093ef7f2a9cd1360ba2f9748deab1e8e4a471fbec85bb46c ;; \
+      amd64) target=x86_64-unknown-linux-gnu; sha=6d753ad8eafef0c2a4cf3d64d59dca7ad8236688a812f58c4496cc482016d6b3 ;; \
       *) echo "posthog-cli: unsupported architecture $TARGETARCH"; exit 1 ;; \
     esac; \
-    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.18.12/posthog-cli-$target.tar.gz'))" && \
+    bun -e "await Bun.write('/tmp/cli.tar.gz', await fetch('https://github.com/PostHog/posthog/releases/download/posthog-cli/v0.19.0/posthog-cli-$target.tar.gz'))" && \
     echo "$sha  /tmp/cli.tar.gz" | sha256sum -c - && \
     tar -xzf /tmp/cli.tar.gz -C /tmp && \
     mv "/tmp/posthog-cli-$target/posthog-cli" /usr/local/bin/posthog-cli && \

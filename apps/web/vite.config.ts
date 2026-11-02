@@ -150,9 +150,6 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
       ...nitro({
         compressPublicAssets: true,
         rolldownConfig: { onLog, plugins: [rewritePublicAssets] },
-        experimental: {
-          vite: {},
-        },
         preset: "bun",
         serverDir: "server",
       }),

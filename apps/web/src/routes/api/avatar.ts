@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
-import { createAvatar } from "@dicebear/core";
-import * as notionists from "@dicebear/notionists";
+import { Avatar, Style, type StyleOptions } from "@dicebear/core";
+import notionists from "@dicebear/styles/notionists.json";
 import { db } from "@pi-dash/db";
 import { env } from "@pi-dash/env/server";
 import { createFileRoute } from "@tanstack/react-router";
@@ -9,7 +9,9 @@ import { createRequestLogger } from "evlog";
 
 import { requireSession } from "@/lib/api-auth";
 
-type NotionistsOptions = notionists.Options;
+type NotionistsOptions = StyleOptions<typeof notionists>;
+
+const NOTIONISTS = new Style(notionists);
 
 const TRAILING_SLASHES_REGEX = /\/+$/;
 const AVATAR_CACHE_CONTROL = "private, max-age=300";
@@ -24,28 +26,28 @@ const createVariantRange = <T extends string>(
   );
 
 const UNISEX_GLASSES_OPTIONS = createVariantRange<
-  NonNullable<NotionistsOptions["glasses"]>[number]
+  Extract<NotionistsOptions["glassesVariant"], string>
 >(1, 11);
 const GENDER_AVATAR_OPTIONS: Record<"female" | "male", NotionistsOptions> = {
   male: {
-    hair: createVariantRange(1, 20),
+    hairVariant: createVariantRange(1, 20),
     beardProbability: 70,
-    beard: createVariantRange(1, 12),
-    body: createVariantRange(1, 10),
+    beardVariant: createVariantRange(1, 12),
+    clothesVariant: createVariantRange(1, 10),
     glassesProbability: 20,
-    glasses: UNISEX_GLASSES_OPTIONS,
+    glassesVariant: UNISEX_GLASSES_OPTIONS,
     gestureProbability: 20,
-    gesture: ["hand", "ok", "point", "pointLongArm"],
+    gestureVariant: ["hand", "ok", "point", "pointLongArm"],
   },
   female: {
-    hair: createVariantRange(30, 63),
+    hairVariant: createVariantRange(30, 63),
     beardProbability: 0,
-    body: createVariantRange(11, 25),
-    lips: createVariantRange(10, 20),
+    clothesVariant: createVariantRange(11, 25),
+    mouthVariant: createVariantRange(10, 20),
     glassesProbability: 20,
-    glasses: UNISEX_GLASSES_OPTIONS,
+    glassesVariant: UNISEX_GLASSES_OPTIONS,
     gestureProbability: 20,
-    gesture: [
+    gestureVariant: [
       "hand",
       "handPhone",
       "ok",
@@ -140,7 +142,7 @@ const renderFallbackAvatar = (
   normalizedEmail: string,
   gender?: "female" | "male"
 ): string =>
-  createAvatar(notionists, {
+  new Avatar(NOTIONISTS, {
     seed: hashSha256(`${env.AVATAR_FALLBACK_SEED}:${normalizedEmail}`),
     ...(gender ? GENDER_AVATAR_OPTIONS[gender] : {}),
   }).toString();
