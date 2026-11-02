@@ -24,8 +24,11 @@ import path from "node:path";
 
 import { parseSync } from "oxc-parser";
 
+import { dependencyChange } from "./dependency-changes";
 import {
   areas,
+  dependencyFiles,
+  entryAreas,
   fullSuite,
   generated,
   ignored,
@@ -80,8 +83,10 @@ export interface Change {
   deleted?: boolean;
   /** A full-context diff, for the files whose lines decide the selection. */
   diff?: string;
-  /** A TypeScript file's content: at head, or before the change if deleted. */
+  /** A TypeScript file's content: at head, or before the change if deleted. A dependency file's content at head. */
   source?: string;
+  /** A dependency file's content before the change. */
+  previous?: string;
 }
 
 export interface Repo {
@@ -95,6 +100,8 @@ export interface Repo {
   importers: Map<string, Set<string>>;
   /** `importer -> specifier` for local imports that did not resolve. */
   unresolved: string[];
+  /** Files that name a package: its imports, quoted strings and shell or workflow words. */
+  mentions: (name: string) => string[];
 }
 
 export interface Plan {
@@ -161,6 +168,7 @@ const areaMatchers = areaNames.map((name) => {
 
 const isIgnored = globMatcher(ignored);
 const isFullSuite = globMatcher(fullSuite);
+const isDependencyFile = globMatcher(dependencyFiles);
 const isLayout = globMatcher(layout);
 const isRegistry = globMatcher(registries);
 const needsDiff = (file: string) =>
@@ -172,7 +180,7 @@ const generatedRules = generated.map((rule) => ({
   isSource: globMatcher([rule.from]),
 }));
 
-const areasOf = (file: string) =>
+export const areasOf = (file: string) =>
   areaMatchers.filter(({ matches }) => matches(file)).map(({ name }) => name);
 
 function specsOfAreas(repo: Repo, names: Iterable<string>): string[] {
@@ -204,6 +212,13 @@ function walkImporters(file: string, repo: Repo): Verdict {
         continue;
       }
       seen.add(importer);
+      const entry = entryAreas[importer];
+      if (entry) {
+        for (const name of entry) {
+          found.add(name);
+        }
+        continue;
+      }
       if (isRegistry(importer)) {
         return { all: true, reason: `reaches registry ${importer}` };
       }
@@ -447,16 +462,54 @@ function classifyRegistry(
   };
 }
 
+/** The specs of the files that name each changed dependency. */
+function classifyDependencies(
+  file: string,
+  previous: string | undefined,
+  source: string | undefined,
+  changed: string[],
+  repo: Repo
+): Verdict {
+  const change = dependencyChange(file, previous, source);
+  if ("all" in change) {
+    return { all: true, reason: change.all };
+  }
+  const specs: string[] = [];
+  for (const name of change.names) {
+    for (const mention of repo.mentions(name)) {
+      const verdict = classify(mention, "current", changed, repo);
+      if (verdict.all) {
+        return { all: true, reason: `${name}: ${mention}, ${verdict.reason}` };
+      }
+      specs.push(...(verdict.specs ?? []));
+    }
+  }
+  const names =
+    change.names.length > 6
+      ? `${change.names.slice(0, 6).join(", ")} and ${change.names.length - 6} more`
+      : change.names.join(", ");
+  return {
+    reason: names ? `dependencies ${names}` : "no dependency changed",
+    specs,
+  };
+}
+
 function classify(
   file: string,
   kind: "current" | "renamed" | "deleted",
   changed: string[],
   repo: Repo,
   diff?: string,
-  source?: string
+  source?: string,
+  previous?: string
 ): Verdict {
   if (isIgnored(file)) {
     return { reason: "ignored" };
+  }
+  if (isDependencyFile(file)) {
+    return kind === "current"
+      ? classifyDependencies(file, previous, source, changed, repo)
+      : { all: true, reason: `${kind} dependency file` };
   }
   if (source !== undefined && TYPESCRIPT.test(file)) {
     const typeOnly = isTypeOnly(file, source);
@@ -558,19 +611,29 @@ export function selectTests(changes: Change[], repo: Repo): Plan {
       "current" | "renamed" | "deleted",
       string?,
       string?,
+      string?,
     ][] = [
       [
         change.path,
         change.deleted ? "deleted" : "current",
         change.diff,
         change.source,
+        change.previous,
       ],
     ];
     if (change.oldPath) {
       entries.push([change.oldPath, "renamed"]);
     }
-    for (const [file, kind, diff, source] of entries) {
-      const verdict = classify(file, kind, changed, repo, diff, source);
+    for (const [file, kind, diff, source, previous] of entries) {
+      const verdict = classify(
+        file,
+        kind,
+        changed,
+        repo,
+        diff,
+        source,
+        previous
+      );
       reasons.push(
         verdict.all
           ? { full: true, path: file, reason: verdict.reason }
@@ -638,6 +701,16 @@ export function changedFiles(base: string, head: string): Change[] {
       if (TYPESCRIPT.test(change.path)) {
         const rev = change.deleted ? mergeBase : head;
         out.source = run(["show", `${rev}:${change.path}`]);
+      }
+      if (
+        isDependencyFile(change.path) &&
+        !(change.deleted || change.oldPath)
+      ) {
+        out.source = run(["show", `${head}:${change.path}`]);
+        const added = run(["ls-tree", mergeBase, "--", change.path]) === "";
+        out.previous = added
+          ? undefined
+          : run(["show", `${mergeBase}:${change.path}`]);
       }
       return out;
     }
@@ -748,7 +821,42 @@ export function loadRepo(root = ROOT): Repo {
     }
   }
   const perfOnly = new Set([...perfReached].filter((f) => !specRefs.has(f)));
-  return { importers, perfOnly, specAreas, specRefs, unresolved };
+
+  // git grep exits 1 when nothing matches.
+  const grep = (args: string[]) => {
+    try {
+      return execFileSync("git", ["grep", "-l", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      })
+        .split("\n")
+        .filter(Boolean);
+    } catch (error) {
+      if ((error as { status?: number }).status === 1) {
+        return [];
+      }
+      throw error;
+    }
+  };
+  const mentions = (name: string) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const quoted = `["'\`]${escaped}(/[^"'\`[:space:]]*)?["'\`]`;
+    return [
+      ...new Set([
+        ...grep([
+          "-E",
+          quoted,
+          "--",
+          ".",
+          ":(exclude,glob)**/package.json",
+          ":(exclude)bun.lock",
+        ]),
+        ...grep(["-w", "-F", name, "--", "*.sh", "*.yml", "*.yaml"]),
+      ]),
+    ].sort();
+  };
+  return { importers, mentions, perfOnly, specAreas, specRefs, unresolved };
 }
 
 function summary(plan: Plan, total: number): string {

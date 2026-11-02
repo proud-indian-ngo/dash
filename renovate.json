@@ -4,13 +4,14 @@
   "schedule": ["before 9am every weekday"],
   "timezone": "Asia/Kolkata",
   "platformAutomerge": true,
-  "rebaseWhen": "behind-base-branch",
+  "rebaseWhen": "conflicted",
   "packageRules": [
     {
-      "description": "Automerge patch updates",
+      "description": "Automerge patch updates; master requires up-to-date branches, so only these rebase when behind",
       "matchUpdateTypes": ["patch", "pin", "digest"],
       "groupName": "patch updates",
-      "automerge": true
+      "automerge": true,
+      "rebaseWhen": "behind-base-branch"
     },
     {
       "description": "Group minor updates into a single PR",

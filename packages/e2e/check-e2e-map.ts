@@ -2,8 +2,8 @@
 /**
  * Fails when test-areas.ts drifts from the repository: a glob, app name or
  * named pattern that matches no file, an area that isn't a spec folder, a
- * spec folder without an area, an `@e2e-areas` comment naming an unknown
- * area, or a seed module under helpers/seed/ that seedReaders doesn't list
+ * spec folder without an area, a route file no rule covers, an
+ * `@e2e-areas` comment naming an unknown area, or a seed module under helpers/seed/ that seedReaders doesn't list
  * correctly.
  */
 
@@ -11,9 +11,17 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { appGlobs, areaNames, matchesNamed, specAreasOf } from "./select-tests";
+import {
+  appGlobs,
+  areaNames,
+  areasOf,
+  matchesNamed,
+  specAreasOf,
+} from "./select-tests";
 import {
   areas,
+  dependencyFiles,
+  entryAreas,
   fullSuite,
   generated,
   ignored,
@@ -41,6 +49,8 @@ const matchesAny = (globs: string[]) => {
 };
 
 const lists: Record<string, string[]> = {
+  dependencyFiles,
+  entryAreas: Object.keys(entryAreas),
   fullSuite,
   generated: generated.flatMap(({ files: f, from }) => [f, from]),
   ignored,
@@ -73,6 +83,18 @@ for (const name of areaNames) {
     if (!matchesAny([glob])) {
       problems.push(`${name}: ${glob} matches no file`);
     }
+  }
+}
+
+// A route no rule covers sends the import walk on to routeTree.gen.ts, a
+// registry, so any change below it would run the full suite.
+const isCovered = [fullSuite, ignored, layout, signing].map((globs) => {
+  const compiled = globs.map((glob) => new Bun.Glob(glob));
+  return (file: string) => compiled.some((glob) => glob.match(file));
+});
+for (const file of files.filter((f) => f.startsWith("apps/web/src/routes/"))) {
+  if (areasOf(file).length === 0 && !isCovered.some((covers) => covers(file))) {
+    problems.push(`route ${file} has no area`);
   }
 }
 

@@ -108,6 +108,7 @@ function fakeRepo(edges: Record<string, string[]>): Repo {
       ["donors/donor-directory.spec.ts", new Set(["donors"])],
       ["income/receipts.spec.ts", new Set(["income"])],
     ]),
+    mentions: () => [],
     specRefs: new Map(),
     unresolved: [],
   };
@@ -166,6 +167,46 @@ describe("selectTests", () => {
         path: "packages/e2e/tests/donors/donor-directory.spec.ts",
       }).specs
     ).toEqual(["donors/donor-directory.spec.ts"]);
+  });
+
+  describe("dependency files", () => {
+    const root = path.resolve(import.meta.dirname, "../..");
+    const web = readFileSync(path.join(root, "apps/web/package.json"), "utf8");
+    const bump = (from: string, to: string): Change => ({
+      path: "apps/web/package.json",
+      previous: web,
+      source: web.replace(from, to),
+    });
+
+    test("a bumped dependency selects the specs of the files that import it", () => {
+      const result = plan(
+        bump(
+          /"@dicebear\/core": "[^"]+"/.exec(web)?.[0] as string,
+          '"@dicebear/core": "^99.0.0"'
+        )
+      );
+      expect(result.all).toBe(false);
+      expect(result.specs).toEqual(expect.arrayContaining(inArea("users")));
+      expect(result.specs.length).toBeLessThan(repo.specAreas.size);
+    });
+
+    test("a dependency no file names selects nothing", () => {
+      const manifest = readFileSync(path.join(root, "package.json"), "utf8");
+      expect(
+        plan({
+          path: "package.json",
+          previous: manifest,
+          source: manifest.replace(
+            /"ultracite": "[^"]+"/,
+            '"ultracite": "99.0.0"'
+          ),
+        })
+      ).toMatchObject({ all: false, specs: [] });
+    });
+
+    test("a script change runs the full suite", () => {
+      expect(plan(bump('"build":', '"build-renamed":')).all).toBe(true);
+    });
   });
 
   test("an area file selects every spec in the area", () => {
