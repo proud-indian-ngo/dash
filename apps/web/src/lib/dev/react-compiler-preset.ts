@@ -11,6 +11,9 @@ export function appReactCompilerPreset() {
   const preset = reactCompilerPreset();
   return {
     ...preset,
+    // Upstream's preset is a factory, which can't go to the parallel Babel
+    // workers. This plain object is what that factory returns.
+    preset: { plugins: [["babel-plugin-react-compiler", {}]] },
     rolldown: {
       ...preset.rolldown,
       filter: {
