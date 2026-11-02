@@ -172,7 +172,7 @@ const generatedRules = generated.map((rule) => ({
   isSource: globMatcher([rule.from]),
 }));
 
-const areasOf = (file: string) =>
+export const areasOf = (file: string) =>
   areaMatchers.filter(({ matches }) => matches(file)).map(({ name }) => name);
 
 function specsOfAreas(repo: Repo, names: Iterable<string>): string[] {
