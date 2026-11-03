@@ -148,7 +148,7 @@ Person QR codes encode `{"id":"<record-id>","type":"student|guardian|volunteer|g
 
 - `/api/kalakriti/$year/id-cards` is administrator-only, rechecks access and returns a private, no-store PDF. Inactive people, retired Centers and cancelled Competitions are excluded.
 - Registering a blank card turns its printed UUID into the new record's ID. Administrators, Volunteer Coordinators and Volunteer Management Volunteers can do it. UUIDs already in use are rejected; exact retries succeed.
-- A Volunteer card without an email creates a no-login membership. With an email it creates and enrols a central user, which needs `users.create`.
+- A Volunteer card without an email creates a no-login membership. With an email it creates and enrols a central user, which needs `users.create`. A Volunteer Management Volunteer can enrol only a user their own successful `user.create` audit entry names, with no other Edition membership, so the card flag cannot enrol existing users.
 - Scanning is lookup-only, so register a blank card before scanning it.
 
 ## Public schedule, exports and audit
@@ -222,7 +222,7 @@ The Food roster lists only currently meal-eligible people.
 
 - Counts and rows wait for a complete authorized snapshot. Initial placeholders reserve space for meal progress and the roster; later sync gaps retain the last complete snapshot for the same scope.
 - Administrators and Food staff see the whole Edition; Guardians and Liaisons see their Centers, and Guardians always see their own row. Reading never grants recording.
-- Guests and Judges reach Food staff through a server projection (`functions/kalakriti-food.ts`), because Zero would sync their contacts.
+- Guests, Judges, Guardians and Volunteers reach Food readers through server projections (`functions/kalakriti-food.ts`), because Zero would sync their contact snapshots. The membership projection runs the scoped Food membership query on the server; keep it out of the synced query registry. Projected rows refresh every five seconds, on focus and after an undo; Students stay live through Zero.
 - Administrators and Food Leads can undo a meal while Live. `kalakritiOperation.undoMeal` appends a `meal_correction` and never deletes. The meal can then be served again by a fresh scan, not by continuous camera frames.
 
 ## Inventory items and stock history
@@ -232,6 +232,7 @@ Inventory is open to `kalakriti.admin` and `edition_admin`, `logistics_lead` and
 - Unit prices are in paise. Opening stock writes an `initial_inventory` transaction.
 - Purchases and returns add, dispatches subtract and reject shortfalls. Returns do not reconcile against dispatches. Adjustments need a reason and fail if the balance changed since it was shown.
 - Dispatch and Return scan a Volunteer. The optional Competition or role must be one of that Volunteer's assignments and is stored as a snapshot.
+- Volunteer names for the picker and history come from a server projection (`functions/kalakriti-inventory.ts`), because Zero would sync membership contacts. It reloads every few seconds, on focus and reconnect, and once before a scan is refused. The server pass checks the recipient is active.
 - `recordBatch` preflights every line under the Edition lock, so failure writes nothing.
 - `kalakriti_inventory_transaction` is append-only. Items can be archived only at zero stock.
 

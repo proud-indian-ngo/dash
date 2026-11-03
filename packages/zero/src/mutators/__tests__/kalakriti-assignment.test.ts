@@ -1024,6 +1024,112 @@ describe("kalakritiAssignment.addVolunteers", () => {
       expect(spies.insertMembership).not.toHaveBeenCalled();
     }
   });
+  describe("as a Volunteer Management Volunteer with a printed card", () => {
+    const vmvContext = {
+      ...adminContext,
+      permissions: ["kalakriti.view", "users.create"],
+      role: "volunteer",
+      userId: "vmv-1",
+    };
+    const vmvAuthority = [
+      { id: "vmv-membership" },
+      [{ responsibility: "volunteer_management_volunteer" }],
+    ];
+    const printedCardArgs = {
+      auditEntryId: "audit-1",
+      editionId: "edition-1",
+      now: 1_700_000_000_000,
+      requirePrintedCardId: true,
+      volunteers: [
+        {
+          membershipId: "printed-card",
+          teamEventMemberId: "event-member-new",
+          userId: "volunteer-1",
+        },
+      ],
+    };
+
+    it("refuses a user the actor did not just create for the card", async () => {
+      for (const [ctx, proof] of [
+        [{ ...vmvContext, permissions: ["kalakriti.view"] }, []],
+        [vmvContext, [undefined, []]],
+        [vmvContext, [{ id: "user-create-audit" }, [{ id: "other-card" }]]],
+      ] as const) {
+        const { tx, spies } = createTx([...vmvAuthority, ...proof]);
+        const loadPrivateUser = mock(ctx.loadPrivateUser);
+        await expect(
+          kalakritiAssignmentMutators.addVolunteers.fn({
+            args: printedCardArgs,
+            ctx: { ...ctx, loadPrivateUser },
+            tx,
+          } as unknown as Parameters<
+            typeof kalakritiAssignmentMutators.addVolunteers.fn
+          >[0])
+        ).rejects.toThrow("Unauthorized");
+        expect(loadPrivateUser).not.toHaveBeenCalled();
+        expect(spies.insertMembership).not.toHaveBeenCalled();
+        expect(spies.insertEventMember).not.toHaveBeenCalled();
+      }
+    });
+
+    it("enrols the account the actor created for the card", async () => {
+      const { lockedCenters, tx, spies } = createTx([
+        ...vmvAuthority,
+        { id: "user-create-audit" },
+        [],
+        { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
+        undefined,
+        undefined,
+        {
+          email: "volunteer@example.com",
+          id: "volunteer-1",
+          isActive: true,
+          name: "Volunteer One",
+          phone: null,
+          role: "volunteer",
+        },
+        undefined,
+        undefined,
+        undefined,
+        {
+          editionId: "edition-1",
+          humanId: null,
+          kind: "volunteer",
+          id: "printed-card",
+          state: "active",
+        },
+      ]);
+      lockedCenters[0] = [
+        {
+          ageCutoffDate: "2027-06-30",
+          eventDate: "2027-11-21",
+          id: "edition-1",
+          lifecycle: "draft",
+          nextVolunteerSequence: 1,
+          teamEventId: "event-1",
+          timezone: "Asia/Kolkata",
+          year: 2027,
+        },
+      ];
+
+      await kalakritiAssignmentMutators.addVolunteers.fn({
+        args: printedCardArgs,
+        ctx: vmvContext,
+        tx,
+      } as unknown as Parameters<
+        typeof kalakritiAssignmentMutators.addVolunteers.fn
+      >[0]);
+
+      const proofQuery = JSON.stringify(
+        (tx.run.mock.calls as unknown as [{ ast: unknown }][])[2]?.[0].ast
+      );
+      for (const value of ["user.create", "vmv-1", "success", "volunteer-1"])
+        expect(proofQuery).toContain(value);
+      expect(spies.insertMembership).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "printed-card", userId: "volunteer-1" })
+      );
+    });
+  });
   it("creates unassigned membership and a linked event member", async () => {
     const { lockedCenters, tx, spies } = createTx([
       { id: "edition-1", lifecycle: "draft", teamEventId: "event-1" },
@@ -1270,7 +1376,7 @@ describe("kalakritiAssignment.removeVolunteer", () => {
           userId: "target-1",
         },
         { id: "actor-membership" },
-        { id: "actor-assignment", responsibility: "volunteer_coordinator" },
+        [{ id: "actor-assignment", responsibility: "volunteer_coordinator" }],
         [{ id: "target-assignment", responsibility }],
         { id: "actor-membership" },
         [{ responsibility: "volunteer_coordinator" }],

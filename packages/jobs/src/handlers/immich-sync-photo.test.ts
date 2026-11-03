@@ -49,6 +49,7 @@ beforeEach(() => {
   mocks.updateReturningRows = [{ id: "photo-1" }];
   mocks.eventImmichAlbumFindFirst.mockResolvedValue(null);
   mocks.eventPhotoFindFirst.mockResolvedValue({
+    eventId: "event-1",
     immichAssetId: null,
     r2Key: "app/photos/event-1/photo.jpg",
   });
@@ -111,8 +112,12 @@ describe("processImmichSync", () => {
       immichAlbumId: "album-1",
     });
     mocks.eventPhotoFindFirst
-      .mockResolvedValueOnce({ immichAssetId: null, r2Key })
-      .mockResolvedValueOnce({ immichAssetId: "asset-1", r2Key });
+      .mockResolvedValueOnce({ eventId: "event-1", immichAssetId: null, r2Key })
+      .mockResolvedValueOnce({
+        eventId: "event-1",
+        immichAssetId: "asset-1",
+        r2Key,
+      });
     mocks.fetch
       .mockReset()
       .mockResolvedValueOnce(
@@ -172,6 +177,34 @@ describe("processImmichSync", () => {
     ).toBe(false);
     expect(mocks.setValues).toEqual([{ immichAssetId: "asset-1" }]);
   });
+
+  it.each([
+    ["another event", { eventId: "event-2" }],
+    ["another R2 object", { r2Key: "app/photos/event-1/other.jpg" }],
+  ])(
+    "does no work when the photo row belongs to %s",
+    async (_label, rowOverride) => {
+      mocks.eventPhotoFindFirst.mockResolvedValue({
+        eventId: "event-1",
+        immichAssetId: null,
+        r2Key: "app/photos/event-1/photo.jpg",
+        ...rowOverride,
+      });
+
+      await processImmichSync({
+        eventId: "event-1",
+        eventName: "Event",
+        photoId: "photo-1",
+        r2Key: "app/photos/event-1/photo.jpg",
+      });
+
+      expect(mocks.eventImmichAlbumFindFirst).not.toHaveBeenCalled();
+      expect(mocks.file).not.toHaveBeenCalled();
+      expect(mocks.fetch).not.toHaveBeenCalled();
+      expect(mocks.update).not.toHaveBeenCalled();
+      expect(mocks.enqueue).not.toHaveBeenCalled();
+    }
+  );
 
   it("does no external work after the photo row is deleted", async () => {
     mocks.eventPhotoFindFirst.mockResolvedValue(null);

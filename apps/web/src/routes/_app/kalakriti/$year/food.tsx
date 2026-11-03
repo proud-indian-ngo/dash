@@ -11,7 +11,7 @@ import { FoodStats } from "@/components/kalakriti/food-stats";
 import type { FoodTableRow } from "@/components/kalakriti/food-table";
 import { KalakritiPageHeader } from "@/components/kalakriti/kalakriti-page-header";
 import { ScanDialog } from "@/components/kalakriti/scan-dialog";
-import { useFoodAttendees } from "@/components/kalakriti/use-food-attendees";
+import { useFoodProjection } from "@/components/kalakriti/use-food-projection";
 import { TableSkeleton } from "@/components/shared/page-skeleton";
 import { useDashboardDestinationFilter } from "@/lib/kalakriti-dashboard-filter";
 import { getKalakritiScanActivities } from "@/lib/kalakriti-event-day-policy";
@@ -39,20 +39,18 @@ function KalakritiFoodPage() {
     edition.lifecycle === "live" &&
     getKalakritiScanActivities(access).includes("meals");
   const scopeKey = kalakritiFoodScopeKey(access);
-  const attendees = useFoodAttendees(
+  const projection = useFoodProjection(
     edition.year,
+    edition.id,
     scopeKey,
     canViewKalakritiFoodAttendees(access)
   );
   const [students, studentsResult] = useQuery(
     queries.kalakritiFood.students({ editionId: edition.id })
   );
-  const [memberships, membershipsResult] = useQuery(
-    queries.kalakritiFood.memberships({ editionId: edition.id })
-  );
   const data = useMemo<FoodTableRow[]>(
     () => [
-      ...attendees.rows,
+      ...projection.attendees,
       ...students.map((student): FoodTableRow => ({
         id: student.id,
         name: student.name,
@@ -61,25 +59,11 @@ function KalakritiFoodPage() {
         centers: student.center ? [student.center] : [],
         operations: student.operations,
       })),
-      ...memberships.map((membership): FoodTableRow => ({
-        id: membership.id,
-        name: membership.snapshotName,
-        humanId: membership.humanId,
-        kind: membership.kind,
-        state: membership.state ?? undefined,
-        centers: [
-          ...membership.assignments,
-          ...membership.guardianCenters,
-        ].flatMap((link) => (link.center ? [link.center] : [])),
-        operations: membership.operations,
-      })),
+      ...projection.memberships,
     ],
-    [students, memberships, attendees.rows]
+    [students, projection.attendees, projection.memberships]
   );
-  const complete =
-    studentsResult.type === "complete" &&
-    membershipsResult.type === "complete" &&
-    attendees.complete;
+  const complete = studentsResult.type === "complete" && projection.complete;
   return (
     <div className="space-y-4">
       <KalakritiPageHeader
@@ -127,7 +111,7 @@ function KalakritiFoodPage() {
           data={data}
           complete={complete}
           scopeKey={scopeKey}
-          onMealSettled={attendees.refresh}
+          onMealSettled={projection.refresh}
         />
       )}
       {canScan && scanOpen ? (

@@ -43,7 +43,6 @@ function history(editionId: string, ctx: Context | null) {
       inventoryEdition(edition, ctx, editionId)
     )
     .related("item")
-    .related("volunteer", (membership) => membership.related("user"))
     .related("competition")
     .related("actor")
     .orderBy("createdAt", "desc")
@@ -66,31 +65,18 @@ export const kalakritiInventoryQueries = {
   byItem: defineQuery(input.extend({ itemId: z.uuid() }), ({ args, ctx }) =>
     history(args.editionId, ctx).where("itemId", args.itemId)
   ),
-  volunteers: defineQuery(input, ({ args, ctx }) =>
-    zql.kalakritiEditionMembership
-      .where("editionId", args.editionId)
-      .where("kind", "volunteer")
-      .where("state", "active")
-      .whereExists("edition", (edition) =>
-        inventoryEdition(edition, ctx, args.editionId)
-      )
-      .related("user")
-      .orderBy("id", "asc")
-  ),
+  // Membership rows carry contacts, so no inventory query returns one:
+  // Volunteer names come from `getKalakritiInventoryVolunteers`. Assignments
+  // exist only for active Volunteers, so this needs no membership filter.
   assignments: defineQuery(
     input.extend({ volunteerMembershipId: z.uuid() }),
     ({ args, ctx }) =>
-      zql.kalakritiEditionMembership
-        .where("id", args.volunteerMembershipId)
+      zql.kalakritiAssignment
         .where("editionId", args.editionId)
-        .where("kind", "volunteer")
-        .where("state", "active")
+        .where("membershipId", args.volunteerMembershipId)
         .whereExists("edition", (edition) =>
           inventoryEdition(edition, ctx, args.editionId)
         )
-        .related("assignments", (assignment) =>
-          assignment.where("editionId", args.editionId).related("competition")
-        )
-        .one()
+        .related("competition")
   ),
 };

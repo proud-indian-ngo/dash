@@ -400,16 +400,20 @@ export const kalakritiInventoryMutators = {
           "Batch was only partly recorded; review stock before retrying"
         );
 
-      const volunteer = await tx.run(
-        zql.kalakritiEditionMembership
-          .where("id", args.volunteerMembershipId)
-          .where("editionId", args.editionId)
-          .where("kind", "volunteer")
-          .where("state", "active")
-          .one()
-      );
-      if (!volunteer)
-        throw new Error("Select an active volunteer from this Edition");
+      // Inventory staff never sync Volunteer memberships (they carry
+      // contacts), so only the server pass can check the recipient.
+      if (tx.location === "server") {
+        const volunteer = await tx.run(
+          zql.kalakritiEditionMembership
+            .where("id", args.volunteerMembershipId)
+            .where("editionId", args.editionId)
+            .where("kind", "volunteer")
+            .where("state", "active")
+            .one()
+        );
+        if (!volunteer)
+          throw new Error("Select an active volunteer from this Edition");
+      }
       if (args.competitionId) {
         const competition = await tx.run(
           zql.kalakritiCompetition

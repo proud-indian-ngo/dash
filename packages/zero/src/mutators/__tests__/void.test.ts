@@ -99,7 +99,23 @@ function createDb(
     },
   });
   const tx = {
-    dbTransaction: { wrappedTransaction: { execute: async () => [] } },
+    dbTransaction: {
+      wrappedTransaction: {
+        execute: async () => [],
+        // The row lock `reimbursement.delete` takes reads the seeded request.
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              for: async () =>
+                (tables.reimbursement ?? []).slice(0, 1).map((row) => ({
+                  status: row.status,
+                  voidedAt: null,
+                })),
+            }),
+          }),
+        }),
+      },
+    },
     location,
     mutate: new Proxy(
       {},

@@ -151,6 +151,9 @@ export const saveVendor = createServerFn({ method: "POST" })
       throw new HttpError(401, "Unauthorized");
     }
     const { session } = context;
+    const canChangeApprovedBank = (await permissionsOf(session)).includes(
+      "vendors.approve"
+    );
     const result = await runSessionAuditedAction(
       session,
       context.headers,
@@ -158,7 +161,8 @@ export const saveVendor = createServerFn({ method: "POST" })
         action: data.mode === "create" ? "vendor.create" : "vendor.update",
         target: { id: data.id, type: "party" },
       },
-      async () => await saveVendorRows(data, session.user.id)
+      async () =>
+        await saveVendorRows(data, session.user.id, { canChangeApprovedBank })
     );
     return {
       created: result.created,

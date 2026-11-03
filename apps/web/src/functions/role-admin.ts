@@ -70,11 +70,15 @@ export const getRoles = createServerFn({ method: "GET" })
 
 export type RoleListItem = Awaited<ReturnType<typeof getRoles>>[number];
 
-// ── Role options for dropdowns (no special permission required) ──
+// ── Role options for dropdowns (signed-in users, no special permission) ──
 
 export const getRoleOptions = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    if (!context.session) {
+      throw new HttpError(401, "Unauthorized");
+    }
+
     try {
       return await db
         .select({ id: role.id, name: role.name })

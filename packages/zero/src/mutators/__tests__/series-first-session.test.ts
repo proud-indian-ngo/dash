@@ -187,6 +187,36 @@ describe("a series' first session is the parent row", () => {
     });
   });
 
+  it("refuses a materializedId that names another event", async () => {
+    const db = createDb([
+      {
+        cancelledAt: null,
+        id: "other-event",
+        seriesId: null,
+        startTime: FIRST + 30 * 86_400_000,
+        teamId: "team-2",
+      },
+    ]);
+    db.tables.teamEventMember?.push({
+      eventId: "series-1",
+      id: "m-1",
+      userId: "volunteer-1",
+    });
+    await expect(
+      resolveJoinTarget(
+        db.tx as never,
+        { ...series, inheritVolunteers: true } as never,
+        {
+          eventId: "series-1",
+          materializedId: "other-event",
+          now: NOW,
+          occDate: "2026-10-10",
+        }
+      )
+    ).rejects.toThrow("Event id already exists");
+    expect(db.tables.teamEventMember).toHaveLength(1);
+  });
+
   it("refuses to materialise the start date as an exception", async () => {
     const db = createDb();
     await expect(

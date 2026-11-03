@@ -34,6 +34,7 @@ import {
 import {
   assertIsWaitingLead,
   assertNotOwnRequest,
+  attachmentsChange,
   chargeChanges,
   financeLeadStep,
   LEAD_APPROVAL_CLEARED_NOTE,
@@ -1359,16 +1360,26 @@ export const vendorPaymentMutators = {
     );
     const provisionCleared = new Set<string>();
     const provisionKeptResized = new Set<string>();
-    // What the lead approved changed: they look at it again.
+    // What the lead approved changed (Charged to, a line, the vendor or a
+    // quotation): they look at it again.
     const clearsLead =
       entity.status === "pending" &&
       Boolean(entity.leadApprovedAt) &&
       (chargeChanges(entity, charge) ||
+        entity.vendorId !== args.vendorId ||
         linesChange(
           await tx.run(
             zql.vendorPaymentLineItem.where("vendorPaymentId", args.id)
           ),
           args.lineItems
+        ) ||
+        attachmentsChange(
+          await tx.run(
+            zql.vendorPaymentAttachment
+              .where("vendorPaymentId", args.id)
+              .where("purpose", "quotation")
+          ),
+          args.attachments
         ));
 
     await tx.mutate.vendorPayment.update({

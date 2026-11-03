@@ -327,19 +327,27 @@ const MOBILE = /^[6-9]\d{9}$/;
  */
 export function referenceFromNarration(narration: string): string {
   const upper = narration.toUpperCase();
+  // A shape missing after one rail is missing after every later rail, so each
+  // is searched for once; re-splitting the rest per rail would be quadratic.
+  const missing = new Set<"rrn" | "utr">();
   for (const rail of upper.matchAll(RAIL)) {
+    const kind = rail[1];
+    const shape = kind === "UPI" || kind === "IMPS" ? "rrn" : "utr";
+    if (missing.has(shape)) {
+      continue;
+    }
     const tokens = upper
       .slice((rail.index ?? 0) + rail[0].length)
       .split(/[^A-Z0-9]+/)
       .filter((token) => !(IFSC.test(token) || MOBILE.test(token)));
-    const kind = rail[1];
     const found =
-      kind === "UPI" || kind === "IMPS"
+      shape === "rrn"
         ? tokens.find((token) => RRN.test(token))
         : tokens.find((token) => UTR.test(token) && /\d/.test(token));
     if (found) {
       return found;
     }
+    missing.add(shape);
   }
   return "";
 }

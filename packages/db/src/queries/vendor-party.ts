@@ -230,10 +230,15 @@ export interface SaveVendorResult {
  * Create or update a vendor: its party, vendor role, supplier profile, private
  * details and active bank account, in one transaction with every row it reads
  * locked. Replaced bank accounts stay as inactive history.
+ *
+ * Approving a vendor approves where it is paid, so a new account number or
+ * IFSC code for an approved vendor needs `canChangeApprovedBank` (the actor
+ * can approve vendors).
  */
 export async function saveVendor(
   input: SaveVendorInput,
-  actorId: string
+  actorId: string,
+  options: { canChangeApprovedBank: boolean }
 ): Promise<SaveVendorResult> {
   const now = new Date();
   const vendorId = input.id;
@@ -379,6 +384,16 @@ export async function saveVendor(
       input.bankAccountNumber,
       activeAccounts[0] ?? null
     );
+    if (
+      existingVendor?.status === "approved" &&
+      !options.canChangeApprovedBank &&
+      (plan.kind === "replace" ||
+        bankDetails.ifscCode !== activeAccounts[0]?.ifscCode)
+    ) {
+      throw new PartyConflictError(
+        "Only someone who can approve vendors can change an approved vendor's account number or IFSC code"
+      );
+    }
     if (plan.kind === "replace") {
       await tx
         .update(partyBankAccount)

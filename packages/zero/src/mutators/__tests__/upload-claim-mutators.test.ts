@@ -769,6 +769,7 @@ describe("server mutator upload claims", () => {
     const insertPhoto = mock();
     const ctx = serverContext();
     const tx = {
+      dbTransaction: { wrappedTransaction: { execute: async () => [] } },
       location: "server",
       mutate: { eventPhoto: { insert: insertPhoto } },
       run: mock()

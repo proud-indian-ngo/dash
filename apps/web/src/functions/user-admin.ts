@@ -276,7 +276,11 @@ export const createUserAdmin = createServerFn({ method: "POST" })
         }
 
         return created.user.id;
-      }
+      },
+      undefined,
+      // Kalakriti printed-card enrolment checks this row to bind a Volunteer
+      // Management Volunteer to the account they just created.
+      (userId) => ({ id: userId, type: "user" })
     );
   });
 

@@ -334,6 +334,38 @@ async function getRosterVolunteer(
   return volunteer;
 }
 
+// The printed-card allowance lets a Volunteer Management Volunteer enrol only
+// the login account they created for the card, never an existing user.
+async function assertCreatedForPrintedCard(
+  tx: AssignmentTx,
+  ctx: Context,
+  volunteer: { membershipId: string; userId: string }
+): Promise<void> {
+  if (!can(ctx, "users.create")) {
+    throw new Error("Unauthorized");
+  }
+  const [createdByActor, memberships] = await Promise.all([
+    tx.run(
+      zql.auditLog
+        .where("action", "user.create")
+        .where("actorUserId", ctx.userId)
+        .where("outcome", "success")
+        .where("targetType", "user")
+        .where("targetId", volunteer.userId)
+        .one()
+    ),
+    tx.run(
+      zql.kalakritiEditionMembership.where("userId", volunteer.userId)
+    ) as Promise<readonly { id: string }[]>,
+  ]);
+  if (
+    !createdByActor ||
+    memberships.some((membership) => membership.id !== volunteer.membershipId)
+  ) {
+    throw new Error("Unauthorized");
+  }
+}
+
 function assertVolunteerMembership(
   membership:
     | {
@@ -568,13 +600,20 @@ export const kalakritiAssignmentMutators = {
   addVolunteers: defineMutator(
     kalakritiAddVolunteersSchema,
     async ({ tx, ctx, args }) => {
-      await assertCanManageVolunteerRoster(
+      const authority = await assertCanManageVolunteerRoster(
         tx,
         ctx,
         args.editionId,
         args.requirePrintedCardId === true
       );
       assertIsLoggedIn(ctx);
+      if (authority === "printed_card" && tx.location === "server") {
+        await Promise.all(
+          args.volunteers.map((volunteer) =>
+            assertCreatedForPrintedCard(tx, ctx, volunteer)
+          )
+        );
+      }
       const edition = await getAssignmentEdition(tx, args.editionId);
       let addedCount = 0;
       let missingCount = 0;

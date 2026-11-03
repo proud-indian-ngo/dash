@@ -82,6 +82,7 @@ function setup(
     competitionCancelled?: number | null;
     recipientAssignedCompetition?: boolean;
     recipientAssignedRole?: boolean;
+    location?: "client" | "server";
   } = {}
 ) {
   const order: string[] = [];
@@ -192,7 +193,20 @@ function setup(
     );
   });
   const tx = {
-    location: "client",
+    location: options.location ?? "client",
+    // The server pass locks the Edition through Drizzle.
+    dbTransaction: {
+      wrappedTransaction: {
+        select: () => {
+          const query = {
+            from: () => query,
+            where: () => query,
+            for: async () => tables.kalakritiEdition,
+          };
+          return query;
+        },
+      },
+    },
     run,
     mutate: {
       kalakritiInventoryItem: { insert: insertItem, update: updateItem },
@@ -789,8 +803,9 @@ describe("inventory batch movements", () => {
   it("rejects cross-Edition and inactive references before writing", async () => {
     for (const [options, args] of [
       [{ itemEdition: otherEditionId }, {}],
-      [{ volunteerEdition: otherEditionId }, {}],
-      [{ volunteerState: "archived" }, {}],
+      // Clients never sync Volunteer memberships, so the server checks them.
+      [{ volunteerEdition: otherEditionId, location: "server" }, {}],
+      [{ volunteerState: "archived", location: "server" }, {}],
       [{ competitionEdition: otherEditionId }, { competitionId }],
       [{ competitionCancelled: 1 }, { competitionId }],
       [{ archivedAt: 1 }, {}],

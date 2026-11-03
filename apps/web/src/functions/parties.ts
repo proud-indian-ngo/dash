@@ -1,6 +1,7 @@
 import { hasEncryptionKey } from "@pi-dash/db/encryption";
 import {
   deleteDonor as deleteDonorRows,
+  getDirectoryPartyPrivate,
   getPartyPrivate,
   type PartyPrivateView,
   revealPartyIdNumber,
@@ -43,8 +44,12 @@ export const getPartyDetails = createServerFn({ method: "POST" })
       "donors.view",
       "donors.manage",
     ]);
+    // Only directory parties: a vendor-only party's details are gated by the
+    // vendor access rules, not by donors.view.
     return {
-      details: data.partyId ? await getPartyPrivate(data.partyId) : null,
+      details: data.partyId
+        ? await getDirectoryPartyPrivate(data.partyId)
+        : null,
       identifiersAvailable: hasEncryptionKey(),
     };
   });

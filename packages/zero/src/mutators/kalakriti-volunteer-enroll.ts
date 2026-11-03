@@ -57,15 +57,16 @@ interface VolunteerMembershipRow {
   state: "active" | "archived";
 }
 
+/** `printed_card` means only the Volunteer Management Volunteer allowance admitted the actor. */
 export async function assertCanManageVolunteerRoster(
   tx: { run: ZeroRunFn },
   ctx: Context | undefined,
   editionId: string,
   printedCard = false
-): Promise<void> {
+): Promise<"manager" | "printed_card"> {
   assertIsLoggedIn(ctx);
   if (can(ctx, "kalakriti.admin")) {
-    return;
+    return "manager";
   }
 
   const membership = (await tx.run(
@@ -80,7 +81,7 @@ export async function assertCanManageVolunteerRoster(
     throw new Error("Unauthorized");
   }
 
-  const managerAssignment = await tx.run(
+  const managerAssignments = (await tx.run(
     zql.kalakritiAssignment
       .where("membershipId", membership.id)
       .where("editionId", editionId)
@@ -93,11 +94,16 @@ export async function assertCanManageVolunteerRoster(
             : [])
         )
       )
-      .one()
-  );
-  if (!managerAssignment) {
+  )) as readonly { responsibility: string }[];
+  if (managerAssignments.length === 0) {
     throw new Error("Unauthorized");
   }
+  return managerAssignments.some(
+    (assignment) =>
+      assignment.responsibility !== "volunteer_management_volunteer"
+  )
+    ? "manager"
+    : "printed_card";
 }
 
 export async function findEditionForLinkedEvent(

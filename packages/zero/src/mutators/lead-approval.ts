@@ -128,6 +128,24 @@ export function linesChange(
   });
 }
 
+interface AttachmentFacts {
+  objectKey?: null | string;
+  type: string;
+  url?: null | string;
+}
+
+/** Whether an edit adds, removes or replaces a file or link. */
+export function attachmentsChange(
+  before: readonly AttachmentFacts[],
+  after: readonly AttachmentFacts[]
+): boolean {
+  const refs = (list: readonly AttachmentFacts[]) =>
+    list.map((a) => `${a.type}:${a.objectKey ?? a.url ?? ""}`).sort();
+  const was = refs(before);
+  const is = refs(after);
+  return was.length !== is.length || was.some((ref, i) => ref !== is[i]);
+}
+
 export const LEAD_APPROVAL_CLEARED_NOTE =
   "Programme lead's approval cleared: the request changed after they approved it";
 

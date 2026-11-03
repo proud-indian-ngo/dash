@@ -1,22 +1,27 @@
 import { useConnectionState } from "@rocicorp/zero/react";
 import { useEffect, useRef, useState } from "react";
 
-import { getKalakritiFoodAttendees } from "@/functions/kalakriti-food";
+import {
+  getKalakritiFoodAttendees,
+  getKalakritiFoodMemberships,
+} from "@/functions/kalakriti-food";
 
 import type { FoodTableRow } from "./food-table";
 
 const EMPTY_ROWS: FoodTableRow[] = [];
 
-export function useFoodAttendees(
+export function useFoodProjection(
   year: number,
+  editionId: string,
   scopeKey: string,
-  enabled: boolean
+  attendeesEnabled: boolean
 ) {
   const connection = useConnectionState();
   const connected = connection.name === "connected";
   const [snapshot, setSnapshot] = useState<{
     scopeKey: string;
-    rows: FoodTableRow[];
+    attendees: FoodTableRow[];
+    memberships: FoodTableRow[];
     complete: boolean;
   }>();
   const refreshRef = useRef<() => Promise<void>>(async () => undefined);
@@ -33,10 +38,17 @@ export function useFoodAttendees(
           ? { ...previous, complete: false }
           : undefined
       );
-      if (!enabled || !connected) return;
+      if (!connected) return;
+      const attendeesRequest = attendeesEnabled
+        ? getKalakritiFoodAttendees({ data: { year } })
+        : Promise.resolve(EMPTY_ROWS);
       try {
-        const rows = await getKalakritiFoodAttendees({ data: { year } });
-        if (isCurrent(request)) setSnapshot({ scopeKey, rows, complete: true });
+        const [attendees, memberships] = await Promise.all([
+          attendeesRequest,
+          getKalakritiFoodMemberships({ data: { editionId } }),
+        ]);
+        if (isCurrent(request))
+          setSnapshot({ scopeKey, attendees, memberships, complete: true });
       } catch {
         // Keep the last roster visible, but disable writes until a successful refresh.
       }
@@ -55,15 +67,12 @@ export function useFoodAttendees(
       clearInterval(timer);
       window.removeEventListener("focus", focus);
     };
-  }, [year, scopeKey, enabled, connected]);
+  }, [year, editionId, scopeKey, attendeesEnabled, connected]);
+  const current = snapshot?.scopeKey === scopeKey ? snapshot : undefined;
   return {
-    rows:
-      enabled && snapshot?.scopeKey === scopeKey ? snapshot.rows : EMPTY_ROWS,
-    complete:
-      !enabled ||
-      (connected &&
-        snapshot?.scopeKey === scopeKey &&
-        snapshot.complete === true),
+    attendees: attendeesEnabled && current ? current.attendees : EMPTY_ROWS,
+    memberships: current?.memberships ?? EMPTY_ROWS,
+    complete: connected && current?.complete === true,
     refresh,
   };
 }

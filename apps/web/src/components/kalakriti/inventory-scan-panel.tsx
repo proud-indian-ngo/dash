@@ -17,7 +17,7 @@ import { queries } from "@pi-dash/zero/queries";
 import { useConnectionState, useQuery, useZero } from "@rocicorp/zero/react";
 import { useForm } from "@tanstack/react-form";
 import { log } from "evlog";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { uuidv7 } from "uuidv7";
 import z from "zod";
@@ -29,12 +29,14 @@ import { InputField } from "@/components/form/input-field";
 import { SelectField } from "@/components/form/select-field";
 import { TextareaField } from "@/components/form/textarea-field";
 import { Loader } from "@/components/loader";
+import type { KalakritiInventoryVolunteer } from "@/functions/kalakriti-inventory";
 import { getInventoryAssignmentOptions } from "@/lib/kalakriti-inventory-assignment-options";
 import { handleMutationResult } from "@/lib/mutation-result";
 
 import { EventDayQrScanner } from "./event-day-qr-scanner";
 import { ManualScanEntry, normalizeManualScanId } from "./manual-scan-entry";
 import { ScanResultCard, useScanResult } from "./scan-result-card";
+import { useInventoryVolunteers } from "./use-inventory-volunteers";
 
 const batchFormSchema = z.object({
   selection: z.string(),
@@ -59,18 +61,33 @@ export function InventoryScanPanel({
   onBusyChange: (busy: boolean) => void;
 }) {
   const [edition] = useQuery(queries.kalakritiEdition.byYear({ year }));
-  const [volunteers, result] = useQuery(
-    queries.kalakritiInventory.volunteers({ editionId })
-  );
+  const {
+    volunteers: people,
+    complete,
+    refresh,
+  } = useInventoryVolunteers(editionId);
+  const volunteers = people.filter((person) => person.active);
   const connection = useConnectionState();
   const [volunteerId, setVolunteerId] = useState<string | null>(null);
   const volunteer = volunteers.find((person) => person.id === volunteerId);
   const ready =
-    result.type === "complete" &&
+    complete &&
     connection.name === "connected" &&
     edition?.id === editionId &&
     edition.lifecycle !== "archived";
   const { result: lastScan, show } = useScanResult();
+  const rechecked = useRef<string | null>(null);
+  // A miss may be a Volunteer enrolled since the last reload, so reload once
+  // before refusing, and never replace a Volunteer picked meanwhile.
+  const reloadAndFind = async (
+    matches: (row: KalakritiInventoryVolunteer) => boolean
+  ) => {
+    const previous = volunteerId;
+    const person = (await refresh())?.find((row) => row.active && matches(row));
+    if (person)
+      setVolunteerId((current) => (current === previous ? person.id : current));
+    return person !== undefined;
+  };
   const scan = useEventCallback((value: string) => {
     if (!ready || volunteer) return;
     let person: ReturnType<typeof parseKalakritiPersonQr>;
@@ -95,34 +112,47 @@ export function InventoryScanPanel({
       );
       return;
     }
-    if (
-      person.type !== "volunteer" ||
-      !volunteers.some((row) => row.id === person.id)
-    ) {
+    const personId = person.id;
+    const refuse = () =>
       show(
         {
-          subject: `not-volunteer:${person.id}`,
+          subject: `not-volunteer:${personId}`,
           tone: "error",
           title: "Not an active Volunteer",
           detail: "Scan an active Volunteer from this Edition.",
         },
         "camera"
       );
+    if (person.type !== "volunteer") {
+      refuse();
       return;
     }
-    setVolunteerId(person.id);
+    if (volunteers.some((row) => row.id === personId)) {
+      setVolunteerId(personId);
+      return;
+    }
+    // The camera repeats a held code, so recheck each missed one once.
+    if (rechecked.current === personId) {
+      refuse();
+      return;
+    }
+    void reloadAndFind((row) => row.id === personId).then((found) => {
+      if (found) return;
+      rechecked.current = personId;
+      refuse();
+    });
   });
   const form = useForm({
     defaultValues: { humanId: "" },
     validators: { onChange: manualSchema, onSubmit: manualSchema },
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       if (!ready) return;
       const humanId = normalizeManualScanId(value.humanId);
-      const person = volunteers.find(
-        (row) => row.humanId?.toUpperCase() === humanId
-      );
+      const matches = (row: KalakritiInventoryVolunteer) =>
+        row.humanId?.toUpperCase() === humanId;
+      const person = volunteers.find(matches);
       if (person) setVolunteerId(person.id);
-      else
+      else if (!(await reloadAndFind(matches)))
         show(
           {
             subject: `not-volunteer:${humanId}`,
@@ -145,7 +175,7 @@ export function InventoryScanPanel({
         >
           <p className="text-muted-foreground text-sm">Responsible volunteer</p>
           <h3 className="font-semibold">
-            {volunteer.user?.name ?? volunteer.snapshotName}
+            {volunteer.userName ?? volunteer.snapshotName}
           </h3>
           <p className="text-muted-foreground text-sm">
             {volunteer.humanId ?? "Volunteer"}
@@ -174,7 +204,7 @@ export function InventoryScanPanel({
       {connection.name !== "connected" ? (
         <p role="status">Scanning requires an online connection.</p>
       ) : null}
-      {result.type !== "complete" ? (
+      {!complete ? (
         <Loader />
       ) : (
         <div className="space-y-3">
@@ -214,15 +244,13 @@ function InventoryBatchForm({
   const [items, itemsResult] = useQuery(
     queries.kalakritiInventory.items({ editionId })
   );
-  const [assignedVolunteer, assignmentsResult] = useQuery(
+  const [assignments, assignmentsResult] = useQuery(
     queries.kalakritiInventory.assignments({
       editionId,
       volunteerMembershipId: volunteerId,
     })
   );
-  const assignmentOptions = getInventoryAssignmentOptions(
-    assignedVolunteer?.assignments ?? []
-  );
+  const assignmentOptions = getInventoryAssignmentOptions(assignments);
   const schema = batchFormSchema.refine(
     (value) =>
       value.selection === "" ||
@@ -244,8 +272,7 @@ function InventoryBatchForm({
   const ready =
     connection.name === "connected" &&
     itemsResult.type === "complete" &&
-    assignmentsResult.type === "complete" &&
-    assignedVolunteer?.id === volunteerId;
+    assignmentsResult.type === "complete";
   const form = useForm({
     defaultValues: {
       selection: "",

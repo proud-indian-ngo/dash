@@ -70,6 +70,8 @@ import { vendorPaymentQueries } from "./queries/vendor-payment";
 import { vendorPaymentTransactionQueries } from "./queries/vendor-payment-transaction";
 import { whatsappGroupQueries } from "./queries/whatsapp-group";
 
+export { kalakritiFoodServerQueries } from "./queries/kalakriti-food";
+
 export const queries = defineQueries({
   accountHead: accountHeadQueries,
   advancePayment: advancePaymentQueries,

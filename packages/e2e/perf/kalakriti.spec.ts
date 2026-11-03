@@ -298,7 +298,6 @@ test("profile a large synthetic Kalakriti edition", async ({
     page.getByRole("heading", { name: "Edition overview", exact: true })
   ).toBeVisible();
   const minimumRows: Record<string, number> = {
-    "kalakritiFood.memberships": fixture.counts.memberships!,
     "kalakritiFood.students": fixture.counts.students!,
     "kalakritiStudent.visibleForDirectory": fixture.counts.students!,
     "kalakritiEntry.visible": fixture.counts.entries!,
@@ -346,7 +345,7 @@ test("profile a large synthetic Kalakriti edition", async ({
   results.push(...(await profileConfiguration(page, false)));
   results.push(...(await profileEligibility(page)));
   for (const [route, names] of [
-    ["food", ["kalakritiFood.memberships", "kalakritiFood.students"]],
+    ["food", ["kalakritiFood.students"]],
     ["students", ["kalakritiStudent.visibleForDirectory"]],
     ["guardians", ["kalakritiGuardian.roster"]],
     ["volunteers", ["kalakritiAssignment.roster"]],
@@ -491,7 +490,6 @@ test("profile a large synthetic Kalakriti edition", async ({
           "food",
           {
             "kalakritiFood.students": fixture.scopedCounts.students,
-            "kalakritiFood.memberships": 90,
           },
         ],
       ] as [string, Record<string, number>][]) {
@@ -500,7 +498,6 @@ test("profile a large synthetic Kalakriti edition", async ({
           "kalakritiStudent.visibleForDirectory": "kalakriti_student",
           "kalakritiEntry.visible": "kalakriti_competition_entry",
           "kalakritiFood.students": "kalakriti_student",
-          "kalakritiFood.memberships": "kalakriti_edition_membership",
         };
         const verification = Object.fromEntries(
           Object.entries(expected).map(([name, count]) => [
@@ -512,10 +509,7 @@ test("profile a large synthetic Kalakriti edition", async ({
                 name === "kalakritiEntry.visible"
                   ? { kalakriti_entry_member: count * fixture.groupSize }
                   : undefined,
-              centerIds:
-                name === "kalakritiFood.memberships"
-                  ? undefined
-                  : fixture.scopedCenterIds,
+              centerIds: fixture.scopedCenterIds,
             },
           ])
         );
@@ -673,11 +667,9 @@ test("profile a large synthetic Kalakriti edition", async ({
             "food",
             {
               "kalakritiFood.students": fixture.counts.students!,
-              "kalakritiFood.memberships": fixture.counts.memberships!,
             },
             {
               "kalakritiFood.students": "kalakriti_student",
-              "kalakritiFood.memberships": "kalakriti_edition_membership",
             },
           ],
         ] as [string, Record<string, number>, Record<string, string>][]) {

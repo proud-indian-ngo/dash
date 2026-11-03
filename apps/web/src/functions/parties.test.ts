@@ -36,6 +36,7 @@ mock.module("@pi-dash/db/queries/party-private", () => ({
     deleted.push(partyId);
     return "party";
   },
+  getDirectoryPartyPrivate: async () => null,
   getPartyPrivate: async () => null,
   revealPartyIdNumber: async () => null,
   saveParty: async () => ({}),

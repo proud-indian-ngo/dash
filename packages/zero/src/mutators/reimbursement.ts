@@ -1286,15 +1286,16 @@ export const reimbursementMutators = {
     async ({ tx, ctx, args }) => {
       assertIsLoggedIn(ctx);
       const { userId } = ctx;
-      const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
-      assertEntityExists(entity, "Reimbursement");
-      assertCanDelete(
-        entity,
-        userId,
-        can(ctx, "requests.delete_all"),
-        can(ctx, "requests.delete_own")
-      );
-      await assertDeletable(tx, entity, [ledgerSource(args.id)]);
+      const deleteAll = can(ctx, "requests.delete_all");
+      const deleteOwn = can(ctx, "requests.delete_own");
+      const found = await tx.run(zql.reimbursement.where("id", args.id).one());
+      assertEntityExists(found, "Reimbursement");
+      assertCanDelete(found, userId, deleteAll, deleteOwn);
+      await assertDeletable(tx, found, [ledgerSource(args.id)]);
+      // Lock after the bank-match lock, the order matching takes them, and
+      // check again: an approval committed meanwhile ends an owner's delete.
+      const entity = { ...found, ...(await lockReimbursement(tx, found.id)) };
+      assertCanDelete(entity, userId, deleteAll, deleteOwn);
       enqueueDeleteR2Object(ctx, tx.location, entity.approvalScreenshotKey, {
         keyPrefixes: reimbursementApprovalKeyPrefixes(args.id),
         meta: {
@@ -1603,6 +1604,10 @@ export const reimbursementMutators = {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
+    // Lock before reading the request and its items: an approval committed
+    // meanwhile must fail the pending check, and a signature collected
+    // meanwhile would otherwise be wiped when the items are replaced.
+    await lockReimbursement(tx, args.id);
     const entity = await tx.run(zql.reimbursement.where("id", args.id).one());
     assertEntityExists(entity, "Reimbursement");
     assertNotVoided(entity);
@@ -1617,9 +1622,6 @@ export const reimbursementMutators = {
       can(ctx, "requests.edit_own")
     );
 
-    // Lock before reading the items: a signature collected meanwhile would
-    // otherwise be wiped when the items are replaced.
-    await lockReimbursement(tx, args.id);
     const now = Date.now();
     const charge = await resolveExpenseCharge(tx, args, entity, ctx);
     const costCentreId = await pickRequestCostCentreId(

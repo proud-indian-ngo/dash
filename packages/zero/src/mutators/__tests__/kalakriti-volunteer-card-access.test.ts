@@ -16,7 +16,9 @@ describe("Volunteer card registration authority", () => {
         expect(scope.includes("volunteer_management_volunteer")).toBe(
           printedCard
         );
-        return printedCard ? { id: "assignment" } : undefined;
+        return printedCard
+          ? [{ responsibility: "volunteer_management_volunteer" }]
+          : [];
       });
       const request = assertCanManageVolunteerRoster(
         { run } as never,
@@ -24,13 +26,31 @@ describe("Volunteer card registration authority", () => {
         "edition-1",
         printedCard
       );
-      if (printedCard) await request;
+      if (printedCard) expect(await request).toBe("printed_card");
       else await expect(request).rejects.toThrow("Unauthorized");
       const membershipScope = JSON.stringify(run.mock.calls[0]?.[0].ast);
       for (const value of ["operator", "edition-1", "active", "volunteer"])
         expect(membershipScope).toContain(value);
     }
   );
+  it("treats a coordinator who is also a Volunteer Management Volunteer as a roster manager", async () => {
+    const run = mock(async (query: { ast: { table: string } }) =>
+      query.ast.table === "kalakritiEditionMembership"
+        ? { id: "membership" }
+        : [
+            { responsibility: "volunteer_management_volunteer" },
+            { responsibility: "volunteer_coordinator" },
+          ]
+    );
+    expect(
+      await assertCanManageVolunteerRoster(
+        { run } as never,
+        actor as never,
+        "edition-1",
+        true
+      )
+    ).toBe("manager");
+  });
   it("rejects absent or revoked membership before inspecting assignments", async () => {
     const run = mock(async () => undefined);
     await expect(

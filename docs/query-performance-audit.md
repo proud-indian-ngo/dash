@@ -26,7 +26,7 @@ Zero queries were inventoried against `packages/zero/src/queries.ts` on 14 Sept 
 | `kalakritiEdition` | `readiness`, `byYear`, `cloneSource`, `configurationAccessible`, `accessible`, `byTeamEventId` (admin and restricted roles) | |
 | `kalakritiEligibility` | `ageCategories` (admin, Edition admin, category lead, overall-events) | |
 | `kalakritiEntry` | `visible`, `visibleByCenter`, `visibleByDivision`, `availableDivisions`, `availableDivisionsByCenter` (admin, Guardian, liaison; `visible` also Edition admin, category lead, overall-events lead) | `byId`* |
-| `kalakritiFood` | `students`, `memberships` (admin, Edition admin, Guardian, liaison) | |
+| `kalakritiFood` | `students` (admin, Edition admin, Guardian, liaison) | |
 | `kalakritiGuardian` | `roster` (admin) | |
 | `kalakritiStudent` | `visibleForCompliance`, `visibleForDirectory`, `visibleByCenter`, `visibleForEntries`, `ageCategoriesByCenter` (admin, Guardian, liaison; directory also Edition admin) | |
 | `notification` | `forCurrentUser` (admin, volunteer) | |

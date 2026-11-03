@@ -9,6 +9,7 @@ import {
   can,
 } from "../permissions";
 import { type Schema, zql } from "../schema";
+import { assertNewRecord } from "./creation-invariant";
 import {
   assertWhatsAppGroupAvailable,
   pushAddGroupMembersTask,
@@ -117,6 +118,9 @@ export const teamMutators = {
     }),
     async ({ tx, ctx, args }) => {
       assertHasPermission(ctx, "teams.create");
+      await assertNewRecord(tx, "team", args.id, () =>
+        tx.run(zql.team.where("id", args.id).one())
+      );
       await assertProgrammeSelectable(tx, args.programmeId);
       if (args.whatsappGroupId) {
         await assertWhatsAppGroupAvailable(tx, args.whatsappGroupId, {
@@ -346,6 +350,18 @@ export const teamMutators = {
           .one()
       ));
       assertHasPermissionOrTeamLead(ctx, "teams.manage_members", isTeamLead);
+
+      // Demoting a lead would let them be removed, so it follows the
+      // removeMember rule. A lead may still step down themselves.
+      if (
+        !can(ctx, "teams.manage_members") &&
+        member.role === "lead" &&
+        args.role === "member" &&
+        member.userId !== ctx.userId
+      ) {
+        throw new Error("Team leads cannot demote other leads");
+      }
+
       await tx.mutate.teamMember.update({
         id: args.memberId,
         role: args.role,
