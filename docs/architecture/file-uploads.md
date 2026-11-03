@@ -88,7 +88,7 @@ They stay referenced and downloadable after delivery.
 Optional. `getImmichConfig()` (`apps/web/src/lib/immich.ts`) returns `null` when unconfigured, and callers must then do nothing. Calls are plain `fetch()`; there is no SDK.
 
 1. A member uploads a photo, stored as an `event_photo` with an R2 key.
-2. Approval enqueues `immich-sync-photo`, keyed by photo.
+2. Approval enqueues `immich-sync-photo`, keyed by photo. Its updates match on photo ID alone, so upload refuses an existing photo ID and the job skips a row whose event or `r2Key` differs from its payload.
 3. The job stores `immichAssetId` straight after upload. Retries resume album association while `r2Key` remains, then clear it and enqueue reference-checked R2 deletion. A row deleted during upload instead queues asset cleanup.
 4. Photo deletion locks and rereads the row so it queues cleanup for any concurrently stored asset ID. Immich deletion skips assets still referenced by another photo because Immich deduplicates uploads.
 

@@ -55,6 +55,8 @@ const data = {
   scopeGuardianEmail: "food-scope-guardian@pi-dash.test",
   yearlyGuardianEmail: "yearly-id-guardian@pi-dash.test",
   scopeGuardianPassword: "FoodScopeGuardian!2168",
+  scopeGuardianBEmail: "center-b-guardian@food-contact.test",
+  scopeGuardianBPhone: "+919990000806",
 
   editionId: id(1),
   eventId: id(2),
@@ -606,6 +608,8 @@ async function setupScopes(
       kind: "guardian",
       state: "active",
       snapshotName: "Center B Guardian",
+      snapshotEmail: data.scopeGuardianBEmail,
+      snapshotPhone: data.scopeGuardianBPhone,
     },
     {
       ...scoped,

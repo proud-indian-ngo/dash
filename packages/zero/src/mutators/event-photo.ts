@@ -12,6 +12,7 @@ import {
 } from "../permissions";
 import type { EventPhoto, TeamEvent, TeamEventMember } from "../schema";
 import { zql } from "../schema";
+import { assertNewRecord } from "./creation-invariant";
 import { assertEventRowNotManagedByKalakriti } from "./kalakriti-event-guard";
 import {
   claimUploadedR2ObjectKey,
@@ -575,6 +576,11 @@ export const eventPhotoMutators = {
         throw new Error("Must be an event member to upload photos");
       }
     }
+
+    // The Immich sync below targets args.id, so it must be this upload's row.
+    await assertNewRecord(tx, "eventPhoto", args.id, () =>
+      tx.run(zql.eventPhoto.where("id", args.id).one())
+    );
 
     const status = isAdminOrLead ? "approved" : "pending";
     const r2Key = args.r2Key

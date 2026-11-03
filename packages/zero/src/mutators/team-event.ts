@@ -308,6 +308,18 @@ export async function resolveJoinTarget(
     updatedAt: args.now,
     whatsappGroupId: event.whatsappGroupId,
   });
+  // Zero inserts ignore primary-key conflicts: a taken id leaves the existing,
+  // possibly foreign, row in place, and members copied below would land on it.
+  const saved = (await tx.run(
+    zql.teamEvent.where("id", args.materializedId).one()
+  )) as TeamEvent | undefined;
+  if (
+    !saved ||
+    saved.seriesId !== args.eventId ||
+    saved.originalDate !== occDate
+  ) {
+    throw new Error("Event id already exists");
+  }
 
   if (event.inheritVolunteers) {
     const members = (await tx.run(

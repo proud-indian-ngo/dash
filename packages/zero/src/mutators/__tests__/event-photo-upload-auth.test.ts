@@ -24,10 +24,17 @@ function context(
   };
 }
 
-function transaction(insert = mock(), isLead = false) {
+function transaction(
+  insert = mock(),
+  isLead = false,
+  existingPhoto: unknown = undefined
+) {
+  const execute = mock(async () => undefined);
   return {
+    execute,
     insert,
     tx: {
+      dbTransaction: { wrappedTransaction: { execute } },
       location: "server",
       mutate: { eventPhoto: { insert } },
       run: mock()
@@ -36,7 +43,8 @@ function transaction(insert = mock(), isLead = false) {
           startTime: 1,
           teamId: "team-1",
         })
-        .mockResolvedValueOnce(isLead ? { id: "lead-1" } : undefined),
+        .mockResolvedValueOnce(isLead ? { id: "lead-1" } : undefined)
+        .mockResolvedValueOnce(existingPhoto),
     },
   };
 }
@@ -121,5 +129,43 @@ describe("direct Immich event-photo authorization", () => {
     } as never);
 
     expect(insert).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("event-photo upload id reuse", () => {
+  it("rejects an existing photo id before writing or queuing Immich sync", async () => {
+    const ctx: Context = {
+      ...context([]),
+      asyncTasks: [],
+      beforeCommitTasks: [],
+      copyR2Object: mock(async () => undefined),
+      enqueue: mock(async () => null),
+      lockR2Object: mock(async () => undefined),
+      lockR2ObjectForClaim: mock(async () => undefined),
+      r2KeyPrefix: "app",
+      rollbackTasks: [],
+    };
+    const { execute, insert, tx } = transaction(undefined, true, {
+      eventId: "other-event",
+      id: "photo-1",
+    });
+
+    await expect(
+      eventPhotoMutators.upload.fn({
+        args: {
+          eventId: "event-1",
+          id: "photo-1",
+          mimeType: "image/jpeg",
+          now: 1,
+          r2Key: "app/photos/tmp/user-1/photo.jpg",
+        },
+        ctx,
+        tx,
+      } as never)
+    ).rejects.toThrow("Record already exists");
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(insert).not.toHaveBeenCalled();
+    expect(ctx.beforeCommitTasks).toEqual([]);
+    expect(ctx.asyncTasks).toEqual([]);
   });
 });

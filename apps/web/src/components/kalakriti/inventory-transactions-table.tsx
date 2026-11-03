@@ -12,6 +12,7 @@ import { dateField } from "@/components/data-table/filter-fields";
 import { DATE_TIME } from "@/lib/date-formats";
 
 import type { InventoryTransaction } from "./inventory-types";
+import { useInventoryVolunteers } from "./use-inventory-volunteers";
 
 const filterFields: FilterField[] = [
   { id: "item", label: "Item", type: "text" },
@@ -31,7 +32,7 @@ function getValue(
     case "type":
       return KALAKRITI_INVENTORY_LABELS[row.type];
     case "volunteer":
-      return row.volunteer?.snapshotName ?? row.volunteer?.user?.name;
+      return row.volunteerName;
     case "competition":
       return (
         row.competition?.name ??
@@ -59,14 +60,26 @@ function searchTransaction(row: InventoryTransaction, query: string): boolean {
 }
 
 export function InventoryTransactionsTable({
+  editionId,
   transactions,
   complete,
   storageKey = "kalakriti_inventory_transactions_table_state_v1",
 }: {
+  editionId: string;
   transactions: readonly InventoryTransaction[];
   complete: boolean;
   storageKey?: string;
 }) {
+  const { volunteers } = useInventoryVolunteers(editionId);
+  const volunteerNames = new Map(
+    volunteers.map((volunteer) => [volunteer.id, volunteer.snapshotName])
+  );
+  const rows = transactions.map((row) => ({
+    ...row,
+    volunteerName: row.volunteerMembershipId
+      ? volunteerNames.get(row.volunteerMembershipId)
+      : undefined,
+  }));
   const columns: DataGridColumnDef<InventoryTransaction>[] = [
     {
       id: "createdAt",
@@ -169,7 +182,7 @@ export function InventoryTransactionsTable({
   return (
     <DataTableWrapper
       columns={columns}
-      data={[...transactions]}
+      data={rows}
       emptyMessage="No stock transactions found."
       compactOnMobile
       getRowId={(row) => row.id}

@@ -40,6 +40,8 @@ interface Setup {
   scopeGuardianB: string;
   scopeGuardianEmail: string;
   scopeGuardianPassword: string;
+  scopeGuardianBEmail: string;
+  scopeGuardianBPhone: string;
   entryC: string;
   divisionId: string;
   creationDivisionId: string;
@@ -176,18 +178,26 @@ async function foodPerson(
       })
     ).toBeVisible();
 }
-function watchOutsideCenter(page: Page) {
-  let leaked = false;
+// Food membership rows reach readers through a server function, so its
+// responses are inspected along with Zero frames.
+function watchWire(page: Page, markers: readonly string[]) {
+  const leaked = new Set<string>();
+  const inspect = (payload: string) => {
+    for (const marker of markers)
+      if (payload.includes(marker)) leaked.add(marker);
+  };
   page.on("websocket", (socket) =>
-    socket.on("framereceived", ({ payload }) => {
-      if (payload.toString().includes("Outside Center C")) leaked = true;
-    })
+    socket.on("framereceived", ({ payload }) => inspect(payload.toString()))
   );
+  page.on("response", async (response) => {
+    if (response.url().includes("/_serverFn/"))
+      inspect(await response.text().catch(() => ""));
+  });
   return () =>
     expect(
-      leaked,
-      "Scoped Zero responses must not expose the shared person's outside Center name"
-    ).toBe(false);
+      [...leaked],
+      "Scoped responses must not expose outside Center names or contact snapshots"
+    ).toEqual([]);
 }
 const foodCount = (page: Page, label: string) =>
   page
@@ -253,7 +263,14 @@ test("Food removes revoked Center data from mounted Guardian and Liaison subscri
     await guardian!.waitForURL((url) => url.pathname !== "/login");
     const mounted = new Map<Page, { navigations: number; wire: () => void }>();
     for (const page of Object.values(readers)) {
-      const state = { navigations: 0, wire: watchOutsideCenter(page) };
+      const state = {
+        navigations: 0,
+        wire: watchWire(page, [
+          "Outside Center C",
+          data.scopeGuardianBEmail,
+          data.scopeGuardianBPhone,
+        ]),
+      };
       mounted.set(page, state);
       await gotoFood(page, data.year, "guardian");
       await expect(rowFor(page, "Center B Guardian")).toBeVisible();
@@ -315,15 +332,19 @@ test("Food and Entry readers see their two-Center union, while arrival and check
   });
   try {
     const guardian = await guardianContext.newPage();
-    const expectGuardianWireScoped = watchOutsideCenter(guardian);
+    const expectGuardianWireScoped = watchWire(guardian, ["Outside Center C"]);
     await guardian.goto("/login");
     await guardian.getByLabel("Email").fill(data.scopeGuardianEmail);
     await guardian.getByLabel("Password").fill(data.scopeGuardianPassword);
     await guardian.getByRole("button", { name: "Log in", exact: true }).click();
     await guardian.waitForURL((url) => url.pathname !== "/login");
     const liaison = await liaisonContext.newPage();
-    const expectLiaisonWireScoped = watchOutsideCenter(liaison);
+    const expectLiaisonWireScoped = watchWire(liaison, ["Outside Center C"]);
     const food = await foodContext.newPage();
+    const expectFoodWireScoped = watchWire(food, [
+      data.scopeGuardianBEmail,
+      data.scopeGuardianBPhone,
+    ]);
     await gotoFood(page, data.year);
     await expect(
       page.getByRole("columnheader", { name: "Eligibility" })
@@ -654,6 +675,7 @@ test("Food and Entry readers see their two-Center union, while arrival and check
     }
     expectGuardianWireScoped();
     expectLiaisonWireScoped();
+    expectFoodWireScoped();
     await guardian.goto(competitionUrl(data.year, data.divisionId));
     await liaison.goto(competitionUrl(data.year, data.groupDivisionId));
     await expect(

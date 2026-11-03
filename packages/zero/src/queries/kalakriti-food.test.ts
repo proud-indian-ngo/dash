@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { kalakritiFoodQueries } from "./kalakriti-food";
+import {
+  kalakritiFoodQueries,
+  kalakritiFoodServerQueries,
+} from "./kalakriti-food";
 import {
   matchesScope as matches,
   type ScopeAst as Ast,
@@ -8,15 +11,18 @@ import {
   type ScopeTables as Tables,
 } from "./query-scope-test-utils";
 function ast(
-  name: keyof typeof kalakritiFoodQueries,
+  name: "students" | "memberships",
   permissions = ["kalakriti.view"]
 ) {
-  return (
-    kalakritiFoodQueries[name].fn({
-      args: { editionId: "edition" },
-      ctx: { userId: "actor-user", permissions },
-    } as never) as unknown as { ast: Ast }
-  ).ast;
+  const options = {
+    args: { editionId: "edition" },
+    ctx: { userId: "actor-user", permissions },
+  } as never;
+  const query =
+    name === "memberships"
+      ? kalakritiFoodServerQueries.memberships(options)
+      : kalakritiFoodQueries.students.fn(options);
+  return (query as unknown as { ast: Ast }).ast;
 }
 function ids(query: Ast, tables: Tables) {
   return (tables[query.table] ?? [])

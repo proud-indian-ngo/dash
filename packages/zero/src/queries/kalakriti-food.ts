@@ -125,7 +125,18 @@ export const kalakritiFoodQueries = {
       )
       .orderBy("name", "asc");
   }),
-  memberships: defineQuery(input, ({ args, ctx }) => {
+};
+
+interface FoodServerQueryOptions {
+  args: z.infer<typeof input>;
+  ctx: Context;
+}
+
+// Membership rows carry contact snapshots, and Zero syncs whole rows, so this
+// query stays out of the synced registry. `getKalakritiFoodMemberships` runs it
+// on the server and returns only the Food roster fields.
+export const kalakritiFoodServerQueries = {
+  memberships: ({ args, ctx }: FoodServerQueryOptions) => {
     const query = zql.kalakritiEditionMembership
       .where("editionId", args.editionId)
       .where(({ or, cmp, exists }) =>
@@ -204,5 +215,5 @@ export const kalakritiFoodQueries = {
         )
       )
       .orderBy("snapshotName", "asc");
-  }),
+  },
 };

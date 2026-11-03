@@ -6,7 +6,7 @@ import {
   type PartyFillField,
   type PartyIdType,
 } from "@pi-dash/shared/constants";
-import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, notInArray, or, sql } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
 import { db } from "..";
@@ -109,6 +109,38 @@ export async function getPartyPrivate(
   return row ? toView(row) : null;
 }
 
+/**
+ * `getPartyPrivate` scoped to the donor directory: null unless the party holds
+ * an active directory role, the same scope as the Zero party queries, so a
+ * vendor-only party's details stay behind the vendor access rules.
+ */
+export async function getDirectoryPartyPrivate(
+  partyId: string
+): Promise<PartyPrivateView | null> {
+  const [row] = await db
+    .select()
+    .from(partyPrivate)
+    .where(
+      and(
+        eq(partyPrivate.partyId, partyId),
+        exists(
+          db
+            .select({ id: partyRole.id })
+            .from(partyRole)
+            .where(
+              and(
+                eq(partyRole.partyId, partyPrivate.partyId),
+                eq(partyRole.active, true),
+                inArray(partyRole.role, [...directoryRoleValues])
+              )
+            )
+        )
+      )
+    )
+    .limit(1);
+  return row ? toView(row) : null;
+}
+
 /** The decrypted identifier, for holders of finance.view_sensitive only. */
 export async function revealPartyIdNumber(
   partyId: string
@@ -161,14 +193,38 @@ export const nullIfBlank = (value: string): string | null =>
  * private rows are locked while the version checks run, so two editors cannot
  * both pass them. Private values never leave this module except through
  * `revealPartyIdNumber`.
+ *
+ * An update must target a party the directory lists, one with an active
+ * directory role. A vendor or other party without one belongs to its own
+ * workflow and permission, so the donor form can't rewrite its name, contact
+ * details or identifier, nor read them back through the returned view, which
+ * `getDirectoryPartyPrivate` would refuse. The check runs under the party's
+ * lock, which every writer that removes roles also takes.
  */
 export async function saveParty(
   input: SavePartyInput,
   actorId: string
 ): Promise<SavePartyResult> {
-  return await db.transaction(
-    async (tx) => await savePartyInTransaction(tx, input, actorId)
-  );
+  return await db.transaction(async (tx) => {
+    if (input.mode === "update") {
+      await lockPartyId(tx, input.id);
+      const [directoryRole] = await tx
+        .select({ id: partyRole.id })
+        .from(partyRole)
+        .where(
+          and(
+            eq(partyRole.partyId, input.id),
+            eq(partyRole.active, true),
+            inArray(partyRole.role, [...directoryRoleValues])
+          )
+        )
+        .limit(1);
+      if (!directoryRole) {
+        throw new Error("Party not found");
+      }
+    }
+    return await savePartyInTransaction(tx, input, actorId);
+  });
 }
 
 /**

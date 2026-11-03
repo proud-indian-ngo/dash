@@ -23,7 +23,7 @@ A team lead is a `teamMember` row with `role: "lead"`. It is unrelated to the cu
 | Add or remove members, make or unmake leads | `teams.manage_members` or a lead of that team |
 
 - Without `teams.view_all`, queries return only teams you are a member of, including `team.byId`.
-- A lead cannot remove another lead; only `teams.manage_members` can.
+- A lead cannot remove or demote another lead; only `teams.manage_members` can. A lead may demote themselves.
 - Those who manage members see each member's phone and email, as leads rarely hold `users.view` and touch devices cannot open the hover card.
 - The add-member picker lists only active users who are not `unoriented_volunteer`. The mutator does not check this.
 - A team may point only at an active programme.

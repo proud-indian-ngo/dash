@@ -114,7 +114,7 @@ export async function processImmichSync(data: ImmichSyncPhotoPayload) {
   // The row is the sync state. A retry may find an uploaded asset that still
   // needs to be added to the album and have its R2 source cleaned up.
   const currentPhoto = await db.query.eventPhoto.findFirst({
-    columns: { immichAssetId: true, r2Key: true },
+    columns: { eventId: true, immichAssetId: true, r2Key: true },
     where: (t, { eq: e }) => e(t.id, photoId),
   });
   if (!currentPhoto) {
@@ -126,6 +126,12 @@ export async function processImmichSync(data: ImmichSyncPhotoPayload) {
       immichAssetId: currentPhoto.immichAssetId,
       photoId,
     });
+    return;
+  }
+  // The updates below match on photoId alone, so act only on the row and
+  // object this job was queued for.
+  if (currentPhoto.eventId !== eventId || currentPhoto.r2Key !== r2Key) {
+    emitLog("photo_mismatch", { eventId, photoId });
     return;
   }
 

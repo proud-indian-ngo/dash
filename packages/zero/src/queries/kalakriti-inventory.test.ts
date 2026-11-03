@@ -129,16 +129,12 @@ describe("inventory query authorization", () => {
       expect(
         ids(ast("byItem", undefined, undefined, { itemId }), tables)
       ).toEqual(["local-history"]);
-      expect(ids(ast("volunteers"), tables)).toEqual([
-        "staff-membership",
-        "volunteer",
-      ]);
       expect(
         ids(
           ast("assignments", undefined, undefined, { volunteerMembershipId }),
           tables
         )
-      ).toEqual([volunteerMembershipId]);
+      ).toEqual(["volunteer-competition", "volunteer-role"]);
     }
   );
 
@@ -153,7 +149,6 @@ describe("inventory query authorization", () => {
       "items",
       "transactions",
       "byItem",
-      "volunteers",
       "assignments",
     ] as const) {
       expect(
@@ -176,7 +171,6 @@ describe("inventory query authorization", () => {
         "items",
         "transactions",
         "byItem",
-        "volunteers",
         "assignments",
       ] as const) {
         expect(
@@ -195,7 +189,6 @@ describe("inventory query authorization", () => {
       "items",
       "transactions",
       "byItem",
-      "volunteers",
       "assignments",
     ] as const) {
       expect(
@@ -227,7 +220,6 @@ describe("inventory query authorization", () => {
         "items",
         "transactions",
         "byItem",
-        "volunteers",
         "assignments",
       ] as const) {
         expect(
@@ -250,39 +242,36 @@ describe("inventory query authorization", () => {
     expect(ids(ast("items", ["kalakriti.admin"]), tables)).toEqual([]);
   });
 
-  it("returns assignments only for the selected active same-Edition volunteer", () => {
+  it("returns only the selected volunteer's same-Edition assignments", () => {
     const tables = fixture();
+    tables.kalakritiAssignment!.push({
+      id: "foreign-assignment",
+      editionId: otherEditionId,
+      membershipId: "foreign-volunteer",
+      responsibility: "logistics_member",
+    });
     const target = (volunteerMembershipId: string) =>
       ids(
         ast("assignments", undefined, undefined, { volunteerMembershipId }),
         tables
       );
 
-    expect(target("volunteer")).toEqual(["volunteer"]);
-    expect(target("inactive")).toEqual([]);
-    expect(target("foreign-volunteer")).toEqual([]);
-    expect(target("staff-membership")).toEqual(["staff-membership"]);
-    tables.kalakritiEditionMembership![1]!.state = "archived";
-    expect(target("volunteer")).toEqual([]);
-  });
-
-  it("projects only same-Edition assignments with their optional competition", () => {
-    const projection = ast("assignments", undefined, undefined, {
-      volunteerMembershipId,
-    }).related?.[0];
-    expect(projection?.subquery.alias).toBe("assignments");
-    expect(
-      (projection as unknown as { correlation: unknown }).correlation
-    ).toEqual({
-      parentField: ["id"],
-      childField: ["membershipId"],
-    });
-    expect(ids(projection!.subquery, fixture())).toEqual([
-      "assignment",
+    expect(target("volunteer")).toEqual([
       "volunteer-competition",
       "volunteer-role",
     ]);
-    const competition = projection?.subquery.related?.[0];
+    expect(target("inactive")).toEqual([]);
+    expect(target("foreign-volunteer")).toEqual([]);
+    expect(target("staff-membership")).toEqual(["assignment"]);
+  });
+
+  it("projects assignments with their optional competition, never the membership", () => {
+    const query = ast("assignments", undefined, undefined, {
+      volunteerMembershipId,
+    });
+    expect(query.table).toBe("kalakritiAssignment");
+    expect(query.related).toHaveLength(1);
+    const competition = query.related?.[0];
     expect(competition?.subquery.alias).toBe("competition");
     expect(
       (competition as unknown as { correlation: unknown }).correlation
@@ -298,11 +287,7 @@ describe("inventory query authorization", () => {
       (relation) => relation.subquery.alias
     );
     // Zero orders relationships by alias in the AST; the set is what matters.
-    expect(aliases.toSorted()).toEqual([
-      "actor",
-      "competition",
-      "item",
-      "volunteer",
-    ]);
+    // Volunteer memberships carry contacts, so history never relates them.
+    expect(aliases.toSorted()).toEqual(["actor", "competition", "item"]);
   });
 });

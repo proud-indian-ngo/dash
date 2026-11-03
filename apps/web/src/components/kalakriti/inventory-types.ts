@@ -1,6 +1,5 @@
 import type {
   KalakritiCompetition,
-  KalakritiEditionMembership,
   KalakritiInventoryItem,
   KalakritiInventoryTransaction,
   User,
@@ -10,9 +9,8 @@ export type InventoryItem = KalakritiInventoryItem;
 
 export type InventoryTransaction = KalakritiInventoryTransaction & {
   item?: Pick<KalakritiInventoryItem, "id" | "name">;
-  volunteer?: Pick<KalakritiEditionMembership, "id" | "snapshotName"> & {
-    user?: Pick<User, "name">;
-  };
+  /** From `getKalakritiInventoryVolunteers`: Zero never syncs memberships here. */
+  volunteerName?: string;
   competition?: Pick<KalakritiCompetition, "id" | "name">;
   actor?: Pick<User, "id" | "name">;
 };

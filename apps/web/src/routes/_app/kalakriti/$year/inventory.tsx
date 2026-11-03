@@ -58,6 +58,7 @@ function EditionTransactions({ editionId }: { editionId: string }) {
   );
   return (
     <InventoryTransactionsTable
+      editionId={editionId}
       transactions={transactions}
       complete={result.type === "complete"}
     />
@@ -86,6 +87,7 @@ function ItemHistory({
           </DialogDescription>
         </DialogHeader>
         <InventoryTransactionsTable
+          editionId={editionId}
           transactions={transactions}
           complete={result.type === "complete"}
           storageKey="kalakriti_inventory_item_history_table_state_v1"

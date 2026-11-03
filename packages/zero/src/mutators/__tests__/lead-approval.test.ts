@@ -630,6 +630,128 @@ describe("vendor payment: the programme lead approves, then finance", () => {
     expect(rows(db, "vendorPayment")[0]?.leadApprovedAt).toBeNull();
   });
 
+  describe("an edit to who is paid, or on what quotation", () => {
+    const QUOTE = "https://example.com/caterer-quote.pdf";
+    const leadApproved = () =>
+      createDb({
+        vendor: [
+          { id: "v-1", name: "Caterer", status: "approved" },
+          { createdBy: "claimant", id: "v-2", name: "Mine", status: "pending" },
+        ],
+        vendorPayment: [
+          vendorPaymentRow({ leadApprovedAt: 1, leadApprovedBy: "lead-edu" }),
+        ],
+        vendorPaymentAttachment: [
+          {
+            id: "att-1",
+            objectKey: null,
+            purpose: "quotation",
+            type: "url",
+            url: QUOTE,
+            vendorPaymentId: "vp-1",
+          },
+        ],
+        vendorPaymentLineItem: [
+          {
+            amountPaise: 10_000,
+            categoryId: "food",
+            description: "Lunch",
+            id: "vli-1",
+            vendorPaymentId: "vp-1",
+          },
+        ],
+      });
+    const edit = (overrides: Row = {}): Row => ({
+      attachments: [{ id: "att-1", type: "url", url: QUOTE }],
+      chargedProgrammeId: "edu",
+      chargedTo: "programme",
+      costCentreId: "blr",
+      id: "vp-1",
+      lineItems: [
+        {
+          amountPaise: 10_000,
+          categoryId: "food",
+          description: "Lunch",
+          id: "vli-1",
+        },
+      ],
+      title: "Lunch",
+      vendorId: "v-1",
+      ...overrides,
+    });
+    const owner = () =>
+      ctx("claimant", ["requests.create", "requests.edit_own"]);
+
+    it("keeps the lead's approval when only the title changes", async () => {
+      const db = leadApproved();
+      await run(
+        vendorPaymentMutators.update,
+        db,
+        owner(),
+        edit({ title: "Team lunch" })
+      );
+      expect(rows(db, "vendorPayment")[0]).toMatchObject({
+        leadApprovedAt: 1,
+        leadApprovedBy: "lead-edu",
+        title: "Team lunch",
+      });
+    });
+
+    it("clears it when the vendor changes, and finance must give a reason", async () => {
+      const db = leadApproved();
+      const claimant = owner();
+      await run(
+        vendorPaymentMutators.update,
+        db,
+        claimant,
+        edit({ vendorId: "v-2" })
+      );
+      expect(rows(db, "vendorPayment")[0]).toMatchObject({
+        leadApprovedAt: null,
+        leadApprovedBy: null,
+        vendorId: "v-2",
+      });
+      expect(
+        rows(db, "vendorPaymentHistory").some(
+          (h) => h.note === LEAD_APPROVAL_CLEARED_NOTE
+        )
+      ).toBe(true);
+      await Promise.all(claimant.asyncTasks.map((task) => task.fn()));
+      expect(enqueue).toHaveBeenCalledWith(
+        "notify-vendor-payment-submitted",
+        expect.objectContaining({ leadUserId: "lead-edu" }),
+        { traceId: "trace-1" }
+      );
+      await expect(
+        run(vendorPaymentMutators.approve, db, financeCtx(), { id: "vp-1" })
+      ).rejects.toThrow(LEAD_SKIP_REASON_MESSAGE);
+    });
+
+    it("clears it when a quotation is replaced or removed", async () => {
+      const replaced = leadApproved();
+      await run(
+        vendorPaymentMutators.update,
+        replaced,
+        owner(),
+        edit({
+          attachments: [
+            { id: "att-2", type: "url", url: "https://example.com/other.pdf" },
+          ],
+        })
+      );
+      expect(rows(replaced, "vendorPayment")[0]?.leadApprovedAt).toBeNull();
+
+      const removed = leadApproved();
+      await run(
+        vendorPaymentMutators.update,
+        removed,
+        owner(),
+        edit({ attachments: [] })
+      );
+      expect(rows(removed, "vendorPayment")[0]?.leadApprovedAt).toBeNull();
+    });
+  });
+
   it("lets edit_all update another user's request while pending", async () => {
     const db = createDb({ vendorPayment: [vendorPaymentRow()] });
     await run(

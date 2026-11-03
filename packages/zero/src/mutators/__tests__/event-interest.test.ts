@@ -350,7 +350,7 @@ describe("event interest targets", () => {
       startTime: Date.UTC(2026, 9, 10, 4, 30),
     };
     const { insertEvent, insertInterest, result } = runCreate(
-      [SERIES, undefined, undefined, session, undefined, undefined],
+      [SERIES, undefined, undefined, session, session, undefined, undefined],
       { materializedId: "session-1", occDate: "2026-10-10" }
     );
     await result;

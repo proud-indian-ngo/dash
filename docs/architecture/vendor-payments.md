@@ -72,6 +72,7 @@ A vendor is a party with the `vendor` role. The synced `vendor` row holds only n
 - Access rules live in `apps/web/src/lib/vendor-access.ts`; the server enforces them.
   - Details: `vendors.view_all`, `vendors.edit`, `requests.approve`; for approved vendors also `vendors.view_approved` and `requests.record_payment`; and the creator of a pending vendor.
   - Full account number (audited reveal): `finance.view_sensitive`, `requests.approve`, and `requests.record_payment` holders who raised a payment to that vendor.
+  - A new account number or IFSC code for an approved vendor needs `vendors.approve`, since approval covers where the vendor is paid. Paying vendors never rechecks the vendor's status, so resetting it to pending would not hold back the payout.
 - `vendor.created_by` becomes null when the creator's account is deleted; approval notifications are then skipped.
 - Deleting a vendor whose party has another active role (such as donor) removes only the `vendor` row, role and bank accounts. A donor save renames the matching `vendor` row.
 - Saves of one party serialise on `pg_advisory_xact_lock(hashtext(id))` before any row lock. The lock order for vendor writes is at the top of `packages/db/src/queries/vendor-party.ts`.
