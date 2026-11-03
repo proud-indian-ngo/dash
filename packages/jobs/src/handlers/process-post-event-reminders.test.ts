@@ -84,7 +84,13 @@ beforeEach(() => {
 describe("post-event reminder claims", () => {
   it("settles every feedback delivery, releases a failed claim, and retries", async () => {
     selectResults(
-      [{ id: "event-1", name: "Community visit" }],
+      [
+        {
+          id: "event-1",
+          name: "Community visit",
+          startTime: new Date("2026-10-18T04:30:00Z"),
+        },
+      ],
       [{ userId: "user-1" }, { userId: "user-2" }],
       []
     );
@@ -101,14 +107,26 @@ describe("post-event reminder claims", () => {
     expect(mocks.released).toHaveLength(1);
 
     selectResults(
-      [{ id: "event-1", name: "Community visit" }],
+      [
+        {
+          id: "event-1",
+          name: "Community visit",
+          startTime: new Date("2026-10-18T04:30:00Z"),
+        },
+      ],
       [{ userId: "user-1" }, { userId: "user-2" }],
       []
     );
     mocks.notifyFeedbackNudge.mockResolvedValue(undefined);
     await expect(processFeedbackNudges(now)).resolves.toBe(1);
 
-    selectResults([{ id: "event-1", name: "Community visit" }]);
+    selectResults([
+      {
+        id: "event-1",
+        name: "Community visit",
+        startTime: new Date("2026-10-18T04:30:00Z"),
+      },
+    ]);
     await expect(processFeedbackNudges(now)).resolves.toBe(0);
   });
 
@@ -119,6 +137,7 @@ describe("post-event reminder claims", () => {
           createdBy: "creator",
           id: "event-2",
           name: "Community visit",
+          startTime: new Date("2026-10-18T04:30:00Z"),
           teamId: "team-1",
         },
       ],
@@ -140,7 +159,13 @@ describe("post-event reminder claims", () => {
 
   it("releases the photo-nudge claim when bulk delivery fails", async () => {
     selectResults(
-      [{ id: "event-3", name: "Community visit" }],
+      [
+        {
+          id: "event-3",
+          name: "Community visit",
+          startTime: new Date("2026-10-18T04:30:00Z"),
+        },
+      ],
       [],
       [{ userId: "user-1" }]
     );
@@ -155,7 +180,17 @@ describe("post-event reminder claims", () => {
   });
 
   it("keeps a no-recipient claim while preserving the zero sent count", async () => {
-    selectResults([{ id: "event-4", name: "Community visit" }], [], []);
+    selectResults(
+      [
+        {
+          id: "event-4",
+          name: "Community visit",
+          startTime: new Date("2026-10-18T04:30:00Z"),
+        },
+      ],
+      [],
+      []
+    );
 
     await expect(processFeedbackNudges(now)).resolves.toBe(0);
     expect(mocks.claimed).toHaveLength(1);

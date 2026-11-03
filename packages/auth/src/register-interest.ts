@@ -41,6 +41,7 @@ export interface RegisterInterestDeps {
     eventName: string;
     interestId: string;
     leadUserIds: string[];
+    startTime: number;
     teamId: string;
     volunteerName: string;
   }) => Promise<void>;
@@ -166,6 +167,7 @@ export async function requestInterestOnRegister(
     eventName: event.name,
     interestId,
     leadUserIds: await deps.findTeamLeadIds(event.teamId),
+    startTime: event.startTime,
     teamId: event.teamId,
     volunteerName: input.userName,
   });

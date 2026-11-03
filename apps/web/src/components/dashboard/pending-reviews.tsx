@@ -24,6 +24,7 @@ import {
 } from "@pi-dash/design-system/components/ui/collapsible";
 import { cn } from "@pi-dash/design-system/lib/utils";
 import { approvalFilterQuery } from "@pi-dash/shared/approval-policy";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { formatPaise, sumPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -67,19 +68,19 @@ interface VendorPaymentToPayItem extends VendorPaymentPendingItem {
 
 interface EventPhotoPendingItem {
   createdAt: number;
-  event?: { id: string; name: string } | undefined;
+  event?: { id: string; name: string; startTime: number } | undefined;
   id: string;
 }
 
 interface EventUpdatePendingItem {
   createdAt: number;
-  event?: { id: string; name: string } | undefined;
+  event?: { id: string; name: string; startTime: number } | undefined;
   id: string;
 }
 
 interface EventInterestPendingItem {
   createdAt: number;
-  event?: { id: string; name: string } | undefined;
+  event?: { id: string; name: string; startTime: number } | undefined;
   id: string;
 }
 
@@ -121,7 +122,7 @@ interface EventGroup {
 function groupByEvent(
   items: readonly {
     createdAt: number;
-    event?: { id: string; name: string } | undefined;
+    event?: { id: string; name: string; startTime: number } | undefined;
   }[]
 ): EventGroup[] {
   const map = new Map<string, Omit<EventGroup, "eventId">>();
@@ -138,7 +139,7 @@ function groupByEvent(
     } else {
       map.set(item.event.id, {
         count: 1,
-        eventName: item.event.name,
+        eventName: eventLabel(item.event.name, item.event.startTime),
         latestAt: item.createdAt,
         oldestAt: item.createdAt,
       });

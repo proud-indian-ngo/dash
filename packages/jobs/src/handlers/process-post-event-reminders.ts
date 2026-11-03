@@ -87,6 +87,7 @@ export async function processFeedbackNudges(now: number): Promise<number> {
     .select({
       id: teamEvent.id,
       name: teamEvent.name,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -127,6 +128,7 @@ export async function processFeedbackNudges(now: number): Promise<number> {
                 notifyFeedbackNudge({
                   eventId: event.id,
                   eventName: event.name,
+                  startTime: event.startTime.getTime(),
                   userId: m.userId,
                 })
               ),
@@ -161,6 +163,7 @@ export async function processAttendanceReminders(now: number): Promise<number> {
       createdBy: teamEvent.createdBy,
       id: teamEvent.id,
       name: teamEvent.name,
+      startTime: teamEvent.startTime,
       teamId: teamEvent.teamId,
     })
     .from(teamEvent)
@@ -219,6 +222,7 @@ export async function processAttendanceReminders(now: number): Promise<number> {
                 notifyAttendanceNotMarked({
                   eventId: event.id,
                   eventName: event.name,
+                  startTime: event.startTime.getTime(),
                   userId,
                 })
               ),
@@ -252,6 +256,7 @@ export async function processPhotoNudges(now: number): Promise<number> {
     .select({
       id: teamEvent.id,
       name: teamEvent.name,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -297,6 +302,7 @@ export async function processPhotoNudges(now: number): Promise<number> {
             await notifyPhotoUploadNudge({
               eventId: event.id,
               eventName: event.name,
+              startTime: event.startTime.getTime(),
               userIds: members.map((m) => m.userId),
             });
           }

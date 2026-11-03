@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { eventLabel } from "@pi-dash/shared/event-label";
 import type { Page } from "@playwright/test";
 import { uuidv7 } from "uuidv7";
 
@@ -58,8 +59,17 @@ test.describe("Event jobs (admin)", () => {
       volunteerEmail
     );
     const tag = Date.now();
-    const eventA = { eventId: uuidv7(), eventName: `Photo jobs A ${tag}` };
-    const eventB = { eventId: uuidv7(), eventName: `Photo jobs B ${tag}` };
+    const startTime = Date.now();
+    const eventA = {
+      eventId: uuidv7(),
+      eventName: `Photo jobs A ${tag}`,
+      startTime,
+    };
+    const eventB = {
+      eventId: uuidv7(),
+      eventName: `Photo jobs B ${tag}`,
+      startTime,
+    };
     const [first, second, third] = [uuidv7(), uuidv7(), uuidv7()];
     const approve = (event: typeof eventA, photoId: string) => ({
       ...event,
@@ -81,11 +91,11 @@ test.describe("Event jobs (admin)", () => {
       );
     const expected = [
       {
-        body: `2 of your photos for ${eventA.eventName} made the cut — nice shots!`,
+        body: `2 of your photos for ${eventLabel(eventA.eventName, startTime)} made the cut — nice shots!`,
         clickAction: `/events/${eventA.eventId}`,
       },
       {
-        body: `Your photo for ${eventB.eventName} looks great — it's been approved!`,
+        body: `Your photo for ${eventLabel(eventB.eventName, startTime)} looks great — it's been approved!`,
         clickAction: `/events/${eventB.eventId}`,
       },
     ];

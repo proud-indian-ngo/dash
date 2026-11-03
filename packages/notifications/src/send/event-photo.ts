@@ -1,5 +1,6 @@
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 
 import { sendMessage } from "../send-message";
@@ -10,6 +11,7 @@ interface PhotoApprovedOptions {
   eventName: string;
   photoId: string;
   uploaderId: string;
+  startTime: number;
 }
 
 interface PhotoRejectedOptions {
@@ -17,15 +19,18 @@ interface PhotoRejectedOptions {
   eventName: string;
   photoId: string;
   uploaderId: string;
+  startTime: number;
 }
 
 export async function notifyPhotoApproved({
   photoId,
   eventId,
   eventName,
+  startTime,
   uploaderId,
 }: PhotoApprovedOptions): Promise<void> {
-  const body = `Your photo for ${eventName} looks great — it's been approved!`;
+  const label = eventLabel(eventName, startTime);
+  const body = `Your photo for ${label} looks great — it's been approved!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -38,7 +43,7 @@ export async function notifyPhotoApproved({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: "Your photo was approved",
-      name: eventName,
+      name: label,
       status: { label: "Approved", tone: "success" },
     },
     emailHtml,
@@ -48,7 +53,7 @@ export async function notifyPhotoApproved({
     topic: TOPICS.EVENTS_PHOTOS,
     whatsappTemplate: whatsappTemplate(
       "photos_approved",
-      { count: "1", event: eventName },
+      { count: "1", event: label },
       `/events/${eventId}`
     ),
   });
@@ -58,9 +63,11 @@ export async function notifyPhotoRejected({
   photoId,
   eventId,
   eventName,
+  startTime,
   uploaderId,
 }: PhotoRejectedOptions): Promise<void> {
-  const body = `Your photo for ${eventName} wasn't published.`;
+  const label = eventLabel(eventName, startTime);
+  const body = `Your photo for ${label} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -73,7 +80,7 @@ export async function notifyPhotoRejected({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: "Your photo wasn't published",
-      name: eventName,
+      name: label,
       status: { label: "Not published", tone: "neutral" },
     },
     emailHtml,
@@ -83,7 +90,7 @@ export async function notifyPhotoRejected({
     topic: TOPICS.EVENTS_PHOTOS,
     whatsappTemplate: whatsappTemplate(
       "photos_not_published",
-      { count: "1", event: eventName },
+      { count: "1", event: label },
       `/events/${eventId}`
     ),
   });
@@ -95,16 +102,19 @@ interface PhotosBatchOptions {
   eventName: string;
   idempotencyKey: string;
   uploaderId: string;
+  startTime: number;
 }
 
 export async function notifyPhotosApproved({
   count,
   eventId,
   eventName,
+  startTime,
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
-  const body = `${count} of your photos for ${eventName} made the cut — nice shots!`;
+  const label = eventLabel(eventName, startTime);
+  const body = `${count} of your photos for ${label} made the cut — nice shots!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -117,7 +127,7 @@ export async function notifyPhotosApproved({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: `${count} photos approved`,
-      name: eventName,
+      name: label,
       status: { label: "Approved", tone: "success" },
     },
     emailHtml,
@@ -127,7 +137,7 @@ export async function notifyPhotosApproved({
     topic: TOPICS.EVENTS_PHOTOS,
     whatsappTemplate: whatsappTemplate(
       "photos_approved",
-      { count: String(count), event: eventName },
+      { count: String(count), event: label },
       `/events/${eventId}`
     ),
   });
@@ -137,10 +147,12 @@ export async function notifyPhotosRejected({
   count,
   eventId,
   eventName,
+  startTime,
   idempotencyKey,
   uploaderId,
 }: PhotosBatchOptions): Promise<void> {
-  const body = `${count} of your photos for ${eventName} weren't published.`;
+  const label = eventLabel(eventName, startTime);
+  const body = `${count} of your photos for ${label} weren't published.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -153,7 +165,7 @@ export async function notifyPhotosRejected({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: `${count} photos not published`,
-      name: eventName,
+      name: label,
       status: { label: "Not published", tone: "neutral" },
     },
     emailHtml,
@@ -163,7 +175,7 @@ export async function notifyPhotosRejected({
     topic: TOPICS.EVENTS_PHOTOS,
     whatsappTemplate: whatsappTemplate(
       "photos_not_published",
-      { count: String(count), event: eventName },
+      { count: String(count), event: label },
       `/events/${eventId}`
     ),
   });

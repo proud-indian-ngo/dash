@@ -1,5 +1,6 @@
 import { type EmailList, renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { formatReminderInterval } from "@pi-dash/shared/event-reminders";
 import { isCloudApiEnabled } from "@pi-dash/whatsapp/cloud";
 import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
@@ -56,6 +57,7 @@ interface FeedbackDeadlineOptions {
   eventId: string;
   eventName: string;
   userId: string;
+  startTime: number;
 }
 
 interface PhotoApprovalReminderOptions {
@@ -130,11 +132,13 @@ export async function notifyStaleRequests({
 export async function notifyFeedbackDeadline({
   userId,
   eventName,
+  startTime,
   eventId,
 }: FeedbackDeadlineOptions): Promise<void> {
+  const label = eventLabel(eventName, startTime);
   const dateKey = new Date().toISOString().slice(0, 10);
 
-  const body = `Feedback for "${eventName}" closes tomorrow — don't miss your chance to share!`;
+  const body = `Feedback for ${label} closes tomorrow — don't miss your chance to share!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Share feedback",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -148,7 +152,7 @@ export async function notifyFeedbackDeadline({
       actionLabel: "Share feedback",
       list: { label: "View events", path: "/events" },
       meta: "Feedback closes tomorrow",
-      name: eventName,
+      name: label,
     },
     emailHtml,
     idempotencyKey: `feedback-deadline-${eventId}-${userId}-${dateKey}`,
@@ -157,7 +161,7 @@ export async function notifyFeedbackDeadline({
     topic: TOPICS.EVENTS_FEEDBACK,
     whatsappTemplate: whatsappTemplate(
       "feedback_closing",
-      { event: eventName },
+      { event: label },
       `/events/${eventId}`
     ),
   });
@@ -501,14 +505,17 @@ interface FeedbackNudgeOptions {
   eventId: string;
   eventName: string;
   userId: string;
+  startTime: number;
 }
 
 export async function notifyFeedbackNudge({
   userId,
   eventName,
+  startTime,
   eventId,
 }: FeedbackNudgeOptions): Promise<void> {
-  const body = `How was "${eventName}"? Share your thoughts while it's still fresh!`;
+  const label = eventLabel(eventName, startTime);
+  const body = `How was ${label}? Share your thoughts while it's still fresh!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Share feedback",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -522,7 +529,7 @@ export async function notifyFeedbackNudge({
       actionLabel: "Share feedback",
       list: { label: "View events", path: "/events" },
       meta: "How was it? Share your feedback",
-      name: eventName,
+      name: label,
     },
     emailHtml,
     idempotencyKey: `feedback-nudge-${eventId}-${userId}`,
@@ -531,7 +538,7 @@ export async function notifyFeedbackNudge({
     topic: TOPICS.EVENTS_FEEDBACK,
     whatsappTemplate: whatsappTemplate(
       "feedback_open",
-      { event: eventName },
+      { event: label },
       `/events/${eventId}`
     ),
   });
@@ -541,14 +548,17 @@ interface AttendanceNotMarkedOptions {
   eventId: string;
   eventName: string;
   userId: string;
+  startTime: number;
 }
 
 export async function notifyAttendanceNotMarked({
   userId,
   eventName,
+  startTime,
   eventId,
 }: AttendanceNotMarkedOptions): Promise<void> {
-  const body = `Attendance for "${eventName}" hasn't been marked yet — could you update it?`;
+  const label = eventLabel(eventName, startTime);
+  const body = `Attendance for ${label} hasn't been marked yet — could you update it?`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Mark attendance",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -562,7 +572,7 @@ export async function notifyAttendanceNotMarked({
       actionLabel: "Mark attendance",
       list: { label: "View events", path: "/events" },
       meta: "Attendance not marked yet",
-      name: eventName,
+      name: label,
     },
     emailHtml,
     idempotencyKey: `attendance-reminder-${eventId}-${userId}`,
@@ -571,7 +581,7 @@ export async function notifyAttendanceNotMarked({
     topic: TOPICS.EVENTS_SCHEDULE,
     whatsappTemplate: whatsappTemplate(
       "event_attendance_reminder",
-      { event: eventName },
+      { event: label },
       `/events/${eventId}`
     ),
   });
@@ -581,17 +591,20 @@ interface PhotoUploadNudgeOptions {
   eventId: string;
   eventName: string;
   userIds: string[];
+  startTime: number;
 }
 
 export async function notifyPhotoUploadNudge({
   userIds,
   eventName,
+  startTime,
   eventId,
 }: PhotoUploadNudgeOptions): Promise<void> {
+  const label = eventLabel(eventName, startTime);
   if (userIds.length === 0) {
     return;
   }
-  const body = `Got any photos from "${eventName}"? Upload them so the team can see!`;
+  const body = `Got any photos from ${label}? Upload them so the team can see!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Share photos",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -605,7 +618,7 @@ export async function notifyPhotoUploadNudge({
       actionLabel: "Upload photos",
       list: { label: "View events", path: "/events" },
       meta: "Got photos? Upload them for the team",
-      name: eventName,
+      name: label,
     },
     emailHtml,
     idempotencyKey: `photo-nudge-${eventId}`,
@@ -614,7 +627,7 @@ export async function notifyPhotoUploadNudge({
     userIds,
     whatsappTemplate: whatsappTemplate(
       "photos_upload_request",
-      { event: eventName },
+      { event: label },
       `/events/${eventId}`
     ),
   });

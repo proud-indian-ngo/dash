@@ -19,6 +19,7 @@ function groupPhotoJobs<
     uploaderId: string;
     eventId: string;
     eventName: string;
+    startTime: number;
     photoId: string;
   },
 >(
@@ -29,6 +30,7 @@ function groupPhotoJobs<
     uploaderId: string;
     eventId: string;
     eventName: string;
+    startTime: number;
     photoIds: string[];
   }
 > {
@@ -38,6 +40,7 @@ function groupPhotoJobs<
       uploaderId: string;
       eventId: string;
       eventName: string;
+      startTime: number;
       photoIds: string[];
     }
   >();
@@ -50,6 +53,7 @@ function groupPhotoJobs<
       groups.set(key, {
         eventId: job.data.eventId,
         eventName: job.data.eventName,
+        startTime: job.data.startTime,
         photoIds: [job.data.photoId],
         uploaderId: job.data.uploaderId,
       });
@@ -74,25 +78,29 @@ export async function handleNotifyPhotoApproved(
 ): Promise<void> {
   const groups = groupPhotoJobs(jobs);
   const results = await Promise.allSettled(
-    [...groups.values()].map(({ uploaderId, eventId, eventName, photoIds }) => {
-      // photoIds[0] is always defined: groupPhotoJobs initialises with at least
-      // one element, but TypeScript infers string[] not [string, ...string[]].
-      if (photoIds.length === 1 && photoIds[0]) {
-        return notifyPhotoApproved({
+    [...groups.values()].map(
+      ({ uploaderId, eventId, eventName, photoIds, startTime }) => {
+        // photoIds[0] is always defined: groupPhotoJobs initialises with at least
+        // one element, but TypeScript infers string[] not [string, ...string[]].
+        if (photoIds.length === 1 && photoIds[0]) {
+          return notifyPhotoApproved({
+            eventId,
+            eventName,
+            photoId: photoIds[0],
+            startTime,
+            uploaderId,
+          });
+        }
+        return notifyPhotosApproved({
+          count: photoIds.length,
           eventId,
           eventName,
-          photoId: photoIds[0],
+          idempotencyKey: batchIdempotencyKey("photos-approved", photoIds),
+          startTime,
           uploaderId,
         });
       }
-      return notifyPhotosApproved({
-        count: photoIds.length,
-        eventId,
-        eventName,
-        idempotencyKey: batchIdempotencyKey("photos-approved", photoIds),
-        uploaderId,
-      });
-    })
+    )
   );
 
   const failures = results.filter((r) => r.status === "rejected");
@@ -121,24 +129,28 @@ export async function handleNotifyPhotoRejected(
 ): Promise<void> {
   const groups = groupPhotoJobs(jobs);
   const results = await Promise.allSettled(
-    [...groups.values()].map(({ uploaderId, eventId, eventName, photoIds }) => {
-      // photoIds[0] is always defined: see note in handleNotifyPhotoApproved.
-      if (photoIds.length === 1 && photoIds[0]) {
-        return notifyPhotoRejected({
+    [...groups.values()].map(
+      ({ uploaderId, eventId, eventName, photoIds, startTime }) => {
+        // photoIds[0] is always defined: see note in handleNotifyPhotoApproved.
+        if (photoIds.length === 1 && photoIds[0]) {
+          return notifyPhotoRejected({
+            eventId,
+            eventName,
+            photoId: photoIds[0],
+            startTime,
+            uploaderId,
+          });
+        }
+        return notifyPhotosRejected({
+          count: photoIds.length,
           eventId,
           eventName,
-          photoId: photoIds[0],
+          idempotencyKey: batchIdempotencyKey("photos-rejected", photoIds),
+          startTime,
           uploaderId,
         });
       }
-      return notifyPhotosRejected({
-        count: photoIds.length,
-        eventId,
-        eventName,
-        idempotencyKey: batchIdempotencyKey("photos-rejected", photoIds),
-        uploaderId,
-      });
-    })
+    )
   );
 
   const failures = results.filter((r) => r.status === "rejected");

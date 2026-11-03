@@ -149,6 +149,7 @@ export const eventPhotoMutators = {
                 {
                   eventId: photo.eventId,
                   eventName: event.name,
+                  startTime: event.startTime,
                   photoId: args.id,
                   uploaderId: photo.uploadedBy,
                 },
@@ -251,6 +252,7 @@ export const eventPhotoMutators = {
                     {
                       eventId: photo.eventId,
                       eventName: event.name,
+                      startTime: event.startTime,
                       photoId: id,
                       uploaderId: photo.uploadedBy,
                     },
@@ -403,6 +405,7 @@ export const eventPhotoMutators = {
                 {
                   eventId: photo.eventId,
                   eventName: event.name,
+                  startTime: event.startTime,
                   photoId: args.id,
                   uploaderId: photo.uploadedBy,
                 },
