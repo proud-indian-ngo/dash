@@ -108,7 +108,7 @@ describe("buildMutation", () => {
 
   it("leaves the payee out when editing someone else's request", () => {
     const args = argsOf(
-      buildMutation(zero, value, "r-1", "r-1", [bank], 0, undefined, true)
+      buildMutation(zero, value, "r-1", "r-1", [bank], 0, undefined, "keep")
     );
     for (const key of [
       "bankAccountIfscCode",
@@ -118,5 +118,22 @@ describe("buildMutation", () => {
     ]) {
       expect(args).not.toHaveProperty(key);
     }
+  });
+
+  it("sends the claimant's account ID, not its details, for a correction", () => {
+    const args = argsOf(
+      buildMutation(
+        zero,
+        value,
+        "r-1",
+        "r-1",
+        [bank],
+        0,
+        undefined,
+        "claimantAccount"
+      )
+    );
+    expect(args.claimantBankAccountId).toBe(bank.id);
+    expect(args).not.toHaveProperty("bankAccountNumber");
   });
 });

@@ -14,6 +14,7 @@ import {
   mutatorAttachmentSchema as attachmentSchema,
   mutatorLineItemSchema as lineItemSchema,
 } from "../shared-schemas";
+import { type ClaimantBankFields, claimantBankFields } from "./claimant";
 import { pickCostCentreId } from "./cost-centre-pick";
 import { assertNewRecord } from "./creation-invariant";
 import { assertNotOwnRequest } from "./lead-approval";
@@ -55,6 +56,15 @@ export const createSchema = z.object({
   id: z.string(),
   lineItems: z.array(lineItemSchema),
   title: z.string().min(1),
+});
+
+/**
+ * Update takes one of the owner's saved accounts when a
+ * `requests.edit_all_statuses` holder corrects the payee on someone else's
+ * advance payment, chosen by ID so the server copies its details.
+ */
+export const updateArgsSchema = createSchema.extend({
+  claimantBankAccountId: z.string().optional(),
 });
 
 const fk = (id: string) => ({ advancePaymentId: id });
@@ -378,7 +388,7 @@ export const advancePaymentMutators = {
     }
   ),
 
-  update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+  update: defineMutator(updateArgsSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
@@ -393,6 +403,20 @@ export const advancePaymentMutators = {
       can(ctx, "requests.edit_own")
     );
 
+    // Only the owner chooses where they're paid (the owner never changes),
+    // except a `requests.edit_all_statuses` holder correcting it to one of
+    // the owner's own saved accounts.
+    let payout: Partial<ClaimantBankFields> = {};
+    if (entity.userId === userId) {
+      payout = entityFields(args);
+    } else if (canEditAnyStatus && args.claimantBankAccountId) {
+      payout = await claimantBankFields(
+        tx,
+        entity.userId,
+        args.claimantBankAccountId,
+        { required: true }
+      );
+    }
     const now = Date.now();
 
     await tx.mutate.advancePayment.update({
@@ -404,7 +428,7 @@ export const advancePaymentMutators = {
       id: args.id,
       title: args.title,
       updatedAt: now,
-      ...entityFields(args),
+      ...payout,
     });
 
     await replaceRelations(

@@ -73,11 +73,14 @@ export function buildMutation(
   /** Set when finance raises a new reimbursement for someone else. */
   claimantUserId?: string,
   /**
-   * Finance editing someone else's request: the payee can't be changed, so
-   * no bank fields are sent and the stored ones stay. The form only lists
-   * the editor's own accounts and would otherwise send theirs.
+   * What an edit sends for the payee. `send`: the picked account's details
+   * (your own request). `keep`: nothing, so the stored payee stays (finance
+   * editing someone else's request; the form would otherwise send the
+   * editor's account). `claimantAccount`: the picked account's ID, so the
+   * server copies one of the claimant's saved accounts (a
+   * `requests.edit_all_statuses` holder correcting the payee).
    */
-  keepPayee = false
+  payee: "claimantAccount" | "keep" | "send" = "send"
 ) {
   // Only reimbursements carry cash vouchers.
   const lineItems = toLineItemsPayload(
@@ -87,9 +90,13 @@ export function buildMutation(
   const { attachments } = value;
   const id = existingId ?? entityId;
 
-  const { bankFields, selectedAccount } = keepPayee
-    ? { bankFields: {}, selectedAccount: undefined }
-    : requestBankFields(value, bankAccountList);
+  const picked = requestBankFields(value, bankAccountList);
+  const bankFields = payee === "send" ? picked.bankFields : {};
+  const { selectedAccount } = picked;
+  const correctedPayee =
+    payee === "claimantAccount"
+      ? { claimantBankAccountId: selectedAccount?.id }
+      : {};
   const basePayload = {
     attachments,
     // On an event the request takes the event's city, so none is sent.
@@ -110,7 +117,9 @@ export function buildMutation(
       ...chargedToPayload(value),
     };
     if (existingId) {
-      return zero.mutate(mutators.reimbursement.update(reimbPayload));
+      return zero.mutate(
+        mutators.reimbursement.update({ ...reimbPayload, ...correctedPayee })
+      );
     }
     // For someone else the server copies the chosen account's details.
     return zero.mutate(
@@ -127,6 +136,8 @@ export function buildMutation(
   }
 
   return existingId
-    ? zero.mutate(mutators.advancePayment.update(basePayload))
+    ? zero.mutate(
+        mutators.advancePayment.update({ ...basePayload, ...correctedPayee })
+      )
     : zero.mutate(mutators.advancePayment.create(basePayload));
 }

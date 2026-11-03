@@ -66,6 +66,7 @@ A request copies the chosen entry's details. Later changes to the saved entry do
 
 - On your own request the form copies the fields. Picking another entry sends every part, and a part the new entry lacks is sent as `""` and cleared. The mutator checks only the UPI format.
 - For someone else, the client sends the entry's ID, and the server copies its details (`claimantBankFields` in `packages/zero/src/mutators/claimant.ts`). The server refuses an entry that isn't the claimant's.
+- Editing changes the payout only for the claimant. Anyone else's edit, even with `requests.edit_all`, keeps the stored details; the form disables the picker for them. The exception is a `requests.edit_all_statuses` holder (by default only `super_admin`), who can correct a claimant's mistake: the picker lists the claimant's saved accounts, and only an account picked by hand is sent, by ID, for the server to copy as at creation. For reimbursements the claimant is read under the row lock, so an edit racing "Change claimant" can't set the new claimant's payout. Advance payments follow the same rule.
 
 ### How finance pays
 

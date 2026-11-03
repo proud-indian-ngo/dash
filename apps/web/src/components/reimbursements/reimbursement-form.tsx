@@ -43,6 +43,11 @@ export interface ReimbursementFormProps {
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
   onSaved: (id: string) => void;
+  /**
+   * A `requests.edit_all_statuses` holder editing someone else's request:
+   * the claimant, whose saved accounts the payee can be corrected to.
+   */
+  payeeUserId?: string;
   requestType: RequestType;
 }
 
@@ -53,6 +58,7 @@ export function ReimbursementForm({
   initialValues,
   onCancel,
   onSaved,
+  payeeUserId,
   requestType,
 }: ReimbursementFormProps) {
   return (
@@ -64,6 +70,7 @@ export function ReimbursementForm({
         initialValues={initialValues}
         onCancel={onCancel}
         onSaved={onSaved}
+        payeeUserId={payeeUserId}
         requestType={requestType}
       />
     </AppErrorBoundary>
@@ -77,6 +84,7 @@ interface ReimbursementFormInnerProps {
   initialValues?: Partial<RequestFormValues> & { id?: string };
   onCancel: () => void;
   onSaved: (id: string) => void;
+  payeeUserId?: string;
   requestType: RequestType;
 }
 
@@ -87,6 +95,7 @@ function ReimbursementFormInner({
   initialValues,
   onCancel,
   onSaved,
+  payeeUserId,
   requestType,
 }: ReimbursementFormInnerProps) {
   const zero = useZero();
@@ -110,17 +119,22 @@ function ReimbursementFormInner({
     ? (claimants.find((c) => c.id === claimantId)?.name ?? "")
     : editedClaimantName;
 
+  // Whose saved accounts the picker lists, when not your own.
+  const accountsUserId = forOthers ? claimantId : payeeUserId;
+
   const [categories] = useQuery(queries.expenseCategory.all());
   const [ownBankAccounts, ownBankAccountsResult] = useQuery(
     queries.bankAccount.bankAccountsByCurrentUser(),
-    { enabled: !forOthers }
+    { enabled: !accountsUserId }
   );
   const [claimantBankAccounts, claimantBankAccountsResult] = useQuery(
-    queries.bankAccount.bankAccountsForClaimant({ userId: claimantId }),
-    { enabled: forOthers }
+    queries.bankAccount.bankAccountsForClaimant({
+      userId: accountsUserId ?? user.id,
+    }),
+    { enabled: Boolean(accountsUserId) }
   );
-  const bankAccounts = forOthers ? claimantBankAccounts : ownBankAccounts;
-  const bankAccountsResult = forOthers
+  const bankAccounts = accountsUserId ? claimantBankAccounts : ownBankAccounts;
+  const bankAccountsResult = accountsUserId
     ? claimantBankAccountsResult
     : ownBankAccountsResult;
   const [events] = useQuery(queries.teamEvent.allAccessible());
@@ -173,12 +187,23 @@ function ReimbursementFormInner({
     [voucherLimitPaise, cityOptions.length]
   );
 
+  // Set once the person picks an account in this form.
+  const bankAccountPickedByUser = useRef(false);
+
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value: rawValue }) => {
       const value = requestFormSchema.parse(rawValue);
       const id = entityId;
       const typeLabel = REQUEST_TYPE_LABELS[value.type];
+      // A correction is sent only when an account was picked here, never
+      // for one the picker filled in on its own.
+      let payee: "claimantAccount" | "keep" | "send" = "send";
+      if (payeeUserId) {
+        payee = bankAccountPickedByUser.current ? "claimantAccount" : "keep";
+      } else if (disableBankAccountSelection) {
+        payee = "keep";
+      }
       const mutation = buildMutation(
         zero,
         value,
@@ -187,7 +212,7 @@ function ReimbursementFormInner({
         bankAccountList,
         voucherLimitPaise,
         forOthers ? claimantId : undefined,
-        disableBankAccountSelection
+        payee
       );
 
       const mutatorNameMap = {
@@ -234,7 +259,6 @@ function ReimbursementFormInner({
   const followsDefaultBankAccount = !(
     isEdit || "bankAccountName" in (initialValues ?? {})
   );
-  const bankAccountPickedByUser = useRef(false);
   useEffect(() => {
     if (
       !(
