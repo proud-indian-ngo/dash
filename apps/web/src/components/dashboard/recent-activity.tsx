@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@pi-dash/design-system/components/ui/card";
 import { Skeleton } from "@pi-dash/design-system/components/ui/skeleton";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { formatPaise } from "@pi-dash/shared/money";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
@@ -38,12 +39,13 @@ interface EventItem {
   createdAt: number;
   id: string;
   name: string;
+  startTime: number;
   team?: { name: string } | undefined;
 }
 
 interface EventInterestItem {
   createdAt: number;
-  event?: { id: string; name: string } | undefined;
+  event?: { id: string; name: string; startTime: number } | undefined;
   id: string;
   status: string | null;
 }
@@ -113,7 +115,7 @@ function toEventActivities(events: readonly EventItem[]): ActivityItem[] {
         : `New event${teamName ? ` · ${teamName}` : ""}`,
       route: "/events/$id",
       status: null,
-      title: event.name,
+      title: eventLabel(event.name, event.startTime),
     };
   });
 }
@@ -138,7 +140,7 @@ function toRegistrationActivities(
           interest.status === "expired"
             ? INTEREST_NOT_REVIEWED_BADGE
             : undefined,
-        title: interest.event.name,
+        title: eventLabel(interest.event.name, interest.event.startTime),
       },
     ];
   });

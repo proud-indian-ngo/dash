@@ -37,15 +37,15 @@ WhatsApp goes only to users with a verified `whatsappStatus` and the topic enabl
 
 Pre-event reminders and post-event nudges claim their event and interval before recipient reads or delivery. A thrown read or delivery releases only that attempt's claim, so the cron can retry while the event remains in its eligibility window. Participant fan-out waits for every attempt, then fails the run if any delivery failed.
 
-This is bounded retry protection, not durable delivery state. A process crash can leave a stale claim, a retry outside the cron eligibility window is skipped, and an ambiguous GoWA result can still deliver more than once. This fix adds no durable job state or schema change; addressing those cases requires one.
+This is bounded retry protection, not durable delivery state: a process crash can leave a stale claim, a retry outside the cron eligibility window is skipped, and an ambiguous GoWA result can deliver twice.
 
 ## Batching
 
-Email and WhatsApp DMs are held for a short window and sent together, so a burst of activity reaches each person as one message. The inbox is never held. Code: `packages/notifications/src/batching.ts`.
+Email and WhatsApp DMs are held for a short window and sent together, so a burst reaches each person as one message. The inbox is never held.
 
 - Every topic is batched except those with `sendImmediately` in `TOPIC_CATALOG`.
-- A send with `immediate: true` skips batching. Use it where the words go stale within the window: reminders, time or place changes, cancellations, and admin-composed messages.
-- Holding runs after the usual preference, suppression and WhatsApp checks. A failed hold throws, so the notify job retries.
+- `immediate: true` skips batching, for words that go stale within the window: reminders, time or place changes, cancellations, admin-composed messages.
+- Holding runs after preference, suppression and WhatsApp checks. A failed hold throws, so the job retries.
 - Batches are per recipient, topic and channel, so each digest has one exact unsubscribe link. The window starts at the oldest unsent message and later messages do not extend it.
 
 ### Flush
@@ -71,6 +71,10 @@ The inbox, held messages and the WhatsApp send log each dedupe by key for up to 
 ### Digest rows
 
 Every sender in `src/send/` passes a `DigestRow`. `buildDigest()` collapses repeat updates to one record and adds the topic to the subject, so digests of different topics do not thread together.
+
+### Event names
+
+Messages about one event name it with `eventLabel()` ("Maths class (Sat, 18 Oct)", India time) unless the sentence gives the date, so same-named sessions read apart. Dashboard rows do too.
 
 ## Delivery page
 

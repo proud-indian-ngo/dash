@@ -326,6 +326,8 @@ export interface NotifyEventCancelledPayload {
   seriesEnded?: boolean;
   /** For a series: the session cancelled, or the first of those cancelled. */
   sessionStart?: number;
+  /** A cancel of one row (an event or a saved session): its start. */
+  startTime?: number;
   teamId: string;
 }
 export interface NotifyAddedToEventPayload {
@@ -350,6 +352,7 @@ export interface NotifyRemovedFromEventPayload {
   memberId: string;
   teamId: string;
   userId: string;
+  startTime: number;
 }
 
 // Event Interest
@@ -360,16 +363,19 @@ export interface NotifyEventInterestReceivedPayload {
   leadUserIds: string[];
   teamId: string;
   volunteerName: string;
+  startTime: number;
 }
 export interface NotifyEventInterestApprovedPayload {
   eventId: string;
   eventName: string;
   userId: string;
+  startTime: number;
 }
 export interface NotifyEventInterestRejectedPayload {
   eventId: string;
   eventName: string;
   userId: string;
+  startTime: number;
 }
 export interface NotifyEventVolunteerLeftPayload {
   eventId: string;
@@ -379,6 +385,7 @@ export interface NotifyEventVolunteerLeftPayload {
   teamId: string;
   volunteerName: string;
   volunteerUserId: string;
+  startTime: number;
 }
 
 // Event Photo
@@ -387,12 +394,14 @@ export interface NotifyPhotoApprovedPayload {
   eventName: string;
   photoId: string;
   uploaderId: string;
+  startTime: number;
 }
 export interface NotifyPhotoRejectedPayload {
   eventId: string;
   eventName: string;
   photoId: string;
   uploaderId: string;
+  startTime: number;
 }
 
 // Event Update
@@ -438,6 +447,7 @@ export interface NotifyEventFeedbackOpenPayload {
   eventName: string;
   memberUserIds: string[];
   openedAt: number;
+  startTime: number;
 }
 
 // Vendor

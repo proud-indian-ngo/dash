@@ -215,6 +215,7 @@ export const eventInterestMutators = {
               {
                 eventId,
                 eventName,
+                startTime: event.startTime,
                 userId,
               },
               { traceId: ctx.traceId }
@@ -363,6 +364,7 @@ export const eventInterestMutators = {
               {
                 eventId,
                 eventName,
+                startTime: event.startTime,
                 interestId: args.id,
                 leadUserIds,
                 teamId,
@@ -433,6 +435,7 @@ export const eventInterestMutators = {
               {
                 eventId,
                 eventName,
+                startTime: event.startTime,
                 userId,
               },
               { traceId: ctx.traceId }

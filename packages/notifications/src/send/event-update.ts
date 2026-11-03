@@ -3,13 +3,14 @@ import { teamMember } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import { whatsappTemplate } from "@pi-dash/whatsapp/template-message";
 import { and, eq } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 
-import { formatEventDate, getUserIdsWithPermission } from "../helpers";
+import { getUserIdsWithPermission } from "../helpers";
 import { sendBulkMessage, sendMessage } from "../send-message";
 import { TOPICS } from "../topics";
 
@@ -34,8 +35,8 @@ export async function notifyEventUpdatePosted({
   teamWhatsappGroupId,
   updatedAt,
 }: EventUpdatePostedOptions): Promise<void> {
-  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
-  const body = `${authorName} posted an update on ${eventLabel} — check it out.`;
+  const label = eventLabel(eventName, startTime);
+  const body = `${authorName} posted an update on ${label} — check it out.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Read update",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -49,7 +50,7 @@ export async function notifyEventUpdatePosted({
       actionLabel: "Read",
       list: { label: "View events", path: "/events" },
       meta: `Update from ${authorName}`,
-      name: eventLabel,
+      name: label,
     },
     emailHtml,
     idempotencyKey: `event-update-posted-${eventId}-${updatedAt}`,
@@ -58,7 +59,7 @@ export async function notifyEventUpdatePosted({
     userIds: eventMemberIds,
     whatsappTemplate: whatsappTemplate(
       "event_update_posted",
-      { author: authorName, event: eventLabel },
+      { author: authorName, event: label },
       `/events/${eventId}`
     ),
   });
@@ -73,7 +74,7 @@ export async function notifyEventUpdatePosted({
       .limit(1);
     if (group[0]) {
       const lines = [
-        `*📝 New update on ${eventLabel}*`,
+        `*📝 New update on ${label}*`,
         `${authorName} posted an update — check it out.`,
         `\nView: ${env.APP_URL}/events/${eventId}`,
       ];
@@ -108,8 +109,8 @@ export async function notifyEventUpdateApproved({
   authorId,
   startTime,
 }: EventUpdateApprovedOptions): Promise<void> {
-  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
-  const body = `Your update to ${eventLabel} is now live!`;
+  const label = eventLabel(eventName, startTime);
+  const body = `Your update to ${label} is now live!`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -122,7 +123,7 @@ export async function notifyEventUpdateApproved({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: "Your update is live",
-      name: eventLabel,
+      name: label,
       status: { label: "Live", tone: "success" },
     },
     emailHtml,
@@ -132,7 +133,7 @@ export async function notifyEventUpdateApproved({
     topic: TOPICS.EVENTS_SCHEDULE,
     whatsappTemplate: whatsappTemplate(
       "event_post_approved",
-      { event: eventLabel },
+      { event: label },
       `/events/${eventId}`
     ),
   });
@@ -153,8 +154,8 @@ export async function notifyEventUpdateRejected({
   authorId,
   startTime,
 }: EventUpdateRejectedOptions): Promise<void> {
-  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
-  const body = `Your update to ${eventLabel} wasn't published.`;
+  const label = eventLabel(eventName, startTime);
+  const body = `Your update to ${label} wasn't published.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -167,7 +168,7 @@ export async function notifyEventUpdateRejected({
     digest: {
       list: { label: "View events", path: "/events" },
       meta: "Your update wasn't published",
-      name: eventLabel,
+      name: label,
       status: { label: "Not published", tone: "neutral" },
     },
     emailHtml,
@@ -177,7 +178,7 @@ export async function notifyEventUpdateRejected({
     topic: TOPICS.EVENTS_SCHEDULE,
     whatsappTemplate: whatsappTemplate(
       "event_post_not_approved",
-      { event: eventLabel },
+      { event: label },
       `/events/${eventId}`
     ),
   });
@@ -200,8 +201,8 @@ export async function notifyEventUpdatePending({
   startTime,
   teamId,
 }: EventUpdatePendingOptions): Promise<void> {
-  const eventLabel = `${eventName} (${formatEventDate(startTime)})`;
-  const body = `${authorName} submitted an update to ${eventLabel} — it needs your review.`;
+  const label = eventLabel(eventName, startTime);
+  const body = `${authorName} submitted an update to ${label} — it needs your review.`;
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "Review update",
     ctaUrl: `${env.APP_URL}/events/${eventId}`,
@@ -237,7 +238,7 @@ export async function notifyEventUpdatePending({
       actionLabel: "Review",
       list: { label: "View events", path: "/events" },
       meta: `Update from ${authorName}`,
-      name: eventLabel,
+      name: label,
       status: { label: "Needs review", tone: "warning" },
     },
     emailHtml,
@@ -247,7 +248,7 @@ export async function notifyEventUpdatePending({
     userIds: allUserIds,
     whatsappTemplate: whatsappTemplate(
       "event_post_needs_approval",
-      { author: authorName, event: eventLabel },
+      { author: authorName, event: label },
       `/events/${eventId}`
     ),
   });

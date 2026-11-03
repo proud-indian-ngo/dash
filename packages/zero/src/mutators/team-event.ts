@@ -889,6 +889,7 @@ export const teamEventMutators = {
                 eventId,
                 eventMemberIds,
                 eventName,
+                startTime: existing.startTime,
                 reason,
                 teamId,
               },
@@ -1456,6 +1457,7 @@ export const teamEventMutators = {
               {
                 eventId,
                 eventName,
+                startTime: event.startTime,
                 leadUserIds,
                 leftAt,
                 teamId,
@@ -1742,6 +1744,7 @@ export const teamEventMutators = {
               {
                 eventId,
                 eventName,
+                startTime: event.startTime,
                 memberId: args.memberId,
                 teamId,
                 userId: memberUserId,
@@ -1920,6 +1923,7 @@ export const teamEventMutators = {
                 {
                   eventId,
                   eventName,
+                  startTime,
                   memberUserIds: eventMemberIds,
                   openedAt: updatedAt,
                 },

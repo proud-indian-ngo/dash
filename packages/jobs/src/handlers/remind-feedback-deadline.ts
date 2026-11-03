@@ -25,6 +25,7 @@ export async function handleRemindFeedbackDeadline(
       feedbackDeadline: teamEvent.feedbackDeadline,
       id: teamEvent.id,
       name: teamEvent.name,
+      startTime: teamEvent.startTime,
     })
     .from(teamEvent)
     .where(
@@ -72,6 +73,7 @@ export async function handleRemindFeedbackDeadline(
           notifyFeedbackDeadline({
             eventId: event.id,
             eventName: event.name,
+            startTime: event.startTime.getTime(),
             userId: m.userId,
           })
         )

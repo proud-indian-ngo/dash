@@ -3,6 +3,7 @@ import { team as teamTable } from "@pi-dash/db/schema/team";
 import { whatsappGroup } from "@pi-dash/db/schema/whatsapp-group";
 import { renderNotificationEmail } from "@pi-dash/email";
 import { env } from "@pi-dash/env/server";
+import { eventLabel } from "@pi-dash/shared/event-label";
 import { logGowaSend } from "@pi-dash/whatsapp/gowa-log";
 import { sendWhatsAppGroupMessage } from "@pi-dash/whatsapp/messaging";
 import {
@@ -67,6 +68,7 @@ interface RemovedFromEventOptions {
   memberId: string;
   teamId: string;
   userId: string;
+  startTime: number;
 }
 
 interface EventCreatedOptions {
@@ -97,6 +99,8 @@ interface EventCancelledOptions {
   seriesEnded?: boolean;
   /** For a series: the session cancelled, or the first of those cancelled. */
   sessionStart?: number;
+  /** A cancel of one row (an event or a saved session): its start. */
+  startTime?: number;
   teamId: string;
 }
 
@@ -105,6 +109,7 @@ function cancelledCopy(
   eventName: string,
   seriesEnded: boolean | undefined,
   sessionStart: number | undefined,
+  startTime: number | undefined,
   teamPath: string
 ): { body: string; heading: string; template: WhatsAppTemplateMessage } {
   if (sessionStart !== undefined) {
@@ -129,6 +134,8 @@ function cancelledCopy(
           ),
         };
   }
+  const name =
+    startTime === undefined ? eventName : eventLabel(eventName, startTime);
   return seriesEnded
     ? {
         body: `The upcoming sessions of ${eventName} have been cancelled.`,
@@ -140,11 +147,11 @@ function cancelledCopy(
         ),
       }
     : {
-        body: `${eventName} has been cancelled.`,
+        body: `${name} has been cancelled.`,
         heading: "Event cancelled",
         template: whatsappTemplate(
           "event_cancelled",
-          { event: eventName },
+          { event: name },
           teamPath
         ),
       };
@@ -230,22 +237,24 @@ export async function notifyRemovedFromEvent({
   memberId,
   userId,
   eventName,
+  startTime,
   teamId,
   eventId,
 }: RemovedFromEventOptions): Promise<void> {
+  const label = eventLabel(eventName, startTime);
   const emailHtml = await renderNotificationEmail({
     ctaLabel: "View event",
     ctaUrl: `${env.APP_URL}/teams/${teamId}`,
     heading: "Event update",
-    paragraphs: [`You've been removed from ${eventName}.`],
+    paragraphs: [`You've been removed from ${label}.`],
   });
   await sendMessage({
-    body: `You've been removed from ${eventName}.`,
+    body: `You've been removed from ${label}.`,
     clickAction: `/teams/${teamId}`,
     digest: {
       list: { label: "View events", path: "/events" },
       meta: "You've been removed",
-      name: eventName,
+      name: label,
       status: { label: "Removed", tone: "neutral" },
     },
     emailHtml,
@@ -255,7 +264,7 @@ export async function notifyRemovedFromEvent({
     topic: TOPICS.EVENTS_SCHEDULE,
     whatsappTemplate: whatsappTemplate(
       "event_removed",
-      { event: eventName },
+      { event: label },
       `/teams/${teamId}`
     ),
   });
@@ -394,11 +403,13 @@ export async function notifyEventCancelled({
   cancelledAt,
   seriesEnded,
   sessionStart,
+  startTime,
 }: EventCancelledOptions): Promise<void> {
   const { body, heading, template } = cancelledCopy(
     eventName,
     seriesEnded,
     sessionStart,
+    startTime,
     `/teams/${teamId}`
   );
   const emailHtml = await renderNotificationEmail({
