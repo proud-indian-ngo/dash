@@ -178,6 +178,15 @@ export const createArgsSchema = createSchema.extend({
   claimantUserId: z.string().optional(),
 });
 
+/**
+ * Update takes one of the claimant's saved accounts when a
+ * `requests.edit_all_statuses` holder corrects the payee on someone else's
+ * reimbursement, chosen by ID so the server copies its details.
+ */
+export const updateArgsSchema = createSchema.extend({
+  claimantBankAccountId: z.string().optional(),
+});
+
 /** Finance moves a reimbursement to another claimant, with a reason. */
 export const changeClaimantSchema = z.object({
   /** One of the new claimant's saved accounts; null when they have none. */
@@ -1600,7 +1609,7 @@ export const reimbursementMutators = {
     queuePosting(ctx, tx, args.id, "reimbursement.void");
   }),
 
-  update: defineMutator(createSchema, async ({ tx, ctx, args }) => {
+  update: defineMutator(updateArgsSchema, async ({ tx, ctx, args }) => {
     assertIsLoggedIn(ctx);
     const { userId } = ctx;
     const canEditAnyStatus = can(ctx, "requests.edit_all_statuses");
@@ -1698,7 +1707,24 @@ export const reimbursementMutators = {
       costCentreId,
       ...(clearsLead ? CLEARED_LEAD_APPROVAL : {}),
     });
-    await writePayout(tx, args.id, payoutFields(args));
+    // Only the claimant chooses where they're paid; anyone else's edit keeps
+    // the stored payout, except a `requests.edit_all_statuses` holder
+    // correcting it to one of the claimant's own saved accounts. `entity` was
+    // read under the row lock, so a concurrent claimant change is seen.
+    if (entity.userId === userId) {
+      await writePayout(tx, args.id, payoutFields(args));
+    } else if (canEditAnyStatus && args.claimantBankAccountId) {
+      await writePayout(
+        tx,
+        args.id,
+        await claimantBankFields(
+          tx,
+          entity.userId,
+          args.claimantBankAccountId,
+          { required: true }
+        )
+      );
+    }
     if (clearsLead) {
       await tx.mutate.reimbursementHistory.insert({
         ...buildHistoryInsert(

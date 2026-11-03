@@ -178,6 +178,12 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
   );
   const isAdminEditingAnotherUser =
     (canEditAll || canEditAnyStatus) && request.userId !== session.user.id;
+  // A super admin can correct the claimant's payee to one of the claimant's
+  // own saved accounts, which needs reading them.
+  const canCorrectPayee =
+    isAdminEditingAnotherUser &&
+    canEditAnyStatus &&
+    hasPermission("requests.create_for_others");
   const showEditForm = canEdit && mode === "edit";
   const payout = useReimbursementPayout(
     request,
@@ -252,13 +258,16 @@ function ResolvedRequestView({ resolved }: { resolved: ResolvedRequest }) {
                       ? request.chargedProgramme
                       : null
                   }
-                  disableBankAccountSelection={isAdminEditingAnotherUser}
+                  disableBankAccountSelection={
+                    isAdminEditingAnotherUser && !canCorrectPayee
+                  }
                   initialValues={buildInitialValues(
                     resolved,
                     payout.kind === "ready" ? payout.payout : null
                   )}
                   onCancel={stableOnCancel1}
                   onSaved={stableOnSaved2}
+                  payeeUserId={canCorrectPayee ? request.userId : undefined}
                   requestType={requestType}
                 />
               )}
