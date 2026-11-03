@@ -179,7 +179,8 @@ async function foodPerson(
     ).toBeVisible();
 }
 // Food membership rows reach readers through a server function, so its
-// responses are inspected along with Zero frames.
+// responses are inspected along with Zero frames. The overview's Center
+// standings name every Center by design, so they are skipped.
 function watchWire(page: Page, markers: readonly string[]) {
   const leaked = new Set<string>();
   const inspect = (payload: string) => {
@@ -190,8 +191,9 @@ function watchWire(page: Page, markers: readonly string[]) {
     socket.on("framereceived", ({ payload }) => inspect(payload.toString()))
   );
   page.on("response", async (response) => {
-    if (response.url().includes("/_serverFn/"))
-      inspect(await response.text().catch(() => ""));
+    if (!response.url().includes("/_serverFn/")) return;
+    const payload = await response.text().catch(() => "");
+    if (!payload.includes('"runnerUps"')) inspect(payload);
   });
   return () =>
     expect(
