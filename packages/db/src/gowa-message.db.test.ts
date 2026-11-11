@@ -70,6 +70,26 @@ it.skipIf(!localDatabase)("sets each receipt time once", async () => {
 });
 
 it.skipIf(!localDatabase)(
+  "records a receipt that repeats a message ID",
+  async () => {
+    const { recordGowaReceipt } = await import("./queries/gowa-message");
+    await withTag(async (tag) => {
+      await recordGowaReceipt({
+        at: at(1),
+        displayName: null,
+        messageIds: [tag, tag],
+        personJid: PERSON,
+        type: "read",
+      });
+      expect(await readReceipt(tag)).toMatchObject({
+        deliveredAt: at(1),
+        readAt: at(1),
+      });
+    });
+  }
+);
+
+it.skipIf(!localDatabase)(
   "takes delivery from a read that came first",
   async () => {
     const { recordGowaReceipt } = await import("./queries/gowa-message");

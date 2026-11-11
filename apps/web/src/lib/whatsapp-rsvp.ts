@@ -234,7 +234,8 @@ export async function processWhatsAppPollVoteWebhook(
           const voterName = voterRows[0]?.name;
           await enqueue("send-bulk-notification", {
             body: `${voterName} voted "${selectedOption}" for "${event.name}" but is not a member of the event's team.`,
-            idempotencyKey: `rsvp-non-member-${poll.id}-${resolvedUserId}`,
+            // The body names the vote, so a changed vote is a new message.
+            idempotencyKey: `rsvp-non-member-${poll.id}-${resolvedUserId}-${selectedOption}`,
             title: "RSVP from non-team member",
             topicId: "Account Notifications",
             userIds: adminIds,
