@@ -1,11 +1,12 @@
 import { defineEventHandler } from "nitro/h3";
 
-// Real build assets are served by Nitro's static handler before any server
-// middleware runs, so a request that reaches here asks for a chunk this build
-// does not have (usually a tab or a container from another deploy). Answer
-// with a 404 instead of falling through to the app routes, which would send
-// a login redirect or HTML page where the browser expects JavaScript. The
-// `asset-cache` plugin keeps this 404 out of the immutable asset cache.
+// Nitro serves real build assets and answers a GET for a missing one with its
+// own 404 before any server middleware runs. Other methods reach here for a
+// chunk this build does not have (usually a tab or a container from another
+// deploy). Answer with a 404 instead of falling through to the app routes,
+// which would send a login redirect or HTML page where the browser expects
+// JavaScript. The `asset-cache` plugin keeps this 404 out of the immutable
+// asset cache.
 export default defineEventHandler((event) => {
   if (!event.url.pathname.startsWith("/assets/")) {
     return;

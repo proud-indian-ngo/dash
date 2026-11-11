@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it, mock, setSystemTime } from "bun:test";
 
 mock.module("@pi-dash/jobs/enqueue", () => ({
   enqueue: async () => undefined,
@@ -171,7 +171,10 @@ describe("an event's project", () => {
     });
   });
 
+  afterEach(() => setSystemTime());
+
   it("is set on create only by finance.manage", async () => {
+    setSystemTime(NOW);
     const create = (ctx: unknown, id: string) => {
       const db = createDb([]);
       return teamEventMutators.create

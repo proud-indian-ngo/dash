@@ -4,6 +4,8 @@ import { definePlugin } from "nitro";
 // response under that path, including errors. A cached 404 or redirect would
 // pin a broken chunk in the browser and Cloudflare until the cache is
 // cleared, so only successful asset responses keep the long-lived header.
+// Nitro answers a GET for a missing asset itself, before any middleware, so
+// this hook also marks every failed asset response `nosniff`.
 // The route rule runs inside the handler chain; this hook sees the final
 // response after it.
 export default definePlugin((nitroApp) => {
@@ -21,6 +23,7 @@ export default definePlugin((nitroApp) => {
     const failed = response.status >= 300 && response.status !== 304;
     if (failed) {
       response.headers.set("Cache-Control", "no-store");
+      response.headers.set("X-Content-Type-Options", "nosniff");
     }
   });
 });
