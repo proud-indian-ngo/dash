@@ -91,6 +91,7 @@ Private picker reads use their operation's permission: `messages.schedule` for W
 - A role change revokes the user's sessions and invalidates both roles' permission caches.
 - Users with the technical `external_user` role are refused by every action, and no action can assign that role.
 - Delete is refused while `userHasExpensesInBooks` finds a standing posting for an expense the user raised or recorded. Those rows cascade with the user, and the next posting run would reverse money that really left the bank, so ban the account instead.
+- Delete is also refused while other records still reference the user (events, photos and updates they created, among others). It is tried first in a rolled-back transaction, because better-auth's `removeUser` drops sessions and logins before the user row. WhatsApp group removal is queued only after the delete succeeds.
 - `users.edit` holders can clear email suppression with **Resume email** ([bounces and complaints](notifications.md#bounces-and-complaints)).
 
 ### Roles

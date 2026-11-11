@@ -19,13 +19,14 @@ import { withFireAndForgetLog } from "@pi-dash/observability";
 import { getAllGroupJidsForUser } from "@pi-dash/whatsapp/groups";
 import { getUserPhone } from "@pi-dash/whatsapp/users";
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, TransactionRollbackError } from "drizzle-orm";
 import { createRequestLogger } from "evlog";
 import z from "zod";
 
 import { getUserAdminWhatsappSyncPlan } from "@/functions/user-admin-whatsapp";
 import { runSessionAuditedAction } from "@/lib/audit";
 import { HttpError } from "@/lib/http-error";
+import { databaseErrorFields } from "@/lib/safe-errors";
 import {
   assertGenericRoleAssignment,
   assertGenericUserManagement,
@@ -487,6 +488,31 @@ export const setUserPasswordAdmin = createServerFn({ method: "POST" })
     );
   });
 
+/**
+ * Tries the delete in a transaction that always rolls back. Records that
+ * still reference the user block it, and better-auth's `removeUser` drops
+ * their sessions and logins before the user row, so it must not get that far.
+ */
+async function userDeleteBlocked(userId: string): Promise<boolean> {
+  try {
+    await db.transaction(async (tx) => {
+      await tx.delete(user).where(eq(user.id, userId));
+      tx.rollback();
+    });
+  } catch (error) {
+    if (error instanceof TransactionRollbackError) {
+      return false;
+    }
+    // RESTRICT raises 23001; NO ACTION raises 23503.
+    const { sqlState } = databaseErrorFields(error);
+    if (sqlState === "23001" || sqlState === "23503") {
+      return true;
+    }
+    throw error;
+  }
+  return false;
+}
+
 export const deleteUserAdmin = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(deleteUserSchema)
@@ -541,13 +567,28 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
               }).catch(() => null)
             : null;
 
-        // Remove from all WhatsApp groups before deletion (membership rows cascade-delete).
-        // Best-effort: enqueue failure must not block user deletion.
+        if (await userDeleteBlocked(data.userId)) {
+          throw new HttpError(
+            409,
+            "This person created events, photos, updates or other records, so the account can't be deleted. Ban it instead."
+          );
+        }
+
+        // Read their groups now: membership rows cascade-delete with the user.
+        const [phone, groupJids] = await Promise.all([
+          getUserPhone(data.userId),
+          getAllGroupJidsForUser(data.userId),
+        ]);
+
+        await auth.api.removeUser({
+          body: {
+            userId: data.userId,
+          },
+          headers: context.headers,
+        });
+
+        // Best-effort: the account is already deleted.
         try {
-          const [phone, groupJids] = await Promise.all([
-            getUserPhone(data.userId),
-            getAllGroupJidsForUser(data.userId),
-          ]);
           if (phone && groupJids.length > 0) {
             await enqueue("whatsapp-remove-from-all-groups", {
               groupJids,
@@ -565,13 +606,6 @@ export const deleteUserAdmin = createServerFn({ method: "POST" })
           );
           log.emit();
         }
-
-        await auth.api.removeUser({
-          body: {
-            userId: data.userId,
-          },
-          headers: context.headers,
-        });
 
         if (deletionEmail) {
           try {

@@ -53,7 +53,11 @@ vi.mock("evlog", () => ({
   }),
 }));
 
-import { addOrInviteToWhatsAppGroup, inviteToWhatsAppGroup } from "./groups";
+import {
+  addOrInviteToWhatsAppGroup,
+  inviteToWhatsAppGroup,
+  removeFromWhatsAppGroup,
+} from "./groups";
 
 const GROUP = { id: "g1", name: "Sunday Teaching Volunteers" };
 
@@ -204,5 +208,33 @@ describe("inviteToWhatsAppGroup", () => {
     const result = await inviteToWhatsAppGroup("unknown@g.us", ["u1"]);
     expect(result.invited).toBe(0);
     expect(mocks.sendWhatsAppNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeFromWhatsAppGroup", () => {
+  it("treats a number that isn't on WhatsApp as removed", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          code: "INVALID_JID",
+          message: "user is not registered",
+        }),
+        { status: 400 }
+      )
+    );
+    await expect(
+      removeFromWhatsAppGroup("jid@g.us", "9876543210")
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws on any other failure", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: "INTERNAL_SERVER_ERROR" }), {
+        status: 500,
+      })
+    );
+    await expect(
+      removeFromWhatsAppGroup("jid@g.us", "9876543210")
+    ).rejects.toThrow("WhatsApp group remove error 500");
   });
 });
