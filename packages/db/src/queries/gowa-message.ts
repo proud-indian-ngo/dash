@@ -63,10 +63,13 @@ export async function recordGowaReceipt(receipt: GowaReceipt): Promise<void> {
     return;
   }
   const readAt = receipt.type === "read" ? receipt.at : null;
+  // WhatsApp can repeat an ID in one receipt, and an upsert that hits the
+  // same row twice fails the whole statement.
+  const messageIds = [...new Set(receipt.messageIds)];
   await db
     .insert(gowaReceipt)
     .values(
-      receipt.messageIds.map((messageId) => ({
+      messageIds.map((messageId) => ({
         deliveredAt: receipt.at,
         displayName: receipt.displayName,
         messageId,
