@@ -111,7 +111,25 @@ export async function removeFromWhatsAppGroup(
 
   if (!response.ok) {
     const text = await response.text();
+    // A number that isn't on WhatsApp can't be in the group.
+    if (response.status === 400 && gowaErrorCode(text) === "INVALID_JID") {
+      return;
+    }
     throw new Error(`WhatsApp group remove error ${response.status}: ${text}`);
+  }
+}
+
+function gowaErrorCode(text: string): string | undefined {
+  try {
+    const body: unknown = JSON.parse(text);
+    return typeof body === "object" &&
+      body !== null &&
+      "code" in body &&
+      typeof body.code === "string"
+      ? body.code
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
 
