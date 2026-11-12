@@ -51,18 +51,10 @@ tmp
 temp
 
 # START Ruler Generated Files
-/.codex/config.toml
-/.codex/config.toml.ruler-generated
-/.mcp.json
-/.mcp.json.ruler-generated
-/.zed/settings.json
-/.zed/settings.json.ruler-generated
 /AGENTS.md
 /AGENTS.md.bak
 /CLAUDE.md
 /CLAUDE.md.bak
-/opencode.json
-/opencode.json.ruler-generated
 # END Ruler Generated Files
 .grepai/
 .pi/
