@@ -28,6 +28,16 @@ export BOAT_NO_UPDATE=1
 
 ready_id() { jq -r 'select(.event == "ready") | .id'; }
 
+# Makes sure the dev database is up. It starts at boot, but a sandbox
+# occasionally comes up without it.
+db_up() {
+  cat <<'EOF'
+sudo systemctl start postgresql
+for _ in $(seq 1 60); do pg_isready -qh localhost && break; sleep 1; done
+pg_isready -h localhost || { sudo journalctl -u postgresql@18-main --no-pager -n 20; exit 1; }
+EOF
+}
+
 # Starts `bun run dev` in the background and waits for the app and Zero.
 dev_up() {
   cat <<'EOF'
@@ -118,7 +128,7 @@ else
   git checkout -q -B '$1' origin/master
 fi
 bun install --frozen-lockfile
-until pg_isready -qh localhost; do sleep 1; done
+$(db_up)
 git diff --quiet "\$before" HEAD -- packages/db/src/migrations || bun run db:migrate >/dev/null
 $(dev_up)
 EOF
@@ -139,7 +149,7 @@ git checkout -q --detach '$1'
 bun install --frozen-lockfile
 # A no-op unless the branch's Playwright is newer than the snapshot's.
 bunx playwright install --only-shell chromium >/dev/null
-until pg_isready -qh localhost; do sleep 1; done
+$(db_up)
 git diff --quiet "\$before" HEAD -- packages/db/src/migrations || bun run db:migrate >/dev/null
 mkdir -p /tmp/evidence
 if [ -f .evidence/shots.ts ]; then
