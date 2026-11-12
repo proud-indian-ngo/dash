@@ -69,4 +69,6 @@ On SIGTERM, srvx stops accepting connections and lets open requests finish for `
 
 Keep the TanStack Devtools Vite plugin disabled until its event endpoint authenticates callers and its package installer avoids shell interpolation. The browser-only router and form panels can run without that server plugin.
 
+`scripts/boat.sh` runs work in boat.dev sandboxes. `snapshot` saves a `pi-dash` snapshot with CI's Bun and its install cache, a clone at `~/pi-dash` without `node_modules` (installing from the cache is faster than restoring it), Playwright's headless Chromium, a dev-only `.env` and a migrated, seeded dev database in a system Postgres 18, so `db:start` is skipped there. `start [branch]` creates a sandbox from it, checks out the branch, installs, migrates when migrations changed and runs `bun run dev`; `forward <id>` brings the app to `localhost:3001`. Refresh the snapshot nightly so the cache and database stay close to master.
+
 Lefthook's post-checkout hook, in a linked worktree, copies `.env` from the main worktree when missing and reruns `bun run ruler:apply` when `CLAUDE.md` is missing or older than `.ruler/agent-guide.md`.
