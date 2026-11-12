@@ -82,7 +82,7 @@ services:
     restart: unless-stopped
 
   zero-cache:
-    image: rocicorp/zero:1.11.5
+    image: rocicorp/zero:1.12.0
     expose:
       - 4848
     environment:
