@@ -171,4 +171,8 @@ if (start !== -1 && end > start) {
       : `${body.slice(0, testing)}${block}\n\n${body.slice(testing)}`;
 }
 writeFileSync(path.join(dir, "evidence.md"), `${body}\n`);
-writeFileSync(path.join(dir, "attachments.txt"), attachments.join("\n"));
+// One path per line, each ending in a newline, or `while read` drops the last.
+writeFileSync(
+  path.join(dir, "attachments.txt"),
+  attachments.map((file) => `${file}\n`).join("")
+);
