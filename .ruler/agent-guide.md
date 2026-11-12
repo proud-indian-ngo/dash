@@ -29,6 +29,7 @@ Worktrees: `bun run worktree:setup <ID>` (add `--isolated-db` for separate Postg
 
 - The focused checks for what changed pass, or you report why one could not run.
 - A new route, CRUD flow or role-gated capability has an E2E spec.
+- The PR carries evidence from `bash scripts/boat.sh verify --pr <n>` in its description: its specs, recorded, and for a visible change, the changed screens before and after (`--shots`; see [monorepo.md](docs/architecture/monorepo.md#dev-tooling)).
 - The owning doc records any new rule, decision or gotcha (see [Documentation](#documentation)).
 - The diff holds no edits to generated files.
 
