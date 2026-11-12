@@ -1,4 +1,4 @@
-// Writes the PR evidence comment from what `scripts/boat.sh verify` brought
+// Writes the PR evidence block from what `scripts/boat.sh verify` brought
 // back from its sandboxes:
 //
 //   bun scripts/evidence/report.ts <dir> <base-sha> <head-sha>
@@ -6,8 +6,11 @@
 // <dir> holds after/ and, for UI changes, before/ (capture.ts output), and
 // e2e/results.json (Playwright's JSON report) with the recordings it names
 // under e2e/test-results/. Writes <dir>/evidence.md, whose images and videos
-// are local paths, and <dir>/attachments.txt listing them, for
-// `gh pr comment --body-file evidence.md --attach ...` to upload in place.
+// are local paths, and <dir>/attachments.txt listing them. When
+// <dir>/pr-body.md holds the PR's description, evidence.md is that
+// description with the block between the markers replaced, or inserted before
+// its testing section, for `gh pr edit --body-file evidence.md --attach ...`
+// to upload the files in place. The rest of the description is kept as is.
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -16,6 +19,8 @@ import type { Capture } from "./types";
 // GitHub's limits for one comment's attachments.
 const MAX_FILES = 50;
 const MAX_BYTES = 10 * 1024 * 1024;
+const START = "<!-- evidence:start -->";
+const END = "<!-- evidence:end -->";
 
 interface TestResult {
   status: string;
@@ -52,6 +57,7 @@ const readJson = <T>(file: string): T | undefined =>
     : undefined;
 
 const lines = [
+  START,
   `## Evidence for ${head.slice(0, 9)}`,
   "",
   `Run on a Boat sandbox with seeded dev data. Before is the merge base, ${base.slice(0, 9)}.`,
@@ -75,6 +81,16 @@ if (after.length > 0) {
     const old = before.find(
       (b) => b.name === shot.name && b.viewport === shot.viewport
     );
+    if (!old) {
+      // A screen the branch adds.
+      lines.push(
+        "",
+        `**${shot.name}**, ${shot.viewport}, new`,
+        "",
+        cell("after", shot)
+      );
+      continue;
+    }
     lines.push(
       "",
       `**${shot.name}**, ${shot.viewport}`,
@@ -93,8 +109,9 @@ if (report) {
   const walk = (suite: Suite, titles: string[]) => {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests) {
-        // A spec skips itself in the role projects it isn't for.
-        if (test.status === "skipped") {
+        // A spec skips itself in the role projects it isn't for, and setup
+        // only signs the test users in.
+        if (test.status === "skipped" || test.projectName === "setup") {
           continue;
         }
         const title = [...titles, spec.title].join(" › ");
@@ -138,5 +155,20 @@ if (report) {
   }
 }
 
-writeFileSync(path.join(dir, "evidence.md"), `${lines.join("\n")}\n`);
+lines.push(END);
+const block = lines.join("\n");
+const bodyFile = path.join(dir, "pr-body.md");
+let body = existsSync(bodyFile) ? readFileSync(bodyFile, "utf8").trimEnd() : "";
+const start = body.indexOf(START);
+const end = body.indexOf(END);
+if (start !== -1 && end > start) {
+  body = body.slice(0, start) + block + body.slice(end + END.length);
+} else {
+  const testing = body.search(/^## (Verification|Testing|Test plan)\b/m);
+  body =
+    testing === -1
+      ? [body, block].filter(Boolean).join("\n\n")
+      : `${body.slice(0, testing)}${block}\n\n${body.slice(testing)}`;
+}
+writeFileSync(path.join(dir, "evidence.md"), `${body}\n`);
 writeFileSync(path.join(dir, "attachments.txt"), attachments.join("\n"));

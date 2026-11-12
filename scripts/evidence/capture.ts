@@ -10,7 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { type Browser, chromium, devices } from "@playwright/test";
+import { type Browser, chromium, devices, type Page } from "@playwright/test";
 
 import type { Capture, Role, Shot, Viewport } from "./types";
 
@@ -29,6 +29,44 @@ const VIEWPORTS = {
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },
   phone: devices["iPhone 13"],
 };
+
+// Waits until the page shows data: signed-in pages until Zero has connected
+// (`data-zero-ready` on #main), then every page until no route spinner or
+// skeleton is left. Vite dev compiles each route on its first visit, which
+// can take most of a minute in a sandbox.
+async function settle(page: Page, role: Role) {
+  if (role !== "guest") {
+    await page.locator("#main[data-zero-ready]").waitFor({ timeout: 90_000 });
+  }
+  for (const selector of ['output[role="status"]', '[data-slot="skeleton"]']) {
+    await page
+      .locator(selector)
+      .first()
+      .waitFor({ state: "detached", timeout: 30_000 });
+  }
+  await page.waitForTimeout(500);
+}
+
+// The seed puts policies in force that no seeded user has accepted, so the
+// first visit lands on /accept-policies. Accepts them, as a user would.
+// Returns whether it did.
+async function acceptPolicies(page: Page) {
+  const gate = page.getByRole("heading", { name: "Before you continue" });
+  await page
+    .locator("#main[data-zero-ready]")
+    .or(gate)
+    .first()
+    .waitFor({ timeout: 90_000 });
+  if (!(await gate.isVisible())) {
+    return false;
+  }
+  await page
+    .getByRole("checkbox", { name: "I have read and accept these policies" })
+    .check();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.waitForURL((url) => url.pathname !== "/accept-policies");
+  return true;
+}
 
 async function capture(
   browser: Browser,
@@ -58,16 +96,22 @@ async function capture(
     if (response && response.status() >= 400) {
       throw new Error(`${shot.path} returned HTTP ${response.status()}`);
     }
-    await page
-      .locator('[data-slot="skeleton"]')
-      .first()
-      .waitFor({ state: "detached", timeout: 20_000 });
-    await shot.prepare?.(page);
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {
-      // Zero keeps a socket open, so the network may never go idle.
-    });
+    if (role !== "guest" && (await acceptPolicies(page))) {
+      await page.goto(shot.path, { waitUntil: "load" });
+    }
+    await settle(page, role);
+    if (shot.prepare) {
+      await shot.prepare(page);
+      await settle(page, role);
+    }
     const file = `${shot.name}-${viewport}.png`;
-    await page.screenshot({ fullPage: true, path: path.join(outDir, file) });
+    await page.screenshot({
+      fullPage: shot.fullPage ?? false,
+      path: path.join(outDir, file),
+      // The dev server's overlay buttons would sit in every shot.
+      style:
+        '[data-agentation-portal], [data-testid="tanstack_devtools"] { display: none !important; }',
+    });
     return { file, name: shot.name, viewport };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

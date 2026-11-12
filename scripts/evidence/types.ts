@@ -18,6 +18,11 @@ export interface Shot {
   viewports?: Viewport[];
   /** False for a screen the PR adds, so the before side skips it. */
   before?: boolean;
+  /**
+   * Captures the whole page instead of the viewport. Fixed bars land mid-image
+   * on phones, and a pair of different heights won't line up side by side.
+   */
+  fullPage?: boolean;
   /** Reaches the state to capture after the page loads: opens a sheet, fills a form. */
   prepare?: (page: Page) => Promise<void>;
 }

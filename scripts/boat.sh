@@ -9,7 +9,7 @@
 #                                          PR evidence for the pushed HEAD: runs the specs (default:
 #                                          those the branch adds or changes) recorded, and with
 #                                          --shots captures before and after screenshots in two
-#                                          sandboxes at once; --pr posts it as a comment
+#                                          sandboxes at once; --pr puts it in the PR's description
 #
 # The snapshot holds CI's Bun with its install cache, a clone at ~/pi-dash,
 # Playwright's headless Chromium, a dev-only .env and a migrated, seeded dev
@@ -126,7 +126,8 @@ EOF
 
 
 # Runs in a sandbox: checks out $1, then captures $2 (before|after) screens
-# when a shots file was copied in, and runs the E2E specs in $3, recorded.
+# when a shots file was copied in, and runs the E2E arguments in $3 (spec
+# paths and Playwright flags), recorded; $4 is the specs, comma-separated.
 # Leaves everything for the report in /tmp/evidence.
 verify_cmd() {
   cat <<EOF
@@ -136,6 +137,8 @@ before=\$(git rev-parse HEAD)
 git fetch -q origin '$1'
 git checkout -q --detach '$1'
 bun install --frozen-lockfile
+# A no-op unless the branch's Playwright is newer than the snapshot's.
+bunx playwright install --only-shell chromium >/dev/null
 until pg_isready -qh localhost; do sleep 1; done
 git diff --quiet "\$before" HEAD -- packages/db/src/migrations || bun run db:migrate >/dev/null
 mkdir -p /tmp/evidence
@@ -146,7 +149,10 @@ if [ -f .evidence/shots.ts ]; then
 fi
 if [ -n '$3' ]; then
   mkdir -p /tmp/evidence/e2e
-  E2E_VIDEO=1 E2E_SERVER=dev PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/evidence/e2e/results.json \
+  # The production server, as in CI: Vite dev compiles each route on its first
+  # visit, slowly enough here to fail first attempts. E2E_EXCLUSIVE_LAST keeps
+  # the specs that run last, alone, to those named.
+  E2E_VIDEO=1 E2E_EXCLUSIVE_LAST='$4' PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/evidence/e2e/results.json \
     bash packages/e2e/run-e2e.sh $3 --reporter=line,json || true
   cd packages/e2e
   find test-results -name '*.webm' -exec cp --parents {} /tmp/evidence/e2e/ \;
@@ -160,7 +166,8 @@ verify_side() {
   local side=$1 sha=$2 specs=$3 shots=$4 out=$5 id
   id=$(boat new --from "$SNAPSHOT" --name "pi-dash-evidence-$side" --json | ready_id)
   test -n "$id"
-  trap 'boat delete "$id" --yes --json >/dev/null' EXIT
+  # shellcheck disable=SC2064 # the trap runs after `id` goes out of scope
+  trap "boat delete '$id' --yes --json >/dev/null" EXIT
   if [ -n "$shots" ]; then
     boat exec "$id" -- bash -c 'mkdir -p ~/pi-dash/.evidence' >/dev/null
     for file in "$REPO_ROOT/scripts/evidence/capture.ts" "$REPO_ROOT/scripts/evidence/types.ts"; do
@@ -169,9 +176,14 @@ verify_side() {
     boat scp "$shots" "$id:pi-dash/.evidence/shots.ts" >/dev/null
   fi
   echo "$side: running in $id..."
-  boat exec "$id" --timeout 3000 --json -- bash -c "$(verify_cmd "$sha" "$side" "$specs")" >"$out/$side.json" || true
-  jq -r '.stdout, .stderr' "$out/$side.json" >"$out/$side.log"
-  if [ "$(jq -r .exitCode "$out/$side.json")" != 0 ]; then
+  local named
+  named=$(tr ' ' '\n' <<<"$specs" | grep '\.spec\.ts$' | sed 's|^tests/||' | paste -sd, - || true)
+  # --json prints one object with stdout and exitCode for a quick command, and
+  # streams frames for a long one: output chunks, then the exit code.
+  boat exec "$id" --timeout 3000 --json -- bash -c "$(verify_cmd "$sha" "$side" "$specs" "$named")" >"$out/$side.json" || true
+  jq -j 'if .type then (select(.type == "stdout" or .type == "stderr") | .data) else (.stdout // "") + (.stderr // "") end' \
+    "$out/$side.json" >"$out/$side.log"
+  if [ "$(jq -rs 'map(select(has("exitCode"))) | last | .exitCode' "$out/$side.json")" != 0 ]; then
     echo "$side: failed in $id." >&2
     return 1
   fi
@@ -224,14 +236,23 @@ case "${1:-}" in
       tail -30 "$out"/*.log >&2
       exit 1
     fi
-    bun "$REPO_ROOT/scripts/evidence/report.ts" "$out" "$base" "$head"
     if [ -n "$pr" ]; then
-      args=()
-      while read -r file; do args+=(--attach "$file"); done <"$out/attachments.txt"
-      (cd "$out" && gh pr comment "$pr" --repo "$REPO" --body-file evidence.md "${args[@]}")
-    else
-      echo "Evidence: $out/evidence.md. Post it with --pr <number>."
+      gh pr view "$pr" --repo "$REPO" --json body --jq .body >"$out/pr-body.md"
     fi
+    bun "$REPO_ROOT/scripts/evidence/report.ts" "$out" "$base" "$head"
+    if [ -z "$pr" ]; then
+      echo "Evidence: $out/evidence.md. Add it to a PR's description with --pr <number>."
+      exit 0
+    fi
+    args=()
+    while read -r file; do args+=(--attach "$file"); done <"$out/attachments.txt"
+    (cd "$out" && gh pr edit "$pr" --repo "$REPO" --body-file evidence.md "${args[@]}" >/dev/null)
+    # A local path left in the description is a file that didn't upload.
+    if gh pr view "$pr" --repo "$REPO" --json body --jq .body | grep -qE '\]\((before|after|e2e)/'; then
+      echo "Some evidence files didn't upload; see the PR description." >&2
+      exit 1
+    fi
+    echo "Evidence added to the description of PR #$pr."
     ;;
   snapshot)
     id=$(boat new --name pi-dash-snapshot --ttl 7200 --json | ready_id)
