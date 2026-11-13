@@ -56,6 +56,7 @@ Scripts are in `package.json`. `bun run db:push` is for local development only. 
 ## Handing an issue to an agent
 
 - Label an open issue `agent` to hand it to an agent (Claude Opus), or `agent:codex` to hand it to Codex.
+- The same labels work on the issue in Linear (team PRO), which syncs labels and comments with GitHub.
 - The agent swaps the label for `agent:working`, then for `agent:pr` once it links a pull request, or for `agent:blocked` after asking a question on the issue.
 - To retry a blocked issue, remove `agent:blocked` and add `agent` again.
 
