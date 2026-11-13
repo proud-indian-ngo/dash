@@ -53,6 +53,12 @@ Requires Bun and Docker.
 
 Scripts are in `package.json`. `bun run db:push` is for local development only. E2E tests run against a dedicated database and stack; see [E2E testing](docs/architecture/e2e-testing.md).
 
+## Handing an issue to an agent
+
+- Label an open issue `agent` to hand it to an agent (Claude Opus), or `agent:codex` to hand it to Codex.
+- The agent swaps the label for `agent:working`, then for `agent:pr` once it links a pull request, or for `agent:blocked` after asking a question on the issue.
+- To retry a blocked issue, remove `agent:blocked` and add `agent` again.
+
 ## Documentation
 
 - [Architecture chapters](docs/architecture/index.md)
