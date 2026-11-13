@@ -1,0 +1,59 @@
+#!/bin/bash
+# Builds the pi-dash snapshot: CI's Bun with its install cache, Playwright's
+# headless Chromium, a dev-only .env and a migrated, seeded dev database in a
+# system Postgres 18 that is up at boot, so `bun run db:start` is skipped in
+# sandboxes. E2E still starts its own containers. node_modules is left out:
+# an install from the cache is faster than restoring it, and is never stale.
+set -euo pipefail
+
+bun_version=$(grep -m1 -oE 'bun-version: "[^"]+"' .github/workflows/ci.yml | cut -d'"' -f2)
+curl -fsSL https://bun.sh/install | bash -s "bun-v$bun_version" >/dev/null
+sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun
+sudo ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bunx
+
+printf 'node_modules/\n' >.boatignore
+echo .boatignore >>.git/info/exclude
+bun install --frozen-lockfile
+bunx playwright install --with-deps --only-shell chromium
+
+# The dev database runs as a system service, configured like
+# packages/db/docker-compose.yml.
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" |
+  sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+sudo apt-get update -q >/dev/null
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq postgresql-18 >/dev/null
+db_password=$(openssl rand -hex 16)
+sudo -u postgres psql -qc "ALTER SYSTEM SET wal_level = logical" \
+  -c "ALTER SYSTEM SET max_connections = 300" \
+  -c "ALTER USER postgres PASSWORD '$db_password'" \
+  -c 'CREATE DATABASE "pi-dash"'
+sudo systemctl restart postgresql
+
+# Dev-only values for what .env.sample leaves blank but the app requires.
+cp .env.sample .env
+set_env() { sed -i "s|^$1=.*|$1=\"$2\"|" .env; }
+set_env DEV_DB_PASSWORD "$db_password"
+set_env ZERO_REPLICA_FILE "$HOME/.zero-replica.db"
+set_env BETTER_AUTH_SECRET "$(openssl rand -hex 32)"
+set_env EVENT_SIGNUP_LINK_SECRET "$(openssl rand -hex 32)"
+set_env DATA_ENCRYPTION_KEY "$(openssl rand -base64 32)"
+set_env ZERO_ADMIN_PASSWORD "$(openssl rand -hex 16)"
+set_env VITE_CDN_URL http://localhost:3001/cdn
+for key in AVATAR_FALLBACK_SEED GRAVATAR_API_KEY R2_ACCOUNT_ID R2_ACCESS_KEY R2_SECRET_ACCESS_KEY \
+  WHATSAPP_WEBHOOK_SECRET VOUCHER_ORG_NAME VOUCHER_ORG_ADDRESS VOUCHER_ORG_PHONE VOUCHER_ORG_EMAIL \
+  VOUCHER_ORG_REGISTRATION VOUCHER_FINANCE_ADMIN_NAME; do
+  set_env "$key" dev
+done
+
+until pg_isready -qh localhost; do sleep 1; done
+bun run db:migrate >/dev/null
+bun run seed >/dev/null
+
+# One dev run fills Zero's replica.
+"$(dirname "$0")/up"
+bun run dev:kill >/dev/null
+
+sudo apt-get clean
+sudo rm -rf /var/lib/apt/lists/*

@@ -134,7 +134,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? `http://localhost:${webServerPort}`,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
-    // PR evidence (scripts/boat.sh verify) records every test.
+    // PR evidence (.boat/test) records every test.
     video: process.env.E2E_VIDEO === "1" ? "on" : "off",
   },
   workers: isCI

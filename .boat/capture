@@ -1,0 +1,7 @@
+#!/bin/bash
+# Captures the screens $SCENARIO lists from the dev app.
+set -euo pipefail
+
+"$BOAT_DIR/up"
+bun "$BOAT_DIR/capture.ts"
+bun run dev:kill >/dev/null

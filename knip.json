@@ -18,8 +18,7 @@
       "entry": [
         "scripts/performance/table-filters.ts",
         "scripts/performance/table-filter-workload.ts",
-        "scripts/evidence/capture.ts",
-        "scripts/evidence/report.ts"
+        ".boat/capture.ts"
       ]
     },
     "apps/web": {
