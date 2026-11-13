@@ -1,0 +1,26 @@
+#!/bin/bash
+# Runs E2E specs, recorded, on the production server as CI does: under Vite
+# dev, first visits to each route compile slowly enough to fail tests.
+# Arguments go to run-e2e.sh (spec paths relative to packages/e2e, Playwright
+# flags); with none, the specs the change adds or changes run.
+set -euo pipefail
+
+args=("$@")
+if [ ${#args[@]} = 0 ]; then
+  mapfile -t args < <(git diff --name-only --diff-filter=AM "$BASE" HEAD -- packages/e2e/tests |
+    grep '\.spec\.ts$' | sed 's|^packages/e2e/||' || true)
+fi
+specs=()
+for arg in "${args[@]}"; do
+  if [[ $arg == *.spec.ts ]]; then specs+=("$arg"); fi
+done
+if [ ${#specs[@]} = 0 ]; then
+  echo "No E2E specs to run."
+  exit 0
+fi
+
+# E2E_EXCLUSIVE_LAST keeps the specs that run last, alone, to those named.
+named=$(printf '%s\n' "${specs[@]}" | sed 's|^tests/||' | paste -sd, -)
+E2E_VIDEO=1 E2E_EXCLUSIVE_LAST="$named" PLAYWRIGHT_JSON_OUTPUT_NAME=/tmp/e2e-results.json \
+  bash packages/e2e/run-e2e.sh "${args[@]}" --reporter=line,json || true
+bun "$BOAT_KIT/playwright-tests.ts" /tmp/e2e-results.json --skip-project setup

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Starts `bun run dev` in the background and waits for the app and Zero.
+set -euo pipefail
+
+nohup bun run dev >/tmp/dev.log 2>&1 &
+for _ in $(seq 1 180); do
+  if curl -so /dev/null localhost:3001/login && curl -sfo /dev/null localhost:4848/; then
+    exit 0
+  fi
+  sleep 1
+done
+tail -40 /tmp/dev.log
+exit 1

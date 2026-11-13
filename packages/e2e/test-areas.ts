@@ -326,6 +326,7 @@ export const ignored = [
   "docs/**",
   ".ruler/**",
   ".agents/**",
+  ".boat/**",
   ".claude/**",
   ".codex/**",
   ".amp/**",

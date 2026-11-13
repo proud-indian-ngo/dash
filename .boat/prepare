@@ -1,0 +1,16 @@
+#!/bin/bash
+# After a checkout: dependencies, the browser the checked-out Playwright wants,
+# and the dev database at the checked-out schema.
+set -euo pipefail
+
+bun install --frozen-lockfile
+# A no-op unless this Playwright is newer than the snapshot's.
+bunx playwright install --only-shell chromium >/dev/null
+
+# The database starts at boot, but snapshots don't keep /var/log, and
+# Postgres won't start without its log folder.
+sudo install -d -m 2775 -o postgres -g postgres /var/log/postgresql
+sudo systemctl start postgresql
+for _ in $(seq 1 60); do pg_isready -qh localhost && break; sleep 1; done
+pg_isready -h localhost || { sudo journalctl -u postgresql@18-main --no-pager -n 20; exit 1; }
+bun run db:migrate >/dev/null
